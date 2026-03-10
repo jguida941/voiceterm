@@ -28,6 +28,7 @@ AREA_BY_COMMAND = {
     "triage": "reporting",
     "phone-status": "reporting",
     "mobile-status": "reporting",
+    "mobile-app": "orchestration",
     "controller-action": "orchestration",
     "review-channel": "review_channel",
     "process-cleanup": "process_hygiene",

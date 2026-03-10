@@ -7,6 +7,7 @@ import argparse
 import re
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ZERO_SHA = "0" * 40
@@ -177,6 +178,20 @@ def find_first_file(args: argparse.Namespace) -> int:
     return 0
 
 
+def print_coverage_summary(args: argparse.Namespace) -> int:
+    coverage_xml = args.coverage_xml
+    if not coverage_xml.exists():
+        print(f"No coverage XML found: {coverage_xml}")
+        return 0
+
+    root = ET.parse(coverage_xml).getroot()
+    rate = float(root.attrib.get("line-rate", 0.0)) * 100.0
+    lines = root.attrib.get("lines-valid", "?")
+    covered = root.attrib.get("lines-covered", "?")
+    print(f"{args.label} coverage: {rate:.1f}% ({covered}/{lines} lines)")
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -235,6 +250,13 @@ def _build_parser() -> argparse.ArgumentParser:
     find_file_parser.add_argument("--github-output", type=Path)
     find_file_parser.add_argument("--output-key")
 
+    coverage_parser = sub.add_parser(
+        "print-coverage-summary",
+        help="Print a compact Cobertura XML coverage summary for workflow logs.",
+    )
+    coverage_parser.add_argument("--coverage-xml", required=True, type=Path)
+    coverage_parser.add_argument("--label", required=True)
+
     return parser
 
 
@@ -250,6 +272,8 @@ def main() -> int:
         return prepare_failure_artifact_dir(args)
     if args.command == "find-first-file":
         return find_first_file(args)
+    if args.command == "print-coverage-summary":
+        return print_coverage_summary(args)
     raise RuntimeError(f"unsupported command: {args.command}")
 
 

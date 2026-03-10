@@ -65,6 +65,13 @@ GUARD_SPECS = (
         "focus": "best practices",
     },
     {
+        "name": "serde-compatibility-guard",
+        "script_id": "serde_compatibility",
+        "supports_range": True,
+        "severity": "high",
+        "focus": "serde compatibility",
+    },
+    {
         "name": "rust-runtime-panic-policy-guard",
         "script_id": "rust_runtime_panic_policy",
         "supports_range": True,

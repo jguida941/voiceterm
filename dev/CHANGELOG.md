@@ -79,6 +79,8 @@ Note: Some historical entries reference internal documents that are not publishe
 - Make `devctl mobile-status` fall back to review-channel live data when the
   autonomy `phone-status` artifact is missing, so the mobile app still shows
   real Codex/Claude/operator state instead of failing closed.
+- Add a read-only terminal-style lane console on mobile with split/combined
+  Codex, Claude, and Operator views sourced from the same live bundle.
 
 ### Documentation
 

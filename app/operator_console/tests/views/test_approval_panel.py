@@ -7,7 +7,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from app.operator_console.state.models import ApprovalRequest
+from app.operator_console.state.core.models import ApprovalRequest, ContextPackRef
 
 try:
     from PyQt6.QtWidgets import QApplication
@@ -28,6 +28,7 @@ def _make_approval(
     requested_action: str = "merge",
     body: str = "Please review this change.",
     evidence_refs: tuple[str, ...] = ("file1.py", "file2.py"),
+    context_pack_refs: tuple[ContextPackRef, ...] = (),
 ) -> ApprovalRequest:
     return ApprovalRequest(
         packet_id=packet_id,
@@ -39,6 +40,7 @@ def _make_approval(
         requested_action=requested_action,
         status="pending",
         evidence_refs=evidence_refs,
+        context_pack_refs=context_pack_refs,
     )
 
 
@@ -127,6 +129,24 @@ class ApprovalQueuePanelTests(unittest.TestCase):
         self.assertEqual(panel._risk_indicator.styleSheet(), "")
         self.assertEqual(panel._body_text.text(), "This is the body text.")
         self.assertIn("test_a.py", panel._evidence_label.text())
+
+    def test_detail_pane_shows_context_pack_refs(self) -> None:
+        panel = self._make_panel()
+        approval = _make_approval(
+            context_pack_refs=(
+                ContextPackRef(
+                    pack_kind="task_pack",
+                    pack_ref=".voiceterm/memory/exports/task_pack.json",
+                    adapter_profile="canonical",
+                ),
+            ),
+        )
+        panel.set_approvals((approval,))
+        panel._list.setCurrentRow(0)
+
+        self.assertIn("Context Packs", panel._evidence_label.text())
+        self.assertIn("task_pack", panel._evidence_label.text())
+        self.assertIn("task_pack.json", panel._evidence_label.text())
 
     def test_decision_signal_fires(self) -> None:
         panel = self._make_panel()

@@ -10,15 +10,16 @@ from .stylesheet import (
     build_operator_console_stylesheet,
     build_operator_console_stylesheet_from_colors,
 )
-from .theme_engine import ThemeEngine, ThemeState, get_engine
+from .runtime.theme_engine import ThemeEngine, get_engine, reset_engine
+from .runtime.theme_state import ThemeState
 
 try:
-    from .theme_editor import ThemeEditorDialog
+    from .editor import ThemeEditorDialog
 except ImportError:
     ThemeEditorDialog = None  # type: ignore[assignment,misc]
 
 try:
-    from .theme_controls import ColorPickerButton
+    from .editor import ColorPickerButton
 except ImportError:
     ColorPickerButton = None  # type: ignore[assignment,misc]
 
@@ -33,5 +34,6 @@ __all__ = [
     "build_operator_console_stylesheet",
     "build_operator_console_stylesheet_from_colors",
     "get_engine",
+    "reset_engine",
     "resolve_theme",
 ]

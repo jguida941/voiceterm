@@ -123,17 +123,18 @@ Optional desktop review-channel console from the same checkout:
 Optional iPhone/iPad companion from the same checkout:
 
 ```bash
-cd app/ios/VoiceTermMobileApp
-xcodegen generate
-open VoiceTermMobileApp.xcodeproj
-./sync_live_bundle_to_simulator.sh
+python3 dev/scripts/devctl.py mobile-app --action simulator-demo --format md
+python3 dev/scripts/devctl.py mobile-app --action device-install --development-team <TEAM_ID> --format md
 ```
 
 That companion reads the same `mobile-status` bundle as the desktop console and
 can now fall back to real review-channel live data even when the autonomy
 `phone-status` artifact is missing.
+It also includes a read-only mobile `Terminal` view with split/combined Codex,
+Claude, and Operator lane panels.
 
-Details: [Operator Console README](app/operator_console/README.md) and
+Details: [Operator Console README](app/operator_console/README.md),
+[iOS README](app/ios/README.md), and
 [Install Guide](guides/INSTALL.md#optional-operator-console-source-checkout).
 
 </details>

@@ -3,7 +3,7 @@
 /// The cockpit pages form the operator cockpit (Phase 3.7.1):
 ///   Control  — read-only loop state, controller projections
 ///   Ops      — process hygiene and triage telemetry
-///   Review   — code_audit.md lane view (parsed + raw)
+///   Review   — review-channel artifact/projection lane view (parsed + raw)
 ///   Actions  — typed devctl action catalog and execution
 ///   Handoff  — fresh-conversation prompts and resume bundles
 ///   Memory   — structured memory/query/export previews

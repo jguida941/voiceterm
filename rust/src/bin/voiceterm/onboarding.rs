@@ -4,12 +4,16 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
 use voiceterm::log_debug;
+
+use crate::persistence_io::write_text_atomically;
 
 const ONBOARDING_STATE_ENV: &str = "VOICETERM_ONBOARDING_STATE";
 const ONBOARDING_STATE_FILE: &str = "onboarding_state.toml";
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 struct OnboardingState {
     completed_first_capture: bool,
 }
@@ -31,20 +35,7 @@ fn onboarding_state_path() -> Option<PathBuf> {
 }
 
 fn parse_state(contents: &str) -> OnboardingState {
-    // Intentional minimal parser: a single boolean key keeps startup overhead low
-    // and avoids a full TOML dependency for this one-file state marker.
-    for line in contents.lines() {
-        let line = line.trim();
-        if let Some(value) = line.strip_prefix("completed_first_capture") {
-            if let Some(value) = value.split('=').nth(1) {
-                let normalized = value.trim().trim_matches('"').to_ascii_lowercase();
-                return OnboardingState {
-                    completed_first_capture: matches!(normalized.as_str(), "true" | "1" | "yes"),
-                };
-            }
-        }
-    }
-    OnboardingState::default()
+    toml::from_str(contents).unwrap_or_default()
 }
 
 fn load_state() -> OnboardingState {
@@ -62,25 +53,14 @@ fn save_state(state: OnboardingState) {
         return;
     };
 
-    if let Some(parent) = path.parent() {
-        if let Err(err) = fs::create_dir_all(parent) {
-            log_debug(&format!(
-                "failed to create onboarding state directory {}: {err}",
-                parent.display()
-            ));
+    let body = match toml::to_string(&state) {
+        Ok(body) => body,
+        Err(err) => {
+            log_debug(&format!("failed to serialize onboarding state: {err}"));
             return;
         }
-    }
-
-    let body = format!(
-        "completed_first_capture = {}\n",
-        if state.completed_first_capture {
-            "true"
-        } else {
-            "false"
-        }
-    );
-    if let Err(err) = fs::write(&path, body) {
+    };
+    if let Err(err) = write_text_atomically(&path, &body) {
         log_debug(&format!(
             "failed to write onboarding state {}: {err}",
             path.display()
@@ -108,7 +88,7 @@ pub(crate) fn mark_first_capture_complete() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_env::env_lock;
+    use crate::test_env::with_env_overrides;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn unique_path() -> PathBuf {
@@ -121,32 +101,37 @@ mod tests {
 
     #[test]
     fn should_show_hint_when_state_file_missing() {
-        let _guard = env_lock();
         let path = unique_path();
         let _ = fs::remove_file(&path);
-        env::set_var(ONBOARDING_STATE_ENV, &path);
-
-        assert!(should_show_hint());
-
-        env::remove_var(ONBOARDING_STATE_ENV);
+        let path_string = path.display().to_string();
+        with_env_overrides(
+            &[ONBOARDING_STATE_ENV],
+            &[(ONBOARDING_STATE_ENV, Some(path_string.as_str()))],
+            || {
+                assert!(should_show_hint());
+            },
+        );
         let _ = fs::remove_file(path);
     }
 
     #[test]
     fn mark_first_capture_complete_persists_state() {
-        let _guard = env_lock();
         let path = unique_path();
         let _ = fs::remove_file(&path);
-        env::set_var(ONBOARDING_STATE_ENV, &path);
-
-        assert!(should_show_hint());
-        mark_first_capture_complete();
-        assert!(!should_show_hint());
+        let path_string = path.display().to_string();
+        with_env_overrides(
+            &[ONBOARDING_STATE_ENV],
+            &[(ONBOARDING_STATE_ENV, Some(path_string.as_str()))],
+            || {
+                assert!(should_show_hint());
+                mark_first_capture_complete();
+                assert!(!should_show_hint());
+            },
+        );
 
         let written = fs::read_to_string(&path).expect("state should be written");
-        assert!(written.contains("completed_first_capture = true"));
-
-        env::remove_var(ONBOARDING_STATE_ENV);
+        let parsed = parse_state(&written);
+        assert!(parsed.completed_first_capture);
         let _ = fs::remove_file(path);
     }
 }

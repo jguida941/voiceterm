@@ -6,9 +6,9 @@ agent lane's structured data and raw section text.
 
 from __future__ import annotations
 
-from ..state.models import AgentLaneData
-from ..theme.theme_state import BUILTIN_PRESETS
-from .widgets import ProviderBadge, StatusIndicator
+from ..state.core.models import AgentLaneData
+from ..theme.runtime.theme_state import BUILTIN_PRESETS
+from .shared.widgets import ProviderBadge, StatusIndicator
 
 try:
     from PyQt6.QtCore import Qt

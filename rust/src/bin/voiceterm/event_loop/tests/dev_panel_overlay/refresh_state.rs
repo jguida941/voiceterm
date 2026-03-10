@@ -258,6 +258,12 @@ fn dev_panel_control_page_m_key_persists_memory_mode() {
 #[test]
 fn dev_panel_memory_page_m_key_cycles_memory_mode_and_refreshes_snapshot() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let millis = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system time")
+        .as_millis();
+    let dir = std::env::temp_dir().join(format!("voiceterm_memory_mode_refresh_{millis}"));
+    state.working_dir = dir.to_string_lossy().to_string();
     state.config.dev_mode = true;
     state.ui.overlay_mode = OverlayMode::DevPanel;
     state
@@ -299,6 +305,13 @@ fn dev_panel_memory_page_m_key_cycles_memory_mode_and_refreshes_snapshot() {
             .mode_label,
         "Paused"
     );
+    assert!(
+        dir.join(".voiceterm/memory/exports/boot_pack.json")
+            .is_file(),
+        "mode-triggered refresh should emit exports"
+    );
+
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]

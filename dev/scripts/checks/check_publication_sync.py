@@ -11,7 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from dev.scripts.devctl.publication_sync import (  # noqa: E402
+from dev.scripts.devctl.publication_sync.core import (  # noqa: E402
     DEFAULT_PUBLICATION_SYNC_REGISTRY_REL,
     build_publication_sync_report,
 )

@@ -34,10 +34,11 @@ func buildsDashboardFromProjectionBundle() throws {
 
     #expect(dashboard.headline.contains("BLOCKED"))
     #expect(dashboard.sections.count == 7)
-    #expect(dashboard.metrics.count == 4)
+    #expect(dashboard.metrics.count == 5)
+    #expect(dashboard.approvalMode == "balanced")
     #expect(dashboard.lanes.count == 3)
     #expect(dashboard.consolePanes.count == 3)
-    #expect(dashboard.actions.count == 3)
+    #expect(dashboard.actions.count == 6)
     #expect(dashboard.actions.first?.title == "refresh-mobile-status")
     #expect(dashboard.technicalFacts.first?.value == "MP-340")
 }
@@ -72,7 +73,7 @@ func loadsProjectionBundleFromDirectory() throws {
 
     #expect(bundle.snapshot.controllerPayload.controller?.controllerRunID == "run-123")
     #expect(bundle.compact?.reviewBridgeState == "stale")
-    #expect(bundle.actions?.operatorActions?.count == 3)
+    #expect(bundle.actions?.operatorActions?.count == 6)
 }
 
 @Test
@@ -129,7 +130,7 @@ func previewDataProvidesUsableDashboardBundle() {
     #expect(dashboard.sections.count == 7)
     #expect(dashboard.lanes.count == 3)
     #expect(dashboard.consolePanes.count == 3)
-    #expect(dashboard.actions.count == 3)
+    #expect(dashboard.actions.count == 6)
     #expect(dashboard.sourceRunURL == "https://example.invalid/runs/99")
 }
 
@@ -186,6 +187,24 @@ private let sampleActionsPayload = """
       "name": "phone-trace",
       "command": "python3 dev/scripts/devctl.py phone-status --view trace --format md",
       "kind": "read"
+    },
+    {
+      "name": "dispatch-report-only",
+      "command": "python3 dev/scripts/devctl.py controller-action --action dispatch-report-only --branch develop --dry-run --format md",
+      "kind": "write",
+      "guard": "policy-gated"
+    },
+    {
+      "name": "pause-loop",
+      "command": "python3 dev/scripts/devctl.py controller-action --action pause-loop --dry-run --format md",
+      "kind": "write",
+      "guard": "policy-gated"
+    },
+    {
+      "name": "resume-loop",
+      "command": "python3 dev/scripts/devctl.py controller-action --action resume-loop --dry-run --format md",
+      "kind": "write",
+      "guard": "policy-gated"
     }
   ]
 }

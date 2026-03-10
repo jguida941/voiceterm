@@ -7,7 +7,7 @@ from pathlib import Path
 from ..common import emit_output, pipe_output, run_cmd, write_output
 from ..config import REPO_ROOT
 from ..metric_writers import append_metric
-from ..rust_audit_report import build_rust_audit_charts
+from ..rust_audit.report import build_rust_audit_charts
 from ..status_report import build_project_report, render_project_markdown
 from .check_support import build_clippy_pedantic_collect_cmd
 
@@ -74,6 +74,15 @@ def run(args) -> int:
         rust_audit_mode=getattr(args, "rust_audit_mode", "auto"),
         rust_audit_since_ref=getattr(args, "since_ref", None),
         rust_audit_head_ref=getattr(args, "head_ref", "HEAD"),
+        include_quality_backlog=getattr(args, "quality_backlog", False),
+        quality_backlog_top_n=getattr(args, "quality_backlog_top_n", 40),
+        quality_backlog_include_tests=getattr(
+            args, "quality_backlog_include_tests", False
+        ),
+        include_python_guard_backlog=getattr(args, "python_guard_backlog", False),
+        python_guard_backlog_top_n=getattr(args, "python_guard_backlog_top_n", 20),
+        python_guard_since_ref=getattr(args, "since_ref", None),
+        python_guard_head_ref=getattr(args, "head_ref", "HEAD"),
         parallel=parallel_enabled,
     )
     pedantic_info = report.get("pedantic", {})

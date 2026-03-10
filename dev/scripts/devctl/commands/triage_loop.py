@@ -9,21 +9,22 @@ from typing import Any, Dict
 from ..common import emit_output, pipe_output, write_output
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
-from ..triage_loop_escalation import (
+from ..triage.loop_escalation import (
     publish_review_escalation_comment as _publish_review_escalation_comment_support,
 )
-from ..triage_loop_policy import evaluate_fix_policy, load_policy
-from ..triage_loop_render import build_master_plan_proposal, render_markdown
-from ..triage_loop_support import (
+from ..triage.loop_policy import evaluate_fix_policy, load_policy
+from ..triage.loop_render import build_master_plan_proposal, render_markdown
+from ..triage.loop_support import (
     build_dry_run_report,
     default_mp_proposal_path,
     mode_fix_command,
     non_blocking_connectivity_report,
+    preflight_github_connectivity as _preflight_github_connectivity_support,
 )
-from ..triage_loop_support import (
+from ..triage.loop_support import (
     publish_notification_comment as _publish_notification_comment_support,
 )
-from ..triage_loop_support import (
+from ..triage.loop_support import (
     resolve_path,
     write_report_bundle,
 )
@@ -68,15 +69,7 @@ def _is_non_blocking_local_connectivity_error(message: str) -> bool:
 
 
 def _preflight_github_connectivity() -> str | None:
-    rc, stdout, stderr = run_capture(
-        ["gh", "api", "rate_limit", "--jq", ".resources.core.remaining"]
-    )
-    if rc == 0:
-        return None
-    message = (stderr or stdout or "gh api rate_limit failed").strip()
-    if _is_non_blocking_local_connectivity_error(message):
-        return message
-    return None
+    return _preflight_github_connectivity_support(run_capture)
 
 
 def _publish_notification_comment(report: dict[str, Any], args) -> dict[str, Any]:

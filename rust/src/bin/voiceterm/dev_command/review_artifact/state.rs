@@ -90,13 +90,18 @@ impl ReviewArtifactState {
         &self.raw_content
     }
 
+    #[cfg(test)]
     pub(crate) fn load_from_content(&mut self, content: &str) {
-        self.artifact = Some(parse_review_artifact(content));
-        self.raw_content = content.to_string();
+        self.load_from_artifact(content, parse_review_artifact(content));
+    }
+
+    pub(crate) fn load_from_artifact(&mut self, raw_content: &str, artifact: ReviewArtifact) {
+        self.artifact = Some(artifact);
+        self.raw_content = raw_content.to_string();
         self.loaded_at = Some(Instant::now());
         self.load_error = None;
         self.scroll_offset = 0;
-        self.last_content_hash = content_hash(content);
+        self.last_content_hash = content_hash(raw_content);
     }
 
     /// Returns true if the content differs from the last load, or if the

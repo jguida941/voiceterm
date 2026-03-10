@@ -1,4 +1,4 @@
-"""Tests for app.operator_console.state.repo_state."""
+"""Tests for app.operator_console.state.repo.repo_state."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.operator_console.state.repo_state import (
+from app.operator_console.state.repo.repo_state import (
     RepoStateSnapshot,
     build_repo_state,
     classify_path_category,
@@ -248,7 +248,7 @@ class TestBuildRepoState:
         )
 
         with patch(
-            "app.operator_console.state.repo_state._git",
+            "app.operator_console.state.repo.repo_state._git",
             side_effect=mock_git,
         ):
             result = build_repo_state(tmp_path)
@@ -269,7 +269,7 @@ class TestBuildRepoState:
         import subprocess as sp
 
         with patch(
-            "app.operator_console.state.repo_state._git",
+            "app.operator_console.state.repo.repo_state._git",
             side_effect=sp.SubprocessError("not a git repo"),
         ):
             result = build_repo_state(tmp_path)
@@ -291,7 +291,7 @@ class TestBuildRepoState:
             return ""
 
         with patch(
-            "app.operator_console.state.repo_state._git",
+            "app.operator_console.state.repo.repo_state._git",
             side_effect=mock_git,
         ):
             first = build_repo_state(tmp_path)
@@ -311,7 +311,7 @@ class TestBuildRepoState:
             return ""
 
         with patch(
-            "app.operator_console.state.repo_state._git",
+            "app.operator_console.state.repo.repo_state._git",
             side_effect=mock_git,
         ):
             result = build_repo_state(tmp_path)
@@ -334,7 +334,7 @@ class TestBuildRepoState:
             return ""
 
         with patch(
-            "app.operator_console.state.repo_state._git",
+            "app.operator_console.state.repo.repo_state._git",
             side_effect=mock_git,
         ):
             result = build_repo_state(tmp_path)

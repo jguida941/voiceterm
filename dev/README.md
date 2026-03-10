@@ -24,6 +24,12 @@ terminal-native AI work.
 - [`dev/active/operator_console.md`](active/operator_console.md) owns the
   optional VoiceTerm Operator Console: a thin PyQt6 shared-screen wrapper over
   the existing review-channel and launcher flow.
+- [`dev/active/ralph_guardrail_control_plane.md`](active/ralph_guardrail_control_plane.md)
+  owns the Ralph guardrail loop, analytics surfaces, and shared guardrail
+  control-state path.
+- [`dev/active/review_probes.md`](active/review_probes.md) owns the
+  non-blocking heuristic review-probe lane that feeds AI investigation targets
+  into the broader control plane.
 
 These lanes must share one auditable artifact contract. Hidden side channels or
 plan-local shadow state are out of bounds.
@@ -36,7 +42,7 @@ plan-local shadow state are out of bounds.
 | Build, test, or release | [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) |
 | Understand how the runtime works | [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) |
 | Understand how the current Codex/Claude collaboration system works | [`dev/guides/AGENT_COLLABORATION_SYSTEM.md`](guides/AGENT_COLLABORATION_SYSTEM.md) |
-| Launch or extend the optional PyQt6 Operator Console | [`../app/operator_console/README.md`](../app/operator_console/README.md) and [`dev/active/operator_console.md`](active/operator_console.md) |
+| Launch or extend the optional PyQt6 Operator Console | [`../app/operator_console/AGENTS.md`](../app/operator_console/AGENTS.md), [`../app/operator_console/README.md`](../app/operator_console/README.md), and [`dev/active/operator_console.md`](active/operator_console.md) |
 | Change tooling, process, or CI | [`AGENTS.md`](../AGENTS.md) and [`dev/scripts/README.md`](scripts/README.md) |
 
 ## Recommended Reading Order
@@ -50,24 +56,26 @@ plan-local shadow state are out of bounds.
 7. [`dev/active/continuous_swarm.md`](active/continuous_swarm.md) -- local-first continuous Codex-reviewer / Claude-coder loop hardening plan for `MP-358`.
 8. [`dev/active/operator_console.md`](active/operator_console.md) -- bounded optional VoiceTerm Operator Console plan for `MP-359`.
 9. [`dev/active/host_process_hygiene.md`](active/host_process_hygiene.md) -- host-side process cleanup and Activity Monitor automation plan for `MP-356`.
-10. [`dev/guides/AGENT_COLLABORATION_SYSTEM.md`](guides/AGENT_COLLABORATION_SYSTEM.md) -- plain-language map of the current Codex/Claude collaboration system, bridge flow, execution modes, and report artifacts.
-11. [`dev/active/loop_chat_bridge.md`](active/loop_chat_bridge.md) -- how loop output is handed to chat suggestions.
-12. [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md) -- naming/API cohesion execution plan for `MP-267`.
-13. [`dev/active/ide_provider_modularization.md`](active/ide_provider_modularization.md) -- host/provider adapter modularization and compatibility-hardening plan for `MP-346`.
-14. [`dev/active/pre_release_architecture_audit.md`](active/pre_release_architecture_audit.md) -- canonical pre-release architecture/tooling findings + execution plan for `MP-347` and `MP-349`.
-15. [`dev/guides/MCP_DEVCTL_ALIGNMENT.md`](guides/MCP_DEVCTL_ALIGNMENT.md) -- durable architecture/rules for MCP as an optional read-only adapter.
-16. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- external repo links and import rules.
-17. [`dev/audits/README.md`](audits/README.md) -- where audit runs and evidence rules live.
-18. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeated manual work we still need to automate.
-19. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- audit metrics and chart definitions.
-20. [`dev/active/review_channel.md`](active/review_channel.md) -- also carries the merged markdown-swarm lane map and signoff template for the current parallel Codex/Claude cycle.
-21. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
-22. [`dev/history/README.md`](history/README.md) -- index for historical records.
-23. [`dev/archive/2026-03-07-rust-workspace-layout-migration.md`](archive/2026-03-07-rust-workspace-layout-migration.md) -- closed record for the completed Rust workspace path/layout migration.
-24. [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) -- how the runtime is structured today.
-25. [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) -- build, test, and release commands.
-26. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.
-27. [`dev/CHANGELOG.md`](CHANGELOG.md) -- release history and user-visible changes.
+10. [`dev/active/ralph_guardrail_control_plane.md`](active/ralph_guardrail_control_plane.md) -- Ralph guardrail remediation + analytics plan for `MP-360..MP-367`.
+11. [`dev/active/review_probes.md`](active/review_probes.md) -- heuristic review-probe execution plan for `MP-368..MP-375`.
+12. [`dev/guides/AGENT_COLLABORATION_SYSTEM.md`](guides/AGENT_COLLABORATION_SYSTEM.md) -- plain-language map of the current Codex/Claude collaboration system, bridge flow, execution modes, and report artifacts.
+13. [`dev/active/loop_chat_bridge.md`](active/loop_chat_bridge.md) -- how loop output is handed to chat suggestions.
+14. [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md) -- naming/API cohesion execution plan for `MP-267`.
+15. [`dev/active/ide_provider_modularization.md`](active/ide_provider_modularization.md) -- host/provider adapter modularization and compatibility-hardening plan for `MP-346`.
+16. [`dev/active/pre_release_architecture_audit.md`](active/pre_release_architecture_audit.md) -- canonical pre-release architecture/tooling findings + execution plan for `MP-347` and `MP-349`.
+17. [`dev/guides/MCP_DEVCTL_ALIGNMENT.md`](guides/MCP_DEVCTL_ALIGNMENT.md) -- durable architecture/rules for MCP as an optional read-only adapter.
+18. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- external repo links and import rules.
+19. [`dev/audits/README.md`](audits/README.md) -- where audit runs and evidence rules live.
+20. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeated manual work we still need to automate.
+21. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- audit metrics and chart definitions.
+22. [`dev/active/review_channel.md`](active/review_channel.md) -- also carries the merged markdown-swarm lane map and signoff template for the current parallel Codex/Claude cycle.
+23. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
+24. [`dev/history/README.md`](history/README.md) -- index for historical records.
+25. [`dev/archive/2026-03-07-rust-workspace-layout-migration.md`](archive/2026-03-07-rust-workspace-layout-migration.md) -- closed record for the completed Rust workspace path/layout migration.
+26. [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) -- how the runtime is structured today.
+27. [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) -- build, test, and release commands.
+28. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.
+29. [`dev/CHANGELOG.md`](CHANGELOG.md) -- release history and user-visible changes.
 
 ## Three Core Docs
 
@@ -89,6 +97,11 @@ User docs start here:
 | `guides/` | Users | Usage, install, flags, troubleshooting |
 | `scripts/README.md` | Users | Install/start/setup script reference |
 | `app/operator_console/README.md` | Users + Developers | Optional PyQt6 Operator Console launcher, themes, and live-swarm monitor flow |
+| `app/operator_console/AGENTS.md` | Developers + Agents | Local file-placement and validation rules for the Operator Console subtree |
+| `app/operator_console/views/README.md` | Developers + Agents | View package map for `shared`, `workspaces`, `actions`, `workflow`, `layout`, and `collaboration` |
+| `app/operator_console/theme/README.md` | Developers + Agents | Theme package map for `runtime`, `editor`, `io`, `config`, and `qss` |
+| `app/operator_console/state/README.md` | Developers + Agents | State package map and what no longer belongs in `state/` root |
+| `app/operator_console/tests/README.md` | Developers + Agents | Test package map that mirrors the runtime package layout |
 | `dev/` | Developers | Architecture, workflow, release process, ADRs |
 | `dev/history/` | Developers | History with linked evidence |
 | `dev/scripts/README.md` | Developers | Automation and release tooling |

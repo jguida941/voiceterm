@@ -71,8 +71,9 @@ on:
         required: false
         type: string
       fix_command:
-        description: Optional auto-fix command (must commit/push a new SHA)
+        description: Auto-fix command (must commit/push a new SHA)
         required: false
+        default: "python3 dev/scripts/ralph_ai_fix.py"
         type: string
 
 jobs:

@@ -118,7 +118,10 @@ pub fn format_theme_picker(
 
 use crate::theme::BorderSet;
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Theme rows need caller-provided rendering context so the picker can format previews without hidden globals."
+)]
 fn format_option_line_with_preview(
     colors: &ThemeColors,
     borders: &BorderSet,

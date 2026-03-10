@@ -3,6 +3,33 @@
 Optional desktop Operator Console for the current Codex/Claude review-channel
 flow.
 
+## Read This First
+
+Use these docs in this order when you are extending the app:
+
+- `app/operator_console/AGENTS.md`: local agent/developer rules for where code belongs
+- `dev/active/operator_console.md`: active plan and scope
+- `app/operator_console/views/README.md`: view package map
+- `app/operator_console/theme/README.md`: theme package map
+- `app/operator_console/state/README.md`: state package map
+- `app/operator_console/tests/README.md`: test package map
+
+## Plain-English Guide
+
+This app is a desktop control room for the repo workflow.
+
+- It shows repo state, review-channel state, and operator status in one place.
+- It can launch the allowlisted `devctl` workflows the team already uses.
+- It does not own the runtime, the PTY session logic, or the policy rules.
+- It is a wrapper over repo-visible commands and artifacts, not a second
+  backend.
+
+If you only need one sentence: open the app, inspect the current repo/review
+state, run `Dry Run` first, then use `Start Swarm` or `Launch Live` only after
+the preflight is green.
+
+## What It Is
+
 This app is intentionally a thin wrapper:
 
 - Rust still owns PTY/runtime/session behavior.
@@ -14,6 +41,77 @@ This app is intentionally a thin wrapper:
   bundle from `devctl mobile-status`, then falls back to rebuilding the merged
   review-channel + controller `phone-status` snapshot when that bundle has not
   been emitted yet.
+
+## What It Is Not
+
+- not an embedded terminal emulator
+- not a replacement for the Rust overlay
+- not a second command runner outside `devctl`
+- not a hidden AI control plane
+
+## Folder Map
+
+The package is now being split by responsibility instead of letting `state/`
+and `tests/` absorb everything.
+
+- `app/operator_console/run.py`: app entrypoint
+- `app/operator_console/views/`: Qt widgets and window surfaces
+- `app/operator_console/views/README.md`: current view package map
+- `app/operator_console/views/shared/`: shared widgets, text helpers, and small UI primitives
+- `app/operator_console/views/workspaces/`: guided Home and Activity workspace surfaces
+- `app/operator_console/views/actions/`: command, review, swarm, and process action mixins
+- `app/operator_console/views/workflow/`: workflow-specific UI
+- `app/operator_console/views/layout/`: layout and shell UI
+- `app/operator_console/views/collaboration/`: conversation, task board, and timeline UI
+- `app/operator_console/theme/`: theming, editor, import/export, preview
+- `app/operator_console/theme/README.md`: theme-specific folder map
+- `app/operator_console/theme/runtime/`: active theme state, persistence, gallery, and engine
+- `app/operator_console/theme/editor/`: theme editor controls, preview, and motion playground
+- `app/operator_console/theme/io/`: overlay import/export and file dialogs
+- `app/operator_console/workflows/`: workflow launch commands, reports, presets
+- `app/operator_console/collaboration/`: conversation, task board, timeline,
+  context-pack helpers
+- `app/operator_console/layout/`: persisted layout state
+- `app/operator_console/state/`: shared models plus grouped snapshot, review,
+  session, bridge, repo, activity, job, and presentation helpers
+- `app/operator_console/tests/`: tests, now starting to mirror the same
+  responsibility split
+
+Root files that should stay at the package root:
+
+- `app/operator_console/run.py`: app entrypoint
+- `app/operator_console/help_render.py`: launcher/help text rendering
+- `app/operator_console/launch_support.py`: launch/bootstrap helpers
+- `app/operator_console/logging_support.py`: shared diagnostics/logging
+
+For the messy subtrees:
+
+- `app/operator_console/state/README.md` explains what still belongs in
+  `state/` and what should move out.
+- `app/operator_console/views/README.md` explains which UI files belong in
+  `shared`, `workspaces`, `actions`, `workflow`, `layout`, or
+  `collaboration`.
+- `app/operator_console/theme/README.md` explains which theme files belong in
+  `runtime`, `editor`, `io`, `config`, or `qss`.
+- `app/operator_console/tests/README.md` explains how tests should mirror the
+  runtime layout.
+
+Rule of thumb:
+
+- if it renders widgets, it belongs under `views/`
+- if it shapes non-Qt data, it belongs under `state/`
+- if it builds or stages commands, it belongs under `workflows/`
+- if it edits or renders theme state, it belongs under `theme/`
+- if it only exists to support package-wide launch/log/help behavior, it may
+  stay at the root
+
+## Fast Start
+
+1. Launch the app from the repo root with `./scripts/operator_console.sh`.
+2. Start on `Home` and read the current repo/review status.
+3. Use `Dry Run` first to verify the workflow is healthy.
+4. Use `Start Swarm` only when the preflight is green.
+5. Use the diagnostics pane or `--dev-log` when something looks wrong.
 
 ## Current Scope
 
@@ -36,6 +134,13 @@ Phase-1 behavior:
 - one-click `Start Swarm` flow that runs dry-run preflight first, then the
   live Terminal.app launch on macOS when preflight is green, with visible
   green/yellow/red status on both Home and Activity surfaces
+- workflow launchpads on Home and Activity that keep the selected markdown
+  scope visible, show the latest audit/loop result inline, and make `Run
+  Loop` audit `orchestrate-status` first before it launches the continuous
+  `devctl swarm_run` loop
+- automatic self-heal for stale markdown-bridge reviewer heartbeat metadata
+  before `Dry Run`, `Launch Live`, `Start Swarm`, or `Rollover` continue, so
+  the desktop app does not silently dead-end on an aged-out `Last Codex poll`
 - typed Activity-tab quick actions for `review-channel --dry-run`,
   `status --ci`, `triage --ci`, and `process-audit --strict`
 - staged Codex/Claude summary drafts derived from the selected report, with
@@ -70,6 +175,17 @@ Not in scope yet:
 The current session panes are honest about their source: they are repo-visible
 review-channel registry/bridge surfaces, not embedded PTY terminals.
 
+## Agent And Dev Notes
+
+If you are changing this app:
+
+- do not add new feature files to the package root just because it is faster
+- update the matching package-map README when ownership changes
+- keep the main README simple and link to the package maps instead of dumping
+  every implementation detail here
+- treat `app/operator_console/AGENTS.md` as the local routing guide for future
+  edits
+
 ## Run
 
 Preferred launcher from the repo root:
@@ -85,6 +201,10 @@ missing, then launches the desktop app. Manual fallback:
 python3 -m pip install PyQt6
 python3 -m app.operator_console.run
 ```
+
+Direct `app/operator_console/run.py` execution still works for development and
+tests, but the shell wrapper above and the module invocation here are the
+canonical operator-facing launch paths.
 
 Pick a desktop theme explicitly when you want a different look:
 
@@ -122,6 +242,11 @@ use `Dry Run` and the repo-visible bridge artifacts.
 controls. They stay enabled on macOS and are visibly gated off-platform; `Dry
 Run` remains the honest preflight path everywhere.
 
+The `Audit` and `Run Loop` buttons use the same rule: visible launchpad state
+first, raw launcher output second. `Run Loop` now audits the selected
+workflow scope before it launches `devctl swarm_run --continuous`, so the app
+blocks early on broken plan/sync state instead of pretending the loop started.
+
 1. Start the Operator Console with persisted logs:
 
    ```bash
@@ -136,7 +261,7 @@ Run` remains the honest preflight path everywhere.
    the shared launcher is healthy without opening new sessions yet:
 
    ```bash
-   python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md
+   python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md --refresh-bridge-heartbeat-if-stale
    ```
 
 4. If the dry run reports `ok: True`, `bridge_active: True`, and the expected
@@ -145,7 +270,7 @@ Run` remains the honest preflight path everywhere.
    macOS. The equivalent manual CLI live-launch path is:
 
    ```bash
-   python3 dev/scripts/devctl.py review-channel --action launch --format md
+   python3 dev/scripts/devctl.py review-channel --action launch --format md --refresh-bridge-heartbeat-if-stale
    ```
 
 5. Watch the Operator Console plus `code_audit.md`. A healthy run should show:

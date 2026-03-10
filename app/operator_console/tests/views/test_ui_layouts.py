@@ -4,6 +4,7 @@ widget structure (sidebar nav, grid cells, analytics KPIs)."""
 from __future__ import annotations
 
 import os
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -11,7 +12,7 @@ from unittest.mock import MagicMock, patch
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from .test_ui_layout import _blank_snapshot
-from app.operator_console.views.ui_layouts import (
+from app.operator_console.views.layout.ui_layouts import (
     DEFAULT_LAYOUT_ID,
     DEFAULT_WORKBENCH_PRESET_ID,
     LAYOUT_REGISTRY,
@@ -31,17 +32,23 @@ except ImportError:
     QApplication = None
 
 
-def _make_window(*, layout_mode: str = DEFAULT_LAYOUT_ID, theme_id: str = "codex"):
+def _make_window(
+    *,
+    layout_mode: str = DEFAULT_LAYOUT_ID,
+    theme_id: str = "codex",
+    repo: Path | None = None,
+    persist_layout_state: bool = False,
+):
     """Build an OperatorConsoleWindow with mocked bridge data."""
     from app.operator_console.logging_support import OperatorConsoleDiagnostics
-    from app.operator_console.theme.theme_engine import ThemeEngine
+    from app.operator_console.theme.runtime.theme_engine import ThemeEngine
     from app.operator_console.views.main_window import OperatorConsoleWindow
 
     diag = MagicMock(spec=OperatorConsoleDiagnostics)
     diag.destination_summary = "mock"
     diag.log = MagicMock(return_value="mock log line")
 
-    repo = Path("/tmp/mock-repo")
+    repo = repo or Path("/tmp/mock-repo")
     with patch(
         "app.operator_console.views.ui_refresh.build_operator_console_snapshot"
     ) as mock_snap, patch(
@@ -57,6 +64,7 @@ def _make_window(*, layout_mode: str = DEFAULT_LAYOUT_ID, theme_id: str = "codex
             dev_log_enabled=False,
             theme_id=theme_id,
             layout_mode=layout_mode,
+            persist_layout_state=persist_layout_state,
         )
     return window
 
@@ -121,7 +129,7 @@ class TabbedLayoutTests(unittest.TestCase):
 
     def test_tabbed_creates_nav_tabs(self) -> None:
         window = _make_window(layout_mode="tabbed")
-        self.assertEqual(window._nav_tabs.count(), 4)
+        self.assertEqual(window._nav_tabs.count(), 5)
 
     def test_tabbed_tab_labels(self) -> None:
         window = _make_window(layout_mode="tabbed")
@@ -129,12 +137,13 @@ class TabbedLayoutTests(unittest.TestCase):
             window._nav_tabs.tabText(i)
             for i in range(window._nav_tabs.count())
         ]
-        self.assertEqual(labels, ["Home", "Dashboard", "Monitor", "Activity"])
+        self.assertEqual(labels, ["Home", "Dashboard", "Monitor", "Activity", "Collaborate"])
 
     def test_tabbed_lane_dots_exist(self) -> None:
         window = _make_window(layout_mode="tabbed")
         self.assertIsNotNone(window._codex_lane_dot)
         self.assertIsNotNone(window._claude_lane_dot)
+        self.assertIsNotNone(window._cursor_lane_dot)
         self.assertIsNotNone(window._operator_lane_dot)
 
 
@@ -151,9 +160,9 @@ class SidebarLayoutTests(unittest.TestCase):
         window = _make_window(layout_mode="sidebar")
         self.assertIsNotNone(getattr(window, "_sidebar_nav", None))
 
-    def test_sidebar_nav_has_ten_items(self) -> None:
+    def test_sidebar_nav_has_fourteen_items(self) -> None:
         window = _make_window(layout_mode="sidebar")
-        self.assertEqual(window._sidebar_nav.count(), 10)
+        self.assertEqual(window._sidebar_nav.count(), 14)
 
     def test_sidebar_nav_first_item_is_home(self) -> None:
         from PyQt6.QtCore import Qt
@@ -196,6 +205,7 @@ class GridLayoutTests(unittest.TestCase):
         """In grid mode, all KV panels should be parented (not orphaned)."""
         window = _make_window(layout_mode="grid")
         self.assertIsNotNone(window.codex_panel.parent())
+        self.assertIsNotNone(window.cursor_panel.parent())
         self.assertIsNotNone(window.claude_panel.parent())
         self.assertIsNotNone(window.operator_panel.parent())
 
@@ -286,13 +296,54 @@ class WorkbenchLayoutTests(unittest.TestCase):
     def test_workbench_keeps_terminal_cards_parented(self) -> None:
         window = _make_window(layout_mode="workbench")
         self.assertIsNotNone(window._monitor_tabs)
-        self.assertEqual(window._monitor_tabs.currentIndex(), 1)
+        self.assertEqual(
+            window._monitor_tabs.currentIndex(),
+            window._monitor_surface_indexes["command_output"],
+        )
         self.assertIsNotNone(window.codex_session_text.parent())
+        self.assertIsNotNone(window.codex_session_detail_card)
+        self.assertIsNotNone(window.codex_session_stats_text.parent())
+        self.assertIsNotNone(window.codex_session_registry_text.parent())
         self.assertIsNotNone(window.claude_session_text.parent())
+        self.assertIsNotNone(window.claude_session_detail_card)
+        self.assertIsNotNone(window.claude_session_stats_text.parent())
+        self.assertIsNotNone(window.claude_session_registry_text.parent())
+        self.assertIsNotNone(window.cursor_session_text.parent())
+        self.assertIsNotNone(window.cursor_session_detail_card)
+        self.assertIsNotNone(window.cursor_session_stats_text.parent())
+        self.assertIsNotNone(window.cursor_session_registry_text.parent())
         self.assertIsNotNone(window.command_output.parent())
         self.assertIsNotNone(window.raw_bridge_text.parent())
+        self.assertIsNotNone(window.timeline_panel.parent())
         self.assertIsNotNone(window.dev_log_text.parent())
         self.assertIsNotNone(window._workbench_tabs.parent())
+        self.assertIsNotNone(window.workflow_header_bar.parent())
+        self.assertIsNotNone(window.workflow_timeline_footer.parent())
+
+    def test_workbench_terminal_surface_exposes_timeline_tab(self) -> None:
+        window = _make_window(layout_mode="workbench")
+        labels = [
+            window._monitor_tabs.tabText(i)
+            for i in range(window._monitor_tabs.count())
+        ]
+        self.assertEqual(labels, ["Timeline", "Bridge", "Launcher Output", "Diagnostics"])
+        self.assertIn("timeline", window._monitor_surface_indexes)
+
+    def test_workbench_footer_exposes_transition_stages(self) -> None:
+        window = _make_window(layout_mode="workbench")
+        stage_labels = window.workflow_timeline_footer._stage_labels
+        self.assertEqual(
+            tuple(stage_labels.keys()),
+            (
+                "posted",
+                "read",
+                "acked",
+                "implementing",
+                "tests",
+                "reviewed",
+                "apply",
+            ),
+        )
 
     def test_workbench_starts_on_sessions_page(self) -> None:
         window = _make_window(layout_mode="workbench")
@@ -424,6 +475,91 @@ class LayoutSwitchingTests(unittest.TestCase):
         ]
         self.assertEqual(
             items, ["tabbed", "sidebar", "grid", "analytics", "workbench"]
+        )
+
+    def test_workbench_layout_state_round_trips_last_selected_tabs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            window = _make_window(
+                layout_mode="workbench",
+                repo=repo,
+                persist_layout_state=True,
+            )
+            window._select_workbench_surface("terminal")
+            window._select_monitor_surface("diagnostics")
+            window._persist_layout_state()
+
+            restored = _make_window(
+                layout_mode="tabbed",
+                repo=repo,
+                persist_layout_state=True,
+            )
+
+        self.assertEqual(restored._layout_mode, "workbench")
+        self.assertEqual(
+            restored._workbench_tabs.currentIndex(),
+            restored._workbench_surface_indexes["terminal"],
+        )
+        self.assertEqual(
+            restored._monitor_tabs.currentIndex(),
+            restored._monitor_surface_indexes["diagnostics"],
+        )
+
+    def test_layout_state_export_writes_snapshot_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            window = _make_window(
+                layout_mode="workbench",
+                repo=repo,
+                persist_layout_state=True,
+            )
+            window._select_workbench_surface("terminal")
+            window._select_monitor_surface("timeline")
+            window._export_layout_state_snapshot()
+            export_path = window._layout_state_export_path()
+            self.assertIsNotNone(export_path)
+            assert export_path is not None
+            self.assertTrue(export_path.exists())
+
+    def test_layout_state_import_restores_exported_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            window = _make_window(
+                layout_mode="workbench",
+                repo=repo,
+                persist_layout_state=True,
+            )
+            window._select_workbench_surface("terminal")
+            window._select_monitor_surface("diagnostics")
+            window._export_layout_state_snapshot()
+
+            window._select_workbench_surface("sessions")
+            window._select_monitor_surface("bridge")
+            window._import_layout_state_snapshot()
+
+        self.assertEqual(
+            window._workbench_tabs.currentIndex(),
+            window._workbench_surface_indexes["terminal"],
+        )
+        self.assertEqual(
+            window._monitor_tabs.currentIndex(),
+            window._monitor_surface_indexes["diagnostics"],
+        )
+
+    def test_layout_state_reset_restores_default_workbench_targets(self) -> None:
+        window = _make_window(layout_mode="workbench", persist_layout_state=False)
+        window._select_workbench_surface("terminal")
+        window._select_monitor_surface("bridge")
+
+        window._reset_layout_state()
+
+        self.assertEqual(
+            window._workbench_tabs.currentIndex(),
+            window._workbench_surface_indexes["sessions"],
+        )
+        self.assertEqual(
+            window._monitor_tabs.currentIndex(),
+            window._monitor_surface_indexes["command_output"],
         )
 
 

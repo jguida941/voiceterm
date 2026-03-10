@@ -10,7 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from dev.scripts.devctl import publication_sync as publication_sync_helpers
+from dev.scripts.devctl.publication_sync import core as publication_sync_helpers
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import publication_sync
 from dev.scripts.devctl.commands import hygiene_audits

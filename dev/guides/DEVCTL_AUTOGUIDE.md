@@ -57,13 +57,18 @@ python3 dev/scripts/devctl.py triage --ci --no-cihub --emit-bundle \
 
 ```bash
 # Dry-run first: validate the bridge is active and inspect generated launch scripts
-python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md
+# while auto-repairing stale/missing reviewer heartbeat metadata when that is
+# the only blocker.
+python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md --refresh-bridge-heartbeat-if-stale
 
 # Read the current bridge-backed review status and refresh latest projections
 python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md
 
+# Promote the next repo-owned active-plan item into Current Instruction For Claude
+python3 dev/scripts/devctl.py review-channel --action promote --terminal none --format md
+
 # Live launch: open the Codex conductor terminal and the Claude conductor terminal
-python3 dev/scripts/devctl.py review-channel --action launch --format md
+python3 dev/scripts/devctl.py review-channel --action launch --format md --refresh-bridge-heartbeat-if-stale
 
 # Planned anti-compaction rollover: relaunch fresh conductors before context gets bad
 python3 dev/scripts/devctl.py review-channel --action rollover --rollover-threshold-pct 50 --await-ack-seconds 180 --format md
@@ -83,12 +88,20 @@ Use this only for the current markdown-bridge cycle:
 6. `--action status` writes the latest bridge-backed projections under
    `dev/reports/review_channel/latest/` (`review_state.json`, `compact.json`,
    `full.json`, `actions.json`, `latest.md`, `registry/agents.json`).
-7. `--action rollover` writes a handoff bundle under
+7. `--action promote` is the typed queue-advance path: it reads the configured
+   promotion-plan checklist, refuses to overwrite a still-live instruction, and
+   rewrites `Current Instruction For Claude` only when the current slice is
+   resolved and findings are clear.
+8. `--action rollover` writes a handoff bundle under
    `dev/reports/review_channel/rollovers/`, relaunches fresh conductors, and
    waits up to the configured `--await-ack-seconds` window for visible rollover
    ACK lines in `code_audit.md`.
-8. The launcher fails closed if `review_channel.md` no longer marks the
+9. The launcher fails closed if `review_channel.md` no longer marks the
    markdown bridge as the active operating mode.
+10. Live `--action launch` sessions now auto-relaunch on clean provider exits so
+   a conductor that posts one summary and quits is restarted from repo state in
+   the same terminal; non-zero exits still stop fail-closed so real CLI/auth
+   failures remain visible.
 
 ### Release path
 

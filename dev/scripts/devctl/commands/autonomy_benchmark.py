@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from ..autonomy_benchmark_helpers import (
+from ..autonomy.benchmark_helpers import (
     explicit_question,
     fallback_repo_from_origin,
     parse_swarm_counts,
@@ -15,11 +15,11 @@ from ..autonomy_benchmark_helpers import (
     slug,
     validate_plan_scope,
 )
-from ..autonomy_benchmark_matrix import BenchmarkScenario
-from ..autonomy_benchmark_render import build_charts as _build_charts
-from ..autonomy_benchmark_render import render_markdown as _render_markdown
-from ..autonomy_benchmark_runner import leaders, run_scenario_payload
-from ..autonomy_run_helpers import collect_next_steps, derive_prompt
+from ..autonomy.benchmark_matrix import BenchmarkScenario
+from ..autonomy.benchmark_render import build_charts as _build_charts
+from ..autonomy.benchmark_render import render_markdown as _render_markdown
+from ..autonomy.benchmark_runner import leaders, run_scenario_payload
+from ..autonomy.run_helpers import collect_next_steps, derive_prompt
 from ..common import emit_output, pipe_output, write_output
 from ..numeric import to_float, to_int
 

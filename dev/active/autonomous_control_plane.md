@@ -48,9 +48,14 @@ the Control Plane supplies execution surfaces plus governance.
    command execution.
 4. Mobile strategy defaults to SMS backup first, then richer interactive chat.
 5. Rust overlay stays the primary runtime/rendering surface for VoiceTerm.
-6. Desktop GUI clients are deferred; operator control stays on Rust + `devctl`
-   surfaces unless explicitly reactivated by a new MP scope.
+6. Desktop and phone GUI clients are secondary clients only; operator control
+   authority stays on Rust + `devctl`, and PyQt6 now plus any later
+   iPhone/Electron/Tauri shell must consume the shared backend rather than
+   becoming it.
 7. Learning logic must be artifact-driven, replayable, and auditable.
+8. SSH is a valid read/debug transport, but it is not the push-notification
+   system; true phone pings must ride on notifier adapters over the same
+   shared payload the GUI clients render.
 
 ## External Inputs
 
@@ -62,6 +67,11 @@ the Control Plane supplies execution surfaces plus governance.
 6. `network-monitor-tui` runtime throughput panel patterns for dev-mode
    observability surfaces:
    `https://github.com/jguida941/network-monitor-tui`.
+7. `code-link-ide` pairing/notifier ideas for future phone transport adapters,
+   without displacing `devctl`/`controller_state` as the source of truth.
+8. Local FileHasher-style PyQt theme/chart work plus the `gitui-main/app`
+   design reference as visual-density inputs for later phone/desktop shells,
+   not runtime dependencies.
 
 ## Phase 1 - Harden Existing CodeRabbit Ralph Loop
 
@@ -214,6 +224,17 @@ Acceptance:
 - [ ] Require explicit approval gates for:
   - [ ] Fix-mode execution.
   - [ ] Branch/tag/release-impacting actions.
+- [ ] Add client transports over the same shared service instead of separate
+      phone/desktop backends:
+  - [ ] same-network live mode for trusted local Wi-Fi/LAN clients
+  - [ ] secure remote mode for off-LAN/cellular clients through a guarded
+        private-network/tunnel adapter; do not expose raw PTY or devctl ports
+        directly to the public internet
+  - [ ] reconnect/resume semantics so the host Mac keeps controller state,
+        session tails, approvals, and long-running plans alive while the phone
+        disconnects/reconnects between Wi-Fi and cellular
+- [ ] Keep PyQt6, Rust overlay/dev panels, and the iPhone app on this same
+      service contract; no GUI surface may become a peer backend for another.
 
 ### 3.2 Control API
 
@@ -234,30 +255,65 @@ Security baseline:
 
 ### 3.3 Phone Adapters
 
+- [ ] First proof path: simple phone ping/alert delivery over the emitted
+      `mobile-status` payload so operator-visible state changes can reach the
+      iPhone before richer live-control work starts.
+- [ ] Keep SSH as a read/debug path and add a real notifier bridge for alerts;
+      do not treat SSH polling alone as "push notifications".
 - [ ] v1: SMS adapter (Twilio webhook in/out) for backup/pilot.
-- [ ] v1.5: `ntfy` push adapter for rich alerts.
+- [ ] v1.5: `ntfy`/APNs-style push adapter for richer alerts.
 - [ ] v2: interactive chat adapter (Telegram-style).
 
 ### 3.4 iPhone-First MVP (Single Operator)
 
-Goal: ship a simple iPhone control surface fast, then expand.
+Goal: prove the phone path against real repo data and a real notification
+signal first, then expand into full typed control.
 
 Scope for MVP:
 
-1. Read-first mobile UX with one safe action.
-2. Push updates for Ralph loop attempts and final status.
-3. Auditable and policy-gated command execution only.
+1. First-party iPhone/iPad app over the same repo-owned mobile bundle and
+   later live Rust service used by other controller clients.
+2. Simple ping/alert delivery before richer phone-control claims.
+3. Real-data parity with the PyQt/Rust operator surfaces where practical so
+   the phone is not a toy admin screen with different meanings.
+4. Auditable and policy-gated command execution only.
 
-#### MVP Architecture (Pragmatic)
+#### MVP Architecture (Current Direction)
 
-- [ ] UI: lightweight web app/PWA optimized for iPhone Safari (no App Store
-      dependency for first release).
+- [x] First-party Swift package + generated iOS app shell over the emitted
+      `mobile-status` bundle.
+- [x] Simulator live-bundle sync path from the current repo state.
 - [ ] Backend: Rust `voiceterm-control` service exposes read endpoints and one
-      guarded dispatch endpoint.
-- [ ] Data source: `devctl triage-loop` bundle artifacts (`.md` + `.json`) and
-      loop status snapshots.
-- [ ] Primary notifications: push channel (`ntfy` or Slack webhook).
-- [ ] SMS fallback: Twilio outbound summary messages for failure/high urgency.
+      guarded dispatch path, and remains the long-term shared live source for
+      Rust, PyQt6, and iPhone clients.
+- [ ] Add the first simple ping proof path that alerts the phone when
+      Codex/Claude/operator state materially changes, using the same
+      `mobile-status` payload and not a second ad-hoc summary format.
+- [ ] Keep notification content aligned with the same bundle fields rendered in
+      the desktop and phone UI so pings and screens never disagree.
+- [ ] Add richer same-data phone views: left-rail plan/work items, agent
+      cards, approvals, findings, and repo health that match the PyQt/Rust
+      control surfaces closely enough that operators can move between screens
+      without relearning the model.
+- [ ] Add split/combined terminal-style lane monitoring sourced from
+      repo-visible session artifacts first, then from the live Rust service
+      once it owns session tails.
+- [ ] Add typed phone actions for approve/deny/ack/apply plus bounded
+      operator-note / message dispatch, using the same action catalog/policy
+      engine as Rust and PyQt6.
+- [ ] Add typed plan-item / agent-assignment flows so a phone user can pick a
+      plan item and stage it to the right agent through `devctl` /
+      `controller_state` instead of freeform chat.
+- [ ] Add simple/technical read modes on phone with identical provenance and
+      source artifacts behind both modes.
+- [ ] Add reconnect/resume semantics so the phone can keep following the same
+      long-running host plan across Wi-Fi/cellular changes.
+- [ ] Keep Apple-app polish as an explicit product requirement after the simple
+      ping proof: dense agent-first UI, high-quality cards, and the same
+      underlying repo-owned data model as desktop.
+- [ ] Future desktop-web shell work (Electron/Tauri) stays deferred until the
+      PyQt6/iPhone/backend contracts are proven stable and must reuse the same
+      backend when it happens.
 - [ ] Optional dev-mode adapter: import/port `network-monitor-tui` sampling
       model for local throughput/latency panels in `--dev` and phone status
       snapshots (read-only in MVP).
@@ -268,6 +324,59 @@ Scope for MVP:
         flag is provided.
   - [ ] Route mode-specific initialization (audio/Whisper/backend vs monitor
         sampler/UI) through separate startup branches.
+
+#### Phone Capability Expansion (After Read-First MVP)
+
+- [ ] Replace import-only bundle flow with live phone sessions against the same
+      Mac-hosted Rust control service used by the overlay/dev surfaces.
+- [ ] Add iPhone voice input as transcript-to-action, not raw terminal
+      ownership:
+  - [ ] push-to-talk captures speech on iPhone
+  - [ ] STT result becomes a typed `action_request`, staged note, or review
+        packet
+  - [ ] no blind freeform PTY injection in the first live phone release
+- [ ] Add yes/no approval UX for `operator_approval_required` packets:
+  - [ ] one-tap `Approve`
+  - [ ] one-tap `Deny`
+  - [ ] optional short operator note attached to the decision
+- [ ] Add structured operator messaging from phone:
+  - [ ] send operator note to Codex/Claude lane
+  - [ ] stage re-review request / next-slice prompt / packet draft
+  - [ ] keep all messages replayable and auditable under the same review/control
+        artifact model
+- [ ] Add live terminal/session visibility on phone from the same repo-backed
+      session-tail artifacts or later `controller_state` stream used by the
+      overlay and desktop clients.
+- [ ] Preserve overlay parity: phone controls and overlay controls must resolve
+      through the same typed action router, policy engine, and audit trail.
+
+#### Off-LAN / Cellular Remote Access
+
+- [ ] Support remote iPhone access when the Mac is online at home and the phone
+      is off the local Wi-Fi network.
+- [ ] Preferred architecture: private-network / zero-trust adapter in front of
+      `voiceterm-control` (WireGuard/Tailscale-class topology first; public
+      tunnel/reverse-proxy only after equivalent auth, audit, and rate-limit
+      guarantees are proven).
+- [ ] Required remote behavior:
+  - [ ] phone can reconnect over cellular and see the same live controller
+        state, session tails, approvals, and plan progress already running on
+        the host Mac
+  - [ ] long-running review/autonomy plans continue on the host even while no
+        client is connected
+  - [ ] reconnect does not create a second controller session or fork hidden
+        state
+- [ ] Required remote security:
+  - [ ] short-lived signed sessions/tokens
+  - [ ] explicit device/operator identity
+  - [ ] replay protection
+  - [ ] audit log for every remote action
+  - [ ] operator approval remains mandatory for risky/destructive actions even
+        over remote access
+- [ ] Explicitly out of scope for the first remote slice:
+  - [ ] direct public exposure of raw terminal/PTY ports
+  - [ ] unrestricted shell access from phone
+  - [ ] bypassing the typed action router because the client is remote
 
 #### MVP Command Set
 
@@ -449,6 +558,21 @@ Operator experience backlog:
       it refreshes bridge-backed review-channel state, combines it with
       autonomy `phone-status`, and emits compact/full/alert/actions mobile
       projections for future phone UI and notifier clients.)
+- [ ] Add an explicit simulator/device proving harness around the same shared
+      control contract so phone work stays testable and honest during the
+      transition:
+  - [x] `devctl mobile-app --action simulator-demo` builds, installs, syncs,
+        and launches the real iPhone app against repo-backed bundle data.
+  - [x] `devctl mobile-app --action simulator-demo --live-review` refreshes
+        the current review-channel state first, then syncs that live
+        Ralph/review projection bundle into the simulator so testing is not
+        limited to sample data.
+  - [x] `devctl mobile-app --action device-install` is the real signed
+        `xcodebuild` + `devicectl` install/launch path when a trusted iPhone
+        and Apple Development Team are available.
+  - [ ] Extend the proving harness so one command can verify controller-state
+        parity across Rust `--dev`, the mobile app, and the future live phone
+        transport before any broader write path is promoted.
 
 Autonomous loop orchestration backlog:
 
@@ -480,6 +604,11 @@ Remaining ADR backlog required to keep AI + dev execution aligned as autonomy gr
 
 - [ ] `ADR-0029` Operator action policy model (approval + replay + deny semantics).
 - [ ] `ADR-0030` Phone adapter architecture (SSH-first + push/SMS/chat layering).
+- [ ] `ADR-0030` must now also lock the live phone transport story:
+  - [ ] same-network Rust-hosted client mode
+  - [ ] off-LAN/cellular secure adapter mode
+  - [ ] reconnect/resume semantics for long-running plans and live session tails
+  - [ ] why public raw PTY exposure remains forbidden
 - [ ] `ADR-0031` Rust Dev panel control-plane boundary (non-interference contract).
 - [ ] `ADR-0032` Autonomy stage machine (triage/plan/fix/verify/review/promote).
 - [ ] `ADR-0033` Metrics + scientific audit method (KPI definitions + promotion gates).
@@ -506,18 +635,38 @@ Implementation scope:
       closure target by themselves.
 - [ ] Rust `--dev` panel reads local `controller_state` projections directly.
 - [ ] Keep iPhone surfaces (SSH read + API/PWA) bound to the same projections.
+- [ ] Keep iPhone, Rust overlay, and desktop operator surfaces on the same
+      Rust-owned state model and typed action router, with markdown reduced to
+      derived/operator-facing coordination only.
 - [ ] Keep desktop GUI clients out of active scope unless a new MP reactivation
       item lands with explicit policy and parity gates.
 - [ ] Require parity tests across Rust + phone projections before enabling new
       write actions.
+- [ ] Pull the Memory Studio proving outputs directly into this closure path:
+  `task_pack`, `session_handoff`, `survival_index`, and provider-shaped
+  `context_pack_refs` must be attachable from the same `controller_state` /
+  `review_state` flow so phone, Rust, and future desktop clients all see the
+  same handoff evidence and next-task context.
+- [ ] Keep provider choice typed and shared instead of hardcoded per client:
+  the canonical state/action model must carry provider profile and lane/job
+  routing (`codex`, `claude`, `gemini`, later others) so the phone can steer
+  "AI of choice" through the same allowlisted host execution path the overlay
+  and operator surfaces use.
 
 Implementation order:
 
 1. Land `controller_state` schema and projection files (`full`, `compact`,
    `trace`, `actions`) as source of truth.
 2. Wire Rust Dev panel and `devctl phone-status` to that schema first.
-3. Add one guarded write action (`dispatch-report-only`) and verify parity.
-4. Expand write actions only after replay/auth/rate-limit gates are green.
+3. Expose the same schema through Mac-hosted live phone transport on the local
+   network so the iPhone can stop depending on imported bundles.
+4. Add one guarded write action (`dispatch-report-only`) and verify parity.
+5. Add secure off-LAN/cellular connectivity through the approved remote
+   adapter path; prove reconnect/resume behavior against the same host session.
+6. Expand write actions only after replay/auth/rate-limit gates are green.
+7. Promote provider-aware retask/continue flows only after the same request can
+   be expressed and audited identically from Rust, mobile, and review-channel
+   surfaces.
 
 Acceptance:
 
@@ -525,6 +674,8 @@ Acceptance:
 2. Action outcomes and denials are identical across clients.
 3. No client bypasses policy gates for workflow/shell actions.
 4. Operator can monitor and steer bounded loops from any client safely.
+5. Memory-backed handoff artifacts and provider-shaped task context resolve the
+   same way from Rust, phone, and review surfaces.
 
 ### 3.7.1 Operator Cockpit MVP (`--dev` first, `--monitor` next)
 
@@ -1036,11 +1187,60 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-09: Expanded MP-340 to capture the post-simulator/mobile feedback
+  explicitly before more implementation starts. The plan now locks backend
+  ownership to Rust + `devctl` rather than PyQt6, treats SSH as read/debug and
+  not the real push path, prioritizes a simple phone ping proof before richer
+  control claims, and adds the concrete iPhone backlog for same-data parity
+  with the desktop shell: split/combined terminal lane mirrors, typed
+  approvals/notes/instructions, plan-to-agent assignment, simple/technical
+  modes, and reconnect/resume behavior over one shared backend contract. It
+  also records `code-link-ide`, `network-monitor-tui`, local FileHasher-style
+  theme/chart work, and the `gitui-main/app` design reference as reference
+  inputs only rather than control-plane authority.
 - 2026-03-09: Turned the phone-client scaffold into a real iOS app target.
   `app/ios/VoiceTermMobileApp` now exists as an XcodeGen-backed SwiftUI shell
   over `VoiceTermMobileCore`, starts with built-in sample relay data, imports a
   real emitted `mobile-status` bundle from Files, persists the selected bundle
   folder, and builds cleanly for generic iOS via unsigned `xcodebuild`.
+- 2026-03-09: Cleaned up the iOS package/app boundary after local simulator
+  confusion. `app/ios/VoiceTermMobileApp` is now documented everywhere as the
+  runnable iPhone/iPad app, `app/ios/VoiceTermMobile` is explicitly the shared
+  Swift package that app imports, a guided simulator demo script now builds +
+  installs + syncs + launches the app while printing the real manual test
+  flow, and the older "client scaffold" wording is archived so future docs do
+  not present the package as a second stale app.
+- 2026-03-09: Folded the iPhone launch path into `devctl` instead of leaving
+  it as shell-script trivia. The new `mobile-app` command can run the real
+  simulator demo over the live repo bundle, list simulator/physical devices,
+  and open an honest physical-device wizard for Xcode/signing. The app itself
+  now prefers a synced live bundle on startup and shows a short first-run
+  tutorial that explains the real-data path and the current read-first action
+  boundary.
+- 2026-03-09: Extended `devctl mobile-app` from a wizard-only wrapper into a
+  real device-aware launcher surface. `mobile-app --action device-install`
+  now attempts the actual signed `iphoneos` build/install/launch path through
+  `xcodebuild` plus `xcrun devicectl` when a physical device and Apple
+  Development Team are present, while still failing honestly with the exact
+  missing prerequisite when no phone is connected or signing is unset. The
+  simulator demo was also rerun after fixing its walkthrough heredoc so the
+  final live test output stays clean and copyable.
+- 2026-03-09: Expanded the active plan so the phone path is not trapped as a
+  bundle-only sidecar. The control-plane plan now explicitly ties mobile
+  proving to the Rust-owned `controller_state` closure, Memory Studio pack
+  attachments (`task_pack`, `session_handoff`, `survival_index`,
+  `context_pack_refs`), provider-aware lane routing, and a shared simulator /
+  device test harness. The new `mobile-app --action simulator-demo
+  --live-review` path now proves the current repo-backed Ralph/review state in
+  Simulator while the plan makes clear that true task execution still belongs
+  to the shared host-side typed action router.
+- 2026-03-09: Expanded the active phone/control-plane target beyond the
+  read-first bundle client. The plan now explicitly requires one Mac-hosted
+  Rust control service shared by overlay/dev/phone surfaces, live same-network
+  iPhone connectivity, staged phone voice-to-action flows, yes/no approval
+  actions, structured operator-note messaging, and a secure off-LAN/cellular
+  reconnect path so long-running plans can continue at home while the phone
+  later reconnects to the same host state.
 - 2026-03-09: Fixed the first simulator usability regression in the iOS shell.
   The import path now accepts either a bundle folder or `full.json`, and the
   top control strip is stacked into larger phone-width tap targets so `Import
@@ -1052,6 +1252,29 @@ Acceptance:
   `app/ios/VoiceTermMobileApp/sync_live_bundle_to_simulator.sh` can push the
   current repo-backed bundle into the booted simulator so the iPhone shell
   shows real Codex/Claude/operator state.
+- 2026-03-09: Replaced one-off no-prompt launcher behavior with a shared
+  approval-policy path. `review-channel` now accepts `--approval-mode
+  strict|balanced|trusted`, the legacy `--dangerous` path is treated as a
+  compatibility alias for `trusted`, `mobile-status` now emits the same
+  approval policy into phone-safe projections for future PyQt/iPhone surfaces,
+  and the Ralph Claude wrapper now reads `RALPH_APPROVAL_MODE` instead of
+  hardcoding `--dangerously-skip-permissions`. The current provider boundary is
+  explicit: destructive/publish-class actions still require typed approval even
+  when provider CLI prompts are relaxed.
+- 2026-03-09: Moved the iPhone UI one step closer to the operator-console
+  target instead of leaving it as a plain viewer. The shared Swift models now
+  decode the emitted approval-policy fields from `mobile-status`, the dashboard
+  surfaces approval mode/summary plus confirmation-required classes alongside
+  the lane console, and the shell styling now reads more like a control panel
+  with terminal-relay cards than a generic document reader. Real local proofs
+  from this slice are in the audit table: `swift test` for the shared package
+  and unsigned `xcodebuild` for the runnable app both passed after the UI/model
+  update.
+- 2026-03-09: Added a terminal-style phone lane view over the same live bundle.
+  The iOS shell now exposes a `Terminal` section with split/combined
+  monospaced panels for Codex, Claude, and Operator so the phone can show what
+  each lane is doing without leaving the app. This remains read-only for now;
+  direct instruction dispatch is still a later guarded backend slice.
 - 2026-03-09: Tightened the first-party phone client around the emitted mobile
   bundle contract instead of a one-off JSON reader. `app/ios/VoiceTermMobile`
   now loads `full.json` plus optional `compact.json` / `actions.json` from
@@ -1356,3 +1579,13 @@ Acceptance:
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c08` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c08/summary.md` (2026-02-25 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c09` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c09/summary.md` (2026-02-25 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c10` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c10/summary.md` (2026-02-25 local run) | done |
+| `swift test` | pass in `app/ios/VoiceTermMobile` on 2026-03-09 local elevated run (`6` tests) confirming the shared mobile core package still decodes and renders the projection bundle contract | done |
+| `xcodebuild -project VoiceTermMobileApp.xcodeproj -scheme VoiceTermMobileApp -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO build` | pass in `app/ios/VoiceTermMobileApp` on 2026-03-09 local elevated run (`** BUILD SUCCEEDED **`) confirming the runnable iOS app target builds cleanly | done |
+| `python3 -m pytest dev/scripts/devctl/tests/test_mobile_app.py dev/scripts/devctl/tests/test_mobile_status.py dev/scripts/devctl/tests/test_controller_action.py -q --tb=short` | pass on 2026-03-09 local run (`18 passed`) covering the new `mobile-app` simulator/device parser + command paths alongside the shared controller/mobile status contract | done |
+| `python3 dev/scripts/devctl.py mobile-app --action simulator-demo --format md` | pass on 2026-03-09 local elevated run; built `VoiceTermMobileApp`, installed it into simulator `2EBCD622-74DC-4A8B-93EF-339C5717CD82`, synced `Documents/LiveBundle/full.json`, launched the app, and printed the live mobile action preview plus manual tap flow | done |
+| `python3 dev/scripts/devctl.py mobile-app --action device-install --development-team TEAM12345 --format md` | honest local no-device failure on 2026-03-09 (`no connected physical iPhone/iPad detected`), confirming the scripted install path fails closed instead of pretending a phone deploy happened without a plugged-in trusted device | done |
+| `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py dev/scripts/devctl/tests/test_mobile_status.py -q --tb=short` | pass on 2026-03-09 local run (`54 passed`) covering approval-mode parsing, review-channel launch scripts/reports, and mobile-status approval-policy projections | done |
+| `python3 dev/scripts/checks/check_active_plan_sync.py` | `ok: True` on 2026-03-09 local run after the approval-policy/control-plane doc update | done |
+| `python3 dev/scripts/devctl.py docs-check --strict-tooling` | `ok: True` on 2026-03-09 local run after the `review-channel` / `mobile-status` / `README` approval-mode docs update | done |
+| `swift test` | pass in `app/ios/VoiceTermMobile` on 2026-03-09 local elevated run (`6` tests) after the approval-policy decoding + operator-console-style control-panel UI update | done |
+| `xcodebuild -project VoiceTermMobileApp.xcodeproj -scheme VoiceTermMobileApp -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO build` | pass in `app/ios/VoiceTermMobileApp` on 2026-03-09 local elevated run (`** BUILD SUCCEEDED **`) after the mobile shell control-strip/dashboard styling update | done |

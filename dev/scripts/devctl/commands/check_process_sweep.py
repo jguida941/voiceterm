@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import Callable
 
-from ..process_sweep import expand_cleanup_target_rows, parse_etime_seconds
+from ..process_sweep.core import expand_cleanup_target_rows, parse_etime_seconds
 
 
 def parse_etime_seconds_for_compat(raw: str) -> int | None:

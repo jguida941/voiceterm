@@ -5,6 +5,7 @@
 - [Workflow ownership and routing](#workflow-ownership-and-routing)
 - [End-to-end lifecycle flow](#end-to-end-lifecycle-flow)
 - [What checks protect us](#what-checks-protect-us)
+- [After file edits](#after-file-edits)
 - [Ralph/Wiggum Loop Model](#ralphwiggum-loop-model)
 - [When to push where](#when-to-push-where)
 - [Project structure](#project-structure)
@@ -94,6 +95,43 @@ flowchart TD
 
 Run the checks that match your change before pushing.
 CI runs the same checks, so local failures are faster to fix.
+
+## After file edits
+
+Any time you create a file or edit an existing file, run the task-class bundle
+first, then add any extra guards required by the paths you touched. Use this as
+the concrete minimum inventory after edits:
+
+1. Run one bundle from `AGENTS.md` / `dev/scripts/devctl/bundle_registry.py`:
+   `bundle.runtime`, `bundle.docs`, `bundle.tooling`, or `bundle.release`.
+2. Run any required risk-matrix add-ons from `AGENTS.md` if you touched
+   runtime-risky paths.
+3. Make sure the applicable baseline guards below were covered by that bundle
+   or run them directly if you are doing a narrower targeted validation pass:
+   - `python3 dev/scripts/devctl.py docs-check --user-facing` or `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+   - `python3 dev/scripts/devctl.py hygiene`
+   - `python3 dev/scripts/checks/check_active_plan_sync.py`
+   - `python3 dev/scripts/checks/check_multi_agent_sync.py`
+   - `python3 dev/scripts/checks/check_cli_flags_parity.py`
+   - `python3 dev/scripts/checks/check_code_shape.py`
+   - `python3 dev/scripts/checks/check_python_subprocess_policy.py`
+   - `python3 dev/scripts/checks/check_workflow_shell_hygiene.py`
+   - `python3 dev/scripts/checks/check_workflow_action_pinning.py`
+   - `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations`
+   - `python3 dev/scripts/checks/check_compat_matrix.py`
+   - `python3 dev/scripts/checks/compat_matrix_smoke.py`
+   - `python3 dev/scripts/checks/check_naming_consistency.py`
+   - `python3 dev/scripts/checks/check_rust_test_shape.py`
+   - `python3 dev/scripts/checks/check_rust_lint_debt.py`
+   - `python3 dev/scripts/checks/check_rust_best_practices.py`
+   - `python3 dev/scripts/checks/check_rust_compiler_warnings.py`
+   - `python3 dev/scripts/checks/check_serde_compatibility.py`
+   - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py`
+   - `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`
+
+Use the bundle as the source of truth for exact command sets. This section is a
+human-readable reminder of the minimum checks that should be covered after file
+edits, not a second bundle authority.
 
 ### Runtime and UI changes
 
@@ -186,6 +224,7 @@ Why this model is safe:
 | Rust test-file shape drift (`*tests.rs` growth) | `python3 dev/scripts/checks/check_rust_test_shape.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
 | Rust lint-debt growth (`#[allow]`, `#[allow(dead_code)]`, `unwrap/expect`, unchecked unwrap/expect, `panic!`) | `python3 dev/scripts/checks/check_rust_lint_debt.py` | `tooling_control_plane.yml` |
 | Rust best-practices non-regression (`#[allow(reason)]`, `unsafe` docs, `unsafe impl` safety rationale, `mem::forget`, `Result<_, String>`, suppressed send/emit results, detached bare `thread::spawn(...)` calls, explicit `OpenOptions` create semantics, float literal equality checks, atomic persistent TOML writes, standard TOML parser usage) | `python3 dev/scripts/checks/check_rust_best_practices.py` | `tooling_control_plane.yml` |
+| Serde tagged-enum compatibility drift (new tagged `Deserialize` enums without explicit fallback/strictness policy) | `python3 dev/scripts/checks/check_serde_compatibility.py` | `tooling_control_plane.yml` + `release_preflight.yml` + `devctl check --profile ci` AI guard |
 | Rust runtime panic policy drift (new unallowlisted runtime `panic!`) | `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
 | Rust audit anti-pattern regressions | `python3 dev/scripts/checks/check_rust_audit_patterns.py` | `security_guard.yml` + `tooling_control_plane.yml` |
 | Rust security footgun regressions (`todo!/dbg!/unimplemented!`, `unreachable!()` in hot paths, shell spawns, weak crypto, PID wrap casts, permissive modes, unguarded syscall-result unsigned casts) | `python3 dev/scripts/checks/check_rust_security_footguns.py` | `tooling_control_plane.yml` |
@@ -440,7 +479,7 @@ python3 dev/scripts/devctl.py check --profile release
 # Fast local iteration lane (alias of quick; local-only and never a pre-push/release replacement)
 python3 dev/scripts/devctl.py check --profile fast
 
-# Quick scope (fmt-check + clippy only; keep heavy checks in prepush/release lanes)
+# Quick scope (fmt-check + clippy + AI guard scripts; keep test/build/perf-heavy checks in prepush/release lanes)
 python3 dev/scripts/devctl.py check --profile quick
 
 # Preferred AI path for raw Rust tests/test binaries; auto-runs the required post-run sweep
@@ -721,6 +760,7 @@ Docs governance guardrails:
 - `python3 dev/scripts/checks/check_python_broad_except.py` blocks newly added broad Python handlers (`except Exception` / `except BaseException`) unless a nearby `broad-except: allow reason=...` comment makes the fail-soft behavior explicit.
 - `python3 dev/scripts/checks/check_python_subprocess_policy.py` blocks repo-owned Python tooling and Operator Console code from adding `subprocess.run(...)` calls without an explicit `check=` keyword, keeping subprocess failure handling intentional instead of relying on the default.
 - `python3 dev/scripts/checks/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces without `# Safety` docs, `unsafe impl` blocks without nearby safety rationale, `std::mem::forget`/`mem::forget` usage, `Result<_, String>` surfaces, suppressed `send(...)`/`try_send(...)` and `emit(...)` results, bare detached `thread::spawn(...)` statements without a nearby `detached-thread: allow reason=...` note, suspicious `OpenOptions::new().create(true)` chains that omit explicit overwrite semantics (`append(true)`, `truncate(...)`, or `create_new(true)`), direct `==` / `!=` comparisons against float literals, app-owned persistent TOML writes that still overwrite the final file directly instead of using a temp-file swap, and hand-rolled persistent TOML parsers in changed Rust files.
+- `python3 dev/scripts/checks/check_serde_compatibility.py` blocks newly introduced internally/adjacently tagged Rust `Deserialize` enums unless they either define a `#[serde(other)]` fallback variant or document intentional fail-closed behavior with a nearby `serde-compat: allow reason=...` comment.
 - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` blocks non-regressive growth of unallowlisted runtime `panic!` call-sites unless nearby rationale comments (`panic-policy: allow reason=...`) are present.
 - `python3 dev/scripts/checks/check_rust_audit_patterns.py` blocks reintroduction of known high-risk runtime audit anti-patterns across `rust/src/**`.
 - `python3 dev/scripts/checks/check_rust_security_footguns.py` blocks non-regressive growth of risky runtime patterns (`todo!/dbg!/unimplemented!`, `unreachable!()` in runtime hot paths, shell-style spawns, permissive modes, weak-crypto references, PID wrap-prone casts like `child.id() as i32` / `libc::getpid() as i32`, and syscall-return casts to unsigned types without a prior sign guard) while excluding `#[cfg(test)]` blocks.

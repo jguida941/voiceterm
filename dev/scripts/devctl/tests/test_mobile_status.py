@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
 from dev.scripts.devctl.commands import mobile_status
@@ -18,6 +19,7 @@ def make_args(**overrides) -> SimpleNamespace:
         "review_channel_path": "dev/active/review_channel.md",
         "bridge_path": "code_audit.md",
         "review_status_dir": "dev/reports/review_channel/latest",
+        "approval_mode": "balanced",
         "view": "compact",
         "emit_projections": None,
         "format": "json",
@@ -105,6 +107,8 @@ class MobileStatusParserTests(unittest.TestCase):
                 "/tmp/review-status",
                 "--view",
                 "alert",
+                "--approval-mode",
+                "trusted",
                 "--emit-projections",
                 "/tmp/mobile",
                 "--format",
@@ -117,6 +121,7 @@ class MobileStatusParserTests(unittest.TestCase):
         self.assertEqual(args.review_channel_path, "/tmp/review_channel.md")
         self.assertEqual(args.bridge_path, "/tmp/code_audit.md")
         self.assertEqual(args.review_status_dir, "/tmp/review-status")
+        self.assertEqual(args.approval_mode, "trusted")
         self.assertEqual(args.view, "alert")
         self.assertEqual(args.emit_projections, "/tmp/mobile")
         self.assertEqual(args.format, "json")
@@ -198,6 +203,11 @@ class MobileStatusCommandTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             payload = json.loads(output_json.read_text(encoding="utf-8"))
             self.assertTrue(payload["ok"])
+            self.assertEqual(payload["approval_mode"], "balanced")
+            self.assertEqual(
+                payload["view_payload"]["approval_mode"],
+                "balanced",
+            )
             self.assertEqual(payload["view"], "alert")
             self.assertEqual(payload["view_payload"]["severity"], "critical")
             self.assertIn("review bridge is", payload["view_payload"]["why"][0])
@@ -242,6 +252,7 @@ class MobileStatusCommandTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             payload = json.loads(output_json.read_text(encoding="utf-8"))
             self.assertTrue(payload["ok"])
+            self.assertEqual(payload["approval_mode"], "balanced")
             self.assertTrue(
                 any(
                     "phone status artifact not found" in row
@@ -250,6 +261,38 @@ class MobileStatusCommandTests(unittest.TestCase):
             )
             self.assertNotEqual(payload["view_payload"]["codex_status"], "unknown")
             self.assertTrue(Path(payload["projection_files"]["full_json"]).exists())
+
+    def test_command_prefers_bridge_snapshot_over_event_artifacts_in_auto_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            review_channel_path = root / "review_channel.md"
+            bridge_path = root / "code_audit.md"
+            review_status_dir = root / "review-status"
+            output_json = root / "report.json"
+
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            args = make_args(
+                phone_json=str(root / "missing.json"),
+                review_channel_path=str(review_channel_path),
+                bridge_path=str(bridge_path),
+                review_status_dir=str(review_status_dir),
+                output=str(output_json),
+            )
+
+            with patch.object(mobile_status, "event_state_exists", return_value=True):
+                rc = mobile_status.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_json.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["view_payload"]["codex_status"], "stale")
+            self.assertTrue(
+                payload["review_projection_files"]["full_path"].endswith("full.json")
+            )
 
     def test_command_fails_when_all_live_inputs_are_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

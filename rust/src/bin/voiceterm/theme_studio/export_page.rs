@@ -10,6 +10,7 @@
     reason = "Theme Studio export UI is scaffolded ahead of full runtime navigation wiring."
 )]
 
+use crate::persistence_io::write_text_atomically;
 use crate::theme::color_value::{palette_to_resolved, ResolvedThemeColors};
 use crate::theme::theme_dir::ensure_theme_dir;
 use crate::theme::theme_file::export_theme_file;
@@ -118,7 +119,7 @@ impl ExportPageState {
             Ok(dir) => {
                 let filename = format!("{name}.toml");
                 let path = dir.join(&filename);
-                match std::fs::write(&path, &toml) {
+                match write_text_atomically(&path, &toml) {
                     Ok(()) => {
                         let p = path.display().to_string();
                         self.last_export_path = Some(p.clone());

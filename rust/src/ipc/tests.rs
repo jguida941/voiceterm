@@ -1317,7 +1317,8 @@ fn process_auth_events_does_not_reset_on_failed_codex() {
         receiver: rx,
         started_at: Instant::now(),
     });
-    tx.send(Err("nope".to_string())).unwrap();
+    tx.send(Err(crate::auth::AuthError::message("nope")))
+        .unwrap();
 
     assert!(process_auth_events(&mut state));
     assert_eq!(reset_session_count(), 0);
@@ -1349,7 +1350,8 @@ fn process_auth_events_emits_error() {
         receiver: rx,
         started_at: Instant::now(),
     });
-    tx.send(Err("nope".to_string())).unwrap();
+    tx.send(Err(crate::auth::AuthError::message("nope")))
+        .unwrap();
 
     assert!(process_auth_events(&mut state));
     let events = events_since(snapshot);

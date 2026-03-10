@@ -16,7 +16,7 @@ from typing import Dict, List, Tuple
 from ..common import emit_output, pipe_output, write_output
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
-from ..process_sweep import (
+from ..process_sweep.core import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
     DEFAULT_STALE_MIN_AGE_SECONDS,
     SECONDS_PER_DAY,
@@ -33,6 +33,7 @@ ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
 STALE_ACTIVE_TEST_MIN_AGE_SECONDS = DEFAULT_STALE_MIN_AGE_SECONDS
 PROCESS_LINE_MAX_LEN = 180
 PROCESS_REPORT_LIMIT = 8
+SUPERVISED_CONDUCTOR_SCOPE = "review_channel_conductor"
 
 
 def _is_sandbox_ps_warning(message: str) -> bool:
@@ -104,6 +105,13 @@ def _audit_runtime_processes() -> Dict:
         test_processes,
         min_age_seconds=ORPHAN_TEST_MIN_AGE_SECONDS,
     )
+    supervised_conductors = [
+        row
+        for row in active
+        if row.get("match_scope") == SUPERVISED_CONDUCTOR_SCOPE and row.get("ppid") != 1
+    ]
+    supervised_conductor_pids = {row["pid"] for row in supervised_conductors}
+    active = [row for row in active if row.get("pid") not in supervised_conductor_pids]
     stale_active, fresh_active = split_stale_processes(
         active,
         min_age_seconds=STALE_ACTIVE_TEST_MIN_AGE_SECONDS,
@@ -138,6 +146,7 @@ def _audit_runtime_processes() -> Dict:
 
     return {
         "total_detected": len(test_processes),
+        "active_supervised_conductors": supervised_conductors,
         "orphaned": orphaned,
         "stale_active": stale_active,
         "active": fresh_active,

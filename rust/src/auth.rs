@@ -1,29 +1,92 @@
 //! Backend login helpers so auth flows run on the controlling TTY reliably.
 
-/// Result type for login attempts.
-pub type AuthResult = std::result::Result<(), String>;
+use std::error::Error;
+use std::fmt;
 
-fn validate_login_command(command: &str) -> std::result::Result<&str, String> {
-    let trimmed = command.trim();
-    if trimmed.is_empty() {
-        return Err("login command is empty".to_string());
-    }
-    Ok(trimmed)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AuthError {
+    EmptyCommand,
+    OpenTty(String),
+    CloneTty {
+        stream: &'static str,
+        message: String,
+    },
+    SpawnLogin {
+        command: String,
+        message: String,
+    },
+    LoginExited {
+        code: Option<i32>,
+    },
+    UnsupportedPlatform,
+    ProviderLogin {
+        provider: String,
+        source: Box<AuthError>,
+    },
+    Message(String),
 }
 
-fn format_login_exit_error(status: std::process::ExitStatus) -> String {
-    let code = status
-        .code()
-        .map(|value| value.to_string())
-        .unwrap_or_else(|| "unknown".to_string());
-    format!("login exited with code {code}")
+impl AuthError {
+    #[must_use]
+    pub fn with_provider(self, provider: &str) -> Self {
+        Self::ProviderLogin {
+            provider: provider.to_string(),
+            source: Box::new(self),
+        }
+    }
+
+    #[must_use]
+    pub fn message(message: impl Into<String>) -> Self {
+        Self::Message(message.into())
+    }
+}
+
+impl fmt::Display for AuthError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyCommand => write!(f, "login command is empty"),
+            Self::OpenTty(message) => write!(f, "failed to open /dev/tty: {message}"),
+            Self::CloneTty { stream, message } => {
+                write!(f, "failed to clone tty for {stream}: {message}")
+            }
+            Self::SpawnLogin { command, message } => {
+                write!(f, "failed to spawn {command} login: {message}")
+            }
+            Self::LoginExited { code } => match code {
+                Some(code) => write!(f, "login exited with code {code}"),
+                None => write!(f, "login exited with code unknown"),
+            },
+            Self::UnsupportedPlatform => {
+                write!(f, "TTY auth is only supported on Unix platforms")
+            }
+            Self::ProviderLogin { provider, source } => {
+                write!(f, "{provider} auth failed: {source}")
+            }
+            Self::Message(message) => write!(f, "{message}"),
+        }
+    }
+}
+
+impl Error for AuthError {}
+
+/// Result type for login attempts.
+pub type AuthResult = std::result::Result<(), AuthError>;
+
+fn validate_login_command(command: &str) -> std::result::Result<&str, AuthError> {
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return Err(AuthError::EmptyCommand);
+    }
+    Ok(trimmed)
 }
 
 fn login_status_result(status: std::process::ExitStatus) -> AuthResult {
     if status.success() {
         Ok(())
     } else {
-        Err(format_login_exit_error(status))
+        Err(AuthError::LoginExited {
+            code: status.code(),
+        })
     }
 }
 
@@ -45,13 +108,15 @@ pub fn run_login_command(command: &str) -> AuthResult {
             .read(true)
             .write(true)
             .open("/dev/tty")
-            .map_err(|err| format!("failed to open /dev/tty: {err}"))?;
-        let tty_in = tty
-            .try_clone()
-            .map_err(|err| format!("failed to clone tty for stdin: {err}"))?;
-        let tty_out = tty
-            .try_clone()
-            .map_err(|err| format!("failed to clone tty for stdout: {err}"))?;
+            .map_err(|err| AuthError::OpenTty(err.to_string()))?;
+        let tty_in = tty.try_clone().map_err(|err| AuthError::CloneTty {
+            stream: "stdin",
+            message: err.to_string(),
+        })?;
+        let tty_out = tty.try_clone().map_err(|err| AuthError::CloneTty {
+            stream: "stdout",
+            message: err.to_string(),
+        })?;
         let tty_err = tty;
 
         let status = Command::new(trimmed)
@@ -60,7 +125,10 @@ pub fn run_login_command(command: &str) -> AuthResult {
             .stdout(Stdio::from(tty_out))
             .stderr(Stdio::from(tty_err))
             .status()
-            .map_err(|err| format!("failed to spawn {trimmed} login: {err}"))?;
+            .map_err(|err| AuthError::SpawnLogin {
+                command: trimmed.to_string(),
+                message: err.to_string(),
+            })?;
 
         login_status_result(status)
     }
@@ -68,7 +136,7 @@ pub fn run_login_command(command: &str) -> AuthResult {
     #[cfg(not(unix))]
     {
         let _ = trimmed;
-        Err("TTY auth is only supported on Unix platforms".to_string())
+        Err(AuthError::UnsupportedPlatform)
     }
 }
 
@@ -123,7 +191,7 @@ mod tests {
     #[test]
     fn validate_login_command_rejects_blank_input() {
         match validate_login_command("   ") {
-            Err(err) => assert_eq!(err, "login command is empty"),
+            Err(err) => assert_eq!(err.to_string(), "login command is empty"),
             Ok(value) => panic!("blank command should fail, got {value}"),
         }
     }
@@ -146,7 +214,7 @@ mod tests {
     #[test]
     fn login_status_result_formats_failure_exit_code() {
         match login_status_result(failure_status(7)) {
-            Err(err) => assert_eq!(err, "login exited with code 7"),
+            Err(err) => assert_eq!(err.to_string(), "login exited with code 7"),
             Ok(()) => panic!("non-zero exit should fail"),
         }
     }
@@ -154,7 +222,7 @@ mod tests {
     #[test]
     fn run_login_command_rejects_blank_input() {
         match run_login_command("   ") {
-            Err(err) => assert_eq!(err, "login command is empty"),
+            Err(err) => assert_eq!(err.to_string(), "login command is empty"),
             Ok(()) => panic!("blank command should fail"),
         }
     }
@@ -164,12 +232,13 @@ mod tests {
     fn run_login_command_with_missing_command_reports_spawn_or_tty_error() {
         match run_login_command("/definitely/not/a/real/voiceterm-login-command") {
             Err(err) => {
+                let message = err.to_string();
                 assert!(
-                    err.starts_with("failed to open /dev/tty:")
-                        || err.starts_with(
+                    message.starts_with("failed to open /dev/tty:")
+                        || message.starts_with(
                             "failed to spawn /definitely/not/a/real/voiceterm-login-command login:"
                         ),
-                    "unexpected error: {err}"
+                    "unexpected error: {message}"
                 );
             }
             Ok(()) => panic!("missing command should fail"),
@@ -180,7 +249,10 @@ mod tests {
     #[test]
     fn run_login_command_non_unix_reports_unsupported_platform() {
         match run_login_command("codex") {
-            Err(err) => assert_eq!(err, "TTY auth is only supported on Unix platforms"),
+            Err(err) => assert_eq!(
+                err.to_string(),
+                "TTY auth is only supported on Unix platforms"
+            ),
             Ok(()) => panic!("non-unix auth should fail"),
         }
     }

@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from dev.scripts.devctl import cli
-from dev.scripts.devctl.data_science_metrics import run_data_science_snapshot
+from dev.scripts.devctl.data_science.metrics import run_data_science_snapshot
 
 
 def _write_json(path: Path, payload: dict) -> None:

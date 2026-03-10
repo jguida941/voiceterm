@@ -7,46 +7,39 @@ snapshot polling, approval decisions, and subprocess management.
 from __future__ import annotations
 
 import traceback
-from typing import Callable, Mapping
 
-from ..state.activity_assist import build_summary_draft
-from ..state.analytics_snapshot import collect_repo_analytics
-from ..state.activity_reports import build_activity_report, recommended_next_step
-from ..state.job_manager import JobManager, JobStatus
-from ..state.repo_state import build_repo_state
-from ..state.command_builder import (
-    build_launch_command,
-    build_process_audit_command,
-    build_status_command,
-    build_triage_command,
-    build_rollover_command,
-    render_command,
-    evaluate_start_swarm_launch,
-    evaluate_start_swarm_preflight,
-    parse_review_channel_report,
-)
-from ..state.models import (
+from pathlib import Path
+
+from ..state.snapshots.analytics_snapshot import collect_repo_analytics
+from ..state.activity.activity_reports import build_activity_report, recommended_next_step
+from ..collaboration.conversation_state import build_conversation_snapshot
+from ..state.jobs.job_manager import JobManager, JobStatus
+from ..state.repo.repo_state import build_repo_state
+from ..state.core.models import (
     AgentLaneData,
     ApprovalRequest,
     OperatorConsoleSnapshot,
 )
-from ..state.operator_decisions import record_operator_decision
-from ..state.phone_status_snapshot import load_phone_control_snapshot
-from ..state.presentation_state import (
+from ..state.review.operator_decisions import record_operator_decision
+from ..state.snapshots.phone_status_snapshot import load_phone_control_snapshot
+from ..state.snapshots.ralph_guardrail_snapshot import load_ralph_guardrail_snapshot
+from ..state.presentation.presentation_state import (
     AnalyticsViewState,
     build_analytics_view_state,
     build_status_bar_text,
     build_system_banner_state,
     snapshot_digest,
 )
-from ..state.readability import audience_mode_label, resolve_audience_mode
-from ..state.snapshot_builder import build_operator_console_snapshot
+from ..state.core.readability import audience_mode_label, resolve_audience_mode
+from ..state.snapshots.snapshot_builder import build_operator_console_snapshot
+from ..collaboration.task_board_state import build_task_board_snapshot
+from ..collaboration.timeline_builder import build_timeline_from_snapshot
+from ..workflows.workflow_surface_state import build_workflow_surface_state
 from ..theme import resolve_theme
-from .ui_layouts import resolve_layout
-from .widgets import KeyValuePanel, StatusIndicator
+from .layout.ui_layouts import resolve_layout
+from .shared.widgets import KeyValuePanel, StatusIndicator
 
 try:
-    from PyQt6.QtCore import QProcess
     from PyQt6.QtWidgets import QApplication, QLabel
 
     _PYQT_AVAILABLE = True
@@ -88,7 +81,7 @@ class RefreshMixin:
     def refresh_snapshot(self) -> None:
         try:
             self._refresh_snapshot_once()
-        except Exception as exc:  # broad-except: allow reason=desktop refresh loop must convert unexpected failures into visible diagnostics
+        except Exception as exc:  # broad-except: allow reason=desktop refresh loop must convert unexpected failures into visible diagnostics fallback=record error, append dev log, and keep UI running
             error_message = f"{type(exc).__name__}: {exc}"
             self._record_event(
                 "ERROR",
@@ -106,6 +99,7 @@ class RefreshMixin:
         snapshot = build_operator_console_snapshot(self.repo_root)
         repo_analytics = collect_repo_analytics(self.repo_root)
         phone_snapshot = load_phone_control_snapshot(self.repo_root)
+        ralph_snapshot = load_ralph_guardrail_snapshot(self.repo_root)
         repo_state = build_repo_state(self.repo_root)
         analytics_view = build_analytics_view_state(
             snapshot,
@@ -118,29 +112,63 @@ class RefreshMixin:
 
         self._update_lane_panel(self.codex_panel, self.codex_dot, snapshot.codex_lane)
         self._update_lane_panel(self.claude_panel, self.claude_dot, snapshot.claude_lane)
+        self._update_lane_panel(self.cursor_panel, self.cursor_dot, snapshot.cursor_lane)
         self._update_lane_panel(
             self.operator_panel, self.operator_dot, snapshot.operator_lane
         )
 
-        from .ui_scroll import replace_plain_text_preserving_scroll
+        from .shared.ui_scroll import replace_plain_text_preserving_scroll
 
-        replace_plain_text_preserving_scroll(
-            self.codex_session_text,
-            snapshot.codex_session_text,
+        session_panels = (
+            (self.codex_session_text, snapshot.codex_session_text),
+            (self.codex_session_stats_text, snapshot.codex_session_stats_text),
+            (self.codex_session_registry_text, snapshot.codex_session_registry_text),
+            (self.claude_session_text, snapshot.claude_session_text),
+            (self.claude_session_stats_text, snapshot.claude_session_stats_text),
+            (self.claude_session_registry_text, snapshot.claude_session_registry_text),
+            (self.cursor_session_text, snapshot.cursor_session_text),
+            (self.cursor_session_stats_text, snapshot.cursor_session_stats_text),
+            (self.cursor_session_registry_text, snapshot.cursor_session_registry_text),
+            (self.raw_bridge_text, snapshot.raw_bridge_text or "(bridge file missing)"),
         )
-        replace_plain_text_preserving_scroll(
-            self.claude_session_text,
-            snapshot.claude_session_text,
-        )
-        replace_plain_text_preserving_scroll(
-            self.raw_bridge_text,
-            snapshot.raw_bridge_text or "(bridge file missing)",
-        )
+        for widget, content in session_panels:
+            replace_plain_text_preserving_scroll(widget, content)
         self._update_home_page(snapshot, analytics_view)
         self._update_activity_report(snapshot)
         self._update_activity_cards(snapshot)
         self._update_analytics_view(analytics_view)
         self._populate_approvals(snapshot.pending_approvals)
+        self.timeline_panel.set_events(
+            build_timeline_from_snapshot(snapshot, repo_root=self.repo_root)
+        )
+        workflow_state = build_workflow_surface_state(
+            snapshot,
+            repo_state=repo_state,
+            workflow_preset_id=self._workflow_preset_id,
+            swarm_health_label=self.home_workspace.start_swarm_label.text(),
+        )
+        self.workflow_header_bar.set_state(workflow_state)
+        self.workflow_timeline_footer.set_state(workflow_state)
+
+        # Refresh Ralph guardrail dashboard if present
+        ralph_dashboard = getattr(self, "ralph_dashboard", None)
+        if ralph_dashboard is not None:
+            ralph_dashboard.set_snapshot(ralph_snapshot)
+
+        # Refresh team collaboration panels from the same review-state data
+        review_path = (
+            Path(snapshot.review_state_path)
+            if snapshot.review_state_path
+            else None
+        )
+        conversation_snap = build_conversation_snapshot(
+            review_state_path=review_path,
+        )
+        self.conversation_panel.set_conversation(conversation_snap)
+        task_board_snap = build_task_board_snapshot(
+            review_state_path=review_path,
+        )
+        self.task_board_panel.set_board(task_board_snap)
 
         pending_count = len(snapshot.pending_approvals)
         if pending_count > 0:
@@ -190,6 +218,8 @@ class RefreshMixin:
             lane_dot = getattr(self, "_codex_lane_dot", None)
         elif panel is self.claude_panel:
             lane_dot = getattr(self, "_claude_lane_dot", None)
+        elif panel is self.cursor_panel:
+            lane_dot = getattr(self, "_cursor_lane_dot", None)
         elif panel is self.operator_panel:
             lane_dot = getattr(self, "_operator_lane_dot", None)
         if lane_dot is not None:
@@ -205,7 +235,7 @@ class RefreshMixin:
 
     def _update_activity_report(self, snapshot: OperatorConsoleSnapshot) -> None:
         """Build the selected human-readable Activity report from the snapshot."""
-        from .ui_scroll import replace_plain_text_preserving_scroll
+        from .shared.ui_scroll import replace_plain_text_preserving_scroll
 
         self.activity_workspace.set_audience_mode(self._current_audience_mode())
         report = build_activity_report(
@@ -256,7 +286,7 @@ class RefreshMixin:
         repo_state: object | None = None,
     ) -> None:
         """Refresh the footer text in the currently selected audience mode."""
-        from ..state.repo_state import RepoStateSnapshot as _RS
+        from ..state.repo.repo_state import RepoStateSnapshot as _RS
 
         rs = repo_state if isinstance(repo_state, _RS) else None
         self.statusBar().showMessage(
@@ -299,12 +329,26 @@ class RefreshMixin:
             fallback_name="Operator",
             fallback_role="Bridge State",
         )
+        if hasattr(self, "cursor_activity_card"):
+            self._update_activity_card(
+                self.cursor_activity_card,
+                snapshot.cursor_lane,
+                fallback_name="Cursor",
+                fallback_role="Editor",
+            )
         self._update_activity_card(
             self.workbench_operator_card,
             snapshot.operator_lane,
             fallback_name="Operator",
             fallback_role="Bridge State",
         )
+        if hasattr(self, "workbench_cursor_card"):
+            self._update_activity_card(
+                self.workbench_cursor_card,
+                snapshot.cursor_lane,
+                fallback_name="Cursor",
+                fallback_role="Editor",
+            )
 
     def _update_activity_card(
         self,
@@ -359,7 +403,7 @@ class RefreshMixin:
 
     def _update_analytics_view(self, view_state: AnalyticsViewState) -> None:
         """Refresh the analytics dashboard text and KPI cards."""
-        from .ui_scroll import replace_plain_text_preserving_scroll
+        from .shared.ui_scroll import replace_plain_text_preserving_scroll
 
         replace_plain_text_preserving_scroll(self._analytics_text, view_state.text)
         replace_plain_text_preserving_scroll(
@@ -473,6 +517,7 @@ class RefreshMixin:
         if mode_id == self._layout_mode:
             return
         self._switch_layout(mode_id)
+        self._persist_layout_state()
         self._record_event(
             "INFO",
             "layout_changed",
@@ -530,6 +575,7 @@ class RefreshMixin:
         lane = {
             "codex": snapshot.codex_lane,
             "claude": snapshot.claude_lane,
+            "cursor": snapshot.cursor_lane,
             "operator": snapshot.operator_lane,
         }.get(agent_id)
         if lane is None:
@@ -583,495 +629,3 @@ class RefreshMixin:
             },
         )
         self.approval_panel.clear_note()
-
-    # ── Command execution ────────────────────────────────────────
-
-    def launch_dry_run(self) -> None:
-        self._start_command(build_launch_command(live=False))
-
-    def launch_live(self) -> None:
-        if not self._live_terminal_supported:
-            self._reject_live_terminal_action("Launch Live")
-            return
-        self._start_command(build_launch_command(live=True))
-
-    def start_swarm(self) -> None:
-        if not self._live_terminal_supported:
-            self._reject_live_terminal_action(
-                "Start Swarm",
-                update_swarm_status=True,
-            )
-            return
-        preflight_command = build_launch_command(live=False, output_format="json")
-        if not self._start_command(
-            preflight_command,
-            context={"flow": "start_swarm", "step": "preflight"},
-            busy_label="Swarm...",
-        ):
-            return
-        detail = (
-            "Running review-channel dry-run preflight. The live launch will start "
-            "automatically if the preflight stays green."
-        )
-        self._set_start_swarm_status(
-            swarm_level="warning",
-            swarm_label="Swarm Preflight",
-            swarm_detail=detail,
-            command_preview=f"Preflight: {render_command(preflight_command)}",
-        )
-        self._append_output(
-            "[Start Swarm] Dry-run preflight started. Live launch will follow automatically if it passes.\n"
-        )
-        self._record_event(
-            "INFO",
-            "start_swarm_requested",
-            "Operator requested Start Swarm chained launch",
-            details={"step": "preflight"},
-        )
-
-    def rollover_live(self) -> None:
-        if not self._live_terminal_supported:
-            self._reject_live_terminal_action("Rollover")
-            return
-        self._start_command(
-            build_rollover_command(
-                threshold_pct=self.threshold_spin.value(),
-                await_ack_seconds=self.ack_wait_spin.value(),
-                live=True,
-            )
-        )
-
-    def show_ci_status(self) -> None:
-        self._start_command(build_status_command(include_ci=True))
-
-    def run_triage(self) -> None:
-        self._start_command(build_triage_command(include_ci=True))
-
-    def run_process_audit(self) -> None:
-        self._start_command(build_process_audit_command(strict=True))
-
-    def refresh_selected_report(self) -> None:
-        snapshot = getattr(self, "_last_snapshot", None)
-        if snapshot is None:
-            return
-        self._update_activity_report(snapshot)
-
-    def generate_summary_draft(self) -> None:
-        snapshot = getattr(self, "_last_snapshot", None)
-        if snapshot is None:
-            self.statusBar().showMessage(
-                "Refresh the Activity view before generating an AI summary draft."
-            )
-            return
-
-        draft = build_summary_draft(
-            snapshot,
-            report_id=self._current_report_id(),
-            provider_id=self._current_summary_provider_id(),
-            audience_mode=self._current_audience_mode(),
-        )
-        self._assist_text.setPlainText(draft.body)
-        self._assist_meta_label.setText(" | ".join(draft.provenance))
-        self._record_event(
-            "INFO",
-            "summary_draft_generated",
-            "Generated a staged Activity-tab AI summary draft",
-            details={
-                "mode": draft.mode,
-                "title": draft.title,
-                "report_id": self._current_report_id(),
-                "provider_id": self._current_summary_provider_id(),
-                "pending_approvals": len(snapshot.pending_approvals),
-                "warnings": list(snapshot.warnings),
-            },
-        )
-        self.diagnostics.append_command_output(stream_name="assist", text=draft.body)
-        self.statusBar().showMessage(f"{draft.title} ready in the Activity tab.")
-
-    def _current_report_id(self) -> str:
-        report_id = self.activity_workspace.report_selector.currentData()
-        if isinstance(report_id, str) and report_id:
-            return report_id
-        return "overview"
-
-    def _current_audience_mode(self) -> str:
-        return resolve_audience_mode(getattr(self, "_audience_mode", "simple"))
-
-    def _current_summary_provider_id(self) -> str:
-        provider_id = self.activity_workspace.assist_provider_selector.currentData()
-        if isinstance(provider_id, str) and provider_id:
-            return provider_id
-        return "codex"
-
-    def _set_start_swarm_status(
-        self,
-        *,
-        swarm_level: str,
-        swarm_label: str,
-        swarm_detail: str,
-        command_preview: str | None = None,
-    ) -> None:
-        """Mirror Start Swarm state across the visible command surfaces."""
-        self.home_workspace.set_start_swarm_status(
-            level=swarm_level,
-            label=swarm_label,
-            detail=swarm_detail,
-            command_preview=command_preview,
-        )
-        self.activity_workspace.set_start_swarm_status(
-            status_level=swarm_level,
-            status_label=swarm_label,
-            detail=swarm_detail,
-            command_preview=command_preview,
-        )
-
-    def _reject_live_terminal_action(
-        self,
-        action_label: str,
-        *,
-        update_swarm_status: bool = False,
-    ) -> None:
-        """Fail closed when Terminal.app-backed live controls are unavailable."""
-        message = self._live_terminal_support_detail
-        if action_label == "Start Swarm":
-            message += " Use Launch Dry Run to execute the repo-visible preflight only."
-        self._append_output(f"[{action_label}] {message}\n")
-        self._reveal_output_surface("command_output")
-        self._record_event(
-            "WARNING",
-            "live_terminal_gated",
-            f"{action_label} blocked because Terminal.app live launch is unavailable",
-            details={"action": action_label},
-        )
-        self.statusBar().showMessage(message)
-        if update_swarm_status:
-            self._set_start_swarm_status(
-                swarm_level="stale",
-                swarm_label="Swarm Live-Gated",
-                swarm_detail=message,
-                command_preview=(
-                    "Use Launch Dry Run to execute the review-channel preflight "
-                    "without opening Terminal.app sessions."
-                ),
-            )
-
-    def _start_command(
-        self,
-        command: list[str],
-        *,
-        context: dict[str, object] | None = None,
-        busy_label: str | None = None,
-    ) -> bool:
-        if self._process is not None and self._process.state() != QProcess.ProcessState.NotRunning:
-            self._append_output("An Operator Console command is already running.\n")
-            self._reveal_output_surface("command_output")
-            self._record_event(
-                "WARNING",
-                "command_rejected",
-                "Rejected overlapping Operator Console command",
-                details={"command": command},
-            )
-            self.statusBar().showMessage("A command is already running.")
-            return False
-
-        command_label = self._describe_command(command)
-        self._append_output(f"$ {render_command(command)}\n")
-        self._reveal_output_surface("command_output")
-        self._set_command_controls_busy(
-            True,
-            label=busy_label or f"{command_label}...",
-        )
-        self._record_event(
-            "INFO",
-            "command_started",
-            "Starting Operator Console command",
-            details={
-                "command": command,
-                "command_label": command_label,
-                "context": context or {},
-            },
-        )
-        self.statusBar().showMessage(
-            f"{command_label} started. Showing Launcher Output."
-        )
-        process = QProcess(self)
-        process.setWorkingDirectory(str(self.repo_root))
-        process.setProgram(command[0])
-        process.setArguments(command[1:])
-        process.readyReadStandardOutput.connect(
-            lambda: self._handle_process_output(process, "stdout", "INFO")
-        )
-        process.readyReadStandardError.connect(
-            lambda: self._handle_process_output(process, "stderr", "ERROR")
-        )
-        process.finished.connect(self._on_process_finished)
-        self._process = process
-        self._active_command_context = dict(context or {})
-        self._active_command_stdout = ""
-        self._active_command_stderr = ""
-        process.start()
-        return True
-
-    def _handle_process_output(
-        self,
-        process: QProcess,
-        stream_name: str,
-        level: str,
-    ) -> None:
-        raw = (
-            bytes(process.readAllStandardOutput())
-            if stream_name == "stdout"
-            else bytes(process.readAllStandardError())
-        )
-        text = raw.decode("utf-8", errors="replace")
-        if not text:
-            return
-        if stream_name == "stdout":
-            self._active_command_stdout += text
-        else:
-            self._active_command_stderr += text
-        self._append_output(text)
-        self.diagnostics.append_command_output(stream_name=stream_name, text=text)
-        preview = next((line.strip() for line in text.splitlines() if line.strip()), "")
-        if preview:
-            self._record_event(
-                level,
-                f"command_{stream_name}",
-                f"{stream_name} chunk received",
-                details={
-                    "preview": preview[:240],
-                    "line_count": len([line for line in text.splitlines() if line.strip()]),
-                },
-            )
-
-    def _resolve_start_swarm_result(
-        self,
-        *,
-        exit_code: int,
-        stdout: str,
-        stderr: str,
-        evaluator: Callable[[Mapping[str, object]], tuple[bool, str]],
-        invalid_json_message: str,
-        empty_output_message: str,
-    ) -> tuple[bool, str]:
-        stripped_stdout = stdout.strip()
-        if stripped_stdout:
-            try:
-                report = parse_review_channel_report(stripped_stdout)
-            except ValueError:
-                detail = self._first_visible_line(stderr) or invalid_json_message
-                return False, detail
-            return evaluator(report)
-        detail = self._first_visible_line(stderr)
-        if detail:
-            return False, detail
-        if exit_code:
-            return False, empty_output_message
-        return False, invalid_json_message
-
-    def _handle_start_swarm_completion(
-        self,
-        *,
-        step: str,
-        exit_code: int,
-        stdout: str,
-        stderr: str,
-    ) -> bool:
-        if step == "preflight":
-            ok, message = self._resolve_start_swarm_result(
-                exit_code=exit_code,
-                stdout=stdout,
-                stderr=stderr,
-                evaluator=evaluate_start_swarm_preflight,
-                invalid_json_message=(
-                    "Start Swarm preflight failed: review-channel did not return a JSON status report."
-                ),
-                empty_output_message=(
-                    "Start Swarm preflight failed without a readable status payload."
-                ),
-            )
-            if not ok:
-                self._set_start_swarm_status(
-                    swarm_level="stale",
-                    swarm_label="Swarm Blocked",
-                    swarm_detail=message,
-                    command_preview=(
-                        "Last command: "
-                        + render_command(
-                            build_launch_command(live=False, output_format="json")
-                        )
-                    ),
-                )
-                self._append_output(f"[Start Swarm] {message}\n")
-                self._record_event(
-                    "WARNING" if exit_code == 0 else "ERROR",
-                    "start_swarm_preflight_failed",
-                    "Start Swarm preflight blocked live launch",
-                    details={"exit_code": exit_code, "message": message},
-                )
-                return False
-
-            launch_detail = f"{message} Launching live review-channel sessions."
-            live_command = build_launch_command(live=True, output_format="json")
-            if not self._live_terminal_supported:
-                self._set_start_swarm_status(
-                    swarm_level="stale",
-                    swarm_label="Swarm Live-Gated",
-                    swarm_detail=self._live_terminal_support_detail,
-                    command_preview=(
-                        "Use Launch Dry Run to execute the review-channel preflight "
-                        "without opening Terminal.app sessions."
-                    ),
-                )
-                self._append_output(f"[Start Swarm] {self._live_terminal_support_detail}\n")
-                self._record_event(
-                    "WARNING",
-                    "start_swarm_live_gated",
-                    "Start Swarm preflight passed but live launch is Terminal.app-gated",
-                    details={"message": self._live_terminal_support_detail},
-                )
-                return False
-            self._set_start_swarm_status(
-                swarm_level="warning",
-                swarm_label="Swarm Launching",
-                swarm_detail=launch_detail,
-                command_preview=f"Live launch: {render_command(live_command)}",
-            )
-            self._append_output(f"[Start Swarm] {message}\n")
-            self._record_event(
-                "INFO",
-                "start_swarm_preflight_passed",
-                "Start Swarm preflight passed; launching live swarm",
-                details={"message": message},
-            )
-            if not self._start_command(
-                live_command,
-                context={"flow": "start_swarm", "step": "live"},
-                busy_label="Swarm...",
-            ):
-                failure = (
-                    "Start Swarm live launch could not begin because another command is already running."
-                )
-                self._set_start_swarm_status(
-                    swarm_level="stale",
-                    swarm_label="Swarm Failed",
-                    swarm_detail=failure,
-                    command_preview=f"Blocked live launch: {render_command(live_command)}",
-                )
-                self._append_output(f"[Start Swarm] {failure}\n")
-                self._record_event(
-                    "ERROR",
-                    "start_swarm_live_launch_rejected",
-                    "Start Swarm preflight passed but the live launch could not begin",
-                    details={"message": failure},
-                )
-                return False
-            return True
-
-        if step == "live":
-            ok, message = self._resolve_start_swarm_result(
-                exit_code=exit_code,
-                stdout=stdout,
-                stderr=stderr,
-                evaluator=evaluate_start_swarm_launch,
-                invalid_json_message=(
-                    "Start Swarm live launch failed: review-channel did not return a JSON status report."
-                ),
-                empty_output_message=(
-                    "Start Swarm live launch failed without a readable status payload."
-                ),
-            )
-            if ok:
-                self._set_start_swarm_status(
-                    swarm_level="active",
-                    swarm_label="Swarm Running",
-                    swarm_detail=message,
-                    command_preview=(
-                        "Last command: "
-                        + render_command(
-                            build_launch_command(live=True, output_format="json")
-                        )
-                    ),
-                )
-                self._record_event(
-                    "INFO",
-                    "start_swarm_live_ok",
-                    "Start Swarm live launch reported success",
-                    details={"message": message},
-                )
-            else:
-                self._set_start_swarm_status(
-                    swarm_level="stale",
-                    swarm_label="Swarm Failed",
-                    swarm_detail=message,
-                    command_preview=(
-                        "Last command: "
-                        + render_command(
-                            build_launch_command(live=True, output_format="json")
-                        )
-                    ),
-                )
-                self._record_event(
-                    "ERROR" if exit_code else "WARNING",
-                    "start_swarm_live_failed",
-                    "Start Swarm live launch reported failure",
-                    details={"exit_code": exit_code, "message": message},
-                )
-            self._append_output(f"[Start Swarm] {message}\n")
-        return False
-
-    def _on_process_finished(self, exit_code: int, _exit_status: object) -> None:
-        active_context = self._active_command_context or {}
-        stdout = self._active_command_stdout
-        stderr = self._active_command_stderr
-
-        self._append_output(f"\n[process exited with code {exit_code}]\n")
-        self._record_event(
-            "ERROR" if exit_code else "INFO",
-            "command_finished",
-            "Operator Console command finished",
-            details={"exit_code": exit_code, "context": active_context},
-        )
-        self._process = None
-        self._active_command_context = None
-        self._active_command_stdout = ""
-        self._active_command_stderr = ""
-
-        if (
-            active_context.get("flow") == "start_swarm"
-            and isinstance(active_context.get("step"), str)
-            and self._handle_start_swarm_completion(
-                step=active_context["step"],
-                exit_code=exit_code,
-                stdout=stdout,
-                stderr=stderr,
-            )
-        ):
-            return
-
-        self._set_command_controls_busy(False)
-        self.statusBar().showMessage(f"Command finished with exit code {exit_code}.")
-        self._process = None
-        self.refresh_snapshot()
-
-    def _describe_command(self, command: list[str]) -> str:
-        """Return a short operator-facing label for a command."""
-        if "process-audit" in command:
-            return "Process Audit"
-        if "triage" in command:
-            return "Triage"
-        if "status" in command:
-            return "CI Status"
-        if "rollover" in command:
-            return "Rollover"
-        if "--dry-run" in command:
-            return "Dry Run"
-        if "launch" in command:
-            return "Launch"
-        return "Command"
-
-    def _first_visible_line(self, text: str) -> str:
-        for line in text.splitlines():
-            if line.strip():
-                return line.strip()
-        return ""

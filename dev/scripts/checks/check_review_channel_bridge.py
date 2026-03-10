@@ -14,7 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from dev.scripts.devctl.review_channel_handoff import (
+from dev.scripts.devctl.review_channel.handoff import (
     DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS,
     extract_bridge_snapshot,
     validate_live_bridge_contract,

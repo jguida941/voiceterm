@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from dev.scripts.devctl.loop_comment import upsert_comment
+from dev.scripts.devctl.loops.comment import upsert_comment
 
 
 class LoopCommentUpsertTests(unittest.TestCase):

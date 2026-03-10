@@ -28,6 +28,12 @@ policy_for_path = import_attr("code_shape_policy", "policy_for_path")
 evaluate_function_shape_impl = import_attr(
     "code_shape_function_policy", "evaluate_function_shape"
 )
+collect_namespace_layout_violations = import_attr(
+    "code_shape_layout_support", "collect_namespace_layout_violations"
+)
+collect_namespace_docs_sync_violations = import_attr(
+    "code_shape_layout_support", "collect_namespace_docs_sync_violations"
+)
 scan_python_functions_impl = import_attr(
     "code_shape_function_policy", "scan_python_functions"
 )
@@ -355,6 +361,18 @@ def _render_md(report: dict) -> str:
     lines.append(
         f"- stale_override_candidates_skipped: {report['stale_override_candidates_skipped']}"
     )
+    lines.append(
+        f"- namespace_layout_candidates_scanned: {report['namespace_layout_candidates_scanned']}"
+    )
+    lines.append(
+        f"- namespace_layout_violations: {report['namespace_layout_violations']}"
+    )
+    lines.append(
+        f"- namespace_docs_candidates_scanned: {report['namespace_docs_candidates_scanned']}"
+    )
+    lines.append(
+        f"- namespace_docs_violations: {report['namespace_docs_violations']}"
+    )
     lines.append(f"- files_skipped_non_source: {report['files_skipped_non_source']}")
     lines.append(f"- files_skipped_tests: {report['files_skipped_tests']}")
     lines.append(f"- violations: {len(report['violations'])}")
@@ -446,6 +464,10 @@ def main() -> int:
     stale_override_review_window_days = max(args.stale_override_review_window_days, 0)
     stale_override_candidates_scanned = 0
     stale_override_candidates_skipped = 0
+    namespace_layout_candidates_scanned = 0
+    namespace_layout_violations = 0
+    namespace_docs_candidates_scanned = 0
+    namespace_docs_violations = 0
 
     for path in changed_paths:
         policy, policy_source = policy_for_path(path)
@@ -506,6 +528,29 @@ def main() -> int:
             violations.extend(function_shape_violations)
 
     try:
+        if mode != "absolute":
+            layout_violations, namespace_layout_candidates_scanned = (
+                collect_namespace_layout_violations(
+                    repo_root=REPO_ROOT,
+                    changed_paths=changed_paths,
+                    read_text_from_ref=guard.read_text_from_ref,
+                    since_ref=args.since_ref,
+                )
+            )
+            namespace_layout_violations = len(layout_violations)
+            violations.extend(layout_violations)
+            docs_sync_violations, namespace_docs_candidates_scanned = (
+                collect_namespace_docs_sync_violations(
+                    repo_root=REPO_ROOT,
+                    changed_paths=changed_paths,
+                    read_text_from_ref=guard.read_text_from_ref,
+                    read_text_from_worktree=guard.read_text_from_worktree,
+                    since_ref=args.since_ref,
+                )
+            )
+            namespace_docs_violations = len(docs_sync_violations)
+            violations.extend(docs_sync_violations)
+
         violation_paths = {item["path"] for item in violations}
         if stale_override_review_window_days <= 0:
             stale_override_candidates_skipped = len(PATH_POLICY_OVERRIDES)
@@ -553,6 +598,10 @@ def main() -> int:
         "stale_override_review_window_days": stale_override_review_window_days,
         "stale_override_candidates_scanned": stale_override_candidates_scanned,
         "stale_override_candidates_skipped": stale_override_candidates_skipped,
+        "namespace_layout_candidates_scanned": namespace_layout_candidates_scanned,
+        "namespace_layout_violations": namespace_layout_violations,
+        "namespace_docs_candidates_scanned": namespace_docs_candidates_scanned,
+        "namespace_docs_violations": namespace_docs_violations,
         "files_skipped_non_source": files_skipped_non_source,
         "files_skipped_tests": files_skipped_tests,
         "violations": violations,

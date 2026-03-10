@@ -33,6 +33,11 @@ def make_args(**overrides) -> SimpleNamespace:
         emit_bundle=False,
         bundle_dir="dev/reports/report",
         bundle_prefix="devctl-report",
+        quality_backlog=False,
+        quality_backlog_top_n=40,
+        quality_backlog_include_tests=False,
+        python_guard_backlog=False,
+        python_guard_backlog_top_n=20,
         no_parallel=False,
         format="md",
         output=None,
@@ -98,6 +103,34 @@ class ReportCommandTests(unittest.TestCase):
         self.assertTrue(args.emit_bundle)
         self.assertEqual(args.bundle_dir, "/tmp/rust-audit-bundle")
         self.assertEqual(args.bundle_prefix, "rust-audit")
+
+    def test_cli_accepts_quality_backlog_flags(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "report",
+                "--quality-backlog",
+                "--quality-backlog-top-n",
+                "25",
+                "--quality-backlog-include-tests",
+            ]
+        )
+        self.assertTrue(args.quality_backlog)
+        self.assertEqual(args.quality_backlog_top_n, 25)
+        self.assertTrue(args.quality_backlog_include_tests)
+
+    def test_cli_accepts_python_guard_backlog_flags(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "report",
+                "--python-guard-backlog",
+                "--python-guard-backlog-top-n",
+                "15",
+            ]
+        )
+        self.assertTrue(args.python_guard_backlog)
+        self.assertEqual(args.python_guard_backlog_top_n, 15)
 
     @patch("dev.scripts.devctl.commands.report.write_output")
     @patch("dev.scripts.devctl.commands.report.build_project_report")
@@ -235,6 +268,86 @@ class ReportCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.report.write_output")
     @patch("dev.scripts.devctl.commands.report.build_project_report")
+    def test_markdown_includes_quality_backlog_summary(
+        self,
+        mock_build_report,
+        mock_write_output,
+    ) -> None:
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+            "quality_backlog": {
+                "ok": False,
+                "summary": {
+                    "source_files_scanned": 100,
+                    "guard_failures": 2,
+                    "critical_paths": 1,
+                    "high_paths": 2,
+                    "medium_paths": 3,
+                    "low_paths": 4,
+                    "ranked_paths": 10,
+                },
+                "priorities": [
+                    {
+                        "path": "rust/src/bin/voiceterm/dev_panel/review_surface.rs",
+                        "score": 720,
+                        "severity": "critical",
+                        "signals": ["shape:hard", "code_shape:absolute_hard_limit_exceeded"],
+                    }
+                ],
+            },
+        }
+
+        code = report.run(make_args(quality_backlog=True))
+
+        self.assertEqual(code, 0)
+        output = mock_write_output.call_args.args[0]
+        self.assertIn("## Quality Backlog", output)
+        self.assertIn("source_files_scanned: 100", output)
+        self.assertIn("severities: critical=1", output)
+        self.assertIn("review_surface.rs", output)
+
+    @patch("dev.scripts.devctl.commands.report.write_output")
+    @patch("dev.scripts.devctl.commands.report.build_project_report")
+    def test_markdown_includes_python_guard_backlog_summary(
+        self,
+        mock_build_report,
+        mock_write_output,
+    ) -> None:
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+            "python_guard_backlog": {
+                "mode": "working-tree",
+                "ok": False,
+                "summary": {
+                    "guard_count": 5,
+                    "guard_failures": 2,
+                    "active_paths": 3,
+                    "total_active_findings": 9,
+                    "top_risk_score": 710,
+                },
+                "hotspots": [
+                    {
+                        "path": "app/operator_console/views/main_window.py",
+                        "score": 710,
+                        "count": 4,
+                        "guard_count": 2,
+                    }
+                ],
+            },
+        }
+
+        code = report.run(make_args(python_guard_backlog=True))
+
+        self.assertEqual(code, 0)
+        output = mock_write_output.call_args.args[0]
+        self.assertIn("## Python Guard Backlog", output)
+        self.assertIn("- guard_failures: 2", output)
+        self.assertIn("main_window.py: score=710", output)
+
+    @patch("dev.scripts.devctl.commands.report.write_output")
+    @patch("dev.scripts.devctl.commands.report.build_project_report")
     def test_parallel_flag_forwarded_to_build_report(
         self,
         mock_build_report,
@@ -331,6 +444,54 @@ class ReportCommandTests(unittest.TestCase):
         self.assertEqual(call_kwargs["rust_audit_mode"], "commit-range")
         self.assertEqual(call_kwargs["rust_audit_since_ref"], "origin/develop")
         self.assertEqual(call_kwargs["rust_audit_head_ref"], "HEAD~1")
+
+    @patch("dev.scripts.devctl.commands.report.write_output")
+    @patch("dev.scripts.devctl.commands.report.build_project_report")
+    def test_quality_backlog_flags_forwarded_to_build_report(
+        self,
+        mock_build_report,
+        _mock_write_output,
+    ) -> None:
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+        }
+        report.run(
+            make_args(
+                quality_backlog=True,
+                quality_backlog_top_n=12,
+                quality_backlog_include_tests=True,
+            )
+        )
+        call_kwargs = mock_build_report.call_args.kwargs
+        self.assertTrue(call_kwargs["include_quality_backlog"])
+        self.assertEqual(call_kwargs["quality_backlog_top_n"], 12)
+        self.assertTrue(call_kwargs["quality_backlog_include_tests"])
+
+    @patch("dev.scripts.devctl.commands.report.write_output")
+    @patch("dev.scripts.devctl.commands.report.build_project_report")
+    def test_python_guard_backlog_flags_forwarded_to_build_report(
+        self,
+        mock_build_report,
+        _mock_write_output,
+    ) -> None:
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+        }
+        report.run(
+            make_args(
+                python_guard_backlog=True,
+                python_guard_backlog_top_n=9,
+                since_ref="origin/develop",
+                head_ref="HEAD~1",
+            )
+        )
+        call_kwargs = mock_build_report.call_args.kwargs
+        self.assertTrue(call_kwargs["include_python_guard_backlog"])
+        self.assertEqual(call_kwargs["python_guard_backlog_top_n"], 9)
+        self.assertEqual(call_kwargs["python_guard_since_ref"], "origin/develop")
+        self.assertEqual(call_kwargs["python_guard_head_ref"], "HEAD~1")
 
     @patch("dev.scripts.devctl.commands.report.write_output")
     @patch("dev.scripts.devctl.commands.report.run_cmd")

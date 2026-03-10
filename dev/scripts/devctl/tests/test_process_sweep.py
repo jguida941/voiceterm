@@ -6,7 +6,7 @@ import subprocess
 from unittest import TestCase
 from unittest.mock import patch
 
-from dev.scripts.devctl import process_sweep
+from dev.scripts.devctl.process_sweep import core as process_sweep
 
 
 class ProcessSweepTests(TestCase):
@@ -51,7 +51,7 @@ class ProcessSweepTests(TestCase):
         self.assertIn("pid=101", lines[2])
         self.assertEqual(lines[3], "- ... 1 more cleanup targets")
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_voiceterm_test_binaries_matches_path_and_basename(
         self, run_mock
     ) -> None:
@@ -78,7 +78,7 @@ class ProcessSweepTests(TestCase):
             any("cargo test --bin voiceterm" in row["command"] for row in rows)
         )
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_voiceterm_test_binaries_respects_skip_pid(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess(
             process_sweep.PROCESS_SWEEP_CMD,
@@ -96,7 +96,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["pid"], 223)
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_voiceterm_test_binaries_matches_stale_stress_screen_sessions(
         self, run_mock
     ) -> None:
@@ -128,7 +128,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual([row["pid"] for row in stale], [11])
         self.assertEqual([row["pid"] for row in recent], [12, 13])
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_voiceterm_test_process_tree_includes_descendants(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess(
             process_sweep.PROCESS_SWEEP_CMD,
@@ -185,7 +185,7 @@ class ProcessSweepTests(TestCase):
 
         self.assertEqual([row["pid"] for row in expanded], [102, 101, 100])
 
-    @patch("dev.scripts.devctl.process_sweep.os.kill")
+    @patch("dev.scripts.devctl.process_sweep.internals.os.kill")
     def test_kill_processes_stops_descendants_before_parents(self, kill_mock) -> None:
         rows = [
             {"pid": 100, "elapsed_seconds": 400, "lineage_depth": 0},
@@ -199,7 +199,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(killed, [102, 101, 100])
         self.assertEqual([call.args[0] for call in kill_mock.call_args_list], [102, 101, 100])
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_tooling_process_tree_includes_descendants(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
@@ -235,9 +235,9 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[0]["match_scope"], "repo_tooling")
         self.assertEqual(rows[1]["match_source"], "descendant")
 
-    @patch("dev.scripts.devctl.process_sweep.os.getpid", return_value=900)
-    @patch("dev.scripts.devctl.process_sweep.os.getppid", return_value=901)
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.os.getpid", return_value=900)
+    @patch("dev.scripts.devctl.process_sweep.scans.os.getppid", return_value=901)
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_tooling_process_tree_skips_current_ancestor_tree(
         self,
         run_mock,
@@ -279,7 +279,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(warnings, [])
         self.assertEqual([row["pid"] for row in rows], [902, 903])
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_tooling_process_tree_matches_direct_repo_scripts(
         self, run_mock
     ) -> None:
@@ -318,7 +318,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[0]["match_scope"], "repo_tooling")
         self.assertEqual(rows[2]["match_source"], "direct")
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_tooling_process_tree_ignores_attached_interactive_generic_helpers(
         self, run_mock
     ) -> None:
@@ -348,7 +348,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(warnings, [])
         self.assertEqual([row["pid"] for row in rows], [341, 342])
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_tooling_process_tree_matches_tty_attached_repo_helpers(
         self, run_mock
     ) -> None:
@@ -380,7 +380,39 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[0]["match_scope"], "repo_tooling")
         self.assertEqual(rows[1]["match_source"], "descendant")
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
+    def test_scan_repo_tooling_process_tree_matches_tty_attached_pytest_helpers(
+        self, run_mock
+    ) -> None:
+        run_mock.side_effect = [
+            subprocess.CompletedProcess(
+                process_sweep.PROCESS_SWEEP_CMD,
+                0,
+                stdout=(
+                    "360 77 ttys035 15:25 /opt/homebrew/bin/pytest app/operator_console/tests -q\n"
+                    "361 360 ttys035 15:24 cat\n"
+                    "362 77 ttys036 15:25 /usr/bin/python3 -\n"
+                ),
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "360"],
+                0,
+                stdout=(
+                    "p360\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
+                ).encode("utf-8"),
+                stderr=b"",
+            ),
+        ]
+
+        rows, warnings = process_sweep.scan_repo_tooling_process_tree(skip_pid=9999)
+
+        self.assertEqual(warnings, [])
+        self.assertEqual([row["pid"] for row in rows], [360, 361])
+        self.assertEqual(rows[0]["match_scope"], "repo_tooling")
+        self.assertEqual(rows[1]["match_source"], "descendant")
+
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_background_process_tree_matches_repo_cwd_helpers(
         self, run_mock
     ) -> None:
@@ -414,7 +446,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[0]["match_scope"], "repo_background")
         self.assertEqual(rows[1]["match_scope"], "repo_background")
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_background_process_tree_matches_direct_shell_script_wrappers(
         self, run_mock
     ) -> None:
@@ -448,7 +480,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[0]["match_scope"], "repo_background")
         self.assertEqual(rows[1]["match_scope"], "repo_background")
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_background_process_tree_matches_tty_attached_orphan_repo_helpers(
         self, run_mock
     ) -> None:
@@ -482,7 +514,41 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[0]["match_scope"], "repo_background")
         self.assertEqual(rows[1]["match_source"], "descendant")
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
+    def test_scan_repo_background_process_tree_matches_detached_pytest_helpers(
+        self, run_mock
+    ) -> None:
+        run_mock.side_effect = [
+            subprocess.CompletedProcess(
+                process_sweep.PROCESS_SWEEP_CMD,
+                0,
+                stdout=(
+                    "328 1 ?? 12:00 /opt/homebrew/bin/pytest app/operator_console/tests -q\n"
+                    "329 328 ?? 11:59 cat\n"
+                    "330 1 ?? 12:00 /usr/bin/python3 -\n"
+                ),
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "328,329,330"],
+                0,
+                stdout=(
+                    "p328\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
+                    "p329\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
+                    "p330\0fcwd\0n/tmp/elsewhere\0"
+                ).encode("utf-8"),
+                stderr=b"",
+            ),
+        ]
+
+        rows, warnings = process_sweep.scan_repo_background_process_tree(skip_pid=9999)
+
+        self.assertEqual(warnings, [])
+        self.assertEqual([row["pid"] for row in rows], [328, 329])
+        self.assertEqual(rows[0]["match_scope"], "repo_background")
+        self.assertEqual(rows[1]["match_scope"], "repo_background")
+
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_background_process_tree_does_not_treat_bare_system_commands_as_repo_paths(
         self, run_mock
     ) -> None:
@@ -512,7 +578,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(warnings, [])
         self.assertEqual(rows, [])
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_lookup_process_cwds_parses_newline_prefixed_lsof_tokens(
         self, run_mock
     ) -> None:
@@ -525,7 +591,7 @@ class ProcessSweepTests(TestCase):
             stderr=b"",
         )
 
-        cwd_map, warnings = process_sweep._lookup_process_cwds([{"pid": 330}])
+        cwd_map, warnings = process_sweep.lookup_process_cwds([{"pid": 330}])
 
         self.assertEqual(warnings, [])
         self.assertEqual(
@@ -533,7 +599,7 @@ class ProcessSweepTests(TestCase):
             {330: "/Users/jguida941/testing_upgrade/codex-voice"},
         )
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_background_process_tree_ignores_bare_relative_app_helpers(
         self, run_mock
     ) -> None:
@@ -563,7 +629,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(warnings, [])
         self.assertEqual([row["pid"] for row in rows], [521])
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_runtime_process_tree_matches_repo_cwd_cargo_commands(
         self, run_mock
     ) -> None:
@@ -596,7 +662,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[0]["match_scope"], "repo_runtime")
         self.assertEqual(rows[1]["match_source"], "descendant")
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_hygiene_process_tree_merges_voiceterm_tooling_and_background(
         self, run_mock
     ) -> None:
@@ -674,7 +740,7 @@ class ProcessSweepTests(TestCase):
             ],
         )
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_runtime_process_tree_ignores_relative_binary_outside_this_checkout(
         self, run_mock
     ) -> None:
@@ -704,7 +770,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(warnings, [])
         self.assertEqual(rows, [])
 
-    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_tooling_process_tree_ignores_relative_scripts_outside_this_checkout(
         self, run_mock
     ) -> None:

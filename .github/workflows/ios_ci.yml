@@ -1,0 +1,68 @@
+# Purpose: Runs iOS/Swift CI checks (Swift package build, tests, Xcode app build).
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
+name: iOS CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    paths:
+      - "app/ios/**"
+      - ".github/workflows/ios_ci.yml"
+  pull_request:
+    paths:
+      - "app/ios/**"
+      - ".github/workflows/ios_ci.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swift-test:
+    name: swift-test
+    runs-on: macos-14
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: app/ios/VoiceTermMobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Resolve Swift version
+        run: swift --version
+
+      - name: swift test
+        run: swift test
+
+  xcode-build:
+    name: xcode-build
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: app/ios/VoiceTermMobileApp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Resolve Xcode version
+        run: xcodebuild -version
+
+      - name: Build for iOS Simulator
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -project VoiceTermMobileApp.xcodeproj \
+            -scheme VoiceTermMobileApp \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO

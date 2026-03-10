@@ -116,7 +116,7 @@ def run_verify_checks(
             index, name, cmd = futures[future]
             try:
                 ordered_results[index] = future.result()
-            except Exception as exc:  # pragma: no cover - broad-except: allow reason=parallel verification worker failures must be folded into ordered step results
+            except Exception as exc:  # pragma: no cover - broad-except: allow reason=parallel verification worker failures must be folded into ordered step results fallback=convert worker failure into ordered step result payload
                 ordered_results[index] = _verify_exception_result(name, cmd, exc)
     return [result for result in ordered_results if result is not None]
 

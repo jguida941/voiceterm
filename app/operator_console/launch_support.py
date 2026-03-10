@@ -10,6 +10,25 @@ from site import addsitedir, getusersitepackages
 
 from .logging_support import OperatorConsoleDiagnostics
 
+DEFAULT_PYTHON_COMMAND = "python3"
+MODULE_ENTRYPOINT = "app.operator_console.run"
+SHELL_LAUNCHER = "./scripts/operator_console.sh"
+
+
+def preferred_launcher_command() -> str:
+    """Return the canonical shell launcher for operators."""
+    return SHELL_LAUNCHER
+
+
+def manual_module_launch_command(*, python_command: str = DEFAULT_PYTHON_COMMAND) -> str:
+    """Return the canonical direct Python-module launch fallback."""
+    return f"{python_command} -m {MODULE_ENTRYPOINT}"
+
+
+def manual_pyqt6_install_command(*, python_command: str = DEFAULT_PYTHON_COMMAND) -> str:
+    """Return the operator-facing manual install fallback for ``PyQt6``."""
+    return f"{python_command} -m pip install PyQt6"
+
 
 def pyqt6_installed() -> bool:
     """Return whether ``PyQt6`` is importable in the current interpreter."""

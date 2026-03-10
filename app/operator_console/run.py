@@ -32,7 +32,7 @@ from app.operator_console.launch_support import ensure_pyqt6_installed
 def build_parser() -> argparse.ArgumentParser:
     """Return the CLI parser for the optional desktop Operator Console."""
     from app.operator_console.theme import available_theme_ids
-    from app.operator_console.views.ui_layouts import available_layout_ids
+    from app.operator_console.views.layout.ui_layouts import available_layout_ids
 
     default_log_root = "dev/reports/review_channel/operator_console"
     parser = argparse.ArgumentParser(
@@ -139,7 +139,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             details={"exit": str(exc)},
         )
         raise
-    except Exception as exc:  # broad-except: allow reason=startup crash logging must capture fatal diagnostics before re-raising
+    except Exception as exc:  # broad-except: allow reason=startup crash logging must capture fatal diagnostics before re-raising fallback=re-raise after diagnostics are recorded
         diagnostics.log(
             level="ERROR",
             event="fatal_exception",

@@ -8,8 +8,8 @@ from pathlib import Path
 
 from ..common import cmd_str, emit_output, pipe_output, run_cmd, write_output
 from ..config import REPO_ROOT
-from ..process_sweep import path_is_under_repo
-from ..process_sweep_config import (
+from ..process_sweep.core import path_is_under_repo
+from ..process_sweep.config import (
     REPO_RUNTIME_CARGO_RE,
     REPO_RUNTIME_RELATIVE_TARGET_BINARY_RE,
     REPO_RUNTIME_TARGET_BINARY_RE,

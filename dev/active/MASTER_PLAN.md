@@ -13,6 +13,8 @@
 - `dev/active/ide_provider_modularization.md` is the IDE/provider adapter modularization execution spec; implementation tasks stay in this file under `MP-346`, `MP-354`.
 - `dev/active/review_channel.md` now carries the merged markdown-swarm lane plan,
   instruction log, and signoff template for the current Codex/Claude parallel cycle.
+- `dev/active/ralph_guardrail_control_plane.md` is the Ralph guardrail control plane execution spec; implementation tasks stay in this file under `MP-360..MP-367`.
+- `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
 ## Status Snapshot (2026-03-07)
@@ -139,6 +141,23 @@
   row `2331` was rerun end-to-end and remains green after canonicalizing
   duplication-audit helper ownership and removing stale archive path literals
   from active docs/changelog.
+- MP-347 guard-utility expansion update (2026-03-09): `devctl report` now
+  supports `--python-guard-backlog` with ranked hotspot aggregation across
+  `check_python_dict_schema`, `check_python_global_mutable`,
+  `check_parameter_count`, `check_nesting_depth`, `check_god_class`,
+  `check_python_broad_except`, and `check_python_subprocess_policy`, so Python
+  clean-code debt can be burned down in priority order before stricter lane
+  promotion.
+- MP-347 broad-except hardening update (2026-03-09):
+  `check_python_broad_except.py` now treats bare `except:` handlers as
+  broad-except policy violations, and newly added fail-soft plotting/telemetry
+  paths in devctl autonomy/data-science helpers now carry explicit
+  `broad-except: allow reason=...` rationale comments.
+- MP-347 mutable-state hardening update (2026-03-09):
+  `check_python_global_mutable.py` now also enforces non-regressive growth of
+  mutable default argument patterns (`[]`, `{}`, `set()/list()/dict()` style
+  defaults) so Python mutable-state pitfalls are blocked even when `global`
+  keywords are not involved.
 - MP-350 closure update (2026-03-05): additive read-only MCP adapter
   implementation is complete with code-level contract helpers/tests for
   `check --profile release`, `ship --verify`, and cleanup protections;
@@ -798,8 +817,8 @@ Theme Studio mandatory verification bundle (per PR):
 - [x] MP-262 Publish a full senior-level engineering audit baseline in `dev/archive/2026-02-20-senior-engineering-audit.md` with measured code-shape, lint-debt, CI hardening, and automation findings mapped to executable follow-up MPs.
 - [x] MP-263 Harden GitHub Actions supply-chain posture: pin third-party actions by commit SHA, define explicit least-privilege `permissions:` on every workflow, and add `concurrency:` groups where duplicate in-flight runs can race or waste minutes (landed by pinning all workflow action refs to 40-char SHAs across `.github/workflows/*.yml`, adding explicit `permissions:`/`concurrency:` blocks to every workflow, and narrowing write scope to job-level where badge-update pushes require `contents: write`).
 - [x] MP-264 Add repository ownership and dependency automation baseline by introducing `.github/CODEOWNERS` and `.github/dependabot.yml` (grouped update policies + review routing) so tooling/runtime changes always have accountable reviewers and timely dependency refresh cadence (landed with explicit ownership coverage for runtime/tooling/distribution paths and weekly grouped update policies for GitHub Actions, Cargo, and PyPI packaging surfaces).
-- [ ] MP-265 Decompose oversized runtime modules with explicit shape budgets and staged extraction plans (top hotspots: `event_loop/input_dispatch.rs`, `status_line/format.rs`, `status_line/buttons.rs`, `theme/rule_profile.rs`, `theme/style_pack.rs`, `transcript_history.rs`; next maintainability-audit tranche should prioritize `event_loop.rs`, `main.rs`, `dev_command/{broker,review_artifact,command_state}.rs`, and `dev_panel/{review_surface,cockpit_page/mod}.rs`) while preserving non-regression behavior coverage (in progress: `dev/scripts/checks/check_code_shape.py` now enforces path-level non-growth budgets for the hotspot files so decomposition work is CI-measurable instead of policy-only; `event_loop/input_dispatch.rs` overlay-mode handling was extracted into `event_loop/input_dispatch/overlay.rs` + `event_loop/input_dispatch/overlay/overlay_mouse.rs`; prior slice extracted status-line right-panel formatting/animation helpers from `status_line/format.rs` into `status_line/right_panel.rs`; latest slices move minimal-HUD right-panel scene/waveform/pulse helpers from `status_line/buttons.rs` into `status_line/right_panel.rs` and extract queue/wake/latency badge formatting into `status_line/buttons/badges.rs`, reducing `status_line/buttons.rs` from 1059 to 801 lines while keeping focused status-line tests green; newest slices extract compact/minimal HUD helpers into `status_line/format/compact.rs`, then move single-line layout helpers into `status_line/format/single_line.rs`, reduce `theme/rule_profile.rs` by moving inline tests into `theme/rule_profile/tests.rs` (`922 -> 265`), and move writer-state test-only timing constants from `writer/state.rs` into `writer/state/tests.rs` so production writer modules remain runtime-focused; raised file-shape overrides were removed with focused runtime suites and clippy reruns green, and writer message routing remains split across `writer/state/dispatch.rs` plus `writer/state/dispatch_pty.rs` after retiring temporary dispatch/redraw/prompt complexity exceptions).
-- [ ] MP-266 Burn down Rust lint-debt hotspots by reducing `#[allow(...)]` surface area and non-test `unwrap/expect` usage, then add measurable gates/reporting so debt cannot silently regress (in progress: landed `dev/scripts/checks/check_rust_lint_debt.py` with working-tree + commit-range modes, wired governance bundles/docs references, and added tooling-control-plane CI enforcement so changed Rust files cannot add net-new lint debt without an explicit failure signal; latest slice removes 22 `#[allow(dead_code)]` suppressions by scoping PTY counter helper APIs/re-exports to tests in `pty_session/counters.rs` + `pty_session/mod.rs`, with full `devctl check --profile ci` and lifecycle matrix test coverage green).
+- [ ] MP-265 Decompose oversized runtime modules with explicit shape budgets and staged extraction plans (top hotspots: `event_loop/input_dispatch.rs`, `status_line/format.rs`, `status_line/buttons.rs`, `theme/rule_profile.rs`, `theme/style_pack.rs`, `transcript_history.rs`; next maintainability-audit tranche should prioritize `event_loop.rs`, `main.rs`, `dev_command/{broker,review_artifact,command_state}.rs`, and `dev_panel/{review_surface,cockpit_page/mod}.rs`) while preserving non-regression behavior coverage (in progress: `dev/scripts/checks/check_code_shape.py` now enforces path-level non-growth budgets for the hotspot files so decomposition work is CI-measurable instead of policy-only; `event_loop/input_dispatch.rs` overlay-mode handling was extracted into `event_loop/input_dispatch/overlay.rs` + `event_loop/input_dispatch/overlay/overlay_mouse.rs`; prior slice extracted status-line right-panel formatting/animation helpers from `status_line/format.rs` into `status_line/right_panel.rs`; latest slices move minimal-HUD right-panel scene/waveform/pulse helpers from `status_line/buttons.rs` into `status_line/right_panel.rs` and extract queue/wake/latency badge formatting into `status_line/buttons/badges.rs`, reducing `status_line/buttons.rs` from 1059 to 801 lines while keeping focused status-line tests green; newest slices extract compact/minimal HUD helpers into `status_line/format/compact.rs`, then move single-line layout helpers into `status_line/format/single_line.rs`, reduce `theme/rule_profile.rs` by moving inline tests into `theme/rule_profile/tests.rs` (`922 -> 265`), and move writer-state test-only timing constants from `writer/state.rs` into `writer/state/tests.rs` so production writer modules remain runtime-focused; raised file-shape overrides were removed with focused runtime suites and clippy reruns green, writer message routing remains split across `writer/state/dispatch.rs` plus `writer/state/dispatch_pty.rs` after retiring temporary dispatch/redraw/prompt complexity exceptions, and the newest Rust-overlay cleanup split `dev_panel/review_surface.rs` lane helpers plus `dev_panel/cockpit_page/mod.rs` control sections into focused sibling modules (`review_surface_lanes.rs`, `cockpit_page/control_sections.rs`) so both Dev-panel hotspots now sit well below their prior shape-risk thresholds).
+- [ ] MP-266 Burn down Rust lint-debt hotspots by reducing `#[allow(...)]` surface area and non-test `unwrap/expect` usage, then add measurable gates/reporting so debt cannot silently regress (in progress: landed `dev/scripts/checks/check_rust_lint_debt.py` with working-tree + commit-range modes, wired governance bundles/docs references, and added tooling-control-plane CI enforcement so changed Rust files cannot add net-new lint debt without an explicit failure signal; latest slice removes 22 `#[allow(dead_code)]` suppressions by scoping PTY counter helper APIs/re-exports to tests in `pty_session/counters.rs` + `pty_session/mod.rs`, with full `devctl check --profile ci` and lifecycle matrix test coverage green; newest enforcement slice keeps AI-guard scripts enabled in `check --profile quick|fast` so default local iteration and post-test quick follow-up paths no longer skip structural/code-quality guards by profile default).
 - [ ] MP-267 Run a naming/API cohesion pass across theme/event-loop/status/memory surfaces to remove ambiguous names, tighten public API intent, and consolidate duplicated helper logic into shared modules (`dev/active/naming_api_cohesion.md`; in progress: canonical `swarm_run` command naming now enforced in parser/dispatch/workflow/docs with no legacy alias in active command paths, duplicate triage/mutation policy engines consolidated into shared `loop_fix_policy.py` helper with tests, duplicated devctl numeric parsing consolidated into `dev/scripts/devctl/numeric.py` (`to_int`/`to_float`/`to_optional_float`) with callsite rewiring, Theme Studio list navigation consolidated under shared `theme_studio/nav.rs` with consistent `select_prev`/`select_next` naming across page state + input-dispatch call paths, and prompt-occlusion suppression transitions extracted into `event_loop/prompt_occlusion.rs` so output/input/periodic dispatchers share one runtime owner for suppression side effects).
 - [x] MP-268 Codify a Rust-reference-first engineering quality contract in `AGENTS.md` and `dev/DEVELOPMENT.md`, including mandatory official-doc reference pack links and handoff evidence requirements for non-trivial Rust changes.
 - [ ] MP-269 Add Theme Studio style-pack hot reload (`notify` watcher + debounce + deterministic rollback-safe apply path) so theme iteration does not require restarting VoiceTerm.
@@ -824,14 +843,14 @@ Memory Studio execution gate: MP-230..MP-255 are governed by
 documented `MS-G*` pass evidence.
 
 - [x] MP-230 Establish canonical memory event schema + storage foundation (JSONL append log + SQLite index) for machine-usable local memory (`MS-G01`, `MS-G02`).
-- [ ] MP-231 Implement deterministic retrieval APIs (topic/task/time/semantic) with provenance-tagged ranking and bounded token budgets (`MS-G03`, `MS-G04`, `MS-G18`, `MS-G19`). Current proving substrate is the shipped in-memory index plus `boot_pack` / `task_pack`; a 2026-03-09 follow-up now auto-extracts bounded `MP-*` refs, repo file paths, and small topic tags on live ingest so `ByTask` / `ByTopic` retrieval and `task_pack` generation no longer depend on manually tagged events alone. The immediate next slice is scoring-trace + query/export closure in the operator cockpit before broader browser UX.
+- [ ] MP-231 Implement deterministic retrieval APIs (topic/task/time/semantic) with provenance-tagged ranking and bounded token budgets (`MS-G03`, `MS-G04`, `MS-G18`, `MS-G19`). Current proving substrate is the shipped in-memory index plus `boot_pack` / `task_pack`; 2026-03-09 follow-ups now auto-extract bounded `MP-*` refs, repo file paths, and small topic tags on live ingest and emit operator-cockpit export artifacts for `task_pack`, `session_handoff`, and `survival_index`. The first scoring-trace/query-evidence closure slice is now live in `memory/survival_index.rs` and Memory cockpit exports (`query_traces` + deduplicated evidence rows); remaining scope is broader semantic/topic ranking coverage and browser-level retrieval UX.
 - [x] MP-232 Ship context-pack generation (`context_pack.json` + `context_pack.md`) for AI boot/handoff workflows with explicit evidence references (`MS-G03`, `MS-G07`).
-- [ ] MP-233 Deliver Memory Browser overlay (filter/expand/scroll/replay-safe controls) with keyboard+mouse parity (`MS-G06`, `MS-G20`). Current proving path should surface memory status/query/export views inside the Rust operator cockpit first, then expand into the fuller Memory Browser once the cross-plan operator flow is stable. The shipped proof is broader now: Control-tab memory status, a dedicated read-only Memory cockpit tab backed by ingest/review/boot-pack/handoff previews, and the Boot-pack-backed Handoff preview are live, while `task_pack`, `session_handoff`, and `survival_index` query/export closure is still pending.
+- [ ] MP-233 Deliver Memory Browser overlay (filter/expand/scroll/replay-safe controls) with keyboard+mouse parity (`MS-G06`, `MS-G20`). Current proving path should surface memory status/query/export views inside the Rust operator cockpit first, then expand into the fuller Memory Browser once the cross-plan operator flow is stable. The shipped proof is broader now: Control-tab memory status, a dedicated read-only Memory cockpit tab backed by ingest/review/boot-pack/handoff previews, the Boot-pack-backed Handoff preview, and repo-visible JSON/Markdown exports for `boot_pack`, `task_pack`, `session_handoff`, and the first `survival_index` preview are live. Remaining open scope is the full browser UX plus attach-by-ref/state-flow integration on top of those exports.
 - [ ] MP-234 Deliver Action Center overlay with policy-tiered command execution (read-only/confirm-required/blocked), preview/approval flow, and action-run audit logging (`MS-G05`, `MS-G06`). Action policy/catalog scaffolding already exists in `memory/action_audit.rs`; this scope still needs runtime approval flows, audit wiring, and convergence with the MP-340 typed action router so memory-derived suggestions, overlay buttons, and review-channel requests share one approval/waiver model instead of parallel executors.
 - [ ] MP-235 Add memory governance controls (retention, redaction hooks, per-project isolation) and regression tests for bounded growth/privacy invariants (`MS-G04`, `MS-G05`). Redaction plus retention-GC foundation is already shipped in `memory/governance.rs`; remaining scope is user-facing policy wiring, isolation profiles, and regression coverage.
 - [ ] MP-236 Complete docs + release readiness for Memory Studio (architecture/user docs/changelog + CI evidence bundle) (`MS-G07`, `MS-G08`).
 - [ ] MP-237 Add memory-evaluation harness and quality gates (`precision@k`, evidence coverage, deterministic pack snapshots, latency budgets) for release blocking (`MS-G03`, `MS-G04`, `MS-G08`).
-- [ ] MP-238 Add model-adapter interop for context packs (Codex/Claude-compatible pack rendering while preserving canonical JSON provenance, including review-channel/controller handoff attachments) (`MS-G03`, `MS-G07`, `MS-G08`). Current runtime proof already builds a boot-pack-backed fresh bootstrap prompt in the Rust handoff cockpit, and the typed Rust action catalog now carries review launch/rollover plus pause/resume actions with JSON summary rendering, but bridge-era handoffs are still markdown/JSON bundle projections only; missing scope is structured `review_state` / `controller_state` artifacts, attach-by-ref `context_pack_refs`, provider-shaped review/control attachments, and packet-outcome ingest parity.
+- [ ] MP-238 Add model-adapter interop for context packs (Codex/Claude-compatible pack rendering while preserving canonical JSON provenance, including review-channel/controller handoff attachments) (`MS-G03`, `MS-G07`, `MS-G08`). Current runtime proof already builds a boot-pack-backed fresh bootstrap prompt in the Rust handoff cockpit, the Memory cockpit now emits repo-visible JSON/Markdown exports for `boot_pack`, `task_pack`, `session_handoff`, and `survival_index`, and the typed Rust action catalog carries review launch/rollover plus pause/resume actions with JSON summary rendering. Structured `review_state` attach-by-ref is now partially landed: event-backed review packets preserve `context_pack_refs` into reduced state/actions projections, Rust review surfaces/fresh prompts render those refs read-only, and the PyQt6 operator approval path keeps them lossless through decision artifacts. Missing scope is `controller_state` parity, broader provider-shaped review/control attachments, and packet-outcome ingest parity.
 - [ ] MP-240 Add validated Memory Cards as a derived-truth layer (decision/project_fact/procedure/gotcha/task_state/glossary) with evidence links, TTL policies, and branch-aware validation-before-injection (`MS-G03`, `MS-G09`).
 - [x] MP-241 Wire dev tooling and git intelligence into memory ingestion (`devctl status/report`, release-notes artifacts, git range summaries) and ship compiler outputs (`project_synopsis`, `session_handoff`, `change_digest`) in JSON+MD (`MS-G02`, `MS-G10`).
 - [ ] MP-242 Ship read-only MCP memory exposure (resources + tools for search/context packs/validation) with deterministic provenance payloads and policy-safe defaults (`MS-G03`, `MS-G11`).
@@ -851,11 +870,15 @@ documented `MS-G*` pass evidence.
 2026-03-09 implementation alignment for the memory lane: the current runtime
 already ships JSONL-backed memory ingest/recovery, an in-memory retrieval
 index, operator-cockpit memory status/mode snapshots, and a boot-pack-backed
-handoff/bootstrap prompt. The master-aligned next slice is to turn that proof
-path into `MP-231`/`MP-238`/`MP-243` closure evidence by adding operator
-query/export views (`task_pack`, `session_handoff`, `survival_index` preview),
-persistent memory-mode load/save, and review/control `context_pack_refs` plus
-packet-outcome ingest before the full Memory Browser / Action Center overlays
+handoff/bootstrap prompt. The 2026-03-09 runtime follow-ups also landed
+operator-cockpit query/export views by emitting repo-visible `boot_pack`,
+`task_pack`, `session_handoff`, and `survival_index` JSON/Markdown artifacts
+from the Rust Memory tab. The first scoring-trace closure is now shipped via
+`memory/survival_index.rs` + structured `survival_index` exports. The next
+slice is to turn the remaining proof path into `MP-231`/`MP-238`/`MP-243`
+closure evidence by expanding retrieval coverage, finishing review/control
+`context_pack_refs` consumption, and landing packet-outcome ingest
+before the full Memory Browser / Action Center overlays
 become the main product surface.
 
 ## Phase 3A - Mutation Hardening (Parallel Track)
@@ -915,7 +938,7 @@ become the main product surface.
 - [x] MP-328 Add `.github/workflows/mutation_ralph_loop.yml` orchestration: mutation-loop mode controls, bounded retry parameters, artifact bundling, and optional notify surfaces with default non-blocking behavior (landed workflow_run + workflow_dispatch wiring, mode/threshold/notify/comment inputs, summary output, and artifact upload).
 - [x] MP-329 Add mutation auto-fix command policy gate: enforce allowlisted commands/prefixes, explicit reason codes on deny paths, and auditable action traces for each attempt (landed `control_plane_policy.json` baseline, `AUTONOMY_MODE` + branch allowlist + command-prefix gating, and policy-deny reason surfacing in mutation loop reports).
 - [ ] MP-330 Scaffold Rust containerized mobile control-plane service (`voiceterm-control`) with read-only health/loop/ci/mutation endpoints and constrained workflow-dispatch controls.
-- [ ] MP-331 Add phone adapter track (SMS-first pilot + push/chat follow-up) with policy-gated action routing, webhook auth, response/audit persistence, and bounded remote-operation scope. (partial: `devctl autonomy-loop` now emits phone-ready status snapshots under `dev/reports/autonomy/queue/phone/latest.{json,md}` including terminal trace, draft text, and source run context for read-first mobile surfaces; `devctl phone-status` now provides SSH/iPhone-safe projection views (`full|compact|trace|actions`) with optional projection bundle emission for controller-state files; `devctl controller-action` now provides a guarded safe subset (`refresh-status`, `dispatch-report-only`, `pause-loop`, `resume-loop`) with allowlist/kill-switch policy checks and auditable outputs.)
+- [ ] MP-331 Add phone adapter track (SMS-first pilot + push/chat follow-up) with policy-gated action routing, webhook auth, response/audit persistence, and bounded remote-operation scope. (partial: `devctl autonomy-loop` now emits phone-ready status snapshots under `dev/reports/autonomy/queue/phone/latest.{json,md}` including terminal trace, draft text, and source run context for read-first mobile surfaces; `devctl phone-status` now provides SSH/iPhone-safe projection views (`full|compact|trace|actions`) with optional projection bundle emission for controller-state files; `devctl controller-action` now provides a guarded safe subset (`refresh-status`, `dispatch-report-only`, `pause-loop`, `resume-loop`) with allowlist/kill-switch policy checks and auditable outputs; `app/ios/VoiceTermMobileApp` is now the runnable first-party iPhone shell, `app/ios/VoiceTermMobile` is the shared core package it imports, the app now exposes a short tutorial + live-bundle-first startup path, `devctl mobile-app` now supports a real simulator demo, a live-review simulator mode, and physical-device wizard/install actions, and the mobile bundle now surfaces typed Ralph/controller action previews through the shared backend contract. Remaining scope is the real live adapter: connect the iPhone to the Mac-hosted Rust control service on the same network first, add typed approve/deny plus operator-note/message actions, provider-aware continue/retask flows, and staged phone voice-to-action input, then add a secure off-LAN/cellular path with reconnect/resume semantics so the phone can rejoin long-running plans already active on the home machine without opening raw PTY/devctl ports to the public internet.)
 - [ ] MP-332 Add autonomy guardrails and traceability controls (`control_plane_policy.json`, replay protection, mode kill-switch, branch-protection-aware action rejection, duplicate/stale run suppression). (partial: `control_plane_policy.json` added, `AUTONOMY_MODE` + branch/prefix policy gate wired for both mutation and triage fix modes, triage loop now emits dedicated review-escalation comment upserts when retries exhaust unresolved backlog, marker-based duplicate comment suppression landed, `devctl check --profile release` now enforces strict remote release gates (`status --ci --require-ci` + CI-mode CodeRabbit/Ralph checks), bounded controller surfaces now ship via `devctl autonomy-loop` + `.github/workflows/autonomy_controller.yml` with run-scoped checkpoint packet queue artifacts, and scheduled autonomy/watchdog/mutation-loop workflow-run behavior is now mode-gated so background loops are opt-in instead of default red-noise; replay protection + deeper branch-protection/merge-queue enforcement remain pending.)
 - [x] MP-333 Enforce active execution-plan traceability governance: non-trivial agent work must be anchored to a `dev/active/*.md` execution-plan doc (with checklist/progress/audit sections), and tooling guardrails must fail when contract markers/required sections drift (landed enforcement updates in `check_active_plan_sync.py` for required execution-plan docs + marker + required sections, plus AGENTS contract references).
 - [x] MP-334 Add external-repo federation bridge for reusable autonomy components: pin `code-link-ide` + `ci-cd-hub` in `integrations/`, provide one-command sync path, and document governed selective-import workflow for this repo template path. (landed submodule links + shell helper + `devctl integrations-sync`/`integrations-import` command surfaces, policy allowlists in `control_plane_policy.json` (`integration_federation`), destination-root guards, and JSONL audit logging for sync/import actions.)
@@ -923,7 +946,7 @@ become the main product surface.
 - [ ] MP-336 Add `network-monitor-tui` to the external federation + dev-mode bridge scope: link a pinned `integrations/network-monitor-tui` source, define allowlisted import profile(s) for throughput/latency sampler primitives, expose a read-only metrics surface for `--dev` + phone status views without introducing remote-control side effects, and add isolated runtime mode flags (`--monitor` and/or `--mode monitor`) so monitor/tooling startup does not interfere with the default Whisper voice-overlay path. The future monitor entry path should open the same Rust operator cockpit used by `--dev`, not a second forked console.
 - [x] MP-337 Add repeat-to-automate governance and baseline scientific audit program: require repeated manual work to become guarded automation or explicit debt, add tracked `dev/audits/` runbook/register/schema artifacts, ship analyzer tooling (`dev/scripts/audits/audit_metrics.py`) that quantifies script-only vs AI-assisted vs manual execution share with optional chart outputs, and auto-emit per-command `devctl` audit events (`dev/reports/audits/devctl_events.jsonl`) for continuous trend data.
 - [ ] MP-338 Stand up a loop-output-to-chat coordination lane: maintain a dedicated runbook for loop suggestion handoff (`dev/active/loop_chat_bridge.md`), define dry-run/live-run evidence capture, and keep operator decisions/next actions append-only so loop guidance can be promoted safely into autonomous execution. (partial: added `devctl autonomy-report` dated digest bundles, upgraded `devctl autonomy-swarm` to one-command execution with default post-audit digest + reserved `AGENT-REVIEW` lane for live runs, added `devctl swarm_run` for guarded plan-scoped swarm + governance + plan-evidence append, added bounded continuous cycle support via `--continuous/--continuous-max-cycles` so runs keep advancing unchecked checklist items until `plan_complete`, `max_cycles_reached`, or `cycle_failed`, wired workflow-dispatch lane `.github/workflows/autonomy_run.yml`, and added `devctl autonomy-benchmark` matrix reports for plan-scoped swarm-size/tactic tradeoff evidence.)
-- [ ] MP-340 Deliver one-system operator surfaces + deterministic autonomy learning: keep Rust overlay as runtime primary, keep iPhone/SSH surfaces over one `controller_state` contract, and implement artifact-driven playbook learning (fingerprints, confidence, promotion/decay gates) so repeated loop tasks are reused safely with auditable evidence. This umbrella scope also owns the cross-plan contract that keeps Memory Studio (`MP-230..MP-255`), the review channel (`MP-355`), and controller surfaces on one shared event/header model, one provider-aware handoff path, and one future unified timeline/replay view rather than three parallel side channels. Current direction: grow the existing Rust Dev panel into a staged operator cockpit (`Control`, `Ops`, `Review`, `Actions`, `Handoff`, plus developer-oriented Git/GitHub/CI/script/memory views), then let `--monitor` reuse that same cockpit as a dedicated startup path. The first `Ops` slice is the Rust-first lane for host-process hygiene, triage summaries, and later external monitor adapters, so those readouts stay in the typed control surface instead of Theme Studio or a parallel ad hoc UI. Buttons may emit high-level intents and AI may resolve those intents to the correct approved playbook, but execution must still route through one typed action catalog plus shared policy/approval/waiver model rather than bypassing safety with raw shell/API execution. Current `phone-status` / `controller-action` payloads and Rust Dev-panel snapshot builders are still interim projections; `devctl mobile-status` is now the first merged SSH-safe phone shim that combines review + controller state, `app/ios/VoiceTermMobile` is the shared first-party client package over that payload, and `app/ios/VoiceTermMobileApp` is now the first generated iPhone/iPad app shell over the same emitted mobile bundle, but true MP-340 convergence still only happens once Rust, phone, review, and memory all read one emitted `controller_state` projection set with parity tests. Execution profiles should be explicit: `Guarded` by default, `AI-assisted Guarded` when the planner picks from the approved catalog, and a visible dev-only `Unsafe Direct` mode for local bypasses that stays red, noisy, and auditable rather than hidden. (2026-02-26 reset: retired the optional `app/pyside6` desktop command-center scaffold to keep operator execution Rust-first; all active scope now routes through Rust Dev panel + `devctl phone-status` + policy-gated `controller-action`. 2026-02-26 federation follow-up: completed fit-gap audit and added narrow import profiles for targeted `code-link-ide`/`ci-cd-hub` reuse instead of broad tree imports.)
+- [ ] MP-340 Deliver one-system operator surfaces + deterministic autonomy learning: keep Rust overlay as runtime primary, keep iPhone/SSH surfaces over one `controller_state` contract, and implement artifact-driven playbook learning (fingerprints, confidence, promotion/decay gates) so repeated loop tasks are reused safely with auditable evidence. This umbrella scope also owns the cross-plan contract that keeps Memory Studio (`MP-230..MP-255`), the review channel (`MP-355`), and controller surfaces on one shared event/header model, one provider-aware handoff path, and one future unified timeline/replay view rather than three parallel side channels. Current direction: grow the existing Rust Dev panel into a staged operator cockpit (`Control`, `Ops`, `Review`, `Actions`, `Handoff`, plus developer-oriented Git/GitHub/CI/script/memory views), then let `--monitor` reuse that same cockpit as a dedicated startup path. The first `Ops` slice is the Rust-first lane for host-process hygiene, triage summaries, and later external monitor adapters, so those readouts stay in the typed control surface instead of Theme Studio or a parallel ad hoc UI. Buttons may emit high-level intents and AI may resolve those intents to the correct approved playbook, but execution must still route through one typed action catalog plus shared policy/approval/waiver model rather than bypassing safety with raw shell/API execution. Current `phone-status` / `controller-action` payloads and Rust Dev-panel snapshot builders are still interim projections; `devctl mobile-status` is now the first merged SSH-safe phone shim that combines review + controller state, `app/ios/VoiceTermMobile` is the shared first-party core package over that payload, and `app/ios/VoiceTermMobileApp` is the runnable iPhone/iPad app shell over the same emitted mobile bundle with guided simulator demo plus live-review proving modes and typed Ralph/controller action previews, but true MP-340 convergence still only happens once Rust, phone, review, and memory all read one emitted `controller_state` projection set with parity tests and provider-aware memory pack attachments. The mobile end-state is no longer just read-first bundle import: the Mac-hosted Rust control service must become the shared live source for overlay/dev/phone clients, the iPhone must gain typed approvals and structured operator-note/message dispatch plus staged voice-to-action flows, and the same host state must remain reachable over both local Wi-Fi and a secure off-LAN/cellular adapter with reconnect/resume semantics so ongoing plans continue on the home machine without exposing raw PTY or freeform shell access publicly. Immediate follow-up is now explicit: prove a simple phone ping/alert path first, then close richer iPhone parity over the same backend with split/combined terminal-style lane mirrors, typed approvals/notes/instructions, plan-to-agent assignment, simple/technical modes, provider-aware continue/retask routing, and reconnect/resume behavior. PyQt6 today, iPhone now, and any future Electron/Tauri shell later are clients of that shared backend only; none of them become the backend. Execution profiles should be explicit: `Guarded` by default, `AI-assisted Guarded` when the planner picks from the approved catalog, and a visible dev-only `Unsafe Direct` mode for local bypasses that stays red, noisy, and auditable rather than hidden. (2026-02-26 reset: retired the optional `app/pyside6` desktop command-center scaffold to keep operator execution Rust-first; all active scope now routes through Rust Dev panel + `devctl phone-status` + policy-gated `controller-action`. 2026-02-26 federation follow-up: completed fit-gap audit and added narrow import profiles for targeted `code-link-ide`/`ci-cd-hub` reuse instead of broad tree imports.)
 - [ ] MP-341 Runtime architecture hardening pass for product-grade boundaries: tighten `rust/src/lib.rs` public surface (remove legacy re-export drift and prefer internal/facade boundaries), replace stringly `VoiceJobMessage::Error(String)` with typed error categories at subsystem boundaries, harden command parsing (`CustomBackend` quoting-safe parsing), reduce global-side-effect risk in Whisper stderr suppression path, and modernize PyPI launcher distribution flow away from clone+local-build bootstrap toward verified binary delivery. (partial 2026-02-25: hardened SIGWINCH registration via `sigaction` + `SA_RESTART`, removed production `unreachable!()` fallback in Theme Studio non-home renderer path, and reduced silent PTY-output drop risk with explicit unexpected-branch diagnostics.)
 - [ ] MP-342 Increase push-to-talk startup grace by about 1 second to prevent early cutoff when users do not speak immediately after pressing PTT: currently first-press captures can end too quickly if there is a short delay before speech starts. Reproduce in Codex/Claude sessions, tune initial-silence/warmup handling for natural speech onset, add regression coverage for delayed speech starts, and verify no regressions for intentional short taps.
 - [ ] MP-343 Stabilize screenshot button reliability: screenshot capture currently succeeds intermittently and can stop unexpectedly after some successful attempts. Reproduce repeated capture attempts in active sessions, harden button-triggered capture lifecycle/error handling, add regression coverage for repeated runs, and verify physical behavior with screenshot evidence.
@@ -1068,9 +1091,32 @@ become the main product surface.
   Terminal.app. Another same-day operator-blocker fix now clears inherited
   `CLAUDECODE` markers inside generated Claude conductor scripts so live
   Terminal-app launches do not fail as nested Claude Code sessions when
-  started from an existing Claude-owned shell. The remaining
-  event-backed
-  `watch|inbox|ack|dismiss|apply|history` path is still open.
+  started from an existing Claude-owned shell. A later 2026-03-09 Codex
+  re-review also confirmed via focused `test_review_channel` coverage that
+  custom `--await-ack-seconds` values are threaded end-to-end, so that older
+  suspected ACK-timeout bug is no longer part of MP-355's open blocker set.
+  A later same-day live-launch audit also found a new bootstrap honesty gap:
+  non-dangerous Codex conductors can spend their first minutes on worker fan-
+  out and approval-bound tool prompts before rewriting `Last Codex poll`,
+  letting the bridge age into stale even while the session logs are active.
+  The launcher prompt now requires Codex to stamp `Last Codex poll`, `Last
+  non-audit worktree hash`, and `Poll Status` before fan-out and forbids
+  parking silently on unanswered approval prompts without reflecting that
+  blocked state in the bridge. A later same-day overlay/runtime follow-up also
+  landed the first structured-authority consumer in the Rust shell: the Dev-
+  panel Review surface now prefers event-backed review artifacts
+  (`projections/latest/full.json`, `state/latest.json`, or legacy
+  `latest/*.json` outputs) whenever review-channel event sentinels exist,
+  parses those JSON projections into the same `ReviewArtifact` view model used
+  by the existing markdown bridge, and falls back to `code_audit.md` only when
+  structured state is absent. That proves the overlay can move onto canonical
+  review state without changing default startup mode. A later same-day
+  launcher hardening fix now refuses a second live `review-channel --action
+  launch --terminal terminal-app` when the existing repo-owned
+  `latest/sessions/` artifacts still look active, so operators cannot
+  accidentally open duplicate Codex/Claude conductor windows that race on the
+  same session-tail files, but the remaining
+  event-backed `watch|inbox|ack|dismiss|apply|history` path is still open.
   Execution spec: `dev/active/review_channel.md`.
 - [ ] MP-356 Tighten host-process hygiene automation so local AI/dev runs stop
   relying on manual Activity Monitor checks: add a dedicated host-side
@@ -1138,11 +1184,21 @@ become the main product surface.
   sessions do not accumulate detached repo processes. Only after this loop is
   proven stable on VoiceTerm should the same path be carved into a reusable
   toolkit/template. 2026-03-09 Codex re-review confirmed the report-level
-  liveness state machine and fail-closed zero-second ACK rejection, but the
-  launcher still does not prove the full bridge guard before bootstrap, the
-  2-3 minute poll / five-minute heartbeat contract is not fully enforced
-  end-to-end, and stale-peer recovery plus automatic next-task promotion
-  remain open. Execution spec: `dev/active/continuous_swarm.md`.
+  liveness state machine and fail-closed zero-second ACK rejection. The latest
+  launcher slice now also supervises clean provider exits so conductors relaunch
+  in-place instead of silently dying after one summary. A follow-up MP-358
+  tranche also taught host hygiene/process-audit to keep attached supervised
+  review-channel conductors visible without classifying them as stale leaks, and
+  landed a typed `review-channel --action promote` path plus derived-next-task
+  status projections so queue advancement is no longer ad hoc bridge editing.
+  The latest launcher hardening slice also adds a typed
+  `--refresh-bridge-heartbeat-if-stale` self-heal path for launch/rollover so
+  stale reviewer-heartbeat metadata no longer strands the operator at a dead
+  `Last Codex poll` guard failure when the rest of the bridge contract is
+  still valid.
+  The remaining open gaps are end-to-end auto-promotion proof, the 2-3 minute
+  poll / five-minute heartbeat contract, and stale-peer recovery. Execution
+  spec: `dev/active/continuous_swarm.md`.
 - [ ] MP-359 Deliver a bounded optional PyQt6 VoiceTerm Operator Console for
   the current review-channel workflow: keep Rust as the PTY/runtime owner,
   keep `devctl review-channel` as the launcher/control surface, render Codex +
@@ -1174,7 +1230,21 @@ become the main product surface.
   JSON preflight -> live launch chaining with staged
   preflight/launch/running/failure status on Home + Activity, shared busy-state
   wiring, and command previews, and a new `Workbench` layout adds snap presets
-  over resizable lane/report/monitor panes. The same tranche
+  over resizable lane/report/monitor panes. The latest MP-359 follow-up also
+  routes `Dry Run`, `Live`, `Start Swarm`, and `Rollover` through the typed
+  review-channel stale-heartbeat self-heal path so the desktop shell no longer
+  looks inert when the markdown bridge ages out, and now persists the selected
+  layout/workbench tab/splitter state to
+  `dev/reports/review_channel/operator_console/layout_state.json` so "screen
+  got weird" reports stay reproducible. A follow-up in the same lane now adds
+  explicit layout reset/export/import controls plus a new Workbench timeline
+  surface that synthesizes per-agent/system events from snapshot + rollover
+  handoff artifacts while keeping Raw Bridge as a dedicated tab. A further
+  same-day Phase-4.5 slice adds shared workflow chrome to Workbench with a top
+  strip (slice/goal/current writer/branch/swarm health), Codex/Claude last
+  seen/applied markers, and a bottom posted->read->acked->implementing->tests
+  ->reviewed->apply transition row with a script-derived next-action footer.
+  The same tranche
   now explicitly includes a GUI swarm-planner surface that reuses
   `autonomy-swarm` / `swarm_run` token-aware sizing logic and feedback signals
   instead of inventing a desktop-only heuristic, plus a visible swarm
@@ -1199,6 +1269,12 @@ become the main product surface.
   left-anchored theme workbench with `Colors` / `Typography` / `Metrics`
   pages, a real preview gallery, and tokenized typography/radius/padding
   styling so the editor can theme more than just raw color swatches.
+  The latest workflow-controller hardening follow-up now makes `Run Loop`
+  audit `devctl orchestrate-status` before it launches
+  `devctl swarm_run --continuous`, and the shared Home/Activity launchpads
+  keep the last audit/loop result inline so operators do not have to dig
+  through raw launcher text to see whether the selected markdown scope is
+  blocked, launching, or complete.
   2026-03-09 theme-authority follow-up landed: `ThemeState` now carries
   optional builtin `theme_id` identity, `ThemeEngine` is the single
   builtin/custom/draft apply authority, the toolbar reflects draft/custom
@@ -1290,7 +1366,21 @@ become the main product surface.
   instead of prose-only: the PyQt6 Home and Activity surfaces now switch to
   denser terminal-style digest framing with smaller toolbar-first guidance and
   monospace digest/read panes, addressing operator feedback that the shell was
-  still too banner-heavy for a command-center workflow. The next bounded
+  still too banner-heavy for a command-center workflow. A further same-day
+  session-surface follow-up then fixed the next real live-tail gap: the
+  desktop no longer crams terminal text, session metadata, and registry rows
+  into one pane. `session_trace_reader.py` now keeps separate readable history
+  plus current-screen snapshots while filtering private-CSI parse junk and
+  `thinking with high effort` spinner noise, and the Workbench/Monitor/Sidebar
+  session surfaces now render a large terminal-history pane with smaller
+  stats/screen + registry support below so the lower deck carries useful live
+  signal instead of blank space. A later same-day operator-feedback follow-up
+  tightened that contract again: live session panes now prefer the
+  reconstructed visible terminal screen over the noisier raw history stream
+  whenever a `script(1)` trace is available, truncated tail reads align to the
+  next line boundary so partial ANSI/control fragments do not leak into the
+  UI, and the lower `Stats` / `Registry` pair is now one double-click
+  flippable card per provider instead of two cramped panes. The next bounded
   follow-up then moved the default shell back onto a card-first snap-aware
   Workbench: visible preset pills returned, the three lane cards stay on
   screen together, launcher/bridge/diagnostics now render side by side
@@ -1318,13 +1408,80 @@ become the main product surface.
   log exists yet. A same-day Theme Editor follow-up then repurposed the right
   rail from an always-on preview gallery into `Quick Tune`, `Coverage`, and
   optional `Preview` tabs, and restyled the operator toolbar action buttons
-  toward flatter dashboard/instrument-panel chrome.
+  toward flatter dashboard/instrument-panel chrome. A later same-day theme
+  tranche then promoted the editor from colors/tokens into a fuller theme
+  contract with persisted `components` + `motion` settings, component-style
+  families for borders/buttons/toolbar chrome/inputs/tabs/surfaces, new
+  `Components` and `Motion` authoring pages, and a real preview playground for
+  front/back card swaps plus pulse feedback so motion controls are no longer
+  just roadmap copy. The next explicit planning follow-up now captures the
+  remaining density/scale-up work too: chart-backed repo analytics and
+  mutation/hotspot views, 4/6/8+ snap-aware multi-agent layouts, read-only
+  split/combined lane terminal monitors, broader tooltip/help saturation, and
+  richer QSS/theme-pack import plus semantic-highlight controls that keep
+  normal report content from reading like an error state. Current stopping
+  point: Cursor lane wiring now reaches the Activity summary cards and quality
+  reports can emit live review-channel `finding` packets; follow-on cleanup of
+  the architecture/memory/guardrail primer content is parked as an explicit
+  backlog item in `dev/active/operator_console.md` Phase 4.7.
   (directory reorg) then Phase 3 (approval queue center stage), with `Start
   Swarm`, typed control wiring, and CI visibility tracked in parallel.
   Execution spec:
   `dev/active/operator_console.md`.
 
-Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355):
+- [x] MP-360 Wire AI-driven remediation into Ralph loop: create
+  `ralph_ai_fix.py` with Claude Code invocation, false-positive filtering,
+  architecture-specific validation (Rust/PyQt6/devctl/iOS), approval-mode
+  support, and commit/push automation. Update policy allowlist and workflow
+  default fix command. Add cross-architecture guard enforcement policy to
+  `AGENTS.md` and wire 7 new guard scripts into `tooling_control_plane.yml`.
+- [ ] MP-361 Create guardrail configuration registry
+  (`dev/config/ralph_guardrails.json`) mapping finding categories to AGENTS.md
+  standards, documentation links, and AI fix skills so the AI brain has
+  context for each finding class.
+- [ ] MP-362 Emit structured guardrail report (`ralph-report.json`) from AI fix
+  wrapper with per-finding status, standards refs, fix skills used, and
+  aggregate analytics (fix rate, by-architecture, by-severity, false-positive
+  rate).
+- [ ] MP-363 Add `devctl ralph-status` CLI command with SVG charts (fix rate
+  over time, findings by architecture, false-positive rate), data-science
+  integration, and phone status projection.
+- [ ] MP-364 Add operator console Ralph dashboard (PyQt6 widget with finding
+  table, progress bars, guard health indicators, and control buttons for
+  start/pause/resume/configure).
+- [ ] MP-365 Integrate Ralph loop metrics into phone/iOS status views (compact
+  phase/fix_rate/unresolved fields, start/pause/configure actions, and iOS
+  MobileRelayViewModel display).
+- [ ] MP-366 Deliver unified guardrail control surface
+  (`ralph_control_state.json`) so devctl CLI, operator console, and phone app
+  all read/write the same start/pause/configure/monitor state with policy
+  gates and audit logging.
+- [ ] MP-367 Add `check_ralph_guardrail_parity.py` guard to verify every entry
+  in `AI_GUARD_CHECKS` has a step in `tooling_control_plane.yml`, a row in
+  `ralph_guardrails.json`, and a skill mapping — closing the loop so new
+  guards are automatically wired into the full pipeline.
+  Execution spec: `dev/active/ralph_guardrail_control_plane.md`.
+- [ ] MP-368 Implement `probe_concurrency` so heuristic review probes can flag
+  async/shared-state race signals without blocking CI.
+- [ ] MP-369 Implement `probe_architecture` so structural coupling and
+  responsibility drift are surfaced as AI review targets before they become
+  hard-guard failures.
+- [ ] MP-370 Implement `probe_performance` so scale-only allocation, clone,
+  and hot-loop risks feed the review queue instead of relying on regressions.
+- [ ] MP-371 Implement `probe_product_logic` so policy drift, duplicated
+  thresholds, and scattered feature gates produce explicit review hints.
+- [ ] MP-372 Land the shared review-probe framework (`probe_bootstrap.py`,
+  shared schema/utilities, control-plane policy wiring, and check-profile
+  integration).
+- [ ] MP-373 Wire the first end-to-end review-probe path (`probe_concurrency`)
+  with tests and non-blocking `devctl check` integration.
+- [ ] MP-374 Deliver the remaining initial review probes plus aggregated
+  `review_targets.json` output for downstream triage consumers.
+- [ ] MP-375 Integrate probe output into the control plane, `devctl`
+  reporting/status surfaces, and optional operator-console review dashboards.
+  Execution spec: `dev/active/review_probes.md`.
+
+Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 
 1. Ship canonical multi-view controller state projections (`full/compact/trace/actions`) from one packet source.
 2. Add SSH-first/iPhone-safe read surfaces (`phone-status`) and Rust Dev-panel parity for run/agent/policy visibility.

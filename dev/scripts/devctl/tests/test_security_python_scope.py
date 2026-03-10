@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-from dev.scripts.devctl.security_python_scope import (
+from dev.scripts.devctl.security.python_scope import (
     changed_python_paths,
     resolve_python_scope,
     run_python_core_steps,
@@ -50,16 +50,16 @@ def _annotate(step: dict, *, tier: str, blocking: bool) -> dict:
 
 class SecurityPythonScopeTests(TestCase):
     def test_resolve_python_scope_auto_local_defaults_to_changed(self) -> None:
-        with patch("dev.scripts.devctl.security_python_scope.os.environ", {}):
+        with patch("dev.scripts.devctl.security.python_scope.os.environ", {}):
             self.assertEqual(resolve_python_scope(make_args()), "changed")
 
     def test_resolve_python_scope_auto_in_ci_defaults_to_all(self) -> None:
         with patch(
-            "dev.scripts.devctl.security_python_scope.os.environ", {"CI": "true"}
+            "dev.scripts.devctl.security.python_scope.os.environ", {"CI": "true"}
         ):
             self.assertEqual(resolve_python_scope(make_args()), "all")
 
-    @patch("dev.scripts.devctl.security_python_scope.subprocess.run")
+    @patch("dev.scripts.devctl.security.python_scope.subprocess.run")
     def test_changed_python_paths_all_uses_tracked_files(self, run_mock) -> None:
         run_mock.return_value = SimpleNamespace(
             returncode=0,
@@ -78,7 +78,7 @@ class SecurityPythonScopeTests(TestCase):
             ["dev/scripts/devctl/cli.py", "dev/scripts/devctl/collect.py"],
         )
 
-    @patch("dev.scripts.devctl.security_python_scope.changed_python_paths")
+    @patch("dev.scripts.devctl.security.python_scope.changed_python_paths")
     def test_run_python_core_steps_all_scope_uses_ls_files_probe(
         self,
         changed_paths_mock,
@@ -116,7 +116,7 @@ class SecurityPythonScopeTests(TestCase):
             steps[3]["cmd"], ["bandit", "-q", "-ll", "-ii", "dev/scripts/devctl/cli.py"]
         )
 
-    @patch("dev.scripts.devctl.security_python_scope.changed_python_paths")
+    @patch("dev.scripts.devctl.security.python_scope.changed_python_paths")
     def test_run_python_core_steps_skips_bandit_when_only_tests_are_selected(
         self,
         changed_paths_mock,

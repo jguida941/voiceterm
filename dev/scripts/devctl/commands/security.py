@@ -13,7 +13,7 @@ import json
 from ..common import build_env, emit_output, pipe_output, run_cmd, write_output
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT, SRC_DIR
-from ..security_tiers import (
+from ..security.tiers import (
     CORE_SCANNER_IDS,
     EXPENSIVE_SCANNER_IDS,
     annotate_step_metadata,

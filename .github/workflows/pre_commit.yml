@@ -1,0 +1,52 @@
+# Purpose: Runs pre-commit hooks on Python and config files to catch formatting/lint issues early.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
+name: Pre-commit
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+    paths:
+      - "dev/scripts/**/*.py"
+      - "app/**/*.py"
+      - "*.yaml"
+      - "*.yml"
+      - ".github/workflows/*.yml"
+      - ".pre-commit-config.yaml"
+  pull_request:
+    paths:
+      - "dev/scripts/**/*.py"
+      - "app/**/*.py"
+      - "*.yaml"
+      - "*.yml"
+      - ".github/workflows/*.yml"
+      - ".pre-commit-config.yaml"
+
+jobs:
+  pre-commit:
+    name: pre-commit hooks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit
+        env:
+          SKIP: no-commit-to-branch
+        run: pre-commit run --all-files

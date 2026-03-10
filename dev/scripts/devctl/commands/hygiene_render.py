@@ -74,6 +74,10 @@ def render_md(report: dict) -> str:
     lines.append(
         f"- voiceterm test processes detected: {runtime_processes['total_detected']}"
     )
+    lines.append(
+        "- supervised review-channel conductors: "
+        f"{len(runtime_processes.get('active_supervised_conductors', []))}"
+    )
     lines.extend(f"- error: {message}" for message in runtime_processes["errors"])
     lines.extend(f"- warning: {message}" for message in runtime_processes["warnings"])
     lines.append("")

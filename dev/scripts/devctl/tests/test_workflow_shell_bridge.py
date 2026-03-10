@@ -161,6 +161,30 @@ class WorkflowShellBridgeTests(unittest.TestCase):
                 "".join(call.args[0] for call in mock_stdout.call_args_list),
             )
 
+    def test_print_coverage_summary_reads_cobertura_xml(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            coverage_xml = Path(tmpdir) / "coverage.xml"
+            coverage_xml.write_text(
+                (
+                    '<coverage line-rate="0.875" lines-valid="80" '
+                    'lines-covered="70"></coverage>'
+                ),
+                encoding="utf-8",
+            )
+            args = self.script.argparse.Namespace(
+                coverage_xml=coverage_xml,
+                label="Devctl",
+            )
+
+            with mock.patch("sys.stdout.write") as mock_stdout:
+                rc = self.script.print_coverage_summary(args)
+
+            self.assertEqual(rc, 0)
+            self.assertIn(
+                "Devctl coverage: 87.5% (70/80 lines)",
+                "".join(call.args[0] for call in mock_stdout.call_args_list),
+            )
+
     def test_resolve_range_falls_back_to_head_when_refs_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_root = Path(tmpdir)

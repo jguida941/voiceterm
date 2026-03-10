@@ -12,6 +12,7 @@ use crate::theme::ThemeColors;
 mod actions_page;
 mod cockpit_page;
 mod review_surface;
+mod review_surface_lanes;
 
 use crate::dev_command::DevPanelTab;
 pub use actions_page::{dev_panel_footer, format_dev_panel};

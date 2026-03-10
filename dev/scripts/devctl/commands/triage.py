@@ -16,14 +16,14 @@ from ..common import emit_output, pipe_output, run_cmd, write_output
 from ..config import REPO_ROOT
 from ..metric_writers import append_failure_kb, append_metric
 from ..status_report import build_project_report
-from ..triage_enrich import (
+from ..triage.enrich import (
     apply_defaults_to_issues,
     build_issue_rollup,
     extract_cihub_issues,
     extract_issues_from_file,
     load_owner_map,
 )
-from ..triage_support import (
+from ..triage.support import (
     build_next_actions,
     classify_issues,
     ingest_cihub_artifacts,

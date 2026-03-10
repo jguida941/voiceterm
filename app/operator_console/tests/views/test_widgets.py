@@ -7,12 +7,13 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from app.operator_console.views.widgets import (
+from app.operator_console.views.shared.widgets import (
     STATUS_ACTIVE,
     STATUS_IDLE,
     STATUS_STALE,
     STATUS_WARNING,
     AgentSummaryCard,
+    FlippableTextCard,
     KeyValuePanel,
     ProviderBadge,
     SectionHeader,
@@ -211,6 +212,57 @@ class KeyValuePanelTests(unittest.TestCase):
             value.sizePolicy().horizontalPolicy(),
             QSizePolicy.Policy.Expanding,
         )
+
+
+@unittest.skipIf(QApplication is None, "PyQt6 is not installed")
+class FlippableTextCardTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_front_face_is_visible_by_default(self) -> None:
+        from PyQt6.QtWidgets import QPlainTextEdit
+
+        front = QPlainTextEdit()
+        back = QPlainTextEdit()
+        card = FlippableTextCard(
+            front_widget=front,
+            back_widget=back,
+            front_title="Codex Stats",
+            front_subtitle="Freshness, signals, and screen",
+            back_title="Codex Registry",
+            back_subtitle="Lane assignments and states",
+            provider_name="Codex",
+        )
+
+        self.assertFalse(card.showing_back)
+        self.assertEqual(card.current_title, "Codex Stats")
+        self.assertEqual(card._stack.currentWidget(), front)
+
+    def test_toggle_face_switches_title_and_widget(self) -> None:
+        from PyQt6.QtWidgets import QPlainTextEdit
+
+        front = QPlainTextEdit()
+        back = QPlainTextEdit()
+        card = FlippableTextCard(
+            front_widget=front,
+            back_widget=back,
+            front_title="Claude Stats",
+            front_subtitle="Freshness, signals, and screen",
+            back_title="Claude Registry",
+            back_subtitle="Lane assignments and states",
+            provider_name="Claude",
+        )
+
+        card.toggle_face()
+        self.assertTrue(card.showing_back)
+        self.assertEqual(card.current_title, "Claude Registry")
+        self.assertEqual(card._stack.currentWidget(), back)
+
+        card.toggle_face()
+        self.assertFalse(card.showing_back)
+        self.assertEqual(card.current_title, "Claude Stats")
+        self.assertEqual(card._stack.currentWidget(), front)
 
 
 @unittest.skipIf(QApplication is None, "PyQt6 is not installed")

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .state.models import utc_timestamp
+from .state.core.models import utc_timestamp
 
 DEFAULT_DEV_LOG_ROOT_REL = "dev/reports/review_channel/operator_console"
 

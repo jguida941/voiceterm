@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from ..common import emit_output, pipe_output, write_output
-from ..data_science_metrics import run_data_science_snapshot
+from ..data_science.metrics import run_data_science_snapshot
 
 
 def run(args) -> int:

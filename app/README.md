@@ -64,13 +64,12 @@ When structured review state is absent, the status bar shows
 `markdown bridge only; live terminal telemetry unavailable`. The console does
 not replace the Rust overlay or embed a full terminal emulator.
 
-## iPhone Client Scaffold
+## iPhone App
 
-`ios/VoiceTermMobile/` - first-party iPhone-ready Swift package scaffold for
-the shared mobile relay contract.
+`ios/VoiceTermMobileApp/` - the actual Xcode-backed iPhone/iPad app target.
 
-`ios/VoiceTermMobileApp/` - generated XcodeGen-backed iOS app shell that uses
-the package above and imports the emitted `mobile-status` bundle from Files.
+`ios/VoiceTermMobile/` - the shared Swift package used by that app for bundle
+decoding and dashboard UI.
 
 Current scope:
 
@@ -79,8 +78,22 @@ Current scope:
   `compact.json`, and `actions.json`)
 - renders a SwiftUI app shell with overview metrics, plan/findings sections,
   multi-agent lane cards, and safe action cards
+- exposes typed Ralph/controller action previews from the shared mobile bundle
 - keeps simple vs technical reading modes in the UI so it can mirror the
   easier-vs-deeper split already present in the PyQt6 console
+- includes a guided simulator demo script for real local verification
+
+Fastest local demo:
+
+```bash
+python3 dev/scripts/devctl.py mobile-app --action simulator-demo --format md
+```
+
+Real physical-device path:
+
+```bash
+python3 dev/scripts/devctl.py mobile-app --action device-install --development-team <TEAM_ID> --format md
+```
 
 Verify with:
 
@@ -95,4 +108,10 @@ Build the iOS shell without signing:
 cd app/ios/VoiceTermMobileApp
 xcodegen generate
 xcodebuild -project VoiceTermMobileApp.xcodeproj -scheme VoiceTermMobileApp -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO build
+```
+
+Overview doc:
+
+```bash
+open app/ios/README.md
 ```

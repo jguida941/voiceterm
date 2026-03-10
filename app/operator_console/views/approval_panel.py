@@ -7,8 +7,9 @@ derived from policy_hint keywords.
 
 from __future__ import annotations
 
-from ..state.models import ApprovalRequest
-from ..state.presentation_state import classify_approval_risk
+from ..collaboration.context_pack_refs import context_pack_ref_lines
+from ..state.core.models import ApprovalRequest
+from ..state.presentation.presentation_state import classify_approval_risk
 
 try:
     from PyQt6.QtCore import Qt, pyqtSignal
@@ -265,11 +266,17 @@ if _PYQT_AVAILABLE:
             body = approval.body.strip() if approval.body else "(no body)"
             self._body_text.setText(body)
 
+            detail_sections: list[str] = []
             if approval.evidence_refs:
                 refs = "\n".join(f"  \u2022 {ref}" for ref in approval.evidence_refs)
-                self._evidence_label.setText(f"Evidence:\n{refs}")
-            else:
-                self._evidence_label.setText("")
+                detail_sections.append(f"Evidence:\n{refs}")
+            if approval.context_pack_refs:
+                refs = "\n".join(
+                    f"  \u2022 {line}"
+                    for line in context_pack_ref_lines(approval.context_pack_refs)
+                )
+                detail_sections.append(f"Context Packs:\n{refs}")
+            self._evidence_label.setText("\n\n".join(detail_sections))
 
         def _refresh_risk_indicator_style(self) -> None:
             style = self._risk_indicator.style()

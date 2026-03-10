@@ -107,6 +107,25 @@ METRIC_KEYS = (
 )
 
 
+def _format_aggregate_growth(totals: dict[str, int]) -> str:
+    """Render the one-line aggregate growth summary from totals dict."""
+    return ", ".join(
+        f"{metric} {totals[f'{metric}_growth']:+d}"
+        for metric in METRIC_KEYS
+    )
+
+
+def _format_violation_growth(item: dict) -> str:
+    """Render per-file metric changes as a compact comma-separated string."""
+    parts: list[str] = []
+    for metric in METRIC_KEYS:
+        growth = item["growth"][metric]
+        base = item["base"][metric]
+        current = item["current"][metric]
+        parts.append(f"{metric} {base} -> {current} ({growth:+d})")
+    return ", ".join(parts)
+
+
 def _count_allow_without_reason(text: str | None) -> int:
     if text is None:
         return 0
@@ -118,7 +137,15 @@ def _count_allow_without_reason(text: str | None) -> int:
     return count
 
 
-def _has_nearby_safety_comment(lines: list[str], index: int, lookback: int = 5) -> bool:
+def _has_nearby_safety_comment(
+    lines: list[str],
+    index: int,
+    lookback: int = 5,
+    *,
+    allow_following: bool = False,
+) -> bool:
+    if "SAFETY:" in lines[index] or "# Safety" in lines[index]:
+        return True
     min_index = max(0, index - lookback)
     for probe in range(index - 1, min_index - 1, -1):
         raw = lines[probe].strip()
@@ -129,6 +156,17 @@ def _has_nearby_safety_comment(lines: list[str], index: int, lookback: int = 5) 
         if raw.startswith(("//", "/*", "*", "///", "//!", "#[")):
             continue
         break
+    if allow_following:
+        max_index = min(len(lines), index + 4)
+        for probe in range(index + 1, max_index):
+            raw = lines[probe].strip()
+            if not raw:
+                continue
+            if "SAFETY:" in raw or "# Safety" in raw:
+                return True
+            if raw.startswith(("//", "/*", "*")):
+                continue
+            break
     return False
 
 
@@ -143,7 +181,7 @@ def _count_undocumented_unsafe_blocks(text: str | None) -> int:
         if UNSAFE_FN_RE.search(line):
             # `unsafe fn ... {` is tracked by the missing safety-docs metric below.
             continue
-        if not _has_nearby_safety_comment(lines, index):
+        if not _has_nearby_safety_comment(lines, index, allow_following=True):
             count += 1
     return count
 
@@ -426,7 +464,13 @@ def _count_nonatomic_persistent_toml_writes(
 
 
 def _function_window(text: str, start_index: int, max_lines: int = 40) -> str:
-    return "\n".join(text[start_index:].splitlines()[:max_lines])
+    lines = text[start_index:].splitlines()
+    result: list[str] = []
+    for i, line in enumerate(lines[:max_lines]):
+        if i > 0 and FUNCTION_SIGNATURE_RE.search(line):
+            break
+        result.append(line)
+    return "\n".join(result)
 
 
 def _is_custom_toml_parser_scope(text: str | None, *, path: Path | None) -> bool:
@@ -440,14 +484,14 @@ def _is_custom_toml_parser_scope(text: str | None, *, path: Path | None) -> bool
 
 
 def _looks_like_custom_toml_parser(window: str) -> bool:
-    if "toml::from_str" in window:
-        return False
     if MANUAL_TOML_SPLIT_RE.search(window):
         return True
-    return "lines()" in window and (
+    if "lines()" in window and (
         MANUAL_TOML_VALUE_RE.search(window) is not None
         or "parse_toml_value(" in window
-    )
+    ):
+        return True
+    return False
 
 
 def _count_custom_persistent_toml_parsers(
@@ -645,97 +689,12 @@ def _render_md(report: dict) -> str:
         lines.append(f"- since_ref: {report['since_ref']}")
     if report.get("head_ref"):
         lines.append(f"- head_ref: {report['head_ref']}")
-
-    totals = report["totals"]
-    lines.append(
-        "- aggregate_growth: "
-        f"allow_without_reason {totals['allow_without_reason_growth']:+d}, "
-        f"undocumented_unsafe_blocks {totals['undocumented_unsafe_blocks_growth']:+d}, "
-        "pub_unsafe_fn_missing_safety_docs "
-        f"{totals['pub_unsafe_fn_missing_safety_docs_growth']:+d}, "
-        "unsafe_impl_missing_safety_comment "
-        f"{totals['unsafe_impl_missing_safety_comment_growth']:+d}, "
-        f"mem_forget_calls {totals['mem_forget_calls_growth']:+d}, "
-        f"result_string_types {totals['result_string_types_growth']:+d}, "
-        f"expect_on_join_recv {totals['expect_on_join_recv_growth']:+d}, "
-        f"unwrap_on_join_recv {totals['unwrap_on_join_recv_growth']:+d}, "
-        f"dropped_send_results {totals['dropped_send_results_growth']:+d}, "
-        f"dropped_emit_results {totals['dropped_emit_results_growth']:+d}, "
-        f"detached_thread_spawns {totals['detached_thread_spawns_growth']:+d}, "
-        f"env_mutation_calls {totals['env_mutation_calls_growth']:+d}, "
-        f"suspicious_open_options {totals['suspicious_open_options_growth']:+d}, "
-        "float_literal_comparisons "
-        f"{totals['float_literal_comparisons_growth']:+d}, "
-        "nonatomic_persistent_toml_writes "
-        f"{totals['nonatomic_persistent_toml_writes_growth']:+d}, "
-        "custom_persistent_toml_parsers "
-        f"{totals['custom_persistent_toml_parsers_growth']:+d}"
-    )
-
+    lines.append(f"- aggregate_growth: {_format_aggregate_growth(report['totals'])}")
     if report["violations"]:
         lines.append("")
         lines.append("## Violations")
         for item in report["violations"]:
-            growth = item["growth"]
-            lines.append(
-                f"- `{item['path']}`: allow_without_reason "
-                f"{item['base']['allow_without_reason']} -> "
-                f"{item['current']['allow_without_reason']} "
-                f"({growth['allow_without_reason']:+d}), "
-                "undocumented_unsafe_blocks "
-                f"{item['base']['undocumented_unsafe_blocks']} -> "
-                f"{item['current']['undocumented_unsafe_blocks']} "
-                f"({growth['undocumented_unsafe_blocks']:+d}), "
-                "pub_unsafe_fn_missing_safety_docs "
-                f"{item['base']['pub_unsafe_fn_missing_safety_docs']} -> "
-                f"{item['current']['pub_unsafe_fn_missing_safety_docs']} "
-                f"({growth['pub_unsafe_fn_missing_safety_docs']:+d}), "
-                "unsafe_impl_missing_safety_comment "
-                f"{item['base']['unsafe_impl_missing_safety_comment']} -> "
-                f"{item['current']['unsafe_impl_missing_safety_comment']} "
-                f"({growth['unsafe_impl_missing_safety_comment']:+d}), "
-                f"mem_forget_calls {item['base']['mem_forget_calls']} -> "
-                f"{item['current']['mem_forget_calls']} "
-                f"({growth['mem_forget_calls']:+d}), "
-                f"result_string_types {item['base']['result_string_types']} -> "
-                f"{item['current']['result_string_types']} "
-                f"({growth['result_string_types']:+d}), "
-                f"expect_on_join_recv {item['base']['expect_on_join_recv']} -> "
-                f"{item['current']['expect_on_join_recv']} "
-                f"({growth['expect_on_join_recv']:+d}), "
-                f"unwrap_on_join_recv {item['base']['unwrap_on_join_recv']} -> "
-                f"{item['current']['unwrap_on_join_recv']} "
-                f"({growth['unwrap_on_join_recv']:+d}), "
-                f"dropped_send_results {item['base']['dropped_send_results']} -> "
-                f"{item['current']['dropped_send_results']} "
-                f"({growth['dropped_send_results']:+d}), "
-                f"dropped_emit_results {item['base']['dropped_emit_results']} -> "
-                f"{item['current']['dropped_emit_results']} "
-                f"({growth['dropped_emit_results']:+d}), "
-                "detached_thread_spawns "
-                f"{item['base']['detached_thread_spawns']} -> "
-                f"{item['current']['detached_thread_spawns']} "
-                f"({growth['detached_thread_spawns']:+d}), "
-                f"env_mutation_calls {item['base']['env_mutation_calls']} -> "
-                f"{item['current']['env_mutation_calls']} "
-                f"({growth['env_mutation_calls']:+d}), "
-                "suspicious_open_options "
-                f"{item['base']['suspicious_open_options']} -> "
-                f"{item['current']['suspicious_open_options']} "
-                f"({growth['suspicious_open_options']:+d}), "
-                "float_literal_comparisons "
-                f"{item['base']['float_literal_comparisons']} -> "
-                f"{item['current']['float_literal_comparisons']} "
-                f"({growth['float_literal_comparisons']:+d}), "
-                "nonatomic_persistent_toml_writes "
-                f"{item['base']['nonatomic_persistent_toml_writes']} -> "
-                f"{item['current']['nonatomic_persistent_toml_writes']} "
-                f"({growth['nonatomic_persistent_toml_writes']:+d}), "
-                "custom_persistent_toml_parsers "
-                f"{item['base']['custom_persistent_toml_parsers']} -> "
-                f"{item['current']['custom_persistent_toml_parsers']} "
-                f"({growth['custom_persistent_toml_parsers']:+d})"
-            )
+            lines.append(f"- `{item['path']}`: {_format_violation_growth(item)}")
     return "\n".join(lines)
 
 

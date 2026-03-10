@@ -7,6 +7,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from .launch_support import manual_module_launch_command, preferred_launcher_command
 from .theme import DEFAULT_THEME_ID, available_theme_ids, resolve_theme
 
 MIN_HELP_WIDTH = 78
@@ -124,8 +125,8 @@ def render_operator_console_help(
     ]
 
     usage_rows = (
-        "Usage: python app/operator_console/run.py [OPTIONS]",
-        "Alt:   ./scripts/operator_console.sh [OPTIONS]",
+        f"Usage: {preferred_launcher_command()} [OPTIONS]",
+        f"Alt:   {manual_module_launch_command()} [OPTIONS]",
         f"Theme: {theme.display_name} ({theme.theme_id})",
     )
     for row in usage_rows:
@@ -182,6 +183,31 @@ def render_operator_console_help(
             "Guide",
             "[Operator Console README]",
             (root / "app/operator_console/README.md").as_uri(),
+        ),
+        (
+            "State Map",
+            "[state/README.md]",
+            (root / "app/operator_console/state/README.md").as_uri(),
+        ),
+        (
+            "View Map",
+            "[views/README.md]",
+            (root / "app/operator_console/views/README.md").as_uri(),
+        ),
+        (
+            "Theme Map",
+            "[theme/README.md]",
+            (root / "app/operator_console/theme/README.md").as_uri(),
+        ),
+        (
+            "Test Map",
+            "[tests/README.md]",
+            (root / "app/operator_console/tests/README.md").as_uri(),
+        ),
+        (
+            "Agent Rules",
+            "[AGENTS.md]",
+            (root / "app/operator_console/AGENTS.md").as_uri(),
         ),
         (
             "Launcher",

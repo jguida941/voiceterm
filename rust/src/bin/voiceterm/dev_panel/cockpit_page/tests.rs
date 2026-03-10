@@ -724,7 +724,7 @@ fn cockpit_memory_page_renders_preview_sections() {
     assert!(joined.contains("MP-340"));
     assert!(joined.contains("Boot Pack"));
     assert!(joined.contains("Session Handoff"));
-    assert!(joined.contains("Planned JSON"));
+    assert!(joined.contains("JSON:"));
     assert!(joined.contains("Export Index"));
 }
 
@@ -739,10 +739,10 @@ fn cockpit_memory_page_shows_not_initialized_status_when_snapshot_has_no_ingesto
             title: "Boot Pack".to_string(),
             summary: "Memory subsystem not initialized.".to_string(),
             lines: vec!["Initialize memory capture to build preview packs.".to_string()],
-            json_ref: ".voiceterm/memory/exports/boot_pack.json".to_string(),
-            markdown_ref: ".voiceterm/memory/exports/boot_pack.md".to_string(),
+            json_ref: String::new(),
+            markdown_ref: String::new(),
         }],
-        context_pack_refs: vec![".voiceterm/memory/exports/boot_pack.json".to_string()],
+        context_pack_refs: Vec::new(),
     });
 
     let lines = memory_page_lines(&command_state);

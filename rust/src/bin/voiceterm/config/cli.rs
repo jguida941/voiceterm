@@ -303,26 +303,64 @@ pub(crate) struct OverlayConfig {
     /// Export a built-in theme to stdout as TOML and exit
     #[arg(long = "export-theme")]
     pub(crate) export_theme: Option<String>,
+
+    /// Run as a headless daemon hub (Unix socket + optional WebSocket).
+    /// Other surfaces (PyQt6, iPhone, TUI) connect as clients.
+    #[arg(long = "daemon", default_value_t = false)]
+    pub(crate) daemon: bool,
+
+    /// TCP port for the WebSocket bridge in daemon mode (default: 9876).
+    #[arg(long = "ws-port", default_value_t = 9876)]
+    pub(crate) ws_port: u16,
+
+    /// Disable the WebSocket bridge in daemon mode.
+    #[arg(long = "no-ws", default_value_t = false)]
+    pub(crate) no_ws: bool,
+
+    /// Unix socket path for daemon mode (default: ~/.voiceterm/control.sock).
+    #[arg(long = "socket-path")]
+    pub(crate) socket_path: Option<PathBuf>,
 }
 
-fn parse_wake_word_sensitivity(raw: &str) -> Result<f32, String> {
-    let value: f32 = raw
-        .parse()
-        .map_err(|_| format!("invalid wake-word sensitivity '{raw}'"))?;
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WakeWordParseError(String);
+
+impl std::fmt::Display for WakeWordParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for WakeWordParseError {}
+
+fn sensitivity_error(raw: &str) -> WakeWordParseError {
+    WakeWordParseError(format!("invalid wake-word sensitivity '{raw}'"))
+}
+
+fn cooldown_error(raw: &str) -> WakeWordParseError {
+    WakeWordParseError(format!("invalid wake-word cooldown '{raw}'"))
+}
+
+fn range_error(message: &str) -> WakeWordParseError {
+    WakeWordParseError(message.to_string())
+}
+
+fn parse_wake_word_sensitivity(raw: &str) -> Result<f32, WakeWordParseError> {
+    let value: f32 = raw.parse().map_err(|_| sensitivity_error(raw))?;
     if !(0.0..=1.0).contains(&value) {
-        return Err("wake-word sensitivity must be between 0.0 and 1.0".to_string());
+        return Err(range_error(
+            "wake-word sensitivity must be between 0.0 and 1.0",
+        ));
     }
     Ok(value)
 }
 
-fn parse_wake_word_cooldown_ms(raw: &str) -> Result<u64, String> {
-    let value: u64 = raw
-        .parse()
-        .map_err(|_| format!("invalid wake-word cooldown '{raw}'"))?;
+fn parse_wake_word_cooldown_ms(raw: &str) -> Result<u64, WakeWordParseError> {
+    let value: u64 = raw.parse().map_err(|_| cooldown_error(raw))?;
     if !(MIN_WAKE_WORD_COOLDOWN_MS..=MAX_WAKE_WORD_COOLDOWN_MS).contains(&value) {
-        return Err(format!(
+        return Err(range_error(&format!(
             "wake-word cooldown must be between {MIN_WAKE_WORD_COOLDOWN_MS} and {MAX_WAKE_WORD_COOLDOWN_MS} ms"
-        ));
+        )));
     }
     Ok(value)
 }

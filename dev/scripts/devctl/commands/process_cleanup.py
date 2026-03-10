@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from ..common import emit_output, pipe_output, write_output
-from ..process_sweep import (
+from ..process_sweep.core import (
     expand_cleanup_target_rows,
     extend_process_row_markdown,
     kill_processes,

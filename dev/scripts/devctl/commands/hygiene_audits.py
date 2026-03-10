@@ -11,7 +11,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List
 
-from ..publication_sync import (
+from ..publication_sync.core import (
     DEFAULT_PUBLICATION_SYNC_REGISTRY_REL,
     build_publication_sync_report,
 )

@@ -18,8 +18,8 @@ final class MobileRelayAppModel: ObservableObject {
         self.sourceTitle = "Sample Bundle"
         self.sourceDetail = "Built-in preview data"
         self.lastError = nil
-        if !restoreImportedBundleIfPresent() {
-            _ = restoreLiveBundleIfPresent()
+        if !restoreLiveBundleIfPresent() {
+            _ = restoreImportedBundleIfPresent()
         }
     }
 

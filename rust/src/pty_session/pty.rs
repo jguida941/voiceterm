@@ -107,8 +107,8 @@ fn child_process_is_alive(child_pid: i32) -> bool {
     if child_pid < 0 {
         return false;
     }
+    // SAFETY: child_pid is owned by this session; waitpid with WNOHANG only inspects state.
     unsafe {
-        // SAFETY: child_pid is owned by this session; waitpid with WNOHANG only inspects state.
         let mut status = 0;
         let ret = libc::waitpid(child_pid, &mut status, libc::WNOHANG);
         ret == 0 // 0 means still running
@@ -273,6 +273,12 @@ impl PtyCliSession {
         output
     }
 
+    /// Return the PTY child process pid for diagnostics and daemon session tracking.
+    #[must_use]
+    pub fn child_pid(&self) -> i32 {
+        self.child_pid
+    }
+
     /// Peek whether the child is still running (without reaping it).
     #[must_use]
     pub fn is_alive(&self) -> bool {
@@ -284,6 +290,7 @@ impl PtyCliSession {
         if self.child_pid < 0 {
             return None;
         }
+        // SAFETY: self.child_pid is owned by this session; waitpid with WNOHANG only inspects state.
         unsafe {
             let mut status = 0;
             let ret = libc::waitpid(self.child_pid, &mut status, libc::WNOHANG);
@@ -299,6 +306,7 @@ impl PtyCliSession {
 
 impl Drop for PtyCliSession {
     fn drop(&mut self) {
+        // SAFETY: this session still owns the PTY descriptors and child pid until drop completes.
         unsafe {
             shutdown_pty_child(self.master_fd, self.child_pid);
             close_pty_session_handles(self.master_fd, &mut self.lifeline_write_fd);
@@ -446,6 +454,7 @@ pub(crate) fn test_pty_session(
 
 impl Drop for PtyOverlaySession {
     fn drop(&mut self) {
+        // SAFETY: this overlay session still owns the PTY descriptors and child pid until drop completes.
         unsafe {
             shutdown_pty_child(self.master_fd, self.child_pid);
             close_pty_session_handles(self.master_fd, &mut self.lifeline_write_fd);
@@ -518,7 +527,10 @@ pub(super) unsafe fn spawn_pty_child(
         ws_ypixel: 0,
     };
 
-    #[allow(clippy::unnecessary_mut_passed)]
+    #[allow(
+        clippy::unnecessary_mut_passed,
+        reason = "libc::openpty takes mutable pointers for the output fds and winsize struct."
+    )]
     // SAFETY: openpty expects valid pointers for master/slave/winsize; we pass stack locals.
     if libc::openpty(
         &mut master_fd,
@@ -799,10 +811,12 @@ pub(super) fn set_cloexec(fd: RawFd) -> Result<()> {
         return Ok(());
     }
 
+    // SAFETY: fcntl reads the descriptor flags for a live file descriptor without taking ownership.
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
     if flags < 0 {
         return Err(errno_error("fcntl(F_GETFD) failed"));
     }
+    // SAFETY: fcntl writes the close-on-exec flag back to the same live file descriptor.
     let result = unsafe { libc::fcntl(fd, libc::F_SETFD, flags | libc::FD_CLOEXEC) };
     if result < 0 {
         return Err(errno_error("fcntl(F_SETFD, FD_CLOEXEC) failed"));

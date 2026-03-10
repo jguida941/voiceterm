@@ -6,10 +6,24 @@ from unittest.mock import patch
 from app.operator_console.launch_support import (
     build_pyqt6_install_command,
     ensure_pyqt6_installed,
+    manual_module_launch_command,
+    manual_pyqt6_install_command,
+    preferred_launcher_command,
 )
 
 
 class LaunchSupportTests(unittest.TestCase):
+    def test_operator_facing_launcher_commands_match_canonical_paths(self) -> None:
+        self.assertEqual(preferred_launcher_command(), "./scripts/operator_console.sh")
+        self.assertEqual(
+            manual_module_launch_command(),
+            "python3 -m app.operator_console.run",
+        )
+        self.assertEqual(
+            manual_pyqt6_install_command(),
+            "python3 -m pip install PyQt6",
+        )
+
     def test_build_install_command_uses_user_site_outside_virtualenv(self) -> None:
         command = build_pyqt6_install_command(
             python_executable="/usr/bin/python3",

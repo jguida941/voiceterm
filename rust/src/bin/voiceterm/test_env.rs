@@ -135,5 +135,9 @@ pub(crate) fn default_overlay_config() -> crate::config::OverlayConfig {
         login: false,
         theme_file: None,
         export_theme: None,
+        daemon: false,
+        ws_port: 9876,
+        no_ws: false,
+        socket_path: None,
     }
 }

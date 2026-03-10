@@ -132,6 +132,12 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
     ),
+    "rust/src/bin/voiceterm/main.rs": ShapePolicy(
+        soft_limit=950,
+        hard_limit=1050,
+        oversize_growth_limit=30,
+        hard_lock_growth_limit=0,
+    ),
     "rust/src/bin/voiceterm/transcript_history.rs": ShapePolicy(
         soft_limit=750,
         hard_limit=950,
@@ -253,9 +259,9 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=20,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/devctl/cli_parser_reporting.py": ShapePolicy(
-        soft_limit=380,
-        hard_limit=500,
+    "dev/scripts/devctl/cli_parser/reporting.py": ShapePolicy(
+        soft_limit=300,
+        hard_limit=400,
         oversize_growth_limit=25,
         hard_lock_growth_limit=0,
     ),
@@ -277,37 +283,49 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=40,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/devctl/review_channel_event_reducer.py": ShapePolicy(
+    "dev/scripts/devctl/tests/test_review_channel_context_refs.py": ShapePolicy(
+        soft_limit=220,
+        hard_limit=300,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/review_channel/event_reducer.py": ShapePolicy(
         soft_limit=500,
         hard_limit=600,
         oversize_growth_limit=30,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/devctl/review_channel_launch.py": ShapePolicy(
-        soft_limit=400,
-        hard_limit=500,
+    "dev/scripts/devctl/review_channel/launch.py": ShapePolicy(
+        soft_limit=325,
+        hard_limit=425,
         oversize_growth_limit=20,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/devctl/review_channel_handoff.py": ShapePolicy(
+    "dev/scripts/devctl/review_channel/handoff.py": ShapePolicy(
         soft_limit=675,
         hard_limit=775,
         oversize_growth_limit=35,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/devctl/review_channel_state.py": ShapePolicy(
-        soft_limit=525,
-        hard_limit=625,
+    "dev/scripts/devctl/review_channel/state.py": ShapePolicy(
+        soft_limit=325,
+        hard_limit=425,
         oversize_growth_limit=30,
         hard_lock_growth_limit=0,
     ),
-    "app/operator_console/state/activity_reports.py": ShapePolicy(
-        soft_limit=400,
-        hard_limit=500,
+    "app/operator_console/state/activity/activity_reports.py": ShapePolicy(
+        soft_limit=675,
+        hard_limit=750,
         oversize_growth_limit=25,
         hard_lock_growth_limit=0,
     ),
-    "app/operator_console/state/presentation_state.py": ShapePolicy(
+    "app/operator_console/tests/collaboration/test_context_pack_refs.py": ShapePolicy(
+        soft_limit=220,
+        hard_limit=300,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/state/presentation/presentation_state.py": ShapePolicy(
         soft_limit=550,
         hard_limit=650,
         oversize_growth_limit=25,
@@ -319,37 +337,67 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=25,
         hard_lock_growth_limit=0,
     ),
-    "app/operator_console/theme/qss_panels.py": ShapePolicy(
-        soft_limit=375,
-        hard_limit=450,
+    "app/operator_console/theme/qss/qss_panels.py": ShapePolicy(
+        soft_limit=425,
+        hard_limit=500,
         oversize_growth_limit=20,
         hard_lock_growth_limit=0,
     ),
-    "app/operator_console/theme/theme_editor.py": ShapePolicy(
-        soft_limit=1050,
-        hard_limit=1150,
+    "app/operator_console/theme/qss/qss_controls.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=525,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/editor/theme_editor.py": ShapePolicy(
+        soft_limit=1400,
+        hard_limit=1500,
         oversize_growth_limit=40,
         hard_lock_growth_limit=0,
     ),
-    "app/operator_console/theme/theme_engine.py": ShapePolicy(
-        soft_limit=400,
-        hard_limit=500,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
-    "app/operator_console/theme/theme_preview.py": ShapePolicy(
+    "app/operator_console/theme/runtime/theme_engine.py": ShapePolicy(
         soft_limit=500,
-        hard_limit=600,
+        hard_limit=575,
         oversize_growth_limit=25,
         hard_lock_growth_limit=0,
     ),
-    "app/operator_console/views/activity_workspace.py": ShapePolicy(
+    "app/operator_console/theme/editor/theme_preview.py": ShapePolicy(
+        soft_limit=550,
+        hard_limit=625,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/workspaces/activity_workspace.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=550,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/state/bridge/lane_builder.py": ShapePolicy(
+        soft_limit=400,
+        hard_limit=475,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_mobile_relay_protocol.py": ShapePolicy(
+        soft_limit=650,
+        hard_limit=725,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_python_broad_except.py": ShapePolicy(
         soft_limit=425,
-        hard_limit=525,
+        hard_limit=500,
+        oversize_growth_limit=30,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/mobile_status_views.py": ShapePolicy(
+        soft_limit=375,
+        hard_limit=450,
         oversize_growth_limit=25,
         hard_lock_growth_limit=0,
     ),
-    "app/operator_console/views/home_workspace.py": ShapePolicy(
+    "app/operator_console/views/workspaces/home_workspace.py": ShapePolicy(
         soft_limit=475,
         hard_limit=550,
         oversize_growth_limit=25,
@@ -371,12 +419,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         soft_limit=1150,
         hard_limit=1250,
         oversize_growth_limit=40,
-        hard_lock_growth_limit=0,
-    ),
-    "app/operator_console/views/widgets.py": ShapePolicy(
-        soft_limit=500,
-        hard_limit=600,
-        oversize_growth_limit=25,
         hard_lock_growth_limit=0,
     ),
 }

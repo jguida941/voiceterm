@@ -16,22 +16,34 @@ from .phone_status_views import (
 def _controller_payload(payload: dict[str, Any]) -> dict[str, Any]:
     value = payload.get("controller_payload")
     return value if isinstance(value, dict) else {}
+
+
 def _review_payload(payload: dict[str, Any]) -> dict[str, Any]:
     value = payload.get("review_payload")
     return value if isinstance(value, dict) else {}
+
+
 def _review_state(payload: dict[str, Any]) -> dict[str, Any]:
     review_payload = _review_payload(payload)
     value = review_payload.get("review_state")
     return value if isinstance(value, dict) else {}
+
+
 def _review_queue(payload: dict[str, Any]) -> dict[str, Any]:
     value = _review_state(payload).get("queue")
     return value if isinstance(value, dict) else {}
+
+
 def _review_bridge(payload: dict[str, Any]) -> dict[str, Any]:
     value = _review_state(payload).get("bridge")
     return value if isinstance(value, dict) else {}
+
+
 def _review_liveness(payload: dict[str, Any]) -> dict[str, Any]:
     value = _review_payload(payload).get("bridge_liveness")
     return value if isinstance(value, dict) else {}
+
+
 def _review_agents(payload: dict[str, Any]) -> list[dict[str, Any]]:
     value = _review_state(payload).get("agents")
     if not isinstance(value, list):
@@ -55,6 +67,8 @@ def compact_view(payload: dict[str, Any]) -> dict[str, Any]:
     review_pending_total = int(review_queue.get("pending_total") or 0)
     review_meta = _review_state(payload).get("review")
     review_meta = review_meta if isinstance(review_meta, dict) else {}
+    approval_policy = payload.get("approval_policy")
+    approval_policy = approval_policy if isinstance(approval_policy, dict) else {}
     return {
         "schema_version": 1,
         "view": "compact",
@@ -86,6 +100,8 @@ def compact_view(payload: dict[str, Any]) -> dict[str, Any]:
         "claude_lane_status": _agent_status(payload, "claude"),
         "operator_status": _agent_status(payload, "operator"),
         "source_run_url": str(controller_compact.get("source_run_url") or ""),
+        "approval_mode": str(approval_policy.get("mode") or "unknown"),
+        "approval_summary": str(approval_policy.get("summary") or ""),
         "next_actions": controller_compact.get("next_actions", []),
     }
 
@@ -111,6 +127,8 @@ def alert_view(payload: dict[str, Any]) -> dict[str, Any]:
         "view": "alert",
         "severity": severity,
         "summary": compact["headline"],
+        "approval_mode": compact["approval_mode"],
+        "approval_summary": compact["approval_summary"],
         "why": reasons,
         "current_instruction": compact["current_instruction"],
         "next_actions": compact["next_actions"],
@@ -151,6 +169,8 @@ def actions_view(payload: dict[str, Any]) -> dict[str, Any]:
         "schema_version": 1,
         "view": "actions",
         "summary": compact["headline"],
+        "approval_mode": compact["approval_mode"],
+        "approval_summary": compact["approval_summary"],
         "next_actions": compact["next_actions"],
         "operator_actions": operator_actions,
     }
@@ -252,6 +272,8 @@ def _render_view_markdown(view_payload_value: dict[str, Any], view: str) -> str:
     lines.append(f"- claude_status: {compact.get('claude_lane_status')}")
     lines.append(f"- operator_status: {compact.get('operator_status')}")
     lines.append(f"- source_run_url: {compact.get('source_run_url') or 'n/a'}")
+    lines.append(f"- approval_mode: {compact.get('approval_mode')}")
+    lines.append(f"- approval_summary: {compact.get('approval_summary') or 'n/a'}")
     lines.append("")
     lines.append("### Current Instruction")
     lines.append("")
@@ -279,6 +301,7 @@ def render_report_markdown(report: dict[str, Any]) -> str:
     lines.append(f"- review_channel_path: {report.get('review_channel_path')}")
     lines.append(f"- bridge_path: {report.get('bridge_path')}")
     lines.append(f"- review_status_dir: {report.get('review_status_dir')}")
+    lines.append(f"- approval_mode: {report.get('approval_mode')}")
     lines.append(f"- view: {report.get('view')}")
     lines.append(f"- timestamp: {report.get('timestamp')}")
     if report.get("projection_dir"):

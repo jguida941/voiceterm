@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from app.operator_console.theme.theme_state import BUILTIN_PRESETS
+from app.operator_console.theme.runtime.theme_state import BUILTIN_PRESETS
 from app.operator_console.views import agent_detail as agent_detail_module
 from app.operator_console.views.agent_detail import DiffHighlighter, looks_like_unified_diff
 

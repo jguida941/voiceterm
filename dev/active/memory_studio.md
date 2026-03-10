@@ -71,7 +71,7 @@ structured memory substrate that is both human-auditable and machine-queryable.
 - The Rust operator cockpit now exposes a dedicated read-only Memory tab with refresh-on-visible-tab wiring plus memory-ingest/review/boot-pack/handoff preview sections, but broader query/export views and dedicated browser navigation are still missing.
 - Memory modes (`off`, `capture_only`, `assist`, `paused`, `incognito`) now restore from persistent config at startup, persist immediately from the dev-panel mode toggle path, and flow through runtime config snapshots, but broader trust/privacy controls and visible controls outside `--dev` remain incomplete.
 - Context-pack struct/output is present, but several required fields are still missing (`retrieval_plan`, `validation_report`, `source_mix`, contradiction metadata).
-- Review/control-plane interop is partially proven through the shared handoff prompt, but `context_pack_refs`, pack exports, and normalized packet-outcome ingestion are not wired yet.
+- Review/control-plane interop is partially proven through the shared handoff prompt; pack exports plus event-backed attach-by-ref `context_pack_refs` are now wired through the current review/control proof path, but normalized packet-outcome ingestion and wider `controller_state` parity are not wired yet.
 - Action policy logic exists, but action execution/audit is not yet integrated into overlay runtime flows.
 
 ### Missing for Product-Ready Persistent Memory
@@ -121,8 +121,11 @@ Progress note (2026-03-09):
 - The Rust Dev panel now includes a dedicated read-only Memory cockpit tab fed
   by memory ingest state plus review/boot-pack/handoff preview data, with
   refresh wired through the visible-tab path. This advances the operator
-  proof-path for `MP-233`, but `task_pack` / `session_handoff` /
-  `survival_index` export closure and `context_pack_refs` interop remain open.
+  proof-path for `MP-233`; the 2026-03-09 follow-up now emits repo-visible
+  `.voiceterm/memory/exports/*.{json,md}` artifacts for `boot_pack`,
+  `task_pack`, `session_handoff`, and the first `survival_index` preview on
+  refresh. Remaining open scope is attach-by-ref `context_pack_refs` interop
+  plus review/control packet-outcome ingest.
 - The bounded `MP-243` persistence slice is now landed: startup restore uses
   the persisted `memory_mode`, runtime config snapshots preserve/write that
   mode explicitly, and the dev-panel `m` path saves the new mode immediately
@@ -168,10 +171,13 @@ Principles:
 Current shipped proof is intentionally narrower than the end-state:
 
 - live today: Control-tab memory status/mode visibility, a dedicated read-only
-  Memory tab backed by ingest/review/boot-pack/handoff previews, and
-  Boot-pack-backed Handoff prompt generation
-- not landed yet: operator-cockpit query/export views for `task_pack`,
-  `session_handoff`, and `survival_index`
+  Memory tab backed by ingest/review/boot-pack/handoff previews, Boot-pack-
+  backed Handoff prompt generation, and repo-visible JSON/Markdown exports for
+  `boot_pack`, `task_pack`, `session_handoff`, and the first
+  `survival_index` preview
+- not landed yet: attach-by-ref `context_pack_refs` consumption,
+  packet-outcome ingest parity, and the fuller Memory Browser / Action Center
+  overlays
 
 Piece-by-piece ladder:
 
@@ -1892,6 +1898,28 @@ python3 dev/scripts/checks/check_survival_index_recall.py  # Level 4-5 A/B recal
   `session_handoff`, and `survival_index` query/export closure still remain
   open along with persisted `memory_mode`, `context_pack_refs`, and packet-
   outcome ingest.
+- 2026-03-09: Closed the bounded operator-cockpit query/export sub-slice in
+  the Rust runtime. Memory-tab refresh and visible-tab polling now emit
+  repo-visible `.voiceterm/memory/exports/*.{json,md}` artifacts for
+  `boot_pack`, `task_pack`, `session_handoff`, and `survival_index`, and the
+  Memory tab now labels those refs honestly as real JSON/Markdown outputs
+  instead of planned paths.
+- 2026-03-09: Landed the first attach-by-ref review/control bridge over those
+  exports. Event-backed review packets now carry structured `context_pack_refs`
+  end-to-end, `actions.json` and `latest.md` preserve the same attachments, the
+  Rust review surface renders them from structured artifacts, and the Operator
+  Console approval path round-trips them through typed JSON/Markdown decision
+  artifacts. Remaining bridge work is packet-outcome ingest into canonical
+  memory events plus broader `controller_state` parity across Rust/phone/desktop.
+- 2026-03-09: Landed the first attach-by-ref `context_pack_refs` bridge slice
+  across the structured review path. Event-backed `devctl review-channel`
+  packets now preserve typed pack refs into reduced `review_state` plus
+  `actions.json`, the Rust review artifact parser/operator lane/fresh bootstrap
+  prompt now consume those refs read-only, and the PyQt6 Operator Console now
+  keeps the same refs lossless through approval loading, decision-command JSON,
+  operator-decision artifacts, and approval detail rendering. Remaining
+  `MP-238` scope is controller-state parity plus packet-outcome ingest back into
+  canonical memory events.
 - 2026-03-09: Restored clean tracker ownership for the memory lane by fixing
   the unrelated `MP-230` numbering collision in `MASTER_PLAN`; Memory Studio
   now consistently owns `MP-230..MP-255` again across the index, tracker, and
@@ -1902,6 +1930,13 @@ python3 dev/scripts/checks/check_survival_index_recall.py  # Level 4-5 A/B recal
   toggle saves immediately so later snapshots reflect the configured state.
   This closes the persistent-config/startup-restore sub-slice while leaving
   broader trust/privacy UX outside `--dev` open.
+- 2026-03-09: Landed the first deterministic survival-index retrieval-trace
+  slice for compaction/recovery continuity. Added `memory/survival_index.rs`
+  with bounded task-focus + recent-context query plans, per-query token-budget
+  traces, deduplicated scored evidence rows, and markdown/JSON rendering. The
+  Memory cockpit now exports `survival_index.json` from that structured payload
+  (instead of count-only preview lines), and refresh polling coverage now
+  asserts the export carries both `query_traces` and `evidence`.
 
 ## Audit Evidence
 
@@ -1914,11 +1949,14 @@ failures remain tracked outside this spec.
 | `python3 dev/scripts/checks/check_active_plan_sync.py` | `ok: True` after recording the 2026-03-09 Memory Studio progress/audit entries; registry/tracker/spec sync stayed clean (`active_markdown_files=19`, `registry_paths=19`). | done |
 | `python3 dev/scripts/checks/check_multi_agent_sync.py` | `ok: True` after the memory-lane plan-state update; required/master/coordination agent sets still match and no sync errors were reported. | done |
 | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | `ok: True` after the memory-lane plan-state update; tooling-policy, active-plan sync, multi-agent sync, workflow-shell hygiene, and bundle/workflow parity all remained green. | done |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm memory_page -- --nocapture` + `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm background_review_poll_refreshes_memory_when_memory_tab_visible -- --nocapture` | Targeted Rust proof for the Memory cockpit export slice passed (`6` focused tests across cockpit rendering, Enter refresh, visible-tab polling, and `m`-key mode refresh). `guard-run` post-check needed one host-access rerun of `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` because sandboxed `ps` access blocked the required host-process hygiene step; elevated rerun exited `0` after cleaning one stale repo-related process. | done |
 | `python3 dev/scripts/devctl.py process-cleanup --verify --format md` | `ok: True`; no orphaned/stale repo processes, cleanup target count `0`, and verify stayed green while one recent active Operator Console process was left running and reported as a warning instead of being killed. | done |
 | `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm memory::context_pack:: -- --nocapture` | `14 passed`; verified the boot-pack budget-alignment fix so `active_tasks` / `recent_decisions` no longer leak trimmed-out retrieval results beyond the rendered evidence slice. | done |
 | `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm memory:: -- --nocapture` | `109 passed`; verified the deterministic metadata extraction slice across ingest, retrieval, context-pack, governance/store/type regressions, plus the new task-pack proof from live-ingested `MP-*` refs. | done |
 | `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm persistent_config::tests -- --nocapture` | `16 passed`; verified the persistent-config memory-mode path after the MP-243 startup/persistence slice landed. | done |
 | `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm memory_mode -- --nocapture` | `10 passed`; verified runtime memory-mode behavior and regression coverage after wiring persisted startup restore + immediate save. | done |
+| `cargo test memory::survival_index:: -- --nocapture` | `5 passed`; verifies deterministic survival-index query planning, fallback retrieval behavior, task/decision extraction, and markdown rendering for compaction-recovery exports. | done |
+| `cargo test dev_panel_overlay::refresh_poll::memory_page_enter -- --nocapture` | `2 passed`; validates Memory cockpit Enter-refresh path and confirms `survival_index.json` includes structured `query_traces` + `evidence` payload keys. | done |
 | `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | passed after rerunning with host-process access when the initial guard-run follow-up hit sandboxed `ps`; final quick profile finished green. | done |
 
 ## Research References (2026-02-19)

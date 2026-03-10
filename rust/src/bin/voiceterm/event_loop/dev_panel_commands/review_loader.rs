@@ -23,21 +23,21 @@ pub(in super::super) fn load_review(
         state
             .dev_panel_commands
             .review_mut()
-            .set_load_error("code_audit.md not found in repo".to_string());
+            .set_load_error("review artifact not found in repo".to_string());
         return;
     };
-    match std::fs::read_to_string(&path) {
-        Ok(content) => {
+    match crate::dev_command::load_review_artifact_document(&path) {
+        Ok(document) => {
             state
                 .dev_panel_commands
                 .review_mut()
-                .load_from_content(&content);
+                .load_from_artifact(&document.raw_content, document.artifact);
         }
         Err(err) => {
             state
                 .dev_panel_commands
                 .review_mut()
-                .set_load_error(format!("Failed to read code_audit.md: {err}"));
+                .set_load_error(format!("Failed to read review artifact: {err}"));
         }
     }
 }
@@ -52,16 +52,20 @@ pub(in super::super) fn poll_review(
         state
             .dev_panel_commands
             .review_mut()
-            .set_load_error("code_audit.md not found in repo".to_string());
+            .set_load_error("review artifact not found in repo".to_string());
         return true;
     };
-    match std::fs::read_to_string(&path) {
-        Ok(content) => {
-            if state.dev_panel_commands.review().content_changed(&content) {
+    match crate::dev_command::load_review_artifact_document(&path) {
+        Ok(document) => {
+            if state
+                .dev_panel_commands
+                .review()
+                .content_changed(&document.raw_content)
+            {
                 state
                     .dev_panel_commands
                     .review_mut()
-                    .load_from_content(&content);
+                    .load_from_artifact(&document.raw_content, document.artifact);
                 true
             } else {
                 false
@@ -71,7 +75,7 @@ pub(in super::super) fn poll_review(
             state
                 .dev_panel_commands
                 .review_mut()
-                .set_load_error(format!("Failed to read code_audit.md: {err}"));
+                .set_load_error(format!("Failed to read review artifact: {err}"));
             true
         }
     }

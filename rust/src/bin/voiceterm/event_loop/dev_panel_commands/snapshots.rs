@@ -1,6 +1,12 @@
 //! Memory, handoff, and context snapshot builders for dev-panel cockpit pages.
 
 use super::super::*;
+use super::snapshots_render::{
+    append_artifact_sections, append_survival_evidence_lines, append_survival_trace_lines,
+};
+use serde::Serialize;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 const MEMORY_EXPORT_ROOT: &str = ".voiceterm/memory/exports";
 const MEMORY_TASK_QUERY_FALLBACK: &str = "memory";
@@ -83,6 +89,10 @@ pub(in super::super) fn refresh_handoff_snapshot(state: &mut EventLoopState) {
             pack_type: match pack.pack_type {
                 crate::memory::types::ContextPackType::Boot => "Boot".to_string(),
                 crate::memory::types::ContextPackType::Task => "Task".to_string(),
+                crate::memory::types::ContextPackType::SurvivalIndex => {
+                    "Survival Index".to_string()
+                }
+                crate::memory::types::ContextPackType::Hybrid => "Hybrid".to_string(),
             },
             summary: pack.summary,
             active_tasks: pack.active_tasks,
@@ -141,9 +151,10 @@ pub(in super::super) fn refresh_handoff_snapshot(state: &mut EventLoopState) {
 }
 
 /// Build a dedicated Memory-page snapshot from the current runtime, review,
-/// git, and handoff data. This is a read-only preview surface; it does not
-/// write any export files when the operator refreshes the page.
+/// git, and handoff data. Refresh also emits the current preview artifacts to
+/// the project-scoped `.voiceterm/memory/exports` directory.
 pub(in super::super) fn refresh_memory_cockpit_snapshot(state: &mut EventLoopState) {
+    let export_root = memory_export_root(state);
     let status = current_memory_status_snapshot(state);
     let (task_query, task_query_source) = select_task_query(state);
     let mut snapshot = crate::dev_command::MemoryCockpitSnapshot {
@@ -167,50 +178,64 @@ pub(in super::super) fn refresh_memory_cockpit_snapshot(state: &mut EventLoopSta
             ingestor.project_id(),
             token_budget,
         );
+        let hybrid_pack = crate::memory::context_pack::generate_hybrid_pack(
+            ingestor.index(),
+            &snapshot.task_query,
+            ingestor.project_id(),
+            token_budget,
+        );
         snapshot.sections.push(section_from_context_pack(
             "Boot Pack",
             "boot_pack",
             &boot_pack,
+            &export_root,
         ));
         snapshot.sections.push(section_from_context_pack(
             "Task Pack",
             "task_pack",
             &task_pack,
+            &export_root,
         ));
-        snapshot
-            .sections
-            .push(build_session_handoff_section(state, &boot_pack, &task_pack));
-        snapshot
-            .sections
-            .push(build_survival_index_section(state, &boot_pack, &task_pack));
+        snapshot.sections.push(section_from_context_pack(
+            "Hybrid Pack",
+            "hybrid_pack",
+            &hybrid_pack,
+            &export_root,
+        ));
+        snapshot.sections.push(build_session_handoff_section(
+            state,
+            &boot_pack,
+            &task_pack,
+            &export_root,
+        ));
+        snapshot.sections.push(build_survival_index_section(
+            state,
+            ingestor.index(),
+            &task_pack,
+            &export_root,
+        ));
     } else {
-        for (title, slug) in [
-            ("Boot Pack", "boot_pack"),
-            ("Task Pack", "task_pack"),
-            ("Session Handoff", "session_handoff"),
-            ("Survival Index", "survival_index"),
+        for title in [
+            "Boot Pack",
+            "Task Pack",
+            "Hybrid Pack",
+            "Session Handoff",
+            "Survival Index",
         ] {
-            let (json_ref, markdown_ref) = planned_export_refs(slug);
             snapshot
                 .sections
-                .push(crate::dev_command::MemoryPreviewSection {
-                    title: title.to_string(),
-                    summary: "Memory subsystem not initialized.".to_string(),
-                    lines: vec![
-                        "Initialize memory capture to build preview packs.".to_string(),
-                        "Use the Control or Memory page 'm' key to change runtime memory mode."
-                            .to_string(),
-                    ],
-                    json_ref,
-                    markdown_ref,
-                });
+                .push(not_initialized_memory_section(title));
         }
     }
 
     snapshot.context_pack_refs = snapshot
         .sections
         .iter()
-        .flat_map(|section| [section.json_ref.clone(), section.markdown_ref.clone()])
+        .flat_map(|section| {
+            [section.json_ref.clone(), section.markdown_ref.clone()]
+                .into_iter()
+                .filter(|value| !value.is_empty())
+        })
         .collect();
     state
         .dev_panel_commands
@@ -285,7 +310,7 @@ fn generate_fresh_prompt(
     artifact: Option<&crate::dev_command::ReviewArtifact>,
     git_summary: Option<&str>,
 ) -> String {
-    use crate::dev_command::{first_meaningful_line, parse_scope_list, push_trimmed_lines};
+    use crate::dev_command::first_meaningful_line;
 
     let mut parts = Vec::new();
 
@@ -312,28 +337,8 @@ fn generate_fresh_prompt(
         parts.push(format!("Git: {git}"));
     }
 
-    // Live blockers from Open Findings give the new session immediate context.
     if let Some(a) = artifact {
-        if !a.findings.is_empty() {
-            parts.push(String::new());
-            parts.push("Open Findings (live blockers):".to_string());
-            push_trimmed_lines(&mut parts, &a.findings);
-        }
-
-        let scope_items = parse_scope_list(&a.last_reviewed_scope);
-        if !scope_items.is_empty() {
-            parts.push(String::new());
-            parts.push("Last Reviewed Scope:".to_string());
-            for item in &scope_items {
-                parts.push(format!("  - {item}"));
-            }
-        }
-
-        if !a.claude_questions.is_empty() {
-            parts.push(String::new());
-            parts.push("Claude Questions:".to_string());
-            push_trimmed_lines(&mut parts, &a.claude_questions);
-        }
+        append_artifact_sections(&mut parts, a);
     }
 
     if !snap.summary.is_empty() {
@@ -421,8 +426,8 @@ fn section_from_context_pack(
     title: &str,
     slug: &str,
     pack: &crate::memory::types::ContextPack,
+    export_root: &Path,
 ) -> crate::dev_command::MemoryPreviewSection {
-    let (json_ref, markdown_ref) = planned_export_refs(slug);
     let mut lines = vec![
         format!("Query: {}", pack.query),
         format!("Generated: {}", pack.generated_at),
@@ -466,6 +471,13 @@ fn section_from_context_pack(
             ));
         }
     }
+    let (json_ref, markdown_ref) = match write_context_pack_export(slug, pack, export_root) {
+        Ok(refs) => refs,
+        Err(err) => {
+            lines.push(format!("Export error: {err}"));
+            (String::new(), String::new())
+        }
+    };
     crate::dev_command::MemoryPreviewSection {
         title: title.to_string(),
         summary: pack.summary.clone(),
@@ -479,8 +491,8 @@ fn build_session_handoff_section(
     state: &EventLoopState,
     boot_pack: &crate::memory::types::ContextPack,
     task_pack: &crate::memory::types::ContextPack,
+    export_root: &Path,
 ) -> crate::dev_command::MemoryPreviewSection {
-    let (json_ref, markdown_ref) = planned_export_refs("session_handoff");
     let artifact = state.dev_panel_commands.review().artifact();
     let handoff = state.dev_panel_commands.handoff_snapshot();
     let mut lines = Vec::new();
@@ -521,10 +533,25 @@ fn build_session_handoff_section(
     }
     lines.push(format!("Boot evidence: {}", boot_pack.evidence.len()));
     lines.push(format!("Task evidence: {}", task_pack.evidence.len()));
+    let summary =
+        "Fresh-conversation handoff preview staged from review, git, and memory state.".to_string();
+    let export = MemoryPreviewExport {
+        generated_at: crate::memory::types::iso_timestamp(),
+        title: "Session Handoff".to_string(),
+        summary: summary.clone(),
+        lines: lines.clone(),
+    };
+    let (json_ref, markdown_ref) =
+        match write_preview_export("session_handoff", &export, export_root) {
+            Ok(refs) => refs,
+            Err(err) => {
+                lines.push(format!("Export error: {err}"));
+                (String::new(), String::new())
+            }
+        };
     crate::dev_command::MemoryPreviewSection {
         title: "Session Handoff".to_string(),
-        summary: "Fresh-conversation handoff preview staged from review, git, and memory state."
-            .to_string(),
+        summary,
         lines,
         json_ref,
         markdown_ref,
@@ -533,18 +560,28 @@ fn build_session_handoff_section(
 
 fn build_survival_index_section(
     state: &EventLoopState,
-    boot_pack: &crate::memory::types::ContextPack,
+    index: &crate::memory::store::sqlite::MemoryIndex,
     task_pack: &crate::memory::types::ContextPack,
+    export_root: &Path,
 ) -> crate::dev_command::MemoryPreviewSection {
-    let (json_ref, markdown_ref) = planned_export_refs("survival_index");
     let artifact = state.dev_panel_commands.review().artifact();
     let git = state.dev_panel_commands.git_snapshot();
     let memory_mode = current_memory_status_snapshot(state)
         .map(|snapshot| snapshot.mode_label)
         .unwrap_or_else(|| "Not initialized".to_string());
+    let survival = crate::memory::survival_index::generate_survival_index(
+        index,
+        &task_pack.query,
+        crate::memory::context_pack::default_token_budget(),
+    );
     let mut lines = vec![
-        format!("Task focus: {}", task_pack.query),
+        format!("Task focus: {}", survival.task_focus),
         format!("Memory mode: {memory_mode}"),
+        format!("Evidence items: {}", survival.evidence.len()),
+        format!(
+            "Tokens: {}/{} (trimmed: {})",
+            survival.token_budget.used, survival.token_budget.target, survival.token_budget.trimmed
+        ),
         format!(
             "Review findings: {}",
             artifact
@@ -557,9 +594,14 @@ fn build_survival_index_section(
                 .map(|value| count_nonempty_lines(&value.claude_questions))
                 .unwrap_or(0)
         ),
-        format!("Active tasks: {}", boot_pack.active_tasks.len()),
-        format!("Recent decisions: {}", boot_pack.recent_decisions.len()),
+        format!(
+            "Active tasks: {}",
+            summarize_list(&survival.active_tasks, 4)
+        ),
+        format!("Recent decisions: {}", survival.recent_decisions.len()),
     ];
+    append_survival_trace_lines(&mut lines, &survival);
+    append_survival_evidence_lines(&mut lines, &survival);
     if let Some(git) = git {
         if git.has_error {
             lines.push(format!("Git snapshot error: {}", git.error_message));
@@ -576,13 +618,130 @@ fn build_survival_index_section(
             lines.push(format!("Bridge: {bridge}"));
         }
     }
+    let summary = survival.summary.clone();
+    let (json_ref, markdown_ref) = match write_survival_index_export(&survival, export_root) {
+        Ok(refs) => refs,
+        Err(err) => {
+            lines.push(format!("Export error: {err}"));
+            (String::new(), String::new())
+        }
+    };
     crate::dev_command::MemoryPreviewSection {
         title: "Survival Index".to_string(),
-        summary: "Operator-focused survival snapshot for the current review loop.".to_string(),
+        summary,
         lines,
         json_ref,
         markdown_ref,
     }
+}
+
+/// Structured error for memory export I/O and serialization failures.
+/// Replaces ad-hoc string error returns with a proper error type so
+/// callers can pattern-match on the cause while keeping display formatting
+/// centralized.
+#[derive(Debug)]
+enum ExportError {
+    Io(std::io::Error),
+    Serialize(String),
+}
+
+impl std::fmt::Display for ExportError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Io(err) => write!(f, "{err}"),
+            Self::Serialize(msg) => write!(f, "{msg}"),
+        }
+    }
+}
+
+impl From<std::io::Error> for ExportError {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err)
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct MemoryPreviewExport {
+    generated_at: String,
+    title: String,
+    summary: String,
+    lines: Vec<String>,
+}
+
+fn not_initialized_memory_section(title: &str) -> crate::dev_command::MemoryPreviewSection {
+    crate::dev_command::MemoryPreviewSection {
+        title: title.to_string(),
+        summary: "Memory subsystem not initialized.".to_string(),
+        lines: vec![
+            "Initialize memory capture to build preview packs.".to_string(),
+            "Use the Control or Memory page 'm' key to change runtime memory mode.".to_string(),
+        ],
+        json_ref: String::new(),
+        markdown_ref: String::new(),
+    }
+}
+
+fn memory_export_root(state: &EventLoopState) -> PathBuf {
+    Path::new(&state.working_dir).join(MEMORY_EXPORT_ROOT)
+}
+
+fn write_context_pack_export(
+    slug: &str,
+    pack: &crate::memory::types::ContextPack,
+    export_root: &Path,
+) -> Result<(String, String), ExportError> {
+    let json = crate::memory::context_pack::pack_to_json(pack);
+    let markdown = crate::memory::context_pack::pack_to_markdown(pack);
+    write_export_files(slug, &json, &markdown, export_root)
+}
+
+fn write_preview_export(
+    slug: &str,
+    export: &MemoryPreviewExport,
+    export_root: &Path,
+) -> Result<(String, String), ExportError> {
+    let json = serde_json::to_string_pretty(export)
+        .map_err(|err| ExportError::Serialize(format!("serialize {slug} export: {err}")))?;
+    let markdown = preview_to_markdown(export);
+    write_export_files(slug, &json, &markdown, export_root)
+}
+
+fn write_survival_index_export(
+    survival: &crate::memory::survival_index::SurvivalIndex,
+    export_root: &Path,
+) -> Result<(String, String), ExportError> {
+    let json = serde_json::to_string_pretty(survival)
+        .map_err(|err| ExportError::Serialize(format!("serialize survival_index export: {err}")))?;
+    let markdown = crate::memory::survival_index::to_markdown(survival);
+    write_export_files("survival_index", &json, &markdown, export_root)
+}
+
+fn preview_to_markdown(export: &MemoryPreviewExport) -> String {
+    let mut markdown = format!(
+        "# {}\n\n{}\n\n- Generated: {}\n",
+        export.title, export.summary, export.generated_at
+    );
+    if !export.lines.is_empty() {
+        markdown.push_str("\n## Details\n\n");
+        for line in &export.lines {
+            markdown.push_str(&format!("- {line}\n"));
+        }
+    }
+    markdown
+}
+
+fn write_export_files(
+    slug: &str,
+    json: &str,
+    markdown: &str,
+    export_root: &Path,
+) -> Result<(String, String), ExportError> {
+    fs::create_dir_all(export_root)?;
+    let json_path = export_root.join(format!("{slug}.json"));
+    let markdown_path = export_root.join(format!("{slug}.md"));
+    fs::write(&json_path, json)?;
+    fs::write(&markdown_path, markdown)?;
+    Ok(planned_export_refs(slug))
 }
 
 fn planned_export_refs(slug: &str) -> (String, String) {
@@ -618,7 +777,7 @@ fn count_nonempty_lines(text: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dev_command::ReviewArtifact;
+    use crate::dev_command::{ReviewArtifact, ReviewContextPackRef};
 
     #[test]
     fn bridge_critical_fresh_prompt_mentions_master_plan_and_git_context() {
@@ -682,5 +841,26 @@ mod tests {
         assert!(prompt.contains("Recent decisions:"));
         assert!(prompt.contains("Stay read-first only."));
         assert!(prompt.contains("Do not add markdown writers."));
+    }
+
+    #[test]
+    fn bridge_critical_fresh_prompt_lists_attached_context_pack_refs() {
+        let artifact = ReviewArtifact {
+            instruction: "fix the blocker".to_string(),
+            context_pack_refs: vec![ReviewContextPackRef {
+                pack_kind: "task_pack".to_string(),
+                pack_ref: ".voiceterm/memory/exports/task_pack.json".to_string(),
+                adapter_profile: "canonical".to_string(),
+                generated_at_utc: "2026-03-09T13:25:00Z".to_string(),
+            }],
+            ..Default::default()
+        };
+        let snap = crate::dev_command::HandoffSnapshot::default();
+
+        let prompt = generate_fresh_prompt(&snap, Some(&artifact), None);
+
+        assert!(prompt.contains("Attached Context Packs:"));
+        assert!(prompt.contains(".voiceterm/memory/exports/task_pack.json"));
+        assert!(prompt.contains("canonical"));
     }
 }

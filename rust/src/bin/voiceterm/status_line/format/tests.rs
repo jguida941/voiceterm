@@ -1,4 +1,7 @@
+use super::single_line::format_transition_suffix;
 use super::*;
+use crate::config::HudRightPanel;
+use crate::status_line::state::Pipeline;
 
 mod ascii;
 mod basic;

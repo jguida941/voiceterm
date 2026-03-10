@@ -35,6 +35,7 @@ from .commands import (
     listing,
     loop_packet,
     mcp,
+    mobile_app,
     mobile_status,
     mutants,
     mutation_loop,
@@ -49,6 +50,7 @@ from .commands import (
     process_watch,
     publication_sync,
     pypi,
+    ralph_status,
     release,
     release_gates,
     release_notes,
@@ -74,6 +76,7 @@ from .failure_cleanup_parser import add_failure_cleanup_parser
 from .integrations_import_parser import add_integrations_import_parser
 from .integrations_sync_parser import add_integrations_sync_parser
 from .loop_packet_parser import add_loop_packet_parser
+from .mobile_app_parser import add_mobile_app_parser
 from .mutation_loop_parser import add_mutation_loop_parser
 from .orchestrate_parser import add_orchestrate_parsers
 from .path_audit_parser import add_path_audit_parser, add_path_rewrite_parser
@@ -106,6 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_cihub_setup_parser(sub)
     add_security_parser(sub)
     add_controller_action_parser(sub)
+    add_mobile_app_parser(sub)
     add_triage_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
     add_triage_loop_parser(sub)
     add_loop_packet_parser(sub)
@@ -147,6 +151,7 @@ COMMAND_HANDLERS = {
     "swarm_run": autonomy_run.run,
     "autonomy-report": autonomy_report.run,
     "phone-status": phone_status.run,
+    "mobile-app": mobile_app.run,
     "mobile-status": mobile_status.run,
     "process-audit": process_audit.run,
     "process-cleanup": process_cleanup.run,
@@ -160,6 +165,7 @@ COMMAND_HANDLERS = {
     "path-audit": path_audit.run,
     "path-rewrite": path_rewrite.run,
     "publication-sync": publication_sync.run,
+    "ralph-status": ralph_status.run,
     "cihub-setup": cihub_setup.run,
     "controller-action": controller_action.run,
     "hygiene": hygiene.run,

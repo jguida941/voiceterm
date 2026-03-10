@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-03-08
+**Last Updated:** 2026-03-09
 
 ## At a Glance
 
@@ -45,6 +45,97 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-09 - devctl gained a real iPhone install path and app tutorial flow
+
+Fact: the first-party iPhone companion is no longer documented as simulator
+only. `devctl mobile-app` now has three distinct honest paths: a real
+simulator demo, a physical-device wizard, and a real `device-install` action
+that attempts the signed `xcodebuild` + `xcrun devicectl` build/install/launch
+sequence when a trusted phone and Apple Development Team are available. The
+app-side guidance also tightened: the SwiftUI shell now prefers the synced
+live bundle on startup and exposes a short tutorial so testers can follow the
+same real-data import flow every time instead of guessing at the boundary.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/mobile_app.py`
+- `dev/scripts/devctl/mobile_app_parser.py`
+- `dev/scripts/devctl/mobile_app_support.py`
+- `dev/scripts/devctl/tests/test_mobile_app.py`
+- `app/ios/VoiceTermMobileApp/README.md`
+- `app/ios/VoiceTermMobileApp/run_guided_simulator_demo.sh`
+- `app/ios/VoiceTermMobileApp/VoiceTermMobileApp/MobileRelayAppRootView.swift`
+- `app/ios/VoiceTermMobileApp/VoiceTermMobileApp/MobileRelayAppModel.swift`
+- `dev/active/autonomous_control_plane.md`
+
+### 2026-03-09 - iPhone app boundary and Ralph-loop action previews clarified
+
+Fact: the repo now states the iOS split plainly instead of leaving developers
+to infer it from package names. `app/ios/VoiceTermMobileApp` is the runnable
+iPhone/iPad app, `app/ios/VoiceTermMobile` is the shared Swift package it
+imports, and the old "client scaffold" wording was retired into an archive
+note so the package no longer looks like a stale second app. The simulator
+path also became much more honest: a guided demo script now performs the real
+build/install/sync/launch flow and prints the exact manual checks, while the
+mobile action cards now preview the typed shared backend controller actions for
+the Ralph loop (`dispatch-report-only`, `pause-loop`, `resume-loop`) instead
+of older placeholder command text.
+
+Evidence:
+
+- `app/ios/README.md`
+- `app/ios/VoiceTermMobileApp/README.md`
+- `app/ios/VoiceTermMobileApp/run_guided_simulator_demo.sh`
+- `app/ios/VoiceTermMobile/README.md`
+- `dev/archive/2026-03-09-ios-mobile-scaffold-language-retired.md`
+- `dev/scripts/devctl/phone_status_views.py`
+- `app/ios/VoiceTermMobile/Sources/VoiceTermMobileCore/MobileRelayViewModel.swift`
+- `dev/active/autonomous_control_plane.md`
+
+### 2026-03-09 - Review-channel conductors gained clean-exit relaunch supervision
+
+Fact: the transitional `review-channel` launcher no longer trusts Codex or
+Claude to keep the conductor session alive after one summary. Generated launch
+scripts now relaunch the same provider in-place when it exits cleanly, keep the
+terminal transcript explicit about each restart, and still stop fail-closed on
+non-zero exits so auth or CLI failures remain visible. The bootstrap prompt now
+also states the missing liveness rules directly: `waiting_on_peer` is a live
+polling state, bridge summaries are never permission to exit, Codex must
+promote the next scoped plan item after Claude lands a slice, and Claude must
+keep polling for the next instruction instead of quitting after posting one
+status update.
+
+Evidence:
+
+- `dev/active/continuous_swarm.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/scripts/devctl/review_channel_launch.py`
+- `dev/scripts/devctl/review_channel_prompt.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `dev/scripts/README.md`
+- `dev/guides/DEVCTL_AUTOGUIDE.md`
+
+### 2026-03-09 - Mobile control-plane expanded to live phone and secure remote access
+
+Fact: the active control-plane plan now makes the phone path explicit beyond the
+read-first imported bundle client. The target architecture is one Mac-hosted
+Rust control service shared by overlay/dev/phone surfaces, with the iPhone
+first gaining live same-network connectivity to the same controller/review
+state and typed action router, then gaining staged voice-to-action input,
+typed approve/deny plus operator-note/message actions, and finally a secure
+off-LAN/cellular reconnect path so long-running plans can continue on the home
+machine while the phone later rejoins the same host state. The plan now also
+states the security boundary directly: no raw public PTY/devctl exposure, no
+unrestricted remote shell path, and remote access must ride through the same
+approval/audit/policy model as local surfaces.
+
+Evidence:
+
+- `dev/active/autonomous_control_plane.md`
+- `dev/active/MASTER_PLAN.md`
+- `app/ios/VoiceTermMobile/README.md`
+- `app/ios/VoiceTermMobileApp/README.md`
 
 ### 2026-03-08 - Advisory pedantic lint lane and triage flow
 

@@ -657,6 +657,28 @@ Planned actions:
 
 3. `watch`
 
+3. `promote`
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action promote \
+     --promotion-plan dev/active/continuous_swarm.md \
+     --terminal none \
+     --format md
+   ```
+
+   Transitional bridge-backed slice now available:
+
+   - Reads the configured active-plan checklist and derives the first unchecked
+     scoped task.
+   - Fails closed unless `Current Verdict` is resolved, `Open Findings` are
+     clear, and the current Claude instruction already looks idle/completed.
+   - Rewrites only `Current Instruction For Claude` and refreshes the latest
+     bridge-backed projection bundle so desktop/mobile clients see the same
+     repo-owned queue source.
+
+4. `watch`
+
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action watch \
@@ -666,7 +688,7 @@ Planned actions:
      --format md
    ```
 
-4. `inbox`
+5. `inbox`
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
@@ -677,7 +699,7 @@ Planned actions:
      --format json
    ```
 
-5. `ack`
+6. `ack`
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
@@ -688,7 +710,7 @@ Planned actions:
      --format md
    ```
 
-6. `history`
+7. `history`
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
@@ -896,7 +918,7 @@ Acceptance:
       `latest.md`.
 - [ ] Add a terminal-packet projection for safe staging into a target PTY or
       overlay draft lane using the existing `DevTerminalPacket` shape.
-- [ ] Allow packets to carry `context_pack_refs` for `task_pack`,
+- [x] Allow packets to carry `context_pack_refs` for `task_pack`,
       `handoff_pack`, and `survival_index`, keeping canonical pack bodies in
       Memory Studio artifact roots.
 - [ ] When memory capture is active, emit normalized memory-ingest events for
@@ -1285,6 +1307,11 @@ Complete this table only after all active swarm lanes are merged.
 | `2026-03-09T09:04:05Z` | `CODEX` | Closed the next fail-closed bridge-status gap from the live re-review. `validate_launch_bridge_state()` now blocks fresh bootstrap when `Claude Status` or `Claude Ack` is missing, review-channel status projections/report payloads now set `ok: false` whenever bridge liveness is `waiting_on_peer` or `stale`, and the review/mobile consumer path no longer reports Claude as `active` just because the rendered bridge field holds the `"(missing)"` sentinel. | `partial-pass` | Keep the bridge files tracked/staged when operator-side dry-run proofs need a green launcher path, then continue on the remaining handoff-parser breadth and ACK-timeout threading follow-ups. |
 | `2026-03-09T10:10:00Z` | `CODEX` | Added the first real live-session projection bridge for the desktop shell without changing PTY ownership: `review-channel --action launch|rollover` now writes per-session metadata plus live-flushed conductor transcript logs under `dev/reports/review_channel/latest/sessions/`, with script-wrapped Terminal launches preserving the existing Codex/Claude flow while giving repo-visible session tails to downstream read-only consumers. | `partial-pass` | Keep the launcher Codex/Claude-specific for the current swarm contract, then decide later whether MP-355 should generalize the same session-artifact format for more providers after the current review/event action surface is fully closed. |
 | `2026-03-09T12:20:00Z` | `CODEX` | Closed the next live-launch blocker from operator testing: generated Claude conductor scripts now clear the inherited `CLAUDECODE` marker before exec so Terminal-launched `review-channel` sessions do not abort as forbidden nested Claude Code launches when started from a Claude-owned shell. | `partial-pass` | Re-run the live `terminal-app` launch path from the desktop shell and keep the Operator Console open so the new session-log tail panes can prove the fix end-to-end. |
+| `2026-03-09T13:06:00Z` | `CODEX` | Re-ran the bridge/tooling proof against the current dirty tree and reconciled plan state with the actual checkout. Focused `test_review_channel` coverage, `review-channel --action status`, and `mobile-status --view full` are green on the current worktree, and custom `--await-ack-seconds` threading is already covered by the live test pack, so the older ACK-timeout blocker is no longer part of MP-355's open set. The conductor queue has shifted to bridge-honesty/docs-state refresh plus the current operator-console/serde-guard findings mirrored in `code_audit.md`. | `partial-pass` | Keep the bridge current-state honest, sync the workflow/bridge docs to the fail-closed launcher contract, and close the remaining event-backed `watch|inbox|ack|dismiss|apply|history` path without re-introducing stale blocker text. |
+| `2026-03-09T13:12:00Z` | `CODEX` | Live operator audit found the new Terminal launch can still self-stale even when both conductor windows are up: the Codex conductor can spend its first minutes spawning reviewer lanes and waiting on approval-bound subagent/tool prompts before it rewrites `Last Codex poll`, which leaves the bridge failing the five-minute freshness guard despite an active session log. Hardened the Codex conductor prompt so every fresh launch must stamp `Last Codex poll` / `Last non-audit worktree hash` / `Poll Status` before fan-out and must not sit on unanswered approval prompts without reflecting that blocked state in the bridge. | `partial-pass` | Re-run the live `terminal-app` launch path and confirm the reviewer heartbeat lands immediately on fresh bootstrap instead of aging out while the conductor is still gathering worker context. |
+| `2026-03-09T13:32:00Z` | `CODEX` | Fixed the next operator-facing launcher footgun after live desktop testing opened duplicate Codex/Claude windows. `review-channel --action launch --terminal terminal-app` now checks the repo-owned `dev/reports/review_channel/latest/sessions/*.json` / `*.log` artifacts before launch and fails closed when they still look active, instead of silently opening a second live pair that races on the same session-tail files. The command docs now say that explicitly. | `partial-pass` | Keep this duplicate-launch guard aligned with the session-artifact contract, then continue on the remaining event-backed `watch|inbox|ack|dismiss|apply|history` path plus any later headless/background-PTY replacement for Terminal.app. |
+| `2026-03-09T13:28:15Z` | `CODEX` | Landed the first overlay-side event-backed read path for MP-355 without changing default startup mode: the Rust Dev-panel review loader now prefers structured review-channel artifacts (`dev/reports/review_channel/projections/latest/full.json`, `state/latest.json`, or the older `latest/*.json` projections) whenever event-backed sentinels exist, parses those JSON projections into the existing `ReviewArtifact` shape, and falls back to `code_audit.md` only when structured state is absent. The review surface copy now reflects generic review artifacts/projections rather than only markdown, which keeps the current overlay honest while proving the long-term migration path. | `partial-pass` | Keep markdown as transitional fallback for now, then normalize the remaining event-backed `watch|inbox|ack|dismiss|apply|history` reducer/projection flow so all review/mobile/operator surfaces read the same structured authority. |
+| `2026-03-09T15:05:00Z` | `CODEX` | Landed the first real attach-by-ref `context_pack_refs` slice without adding more MP-355-only state paths: event-backed `packet_posted|acked|applied` artifacts now preserve structured context-pack attachments, `actions.json` and `latest.md` project them, the Rust review-artifact reader/surface renders them, and the Operator Console approval path now round-trips the same refs in typed JSON/markdown artifacts. The work also started paying down the god-file problem by moving context-pack normalization/resolution into focused helper modules instead of growing `review_channel.py` or the giant review-channel test file further. | `partial-pass` | Keep the remaining open scope on packet-outcome ingest and broader `controller_state` parity, and continue decomposing the oversized review/operator files instead of feeding them more mixed concerns. |
 
 ## Audit Evidence
 
@@ -1317,6 +1344,11 @@ Complete this table only after all active swarm lanes are merged.
   - 2026-03-09 local run: pass (`33` tests) after adding launcher-emitted
     session metadata/log artifacts and dry-run coverage for the new
     `sessions/*.json` + `sessions/*.log` contract
+- 2026-03-09 overlay/event-backed read-path evidence:
+  - `cargo test --manifest-path rust/Cargo.toml --bin voiceterm review_artifact -- --nocapture` -> pass (`33` tests)
+  - `cargo test --manifest-path rust/Cargo.toml --bin voiceterm dev_panel_overlay::refresh_state -- --nocapture` -> pass (`19` tests)
+  - `cargo test --manifest-path rust/Cargo.toml --bin voiceterm dev_panel_overlay::refresh_poll -- --nocapture` -> pass (`15` tests)
+  - `cargo test --manifest-path rust/Cargo.toml --bin voiceterm review_surface -- --nocapture` -> pass (`18` tests)
 - Governance results for plan onboarding:
   - `python3 dev/scripts/checks/check_active_plan_sync.py` -> pass
   - `python3 dev/scripts/checks/check_multi_agent_sync.py` -> pass

@@ -372,7 +372,7 @@ THEME_SEEDS = (
     ),
 )
 
-from .theme_gallery import GALLERY_SEEDS
+from .runtime.theme_gallery import GALLERY_SEEDS
 
 ALL_THEME_SEEDS: tuple[ThemeSeed, ...] = THEME_SEEDS + GALLERY_SEEDS
 

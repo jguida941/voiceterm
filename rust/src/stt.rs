@@ -160,7 +160,10 @@ mod platform {
         });
     }
 
-    #[allow(unused_variables)]
+    #[allow(
+        unused_variables,
+        reason = "Whisper callback signature is fixed by the FFI and the silencing implementation intentionally ignores every argument."
+    )]
     unsafe extern "C" fn whisper_log_callback(
         _level: c_uint,
         _text: *const c_char,

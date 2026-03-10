@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import unittest
 
-from app.operator_console.state.analytics_snapshot import RepoAnalyticsSnapshot
-from app.operator_console.state.models import (
+from app.operator_console.state.snapshots.analytics_snapshot import RepoAnalyticsSnapshot
+from app.operator_console.state.core.models import (
     AgentLaneData,
     ApprovalRequest,
     OperatorConsoleSnapshot,
 )
-from app.operator_console.state.phone_status_snapshot import PhoneControlSnapshot
-from app.operator_console.state.presentation_state import (
+from app.operator_console.state.snapshots.phone_status_snapshot import PhoneControlSnapshot
+from app.operator_console.state.presentation.presentation_state import (
     build_activity_text,
     build_analytics_view_state,
     build_status_bar_text,

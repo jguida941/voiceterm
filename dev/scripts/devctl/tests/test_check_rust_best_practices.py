@@ -99,6 +99,25 @@ pub unsafe fn documented() {
         self.assertEqual(metrics["nonatomic_persistent_toml_writes"], 0)
         self.assertEqual(metrics["custom_persistent_toml_parsers"], 0)
 
+    def test_count_metrics_accepts_safety_comment_inside_unsafe_block_after_cfg_test_block(
+        self,
+    ) -> None:
+        text = """
+fn read_loop(fd: i32, buffer: &mut [u8]) {
+    #[cfg(test)]
+    {
+        assert!(fd >= 0);
+    }
+    let n = unsafe {
+        // SAFETY: fd is a live descriptor and buffer is writable for the provided length.
+        libc::read(fd, buffer.as_mut_ptr() as *mut libc::c_void, buffer.len())
+    };
+    let _ = n;
+}
+"""
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["undocumented_unsafe_blocks"], 0)
+
     def test_count_metrics_tracks_unsafe_impl_missing_safety_comment(self) -> None:
         text = """
 unsafe impl Send for Demo {}
@@ -280,6 +299,41 @@ fn detached_but_documented() {
 """
         metrics = self.script._count_metrics(text)
         self.assertEqual(metrics["detached_thread_spawns"], 0)
+
+    def test_count_metrics_detects_mixed_toml_from_str_and_manual_parsers(self) -> None:
+        text = """
+const CONFIG_FILE: &str = "config.toml";
+
+fn parse_typed_config(contents: &str) -> Result<Config, toml::de::Error> {
+    toml::from_str(contents)
+}
+
+fn parse_manual_fallback(contents: &str) -> Vec<(String, String)> {
+    contents.lines()
+        .filter_map(|line| {
+            let (key, rest) = line.split_once('=')?;
+            Some((key.trim().to_string(), rest.trim().trim_matches('"').to_string()))
+        })
+        .collect()
+}
+"""
+        metrics = self.script._count_metrics(
+            text,
+            path=Path("rust/src/bin/voiceterm/persistent_config.rs"),
+        )
+        self.assertEqual(metrics["custom_persistent_toml_parsers"], 1)
+
+    def test_count_metrics_still_ignores_pure_toml_from_str_parsers(self) -> None:
+        text = """
+fn parse_user_config(contents: &str) -> Result<Config, toml::de::Error> {
+    toml::from_str(contents)
+}
+"""
+        metrics = self.script._count_metrics(
+            text,
+            path=Path("rust/src/bin/voiceterm/persistent_config.rs"),
+        )
+        self.assertEqual(metrics["custom_persistent_toml_parsers"], 0)
 
     def test_build_parser_accepts_absolute_mode(self) -> None:
         parser = self.script._build_parser()

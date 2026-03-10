@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..theme import available_theme_ids
-from .ui_layouts import available_layout_ids, resolve_layout
+from .layout.ui_layouts import available_layout_ids, resolve_layout
 
 try:
     from PyQt6.QtWidgets import (
@@ -101,6 +101,8 @@ def _theme_markdown() -> str:
 
 - Semantic colors used across toolbar, cards, nav, scrollbars, badges, and dialogs.
 - Shared typography and sizing tokens such as font sizes, radii, padding, and scrollbar width.
+- Component style families for borders, buttons, toolbar actions, inputs, and tabs.
+- Motion settings for previewable fades and pulse feedback in the editor playground.
 - Imported JSON themes and pasted QSS color mappings.
 
 ## What QSS Import Does Not Do Yet
@@ -108,6 +110,7 @@ def _theme_markdown() -> str:
 - It does **not** round-trip arbitrary per-widget selector trees.
 - It maps imported colors onto the current shared semantic theme contract.
 - Full VoiceTerm style-pack parity is still an active roadmap item.
+- Motion settings are previewable in the editor today, but not every live Operator Console surface consumes them yet.
 
 ## Why The Highlight Colors Matter
 

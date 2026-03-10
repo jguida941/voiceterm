@@ -107,6 +107,23 @@ class RunParserTests(unittest.TestCase):
 
         self.assertEqual(args.layout, "analytics")
 
+    def test_run_reports_canonical_pyqt_relaunch_guidance(self) -> None:
+        from app.operator_console.views import main_window
+
+        diagnostics = MagicMock()
+
+        with patch.object(main_window, "QApplication", None), patch.object(
+            main_window,
+            "IMPORT_ERROR",
+            ImportError("PyQt6 missing"),
+        ):
+            with self.assertRaises(SystemExit) as exc:
+                main_window.run(Path("/tmp/mock-repo"), diagnostics=diagnostics)
+
+        self.assertIn("./scripts/operator_console.sh", str(exc.exception))
+        self.assertIn("python3 -m pip install PyQt6", str(exc.exception))
+        self.assertIn("python3 -m app.operator_console.run", str(exc.exception))
+
     @patch("app.operator_console.views.main_window.OperatorConsoleWindow")
     @patch("app.operator_console.views.main_window.get_engine")
     @patch("app.operator_console.views.main_window.QApplication")

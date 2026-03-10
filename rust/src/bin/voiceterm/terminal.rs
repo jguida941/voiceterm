@@ -31,10 +31,10 @@ extern "C" fn handle_sigwinch(_: libc::c_int) {
 }
 
 pub(crate) fn install_sigwinch_handler() -> Result<()> {
+    // SAFETY: We install an async-signal-safe handler that only sets an atomic flag.
+    // `sigemptyset` and `sigaction` are called with initialized pointers and checked
+    // for non-zero error returns.
     unsafe {
-        // SAFETY: We install an async-signal-safe handler that only sets an atomic flag.
-        // `sigemptyset` and `sigaction` are called with initialized pointers and checked
-        // for non-zero error returns.
         let mut action: libc::sigaction = std::mem::zeroed();
         action.sa_flags = libc::SA_RESTART;
         action.sa_sigaction = handle_sigwinch as *const () as usize;

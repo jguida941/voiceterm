@@ -495,6 +495,8 @@ fn is_leap(year: u64) -> bool {
 pub(crate) enum ContextPackType {
     Boot,
     Task,
+    SurvivalIndex,
+    Hybrid,
 }
 
 /// A scored evidence item inside a context pack.
@@ -514,6 +516,15 @@ pub(crate) struct TokenBudget {
     pub(crate) trimmed: usize,
 }
 
+/// Retrieval-plan trace attached to generated context packs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct RetrievalPlan {
+    pub(crate) signal: String,
+    pub(crate) strategy: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) queries: Vec<String>,
+}
+
 /// A generated context pack for AI boot or task handoff workflows.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ContextPack {
@@ -529,6 +540,8 @@ pub(crate) struct ContextPack {
     pub(crate) changed_files: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) open_questions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) retrieval_plan: Option<RetrievalPlan>,
     pub(crate) token_budget: TokenBudget,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) evidence: Vec<PackEvidence>,
@@ -709,5 +722,10 @@ mod tests {
         assert_eq!(boot, "\"boot\"");
         let task = serde_json::to_string(&ContextPackType::Task).expect("serialize");
         assert_eq!(task, "\"task\"");
+        let survival =
+            serde_json::to_string(&ContextPackType::SurvivalIndex).expect("serialize");
+        assert_eq!(survival, "\"survival_index\"");
+        let hybrid = serde_json::to_string(&ContextPackType::Hybrid).expect("serialize");
+        assert_eq!(hybrid, "\"hybrid\"");
     }
 }

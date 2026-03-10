@@ -12,6 +12,7 @@ on:
       - ".github/workflows/rust_ci.yml"
       - "dev/scripts/collect_clippy_warnings.py"
       - "dev/scripts/checks/check_clippy_high_signal.py"
+      - "dev/scripts/checks/check_rust_compiler_warnings.py"
       - "dev/config/clippy/high_signal_lints.json"
       - "dev/scripts/render_clippy_badge.py"
   pull_request:
@@ -20,6 +21,7 @@ on:
       - ".github/workflows/rust_ci.yml"
       - "dev/scripts/collect_clippy_warnings.py"
       - "dev/scripts/checks/check_clippy_high_signal.py"
+      - "dev/scripts/checks/check_rust_compiler_warnings.py"
       - "dev/config/clippy/high_signal_lints.json"
       - "dev/scripts/render_clippy_badge.py"
 
@@ -121,6 +123,15 @@ jobs:
           set -euo pipefail
           python3 dev/scripts/checks/check_clippy_high_signal.py \
             --input-lints-json "${RUNNER_TEMP}/clippy-lints.json" \
+            --format md
+
+      - name: enforce changed-file Rust compiler warnings
+        working-directory: .
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_rust_compiler_warnings.py \
+            --since-ref "${{ steps.ai_guard_range.outputs.since }}" \
+            --head-ref "${{ steps.ai_guard_range.outputs.head }}" \
             --format md
 
       - name: devctl ai-guard

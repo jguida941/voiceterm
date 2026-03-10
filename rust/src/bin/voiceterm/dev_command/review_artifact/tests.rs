@@ -116,6 +116,251 @@ fn find_review_artifact_path_uses_working_dir_fallback() -> Result<(), Box<dyn s
 }
 
 #[test]
+fn find_review_artifact_path_prefers_markdown_bridge_when_present(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let repo_root = make_temp_dir("bridge-priority")?;
+    let nested = repo_root.join("nested").join("shell");
+    fs::create_dir_all(&nested)?;
+    let event_root = repo_root.join("dev/reports/review_channel");
+    fs::create_dir_all(event_root.join("events"))?;
+    fs::create_dir_all(event_root.join("projections/latest"))?;
+    fs::write(event_root.join("events/trace.ndjson"), "{}\n")?;
+    let event_projection = event_root.join("projections/latest/full.json");
+    fs::write(
+        &event_projection,
+        r#"{"command":"review-channel","review_state":{"command":"review-channel","timestamp":"2026-03-09T13:20:00Z","review":{"review_channel_path":"dev/active/review_channel.md"},"queue":{"pending_total":0,"stale_packet_count":0},"agents":[],"packets":[],"warnings":[],"errors":[]}}"#,
+    )?;
+    let expected = repo_root.join("code_audit.md");
+    fs::write(&expected, "# live markdown bridge\n")?;
+
+    let resolved = find_review_artifact_path(None, Some(&nested));
+    assert_eq!(resolved.as_deref(), Some(expected.as_path()));
+
+    let _ = fs::remove_dir_all(repo_root);
+    Ok(())
+}
+
+#[test]
+fn find_review_artifact_path_falls_back_to_event_backed_projection_when_bridge_missing(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let repo_root = make_temp_dir("event-fallback")?;
+    let nested = repo_root.join("nested").join("shell");
+    fs::create_dir_all(&nested)?;
+    let event_root = repo_root.join("dev/reports/review_channel");
+    fs::create_dir_all(event_root.join("events"))?;
+    fs::create_dir_all(event_root.join("projections/latest"))?;
+    fs::write(event_root.join("events/trace.ndjson"), "{}\n")?;
+    let expected = event_root.join("projections/latest/full.json");
+    fs::write(
+        &expected,
+        r#"{"command":"review-channel","review_state":{"command":"review-channel","timestamp":"2026-03-09T13:20:00Z","review":{"review_channel_path":"dev/active/review_channel.md"},"queue":{"pending_total":0,"stale_packet_count":0},"agents":[],"packets":[],"warnings":[],"errors":[]}}"#,
+    )?;
+
+    let resolved = find_review_artifact_path(None, Some(&nested));
+    assert_eq!(resolved.as_deref(), Some(expected.as_path()));
+
+    let _ = fs::remove_dir_all(repo_root);
+    Ok(())
+}
+
+#[test]
+fn find_review_artifact_path_ignores_corrupt_event_projection_when_bridge_exists(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let repo_root = make_temp_dir("bridge-over-corrupt-event")?;
+    let nested = repo_root.join("nested").join("shell");
+    fs::create_dir_all(&nested)?;
+    let event_root = repo_root.join("dev/reports/review_channel");
+    fs::create_dir_all(event_root.join("events"))?;
+    fs::create_dir_all(event_root.join("projections/latest"))?;
+    fs::write(event_root.join("events/trace.ndjson"), "{}\n")?;
+    fs::write(event_root.join("projections/latest/full.json"), "{not-json")?;
+    let expected = repo_root.join("code_audit.md");
+    fs::write(&expected, "# live markdown bridge\n")?;
+
+    let resolved = find_review_artifact_path(None, Some(&nested));
+    assert_eq!(resolved.as_deref(), Some(expected.as_path()));
+
+    let _ = fs::remove_dir_all(repo_root);
+    Ok(())
+}
+
+#[test]
+fn load_review_artifact_document_parses_bridge_projection_json(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let repo_root = make_temp_dir("bridge-projection-json")?;
+    let full_path = repo_root.join("full.json");
+    fs::write(
+        &full_path,
+        r#"{
+  "command": "review-channel",
+  "review_state": {
+    "command": "review-channel",
+    "timestamp": "2026-03-09T13:20:00Z",
+    "queue": {"pending_total": 0, "stale_packet_count": 0},
+    "review": {"surface_mode": "markdown-bridge", "review_channel_path": "dev/active/review_channel.md"},
+    "agents": [],
+    "packets": [],
+    "warnings": [],
+    "errors": [],
+    "bridge": {
+      "last_codex_poll_utc": "2026-03-09T13:18:00Z",
+      "last_codex_poll_local": "2026-03-09 09:18:00 EDT",
+      "last_worktree_hash": "abc123",
+      "current_verdict": "- still in progress",
+      "open_findings": "- blocker one",
+      "current_instruction": "- keep the slice bounded",
+      "poll_status": "- active reviewer loop",
+      "claude_status": "- implementing",
+      "claude_ack": "- acknowledged",
+      "claude_questions": "- none",
+      "last_reviewed_scope": "- code_audit.md"
+    }
+  }
+}"#,
+    )?;
+
+    let document = load_review_artifact_document(&full_path)?;
+    assert!(document.raw_content.contains("\"review_state\""));
+    assert_eq!(document.artifact.last_codex_poll, "2026-03-09T13:18:00Z");
+    assert_eq!(
+        document.artifact.last_codex_poll_local,
+        "2026-03-09 09:18:00 EDT"
+    );
+    assert_eq!(document.artifact.last_worktree_hash, "abc123");
+    assert!(document.artifact.verdict.contains("still in progress"));
+    assert!(document.artifact.findings.contains("blocker one"));
+    assert!(document
+        .artifact
+        .instruction
+        .contains("keep the slice bounded"));
+    assert!(document
+        .artifact
+        .poll_status
+        .contains("active reviewer loop"));
+    assert!(document.artifact.claude_status.contains("implementing"));
+    assert!(document.artifact.claude_ack.contains("acknowledged"));
+    assert!(document.artifact.claude_questions.contains("none"));
+    assert!(document
+        .artifact
+        .last_reviewed_scope
+        .contains("code_audit.md"));
+
+    let _ = fs::remove_dir_all(repo_root);
+    Ok(())
+}
+
+#[test]
+fn load_review_artifact_document_rejects_invalid_event_backed_projection_json(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let repo_root = make_temp_dir("invalid-event-projection-json")?;
+    let state_path = repo_root.join("latest.json");
+    fs::write(&state_path, "{not-json")?;
+
+    let err = load_review_artifact_document(&state_path).expect_err("invalid JSON must fail");
+    assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    assert!(err
+        .to_string()
+        .contains("invalid review-channel projection JSON"));
+
+    let _ = fs::remove_dir_all(repo_root);
+    Ok(())
+}
+
+#[test]
+fn load_review_artifact_document_derives_event_backed_summary_fields(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let repo_root = make_temp_dir("event-projection-json")?;
+    let state_path = repo_root.join("latest.json");
+    fs::write(
+        &state_path,
+        r#"{
+  "command": "review-channel",
+  "timestamp": "2026-03-09T13:25:00Z",
+  "ok": true,
+  "review": {
+    "surface_mode": "event-backed",
+    "review_channel_path": "dev/active/review_channel.md"
+  },
+  "queue": {
+    "pending_total": 1,
+    "stale_packet_count": 0
+  },
+  "agents": [
+    {
+      "agent_id": "claude",
+      "job_status": "implementing",
+      "assigned_job": "Fix the event-backed heartbeat"
+    }
+  ],
+  "packets": [
+    {
+      "packet_id": "pkt-1",
+      "summary": "Fix the event-backed heartbeat",
+      "status": "pending",
+      "to_agent": "claude",
+      "from_agent": "codex",
+      "context_pack_refs": [
+        {
+          "pack_kind": "task_pack",
+          "pack_ref": ".voiceterm/memory/exports/task_pack.json",
+          "adapter_profile": "canonical",
+          "generated_at_utc": "2026-03-09T13:22:00Z"
+        },
+        {
+          "pack_kind": "session_handoff",
+          "pack_ref": ".voiceterm/memory/exports/session_handoff.json",
+          "adapter_profile": "claude"
+        }
+      ]
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}"#,
+    )?;
+
+    let document = load_review_artifact_document(&state_path)?;
+    assert_eq!(document.artifact.last_codex_poll, "2026-03-09T13:25:00Z");
+    assert!(document.artifact.verdict.contains("review queue active"));
+    assert!(document
+        .artifact
+        .findings
+        .contains("Fix the event-backed heartbeat"));
+    assert!(document
+        .artifact
+        .instruction
+        .contains("Fix the event-backed heartbeat"));
+    assert!(document
+        .artifact
+        .poll_status
+        .contains("event-backed queue active"));
+    assert!(document
+        .artifact
+        .claude_status
+        .contains("implementing: Fix the event-backed heartbeat"));
+    assert_eq!(document.artifact.context_pack_refs.len(), 2);
+    assert_eq!(
+        document.artifact.context_pack_refs[0].pack_kind,
+        "task_pack"
+    );
+    assert_eq!(
+        document.artifact.context_pack_refs[0].pack_ref,
+        ".voiceterm/memory/exports/task_pack.json"
+    );
+    assert_eq!(
+        document.artifact.context_pack_refs[1].pack_kind,
+        "handoff_pack"
+    );
+    assert!(document
+        .artifact
+        .last_reviewed_scope
+        .contains("dev/active/review_channel.md"));
+
+    let _ = fs::remove_dir_all(repo_root);
+    Ok(())
+}
+
+#[test]
 fn review_artifact_state_load_and_scroll() {
     let content = "## Current Verdict\n\n- Line 1.\n- Line 2.\n";
     let mut state = ReviewArtifactState::default();

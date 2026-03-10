@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from dev.scripts.devctl import autonomy_swarm_helpers
+from dev.scripts.devctl.autonomy import swarm_helpers as autonomy_swarm_helpers
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import autonomy_swarm
 
@@ -419,7 +419,7 @@ class AutonomySwarmCommandTests(unittest.TestCase):
 
 
 class AutonomySwarmHelperTests(unittest.TestCase):
-    @patch("dev.scripts.devctl.autonomy_swarm_helpers.subprocess.run")
+    @patch("dev.scripts.devctl.autonomy.swarm_helpers.subprocess.run")
     def test_diff_stats_falls_back_to_working_tree_when_range_empty(
         self, run_mock
     ) -> None:

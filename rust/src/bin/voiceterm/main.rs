@@ -20,6 +20,7 @@ mod capture_once;
 mod cli_utils;
 mod color_mode;
 mod config;
+mod daemon;
 mod custom_help;
 mod cycle_index;
 mod dev_command;
@@ -36,6 +37,7 @@ mod memory;
 mod onboarding;
 mod overlay_frame;
 mod overlays;
+mod persistence_io;
 mod persistent_config;
 mod prompt;
 mod provider_adapter;
@@ -248,11 +250,36 @@ fn main() -> Result<()> {
         init_logging(&loaded.config.app);
         return capture_once::run_capture_once(&loaded.config);
     }
+    if loaded.config.daemon {
+        return run_daemon_mode(&loaded.config);
+    }
     let runtime_inputs = prepare_runtime_phase(loaded)?;
     let mut runtime = build_state_phase(runtime_inputs);
     run_runtime_phase(&mut runtime);
     shutdown_runtime_phase(runtime);
     Ok(())
+}
+
+fn run_daemon_mode(config: &config::OverlayConfig) -> Result<()> {
+    init_logging(&config.app);
+    let working_dir = env::var("VOICETERM_CWD")
+        .ok()
+        .or_else(|| env::current_dir().ok().map(|d| d.to_string_lossy().to_string()))
+        .unwrap_or_else(|| ".".to_string());
+
+    let daemon_config = daemon::DaemonConfig {
+        socket_path: config
+            .socket_path
+            .clone()
+            .unwrap_or_else(daemon::DaemonConfig::default_socket_path),
+        ws_port: config.ws_port,
+        ws_enabled: !config.no_ws,
+        working_dir,
+        memory_mode: memory::MemoryMode::CaptureOnly,
+    };
+
+    let rt = tokio::runtime::Runtime::new()?;
+    rt.block_on(daemon::run_daemon(daemon_config))
 }
 
 fn load_config_phase() -> Result<Option<LoadedConfigPhase>> {

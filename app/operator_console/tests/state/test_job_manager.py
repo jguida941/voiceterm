@@ -1,10 +1,10 @@
-"""Tests for app.operator_console.state.job_manager."""
+"""Tests for app.operator_console.state.jobs.job_manager."""
 
 from __future__ import annotations
 
 import pytest
 
-from app.operator_console.state.job_manager import (
+from app.operator_console.state.jobs.job_manager import (
     JobManager,
     JobRecord,
     JobStatus,

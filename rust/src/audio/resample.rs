@@ -293,7 +293,7 @@ pub(super) fn design_low_pass(normalized_cutoff: f32, taps: usize) -> Vec<f32> {
     for n in 0..taps {
         let centered = n as f32 - m / 2.0;
         let x = 2.0 * PI * normalized_cutoff * centered;
-        let sinc = if centered == 0.0 {
+        let sinc = if centered.abs() <= f32::EPSILON {
             2.0 * normalized_cutoff
         } else {
             (2.0 * normalized_cutoff * x.sin()) / x

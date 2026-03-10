@@ -302,7 +302,7 @@ class SecurityCommandTests(unittest.TestCase):
         )
         self.assertTrue(codeql_step["skipped"])
 
-    @patch("dev.scripts.devctl.security_codeql.shutil.which", return_value=None)
+    @patch("dev.scripts.devctl.security.codeql.shutil.which", return_value=None)
     @patch("dev.scripts.devctl.commands.security.write_output")
     @patch("dev.scripts.devctl.commands.security.run_cmd")
     @patch("dev.scripts.devctl.commands.security.run_rustsec_audit_step")
@@ -339,9 +339,9 @@ class SecurityCommandTests(unittest.TestCase):
         self.assertEqual(codeql_step["returncode"], 127)
         self.assertIn("gh is not installed", codeql_step["error"])
 
-    @patch("dev.scripts.devctl.security_codeql.subprocess.run")
+    @patch("dev.scripts.devctl.security.codeql.subprocess.run")
     @patch(
-        "dev.scripts.devctl.security_codeql.shutil.which", return_value="/usr/bin/gh"
+        "dev.scripts.devctl.security.codeql.shutil.which", return_value="/usr/bin/gh"
     )
     @patch("dev.scripts.devctl.commands.security.write_output")
     @patch("dev.scripts.devctl.commands.security.run_cmd")
@@ -384,9 +384,9 @@ class SecurityCommandTests(unittest.TestCase):
         self.assertEqual(codeql_step["returncode"], 1)
         self.assertEqual(codeql_step["details"]["blocking_alerts"], 1)
 
-    @patch("dev.scripts.devctl.security_codeql.subprocess.run")
+    @patch("dev.scripts.devctl.security.codeql.subprocess.run")
     @patch(
-        "dev.scripts.devctl.security_codeql.shutil.which", return_value="/usr/bin/gh"
+        "dev.scripts.devctl.security.codeql.shutil.which", return_value="/usr/bin/gh"
     )
     @patch("dev.scripts.devctl.commands.security.write_output")
     @patch("dev.scripts.devctl.commands.security.run_cmd")

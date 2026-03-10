@@ -2,6 +2,39 @@ use std::path::{Path, PathBuf};
 
 use super::format::truncate_hash;
 
+const EVENT_REVIEW_ARTIFACT_CANDIDATES: [&str; 4] = [
+    "dev/reports/review_channel/projections/latest/full.json",
+    "dev/reports/review_channel/state/latest.json",
+    "dev/reports/review_channel/latest/full.json",
+    "dev/reports/review_channel/latest/review_state.json",
+];
+const EVENT_REVIEW_SENTINELS: [&str; 2] = [
+    "dev/reports/review_channel/events/trace.ndjson",
+    "dev/reports/review_channel/state/latest.json",
+];
+
+/// Key sections extracted from code_audit.md for read-only display.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct ReviewContextPackRef {
+    pub(crate) pack_kind: String,
+    pub(crate) pack_ref: String,
+    pub(crate) adapter_profile: String,
+    pub(crate) generated_at_utc: String,
+}
+
+impl ReviewContextPackRef {
+    pub(crate) fn summary_line(&self) -> String {
+        let mut line = format!("{}: {}", self.pack_kind, self.pack_ref);
+        if !self.adapter_profile.is_empty() {
+            line.push_str(&format!(" ({})", self.adapter_profile));
+        }
+        if !self.generated_at_utc.is_empty() {
+            line.push_str(&format!(" @ {}", self.generated_at_utc));
+        }
+        line
+    }
+}
+
 /// Key sections extracted from code_audit.md for read-only display.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ReviewArtifact {
@@ -19,6 +52,8 @@ pub(crate) struct ReviewArtifact {
     pub(crate) last_codex_poll_local: String,
     /// Bridge-critical header: reviewed non-audit worktree hash.
     pub(crate) last_worktree_hash: String,
+    /// Memory/context attachments carried by the current structured review packets.
+    pub(crate) context_pack_refs: Vec<ReviewContextPackRef>,
 }
 
 impl ReviewArtifact {
@@ -74,28 +109,50 @@ pub(crate) fn find_review_artifact_path(
     session_dir: Option<&Path>,
     fallback_dir: Option<&Path>,
 ) -> Option<PathBuf> {
-    if let Some(dir) = session_dir {
-        if let Some(path) = walk_ancestors_for_file(dir, "code_audit.md") {
-            return Some(path);
-        }
+    // Preserve markdown-bridge authority within each candidate tree while
+    // still honoring the live session/fallback directories before unrelated
+    // process-CWD or compile-time repo fallbacks.
+    if let Some(path) = find_review_artifact_in_location(session_dir) {
+        return Some(path);
     }
-    if let Some(dir) = fallback_dir {
-        if let Some(path) = walk_ancestors_for_file(dir, "code_audit.md") {
-            return Some(path);
-        }
+    if let Some(path) = find_review_artifact_in_location(fallback_dir) {
+        return Some(path);
     }
     if let Ok(cwd) = std::env::current_dir() {
-        if let Some(path) = walk_ancestors_for_file(&cwd, "code_audit.md") {
+        if let Some(path) = find_review_artifact_in_location(Some(&cwd)) {
             return Some(path);
         }
     }
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let repo_root = manifest_dir.parent().unwrap_or(manifest_dir);
-    let candidate = repo_root.join("code_audit.md");
-    if candidate.is_file() {
-        return Some(candidate);
+    find_review_artifact_in_location(Some(repo_root))
+}
+
+fn find_review_artifact_in_location(start: Option<&Path>) -> Option<PathBuf> {
+    let start = start?;
+    find_bridge_artifact(start).or_else(|| find_event_review_artifact(start))
+}
+
+fn find_event_review_artifact(start: &Path) -> Option<PathBuf> {
+    for ancestor in start.ancestors() {
+        if !EVENT_REVIEW_SENTINELS
+            .iter()
+            .any(|relative| ancestor.join(relative).is_file())
+        {
+            continue;
+        }
+        for relative in EVENT_REVIEW_ARTIFACT_CANDIDATES {
+            let candidate = ancestor.join(relative);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
     }
     None
+}
+
+fn find_bridge_artifact(start: &Path) -> Option<PathBuf> {
+    walk_ancestors_for_file(start, "code_audit.md")
 }
 
 fn extract_header_metadata(artifact: &mut ReviewArtifact, line: &str) {

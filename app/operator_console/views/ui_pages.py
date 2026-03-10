@@ -11,9 +11,17 @@ different spatial arrangements of the same data widgets:
 
 from __future__ import annotations
 
-from .ui_layouts import resolve_layout
-from .workbench_layout import build_workbench_content
-from .widgets import ProviderBadge, StatusIndicator
+from .layout.page_layout_builders import (
+    SIDEBAR_NAV_ITEMS,
+    build_analytics_content,
+    build_grid_content,
+    build_kpi_card,
+    build_sidebar_content,
+    gather_kpi_data,
+)
+from .layout.ui_layouts import resolve_layout
+from .layout.workbench_layout import build_workbench_content
+from .shared.widgets import FlippableTextCard, ProviderBadge, StatusIndicator
 
 try:
     from PyQt6.QtCore import Qt
@@ -22,8 +30,6 @@ try:
         QGridLayout,
         QHBoxLayout,
         QLabel,
-        QListWidget,
-        QListWidgetItem,
         QPlainTextEdit,
         QSplitter,
         QStackedWidget,
@@ -62,6 +68,9 @@ class PageBuilderMixin:
         self._workbench_utility_splitter = None
         self._workbench_preset_buttons = {}
         self._workbench_preset_label = None
+        self.codex_session_detail_card = None
+        self.claude_session_detail_card = None
+        self.cursor_session_detail_card = None
 
     def _reveal_output_surface(self, surface_id: str) -> None:
         """Make a monitor surface visible in the current layout when possible."""
@@ -76,7 +85,7 @@ class PageBuilderMixin:
                 self._select_monitor_surface("command_output")
                 return
             if self._layout_mode == "sidebar" and self._sidebar_nav is not None:
-                for row, (_label, item_id) in enumerate(self._SIDEBAR_NAV_ITEMS):
+                for row, (_label, item_id) in enumerate(SIDEBAR_NAV_ITEMS):
                     if item_id == "commands":
                         self._sidebar_nav.setCurrentRow(row)
                         break
@@ -93,7 +102,7 @@ class PageBuilderMixin:
                 self._select_monitor_surface("diagnostics")
                 return
             if self._layout_mode == "sidebar" and self._sidebar_nav is not None:
-                for row, (_label, item_id) in enumerate(self._SIDEBAR_NAV_ITEMS):
+                for row, (_label, item_id) in enumerate(SIDEBAR_NAV_ITEMS):
                     if item_id == "diagnostics":
                         self._sidebar_nav.setCurrentRow(row)
                         break
@@ -122,6 +131,7 @@ class PageBuilderMixin:
                 "dashboard": 1,
                 "monitor": 2,
                 "activity": 3,
+                "collaborate": 4,
             }
             index = tab_indexes.get(surface_id)
             if index is not None:
@@ -139,7 +149,7 @@ class PageBuilderMixin:
                 self._select_workbench_surface(target)
             return
         if self._layout_mode == "sidebar" and self._sidebar_nav is not None:
-            for row, (_label, item_id) in enumerate(self._SIDEBAR_NAV_ITEMS):
+            for row, (_label, item_id) in enumerate(SIDEBAR_NAV_ITEMS):
                 if item_id == surface_id:
                     self._sidebar_nav.setCurrentRow(row)
                     return
@@ -151,23 +161,38 @@ class PageBuilderMixin:
             self.codex_panel,
             self.claude_panel,
             self.operator_panel,
+            self.cursor_panel,
             self.codex_session_text,
+            self.codex_session_stats_text,
+            self.codex_session_registry_text,
             self.claude_session_text,
+            self.claude_session_stats_text,
+            self.claude_session_registry_text,
+            self.cursor_session_text,
+            self.cursor_session_stats_text,
+            self.cursor_session_registry_text,
             self.raw_bridge_text,
+            self.timeline_panel,
             self.command_output,
             self.dev_log_text,
             self.activity_workspace,
             self.workbench_codex_card,
             self.workbench_operator_card,
             self.workbench_claude_card,
+            self.workbench_cursor_card,
             self._analytics_text,
             self._analytics_repo_text,
             self._analytics_quality_text,
             self._analytics_phone_text,
             self._codex_lane_dot,
             self._claude_lane_dot,
+            self._cursor_lane_dot,
             self._operator_lane_dot,
             self._approval_container,
+            self.workflow_header_bar,
+            self.workflow_timeline_footer,
+            self.conversation_panel,
+            self.task_board_panel,
         ]
 
     def _build_content_for_mode(self, mode_id: str) -> QWidget:
@@ -183,11 +208,11 @@ class PageBuilderMixin:
         self._reset_layout_handles()
         self._lane_card_labels = {}
         if mode_id == "sidebar":
-            content = self._build_sidebar_content()
+            content = build_sidebar_content(self)
         elif mode_id == "grid":
-            content = self._build_grid_content()
+            content = build_grid_content(self)
         elif mode_id == "analytics":
-            content = self._build_analytics_content()
+            content = build_analytics_content(self)
         elif mode_id == "workbench":
             content = build_workbench_content(self)
         else:
@@ -248,6 +273,7 @@ class PageBuilderMixin:
         for dot, name in [
             (self.codex_dot, "Codex"),
             (self.claude_dot, "Claude"),
+            (self.cursor_dot, "Cursor"),
             (self.operator_dot, "Operator"),
         ]:
             layout.addWidget(ProviderBadge(name))
@@ -334,9 +360,81 @@ class PageBuilderMixin:
             return "codex"
         if widget is getattr(self, "claude_panel", None):
             return "claude"
+        if widget is getattr(self, "cursor_panel", None):
+            return "cursor"
         if widget is getattr(self, "operator_panel", None):
             return "operator"
         return None
+
+    def _wrap_support_card(
+        self,
+        widget: QWidget,
+        title: str,
+        subtitle: str,
+        *,
+        provider_name: str | None = None,
+    ) -> QFrame:
+        """Wrap a support widget in a lane-styled card without dynamic lane wiring."""
+        card = QFrame()
+        card.setObjectName("LaneCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(8)
+
+        header = QHBoxLayout()
+        header.setSpacing(8)
+        if provider_name:
+            header.addWidget(ProviderBadge(provider_name))
+        name_label = QLabel(title)
+        name_label.setObjectName("LaneAgentName")
+        header.addWidget(name_label)
+        role_label = QLabel(f"— {subtitle}")
+        role_label.setObjectName("LaneRoleLabel")
+        header.addWidget(role_label)
+        header.addStretch(1)
+        layout.addLayout(header)
+        layout.addWidget(widget, stretch=1)
+        return card
+
+    def _build_session_surface(self, provider_id: str) -> QWidget:
+        """Compose terminal history plus a flippable stats/registry card."""
+        provider_label = provider_id.capitalize()
+        terminal_widget = getattr(self, f"{provider_id}_session_text")
+        stats_widget = getattr(self, f"{provider_id}_session_stats_text")
+        registry_widget = getattr(self, f"{provider_id}_session_registry_text")
+
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        split = QSplitter(Qt.Orientation.Vertical)
+        split.setHandleWidth(4)
+        split.setChildrenCollapsible(False)
+        split.addWidget(
+            self._wrap_support_card(
+                terminal_widget,
+                f"{provider_label} Terminal",
+                "Recent history",
+                provider_name=provider_label,
+            )
+        )
+        detail_card = FlippableTextCard(
+            front_widget=stats_widget,
+            back_widget=registry_widget,
+            front_title=f"{provider_label} Stats",
+            front_subtitle="Freshness, signals, and screen",
+            back_title=f"{provider_label} Registry",
+            back_subtitle="Lane assignments and states",
+            provider_name=provider_label,
+        )
+        setattr(self, f"{provider_id}_session_detail_card", detail_card)
+
+        split.addWidget(detail_card)
+        split.setStretchFactor(0, 7)
+        split.setStretchFactor(1, 4)
+        layout.addWidget(split, stretch=1)
+        return container
 
     # ═══════════════════════════════════════════════════════════
     # TABBED LAYOUT — Dashboard | Monitor | Activity
@@ -354,17 +452,21 @@ class PageBuilderMixin:
         self._nav_tabs.addTab(self._build_dashboard_page(), "Dashboard")
         self._nav_tabs.addTab(self._build_monitor_page(), "Monitor")
         self._nav_tabs.addTab(self._build_activity_page(), "Activity")
+        self._nav_tabs.addTab(self._build_collaborate_page(), "Collaborate")
         self._nav_tabs.tabBar().setTabToolTip(
             0, "Guided home screen with simple or technical overview."
         )
         self._nav_tabs.tabBar().setTabToolTip(
-            1, "Primary lane dashboard for Codex, Operator, and Claude."
+            1, "Primary lane dashboard for Codex, Operator, Cursor, and Claude."
         )
         self._nav_tabs.tabBar().setTabToolTip(
-            2, "Codex and Claude session surfaces plus bridge, launcher output, and diagnostics."
+            2, "Codex, Cursor, and Claude session surfaces plus bridge, launcher output, and diagnostics."
         )
         self._nav_tabs.tabBar().setTabToolTip(
             3, "Plain-language reports, quick actions, and staged AI drafts."
+        )
+        self._nav_tabs.tabBar().setTabToolTip(
+            4, "Team conversation and task board backed by review-channel packets."
         )
 
         return self._nav_tabs
@@ -386,20 +488,25 @@ class PageBuilderMixin:
         operator_card = self._wrap_in_card(
             self.operator_panel, "Operator", "Bridge State", self._operator_lane_dot
         )
+        cursor_card = self._wrap_in_card(
+            self.cursor_panel, "Cursor", "Editor", self._cursor_lane_dot
+        )
         claude_card = self._wrap_in_card(
             self.claude_panel, "Claude", "Implementer", self._claude_lane_dot
         )
-        for card in (codex_card, operator_card, claude_card):
+        for card in (codex_card, operator_card, cursor_card, claude_card):
             card.setMaximumHeight(216)
 
         grid.addWidget(codex_card, 0, 0)
         grid.addWidget(operator_card, 0, 1)
-        grid.addWidget(claude_card, 0, 2)
-        grid.addWidget(self._approval_container, 1, 0, 1, 3)
+        grid.addWidget(cursor_card, 0, 2)
+        grid.addWidget(claude_card, 0, 3)
+        grid.addWidget(self._approval_container, 1, 0, 1, 4)
 
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
         grid.setColumnStretch(2, 1)
+        grid.setColumnStretch(3, 1)
         grid.setRowStretch(0, 0)
         grid.setRowStretch(1, 1)
         return container
@@ -412,8 +519,9 @@ class PageBuilderMixin:
         self._monitor_tabs.tabBar().setObjectName("MonitorTabBar")
         self._monitor_tabs.tabBar().setExpanding(True)
         monitor_panels = (
-            ("codex_session", self.codex_session_text, "Codex Session"),
-            ("claude_session", self.claude_session_text, "Claude Session"),
+            ("codex_session", self._build_session_surface("codex"), "Codex Session"),
+            ("claude_session", self._build_session_surface("claude"), "Claude Session"),
+            ("cursor_session", self._build_session_surface("cursor"), "Cursor Session"),
             ("bridge", self.raw_bridge_text, "Bridge"),
             ("command_output", self.command_output, "Launcher Output"),
             ("diagnostics", self.dev_log_text, "Diagnostics"),
@@ -431,6 +539,10 @@ class PageBuilderMixin:
             "Implementer session surface: registry activity plus the current bridge summary.",
         )
         self._monitor_tabs.tabBar().setTabToolTip(
+            self._monitor_surface_indexes["cursor_session"],
+            "Cursor editor session surface: live terminal traces and registry assignments.",
+        )
+        self._monitor_tabs.tabBar().setTabToolTip(
             self._monitor_surface_indexes["bridge"],
             "Wrapped markdown bridge snapshot from repo-visible state.",
         )
@@ -445,8 +557,25 @@ class PageBuilderMixin:
         return self._monitor_tabs
 
     def _build_activity_page(self) -> QWidget:
-        """Agent connections: what Codex and Claude are working on."""
+        """Agent connections: what each lane is working on."""
         return self.activity_workspace
+
+    def _build_collaborate_page(self) -> QWidget:
+        """Team conversation and task board in a vertical split."""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setHandleWidth(4)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(self.conversation_panel)
+        splitter.addWidget(self.task_board_panel)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        layout.addWidget(splitter, stretch=1)
+        return container
 
     def _build_center_spine(self, *, include_approvals: bool = True) -> QFrame:
         """Center column for operator state, optionally with approvals."""
@@ -506,292 +635,20 @@ class PageBuilderMixin:
     # SIDEBAR LAYOUT — Codex-style nav + content panel
     # ═══════════════════════════════════════════════════════════
 
-    _SIDEBAR_NAV_ITEMS: tuple[tuple[str, str], ...] = (
-        ("Home", "home"),
-        ("Codex", "codex"),
-        ("Codex Session", "codex_session"),
-        ("Claude", "claude"),
-        ("Claude Session", "claude_session"),
-        ("Operator", "operator"),
-        ("Activity", "activity"),
-        ("Bridge", "bridge"),
-        ("Commands", "commands"),
-        ("Diagnostics", "diagnostics"),
-    )
-
-    _SIDEBAR_TOOLTIPS: dict[str, str] = {
-        "home": "Guided start screen with summary cards and operator guidance.",
-        "codex": "Reviewer lane snapshot and detail view.",
-        "codex_session": "Reviewer session surface with registry activity and bridge context.",
-        "claude": "Implementer lane snapshot and detail view.",
-        "claude_session": "Implementer session surface with registry activity and bridge context.",
-        "operator": "Human control lane and approval context.",
-        "activity": "Plain-language reports, swarm status, and staged AI drafts.",
-        "bridge": "Wrapped markdown bridge snapshot.",
-        "commands": "Typed launcher command output.",
-        "diagnostics": "High-level refresh and command diagnostics.",
-    }
-
-    def _build_sidebar_content(self) -> QWidget:
-        """Codex-style: narrow sidebar nav + wide content panel."""
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setHandleWidth(4)
-        splitter.setChildrenCollapsible(False)
-
-        # Left sidebar
-        sidebar = QFrame()
-        sidebar.setObjectName("SidebarNav")
-        sidebar.setMinimumWidth(220)
-        sidebar.setMaximumWidth(280)
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(8, 8, 8, 8)
-        sidebar_layout.setSpacing(4)
-
-        self._sidebar_nav = QListWidget()
-        self._sidebar_nav.setObjectName("SidebarNavList")
-        for label, item_id in self._SIDEBAR_NAV_ITEMS:
-            item = QListWidgetItem(label)
-            item.setData(Qt.ItemDataRole.UserRole, item_id)
-            item.setToolTip(self._SIDEBAR_TOOLTIPS.get(item_id, label))
-            self._sidebar_nav.addItem(item)
-
-        sidebar_layout.addWidget(self._sidebar_nav, stretch=1)
-        sidebar_layout.addWidget(self._approval_container)
-
-        # Right content: stacked pages
-        self._sidebar_stack = QStackedWidget()
-        self._sidebar_stack.addWidget(self.home_workspace)
-        self._sidebar_stack.addWidget(
-            self._wrap_in_card(
-                self.codex_panel, "Codex", "Reviewer", self._codex_lane_dot
-            )
-        )
-        self._sidebar_stack.addWidget(
-            self._wrap_in_card(
-                self.codex_session_text,
-                "Codex Session",
-                "Registry + bridge",
-            )
-        )
-        self._sidebar_stack.addWidget(
-            self._wrap_in_card(
-                self.claude_panel, "Claude", "Implementer", self._claude_lane_dot
-            )
-        )
-        self._sidebar_stack.addWidget(
-            self._wrap_in_card(
-                self.claude_session_text,
-                "Claude Session",
-                "Registry + bridge",
-            )
-        )
-        self._sidebar_stack.addWidget(
-            self._wrap_in_card(
-                self.operator_panel, "Operator", "Bridge State", self._operator_lane_dot
-            )
-        )
-        self._sidebar_stack.addWidget(
-            self.activity_workspace
-        )
-        self._sidebar_stack.addWidget(
-            self._wrap_in_card(self.raw_bridge_text, "Bridge", "Raw content")
-        )
-        self._sidebar_stack.addWidget(
-            self._wrap_in_card(self.command_output, "Launcher Output", "Command log")
-        )
-        self._sidebar_stack.addWidget(
-            self._wrap_in_card(self.dev_log_text, "Diagnostics", "Event log")
-        )
-
-        self._sidebar_nav.currentRowChanged.connect(
-            lambda row: self._sidebar_stack.setCurrentIndex(row)
-        )
-        self._sidebar_nav.setCurrentRow(0)
-
-        splitter.addWidget(sidebar)
-        splitter.addWidget(self._sidebar_stack)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 5)
-        splitter.setSizes([240, 1180])
-
-        return splitter
+    # Callers use build_sidebar_content(self) directly from
+    # .layout.page_layout_builders — no mixin wrapper needed.
 
     # ═══════════════════════════════════════════════════════════
     # GRID LAYOUT — Sampler-style tiled dashboard
     # ═══════════════════════════════════════════════════════════
 
-    def _build_grid_content(self) -> QWidget:
-        """Terminal-first operations grid with logs taking most of the space."""
-        container = QWidget()
-        grid = QGridLayout(container)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(8)
-
-        codex_card = self._wrap_in_card(
-            self.codex_panel, "Codex", "Reviewer", self._codex_lane_dot
-        )
-        operator_card = self._wrap_in_card(
-            self.operator_panel, "Operator", "Bridge State", self._operator_lane_dot
-        )
-        claude_card = self._wrap_in_card(
-            self.claude_panel, "Claude", "Implementer", self._claude_lane_dot
-        )
-        for card in (codex_card, operator_card, claude_card):
-            card.setMaximumHeight(160)
-
-        grid.addWidget(codex_card, 0, 0)
-        grid.addWidget(operator_card, 0, 1)
-        grid.addWidget(claude_card, 0, 2)
-        grid.addWidget(
-            self._wrap_in_card(
-                self.command_output,
-                "Launcher Output",
-                "Dry-run, live, and rollover logs",
-            ),
-            1,
-            0,
-            1,
-            2,
-        )
-        grid.addWidget(
-            self._wrap_in_card(
-                self.dev_log_text,
-                "Diagnostics",
-                "Desktop shell events",
-            ),
-            1,
-            2,
-        )
-        grid.addWidget(
-            self._wrap_in_card(self.raw_bridge_text, "Bridge", "Raw markdown"),
-            2,
-            0,
-            1,
-            2,
-        )
-        grid.addWidget(self._approval_container, 2, 2)
-
-        grid.setColumnStretch(0, 3)
-        grid.setColumnStretch(1, 3)
-        grid.setColumnStretch(2, 2)
-        grid.setRowStretch(0, 0)
-        grid.setRowStretch(1, 5)
-        grid.setRowStretch(2, 4)
-
-        return container
+    # Callers use build_grid_content(self) directly from
+    # .layout.page_layout_builders — no mixin wrapper needed.
 
     # ═══════════════════════════════════════════════════════════
     # ANALYTICS LAYOUT — repo-visible bridge and lane signals
     # ═══════════════════════════════════════════════════════════
 
-    def _build_analytics_content(self) -> QWidget:
-        """Repo-signal dashboard with dense summary cards and no action clutter."""
-        container = QWidget()
-        root = QVBoxLayout(container)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(8)
-
-        # KPI header strip — stat cards across the top
-        kpi_row = QHBoxLayout()
-        kpi_row.setSpacing(8)
-        self._kpi_cards: dict[str, QFrame] = {}
-        for metric_id, label, value in self._gather_kpi_data():
-            card = self._build_kpi_card(label, value)
-            self._kpi_cards[metric_id] = card
-            kpi_row.addWidget(card)
-        root.addLayout(kpi_row)
-
-        # Asymmetric data grid inspired by the public repo intelligence page.
-        grid = QGridLayout()
-        grid.setSpacing(8)
-
-        grid.addWidget(
-            self._wrap_in_card(
-                self._analytics_text,
-                "Snapshot",
-                "Live repo and lane health distilled into one readable brief.",
-            ),
-            0,
-            0,
-            2,
-            2,
-        )
-        grid.addWidget(
-            self._wrap_in_card(
-                self._analytics_repo_text,
-                "Working Tree",
-                "Branch, dirty state, file mix, and hotspot paths.",
-            ),
-            0,
-            2,
-        )
-        grid.addWidget(
-            self._wrap_in_card(
-                self._analytics_quality_text,
-                "Quality & CI",
-                "Warnings, mutation, approvals, and recent pipeline results.",
-            ),
-            1,
-            2,
-        )
-        grid.addWidget(
-            self._wrap_in_card(
-                self._analytics_phone_text,
-                "Phone Relay",
-                "Mobile/control-plane snapshot and current availability.",
-            ),
-            2,
-            0,
-        )
-        grid.addWidget(self._approval_container, 2, 1, 1, 2)
-
-        grid.setColumnStretch(0, 3)
-        grid.setColumnStretch(1, 3)
-        grid.setColumnStretch(2, 2)
-        grid.setRowStretch(0, 3)
-        grid.setRowStretch(1, 3)
-        grid.setRowStretch(2, 2)
-
-        root.addLayout(grid, stretch=1)
-
-        return container
-
-    def _gather_kpi_data(self) -> list[tuple[str, str, str]]:
-        """Produce metric tuples for the KPI header strip.
-
-        Returns (metric_id, label, initial_value) triples.  Values are
-        refreshed on each poll cycle via _update_analytics_kpis().
-        """
-        return [
-            ("dirty_files", "Dirty Files", "—"),
-            ("mutation_score", "Mutation", "—"),
-            ("ci_runs", "CI Recent", "—"),
-            ("warnings", "Warnings", "0"),
-            ("pending_approvals", "Pending", "0"),
-            ("phone_phase", "Phone", "—"),
-        ]
-
-    def _build_kpi_card(self, label: str, value: str) -> QFrame:
-        """Build a single KPI stat card for the analytics header."""
-        card = QFrame()
-        card.setObjectName("KPICard")
-        card.setFixedHeight(64)
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(14, 6, 14, 6)
-        layout.setSpacing(2)
-
-        value_label = QLabel(value)
-        value_label.setObjectName("KPIValue")
-        layout.addWidget(value_label)
-
-        name_label = QLabel(label)
-        name_label.setObjectName("KPILabel")
-        layout.addWidget(name_label)
-
-        return card
-
-    # ── Backward compatibility alias ─────────────────────────
-
-    def _build_main_content(self) -> QWidget:
-        """Legacy entry point — delegates to the tabbed builder."""
-        return self._build_tabbed_content()
+    # Callers use build_analytics_content(self), gather_kpi_data(),
+    # and build_kpi_card() directly from .layout.page_layout_builders
+    # — no mixin wrappers needed.

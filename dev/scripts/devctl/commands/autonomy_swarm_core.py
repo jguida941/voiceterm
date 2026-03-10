@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..autonomy_swarm_helpers import slug
+from ..autonomy.swarm_helpers import fallback_repo_from_origin, slug
 from ..config import REPO_ROOT
 from ..numeric import to_int
 
@@ -167,27 +166,6 @@ def validate_args(args) -> str | None:
     return None
 
 
-def fallback_repo_from_origin() -> str | None:
-    """Resolve `owner/repo` from `remote.origin.url`."""
-    result = subprocess.run(
-        ["git", "config", "--get", "remote.origin.url"],
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        return None
-    raw = str(result.stdout or "").strip()
-    if not raw:
-        return None
-    match = re.search(
-        r"github\.com[:/](?P<owner>[^/]+)/(?P<repo>[^/]+?)(?:\.git)?$", raw
-    )
-    if not match:
-        return None
-    owner = str(match.group("owner")).strip()
-    repo = str(match.group("repo")).strip()
-    if not owner or not repo:
-        return None
-    return f"{owner}/{repo}"
+
+# Re-exported from swarm_helpers for backward compatibility.
+fallback_repo_from_origin = fallback_repo_from_origin

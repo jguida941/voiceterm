@@ -2,12 +2,33 @@ use crate::process_signal::signal_process_group_or_pid;
 use crate::pty_session::PtyCliSession;
 use crate::{log_debug, log_debug_content};
 use std::env;
+use std::error::Error;
+use std::fmt;
 use std::io::{self, BufRead};
 use std::sync::mpsc::{self, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use super::{utf8_prefix, ClaudeJob, ClaudeJobOutput};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ClaudeJobStartError {
+    PtyStart(String),
+    SpawnProcess(String),
+    CaptureStream(&'static str),
+}
+
+impl fmt::Display for ClaudeJobStartError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::PtyStart(message) => write!(f, "Failed to start Claude PTY: {message}"),
+            Self::SpawnProcess(message) => write!(f, "Failed to start claude: {message}"),
+            Self::CaptureStream(stream) => write!(f, "Failed to capture {stream}"),
+        }
+    }
+}
+
+impl Error for ClaudeJobStartError {}
 
 pub(super) fn terminate_piped_child(child: &mut std::process::Child) {
     #[cfg(unix)]
@@ -66,10 +87,10 @@ fn start_claude_pty_job(
     claude_cmd: &str,
     args: &[String],
     term_value: &str,
-) -> Result<ClaudeJob, String> {
+) -> Result<ClaudeJob, ClaudeJobStartError> {
     let working_dir = current_working_dir_string();
     let session = PtyCliSession::new(claude_cmd, &working_dir, args, term_value, 24, 80)
-        .map_err(|err| format!("Failed to start Claude PTY: {err:#}"))?;
+        .map_err(|err| ClaudeJobStartError::PtyStart(format!("{err:#}")))?;
     log_debug("Claude job started (PTY)");
     Ok(new_claude_job(ClaudeJobOutput::Pty { session }))
 }
@@ -108,7 +129,10 @@ fn spawn_claude_stderr_reader_thread(stderr: std::process::ChildStderr, tx: Send
     });
 }
 
-fn start_claude_piped_job(claude_cmd: &str, args: &[String]) -> Result<ClaudeJob, String> {
+fn start_claude_piped_job(
+    claude_cmd: &str,
+    args: &[String],
+) -> Result<ClaudeJob, ClaudeJobStartError> {
     use std::process::{Command, Stdio};
 
     let mut command = Command::new(claude_cmd);
@@ -118,10 +142,16 @@ fn start_claude_piped_job(claude_cmd: &str, args: &[String]) -> Result<ClaudeJob
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to start claude: {e}"))?;
+        .map_err(|err| ClaudeJobStartError::SpawnProcess(err.to_string()))?;
 
-    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
-    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or(ClaudeJobStartError::CaptureStream("stdout"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or(ClaudeJobStartError::CaptureStream("stderr"))?;
 
     let (tx, rx) = mpsc::channel();
     spawn_claude_stdout_reader_thread(stdout, tx.clone());
@@ -140,7 +170,7 @@ pub(super) fn start_claude_job(
     skip_permissions: bool,
     term_value: &str,
     use_pty: bool,
-) -> Result<ClaudeJob, String> {
+) -> Result<ClaudeJob, ClaudeJobStartError> {
     log_debug_content(&format!(
         "Starting Claude job with prompt: {}...",
         utf8_prefix(prompt, 30)

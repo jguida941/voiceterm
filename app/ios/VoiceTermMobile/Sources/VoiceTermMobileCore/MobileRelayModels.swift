@@ -4,6 +4,7 @@ public struct MobileRelaySnapshot: Codable, Equatable, Sendable {
     public let schemaVersion: Int?
     public let command: String?
     public let timestamp: String?
+    public let approvalPolicy: ApprovalPolicy?
     public let sources: Sources?
     public let controllerPayload: ControllerPayload
     public let reviewPayload: ReviewPayload
@@ -12,9 +13,24 @@ public struct MobileRelaySnapshot: Codable, Equatable, Sendable {
         case schemaVersion = "schema_version"
         case command
         case timestamp
+        case approvalPolicy = "approval_policy"
         case sources
         case controllerPayload = "controller_payload"
         case reviewPayload = "review_payload"
+    }
+}
+
+public struct ApprovalPolicy: Codable, Equatable, Sendable {
+    public let mode: String?
+    public let summary: String?
+    public let autoAllowed: [String]?
+    public let requiresConfirmation: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case mode
+        case summary
+        case autoAllowed = "auto_allowed"
+        case requiresConfirmation = "requires_confirmation"
     }
 }
 
@@ -38,6 +54,7 @@ public struct ControllerPayload: Codable, Equatable, Sendable {
     public let controller: ControllerState?
     public let loop: LoopState?
     public let sourceRun: SourceRun?
+    public let ralph: RalphSection?
     public let warnings: [String]?
     public let errors: [String]?
 
@@ -47,8 +64,35 @@ public struct ControllerPayload: Codable, Equatable, Sendable {
         case controller
         case loop
         case sourceRun = "source_run"
+        case ralph
         case warnings
         case errors
+    }
+}
+
+public struct RalphSection: Codable, Equatable, Sendable {
+    public let available: Bool?
+    public let phase: String?
+    public let attempt: Int?
+    public let maxAttempts: Int?
+    public let fixRatePct: Double?
+    public let totalFindings: Int?
+    public let fixedCount: Int?
+    public let unresolvedCount: Int?
+    public let branch: String?
+    public let lastRun: String?
+
+    enum CodingKeys: String, CodingKey {
+        case available
+        case phase
+        case attempt
+        case maxAttempts = "max_attempts"
+        case fixRatePct = "fix_rate_pct"
+        case totalFindings = "total_findings"
+        case fixedCount = "fixed_count"
+        case unresolvedCount = "unresolved_count"
+        case branch
+        case lastRun = "last_run"
     }
 }
 
@@ -269,6 +313,8 @@ public struct MobileCompactProjection: Codable, Equatable, Sendable {
     public let claudeLaneStatus: String?
     public let operatorStatus: String?
     public let sourceRunURL: String?
+    public let approvalMode: String?
+    public let approvalSummary: String?
     public let nextActions: [String]?
 
     enum CodingKeys: String, CodingKey {
@@ -292,6 +338,8 @@ public struct MobileCompactProjection: Codable, Equatable, Sendable {
         case claudeLaneStatus = "claude_lane_status"
         case operatorStatus = "operator_status"
         case sourceRunURL = "source_run_url"
+        case approvalMode = "approval_mode"
+        case approvalSummary = "approval_summary"
         case nextActions = "next_actions"
     }
 }
@@ -301,6 +349,8 @@ public struct MobileAlertProjection: Codable, Equatable, Sendable {
     public let view: String?
     public let severity: String?
     public let summary: String?
+    public let approvalMode: String?
+    public let approvalSummary: String?
     public let why: [String]?
     public let currentInstruction: String?
     public let nextActions: [String]?
@@ -311,6 +361,8 @@ public struct MobileAlertProjection: Codable, Equatable, Sendable {
         case view
         case severity
         case summary
+        case approvalMode = "approval_mode"
+        case approvalSummary = "approval_summary"
         case why
         case currentInstruction = "current_instruction"
         case nextActions = "next_actions"
@@ -322,6 +374,8 @@ public struct MobileActionsProjection: Codable, Equatable, Sendable {
     public let schemaVersion: Int?
     public let view: String?
     public let summary: String?
+    public let approvalMode: String?
+    public let approvalSummary: String?
     public let nextActions: [String]?
     public let operatorActions: [MobileOperatorAction]?
 
@@ -329,6 +383,8 @@ public struct MobileActionsProjection: Codable, Equatable, Sendable {
         case schemaVersion = "schema_version"
         case view
         case summary
+        case approvalMode = "approval_mode"
+        case approvalSummary = "approval_summary"
         case nextActions = "next_actions"
         case operatorActions = "operator_actions"
     }

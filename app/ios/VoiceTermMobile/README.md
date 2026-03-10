@@ -1,6 +1,6 @@
 # VoiceTerm Mobile
 
-Read-first iPhone-ready client scaffold for the shared VoiceTerm control plane.
+Shared Swift package for the VoiceTerm iPhone/iPad app.
 
 This package is intentionally thin:
 
@@ -11,13 +11,17 @@ This package is intentionally thin:
 - `../VoiceTermMobileApp/` is the actual iOS shell that wraps this package for
   Xcode/device use.
 
+This package is not a second app target. If you want to launch the mobile app,
+use `../VoiceTermMobileApp/`.
+
 ## Current Scope
 
 - decode the merged `mobile-status` projection bundle
 - build a human-readable dashboard model for phone UI
 - render a SwiftUI dashboard with:
-  - sidebar/workspace sections
-  - hero status + metrics
+  - operator-console-style sidebar/workspace sections
+  - control-panel hero status + metrics
+  - shared approval-policy status
   - current instruction and findings cards
   - next actions
   - multi-agent lane cards

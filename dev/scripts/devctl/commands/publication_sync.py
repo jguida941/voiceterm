@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from ..common import emit_output, pipe_output, write_output
-from ..publication_sync import build_publication_sync_report, record_publication_sync
+from ..publication_sync.core import build_publication_sync_report, record_publication_sync
 from ..time_utils import utc_timestamp
 
 IMPACT_PREVIEW_LIMIT = 12

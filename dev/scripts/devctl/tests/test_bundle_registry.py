@@ -47,6 +47,7 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/checks/check_repo_url_parity.py",
             "python3 dev/scripts/checks/check_release_version_parity.py",
             "python3 dev/scripts/checks/check_review_channel_bridge.py",
+            "python3 dev/scripts/checks/check_serde_compatibility.py",
             "python3 -m pytest app/operator_console/tests/ -q --tb=short",
         }
         self.assertTrue(required_commands.issubset(commands))
@@ -66,6 +67,7 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/checks/check_publication_sync.py",
             "python3 dev/scripts/checks/check_python_subprocess_policy.py",
             "python3 dev/scripts/checks/check_repo_url_parity.py",
+            "python3 dev/scripts/checks/check_serde_compatibility.py",
         }
         self.assertTrue(required_commands.issubset(commands))
 

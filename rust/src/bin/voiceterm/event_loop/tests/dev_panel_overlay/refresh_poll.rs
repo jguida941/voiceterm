@@ -65,6 +65,12 @@ fn handoff_page_enter_refreshes_handoff_snapshot() {
 #[test]
 fn memory_page_enter_refreshes_memory_cockpit_snapshot() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let millis = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system time")
+        .as_millis();
+    let dir = std::env::temp_dir().join(format!("voiceterm_memory_exports_{millis}"));
+    state.working_dir = dir.to_string_lossy().to_string();
     state.config.dev_mode = true;
     state.ui.overlay_mode = OverlayMode::DevPanel;
     state
@@ -117,6 +123,52 @@ fn memory_page_enter_refreshes_memory_cockpit_snapshot() {
             .any(|section| section.title == "Task Pack"),
         "memory cockpit should include task-pack preview"
     );
+    assert!(
+        cockpit
+            .sections
+            .iter()
+            .any(|section| section.title == "Hybrid Pack"),
+        "memory cockpit should include hybrid-pack preview"
+    );
+    assert!(
+        cockpit
+            .context_pack_refs
+            .contains(&".voiceterm/memory/exports/task_pack.json".to_string()),
+        "task-pack export ref should be present"
+    );
+    assert!(
+        dir.join(".voiceterm/memory/exports/boot_pack.json")
+            .is_file(),
+        "boot-pack json export should be written"
+    );
+    assert!(
+        dir.join(".voiceterm/memory/exports/session_handoff.md")
+            .is_file(),
+        "session-handoff markdown export should be written"
+    );
+    assert!(
+        dir.join(".voiceterm/memory/exports/hybrid_pack.json")
+            .is_file(),
+        "hybrid-pack json export should be written"
+    );
+    assert!(
+        dir.join(".voiceterm/memory/exports/survival_index.json")
+            .is_file(),
+        "survival-index json export should be written"
+    );
+    let survival_json =
+        std::fs::read_to_string(dir.join(".voiceterm/memory/exports/survival_index.json"))
+            .expect("read survival-index json export");
+    assert!(
+        survival_json.contains("\"query_traces\""),
+        "survival-index export should include retrieval traces"
+    );
+    assert!(
+        survival_json.contains("\"evidence\""),
+        "survival-index export should include evidence rows"
+    );
+
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]
@@ -647,6 +699,12 @@ fn background_review_poll_refreshes_handoff_when_handoff_tab_visible() {
 #[test]
 fn background_review_poll_refreshes_memory_when_memory_tab_visible() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let millis = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system time")
+        .as_millis();
+    let dir = std::env::temp_dir().join(format!("voiceterm_memory_poll_exports_{millis}"));
+    state.working_dir = dir.to_string_lossy().to_string();
     state.config.dev_mode = true;
     state.ui.overlay_mode = OverlayMode::DevPanel;
     state
@@ -685,4 +743,11 @@ fn background_review_poll_refreshes_memory_when_memory_tab_visible() {
         state.dev_panel_commands.memory_cockpit_snapshot().is_some(),
         "background poll should refresh memory cockpit when Memory tab is visible"
     );
+    assert!(
+        dir.join(".voiceterm/memory/exports/task_pack.json")
+            .is_file(),
+        "background refresh should emit memory exports"
+    );
+
+    let _ = std::fs::remove_dir_all(dir);
 }

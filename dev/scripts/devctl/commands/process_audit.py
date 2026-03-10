@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from ..common import emit_output, pipe_output, write_output
-from ..process_sweep import (
+from ..process_sweep.core import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
     DEFAULT_STALE_MIN_AGE_SECONDS,
     extend_process_row_markdown,
@@ -19,15 +19,23 @@ from ..time_utils import utc_timestamp
 PROCESS_LINE_MAX_LEN = 180
 PROCESS_REPORT_LIMIT = 12
 BLOCKING_SCOPES = {"voiceterm", "repo_runtime"}
+SUPERVISED_CONDUCTOR_SCOPE = "review_channel_conductor"
 
 
 def collect_process_audit_state() -> dict:
     """Collect one host process snapshot and categorize repo-related rows."""
     rows, scan_warnings = scan_repo_hygiene_process_tree()
+    supervised_conductor_rows = [
+        row
+        for row in rows
+        if row.get("match_scope") == SUPERVISED_CONDUCTOR_SCOPE and row.get("ppid") != 1
+    ]
+    supervised_conductor_pids = {row["pid"] for row in supervised_conductor_rows}
     orphaned, active = split_orphaned_processes(
         rows,
         min_age_seconds=DEFAULT_ORPHAN_MIN_AGE_SECONDS,
     )
+    active = [row for row in active if row.get("pid") not in supervised_conductor_pids]
     stale_active, active_recent = split_stale_processes(
         active,
         min_age_seconds=DEFAULT_STALE_MIN_AGE_SECONDS,
@@ -54,6 +62,7 @@ def collect_process_audit_state() -> dict:
         "orphaned_rows": orphaned,
         "stale_active_rows": stale_active,
         "active_recent_rows": active_recent,
+        "active_supervised_conductor_rows": supervised_conductor_rows,
         "recent_detached_rows": recent_detached,
         "active_recent_blocking_rows": active_recent_blocking,
         "active_recent_advisory_rows": active_recent_advisory,
@@ -74,6 +83,7 @@ def build_process_audit_report(*, strict: bool) -> dict:
     orphaned = state["orphaned_rows"]
     stale_active = state["stale_active_rows"]
     active_recent = state["active_recent_rows"]
+    supervised_conductors = state["active_supervised_conductor_rows"]
     recent_detached = state["recent_detached_rows"]
     active_recent_blocking = state["active_recent_blocking_rows"]
     active_recent_advisory = state["active_recent_advisory_rows"]
@@ -140,6 +150,7 @@ def build_process_audit_report(*, strict: bool) -> dict:
         "orphaned_rows": orphaned,
         "stale_active_rows": stale_active,
         "active_recent_rows": active_recent,
+        "active_supervised_conductor_rows": supervised_conductors,
         "recent_detached_rows": recent_detached,
         "active_recent_blocking_rows": active_recent_blocking,
         "active_recent_advisory_rows": active_recent_advisory,
@@ -149,6 +160,7 @@ def build_process_audit_report(*, strict: bool) -> dict:
         "orphaned_count": len(orphaned),
         "stale_active_count": len(stale_active),
         "active_recent_count": len(active_recent),
+        "active_supervised_conductor_count": len(supervised_conductors),
         "recent_detached_count": len(recent_detached),
         "active_recent_blocking_count": len(active_recent_blocking),
         "active_recent_advisory_count": len(active_recent_advisory),
@@ -167,6 +179,10 @@ def _render_md(report: dict) -> str:
     lines.append(f"- orphaned: {report['orphaned_count']}")
     lines.append(f"- stale_active: {report['stale_active_count']}")
     lines.append(f"- active_recent: {report['active_recent_count']}")
+    lines.append(
+        "- active_supervised_conductors: "
+        f"{report['active_supervised_conductor_count']}"
+    )
     lines.append(f"- recent_detached: {report['recent_detached_count']}")
     lines.append(f"- active_recent_blocking: {report['active_recent_blocking_count']}")
     lines.append(f"- active_recent_advisory: {report['active_recent_advisory_count']}")

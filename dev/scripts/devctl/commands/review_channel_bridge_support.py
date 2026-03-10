@@ -1,0 +1,280 @@
+"""Bridge-action support helpers for `devctl review-channel`."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Callable
+
+from ..review_channel.core import (
+    AUTO_DARK_TERMINAL_PROFILES,
+    DEFAULT_TERMINAL_PROFILE,
+    build_bridge_guard_report,
+    ensure_launcher_prereqs,
+    filter_provider_lanes,
+    summarize_bridge_guard_failures,
+)
+from ..review_channel.handoff import (
+    bridge_liveness_to_dict,
+    extract_bridge_snapshot,
+    summarize_bridge_liveness,
+    validate_launch_bridge_state,
+    wait_for_rollover_ack,
+    write_handoff_bundle,
+)
+from ..review_channel.launch import (
+    launch_terminal_sessions,
+    list_terminal_profiles,
+    resolve_terminal_profile_name,
+)
+from ..review_channel.heartbeat import refresh_bridge_heartbeat
+
+
+def bridge_launch_state(
+    *,
+    args,
+    repo_root: Path,
+    review_channel_path: Path,
+    bridge_path: Path,
+    bridge_actions: set[str],
+    build_bridge_guard_report_fn: Callable[..., dict[str, object]] | None = None,
+) -> tuple[list, dict[str, object], dict[str, object], list, list, object]:
+    """Parse lanes + liveness and validate the bridge guard for launch actions."""
+    if build_bridge_guard_report_fn is None:
+        build_bridge_guard_report_fn = build_bridge_guard_report
+    _, lanes = ensure_launcher_prereqs(
+        review_channel_path=review_channel_path,
+        bridge_path=bridge_path,
+        execution_mode=args.execution_mode,
+    )
+    bridge_refresh = None
+    if args.action in bridge_actions and getattr(
+        args,
+        "refresh_bridge_heartbeat_if_stale",
+        False,
+    ):
+        stale_errors = stale_bridge_launch_errors(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            bridge_path=bridge_path,
+        )
+        if stale_errors:
+            bridge_refresh = refresh_bridge_heartbeat(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+                reason=f"devctl review-channel {args.action}",
+            )
+    bridge_snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
+    bridge_liveness_state = summarize_bridge_liveness(bridge_snapshot)
+    if args.action in bridge_actions:
+        bridge_guard_report = build_bridge_guard_report_fn(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            bridge_path=bridge_path,
+        )
+        if not bridge_guard_report.get("ok", False):
+            raise ValueError(
+                "Fresh conductor bootstrap requires a green review-channel "
+                "bridge guard before launch: "
+                + summarize_bridge_guard_failures(bridge_guard_report)
+            )
+        launch_state_errors = validate_launch_bridge_state(
+            bridge_snapshot,
+            liveness=bridge_liveness_state,
+        )
+        if launch_state_errors:
+            raise ValueError(
+                "Fresh conductor bootstrap requires a live bridge "
+                "contract before launch: "
+                + "; ".join(launch_state_errors)
+            )
+    bridge_liveness = bridge_liveness_to_dict(bridge_liveness_state)
+    codex_lanes = filter_provider_lanes(lanes, provider="codex")
+    claude_lanes = filter_provider_lanes(lanes, provider="claude")
+    cursor_lanes = filter_provider_lanes(lanes, provider="cursor")
+    return (
+        lanes,
+        bridge_liveness,
+        bridge_liveness_state,
+        codex_lanes,
+        claude_lanes,
+        cursor_lanes,
+        bridge_refresh,
+    )
+
+
+def stale_bridge_launch_errors(
+    *,
+    repo_root: Path,
+    review_channel_path: Path,
+    bridge_path: Path,
+    build_bridge_guard_report_fn: Callable[..., dict[str, object]] | None = None,
+) -> list[str]:
+    """Return refreshable metadata errors when the bridge guard fails on stale heartbeat."""
+    if build_bridge_guard_report_fn is None:
+        build_bridge_guard_report_fn = build_bridge_guard_report
+    bridge_guard_report = build_bridge_guard_report_fn(
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+        bridge_path=bridge_path,
+    )
+    if bridge_guard_report.get("ok", False):
+        return []
+    code_audit = bridge_guard_report.get("code_audit")
+    review_channel = bridge_guard_report.get("review_channel")
+    if not isinstance(code_audit, dict) or not isinstance(review_channel, dict):
+        return []
+    if review_channel.get("error") or review_channel.get("missing_markers"):
+        return []
+    if code_audit.get("error") or code_audit.get("missing_h2") or code_audit.get(
+        "missing_markers"
+    ):
+        return []
+    state_errors = code_audit.get("state_errors")
+    if isinstance(state_errors, list) and state_errors:
+        return []
+    metadata_errors = code_audit.get("metadata_errors")
+    if not isinstance(metadata_errors, list) or not metadata_errors:
+        return []
+    if all(_is_refreshable_metadata_error(str(error)) for error in metadata_errors):
+        return [str(error) for error in metadata_errors if str(error).strip()]
+    return []
+
+
+def resolve_terminal_launch_state(
+    args,
+    *,
+    codex_lanes: list,
+    claude_lanes: list,
+    list_terminal_profiles_fn: Callable[[], list[str]] | None = None,
+) -> tuple[str | None, list[str]]:
+    """Resolve the Terminal.app profile and collect launch-readiness warnings."""
+    if list_terminal_profiles_fn is None:
+        list_terminal_profiles_fn = list_terminal_profiles
+    warnings: list[str] = []
+    available_profiles = (
+        list_terminal_profiles_fn() if args.terminal == "terminal-app" else []
+    )
+    terminal_profile_applied = resolve_terminal_profile_name(
+        args.terminal_profile,
+        available_profiles=available_profiles,
+    )
+    if args.codex_workers > len(codex_lanes):
+        warnings.append(
+            "Requested Codex worker budget exceeds the current lane table; "
+            f"using {len(codex_lanes)} advertised Codex lanes."
+        )
+    if args.claude_workers > len(claude_lanes):
+        warnings.append(
+            "Requested Claude worker budget exceeds the current lane table; "
+            f"using {len(claude_lanes)} advertised Claude lanes."
+        )
+    if (
+        args.terminal == "terminal-app"
+        and args.terminal_profile == "auto-dark"
+        and terminal_profile_applied is None
+    ):
+        warnings.append(
+            "No known dark Terminal.app profile was found; live launch will "
+            "fall back to the current Terminal default."
+        )
+    if (
+        args.terminal == "terminal-app"
+        and args.terminal_profile not in {"auto-dark", "default", "system", "none"}
+        and available_profiles
+        and terminal_profile_applied not in available_profiles
+    ):
+        warnings.append(
+            f"Requested Terminal profile `{args.terminal_profile}` was not "
+            "found; live launch will fall back to the current Terminal default."
+        )
+        terminal_profile_applied = None
+    return terminal_profile_applied, warnings
+
+
+def prepare_rollover_bundle(
+    *,
+    args,
+    repo_root: Path,
+    bridge_path: Path,
+    review_channel_path: Path,
+    rollover_dir: Path,
+    lanes: list,
+) -> tuple[object | None, list[str]]:
+    """Write a rollover handoff bundle if the action is rollover."""
+    if args.action != "rollover":
+        return None, []
+    handoff_bundle = write_handoff_bundle(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        output_root=rollover_dir,
+        trigger=args.rollover_trigger,
+        threshold_pct=args.rollover_threshold_pct,
+        lane_assignments=[
+            {
+                "agent_id": lane.agent_id,
+                "provider": lane.provider,
+                "lane": lane.lane,
+                "worktree": lane.worktree,
+                "branch": lane.branch,
+                "mp_scope": lane.mp_scope,
+            }
+            for lane in lanes
+        ],
+    )
+    return handoff_bundle, [
+        "Planned rollover created a repo-visible handoff bundle. "
+        "Fresh sessions should acknowledge it before the old sessions exit."
+    ]
+
+
+def launch_sessions_if_requested(
+    *,
+    args,
+    sessions: list[dict[str, object]],
+    bridge_path: Path,
+    handoff_bundle,
+    terminal_profile_applied: str | None,
+    launch_terminal_sessions_fn: Callable[..., None] | None = None,
+) -> tuple[bool, bool, dict[str, bool] | None]:
+    """Open Terminal.app windows and optionally wait for rollover ACK."""
+    if launch_terminal_sessions_fn is None:
+        launch_terminal_sessions_fn = launch_terminal_sessions
+    launched = False
+    handoff_ack_required = False
+    handoff_ack_observed = None
+    if (
+        args.action in {"launch", "rollover"}
+        and args.terminal == "terminal-app"
+        and not args.dry_run
+    ):
+        launch_terminal_sessions_fn(
+            sessions,
+            terminal_profile=terminal_profile_applied,
+            default_terminal_profile=DEFAULT_TERMINAL_PROFILE,
+            auto_dark_terminal_profiles=AUTO_DARK_TERMINAL_PROFILES,
+        )
+        launched = True
+        if (
+            args.action == "rollover"
+            and handoff_bundle is not None
+            and args.await_ack_seconds > 0
+        ):
+            handoff_ack_required = True
+            handoff_ack_observed = wait_for_rollover_ack(
+                bridge_path=bridge_path,
+                rollover_id=handoff_bundle.rollover_id,
+                timeout_seconds=args.await_ack_seconds,
+            )
+    return launched, handoff_ack_required, handoff_ack_observed
+
+
+def _is_refreshable_metadata_error(error: str) -> bool:
+    refreshable_tokens = (
+        "Invalid `Last Codex poll` timestamp",
+        "`Last Codex poll` is stale",
+        "`Last Codex poll` is in the future",
+        "Invalid `Last Codex poll (Local America/New_York)` value",
+        "Invalid `Last non-audit worktree hash`",
+    )
+    return any(token in error for token in refreshable_tokens)

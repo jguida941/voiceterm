@@ -10,7 +10,7 @@ from typing import Any
 from ..common import confirm_or_abort, emit_output, pipe_output, write_output
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
-from ..integration_federation_policy import (
+from ..integrations.federation_policy import (
     federation_allowed_destination_roots,
     federation_audit_log_path,
     federation_max_files,
@@ -18,7 +18,7 @@ from ..integration_federation_policy import (
     load_federation_policy,
     source_repo_path,
 )
-from ..integration_import_core import (
+from ..integrations.import_core import (
     append_audit_log,
     collect_mapping_plan,
     is_relative_to,

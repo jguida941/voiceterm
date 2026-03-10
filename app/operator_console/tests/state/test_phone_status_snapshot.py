@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app.operator_console.state.phone_status_snapshot import (
+from app.operator_console.state.snapshots.phone_status_snapshot import (
     DEFAULT_BRIDGE_REL,
     DEFAULT_MOBILE_STATUS_REL,
     DEFAULT_PHONE_STATUS_REL,

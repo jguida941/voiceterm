@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard new broad Python exception handlers without explicit rationale."""
+"""Guard new broad Python exception handlers with explicit rationale/contracts."""
 
 from __future__ import annotations
 
@@ -41,6 +41,7 @@ HUNK_RE = re.compile(
     r"^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@"
 )
 RATIONALE_RE = re.compile(r"broad-except:\s*allow\b.*\breason\s*=")
+FALLBACK_RE = re.compile(r"broad-except:\s*allow\b.*\bfallback\s*=")
 
 
 def _is_test_path(path: Path) -> bool:
@@ -73,7 +74,7 @@ def _collect_python_paths(
 
 def _handler_kind(node_type: ast.expr | None) -> str | None:
     if node_type is None:
-        return None
+        return "bare"
     if isinstance(node_type, ast.Name) and node_type.id in {"Exception", "BaseException"}:
         return node_type.id
     if isinstance(node_type, ast.Attribute) and node_type.attr in {
@@ -95,11 +96,13 @@ def _handler_kind(node_type: ast.expr | None) -> str | None:
     return None
 
 
-def _has_rationale(lines: list[str], line_number: int) -> bool:
+def _has_contract_token(
+    lines: list[str], line_number: int, *, token_pattern: re.Pattern[str]
+) -> bool:
     index = line_number - 1
     if index < 0 or index >= len(lines):
         return False
-    if RATIONALE_RE.search(lines[index]):
+    if token_pattern.search(lines[index]):
         return True
     probe = index - 1
     while probe >= 0:
@@ -107,12 +110,34 @@ def _has_rationale(lines: list[str], line_number: int) -> bool:
         if not raw:
             break
         if raw.startswith("#"):
-            if RATIONALE_RE.search(raw):
+            if token_pattern.search(raw):
                 return True
             probe -= 1
             continue
         break
     return False
+
+
+def _has_rationale(lines: list[str], line_number: int) -> bool:
+    return _has_contract_token(lines, line_number, token_pattern=RATIONALE_RE)
+
+
+def _has_fallback_contract(lines: list[str], line_number: int) -> bool:
+    return _has_contract_token(lines, line_number, token_pattern=FALLBACK_RE)
+
+
+def _handler_suppresses_control_flow(handler: ast.ExceptHandler) -> bool:
+    stack = list(handler.body)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, ast.Raise):
+            return False
+        if isinstance(
+            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+        ):
+            continue
+        stack.extend(ast.iter_child_nodes(node))
+    return True
 
 
 def _collect_broad_except_handlers(text: str) -> list[dict]:
@@ -130,6 +155,8 @@ def _collect_broad_except_handlers(text: str) -> list[dict]:
                 "line": node.lineno,
                 "kind": kind,
                 "documented": _has_rationale(lines, node.lineno),
+                "fallback_documented": _has_fallback_contract(lines, node.lineno),
+                "suppresses": _handler_suppresses_control_flow(node),
             }
         )
     return handlers
@@ -181,6 +208,8 @@ def build_report(
     broad_handlers = 0
     candidate_handlers = 0
     documented_candidate_handlers = 0
+    suppressive_candidate_handlers = 0
+    fallback_documented_candidate_handlers = 0
     violations: list[dict] = []
     parse_errors: list[dict] = []
 
@@ -201,6 +230,25 @@ def build_report(
             candidate_handlers += 1
             if handler["documented"]:
                 documented_candidate_handlers += 1
+            else:
+                violations.append(
+                    {
+                        "path": relative_path,
+                        "line": handler["line"],
+                        "kind": handler["kind"],
+                        "reason": (
+                            "new broad exception handler is missing "
+                            "`broad-except: allow reason=...` rationale"
+                        ),
+                    }
+                )
+                continue
+
+            if not handler["suppresses"]:
+                continue
+            suppressive_candidate_handlers += 1
+            if handler["fallback_documented"]:
+                fallback_documented_candidate_handlers += 1
                 continue
             violations.append(
                 {
@@ -208,8 +256,8 @@ def build_report(
                     "line": handler["line"],
                     "kind": handler["kind"],
                     "reason": (
-                        "new broad exception handler is missing "
-                        "`broad-except: allow reason=...` rationale"
+                        "new suppressive broad exception handler is missing "
+                        "`broad-except: allow reason=... fallback=...` contract"
                     ),
                 }
             )
@@ -226,6 +274,8 @@ def build_report(
         "broad_handlers": broad_handlers,
         "candidate_handlers": candidate_handlers,
         "documented_candidate_handlers": documented_candidate_handlers,
+        "suppressive_candidate_handlers": suppressive_candidate_handlers,
+        "fallback_documented_candidate_handlers": fallback_documented_candidate_handlers,
         "violations": violations,
         "parse_errors": parse_errors,
         "target_roots": [path.as_posix() for path in TARGET_ROOTS],
@@ -242,6 +292,13 @@ def _render_md(report: dict) -> str:
     lines.append(f"- candidate_handlers: {report['candidate_handlers']}")
     lines.append(
         f"- documented_candidate_handlers: {report['documented_candidate_handlers']}"
+    )
+    lines.append(
+        f"- suppressive_candidate_handlers: {report['suppressive_candidate_handlers']}"
+    )
+    lines.append(
+        "- fallback_documented_candidate_handlers: "
+        f"{report['fallback_documented_candidate_handlers']}"
     )
     lines.append(f"- violations: {len(report['violations'])}")
     lines.append(f"- parse_errors: {len(report['parse_errors'])}")
@@ -260,9 +317,11 @@ def _render_md(report: dict) -> str:
         lines.append("")
         lines.append("## Violations")
         lines.append(
-            "- Guidance: new `except Exception` / `except BaseException` handlers in "
-            "repo-owned Python tooling/app code require an explicit nearby "
-            "`broad-except: allow reason=...` rationale."
+            "- Guidance: new `except Exception`, `except BaseException`, and "
+            "bare `except:` handlers in repo-owned Python tooling/app code "
+            "require an explicit nearby `broad-except: allow reason=...` rationale. "
+            "If the handler suppresses control-flow by not re-raising, it must also "
+            "declare `fallback=...`."
         )
         for item in report["violations"]:
             lines.append(

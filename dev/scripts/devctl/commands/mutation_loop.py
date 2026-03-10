@@ -10,9 +10,9 @@ from typing import Any
 from ..common import emit_output, pipe_output, write_output
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
-from ..loop_comment import coerce_pr_number, upsert_comment
-from ..mutation_loop_policy import evaluate_fix_policy, load_policy
-from ..mutation_loop_render import (
+from ..loops.comment import coerce_pr_number, upsert_comment
+from ..mutation_loop.policy import evaluate_fix_policy, load_policy
+from ..mutation_loop.render import (
     render_attempt_lines,
     render_markdown,
     render_playbook,

@@ -108,7 +108,10 @@ pub(crate) fn theme_picker_has_longer_match(prefix: &str, total: usize) -> bool 
     })
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Applying a theme picker choice updates UI state, PTY geometry, and overlay mode in one coordinated boundary."
+)]
 pub(crate) fn apply_theme_picker_index(
     idx: usize,
     theme: &mut Theme,

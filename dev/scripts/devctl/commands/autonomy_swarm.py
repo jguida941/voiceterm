@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..autonomy_swarm_helpers import (
+from ..autonomy.swarm_helpers import (
     build_swarm_charts,
     collect_refactor_metadata,
     recommend_agent_count,
@@ -16,8 +16,8 @@ from ..autonomy_swarm_helpers import (
     resolve_path,
     slug,
 )
-from ..autonomy_swarm_post_audit import build_post_audit_payload as _post_audit_payload
-from ..autonomy_swarm_post_audit import run_post_audit_digest as _run_post_audit_digest
+from ..autonomy.swarm_post_audit import build_post_audit_payload as _post_audit_payload
+from ..autonomy.swarm_post_audit import run_post_audit_digest as _run_post_audit_digest
 from ..common import emit_output, pipe_output, write_output
 from ..numeric import to_int
 from .autonomy_swarm_core import AgentTask as _AgentTask

@@ -10,7 +10,7 @@ from typing import Any
 from ..common import emit_output, pipe_output, run_cmd, write_output
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
-from ..integration_federation_policy import (
+from ..integrations.federation_policy import (
     federation_audit_log_path,
     federation_sources,
     load_federation_policy,

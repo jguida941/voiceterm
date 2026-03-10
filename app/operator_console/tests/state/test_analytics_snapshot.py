@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app.operator_console.state.analytics_snapshot import collect_repo_analytics
+from app.operator_console.state.snapshots.analytics_snapshot import collect_repo_analytics
 
 
 class AnalyticsSnapshotTests(unittest.TestCase):

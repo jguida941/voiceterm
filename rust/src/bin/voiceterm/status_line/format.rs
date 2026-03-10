@@ -19,24 +19,17 @@ use super::mode_indicator::{
 };
 use super::right_panel::format_right_panel;
 #[cfg(test)]
-use super::right_panel::{
-    format_heartbeat_panel, format_pulse_dots, heartbeat_color, meter_level_color,
-    scene_should_animate,
-};
-#[cfg(test)]
-use super::state::Pipeline;
+use super::right_panel::{format_heartbeat_panel, format_pulse_dots, heartbeat_color};
 use super::state::{RecordingState, StatusBanner, StatusLineState, VoiceMode};
 use super::text::{display_width, truncate_display, with_color};
 #[cfg(test)]
 use crate::config::HudRightPanel;
 #[cfg(test)]
-use crate::theme::VoiceSceneStyle;
-#[cfg(test)]
 use compact::compact_hud_registry;
 use compact::{format_compact, format_left_compact, format_minimal, format_shortcuts_compact};
-use single_line::{format_left_section, format_message, format_right_shortcuts};
 #[cfg(test)]
-use single_line::{format_shortcuts, format_transition_suffix};
+use single_line::format_shortcuts;
+use single_line::{format_left_section, format_message, format_right_shortcuts};
 
 mod compact;
 mod single_line;

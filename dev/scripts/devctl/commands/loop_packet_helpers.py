@@ -10,8 +10,8 @@ from typing import Any
 from ..common import read_json_object, resolve_repo_path
 from ..config import REPO_ROOT
 from ..status_report import build_project_report
-from ..triage_enrich import apply_defaults_to_issues, build_issue_rollup
-from ..triage_support import build_next_actions, classify_issues
+from ..triage.enrich import apply_defaults_to_issues, build_issue_rollup
+from ..triage.support import build_next_actions, classify_issues
 
 ALLOWED_SOURCE_COMMANDS = {"triage-loop", "mutation-loop", "triage"}
 SYSTEM_TMPDIR = Path(gettempdir())

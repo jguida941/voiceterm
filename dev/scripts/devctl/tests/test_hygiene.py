@@ -525,6 +525,39 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertIn("Active voiceterm test processes detected", report["warnings"][0])
 
     @mock.patch("dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes")
+    def test_runtime_process_audit_ignores_attached_supervised_conductors(
+        self, scan_mock: mock.Mock
+    ) -> None:
+        scan_mock.return_value = (
+            [
+                {
+                    "pid": 2333,
+                    "ppid": 777,
+                    "etime": "15:00",
+                    "elapsed_seconds": 900,
+                    "command": "script -q -F -t 0 /tmp/review-channel-launch-abc/codex-conductor.sh __review_channel_inner",
+                    "match_scope": "review_channel_conductor",
+                },
+                {
+                    "pid": 2334,
+                    "ppid": 2333,
+                    "etime": "14:59",
+                    "elapsed_seconds": 899,
+                    "command": "codex exec You are the Codex conductor for the active VoiceTerm MP-355 markdown-bridge swarm.",
+                    "match_scope": "review_channel_conductor",
+                },
+            ],
+            [],
+        )
+
+        report = hygiene._audit_runtime_processes()
+
+        self.assertEqual(report["total_detected"], 2)
+        self.assertEqual(len(report["active_supervised_conductors"]), 2)
+        self.assertFalse(report["errors"])
+        self.assertFalse(report["warnings"])
+
+    @mock.patch("dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes")
     def test_runtime_process_audit_errors_for_stale_active_test_binary(
         self, scan_mock: mock.Mock
     ) -> None:

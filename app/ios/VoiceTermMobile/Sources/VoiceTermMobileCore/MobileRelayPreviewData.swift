@@ -6,6 +6,20 @@ public enum MobileRelayPreviewData {
             schemaVersion: 1,
             command: "mobile-status",
             timestamp: "2026-03-09T09:01:32Z",
+            approvalPolicy: ApprovalPolicy(
+                mode: "balanced",
+                summary: "Auto-allow safe local work and escalate dangerous actions.",
+                autoAllowed: [
+                    "repo reads",
+                    "status/report commands",
+                    "local non-destructive checks"
+                ],
+                requiresConfirmation: [
+                    "rm / destructive deletes",
+                    "git push / publish / release",
+                    "GitHub write operations"
+                ]
+            ),
             sources: Sources(
                 phoneInputPath: "dev/reports/autonomy/queue/phone/latest.json",
                 reviewChannelPath: "dev/active/review_channel.md",
@@ -39,6 +53,18 @@ public enum MobileRelayPreviewData {
                     runID: 99,
                     runSHA: "deadbeef",
                     runURL: "https://example.invalid/runs/99"
+                ),
+                ralph: RalphSection(
+                    available: true,
+                    phase: "running",
+                    attempt: 2,
+                    maxAttempts: 5,
+                    fixRatePct: 66.7,
+                    totalFindings: 12,
+                    fixedCount: 8,
+                    unresolvedCount: 4,
+                    branch: "feature/ralph-guardrail",
+                    lastRun: "2026-03-09T08:45:00Z"
                 ),
                 warnings: [],
                 errors: []
@@ -180,6 +206,8 @@ public enum MobileRelayPreviewData {
             claudeLaneStatus: "assigned",
             operatorStatus: "active",
             sourceRunURL: "https://example.invalid/runs/99",
+            approvalMode: "balanced",
+            approvalSummary: "Auto-allow safe local work and escalate dangerous actions.",
             nextActions: [
                 "Refresh review-channel status",
                 "Send a bounded fix slice",
@@ -190,6 +218,8 @@ public enum MobileRelayPreviewData {
             schemaVersion: 1,
             view: "actions",
             summary: "BLOCKED | review stale | unresolved 3",
+            approvalMode: "balanced",
+            approvalSummary: "Auto-allow safe local work and escalate dangerous actions.",
             nextActions: [
                 "Refresh review-channel status",
                 "Send a bounded fix slice",
@@ -212,6 +242,24 @@ public enum MobileRelayPreviewData {
                     command: "python3 dev/scripts/devctl.py phone-status --view trace --format md",
                     kind: "read",
                     guardText: nil
+                ),
+                MobileOperatorAction(
+                    name: "dispatch-report-only",
+                    command: "python3 dev/scripts/devctl.py controller-action --action dispatch-report-only --branch develop --dry-run --format md",
+                    kind: "write",
+                    guardText: "policy-gated"
+                ),
+                MobileOperatorAction(
+                    name: "pause-loop",
+                    command: "python3 dev/scripts/devctl.py controller-action --action pause-loop --dry-run --format md",
+                    kind: "write",
+                    guardText: "policy-gated"
+                ),
+                MobileOperatorAction(
+                    name: "resume-loop",
+                    command: "python3 dev/scripts/devctl.py controller-action --action resume-loop --dry-run --format md",
+                    kind: "write",
+                    guardText: "policy-gated"
                 ),
             ]
         )

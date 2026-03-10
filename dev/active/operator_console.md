@@ -175,6 +175,9 @@ maintainable Python package shape:
 10. The desktop app remains deny-by-default for command execution; it may
     expose embedded terminals or shell views later, but those do not waive the
     allowlisted-command policy for controller actions.
+11. Any future Electron/Tauri desktop shell is post-PyQt follow-up only; it
+    must reuse the same repo-owned backend contract rather than becoming a
+    second backend or control plane.
 
 ## Cross-Plan Dependencies
 
@@ -194,6 +197,22 @@ maintainable Python package shape:
 6. `AGENTS.md`, `dev/scripts/README.md`, and
    `dev/guides/DEVCTL_AUTOGUIDE.md` remain the policy/docs authority for the
    underlying command paths.
+
+## Reference Inputs
+
+1. `network-monitor-tui` is a reference for dense read-only observability
+   panels and graph presentation, but repo-owned `devctl` collectors remain
+   the only analytics source of truth for this shell.
+2. The local `gitui-main/app` design reference is useful for agent-first
+   side-rail/workboard hierarchy and phone-friendly information density, but
+   it is a visual/layout reference only, not a runtime dependency.
+3. `FileHasherV2_HistoryPatch` and related local PyQt theme/chart work are
+   reference inputs for richer QSS/theme-pack import, chart widgets, and
+   style-authoring UX, but all persisted styling must still target the
+   canonical VoiceTerm theme/style-pack contract.
+4. `integrations/code-link-ide` is a future pairing/notifier reference for
+   desktop/phone relay work and must not become the desktop shell's backend or
+   state authority.
 
 ## Execution Checklist
 
@@ -376,8 +395,22 @@ Checklist:
       deliberately without devolving into freeform pixel dragging.
 - [x] Support a first bounded preset set:
       Balanced, Lane Focus, Launch Center, and Activity Focus.
-- [ ] Keep the layout state repo-visible or user-config-visible so issues are
+- [x] Keep the layout state repo-visible or user-config-visible so issues are
       reproducible when a developer reports "the screen got weird."
+
+### Phase 2.7.5 - Multi-Agent Layout Scale-Up
+
+- [ ] Extend the Workbench from the current three-lane presets into bounded
+      4/6/8+ visible-agent layouts with per-lane collapse/expand, snap-to-grid
+      resizing, and lane-group presets for reviewer/coder/operator mixes.
+- [ ] Keep high-lane-count layouts driven by repo-visible lane/session
+      metadata (`review-channel`, `autonomy`, future `controller_state`) so
+      the desktop does not invent placeholder agents or desktop-only lane ids.
+- [x] Persist layout state with explicit reset/export/import so layout bugs are
+      reproducible and recoverable instead of living in hidden widget memory.
+- [ ] Support both summary-density and terminal-density variants for the same
+      lane set so operators can flip between cards and dense monitors without
+      hand-rebuilding the screen.
 
 ### Phase 2.8 - Theme Registry And Overlay Parity
 
@@ -409,7 +442,7 @@ Checklist:
       desktop-only preview derivations layered on top.
 - [ ] Long-term: prefer importing/exporting shared style-pack/theme metadata
       over maintaining separate desktop-only theme definitions by hand.
-- [ ] Expand the theme editor beyond global colors/metrics into fuller
+- [x] Expand the theme editor beyond global colors/metrics into fuller
       page-scoped control groups for text, borders, buttons/inputs, sidebar
       navigation, lane cards, approval surfaces, diagnostics/log panes, and
       raw-text/diff views so the desktop editor can style nearly the full UI.
@@ -430,6 +463,13 @@ Checklist:
       scope, color semantics, and preview behavior without leaving the app;
       this includes explicit explanation for diff/raw-text highlighting and
       what the current desktop theme editor can and cannot round-trip yet.
+- [ ] Add explicit semantic highlight controls for neutral/info, success,
+      warning, danger, diff-added, and diff-removed states so normal markdown
+      or report emphasis never inherits misleading error colors by accident.
+- [ ] Add broader PyQt/QSS theme-pack import and paste workflows that map
+      source styles into the shared semantic token model, with explicit
+      unmapped-field reporting instead of silent loss or a second desktop-only
+      schema.
 
 ### Phase 3 - Approval Queue Center Stage
 
@@ -445,28 +485,28 @@ Checklist:
 
 ### Phase 4 - Agent Timeline
 
-- [ ] Add `TimelineEvent` dataclass and `build_timeline_from_snapshot()` in
+- [x] Add `TimelineEvent` dataclass and `build_timeline_from_snapshot()` in
       a dedicated PyQt-free state module to synthesize chronological events
       from snapshot state and historical handoff artifacts.
-- [ ] Create `timeline_panel.py` with a `TimelinePanel(QWidget)` showing
+- [x] Create `timeline_panel.py` with a `TimelinePanel(QWidget)` showing
       color-coded per-agent events (green=Codex, blue=Claude, orange=Operator,
       gray=System) sorted newest-first.
-- [ ] Add filter toggle buttons per agent so the operator can focus the
+- [x] Add filter toggle buttons per agent so the operator can focus the
       timeline.
-- [ ] Replace lower-row "Raw Bridge" panel with `TimelinePanel` (move raw
+- [x] Replace lower-row "Raw Bridge" panel with `TimelinePanel` (move raw
       bridge into a tab or toggle within it).
 
 ### Phase 4.5 - Shared Workflow Layout
 
-- [ ] Add a shared top strip showing:
+- [x] Add a shared top strip showing:
       current slice, shared goal, current writer, branch, and swarm health.
 - [ ] Keep the core center layout intentionally asymmetric:
       Claude lane, narrow relay/approval spine, Codex lane.
-- [ ] Add `last seen` and `last applied` markers to both actor lanes so the
+- [x] Add `last seen` and `last applied` markers to both actor lanes so the
       operator can tell they are mutually aware of each other's latest state.
-- [ ] Add a bottom workflow timeline showing transitions such as:
+- [x] Add a bottom workflow timeline showing transitions such as:
       posted -> read -> acked -> implementing -> tests -> reviewed -> apply.
-- [ ] Add a shared next-action footer so the screen always answers
+- [x] Add a shared next-action footer so the screen always answers
       "what happens now?" without requiring the operator to inspect raw logs.
 - [ ] Keep this layout readable as a single collaborative workflow rather than
       a generic dashboard or two unrelated terminal windows.
@@ -543,6 +583,15 @@ Checklist:
       path, and canonical docs authority so the guidance stays auditable.
 - [ ] Allow AI to summarize or adapt playbooks for the current situation, but
       keep the canonical step graph repo-owned and inspectable.
+- [ ] Expand tooltip/help coverage until every toolbar control, layout preset,
+      analytics card, theme-editor control group, and action button has
+      in-app help text instead of docs-only meaning.
+- [ ] Add a first-pass in-app "System Primer" bundle that covers Architecture,
+      Memory System, Dev Panel, Guardrails, Refactor Automation, AI Workflow,
+      Rust Engineering, Testing Strategy, Operational Workflow, and Scaling
+      using canonical repo docs as the source, then track section-by-section
+      cleanup follow-ups so this hard-systems guidance keeps improving without
+      becoming stale.
 
 ### Phase 5 - Guardrails And Pipeline Controls
 
@@ -668,6 +717,23 @@ Checklist:
 - [ ] Add quick jumps from workspace/artifact surfaces into the relevant
       playbook, command, AI-help prompt, or review lane.
 
+### Phase 6.45 - Charts, Mutation, And Hotspot Analytics
+
+- [ ] Replace the remaining empty/filler cards with repo-owned analytics cards,
+      sparklines, hotspot bars, and summary charts sourced from
+      `devctl status`, `devctl report --rust-audits`, `devctl triage`,
+      `mutation-score`, `process-audit`, and related emitted bundles.
+- [ ] Add chart-backed views for CI state, Rust guard violations, code
+      hotspots, mutation survivors, process hygiene, and swarm health, with
+      every card explaining what the metric means and why it matters.
+- [ ] Add a mutation-testing workspace that shows human-readable findings, raw
+      data, and AI-readable bundle context side by side so operators can see
+      the survivor/problem surface before asking AI or scripts to turn it into
+      test work.
+- [ ] Keep analytics dual-mode: `Simple` explains the signal in plain language,
+      and `Technical` exposes raw counts, provenance, source commands, and
+      artifact paths for the same underlying metric.
+
 ### Phase 6.5 - CI/CD And Report Visibility
 
 - [x] Add read-only desktop parity for the repo-owned `phone-status`
@@ -719,6 +785,10 @@ Checklist:
 - [ ] Surface terminal provenance clearly: cwd, branch/SHA, command owner, and
       whether the session was launched manually, by a playbook, or from an AI
       staged action.
+- [ ] Add read-only split/combined lane terminal monitors sourced from
+      `review-channel` session artifacts first, then from any later live Rust
+      control service, so operators can watch Codex/Claude/Operator work in a
+      dense monitor without a second terminal app.
 
 ### Phase 2.9 - UI Redesign: Visual Hierarchy And Modern Surface Treatment
 
@@ -820,6 +890,126 @@ progressive disclosure, and 8px base grid spacing.
 
 ## Progress Log
 
+- 2026-03-09: Added a subtree-local `app/operator_console/AGENTS.md` so future
+  agent work in the desktop shell sees package placement rules close to the
+  code instead of only the repo-wide policy. Updated the main Operator Console
+  README plus the `views/`, `theme/`, `state/`, and `tests/` package-map docs
+  to explain the new responsibility-first layout in simpler language, and
+  linked those docs from `DEV_INDEX.md`, `dev/README.md`, and the in-app help
+  resource list so the cleanup is actually discoverable.
+
+- 2026-03-09: Continued the visible tree cleanup for MP-359 by moving the
+  workflow and layout view files out of the flat `views/` directory. Workflow
+  controls/launchpad/chrome now live under
+  `app/operator_console/views/workflow/`, and layout registry/state/workbench
+  plus shell chrome now live under `app/operator_console/views/layout/`.
+  Internal imports and tests were updated to use the new package paths
+  directly, and the old top-level collaboration shim files were removed so the
+  directory shape now reflects the real responsibility split instead of hiding
+  it behind duplicate files.
+- 2026-03-09: Continued the responsibility-first cleanup into the UI layer.
+  The collaboration surface is no longer flat under `views/`: conversation,
+  task-board, timeline, and collaboration action-handler files now live under
+  `app/operator_console/views/collaboration/`, with thin re-export shims left
+  at the old top-level paths so the main window and existing tests can keep
+  importing during the migration. A new `views/README.md` now documents the
+  current UI split and the rule that feature-specific views should stop living
+  forever in one flat directory.
+- 2026-03-09: Continued the responsibility-first MP-359 cleanup across the
+  theme surface. The flat `app/operator_console/theme/` directory now has
+  explicit `config/` and `qss/` subpackages, with compatibility shims left at
+  the old top-level module paths so existing imports stay stable during the
+  transition. Theme-specific tests also now live under
+  `app/operator_console/tests/theme/`, and a new `theme/README.md` documents
+  where palette/runtime/editor/import/QSS files are supposed to live.
+- 2026-03-09: Started the responsibility-first package cleanup for MP-359 so
+  the Operator Console stops treating `state/` and `tests/` as junk drawers.
+  Workflow command/preset/surface helpers now live under
+  `app/operator_console/workflows/`, conversation/task/timeline/context-pack
+  helpers now live under `app/operator_console/collaboration/`, and persisted
+  layout helpers now live under `app/operator_console/layout/`, with
+  compatibility shims left under `state/` so the existing app/tests keep
+  importing cleanly during the transition. The developer docs were also
+  simplified with a plain-language root README plus explicit `state/README.md`
+  and `tests/README.md` maps so future work follows responsibility-first
+  placement instead of continuing to flatten more files into `state/`.
+- 2026-03-09: Reached a bounded stopping point on the current MP-359
+  Cursor-plus-quality tranche. Cursor lane state now flows through
+  snapshot/refresh/layout/activity surfaces (including the Activity summary
+  card strip), live quality-backlog summary data now appears in
+  snapshot-derived quality reports, and quality reports can now post as
+  review-channel `finding` packets instead of generic drafts. The remaining
+  architecture/memory/guardrail deep-cleanup pass is now explicitly parked as
+  the new Phase-4.7 "System Primer" backlog item for the next slice.
+- 2026-03-09: Closed the next MP-359 shape-hardening slice after operator
+  feedback that `views/main_window.py` had turned into a god file. The PyQt
+  shell is now split into bounded shell/layout/review/activity/operator
+  result layers (`ui_window_shell.py`, `ui_layout_state.py`,
+  `ui_swarm_status.py`, `ui_review_actions.py`, `ui_activity_actions.py`,
+  `ui_operator_actions.py`, `ui_process_results.py`), which cuts
+  `main_window.py` from `1274` lines to `615` and `ui_commands.py` from
+  `776` to `251` while keeping the visible GUI contract stable. Focused and
+  full Operator Console pytest runs remain green after the split, and
+  `check_code_shape.py` no longer flags the new launcher/result files or
+  `main_window.py`; the remaining shape failures are in other dirty-tree
+  Operator Console theme/state modules plus separate `devctl` review-channel
+  files that still need their own bounded decompositions.
+- 2026-03-09: Closed the next MP-359 workflow-controller hardening slice for
+  the PyQt shell. `Run Loop` no longer jumps straight into `devctl swarm_run`;
+  it now runs `devctl orchestrate-status` first and only launches the
+  continuous loop when the repo sync/audit guard is green. The shared
+  Home/Activity launchpad also now owns a first-class last-result surface
+  (`Workflow Audit Running`, `Loop Blocked`, `Loop Complete`, and similar)
+  instead of leaving loop/audit outcomes buried in raw launcher text, and
+  command labeling now distinguishes workflow audit vs plan loop instead of
+  collapsing both into generic status/command output. Focused PyQt layout
+  regressions cover the new preflight chain plus visible status updates.
+- 2026-03-09: Closed the first shared-workflow-layout slice for MP-359 Phase
+  4.5. Workbench now renders shared workflow chrome above and below the main
+  tabs: a top strip with current slice/goal/writer/branch/swarm health plus
+  Codex/Claude `last seen` + `last applied` markers, and a bottom transition
+  timeline (`posted -> read -> acked -> implementing -> tests -> reviewed ->
+  apply`) with a script-derived `Next action` footer. This path is state-driven
+  through a new PyQt-free workflow-state builder so the layout stays tied to
+  repo-visible snapshot + workflow scope signals instead of local-only widget
+  state.
+- 2026-03-09: Closed the first hard Timeline + layout-recovery tranche for
+  MP-359. The desktop shell now synthesizes per-agent/system timeline events
+  from snapshot state plus latest rollover handoff artifacts
+  (`state/timeline_builder.py`), renders those events in a filterable
+  `TimelinePanel`, and promotes that panel into the Workbench monitor stack
+  while keeping Raw Bridge available as a separate tab. The same slice also
+  adds explicit View->Layout controls to reset to defaults, export a
+  reproducible layout snapshot, and import that snapshot back into a live
+  session, closing the recoverability half of the persisted-layout contract.
+- 2026-03-09: Closed the first reproducible layout-state slice for MP-359.
+  The desktop shell now persists the selected layout mode plus workbench
+  preset/tab/splitter state under
+  `dev/reports/review_channel/operator_console/layout_state.json`, restores that
+  state on startup, and keeps it updated on layout changes, workbench tab
+  switches, monitor-tab switches, splitter drags, and clean window close. This
+  closes the old "screen got weird but we cannot reproduce it" gap without
+  introducing a desktop-only control plane.
+- 2026-03-09: Fixed a real operator-facing launch-feedback failure in the
+  desktop wrapper after the `Live` button looked inert during review-channel
+  launch attempts. The backend was correctly failing closed on a stale bridge
+  guard (`Last Codex poll` too old), but the PyQt shell only showed a generic
+  exit-code status and had no explicit failed-to-start path. `Live`, `Dry
+  Run`, and `Rollover` now use structured JSON review-channel reports, the UI
+  promotes the real backend error into visible launcher/status-bar copy, and
+  `QProcess` failed-to-start now emits an immediate operator-facing error
+  instead of silently leaving the click ambiguous.
+- 2026-03-09: Expanded MP-359 after the latest operator/iPhone feedback so the
+  remaining backlog is explicit before Claude resumes implementation. The plan
+  now tracks chart-backed repo analytics and mutation/hotspot views in place
+  of filler cards, 4/6/8+ snap-aware multi-agent workbench layouts, read-only
+  split/combined lane terminal monitors, full tooltip/help saturation, richer
+  semantic highlight controls, and broader PyQt/QSS theme-pack import mapping.
+  It also records the design/code reference inputs (`network-monitor-tui`,
+  `gitui-main/app`, FileHasher-style PyQt theme/chart work, and
+  `code-link-ide`) as reference-only sources rather than runtime dependencies,
+  and it locks any future Electron/Tauri shell behind the same backend
+  contract instead of letting desktop UI work fork the control plane.
 - 2026-03-09: Closed the next bounded MP-359 helper-layer theme cleanup after
   the shared QSS literal sweep. Theme-editor color swatches now derive their
   contrast text plus border/hover chrome from the live theme's own
@@ -938,6 +1128,15 @@ progressive disclosure, and 8px base grid spacing.
   proof path still leans too heavily on dry-runs/mocked completion instead of
   the real startup/mutating paths, launcher-script execution coverage remains
   thin, and checklist/progress state must stay synchronized as follow-ups land.
+- 2026-03-09: Closed a bounded launcher-portability honesty slice under
+  MP-359. Operator-facing help, startup failure guidance, and the README now
+  agree on the canonical launch paths (`./scripts/operator_console.sh` first,
+  `python3 -m app.operator_console.run` as the direct fallback) instead of
+  mixing in the less-portable `python app/operator_console/run.py` example,
+  and focused coverage now locks those launch strings into the themed help and
+  missing-PyQt startup path. This narrows the launcher-script proof gap but
+  does not yet replace the broader real-startup / mutating-action evidence
+  still called out in Phase 2.8.
 - 2026-03-09: Clarified the MP-359 dependency boundary after the memory-plan
   audit. The Operator Console may mirror future memory/review/controller
   artifacts, but its prototype operator-decision artifacts remain wrapper-only
@@ -950,6 +1149,14 @@ progressive disclosure, and 8px base grid spacing.
   and the local governance path (`check_active_plan_sync`,
   `check_multi_agent_sync`, `docs-check --strict-tooling`,
   `process-cleanup --verify --format md`) is green alongside it.
+- 2026-03-09: Fixed the live-launch dead-end that made the desktop app feel
+  broken when `code_audit.md` aged past the five-minute reviewer heartbeat
+  contract. The Operator Console now routes `Dry Run`, `Launch Live`,
+  `Start Swarm`, and `Rollover` through the typed
+  `--refresh-bridge-heartbeat-if-stale` backend path, so stale/missing
+  reviewer heartbeat metadata is auto-repaired before the launch flow
+  continues. The UI still fails closed and surfaces the backend reason when
+  the bridge has real blockers beyond heartbeat metadata.
 - 2026-03-09: Closed the next MP-359 honesty-copy follow-up. The analytics
   surface now presents itself as repo-visible bridge/lane/approval state
   instead of live CI/code-quality telemetry, KPI cards mark CI/test data as
@@ -1313,6 +1520,16 @@ progressive disclosure, and 8px base grid spacing.
   toolbar action buttons were restyled toward a flatter instrument-panel look
   so they read more like analytical dashboard controls and less like generic
   app chrome.
+- 2026-03-09: Landed the next MP-359 Theme Editor expansion after operator
+  feedback asked for a real full-surface authoring tool instead of a mostly
+  color-only dialog. Theme state now persists `components` and `motion`
+  sections alongside colors/tokens, the shared stylesheet builder consumes
+  component families for corners/borders/surfaces/buttons/toolbar actions/
+  inputs/tabs, and the editor exposes new `Components` and `Motion` pages plus
+  quick-tune controls for style modes and motion timing. The preview also grew
+  a real component/motion playground with front/back card swaps and pulse
+  feedback, so button/tab/border family changes are live and motion settings
+  have an actual preview contract instead of fake future-facing copy.
 - 2026-03-09: Closed the next honesty gap after operator feedback asked where
   the real Codex/Claude terminals went. `devctl review-channel --action
   launch|rollover` now emits per-session metadata plus live-flushed transcript
@@ -1330,9 +1547,69 @@ progressive disclosure, and 8px base grid spacing.
   simple logs, so the `Codex Session` / `Claude Session` panes render stable
   visible screen content plus deeper readable history instead of spinner glyph
   storms and partial cursor-repaint fragments.
+- 2026-03-09: Landed the next MP-359 session-surface follow-up after live
+  operator testing showed that the desktop was still stuffing terminal text,
+  session metadata, and agent registry rows into one unreadable box. The
+  session reader now keeps separate readable history and current-screen
+  snapshots, ignores private CSI parse drift plus `thinking with high effort`
+  spinner junk, and the desktop now renders each lane as a split surface:
+  large terminal-history pane on top, smaller stats/screen digest plus
+  registry pane below. Workbench, Monitor, and Sidebar all reuse that same
+  split contract, so the lower blank space now carries freshness, token/context
+  hints, worker budget, and full agent-registry detail instead of dead chrome.
+- 2026-03-09: Closed the next live-readability/layout follow-up after fresh
+  operator screenshots. The session surface now prefers the reconstructed
+  visible terminal screen over the noisier raw history stream whenever a live
+  `script(1)` trace is available, trims truncated tail reads to the next line
+  boundary so partial ANSI/control fragments do not leak into the UI, and
+  replaces the split `Stats` / `Registry` lower deck with one double-click
+  flippable card per provider. That keeps the terminal pane readable, removes
+  the lower-right dead-space feeling, and lets operators flip between
+  freshness/signal detail and full registry state without losing lane context.
 
 ## Audit Evidence
 
+- `python3 -m pytest app/operator_console/tests/test_help_render.py -q --tb=short`
+  - 2026-03-09 local run: pass (`4` passed; one sandboxed pytest cache
+    warning only) after adding the local Operator Console `AGENTS.md` link and
+    the new view/theme/state/test map links to the in-app help surface
+- `python3 dev/scripts/checks/check_active_plan_sync.py`
+  - 2026-03-09 local run: pass after recording the Operator Console docs and
+    subtree-agent guidance update in MP-359
+- `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+  - 2026-03-09 local run: pass after wiring the new Operator Console package
+    maps and local `AGENTS.md` into the repo discovery docs
+- `python3 dev/scripts/checks/check_code_shape.py --format md`
+  - 2026-03-09 local run: expected red on the dirty tree, but the new
+    Operator Console refactor cleared the prior `main_window.py`,
+    `_on_process_finished`, `ui_commands.py`, and new-file shape violations;
+    remaining reds are in other changed Operator Console theme/state files and
+    separate `devctl` review-channel modules outside this slice
+- `python3 -m py_compile app/operator_console/views/main_window.py app/operator_console/views/ui_commands.py app/operator_console/views/ui_review_actions.py app/operator_console/views/ui_activity_actions.py app/operator_console/views/ui_layout_state.py app/operator_console/views/ui_window_shell.py app/operator_console/views/ui_swarm_status.py app/operator_console/views/ui_operator_actions.py app/operator_console/views/ui_process_results.py`
+  - 2026-03-09 local run: pass after splitting the Operator Console window
+    shell/layout/review/activity/operator-result layers
+- `python3 -m pytest app/operator_console/tests/views/test_ui_layout.py app/operator_console/tests/views/test_ui_layouts.py -q --tb=short`
+  - 2026-03-09 local run: pass (`115` passed; one sandboxed pytest cache
+    warning only) after the mixin decomposition of the PyQt shell
+- `python3 -m pytest app/operator_console/tests/ -q --tb=short`
+  - 2026-03-09 local run: pass (`449` passed; one sandboxed pytest cache
+    warning only) after the Operator Console shape-hardening split
+- `/Users/jguida941/.pyenv/versions/3.10.4/bin/python -m unittest app.operator_console.tests.state.test_state_modules app.operator_console.tests.views.test_widgets app.operator_console.tests.views.test_ui_layout app.operator_console.tests.views.test_ui_layouts -q`
+  - 2026-03-09 local run: pass (`170` tests total across the targeted modules)
+    after preferring reconstructed screen text, trimming partial tail prefixes,
+    and landing the flippable stats/registry session card contract
+- `python3 -m py_compile app/operator_console/state/session_trace_reader.py app/operator_console/state/session_builder.py app/operator_console/state/snapshot_builder.py app/operator_console/state/models.py app/operator_console/views/main_window.py app/operator_console/views/ui_pages.py app/operator_console/views/workbench_layout.py app/operator_console/views/ui_refresh.py app/operator_console/tests/state/test_state_modules.py app/operator_console/tests/views/test_ui_layout.py app/operator_console/tests/views/test_ui_layouts.py`
+  - 2026-03-09 local run: pass after splitting the session surfaces into
+    terminal/stats/registry panes and hardening the live trace reader against
+    private CSI + spinner-noise regressions
+- `python3 -m pytest app/operator_console/tests/state/test_state_modules.py app/operator_console/tests/views/test_ui_layout.py app/operator_console/tests/views/test_ui_layouts.py app/operator_console/tests/state/test_presentation_state.py -q --tb=short`
+  - 2026-03-09 local run: pass (`148` passed) covering the new split
+    session-surface contract, trace-reader history filtering, and the added
+    stats/registry widget parenting across tabbed/workbench layouts
+- `python3 -m pytest app/operator_console/tests -q --tb=short`
+  - 2026-03-09 local run: pass (`406` passed) after preferring reconstructed
+    screen text, trimming partial tail prefixes, and landing the flippable
+    session detail card contract
 - `python3 -m py_compile dev/scripts/devctl/review_channel.py dev/scripts/devctl/review_channel_launch.py dev/scripts/devctl/commands/review_channel.py app/operator_console/state/session_trace_reader.py app/operator_console/state/session_builder.py app/operator_console/state/snapshot_builder.py app/operator_console/views/main_window.py app/operator_console/tests/state/test_state_modules.py dev/scripts/devctl/tests/test_review_channel.py`
   - 2026-03-09 local run: pass after wiring launcher-emitted session trace
     artifacts plus Operator Console live-tail preference
@@ -1578,3 +1855,34 @@ progressive disclosure, and 8px base grid spacing.
 - `python3 -m pytest app/operator_console/tests/test_theme_editor.py app/operator_console/tests/test_theme.py -q --tb=short`
   - 2026-03-09 local run: pass (`22` tests; one sandboxed pytest cache
     warning only)
+- `python3 -m py_compile app/operator_console/theme/*.py app/operator_console/views/help_dialog.py app/operator_console/tests/test_theme.py app/operator_console/tests/test_theme_engine.py app/operator_console/tests/test_theme_editor.py app/operator_console/tests/test_overlay_import.py`
+  - 2026-03-09 local run: pass after adding persisted component/motion theme
+    settings, the full Theme Editor component/motion pages, and the motion
+    playground preview
+- `python3 -m unittest app.operator_console.tests.test_theme app.operator_console.tests.test_theme_engine app.operator_console.tests.test_theme_editor app.operator_console.tests.test_overlay_import -q`
+  - 2026-03-09 local run: pass (`69` tests; covers theme-state persistence,
+    stylesheet variants, Theme Editor controls, preview motion plumbing, and
+    overlay import/export readiness after the full-editor expansion)
+- `python3 -m pytest app/operator_console/tests -q --tb=short`
+  - 2026-03-09 local run: pass (`379` tests; full operator-console suite
+    remains green after component-style + motion theme expansion; one
+    sandboxed pytest cache warning only)
+- `python3 dev/scripts/checks/check_active_plan_sync.py`
+  - 2026-03-09 local run: pass after recording the Theme Editor/full-theme
+    expansion in MP-359 docs
+- `python3 dev/scripts/checks/check_multi_agent_sync.py`
+  - 2026-03-09 local run: pass
+- `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+  - 2026-03-09 local run: pass after syncing active-plan/docs copy for the
+    new theme contract
+- `python3 -m pytest app/operator_console/tests/test_launch_support.py app/operator_console/tests/test_help_render.py app/operator_console/tests/test_logging_support.py -q --tb=short`
+  - 2026-03-09 local run: pass (`22` tests; launcher help, canonical fallback
+    commands, and missing-PyQt startup guidance)
+- `python3 dev/scripts/checks/check_active_plan_sync.py`
+  - 2026-03-09 local run: pass after recording the launcher-portability
+    honesty slice in MP-359
+- `python3 -m compileall app/operator_console/theme app/operator_console/views app/operator_console/workflows app/operator_console/state`
+  - 2026-03-09 local run: pass after the responsibility-first reorg that split
+    `views/` into `actions/`, `workspaces/`, and `shared`, split `theme/` into
+    `runtime/`, `editor/`, and `io/`, and removed the old root-level `state/`
+    and theme shim clutter

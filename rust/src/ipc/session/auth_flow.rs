@@ -34,6 +34,5 @@ pub(super) fn run_auth_flow(provider: Provider, codex_cmd: &str, claude_cmd: &st
         }
     }
     let command = provider.auth_command(codex_cmd, claude_cmd);
-    auth::run_login_command(command)
-        .map_err(|err| format!("{} auth failed: {}", provider.as_str(), err))
+    auth::run_login_command(command).map_err(|err| err.with_provider(provider.as_str()))
 }

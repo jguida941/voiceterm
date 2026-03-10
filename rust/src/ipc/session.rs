@@ -80,6 +80,7 @@ pub(super) struct ClaudeJob {
 }
 
 pub(super) type AuthResult = auth_flow::AuthResult;
+pub(super) type ClaudeJobStartError = claude_job::ClaudeJobStartError;
 
 pub(super) struct AuthJob {
     pub(super) provider: Provider,
@@ -200,7 +201,7 @@ pub(super) fn start_claude_job(
     prompt: &str,
     skip_permissions: bool,
     term_value: &str,
-) -> Result<ClaudeJob, String> {
+) -> Result<ClaudeJob, ClaudeJobStartError> {
     claude_job::start_claude_job(claude_cmd, prompt, skip_permissions, term_value, USE_PTY)
 }
 
@@ -214,7 +215,7 @@ pub(super) fn start_claude_job_with_pty(
     prompt: &str,
     skip_permissions: bool,
     term_value: &str,
-) -> Result<ClaudeJob, String> {
+) -> Result<ClaudeJob, ClaudeJobStartError> {
     claude_job::start_claude_job(claude_cmd, prompt, skip_permissions, term_value, true)
 }
 

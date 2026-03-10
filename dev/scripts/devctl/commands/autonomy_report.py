@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from ..autonomy_report_helpers import collect_report
-from ..autonomy_report_render import render_markdown
+from ..autonomy.report_helpers import collect_report
+from ..autonomy.report_render import render_markdown
 from ..common import emit_output, pipe_output, write_output
 
 

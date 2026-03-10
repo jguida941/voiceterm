@@ -15,7 +15,7 @@ from pathlib import Path
 from ..common import run_cmd
 from ..config import REPO_ROOT, SRC_DIR
 from ..script_catalog import check_script_cmd
-from ..security_tiers import annotate_step_metadata
+from ..security.tiers import annotate_step_metadata
 
 DEFAULT_FAIL_ON_KINDS = ("yanked", "unsound")
 DEFAULT_RUSTSEC_OUTPUT = "rustsec-audit.json"

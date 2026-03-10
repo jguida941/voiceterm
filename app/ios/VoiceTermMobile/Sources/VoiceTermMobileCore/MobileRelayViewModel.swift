@@ -117,6 +117,9 @@ public struct MobileRelayDashboardModel: Equatable, Sendable {
     public let nextActions: [String]
     public let technicalFacts: [TechnicalFact]
     public let sourceRunURL: String
+    public let approvalMode: String
+    public let approvalSummary: String
+    public let approvalRequiresConfirmation: [String]
 }
 
 public enum MobileRelayPresenter {
@@ -159,6 +162,18 @@ public enum MobileRelayPresenter {
         let sourceRunURL = compact?.sourceRunURL?.trimmedNonEmpty
             ?? snapshot.controllerPayload.sourceRun?.runURL?.trimmedNonEmpty
             ?? ""
+        let approvalMode = compact?.approvalMode?.trimmedNonEmpty
+            ?? actions?.approvalMode?.trimmedNonEmpty
+            ?? alert?.approvalMode?.trimmedNonEmpty
+            ?? snapshot.approvalPolicy?.mode?.trimmedNonEmpty
+            ?? "balanced"
+        let approvalSummary = compact?.approvalSummary?.trimmedNonEmpty
+            ?? actions?.approvalSummary?.trimmedNonEmpty
+            ?? alert?.approvalSummary?.trimmedNonEmpty
+            ?? snapshot.approvalPolicy?.summary?.trimmedNonEmpty
+            ?? "Safe local actions can continue, but dangerous work still requires approval."
+        let approvalRequiresConfirmation = snapshot.approvalPolicy?.requiresConfirmation?
+            .compactMap(\.trimmedNonEmpty) ?? []
         let lastPollUTC = compact?.codexLastPollUTC?.trimmedNonEmpty
             ?? snapshot.reviewPayload.bridgeLiveness?.lastCodexPollUTC?.trimmedNonEmpty
             ?? "Unknown"
@@ -269,6 +284,12 @@ public enum MobileRelayPresenter {
                 value: "\(lanes.count)",
                 detail: "\(pendingCount) pending review packets"
             ),
+            MobileRelayDashboardModel.MetricCard(
+                id: "approval",
+                title: "Approval",
+                value: approvalMode.capitalized,
+                detail: approvalSummary
+            ),
         ]
 
         let instructionCard = MobileRelayDashboardModel.NarrativeCard(
@@ -298,10 +319,12 @@ public enum MobileRelayPresenter {
             title: "Safe Actions",
             simpleBody: safeActions.isEmpty
                 ? "No safe actions were emitted yet. Refresh the mobile bundle first."
-                : "These buttons are repo-owned command previews. They stay bounded and policy-aware.",
+                : "These buttons are repo-owned command previews. Approval mode is \(approvalMode), so dangerous and publish-class work still needs confirmation.",
             technicalBody: actions?.summary?.trimmedNonEmpty
-                ?? "Actions come from `devctl mobile-status` projection output and remain read-first by default.",
-            footnote: alert?.commands?.first
+                ?? "Actions come from `devctl mobile-status` projection output and remain read-first by default. Current approval policy: \(approvalSummary)",
+            footnote: approvalRequiresConfirmation.isEmpty
+                ? alert?.commands?.first
+                : "Still requires confirmation: \(approvalRequiresConfirmation.prefix(3).joined(separator: ", "))"
         )
 
         let technicalFacts = [
@@ -310,6 +333,7 @@ public enum MobileRelayPresenter {
             MobileRelayDashboardModel.TechnicalFact(id: "hash", label: "Worktree Hash", value: worktreeHash),
             MobileRelayDashboardModel.TechnicalFact(id: "poll", label: "Last Codex Poll", value: lastPollUTC),
             MobileRelayDashboardModel.TechnicalFact(id: "bridge", label: "Bridge State", value: bridgeState),
+            MobileRelayDashboardModel.TechnicalFact(id: "approval", label: "Approval Mode", value: approvalMode),
             MobileRelayDashboardModel.TechnicalFact(id: "url", label: "Source Run URL", value: sourceRunURL.isEmpty ? "Unavailable" : sourceRunURL),
         ]
 
@@ -326,7 +350,10 @@ public enum MobileRelayPresenter {
             actions: safeActions,
             nextActions: nextActions,
             technicalFacts: technicalFacts,
-            sourceRunURL: sourceRunURL
+            sourceRunURL: sourceRunURL,
+            approvalMode: approvalMode,
+            approvalSummary: approvalSummary,
+            approvalRequiresConfirmation: approvalRequiresConfirmation
         )
     }
 
@@ -390,6 +417,14 @@ public enum MobileRelayPresenter {
             return "Inspect the current review bridge packet and lane state."
         case "phone-trace":
             return "Open the raw controller trace when the simple view is not enough."
+        case "dispatch-report-only":
+            return "Queue one guarded Ralph-loop report-only pass through the shared controller surface."
+        case "pause-loop":
+            return "Pause the controller loop through the typed controller-action backend."
+        case "resume-loop":
+            return "Continue the controller loop through the typed controller-action backend."
+        case "controller-report":
+            return "Inspect the latest autonomy/controller report before asking the loop to continue."
         default:
             return kind == "write"
                 ? "Guarded repo action. Review the command preview before running it."

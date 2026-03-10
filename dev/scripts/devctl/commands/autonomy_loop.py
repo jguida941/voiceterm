@@ -5,18 +5,18 @@ from __future__ import annotations
 import hashlib
 import os
 
-from ..autonomy_loop_helpers import DEFAULT_REPLAY_WINDOW_SECONDS
+from ..autonomy.loop_helpers import DEFAULT_REPLAY_WINDOW_SECONDS
 from ..common import normalize_string_field
-from ..autonomy_loop_helpers import allowed_branch as _allowed_branch
-from ..autonomy_loop_helpers import autonomy_policy as _autonomy_policy
-from ..autonomy_loop_helpers import iso_z as _iso_z
-from ..autonomy_loop_helpers import load_policy as _load_policy
-from ..autonomy_loop_helpers import render_markdown as _render_markdown
-from ..autonomy_loop_helpers import resolve_path as _resolve_path
-from ..autonomy_loop_helpers import slug as _slug
-from ..autonomy_loop_helpers import utc_now as _utc_now
-from ..autonomy_phone_status import build_phone_status as _build_phone_status
-from ..autonomy_phone_status import (
+from ..autonomy.loop_helpers import allowed_branch as _allowed_branch
+from ..autonomy.loop_helpers import autonomy_policy as _autonomy_policy
+from ..autonomy.loop_helpers import iso_z as _iso_z
+from ..autonomy.loop_helpers import load_policy as _load_policy
+from ..autonomy.loop_helpers import render_markdown as _render_markdown
+from ..autonomy.loop_helpers import resolve_path as _resolve_path
+from ..autonomy.loop_helpers import slug as _slug
+from ..autonomy.loop_helpers import utc_now as _utc_now
+from ..autonomy.phone_status import build_phone_status as _build_phone_status
+from ..autonomy.phone_status import (
     render_phone_status_markdown as _render_phone_status_markdown,
 )
 from .autonomy_loop_rounds import run_controller_rounds as _run_controller_rounds

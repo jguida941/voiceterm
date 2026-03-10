@@ -120,9 +120,13 @@ class CheckProfileTests(TestCase):
         fast_settings, _ = check_profile.resolve_profile_settings(make_args("fast"))
         self.assertEqual(fast_settings, quick_settings)
 
-    def test_fast_and_quick_profiles_keep_heavy_checks_disabled(self) -> None:
+    def test_fast_and_quick_profiles_keep_runtime_heavy_checks_disabled(self) -> None:
         for profile in ("fast", "quick"):
             settings, _ = check_profile.resolve_profile_settings(make_args(profile))
+            self.assertTrue(
+                settings["with_ai_guard"],
+                "quick/fast must keep structural guards enabled by default",
+            )
             self.assertFalse(settings["with_perf"])
             self.assertFalse(settings["with_mem_loop"])
             self.assertFalse(settings["with_mutation_score"])
@@ -626,6 +630,9 @@ class CheckProfileTests(TestCase):
         rust_best_cmd = next(
             call["cmd"] for call in calls if call["name"] == "rust-best-practices-guard"
         )
+        serde_compatibility_cmd = next(
+            call["cmd"] for call in calls if call["name"] == "serde-compatibility-guard"
+        )
         rust_panic_policy_cmd = next(
             call["cmd"]
             for call in calls
@@ -670,6 +677,8 @@ class CheckProfileTests(TestCase):
         self.assertIn("--head-ref", rust_lint_cmd)
         self.assertIn("--since-ref", rust_best_cmd)
         self.assertIn("--head-ref", rust_best_cmd)
+        self.assertIn("--since-ref", serde_compatibility_cmd)
+        self.assertIn("--head-ref", serde_compatibility_cmd)
         self.assertIn("--since-ref", rust_panic_policy_cmd)
         self.assertIn("--head-ref", rust_panic_policy_cmd)
         self.assertIn("--since-ref", rust_footguns_cmd)

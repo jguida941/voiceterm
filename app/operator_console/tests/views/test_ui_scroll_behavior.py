@@ -11,7 +11,7 @@ except ImportError:
     QApplication = None
     QPlainTextEdit = None
 
-from app.operator_console.views.ui_scroll import (  # noqa: E402
+from app.operator_console.views.shared.ui_scroll import (  # noqa: E402
     append_plain_text_preserving_scroll,
     replace_plain_text_preserving_scroll,
 )

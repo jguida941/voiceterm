@@ -44,6 +44,7 @@ on:
       - "dev/guides/*.md"
       - "dev/scripts/README.md"
       - ".github/workflows/*.yml"
+      - "mypy.ini"
   pull_request:
     paths:
       - "dev/scripts/**"
@@ -75,6 +76,7 @@ on:
       - "dev/guides/*.md"
       - "dev/scripts/README.md"
       - ".github/workflows/*.yml"
+      - "mypy.ini"
 
 jobs:
   devctl-tests:
@@ -91,8 +93,39 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run devctl tests
-        run: python3 -m unittest discover -s dev/scripts/devctl/tests -p "test_*.py"
+      - name: Install test dependencies
+        run: python3 -m pip install --quiet pytest-cov
+
+      - name: Run devctl tests with coverage
+        run: |
+          set -euo pipefail
+          python3 -m pytest dev/scripts/devctl/tests/ -q --tb=short \
+            --cov=dev/scripts/devctl \
+            --cov=dev/scripts/checks \
+            --cov-report=term-missing:skip-covered \
+            --cov-report=xml:coverage-devctl.xml \
+            --cov-fail-under=40
+
+      - name: Print devctl coverage summary
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          if [ -f coverage-devctl.xml ]; then
+            echo "Coverage XML generated: coverage-devctl.xml"
+            python3 dev/scripts/workflow_shell_bridge.py print-coverage-summary \
+              --coverage-xml coverage-devctl.xml \
+              --label "Devctl"
+          else
+            echo "No coverage XML found."
+          fi
+
+      - name: Upload devctl coverage artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: coverage-devctl
+          path: coverage-devctl.xml
+          if-no-files-found: warn
 
   operator-console-tests:
     name: operator console unit tests
@@ -106,11 +139,38 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install PyQt6
-        run: python3 -m pip install --quiet PyQt6
+      - name: Install dependencies
+        run: python3 -m pip install --quiet PyQt6 pytest-cov
 
-      - name: Run operator console tests
-        run: python3 -m pytest app/operator_console/tests/ -q --tb=short
+      - name: Run operator console tests with coverage
+        run: |
+          set -euo pipefail
+          python3 -m pytest app/operator_console/tests/ -q --tb=short \
+            --cov=app/operator_console \
+            --cov-report=term-missing:skip-covered \
+            --cov-report=xml:coverage-operator-console.xml \
+            --cov-fail-under=40
+
+      - name: Print operator console coverage summary
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          if [ -f coverage-operator-console.xml ]; then
+            echo "Coverage XML generated: coverage-operator-console.xml"
+            python3 dev/scripts/workflow_shell_bridge.py print-coverage-summary \
+              --coverage-xml coverage-operator-console.xml \
+              --label "Operator console"
+          else
+            echo "No coverage XML found."
+          fi
+
+      - name: Upload operator console coverage artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: coverage-operator-console
+          path: coverage-operator-console.xml
+          if-no-files-found: warn
 
       - name: Smoke devctl ship/pypi/list commands
         run: |
@@ -136,6 +196,67 @@ jobs:
           set -euo pipefail
           bash -n dev/scripts/*.sh
           bash -n scripts/*.sh
+
+  # Mypy type-check (non-blocking). Ratchet plan:
+  #   Phase 1 (current) - continue-on-error, lenient defaults, track error count.
+  #   Phase 2           - Enable check_untyped_defs, fix violations.
+  #   Phase 3           - Enable disallow_untyped_defs for new modules.
+  #   Phase 4           - Remove continue-on-error to make blocking.
+  python-typecheck:
+    name: mypy type check (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Install mypy
+        run: python3 -m pip install --quiet mypy
+
+      - name: Run mypy on devctl tooling
+        run: |
+          set -euo pipefail
+          echo "::group::mypy dev/scripts/devctl"
+          python3 -m mypy dev/scripts/devctl/ \
+            --config-file mypy.ini \
+            --no-error-summary 2>&1 | tee /tmp/mypy-devctl.log || true
+          DEVCTL_ERRORS=$(grep -c '^dev/scripts/devctl/.*: error:' /tmp/mypy-devctl.log || echo 0)
+          echo "::endgroup::"
+          echo "devctl mypy errors: ${DEVCTL_ERRORS}"
+          echo "DEVCTL_ERRORS=${DEVCTL_ERRORS}" >> "${GITHUB_ENV}"
+
+      - name: Run mypy on operator console
+        run: |
+          set -euo pipefail
+          echo "::group::mypy app/operator_console"
+          python3 -m mypy app/operator_console/ \
+            --config-file mypy.ini \
+            --no-error-summary 2>&1 | tee /tmp/mypy-console.log || true
+          CONSOLE_ERRORS=$(grep -c '^app/operator_console/.*: error:' /tmp/mypy-console.log || echo 0)
+          echo "::endgroup::"
+          echo "operator_console mypy errors: ${CONSOLE_ERRORS}"
+          echo "CONSOLE_ERRORS=${CONSOLE_ERRORS}" >> "${GITHUB_ENV}"
+
+      - name: Summarize mypy error counts
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          TOTAL=$(( ${DEVCTL_ERRORS:-0} + ${CONSOLE_ERRORS:-0} ))
+          echo "## Mypy Type-Check Summary (advisory)" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| Scope | Errors |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "|---|---|" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| \`dev/scripts/devctl/\` | ${DEVCTL_ERRORS:-0} |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| \`app/operator_console/\` | ${CONSOLE_ERRORS:-0} |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| **Total** | **${TOTAL}** |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "This job is non-blocking (continue-on-error). Track error count trend to ratchet toward zero." >> "${GITHUB_STEP_SUMMARY}"
+          echo "mypy total errors: ${TOTAL}"
 
   docs-policy:
     name: docs policy + governance guard
@@ -321,10 +442,80 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
+      - name: Run changed-file Rust compiler warning guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_rust_compiler_warnings.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run serde compatibility non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_serde_compatibility.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
       - name: Run rust runtime panic-policy non-regression guard
         run: |
           set -euo pipefail
           python3 dev/scripts/checks/check_rust_runtime_panic_policy.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run facade-wrappers non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_facade_wrappers.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run god-class non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_god_class.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run mobile-relay protocol non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_mobile_relay_protocol.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run nesting-depth non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_nesting_depth.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run parameter-count non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_parameter_count.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run Python dict-schema non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_dict_schema.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run Python global-mutable non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_global_mutable.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run structural-similarity non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_structural_similarity.py \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 

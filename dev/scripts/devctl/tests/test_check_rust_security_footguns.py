@@ -166,6 +166,23 @@ fn unguarded(fd: libc::c_int, buffer: &mut [u8]) -> usize {
         self.assertEqual(metrics["sign_unsafe_syscall_casts"], 1)
         self.assertEqual(metrics["unreachable_hot_path_calls"], 0)
 
+    def test_unreachable_hot_path_calls_ignore_comments_and_strings(self) -> None:
+        text = """
+fn route(state: &State) {
+    // unreachable!("this is a comment explaining the old path");
+    let msg = "unreachable!() marker for docs";
+    match state {
+        State::Active => handle_active(),
+        State::Idle => unreachable!("real hot-path call"),
+    }
+}
+"""
+        metrics = self.script._count_metrics(
+            text,
+            path=Path("rust/src/bin/voiceterm/event_loop.rs"),
+        )
+        self.assertEqual(metrics["unreachable_hot_path_calls"], 1)
+
     def test_unreachable_hot_path_calls_ignore_non_hot_paths(self) -> None:
         text = """
 fn state_check(flag: bool) {

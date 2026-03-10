@@ -29,10 +29,18 @@ AI_GUARD_CHECKS = (
         ("--report-dead-code", "--dead-code-report-limit", "120"),
     ),
     ("rust-best-practices-guard", "rust_best_practices", ()),
+    ("serde-compatibility-guard", "serde_compatibility", ()),
     ("rust-runtime-panic-policy-guard", "rust_runtime_panic_policy", ()),
     ("rust-audit-patterns-guard", "rust_audit_patterns", ()),
     ("rust-security-footguns-guard", "rust_security_footguns", ()),
     ("function-duplication-guard", "function_duplication", ()),
+    ("god-class-guard", "god_class", ()),
+    ("nesting-depth-guard", "nesting_depth", ()),
+    ("parameter-count-guard", "parameter_count", ()),
+    ("python-dict-schema-guard", "python_dict_schema", ()),
+    ("python-global-mutable-guard", "python_global_mutable", ()),
+    ("structural-similarity-guard", "structural_similarity", ()),
+    ("facade-wrappers-guard", "facade_wrappers", ()),
 )
 
 AI_GUARD_STEP_NAMES = {name for name, _script_id, _extra_args in AI_GUARD_CHECKS}
@@ -46,10 +54,18 @@ AI_GUARD_COMMIT_RANGE_SCRIPT_IDS = frozenset(
         "rust_test_shape",
         "rust_lint_debt",
         "rust_best_practices",
+        "serde_compatibility",
         "rust_runtime_panic_policy",
         "rust_audit_patterns",
         "rust_security_footguns",
         "function_duplication",
+        "god_class",
+        "nesting_depth",
+        "parameter_count",
+        "python_dict_schema",
+        "python_global_mutable",
+        "structural_similarity",
+        "facade_wrappers",
     }
 )
 

@@ -25,6 +25,8 @@ Agents must read this file first before loading active planning docs.
 | `dev/active/move.md` | `reference` | `reference-only` | `MP-347`, `MP-349` | when reviewing raw multi-agent merge transcript evidence that supports `dev/active/audit.md` findings |
 | `dev/active/RUST_AUDIT_FINDINGS.md` | `reference` | `reference-only` | bridge pointer to canonical guard-driven remediation scaffold at `dev/reports/audits/RUST_AUDIT_FINDINGS.md` (supporting context, not execution authority) | when AI guard checks fail or guard findings are referenced; follow the bridge to canonical reports path |
 | `dev/active/slash_command_standalone.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-352`, `MP-353` | when implementing standalone `/voice` slash command for Codex/Claude without overlay, MCP server extraction, or cross-platform plugin packaging |
+| `dev/active/ralph_guardrail_control_plane.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-360..MP-367` | when implementing Ralph AI fix wrapper, cross-architecture guardrail enforcement, guardrail configuration registry, structured guard reports, ralph-status CLI/charts, operator console Ralph dashboard, phone/iOS Ralph metrics, or unified guardrail control surfaces |
+| `dev/active/review_probes.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-368..MP-375` | when implementing heuristic review probes, non-blocking risk-hint collectors, or probe-fed AI review triage surfaces |
 | `dev/active/phase2.md` | `reference` | `reference-only` | bridge pointer to canonical phase-2 companion-platform research context at `dev/deferred/phase2.md` (not active MP execution state) | only when evaluating long-range terminal companion planning; follow the bridge to deferred research |
 
 ## Load Order (Agent Bootstrap)

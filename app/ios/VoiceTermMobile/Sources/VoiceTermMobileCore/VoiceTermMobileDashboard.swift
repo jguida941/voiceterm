@@ -43,11 +43,15 @@ public struct VoiceTermMobileDashboardView: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("VoiceTerm Mobile")
+                    Text("VoiceTerm Control")
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                     Text(model.subheadline)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                    Text("PHONE CONSOLE")
+                        .font(.system(.caption2, design: .monospaced).weight(.bold))
+                        .tracking(1.4)
+                        .foregroundStyle(.white.opacity(0.55))
                 }
                 .padding(.vertical, 8)
                 .listRowBackground(Color.clear)
@@ -119,11 +123,22 @@ public struct VoiceTermMobileDashboardView: View {
 
     private var heroCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(model.headline)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("CONTROL PANEL")
+                        .font(.system(.caption, design: .monospaced).weight(.bold))
+                        .tracking(1.8)
+                        .foregroundStyle(.white.opacity(0.60))
+                    Text(model.headline)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                }
+                Spacer()
+                statusChip("Approval", value: model.approvalMode.capitalized)
+            }
             Text(audienceMode == .simple ? model.instruction.simpleBody : model.instruction.technicalBody)
                 .font(.body)
                 .foregroundStyle(.secondary)
+            controlRail
             if !model.nextActions.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Next Actions")
@@ -135,10 +150,26 @@ public struct VoiceTermMobileDashboardView: View {
                     }
                 }
             }
+            if let firstRestricted = model.approvalRequiresConfirmation.first {
+                Text("Still requires confirmation: \(firstRestricted)")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.72))
+            }
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(heroBackground)
+    }
+
+    private var controlRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                statusChip("Bridge", value: metricValue(for: "Bridge"))
+                statusChip("Risk", value: metricValue(for: "Risk"))
+                statusChip("Phase", value: metricValue(for: "Phase"))
+                statusChip("Lanes", value: metricValue(for: "Lanes"))
+            }
+        }
     }
 
     private var metricsGrid: some View {
@@ -269,6 +300,7 @@ public struct VoiceTermMobileDashboardView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Safe Actions")
                 .font(.headline)
+            approvalPanel
             if model.actions.isEmpty {
                 emptyState("No safe action cards were emitted for this bundle yet.")
             } else {
@@ -306,6 +338,33 @@ public struct VoiceTermMobileDashboardView: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardBackground)
+    }
+
+    private var approvalPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Approval Policy")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                statusChip("Mode", value: model.approvalMode.capitalized)
+            }
+            Text(model.approvalSummary)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            if !model.approvalRequiresConfirmation.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(model.approvalRequiresConfirmation.prefix(4), id: \.self) { item in
+                        Label(item, systemImage: "hand.raised.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var consoleBoard: some View {
@@ -436,6 +495,25 @@ public struct VoiceTermMobileDashboardView: View {
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
+    private func metricValue(for title: String) -> String {
+        model.metrics.first(where: { $0.title == title })?.value ?? "n/a"
+    }
+
+    private func statusChip(_ title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased())
+                .font(.system(.caption2, design: .monospaced).weight(.bold))
+                .foregroundStyle(.white.opacity(0.56))
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
     private var appBackground: some View {
         LinearGradient(
             colors: [
@@ -452,8 +530,8 @@ public struct VoiceTermMobileDashboardView: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        Color(red: 0.17, green: 0.26, blue: 0.46),
-                        Color(red: 0.10, green: 0.15, blue: 0.28),
+                        Color(red: 0.14, green: 0.22, blue: 0.42),
+                        Color(red: 0.08, green: 0.14, blue: 0.24),
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing

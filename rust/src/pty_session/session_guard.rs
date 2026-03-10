@@ -559,6 +559,7 @@ pub(super) fn register_session(master_fd: RawFd, child_pid: i32, cli_cmd: &str) 
     if !session_guard_enabled() || child_pid <= 0 {
         return;
     }
+    // SAFETY: getpid returns the current process id without dereferencing pointers or transferring ownership.
     let owner_pid = unsafe { libc::getpid() as i32 };
     let owner_exec_name = process_command_line(owner_pid)
         .and_then(|line| command_basename(&line))

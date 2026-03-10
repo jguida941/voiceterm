@@ -9,6 +9,13 @@ from app.operator_console.theme import available_theme_ids
 
 
 class HelpRenderTests(unittest.TestCase):
+    def test_help_uses_canonical_launcher_and_module_fallback(self) -> None:
+        rendered = render_operator_console_help("codex", width=96, repo_root=Path("/tmp/repo"))
+
+        self.assertIn("Usage: ./scripts/operator_console.sh [OPTIONS]", rendered)
+        self.assertIn("Alt:   python3 -m app.operator_console.run [OPTIONS]", rendered)
+        self.assertNotIn("python app/operator_console/run.py", rendered)
+
     def test_help_lists_all_registered_themes(self) -> None:
         rendered = render_operator_console_help("codex", width=96, repo_root=Path("/tmp/repo"))
 
@@ -27,6 +34,11 @@ class HelpRenderTests(unittest.TestCase):
             rendered,
         )
         self.assertIn((repo_root / "app/operator_console/README.md").as_uri(), rendered)
+        self.assertIn((repo_root / "app/operator_console/AGENTS.md").as_uri(), rendered)
+        self.assertIn((repo_root / "app/operator_console/state/README.md").as_uri(), rendered)
+        self.assertIn((repo_root / "app/operator_console/views/README.md").as_uri(), rendered)
+        self.assertIn((repo_root / "app/operator_console/theme/README.md").as_uri(), rendered)
+        self.assertIn((repo_root / "app/operator_console/tests/README.md").as_uri(), rendered)
         self.assertIn((repo_root / "scripts/operator_console.sh").as_uri(), rendered)
 
     def test_none_theme_disables_color_codes_but_keeps_links(self) -> None:

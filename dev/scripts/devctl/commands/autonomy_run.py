@@ -7,24 +7,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..autonomy_run_feedback import build_feedback_state as _build_feedback_state
-from ..autonomy_run_feedback import (
+from ..autonomy.run_feedback import build_feedback_state as _build_feedback_state
+from ..autonomy.run_feedback import (
     summarize_feedback_state as _summarize_feedback_state,
 )
-from ..autonomy_run_feedback import update_feedback_state as _update_feedback_state
-from ..autonomy_run_helpers import build_swarm_command as _build_swarm_command
-from ..autonomy_run_helpers import collect_next_steps as _collect_next_steps
-from ..autonomy_run_helpers import derive_prompt as _derive_prompt
-from ..autonomy_run_helpers import (
+from ..autonomy.run_feedback import update_feedback_state as _update_feedback_state
+from ..autonomy.run_helpers import build_swarm_command as _build_swarm_command
+from ..autonomy.run_helpers import collect_next_steps as _collect_next_steps
+from ..autonomy.run_helpers import derive_prompt as _derive_prompt
+from ..autonomy.run_helpers import (
     fallback_repo_from_origin as _fallback_repo_from_origin,
 )
-from ..autonomy_run_helpers import governance_commands as _governance_commands
-from ..autonomy_run_helpers import run_command as _run_command
-from ..autonomy_run_helpers import utc_timestamp as _utc_timestamp
-from ..autonomy_run_plan import update_plan_doc as _update_plan_doc
-from ..autonomy_run_plan import validate_plan_scope as _validate_plan_scope
-from ..autonomy_run_render import render_markdown as _render_markdown
-from ..autonomy_swarm_helpers import resolve_path, slug
+from ..autonomy.run_helpers import governance_commands as _governance_commands
+from ..autonomy.run_helpers import run_command as _run_command
+from ..autonomy.run_helpers import utc_timestamp as _utc_timestamp
+from ..autonomy.run_plan import update_plan_doc as _update_plan_doc
+from ..autonomy.run_plan import validate_plan_scope as _validate_plan_scope
+from ..autonomy.run_render import render_markdown as _render_markdown
+from ..autonomy.swarm_helpers import resolve_path, slug
 from ..common import emit_output, pipe_output, write_output
 from ..numeric import to_int
 

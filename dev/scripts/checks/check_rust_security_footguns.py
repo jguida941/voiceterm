@@ -45,6 +45,7 @@ SHELL_SPAWN_RE = re.compile(
 )
 SHELL_CONTROL_FLAG_RE = re.compile(r"""\.arg\s*\(\s*"(?:-c|/C)"\s*\)""")
 PERMISSIVE_MODE_RE = re.compile(r"\b0o(?:777|666)\b")
+STRING_LITERAL_RE = re.compile(r'"(?:\\.|[^"\\])*"')
 WEAK_CRYPTO_RE = re.compile(r"\b(?:md5|sha1)\b", re.IGNORECASE)
 CHILD_ID_SIGNED_CAST_RE = re.compile(r"\bchild\.id\s*\(\s*\)\s*as\s+i(?:16|32|64)\b")
 GETPID_SIGNED_CAST_RE = re.compile(r"\blibc::getpid\s*\(\s*\)\s*as\s+i(?:16|32|64)\b")
@@ -115,7 +116,15 @@ def _is_hot_runtime_path(path: Path | None) -> bool:
 def _count_unreachable_hot_path_calls(text: str | None, *, path: Path | None) -> int:
     if text is None or not _is_hot_runtime_path(path):
         return 0
-    return len(UNREACHABLE_MACRO_RE.findall(text))
+    count = 0
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith(("//", "///", "//!")):
+            continue
+        code = raw_line.split("//", 1)[0]
+        code = STRING_LITERAL_RE.sub('""', code)
+        count += len(UNREACHABLE_MACRO_RE.findall(code))
+    return count
 
 
 def _count_metrics(text: str | None, *, path: Path | None = None) -> dict[str, int]:

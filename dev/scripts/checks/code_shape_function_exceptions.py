@@ -145,6 +145,13 @@ FUNCTION_POLICY_EXCEPTIONS: dict[str, FunctionShapeException] = {
         follow_up_mp="MP-347 Phase 2",
         reason="Renderer still builds the full markdown packet in one place.",
     ),
+    "dev/scripts/devctl/commands/mobile_status.py::run": FunctionShapeException(
+        max_lines=185,
+        owner="MP-340",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-340 mobile-status decomposition",
+        reason="Mobile status run path still combines projection refresh, merge, and emit flows before final helper extraction.",
+    ),
     # ── Rust function exceptions (code-quality-audit 2026-03-09) ──────────
     # 39 existing oversized Rust functions grandfathered with tracked budgets.
     # Each has a 3-month expiry to drive decomposition into focused helpers.

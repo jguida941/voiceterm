@@ -7,7 +7,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from ..autonomy_loop_helpers import (
+from ..autonomy.loop_helpers import (
     HARD_REASON_CODES,
     build_checkpoint_packet,
     build_loop_packet_args,
@@ -16,7 +16,7 @@ from ..autonomy_loop_helpers import (
     packet_risk,
     utc_now,
 )
-from ..autonomy_phone_status import build_phone_status, render_phone_status_markdown
+from ..autonomy.phone_status import build_phone_status, render_phone_status_markdown
 from . import loop_packet as loop_packet_command
 from . import triage_loop as triage_loop_command
 from .autonomy_loop_support import write_round_phone_status

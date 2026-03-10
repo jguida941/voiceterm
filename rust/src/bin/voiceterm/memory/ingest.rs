@@ -128,7 +128,10 @@ impl MemoryIngestor {
     }
 
     /// Ingest a raw event with full control over fields.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Ingestion needs the full normalized event envelope at one boundary before it becomes a MemoryEvent."
+    )]
     pub(crate) fn ingest_event_raw(
         &mut self,
         source: EventSource,

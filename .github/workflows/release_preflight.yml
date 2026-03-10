@@ -206,7 +206,17 @@ jobs:
           python3 dev/scripts/checks/check_rust_test_shape.py
           python3 dev/scripts/checks/check_rust_lint_debt.py
           python3 dev/scripts/checks/check_rust_best_practices.py
+          python3 dev/scripts/checks/check_rust_compiler_warnings.py
+          python3 dev/scripts/checks/check_serde_compatibility.py
           python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
+          python3 dev/scripts/checks/check_facade_wrappers.py
+          python3 dev/scripts/checks/check_god_class.py
+          python3 dev/scripts/checks/check_mobile_relay_protocol.py
+          python3 dev/scripts/checks/check_nesting_depth.py
+          python3 dev/scripts/checks/check_parameter_count.py
+          python3 dev/scripts/checks/check_python_dict_schema.py
+          python3 dev/scripts/checks/check_python_global_mutable.py
+          python3 dev/scripts/checks/check_structural_similarity.py
           markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
             README.md \
             QUICK_START.md \

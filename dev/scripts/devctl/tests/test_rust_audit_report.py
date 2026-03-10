@@ -7,7 +7,7 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-from dev.scripts.devctl import rust_audit_report
+from dev.scripts.devctl.rust_audit import report as rust_audit_report
 
 
 def _completed(payload: dict, *, returncode: int = 1) -> subprocess.CompletedProcess[str]:
@@ -75,7 +75,7 @@ class RustAuditReportTests(unittest.TestCase):
             "violations": [],
         }
         with patch(
-            "dev.scripts.devctl.rust_audit_report.subprocess.run",
+            "dev.scripts.devctl.rust_audit.report.subprocess.run",
             side_effect=[
                 _completed(best_practices),
                 _completed(lint_debt),

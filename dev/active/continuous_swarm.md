@@ -155,6 +155,61 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-03-09: Closed the next launcher self-heal gap exposed by live Operator
+  Console use. `review-channel --action launch` and `--action rollover` now
+  accept `--refresh-bridge-heartbeat-if-stale`, which refreshes the
+  markdown-bridge reviewer heartbeat metadata plus the non-audit worktree hash
+  through a typed repo-owned path when stale/missing heartbeat metadata is the
+  only launch blocker. Real bridge corruption or missing live launch state
+  (`Claude Ack`, `Last Reviewed Scope`, idle next action, missing headings,
+  etc.) still fail closed. This narrows the old “five-minute heartbeat aged
+  out so the launcher just dies” operator path without pretending stale-peer
+  recovery is solved.
+- 2026-03-09: Closed the two follow-ups from the latest live proof without
+  overstating the remaining work. Host hygiene/process audit now classifies
+  attached review-channel conductor trees under a dedicated
+  `review_channel_conductor` scope so intentionally supervised Codex/Claude
+  sessions stay visible in reports but no longer trip stale-process failures at
+  the 600-second threshold; detached/backgrounded conductor trees still fail
+  strict audit/cleanup as leaked repo processes. The bridge path also now has a
+  typed repo-owned `review-channel --action promote` command plus status
+  projection support for the derived next unchecked checklist item from the
+  configured active plan. This closes the old “manual next instruction only”
+  gap, but full end-to-end automatic promotion proof is still open because the
+  conductors must still invoke the typed promotion path at the right boundary
+  and stale-peer recovery remains unfinished.
+- 2026-03-09: The live proof exposed a real host-hygiene mismatch that remains
+  open under MP-358. `devctl hygiene --strict-warnings` still treats active
+  review-channel conductors as stale repo-related processes once they have been
+  running for 600 seconds, even when the supervised Codex/Claude sessions are
+  intentionally alive and still writing to the session logs. The cleanup/audit
+  path must learn to distinguish deliberate long-running conductors from leaked
+  repo helpers before the continuous loop can be called host-hygiene clean.
+- 2026-03-09: Ran a real local launcher proof on the dirty tree after landing
+  the anti-stall supervision slice. `check_review_channel_bridge.py` had to be
+  refreshed back to green with a current `Last Codex poll`, then
+  `review-channel --action launch --terminal terminal-app` opened both
+  supervised conductor sessions and wrote fresh session artifacts under
+  `dev/reports/review_channel/latest/sessions/`. A timed follow-up showed both
+  log files still growing while the corresponding Codex/Claude provider
+  processes remained alive. This is useful evidence that the launcher no longer
+  drops the terminals immediately after bootstrap, but it is still only partial
+  proof because the queue did not yet demonstrate a full automatic next-task
+  promotion cycle.
+- 2026-03-09: Landed the first launcher-side anti-stall supervision slice for
+  MP-358. Generated `review-channel --action launch` scripts now relaunch the
+  same Codex/Claude conductor in-place when the provider exits cleanly, log an
+  explicit restart notice in the terminal transcript, and still stop
+  fail-closed on non-zero exits so auth/CLI failures stay visible instead of
+  spinning forever. The bootstrap prompt now also states the missing liveness
+  contract directly: `waiting_on_peer` is a live polling state, not terminal,
+  bridge summaries are never permission to exit, Codex must promote the next
+  scoped plan item after Claude lands a slice, and Claude must keep polling for
+  the next instruction instead of quitting after posting one summary. This
+  narrows the field-reported “both conductors stopped after a summary” failure,
+  but automatic next-task promotion is still not proven end-to-end because the
+  tool still depends on provider compliance rather than an explicit repo-owned
+  queue executor.
 - 2026-03-09: Re-reviewed MP-358 after the latest bridge-hardening tranche.
   The loop now records explicit `fresh | stale | waiting_on_peer` liveness and
   rejects zero-second ACK waits fail-closed, but the launcher still does not
@@ -222,14 +277,27 @@ Out of scope until the local proof gate is green:
 
 ## Audit Evidence
 
+- `python3 dev/scripts/checks/check_review_channel_bridge.py --format md`
+  - 2026-03-09 local run after heartbeat refresh: pass
 - `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format json`
   - 2026-03-09 local run: pass
   - 2026-03-08 local run: pass
+- `python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json`
+  - 2026-03-09 local run: pass; live Terminal.app launch opened supervised
+    Codex/Claude sessions and both session logs kept growing over a timed
+    follow-up
 - `python3 dev/scripts/devctl.py review-channel --action rollover --terminal none --dry-run --format json`
   - 2026-03-09 local run: pass
   - 2026-03-08 local run: pass
 - `python3 -m unittest dev.scripts.devctl.tests.test_review_channel`
   - 2026-03-09 local run: pass
   - 2026-03-08 local run: pass
+- `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+  - 2026-03-09 local run: pass
+- `python3 dev/scripts/devctl.py hygiene --strict-warnings`
+  - 2026-03-09 local run: expected red for two currently open issues: the
+    existing publication-sync drift and active review-channel conductor
+    processes being misclassified as stale once they exceed the current
+    600-second host-hygiene threshold
 - `python3 dev/scripts/devctl.py process-audit --strict --format md`
   - 2026-03-08 local run: pass

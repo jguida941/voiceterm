@@ -6,7 +6,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from dev.scripts.devctl.mutation_loop_policy import evaluate_fix_policy
+from dev.scripts.devctl.mutation_loop.policy import evaluate_fix_policy
 
 
 def _policy() -> dict:

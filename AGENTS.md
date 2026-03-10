@@ -12,6 +12,18 @@ Gemini CLI remains experimental.
 Goal of this file: give agents one repeatable process so every task follows the
 same execution path with minimal ambiguity.
 
+Top-level enforcement rule: every time an agent creates a file or edits an
+existing file, it must run the relevant repo guard/check scripts before
+handoff to catch bad practices, policy drift, and structural regressions. This
+is mandatory even for small patches. At minimum, run the task-class bundle plus
+any touched risk-matrix add-ons, then follow the concrete post-edit check
+inventory in `dev/guides/DEVELOPMENT.md` (`What checks protect us` and
+`After file edits`).
+
+Direct post-edit enforcement link:
+- After every file create/edit, follow
+  `dev/guides/DEVELOPMENT.md#after-file-edits` before handoff.
+
 ## Source-of-truth map
 
 | Question | Canonical source |
@@ -27,6 +39,8 @@ same execution path with minimal ambiguity.
 | Where is the host-process hygiene + Activity Monitor automation plan? | `dev/active/host_process_hygiene.md` |
 | Where is the continuous local Codex-reviewer / Claude-coder loop hardening and later template-extraction plan? | `dev/active/continuous_swarm.md` |
 | Where is the optional VoiceTerm Operator Console plan? | `dev/active/operator_console.md` |
+| Where is the Ralph guardrail remediation/control-plane plan? | `dev/active/ralph_guardrail_control_plane.md` |
+| Where is the heuristic review-probe execution plan? | `dev/active/review_probes.md` |
 | Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
 | Where is the completed Rust workspace path/layout migration record? | `dev/archive/2026-03-07-rust-workspace-layout-migration.md` |
 | Where is the naming/API cohesion execution plan? | `dev/active/naming_api_cohesion.md` |
@@ -154,7 +168,10 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
 2. Ask only when required: ambiguous UX/product intent, destructive actions,
    credentials/publishing/tagging, or conflicting policy signals.
 3. Stay guarded: do not invent behavior, do not skip required checks.
-4. Keep changes scoped: ignore unrelated diffs unless user asks.
+4. After any file create/edit, run the applicable repo guard/check scripts
+   before handoff; do not leave changed files unvalidated. Follow
+   `dev/guides/DEVELOPMENT.md#after-file-edits`.
+5. Keep changes scoped: ignore unrelated diffs unless user asks.
 
 ## Prerequisites
 
@@ -238,6 +255,54 @@ For non-trivial Rust runtime/tooling changes, contributors must:
    explicit nearby rationale comment
    (`broad-except: allow reason=...`) instead of silent fail-soft behavior.
 8. Record references consulted in handoff for non-trivial Rust changes.
+
+## Cross-architecture quality enforcement (required)
+
+All quality guard tooling MUST align across the three codebase architectures.
+The same enforcement patterns apply everywhere — no architecture gets a pass.
+
+| Architecture | Language | Guard entry point | CI workflow |
+|---|---|---|---|
+| **voiceterm binary** | Rust | `devctl check --profile ci` (clippy, code-shape, serde, panic-policy, security-footguns) | `rust_ci.yml` |
+| **operator console** | Python/PyQt6 | `devctl check --profile ci` (facade-wrappers, god-class, nesting-depth, global-mutable, dict-schema, structural-similarity) | `tooling_control_plane.yml` |
+| **devctl tooling** | Python | `devctl check --profile ci` (all Python guards) | `tooling_control_plane.yml` |
+| **iOS mobile app** | Swift | `devctl mobile-status` + Xcode build verification | `tooling_control_plane.yml` |
+
+### Ralph loop: AI-driven remediation across all architectures
+
+The Ralph loop (`coderabbit_ralph_loop.yml`) is the closed-loop remediation
+pipeline. When CodeRabbit flags issues, AI evaluates each finding, filters
+false positives, and fixes real issues — then re-runs CodeRabbit to verify.
+
+**Loop flow:**
+1. CodeRabbit reviews code → produces `backlog-medium.json` (medium/high findings)
+2. Ralph loop reads backlog → invokes `ralph_ai_fix.py` (the AI fix wrapper)
+3. AI fix wrapper feeds findings to Claude Code → AI evaluates + fixes valid issues
+4. AI fix wrapper runs architecture-specific validation (Rust tests, Python tests, etc.)
+5. AI fix wrapper commits + pushes → CodeRabbit re-reviews the new SHA
+6. Ralph loop checks new backlog → repeats until clean or max attempts reached
+7. If unresolved after max attempts → escalation comment requests human review
+
+**AI fix wrapper** (`dev/scripts/ralph_ai_fix.py`):
+- Reads `RALPH_BACKLOG_DIR/backlog-medium.json`
+- Maps finding categories to architectures (Rust, PyQt6, devctl, iOS)
+- Invokes Claude Code with structured prompt including false-positive filtering
+- Runs architecture-specific checks before committing
+- Policy-gated via `control_plane_policy.json` allowlist
+
+**Cross-architecture guard alignment rules:**
+1. Every new guard script MUST be registered in `check_support.py::AI_GUARD_CHECKS`.
+2. Every guard in `AI_GUARD_CHECKS` MUST have a step in `tooling_control_plane.yml`.
+3. Guard output format MUST support `--since-ref`/`--head-ref` for growth-based gating.
+4. The Ralph AI fix wrapper MUST run architecture-specific validation after fixes.
+5. No architecture may bypass the Ralph loop — all CodeRabbit findings across Rust,
+   Python, and iOS are processed through the same pipeline.
+
+**Configuration:**
+- Policy file: `dev/config/control_plane_policy.json`
+- Fix command allowlist: `triage_loop.allowed_fix_command_prefixes`
+- Autonomy gate: `AUTONOMY_MODE=operate` required for fix execution
+- Branch gate: only `develop` branch is allowlisted for automated fixes
 
 ## Branch policy (required)
 
@@ -405,7 +470,17 @@ python3 dev/scripts/checks/check_naming_consistency.py
 python3 dev/scripts/checks/check_rust_test_shape.py
 python3 dev/scripts/checks/check_rust_lint_debt.py
 python3 dev/scripts/checks/check_rust_best_practices.py
+python3 dev/scripts/checks/check_rust_compiler_warnings.py
+python3 dev/scripts/checks/check_serde_compatibility.py
 python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
+python3 dev/scripts/checks/check_facade_wrappers.py
+python3 dev/scripts/checks/check_god_class.py
+python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_nesting_depth.py
+python3 dev/scripts/checks/check_parameter_count.py
+python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_structural_similarity.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -430,7 +505,17 @@ python3 dev/scripts/checks/check_naming_consistency.py
 python3 dev/scripts/checks/check_rust_test_shape.py
 python3 dev/scripts/checks/check_rust_lint_debt.py
 python3 dev/scripts/checks/check_rust_best_practices.py
+python3 dev/scripts/checks/check_rust_compiler_warnings.py
+python3 dev/scripts/checks/check_serde_compatibility.py
 python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
+python3 dev/scripts/checks/check_facade_wrappers.py
+python3 dev/scripts/checks/check_god_class.py
+python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_nesting_depth.py
+python3 dev/scripts/checks/check_parameter_count.py
+python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_structural_similarity.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -465,7 +550,17 @@ python3 dev/scripts/checks/check_naming_consistency.py
 python3 dev/scripts/checks/check_rust_test_shape.py
 python3 dev/scripts/checks/check_rust_lint_debt.py
 python3 dev/scripts/checks/check_rust_best_practices.py
+python3 dev/scripts/checks/check_rust_compiler_warnings.py
+python3 dev/scripts/checks/check_serde_compatibility.py
 python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
+python3 dev/scripts/checks/check_facade_wrappers.py
+python3 dev/scripts/checks/check_god_class.py
+python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_nesting_depth.py
+python3 dev/scripts/checks/check_parameter_count.py
+python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_structural_similarity.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 python3 -m pytest app/operator_console/tests/ -q --tb=short
@@ -507,7 +602,17 @@ python3 dev/scripts/checks/check_naming_consistency.py
 python3 dev/scripts/checks/check_rust_test_shape.py
 python3 dev/scripts/checks/check_rust_lint_debt.py
 python3 dev/scripts/checks/check_rust_best_practices.py
+python3 dev/scripts/checks/check_rust_compiler_warnings.py
+python3 dev/scripts/checks/check_serde_compatibility.py
 python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
+python3 dev/scripts/checks/check_facade_wrappers.py
+python3 dev/scripts/checks/check_god_class.py
+python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_nesting_depth.py
+python3 dev/scripts/checks/check_parameter_count.py
+python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_structural_similarity.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
@@ -539,7 +644,17 @@ python3 dev/scripts/checks/check_naming_consistency.py
 python3 dev/scripts/checks/check_rust_test_shape.py --since-ref origin/develop
 python3 dev/scripts/checks/check_rust_lint_debt.py --since-ref origin/develop
 python3 dev/scripts/checks/check_rust_best_practices.py --since-ref origin/develop
+python3 dev/scripts/checks/check_rust_compiler_warnings.py --since-ref origin/develop
+python3 dev/scripts/checks/check_serde_compatibility.py --since-ref origin/develop
 python3 dev/scripts/checks/check_rust_runtime_panic_policy.py --since-ref origin/develop
+python3 dev/scripts/checks/check_facade_wrappers.py --since-ref origin/develop
+python3 dev/scripts/checks/check_god_class.py --since-ref origin/develop
+python3 dev/scripts/checks/check_mobile_relay_protocol.py --since-ref origin/develop
+python3 dev/scripts/checks/check_nesting_depth.py --since-ref origin/develop
+python3 dev/scripts/checks/check_parameter_count.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_dict_schema.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_global_mutable.py --since-ref origin/develop
+python3 dev/scripts/checks/check_structural_similarity.py --since-ref origin/develop
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
@@ -835,6 +950,7 @@ python3 dev/scripts/checks/check_naming_consistency.py
 python3 dev/scripts/checks/check_rust_test_shape.py
 python3 dev/scripts/checks/check_rust_lint_debt.py
 python3 dev/scripts/checks/check_rust_best_practices.py
+python3 dev/scripts/checks/check_rust_compiler_warnings.py
 python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 ```
 
@@ -849,7 +965,7 @@ Core commands:
   - Use `--parallel-workers <n>` to tune worker count, or `--no-parallel` to force sequential execution.
   - Includes automatic orphaned/stale repo-related process cleanup before/after checks (matched VoiceTerm PTY/test trees, repo-runtime cargo/target trees, repo-tooling wrappers, and descendant PTY/helper children such as leaked `cat` harnesses or stale repo-cwd helpers; detached `PPID=1` and stale active runners aged `>=600s` are cleanup targets).
   - Use `--no-process-sweep-cleanup` only when a run must preserve in-flight test processes.
-  - `quick` / `fast` also run host-side `process-cleanup --verify --format md` by default; use `--no-host-process-cleanup` only when a live process tree must be preserved and the exception is recorded.
+  - `quick` / `fast` keep AI-guard scripts enabled by default (while still skipping test/build lanes) and also run host-side `process-cleanup --verify --format md`; use `--no-host-process-cleanup` only when a live process tree must be preserved and the exception is recorded.
   - `pedantic` is an advisory maintainer lane for intentional lint-hardening sweeps; it is opt-in and not part of required bundles or release gates.
   - `check --profile pedantic` writes structured artifacts to `dev/reports/check/clippy-pedantic-summary.json` and `dev/reports/check/clippy-pedantic-lints.json`; consume them through `report --pedantic` or `triage --pedantic` instead of making ad hoc decisions from raw terminal output.
   - Structured `check` output timestamps are UTC for stable cross-run correlation.
@@ -911,7 +1027,7 @@ Core commands:
 
 | Command | Run it when | Why |
 |---|---|---|
-| `python3 dev/scripts/devctl.py check --profile fast` | while iterating locally | fast local sanity lane (alias of `quick`); never a substitute for required pre-push bundles |
+| `python3 dev/scripts/devctl.py check --profile fast` | while iterating locally | fast local sanity lane (alias of `quick`) that keeps AI-guard scripts on; never a substitute for required pre-push bundles |
 | `python3 dev/scripts/devctl.py check --profile pedantic` | you are intentionally doing a broader lint-hardening sweep, usually after a large refactor or as optional pre-release cleanup | runs advisory `clippy::pedantic`, writes structured artifacts under `dev/reports/check/`, and stays out of required merge/release flow |
 | `python3 dev/scripts/devctl.py report --pedantic --pedantic-refresh --format json` | you want one command that refreshes the advisory sweep and emits a structured repo-owned summary | reruns pedantic artifact generation, then reads those artifacts plus `dev/config/clippy/pedantic_policy.json` for review/AI consumption |
 | `python3 dev/scripts/devctl.py report --rust-audits --with-charts --emit-bundle --format md` | you want one readable Rust guard audit pack with charts, stats, and file hotspots | runs the Rust best-practices, lint-debt, and runtime-panic guards together, explains why the reported patterns are risky, and writes `.md` + `.json` bundle artifacts with optional matplotlib charts |
@@ -919,7 +1035,7 @@ Core commands:
 | `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` | before push when scope spans docs/runtime/tooling/release surfaces | auto-selects the stricter required lane, includes risk add-ons, and runs the routed bundle commands |
 | `python3 dev/scripts/devctl.py check --profile ci` | before a normal push | catches compile/test/lint issues early |
 | `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm ...` | an AI/dev session needs to run raw Rust tests or test binaries directly | runs the command without a shell wrapper, then automatically executes the required post-test hygiene follow-up so stale host processes do not accumulate |
-| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | right after raw `cargo test` / manual test-binary runs | runs the fast post-test sweep plus host-side `process-cleanup --verify`, so stale repo-related host trees are cleaned before they contaminate later runs |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | right after raw `cargo test` / manual test-binary runs | runs the AI-guard script pack plus host-side `process-cleanup --verify`, so stale repo-related host trees and structural regressions are caught before later runs |
 | `python3 dev/scripts/devctl.py process-cleanup --verify --format md` | after PTY/runtime tests, manual tooling bundles, or before handoff when host access is available | safely kills orphaned/stale repo-related host process trees, including descendant PTY children, repo-cwd background helpers, and orphaned tooling descendants, then reruns strict host audit |
 | `python3 dev/scripts/devctl.py process-audit --strict --format md` | when you need read-only host diagnosis or cleanup was intentionally skipped | audits the real host process table for repo leftovers visible in Activity Monitor, including descendant PTY children and repo-cwd runtime/tooling helpers that would otherwise look generic |
 | `python3 dev/scripts/devctl.py process-watch --cleanup --strict --stop-on-clean --iterations 6 --interval-seconds 15 --format md` | you are reproducing a host leak or running long-lived local work and want periodic checks instead of one final sweep | reruns the host audit/cleanup loop on a cadence and stops only after the host process table is clean |
@@ -1047,6 +1163,8 @@ Supporting scripts:
 - `dev/scripts/checks/check_rust_test_shape.py`
 - `dev/scripts/checks/check_rust_lint_debt.py`
 - `dev/scripts/checks/check_rust_best_practices.py`
+- `dev/scripts/checks/check_rust_compiler_warnings.py`
+- `dev/scripts/checks/check_serde_compatibility.py`
 - `dev/scripts/checks/check_rust_runtime_panic_policy.py`
 - `dev/scripts/checks/check_rust_security_footguns.py`
 - `dev/scripts/checks/check_clippy_high_signal.py`
@@ -1125,6 +1243,14 @@ direct `==` / `!=` comparisons against float literals, plus app-owned
 persistent TOML writes that still use direct overwrite helpers instead of a
 temp-file swap, plus hand-rolled persistent TOML parsers where the standard
 `toml` crate should be used instead.
+`check_rust_compiler_warnings.py` runs a no-run JSON `cargo test` compile and
+fails when rustc warnings resolve to changed repo-owned `.rs` files, so
+warning-only debt such as `unused_imports` gets a dedicated changed-file gate
+instead of hiding behind broader Clippy/best-practices checks.
+`check_serde_compatibility.py` blocks newly introduced internally or
+adjacently tagged Rust `Deserialize` enums unless they either define a
+`#[serde(other)]` fallback variant or document intentional fail-closed
+behavior with a nearby `serde-compat: allow reason=...` comment.
 `check_rust_runtime_panic_policy.py` blocks non-regressive growth of runtime
 `panic!` call-sites unless the new panic path is explicitly allowlisted with
 `panic-policy: allow reason=...` rationale comments, and it supports

@@ -16,24 +16,27 @@ def _truncate(value: Any, max_chars: int) -> str:
     return text[: max_chars - 3] + "..."
 
 
-def _controller(payload: dict[str, Any]) -> dict[str, Any]:
-    value = payload.get("controller")
+def _section(payload: dict[str, Any], key: str) -> dict[str, Any]:
+    value = payload.get(key)
     return value if isinstance(value, dict) else {}
 
 
-def _loop(payload: dict[str, Any]) -> dict[str, Any]:
-    value = payload.get("loop")
-    return value if isinstance(value, dict) else {}
-
-
-def _source_run(payload: dict[str, Any]) -> dict[str, Any]:
-    value = payload.get("source_run")
-    return value if isinstance(value, dict) else {}
-
-
-def _terminal(payload: dict[str, Any]) -> dict[str, Any]:
-    value = payload.get("terminal")
-    return value if isinstance(value, dict) else {}
+def render_ralph_section_lines(ralph: dict[str, Any]) -> list[str]:
+    """Render Ralph guardrail status as markdown bullet lines (shared helper)."""
+    if not isinstance(ralph, dict) or not ralph.get("available"):
+        return ["- unavailable"]
+    return [
+        f"- phase: {ralph.get('phase')}",
+        f"- attempt: {ralph.get('attempt')}/{ralph.get('max_attempts')}",
+        f"- fix_rate: {ralph.get('fix_rate_pct')}%",
+        (
+            f"- findings: {ralph.get('fixed_count')} fixed / "
+            f"{ralph.get('total_findings')} total | "
+            f"{ralph.get('unresolved_count')} unresolved"
+        ),
+        f"- branch: {ralph.get('branch') or 'n/a'}",
+        f"- last_run: {ralph.get('last_run') or 'n/a'}",
+    ]
 
 
 def _terminal_trace(payload: dict[str, Any]) -> list[str]:
@@ -67,6 +70,7 @@ def compact_view(payload: dict[str, Any]) -> dict[str, Any]:
     loop_payload = _loop(payload)
     source_run = _source_run(payload)
     terminal = _terminal(payload)
+    ralph = _ralph(payload)
     return {
         "schema_version": 1,
         "view": "compact",
@@ -90,6 +94,9 @@ def compact_view(payload: dict[str, Any]) -> dict[str, Any]:
         "trace_lines": len(_terminal_trace(payload)),
         "draft_preview": _truncate(terminal.get("draft_text"), 240),
         "next_actions": _next_actions(payload)[:5],
+        "ralph_phase": str(ralph.get("phase") or "idle"),
+        "ralph_fix_rate_pct": float(ralph.get("fix_rate_pct") or 0.0),
+        "ralph_unresolved": int(ralph.get("unresolved_count") or 0),
         "warnings_count": len(payload.get("warnings") or []),
         "errors_count": len(payload.get("errors") or []),
     }
@@ -110,6 +117,24 @@ def trace_view(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_OPERATOR_ACTIONS: list[dict[str, str]] = [
+    {"name": "dispatch-report-only", "kind": "write", "guard": "policy-gated",
+     "command": "python3 dev/scripts/devctl.py controller-action --action dispatch-report-only --branch develop --dry-run --format md"},
+    {"name": "pause-loop", "kind": "write", "guard": "policy-gated",
+     "command": "python3 dev/scripts/devctl.py controller-action --action pause-loop --dry-run --format md"},
+    {"name": "resume-loop", "kind": "write", "guard": "policy-gated",
+     "command": "python3 dev/scripts/devctl.py controller-action --action resume-loop --dry-run --format md"},
+    {"name": "controller-report", "kind": "read",
+     "command": "python3 dev/scripts/devctl.py autonomy-report --format md"},
+    {"name": "ralph-start", "kind": "write", "guard": "policy-gated",
+     "command": "devctl ralph-control start"},
+    {"name": "ralph-pause", "kind": "write", "guard": "policy-gated",
+     "command": "devctl ralph-control pause"},
+    {"name": "ralph-status", "kind": "read", "guard": "none",
+     "command": "devctl ralph-status --format md"},
+]
+
+
 def actions_view(payload: dict[str, Any]) -> dict[str, Any]:
     controller = _controller(payload)
     return {
@@ -119,24 +144,7 @@ def actions_view(payload: dict[str, Any]) -> dict[str, Any]:
         "phase": str(payload.get("phase") or "unknown"),
         "reason": str(payload.get("reason") or "unknown"),
         "next_actions": _next_actions(payload),
-        "operator_actions": [
-            {
-                "name": "refresh-status",
-                "command": "python3 dev/scripts/devctl.py phone-status --view compact --format md",
-                "kind": "read",
-            },
-            {
-                "name": "dispatch-report-only",
-                "command": "python3 dev/scripts/devctl.py triage-loop --mode report-only --format md",
-                "kind": "write",
-                "guard": "policy-gated",
-            },
-            {
-                "name": "controller-report",
-                "command": "python3 dev/scripts/devctl.py autonomy-report --format md",
-                "kind": "read",
-            },
-        ],
+        "operator_actions": _OPERATOR_ACTIONS,
     }
 
 
@@ -231,6 +239,15 @@ def _render_view_markdown(view_payload: dict[str, Any], view: str) -> str:
     lines.append("### Draft Preview")
     lines.append("")
     lines.append(str(compact.get("draft_preview") or "(none)"))
+    lines.append("")
+    lines.append("### Ralph Guardrail")
+    lines.append("")
+    ralph_phase = compact.get("ralph_phase") or "idle"
+    ralph_fix = compact.get("ralph_fix_rate_pct") or 0.0
+    ralph_unresolved = compact.get("ralph_unresolved") or 0
+    lines.append(f"- phase: {ralph_phase}")
+    lines.append(f"- fix_rate: {ralph_fix}%")
+    lines.append(f"- unresolved: {ralph_unresolved}")
     return "\n".join(lines)
 
 
@@ -258,6 +275,13 @@ def render_report_markdown(report: dict[str, Any]) -> str:
         lines.append("")
         for row in errors:
             lines.append(f"- {row}")
+        lines.append("")
+
+    ralph = report.get("ralph")
+    if isinstance(ralph, dict) and ralph.get("available"):
+        lines.append("## Ralph Guardrail")
+        lines.append("")
+        lines.extend(render_ralph_section_lines(ralph))
         lines.append("")
 
     view_payload_value = report.get("view_payload")

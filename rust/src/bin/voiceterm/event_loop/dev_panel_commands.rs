@@ -13,6 +13,7 @@ mod git_snapshot;
 mod ops_snapshot;
 mod review_loader;
 mod snapshots;
+mod snapshots_render;
 
 use super::*;
 

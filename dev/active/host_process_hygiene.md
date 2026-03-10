@@ -101,6 +101,13 @@ integration, and runtime leak closure tracked under `MP-356`.
   process trees on the real host, expands cleanup roots to their full
   descendant tree so leaked PTY children do not survive age-gated sweeps, and
   turns cleanup plus strict host verification into one repeatable AI/dev step.
+- 2026-03-09: Tightened the host-process contract for the live review-channel
+  loop. The shared process sweep now classifies attached Codex/Claude conductor
+  trees under a dedicated `review_channel_conductor` scope so long-running
+  supervised sessions stay visible in `process-audit` / `hygiene` reports but
+  no longer fail strict host cleanliness once they cross the 600-second stale
+  threshold. Detached/backgrounded conductor trees still fail read-only strict
+  audit and cleanup verification as leaked repo processes.
 - 2026-03-08: Verification confirmed the new audit surface sees the real host
   leak pattern. `hygiene --strict-warnings` now reports orphaned/stale
   VoiceTerm process trees including descendant PTY children, while

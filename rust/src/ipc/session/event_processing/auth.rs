@@ -27,7 +27,7 @@ pub(super) fn process_auth_events(state: &mut IpcState) -> bool {
             let provider = job.provider;
             let (success, error) = match result {
                 Ok(()) => (true, None),
-                Err(err) => (false, Some(err)),
+                Err(err) => (false, Some(err.to_string())),
             };
 
             if success && provider.resets_session_on_auth_success() {

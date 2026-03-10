@@ -8,13 +8,16 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
 use voiceterm::log_debug;
+
+use crate::persistence_io::write_text_atomically;
 
 const CONFIG_FILE: &str = "config.toml";
 const CONFIG_DIR_ENV: &str = "VOICETERM_CONFIG_DIR";
 
 /// Persistent user preferences that survive across sessions.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct UserConfig {
     pub(crate) theme: Option<String>,
     pub(crate) hud_style: Option<String>,
@@ -50,27 +53,6 @@ pub(crate) fn config_file_path() -> Option<PathBuf> {
     config_dir().map(|dir| dir.join(CONFIG_FILE))
 }
 
-/// Parse a TOML-like key = value line. Handles quoted and unquoted values.
-/// This parser is intentionally simple and does not decode escaped quotes.
-fn parse_toml_value(line: &str) -> Option<(&str, &str)> {
-    let line = line.trim();
-    if line.is_empty() || line.starts_with('#') || line.starts_with('[') {
-        return None;
-    }
-    let (key, rest) = line.split_once('=')?;
-    let key = key.trim();
-    let value = rest.trim().trim_matches('"');
-    Some((key, value))
-}
-
-fn parse_bool(value: &str) -> Option<bool> {
-    match value.to_ascii_lowercase().as_str() {
-        "true" | "1" | "yes" => Some(true),
-        "false" | "0" | "no" => Some(false),
-        _ => None,
-    }
-}
-
 /// Load user config from `~/.config/voiceterm/config.toml`.
 /// Returns a default (all-None) config if the file doesn't exist or can't be read.
 pub(crate) fn load_user_config() -> UserConfig {
@@ -86,110 +68,23 @@ pub(crate) fn load_user_config() -> UserConfig {
 
 /// Parse config from TOML string content.
 fn parse_user_config(contents: &str) -> UserConfig {
-    let mut config = UserConfig::default();
-    for line in contents.lines() {
-        let Some((key, value)) = parse_toml_value(line) else {
-            continue;
-        };
-        match key {
-            "theme" => config.theme = Some(value.to_string()),
-            "hud_style" => config.hud_style = Some(value.to_string()),
-            "hud_border_style" => config.hud_border_style = Some(value.to_string()),
-            "hud_right_panel" => config.hud_right_panel = Some(value.to_string()),
-            "hud_right_panel_recording_only" => {
-                config.hud_right_panel_recording_only = parse_bool(value);
-            }
-            "auto_voice" => config.auto_voice = parse_bool(value),
-            "voice_send_mode" => config.voice_send_mode = Some(value.to_string()),
-            "image_mode" => config.image_mode = parse_bool(value),
-            "sensitivity_db" => config.sensitivity_db = value.parse().ok(),
-            "wake_word" => config.wake_word = parse_bool(value),
-            "wake_word_sensitivity" => config.wake_word_sensitivity = value.parse().ok(),
-            "wake_word_cooldown_ms" => config.wake_word_cooldown_ms = value.parse().ok(),
-            "latency_display" => config.latency_display = Some(value.to_string()),
-            "macros_enabled" => config.macros_enabled = parse_bool(value),
-            "memory_mode" => config.memory_mode = Some(value.to_string()),
-            _ => {} // Ignore unknown keys for forward compatibility
-        }
-    }
-    config
+    toml::from_str(contents).unwrap_or_default()
 }
 
 /// Serialize user config to TOML format.
 fn serialize_user_config(config: &UserConfig) -> String {
-    let mut lines = Vec::new();
-    lines.push("# VoiceTerm persistent user config".to_string());
-    lines.push("# Managed by Settings overlay; CLI flags override these values.".to_string());
-    lines.push(String::new());
-
-    push_toml_string(&mut lines, "theme", config.theme.as_deref());
-    push_toml_string(&mut lines, "hud_style", config.hud_style.as_deref());
-    push_toml_string(
-        &mut lines,
-        "hud_border_style",
-        config.hud_border_style.as_deref(),
+    let mut body = String::from(
+        "# VoiceTerm persistent user config\n# Managed by Settings overlay; CLI flags override these values.\n\n",
     );
-    push_toml_string(
-        &mut lines,
-        "hud_right_panel",
-        config.hud_right_panel.as_deref(),
-    );
-    push_toml_bool(
-        &mut lines,
-        "hud_right_panel_recording_only",
-        config.hud_right_panel_recording_only,
-    );
-    push_toml_bool(&mut lines, "auto_voice", config.auto_voice);
-    push_toml_string(
-        &mut lines,
-        "voice_send_mode",
-        config.voice_send_mode.as_deref(),
-    );
-    push_toml_bool(&mut lines, "image_mode", config.image_mode);
-    push_toml_f32(&mut lines, "sensitivity_db", config.sensitivity_db);
-    push_toml_bool(&mut lines, "wake_word", config.wake_word);
-    if let Some(value) = config.wake_word_sensitivity {
-        lines.push(format!("wake_word_sensitivity = {value:.2}"));
+    match toml::to_string_pretty(config) {
+        Ok(serialized) => body.push_str(&serialized),
+        Err(err) => {
+            log_debug(&format!(
+                "persistent config: failed to serialize TOML: {err}"
+            ));
+        }
     }
-    push_toml_u64(
-        &mut lines,
-        "wake_word_cooldown_ms",
-        config.wake_word_cooldown_ms,
-    );
-    push_toml_string(
-        &mut lines,
-        "latency_display",
-        config.latency_display.as_deref(),
-    );
-    push_toml_bool(&mut lines, "macros_enabled", config.macros_enabled);
-    push_toml_string(&mut lines, "memory_mode", config.memory_mode.as_deref());
-
-    lines.push(String::new());
-    lines.join("\n")
-}
-
-fn push_toml_string(lines: &mut Vec<String>, key: &str, value: Option<&str>) {
-    if let Some(value) = value {
-        lines.push(format!("{key} = \"{value}\""));
-    }
-}
-
-fn push_toml_bool(lines: &mut Vec<String>, key: &str, value: Option<bool>) {
-    if let Some(value) = value {
-        lines.push(format!("{key} = {value}"));
-    }
-}
-
-fn push_toml_f32(lines: &mut Vec<String>, key: &str, value: Option<f32>) {
-    if let Some(value) = value {
-        lines.push(format!("{key} = {value}"));
-    }
-}
-
-fn push_toml_u64(lines: &mut Vec<String>, key: &str, value: Option<u64>) {
-    if let Some(value) = value {
-        lines.push(format!("{key} = {value}"));
-    }
+    body
 }
 
 fn apply_if_not_explicit<T: Copy>(is_explicit: bool, value: Option<T>, target: &mut T) {
@@ -298,18 +193,8 @@ pub(crate) fn save_user_config(config: &UserConfig) {
         return;
     };
 
-    if let Some(parent) = path.parent() {
-        if let Err(err) = fs::create_dir_all(parent) {
-            log_debug(&format!(
-                "persistent config: failed to create config directory {}: {err}",
-                parent.display()
-            ));
-            return;
-        }
-    }
-
     let body = serialize_user_config(config);
-    if let Err(err) = fs::write(&path, body) {
+    if let Err(err) = write_text_atomically(&path, &body) {
         log_debug(&format!(
             "persistent config: failed to write {}: {err}",
             path.display()
@@ -638,19 +523,6 @@ memory_mode = "paused"
     }
 
     #[test]
-    fn parse_bool_values() {
-        assert_eq!(parse_bool("true"), Some(true));
-        assert_eq!(parse_bool("True"), Some(true));
-        assert_eq!(parse_bool("TRUE"), Some(true));
-        assert_eq!(parse_bool("1"), Some(true));
-        assert_eq!(parse_bool("yes"), Some(true));
-        assert_eq!(parse_bool("false"), Some(false));
-        assert_eq!(parse_bool("0"), Some(false));
-        assert_eq!(parse_bool("no"), Some(false));
-        assert_eq!(parse_bool("maybe"), None);
-    }
-
-    #[test]
     fn parse_latency_display_mode_accepts_rtf_and_both() {
         assert_eq!(
             parse_latency_display_mode("rtf"),
@@ -723,19 +595,6 @@ memory_mode = "paused"
         assert!(config.wake_word.is_none());
         assert!(config.macros_enabled.is_none());
         assert!(config.memory_mode.is_none());
-    }
-
-    #[test]
-    fn parse_toml_value_handles_edge_cases() {
-        assert!(parse_toml_value("").is_none());
-        assert!(parse_toml_value("# comment").is_none());
-        assert!(parse_toml_value("[section]").is_none());
-        let (key, value) = parse_toml_value("key = value").unwrap();
-        assert_eq!(key, "key");
-        assert_eq!(value, "value");
-        let (key, value) = parse_toml_value("  key  =  \"value\"  ").unwrap();
-        assert_eq!(key, "key");
-        assert_eq!(value, "value");
     }
 
     #[test]

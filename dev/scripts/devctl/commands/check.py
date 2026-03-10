@@ -12,7 +12,7 @@ import sys
 from ..common import build_env
 from ..config import REPO_ROOT
 from .process_cleanup import build_process_cleanup_report
-from ..process_sweep import (
+from ..process_sweep.core import (
     kill_processes,
     scan_repo_hygiene_process_tree,
     split_orphaned_processes,

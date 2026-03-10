@@ -10,8 +10,6 @@ use crate::config::LatencyDisplayMode;
 use crate::config::{HudStyle, VoiceSendMode};
 use crate::runtime_compat::should_force_single_line_full_hud_for_env;
 use crate::status_style::StatusType;
-#[cfg(test)]
-use crate::theme::VoiceSceneStyle;
 use crate::theme::{overlay_separator, BorderSet, Theme, ThemeColors};
 
 use super::layout::{breakpoints, effective_hud_style_for_state};
@@ -20,9 +18,7 @@ use super::mode_indicator::{
 };
 use super::right_panel::format_minimal_right_panel as minimal_right_panel;
 #[cfg(test)]
-use super::right_panel::{
-    meter_level_color, minimal_pulse_dots, minimal_waveform, scene_should_animate,
-};
+use super::right_panel::{minimal_pulse_dots, minimal_waveform};
 #[cfg(test)]
 use super::state::WakeWordHudState;
 use super::state::{ButtonPosition, RecordingState, StatusLineState, VoiceMode};
