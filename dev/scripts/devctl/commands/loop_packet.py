@@ -9,6 +9,7 @@ from typing import Any
 
 from ..common import emit_output, pipe_output, write_output
 from .loop_packet_helpers import (
+    ArtifactSourceRow,
     DEFAULT_SOURCE_CANDIDATES,
     RISK_CONFIDENCE,
     _auto_send_eligible,
@@ -51,6 +52,24 @@ def _render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _render_output(report: dict[str, Any], output_format: str) -> str:
+    if output_format == "json":
+        return json.dumps(report, indent=2)
+    return _render_markdown(report)
+
+
+def _emit_report(report: dict[str, Any], args) -> int:
+    output = _render_output(report, args.format)
+    return emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+
+
 def run(args) -> int:
     """Build a guarded terminal feedback packet from triage/loop sources."""
     if args.max_age_hours <= 0:
@@ -69,11 +88,11 @@ def run(args) -> int:
         source_row = _build_live_triage_source()
         source_warnings.append("no artifact source found; generated live triage source")
 
-    payload = dict(source_row.get("payload") or {})
-    source_command = str(source_row.get("command") or "triage")
-    source_path = str(source_row.get("path") or "<unknown>")
+    payload = dict(source_row.payload or {})
+    source_command = source_row.command or "triage"
+    source_path = source_row.path or "<unknown>"
 
-    timestamp = source_row.get("timestamp")
+    timestamp = source_row.timestamp
     now_utc = datetime.now(timezone.utc)
     if not isinstance(timestamp, datetime):
         report = {
@@ -86,19 +105,7 @@ def run(args) -> int:
             "checked_paths": checked_paths,
             "warnings": source_warnings + ["source timestamp missing or invalid"],
         }
-        output = (
-            json.dumps(report, indent=2)
-            if args.format == "json"
-            else _render_markdown(report)
-        )
-        pipe_rc = emit_output(
-            output,
-            output_path=args.output,
-            pipe_command=args.pipe_command,
-            pipe_args=args.pipe_args,
-            writer=write_output,
-            piper=pipe_output,
-        )
+        pipe_rc = _emit_report(report, args)
         if pipe_rc != 0:
             return pipe_rc
         return 1
@@ -117,19 +124,7 @@ def run(args) -> int:
             "checked_paths": checked_paths,
             "warnings": source_warnings,
         }
-        output = (
-            json.dumps(report, indent=2)
-            if args.format == "json"
-            else _render_markdown(report)
-        )
-        pipe_rc = emit_output(
-            output,
-            output_path=args.output,
-            pipe_command=args.pipe_command,
-            pipe_args=args.pipe_args,
-            writer=write_output,
-            piper=pipe_output,
-        )
+        pipe_rc = _emit_report(report, args)
         if pipe_rc != 0:
             return pipe_rc
         return 1
@@ -204,19 +199,7 @@ def run(args) -> int:
         },
     }
 
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else _render_markdown(report)
-    )
-    pipe_rc = emit_output(
-        output,
-        output_path=args.output,
-        pipe_command=args.pipe_command,
-        pipe_args=args.pipe_args,
-        writer=write_output,
-        piper=pipe_output,
-    )
+    pipe_rc = _emit_report(report, args)
     if pipe_rc != 0:
         return pipe_rc
     return 0

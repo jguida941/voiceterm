@@ -15,6 +15,7 @@ try:
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
@@ -23,6 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
 
@@ -35,8 +37,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (
-    Path("dev/scripts/devctl"),
-    Path("app/operator_console"),
+    *resolve_quality_scope_roots("python_probe", repo_root=REPO_ROOT),
 )
 
 # Dict literals with this many string keys or more suggest a dataclass

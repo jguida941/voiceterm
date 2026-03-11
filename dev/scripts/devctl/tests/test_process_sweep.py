@@ -277,7 +277,134 @@ class ProcessSweepTests(TestCase):
         rows, warnings = process_sweep.scan_repo_tooling_process_tree()
 
         self.assertEqual(warnings, [])
-        self.assertEqual([row["pid"] for row in rows], [902, 903])
+        self.assertEqual({row["pid"] for row in rows}, {902, 903})
+
+    @patch("dev.scripts.devctl.process_sweep.scans.os.getpid", return_value=900)
+    @patch("dev.scripts.devctl.process_sweep.scans.os.getppid", return_value=901)
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
+    def test_scan_repo_tooling_process_tree_skips_current_sibling_check_subtree(
+        self,
+        run_mock,
+        _getppid_mock,
+        _getpid_mock,
+    ) -> None:
+        run_mock.side_effect = [
+            subprocess.CompletedProcess(
+                process_sweep.PROCESS_SWEEP_CMD,
+                0,
+                stdout=(
+                    "900 901 ?? 00:02 python3 dev/scripts/devctl.py hygiene --strict-warnings\n"
+                    "901 777 ?? 00:03 /bin/zsh -c python3 dev/scripts/devctl.py hygiene --strict-warnings\n"
+                    "902 901 ?? 00:01 python3 dev/scripts/checks/check_code_shape.py\n"
+                    "903 902 ?? 00:01 git status --short\n"
+                ),
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "903"],
+                0,
+                stdout=(
+                    "p903\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
+                ).encode("utf-8"),
+                stderr=b"",
+            ),
+        ]
+
+        rows, warnings = process_sweep.scan_repo_tooling_process_tree()
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(rows, [])
+
+    @patch("dev.scripts.devctl.process_sweep.scans.os.getpid", return_value=900)
+    @patch("dev.scripts.devctl.process_sweep.scans.os.getppid", return_value=901)
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
+    def test_scan_repo_tooling_process_tree_keeps_manual_sibling_pytest_tree(
+        self,
+        run_mock,
+        _getppid_mock,
+        _getpid_mock,
+    ) -> None:
+        run_mock.side_effect = [
+            subprocess.CompletedProcess(
+                process_sweep.PROCESS_SWEEP_CMD,
+                0,
+                stdout=(
+                    "900 901 ?? 00:02 python3 dev/scripts/devctl.py hygiene --strict-warnings\n"
+                    "901 777 ?? 00:03 /bin/zsh -c python3 dev/scripts/devctl.py hygiene --strict-warnings\n"
+                    "902 901 ?? 00:01 python3 -m pytest app/operator_console/tests -q\n"
+                    "903 902 ?? 00:01 cat\n"
+                ),
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "902,903"],
+                0,
+                stdout=(
+                    "p902\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
+                ).encode("utf-8"),
+                stderr=b"",
+            ),
+            subprocess.CompletedProcess(
+                [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "902"],
+                0,
+                stdout=(
+                    "p902\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
+                ).encode("utf-8"),
+                stderr=b"",
+            ),
+            subprocess.CompletedProcess(
+                [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "902"],
+                0,
+                stdout=(
+                    "p902\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
+                ).encode("utf-8"),
+                stderr=b"",
+            ),
+        ]
+
+        rows, warnings = process_sweep.scan_repo_tooling_process_tree()
+
+        self.assertEqual(warnings, [])
+        self.assertEqual({row["pid"] for row in rows}, {902, 903})
+
+    @patch("dev.scripts.devctl.process_sweep.scans.os.getpid", return_value=900)
+    @patch("dev.scripts.devctl.process_sweep.scans.os.getppid", return_value=901)
+    @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
+    def test_scan_repo_tooling_process_tree_keeps_guard_run_sibling_tree(
+        self,
+        run_mock,
+        _getppid_mock,
+        _getpid_mock,
+    ) -> None:
+        def _run_side_effect(cmd, **_kwargs):
+            if cmd == process_sweep.PROCESS_SWEEP_CMD:
+                return subprocess.CompletedProcess(
+                    process_sweep.PROCESS_SWEEP_CMD,
+                    0,
+                    stdout=(
+                        "900 901 ?? 00:02 python3 dev/scripts/devctl.py hygiene --strict-warnings\n"
+                        "901 777 ?? 00:03 /bin/zsh -c python3 dev/scripts/devctl.py hygiene --strict-warnings\n"
+                        "902 901 ?? 00:01 python3 dev/scripts/devctl.py guard-run --format json -- python3 dev/scripts/checks/check_active_plan_sync.py\n"
+                        "903 902 ?? 00:01 cat\n"
+                    ),
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout=(
+                    "p902\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
+                    "p903\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
+                ).encode("utf-8"),
+                stderr=b"",
+            )
+
+        run_mock.side_effect = _run_side_effect
+
+        rows, warnings = process_sweep.scan_repo_tooling_process_tree()
+
+        self.assertEqual(warnings, [])
+        self.assertEqual({row["pid"] for row in rows}, {902, 903})
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_repo_tooling_process_tree_matches_direct_repo_scripts(

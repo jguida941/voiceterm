@@ -38,6 +38,8 @@ def make_args(**overrides) -> SimpleNamespace:
         quality_backlog_include_tests=False,
         python_guard_backlog=False,
         python_guard_backlog_top_n=20,
+        probe_report=False,
+        quality_policy=None,
         no_parallel=False,
         format="md",
         output=None,
@@ -131,6 +133,16 @@ class ReportCommandTests(unittest.TestCase):
         )
         self.assertTrue(args.python_guard_backlog)
         self.assertEqual(args.python_guard_backlog_top_n, 15)
+
+    def test_cli_accepts_probe_report_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["report", "--probe-report"])
+        self.assertTrue(args.probe_report)
+
+    def test_cli_accepts_quality_policy_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["report", "--quality-policy", "/tmp/policy.json"])
+        self.assertEqual(args.quality_policy, "/tmp/policy.json")
 
     @patch("dev.scripts.devctl.commands.report.write_output")
     @patch("dev.scripts.devctl.commands.report.build_project_report")
@@ -348,6 +360,44 @@ class ReportCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.report.write_output")
     @patch("dev.scripts.devctl.commands.report.build_project_report")
+    def test_markdown_includes_probe_report_summary(
+        self,
+        mock_build_report,
+        mock_write_output,
+    ) -> None:
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+            "probe_report": {
+                "ok": True,
+                "mode": "commit-range",
+                "summary": {
+                    "probe_count": 4,
+                    "files_scanned": 9,
+                    "files_with_hints": 3,
+                    "risk_hints": 6,
+                    "top_files": [
+                        {
+                            "file": "app/operator_console/views/main_window.py",
+                            "hint_count": 3,
+                        }
+                    ],
+                },
+                "warnings": [],
+                "errors": [],
+            },
+        }
+
+        code = report.run(make_args(probe_report=True, since_ref="origin/develop"))
+
+        self.assertEqual(code, 0)
+        output = mock_write_output.call_args.args[0]
+        self.assertIn("## Review Probes", output)
+        self.assertIn("- risk_hints: 6", output)
+        self.assertIn("main_window.py=3", output)
+
+    @patch("dev.scripts.devctl.commands.report.write_output")
+    @patch("dev.scripts.devctl.commands.report.build_project_report")
     def test_parallel_flag_forwarded_to_build_report(
         self,
         mock_build_report,
@@ -492,6 +542,47 @@ class ReportCommandTests(unittest.TestCase):
         self.assertEqual(call_kwargs["python_guard_backlog_top_n"], 9)
         self.assertEqual(call_kwargs["python_guard_since_ref"], "origin/develop")
         self.assertEqual(call_kwargs["python_guard_head_ref"], "HEAD~1")
+
+    @patch("dev.scripts.devctl.commands.report.write_output")
+    @patch("dev.scripts.devctl.commands.report.build_project_report")
+    def test_probe_report_flags_forwarded_to_build_report(
+        self,
+        mock_build_report,
+        _mock_write_output,
+    ) -> None:
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+        }
+        report.run(
+            make_args(
+                probe_report=True,
+                since_ref="origin/develop",
+                head_ref="HEAD~1",
+            )
+        )
+        call_kwargs = mock_build_report.call_args.kwargs
+        self.assertTrue(call_kwargs["include_probe_report"])
+        self.assertEqual(call_kwargs["probe_since_ref"], "origin/develop")
+        self.assertEqual(call_kwargs["probe_head_ref"], "HEAD~1")
+        self.assertIsNone(call_kwargs["probe_policy_path"])
+
+    @patch("dev.scripts.devctl.commands.report.write_output")
+    @patch("dev.scripts.devctl.commands.report.build_project_report")
+    def test_quality_policy_flag_is_forwarded_to_probe_report(
+        self,
+        mock_build_report,
+        _mock_write_output,
+    ) -> None:
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+        }
+
+        report.run(make_args(probe_report=True, quality_policy="/tmp/policy.json"))
+
+        call_kwargs = mock_build_report.call_args.kwargs
+        self.assertEqual(call_kwargs["probe_policy_path"], "/tmp/policy.json")
 
     @patch("dev.scripts.devctl.commands.report.write_output")
     @patch("dev.scripts.devctl.commands.report.run_cmd")

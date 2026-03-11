@@ -127,6 +127,11 @@ Out of scope until the local proof gate is green:
 - [ ] Ensure the loop uses one master document chain:
       `MASTER_PLAN` -> relevant active-plan checklist -> `code_audit.md`
       current-state bridge.
+- [ ] Add `--scope` / `--plan` flag to `review-channel --action launch` so
+      the launcher can re-scope `Current Instruction For Claude` automatically
+      from a named active-plan doc instead of requiring manual bridge edits
+      before every new task. This makes "point the swarm at a new plan" a
+      one-command operation.
 
 ### Phase 3 - Context Rotation And Handoff
 

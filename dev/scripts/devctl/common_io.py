@@ -96,6 +96,8 @@ def build_env(args) -> dict:
         env["CARGO_HOME"] = os.path.expanduser(args.cargo_home)
     if getattr(args, "cargo_target_dir", None):
         env["CARGO_TARGET_DIR"] = os.path.expanduser(args.cargo_target_dir)
+    if getattr(args, "quality_policy", None):
+        env["DEVCTL_QUALITY_POLICY"] = os.path.expanduser(args.quality_policy)
     return env
 
 

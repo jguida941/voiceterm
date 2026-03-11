@@ -7,9 +7,11 @@ from dataclasses import dataclass
 
 from ..snapshots.analytics_snapshot import RepoAnalyticsSnapshot
 from ..core.models import AgentLaneData, OperatorConsoleSnapshot
+from .quality_text import build_quality_text
 from ..snapshots.phone_status_snapshot import PhoneControlSnapshot
 from ..core.readability import audience_mode_label, resolve_audience_mode
 from ..repo.repo_state import RepoStateSnapshot
+from ..watchdog_presenter import watchdog_summary_line
 
 _RISK_HIGH_KEYWORDS = frozenset(
     {"critical", "security", "destructive", "dangerous", "force", "delete"}
@@ -212,6 +214,12 @@ def build_analytics_view_state(
         overview_lines.append(f"    Branch:       {repo_analytics.branch}")
     if phone_snapshot is not None:
         overview_lines.append(f"    Phone relay:  {_title_case(phone_snapshot.phase)}")
+    watchdog_snapshot = snapshot.watchdog_snapshot
+    if watchdog_snapshot is not None:
+        overview_lines.append(
+            "    Watchdog:     "
+            + watchdog_summary_line(watchdog_snapshot)
+        )
     overview_lines.append("")
 
     if snapshot.warnings:
@@ -232,25 +240,29 @@ def build_analytics_view_state(
         repo_text=_build_repo_text(repo_analytics),
         quality_text=_build_quality_text(snapshot, repo_analytics),
         phone_text=_build_phone_text(phone_snapshot),
-        kpi_values={
-            "dirty_files": _format_kpi_number(
-                repo_analytics.changed_files if repo_analytics is not None else None
-            ),
-            "mutation_score": _format_percent_value(
-                repo_analytics.mutation_score_pct if repo_analytics is not None else None
-            ),
-            "ci_runs": _format_ci_kpi(repo_analytics),
-            "warnings": str(len(snapshot.warnings)),
-            "pending_approvals": str(len(snapshot.pending_approvals)),
-            "phone_phase": _title_case(phone_snapshot.phase)
-            if phone_snapshot is not None
-            else "\u2014",
-        },
+        kpi_values=_build_kpi_values(snapshot, repo_analytics, phone_snapshot),
     )
 
 
 def snapshot_digest(snapshot: OperatorConsoleSnapshot) -> str:
     """Return a digest that changes when visible snapshot state changes."""
+    lane_signatures: list[str] = []
+    for lane in _present_lanes(snapshot):
+        lane_signatures.append(
+            "|".join(
+                [
+                    lane.provider_name,
+                    lane.lane_title,
+                    lane.role_label,
+                    lane.status_hint,
+                    lane.state_label,
+                    lane.risk_label or "",
+                    lane.confidence_label or "",
+                    ";".join(f"{key}={value}" for key, value in lane.rows),
+                    lane.raw_text,
+                ]
+            )
+        )
     payload = "\n".join(
         [
             snapshot.codex_panel_text,
@@ -262,7 +274,7 @@ def snapshot_digest(snapshot: OperatorConsoleSnapshot) -> str:
             snapshot.review_state_path or "",
             "|".join(snapshot.warnings),
             "|".join(approval.packet_id for approval in snapshot.pending_approvals),
-            "|".join(_serialize_lane(lane) for lane in _present_lanes(snapshot)),
+            "|".join(lane_signatures),
         ]
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -300,14 +312,22 @@ def _build_repo_text(repo_analytics: RepoAnalyticsSnapshot | None) -> str:
         f"?{repo_analytics.untracked_files} "
         f"U{repo_analytics.conflicted_files})"
     )
+    change_mix_total = max(
+        1,
+        repo_analytics.added_files
+        + repo_analytics.modified_files
+        + repo_analytics.deleted_files
+        + repo_analytics.untracked_files
+        + repo_analytics.conflicted_files,
+    )
     lines.append(
         "- Change mix: "
-        + _change_mix_bar(
-            repo_analytics.added_files,
-            repo_analytics.modified_files,
-            repo_analytics.deleted_files,
-            repo_analytics.untracked_files,
-            repo_analytics.conflicted_files,
+        + (
+            f"A{_ratio_bar(repo_analytics.added_files, change_mix_total, width=4)} "
+            f"M{_ratio_bar(repo_analytics.modified_files, change_mix_total, width=4)} "
+            f"D{_ratio_bar(repo_analytics.deleted_files, change_mix_total, width=4)} "
+            f"?{_ratio_bar(repo_analytics.untracked_files, change_mix_total, width=4)} "
+            f"U{_ratio_bar(repo_analytics.conflicted_files, change_mix_total, width=4)}"
         )
     )
     lines.append(
@@ -337,59 +357,31 @@ def _build_quality_text(
     snapshot: OperatorConsoleSnapshot,
     repo_analytics: RepoAnalyticsSnapshot | None,
 ) -> str:
-    lines = ["QUALITY & CI", ""]
-    lines.append(
-        f"- Warnings: {len(snapshot.warnings)} | Pending approvals: {len(snapshot.pending_approvals)}"
-    )
-    quality = snapshot.quality_backlog
-    if quality is not None:
-        lines.append(
-            (
-                "- Guard backlog: "
-                f"{quality.guard_failures} failures | "
-                f"critical={quality.critical_paths} high={quality.high_paths} "
-                f"medium={quality.medium_paths} low={quality.low_paths}"
-            )
-        )
-        if quality.top_priorities:
-            lines.append("- Top hotspots:")
-            for row in quality.top_priorities[:3]:
-                lines.append(f"  - [{row.severity}] {row.path}")
-        if quality.warning:
-            lines.append(f"- Collector warning: {quality.warning}")
-    if repo_analytics is None:
-        lines.append("- Repo quality collectors are unavailable in this view.")
-        return "\n".join(lines)
+    return build_quality_text(snapshot, repo_analytics, ratio_bar=_ratio_bar)
 
-    if repo_analytics.mutation_score_pct is None:
-        lines.append(
-            f"- Mutation: {repo_analytics.mutation_note or 'mutation score unavailable'}"
-        )
-    else:
-        lines.append(
-            "- Mutation score: "
-            f"{repo_analytics.mutation_score_pct:.1f}% "
-            f"{_ratio_bar(repo_analytics.mutation_score_pct, 100.0)}"
-        )
-        if repo_analytics.mutation_age_hours is not None:
-            lines.append(
-                f"- Mutation age: {repo_analytics.mutation_age_hours:.1f}h since latest outcomes"
-            )
-    if repo_analytics.ci_runs_total is None:
-        lines.append(f"- Recent CI: {repo_analytics.ci_note or 'CI data unavailable'}")
-    else:
-        success = repo_analytics.ci_success_runs
-        failed = repo_analytics.ci_failed_runs
-        pending = repo_analytics.ci_pending_runs
-        total = max(repo_analytics.ci_runs_total, success + failed + pending, 1)
-        lines.append(
-            "- Recent CI: "
-            f"{success} green / {failed} failing / {pending} pending "
-            f"{_ratio_bar(success, total)}"
-        )
-        if repo_analytics.ci_note:
-            lines.append(f"- CI note: {repo_analytics.ci_note}")
-    return "\n".join(lines)
+
+def _build_kpi_values(
+    snapshot: OperatorConsoleSnapshot,
+    repo_analytics: RepoAnalyticsSnapshot | None,
+    phone_snapshot: PhoneControlSnapshot | None,
+) -> dict[str, str]:
+    ci_runs = "\u2014"
+    if repo_analytics is not None and repo_analytics.ci_runs_total is not None:
+        ci_runs = f"{repo_analytics.ci_success_runs}/{max(repo_analytics.ci_runs_total, 1)}"
+    return {
+        "dirty_files": _format_kpi_number(
+            repo_analytics.changed_files if repo_analytics is not None else None
+        ),
+        "mutation_score": _format_percent_value(
+            repo_analytics.mutation_score_pct if repo_analytics is not None else None
+        ),
+        "ci_runs": ci_runs,
+        "warnings": str(len(snapshot.warnings)),
+        "pending_approvals": str(len(snapshot.pending_approvals)),
+        "phone_phase": _title_case(phone_snapshot.phase)
+        if phone_snapshot is not None
+        else "\u2014",
+    }
 
 
 def _build_phone_text(phone_snapshot: PhoneControlSnapshot | None) -> str:
@@ -432,14 +424,6 @@ def _build_phone_text(phone_snapshot: PhoneControlSnapshot | None) -> str:
     return "\n".join(lines)
 
 
-def _format_ci_kpi(repo_analytics: RepoAnalyticsSnapshot | None) -> str:
-    if repo_analytics is None or repo_analytics.ci_runs_total is None:
-        return "\u2014"
-    success = repo_analytics.ci_success_runs
-    total = max(repo_analytics.ci_runs_total, 1)
-    return f"{success}/{total}"
-
-
 def _format_kpi_number(value: int | None) -> str:
     if value is None:
         return "\u2014"
@@ -458,23 +442,6 @@ def _ratio_bar(value: float, total: float, width: int = 10) -> str:
     ratio = max(0.0, min(1.0, float(value) / float(total)))
     filled = int(round(ratio * width))
     return "[" + ("#" * filled) + ("." * max(0, width - filled)) + "]"
-
-
-def _change_mix_bar(
-    added: int,
-    modified: int,
-    deleted: int,
-    untracked: int,
-    conflicted: int,
-) -> str:
-    total = max(1, added + modified + deleted + untracked + conflicted)
-    return (
-        f"A{_ratio_bar(added, total, width=4)} "
-        f"M{_ratio_bar(modified, total, width=4)} "
-        f"D{_ratio_bar(deleted, total, width=4)} "
-        f"?{_ratio_bar(untracked, total, width=4)} "
-        f"U{_ratio_bar(conflicted, total, width=4)}"
-    )
 
 
 def _title_case(value: str | None) -> str:
@@ -524,19 +491,3 @@ def _system_health(
 
 def _lane_chip_text(lane: AgentLaneData) -> str:
     return f"{lane.provider_name} {lane.state_label}"
-
-
-def _serialize_lane(lane: AgentLaneData) -> str:
-    return "|".join(
-        [
-            lane.provider_name,
-            lane.lane_title,
-            lane.role_label,
-            lane.status_hint,
-            lane.state_label,
-            lane.risk_label or "",
-            lane.confidence_label or "",
-            ";".join(f"{key}={value}" for key, value in lane.rows),
-            lane.raw_text,
-        ]
-    )

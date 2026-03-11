@@ -17,9 +17,15 @@ def run(args) -> int:
         event_log_path=str(args.event_log) if args.event_log else None,
         swarm_root=str(args.swarm_root) if args.swarm_root else None,
         benchmark_root=str(args.benchmark_root) if args.benchmark_root else None,
+        watchdog_root=str(args.watchdog_root) if args.watchdog_root else None,
+        governance_review_log=(
+            str(args.governance_review_log) if args.governance_review_log else None
+        ),
         max_events=int(args.max_events),
         max_swarm_files=int(args.max_swarm_files),
         max_benchmark_files=int(args.max_benchmark_files),
+        max_watchdog_rows=int(args.max_watchdog_rows),
+        max_governance_review_rows=int(args.max_governance_review_rows),
     )
 
     output = (

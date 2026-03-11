@@ -106,11 +106,17 @@ def build_skip_pid_set(rows: list[dict], *, this_pid: int, parent_pid: int) -> s
             break
         next_pid = parent_row["ppid"]
 
+    sibling_roots: list[int] = []
     for row in rows:
         if row["ppid"] != parent_pid:
             continue
         if SELF_HYGIENE_COMMAND_RE.search(row["command"]):
-            skip_pids.add(row["pid"])
+            sibling_roots.append(row["pid"])
+
+    for pid in sibling_roots:
+        skip_pids.add(pid)
+        for child_pid in _walk_process_tree(children_by_pid, children_by_pid.get(pid, [])):
+            skip_pids.add(child_pid)
 
     for pid in _walk_process_tree(children_by_pid, children_by_pid.get(this_pid, [])):
         skip_pids.add(pid)

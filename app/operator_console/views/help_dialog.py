@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from ..theme import available_theme_ids
-from .layout.ui_layouts import available_layout_ids, resolve_layout
 
 try:
     from PyQt6.QtWidgets import (
@@ -54,6 +53,8 @@ it does not look like a mystery button.
 
 
 def _controls_markdown() -> str:
+    from .layout.ui_layouts import available_layout_ids, resolve_layout
+
     layout_rows = "\n".join(
         f"- **{resolve_layout(layout_id).display_name}**: {resolve_layout(layout_id).description}"
         for layout_id in available_layout_ids()

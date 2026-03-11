@@ -74,9 +74,9 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-10T01:01:16Z`
-- Last Codex poll (Local America/New_York): `2026-03-09 21:01:16 EDT`
-- Last non-audit worktree hash: `1fe668bf97d7514042a5a66ae3fe5e78db6abaacf68196f6b8491f85659ef7e3`
+- Last Codex poll: `2026-03-11T23:02:06Z`
+- Last Codex poll (Local America/New_York): `2026-03-11 19:02:06 EDT`
+- Last non-audit worktree hash: `fef62aac48f17429cb203bbf8591254431d94bd3f444c133c8a5e89f756ce052`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -113,7 +113,12 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Auto-refreshed reviewer heartbeat: `2026-03-10T01:01:16Z` (reason: devctl review-channel launch; tree: 1fe668bf97d7).
+
+
+
+
+
+- Auto-refreshed reviewer heartbeat: `2026-03-11T23:02:06Z` (reason: devctl review-channel status; tree: fef62aac48f1).
 - Codex polling mode: active reviewer watch loop on the whole unpushed worktree; poll non-`code_audit.md` changes every 5 minutes while code is moving.
 - Current poll result: Codex conductor heartbeat refreshed at `2026-03-09T15:01:21Z` and the reviewed non-audit worktree hash is now `e9665d7dc2fc3b2a23cae512b701638bba0d5fe5785cd267afcf80a9f3e0f192`. The interface capped reviewer fan-out at `6`, so `AGENT-1..AGENT-6` are running as live reviewer lanes and the conductor is covering the `AGENT-7` guard/test sweep plus the `AGENT-8` integration pass locally. The dedicated `../codex-voice-wt-a1..a8` reviewer worktrees are still absent locally, so all reviewer work is running from the shared checkout.
 - Validation for this current pass: `python3 -m pytest app/operator_console/tests/test_theme_engine.py app/operator_console/tests/test_overlay_import.py app/operator_console/tests/test_theme.py app/operator_console/tests/test_theme_editor.py -q --tb=short` passed (`89` tests) and `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py dev/scripts/devctl/tests/test_mobile_status.py -q --tb=short` passed (`41` tests). `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json` and `python3 dev/scripts/devctl.py mobile-status --view full --format json` are green on the live tree. Direct local repro now confirms the old theme partial-import blockers are closed, while two current issues still reproduce: a corrupt event-state sentinel still makes `review-channel` / `mobile-status` fail instead of falling back to the valid markdown bridge, and fresh live traces still force the Operator Console lanes to `Reviewing` / `Implementing` even when the bridge state says approval-blocked.
@@ -160,35 +165,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-1. Conductor mode stays active on the coding side. Use this markdown bridge as the only coordination path with the reviewer. Only the Claude conductor updates `Claude Status`, `Claude Questions`, and `Claude Ack`.
-2. **New scope: implement the Review Probes framework (MP-368..MP-375).**
-   The full plan with research findings is at `dev/active/review_probes.md`.
-   Prior open findings (status-routing, lane-state) remain tracked but are
-   not the active coding scope for this session.
-3. Execution order for this session:
-   - **Phase 1 (MP-372)**: Build the probe framework infrastructure:
-     - Create `dev/scripts/checks/probe_bootstrap.py` — shared CLI parsing, JSON/MD output, `risk_hint` schema, severity enum. Reuse `check_bootstrap` conventions.
-     - Create `dev/scripts/checks/probe_shared.py` — shared pattern-matching utilities for probes (regex runners, signal aggregation, function-scope extraction).
-     - Add `PROBE_SCRIPT_FILES` dict to `dev/scripts/devctl/script_catalog.py` (same shape as `CHECK_SCRIPT_FILES`).
-     - Add `REVIEW_PROBE_CHECKS` tuple to `dev/scripts/devctl/commands/check_support.py` (same shape as `AI_GUARD_CHECKS`).
-     - Add `with_review_probes` flag to `dev/scripts/devctl/commands/check_profile.py` presets.
-     - Add `run_probe_phase()` to `dev/scripts/devctl/commands/check_phases.py` — runs after hard guards, collects probe output.
-   - **Phase 2 (MP-373)**: Build the first probe:
-     - Implement `dev/scripts/checks/probe_concurrency.py` — detect Arc<Mutex>/RwLock, nested locks, Ordering::Relaxed on signals, tokio::spawn captures, lock poisoning recovery.
-     - Add test coverage in `dev/scripts/devctl/tests/test_probe_concurrency.py`.
-     - Wire through check pipeline and verify JSON output + always-exit-0 contract.
-   - **Phase 3 (MP-374)**: Build remaining probes:
-     - `probe_architecture.py` — cross-domain imports, mixed concerns, proto-god-class.
-     - `probe_performance.py` — string alloc in filters, O(n) lookups on growing collections.
-     - `probe_product_logic.py` — hardcoded thresholds, duplicated constants, scattered feature gates.
-     - Test coverage for each.
-4. Key constraints:
-   - Probes always exit 0. They emit `risk_hints`, never `violations`.
-   - Probes reuse `GuardContext`, `check_bootstrap`, and existing function scanners.
-   - Follow existing guard conventions for CLI args (`--since-ref`, `--head-ref`, `--format`).
-   - Keep Python file size under 350-line soft limit (guard enforced).
-   - No duplicated function bodies (function_duplication guard enforced).
-5. Do not stage, commit, or push. Do not touch files outside the probe scope.
+
+
+Scoped from `dev/active/review_probes.md` via `--scope`.
+
+- Next scoped plan item (dev/active/review_probes.md): Phase 1: Probe framework (MP-372): Create `dev/scripts/checks/probe_bootstrap.py` with shared probe base: CLI args, JSON/MD output, `risk_hint` schema, severity enum.
 
 ## Plan Alignment
 

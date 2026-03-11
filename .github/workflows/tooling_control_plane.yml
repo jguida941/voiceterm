@@ -512,6 +512,27 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
+      - name: Run Python design-complexity non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_design_complexity.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run Python cyclic-imports non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_cyclic_imports.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run Python suppression-debt non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_suppression_debt.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
       - name: Run structural-similarity non-regression guard
         run: |
           set -euo pipefail

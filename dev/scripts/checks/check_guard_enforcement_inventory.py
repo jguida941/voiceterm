@@ -19,8 +19,14 @@ except ModuleNotFoundError:  # pragma: no cover - package-style fallback for tes
     from dev.scripts.checks.check_bootstrap import emit_runtime_error, utc_timestamp
 
 from dev.scripts.devctl.bundle_registry import BUNDLE_REGISTRY
-from dev.scripts.devctl.commands.check_support import AI_GUARD_CHECKS
-from dev.scripts.devctl.script_catalog import CHECK_SCRIPT_RELATIVE_PATHS
+from dev.scripts.devctl.quality_policy import (
+    resolve_ai_guard_checks,
+    resolve_review_probe_checks,
+)
+from dev.scripts.devctl.script_catalog import (
+    CHECK_SCRIPT_RELATIVE_PATHS,
+    PROBE_SCRIPT_RELATIVE_PATHS,
+)
 
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 DEVCTL_COMMAND_RE = re.compile(
@@ -58,7 +64,15 @@ INDIRECT_DEVCTL_COMMAND_SCRIPT_IDS = {
     "check": frozenset(
         {
             script_id
-            for _step_name, script_id, _extra_args in AI_GUARD_CHECKS
+            for _step_name, script_id, _extra_args in (
+                resolve_ai_guard_checks() + resolve_review_probe_checks()
+            )
+        }
+    ),
+    "probe-report": frozenset(
+        {
+            script_id
+            for _step_name, script_id, _extra_args in resolve_review_probe_checks()
         }
     ),
     "docs-check": frozenset(
@@ -144,8 +158,23 @@ def build_report(repo_root: Path = REPO_ROOT) -> dict:
     violations: list[dict] = []
     exempt_count = 0
     enforced_count = 0
+    tracked_check_count = 0
+    tracked_probe_count = 0
 
-    for script_id, relative_path in sorted(CHECK_SCRIPT_RELATIVE_PATHS.items()):
+    tracked_scripts = [
+        ("check", script_id, relative_path)
+        for script_id, relative_path in sorted(CHECK_SCRIPT_RELATIVE_PATHS.items())
+    ]
+    tracked_scripts.extend(
+        ("probe", script_id, relative_path)
+        for script_id, relative_path in sorted(PROBE_SCRIPT_RELATIVE_PATHS.items())
+    )
+
+    for script_kind, script_id, relative_path in tracked_scripts:
+        if script_kind == "check":
+            tracked_check_count += 1
+        else:
+            tracked_probe_count += 1
         exemption = ENFORCEMENT_EXEMPTIONS.get(script_id)
         direct_bundle_refs = _collect_direct_bundle_refs(relative_path)
         direct_workflow_refs = _collect_direct_workflow_refs(relative_path, workflow_texts)
@@ -158,6 +187,7 @@ def build_report(repo_root: Path = REPO_ROOT) -> dict:
             or indirect_workflow_refs
         )
         entry = {
+            "kind": script_kind,
             "script_id": script_id,
             "path": relative_path,
             "direct_bundle_refs": direct_bundle_refs,
@@ -176,6 +206,7 @@ def build_report(repo_root: Path = REPO_ROOT) -> dict:
             continue
         violations.append(
             {
+                "kind": script_kind,
                 "script_id": script_id,
                 "path": relative_path,
                 "reason": "no bundle/workflow enforcement lane detected",
@@ -189,6 +220,8 @@ def build_report(repo_root: Path = REPO_ROOT) -> dict:
         "ok": len(violations) == 0,
         "workflow_count": len(workflow_texts),
         "tracked_script_count": len(script_entries),
+        "tracked_check_count": tracked_check_count,
+        "tracked_probe_count": tracked_probe_count,
         "checked_script_count": checked_count,
         "exempt_script_count": exempt_count,
         "enforced_script_count": enforced_count,
@@ -202,6 +235,8 @@ def _render_md(report: dict) -> str:
     lines.append(f"- ok: {report['ok']}")
     lines.append(f"- workflows_scanned: {report['workflow_count']}")
     lines.append(f"- tracked_scripts: {report['tracked_script_count']}")
+    lines.append(f"- tracked_checks: {report['tracked_check_count']}")
+    lines.append(f"- tracked_probes: {report['tracked_probe_count']}")
     lines.append(f"- checked_scripts: {report['checked_script_count']}")
     lines.append(f"- enforced_scripts: {report['enforced_script_count']}")
     lines.append(f"- exempt_scripts: {report['exempt_script_count']}")
@@ -221,11 +256,13 @@ def _render_md(report: dict) -> str:
         lines.append("")
         lines.append("## Violations")
         lines.append(
-            "- Guidance: every registered check script should either have a real "
+            "- Guidance: every registered quality script should either have a real "
             "bundle/workflow enforcement lane or an explicit exemption with rationale."
         )
         for item in report["violations"]:
-            lines.append(f"- `{item['script_id']}` -> `{item['path']}`")
+            lines.append(
+                f"- `{item['kind']}` `{item['script_id']}` -> `{item['path']}`"
+            )
     return "\n".join(lines)
 
 

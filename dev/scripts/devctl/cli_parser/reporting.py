@@ -20,6 +20,11 @@ from .builders_ops import (
 from .hygiene import add_process_hygiene_parsers
 from ..common import add_standard_output_arguments
 from ..data_science.parser import add_data_science_parser
+from ..governance_bootstrap_parser import add_governance_bootstrap_parser
+from ..governance_export_parser import add_governance_export_parser
+from ..governance_review_parser import add_governance_review_parser
+from ..probe_report_parser import add_probe_report_parser
+from ..quality_policy_parser import add_quality_policy_parser
 from ..ralph_status_parser import add_ralph_status_parser
 
 
@@ -34,19 +39,24 @@ def add_reporting_parsers(
     add_report_parser(sub, default_ci_limit=default_ci_limit)
     add_list_parser(sub)
     add_process_hygiene_parsers(sub)
-    _add_compat_matrix_parser(sub)
-    _add_mcp_parser(sub)
+    add_compat_matrix_parser(sub)
+    add_mcp_parser(sub)
     add_data_science_parser(sub)
+    add_quality_policy_parser(sub)
+    add_governance_export_parser(sub)
+    add_governance_bootstrap_parser(sub)
+    add_governance_review_parser(sub)
+    add_probe_report_parser(sub)
     add_autonomy_report_parser(sub)
     add_phone_status_parser(sub)
     add_mobile_status_parser(sub)
     add_ralph_status_parser(sub)
-    _add_autonomy_swarm_parser(sub)
+    add_autonomy_swarm_parser(sub)
     add_audit_scaffold_parser(sub)
     add_hygiene_parser(sub)
 
 
-def _add_compat_matrix_parser(sub: argparse._SubParsersAction) -> None:
+def add_compat_matrix_parser(sub: argparse._SubParsersAction) -> None:
     compat_matrix_cmd = sub.add_parser(
         "compat-matrix",
         help="Validate IDE/provider compatibility matrix metadata and smoke coverage",
@@ -59,7 +69,7 @@ def _add_compat_matrix_parser(sub: argparse._SubParsersAction) -> None:
     add_standard_output_arguments(compat_matrix_cmd)
 
 
-def _add_mcp_parser(sub: argparse._SubParsersAction) -> None:
+def add_mcp_parser(sub: argparse._SubParsersAction) -> None:
     mcp_cmd = sub.add_parser(
         "mcp",
         help="Read-only MCP adapter contract + stdio server for devctl surfaces",
@@ -80,7 +90,7 @@ def _add_mcp_parser(sub: argparse._SubParsersAction) -> None:
     add_standard_output_arguments(mcp_cmd)
 
 
-def _add_autonomy_swarm_parser(sub: argparse._SubParsersAction) -> None:
+def add_autonomy_swarm_parser(sub: argparse._SubParsersAction) -> None:
     autonomy_swarm_cmd = sub.add_parser(
         "autonomy-swarm",
         help="Run an adaptive autonomy swarm with metadata-driven agent sizing",

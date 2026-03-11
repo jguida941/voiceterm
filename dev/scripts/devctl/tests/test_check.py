@@ -15,6 +15,7 @@ from dev.scripts.devctl.commands import (
     check_progress,
     check_steps,
 )
+from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
 
 
 def make_args(profile: str) -> SimpleNamespace:
@@ -52,6 +53,7 @@ def make_args(profile: str) -> SimpleNamespace:
         mutation_score_warn_age_hours=24.0,
         mutation_score_max_age_hours=None,
         since_ref=None,
+        adoption_scan=False,
         head_ref="HEAD",
         keep_going=False,
         no_parallel=False,
@@ -181,6 +183,17 @@ class CheckProfileTests(TestCase):
         )
         self.assertEqual(args.since_ref, "origin/develop")
         self.assertEqual(args.head_ref, "HEAD")
+
+    def test_cli_accepts_quality_policy_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "check",
+                "--quality-policy",
+                "/tmp/portable-policy.json",
+            ]
+        )
+        self.assertEqual(args.quality_policy, "/tmp/portable-policy.json")
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
@@ -343,6 +356,8 @@ class CheckProfileTests(TestCase):
         self.assertIn("code-shape-guard", names)
         self.assertIn("python-broad-except-guard", names)
         self.assertIn("python-subprocess-policy-guard", names)
+        self.assertIn("python-design-complexity-guard", names)
+        self.assertIn("python-cyclic-imports-guard", names)
         self.assertIn("duplicate-types-guard", names)
         self.assertIn("structural-complexity-guard", names)
         self.assertIn("rust-test-shape-guard", names)
@@ -474,6 +489,8 @@ class CheckProfileTests(TestCase):
         self.assertIn("code-shape-guard", names)
         self.assertIn("python-broad-except-guard", names)
         self.assertIn("python-subprocess-policy-guard", names)
+        self.assertIn("python-design-complexity-guard", names)
+        self.assertIn("python-cyclic-imports-guard", names)
         self.assertIn("duplicate-types-guard", names)
         self.assertIn("structural-complexity-guard", names)
         self.assertIn("rust-test-shape-guard", names)
@@ -510,6 +527,8 @@ class CheckProfileTests(TestCase):
         self.assertIn("code-shape-guard", names)
         self.assertIn("python-broad-except-guard", names)
         self.assertIn("python-subprocess-policy-guard", names)
+        self.assertIn("python-design-complexity-guard", names)
+        self.assertIn("python-cyclic-imports-guard", names)
         self.assertIn("duplicate-types-guard", names)
         self.assertIn("structural-complexity-guard", names)
         self.assertIn("rust-test-shape-guard", names)
@@ -613,6 +632,16 @@ class CheckProfileTests(TestCase):
             for call in calls
             if call["name"] == "python-subprocess-policy-guard"
         )
+        python_design_complexity_cmd = next(
+            call["cmd"]
+            for call in calls
+            if call["name"] == "python-design-complexity-guard"
+        )
+        python_cyclic_imports_cmd = next(
+            call["cmd"]
+            for call in calls
+            if call["name"] == "python-cyclic-imports-guard"
+        )
         duplicate_types_cmd = next(
             call["cmd"] for call in calls if call["name"] == "duplicate-types-guard"
         )
@@ -667,6 +696,10 @@ class CheckProfileTests(TestCase):
         self.assertIn("--head-ref", python_broad_except_cmd)
         self.assertIn("--since-ref", python_subprocess_policy_cmd)
         self.assertIn("--head-ref", python_subprocess_policy_cmd)
+        self.assertIn("--since-ref", python_design_complexity_cmd)
+        self.assertIn("--head-ref", python_design_complexity_cmd)
+        self.assertIn("--since-ref", python_cyclic_imports_cmd)
+        self.assertIn("--head-ref", python_cyclic_imports_cmd)
         self.assertIn("--since-ref", duplicate_types_cmd)
         self.assertIn("--head-ref", duplicate_types_cmd)
         self.assertIn("--since-ref", structural_complexity_cmd)
@@ -690,6 +723,33 @@ class CheckProfileTests(TestCase):
         self.assertNotIn("--since-ref", compat_matrix_cmd)
         self.assertNotIn("--since-ref", compat_matrix_smoke_cmd)
         self.assertNotIn("--since-ref", naming_consistency_cmd)
+
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_ai_guard_adoption_scan_forwarding(
+        self, mock_build_env, mock_run_cmd
+    ) -> None:
+        mock_build_env.return_value = {}
+        calls = []
+
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
+        args = make_args("ai-guard")
+        args.adoption_scan = True
+        args.skip_fmt = True
+        args.skip_clippy = True
+        args.skip_tests = True
+        args.skip_build = True
+
+        rc = check.run(args)
+        self.assertEqual(rc, 0)
+
+        code_shape_cmd = next(
+            call["cmd"] for call in calls if call["name"] == "code-shape-guard"
+        )
+        self.assertIn("--since-ref", code_shape_cmd)
+        self.assertIn(ADOPTION_BASE_REF, code_shape_cmd)
+        self.assertIn("--head-ref", code_shape_cmd)
+        self.assertIn(WORKTREE_HEAD_REF, code_shape_cmd)
 
     @patch("dev.scripts.devctl.commands.check_phases.run_step_specs")
     @patch("dev.scripts.devctl.commands.check.build_env")
@@ -803,12 +863,15 @@ class CheckProfileTests(TestCase):
         rc = check.run(args)
         self.assertEqual(rc, 0)
 
-        self.assertEqual(len(calls), 2)
+        # 3 calls: parallel guard batch, sequential clippy guard, probe phase.
+        self.assertEqual(len(calls), 3)
         self.assertTrue(calls[0]["parallel_enabled"])
         self.assertIn("clippy", calls[0]["names"])
         self.assertNotIn("clippy-high-signal-guard", calls[0]["names"])
         self.assertFalse(calls[1]["parallel_enabled"])
         self.assertEqual(calls[1]["names"], ["clippy-high-signal-guard"])
+        # Third call is the probe phase.
+        self.assertTrue(calls[2]["parallel_enabled"])
 
 
 class CheckProcessSweepTests(TestCase):

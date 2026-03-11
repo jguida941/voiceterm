@@ -18,6 +18,7 @@ from .collect import (
 )
 from .python_guard_report import collect_python_guard_report
 from .quality_backlog_report import collect_quality_backlog
+from .review_probe_report import build_probe_report
 from .rust_audit_report import collect_rust_audit_report
 from .status_report_render import render_project_markdown
 from .time_utils import utc_timestamp
@@ -80,6 +81,12 @@ def build_project_report(
     python_guard_backlog_top_n: int = 20,
     python_guard_since_ref: str | None = None,
     python_guard_head_ref: str = "HEAD",
+    python_guard_policy_path: str | None = None,
+    include_probe_report: bool = False,
+    probe_since_ref: str | None = None,
+    probe_head_ref: str = "HEAD",
+    probe_policy_path: str | None = None,
+    probe_emit_artifacts: bool = False,
     parallel: bool = True,
     max_workers: int = DEFAULT_COLLECT_WORKERS,
 ) -> dict:
@@ -141,6 +148,19 @@ def build_project_report(
                     since_ref=python_guard_since_ref,
                     head_ref=python_guard_head_ref,
                     top_n=python_guard_backlog_top_n,
+                    policy_path=python_guard_policy_path,
+                ),
+            )
+        )
+    if include_probe_report:
+        probes.append(
+            (
+                "probe_report",
+                lambda: build_probe_report(
+                    since_ref=probe_since_ref,
+                    head_ref=probe_head_ref,
+                    policy_path=probe_policy_path,
+                    emit_artifacts=probe_emit_artifacts,
                 ),
             )
         )

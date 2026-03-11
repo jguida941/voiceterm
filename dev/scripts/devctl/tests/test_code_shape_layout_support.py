@@ -5,7 +5,11 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from dev.scripts.devctl.tests.conftest import init_temp_repo_root, load_repo_module
+from dev.scripts.devctl.tests.conftest import (
+    init_temp_repo_root,
+    load_repo_module,
+    override_module_attrs,
+)
 
 SCRIPT = load_repo_module(
     "code_shape_layout_support",
@@ -37,6 +41,14 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
         for idx in range(8):
             self._write(f"dev/scripts/devctl/review_channel_{idx}.py")
         self._write("dev/scripts/devctl/review_channel_new.py")
+        family_rules = (
+            SCRIPT.NamespaceFamilyRule(
+                root=Path("dev/scripts/devctl"),
+                flat_prefix="review_channel_",
+                namespace_subdir="review_channel",
+                min_family_size=8,
+            ),
+        )
 
         def _read_text_from_ref(path: Path, ref: str) -> str | None:
             del path
@@ -48,6 +60,7 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             changed_paths=[Path("dev/scripts/devctl/review_channel_new.py")],
             read_text_from_ref=_read_text_from_ref,
             since_ref=None,
+            family_rules=family_rules,
         )
 
         self.assertEqual(scanned, 1)
@@ -61,6 +74,14 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
     def test_ignores_existing_flat_file_modification(self) -> None:
         for idx in range(8):
             self._write(f"dev/scripts/devctl/review_channel_{idx}.py")
+        family_rules = (
+            SCRIPT.NamespaceFamilyRule(
+                root=Path("dev/scripts/devctl"),
+                flat_prefix="review_channel_",
+                namespace_subdir="review_channel",
+                min_family_size=8,
+            ),
+        )
 
         def _read_text_from_ref(path: Path, ref: str) -> str | None:
             del ref
@@ -73,6 +94,7 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             changed_paths=[Path("dev/scripts/devctl/review_channel_2.py")],
             read_text_from_ref=_read_text_from_ref,
             since_ref=None,
+            family_rules=family_rules,
         )
 
         self.assertEqual(scanned, 1)
@@ -82,6 +104,14 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
         for idx in range(8):
             self._write(f"dev/scripts/devctl/review_channel_{idx}.py")
         self._write("dev/scripts/devctl/review_channel/new_parser.py")
+        family_rules = (
+            SCRIPT.NamespaceFamilyRule(
+                root=Path("dev/scripts/devctl"),
+                flat_prefix="review_channel_",
+                namespace_subdir="review_channel",
+                min_family_size=8,
+            ),
+        )
 
         def _read_text_from_ref(path: Path, ref: str) -> str | None:
             del path
@@ -93,6 +123,7 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             changed_paths=[Path("dev/scripts/devctl/review_channel/new_parser.py")],
             read_text_from_ref=_read_text_from_ref,
             since_ref="origin/develop",
+            family_rules=family_rules,
         )
 
         self.assertEqual(scanned, 0)
@@ -100,6 +131,18 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
 
     def test_flags_docs_sync_when_new_namespace_path_lacks_doc_token(self) -> None:
         self._write("dev/scripts/devctl/review_channel/new_lane.py")
+        docs_sync_rules = (
+            SCRIPT.NamespaceDocsSyncRule(
+                namespace_root=Path("dev/scripts/devctl/review_channel"),
+                required_docs=(
+                    Path("AGENTS.md"),
+                    Path("dev/scripts/README.md"),
+                    Path("dev/guides/DEVELOPMENT.md"),
+                    Path("dev/active/MASTER_PLAN.md"),
+                ),
+                required_token="dev/scripts/devctl/review_channel",
+            ),
+        )
 
         def _read_text_from_ref(path: Path, ref: str) -> str | None:
             del path
@@ -114,6 +157,7 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
                 encoding="utf-8"
             ),
             since_ref=None,
+            docs_sync_rules=docs_sync_rules,
         )
 
         self.assertEqual(scanned, 1)
@@ -128,6 +172,18 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             "# Scripts\n\n- Namespace: `dev/scripts/devctl/review_channel`\n",
         )
         self._write("dev/scripts/devctl/review_channel/new_lane.py")
+        docs_sync_rules = (
+            SCRIPT.NamespaceDocsSyncRule(
+                namespace_root=Path("dev/scripts/devctl/review_channel"),
+                required_docs=(
+                    Path("AGENTS.md"),
+                    Path("dev/scripts/README.md"),
+                    Path("dev/guides/DEVELOPMENT.md"),
+                    Path("dev/active/MASTER_PLAN.md"),
+                ),
+                required_token="dev/scripts/devctl/review_channel",
+            ),
+        )
 
         def _read_text_from_ref(path: Path, ref: str) -> str | None:
             del path
@@ -142,10 +198,40 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
                 encoding="utf-8"
             ),
             since_ref=None,
+            docs_sync_rules=docs_sync_rules,
         )
 
         self.assertEqual(scanned, 1)
         self.assertEqual(violations, [])
+
+    def test_rules_can_be_loaded_from_guard_config(self) -> None:
+        for idx in range(8):
+            self._write(f"dev/scripts/devctl/review_channel_{idx}.py")
+        self._write("dev/scripts/devctl/review_channel_new.py")
+        override_module_attrs(
+            self,
+            SCRIPT,
+            resolve_guard_config=lambda script_id, repo_root: {
+                "namespace_family_rules": [
+                    {
+                        "root": "dev/scripts/devctl",
+                        "flat_prefix": "review_channel_",
+                        "namespace_subdir": "review_channel",
+                        "min_family_size": 8,
+                    }
+                ]
+            },
+        )
+
+        violations, scanned = SCRIPT.collect_namespace_layout_violations(
+            repo_root=self.root,
+            changed_paths=[Path("dev/scripts/devctl/review_channel_new.py")],
+            read_text_from_ref=lambda path, ref: None,
+            since_ref=None,
+        )
+
+        self.assertEqual(scanned, 1)
+        self.assertEqual(len(violations), 1)
 
 
 if __name__ == "__main__":

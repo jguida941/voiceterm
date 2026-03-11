@@ -71,3 +71,26 @@ The analyzer computes:
   - `source_breakdown.png`
   - `area_source_breakdown.png`
   - `automation_coverage_trend.png`
+
+## Portable governance review ledger
+
+Portable-governance effectiveness also needs adjudicated finding data, not only
+command audit events.
+
+Use these surfaces together:
+
+- Schema: `dev/config/templates/portable_governance_finding_review.schema.json`
+- Command: `python3 dev/scripts/devctl.py governance-review --format md`
+- Log path: `dev/reports/governance/finding_reviews.jsonl`
+- Summary artifacts: `dev/reports/governance/latest/review_summary.{md,json}`
+
+That ledger captures:
+
+- `false_positive` findings
+- `confirmed_issue` findings
+- `fixed` findings
+- `deferred` or `waived` debt
+
+`python3 dev/scripts/devctl.py data-science --format md` rolls those rows into
+the main telemetry snapshot so false-positive rate and cleanup progress stay
+visible while the repo keeps using the guards/probes to clean up code.

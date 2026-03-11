@@ -20,9 +20,9 @@ mod capture_once;
 mod cli_utils;
 mod color_mode;
 mod config;
-mod daemon;
 mod custom_help;
 mod cycle_index;
+mod daemon;
 mod dev_command;
 mod dev_panel;
 mod event_loop;
@@ -191,15 +191,27 @@ fn default_session_memory_path(working_dir: &str) -> PathBuf {
 fn validate_dev_mode_flags(config: &OverlayConfig) -> Result<()> {
     if !config.dev_mode {
         if config.dev_log {
-            bail!("--dev-log requires --dev");
+            bail!(
+                "--dev-log requires --dev (got dev_mode={}, dev_log={})",
+                config.dev_mode,
+                config.dev_log
+            );
         }
         if config.dev_path.is_some() {
-            bail!("--dev-path requires --dev");
+            bail!(
+                "--dev-path requires --dev (got dev_mode={}, dev_path={:?})",
+                config.dev_mode,
+                config.dev_path
+            );
         }
     }
 
     if config.dev_path.is_some() && !config.dev_log {
-        bail!("--dev-path requires --dev-log");
+        bail!(
+            "--dev-path requires --dev-log (got dev_log={}, dev_path={:?})",
+            config.dev_log,
+            config.dev_path
+        );
     }
     Ok(())
 }
@@ -264,7 +276,11 @@ fn run_daemon_mode(config: &config::OverlayConfig) -> Result<()> {
     init_logging(&config.app);
     let working_dir = env::var("VOICETERM_CWD")
         .ok()
-        .or_else(|| env::current_dir().ok().map(|d| d.to_string_lossy().to_string()))
+        .or_else(|| {
+            env::current_dir()
+                .ok()
+                .map(|d| d.to_string_lossy().to_string())
+        })
         .unwrap_or_else(|| ".".to_string());
 
     let daemon_config = daemon::DaemonConfig {
@@ -326,13 +342,13 @@ fn load_config_phase() -> Result<Option<LoadedConfigPhase>> {
     let sound_on_complete = resolve_sound_flag(config.app.sounds, config.app.sound_on_complete);
     let sound_on_error = resolve_sound_flag(config.app.sounds, config.app.sound_on_error);
     let resolved_backend = config.resolve_backend();
+    runtime_compat::set_runtime_backend_label(resolved_backend.label.as_str());
     let backend = BackendLaunchConfig {
-        label: resolved_backend.label.clone(),
+        label: resolved_backend.label,
         command: resolved_backend.command,
         args: resolved_backend.args,
         prompt_pattern: resolved_backend.prompt_pattern,
     };
-    runtime_compat::set_runtime_backend_label(backend.label.clone());
     let theme = style_pack_theme_lock().unwrap_or_else(|| config.theme_for_backend(&backend.label));
 
     if config.app.doctor {

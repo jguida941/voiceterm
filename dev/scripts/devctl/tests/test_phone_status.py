@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from dev.scripts.devctl.cli import build_parser
+from dev.scripts.devctl import phone_status_views
 from dev.scripts.devctl.commands import phone_status
 
 
@@ -25,6 +26,55 @@ def make_args(**overrides) -> SimpleNamespace:
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
+
+
+def _sample_payload() -> dict[str, object]:
+    return {
+        "command": "autonomy-phone-status",
+        "phase": "paused",
+        "reason": "max_tasks_reached",
+        "controller": {
+            "plan_id": "mp340",
+            "controller_run_id": "abc123",
+            "branch_base": "develop",
+            "mode_effective": "report-only",
+            "resolved": False,
+            "rounds_completed": 2,
+            "max_rounds": 6,
+            "tasks_completed": 4,
+            "max_tasks": 4,
+            "latest_working_branch": "feature/autoloop-r2",
+        },
+        "loop": {
+            "unresolved_count": 3,
+            "risk": "high",
+            "next_actions": ["Run report-only", "Escalate to review"],
+        },
+        "terminal": {
+            "trace": ["attempt=1", "attempt=2"],
+            "draft_text": "patch candidate",
+            "auto_send": False,
+        },
+        "source_run": {
+            "run_id": 111,
+            "run_sha": "deadbeef",
+            "run_url": "https://example.invalid/runs/111",
+        },
+        "ralph": {
+            "available": True,
+            "phase": "triage",
+            "attempt": 1,
+            "max_attempts": 3,
+            "fix_rate_pct": 66.7,
+            "fixed_count": 2,
+            "total_findings": 3,
+            "unresolved_count": 1,
+            "branch": "develop",
+            "last_run": "2026-03-11T12:00:00Z",
+        },
+        "warnings": [],
+        "errors": [],
+    }
 
 
 class PhoneStatusParserTests(unittest.TestCase):
@@ -52,51 +102,47 @@ class PhoneStatusParserTests(unittest.TestCase):
 
 
 class PhoneStatusCommandTests(unittest.TestCase):
+    def test_view_payload_falls_back_to_compact_projection(self) -> None:
+        payload = _sample_payload()
+
+        projection = phone_status_views.view_payload(payload, "unexpected-view")
+
+        self.assertEqual(projection["view"], "compact")
+        self.assertEqual(projection["plan_id"], "mp340")
+        self.assertEqual(projection["ralph_phase"], "triage")
+        self.assertEqual(
+            projection["next_actions"],
+            ["Run report-only", "Escalate to review"],
+        )
+
+    def test_render_report_markdown_renders_trace_projection(self) -> None:
+        payload = _sample_payload()
+        report = {
+            "ok": True,
+            "input_path": "/tmp/phone.json",
+            "view": "trace",
+            "timestamp": "2026-03-11T12:00:00Z",
+            "projection_dir": None,
+            "warnings": [],
+            "errors": [],
+            "ralph": payload["ralph"],
+            "view_payload": phone_status_views.view_payload(payload, "trace"),
+        }
+
+        output = phone_status_views.render_report_markdown(report)
+
+        self.assertIn("## Trace View", output)
+        self.assertIn("- controller_run_id: abc123", output)
+        self.assertIn("- attempt=1", output)
+        self.assertIn("patch candidate", output)
+
     def test_command_writes_projection_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             input_json = root / "latest.json"
             output_json = root / "report.json"
             projection_dir = root / "controller-state"
-            input_json.write_text(
-                json.dumps(
-                    {
-                        "command": "autonomy-phone-status",
-                        "phase": "paused",
-                        "reason": "max_tasks_reached",
-                        "controller": {
-                            "plan_id": "mp340",
-                            "controller_run_id": "abc123",
-                            "branch_base": "develop",
-                            "mode_effective": "report-only",
-                            "resolved": False,
-                            "rounds_completed": 2,
-                            "max_rounds": 6,
-                            "tasks_completed": 4,
-                            "max_tasks": 4,
-                            "latest_working_branch": "feature/autoloop-r2",
-                        },
-                        "loop": {
-                            "unresolved_count": 3,
-                            "risk": "high",
-                            "next_actions": ["Run report-only", "Escalate to review"],
-                        },
-                        "terminal": {
-                            "trace": ["attempt=1", "attempt=2"],
-                            "draft_text": "patch candidate",
-                            "auto_send": False,
-                        },
-                        "source_run": {
-                            "run_id": 111,
-                            "run_sha": "deadbeef",
-                            "run_url": "https://example.invalid/runs/111",
-                        },
-                        "warnings": [],
-                        "errors": [],
-                    }
-                ),
-                encoding="utf-8",
-            )
+            input_json.write_text(json.dumps(_sample_payload()), encoding="utf-8")
 
             args = make_args(
                 phone_json=str(input_json),

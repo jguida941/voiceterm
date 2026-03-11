@@ -6,6 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+try:
+    from check_bootstrap import resolve_guard_config
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.check_bootstrap import resolve_guard_config
+
 
 @dataclass(frozen=True)
 class NamespaceFamilyRule:
@@ -26,42 +31,77 @@ class NamespaceDocsSyncRule:
     required_token: str
 
 
-NAMESPACE_FAMILY_RULES: tuple[NamespaceFamilyRule, ...] = (
-    NamespaceFamilyRule(
-        root=Path("dev/scripts/devctl"),
-        flat_prefix="review_channel_",
-        namespace_subdir="review_channel",
-        min_family_size=8,
-    ),
-    NamespaceFamilyRule(
-        root=Path("app/operator_console/views"),
-        flat_prefix="ui_",
-        namespace_subdir="actions",
-        min_family_size=6,
-    ),
-)
+def _coerce_path(value: object) -> Path | None:
+    text = str(value or "").strip()
+    return Path(text) if text else None
 
-NAMESPACE_DOCS_SYNC_RULES: tuple[NamespaceDocsSyncRule, ...] = (
-    NamespaceDocsSyncRule(
-        namespace_root=Path("dev/scripts/devctl/review_channel"),
-        required_docs=(
-            Path("AGENTS.md"),
-            Path("dev/scripts/README.md"),
-            Path("dev/guides/DEVELOPMENT.md"),
-            Path("dev/active/MASTER_PLAN.md"),
-        ),
-        required_token="dev/scripts/devctl/review_channel",
-    ),
-    NamespaceDocsSyncRule(
-        namespace_root=Path("app/operator_console/views/actions"),
-        required_docs=(
-            Path("app/operator_console/README.md"),
-            Path("app/operator_console/views/README.md"),
-            Path("dev/active/operator_console.md"),
-        ),
-        required_token="app/operator_console/views/actions",
-    ),
-)
+
+def _load_namespace_family_rules(config: object) -> tuple[NamespaceFamilyRule, ...]:
+    if not isinstance(config, list):
+        return ()
+    rules: list[NamespaceFamilyRule] = []
+    for item in config:
+        if not isinstance(item, dict):
+            continue
+        root = _coerce_path(item.get("root"))
+        flat_prefix = str(item.get("flat_prefix") or "").strip()
+        namespace_subdir = str(item.get("namespace_subdir") or "").strip()
+        try:
+            min_family_size = int(item.get("min_family_size"))
+        except (TypeError, ValueError):
+            continue
+        if root is None or not flat_prefix or not namespace_subdir or min_family_size < 1:
+            continue
+        rules.append(
+            NamespaceFamilyRule(
+                root=root,
+                flat_prefix=flat_prefix,
+                namespace_subdir=namespace_subdir,
+                min_family_size=min_family_size,
+            )
+        )
+    return tuple(rules)
+
+
+def _load_namespace_docs_sync_rules(config: object) -> tuple[NamespaceDocsSyncRule, ...]:
+    if not isinstance(config, list):
+        return ()
+    rules: list[NamespaceDocsSyncRule] = []
+    for item in config:
+        if not isinstance(item, dict):
+            continue
+        namespace_root = _coerce_path(item.get("namespace_root"))
+        required_token = str(item.get("required_token") or "").strip()
+        raw_docs = item.get("required_docs")
+        if not isinstance(raw_docs, list):
+            continue
+        required_docs = tuple(
+            doc_path
+            for raw_doc in raw_docs
+            for doc_path in (_coerce_path(raw_doc),)
+            if doc_path is not None
+        )
+        if namespace_root is None or not required_token or not required_docs:
+            continue
+        rules.append(
+            NamespaceDocsSyncRule(
+                namespace_root=namespace_root,
+                required_docs=required_docs,
+                required_token=required_token,
+            )
+        )
+    return tuple(rules)
+
+
+def _resolved_layout_rules(
+    repo_root: Path,
+) -> tuple[tuple[NamespaceFamilyRule, ...], tuple[NamespaceDocsSyncRule, ...]]:
+    config = resolve_guard_config("code_shape", repo_root=repo_root)
+    family_rules = _load_namespace_family_rules(config.get("namespace_family_rules"))
+    docs_sync_rules = _load_namespace_docs_sync_rules(
+        config.get("namespace_docs_sync_rules")
+    )
+    return family_rules, docs_sync_rules
 
 
 def collect_namespace_layout_violations(
@@ -70,13 +110,17 @@ def collect_namespace_layout_violations(
     changed_paths: list[Path],
     read_text_from_ref: Callable[[Path, str], str | None],
     since_ref: str | None,
+    family_rules: tuple[NamespaceFamilyRule, ...] | None = None,
 ) -> tuple[list[dict], int]:
     """Return non-regressive namespace-layout violations for changed paths."""
     base_ref = since_ref or "HEAD"
     violations: list[dict] = []
     candidates_scanned = 0
+    active_family_rules = family_rules
+    if active_family_rules is None:
+        active_family_rules, _docs_sync_rules = _resolved_layout_rules(repo_root)
 
-    for rule in NAMESPACE_FAMILY_RULES:
+    for rule in active_family_rules:
         root_abs = repo_root / rule.root
         if not root_abs.is_dir():
             continue
@@ -96,7 +140,10 @@ def collect_namespace_layout_violations(
                 continue
             if not relative.name.startswith(rule.flat_prefix):
                 continue
-            if _is_backward_compat_shim(repo_root / relative):
+            if _is_backward_compat_shim(
+                repo_root / relative,
+                namespace_subdir=rule.namespace_subdir,
+            ):
                 continue
             candidates_scanned += 1
             if read_text_from_ref(relative, base_ref) is not None:
@@ -138,12 +185,16 @@ def collect_namespace_docs_sync_violations(
     read_text_from_ref: Callable[[Path, str], str | None],
     read_text_from_worktree: Callable[[Path], str | None],
     since_ref: str | None,
+    docs_sync_rules: tuple[NamespaceDocsSyncRule, ...] | None = None,
 ) -> tuple[list[dict], int]:
     """Require docs-token coverage when new namespace-root files are added."""
     base_ref = since_ref or "HEAD"
     violations: list[dict] = []
     candidates_scanned = 0
     checked_roots: set[Path] = set()
+    active_docs_sync_rules = docs_sync_rules
+    if active_docs_sync_rules is None:
+        _family_rules, active_docs_sync_rules = _resolved_layout_rules(repo_root)
 
     for changed_path in changed_paths:
         relative = (
@@ -156,7 +207,7 @@ def collect_namespace_docs_sync_violations(
         if read_text_from_ref(relative, base_ref) is not None:
             continue
 
-        for rule in NAMESPACE_DOCS_SYNC_RULES:
+        for rule in active_docs_sync_rules:
             if not _is_under_root(relative, rule.namespace_root):
                 continue
             if rule.namespace_root in checked_roots:
@@ -218,7 +269,7 @@ def _docs_contain_token(
     return any(token in (read_text_from_worktree(doc) or "") for doc in docs)
 
 
-def _is_backward_compat_shim(path: Path) -> bool:
+def _is_backward_compat_shim(path: Path, *, namespace_subdir: str) -> bool:
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
@@ -227,4 +278,4 @@ def _is_backward_compat_shim(path: Path) -> bool:
     if len(stripped) > 3:
         return False
     joined = " ".join(stripped)
-    return "Backward-compat shim" in joined and "from .review_channel." in joined
+    return "Backward-compat shim" in joined and f"from .{namespace_subdir}." in joined

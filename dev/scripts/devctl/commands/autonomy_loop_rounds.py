@@ -17,6 +17,7 @@ from ..autonomy.loop_helpers import (
     utc_now,
 )
 from ..autonomy.phone_status import build_phone_status, render_phone_status_markdown
+from ..watchdog.probe_gate import run_probe_scan
 from . import loop_packet as loop_packet_command
 from . import triage_loop as triage_loop_command
 from .autonomy_loop_support import write_round_phone_status
@@ -128,6 +129,13 @@ def run_controller_rounds(
             trace_lines=args.terminal_trace_lines,
             packet_source_refs=[str(triage_json_path), str(loop_packet_json_path)],
         )
+        # Run probe quality scan after each round's triage completes.
+        try:
+            probe_result = run_probe_scan(timeout_seconds=120)
+            checkpoint_packet["probe_scan"] = probe_result.to_dict()
+        except Exception:  # broad-except: allow reason=probe scan must fail open fallback=omit probe scan from checkpoint packet
+            checkpoint_packet["probe_scan"] = None
+
         packet_id = str(
             checkpoint_packet.get("idempotency_key") or f"r{round_index:03d}"
         )
@@ -197,6 +205,7 @@ def run_controller_rounds(
                 "packet_path": str(checkpoint_path),
                 "phone_status_json": str(round_phone_json),
                 "requires_approval": bool(checkpoint_packet.get("requires_approval")),
+                "probe_scan": checkpoint_packet.get("probe_scan"),
             }
         )
         tasks_completed += 1

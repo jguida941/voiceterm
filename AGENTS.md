@@ -24,6 +24,17 @@ Direct post-edit enforcement link:
 - After every file create/edit, follow
   `dev/guides/DEVELOPMENT.md#after-file-edits` before handoff.
 
+Release-governance note:
+- When preparing a release, treat `bundle.release` as the blocking source of
+  truth and make sure maintainer docs (`AGENTS.md`,
+  `dev/guides/DEVELOPMENT.md`, `dev/active/MASTER_PLAN.md`,
+  `dev/history/ENGINEERING_EVOLUTION.md`) plus canonical user docs
+  (`README.md`, `QUICK_START.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`,
+  `guides/INSTALL.md`, `guides/TROUBLESHOOTING.md`) reflect the shipped
+  behavior. Recent control-plane/mobile changes also require the
+  `check_mobile_relay_protocol.py` guard to stay green in runtime and release
+  bundles.
+
 ## Source-of-truth map
 
 | Question | Canonical source |
@@ -41,6 +52,7 @@ Direct post-edit enforcement link:
 | Where is the optional VoiceTerm Operator Console plan? | `dev/active/operator_console.md` |
 | Where is the Ralph guardrail remediation/control-plane plan? | `dev/active/ralph_guardrail_control_plane.md` |
 | Where is the heuristic review-probe execution plan? | `dev/active/review_probes.md` |
+| Where is the portable code-governance engine / multi-repo portability and measurement plan? | `dev/active/portable_code_governance.md` |
 | Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
 | Where is the completed Rust workspace path/layout migration record? | `dev/archive/2026-03-07-rust-workspace-layout-migration.md` |
 | Where is the naming/API cohesion execution plan? | `dev/active/naming_api_cohesion.md` |
@@ -57,6 +69,8 @@ Direct post-edit enforcement link:
 | Where are `devctl` command semantics and examples? | `dev/scripts/README.md` |
 | Where is the devctl automation playbook? | `dev/guides/DEVCTL_AUTOGUIDE.md` |
 | Where is MCP-to-devctl architecture alignment and extension policy? | `dev/guides/MCP_DEVCTL_ALIGNMENT.md` |
+| Where is the portable-governance engine boundary, export flow, and benchmark/evaluation guide? | `dev/guides/PORTABLE_CODE_GOVERNANCE.md` |
+| Where is repo-local / portable guard-probe policy? | `dev/config/devctl_repo_policy.json`, `dev/config/quality_presets/`, and the `dev/scripts/devctl/quality_policy*.py` resolver stack |
 | Where is the remediation scaffold template used by guard-driven Rust audits? | `dev/config/templates/rust_audit_findings_template.md` |
 | What user behavior is current? | `guides/USAGE.md`, `guides/CLI_FLAGS.md` |
 | What flags are actually supported? | `rust/src/bin/voiceterm/config/cli.rs`, `rust/src/config/mod.rs` |
@@ -170,7 +184,10 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
 3. Stay guarded: do not invent behavior, do not skip required checks.
 4. After any file create/edit, run the applicable repo guard/check scripts
    before handoff; do not leave changed files unvalidated. Follow
-   `dev/guides/DEVELOPMENT.md#after-file-edits`.
+   `dev/guides/DEVELOPMENT.md#after-file-edits`. After complex edits
+   (new modules, multi-file refactors, or business-logic changes), also run
+   the review probe suite to catch design-quality regressions early:
+   `python3 dev/scripts/devctl.py check --profile ci` (includes probes).
 5. Keep changes scoped: ignore unrelated diffs unless user asks.
 
 ## Prerequisites
@@ -256,6 +273,138 @@ For non-trivial Rust runtime/tooling changes, contributors must:
    (`broad-except: allow reason=...`) instead of silent fail-soft behavior.
 8. Record references consulted in handoff for non-trivial Rust changes.
 
+## Review probe suite — AI design-quality enforcement (required)
+
+Review probes are heuristic scanners that detect design-quality regressions
+commonly produced by AI agents. Unlike hard guards (exit 0/1), probes always
+exit 0 and emit structured `risk_hints` in JSON format. They are the
+**second layer** of quality enforcement:
+
+| Layer | Purpose | Exit behavior | Registration |
+|---|---|---|---|
+| **A — Hard guards** | Block regressions | exit 1 on violation | `quality_policy.py` built-in guard registry + `dev/config/devctl_repo_policy.json` enablement |
+| **B — Review probes** | Surface design smells | always exit 0 | `quality_policy.py` built-in probe registry + `dev/config/devctl_repo_policy.json` enablement |
+| **C — AI investigative review** | Deep contextual analysis | advisory | manual / future |
+
+### Active probes
+
+| Probe | Detects | Python | Rust |
+|---|---|---|---|
+| `probe_concurrency` | Nested lock acquisition, mutex+spawn without Arc, relaxed atomics with multi-flag, poison recovery | — | yes |
+| `probe_design_smells` | Excessive `getattr()` density, untyped `object` params with attribute access, format helper sprawl | yes | — |
+| `probe_boolean_params` | Functions with 3+ boolean parameters (unreadable call sites) | yes | yes |
+| `probe_stringly_typed` | String-literal dispatch chains that should be enums | yes | yes |
+| `probe_unwrap_chains` | `.unwrap()`/`.expect()` chains in production code (should use `?` operator) | — | yes |
+| `probe_clone_density` | Excessive `.clone()` calls suggesting ownership confusion (Arc::clone excluded) | — | yes |
+| `probe_type_conversions` | Redundant type conversion chains (`.as_str().to_string()` round-trips) | — | yes |
+| `probe_magic_numbers` | Unnamed numeric literals in slice operations that should be named constants | yes | — |
+| `probe_dict_as_struct` | Functions returning dicts with 5+ keys that should be dataclasses/TypedDict | yes | — |
+| `probe_unnecessary_intermediates` | Assign-then-return patterns with generic variable names (`result`, `ret`, `output`) | yes | — |
+| `probe_vague_errors` | `bail!()`/`anyhow!()` error messages without runtime context variables | — | yes |
+| `probe_defensive_overchecking` | 3+ consecutive `isinstance()` checks on the same variable | yes | — |
+| `probe_single_use_helpers` | Private functions (`_name`) called only once in the file (indirection without reuse) | yes | — |
+| `probe_exception_quality` | Suppressive broad handlers and generic exception translation without runtime context | yes | — |
+
+### When agents must run probes
+
+Run probes after **any** of these events:
+1. Creating a new module or file with business logic.
+2. Refactoring or restructuring existing code (module splits, API changes).
+3. Adding new function signatures with 3+ parameters.
+4. Introducing string-based dispatch (`match`, `if/elif` chains on strings).
+5. Writing concurrent/async code with shared mutable state.
+
+Quick command: `python3 dev/scripts/devctl.py check --profile ci` runs all
+hard guards **and** review probes. `python3 dev/scripts/devctl.py probe-report --format md`
+is the canonical aggregated probe surface when an agent needs ranked cleanup
+order, topology context, or a self-contained handoff packet. It refreshes
+`review_targets.json`, `file_topology.json`, `review_packet.{json,md}`, and
+hotspot `hotspots.{mmd,dot}` artifacts under `dev/reports/probes/latest/`.
+For probes only:
+```bash
+# Canonical aggregated probe packet:
+python3 dev/scripts/devctl.py probe-report --format md
+python3 dev/scripts/devctl.py probe-report --format terminal
+
+# Direct script entrypoint (fallback):
+python3 dev/scripts/checks/run_probe_report.py --format md
+python3 dev/scripts/checks/run_probe_report.py --format terminal
+
+# Individual probes:
+python3 dev/scripts/checks/probe_concurrency.py
+python3 dev/scripts/checks/probe_design_smells.py
+python3 dev/scripts/checks/probe_boolean_params.py
+python3 dev/scripts/checks/probe_stringly_typed.py
+python3 dev/scripts/checks/probe_unwrap_chains.py
+python3 dev/scripts/checks/probe_clone_density.py
+python3 dev/scripts/checks/probe_type_conversions.py
+python3 dev/scripts/checks/probe_magic_numbers.py
+python3 dev/scripts/checks/probe_dict_as_struct.py
+python3 dev/scripts/checks/probe_unnecessary_intermediates.py
+python3 dev/scripts/checks/probe_vague_errors.py
+python3 dev/scripts/checks/probe_defensive_overchecking.py
+python3 dev/scripts/checks/probe_single_use_helpers.py
+python3 dev/scripts/checks/probe_exception_quality.py
+```
+
+Default AI operating rule:
+- Run `python3 dev/scripts/devctl.py check --profile ci` after those changes.
+- Run `python3 dev/scripts/devctl.py probe-report --format md` when the change
+  needs prioritization, human handoff, or AI follow-up packets.
+- Use `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...`
+  for raw Rust tests / test binaries so post-run hygiene is enforced
+  automatically.
+
+### Acting on probe findings
+
+When a probe emits risk hints, agents MUST:
+1. Read the `ai_instruction` field — it contains targeted remediation guidance.
+2. Fix `high` severity hints before handoff (these are unambiguous smells).
+3. Document `medium` severity hints in handoff notes if not fixed immediately.
+4. Record adjudicated probe/guard outcomes with
+   `python3 dev/scripts/devctl.py governance-review --record ...` when a hint
+   is confirmed, fixed, deferred, waived, or judged false-positive so the repo
+   maintains a durable finding-quality ledger.
+5. Never suppress probe output — probes are advisory but findings are real.
+
+### Adding new probes
+
+New probes must follow the established pattern:
+1. Create `dev/scripts/checks/probe_<name>.py` using `probe_bootstrap.py`.
+2. Register in `script_catalog.py::PROBE_SCRIPT_FILES`.
+3. Register built-in probe metadata in `dev/scripts/devctl/quality_policy_defaults.py` and enable it in the relevant preset/policy file (`dev/config/quality_presets/*.json`, `dev/config/devctl_repo_policy.json`) when this repo should run it by default.
+4. Include per-signal `AI_INSTRUCTIONS` dict for targeted remediation.
+5. Always exit 0 — probes emit hints, never block CI.
+6. Skip test files (`_is_test_path`) — test code has different design rules.
+
+Portable policy note:
+- Built-in guard/probe capability metadata now lives in
+  `dev/scripts/devctl/quality_policy_defaults.py`, with resolution/inheritance
+  handled by the rest of the `quality_policy*.py` stack.
+- Built-in portable presets now live in `dev/config/quality_presets/*.json`.
+- Repo-local enablement/default arguments live in
+  `dev/config/devctl_repo_policy.json`.
+- Use `python3 dev/scripts/devctl.py quality-policy --format md` to inspect the
+  resolved active guard/probe set, scopes, and warnings before reusing the
+  engine somewhere else.
+- Use `python3 dev/scripts/devctl.py governance-export --format md` when the
+  whole governance stack, latest reports, and policy/templates need to be
+  handed to another repo or model outside this checkout.
+- Use `python3 dev/scripts/devctl.py governance-review --format md` to inspect
+  the current adjudicated finding ledger, and `--record` to append one reviewed
+  guard/probe outcome before the summary is regenerated.
+- Use `python3 dev/scripts/devctl.py governance-bootstrap --target-repo <path> --format md`
+  before first-run pilots against copied repos or submodule snapshots that may
+  carry broken `.git` indirection.
+- `check`, `probe-report`, and `governance-export` accept `--adoption-scan`
+  for full current-worktree onboarding scans when a repo has no trustworthy
+  baseline yet.
+- `check`, `probe-report`, `status --probe-report`, `report --probe-report`,
+  and `triage --probe-report` accept `--quality-policy <path>`, and
+  `DEVCTL_QUALITY_POLICY` provides the same override through the environment.
+- To reuse this system in another repo, prefer swapping the repo-policy file
+  over editing `check` or `probe-report` orchestration code.
+
 ## Cross-architecture quality enforcement (required)
 
 All quality guard tooling MUST align across the three codebase architectures.
@@ -291,8 +440,8 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
 - Policy-gated via `control_plane_policy.json` allowlist
 
 **Cross-architecture guard alignment rules:**
-1. Every new guard script MUST be registered in `check_support.py::AI_GUARD_CHECKS`.
-2. Every guard in `AI_GUARD_CHECKS` MUST have a step in `tooling_control_plane.yml`.
+1. Every new guard script MUST be registered in `dev/scripts/devctl/quality_policy.py` and enabled in `dev/config/devctl_repo_policy.json` when this repo should run it by default.
+2. Every repo-enabled AI guard MUST have a step in `tooling_control_plane.yml`.
 3. Guard output format MUST support `--since-ref`/`--head-ref` for growth-based gating.
 4. The Ralph AI fix wrapper MUST run architecture-specific validation after fixes.
 5. No architecture may bypass the Ralph loop — all CodeRabbit findings across Rust,
@@ -480,6 +629,9 @@ python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
 python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_python_design_complexity.py
+python3 dev/scripts/checks/check_python_cyclic_imports.py
+python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
@@ -515,6 +667,9 @@ python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
 python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_python_design_complexity.py
+python3 dev/scripts/checks/check_python_cyclic_imports.py
+python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
@@ -560,6 +715,9 @@ python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
 python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_python_design_complexity.py
+python3 dev/scripts/checks/check_python_cyclic_imports.py
+python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
@@ -612,6 +770,9 @@ python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
 python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_python_design_complexity.py
+python3 dev/scripts/checks/check_python_cyclic_imports.py
+python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
@@ -654,6 +815,9 @@ python3 dev/scripts/checks/check_nesting_depth.py --since-ref origin/develop
 python3 dev/scripts/checks/check_parameter_count.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_dict_schema.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_global_mutable.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_design_complexity.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_cyclic_imports.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_suppression_debt.py --since-ref origin/develop
 python3 dev/scripts/checks/check_structural_similarity.py --since-ref origin/develop
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
@@ -1002,7 +1166,11 @@ Core commands:
 - `orchestrate-status` (single-view orchestrator summary for active-plan sync + multi-agent coordination guard state)
 - `orchestrate-watch` (SLA watchdog for stale agent updates and overdue instruction ACKs)
 - `report` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
-- `data-science` (builds one rolling telemetry snapshot from devctl audit events plus autonomy swarm/benchmark history, emits `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/`, and supports source/output overrides for experiments; devctl also auto-refreshes this snapshot after each command unless `DEVCTL_DATA_SCIENCE_DISABLE=1`)
+- `data-science` (builds one rolling telemetry snapshot from devctl audit events plus autonomy swarm/benchmark history, folds in governance-review false-positive/cleanup metrics, emits `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/`, and supports source/output overrides for experiments; devctl also auto-refreshes this snapshot after each command unless `DEVCTL_DATA_SCIENCE_DISABLE=1`)
+- `governance-review` (records adjudicated guard/probe findings to
+  `dev/reports/governance/finding_reviews.jsonl`, writes
+  `dev/reports/governance/latest/review_summary.{md,json}`, and gives the repo
+  a durable false-positive / cleanup-rate ledger)
 - `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing; report timestamps are UTC)
 - `triage-loop` (bounded CodeRabbit medium/high loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; fix execution is policy-gated via `AUTONOMY_MODE`, branch allowlist, and command-prefix allowlist; emits md/json bundles and optional MASTER_PLAN proposal artifacts, with review-escalation comment upserts when attempts exhaust unresolved backlog)
 - `loop-packet` (builds a guarded terminal feedback packet from triage/loop JSON sources for dev-mode draft injection with freshness/risk/auto-send-eligibility gates)
@@ -1044,6 +1212,7 @@ Core commands:
 | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | tooling/process/CI changed | enforces governance and active-plan sync |
 | `python3 dev/scripts/devctl.py publication-sync --format md` | external paper/site content depends on repo evidence and you need drift visibility | reports watched-path changes since the last recorded sync and shows how to record a new baseline after publish |
 | `python3 dev/scripts/devctl.py data-science --format md` | you want one fresh telemetry + agent-sizing snapshot | summarizes command productivity, success/latency stats, and recommended swarm size from historical runs |
+| `python3 dev/scripts/devctl.py governance-review --format md` | you want the current false-positive / cleanup scoreboard for adjudicated guard and probe findings | reads the governance review JSONL log, rolls up latest verdicts per finding, and writes refreshed `review_summary.{md,json}` artifacts |
 | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` | you want current federated source pins (`code-link-ide`, `ci-cd-hub`) before import/sync work | gives auditable source SHA + status visibility in one command |
 | `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | you want to import reusable upstream surfaces safely | shows allowlisted source/profile mappings before any file writes |
 | `python3 dev/scripts/devctl.py triage-loop --branch develop --mode plan-then-fix --max-attempts 3 --format md` | you want bounded CodeRabbit remediation automation with artifacts | runs report/fix loop under policy gates, writes actionable loop evidence, and can auto-publish review escalation comments when retries exhaust |

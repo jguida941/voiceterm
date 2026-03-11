@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl import collect
+from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
 from dev.scripts.devctl.commands import docs_check
 
 
@@ -65,6 +66,31 @@ class CollectGitStatusTests(unittest.TestCase):
         self.assertEqual(
             mock_check_output.call_args_list[1].args[0],
             ["git", "diff", "--name-status", "HEAD~1...HEAD"],
+        )
+
+    @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/git")
+    @patch("dev.scripts.devctl.collect.subprocess.check_output")
+    def test_collect_git_status_supports_adoption_scan(
+        self, mock_check_output, _mock_git
+    ) -> None:
+        mock_check_output.side_effect = [
+            "HEAD\n",
+            "README.md\ndev/scripts/devctl.py\n",
+            "scratch.py\n",
+        ]
+
+        report = collect.collect_git_status(ADOPTION_BASE_REF, WORKTREE_HEAD_REF)
+
+        self.assertEqual(report["mode"], "adoption-scan")
+        self.assertIsNone(report["since_ref"])
+        self.assertIsNone(report["head_ref"])
+        self.assertEqual(
+            report["changes"],
+            [
+                {"status": "A", "path": "README.md"},
+                {"status": "A", "path": "dev/scripts/devctl.py"},
+                {"status": "??", "path": "scratch.py"},
+            ],
         )
 
 

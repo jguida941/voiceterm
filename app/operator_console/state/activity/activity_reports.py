@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..core.models import AgentLaneData, OperatorConsoleSnapshot
+from .watchdog_report import build_watchdog_report_content
+from ..core.models import AgentLaneData, OperatorConsoleSnapshot, QualityPrioritySignal
 from ..core.readability import audience_mode_label, resolve_audience_mode
 
 
@@ -28,6 +29,9 @@ class ActivityReport:
     provenance: tuple[str, ...]
 
 
+SIMPLE_MODE_MAX_ITEMS = 3
+"""Maximum items shown per section in simple audience mode reports."""
+
 REPORT_OPTIONS: tuple[ReportOption, ...] = (
     ReportOption("overview", "Overview", "Top-level system summary and next step."),
     ReportOption("blockers", "Blockers", "Warnings, approvals, and stale lanes."),
@@ -37,6 +41,7 @@ REPORT_OPTIONS: tuple[ReportOption, ...] = (
     ReportOption("operator", "Operator", "Operator lane, scope, and approvals."),
     ReportOption("approvals", "Approvals", "Pending approval queue and decisions needed."),
     ReportOption("quality", "Quality Backlog", "Prioritized code quality hotspots and guard findings."),
+    ReportOption("watchdog", "Watchdog", "Guarded-coding episode metrics and provider coverage."),
     ReportOption("guardrails", "Guardrails", "Ralph loop status, fix rate, and guard health."),
 )
 
@@ -65,25 +70,27 @@ def build_activity_report(
     resolved_audience = resolve_audience_mode(audience_mode)
     option = resolve_report_option(report_id)
     if option.report_id == "blockers":
-        return _build_blockers_report(snapshot, resolved_audience)
+        return build_blockers_report(snapshot, resolved_audience)
     if option.report_id == "codex":
-        return _build_lane_report(snapshot, snapshot.codex_lane, option, resolved_audience)
+        return build_lane_report(snapshot, snapshot.codex_lane, option, resolved_audience)
     if option.report_id == "claude":
-        return _build_lane_report(snapshot, snapshot.claude_lane, option, resolved_audience)
+        return build_lane_report(snapshot, snapshot.claude_lane, option, resolved_audience)
     if option.report_id == "cursor":
-        return _build_lane_report(snapshot, snapshot.cursor_lane, option, resolved_audience)
+        return build_lane_report(snapshot, snapshot.cursor_lane, option, resolved_audience)
     if option.report_id == "operator":
-        return _build_lane_report(snapshot, snapshot.operator_lane, option, resolved_audience)
+        return build_lane_report(snapshot, snapshot.operator_lane, option, resolved_audience)
     if option.report_id == "approvals":
-        return _build_approvals_report(snapshot, resolved_audience)
+        return build_approvals_report(snapshot, resolved_audience)
     if option.report_id == "quality":
-        return _build_quality_report(snapshot, resolved_audience)
+        return build_quality_report(snapshot, resolved_audience)
+    if option.report_id == "watchdog":
+        return build_watchdog_report(snapshot, resolved_audience)
     if option.report_id == "guardrails":
-        return _build_guardrails_report(snapshot, resolved_audience)
-    return _build_overview_report(snapshot, resolved_audience)
+        return build_guardrails_report(snapshot, resolved_audience)
+    return build_overview_report(snapshot, resolved_audience)
 
 
-def _build_overview_report(snapshot: OperatorConsoleSnapshot, audience_mode: str) -> ActivityReport:
+def build_overview_report(snapshot: OperatorConsoleSnapshot, audience_mode: str) -> ActivityReport:
     if audience_mode == "technical":
         lines = [
             _headline(snapshot),
@@ -134,7 +141,7 @@ def _build_overview_report(snapshot: OperatorConsoleSnapshot, audience_mode: str
                     "Watch-outs:",
                 ]
             )
-            lines.extend(f"- {line}" for line in attention[:3])
+            lines.extend(f"- {line}" for line in attention[:SIMPLE_MODE_MAX_ITEMS])
         lines.extend(
             [
                 "",
@@ -153,7 +160,7 @@ def _build_overview_report(snapshot: OperatorConsoleSnapshot, audience_mode: str
     )
 
 
-def _build_blockers_report(snapshot: OperatorConsoleSnapshot, audience_mode: str) -> ActivityReport:
+def build_blockers_report(snapshot: OperatorConsoleSnapshot, audience_mode: str) -> ActivityReport:
     lines = [
         (
             "This report focuses only on blockers, warnings, and items that can stop progress."
@@ -180,13 +187,13 @@ def _build_blockers_report(snapshot: OperatorConsoleSnapshot, audience_mode: str
     return ActivityReport(
         report_id="blockers",
         title="Blockers Report",
-        summary=_blocker_summary(snapshot),
+        summary=attention[0] if attention else "No blocking signals are visible right now.",
         body="\n".join(lines),
         provenance=_report_provenance(snapshot, "Script-derived blocker summary from warnings, approvals, and lane health."),
     )
 
 
-def _build_lane_report(
+def build_lane_report(
     snapshot: OperatorConsoleSnapshot,
     lane: AgentLaneData | None,
     option: ReportOption,
@@ -244,7 +251,7 @@ def _build_lane_report(
     )
 
 
-def _build_approvals_report(snapshot: OperatorConsoleSnapshot, audience_mode: str) -> ActivityReport:
+def build_approvals_report(snapshot: OperatorConsoleSnapshot, audience_mode: str) -> ActivityReport:
     count = len(snapshot.pending_approvals)
     lines = [f"There {'is' if count == 1 else 'are'} {count} pending approval{'s' if count != 1 else ''}."]
     if count:
@@ -271,10 +278,10 @@ def _build_approvals_report(snapshot: OperatorConsoleSnapshot, audience_mode: st
     )
 
 
-def _build_quality_report(snapshot: OperatorConsoleSnapshot, audience_mode: str) -> ActivityReport:
+def build_quality_report(snapshot: OperatorConsoleSnapshot, audience_mode: str) -> ActivityReport:
     warnings_count = len(snapshot.warnings)
     approvals_count = len(snapshot.pending_approvals)
-    degraded_lanes = _quality_degraded_lanes(snapshot)
+    degraded_lanes = collect_quality_degraded_lanes(snapshot)
     quality = snapshot.quality_backlog
 
     if audience_mode == "technical":
@@ -318,7 +325,7 @@ def _build_quality_report(snapshot: OperatorConsoleSnapshot, audience_mode: str)
             lines.append("")
             lines.append("Top scored hotspots:")
             for row in quality.top_priorities:
-                lines.append(f"- {_quality_priority_line(row)}")
+                lines.append(f"- {format_quality_priority_line(row)}")
         if quality is not None and quality.warning:
             lines.extend(["", f"Collector warning: {quality.warning}"])
         lines.extend(
@@ -367,11 +374,11 @@ def _build_quality_report(snapshot: OperatorConsoleSnapshot, audience_mode: str)
         if snapshot.warnings:
             lines.append("")
             lines.append("Watch-outs:")
-            for warning in snapshot.warnings[:3]:
+            for warning in snapshot.warnings[:SIMPLE_MODE_MAX_ITEMS]:
                 lines.append(f"- {warning}")
         if quality is not None and quality.top_priorities:
             lines.extend(["", "Top hotspots right now:"])
-            for row in quality.top_priorities[:3]:
+            for row in quality.top_priorities[:SIMPLE_MODE_MAX_ITEMS]:
                 lines.append(f"- [{row.severity}] {row.path}")
         lines.extend(
             [
@@ -404,14 +411,14 @@ def _build_quality_report(snapshot: OperatorConsoleSnapshot, audience_mode: str)
     )
 
 
-def _build_guardrails_report(
+def build_guardrails_report(
     snapshot: OperatorConsoleSnapshot,
     audience_mode: str,
 ) -> ActivityReport:
     """Build a human-readable guardrails report from the Ralph snapshot."""
     from ..snapshots.ralph_guardrail_snapshot import load_ralph_guardrail_snapshot
 
-    repo_root = _guardrails_repo_root(snapshot)
+    repo_root = resolve_guardrails_repo_root(snapshot)
     ralph = load_ralph_guardrail_snapshot(repo_root) if repo_root else None
 
     if ralph is None or not ralph.available:
@@ -429,7 +436,7 @@ def _build_guardrails_report(
             provenance=_report_provenance(snapshot, "Script-derived guardrails summary (no data)."),
         )
 
-    lines = _guardrails_body_lines(ralph, audience_mode)
+    lines = build_guardrails_body_lines(ralph, audience_mode)
     lines.extend(
         [
             "",
@@ -451,7 +458,25 @@ def _build_guardrails_report(
     )
 
 
-def _guardrails_body_lines(ralph: object, audience_mode: str) -> list[str]:
+def build_watchdog_report(
+    snapshot: OperatorConsoleSnapshot,
+    audience_mode: str,
+) -> ActivityReport:
+    content = build_watchdog_report_content(
+        snapshot,
+        audience_mode=audience_mode,
+        next_step=_recommended_next_step(snapshot),
+    )
+    return ActivityReport(
+        report_id="watchdog",
+        title="Watchdog Report",
+        summary=content.summary,
+        body=content.body,
+        provenance=_report_provenance(snapshot, content.provenance_note),
+    )
+
+
+def build_guardrails_body_lines(ralph: object, audience_mode: str) -> list[str]:
     """Build the body lines for the guardrails report."""
     lines = [
         f"Ralph loop phase: {ralph.phase} (attempt {ralph.attempt}/{ralph.max_attempts})",
@@ -482,7 +507,7 @@ def _guardrails_body_lines(ralph: object, audience_mode: str) -> list[str]:
     return lines
 
 
-def _guardrails_repo_root(snapshot: OperatorConsoleSnapshot) -> "Path | None":
+def resolve_guardrails_repo_root(snapshot: OperatorConsoleSnapshot) -> "Path | None":
     """Derive the repo root from the snapshot review state path."""
     from pathlib import Path
 
@@ -500,18 +525,14 @@ def _guardrails_repo_root(snapshot: OperatorConsoleSnapshot) -> "Path | None":
     return None
 
 
-def _quality_priority_line(row: object) -> str:
+def format_quality_priority_line(row: QualityPrioritySignal | None) -> str:
     if row is None:
         return "[unknown] (missing row)"
-    path = getattr(row, "path", "(unknown)")
-    severity = getattr(row, "severity", "unknown")
-    score = getattr(row, "score", 0)
-    signals = getattr(row, "signals", ())
-    signal_text = ", ".join(tuple(signals)[:3]) if isinstance(signals, tuple) else ""
-    return f"[{severity}] {path} score={score} signals={signal_text or 'none'}"
+    signal_text = ", ".join(row.signals[:SIMPLE_MODE_MAX_ITEMS]) or "none"
+    return f"[{row.severity}] {row.path} score={row.score} signals={signal_text}"
 
 
-def _quality_degraded_lanes(
+def collect_quality_degraded_lanes(
     snapshot: OperatorConsoleSnapshot,
 ) -> list[tuple[str, str, str]]:
     """Return (name, hint, excerpt) for lanes with quality-relevant degradation."""
@@ -535,13 +556,6 @@ def _headline(snapshot: OperatorConsoleSnapshot) -> str:
     if any(lane is not None and lane.status_hint == "active" for lane in _lanes(snapshot)):
         return "The review loop is running and no immediate blockers are visible."
     return "The review loop is visible, but the current snapshot is mostly idle or incomplete."
-
-
-def _blocker_summary(snapshot: OperatorConsoleSnapshot) -> str:
-    attention = _attention_lines(snapshot)
-    if attention:
-        return attention[0]
-    return "No blocking signals are visible right now."
 
 
 def _attention_lines(snapshot: OperatorConsoleSnapshot) -> list[str]:

@@ -3,6 +3,11 @@
 Optional desktop Operator Console for the current Codex/Claude review-channel
 flow.
 
+Use this page in one of two ways:
+
+- If you want to run the app, start at [Fast Start](#fast-start).
+- If you want to extend the app, start at [Read This First](#read-this-first).
+
 ## Read This First
 
 Use these docs in this order when you are extending the app:
@@ -27,6 +32,14 @@ This app is a desktop control room for the repo workflow.
 If you only need one sentence: open the app, inspect the current repo/review
 state, run `Dry Run` first, then use `Start Swarm` or `Launch Live` only after
 the preflight is green.
+
+## Quick Links
+
+- Launch and first-run steps: [Fast Start](#fast-start)
+- What the app is allowed to do: [What It Is](#what-it-is)
+- Current supported feature set: [Current Scope](#current-scope)
+- Developer/package layout: [Folder Map](#folder-map)
+- Detailed plan and scope authority: [`dev/active/operator_console.md`](../../dev/active/operator_console.md)
 
 ## What It Is
 
@@ -286,7 +299,7 @@ a live CI/deploy control tower. It shows bridge-derived warnings, approvals,
 lane health, and worktree identity, and it marks unwired CI/test telemetry as
 `n/a` instead of implying those feeds are already live.
 
-6. When you want to test the handoff path, trigger a controlled rollover:
+1. When you want to test the handoff path, trigger a controlled rollover:
 
    ```bash
    python3 dev/scripts/devctl.py review-channel --action rollover --rollover-threshold-pct 50 --await-ack-seconds 180 --format md

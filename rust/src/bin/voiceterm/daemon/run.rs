@@ -66,7 +66,10 @@ fn bind_unix_socket(config: &DaemonConfig) -> anyhow::Result<UnixListener> {
         std::fs::remove_file(&config.socket_path)?;
     }
     let listener = UnixListener::bind(&config.socket_path)?;
-    log_debug(&format!("daemon: listening on {}", config.socket_path.display()));
+    log_debug(&format!(
+        "daemon: listening on {}",
+        config.socket_path.display()
+    ));
     Ok(listener)
 }
 
@@ -114,9 +117,24 @@ async fn handle_command(
     event_bus: &Arc<EventBus>,
     start: Instant,
 ) -> bool {
+    prune_dead_sessions(registry);
     match command {
-        DaemonCommand::SpawnAgent { provider, working_dir, label, initial_prompt } => {
-            handle_spawn(provider, working_dir, label, initial_prompt, config, registry, event_bus).await;
+        DaemonCommand::SpawnAgent {
+            provider,
+            working_dir,
+            label,
+            initial_prompt,
+        } => {
+            handle_spawn(
+                provider,
+                working_dir,
+                label,
+                initial_prompt,
+                config,
+                registry,
+                event_bus,
+            )
+            .await;
         }
         DaemonCommand::SendToAgent { session_id, text } => {
             if let Some(handle) = registry.get(&session_id) {
@@ -124,18 +142,28 @@ async fn handle_command(
                     broadcast_error(event_bus, "agent channel closed".into(), Some(session_id));
                 }
             } else {
-                broadcast_error(event_bus, format!("unknown session: {session_id}"), Some(session_id));
+                broadcast_error(
+                    event_bus,
+                    format!("unknown session: {session_id}"),
+                    Some(session_id),
+                );
             }
         }
         DaemonCommand::KillAgent { session_id } => {
             if let Some(handle) = registry.remove(&session_id) {
                 let _best_effort = handle.request_kill().await;
             } else {
-                broadcast_error(event_bus, format!("unknown session: {session_id}"), Some(session_id));
+                broadcast_error(
+                    event_bus,
+                    format!("unknown session: {session_id}"),
+                    Some(session_id),
+                );
             }
         }
         DaemonCommand::ListAgents => {
-            event_bus.broadcast(DaemonEvent::AgentList { agents: registry.list() });
+            event_bus.broadcast(DaemonEvent::AgentList {
+                agents: registry.list(),
+            });
         }
         DaemonCommand::GetStatus => {
             event_bus.broadcast(DaemonEvent::DaemonStatus {
@@ -150,7 +178,11 @@ async fn handle_command(
             return true;
         }
         DaemonCommand::Unknown => {
-            broadcast_error(event_bus, "unknown command (protocol version mismatch?)".into(), None);
+            broadcast_error(
+                event_bus,
+                "unknown command (protocol version mismatch?)".into(),
+                None,
+            );
         }
     }
     false
@@ -169,24 +201,44 @@ async fn handle_spawn(
     let wd = working_dir.as_deref().unwrap_or(&config.working_dir);
     let lbl = label.as_deref().unwrap_or(&provider);
     let args: Vec<String> = Vec::new();
-    match agent_driver::spawn_agent(&provider, wd, &args, lbl, event_bus.clone(), config.memory_mode) {
+    match agent_driver::spawn_agent(
+        &provider,
+        wd,
+        &args,
+        lbl,
+        event_bus.clone(),
+        config.memory_mode,
+    ) {
         Ok(handle) => {
+            let session_id = handle.session_id.0.clone();
             let spawned = DaemonEvent::AgentSpawned {
-                session_id: handle.session_id.0.clone(),
+                session_id: session_id.clone(),
                 provider: handle.provider.clone(),
                 label: handle.label.clone(),
                 working_dir: handle.working_dir.clone(),
                 pid: handle.child_pid,
             };
-            if let Some(prompt) = initial_prompt {
-                let _best_effort = handle.send_text(prompt).await;
-            }
             registry.insert(handle);
             event_bus.broadcast(spawned);
+            if let Some(handle) = registry.get(&session_id) {
+                if let Some(prompt) = initial_prompt {
+                    let _best_effort = handle.send_text(prompt).await;
+                }
+                handle.activate();
+            }
         }
         Err(err) => {
             broadcast_error(event_bus, format!("failed to spawn agent: {err}"), None);
         }
+    }
+}
+
+fn prune_dead_sessions(registry: &mut SessionRegistry) {
+    let pruned = registry.prune_dead();
+    if pruned > 0 {
+        log_debug(&format!(
+            "daemon: pruned {pruned} exited session(s) from registry"
+        ));
     }
 }
 

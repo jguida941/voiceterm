@@ -13,6 +13,9 @@ Docs map:
 - [CLI Flags](CLI_FLAGS.md)
 - [Troubleshooting](TROUBLESHOOTING.md)
 
+Use this page when you want the simple "how do I use it?" version.
+Use [CLI Flags](CLI_FLAGS.md) when you want the full switch-by-switch reference.
+
 ## Recommended Reading Paths
 
 | Goal | Read in this order |
@@ -61,8 +64,8 @@ voiceterm --capture-once --format text
 ```
 
 This records once, prints the transcript to stdout, and exits without starting
-the PTY overlay. Phase-A slash templates live under `dev/templates/slash/`
-for Codex and Claude installs.
+the PTY overlay. If you want slash-command templates for Codex or Claude, see
+`dev/templates/slash/`.
 
 ## Backend Support
 
@@ -79,6 +82,12 @@ IPC provider sessions support only `codex` and `claude`.
 `gemini` is overlay-only experimental, and `aider` / `opencode` / `custom` are
 overlay-only non-IPC backends.
 
+If you are deciding what to try first:
+
+1. Start with Codex.
+2. Use Claude if that is already your normal CLI.
+3. Treat everything else as advanced or experimental.
+
 ## IDE Compatibility
 
 This table is the current source of truth for host IDE support.
@@ -92,15 +101,13 @@ Active verified hosts are Cursor terminal and JetBrains terminals.
 | AntiGravity | Not supported | Not supported | Deferred until runtime fingerprint evidence exists (not supported in current releases) |
 | Other IDE terminals | Unverified | Unverified | Treat as experimental until listed here |
 
-Host compatibility routing now uses one canonical host classifier
-(`JetBrains`/`Cursor`/`Other`) across runtime writer paths, which reduces
-host-policy drift without changing current support status.
-
 JetBrains + Claude rare edge case (long parallel turns):
 after very long parallel tool calls or parallel web-search turns, HUD/transcript
 overlap can appear at turn completion. Quick workaround: resize the terminal
 once (even by 1 row/column) to force layout recalculation.
 Details: [Troubleshooting -> JetBrains + Claude overlay overlap after long parallel output](TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output).
+
+If you want the least surprising setup, use Cursor terminal first.
 
 ## How Voice Input Works
 

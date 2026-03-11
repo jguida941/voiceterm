@@ -10,6 +10,23 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
 
+try:
+    from dev.scripts.devctl.quality_scan_mode import (
+        is_adoption_base_ref,
+        is_worktree_head_ref,
+    )
+except ModuleNotFoundError:  # pragma: no cover
+    import sys
+
+    REPO_ROOT = Path(__file__).resolve().parents[3]
+    repo_root_str = str(REPO_ROOT)
+    if repo_root_str not in sys.path:
+        sys.path.insert(0, repo_root_str)
+    from dev.scripts.devctl.quality_scan_mode import (
+        is_adoption_base_ref,
+        is_worktree_head_ref,
+    )
+
 
 def run_git(
     repo_root: Path,
@@ -34,6 +51,8 @@ def run_git(
 
 def validate_ref(run_git_fn, ref: str) -> None:
     """Ensure a ref resolves before commit-range checks run."""
+    if is_adoption_base_ref(ref) or is_worktree_head_ref(ref):
+        return
     run_git_fn(["git", "rev-parse", "--verify", ref], check=True)
 
 
@@ -100,6 +119,10 @@ def normalize_changed_rust_paths(
 
 def read_text_from_ref(run_git_fn, path: Path, ref: str) -> str | None:
     """Read repo-relative file text from a git ref."""
+    if is_adoption_base_ref(ref):
+        return None
+    if is_worktree_head_ref(ref):
+        return read_text_from_worktree(Path.cwd(), path)
     spec = f"{ref}:{path.as_posix()}"
     result = run_git_fn(["git", "show", spec], check=False)
     if result.returncode == 0:
@@ -138,6 +161,8 @@ class GuardContext:
 
     def read_text_from_ref(self, path: Path, ref: str) -> str | None:
         """Read file text from a git ref."""
+        if is_worktree_head_ref(ref):
+            return read_text_from_worktree(self.repo_root, path)
         return read_text_from_ref(self.run_git, path, ref)
 
     def read_text_from_worktree(self, path: Path) -> str | None:

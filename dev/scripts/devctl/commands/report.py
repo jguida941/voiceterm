@@ -83,6 +83,11 @@ def run(args) -> int:
         python_guard_backlog_top_n=getattr(args, "python_guard_backlog_top_n", 20),
         python_guard_since_ref=getattr(args, "since_ref", None),
         python_guard_head_ref=getattr(args, "head_ref", "HEAD"),
+        python_guard_policy_path=getattr(args, "quality_policy", None),
+        include_probe_report=getattr(args, "probe_report", False),
+        probe_since_ref=getattr(args, "since_ref", None),
+        probe_head_ref=getattr(args, "head_ref", "HEAD"),
+        probe_policy_path=getattr(args, "quality_policy", None),
         parallel=parallel_enabled,
     )
     pedantic_info = report.get("pedantic", {})

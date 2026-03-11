@@ -85,6 +85,23 @@ integration, and runtime leak closure tracked under `MP-356`.
   this repo instead of the actual target cwd. Keep the doc active until those
   shapes are covered by automation or explicitly retired with focused
   regression proof.
+- 2026-03-10: Closed one of the reopened MP-356 false-positive slices. The
+  shared skip-pid logic now excludes same-session repo-tooling sibling trees
+  when they are clearly part of the active hygiene/check/test run
+  (`dev/scripts/devctl.py ...`, `dev/scripts/checks/*.py`, and
+  `python -m pytest|unittest` siblings under the current parent shell), and
+  the skip now covers each sibling's descendant tree instead of only the root
+  pid. Live proof: `python3 dev/scripts/devctl.py hygiene --strict-warnings
+  --format md` no longer reports the active local pytest/check subprocesses as
+  leaked repo tooling; the remaining publication-sync drift stays informational
+  without producing a host-process false positive.
+- 2026-03-10: Narrowed the same-parent self-hygiene sibling exemption after a
+  follow-up integration review. The skip no longer blanket-matches every
+  `python3 dev/scripts/devctl.py ...` sibling under the same shell; it is now
+  constrained to the hygiene/check/doc-governance helper shapes that were the
+  actual false positives. This keeps same-shell `guard-run`, `review-channel`,
+  `data-science`, `process-watch`, and future watchdog/controller helpers
+  visible to host-process audits instead of silently exempting them.
 - 2026-03-08: Investigated host process leaks after repeated Activity Monitor
   findings. Live host snapshot confirmed orphaned
   `rust/target/debug/deps/voiceterm-*` test runners and descendant PTY child

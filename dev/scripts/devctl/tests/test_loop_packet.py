@@ -12,6 +12,10 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import loop_packet
+from dev.scripts.devctl.commands.loop_packet_helpers import (
+    ArtifactSourceRow,
+    _build_live_triage_source,
+)
 
 
 def _base_args(**overrides):
@@ -59,6 +63,28 @@ class LoopPacketParserTests(unittest.TestCase):
 
 
 class LoopPacketCommandTests(unittest.TestCase):
+    @patch("dev.scripts.devctl.commands.loop_packet_helpers.build_next_actions")
+    @patch("dev.scripts.devctl.commands.loop_packet_helpers.build_issue_rollup")
+    @patch("dev.scripts.devctl.commands.loop_packet_helpers.classify_issues")
+    @patch("dev.scripts.devctl.commands.loop_packet_helpers.build_project_report")
+    def test_live_triage_source_includes_probe_report(
+        self,
+        build_report_mock,
+        classify_issues_mock,
+        build_issue_rollup_mock,
+        build_next_actions_mock,
+    ) -> None:
+        build_report_mock.return_value = {"git": {"changes": []}, "mutants": {"results": {}}}
+        classify_issues_mock.return_value = []
+        build_issue_rollup_mock.return_value = {"total": 0, "by_severity": {}}
+        build_next_actions_mock.return_value = ["No urgent triage actions detected from current signals."]
+
+        source = _build_live_triage_source()
+
+        self.assertEqual(source.command, "triage")
+        call_kwargs = build_report_mock.call_args.kwargs
+        self.assertTrue(call_kwargs["include_probe_report"])
+
     @patch("dev.scripts.devctl.commands.loop_packet.write_output")
     def test_builds_packet_from_triage_loop_source(self, write_output_mock) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -147,10 +173,10 @@ class LoopPacketCommandTests(unittest.TestCase):
     def test_falls_back_to_live_triage_source_when_artifacts_missing(
         self, fallback_mock, write_output_mock
     ) -> None:
-        fallback_mock.return_value = {
-            "path": "<generated:live-triage>",
-            "command": "triage",
-            "payload": {
+        fallback_mock.return_value = ArtifactSourceRow(
+            path="<generated:live-triage>",
+            command="triage",
+            payload={
                 "command": "triage",
                 "timestamp": datetime.now(timezone.utc)
                 .isoformat()
@@ -160,9 +186,9 @@ class LoopPacketCommandTests(unittest.TestCase):
                     "No urgent triage actions detected from current signals."
                 ],
             },
-            "timestamp": datetime.now(timezone.utc),
-            "mtime": datetime.now(timezone.utc).timestamp(),
-        }
+            timestamp=datetime.now(timezone.utc),
+            mtime=datetime.now(timezone.utc).timestamp(),
+        )
         args = _base_args(source_json=["/tmp/does-not-exist-feedback-loop-source.json"])
         rc = loop_packet.run(args)
 

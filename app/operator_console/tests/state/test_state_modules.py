@@ -161,6 +161,44 @@ def _review_state_json() -> dict[str, object]:
     }
 
 
+def _write_watchdog_summary(root: Path) -> None:
+    summary_path = root / "dev/reports/data_science/latest/summary.json"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-03-10T03:00:00Z",
+                "trigger_command": "devctl:data-science",
+                "watchdog_stats": {
+                    "total_episodes": 3,
+                    "success_rate_pct": 66.67,
+                    "avg_time_to_green_seconds": 14.0,
+                    "p50_time_to_green_seconds": 12.0,
+                    "avg_guard_runtime_seconds": 5.0,
+                    "avg_retry_count": 1.33,
+                    "avg_escaped_findings": 0.33,
+                    "false_positive_rate_pct": 33.33,
+                    "known_provider_pct": 100.0,
+                    "providers": [
+                        {"provider": "codex", "episodes": 2},
+                        {"provider": "claude", "episodes": 1},
+                    ],
+                    "guard_families": [
+                        {
+                            "guard_family": "python",
+                            "episodes": 2,
+                            "success_rate_pct": 50.0,
+                            "avg_time_to_green_seconds": 14.0,
+                        }
+                    ],
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
 def _fresh_live_trace(provider: str) -> SessionTraceSnapshot:
     updated_at = _fresh_timestamp()
     return SessionTraceSnapshot(
@@ -1425,6 +1463,30 @@ class ActivityReportTests(unittest.TestCase):
         report = build_activity_report(snapshot, report_id="quality")
         self.assertIn("quality signal", report.summary)
         self.assertIn("Recommended next step", report.body)
+
+    def test_build_activity_report_watchdog_uses_shared_summary_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            _write_watchdog_summary(root)
+            snapshot = build_operator_console_snapshot(root)
+
+        report = build_activity_report(
+            snapshot,
+            report_id="watchdog",
+            audience_mode="technical",
+        )
+
+        self.assertEqual(report.report_id, "watchdog")
+        self.assertEqual(report.title, "Watchdog Report")
+        self.assertEqual(report.summary, "3 episodes | 67% accepted | 33% noisy/skipped")
+        self.assertIn("shared guarded-coding summary artifact", report.body)
+        self.assertIn("Provider split:", report.body)
+        self.assertIn("- codex: 2 episode(s)", report.body)
+        self.assertIn("Top guard families:", report.body)
+        self.assertIn("- python: 2 episode(s), 50% accepted, avg green 14.00s", report.body)
+        self.assertIn("Artifact provenance:", report.body)
+        self.assertIn("Trigger command: devctl:data-science", report.body)
 
     def test_resolve_report_option_quality(self) -> None:
         option = resolve_report_option("quality")

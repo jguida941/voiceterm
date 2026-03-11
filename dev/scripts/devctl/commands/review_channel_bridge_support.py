@@ -21,11 +21,8 @@ from ..review_channel.handoff import (
     wait_for_rollover_ack,
     write_handoff_bundle,
 )
-from ..review_channel.launch import (
-    launch_terminal_sessions,
-    list_terminal_profiles,
-    resolve_terminal_profile_name,
-)
+from ..review_channel.launch import launch_terminal_sessions
+from ..review_channel.promotion import resolve_scope_plan_path, scope_bridge_instruction
 from ..review_channel.heartbeat import refresh_bridge_heartbeat
 
 
@@ -47,7 +44,9 @@ def bridge_launch_state(
         execution_mode=args.execution_mode,
     )
     bridge_refresh = None
-    if args.action in bridge_actions and getattr(
+    refreshable_actions = set(bridge_actions) | {"status"}
+    allow_status_refresh = args.action != "status" or not getattr(args, "dry_run", False)
+    if args.action in refreshable_actions and allow_status_refresh and getattr(
         args,
         "refresh_bridge_heartbeat_if_stale",
         False,
@@ -102,6 +101,24 @@ def bridge_launch_state(
     )
 
 
+def apply_scope_if_requested(*, args, repo_root: Path, bridge_path: Path) -> None:
+    """Rewrite the bridge instruction from ``--scope`` before launch."""
+    scope_value = getattr(args, "scope", None)
+    if not scope_value:
+        return
+    if args.action != "launch":
+        raise ValueError("--scope is only supported with --action launch.")
+    scope_plan_path = resolve_scope_plan_path(
+        repo_root=repo_root,
+        scope_value=scope_value,
+    )
+    scope_bridge_instruction(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        scope_plan_path=scope_plan_path,
+    )
+
+
 def stale_bridge_launch_errors(
     *,
     repo_root: Path,
@@ -138,57 +155,6 @@ def stale_bridge_launch_errors(
     if all(_is_refreshable_metadata_error(str(error)) for error in metadata_errors):
         return [str(error) for error in metadata_errors if str(error).strip()]
     return []
-
-
-def resolve_terminal_launch_state(
-    args,
-    *,
-    codex_lanes: list,
-    claude_lanes: list,
-    list_terminal_profiles_fn: Callable[[], list[str]] | None = None,
-) -> tuple[str | None, list[str]]:
-    """Resolve the Terminal.app profile and collect launch-readiness warnings."""
-    if list_terminal_profiles_fn is None:
-        list_terminal_profiles_fn = list_terminal_profiles
-    warnings: list[str] = []
-    available_profiles = (
-        list_terminal_profiles_fn() if args.terminal == "terminal-app" else []
-    )
-    terminal_profile_applied = resolve_terminal_profile_name(
-        args.terminal_profile,
-        available_profiles=available_profiles,
-    )
-    if args.codex_workers > len(codex_lanes):
-        warnings.append(
-            "Requested Codex worker budget exceeds the current lane table; "
-            f"using {len(codex_lanes)} advertised Codex lanes."
-        )
-    if args.claude_workers > len(claude_lanes):
-        warnings.append(
-            "Requested Claude worker budget exceeds the current lane table; "
-            f"using {len(claude_lanes)} advertised Claude lanes."
-        )
-    if (
-        args.terminal == "terminal-app"
-        and args.terminal_profile == "auto-dark"
-        and terminal_profile_applied is None
-    ):
-        warnings.append(
-            "No known dark Terminal.app profile was found; live launch will "
-            "fall back to the current Terminal default."
-        )
-    if (
-        args.terminal == "terminal-app"
-        and args.terminal_profile not in {"auto-dark", "default", "system", "none"}
-        and available_profiles
-        and terminal_profile_applied not in available_profiles
-    ):
-        warnings.append(
-            f"Requested Terminal profile `{args.terminal_profile}` was not "
-            "found; live launch will fall back to the current Terminal default."
-        )
-        terminal_profile_applied = None
-    return terminal_profile_applied, warnings
 
 
 def prepare_rollover_bundle(

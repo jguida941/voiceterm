@@ -51,6 +51,28 @@ def add_triage_parser(sub, default_ci_limit: int) -> None:
         help="Override pedantic lint policy file",
     )
     triage_cmd.add_argument(
+        "--probe-report",
+        action="store_true",
+        help="Include aggregated review-probe summary in triage classification",
+    )
+    triage_cmd.add_argument(
+        "--probe-since-ref",
+        help="Optional base ref for review-probe commit-range reporting",
+    )
+    triage_cmd.add_argument(
+        "--probe-head-ref",
+        default="HEAD",
+        help="Head ref used with --probe-since-ref (default: HEAD)",
+    )
+    triage_cmd.add_argument(
+        "--quality-policy",
+        help=(
+            "Optional repo policy JSON file used by --probe-report "
+            "(defaults to dev/config/devctl_repo_policy.json or "
+            "DEVCTL_QUALITY_POLICY)."
+        ),
+    )
+    triage_cmd.add_argument(
         "--cihub",
         action="store_true",
         help="Run cihub triage and ingest emitted artifacts (auto-enabled when cihub is installed)",

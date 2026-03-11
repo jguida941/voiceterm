@@ -7,7 +7,9 @@ that other modules import.
 
 from __future__ import annotations
 
+import json
 import sys
+from datetime import datetime, timezone
 
 from ..common import build_env
 from ..config import REPO_ROOT
@@ -18,14 +20,18 @@ from ..process_sweep.core import (
     split_orphaned_processes,
     split_stale_processes,
 )
+from ..quality_policy import resolve_quality_policy
+from ..quality_scan_mode import resolve_scan_mode
 from ..script_catalog import check_script_cmd
+from . import check_phases as check_phases_module
 from .check_phases import (
     CheckContext,
-    build_report_and_emit,
+    run_probe_phase,
     run_setup_phase,
     run_specialized_phases,
     run_test_build_phase,
 )
+from ..steps import format_steps_md
 from .check_process_sweep import (
     cleanup_host_processes,
     cleanup_orphaned_voiceterm_test_binaries,
@@ -33,6 +39,33 @@ from .check_process_sweep import (
 )
 from .check_profile import resolve_profile_settings, validate_profile_flag_conflicts
 from .check_progress import count_quality_steps
+
+def build_report_and_emit(ctx: CheckContext) -> int:
+    """Format the final report while preserving existing test patch paths."""
+    success = all(step["returncode"] == 0 for step in ctx.steps)
+    report = {
+        "command": "check",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "success": success,
+        "steps": ctx.steps,
+    }
+    if check_phases_module.should_emit_output(ctx.args):
+        if ctx.args.format == "md":
+            output = "# devctl check\n\n" + format_steps_md(ctx.steps)
+        else:
+            output = json.dumps(report, indent=2)
+        if ctx.args.output or ctx.args.format != "text":
+            pipe_rc = check_phases_module.emit_output(
+                output,
+                output_path=ctx.args.output,
+                pipe_command=ctx.args.pipe_command,
+                pipe_args=ctx.args.pipe_args,
+                writer=check_phases_module.write_output,
+                piper=check_phases_module.pipe_output,
+            )
+            if pipe_rc != 0:
+                return pipe_rc
+    return 0 if success else 1
 
 
 def _parse_etime_seconds(raw: str) -> int | None:
@@ -81,16 +114,40 @@ def run(args) -> int:
     """Run check steps for the selected profile and return an exit code."""
     for warning in validate_profile_flag_conflicts(args):
         print(f"[check] warning: {warning}", file=sys.stderr)
+    try:
+        scan_mode = resolve_scan_mode(
+            since_ref=getattr(args, "since_ref", None),
+            head_ref=getattr(args, "head_ref", "HEAD"),
+            adoption_scan=bool(getattr(args, "adoption_scan", False)),
+        )
+    except ValueError as exc:
+        print(f"[check] error: {exc}", file=sys.stderr)
+        return 2
 
     settings, clippy_cmd = resolve_profile_settings(args)
+    quality_policy = resolve_quality_policy(
+        policy_path=getattr(args, "quality_policy", None),
+    )
+    for warning in quality_policy.warnings:
+        print(f"[check] warning: {warning}", file=sys.stderr)
     ctx = CheckContext(
         args=args,
         env=build_env(args),
         settings=settings,
         clippy_cmd=clippy_cmd,
+        ai_guard_checks=quality_policy.ai_guard_checks,
+        review_probe_checks=quality_policy.review_probe_checks,
+        scan_mode=scan_mode.mode,
+        scan_since_ref=scan_mode.since_ref,
+        scan_head_ref=scan_mode.head_ref,
         parallel_enabled=not getattr(args, "no_parallel", False),
         parallel_workers=max(1, int(getattr(args, "parallel_workers", 4))),
-        total_quality_steps=count_quality_steps(args, settings),
+        total_quality_steps=count_quality_steps(
+            args,
+            settings,
+            ai_guard_checks=quality_policy.ai_guard_checks,
+            review_probe_checks=quality_policy.review_probe_checks,
+        ),
     )
     process_sweep_cleanup = not getattr(args, "no_process_sweep_cleanup", False)
     host_process_cleanup = (
@@ -110,6 +167,7 @@ def run(args) -> int:
         run_setup_phase(ctx)
         run_test_build_phase(ctx)
         run_specialized_phases(ctx, build_release_gate_commands)
+        run_probe_phase(ctx)
     except RuntimeError as exc:
         message = str(exc) or "check halted due to runtime error"
         print(f"[check] error: {message}", file=sys.stderr)

@@ -156,6 +156,17 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
             "`claude --dangerously-skip-permissions`)"
         ),
     ),
+    _arg(
+        "--scope",
+        default=None,
+        help=(
+            "Active-plan doc to auto-scope the launch. Rewrites "
+            "`Current Instruction For Claude` from the plan's first unchecked "
+            "execution-checklist item before launching conductors. Accepts a "
+            "plan filename (e.g. `review_probes`), a full relative path "
+            "(e.g. `dev/active/review_probes.md`), or an MP id (e.g. `MP-368`)."
+        ),
+    ),
     _arg("--script-dir", help="Optional directory for generated conductor launch scripts"),
     _arg(
         "--dry-run",

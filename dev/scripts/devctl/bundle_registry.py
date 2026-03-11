@@ -51,6 +51,9 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_parameter_count.py",
     "python3 dev/scripts/checks/check_python_dict_schema.py",
     "python3 dev/scripts/checks/check_python_global_mutable.py",
+    "python3 dev/scripts/checks/check_python_design_complexity.py",
+    "python3 dev/scripts/checks/check_python_cyclic_imports.py",
+    "python3 dev/scripts/checks/check_python_suppression_debt.py",
     "python3 dev/scripts/checks/check_structural_similarity.py",
     "markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md",
     "find . -maxdepth 1 -type f -name '--*'",
@@ -73,6 +76,9 @@ _POST_PUSH_DIFF_GUARD_COMMANDS: Final[frozenset[str]] = frozenset(
         "python3 dev/scripts/checks/check_parameter_count.py",
         "python3 dev/scripts/checks/check_python_dict_schema.py",
         "python3 dev/scripts/checks/check_python_global_mutable.py",
+        "python3 dev/scripts/checks/check_python_design_complexity.py",
+        "python3 dev/scripts/checks/check_python_cyclic_imports.py",
+        "python3 dev/scripts/checks/check_python_suppression_debt.py",
         "python3 dev/scripts/checks/check_structural_similarity.py",
     }
 )

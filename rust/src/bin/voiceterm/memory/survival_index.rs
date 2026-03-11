@@ -9,9 +9,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use serde::Serialize;
 
-use super::retrieval::{
-    execute_query_with_signal, trim_to_budget, ContextSignal, RetrievalQuery,
-};
+use super::retrieval::{execute_query_with_signal, trim_to_budget, ContextSignal, RetrievalQuery};
 use super::store::sqlite::MemoryIndex;
 use super::types::{EventType, TokenBudget};
 

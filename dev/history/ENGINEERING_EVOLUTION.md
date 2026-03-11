@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-03-09
+**Last Updated:** 2026-03-11
 
 ## At a Glance
 
@@ -45,6 +45,149 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-09 - Release governance now forces full maintainer and user doc coverage
+
+Fact: the release audit path now treats documentation drift the same way it
+already treats code-quality drift. `devctl docs-check --strict-tooling`
+remains the maintainer-doc gate for tooling/process/CI changes, and
+`docs-check --user-facing --strict` is now part of the practical release
+discipline for ranges that include shipped behavior changes. The immediate
+lesson from this release tranche is explicit: mobile/control-plane work is not
+release-ready until the canonical user docs (`QUICK_START.md`,
+`guides/TROUBLESHOOTING.md`, install/usage/flags docs) and maintainer docs
+(`AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/active/MASTER_PLAN.md`,
+`dev/history/ENGINEERING_EVOLUTION.md`) all reflect the shipped surface.
+The same release path also now depends on the mobile relay protocol guard so
+Rust emitters, Python tooling, and the iOS client stay aligned.
+
+Evidence:
+
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/scripts/checks/check_mobile_relay_protocol.py`
+- `dev/scripts/README.md`
+- `QUICK_START.md`
+- `guides/TROUBLESHOOTING.md`
+
+### 2026-03-11 - Portable governance export and evaluation boundary became explicit
+
+Fact: the portable guard/probe work is no longer only "whatever the current
+chat remembers." The repo now carries a durable portable-governance guide,
+portable measurement/evaluation schema templates, and a first-class
+`devctl governance-export` command that copies the governance stack outside the
+repo root and generates fresh `quality-policy`, `probe-report`, and
+`data-science` artifacts for external review or pilot-repo bootstrap.
+The strategic evaluation model is also now explicit: correctness stays a hard
+gate, objective structural/safety deltas are the primary score, and blind
+human/AI pairwise review is a secondary preference signal rather than proof by
+itself. The first broad pilot corpus source is now the maintainer GitHub repo
+inventory instead of whichever local sibling repos happen to be present.
+
+Evidence:
+
+- `dev/guides/PORTABLE_CODE_GOVERNANCE.md`
+- `dev/config/templates/portable_governance_episode.schema.json`
+- `dev/config/templates/portable_governance_eval_record.schema.json`
+- `dev/scripts/devctl/governance_export_parser.py`
+- `dev/scripts/devctl/governance_export_support.py`
+- `dev/scripts/devctl/commands/governance_export.py`
+- `dev/scripts/devctl/tests/test_governance_export.py`
+- `dev/active/portable_code_governance.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-11 - Portable repo onboarding is now first-class, not manual glue
+
+Fact: the first external pilot against `ci-cd-hub` exposed the real missing
+portability steps instead of leaving them as chat-only advice. Copied
+submodule repos can carry broken `.git` indirection that makes git-backed
+guards fail in a new location, so `devctl governance-bootstrap` now repairs
+that state into a standalone local git worktree for disposable pilots.
+Separately, first-run adoption needs a full current-worktree scan rather than
+growth-only diff semantics, so `check`, `probe-report`, and
+`governance-export` now accept `--adoption-scan`. The same follow-up also
+added `probe_exception_quality.py`, an advisory Python probe for suppressive
+broad handlers and generic exception translation without runtime context.
+
+Evidence:
+
+- `dev/scripts/devctl/governance_bootstrap_parser.py`
+- `dev/scripts/devctl/governance_bootstrap_support.py`
+- `dev/scripts/devctl/commands/governance_bootstrap.py`
+- `dev/scripts/devctl/quality_scan_mode.py`
+- `dev/scripts/devctl/commands/check.py`
+- `dev/scripts/devctl/commands/probe_report.py`
+
+### 2026-03-11 - Portable governance now tracks adjudicated finding quality
+
+Fact: the portable-governance work now has a durable false-positive and cleanup
+ledger instead of relying on memory or ad hoc notes. `devctl governance-review`
+records adjudicated guard/probe findings into
+`dev/reports/governance/finding_reviews.jsonl`, writes rolled-up
+`review_summary.{md,json}` artifacts, and `devctl data-science` now ingests
+that ledger alongside watchdog episodes so maintainers can see whether the
+governance stack is producing real signal and whether cleanup is converging
+over time.
+
+Evidence:
+
+- `dev/scripts/devctl/governance_review_log.py`
+- `dev/scripts/devctl/governance_review_parser.py`
+- `dev/scripts/devctl/commands/governance_review.py`
+- `dev/scripts/devctl/data_science/metrics.py`
+- `dev/scripts/devctl/data_science/rendering.py`
+- `dev/config/templates/portable_governance_finding_review.schema.json`
+- `dev/scripts/devctl/tests/test_governance_review.py`
+- `dev/scripts/devctl/tests/test_data_science.py`
+- `dev/active/portable_code_governance.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-11 - Governance-review moved from scaffolding into live cleanup
+
+Fact: the new adjudication ledger is already being used to burn down real probe
+debt instead of sitting as measurement-only infrastructure. The first live
+`probe_exception_quality` cleanup narrowed the fail-soft handlers in
+`dev/scripts/devctl/collect.py`, removed the context-free exception translation
+in `dev/scripts/devctl/commands/check_support.py`, and left the probe green for
+the full repo. That makes the governance-review loop concrete:
+findings -> adjudication -> fix -> recorded outcome -> refreshed metrics.
+
+Evidence:
+
+- `dev/scripts/devctl/collect.py`
+- `dev/scripts/devctl/commands/check_support.py`
+- `dev/scripts/devctl/tests/test_collect_ci_runs.py`
+- `dev/scripts/devctl/tests/test_check_support.py`
+- `dev/scripts/devctl/tests/test_probe_exception_quality.py`
+- `dev/active/portable_code_governance.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-11 - Single-use-helper probe debt is now part of the same cleanup loop
+
+Fact: the medium-severity `probe_single_use_helpers` debt is no longer just a
+ranked advisory list; it is feeding real structural cleanup work too.
+`dev/scripts/devctl/collect.py` no longer keeps three one-use file-local
+helpers, and the `data-science` source-row loaders now live in
+`dev/scripts/devctl/data_science/source_rows.py` instead of bloating
+`metrics.py` with one-use local helpers. The probe is now green for both of
+those files, and the outcomes can be tracked in the same governance-review
+ledger as the exception-quality fixes.
+
+Evidence:
+
+- `dev/scripts/devctl/collect.py`
+- `dev/scripts/devctl/data_science/metrics.py`
+- `dev/scripts/devctl/data_science/source_rows.py`
+- `dev/scripts/devctl/tests/test_collect_ci_runs.py`
+- `dev/scripts/devctl/tests/test_data_science.py`
+- `dev/active/portable_code_governance.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/scripts/devctl/commands/governance_export.py`
+- `dev/scripts/checks/probe_exception_quality.py`
+- `dev/scripts/devctl/tests/test_governance_bootstrap.py`
+- `dev/scripts/devctl/tests/test_probe_exception_quality.py`
+- `dev/active/portable_code_governance.md`
 
 ### 2026-03-09 - devctl gained a real iPhone install path and app tutorial flow
 
@@ -3909,5 +4052,20 @@ The full technical showcase is consolidated above in Appendix G of this document
   accepts either the emitted mobile-status folder or its `full.json` file, and
   widened the narrow-phone control strip so import/reload/sample actions remain
   usable without horizontal crowding.
+
+### 2026-03-11 - Portable Quality Policy Presets
+
+- Split the quality-policy fallback boundary so engine-level defaults stay
+  portable while VoiceTerm-only matrix/isolation guards move behind a
+  repo-specific preset under `dev/config/quality_presets/`.
+- Added a dedicated `voiceterm.json` preset and corrected `portable_rust.json`
+  so other repos do not inherit VoiceTerm-only governance by accident.
+- Extended the probe-backed `status`, `report`, and `triage` surfaces with the
+  same `--quality-policy` override already used by `check` / `probe-report`,
+  while keeping `DEVCTL_QUALITY_POLICY` as the automation equivalent.
+- Logged the next portable-guard backlog explicitly in the active plan:
+  Python branch/return complexity, Python default-argument traps,
+  Python cyclic-import detection, and Rust `result_large_err` /
+  `large_enum_variant` evaluation.
 
 </details>

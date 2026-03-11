@@ -96,6 +96,24 @@ flowchart TD
 Run the checks that match your change before pushing.
 CI runs the same checks, so local failures are faster to fix.
 
+Three quality layers matter in practice:
+
+- Hard guards (`check_*.py`) block regressions.
+- Review probes (`probe_*.py`) surface AI-style design smells without failing CI.
+- `python3 dev/scripts/devctl.py probe-report --format md` turns those probe
+  hints into one ranked review packet with topology artifacts for human or AI
+  follow-up.
+- `dev/config/devctl_repo_policy.json` is the repo-local switchboard for which
+  built-in guards/probes are active by default; keep enablement there instead
+  of hard-coding repo behavior into `check` or `probe-report`.
+- Portable presets live under `dev/config/quality_presets/`; use those as the
+  starting point when validating another repo instead of copying VoiceTerm's
+  full policy surface.
+- `python3 dev/scripts/devctl.py quality-policy --format md` shows the resolved
+  active policy, scopes, and warnings; use `--quality-policy <path>` or
+  `DEVCTL_QUALITY_POLICY` when validating another repo or preset file. The same
+  override now flows through probe-backed `status`, `report`, and `triage`.
+
 ## After file edits
 
 Any time you create a file or edit an existing file, run the task-class bundle
@@ -108,6 +126,7 @@ the concrete minimum inventory after edits:
    runtime-risky paths.
 3. Make sure the applicable baseline guards below were covered by that bundle
    or run them directly if you are doing a narrower targeted validation pass:
+   - `python3 dev/scripts/devctl.py check --profile ci`
    - `python3 dev/scripts/devctl.py docs-check --user-facing` or `python3 dev/scripts/devctl.py docs-check --strict-tooling`
    - `python3 dev/scripts/devctl.py hygiene`
    - `python3 dev/scripts/checks/check_active_plan_sync.py`
@@ -128,10 +147,31 @@ the concrete minimum inventory after edits:
    - `python3 dev/scripts/checks/check_serde_compatibility.py`
    - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py`
    - `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`
+4. If you created a new module, refactored module/API layout, introduced
+   string-based dispatch, added a new 3+ parameter signature, or touched
+   concurrent/shared-state code, also run:
+   - `python3 dev/scripts/devctl.py probe-report --format md`
+   - Use `dev/reports/probes/latest/review_packet.md` or
+     `dev/reports/probes/latest/review_packet.json` as the handoff packet.
+5. If you need to run raw Rust tests or test binaries directly, prefer:
+   - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...`
+   - This enforces the required post-run hygiene follow-up automatically.
 
 Use the bundle as the source of truth for exact command sets. This section is a
 human-readable reminder of the minimum checks that should be covered after file
 edits, not a second bundle authority.
+
+Release note:
+- `bundle.release` is intentionally stricter than normal edit validation. If
+  your release range includes tooling/process/CI changes, update
+  `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/active/MASTER_PLAN.md`, and
+  `dev/history/ENGINEERING_EVOLUTION.md`. If the release range includes
+  user-facing behavior changes, update every canonical user doc, including
+  `QUICK_START.md` and `guides/TROUBLESHOOTING.md`, not just the changelog.
+- Mobile/control-plane changes now also need
+  `python3 dev/scripts/checks/check_mobile_relay_protocol.py` covered before
+  release so the Rust emitters, Python projections, and iOS consumer contract
+  do not drift.
 
 ### Runtime and UI changes
 

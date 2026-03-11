@@ -14,7 +14,10 @@ use super::types::{ClientId, DaemonCommand};
 
 /// Tagged command from a specific client.
 pub(super) struct ClientCommand {
-    #[allow(dead_code, reason = "ClientId will be used for targeted per-client responses in follow-up work")]
+    #[allow(
+        dead_code,
+        reason = "ClientId will be used for targeted per-client responses in follow-up work"
+    )]
     pub client_id: ClientId,
     pub command: DaemonCommand,
 }

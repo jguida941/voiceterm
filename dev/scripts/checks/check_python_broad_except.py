@@ -15,6 +15,7 @@ try:
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
 except ModuleNotFoundError:  # pragma: no cover - package-style fallback for tests
@@ -22,8 +23,17 @@ except ModuleNotFoundError:  # pragma: no cover - package-style fallback for tes
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
+
+try:
+    from dev.scripts.devctl.quality_scan_mode import is_adoption_scan
+except ModuleNotFoundError:  # pragma: no cover
+    repo_root_str = str(Path(__file__).resolve().parents[3])
+    if repo_root_str not in sys.path:
+        sys.path.insert(0, repo_root_str)
+    from dev.scripts.devctl.quality_scan_mode import is_adoption_scan
 
 list_changed_paths_with_base_map = import_attr(
     "git_change_paths", "list_changed_paths_with_base_map"
@@ -34,8 +44,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (
-    Path("dev/scripts"),
-    Path("app/operator_console"),
+    *resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),
 )
 HUNK_RE = re.compile(
     r"^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@"
@@ -177,6 +186,11 @@ def _parse_added_line_numbers(diff_text: str) -> set[int]:
 
 
 def _diff_added_lines(path: Path, *, since_ref: str | None, head_ref: str) -> set[int]:
+    if is_adoption_scan(since_ref=since_ref, head_ref=head_ref):
+        lines = guard.read_text_from_worktree(path if path.is_absolute() else REPO_ROOT / path)
+        if lines is None:
+            return set()
+        return set(range(1, len(lines.splitlines()) + 1))
     relative = (
         path.relative_to(REPO_ROOT).as_posix()
         if path.is_absolute()

@@ -81,7 +81,15 @@ REPO_SHELL_WRAPPER_RE = re.compile(
     r"(?:\s+\S*(?:dev/scripts/|scripts/)[^\s]+))"
 )
 SELF_HYGIENE_COMMAND_RE = re.compile(
-    r"\bdev/scripts/devctl\.py\s+process-(?:audit|cleanup)\b"
+    r"^(?:"
+    r"(?:\S*python(?:3(?:\.\d+)?)?\s+(?:\./)?dev/scripts/devctl\.py\s+"
+    r"(?:check|docs-check|hygiene)\b)|"
+    r"(?:\S*(?:bash|zsh|sh)\s+-c[^\n]*\bdev/scripts/devctl\.py\s+"
+    r"(?:check|docs-check|hygiene)\b)|"
+    r"(?:\S*python(?:3(?:\.\d+)?)?\s+(?:\./)?dev/scripts/checks/[^\s]+\.py(?:\s|$))|"
+    r"(?:\S*(?:bash|zsh|sh)\s+(?:\./)?dev/scripts/checks/[^\s]+\.py(?:\s|$))|"
+    r"(?:(?:\./)?dev/scripts/checks/[^\s]+\.py(?:\s|$))"
+    r")"
 )
 SCOPE_PRIORITY = {
     "repo_background": 1,

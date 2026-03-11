@@ -69,6 +69,19 @@ def add_status_parser(
         action="store_true",
         help="Run collection probes sequentially instead of in parallel",
     )
+    status_cmd.add_argument(
+        "--probe-report",
+        action="store_true",
+        help="Include aggregated review-probe summary for the current worktree",
+    )
+    status_cmd.add_argument(
+        "--quality-policy",
+        help=(
+            "Optional repo policy JSON file used by --probe-report "
+            "(defaults to dev/config/devctl_repo_policy.json or "
+            "DEVCTL_QUALITY_POLICY)."
+        ),
+    )
     add_standard_output_arguments(
         status_cmd,
         format_choices=("json", "md", "text"),
@@ -194,6 +207,19 @@ def add_report_parser(
         type=int,
         default=20,
         help="Maximum ranked Python guard hotspots to include when --python-guard-backlog",
+    )
+    report_cmd.add_argument(
+        "--probe-report",
+        action="store_true",
+        help="Include aggregated review-probe summary (uses --since-ref/--head-ref when provided)",
+    )
+    report_cmd.add_argument(
+        "--quality-policy",
+        help=(
+            "Optional repo policy JSON file used by --probe-report "
+            "(defaults to dev/config/devctl_repo_policy.json or "
+            "DEVCTL_QUALITY_POLICY)."
+        ),
     )
     report_cmd.add_argument(
         "--no-parallel",

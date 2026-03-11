@@ -97,6 +97,20 @@ class CollectCiRunsTests(TestCase):
         self.assertIn("authentication failed", report["error"])
         self.assertEqual(check_output_mock.call_count, 1)
 
+    @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/gh")
+    @patch("dev.scripts.devctl.collect.subprocess.check_output")
+    def test_collect_ci_runs_reports_invalid_json_payload(
+        self,
+        check_output_mock,
+        _which_mock,
+    ) -> None:
+        check_output_mock.return_value = "{not-json"
+
+        report = collect.collect_ci_runs(5)
+
+        self.assertIn("error", report)
+        self.assertIn("status,conclusion,displayTitle,name,event", report["error"])
+
 
 class CollectMutationSummaryTests(TestCase):
     @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/python3")
@@ -141,3 +155,17 @@ class CollectMutationSummaryTests(TestCase):
         self.assertIn("results", report)
         self.assertIn("warning", report)
         self.assertIn("invalid JSON payload", report["warning"])
+
+    @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/python3")
+    @patch("dev.scripts.devctl.collect.subprocess.check_output")
+    def test_collect_mutation_summary_reports_runtime_os_error(
+        self,
+        check_output_mock,
+        _which_mock,
+    ) -> None:
+        check_output_mock.side_effect = OSError("python runtime unavailable")
+
+        report = collect.collect_mutation_summary()
+
+        self.assertIn("error", report)
+        self.assertIn("mutants.py --results-only --json", report["error"])

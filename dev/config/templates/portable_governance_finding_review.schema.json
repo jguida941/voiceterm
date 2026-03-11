@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "portable-governance/portable_governance_finding_review.schema.json",
+  "title": "Portable Governance Finding Review",
+  "description": "Canonical row shape for adjudicated guard/probe findings used to measure false-positive and cleanup rates over time.",
+  "type": "object",
+  "required": [
+    "finding_id",
+    "timestamp_utc",
+    "repo_name",
+    "repo_path",
+    "signal_type",
+    "check_id",
+    "verdict",
+    "file_path"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "finding_id": { "type": "string", "minLength": 1 },
+    "timestamp_utc": { "type": "string", "minLength": 1 },
+    "repo_name": { "type": "string", "minLength": 1 },
+    "repo_path": { "type": "string", "minLength": 1 },
+    "signal_type": {
+      "type": "string",
+      "enum": ["guard", "probe"]
+    },
+    "check_id": { "type": "string", "minLength": 1 },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "confirmed_issue",
+        "false_positive",
+        "fixed",
+        "waived",
+        "deferred",
+        "unknown"
+      ]
+    },
+    "file_path": { "type": "string", "minLength": 1 },
+    "symbol": { "type": "string" },
+    "line": { "type": "integer", "minimum": 1 },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "risk_type": { "type": "string" },
+    "source_command": { "type": "string" },
+    "scan_mode": {
+      "type": "string",
+      "enum": ["working-tree", "commit-range", "adoption-scan", "absolute"]
+    },
+    "notes": { "type": "string" }
+  }
+}

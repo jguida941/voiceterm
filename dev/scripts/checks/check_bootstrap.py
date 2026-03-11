@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,47 @@ def import_attr(module_name: str, attr_name: str) -> Any:
     except ModuleNotFoundError:
         module = importlib.import_module(f"dev.scripts.checks.{module_name}")
     return getattr(module, attr_name)
+
+
+def resolve_quality_scope_roots(
+    scope_id: str,
+    *,
+    repo_root: Path,
+) -> tuple[Path, ...]:
+    """Resolve repo-configured quality-scope roots for a guard or probe."""
+    try:
+        quality_policy = importlib.import_module("dev.scripts.devctl.quality_policy")
+    except ModuleNotFoundError:
+        repo_root_str = str(repo_root)
+        if repo_root_str not in sys.path:
+            sys.path.insert(0, repo_root_str)
+        quality_policy = importlib.import_module("dev.scripts.devctl.quality_policy")
+    return tuple(
+        quality_policy.resolve_quality_scope_roots(
+            scope_id,
+            repo_root=repo_root,
+        )
+    )
+
+
+def resolve_guard_config(
+    script_id: str,
+    *,
+    repo_root: Path,
+) -> dict[str, Any]:
+    """Resolve repo-configured per-script settings for a guard or probe."""
+    try:
+        quality_policy = importlib.import_module("dev.scripts.devctl.quality_policy")
+    except ModuleNotFoundError:
+        repo_root_str = str(repo_root)
+        if repo_root_str not in sys.path:
+            sys.path.insert(0, repo_root_str)
+        quality_policy = importlib.import_module("dev.scripts.devctl.quality_policy")
+    config = quality_policy.resolve_guard_config(
+        script_id,
+        repo_root=repo_root,
+    )
+    return dict(config) if isinstance(config, dict) else {}
 
 
 def utc_timestamp() -> str:

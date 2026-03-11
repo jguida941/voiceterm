@@ -5,6 +5,12 @@ Works on macOS and Linux (Windows needs WSL2).
 If you want hands-free mode, start with `--auto-voice` + `--wake-word`, then
 use `insert` send mode so you can say `send` / `submit`.
 
+Need the full docs instead of the shortest path?
+[Install Guide](guides/INSTALL.md) |
+[Usage Guide](guides/USAGE.md) |
+[CLI Flags](guides/CLI_FLAGS.md) |
+[Troubleshooting](guides/TROUBLESHOOTING.md)
+
 ## 1) Install Codex CLI (default backend)
 
 ```bash
@@ -75,17 +81,12 @@ If you installed from source and want to pre-download a model:
 
 Codex is default; `voiceterm --codex` is optional.
 Use `voiceterm --claude` to target Claude.
-In JSON IPC mode, provider selection supports only `codex` and `claude`;
-`gemini` is overlay-only experimental, and `aider` / `opencode` / `custom` are
-overlay-only non-IPC backends.
-For IDE compatibility status (what is verified vs unverified), see
-[guides/USAGE.md#ide-compatibility](guides/USAGE.md#ide-compatibility).
-JetBrains + Claude is fully supported on current releases. Rare edge case:
-after very long parallel tool calls or parallel web search turns, temporary
-HUD/transcript overlap can appear at turn completion. Quick workaround:
-resize the terminal once (even by 1 row/column) to force layout recalculation.
-See
-[guides/TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output](guides/TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output).
+Need backend details, IDE compatibility, or experimental-backend status?
+Start here:
+
+- [Backend support](guides/USAGE.md#backend-support)
+- [IDE compatibility](guides/USAGE.md#ide-compatibility)
+- [Troubleshooting](guides/TROUBLESHOOTING.md)
 
 ## 4) Core controls
 
@@ -168,13 +169,6 @@ voiceterm --logs
 If you press `Ctrl+D` without `--dev`, VoiceTerm forwards EOF (`0x04`) to the
 wrapped CLI and that session may close.
 
-Style-pack note:
-
-- `VOICETERM_STYLE_PACK_JSON` can set `components.overlay_border` for overlays
-  and `components.hud_border` for Full HUD when border style is `theme`.
-- TOML theme files loaded with `--theme-file` are watched and re-applied on
-  save (about 500ms poll interval).
-
 See [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md) for the full option reference.
 For Dev panel command behavior and outputs, see [guides/DEV_MODE.md](guides/DEV_MODE.md).
 
@@ -182,4 +176,33 @@ For Dev panel command behavior and outputs, see [guides/DEV_MODE.md](guides/DEV_
 
 - Full user docs map: [guides/README.md](guides/README.md)
 - Install options: [guides/INSTALL.md](guides/INSTALL.md)
+- Daily usage and controls: [guides/USAGE.md](guides/USAGE.md)
+- Full flag list: [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md)
 - Troubleshooting hub: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
+
+## 8) iPhone companion app (optional)
+
+If you want the repo-backed mobile control surface, use the first-party iPhone
+app in `app/ios/VoiceTermMobileApp`.
+
+For a real simulator demo with current repo data:
+
+```bash
+python3 dev/scripts/devctl.py mobile-app --action simulator-demo --live-review --format md
+```
+
+For a real signed install on a connected iPhone:
+
+```bash
+python3 dev/scripts/devctl.py mobile-app --action device-install --development-team <TEAM_ID> --allow-provisioning-updates --format md
+```
+
+What is real today:
+
+- the app can load the live repo-backed mobile bundle instead of sample data
+- it shows controller/review status and typed action previews for the Ralph loop
+- it is still a control/read surface, not a raw terminal executor on the phone
+
+If install/import fails, start with
+[guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md) and
+`app/ios/VoiceTermMobileApp/README.md`.

@@ -27,6 +27,7 @@ Agents must read this file first before loading active planning docs.
 | `dev/active/slash_command_standalone.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-352`, `MP-353` | when implementing standalone `/voice` slash command for Codex/Claude without overlay, MCP server extraction, or cross-platform plugin packaging |
 | `dev/active/ralph_guardrail_control_plane.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-360..MP-367` | when implementing Ralph AI fix wrapper, cross-architecture guardrail enforcement, guardrail configuration registry, structured guard reports, ralph-status CLI/charts, operator console Ralph dashboard, phone/iOS Ralph metrics, or unified guardrail control surfaces |
 | `dev/active/review_probes.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-368..MP-375` | when implementing heuristic review probes, non-blocking risk-hint collectors, or probe-fed AI review triage surfaces |
+| `dev/active/portable_code_governance.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-376` | when extending the portable guard/probe engine, defining repo-policy vs engine boundaries, building measurement/eval corpora, exporting the governance stack for off-repo review, or piloting the system on other repositories |
 | `dev/active/phase2.md` | `reference` | `reference-only` | bridge pointer to canonical phase-2 companion-platform research context at `dev/deferred/phase2.md` (not active MP execution state) | only when evaluating long-range terminal companion planning; follow the bridge to deferred research |
 
 ## Load Order (Agent Bootstrap)

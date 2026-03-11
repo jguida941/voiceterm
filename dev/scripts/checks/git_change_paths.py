@@ -4,6 +4,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+try:
+    from dev.scripts.devctl.quality_scan_mode import is_adoption_scan
+except ModuleNotFoundError:  # pragma: no cover
+    import sys
+
+    REPO_ROOT = Path(__file__).resolve().parents[3]
+    repo_root_str = str(REPO_ROOT)
+    if repo_root_str not in sys.path:
+        sys.path.insert(0, repo_root_str)
+    from dev.scripts.devctl.quality_scan_mode import is_adoption_scan
+
 
 def list_changed_paths_with_base_map(
     run_git, since_ref: str | None, head_ref: str
@@ -14,6 +25,17 @@ def list_changed_paths_with_base_map(
     for baseline comparisons (`old -> new` for renames/copies, identity
     otherwise).
     """
+    if is_adoption_scan(since_ref=since_ref, head_ref=head_ref):
+        tracked = run_git(["git", "ls-files"])
+        untracked = run_git(["git", "ls-files", "--others", "--exclude-standard"])
+        for result in (tracked, untracked):
+            for line in result.stdout.splitlines():
+                if line.strip():
+                    path = Path(line.strip())
+                    changed.add(path)
+                    base_map.setdefault(path, path)
+        return sorted(changed), base_map
+
     if since_ref:
         diff_cmd = [
             "git",

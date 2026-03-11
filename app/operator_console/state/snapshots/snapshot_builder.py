@@ -31,6 +31,7 @@ from ..sessions.session_builder import (
     build_cursor_session_surface,
 )
 from ..sessions.session_trace_reader import load_live_session_trace
+from .watchdog_snapshot import load_watchdog_analytics_snapshot
 
 
 def build_operator_console_snapshot(
@@ -152,6 +153,7 @@ def build_operator_console_snapshot(
         review_projection=review_projection,
     )
     quality_backlog = collect_quality_backlog_snapshot(repo_root)
+    watchdog_snapshot = load_watchdog_analytics_snapshot(repo_root)
 
     return OperatorConsoleSnapshot(
         codex_panel_text=codex_panel_text,
@@ -181,6 +183,7 @@ def build_operator_console_snapshot(
         cursor_session_stats_text=cursor_session_surface.stats_text,
         cursor_session_registry_text=cursor_session_surface.registry_text,
         quality_backlog=quality_backlog,
+        watchdog_snapshot=watchdog_snapshot,
     )
 
 

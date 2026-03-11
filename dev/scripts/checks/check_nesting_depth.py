@@ -15,6 +15,7 @@ try:
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
@@ -23,6 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
 
@@ -39,9 +41,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (
-    Path("rust/src"),
-    Path("dev/scripts"),
-    Path("app/operator_console"),
+    *resolve_quality_scope_roots("rust_guard", repo_root=REPO_ROOT),
+    *resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),
 )
 
 PYTHON_NESTING_THRESHOLD = 4

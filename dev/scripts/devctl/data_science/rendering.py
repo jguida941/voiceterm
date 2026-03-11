@@ -70,6 +70,7 @@ def write_data_science_charts(
     *,
     event_stats: dict[str, Any],
     agent_stats: dict[str, Any],
+    watchdog_stats: dict[str, Any],
     charts_dir: Path,
 ) -> None:
     command_rows = event_stats.get("commands", [])
@@ -106,13 +107,46 @@ def write_data_science_charts(
             color="#59a14f",
         )
 
+    watchdog_families = watchdog_stats.get("guard_families", [])
+    if isinstance(watchdog_families, list) and watchdog_families:
+        top_families = watchdog_families[:10]
+        _write_bar_chart_svg(
+            title="Watchdog Episodes by Guard Family",
+            labels=[str(row.get("guard_family")) for row in top_families],
+            values=[to_float(row.get("episodes"), default=0.0) for row in top_families],
+            output_path=charts_dir / "watchdog_guard_family_frequency.svg",
+            color="#e15759",
+        )
+        _write_bar_chart_svg(
+            title="Watchdog Avg Time To Green",
+            labels=[str(row.get("guard_family")) for row in top_families],
+            values=[
+                to_float(row.get("avg_time_to_green_seconds"), default=0.0)
+                for row in top_families
+            ],
+            output_path=charts_dir / "watchdog_time_to_green.svg",
+            color="#76b7b2",
+        )
+
 
 def render_data_science_markdown(report: dict[str, Any]) -> str:
     event_stats = report.get("event_stats", {})
     agent_stats = report.get("agent_stats", {})
+    watchdog_stats = report.get("watchdog_stats", {})
+    governance_review_stats = report.get("governance_review_stats", {})
     rows = agent_stats.get("rows", []) if isinstance(agent_stats, dict) else []
     raw_rec = agent_stats.get("recommendation") if isinstance(agent_stats, dict) else {}
     rec = raw_rec if isinstance(raw_rec, dict) else {}
+    watchdog_rows = (
+        watchdog_stats.get("guard_families", [])
+        if isinstance(watchdog_stats, dict)
+        else []
+    )
+    governance_check_rows = (
+        governance_review_stats.get("by_check_id", [])
+        if isinstance(governance_review_stats, dict)
+        else []
+    )
 
     lines = [
         "# Data Science Snapshot",
@@ -120,6 +154,7 @@ def render_data_science_markdown(report: dict[str, Any]) -> str:
         f"- generated_at: {report.get('generated_at')}",
         f"- trigger_command: {report.get('trigger_command')}",
         f"- event_log: {report.get('event_log')}",
+        f"- governance_review_log: {report.get('governance_review_log')}",
         "",
         "## devctl Event Metrics",
         f"- total_events: {event_stats.get('total_events')}",
@@ -146,5 +181,59 @@ def render_data_science_markdown(report: dict[str, Any]) -> str:
         )
     if not rows:
         lines.append("| - | - | - | - | - | - | - |")
+
+    lines.extend(
+        [
+            "",
+            "## Watchdog Metrics",
+            f"- total_episodes: {watchdog_stats.get('total_episodes')}",
+            f"- success_rate_pct: {watchdog_stats.get('success_rate_pct')}",
+            f"- avg_time_to_green_seconds: {watchdog_stats.get('avg_time_to_green_seconds')}",
+            f"- p50_time_to_green_seconds: {watchdog_stats.get('p50_time_to_green_seconds')}",
+            f"- avg_guard_runtime_seconds: {watchdog_stats.get('avg_guard_runtime_seconds')}",
+            f"- avg_retry_count: {watchdog_stats.get('avg_retry_count')}",
+            f"- avg_escaped_findings: {watchdog_stats.get('avg_escaped_findings')}",
+            f"- false_positive_rate_pct: {watchdog_stats.get('false_positive_rate_pct')}",
+            "",
+            "## Watchdog Guard Families",
+            "| Guard Family | Episodes | Success % | Avg Time To Green (s) |",
+            "|---|---:|---:|---:|",
+        ]
+    )
+    for row in watchdog_rows:
+        lines.append(
+            "| {guard_family} | {episodes} | {success_rate_pct} | {avg_time_to_green_seconds} |".format(
+                **row
+            )
+        )
+    if not watchdog_rows:
+        lines.append("| - | - | - | - |")
+
+    lines.extend(
+        [
+            "",
+            "## Governance Review Metrics",
+            f"- total_findings: {governance_review_stats.get('total_findings')}",
+            f"- false_positive_rate_pct: {governance_review_stats.get('false_positive_rate_pct')}",
+            f"- positive_finding_rate_pct: {governance_review_stats.get('positive_finding_rate_pct')}",
+            f"- cleanup_rate_pct: {governance_review_stats.get('cleanup_rate_pct')}",
+            f"- fixed_count: {governance_review_stats.get('fixed_count')}",
+            f"- deferred_count: {governance_review_stats.get('deferred_count')}",
+            f"- waived_count: {governance_review_stats.get('waived_count')}",
+            "",
+            "## Governance Review By Check",
+            "| Check | Findings | False Positives | FP % | Fixed | Cleanup % |",
+            "|---|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for row in governance_check_rows:
+        lines.append(
+            "| {bucket} | {total_findings} | {false_positive_count} | "
+            "{false_positive_rate_pct} | {fixed_count} | {cleanup_rate_pct} |".format(
+                **row
+            )
+        )
+    if not governance_check_rows:
+        lines.append("| - | - | - | - | - | - |")
 
     return "\n".join(lines)

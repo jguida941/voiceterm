@@ -112,9 +112,25 @@ def add_check_parser(
         help="Compare AI-guard checks against this git ref (for commit-range mode).",
     )
     check_cmd.add_argument(
+        "--adoption-scan",
+        action="store_true",
+        help=(
+            "Run AI guards and probes against the full current worktree for "
+            "first-time repo onboarding instead of diff-scoped growth checks"
+        ),
+    )
+    check_cmd.add_argument(
         "--head-ref",
         default="HEAD",
         help="Head ref used with --since-ref for AI-guard checks (default: HEAD).",
+    )
+    check_cmd.add_argument(
+        "--quality-policy",
+        help=(
+            "Optional repo policy JSON file used to resolve active guards/probes "
+            "(defaults to dev/config/devctl_repo_policy.json or "
+            "DEVCTL_QUALITY_POLICY)."
+        ),
     )
     check_cmd.add_argument(
         "--no-parallel",

@@ -216,6 +216,9 @@ jobs:
           python3 dev/scripts/checks/check_parameter_count.py
           python3 dev/scripts/checks/check_python_dict_schema.py
           python3 dev/scripts/checks/check_python_global_mutable.py
+          python3 dev/scripts/checks/check_python_design_complexity.py
+          python3 dev/scripts/checks/check_python_cyclic_imports.py
+          python3 dev/scripts/checks/check_python_suppression_debt.py
           python3 dev/scripts/checks/check_structural_similarity.py
           markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
             README.md \

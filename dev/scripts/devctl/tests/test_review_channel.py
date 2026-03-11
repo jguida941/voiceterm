@@ -931,6 +931,108 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 latest_markdown_path.read_text(encoding="utf-8"),
             )
 
+    def test_run_status_can_refresh_stale_bridge_heartbeat(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "code_audit.md"
+            original_bridge = _build_bridge_text(last_codex_poll="2000-01-01T00:00:00Z")
+            bridge_path.write_text(
+                original_bridge,
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            args = SimpleNamespace(
+                action="status",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                promotion_plan="dev/active/continuous_swarm.md",
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=False,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+                refresh_bridge_heartbeat_if_stale=True,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertIsNotNone(payload["bridge_heartbeat_refresh"])
+            refreshed_bridge = bridge_path.read_text(encoding="utf-8")
+            self.assertIn("Auto-refreshed reviewer heartbeat", refreshed_bridge)
+
+    def test_run_status_dry_run_does_not_refresh_stale_bridge_heartbeat(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "code_audit.md"
+            original_bridge = _build_bridge_text(last_codex_poll="2000-01-01T00:00:00Z")
+            bridge_path.write_text(
+                original_bridge,
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            args = SimpleNamespace(
+                action="status",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                promotion_plan="dev/active/continuous_swarm.md",
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=True,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+                refresh_bridge_heartbeat_if_stale=True,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertIsNone(payload["bridge_heartbeat_refresh"])
+            self.assertEqual(bridge_path.read_text(encoding="utf-8"), original_bridge)
+
     def test_run_promote_rewrites_current_instruction_from_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

@@ -92,6 +92,15 @@
 - Release preflight auth stability update: `.github/workflows/release_preflight.yml`
   runtime bundle step now exports `GH_TOKEN: ${{ github.token }}` so
   `devctl check --profile release` can run `gh`-backed release gates in CI.
+- Release governance update (2026-03-09): the current pre-release audit
+  showed that shipping the mobile/control-plane tranche cleanly requires full
+  canonical-doc coverage, not just changelog plus a subset of guides.
+  Maintainer docs (`AGENTS.md`, `dev/guides/DEVELOPMENT.md`,
+  `dev/history/ENGINEERING_EVOLUTION.md`) and canonical user docs
+  (`QUICK_START.md`, `guides/TROUBLESHOOTING.md`) now carry explicit release
+  notes for the mobile app/install/control-plane path, and the release bundle
+  expectation is that `check_mobile_relay_protocol.py` remains green so Rust,
+  Python, and iOS payload contracts ship together.
 - Release preflight SARIF permission update:
   `.github/workflows/release_preflight.yml` preflight job now grants
   `security-events: write` so zizmor SARIF uploads can publish to code scanning.
@@ -144,6 +153,7 @@
 - MP-347 guard-utility expansion update (2026-03-09): `devctl report` now
   supports `--python-guard-backlog` with ranked hotspot aggregation across
   `check_python_dict_schema`, `check_python_global_mutable`,
+  `check_python_design_complexity`, `check_python_cyclic_imports`,
   `check_parameter_count`, `check_nesting_depth`, `check_god_class`,
   `check_python_broad_except`, and `check_python_subprocess_policy`, so Python
   clean-code debt can be burned down in priority order before stricter lane
@@ -158,6 +168,239 @@
   mutable default argument patterns (`[]`, `{}`, `set()/list()/dict()` style
   defaults) so Python mutable-state pitfalls are blocked even when `global`
   keywords are not involved.
+- MP-347 suppression-debt update (2026-03-11): `check_python_suppression_debt.py`
+  now enforces non-regressive growth of Python lint/type suppressions
+  (`# noqa`, `# type: ignore`, `# pylint: disable`, `# pyright: ignore`)
+  using tokenized comment scanning, and the portable Python preset now enables
+  it by default so the same engine can block new suppression debt here or in
+  another repo without hard-coded VoiceTerm path logic.
+- MP-347 default-evaluation hardening update (2026-03-11):
+  `check_python_global_mutable.py` now also blocks net-new function-call
+  default arguments plus dataclass fields that evaluate mutable or callable
+  defaults eagerly instead of routing through `field(default_factory=...)`, so
+  the portable Python guard stack now covers the next default-argument trap
+  slice without needing a second overlapping guard id.
+- MP-347 portability hardening update (2026-03-11):
+  `quality_policy.py` now resolves per-guard config payloads, standalone guard
+  scripts can read those configs through `check_bootstrap.py`, and
+  `devctl quality-policy` plus `devctl check --quality-policy` now surface and
+  propagate the same policy-owned settings. VoiceTerm-specific `code_shape`
+  namespace/layout rules moved out of the portable engine and into the
+  repo-owned preset so another repo can reuse the same guard without hidden
+  path assumptions.
+- MP-347 portable complexity/import update (2026-03-11):
+  `check_python_design_complexity.py` now blocks net-new branch-heavy or
+  return-heavy Python functions using policy-owned thresholds (with a
+  conservative portable default that repo policy can tighten), and
+  `check_python_cyclic_imports.py` now blocks net-new top-level local import
+  cycles with repo-policy allowlists for known transitional debt. Both guards
+  are registered in the portable Python preset, catalog, bundles, workflows,
+  and Python backlog report so the next portable hard-guard backlog narrows to
+  Rust `result_large_err` / `large_enum_variant`.
+- MP-376 portable governance execution-doc update (2026-03-11):
+  added `dev/active/portable_code_governance.md` to track the broader
+  reusable code-governance-engine direction explicitly: engine vs repo-policy
+  boundaries, measurement/data-capture goals, off-repo snapshot/export needs,
+  and the eventual multi-repo pilot rollout. This keeps the strategic
+  portability/evaluation goal from being scattered across review-probe log
+  entries alone.
+- MP-376 export/evaluation update (2026-03-11):
+  `devctl governance-export` now packages the governance stack into an
+  external snapshot/zip with fresh `quality-policy`, `probe-report`, and
+  `data-science` artifacts, `dev/guides/PORTABLE_CODE_GOVERNANCE.md` now
+  defines the engine/preset/repo-policy boundary plus the evaluation rubric,
+  and template schemas now capture both the guarded-episode measurement
+  contract and the multi-repo benchmark record. The first broad external pilot
+  corpus source is explicitly the maintainer GitHub repo inventory
+  (`https://github.com/jguida941?tab=repositories`), while actual non-VoiceTerm
+  pilot execution remains open follow-up work.
+- MP-376 pilot-onboarding update (2026-03-11):
+  the first non-VoiceTerm pilot ran against `ci-cd-hub` and exposed the
+  remaining portability leaks directly. `devctl governance-bootstrap` now
+  normalizes copied/submodule repos with broken `.git` indirection, `check` /
+  `probe-report` / `governance-export` now accept `--adoption-scan` for
+  full-surface onboarding runs without a trusted baseline ref, and
+  `probe_exception_quality.py` joins the review-probe suite to surface
+  suppressive Python exception handling patterns seen in external tooling code.
+- MP-376 measurement-ledger update (2026-03-11):
+  `devctl governance-review` now records adjudicated guard/probe findings into
+  `dev/reports/governance/finding_reviews.jsonl`, writes rolled-up
+  `review_summary.{md,json}` artifacts, and feeds those metrics into
+  `devctl data-science` so false-positive rate, confirmed-signal rate, and
+  cleanup progress are tracked as durable repo evidence instead of chat-only
+  notes.
+- MP-376 live-cleanup adjudication update (2026-03-11):
+  the first high-severity probe debt was burned down through that ledger:
+  `probe_exception_quality` findings in `dev/scripts/devctl/collect.py` were
+  fixed by narrowing fallback exception handling, the medium translation hint in
+  `dev/scripts/devctl/commands/check_support.py` was removed by replacing the
+  subprocess-based tempdir lookup with a direct Python implementation, and the
+  reviewed outcomes are now recorded as `fixed` in `governance-review`.
+- MP-376 design-smell cleanup update (2026-03-11):
+  the next medium-severity `probe_single_use_helpers` slice is now burned down
+  too: `dev/scripts/devctl/collect.py` no longer carries one-use file-local
+  helpers, and the data-science row collectors were split into
+  `dev/scripts/devctl/data_science/source_rows.py` so
+  `dev/scripts/devctl/data_science/metrics.py` stays focused on snapshot
+  orchestration. Those reviewed outcomes are also now recorded as `fixed` in
+  `governance-review`.
+- MP-376 triage single-use-helper follow-up (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup moved the
+  CIHub/external-input triage helpers out of
+  `dev/scripts/devctl/commands/triage.py` so the command stays
+  orchestration-focused, and the reviewed outcome is now recorded as `fixed`
+  in `governance-review`.
+- MP-376 loop-packet single-use-helper follow-up (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down too:
+  `dev/scripts/devctl/commands/loop_packet_helpers.py` no longer hides JSON
+  source loading/command normalization or packet-body dispatch behind one-call
+  wrappers. This was treated as a real design-smell signal, not a false
+  positive, because the flagged helpers had no reuse or test-seam value; the
+  behavior now lives directly in `_discover_artifact_sources()` and
+  `_build_packet_body()`, and the reviewed outcome is now recorded as `fixed`
+  in `governance-review`.
+- MP-376 review-channel single-use-helper adjudication (2026-03-11):
+  the next `probe_single_use_helpers` candidate under
+  `dev/scripts/devctl/commands/review_channel_bridge_handler.py` is now logged
+  as `deferred`, not `false_positive`. Before review, the probe emitted one
+  file-level hint over five private helpers; after review, the repo state now
+  records the narrower call explicitly: `_validate_live_launch_conflicts()`
+  and `_load_bridge_runtime_state()` look like real one-use wrappers,
+  `_resolve_promotion_and_terminal_state()` and `_build_sessions()` remain
+  defensible seams, and `_post_session_lifecycle_event()` is borderline. That
+  keeps the next cleanup selective and auditable instead of treating the whole
+  hint as either pure noise or a blanket inline order.
+- MP-376 review-channel single-use-helper cleanup (2026-03-11):
+  that deferred `review_channel_bridge_handler.py` follow-up is now burned down
+  with the selective fix the adjudication called for. Before the fix, the file
+  mixed two real one-use wrappers with three meaningful seams; after the fix,
+  the live-launch conflict logic now reuses
+  `review_channel_bridge_action_support.py`, the one-use bridge-state wrapper
+  is removed, and the remaining session/promotion/event boundaries now live as
+  named action-support helpers instead of private single-use functions.
+  `review_channel_bridge_support.py` stays back under the code-shape soft
+  limit after that split. This was still treated as a real design-smell
+  signal, not a false positive, and `probe_single_use_helpers` no longer flags
+  the handler; the reviewed outcome is now recorded as `fixed` in
+  `governance-review`.
+- MP-376 governance-export single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/governance_export_artifacts.py`. Before the fix, the
+  export path hid quality-policy, probe-report, and data-science artifact
+  generation behind three one-call private helpers with no reuse or test-seam
+  value; after the fix, `write_generated_artifacts()` writes those artifact
+  families directly, `probe_single_use_helpers` no longer flags the file, and
+  the reviewed outcome is now recorded as `fixed` in `governance-review`.
+- MP-376 governance-export builder single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/governance_export_support.py`. Before the fix, the
+  export builder hid repository-external destination validation, snapshot
+  source copying, manifest emission, and path-containment checking behind four
+  one-call private helpers with no reuse or seam value; after the fix,
+  `build_governance_export()` performs those steps directly, leaves
+  `_sanitize_snapshot_name()` as the only local helper boundary, and
+  `probe_single_use_helpers` no longer flags the file. This was treated as a
+  real design-smell hit, not a false positive, and the reviewed outcome is now
+  recorded as `fixed` in `governance-review`.
+- MP-376 watchdog-episode single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/watchdog/episode.py`. Before the fix, the episode
+  builder hid provider inference, guard-family classification, and
+  escaped-findings counting behind three one-call private helpers with no
+  reuse or test-seam value; after the fix, `build_guarded_coding_episode()`
+  performs those derivations directly, leaves `_snapshot()` as the only reused
+  local helper boundary, and `probe_single_use_helpers` no longer flags the
+  file. This was treated as a real design-smell hit, not a false positive, and
+  the reviewed outcome is now recorded as `fixed` in `governance-review`.
+- MP-376 watchdog-probe-gate single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/watchdog/probe_gate.py`. Before the fix, the probe gate
+  hid allowlist loading, allowlist matching, and report summarization behind
+  three one-call private helpers with no reuse or test-seam value; after the
+  fix, `run_probe_scan()` performs those steps directly, focused unit tests now
+  cover allowlist filtering/fail-open behavior, and
+  `probe_single_use_helpers` no longer flags the file. This was treated as a
+  real design-smell hit, not a false positive, and the reviewed outcome is now
+  recorded as `fixed` in `governance-review`.
+- MP-376 quality-policy-scope single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/quality_policy_scopes.py`. Before the fix, the scope
+  resolver hid Python-root discovery plus configured-root normalization and
+  coercion behind four one-call private helpers with no reuse or test-seam
+  value; after the fix, `resolve_quality_scopes()` performs those steps
+  directly while `_discover_rust_scope_roots()` remains the only meaningful
+  helper boundary, focused unit tests now cover common Python-root discovery
+  plus invalid/duplicate scope handling, and `probe_single_use_helpers` no
+  longer flags the file. This was treated as a real design-smell hit, not a
+  false positive, and the reviewed outcome is now recorded as `fixed` in
+  `governance-review`.
+- MP-376 review-probe-report single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/review_probe_report.py`. Before the fix, the aggregated
+  probe reporter hid per-probe subprocess execution, hint enrichment, batch
+  collection, and terminal hotspot rendering behind four one-call private
+  helpers with no reuse or seam value; after the fix, `build_probe_report()`
+  drives probe execution and risk-hint enrichment directly,
+  `render_probe_report_terminal()` renders the top hotspot inline, focused
+  unit tests now cover the terminal hotspot path, and
+  `probe_single_use_helpers` no longer flags the file. This was treated as a
+  real design-smell hit, not a false positive, and the reviewed outcome is now
+  recorded as `fixed` in `governance-review`.
+- MP-376 triage-support single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/triage/support.py`. Before the fix, the markdown
+  renderer hid project snapshot, issue list, CIHub, and external-input
+  sections behind four one-call private helpers with no reuse or seam value;
+  after the fix, `render_triage_markdown()` builds those sections directly,
+  focused unit tests now cover CIHub/external-input markdown rendering, and
+  `probe_single_use_helpers` no longer flags the file. This was treated as a
+  real design-smell hit, not a false positive, and the reviewed outcome is now
+  recorded as `fixed` in `governance-review`.
+- MP-359 operator-console bundle unblock follow-up (2026-03-11):
+  the desktop proof lane is back to green after two bounded fixes. First,
+  `app/operator_console/views/layout/__init__.py` now lazy-loads
+  `WindowShellMixin`, `HAS_THEME_EDITOR`, and workbench helpers instead of
+  importing them eagerly during package init, breaking the package-init
+  cycle `help_dialog -> layout.__init__ -> ui_window_shell -> help_dialog`
+  that had been failing `test_help_dialog.py` during collection. Second,
+  `dev/scripts/devctl/phone_status_views.py` now routes compact/trace/action
+  projection through the existing `_section()` helper instead of calling
+  removed `_controller/_loop/_source_run/_terminal/_ralph` helpers, so the
+  Operator Console phone snapshot path is no longer stuck in unavailable
+  fallback. `app/operator_console/tests/` is green again in the canonical
+  bundle proof path.
+- MP-376 phone-status projection hotspot cleanup (2026-03-11):
+  the next high-severity Python review-probe hotspot is now burned down in
+  `dev/scripts/devctl/phone_status_views.py`. Before the fix,
+  `compact_view()`, `trace_view()`, and `actions_view()` returned large
+  ad-hoc dict literals and `view_payload()` plus `_render_view_markdown()`
+  branched on raw strings, so the `probe_dict_as_struct` and
+  `probe_stringly_typed` hints were treated as real signal, not false
+  positives. After the fix, `PhoneStatusView` parses the view boundary once,
+  typed projection models live in
+  `dev/scripts/devctl/phone_status_projection.py`, focused phone-status tests
+  cover compact fallback plus trace markdown rendering, `probe-report` no
+  longer flags the file, and the follow-on file split keeps
+  `phone_status_views.py` back under the code-shape soft limit.
+- MP-359 presentation-state probe cleanup follow-up (2026-03-11):
+  the remaining Operator Console advisory debt from the probe suite is now
+  burned down in `app/operator_console/state/presentation/presentation_state.py`.
+  Before the fix, the file hid snapshot-digest lane serialization,
+  repo-analytics change-mix rendering, and CI KPI text behind one-call
+  private helpers with no reuse or seam value; after the fix,
+  `probe_single_use_helpers` no longer flags the file, the residual low
+  formatter-helper `probe_design_smells` hint disappears in the same pass, and
+  `app/operator_console/tests/state/test_presentation_state.py` remains green.
+- MP-376 operator-console presentation-state single-use-helper cleanup (2026-03-11):
+  the final repo-wide `probe_single_use_helpers` ledger cleanup is now burned
+  down in `app/operator_console/state/presentation/presentation_state.py`.
+  Before the fix, the presentation layer hid snapshot-digest lane
+  serialization, repo-analytics change-mix formatting, and CI KPI rendering
+  behind one-call private helpers with no reuse or test-seam value; after the
+  fix, `snapshot_digest()`, `_build_repo_text()`, and `_build_kpi_values()`
+  perform those derivations directly, focused presentation-state tests remain
+  green, `probe_single_use_helpers` no longer flags any file repo-wide, and
+  the reviewed outcome is now recorded as `fixed` in `governance-review`.
 - MP-350 closure update (2026-03-05): additive read-only MCP adapter
   implementation is complete with code-level contract helpers/tests for
   `check --profile release`, `ship --verify`, and cleanup protections;
@@ -946,7 +1189,7 @@ become the main product surface.
 - [ ] MP-336 Add `network-monitor-tui` to the external federation + dev-mode bridge scope: link a pinned `integrations/network-monitor-tui` source, define allowlisted import profile(s) for throughput/latency sampler primitives, expose a read-only metrics surface for `--dev` + phone status views without introducing remote-control side effects, and add isolated runtime mode flags (`--monitor` and/or `--mode monitor`) so monitor/tooling startup does not interfere with the default Whisper voice-overlay path. The future monitor entry path should open the same Rust operator cockpit used by `--dev`, not a second forked console.
 - [x] MP-337 Add repeat-to-automate governance and baseline scientific audit program: require repeated manual work to become guarded automation or explicit debt, add tracked `dev/audits/` runbook/register/schema artifacts, ship analyzer tooling (`dev/scripts/audits/audit_metrics.py`) that quantifies script-only vs AI-assisted vs manual execution share with optional chart outputs, and auto-emit per-command `devctl` audit events (`dev/reports/audits/devctl_events.jsonl`) for continuous trend data.
 - [ ] MP-338 Stand up a loop-output-to-chat coordination lane: maintain a dedicated runbook for loop suggestion handoff (`dev/active/loop_chat_bridge.md`), define dry-run/live-run evidence capture, and keep operator decisions/next actions append-only so loop guidance can be promoted safely into autonomous execution. (partial: added `devctl autonomy-report` dated digest bundles, upgraded `devctl autonomy-swarm` to one-command execution with default post-audit digest + reserved `AGENT-REVIEW` lane for live runs, added `devctl swarm_run` for guarded plan-scoped swarm + governance + plan-evidence append, added bounded continuous cycle support via `--continuous/--continuous-max-cycles` so runs keep advancing unchecked checklist items until `plan_complete`, `max_cycles_reached`, or `cycle_failed`, wired workflow-dispatch lane `.github/workflows/autonomy_run.yml`, and added `devctl autonomy-benchmark` matrix reports for plan-scoped swarm-size/tactic tradeoff evidence.)
-- [ ] MP-340 Deliver one-system operator surfaces + deterministic autonomy learning: keep Rust overlay as runtime primary, keep iPhone/SSH surfaces over one `controller_state` contract, and implement artifact-driven playbook learning (fingerprints, confidence, promotion/decay gates) so repeated loop tasks are reused safely with auditable evidence. This umbrella scope also owns the cross-plan contract that keeps Memory Studio (`MP-230..MP-255`), the review channel (`MP-355`), and controller surfaces on one shared event/header model, one provider-aware handoff path, and one future unified timeline/replay view rather than three parallel side channels. Current direction: grow the existing Rust Dev panel into a staged operator cockpit (`Control`, `Ops`, `Review`, `Actions`, `Handoff`, plus developer-oriented Git/GitHub/CI/script/memory views), then let `--monitor` reuse that same cockpit as a dedicated startup path. The first `Ops` slice is the Rust-first lane for host-process hygiene, triage summaries, and later external monitor adapters, so those readouts stay in the typed control surface instead of Theme Studio or a parallel ad hoc UI. Buttons may emit high-level intents and AI may resolve those intents to the correct approved playbook, but execution must still route through one typed action catalog plus shared policy/approval/waiver model rather than bypassing safety with raw shell/API execution. Current `phone-status` / `controller-action` payloads and Rust Dev-panel snapshot builders are still interim projections; `devctl mobile-status` is now the first merged SSH-safe phone shim that combines review + controller state, `app/ios/VoiceTermMobile` is the shared first-party core package over that payload, and `app/ios/VoiceTermMobileApp` is the runnable iPhone/iPad app shell over the same emitted mobile bundle with guided simulator demo plus live-review proving modes and typed Ralph/controller action previews, but true MP-340 convergence still only happens once Rust, phone, review, and memory all read one emitted `controller_state` projection set with parity tests and provider-aware memory pack attachments. The mobile end-state is no longer just read-first bundle import: the Mac-hosted Rust control service must become the shared live source for overlay/dev/phone clients, the iPhone must gain typed approvals and structured operator-note/message dispatch plus staged voice-to-action flows, and the same host state must remain reachable over both local Wi-Fi and a secure off-LAN/cellular adapter with reconnect/resume semantics so ongoing plans continue on the home machine without exposing raw PTY or freeform shell access publicly. Immediate follow-up is now explicit: prove a simple phone ping/alert path first, then close richer iPhone parity over the same backend with split/combined terminal-style lane mirrors, typed approvals/notes/instructions, plan-to-agent assignment, simple/technical modes, provider-aware continue/retask routing, and reconnect/resume behavior. PyQt6 today, iPhone now, and any future Electron/Tauri shell later are clients of that shared backend only; none of them become the backend. Execution profiles should be explicit: `Guarded` by default, `AI-assisted Guarded` when the planner picks from the approved catalog, and a visible dev-only `Unsafe Direct` mode for local bypasses that stays red, noisy, and auditable rather than hidden. (2026-02-26 reset: retired the optional `app/pyside6` desktop command-center scaffold to keep operator execution Rust-first; all active scope now routes through Rust Dev panel + `devctl phone-status` + policy-gated `controller-action`. 2026-02-26 federation follow-up: completed fit-gap audit and added narrow import profiles for targeted `code-link-ide`/`ci-cd-hub` reuse instead of broad tree imports.)
+- [ ] MP-340 Deliver one-system operator surfaces + deterministic autonomy learning: keep Rust overlay as runtime primary, keep iPhone/SSH surfaces over one `controller_state` contract, and implement artifact-driven playbook learning (fingerprints, confidence, promotion/decay gates) so repeated loop tasks are reused safely with auditable evidence. This umbrella scope also owns the cross-plan contract that keeps Memory Studio (`MP-230..MP-255`), the review channel (`MP-355`), and controller surfaces on one shared event/header model, one provider-aware handoff path, and one future unified timeline/replay view rather than three parallel side channels. Current direction: grow the existing Rust Dev panel into a staged operator cockpit (`Control`, `Ops`, `Review`, `Actions`, `Handoff`, plus developer-oriented Git/GitHub/CI/script/memory views), then let `--monitor` reuse that same cockpit as a dedicated startup path. The first `Ops` slice is the Rust-first lane for host-process hygiene, triage summaries, and later external monitor adapters, so those readouts stay in the typed control surface instead of Theme Studio or a parallel ad hoc UI. Buttons may emit high-level intents and AI may resolve those intents to the correct approved playbook, but execution must still route through one typed action catalog plus shared policy/approval/waiver model rather than bypassing safety with raw shell/API execution. MP-340 now also explicitly carries an overlay-native live guard-watchdog direction: the overlay may observe Codex/Claude PTY traffic, session-tail artifacts, repo diffs, and typed review/controller packets to infer what the agent is doing and trigger the matching repo guard family, but guard enforcement must stay typed, policy-gated, debounced, and auditable through `devctl` / controller actions rather than raw terminal injection. The watchdog is now also required to prove impact scientifically: capture matched before/after guarded coding episodes, use paired analysis by task, report effect sizes with confidence intervals plus practical-significance thresholds, and only then promote claims that the guards materially improve Codex/Claude output; the MP-340 analytics layer must also capture repo-owned speed/latency/churn/retry/collaboration metrics from terminal and guard episodes so the project can study time-to-green, guard-hit heatmaps, provider deltas, and other operational signals with a real dashboard instead of anecdotes. Later ML work is allowed, but only as a second-phase ranking/prediction layer over that same artifact corpus after deterministic learning and offline evaluation are already working. Current `phone-status` / `controller-action` payloads and Rust Dev-panel snapshot builders are still interim projections; `devctl mobile-status` is now the first merged SSH-safe phone shim that combines review + controller state, `app/ios/VoiceTermMobile` is the shared first-party core package over that payload, and `app/ios/VoiceTermMobileApp` is the runnable iPhone/iPad app shell over the same emitted mobile bundle with guided simulator demo plus live-review proving modes and typed Ralph/controller action previews, but true MP-340 convergence still only happens once Rust, phone, review, and memory all read one emitted `controller_state` projection set with parity tests and provider-aware memory pack attachments. The mobile end-state is no longer just read-first bundle import: the Mac-hosted Rust control service must become the shared live source for overlay/dev/phone clients, the iPhone must gain typed approvals and structured operator-note/message dispatch plus staged voice-to-action flows, and the same host state must remain reachable over both local Wi-Fi and a secure off-LAN/cellular adapter with reconnect/resume semantics so ongoing plans continue on the home machine without exposing raw PTY or freeform shell access publicly. Immediate follow-up is now explicit: prove a simple phone ping/alert path first, then close richer iPhone parity over the same backend with split/combined terminal-style lane mirrors, typed approvals/notes/instructions, plan-to-agent assignment, simple/technical modes, provider-aware continue/retask routing, and reconnect/resume behavior. PyQt6 today, iPhone now, and any future Electron/Tauri shell later are clients of that shared backend only; none of them become the backend. Execution profiles should be explicit: `Guarded` by default, `AI-assisted Guarded` when the planner picks from the approved catalog, and a visible dev-only `Unsafe Direct` mode for local bypasses that stays red, noisy, and auditable rather than hidden. (2026-02-26 reset: retired the optional `app/pyside6` desktop command-center scaffold to keep operator execution Rust-first; all active scope now routes through Rust Dev panel + `devctl phone-status` + policy-gated `controller-action`. 2026-02-26 federation follow-up: completed fit-gap audit and added narrow import profiles for targeted `code-link-ide`/`ci-cd-hub` reuse instead of broad tree imports.)
 - [ ] MP-341 Runtime architecture hardening pass for product-grade boundaries: tighten `rust/src/lib.rs` public surface (remove legacy re-export drift and prefer internal/facade boundaries), replace stringly `VoiceJobMessage::Error(String)` with typed error categories at subsystem boundaries, harden command parsing (`CustomBackend` quoting-safe parsing), reduce global-side-effect risk in Whisper stderr suppression path, and modernize PyPI launcher distribution flow away from clone+local-build bootstrap toward verified binary delivery. (partial 2026-02-25: hardened SIGWINCH registration via `sigaction` + `SA_RESTART`, removed production `unreachable!()` fallback in Theme Studio non-home renderer path, and reduced silent PTY-output drop risk with explicit unexpected-branch diagnostics.)
 - [ ] MP-342 Increase push-to-talk startup grace by about 1 second to prevent early cutoff when users do not speak immediately after pressing PTT: currently first-press captures can end too quickly if there is a short delay before speech starts. Reproduce in Codex/Claude sessions, tune initial-silence/warmup handling for natural speech onset, add regression coverage for delayed speech starts, and verify no regressions for intentional short taps.
 - [ ] MP-343 Stabilize screenshot button reliability: screenshot capture currently succeeds intermittently and can stop unexpectedly after some successful attempts. Reproduce repeated capture attempts in active sessions, harden button-triggered capture lifecycle/error handling, add regression coverage for repeated runs, and verify physical behavior with screenshot evidence.
@@ -1461,25 +1704,83 @@ become the main product surface.
   `ralph_guardrails.json`, and a skill mapping — closing the loop so new
   guards are automatically wired into the full pipeline.
   Execution spec: `dev/active/ralph_guardrail_control_plane.md`.
-- [ ] MP-368 Implement `probe_concurrency` so heuristic review probes can flag
+- [x] MP-368 Implement `probe_concurrency` so heuristic review probes can flag
   async/shared-state race signals without blocking CI.
-- [ ] MP-369 Implement `probe_architecture` so structural coupling and
-  responsibility drift are surfaced as AI review targets before they become
-  hard-guard failures.
-- [ ] MP-370 Implement `probe_performance` so scale-only allocation, clone,
-  and hot-loop risks feed the review queue instead of relying on regressions.
-- [ ] MP-371 Implement `probe_product_logic` so policy drift, duplicated
-  thresholds, and scattered feature gates produce explicit review hints.
-- [ ] MP-372 Land the shared review-probe framework (`probe_bootstrap.py`,
-  shared schema/utilities, control-plane policy wiring, and check-profile
-  integration).
-- [ ] MP-373 Wire the first end-to-end review-probe path (`probe_concurrency`)
-  with tests and non-blocking `devctl check` integration.
-- [ ] MP-374 Deliver the remaining initial review probes plus aggregated
-  `review_targets.json` output for downstream triage consumers.
-- [ ] MP-375 Integrate probe output into the control plane, `devctl`
-  reporting/status surfaces, and optional operator-console review dashboards.
+- [x] MP-369 Implement `probe_design_smells` so Python AI-slop patterns such as
+  heavy `getattr()` density and formatter sprawl become typed review targets.
+- [x] MP-370 Implement `probe_boolean_params` so unreadable multi-bool
+  signatures in Python and Rust are surfaced before they calcify into APIs.
+- [x] MP-371 Implement `probe_stringly_typed` so string-dispatch paths that
+  should become enums/contracts are surfaced as explicit review hints.
+- [x] MP-372 Land the shared review-probe framework (`probe_bootstrap.py`,
+  shared schema/utilities, probe registration, and check-profile integration).
+- [x] MP-373 Wire the first end-to-end review-probe path with tests and
+  non-blocking `devctl check` integration.
+- [x] MP-374 Deliver the expanded review-probe catalog plus aggregated
+  `devctl probe-report` / `status --probe-report` / `report --probe-report`
+  surfaces and stable `review_targets.json` output. Remaining follow-up is
+  operator-facing ranking/baselines and deeper probe-specific regression
+  coverage, not initial plumbing.
+- [ ] MP-375 Shift review-probe next work to operator-first adoption:
+  ranking/baselines, self-contained senior-review packets, connectivity-aware
+  hotspot scoring, changed-subgraph / hotspot visuals, governance parity, and
+  optional operator-console review dashboards. 2026-03-10 follow-up:
+  `devctl triage --probe-report` now promotes aggregated probe debt into
+  routed issues/next actions, and local `loop-packet` fallback requests the
+  same probe summary so packets stay probe-aware even without a prior
+  artifact. Later 2026-03-10 follow-up: `devctl probe-report` now emits ranked
+  hotspot scoring, `file_topology.json`, `review_packet.{json,md}`, and
+  Mermaid/DOT hotspot views, while `status` / `report` / `triage` consume the
+  same ranked hotspot summary. A first cleanup pass using that packet reduced
+  live findings from 23 across 18 files to 18 across 14 files. Control-plane
+  or Ralph adapters stay later and should build on the same stable probe
+  artifacts. Latest follow-up: maintainer governance docs now explicitly tell
+  AI when to run `check --profile ci`, `probe-report`, and `guard-run`, and
+  document the topology/review-packet artifacts emitted by the probe stack.
+  Latest portability follow-up: built-in guard/probe capability metadata now
+  lives in `devctl/quality_policy_defaults.py`, repo-local
+  enablement/default args now live in `dev/config/devctl_repo_policy.json`,
+  and `check` / `probe-report` resolve active steps from the
+  `quality_policy*.py` policy stack so the current behavior is preserved here
+  while the engine moves toward repo-portable presets. Latest preset
+  follow-up: VoiceTerm now extends reusable portable presets under
+  `dev/config/quality_presets/`, VoiceTerm-only matrix/isolation guards live
+  behind the repo-specific preset instead of the portable fallback, and
+  `check` / `probe-report` plus probe-backed `status` / `report` / `triage`
+  all accept `--quality-policy`; `DEVCTL_QUALITY_POLICY` provides the same
+  automation override, and `devctl quality-policy` now renders the resolved
+  policy/scopes so maintainers can validate another repo policy without
+  editing orchestration code. Latest scope follow-up: scan roots are no longer baked
+  into the standalone Python/Rust guard+probe scripts; the repo policy now
+  owns `python_guard_roots`, `python_probe_roots`, `rust_guard_roots`, and
+  `rust_probe_roots`, and probe-report artifacts surface those resolved roots
+  for operator review. Latest portable-guard slices now ship
+  `check_python_suppression_debt.py`, `check_python_design_complexity.py`, and
+  `check_python_cyclic_imports.py` as default portable Python guards, while
+  default-argument traps route through the expanded
+  `check_python_global_mutable.py` guard. Latest portability follow-up:
+  `check_code_shape.py` namespace/layout rules now resolve from repo-policy
+  guard config instead of VoiceTerm-only hard-coded tuples. Next portable
+  hard-guard backlog now narrows to Rust `result_large_err` /
+  `large_enum_variant` evaluation.
   Execution spec: `dev/active/review_probes.md`.
+
+- [ ] MP-376 Build the portable code-governance engine + evidence corpus:
+  keep the guard/probe/report stack reusable across arbitrary repos without
+  engine edits, define the boundary between engine code, portable presets, and
+  repo-local policy, capture guarded coding episodes as evaluation data
+  (initial output, guard hits, repair loops, accepted diff, human edits, test
+  and later-review outcomes), keep the adjudicated finding ledger
+  (`governance-review`) current so false-positive and cleanup rates are visible
+  in `data-science`, keep first-run onboarding (`governance-bootstrap` +
+  `--adoption-scan`) and export flows reusable across arbitrary repos, and
+  keep mining repeated low-noise pattern families from live evidence before
+  promoting more hard guards. The first external pilot (`ci-cd-hub`) is now
+  complete; remaining scope is benchmark automation, active cleanup against the
+  evidence log, more pilot-proof engine cleanup, and evidence-driven next
+  pattern selection while holding guard code to the same or stricter
+  structural standard as guarded code. Execution spec:
+  `dev/active/portable_code_governance.md`.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 

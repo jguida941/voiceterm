@@ -88,6 +88,10 @@ Note: Some historical entries reference internal documents that are not publishe
   state, reconcile plan boundaries, and scope devctl reporting upgrade.
 - Update `dev/scripts/README.md` and `dev/guides/DEVELOPMENT.md` with new
   mutation testing module structure and CLI flags.
+- Simplify the main onboarding docs (`README.md`, `QUICK_START.md`,
+  `guides/INSTALL.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`) so the short
+  path stays beginner-friendly, advanced companion-app details live behind
+  links, and backend/IDE support wording stays consistent across docs.
 
 ## [1.1.1] - 2026-03-06
 ## [1.1.0] - 2026-03-05
