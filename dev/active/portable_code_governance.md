@@ -299,6 +299,13 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   tooling-control-plane mypy env export bug, moved iOS CI to `macos-15` so the
   Swift 6 / newer Xcode project lane can run, and burned down the current
   maintainer-lint redundant-closure regressions in the touched Rust files.
+- 2026-03-11: Refreshed the external `terminal-as-interface` publication from
+  the committed VoiceTerm branch head and then recorded the new sync baseline
+  in `dev/config/publication_sync_registry.json`
+  (`source_ref=4deb8ec8f8c3709f1fb35955f9763c6147df6a95`,
+  `external_ref=9cf965f`). The paper repo now derives its appendix snapshot
+  stats from the shared JSON snapshot instead of freezing those counts in
+  prose, and `check_publication_sync.py` is back to zero drift.
 
 ## Audit Evidence
 

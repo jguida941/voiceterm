@@ -1788,7 +1788,12 @@ become the main product surface.
   policy changes must be committed, pre-commit CI is narrowed to changed files,
   the tooling-control-plane mypy env export bug is fixed, iOS CI now runs on
   `macos-15` for Swift 6 / newer Xcode project compatibility, and the current
-  maintainer-lint redundant-closure regressions are burned down.
+  maintainer-lint redundant-closure regressions are burned down. Latest
+  publication-sync follow-up: refreshed the external
+  `terminal-as-interface` paper snapshot from committed VoiceTerm HEAD and
+  recorded the new baseline in `dev/config/publication_sync_registry.json`
+  (`source_ref=4deb8ec8f8c3709f1fb35955f9763c6147df6a95`,
+  `external_ref=9cf965f`), returning `check_publication_sync.py` to zero drift.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 

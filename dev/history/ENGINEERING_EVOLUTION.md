@@ -4088,5 +4088,11 @@ The full technical showcase is consolidated above in Appendix G of this document
   requirements and the newer Xcode project format used by the iOS app.
 - Burned down the current maintainer-lint failures by removing two redundant
   Rust closures in `command_state.rs` and `git_snapshot.rs`.
+- Refreshed the external `terminal-as-interface` paper repo from the committed
+  VoiceTerm branch head, switched the appendix snapshot prose to shared
+  `voiceterm_snapshot.json` data, and recorded the new
+  `publication_sync_registry.json` baseline
+  (`source_ref=4deb8ec8f8c3709f1fb35955f9763c6147df6a95`,
+  `external_ref=9cf965f`) so publication drift returned to zero.
 
 </details>
