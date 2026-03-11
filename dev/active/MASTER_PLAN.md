@@ -1780,7 +1780,15 @@ become the main product surface.
   evidence log, more pilot-proof engine cleanup, and evidence-driven next
   pattern selection while holding guard code to the same or stricter
   structural standard as guarded code. Execution spec:
-  `dev/active/portable_code_governance.md`.
+  `dev/active/portable_code_governance.md`. Latest CI-parity follow-up
+  (2026-03-11): GitHub exposed that `dev/config/devctl_repo_policy.json` and
+  the portable preset JSON files were still ignored local artifacts, so local
+  validation and CI were resolving different guard/probe sets. The policy/preset
+  files are now tracked repo assets, maintainer docs explicitly call out that
+  policy changes must be committed, pre-commit CI is narrowed to changed files,
+  the tooling-control-plane mypy env export bug is fixed, iOS CI now runs on
+  `macos-15` for Swift 6 / newer Xcode project compatibility, and the current
+  maintainer-lint redundant-closure regressions are burned down.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 

@@ -4068,4 +4068,25 @@ The full technical showcase is consolidated above in Appendix G of this document
   Python cyclic-import detection, and Rust `result_large_err` /
   `large_enum_variant` evaluation.
 
+### 2026-03-11 - CI Parity for Portable Governance
+
+- Fixed a real governance portability leak: `dev/config/devctl_repo_policy.json`
+  and `dev/config/quality_presets/*.json` had been left as ignored local JSON,
+  so local `devctl check` / `probe-report` runs used the VoiceTerm policy while
+  GitHub CI silently fell back to the portable default guard surface.
+- Un-ignored and committed those policy/preset files, then updated maintainer
+  docs (`AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`) so
+  policy changes are treated as versioned source-of-truth instead of local-only
+  machine state.
+- Narrowed the Pre-commit workflow to the changed-file diff instead of
+  `--all-files`, which had been surfacing unrelated repo-wide whitespace/ruff
+  backlog instead of PR-local regressions.
+- Fixed the Tooling Control Plane advisory mypy job so zero-match `grep -c`
+  output writes cleanly to `GITHUB_ENV` instead of emitting an invalid extra
+  `0` line.
+- Moved iOS CI to `macos-15`, aligning the workflow with Swift 6 package
+  requirements and the newer Xcode project format used by the iOS app.
+- Burned down the current maintainer-lint failures by removing two redundant
+  Rust closures in `command_state.rs` and `git_snapshot.rs`.
+
 </details>

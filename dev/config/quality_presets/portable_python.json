@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "repo_name": "portable-python",
+  "enabled_ai_guard_ids": [
+    "code_shape",
+    "python_broad_except",
+    "python_subprocess_policy",
+    "function_duplication",
+    "god_class",
+    "nesting_depth",
+    "parameter_count",
+    "python_dict_schema",
+    "python_global_mutable",
+    "python_design_complexity",
+    "python_cyclic_imports",
+    "python_suppression_debt",
+    "structural_similarity",
+    "facade_wrappers"
+  ],
+  "enabled_review_probe_ids": [
+    "probe_design_smells",
+    "probe_boolean_params",
+    "probe_stringly_typed",
+    "probe_magic_numbers",
+    "probe_dict_as_struct",
+    "probe_unnecessary_intermediates",
+    "probe_defensive_overchecking",
+    "probe_single_use_helpers",
+    "probe_exception_quality"
+  ],
+  "guard_configs": {
+    "python_design_complexity": {
+      "max_branches": 30,
+      "max_returns": 10
+    },
+    "python_cyclic_imports": {
+      "ignored_cycles": []
+    }
+  }
+}

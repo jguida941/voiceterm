@@ -22,7 +22,7 @@ concurrency:
 jobs:
   swift-test:
     name: swift-test
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 20
 
     defaults:
@@ -41,7 +41,7 @@ jobs:
 
   xcode-build:
     name: xcode-build
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 30
 
     defaults:

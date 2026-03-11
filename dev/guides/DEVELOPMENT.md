@@ -109,6 +109,11 @@ Three quality layers matter in practice:
 - Portable presets live under `dev/config/quality_presets/`; use those as the
   starting point when validating another repo instead of copying VoiceTerm's
   full policy surface.
+- Treat repo policy/preset JSON files as versioned source, not local-only
+  machine state. If a local run changes the active guard/probe surface, commit
+  the touched `dev/config/devctl_repo_policy.json` and/or
+  `dev/config/quality_presets/*.json` files with the code so CI sees the same
+  configuration.
 - `python3 dev/scripts/devctl.py quality-policy --format md` shows the resolved
   active policy, scopes, and warnings; use `--quality-policy <path>` or
   `DEVCTL_QUALITY_POLICY` when validating another repo or preset file. The same

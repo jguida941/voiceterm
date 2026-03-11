@@ -41,7 +41,9 @@ whisper_models/*.onnx
 !.github/badges/
 !.github/badges/*.json
 !dev/config/control_plane_policy.json
+!dev/config/devctl_repo_policy.json
 !dev/config/mcp_tools_allowlist.json
+!dev/config/quality_presets/*.json
 !dev/config/templates/portable_governance_episode.schema.json
 !dev/config/templates/portable_governance_eval_record.schema.json
 !dev/config/templates/portable_governance_finding_review.schema.json

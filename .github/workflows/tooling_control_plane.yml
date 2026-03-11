@@ -225,7 +225,7 @@ jobs:
           python3 -m mypy dev/scripts/devctl/ \
             --config-file mypy.ini \
             --no-error-summary 2>&1 | tee /tmp/mypy-devctl.log || true
-          DEVCTL_ERRORS=$(grep -c '^dev/scripts/devctl/.*: error:' /tmp/mypy-devctl.log || echo 0)
+          DEVCTL_ERRORS=$(grep -c '^dev/scripts/devctl/.*: error:' /tmp/mypy-devctl.log || true)
           echo "::endgroup::"
           echo "devctl mypy errors: ${DEVCTL_ERRORS}"
           echo "DEVCTL_ERRORS=${DEVCTL_ERRORS}" >> "${GITHUB_ENV}"
@@ -237,7 +237,7 @@ jobs:
           python3 -m mypy app/operator_console/ \
             --config-file mypy.ini \
             --no-error-summary 2>&1 | tee /tmp/mypy-console.log || true
-          CONSOLE_ERRORS=$(grep -c '^app/operator_console/.*: error:' /tmp/mypy-console.log || echo 0)
+          CONSOLE_ERRORS=$(grep -c '^app/operator_console/.*: error:' /tmp/mypy-console.log || true)
           echo "::endgroup::"
           echo "operator_console mypy errors: ${CONSOLE_ERRORS}"
           echo "CONSOLE_ERRORS=${CONSOLE_ERRORS}" >> "${GITHUB_ENV}"

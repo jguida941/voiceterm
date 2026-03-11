@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "repo_name": "VoiceTerm",
+  "extends": [
+    "portable_python_rust.json"
+  ],
+  "enabled_ai_guard_ids": [
+    "ide_provider_isolation",
+    "compat_matrix",
+    "compat_matrix_smoke",
+    "naming_consistency"
+  ],
+  "guard_configs": {
+    "code_shape": {
+      "namespace_family_rules": [
+        {
+          "root": "dev/scripts/devctl",
+          "flat_prefix": "review_channel_",
+          "namespace_subdir": "review_channel",
+          "min_family_size": 8
+        },
+        {
+          "root": "app/operator_console/views",
+          "flat_prefix": "ui_",
+          "namespace_subdir": "actions",
+          "min_family_size": 6
+        }
+      ],
+      "namespace_docs_sync_rules": [
+        {
+          "namespace_root": "dev/scripts/devctl/review_channel",
+          "required_docs": [
+            "AGENTS.md",
+            "dev/scripts/README.md",
+            "dev/guides/DEVELOPMENT.md",
+            "dev/active/MASTER_PLAN.md"
+          ],
+          "required_token": "dev/scripts/devctl/review_channel"
+        },
+        {
+          "namespace_root": "app/operator_console/views/actions",
+          "required_docs": [
+            "app/operator_console/README.md",
+            "app/operator_console/views/README.md",
+            "dev/active/operator_console.md"
+          ],
+          "required_token": "app/operator_console/views/actions"
+        }
+      ]
+    },
+    "python_cyclic_imports": {
+      "ignored_cycles": [
+        [
+          "app/operator_console/views/help_dialog.py",
+          "app/operator_console/views/layout/ui_window_shell.py"
+        ]
+      ]
+    }
+  }
+}

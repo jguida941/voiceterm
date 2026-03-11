@@ -274,6 +274,25 @@ class CheckReviewChannelBridgeTests(TestCase):
             any("stale" in error for error in report["code_audit"]["metadata_errors"])
         )
 
+    def test_build_report_allows_stale_last_codex_poll_in_github_actions(self) -> None:
+        code_audit = self._temp_path(
+            "code_audit.md",
+            _valid_code_audit_text(self.script),
+        )
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=timezone.utc)
+        with patch.object(self.script, "CODE_AUDIT_PATH", code_audit), patch.object(
+            self.script, "REVIEW_CHANNEL_PATH", review_channel
+        ), patch.object(self.script, "_is_tracked_by_git", return_value=True), patch.object(
+            self.script, "_current_utc", return_value=stale_now
+        ), patch.dict("os.environ", {"GITHUB_ACTIONS": "true"}, clear=False):
+            report = self.script.build_report()
+        self.assertTrue(report["ok"])
+        self.assertNotIn("metadata_errors", report["code_audit"])
+
     def test_build_report_flags_invalid_worktree_hash(self) -> None:
         code_audit = self._temp_path(
             "code_audit.md",

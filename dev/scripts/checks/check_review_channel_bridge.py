@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
@@ -117,6 +118,11 @@ def _current_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _enforce_live_poll_freshness() -> bool:
+    """GitHub-hosted CI cannot act as the live Codex reviewer heartbeat owner."""
+    return os.getenv("GITHUB_ACTIONS", "").strip().lower() != "true"
+
+
 def _validate_code_audit_metadata(text: str) -> list[str]:
     metadata = _extract_code_audit_metadata(text)
     errors: list[str] = []
@@ -135,7 +141,7 @@ def _validate_code_audit_metadata(text: str) -> list[str]:
         poll_age = _current_utc() - poll_time
         if poll_age < timedelta(0):
             errors.append("`Last Codex poll` is in the future.")
-        elif poll_age > max_age:
+        elif poll_age > max_age and _enforce_live_poll_freshness():
             errors.append(
                 "`Last Codex poll` is stale; bridge-active reviews must refresh "
                 f"within {MAX_POLL_AGE_MINUTES} minutes."

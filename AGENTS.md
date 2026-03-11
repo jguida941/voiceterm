@@ -384,6 +384,10 @@ Portable policy note:
 - Built-in portable presets now live in `dev/config/quality_presets/*.json`.
 - Repo-local enablement/default arguments live in
   `dev/config/devctl_repo_policy.json`.
+- The repo policy file and any touched preset JSON files are committed source
+  of truth, not local-only scratch config. If local validation depends on a
+  policy/preset change, commit those `dev/config/**` files in the same slice so
+  CI resolves the same guard/probe surface.
 - Use `python3 dev/scripts/devctl.py quality-policy --format md` to inspect the
   resolved active guard/probe set, scopes, and warnings before reusing the
   engine somewhere else.

@@ -539,6 +539,10 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
   - Active AI guards now resolve from `dev/config/devctl_repo_policy.json`, so
     repo-local enablement/default arguments are policy-driven rather than
     hard-coded into the orchestration path.
+  - Treat the repo policy file and any touched preset JSON files as committed
+    source-of-truth config. If CI should see a policy change, commit
+    `dev/config/devctl_repo_policy.json` and the relevant
+    `dev/config/quality_presets/*.json` files in the same change.
   - Use `--quality-policy <path>` or `DEVCTL_QUALITY_POLICY` to resolve the
     same engine against another repo policy file without editing orchestration
     code.

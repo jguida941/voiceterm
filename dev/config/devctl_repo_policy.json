@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "repo_name": "VoiceTerm",
+  "extends": [
+    "quality_presets/voiceterm.json"
+  ],
+  "capabilities": {
+    "python": true,
+    "rust": true
+  },
+  "quality_scopes": {
+    "python_guard_roots": [
+      "dev/scripts",
+      "app/operator_console"
+    ],
+    "python_probe_roots": [
+      "dev/scripts/devctl",
+      "app/operator_console"
+    ],
+    "rust_guard_roots": [
+      "rust/src"
+    ],
+    "rust_probe_roots": [
+      "rust/src"
+    ]
+  },
+  "ai_guard_overrides": {
+    "ide_provider_isolation": {
+      "extra_args": [
+        "--fail-on-violations"
+      ]
+    },
+    "rust_lint_debt": {
+      "extra_args": [
+        "--report-dead-code",
+        "--dead-code-report-limit",
+        "120"
+      ]
+    }
+  }
+}

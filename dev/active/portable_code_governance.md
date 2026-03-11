@@ -288,6 +288,17 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   probe backlog, and the follow-on code-shape split keeps the view renderer
   back under the soft file-size limit. The reviewed outcomes are recorded as
   `fixed` in `governance-review`.
+- 2026-03-11: Closed the next portability leak that GitHub CI exposed directly:
+  the repo quality-policy files existed only as ignored local JSON, so local
+  `check`/`probe-report` runs resolved the VoiceTerm policy while GitHub fell
+  back to the portable default surface and drifted from local results. The
+  fix was governance, not engine behavior: commit the repo policy plus portable
+  preset JSON files, document them as versioned source in maintainer docs, and
+  keep workflow validation aligned with that tracked policy surface. The same
+  CI-parity cleanup also narrowed pre-commit to changed files, fixed the
+  tooling-control-plane mypy env export bug, moved iOS CI to `macos-15` so the
+  Swift 6 / newer Xcode project lane can run, and burned down the current
+  maintainer-lint redundant-closure regressions in the touched Rust files.
 
 ## Audit Evidence
 
