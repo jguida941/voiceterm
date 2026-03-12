@@ -11,7 +11,7 @@ from .activity_report_support import (
     resolve_guardrails_repo_root,
 )
 from .watchdog_report import build_watchdog_report_content
-from ..core.models import AgentLaneData, OperatorConsoleSnapshot, QualityPrioritySignal
+from ..core.models import AgentLaneData, OperatorConsoleSnapshot
 from ..core.readability import audience_mode_label, resolve_audience_mode
 
 

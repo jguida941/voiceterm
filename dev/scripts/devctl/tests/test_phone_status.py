@@ -106,14 +106,7 @@ class PhoneStatusCommandTests(unittest.TestCase):
     def test_build_phone_status_loads_ralph_report_and_latest_attempt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_root = Path(tmp_dir)
-            report_path = (
-                repo_root
-                / "dev"
-                / "reports"
-                / "ralph"
-                / "latest"
-                / "ralph-report.json"
-            )
+            report_path = repo_root / "dev" / "reports" / "ralph" / "latest" / "ralph-report.json"
             report_path.parent.mkdir(parents=True, exist_ok=True)
             report_path.write_text(
                 json.dumps(

@@ -9,24 +9,9 @@ import threading
 import time
 from collections import deque
 from pathlib import Path
-from typing import Deque, List, Optional, Tuple
 
 from . import common_io as _common_io
-from .common_io import (
-    PIPE_OUTPUT_TIMEOUT_SECONDS,
-    add_standard_output_arguments,
-    build_env,
-    cmd_str,
-    confirm_or_abort,
-    display_path,
-    emit_output,
-    normalize_string_field,
-    pipe_output,
-    read_json_object,
-    resolve_repo_path,
-    should_emit_output,
-    write_output,
-)
+from .common_io import cmd_str
 from .config import REPO_ROOT, SRC_DIR
 
 FAILURE_OUTPUT_MAX_LINES = 60
@@ -34,11 +19,27 @@ FAILURE_OUTPUT_MAX_CHARS = 8000
 INTERRUPT_KILL_GRACE_SECONDS = 3.0
 LIVE_OUTPUT_TIMEOUT_SECONDS = 1800.0
 
-# Keep the shared module object visible so existing patch paths still work.
+# Keep the shared module object and legacy common-io helpers visible so
+# existing imports and patch targets keep working after the split.
 shutil = _common_io.shutil
+for _compat_name in (
+    "add_standard_output_arguments",
+    "build_env",
+    "confirm_or_abort",
+    "display_path",
+    "emit_output",
+    "normalize_string_field",
+    "pipe_output",
+    "read_json_object",
+    "resolve_repo_path",
+    "should_emit_output",
+    "write_output",
+):
+    globals()[_compat_name] = getattr(_common_io, _compat_name)
+del _compat_name
 
 
-def resolve_repo_python_command(cmd: List[str], *, cwd: Optional[Path] = None) -> List[str]:
+def resolve_repo_python_command(cmd: list[str], *, cwd: Path | None = None) -> list[str]:
     """Use the active interpreter for repo-owned Python scripts launched as `python3 ...`."""
     if len(cmd) < 2 or cmd[0] != "python3":
         return cmd
@@ -87,10 +88,10 @@ def _enqueue_stdout_lines(stream, line_queue: "queue.Queue[object]") -> None:
 
 
 def _run_with_live_output(
-    cmd: List[str],
-    cwd: Optional[Path],
-    env: Optional[dict],
-) -> Tuple[int, str]:
+    cmd: list[str],
+    cwd: Path | None,
+    env: dict | None,
+) -> tuple[int, str]:
     """Stream command output live while retaining a bounded failure excerpt."""
     effective_cmd = resolve_repo_python_command(cmd, cwd=cwd)
     effective_env = dict(os.environ if env is None else env)
@@ -105,7 +106,7 @@ def _run_with_live_output(
         bufsize=1,
         start_new_session=True,
     )
-    output_tail: Deque[str] = deque(maxlen=FAILURE_OUTPUT_MAX_LINES)
+    output_tail: deque[str] = deque(maxlen=FAILURE_OUTPUT_MAX_LINES)
     if process.stdout is None:
         try:
             return process.wait(), ""
@@ -114,7 +115,7 @@ def _run_with_live_output(
             raise
     timeout_seconds = _resolve_live_output_timeout_seconds()
     deadline = time.monotonic() + timeout_seconds if timeout_seconds > 0 else None
-    line_queue: "queue.Queue[object]" = queue.Queue()
+    line_queue: queue.Queue[object] = queue.Queue()
     reader = threading.Thread(
         target=_enqueue_stdout_lines,
         args=(process.stdout, line_queue),
@@ -126,9 +127,7 @@ def _run_with_live_output(
         while True:
             if deadline is not None and time.monotonic() >= deadline:
                 _terminate_subprocess_tree(process)
-                timeout_message = (
-                    f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
-                )
+                timeout_message = f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
                 output_tail.append(timeout_message)
                 return 124, "\n".join(output_tail)
 
@@ -139,11 +138,7 @@ def _run_with_live_output(
             try:
                 line = line_queue.get(timeout=wait_timeout)
             except queue.Empty:
-                if (
-                    process.poll() is not None
-                    and not reader.is_alive()
-                    and line_queue.empty()
-                ):
+                if process.poll() is not None and not reader.is_alive() and line_queue.empty():
                     break
                 continue
 
@@ -165,18 +160,14 @@ def _run_with_live_output(
         remaining = max(0.0, deadline - time.monotonic())
         if remaining <= 0.0:
             _terminate_subprocess_tree(process)
-            timeout_message = (
-                f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
-            )
+            timeout_message = f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
             output_tail.append(timeout_message)
             return 124, "\n".join(output_tail)
         try:
             return process.wait(timeout=remaining), "\n".join(output_tail)
         except subprocess.TimeoutExpired:
             _terminate_subprocess_tree(process)
-            timeout_message = (
-                f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
-            )
+            timeout_message = f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
             output_tail.append(timeout_message)
             return 124, "\n".join(output_tail)
     except KeyboardInterrupt:
@@ -187,10 +178,10 @@ def _run_with_live_output(
 
 
 def _run_without_live_output(
-    cmd: List[str],
-    cwd: Optional[Path],
-    env: Optional[dict],
-) -> Tuple[int, str]:
+    cmd: list[str],
+    cwd: Path | None,
+    env: dict | None,
+) -> tuple[int, str]:
     """Run a command quietly while retaining combined stdout/stderr text."""
     effective_cmd = resolve_repo_python_command(cmd, cwd=cwd)
     effective_env = dict(os.environ if env is None else env)
@@ -215,9 +206,7 @@ def _run_without_live_output(
             output_text, _ = process.communicate(timeout=1)
         except (subprocess.TimeoutExpired, ValueError):
             output_text = ""
-        timeout_message = (
-            f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
-        )
+        timeout_message = f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
         trimmed = (output_text or "").strip()
         if trimmed:
             return 124, "\n".join([trimmed, timeout_message])
@@ -275,9 +264,9 @@ def _terminate_subprocess_tree(
 
 def run_cmd(
     name: str,
-    cmd: List[str],
-    cwd: Optional[Path] = None,
-    env: Optional[dict] = None,
+    cmd: list[str],
+    cwd: Path | None = None,
+    env: dict | None = None,
     dry_run: bool = False,
     live_output: bool = True,
 ) -> dict:
@@ -336,6 +325,6 @@ def run_cmd(
     return result
 
 
-def find_latest_outcomes_file() -> Optional[Path]:
+def find_latest_outcomes_file() -> Path | None:
     """Find the newest mutation `outcomes.json` file under `rust/mutants.out`."""
     return _common_io.find_latest_outcomes_file(src_dir=SRC_DIR)

@@ -117,9 +117,7 @@ def _discover_artifact_sources(
         command = LoopPacketSourceCommand.parse(payload.get("command"))
         if command is None:
             raw_command = str(payload.get("command") or "").strip().lower()
-            warnings.append(
-                f"{path}: unsupported command '{raw_command or 'missing'}'"
-            )
+            warnings.append(f"{path}: unsupported command '{raw_command or 'missing'}'")
             continue
         timestamp = _parse_iso_timestamp(payload.get("timestamp"))
         rows.append(
@@ -143,9 +141,7 @@ def _choose_source(
         return None
     preferred_command = LoopPacketSourceCommand.parse(prefer_source)
     preferred_value = (
-        preferred_command.value
-        if preferred_command is not None
-        else LoopPacketSourceCommand.TRIAGE_LOOP.value
+        preferred_command.value if preferred_command is not None else LoopPacketSourceCommand.TRIAGE_LOOP.value
     )
     command_order = [preferred_value] + [
         name

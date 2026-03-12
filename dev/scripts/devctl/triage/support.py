@@ -11,7 +11,8 @@ from typing import Any
 
 from ..common import read_json_object
 from ..status_report import render_project_markdown
-from .bundle import resolve_emit_dir, write_bundle
+from .bundle import resolve_emit_dir as _resolve_emit_dir
+from .bundle import write_bundle as _write_bundle
 from .probe_support import classify_probe_report_issues, issues_include_probe_signal
 
 FAILURE_CONCLUSIONS = {
@@ -21,6 +22,8 @@ FAILURE_CONCLUSIONS = {
     "action_required",
     "startup_failure",
 }
+resolve_emit_dir = _resolve_emit_dir
+write_bundle = _write_bundle
 
 
 def classify_issues(project_report: dict) -> list[dict]:

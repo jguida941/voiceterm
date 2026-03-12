@@ -30,13 +30,21 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
 try:
     from python_default_trap_core import (
         METRIC_LABELS,
-        count_dataclass_default_traps as _count_dataclass_default_traps,
-        count_function_call_default_args as _count_function_call_default_args,
-        count_global_statements as _count_global_statements,
-        )
+    )
+    from python_default_trap_core import (
+        count_dataclass_default_traps as _count_dataclass_default_traps_impl,
+    )
+    from python_default_trap_core import (
+        count_function_call_default_args as _count_function_call_default_args_impl,
+    )
+    from python_default_trap_core import (
+        count_global_statements as _count_global_statements_impl,
+    )
     from python_default_trap_core import (
         count_metrics as _count_metrics,
-        count_mutable_default_args as _count_mutable_default_args,
+    )
+    from python_default_trap_core import (
+        count_mutable_default_args as _count_mutable_default_args_impl,
     )
     from python_default_trap_core import (
         format_growth as _format_growth,
@@ -44,17 +52,30 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.python_default_trap_core import (
         METRIC_LABELS,
-        count_dataclass_default_traps as _count_dataclass_default_traps,
-        count_function_call_default_args as _count_function_call_default_args,
-        count_global_statements as _count_global_statements,
+    )
+    from dev.scripts.checks.python_default_trap_core import (
+        count_dataclass_default_traps as _count_dataclass_default_traps_impl,
+    )
+    from dev.scripts.checks.python_default_trap_core import (
+        count_function_call_default_args as _count_function_call_default_args_impl,
+    )
+    from dev.scripts.checks.python_default_trap_core import (
+        count_global_statements as _count_global_statements_impl,
     )
     from dev.scripts.checks.python_default_trap_core import (
         count_metrics as _count_metrics,
-        count_mutable_default_args as _count_mutable_default_args,
+    )
+    from dev.scripts.checks.python_default_trap_core import (
+        count_mutable_default_args as _count_mutable_default_args_impl,
     )
     from dev.scripts.checks.python_default_trap_core import (
         format_growth as _format_growth,
     )
+
+_count_dataclass_default_traps = _count_dataclass_default_traps_impl
+_count_function_call_default_args = _count_function_call_default_args_impl
+_count_global_statements = _count_global_statements_impl
+_count_mutable_default_args = _count_mutable_default_args_impl
 
 list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")

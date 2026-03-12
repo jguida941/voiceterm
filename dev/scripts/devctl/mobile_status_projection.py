@@ -137,8 +137,6 @@ def append_operator_actions(
 ) -> None:
     if operator_actions:
         for row in operator_actions:
-            lines.append(
-                f"- {row.name} ({row.kind}, guard={row.guard}): `{row.command}`"
-            )
+            lines.append(f"- {row.name} ({row.kind}, guard={row.guard}): `{row.command}`")
         return
     lines.append("- none")

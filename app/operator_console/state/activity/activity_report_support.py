@@ -53,7 +53,9 @@ def resolve_guardrails_repo_root(snapshot: OperatorConsoleSnapshot) -> Path | No
     return None
 
 
-def format_quality_priority_line(row: QualityPrioritySignal | None, *, max_signals: int = 3) -> str:
+def format_quality_priority_line(
+    row: QualityPrioritySignal | None, *, max_signals: int = 3
+) -> str:
     if row is None:
         return "[unknown] (missing row)"
     signal_text = ", ".join(row.signals[:max_signals]) or "none"

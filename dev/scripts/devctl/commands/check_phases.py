@@ -8,7 +8,11 @@ from __future__ import annotations
 
 import dataclasses
 
-from ..common import emit_output, pipe_output, run_cmd, should_emit_output, write_output
+from ..common import emit_output as _emit_output
+from ..common import pipe_output as _pipe_output
+from ..common import run_cmd
+from ..common import should_emit_output as _should_emit_output
+from ..common import write_output as _write_output
 from ..config import REPO_ROOT, SRC_DIR
 from ..quality_policy import QualityStepSpec
 from .check_phase_support import (
@@ -29,6 +33,11 @@ from .check_support import (
 )
 from .mutants import build_mutants_cmd
 from .mutation_score import build_mutation_score_cmd, resolve_outcomes_path
+
+emit_output = _emit_output
+pipe_output = _pipe_output
+should_emit_output = _should_emit_output
+write_output = _write_output
 
 # -------------------------------------------------------
 # Shared state for a single check run

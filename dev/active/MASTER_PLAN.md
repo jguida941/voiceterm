@@ -1816,6 +1816,25 @@ become the main product surface.
   code-shape cap, `loop_packet_helpers.py` uses `LoopPacketSourceCommand` for
   the last auto-send string dispatch, the probe packet rerun is clean, and the
   governance ledger is updated with six additional `fixed` probe rows.
+  Latest push-repair follow-up (2026-03-12): the first rerun on the refreshed
+  PR caught a real changed-file `pre-commit` regression where Ruff had stripped
+  compatibility exports still used across the repo. Those re-export seams are
+  now restored compactly in `common.py`, `status_report.py`, `collect.py`,
+  `triage/support.py`, `commands/check_phases.py`, `process_sweep/core.py`,
+  `phone_status_view_support.py`, `quality_policy.py`,
+  `check_python_global_mutable.py`, and `probe_report_render.py`; `common.py`
+  stays back under its shape cap; changed-file `pre-commit` is green locally
+  again; and the full `dev/scripts/devctl/tests` suite reran at
+  `1184 passed, 4 subtests passed`.
+  Latest docs-governance follow-up (2026-03-12): strict-tooling drift is
+  closed too. `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, and
+  `dev/scripts/README.md` now document that staged `dev/scripts/**` module
+  splits must keep compatibility re-exports until repo importers, tests,
+  workflows, and pre-commit hooks migrate together. After refreshing the
+  review-channel heartbeat, `docs-check --strict-tooling` and the full
+  canonical `bundle.tooling` replay are green again under `python3.11` on the
+  local workstation, including `397 passed, 181 skipped` in the Operator
+  Console suite and a clean `process-cleanup --verify`.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 

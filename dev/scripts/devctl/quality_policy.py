@@ -10,15 +10,21 @@ from typing import Any
 from .config import REPO_ROOT
 from .quality_policy_defaults import (
     AI_GUARD_REGISTRY,
-    DEFAULT_AI_GUARD_CHECKS,
     DEFAULT_ENABLED_AI_GUARD_IDS,
-    DEFAULT_REVIEW_PROBE_CHECKS,
     DEFAULT_ENABLED_REVIEW_PROBE_IDS,
     REVIEW_PROBE_REGISTRY,
     QualityStepSpec,
 )
+from .quality_policy_defaults import (
+    DEFAULT_AI_GUARD_CHECKS as _DEFAULT_AI_GUARD_CHECKS,
+)
+from .quality_policy_defaults import (
+    DEFAULT_REVIEW_PROBE_CHECKS as _DEFAULT_REVIEW_PROBE_CHECKS,
+)
 from .quality_policy_loader import (
-    QUALITY_POLICY_ENV_VAR,
+    QUALITY_POLICY_ENV_VAR as _QUALITY_POLICY_ENV_VAR,
+)
+from .quality_policy_loader import (
     load_policy_payload,
     resolve_policy_path,
 )
@@ -35,6 +41,9 @@ from .quality_policy_values import (
 )
 
 DEFAULT_POLICY_RELATIVE_PATH = "dev/config/devctl_repo_policy.json"
+DEFAULT_AI_GUARD_CHECKS = _DEFAULT_AI_GUARD_CHECKS
+DEFAULT_REVIEW_PROBE_CHECKS = _DEFAULT_REVIEW_PROBE_CHECKS
+QUALITY_POLICY_ENV_VAR = _QUALITY_POLICY_ENV_VAR
 
 
 @dataclass(frozen=True, slots=True)

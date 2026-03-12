@@ -25,8 +25,8 @@ except ModuleNotFoundError:  # pragma: no cover
     render_rich_report = probe_report_render.render_rich_report
     render_terminal_report = probe_report_render.render_terminal_report
 
-from .config import REPO_ROOT
 from .common import resolve_repo_python_command
+from .config import REPO_ROOT
 from .probe_report_artifacts import write_probe_artifacts
 from .probe_topology import (
     build_probe_topology_artifact,

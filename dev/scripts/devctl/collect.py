@@ -6,7 +6,7 @@ import subprocess
 from typing import Any
 
 from .clippy_pedantic import build_snapshot as build_clippy_pedantic_snapshot
-from .collect_dev_logs import collect_dev_log_summary
+from .collect_dev_logs import collect_dev_log_summary as _collect_dev_log_summary
 from .config import REPO_ROOT
 from .quality_scan_mode import is_adoption_scan
 
@@ -19,6 +19,7 @@ CI_RUN_FALLBACK_MARKERS = (
     "accepts the following fields",
     "invalid value for --json",
 )
+collect_dev_log_summary = _collect_dev_log_summary
 
 
 def _build_git_status_payload(

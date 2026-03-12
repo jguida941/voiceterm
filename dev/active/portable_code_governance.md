@@ -343,6 +343,27 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   string-literal chain. Focused `phone_status` / `mobile_status` /
   `loop_packet` tests are green, `probe-report` now returns a clean packet,
   and the reviewed outcomes are recorded as `fixed` in `governance-review`.
+- 2026-03-12: Closed the post-push pre-commit/compatibility follow-up that the
+  refreshed PR surfaced immediately. Ruff had stripped several legacy
+  re-export seams that the repo still imports/tests through, so
+  `dev/scripts/devctl/common.py`, `status_report.py`, `collect.py`,
+  `triage/support.py`, `commands/check_phases.py`,
+  `process_sweep/core.py`, `phone_status_view_support.py`,
+  `quality_policy.py`, `check_python_global_mutable.py`, and
+  `probe_report_render.py` now keep those compatibility names explicitly while
+  `common.py` stays under code-shape via a compact compatibility-export table
+  instead of line-by-line alias boilerplate. The changed-file `pre-commit`
+  lane is clean locally again, `check_code_shape.py` is green, and the full
+  `dev/scripts/devctl/tests` suite reran at `1184 passed, 4 subtests passed`.
+- 2026-03-12: Closed the docs-governance follow-up on that same repaired tree.
+  `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, and `dev/scripts/README.md` now
+  state the maintainer contract explicitly: staged `dev/scripts/**` module
+  splits must preserve compatibility re-exports until repo importers/tests/
+  workflows move together. With that rule documented, `docs-check
+  --strict-tooling` is green again, the bridge heartbeat was refreshed before
+  rerun, and the full canonical `bundle.tooling` command list replayed cleanly
+  under `python3.11` on this workstation (`397 passed, 181 skipped` in the
+  Operator Console suite, zero repo processes left after cleanup).
 
 ## Audit Evidence
 

@@ -94,6 +94,13 @@ python3 dev/scripts/devctl.py list
 Use the long command catalog below as the full reference, not the first thing to
 read end to end.
 
+Compatibility note:
+- When splitting or relocating Python tooling modules under `dev/scripts/**`,
+  keep the old module exporting stable compatibility aliases or re-exports
+  until all repo-owned imports, tests, workflows, and pre-commit entry points
+  move to the new path. CI still exercises those older seams during staged
+  refactors.
+
 ## Canonical Commands
 
 ```bash

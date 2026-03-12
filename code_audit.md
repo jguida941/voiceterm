@@ -74,9 +74,9 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-12T01:06:18Z`
-- Last Codex poll (Local America/New_York): `2026-03-11 21:06:18 EDT`
-- Last non-audit worktree hash: `884d6d887207cf0028a5f99e5892f0ff93dccc5378708911d1a6607651b13eb1`
+- Last Codex poll: `2026-03-12T01:25:14Z`
+- Last Codex poll (Local America/New_York): `2026-03-11 21:25:14 EDT`
+- Last non-audit worktree hash: `c127089b1a9b84d5f795f1f9ea13d05c8f7b1242a8034a21dcdd8a7f05a72f14`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -119,7 +119,9 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Auto-refreshed reviewer heartbeat: `2026-03-12T01:06:18Z` (reason: devctl review-channel status; tree: 884d6d887207).
+
+
+- Auto-refreshed reviewer heartbeat: `2026-03-12T01:25:14Z` (reason: devctl review-channel status; tree: c127089b1a9b).
 - Codex polling mode: active reviewer watch loop on the whole unpushed worktree; poll non-`code_audit.md` changes every 5 minutes while code is moving.
 - Current poll result: Codex conductor heartbeat refreshed at `2026-03-09T15:01:21Z` and the reviewed non-audit worktree hash is now `e9665d7dc2fc3b2a23cae512b701638bba0d5fe5785cd267afcf80a9f3e0f192`. The interface capped reviewer fan-out at `6`, so `AGENT-1..AGENT-6` are running as live reviewer lanes and the conductor is covering the `AGENT-7` guard/test sweep plus the `AGENT-8` integration pass locally. The dedicated `../codex-voice-wt-a1..a8` reviewer worktrees are still absent locally, so all reviewer work is running from the shared checkout.
 - Validation for this current pass: `python3 -m pytest app/operator_console/tests/test_theme_engine.py app/operator_console/tests/test_overlay_import.py app/operator_console/tests/test_theme.py app/operator_console/tests/test_theme_editor.py -q --tb=short` passed (`89` tests) and `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py dev/scripts/devctl/tests/test_mobile_status.py -q --tb=short` passed (`41` tests). `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json` and `python3 dev/scripts/devctl.py mobile-status --view full --format json` are green on the live tree. Direct local repro now confirms the old theme partial-import blockers are closed, while two current issues still reproduce: a corrupt event-state sentinel still makes `review-channel` / `mobile-status` fail instead of falling back to the valid markdown bridge, and fresh live traces still force the Operator Console lanes to `Reviewing` / `Implementing` even when the bridge state says approval-blocked.

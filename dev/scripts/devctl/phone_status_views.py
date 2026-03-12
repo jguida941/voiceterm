@@ -6,6 +6,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .phone_status_projection import (
+    ActionsPhoneStatusProjection,
+    CompactPhoneStatusProjection,
+    PhoneStatusView,
+    TracePhoneStatusProjection,
+)
 from .phone_status_view_support import (
     OPERATOR_ACTIONS,
     next_action_rows,
@@ -13,12 +19,6 @@ from .phone_status_view_support import (
     section_dict,
     terminal_trace_rows,
     truncate_status_text,
-)
-from .phone_status_projection import (
-    ActionsPhoneStatusProjection,
-    CompactPhoneStatusProjection,
-    PhoneStatusView,
-    TracePhoneStatusProjection,
 )
 
 

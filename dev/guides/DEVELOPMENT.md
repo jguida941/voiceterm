@@ -158,6 +158,10 @@ the concrete minimum inventory after edits:
    - `python3 dev/scripts/devctl.py probe-report --format md`
    - Use `dev/reports/probes/latest/review_packet.md` or
      `dev/reports/probes/latest/review_packet.json` as the handoff packet.
+   - For staged `devctl` or check-module splits, keep compatibility
+     re-exports or aliases in the old module until every repo importer, test,
+     workflow, and pre-commit path has been updated; do not remove those
+     seams unless the whole import surface moves together.
 5. If you need to run raw Rust tests or test binaries directly, prefer:
    - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...`
    - This enforces the required post-run hygiene follow-up automatically.

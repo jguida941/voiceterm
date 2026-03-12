@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-11
+**Last Updated:** 2026-03-12
 
 ## At a Glance
 
@@ -4116,5 +4116,23 @@ The full technical showcase is consolidated above in Appendix G of this document
   remaining loop-packet auto-send string chain with a typed
   `LoopPacketSourceCommand` parse path. The resulting `probe-report` packet is
   clean and the governance ledger remains at `0` false positives.
+- Closed the immediate post-push repair GitHub exposed in the changed-file
+  `pre-commit` lane: Ruff had removed several compatibility export seams still
+  used by the repo, so `common.py`, `status_report.py`, `collect.py`,
+  `triage/support.py`, `commands/check_phases.py`, `process_sweep/core.py`,
+  `phone_status_view_support.py`, `quality_policy.py`,
+  `check_python_global_mutable.py`, and `probe_report_render.py` now keep
+  those names explicitly while `common.py` uses a compact export table to stay
+  under the code-shape cap. The branch-local `pre-commit` run, `check`
+  bundle, and full `dev/scripts/devctl/tests` suite are green again on the
+  repaired SHA.
+- Closed the last docs-governance drift on that repaired SHA by documenting a
+  maintainer rule in `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, and
+  `dev/scripts/README.md`: staged `dev/scripts/**` module splits must keep
+  compatibility re-exports until repo importers, tests, workflows, and
+  pre-commit entry points migrate together. With that contract explicit,
+  `docs-check --strict-tooling` returned to green and the full canonical
+  `bundle.tooling` replay stayed green under `python3.11`, including a clean
+  Operator Console suite and host process cleanup.
 
 </details>

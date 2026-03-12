@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from .config import (
-    REVIEW_CHANNEL_CONDUCTOR_PROMPT_RE,
-    REVIEW_CHANNEL_CONDUCTOR_SCRIPT_RE,
     REPO_RUNTIME_CARGO_RE,
     REPO_RUNTIME_RELATIVE_TARGET_BINARY_RE,
     REPO_RUNTIME_TARGET_BINARY_RE,
     REPO_TOOLING_CWD_CANDIDATE_RE,
     REPO_TOOLING_WRAPPER_RE,
+    REVIEW_CHANNEL_CONDUCTOR_PROMPT_RE,
+    REVIEW_CHANNEL_CONDUCTOR_SCRIPT_RE,
     VOICETERM_SWEEP_TARGET_RE,
 )
 from .internals import select_matching_rows
@@ -40,18 +41,12 @@ def match_repo_cwd_candidate_pids(
     if candidate_filter is not None:
         candidate_rows = [row for row in candidate_rows if candidate_filter(row)]
     cwd_map, cwd_warnings = lookup_process_cwds(candidate_rows, run_cmd=run_cmd)
-    matched_pids = {
-        row["pid"]
-        for row in candidate_rows
-        if path_is_under_repo(cwd_map.get(row["pid"]))
-    }
+    matched_pids = {row["pid"] for row in candidate_rows if path_is_under_repo(cwd_map.get(row["pid"]))}
     return matched_pids, cwd_warnings
 
 
 def match_voiceterm_rows(rows: list[dict]) -> list[dict]:
-    matched_pids = {
-        row["pid"] for row in rows if VOICETERM_SWEEP_TARGET_RE.search(row["command"])
-    }
+    matched_pids = {row["pid"] for row in rows if VOICETERM_SWEEP_TARGET_RE.search(row["command"])}
     return select_matching_rows(rows, matched_pids, scope="voiceterm")
 
 
@@ -71,9 +66,7 @@ def match_repo_runtime_rows(
     run_cmd: RunCmd,
     lookup_process_cwds: LookupProcessCwds,
 ) -> tuple[list[dict], list[str]]:
-    absolute_pids = {
-        row["pid"] for row in rows if REPO_RUNTIME_TARGET_BINARY_RE.search(row["command"])
-    }
+    absolute_pids = {row["pid"] for row in rows if REPO_RUNTIME_TARGET_BINARY_RE.search(row["command"])}
     relative_cwd_pids, relative_warnings = match_repo_cwd_candidate_pids(
         rows,
         REPO_RUNTIME_RELATIVE_TARGET_BINARY_RE,
@@ -94,11 +87,7 @@ def match_repo_runtime_rows(
 
 
 def _tooling_candidate_filter(row: dict) -> bool:
-    return (
-        row.get("ppid") == 1
-        or row_looks_backgrounded(row)
-        or is_attached_noninteractive_repo_helper(row)
-    )
+    return row.get("ppid") == 1 or row_looks_backgrounded(row) or is_attached_noninteractive_repo_helper(row)
 
 
 def match_repo_tooling_rows(
@@ -138,13 +127,8 @@ def match_repo_background_rows(
     cwd_warnings: list[str] = []
     if background_cwd_map is None:
         background_cwd_map, cwd_warnings = lookup_process_cwds(rows, run_cmd=run_cmd)
-    enriched_rows = [
-        {**row, "cwd": background_cwd_map.get(row["pid"], "")}
-        for row in rows
-    ]
-    matched_pids = {
-        row["pid"] for row in enriched_rows if is_repo_background_candidate(row)
-    }
+    enriched_rows = [{**row, "cwd": background_cwd_map.get(row["pid"], "")} for row in rows]
+    matched_pids = {row["pid"] for row in enriched_rows if is_repo_background_candidate(row)}
     return select_matching_rows(
         enriched_rows,
         matched_pids,

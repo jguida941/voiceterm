@@ -7,9 +7,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from .loop_helpers import iso_z, packet_risk, utc_now
 from ..phone_status_views import render_ralph_section_lines
 from ..text_utils import truncate_text
+from .loop_helpers import iso_z, packet_risk, utc_now
 
 
 @dataclass(frozen=True)
@@ -27,9 +27,7 @@ class RalphSection:
 
     @classmethod
     def from_repo_root(cls, repo_root: Path) -> RalphSection:
-        report_path = (
-            repo_root / "dev" / "reports" / "ralph" / "latest" / "ralph-report.json"
-        )
+        report_path = repo_root / "dev" / "reports" / "ralph" / "latest" / "ralph-report.json"
         if not report_path.is_file():
             return cls()
         try:
@@ -91,11 +89,7 @@ def build_phone_status(
     triage_reason = str(triage_report.get("reason") or "unknown")
     unresolved = int(triage_report.get("unresolved_count") or 0)
     risk = packet_risk(loop_packet_report, triage_report)
-    next_actions = [
-        str(row).strip()
-        for row in (loop_packet_report.get("next_actions") or [])
-        if str(row).strip()
-    ]
+    next_actions = [str(row).strip() for row in (loop_packet_report.get("next_actions") or []) if str(row).strip()]
     terminal_packet = loop_packet_report.get("terminal_packet")
     if not isinstance(terminal_packet, dict):
         terminal_packet = {}
@@ -185,9 +179,7 @@ def render_phone_status_markdown(payload: dict[str, Any]) -> str:
         f"- progress: rounds {controller.get('rounds_completed')}/{controller.get('max_rounds')} | "
         f"tasks {controller.get('tasks_completed')}/{controller.get('max_tasks')}"
     )
-    lines.append(
-        f"- working_branch: {controller.get('latest_working_branch') or 'n/a'}"
-    )
+    lines.append(f"- working_branch: {controller.get('latest_working_branch') or 'n/a'}")
     lines.append(f"- unresolved_count: {loop.get('unresolved_count')}")
     lines.append(f"- risk: {loop.get('risk')}")
     lines.append(f"- triage_reason: {loop.get('triage_reason')}")

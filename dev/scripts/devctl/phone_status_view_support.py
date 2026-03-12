@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from .text_utils import truncate_text as truncate_status_text
+from .text_utils import truncate_text as _truncate_text
+
+truncate_status_text = _truncate_text
 
 
 def section_dict(payload: dict[str, Any], key: str) -> dict[str, Any]:

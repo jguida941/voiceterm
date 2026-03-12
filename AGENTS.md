@@ -168,6 +168,11 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
    guard path (checklist/runbook entry that prevents unsafe execution).
 4. When automation lands, update command/docs surfaces in the same change
    (`AGENTS.md`, `dev/scripts/README.md`, `dev/guides/DEVCTL_AUTOGUIDE.md` as needed).
+4.1 During staged Python module splits or relocations under `dev/scripts/**`,
+    preserve stable compatibility re-exports or aliases in the old module in
+    the same change until all repo importers, tests, workflows, and
+    pre-commit hooks have been migrated. Treat those compatibility seams as
+    part of the maintainer-facing contract, not as disposable cleanup.
 5. Baseline full-surface audit execution starts from
    `dev/audits/2026-02-24-autonomy-baseline-audit.md` and should be copied
    forward for each new audit cycle.

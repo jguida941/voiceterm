@@ -21,6 +21,8 @@ from .mobile_status_projection import (
 from .phone_status_view_support import truncate_status_text
 from .phone_status_views import (
     actions_view as phone_actions_view,
+)
+from .phone_status_views import (
     compact_view as phone_compact_view,
 )
 
@@ -84,16 +86,11 @@ def compact_view(payload: dict[str, Any]) -> dict[str, Any]:
     approval_policy = payload.get("approval_policy")
     approval_policy = approval_policy if isinstance(approval_policy, dict) else {}
     return CompactMobileStatusProjection(
-        headline=(
-            f"{controller_phase.upper()} | review {review_bridge_state} | "
-            f"unresolved {unresolved_count}"
-        ),
+        headline=(f"{controller_phase.upper()} | review {review_bridge_state} | " f"unresolved {unresolved_count}"),
         controller_phase=controller_phase,
         controller_reason=str(controller_compact.get("reason") or "unknown"),
         controller_risk=str(controller_compact.get("risk") or "unknown"),
-        plan_id=str(
-            controller_compact.get("plan_id") or review_meta.get("plan_id") or ""
-        ),
+        plan_id=str(controller_compact.get("plan_id") or review_meta.get("plan_id") or ""),
         controller_run_id=str(controller_compact.get("controller_run_id") or ""),
         review_bridge_state=review_bridge_state,
         codex_poll_state=str(review_liveness.get("codex_poll_state") or "unknown"),
@@ -242,11 +239,7 @@ def _render_view_markdown(
         )
         return "\n".join(lines)
 
-    compact = (
-        view_payload_value
-        if selected_view is MobileStatusView.COMPACT
-        else compact_view(view_payload_value)
-    )
+    compact = view_payload_value if selected_view is MobileStatusView.COMPACT else compact_view(view_payload_value)
     lines = ["## Compact View", ""]
     lines.append(f"- headline: {compact.get('headline')}")
     lines.append(f"- plan_id: {compact.get('plan_id')}")

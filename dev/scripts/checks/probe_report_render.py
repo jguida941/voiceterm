@@ -16,14 +16,20 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from dev.scripts.checks.probe_report_support import aggregate_probe_results
     from dev.scripts.checks.probe_report_renderer_core import (
         render_rich_report,
         render_terminal_report,
     )
+    from dev.scripts.checks.probe_report_support import (
+        aggregate_probe_results as _aggregate_probe_results,
+    )
 except ModuleNotFoundError:  # pragma: no cover
-    from probe_report_support import aggregate_probe_results
     from probe_report_renderer_core import render_rich_report, render_terminal_report
+    from probe_report_support import (
+        aggregate_probe_results as _aggregate_probe_results,
+    )
+
+aggregate_probe_results = _aggregate_probe_results
 
 
 def _load_reports(input_path: str | None) -> list[dict[str, Any]]:
