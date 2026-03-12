@@ -8,9 +8,9 @@
       "public_url": "https://jguida941.github.io/terminal-as-interface/",
       "external_repo": "https://github.com/jguida941/terminal-as-interface.git",
       "external_branch": "main",
-      "source_ref": "8b03ebfa75a9ed9f7ca38161c5f5aec5c6357f41",
-      "external_ref": "9cf965f",
-      "last_synced_at": "2026-03-11T23:52:11.852832Z",
+      "source_ref": "e2d3537e49e71045a66ab0eb3e2524aaed36548e",
+      "external_ref": "bbac197",
+      "last_synced_at": "2026-03-12T01:43:42.201996Z",
       "notes": "Review this publication whenever VoiceTerm workflow policy, guard-script evidence, voice pipeline behavior, or repo history claims change.",
       "watched_paths": [
         "AGENTS.md",
