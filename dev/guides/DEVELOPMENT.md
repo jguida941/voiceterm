@@ -166,6 +166,10 @@ the concrete minimum inventory after edits:
      dry-run, report-only, and simulated-launch paths portable on CI runners:
      those flows should not require provider CLIs or GitHub API reachability
      unless they are actually executing the live action.
+   - If a guard intentionally suppresses live reviewer-heartbeat freshness on
+     `GITHUB_ACTIONS=true` runners, stale-bridge auto-refresh logic must still
+     consult direct bridge liveness before `status` / `launch`; do not key
+     auto-repair solely off the CI-relaxed guard output.
 5. If you need to run raw Rust tests or test binaries directly, prefer:
    - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...`
    - This enforces the required post-run hygiene follow-up automatically.

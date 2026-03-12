@@ -1847,6 +1847,16 @@ become the main product surface.
   to zero. The reproduced failure shapes are green locally, the full
   `dev/scripts/devctl/tests` suite reran at `1184 passed, 4 subtests passed`,
   and `app/operator_console/tests/` reran at `397 passed, 181 skipped`.
+  Review-channel heartbeat parity follow-up (2026-03-12): the next PR rerun
+  showed one more CI-only mismatch. `devctl review-channel` auto-refreshes a
+  stale bridge heartbeat before `status` / `launch`, but the helper had been
+  keying that decision off `check_review_channel_bridge.py` metadata errors.
+  On GitHub runners the bridge guard intentionally skips live heartbeat
+  freshness enforcement (`GITHUB_ACTIONS=true`), so the refresh path never
+  triggered even though bridge liveness was still stale. The helper now keeps
+  using the guard for structural bridge validity but derives refreshability
+  from direct bridge snapshot/liveness analysis, and the stale-heartbeat tests
+  now pin `GITHUB_ACTIONS=true` explicitly so CI runner parity stays covered.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 

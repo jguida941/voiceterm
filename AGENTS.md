@@ -198,6 +198,11 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     or GitHub API reachability unless the action actually needs live
     execution. Preserve explicit strict failure paths separately for real
     launch/fix execution and focused tests.
+4.2 When a guard intentionally relaxes live-review freshness on GitHub-hosted
+    CI, do not reuse that relaxed guard output as the only trigger for stale
+    bridge auto-repair. Auto-refresh helpers must derive stale/missing
+    heartbeat repairability from the bridge snapshot itself so CI parity stays
+    aligned with the real launch/status contract.
 5. Keep changes scoped: ignore unrelated diffs unless user asks.
 
 ## Prerequisites

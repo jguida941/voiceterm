@@ -378,6 +378,16 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   synthetic `started_at`. Reproduced CI-shaped tests are green locally,
   `dev/scripts/devctl/tests` reran at `1184 passed, 4 subtests passed`, and
   `app/operator_console/tests/` reran at `397 passed, 181 skipped`.
+- 2026-03-12: Closed the final review-channel CI parity leak from the same PR
+  rerun. The stale-heartbeat auto-refresh path for `devctl review-channel`
+  had been using `check_review_channel_bridge.py` metadata errors as its
+  trigger, but that guard intentionally suppresses live heartbeat freshness on
+  GitHub-hosted CI because the runner is not the real Codex conductor. That
+  meant `status` / `launch` could still see a stale bridge snapshot while the
+  auto-refresh helper saw no refreshable guard error. The helper now treats
+  the bridge guard as a structural gate only and derives refreshability from
+  direct bridge snapshot/liveness state instead; the stale-heartbeat tests now
+  pin `GITHUB_ACTIONS=true` so the CI runner contract is exercised locally.
 
 ## Audit Evidence
 

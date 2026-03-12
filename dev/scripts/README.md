@@ -104,6 +104,11 @@ Compatibility note:
   generation and local `triage-loop` preflight should still work on runners
   that do not have provider CLIs on `PATH` or cannot reach the GitHub API,
   unless the command is actually performing the live launch/fix step.
+- Keep stale-bridge repair portable as well: `review-channel` auto-refresh must
+  use the bridge snapshot/liveness contract instead of depending only on
+  `check_review_channel_bridge.py` freshness output, because that guard
+  intentionally relaxes live heartbeat enforcement on `GITHUB_ACTIONS=true`
+  runners.
 
 ## Canonical Commands
 

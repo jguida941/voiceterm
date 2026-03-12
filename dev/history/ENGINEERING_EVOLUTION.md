@@ -4147,5 +4147,13 @@ The full technical showcase is consolidated above in Appendix G of this document
   runners with smaller monotonic counters. The full `dev/scripts/devctl/tests`
   suite reran at `1184 passed, 4 subtests passed`, and
   `app/operator_console/tests/` reran at `397 passed, 181 skipped`.
+- Closed the last review-channel CI heartbeat mismatch from the same PR rerun:
+  stale bridge auto-refresh had been keyed off bridge-guard metadata failures,
+  but the guard intentionally does not enforce live Codex heartbeat freshness
+  on `GITHUB_ACTIONS=true` runners. `devctl review-channel` now still uses the
+  guard for structural bridge validity but derives refreshability from direct
+  bridge snapshot/liveness state, and the stale-heartbeat tests now run under
+  an explicit GitHub Actions env shape so this regression stays reproducible
+  locally before the next push.
 
 </details>

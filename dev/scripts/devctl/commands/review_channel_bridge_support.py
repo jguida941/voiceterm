@@ -136,8 +136,6 @@ def stale_bridge_launch_errors(
         review_channel_path=review_channel_path,
         bridge_path=bridge_path,
     )
-    if bridge_guard_report.get("ok", False):
-        return []
     code_audit = bridge_guard_report.get("code_audit")
     review_channel = bridge_guard_report.get("review_channel")
     if not isinstance(code_audit, dict) or not isinstance(review_channel, dict):
@@ -149,12 +147,12 @@ def stale_bridge_launch_errors(
     state_errors = code_audit.get("state_errors")
     if isinstance(state_errors, list) and state_errors:
         return []
-    metadata_errors = code_audit.get("metadata_errors")
-    if not isinstance(metadata_errors, list) or not metadata_errors:
-        return []
-    if all(_is_refreshable_metadata_error(str(error)) for error in metadata_errors):
-        return [str(error) for error in metadata_errors if str(error).strip()]
-    return []
+    bridge_snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
+    launch_errors = validate_launch_bridge_state(
+        bridge_snapshot,
+        liveness=summarize_bridge_liveness(bridge_snapshot),
+    )
+    return [str(error).strip() for error in launch_errors if _is_refreshable_metadata_error(str(error))]
 
 
 def prepare_rollover_bundle(

@@ -7,6 +7,7 @@ Fixtures in this file model the same markdown authorities the launcher reads:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -640,7 +641,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 pipe_command=None,
                 pipe_args=None,
             )
-            with patch.object(review_channel_command, "REPO_ROOT", root):
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}, clear=False),
+            ):
                 rc = review_channel_command.run(args)
 
             self.assertEqual(rc, 0)
@@ -1657,6 +1661,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "build_launch_sessions",
                     return_value=[],
                 ),
+                patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}, clear=False),
             ):
                 rc = review_channel_command.run(args)
 
