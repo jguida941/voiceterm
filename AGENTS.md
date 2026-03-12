@@ -193,6 +193,11 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
    (new modules, multi-file refactors, or business-logic changes), also run
    the review probe suite to catch design-quality regressions early:
    `python3 dev/scripts/devctl.py check --profile ci` (includes probes).
+4.1 Keep tooling dry-run/report-only paths portable: script-generation,
+    dry-run launch, and local preflight flows must not depend on provider CLIs
+    or GitHub API reachability unless the action actually needs live
+    execution. Preserve explicit strict failure paths separately for real
+    launch/fix execution and focused tests.
 5. Keep changes scoped: ignore unrelated diffs unless user asks.
 
 ## Prerequisites

@@ -196,6 +196,9 @@ def build_bridge_sessions(
         getattr(args, "approval_mode", None),
         dangerous=bool(args.dangerous),
     )
+    effective_resolve_cli_path = resolve_cli_path_fn
+    if resolve_cli_path_fn is resolve_cli_path:
+        effective_resolve_cli_path = _resolve_cli_path_or_provider_name
     return build_launch_sessions_fn(
         repo_root=context.repo_root,
         review_channel_path=context.review_channel_path,
@@ -223,8 +226,23 @@ def build_bridge_sessions(
         handoff_bundle=handoff_bundle_to_dict(context.handoff_bundle),
         script_dir=context.script_dir if isinstance(context.script_dir, Path) else None,
         session_output_root=context.status_dir,
-        resolve_cli_path_fn=resolve_cli_path_fn,
+        resolve_cli_path_fn=effective_resolve_cli_path,
     )
+
+
+def _resolve_cli_path_or_provider_name(provider: str) -> str:
+    """Prefer an absolute CLI path, but keep dry-run/script generation portable.
+
+    Review-channel tests and dry-run/script-only flows should not depend on the
+    current workstation or CI runner already having every provider CLI installed
+    before the script is even written. When the default resolver cannot find a
+    provider binary on PATH, fall back to the provider command name so the
+    generated launcher script still reflects the intended invocation.
+    """
+    try:
+        return resolve_cli_path(provider)
+    except ValueError:
+        return provider
 
 
 def post_session_lifecycle_event(

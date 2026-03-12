@@ -364,6 +364,20 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   rerun, and the full canonical `bundle.tooling` command list replayed cleanly
   under `python3.11` on this workstation (`397 passed, 181 skipped` in the
   Operator Console suite, zero repo processes left after cleanup).
+- 2026-03-12: Closed the next GitHub runner parity bugs the new PR SHA exposed.
+  Review-channel launch/rollover tests were environment-sensitive because
+  session-script generation resolved `codex`/`claude` from the current PATH
+  before the script even launched; bridge session building now falls back to
+  the provider command name for the default resolver so dry-run and simulated
+  launch paths stay portable while explicit missing-CLI tests still patch the
+  failure path. `triage-loop` now threads the command module's CI/connectivity
+  predicates into the preflight helper so the existing non-blocking-local test
+  stays valid inside GitHub Actions, and `JobRecord.duration_seconds` now clamps
+  negative monotonic deltas to zero so the Operator Console job-state surface no
+  longer fails on runners whose monotonic counter is below the test fixture's
+  synthetic `started_at`. Reproduced CI-shaped tests are green locally,
+  `dev/scripts/devctl/tests` reran at `1184 passed, 4 subtests passed`, and
+  `app/operator_console/tests/` reran at `397 passed, 181 skipped`.
 
 ## Audit Evidence
 

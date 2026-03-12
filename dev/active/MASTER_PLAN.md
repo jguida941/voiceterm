@@ -1835,6 +1835,18 @@ become the main product surface.
   canonical `bundle.tooling` replay are green again under `python3.11` on the
   local workstation, including `397 passed, 181 skipped` in the Operator
   Console suite and a clean `process-cleanup --verify`.
+  Latest CI-runner parity follow-up (2026-03-12): the next GitHub rerun
+  exposed two environment-sensitive Python regressions plus one operator-
+  console timing bug, and they are now burned down locally. Review-channel
+  bridge session generation no longer hard-fails when the default resolver
+  cannot find `codex`/`claude` on the current PATH before a dry-run or
+  simulated launch script is even written, `triage-loop` now passes the
+  command module's CI/connectivity predicates through its preflight helper so
+  the existing non-blocking-local connectivity test holds under GitHub
+  Actions, and `JobRecord.duration_seconds` clamps negative monotonic deltas
+  to zero. The reproduced failure shapes are green locally, the full
+  `dev/scripts/devctl/tests` suite reran at `1184 passed, 4 subtests passed`,
+  and `app/operator_console/tests/` reran at `397 passed, 181 skipped`.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 

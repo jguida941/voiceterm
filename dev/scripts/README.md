@@ -100,6 +100,10 @@ Compatibility note:
   until all repo-owned imports, tests, workflows, and pre-commit entry points
   move to the new path. CI still exercises those older seams during staged
   refactors.
+- Keep dry-run/report-only tooling paths portable too: review-channel script
+  generation and local `triage-loop` preflight should still work on runners
+  that do not have provider CLIs on `PATH` or cannot reach the GitHub API,
+  unless the command is actually performing the live launch/fix step.
 
 ## Canonical Commands
 

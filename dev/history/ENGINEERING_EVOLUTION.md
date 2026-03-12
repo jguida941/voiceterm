@@ -4134,5 +4134,18 @@ The full technical showcase is consolidated above in Appendix G of this document
   `docs-check --strict-tooling` returned to green and the full canonical
   `bundle.tooling` replay stayed green under `python3.11`, including a clean
   Operator Console suite and host process cleanup.
+- Closed the next GitHub-runner parity bugs from PR #16: review-channel
+  launch/rollover tests had become PATH-sensitive because script generation
+  tried to resolve `codex`/`claude` before a dry-run or simulated launch ever
+  started, so the bridge session builder now falls back to the provider
+  command name for the default resolver while preserving the explicit missing-
+  CLI failure test via patched resolvers. `triage-loop` now threads the
+  command module's CI/connectivity predicates into its preflight helper so the
+  existing non-blocking-local connectivity test remains valid in GitHub
+  Actions, and `JobRecord.duration_seconds` now clamps negative monotonic
+  deltas to zero so the Operator Console timing surface does not go negative on
+  runners with smaller monotonic counters. The full `dev/scripts/devctl/tests`
+  suite reran at `1184 passed, 4 subtests passed`, and
+  `app/operator_console/tests/` reran at `397 passed, 181 skipped`.
 
 </details>

@@ -56,7 +56,7 @@ class JobRecord:
         if self.started_at is None:
             return None
         end = self.finished_at if self.finished_at is not None else monotonic()
-        return end - self.started_at
+        return max(0.0, end - self.started_at)
 
     def summary_line(self) -> str:
         """One-line status for display in job lists."""
@@ -152,9 +152,7 @@ class JobManager:
         """Transition a RUNNING job to COMPLETED or FAILED based on exit_code."""
         record = self._require(job_id)
         if record.status != JobStatus.RUNNING:
-            raise ValueError(
-                f"Cannot finish {job_id}: status is {record.status.value}"
-            )
+            raise ValueError(f"Cannot finish {job_id}: status is {record.status.value}")
         record.exit_code = exit_code
         record.status = JobStatus.COMPLETED if exit_code == 0 else JobStatus.FAILED
         record.finished_at = monotonic()
@@ -226,7 +224,9 @@ class JobManager:
         ]
         running_records.sort(
             key=lambda record: (
-                record.started_at if record.started_at is not None else record.created_at,
+                record.started_at
+                if record.started_at is not None
+                else record.created_at,
                 record.job_id,
             )
         )
@@ -248,11 +248,7 @@ class JobManager:
 
     def history(self, *, limit: int | None = None) -> list[JobRecord]:
         """Terminal jobs (completed/failed/cancelled), newest first."""
-        terminal = [
-            record
-            for record in self._jobs.values()
-            if record.is_terminal
-        ]
+        terminal = [record for record in self._jobs.values() if record.is_terminal]
         terminal.sort(
             key=lambda r: r.finished_at or 0.0,
             reverse=True,
@@ -270,9 +266,7 @@ class JobManager:
         """Whether any job is currently running."""
         return len(self._running) > 0
 
-    def active_job_for_context(
-        self, key: str, value: object
-    ) -> JobRecord | None:
+    def active_job_for_context(self, key: str, value: object) -> JobRecord | None:
         """Find a running job whose context matches ``context[key] == value``."""
         for jid in self._running:
             record = self._jobs.get(jid)
@@ -291,9 +285,7 @@ class JobManager:
     def _trim_history(self) -> None:
         """Remove the oldest terminal jobs beyond the history limit."""
         terminal = [
-            (jid, record)
-            for jid, record in self._jobs.items()
-            if record.is_terminal
+            (jid, record) for jid, record in self._jobs.items() if record.is_terminal
         ]
         if len(terminal) <= self._history_limit:
             return
