@@ -203,6 +203,11 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     bridge auto-repair. Auto-refresh helpers must derive stale/missing
     heartbeat repairability from the bridge snapshot itself so CI parity stays
     aligned with the real launch/status contract.
+4.3 Any CI job that invokes compile-time Rust guards (for example
+    `check_rust_compiler_warnings.py`) must provision the repo Rust toolchain
+    plus required platform headers first; tooling/docs workflows cannot assume
+    those prerequisites are inherited just because the dedicated Rust CI lane
+    already installs them.
 5. Keep changes scoped: ignore unrelated diffs unless user asks.
 
 ## Prerequisites

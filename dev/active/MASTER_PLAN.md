@@ -1857,6 +1857,14 @@ become the main product surface.
   using the guard for structural bridge validity but derives refreshability
   from direct bridge snapshot/liveness analysis, and the stale-heartbeat tests
   now pin `GITHUB_ACTIONS=true` explicitly so CI runner parity stays covered.
+  Tooling-control-plane workflow parity follow-up (2026-03-12): after that fix
+  landed, the only remaining PR blocker in `docs policy + governance guard`
+  was not a docs regression at all. The workflow's nested
+  `check_rust_compiler_warnings.py` step was compiling changed Rust files
+  without provisioning the Rust toolchain or Linux ALSA development headers,
+  even though the dedicated Rust lanes install both. `tooling_control_plane.yml`
+  now installs Rust plus `libasound2-dev` before the compile-time Rust guard
+  runs so the docs/governance lane matches the real Rust CI prerequisites.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 

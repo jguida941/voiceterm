@@ -280,6 +280,12 @@ jobs:
       - name: Install markdownlint-cli
         run: npm install -g markdownlint-cli@0.45.0
 
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+
+      - name: Install ALSA development headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
       - name: Resolve commit range and changed files
         id: range
         env:

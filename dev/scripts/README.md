@@ -109,6 +109,9 @@ Compatibility note:
   `check_review_channel_bridge.py` freshness output, because that guard
   intentionally relaxes live heartbeat enforcement on `GITHUB_ACTIONS=true`
   runners.
+- When a tooling/docs workflow invokes compile-time Rust guards, install the
+  repo Rust toolchain and required Linux headers in that job first; the main
+  Rust CI lane’s setup does not carry over automatically to `tooling_control_plane.yml`.
 
 ## Canonical Commands
 

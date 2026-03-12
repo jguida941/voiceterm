@@ -388,6 +388,14 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   the bridge guard as a structural gate only and derives refreshability from
   direct bridge snapshot/liveness state instead; the stale-heartbeat tests now
   pin `GITHUB_ACTIONS=true` so the CI runner contract is exercised locally.
+- 2026-03-12: Closed the last workflow-only parity blocker on PR #16 too. The
+  docs/governance workflow was invoking `check_rust_compiler_warnings.py`
+  inside `tooling_control_plane.yml` without the Rust toolchain or Linux ALSA
+  headers that the dedicated Rust CI lanes install first, so the docs-policy
+  job could fail even while the real Rust jobs stayed green. The workflow now
+  provisions Rust and `libasound2-dev` before the compile-time Rust guard, and
+  maintainer docs now call out that tooling/docs jobs cannot assume Rust lane
+  prerequisites automatically.
 
 ## Audit Evidence
 

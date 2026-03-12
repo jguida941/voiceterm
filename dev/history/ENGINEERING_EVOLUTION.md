@@ -4155,5 +4155,12 @@ The full technical showcase is consolidated above in Appendix G of this document
   bridge snapshot/liveness state, and the stale-heartbeat tests now run under
   an explicit GitHub Actions env shape so this regression stays reproducible
   locally before the next push.
+- Closed the final workflow-only blocker from the same PR rerun: the
+  `tooling_control_plane.yml` docs/governance job was calling the compile-time
+  Rust warning guard without installing the Rust toolchain or Linux ALSA
+  headers, even though the dedicated Rust CI lanes already require both.
+  That workflow now provisions Rust plus `libasound2-dev` before the changed-
+  file compiler warning scan, and maintainer docs explicitly note that
+  tooling/docs jobs must provision compile-time Rust prerequisites themselves.
 
 </details>

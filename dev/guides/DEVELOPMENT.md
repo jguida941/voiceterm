@@ -170,6 +170,10 @@ the concrete minimum inventory after edits:
      `GITHUB_ACTIONS=true` runners, stale-bridge auto-refresh logic must still
      consult direct bridge liveness before `status` / `launch`; do not key
      auto-repair solely off the CI-relaxed guard output.
+   - CI jobs that run compile-time Rust guards must install the same Rust
+     toolchain and required Linux headers as the main Rust lanes before those
+     guards execute; do not assume tooling-only workflows inherit Rust
+     prerequisites automatically.
 5. If you need to run raw Rust tests or test binaries directly, prefer:
    - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...`
    - This enforces the required post-run hygiene follow-up automatically.
