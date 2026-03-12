@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import json
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from ..common import emit_output, pipe_output, write_output
@@ -115,9 +115,7 @@ def _render_markdown(policy) -> str:
     lines.append("")
     if policy.guard_configs:
         for script_id in sorted(policy.guard_configs):
-            lines.append(
-                f"- {script_id}: `{json.dumps(policy.guard_configs[script_id], sort_keys=True)}`"
-            )
+            lines.append(f"- {script_id}: `{json.dumps(policy.guard_configs[script_id], sort_keys=True)}`")
     else:
         lines.append("- none")
     lines.append("")
@@ -146,29 +144,17 @@ def run(args) -> int:
             rust=policy.capabilities.rust,
         ),
         quality_scopes=ScopePayload(
-            python_guard_roots=[
-                path.as_posix() for path in policy.scopes.python_guard_roots
-            ],
-            python_probe_roots=[
-                path.as_posix() for path in policy.scopes.python_probe_roots
-            ],
-            rust_guard_roots=[
-                path.as_posix() for path in policy.scopes.rust_guard_roots
-            ],
-            rust_probe_roots=[
-                path.as_posix() for path in policy.scopes.rust_probe_roots
-            ],
+            python_guard_roots=[path.as_posix() for path in policy.scopes.python_guard_roots],
+            python_probe_roots=[path.as_posix() for path in policy.scopes.python_probe_roots],
+            rust_guard_roots=[path.as_posix() for path in policy.scopes.rust_guard_roots],
+            rust_probe_roots=[path.as_posix() for path in policy.scopes.rust_probe_roots],
         ),
         ai_guard_checks=[_step_payload(spec) for spec in policy.ai_guard_checks],
         review_probe_checks=[_step_payload(spec) for spec in policy.review_probe_checks],
         guard_configs=policy.guard_configs,
         warnings=list(policy.warnings),
     )
-    output = (
-        json.dumps(asdict(payload), indent=2)
-        if args.format == "json"
-        else _render_markdown(policy)
-    )
+    output = json.dumps(asdict(payload), indent=2) if args.format == "json" else _render_markdown(policy)
     pipe_code = emit_output(
         output,
         output_path=args.output,

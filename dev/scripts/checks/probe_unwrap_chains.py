@@ -39,16 +39,10 @@ except ModuleNotFoundError:  # pragma: no cover
         emit_probe_report,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
-is_review_probe_test_path = import_attr(
-    "probe_path_filters", "is_review_probe_test_path"
-)
-scan_rust_functions = import_attr(
-    "code_shape_function_policy", "scan_rust_functions"
-)
+is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
+scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -69,17 +63,19 @@ UNWRAP_RE = re.compile(r"\.\s*unwrap\s*\(\s*\)")
 EXPECT_RE = re.compile(r"\.\s*expect\s*\(\s*\"")
 
 # Functions where unwrap is acceptable (test helpers, builder patterns, etc.).
-_UNWRAP_ALLOWLIST_FUNCTIONS = frozenset({
-    "main",  # main() is the top-level entry point; panics there are acceptable
-    "test_",  # test function prefix (belt-and-suspenders with test path skip)
-})
+_UNWRAP_ALLOWLIST_FUNCTIONS = frozenset(
+    {
+        "main",  # main() is the top-level entry point; panics there are acceptable
+        "test_",  # test function prefix (belt-and-suspenders with test path skip)
+    }
+)
 
 # Patterns in function body that indicate unwrap is justified.
 _JUSTIFIED_UNWRAP_PATTERNS = [
-    "// unwrap: ",       # Explicit rationale comment
-    "// SAFETY:",        # Safety comment for unsafe-adjacent code
-    "// panic: ",        # Explicit panic justification
-    "debug_assert",      # Debug-only assertion context
+    "// unwrap: ",  # Explicit rationale comment
+    "// SAFETY:",  # Safety comment for unsafe-adjacent code
+    "// panic: ",  # Explicit panic justification
+    "debug_assert",  # Debug-only assertion context
 ]
 
 AI_INSTRUCTIONS = {
@@ -96,12 +92,11 @@ AI_INSTRUCTIONS = {
         "to happen in production."
     ),
 }
+
+
 def _has_justified_unwraps(body: str) -> bool:
     """Check if unwraps in the body have explicit justification comments."""
-    for pattern in _JUSTIFIED_UNWRAP_PATTERNS:
-        if pattern in body:
-            return True
-    return False
+    return any(pattern in body for pattern in _JUSTIFIED_UNWRAP_PATTERNS)
 
 
 def _scan_rust_file(text: str, path: Path) -> list[RiskHint]:
@@ -148,10 +143,7 @@ def _scan_rust_file(text: str, path: Path) -> list[RiskHint]:
                 symbol=func_name,
                 risk_type="error_handling",
                 severity=severity,
-                signals=[
-                    f"{' + '.join(parts)} calls ({total} total) — "
-                    f"use ? operator or proper error handling"
-                ],
+                signals=[f"{' + '.join(parts)} calls ({total} total) — " f"use ? operator or proper error handling"],
                 ai_instruction=AI_INSTRUCTIONS[severity],
                 review_lens=REVIEW_LENS,
             )
@@ -169,7 +161,9 @@ def main() -> int:
             guard.validate_ref(args.since_ref)
             guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            guard.run_git, args.since_ref, args.head_ref,
+            guard.run_git,
+            args.since_ref,
+            args.head_ref,
         )
     except RuntimeError:
         return emit_probe_report(report, output_format=args.format)
@@ -182,19 +176,13 @@ def main() -> int:
     for path in changed_paths:
         if path.suffix != ".rs":
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             continue
         if is_review_probe_test_path(path):
             continue
 
         report.files_scanned += 1
-        text = (
-            guard.read_text_from_ref(path, args.head_ref)
-            if args.since_ref
-            else guard.read_text_from_worktree(path)
-        )
+        text = guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
         if text is None:
             continue
 

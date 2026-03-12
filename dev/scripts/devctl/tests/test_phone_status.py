@@ -8,8 +8,9 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl import phone_status_views
+from dev.scripts.devctl.autonomy.phone_status import build_phone_status
+from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import phone_status
 
 
@@ -102,6 +103,79 @@ class PhoneStatusParserTests(unittest.TestCase):
 
 
 class PhoneStatusCommandTests(unittest.TestCase):
+    def test_build_phone_status_loads_ralph_report_and_latest_attempt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            report_path = (
+                repo_root
+                / "dev"
+                / "reports"
+                / "ralph"
+                / "latest"
+                / "ralph-report.json"
+            )
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(
+                json.dumps(
+                    {
+                        "phase": "triage",
+                        "attempt": 2,
+                        "max_attempts": 5,
+                        "total_findings": 4,
+                        "fixed_count": 3,
+                        "unresolved_count": 1,
+                        "branch": "feature/ralph",
+                        "last_run": "2026-03-12T01:02:03Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = build_phone_status(
+                plan_id="MP-376",
+                controller_run_id="run-42",
+                repo="voiceterm",
+                branch_base="develop",
+                mode_effective="report-only",
+                reason="review_follow_up_required",
+                resolved=False,
+                rounds_completed=2,
+                tasks_completed=3,
+                max_rounds=5,
+                max_tasks=8,
+                current_round=2,
+                latest_working_branch="feature/governance-quality-sweep",
+                triage_report={
+                    "reason": "needs_review",
+                    "unresolved_count": 2,
+                    "attempts": [
+                        {"run_id": 11, "status": "queued"},
+                        {"run_id": 12, "run_sha": "deadbeef", "status": "failed"},
+                    ],
+                },
+                loop_packet_report={
+                    "next_actions": ["Refresh bridge", "Send fix slice"],
+                    "terminal_packet": {
+                        "draft_text": "candidate patch",
+                        "auto_send": False,
+                    },
+                },
+                checkpoint_packet={
+                    "terminal_trace": ["step 1", "", "step 2", "step 3"],
+                },
+                warnings=[],
+                errors=[],
+                max_draft_chars=80,
+                max_trace_lines=2,
+                repo_root=repo_root,
+            )
+
+            self.assertEqual(payload["source_run"]["run_id"], 12)
+            self.assertEqual(payload["terminal"]["trace"], ["step 1", "step 2"])
+            self.assertEqual(payload["ralph"]["phase"], "triage")
+            self.assertEqual(payload["ralph"]["fix_rate_pct"], 75.0)
+            self.assertTrue(payload["ralph"]["available"])
+
     def test_view_payload_falls_back_to_compact_projection(self) -> None:
         payload = _sample_payload()
 
@@ -168,11 +242,7 @@ class PhoneStatusCommandTests(unittest.TestCase):
                 self.assertIn(key, projection_files)
                 self.assertTrue(Path(projection_files[key]).exists())
 
-            trace_lines = (
-                Path(projection_files["trace_ndjson"])
-                .read_text(encoding="utf-8")
-                .splitlines()
-            )
+            trace_lines = Path(projection_files["trace_ndjson"]).read_text(encoding="utf-8").splitlines()
             self.assertEqual(len(trace_lines), 2)
 
     def test_command_fails_when_input_missing(self) -> None:
@@ -188,12 +258,7 @@ class PhoneStatusCommandTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             payload = json.loads(output_json.read_text(encoding="utf-8"))
             self.assertFalse(payload["ok"])
-            self.assertTrue(
-                any(
-                    "phone status artifact not found" in row
-                    for row in payload.get("errors", [])
-                )
-            )
+            self.assertTrue(any("phone status artifact not found" in row for row in payload.get("errors", [])))
 
 
 if __name__ == "__main__":

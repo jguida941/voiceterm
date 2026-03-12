@@ -13,9 +13,7 @@ from dev.scripts.devctl.status_report import (
 # Deterministic fake collectors for testing.
 FAKE_GIT = {"branch": "develop", "changes": [{"status": "M", "path": "a.rs"}]}
 FAKE_MUTANTS = {"results": {"score": 85.0}}
-FAKE_CI = {
-    "runs": [{"displayTitle": "ci_run", "status": "completed", "conclusion": "success"}]
-}
+FAKE_CI = {"runs": [{"displayTitle": "ci_run", "status": "completed", "conclusion": "success"}]}
 FAKE_DEV_LOGS = {
     "dev_root": "/tmp/dev",
     "sessions_scanned": 1,
@@ -100,9 +98,7 @@ class RunProbesSerialTests(unittest.TestCase):
             ("c", lambda: {"value": 3}),
         ]
         results = _run_probes_serial(probes)
-        self.assertEqual(
-            results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}}
-        )
+        self.assertEqual(results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}})
 
     def test_serial_empty_probes(self) -> None:
         self.assertEqual(_run_probes_serial([]), {})
@@ -118,9 +114,7 @@ class RunProbesParallelTests(unittest.TestCase):
             ("c", lambda: {"value": 3}),
         ]
         results = _run_probes_parallel(probes, max_workers=4)
-        self.assertEqual(
-            results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}}
-        )
+        self.assertEqual(results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}})
 
     def test_parallel_empty_probes(self) -> None:
         self.assertEqual(_run_probes_parallel([], max_workers=4), {})

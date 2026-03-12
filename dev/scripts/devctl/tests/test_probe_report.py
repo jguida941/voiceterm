@@ -10,12 +10,10 @@ from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
-from dev.scripts.devctl import cli
-from dev.scripts.devctl import quality_policy
-from dev.scripts.devctl import review_probe_report
+from dev.scripts.devctl import cli, quality_policy, review_probe_report
 from dev.scripts.devctl.commands import probe_report
-from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
 from dev.scripts.devctl.quality_policy_loader import QUALITY_POLICY_ENV_VAR
+from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
 
 
 def _probe_payload(
@@ -162,31 +160,31 @@ class ProbeReportCommandTests(unittest.TestCase):
                 ),
             ]
 
-            with patch(
-                "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
-                return_value=("probe_design_smells", "probe_clone_density"),
-            ) as mock_resolve_probe_ids:
-                with patch(
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
+                    return_value=("probe_design_smells", "probe_clone_density"),
+                ) as mock_resolve_probe_ids,
+                patch(
                     "dev.scripts.devctl.review_probe_report.subprocess.run",
                     side_effect=payloads,
-                ):
-                    with patch(
-                        "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
-                        return_value=_topology_payload(),
-                    ):
-                        with patch(
-                            "dev.scripts.devctl.review_probe_report.build_review_packet",
-                            return_value=_review_packet_payload(),
-                        ):
-                            with patch(
-                                "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
-                                return_value=quality_policy.resolve_quality_policy(),
-                            ):
-                                rc = probe_report.run(args)
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
+                    return_value=_topology_payload(),
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.build_review_packet",
+                    return_value=_review_packet_payload(),
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
+                    return_value=quality_policy.resolve_quality_policy(),
+                ),
+            ):
+                rc = probe_report.run(args)
 
-            mock_resolve_probe_ids.assert_called_once_with(
-                policy_path="/tmp/portable-policy.json"
-            )
+            mock_resolve_probe_ids.assert_called_once_with(policy_path="/tmp/portable-policy.json")
 
             self.assertEqual(rc, 0)
             summary_path = output_root / "latest" / "summary.json"
@@ -210,13 +208,9 @@ class ProbeReportCommandTests(unittest.TestCase):
             self.assertEqual(payload["summary"]["probe_count"], 2)
             self.assertEqual(payload["summary"]["risk_hints"], 2)
             self.assertEqual(payload["summary"]["hints_by_severity"]["high"], 1)
-            self.assertEqual(
-                payload["summary"]["hints_by_probe"]["probe_clone_density"], 1
-            )
+            self.assertEqual(payload["summary"]["hints_by_probe"]["probe_clone_density"], 1)
             self.assertEqual(payload["summary"]["topology"]["edge_count"], 12)
-            self.assertEqual(
-                payload["summary"]["priority_hotspots"][0]["priority_score"], 148
-            )
+            self.assertEqual(payload["summary"]["priority_hotspots"][0]["priority_score"], 148)
             self.assertEqual(len(payload["risk_hints"]), 2)
             self.assertEqual(payload["risk_hints"][0]["probe"], "probe_design_smells")
             self.assertEqual(payload["repo_policy"]["repo_name"], "VoiceTerm")
@@ -242,27 +236,29 @@ class ProbeReportCommandTests(unittest.TestCase):
             pipe_args=None,
         )
 
-        with patch(
-            "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
-            return_value=("probe_design_smells",),
-        ):
-            with patch(
+        with (
+            patch(
+                "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
+                return_value=("probe_design_smells",),
+            ),
+            patch(
                 "dev.scripts.devctl.review_probe_report.subprocess.run",
                 return_value=CompletedProcess(["python3"], 2, stdout="", stderr="boom"),
-            ):
-                with patch(
-                    "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
-                    return_value=_topology_payload(),
-                ):
-                    with patch(
-                        "dev.scripts.devctl.review_probe_report.build_review_packet",
-                        return_value=_review_packet_payload(),
-                    ):
-                        with patch(
-                            "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
-                            return_value=quality_policy.resolve_quality_policy(),
-                        ):
-                            rc = probe_report.run(args)
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
+                return_value=_topology_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_review_packet",
+                return_value=_review_packet_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
+                return_value=quality_policy.resolve_quality_policy(),
+            ),
+        ):
+            rc = probe_report.run(args)
 
         self.assertEqual(rc, 1)
 
@@ -281,11 +277,12 @@ class ProbeReportCommandTests(unittest.TestCase):
             pipe_args=None,
         )
 
-        with patch(
-            "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
-            return_value=("probe_design_smells",),
-        ):
-            with patch(
+        with (
+            patch(
+                "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
+                return_value=("probe_design_smells",),
+            ),
+            patch(
                 "dev.scripts.devctl.review_probe_report.subprocess.run",
                 return_value=CompletedProcess(
                     ["python3"],
@@ -293,20 +290,21 @@ class ProbeReportCommandTests(unittest.TestCase):
                     stdout=json.dumps(_probe_payload("probe_design_smells")),
                     stderr="",
                 ),
-            ) as mock_run:
-                with patch(
-                    "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
-                    return_value=_topology_payload(),
-                ):
-                    with patch(
-                        "dev.scripts.devctl.review_probe_report.build_review_packet",
-                        return_value=_review_packet_payload(),
-                    ):
-                        with patch(
-                            "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
-                            return_value=quality_policy.resolve_quality_policy(),
-                        ):
-                            rc = probe_report.run(args)
+            ) as mock_run,
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
+                return_value=_topology_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_review_packet",
+                return_value=_review_packet_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
+                return_value=quality_policy.resolve_quality_policy(),
+            ),
+        ):
+            rc = probe_report.run(args)
 
         self.assertEqual(rc, 0)
         env = mock_run.call_args.kwargs["env"]
@@ -330,11 +328,12 @@ class ProbeReportCommandTests(unittest.TestCase):
             pipe_args=None,
         )
 
-        with patch(
-            "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
-            return_value=("probe_design_smells",),
-        ):
-            with patch(
+        with (
+            patch(
+                "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
+                return_value=("probe_design_smells",),
+            ),
+            patch(
                 "dev.scripts.devctl.review_probe_report.subprocess.run",
                 return_value=CompletedProcess(
                     ["python3"],
@@ -342,20 +341,21 @@ class ProbeReportCommandTests(unittest.TestCase):
                     stdout=json.dumps(_probe_payload("probe_design_smells")),
                     stderr="",
                 ),
-            ) as mock_run:
-                with patch(
-                    "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
-                    return_value=_topology_payload(),
-                ):
-                    with patch(
-                        "dev.scripts.devctl.review_probe_report.build_review_packet",
-                        return_value=_review_packet_payload(),
-                    ):
-                        with patch(
-                            "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
-                            return_value=quality_policy.resolve_quality_policy(),
-                        ):
-                            rc = probe_report.run(args)
+            ) as mock_run,
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
+                return_value=_topology_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_review_packet",
+                return_value=_review_packet_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
+                return_value=quality_policy.resolve_quality_policy(),
+            ),
+        ):
+            rc = probe_report.run(args)
 
         self.assertEqual(rc, 0)
         cmd = mock_run.call_args.args[0]

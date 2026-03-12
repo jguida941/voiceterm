@@ -10,7 +10,7 @@ import json
 import subprocess
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -18,15 +18,13 @@ from unittest.mock import patch
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import review_channel as review_channel_command
 from dev.scripts.devctl.commands import review_channel_bridge_handler
-from dev.scripts.devctl.review_channel.events import post_packet, transition_packet
-from dev.scripts.devctl.review_channel.event_store import resolve_artifact_paths
 from dev.scripts.devctl.review_channel.core import (
-    ActiveSessionConflict,
     DEFAULT_ROLLOVER_ACK_WAIT_SECONDS,
     DEFAULT_ROLLOVER_THRESHOLD_PCT,
     DEFAULT_TERMINAL_PROFILE,
-    LaneAssignment,
     REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+    ActiveSessionConflict,
+    LaneAssignment,
     bridge_is_active,
     detect_active_session_conflicts,
     parse_lane_assignments,
@@ -34,8 +32,8 @@ from dev.scripts.devctl.review_channel.core import (
     summarize_active_session_conflicts,
 )
 from dev.scripts.devctl.review_channel.handoff import (
-    extract_bridge_snapshot,
     expected_rollover_ack_line,
+    extract_bridge_snapshot,
     observe_rollover_ack_state,
     summarize_bridge_liveness,
     validate_launch_bridge_state,
@@ -113,7 +111,7 @@ def _build_bridge_text(
     claude_ack: str = "- acknowledged",
 ) -> str:
     if last_codex_poll is None:
-        last_codex_poll = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        last_codex_poll = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     return "\n".join(
         [
             "# Code Audit Channel",
@@ -127,7 +125,7 @@ def _build_bridge_text(
             "Each meaningful review must include an operator-visible chat update.",
             "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
             "Claude should start from `Current Verdict`, `Open Findings`, and `Current Instruction For Claude`, then acknowledge the active instruction in `Claude Ack` before coding.",
-            "When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at \"all green so far.\"",
+            'When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
             "Only the Codex conductor may update the Codex-owned sections in this file.",
             "Only the Claude conductor may update the Claude-owned sections in this file.",
             "Specialist workers should wake on owned-path changes or explicit conductor request instead of every worker polling the full tree blindly on the same cadence.",
@@ -291,9 +289,7 @@ class ReviewChannelParserTests(unittest.TestCase):
 class ReviewChannelHelperTests(unittest.TestCase):
     def test_bridge_detection_tracks_transitional_heading(self) -> None:
         self.assertTrue(bridge_is_active(_build_review_channel_text()))
-        self.assertFalse(
-            bridge_is_active(_build_review_channel_text(include_bridge=False))
-        )
+        self.assertFalse(bridge_is_active(_build_review_channel_text(include_bridge=False)))
 
     def test_parse_lane_assignments_returns_expected_counts(self) -> None:
         lanes = parse_lane_assignments(_build_review_channel_text())
@@ -322,7 +318,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "fresh")
@@ -340,7 +336,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "waiting_on_peer")
@@ -349,13 +345,11 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertTrue(liveness.claude_ack_present)
 
     def test_bridge_liveness_is_fresh_when_poll_and_ack_are_present(self) -> None:
-        snapshot = extract_bridge_snapshot(
-            _build_bridge_text(last_codex_poll="2026-03-08T19:08:45Z")
-        )
+        snapshot = extract_bridge_snapshot(_build_bridge_text(last_codex_poll="2026-03-08T19:08:45Z"))
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "fresh")
@@ -365,13 +359,11 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertTrue(liveness.claude_ack_present)
 
     def test_bridge_liveness_waits_on_peer_when_ack_is_missing(self) -> None:
-        snapshot = extract_bridge_snapshot(
-            _build_bridge_text(claude_ack="")
-        )
+        snapshot = extract_bridge_snapshot(_build_bridge_text(claude_ack=""))
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "waiting_on_peer")
@@ -449,13 +441,11 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertIn("/tmp/codex.log", summary)
 
     def test_bridge_liveness_marks_poll_due_before_stale(self) -> None:
-        snapshot = extract_bridge_snapshot(
-            _build_bridge_text(last_codex_poll="2026-03-08T19:08:45Z")
-        )
+        snapshot = extract_bridge_snapshot(_build_bridge_text(last_codex_poll="2026-03-08T19:08:45Z"))
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 0, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 13, 0, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "fresh")
@@ -464,13 +454,11 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertTrue(liveness.last_reviewed_scope_present)
 
     def test_bridge_liveness_is_stale_when_reviewer_poll_is_old(self) -> None:
-        snapshot = extract_bridge_snapshot(
-            _build_bridge_text(last_codex_poll="2026-03-08T18:50:00Z")
-        )
+        snapshot = extract_bridge_snapshot(_build_bridge_text(last_codex_poll="2026-03-08T18:50:00Z"))
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "stale")
@@ -560,8 +548,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "A bridge summary, `waiting_on_peer` note, or \"all green so far\" "
-            "update is never terminal by itself.",
+            'A bridge summary, `waiting_on_peer` note, or "all green so far" ' "update is never terminal by itself.",
             prompt,
         )
         self.assertIn(
@@ -726,7 +713,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 codex_script.read_text(encoding="utf-8"),
             )
             self.assertIn(
-                "A bridge summary, `waiting_on_peer` note, or \"all green so far\" "
+                'A bridge summary, `waiting_on_peer` note, or "all green so far" '
                 "update is never terminal by itself.",
                 codex_script.read_text(encoding="utf-8"),
             )
@@ -880,12 +867,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             compact_path = Path(payload["projection_paths"]["compact_path"])
             full_path = Path(payload["projection_paths"]["full_path"])
             actions_path = Path(payload["projection_paths"]["actions_path"])
-            latest_markdown_path = Path(
-                payload["projection_paths"]["latest_markdown_path"]
-            )
-            agent_registry_path = Path(
-                payload["projection_paths"]["agent_registry_path"]
-            )
+            latest_markdown_path = Path(payload["projection_paths"]["latest_markdown_path"])
+            agent_registry_path = Path(payload["projection_paths"]["agent_registry_path"])
 
             self.assertTrue(review_state_path.exists())
             self.assertTrue(compact_path.exists())
@@ -897,9 +880,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             review_state = json.loads(review_state_path.read_text(encoding="utf-8"))
             compact = json.loads(compact_path.read_text(encoding="utf-8"))
             actions = json.loads(actions_path.read_text(encoding="utf-8"))
-            agent_registry = json.loads(
-                agent_registry_path.read_text(encoding="utf-8")
-            )
+            agent_registry = json.loads(agent_registry_path.read_text(encoding="utf-8"))
 
             self.assertEqual(review_state["command"], "review-channel")
             self.assertEqual(review_state["queue"]["pending_total"], 0)
@@ -1404,12 +1385,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 resume_state["owned_lanes"]["codex"][0]["agent_id"],
                 "AGENT-1",
             )
-            self.assertFalse(
-                resume_state["launch_ack_state"]["codex"]["observed"]
-            )
-            self.assertFalse(
-                resume_state["launch_ack_state"]["claude"]["observed"]
-            )
+            self.assertFalse(resume_state["launch_ack_state"]["codex"]["observed"])
+            self.assertFalse(resume_state["launch_ack_state"]["claude"]["observed"])
             self.assertEqual(
                 resume_state["launch_ack_state"]["codex"]["required_section"],
                 "Poll Status",
@@ -1475,13 +1452,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     _build_bridge_text()
                     .replace(
                         "## Poll Status\n\n- active reviewer loop\n\n",
-                        "## Poll Status\n\n- active reviewer loop\n"
-                        f"- Codex rollover ack: `{rollover_id}`\n\n",
+                        "## Poll Status\n\n- active reviewer loop\n" f"- Codex rollover ack: `{rollover_id}`\n\n",
                     )
                     .replace(
                         "## Claude Ack\n\n- acknowledged\n\n",
-                        "## Claude Ack\n\n- acknowledged\n"
-                        f"- Claude rollover ack: `{rollover_id}`\n\n",
+                        "## Claude Ack\n\n- acknowledged\n" f"- Claude rollover ack: `{rollover_id}`\n\n",
                     ),
                     encoding="utf-8",
                 )
@@ -1556,13 +1531,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     _build_bridge_text()
                     .replace(
                         "## Poll Status\n\n- active reviewer loop\n\n",
-                        "## Poll Status\n\n- active reviewer loop\n"
-                        f"- Claude rollover ack: `{rollover_id}`\n\n",
+                        "## Poll Status\n\n- active reviewer loop\n" f"- Claude rollover ack: `{rollover_id}`\n\n",
                     )
                     .replace(
                         "## Claude Ack\n\n- acknowledged\n\n",
-                        "## Claude Ack\n\n- acknowledged\n"
-                        f"- Codex rollover ack: `{rollover_id}`\n\n",
+                        "## Claude Ack\n\n- acknowledged\n" f"- Codex rollover ack: `{rollover_id}`\n\n",
                     ),
                     encoding="utf-8",
                 )
@@ -1636,7 +1609,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(payload["ok"])
-            self.assertIn("within 5 minutes", payload["errors"][0])
+            self.assertIn("`Last Codex poll` is stale", payload["errors"][0])
 
     def test_run_launch_can_auto_refresh_stale_bridge_heartbeat(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -2057,7 +2030,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             launch_error = subprocess.CalledProcessError(
                 1,
-                ["osascript", "-e", "tell application \"Terminal\" to activate"],
+                ["osascript", "-e", 'tell application "Terminal" to activate'],
                 stderr="launch failed",
             )
             with (

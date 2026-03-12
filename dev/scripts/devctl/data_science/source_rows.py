@@ -104,12 +104,8 @@ def collect_benchmark_summary_rows(
                     AgentSummaryRow(
                         source="benchmark",
                         selected_agents=selected_agents,
-                        tasks_completed_total=to_int(
-                            swarm.get("tasks_completed_total"), default=0
-                        ),
-                        elapsed_seconds=to_float(
-                            swarm.get("elapsed_seconds"), default=0.0
-                        ),
+                        tasks_completed_total=to_int(swarm.get("tasks_completed_total"), default=0),
+                        elapsed_seconds=to_float(swarm.get("elapsed_seconds"), default=0.0),
                         ok=bool(swarm.get("ok")),
                         path=str(path),
                     ).to_dict()

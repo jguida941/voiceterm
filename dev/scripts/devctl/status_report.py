@@ -6,16 +6,17 @@ focused on probe orchestration.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable
+from typing import Any
 
 from .collect import (
     collect_ci_runs,
     collect_clippy_pedantic_summary,
-    collect_dev_log_summary,
     collect_git_status,
     collect_mutation_summary,
 )
+from .collect_dev_logs import collect_dev_log_summary
 from .python_guard_report import collect_python_guard_report
 from .quality_backlog_report import collect_quality_backlog
 from .review_probe_report import build_probe_report
@@ -165,11 +166,7 @@ def build_project_report(
             )
         )
 
-    collected = (
-        _run_probes_parallel(probes, max_workers=max_workers)
-        if parallel
-        else _run_probes_serial(probes)
-    )
+    collected = _run_probes_parallel(probes, max_workers=max_workers) if parallel else _run_probes_serial(probes)
     report: dict = {
         "command": command,
         "timestamp": utc_timestamp(),

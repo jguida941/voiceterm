@@ -43,16 +43,10 @@ except ModuleNotFoundError:  # pragma: no cover
         emit_probe_report,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
-is_review_probe_test_path = import_attr(
-    "probe_path_filters", "is_review_probe_test_path"
-)
-scan_python_functions = import_attr(
-    "code_shape_function_policy", "scan_python_functions"
-)
+is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
+scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
@@ -62,11 +56,25 @@ PYTHON_ROOTS = resolve_quality_scope_roots("python_probe", repo_root=REPO_ROOT)
 REVIEW_LENS = "design_quality"
 
 # Generic variable names that add no information.
-GENERIC_NAMES = frozenset({
-    "result", "results", "ret", "retval", "return_value",
-    "output", "out", "tmp", "temp", "val", "value",
-    "data", "rv", "res", "response",
-})
+GENERIC_NAMES = frozenset(
+    {
+        "result",
+        "results",
+        "ret",
+        "retval",
+        "return_value",
+        "output",
+        "out",
+        "tmp",
+        "temp",
+        "val",
+        "value",
+        "data",
+        "rv",
+        "res",
+        "response",
+    }
+)
 
 # Minimum instances per function to flag.
 THRESHOLD_MEDIUM = 2
@@ -75,8 +83,8 @@ THRESHOLD_HIGH = 4
 # Regex: detect `name = expr` on one line, `return name` on the very next line.
 # The variable name must be word-only and the assignment must not be augmented (+=, etc.).
 ASSIGN_RETURN_RE = re.compile(
-    r"^(\s+)(\w+)\s*=\s*(.+)\n"      # Line 1: assignment
-    r"\1return\s+\2\s*$",             # Line 2: return same variable (same indent)
+    r"^(\s+)(\w+)\s*=\s*(.+)\n"  # Line 1: assignment
+    r"\1return\s+\2\s*$",  # Line 2: return same variable (same indent)
     re.MULTILINE,
 )
 
@@ -86,6 +94,8 @@ AI_INSTRUCTION = (
     "expression directly. Use intermediate variables only when the name "
     "communicates meaningful intent (e.g., `validated_config` not `result`)."
 )
+
+
 def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
     """Detect unnecessary intermediates in one Python file."""
     hints: list[RiskHint] = []
@@ -97,15 +107,11 @@ def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
         func_name = func["name"]
         start = func["start_line"] - 1
         end = func["end_line"]
-        body = "\n".join(lines[start + 1:end])
+        body = "\n".join(lines[start + 1 : end])
 
         # Find all assign-then-return patterns.
         matches = ASSIGN_RETURN_RE.findall(body)
-        generic_matches = [
-            (indent, var_name, expr)
-            for indent, var_name, expr in matches
-            if var_name in GENERIC_NAMES
-        ]
+        generic_matches = [(indent, var_name, expr) for indent, var_name, expr in matches if var_name in GENERIC_NAMES]
 
         if not generic_matches:
             continue
@@ -115,9 +121,7 @@ def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
             continue
 
         severity = "high" if count >= THRESHOLD_HIGH else "medium"
-        sample_vars = ", ".join(
-            f"`{m[1]}`" for m in generic_matches[:3]
-        )
+        sample_vars = ", ".join(f"`{m[1]}`" for m in generic_matches[:3])
         hints.append(
             RiskHint(
                 file=rel,
@@ -145,7 +149,9 @@ def main() -> int:
             guard.validate_ref(args.since_ref)
             guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            guard.run_git, args.since_ref, args.head_ref,
+            guard.run_git,
+            args.since_ref,
+            args.head_ref,
         )
     except RuntimeError:
         return emit_probe_report(report, output_format=args.format)
@@ -158,19 +164,13 @@ def main() -> int:
     for path in changed_paths:
         if path.suffix != ".py":
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=PYTHON_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=PYTHON_ROOTS):
             continue
         if is_review_probe_test_path(path):
             continue
 
         report.files_scanned += 1
-        text = (
-            guard.read_text_from_ref(path, args.head_ref)
-            if args.since_ref
-            else guard.read_text_from_worktree(path)
-        )
+        text = guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
         if text is None:
             continue
 

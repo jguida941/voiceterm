@@ -43,9 +43,7 @@ def run_git(
         check=False,
     )
     if check and result.returncode != 0:
-        raise RuntimeError(
-            (result.stderr or result.stdout).strip() or "git command failed"
-        )
+        raise RuntimeError((result.stderr or result.stdout).strip() or "git command failed")
     return result
 
 
@@ -60,12 +58,7 @@ def is_test_path(path: Path) -> bool:
     """Return True when a Rust path is test-only."""
     normalized = f"/{path.as_posix()}/"
     name = path.name
-    return (
-        "/tests/" in normalized
-        or name == "tests.rs"
-        or name.endswith("_test.rs")
-        or name.endswith("_tests.rs")
-    )
+    return "/tests/" in normalized or name == "tests.rs" or name.endswith("_test.rs") or name.endswith("_tests.rs")
 
 
 def list_changed_paths(
@@ -149,9 +142,7 @@ class GuardContext:
     def __init__(self, repo_root: Path) -> None:
         self.repo_root = repo_root
 
-    def run_git(
-        self, args: list[str], *, check: bool = True
-    ) -> subprocess.CompletedProcess[str]:
+    def run_git(self, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
         """Run git with this context's repo root."""
         return run_git(self.repo_root, args, check=check)
 

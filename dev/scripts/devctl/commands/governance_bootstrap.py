@@ -15,9 +15,7 @@ def _render_markdown(result) -> str:
     lines.append(f"- git_state: {result.git_state}")
     lines.append(f"- repaired_git_file: {result.repaired_git_file}")
     lines.append(f"- initialized_git_repo: {result.initialized_git_repo}")
-    lines.append(
-        f"- broken_gitdir_hint: {result.broken_gitdir_hint or '(none)'}"
-    )
+    lines.append(f"- broken_gitdir_hint: {result.broken_gitdir_hint or '(none)'}")
     lines.append(f"- created_at_utc: {result.created_at_utc}")
     return "\n".join(lines)
 
@@ -25,16 +23,12 @@ def _render_markdown(result) -> str:
 def run(args) -> int:
     """Normalize copied pilot repos into standalone git worktrees."""
     try:
-        result = bootstrap_governance_pilot_repo(getattr(args, "target_repo"))
+        result = bootstrap_governance_pilot_repo(args.target_repo)
     except ValueError as exc:
         print(f"error: {exc}")
         return 2
 
-    output = (
-        json.dumps(asdict(result), indent=2)
-        if args.format == "json"
-        else _render_markdown(result)
-    )
+    output = json.dumps(asdict(result), indent=2) if args.format == "json" else _render_markdown(result)
     pipe_code = emit_output(
         output,
         output_path=args.output,

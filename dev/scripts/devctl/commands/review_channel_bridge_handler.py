@@ -28,8 +28,10 @@ from .review_channel_bridge_action_support import (
 from .review_channel_bridge_render import build_bridge_success_report, render_bridge_md
 from .review_channel_bridge_support import (
     apply_scope_if_requested as apply_bridge_scope_if_requested,
-    build_bridge_guard_report,
+)
+from .review_channel_bridge_support import (
     bridge_launch_state,
+    build_bridge_guard_report,
     launch_sessions_if_requested,
     prepare_rollover_bundle,
 )
@@ -69,7 +71,9 @@ def _run_bridge_action(
         summarize_active_session_conflicts_fn=summarize_active_session_conflicts,
     )
     apply_bridge_scope_if_requested(
-        args=args, repo_root=repo_root, bridge_path=bridge_path,
+        args=args,
+        repo_root=repo_root,
+        bridge_path=bridge_path,
     )
     (
         lanes,

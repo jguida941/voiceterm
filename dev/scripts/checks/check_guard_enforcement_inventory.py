@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import re
 import sys
@@ -18,20 +19,18 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - package-style fallback for tests
     from dev.scripts.checks.check_bootstrap import emit_runtime_error, utc_timestamp
 
-from dev.scripts.devctl.bundle_registry import BUNDLE_REGISTRY
-from dev.scripts.devctl.quality_policy import (
-    resolve_ai_guard_checks,
-    resolve_review_probe_checks,
-)
-from dev.scripts.devctl.script_catalog import (
-    CHECK_SCRIPT_RELATIVE_PATHS,
-    PROBE_SCRIPT_RELATIVE_PATHS,
-)
+_bundle_registry = importlib.import_module("dev.scripts.devctl.bundle_registry")
+_quality_policy = importlib.import_module("dev.scripts.devctl.quality_policy")
+_script_catalog = importlib.import_module("dev.scripts.devctl.script_catalog")
+
+BUNDLE_REGISTRY = _bundle_registry.BUNDLE_REGISTRY
+resolve_ai_guard_checks = _quality_policy.resolve_ai_guard_checks
+resolve_review_probe_checks = _quality_policy.resolve_review_probe_checks
+CHECK_SCRIPT_RELATIVE_PATHS = _script_catalog.CHECK_SCRIPT_RELATIVE_PATHS
+PROBE_SCRIPT_RELATIVE_PATHS = _script_catalog.PROBE_SCRIPT_RELATIVE_PATHS
 
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
-DEVCTL_COMMAND_RE = re.compile(
-    r"\bpython3\s+dev/scripts/devctl\.py\s+(?P<command>[a-z0-9][a-z0-9-]*)\b"
-)
+DEVCTL_COMMAND_RE = re.compile(r"\bpython3\s+dev/scripts/devctl\.py\s+(?P<command>[a-z0-9][a-z0-9-]*)\b")
 
 ENFORCEMENT_EXEMPTIONS = {
     "bootstrap": {
@@ -64,17 +63,10 @@ INDIRECT_DEVCTL_COMMAND_SCRIPT_IDS = {
     "check": frozenset(
         {
             script_id
-            for _step_name, script_id, _extra_args in (
-                resolve_ai_guard_checks() + resolve_review_probe_checks()
-            )
+            for _step_name, script_id, _extra_args in (resolve_ai_guard_checks() + resolve_review_probe_checks())
         }
     ),
-    "probe-report": frozenset(
-        {
-            script_id
-            for _step_name, script_id, _extra_args in resolve_review_probe_checks()
-        }
-    ),
+    "probe-report": frozenset({script_id for _step_name, script_id, _extra_args in resolve_review_probe_checks()}),
     "docs-check": frozenset(
         {
             "active_plan_sync",
@@ -114,21 +106,13 @@ def _collect_direct_workflow_refs(
     relative_path: str,
     workflow_texts: dict[str, str],
 ) -> list[str]:
-    return [
-        workflow_path
-        for workflow_path, text in workflow_texts.items()
-        if relative_path in text
-    ]
+    return [workflow_path for workflow_path, text in workflow_texts.items() if relative_path in text]
 
 
 def _collect_indirect_bundle_refs(script_id: str) -> list[str]:
     refs: list[str] = []
     for bundle_name, commands in BUNDLE_REGISTRY.items():
-        devctl_commands = {
-            command_name
-            for command in commands
-            for command_name in _collect_devctl_commands(command)
-        }
+        devctl_commands = {command_name for command in commands for command_name in _collect_devctl_commands(command)}
         if any(
             script_id in INDIRECT_DEVCTL_COMMAND_SCRIPT_IDS.get(command_name, frozenset())
             for command_name in devctl_commands
@@ -162,12 +146,10 @@ def build_report(repo_root: Path = REPO_ROOT) -> dict:
     tracked_probe_count = 0
 
     tracked_scripts = [
-        ("check", script_id, relative_path)
-        for script_id, relative_path in sorted(CHECK_SCRIPT_RELATIVE_PATHS.items())
+        ("check", script_id, relative_path) for script_id, relative_path in sorted(CHECK_SCRIPT_RELATIVE_PATHS.items())
     ]
     tracked_scripts.extend(
-        ("probe", script_id, relative_path)
-        for script_id, relative_path in sorted(PROBE_SCRIPT_RELATIVE_PATHS.items())
+        ("probe", script_id, relative_path) for script_id, relative_path in sorted(PROBE_SCRIPT_RELATIVE_PATHS.items())
     )
 
     for script_kind, script_id, relative_path in tracked_scripts:
@@ -180,12 +162,7 @@ def build_report(repo_root: Path = REPO_ROOT) -> dict:
         direct_workflow_refs = _collect_direct_workflow_refs(relative_path, workflow_texts)
         indirect_bundle_refs = _collect_indirect_bundle_refs(script_id)
         indirect_workflow_refs = _collect_indirect_workflow_refs(script_id, workflow_texts)
-        enforced = bool(
-            direct_bundle_refs
-            or direct_workflow_refs
-            or indirect_bundle_refs
-            or indirect_workflow_refs
-        )
+        enforced = bool(direct_bundle_refs or direct_workflow_refs or indirect_bundle_refs or indirect_workflow_refs)
         entry = {
             "kind": script_kind,
             "script_id": script_id,
@@ -248,9 +225,7 @@ def _render_md(report: dict) -> str:
         lines.append("## Exemptions")
         for item in exempt:
             exemption = item["exemption"]
-            lines.append(
-                f"- `{item['script_id']}`: {exemption['kind']} - {exemption['reason']}"
-            )
+            lines.append(f"- `{item['script_id']}`: {exemption['kind']} - {exemption['reason']}")
 
     if report["violations"]:
         lines.append("")
@@ -260,9 +235,7 @@ def _render_md(report: dict) -> str:
             "bundle/workflow enforcement lane or an explicit exemption with rationale."
         )
         for item in report["violations"]:
-            lines.append(
-                f"- `{item['kind']}` `{item['script_id']}` -> `{item['path']}`"
-            )
+            lines.append(f"- `{item['kind']}` `{item['script_id']}` -> `{item['path']}`")
     return "\n".join(lines)
 
 

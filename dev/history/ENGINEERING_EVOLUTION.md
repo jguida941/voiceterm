@@ -2,8 +2,8 @@
 
 <!-- markdownlint-disable MD024 -->
 
-**Status:** Draft v4 (historical design and process record)  
-**Audience:** users and developers  
+**Status:** Draft v4 (historical design and process record)
+**Audience:** users and developers
 **Last Updated:** 2026-03-11
 
 ## At a Glance
@@ -4094,5 +4094,27 @@ The full technical showcase is consolidated above in Appendix G of this document
   `publication_sync_registry.json` baseline
   (`source_ref=4deb8ec8f8c3709f1fb35955f9763c6147df6a95`,
   `external_ref=9cf965f`) so publication drift returned to zero.
+- Burned down the next GitHub-only PR blockers after the branch refresh:
+  `test_process_sweep.py` now derives repo-root fixture paths from the active
+  checkout, review-channel stale-poll tests pin freshness policy explicitly for
+  `GITHUB_ACTIONS`, the startup-banner fallback test clears leaked runtime
+  overrides before asserting its default mode, iOS `xcode-build` now uses the
+  generic simulator destination, and the changed-file `pre-commit` lane is back
+  to green after explicit re-export cleanup plus the associated Ruff/format
+  sweep across the touched PR file set.
+- Closed the follow-up local parity pass by keeping repo-owned Python
+  subprocesses on the invoking `devctl` interpreter, restoring split-module
+  compatibility exports for `quality_policy` / `collect` / `status_report` /
+  `triage.support` / `check_phases` / `check_python_global_mutable`, and
+  splitting phone-status plus Activity-tab helper support into dedicated
+  modules so the touched files returned under the code-shape and
+  function-duplication guards.
+- Closed the next working-tree review-probe pass by replacing anonymous Ralph
+  and mobile-status view dicts with typed projection boundaries, moving mobile
+  view parsing/render helpers into `mobile_status_projection.py` so
+  `mobile_status_views.py` stayed below its file-shape cap, and replacing the
+  remaining loop-packet auto-send string chain with a typed
+  `LoopPacketSourceCommand` parse path. The resulting `probe-report` packet is
+  clean and the governance ledger remains at `0` false positives.
 
 </details>

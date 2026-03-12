@@ -68,13 +68,9 @@ _CHECK_SCRIPT_ENTRIES = (
 
 CHECK_SCRIPT_FILES = dict(_CHECK_SCRIPT_ENTRIES)
 
-CHECK_SCRIPT_RELATIVE_PATHS = {
-    name: f"{CHECKS_DIR}/{filename}" for name, filename in CHECK_SCRIPT_FILES.items()
-}
+CHECK_SCRIPT_RELATIVE_PATHS = {name: f"{CHECKS_DIR}/{filename}" for name, filename in CHECK_SCRIPT_FILES.items()}
 
-CHECK_SCRIPT_PATHS = {
-    name: REPO_ROOT / relative for name, relative in CHECK_SCRIPT_RELATIVE_PATHS.items()
-}
+CHECK_SCRIPT_PATHS = {name: REPO_ROOT / relative for name, relative in CHECK_SCRIPT_RELATIVE_PATHS.items()}
 
 _PROBE_SCRIPT_ENTRIES = (
     ("probe_concurrency", "probe_concurrency.py"),
@@ -95,13 +91,9 @@ _PROBE_SCRIPT_ENTRIES = (
 
 PROBE_SCRIPT_FILES = dict(_PROBE_SCRIPT_ENTRIES)
 
-PROBE_SCRIPT_RELATIVE_PATHS = {
-    name: f"{CHECKS_DIR}/{filename}" for name, filename in PROBE_SCRIPT_FILES.items()
-}
+PROBE_SCRIPT_RELATIVE_PATHS = {name: f"{CHECKS_DIR}/{filename}" for name, filename in PROBE_SCRIPT_FILES.items()}
 
-PROBE_SCRIPT_PATHS = {
-    name: REPO_ROOT / relative for name, relative in PROBE_SCRIPT_RELATIVE_PATHS.items()
-}
+PROBE_SCRIPT_PATHS = {name: REPO_ROOT / relative for name, relative in PROBE_SCRIPT_RELATIVE_PATHS.items()}
 
 
 def probe_script_cmd(name: str, *args: str) -> list[str]:

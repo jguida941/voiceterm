@@ -16,9 +16,7 @@ from .models import GuardedCodingEpisode, guarded_coding_episode_from_dict
 DEFAULT_EPISODE_ROOT = Path("dev/reports/autonomy/watchdog/episodes")
 _KNOWN_PROVIDERS = frozenset({"codex", "claude", "shared", "unknown"})
 _KNOWN_GUARD_RESULTS = frozenset({"pass", "fail", "skipped", "noisy"})
-_KNOWN_REVIEWER_VERDICTS = frozenset(
-    {"accepted", "accepted_with_followups", "rejected", "deferred"}
-)
+_KNOWN_REVIEWER_VERDICTS = frozenset({"accepted", "accepted_with_followups", "rejected", "deferred"})
 
 
 def build_guarded_coding_episode(report: dict[str, Any]) -> GuardedCodingEpisode:
@@ -35,11 +33,15 @@ def build_guarded_coding_episode(report: dict[str, Any]) -> GuardedCodingEpisode
     guard_result = explicit_guard if explicit_guard in _KNOWN_GUARD_RESULTS else ("pass" if ok else "fail")
 
     explicit_verdict = str(context.get("reviewer_verdict") or "").strip().lower()
-    reviewer_verdict = explicit_verdict if explicit_verdict in _KNOWN_REVIEWER_VERDICTS else ("accepted" if ok else "rejected")
+    reviewer_verdict = (
+        explicit_verdict if explicit_verdict in _KNOWN_REVIEWER_VERDICTS else ("accepted" if ok else "rejected")
+    )
 
     cmd_tokens = [str(part).lower() for part in report.get("command_args") or []]
     cmd_joined = " ".join(cmd_tokens)
-    test_runtime = runtime_seconds if ("cargo test" in cmd_joined or "pytest" in cmd_joined or "unittest" in cmd_joined) else 0.0
+    test_runtime = (
+        runtime_seconds if ("cargo test" in cmd_joined or "pytest" in cmd_joined or "unittest" in cmd_joined) else 0.0
+    )
     explicit_context_provider = str(context.get("provider") or "").strip().lower()
     if explicit_context_provider in _KNOWN_PROVIDERS:
         provider = explicit_context_provider
@@ -83,16 +85,8 @@ def build_guarded_coding_episode(report: dict[str, Any]) -> GuardedCodingEpisode
         plan_id=str(os.environ.get("DEVCTL_MP_SCOPE") or "unscoped"),
         controller_run_id=str(os.environ.get("DEVCTL_AUDIT_CYCLE_ID") or "local"),
         provider=provider,
-        session_id=str(
-            context.get("session_id")
-            or os.environ.get("DEVCTL_WATCHDOG_SESSION_ID")
-            or "unknown"
-        ),
-        peer_session_id=str(
-            context.get("peer_session_id")
-            or os.environ.get("DEVCTL_WATCHDOG_PEER_SESSION_ID")
-            or ""
-        ),
+        session_id=str(context.get("session_id") or os.environ.get("DEVCTL_WATCHDOG_SESSION_ID") or "unknown"),
+        peer_session_id=str(context.get("peer_session_id") or os.environ.get("DEVCTL_WATCHDOG_PEER_SESSION_ID") or ""),
         reviewed_worktree_hash_before=str(before.get("reviewed_worktree_hash") or ""),
         reviewed_worktree_hash_after=str(after.get("reviewed_worktree_hash") or ""),
         guard_family=guard_family,

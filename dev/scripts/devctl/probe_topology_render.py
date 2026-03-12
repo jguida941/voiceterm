@@ -43,9 +43,7 @@ def render_review_packet_markdown(
         neighbors = hotspot.get("connected_files", [])
         if isinstance(neighbors, list) and neighbors:
             formatted = ", ".join(
-                f"{row.get('file')}[{row.get('direction')}]"
-                for row in neighbors[:4]
-                if isinstance(row, dict)
+                f"{row.get('file')}[{row.get('direction')}]" for row in neighbors[:4] if isinstance(row, dict)
             )
             if formatted:
                 lines.append(f"- connected_files: {formatted}")

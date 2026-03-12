@@ -1794,6 +1794,28 @@ become the main product surface.
   recorded the new baseline in `dev/config/publication_sync_registry.json`
   (`source_ref=4deb8ec8f8c3709f1fb35955f9763c6147df6a95`,
   `external_ref=9cf965f`), returning `check_publication_sync.py` to zero drift.
+  Latest PR-gate follow-up (2026-03-12): the remaining GitHub-only failures on
+  PR #16 are burned down locally by making `process_sweep` fixtures checkout-
+  agnostic, pinning review-channel stale-poll tests to explicit freshness
+  policy, clearing leaked runtime/style-pack overrides from the startup-banner
+  fallback test, switching iOS `xcode-build` to the generic simulator
+  destination, and taking the changed-file `pre-commit` lane back to green.
+  Latest closure pass (2026-03-12): the next rerun exposed real local
+  portability debt instead of more GitHub workflow drift, so `devctl` now
+  keeps repo-owned Python subprocesses on the invoking interpreter,
+  compatibility exports are restored for split modules
+  (`quality_policy`, `collect`, `status_report`, `triage/support`,
+  `check_phases`, `check_python_global_mutable`), and new support modules for
+  phone-status plus Activity-tab report helpers pull the touched Python files
+  back under code-shape/function-duplication limits without changing behavior.
+  Latest probe-cleanup follow-up (2026-03-12): the remaining working-tree
+  review hints are now burned down too. `autonomy/phone_status.py` uses a
+  typed `RalphSection` boundary instead of anonymous dict helpers,
+  `mobile_status_views.py` now delegates typed payload/view support to the new
+  `mobile_status_projection.py` module so the renderer stays below its
+  code-shape cap, `loop_packet_helpers.py` uses `LoopPacketSourceCommand` for
+  the last auto-send string dispatch, the probe packet rerun is clean, and the
+  governance ledger is updated with six additional `fixed` probe rows.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 

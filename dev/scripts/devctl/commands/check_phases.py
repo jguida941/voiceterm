@@ -7,18 +7,17 @@ Called exclusively from check.run().
 from __future__ import annotations
 
 import dataclasses
-from typing import List
 
 from ..common import emit_output, pipe_output, run_cmd, should_emit_output, write_output
 from ..config import REPO_ROOT, SRC_DIR
 from ..quality_policy import QualityStepSpec
-from .check_progress import emit_progress
-from .check_steps import build_step_spec, run_step_specs
 from .check_phase_support import (
     SpecializedPhaseDeps,
     run_probe_phase_support,
     run_specialized_phase_support,
 )
+from .check_progress import emit_progress
+from .check_steps import build_step_spec, run_step_specs
 from .check_support import (
     build_ai_guard_cmd,
     build_clippy_high_signal_collect_cmd,
@@ -45,9 +44,7 @@ class CheckContext:
     settings: dict
     clippy_cmd: list[str]
     ai_guard_checks: tuple[QualityStepSpec, ...] = dataclasses.field(default_factory=tuple)
-    review_probe_checks: tuple[QualityStepSpec, ...] = dataclasses.field(
-        default_factory=tuple
-    )
+    review_probe_checks: tuple[QualityStepSpec, ...] = dataclasses.field(default_factory=tuple)
     scan_mode: str = "working-tree"
     scan_since_ref: str | None = None
     scan_head_ref: str = "HEAD"
@@ -77,9 +74,7 @@ def _emit_failure_summary(result: dict) -> None:
         print(failure_output)
 
 
-def _make_step_spec(
-    ctx: CheckContext, name: str, cmd: List[str], cwd=None, step_env=None
-) -> dict:
+def _make_step_spec(ctx: CheckContext, name: str, cmd: list[str], cwd=None, step_env=None) -> dict:
     return build_step_spec(
         name=name,
         cmd=cmd,
@@ -89,17 +84,13 @@ def _make_step_spec(
     )
 
 
-def _add_steps(
-    ctx: CheckContext, step_specs: List[dict], allow_parallel: bool = False
-) -> None:
+def _add_steps(ctx: CheckContext, step_specs: list[dict], allow_parallel: bool = False) -> None:
     """Execute step specs, collect results, and handle scaffold/fail-fast."""
     if not step_specs:
         return
     use_parallel = allow_parallel and ctx.parallel_enabled
     if ctx.total_quality_steps > 0:
-        emit_progress(
-            step_specs, ctx.progress_counter, ctx.total_quality_steps, use_parallel
-        )
+        emit_progress(step_specs, ctx.progress_counter, ctx.total_quality_steps, use_parallel)
     ctx.progress_counter += len(step_specs)
 
     results = run_step_specs(
@@ -129,25 +120,18 @@ def _add_steps(
     if scaffold_result is not None:
         ctx.steps.append(scaffold_result)
         if scaffold_result["returncode"] == 0:
-            print(
-                "[check] generated remediation scaffold:"
-                " dev/reports/audits/RUST_AUDIT_FINDINGS.md"
-            )
+            print("[check] generated remediation scaffold:" " dev/reports/audits/RUST_AUDIT_FINDINGS.md")
         else:
             print("[check] failed to generate remediation scaffold")
             if scaffold_result.get("error"):
                 print(f"[check] scaffold error: {scaffold_result['error']}")
 
     if failed and not ctx.args.keep_going:
-        failed_steps = ", ".join(
-            result["name"] for result in results if result["returncode"] != 0
-        )
+        failed_steps = ", ".join(result["name"] for result in results if result["returncode"] != 0)
         raise RuntimeError(f"check phase failed ({failed_steps})")
 
 
-def _add_step(
-    ctx: CheckContext, name: str, cmd: List[str], cwd=None, step_env=None
-) -> None:
+def _add_step(ctx: CheckContext, name: str, cmd: list[str], cwd=None, step_env=None) -> None:
     _add_steps(ctx, [_make_step_spec(ctx, name, cmd, cwd=cwd, step_env=step_env)])
 
 
@@ -158,14 +142,12 @@ def _add_step(
 
 def run_setup_phase(ctx: CheckContext) -> None:
     """Lint phase: fmt, clippy, and AI-guard steps."""
-    setup_specs: List[dict] = []
-    followup_specs: List[dict] = []
+    setup_specs: list[dict] = []
+    followup_specs: list[dict] = []
 
     if not ctx.args.skip_fmt:
         if ctx.args.fix:
-            setup_specs.append(
-                _make_step_spec(ctx, "fmt", ["cargo", "fmt", "--all"], cwd=SRC_DIR)
-            )
+            setup_specs.append(_make_step_spec(ctx, "fmt", ["cargo", "fmt", "--all"], cwd=SRC_DIR))
         else:
             setup_specs.append(
                 _make_step_spec(
@@ -204,9 +186,7 @@ def run_setup_phase(ctx: CheckContext) -> None:
                 )
             )
         else:
-            setup_specs.append(
-                _make_step_spec(ctx, "clippy", ctx.clippy_cmd, cwd=SRC_DIR)
-            )
+            setup_specs.append(_make_step_spec(ctx, "clippy", ctx.clippy_cmd, cwd=SRC_DIR))
 
     if ctx.settings["with_ai_guard"]:
         since_ref = ctx.scan_since_ref
@@ -233,7 +213,7 @@ def run_setup_phase(ctx: CheckContext) -> None:
 
 def run_test_build_phase(ctx: CheckContext) -> None:
     """Compile and test phase: cargo test + release build."""
-    specs: List[dict] = []
+    specs: list[dict] = []
     if not ctx.settings["skip_tests"]:
         specs.append(
             _make_step_spec(

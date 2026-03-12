@@ -98,9 +98,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
 # Publication drift only blocks release lanes. Normal tooling/post-push work
 # still sees the warning via hygiene, but should not fail on unrelated external
 # site sync debt.
-_RELEASE_ONLY_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
-    "python3 dev/scripts/checks/check_publication_sync.py",
-)
+_RELEASE_ONLY_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = ("python3 dev/scripts/checks/check_publication_sync.py",)
 
 # Orchestration status commands used by tooling, release, and post-push bundles.
 _ORCHESTRATE_COMMANDS: Final[tuple[str, ...]] = (
@@ -109,14 +107,10 @@ _ORCHESTRATE_COMMANDS: Final[tuple[str, ...]] = (
 )
 
 # Host-side cleanup/audit step for repo-related stale/orphan process trees.
-_HOST_PROCESS_HYGIENE_COMMAND: Final[str] = (
-    "python3 dev/scripts/devctl.py process-cleanup --verify --format md"
-)
+_HOST_PROCESS_HYGIENE_COMMAND: Final[str] = "python3 dev/scripts/devctl.py process-cleanup --verify --format md"
 
 # Operator Console proof path for tooling changes touching the optional PyQt UI.
-_OPERATOR_CONSOLE_TESTS_COMMAND: Final[str] = (
-    "python3 -m pytest app/operator_console/tests/ -q --tb=short"
-)
+_OPERATOR_CONSOLE_TESTS_COMMAND: Final[str] = "python3 -m pytest app/operator_console/tests/ -q --tb=short"
 
 
 def _compose_post_push_guard_checks() -> tuple[str, ...]:
@@ -222,9 +216,7 @@ def render_bundle_reference_markdown(bundle_name: str) -> str:
 
 def render_all_bundle_reference_markdown() -> str:
     """Render all bundles in AGENTS markdown style."""
-    return "\n\n".join(
-        render_bundle_reference_markdown(bundle_name) for bundle_name in bundle_names()
-    )
+    return "\n\n".join(render_bundle_reference_markdown(bundle_name) for bundle_name in bundle_names())
 
 
 def render_agents_bundle_section_markdown() -> str:

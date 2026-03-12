@@ -143,9 +143,7 @@ def append_dev_log_lines(lines: list[str], dev_info: Any) -> None:
         return
     lines.append(f"- Dev logs root: {dev_info.get('dev_root')}")
     lines.append(
-        "- Dev sessions scanned: "
-        f"{dev_info.get('sessions_scanned', 0)}/"
-        f"{dev_info.get('session_files_total', 0)}"
+        "- Dev sessions scanned: " f"{dev_info.get('sessions_scanned', 0)}/" f"{dev_info.get('session_files_total', 0)}"
     )
     lines.append(
         "- Dev events: "
@@ -198,9 +196,7 @@ def append_pedantic_lines(lines: list[str], pedantic_info: Any) -> None:
     top_candidates = pedantic_info.get("top_promote_candidates", [])
     if isinstance(top_candidates, list) and top_candidates:
         formatted = ", ".join(
-            f"{row.get('lint')}={row.get('count')}"
-            for row in top_candidates[:3]
-            if isinstance(row, dict)
+            f"{row.get('lint')}={row.get('count')}" for row in top_candidates[:3] if isinstance(row, dict)
         )
         if formatted:
             lines.append(f"- Pedantic promote candidates: {formatted}")
@@ -212,11 +208,7 @@ def append_pedantic_lines(lines: list[str], pedantic_info: Any) -> None:
 
 def append_pedantic_refresh_line(lines: list[str], refresh: Any) -> None:
     if isinstance(refresh, dict):
-        lines.append(
-            "- Pedantic refresh: "
-            f"exit={refresh.get('returncode')} "
-            f"skipped={refresh.get('skipped')}"
-        )
+        lines.append("- Pedantic refresh: " f"exit={refresh.get('returncode')} " f"skipped={refresh.get('skipped')}")
 
 
 def append_probe_report_lines(lines: list[str], probe_report: Any) -> None:
@@ -254,10 +246,7 @@ def append_probe_report_lines(lines: list[str], probe_report: Any) -> None:
     priority_hotspots = summary.get("priority_hotspots", [])
     if isinstance(priority_hotspots, list) and priority_hotspots:
         formatted = ", ".join(
-            (
-                f"{row.get('file')}="
-                f"{row.get('priority_score')}"
-            )
+            (f"{row.get('file')}=" f"{row.get('priority_score')}")
             for row in priority_hotspots[:_PROBE_HOTSPOT_LIMIT]
             if isinstance(row, dict)
         )

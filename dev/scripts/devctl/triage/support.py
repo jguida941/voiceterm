@@ -7,7 +7,7 @@ orchestration so `commands/triage.py` stays small and focused.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from ..common import read_json_object
 from ..status_report import render_project_markdown
@@ -23,9 +23,9 @@ FAILURE_CONCLUSIONS = {
 }
 
 
-def classify_issues(project_report: dict) -> List[dict]:
+def classify_issues(project_report: dict) -> list[dict]:
     """Create lightweight triage classifications from project status fields."""
-    issues: List[dict] = []
+    issues: list[dict] = []
     ci_info = project_report.get("ci", {})
     if isinstance(ci_info, dict):
         if ci_info.get("error"):
@@ -69,7 +69,7 @@ def classify_issues(project_report: dict) -> List[dict]:
             if isinstance(results, dict):
                 raw_score = results.get("score")
                 score_pct: float | None = None
-                if isinstance(raw_score, (int, float)):
+                if isinstance(raw_score, int | float):
                     score_pct = float(raw_score)
                     if 0.0 <= score_pct <= 1.0:
                         score_pct *= 100.0
@@ -109,11 +109,11 @@ def classify_issues(project_report: dict) -> List[dict]:
     return issues
 
 
-def build_next_actions(issues: List[dict]) -> List[str]:
+def build_next_actions(issues: list[dict]) -> list[str]:
     if not issues:
         return ["No urgent triage actions detected from current signals."]
 
-    actions: List[str] = []
+    actions: list[str] = []
     categories = {str(issue.get("category", "")) for issue in issues}
     sources = {str(issue.get("source", "")) for issue in issues}
     if "ci" in categories or "infra" in categories:
@@ -146,7 +146,7 @@ def build_next_actions(issues: List[dict]) -> List[str]:
 
 def ingest_cihub_artifacts(emit_dir: Path) -> dict:
     """Read cihub triage outputs when present."""
-    payload: Dict[str, Any] = {"emit_dir": str(emit_dir), "artifacts": {}}
+    payload: dict[str, Any] = {"emit_dir": str(emit_dir), "artifacts": {}}
     triage_json_path = emit_dir / "triage.json"
     priority_json_path = emit_dir / "priority.json"
     triage_md_path = emit_dir / "triage.md"
@@ -174,9 +174,7 @@ def ingest_cihub_artifacts(emit_dir: Path) -> dict:
             payload["artifacts"]["triage_markdown_error"] = str(exc)
         else:
             payload["artifacts"]["triage_markdown_path"] = str(triage_md_path)
-            payload["artifacts"]["triage_markdown_preview"] = "\n".join(
-                text.splitlines()[:40]
-            )
+            payload["artifacts"]["triage_markdown_preview"] = "\n".join(text.splitlines()[:40])
 
     return payload
 
@@ -306,12 +304,9 @@ def _append_rollup_bucket(
 ) -> None:
     if not isinstance(bucket, dict) or not bucket:
         return
-    lines.append(
-        f"- {label}: " + ", ".join(f"{key}={value}" for key, value in bucket.items())
-    )
+    lines.append(f"- {label}: " + ", ".join(f"{key}={value}" for key, value in bucket.items()))
 
 
 def _append_artifact_line(lines: list[str], label: str, value: object) -> None:
     if value:
         lines.append(f"- {label}: {value}")
-

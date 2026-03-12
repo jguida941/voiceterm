@@ -6,8 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from dev.scripts.devctl import cli
-from dev.scripts.devctl import governance_bootstrap_support
+from dev.scripts.devctl import cli, governance_bootstrap_support
 
 
 class GovernanceBootstrapTests(unittest.TestCase):
@@ -21,9 +20,7 @@ class GovernanceBootstrapTests(unittest.TestCase):
             )
             (repo_root / "README.md").write_text("pilot\n", encoding="utf-8")
 
-            result = governance_bootstrap_support.bootstrap_governance_pilot_repo(
-                repo_root
-            )
+            result = governance_bootstrap_support.bootstrap_governance_pilot_repo(repo_root)
 
             self.assertEqual(result.git_state, "reinitialized")
             self.assertTrue(result.repaired_git_file)
@@ -36,9 +33,7 @@ class GovernanceBootstrapTests(unittest.TestCase):
             repo_root.mkdir()
             governance_bootstrap_support._run_git(repo_root, ["git", "init"])
 
-            result = governance_bootstrap_support.bootstrap_governance_pilot_repo(
-                repo_root
-            )
+            result = governance_bootstrap_support.bootstrap_governance_pilot_repo(repo_root)
 
             self.assertEqual(result.git_state, "valid")
             self.assertFalse(result.repaired_git_file)

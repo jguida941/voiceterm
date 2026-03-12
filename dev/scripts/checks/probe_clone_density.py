@@ -39,16 +39,10 @@ except ModuleNotFoundError:  # pragma: no cover
         emit_probe_report,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
-is_review_probe_test_path = import_attr(
-    "probe_path_filters", "is_review_probe_test_path"
-)
-scan_rust_functions = import_attr(
-    "code_shape_function_policy", "scan_rust_functions"
-)
+is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
+scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -75,12 +69,14 @@ TO_STRING_RE = re.compile(r"\.\s*to_string\s*\(\s*\)")
 TO_OWNED_RE = re.compile(r"\.\s*to_owned\s*\(\s*\)")
 
 # Functions where cloning is expected (builder patterns, snapshot creation).
-_CLONE_ALLOWLIST_PREFIXES = frozenset({
-    "clone",       # Clone trait impl
-    "snapshot",    # Snapshot creation functions
-    "deep_copy",   # Explicit deep copy
-    "duplicate",   # Explicit duplication
-})
+_CLONE_ALLOWLIST_PREFIXES = frozenset(
+    {
+        "clone",  # Clone trait impl
+        "snapshot",  # Snapshot creation functions
+        "deep_copy",  # Explicit deep copy
+        "duplicate",  # Explicit duplication
+    }
+)
 
 AI_INSTRUCTIONS = {
     "medium": (
@@ -97,6 +93,8 @@ AI_INSTRUCTIONS = {
         "inputs instead of cloning them."
     ),
 }
+
+
 def _scan_rust_file(text: str, path: Path) -> list[RiskHint]:
     """Detect functions with excessive cloning in one Rust file."""
     hints: list[RiskHint] = []
@@ -151,8 +149,7 @@ def _scan_rust_file(text: str, path: Path) -> list[RiskHint]:
                 risk_type="ownership_smell",
                 severity=severity,
                 signals=[
-                    f"{' + '.join(parts)} — {total} ownership-copying "
-                    f"operations (consider references or Cow<T>)"
+                    f"{' + '.join(parts)} — {total} ownership-copying " f"operations (consider references or Cow<T>)"
                 ],
                 ai_instruction=AI_INSTRUCTIONS[severity],
                 review_lens=REVIEW_LENS,
@@ -171,7 +168,9 @@ def main() -> int:
             guard.validate_ref(args.since_ref)
             guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            guard.run_git, args.since_ref, args.head_ref,
+            guard.run_git,
+            args.since_ref,
+            args.head_ref,
         )
     except RuntimeError:
         return emit_probe_report(report, output_format=args.format)
@@ -184,19 +183,13 @@ def main() -> int:
     for path in changed_paths:
         if path.suffix != ".rs":
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             continue
         if is_review_probe_test_path(path):
             continue
 
         report.files_scanned += 1
-        text = (
-            guard.read_text_from_ref(path, args.head_ref)
-            if args.since_ref
-            else guard.read_text_from_worktree(path)
-        )
+        text = guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
         if text is None:
             continue
 

@@ -49,19 +49,21 @@ class ProbeGateTests(unittest.TestCase):
                 }
             ]
 
-            with mock.patch.object(probe_gate, "PROBE_RUNNER", runner):
-                with mock.patch.object(probe_gate, "ALLOWLIST_PATH", allowlist):
-                    with mock.patch.object(
-                        probe_gate.subprocess,
-                        "run",
-                        return_value=subprocess.CompletedProcess(
-                            args=["python3", str(runner)],
-                            returncode=0,
-                            stdout=json.dumps(report_payload),
-                            stderr="",
-                        ),
-                    ):
-                        result = probe_gate.run_probe_scan()
+            with (
+                mock.patch.object(probe_gate, "PROBE_RUNNER", runner),
+                mock.patch.object(probe_gate, "ALLOWLIST_PATH", allowlist),
+                mock.patch.object(
+                    probe_gate.subprocess,
+                    "run",
+                    return_value=subprocess.CompletedProcess(
+                        args=["python3", str(runner)],
+                        returncode=0,
+                        stdout=json.dumps(report_payload),
+                        stderr="",
+                    ),
+                ),
+            ):
+                result = probe_gate.run_probe_scan()
 
         self.assertEqual(result.total_findings, 1)
         self.assertEqual(result.high_count, 0)
@@ -95,19 +97,21 @@ class ProbeGateTests(unittest.TestCase):
                 }
             ]
 
-            with mock.patch.object(probe_gate, "PROBE_RUNNER", runner):
-                with mock.patch.object(probe_gate, "ALLOWLIST_PATH", allowlist):
-                    with mock.patch.object(
-                        probe_gate.subprocess,
-                        "run",
-                        return_value=subprocess.CompletedProcess(
-                            args=["python3", str(runner)],
-                            returncode=0,
-                            stdout=json.dumps(report_payload),
-                            stderr="",
-                        ),
-                    ):
-                        result = probe_gate.run_probe_scan()
+            with (
+                mock.patch.object(probe_gate, "PROBE_RUNNER", runner),
+                mock.patch.object(probe_gate, "ALLOWLIST_PATH", allowlist),
+                mock.patch.object(
+                    probe_gate.subprocess,
+                    "run",
+                    return_value=subprocess.CompletedProcess(
+                        args=["python3", str(runner)],
+                        returncode=0,
+                        stdout=json.dumps(report_payload),
+                        stderr="",
+                    ),
+                ),
+            ):
+                result = probe_gate.run_probe_scan()
 
         self.assertEqual(result.total_findings, 1)
         self.assertEqual(result.high_count, 1)

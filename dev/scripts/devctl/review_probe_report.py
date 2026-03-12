@@ -26,11 +26,12 @@ except ModuleNotFoundError:  # pragma: no cover
     render_terminal_report = probe_report_render.render_terminal_report
 
 from .config import REPO_ROOT
+from .common import resolve_repo_python_command
+from .probe_report_artifacts import write_probe_artifacts
 from .probe_topology import (
     build_probe_topology_artifact,
     build_review_packet,
 )
-from .probe_report_artifacts import write_probe_artifacts
 from .quality_policy import resolve_quality_policy
 from .quality_policy_loader import QUALITY_POLICY_ENV_VAR
 from .quality_scan_mode import is_adoption_scan
@@ -147,9 +148,7 @@ def build_probe_report(
     """Run registered probes and return one aggregated report payload."""
     quality_policy = resolve_quality_policy(policy_path=policy_path)
     warnings = list(quality_policy.warnings)
-    active_probe_ids = probe_ids or tuple(
-        spec.script_id for spec in quality_policy.review_probe_checks
-    )
+    active_probe_ids = probe_ids or tuple(spec.script_id for spec in quality_policy.review_probe_checks)
     probe_results: list[dict[str, Any]] = []
     errors: list[str] = []
     for probe_id in active_probe_ids:
@@ -161,7 +160,7 @@ def build_probe_report(
             env[QUALITY_POLICY_ENV_VAR] = str(Path(policy_path).expanduser())
         try:
             result = subprocess.run(
-                cmd,
+                resolve_repo_python_command(cmd, cwd=REPO_ROOT),
                 capture_output=True,
                 text=True,
                 cwd=REPO_ROOT,
@@ -214,18 +213,10 @@ def build_probe_report(
             "rust": quality_policy.capabilities.rust,
         },
         "quality_scopes": {
-            "python_guard_roots": [
-                path.as_posix() for path in quality_policy.scopes.python_guard_roots
-            ],
-            "python_probe_roots": [
-                path.as_posix() for path in quality_policy.scopes.python_probe_roots
-            ],
-            "rust_guard_roots": [
-                path.as_posix() for path in quality_policy.scopes.rust_guard_roots
-            ],
-            "rust_probe_roots": [
-                path.as_posix() for path in quality_policy.scopes.rust_probe_roots
-            ],
+            "python_guard_roots": [path.as_posix() for path in quality_policy.scopes.python_guard_roots],
+            "python_probe_roots": [path.as_posix() for path in quality_policy.scopes.python_probe_roots],
+            "rust_guard_roots": [path.as_posix() for path in quality_policy.scopes.rust_guard_roots],
+            "rust_probe_roots": [path.as_posix() for path in quality_policy.scopes.rust_probe_roots],
         },
         "probe_count": len(quality_policy.review_probe_checks),
     }
@@ -272,21 +263,13 @@ def render_probe_report_markdown(report: dict[str, Any]) -> str:
     if report.get("since_ref"):
         lines.append(f"- since_ref: {report['since_ref']}")
     if report.get("artifact_paths"):
-        lines.append(
-            f"- review_targets_json: {report['artifact_paths']['review_targets_json']}"
-        )
+        lines.append(f"- review_targets_json: {report['artifact_paths']['review_targets_json']}")
         lines.append(f"- summary_json: {report['artifact_paths']['summary_json']}")
         lines.append(f"- summary_md: {report['artifact_paths']['summary_md']}")
         lines.append(f"- topology_json: {report['artifact_paths']['topology_json']}")
-        lines.append(
-            f"- review_packet_json: {report['artifact_paths']['review_packet_json']}"
-        )
-        lines.append(
-            f"- review_packet_md: {report['artifact_paths']['review_packet_md']}"
-        )
-        lines.append(
-            f"- hotspots_mermaid: {report['artifact_paths']['hotspots_mermaid']}"
-        )
+        lines.append(f"- review_packet_json: {report['artifact_paths']['review_packet_json']}")
+        lines.append(f"- review_packet_md: {report['artifact_paths']['review_packet_md']}")
+        lines.append(f"- hotspots_mermaid: {report['artifact_paths']['hotspots_mermaid']}")
         lines.append(f"- hotspots_dot: {report['artifact_paths']['hotspots_dot']}")
     if report["warnings"]:
         lines.extend(["", "## Warnings", ""])

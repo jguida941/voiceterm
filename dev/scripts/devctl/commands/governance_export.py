@@ -74,11 +74,7 @@ def run(args) -> int:
         policy_path=result.policy_path,
         created_at_utc=result.created_at_utc,
     )
-    output = (
-        json.dumps(asdict(payload), indent=2)
-        if args.format == "json"
-        else _render_markdown(result)
-    )
+    output = json.dumps(asdict(payload), indent=2) if args.format == "json" else _render_markdown(result)
     pipe_code = emit_output(
         output,
         output_path=args.output,

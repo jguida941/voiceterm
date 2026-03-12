@@ -39,16 +39,10 @@ except ModuleNotFoundError:  # pragma: no cover
         emit_probe_report,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
-is_review_probe_test_path = import_attr(
-    "probe_path_filters", "is_review_probe_test_path"
-)
-scan_python_functions = import_attr(
-    "code_shape_function_policy", "scan_python_functions"
-)
+is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
+scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
@@ -71,18 +65,20 @@ DICT_KEY_RE = re.compile(r"""(?:"|')(\w+)(?:"|')\s*:""")
 DICT_ASSIGN_RE = re.compile(r"""(\w+)\s*\[(?:"|')(\w+)(?:"|')\]\s*=""")
 
 # Functions where returning large dicts is expected (serializers, test fixtures).
-_ALLOWLIST_PREFIXES = frozenset({
-    "to_dict",
-    "as_dict",
-    "serialize",
-    "to_json",
-    "asdict",
-    "fixture",
-    "mock_",
-    "fake_",
-    "sample_",
-    "default_",
-})
+_ALLOWLIST_PREFIXES = frozenset(
+    {
+        "to_dict",
+        "as_dict",
+        "serialize",
+        "to_json",
+        "asdict",
+        "fixture",
+        "mock_",
+        "fake_",
+        "sample_",
+        "default_",
+    }
+)
 
 AI_INSTRUCTIONS = {
     "medium": (
@@ -98,6 +94,8 @@ AI_INSTRUCTIONS = {
         "autocomplete, type checking, and documentation for free."
     ),
 }
+
+
 def _count_return_dict_keys(body: str) -> int:
     """Count the max key count from any dict literal in a return statement."""
     max_keys = 0
@@ -155,7 +153,7 @@ def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
 
         start = func["start_line"] - 1
         end = func["end_line"]
-        body = "\n".join(lines[start + 1:end])
+        body = "\n".join(lines[start + 1 : end])
 
         # Check dict literal returns.
         literal_keys = _count_return_dict_keys(body)
@@ -175,10 +173,7 @@ def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
                 symbol=func_name,
                 risk_type="design_smell",
                 severity=severity,
-                signals=[
-                    f"returns dict with {key_count} keys ({method}) — "
-                    f"define a @dataclass or TypedDict"
-                ],
+                signals=[f"returns dict with {key_count} keys ({method}) — " f"define a @dataclass or TypedDict"],
                 ai_instruction=AI_INSTRUCTIONS[severity],
                 review_lens=REVIEW_LENS,
             )
@@ -196,7 +191,9 @@ def main() -> int:
             guard.validate_ref(args.since_ref)
             guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            guard.run_git, args.since_ref, args.head_ref,
+            guard.run_git,
+            args.since_ref,
+            args.head_ref,
         )
     except RuntimeError:
         return emit_probe_report(report, output_format=args.format)
@@ -209,19 +206,13 @@ def main() -> int:
     for path in changed_paths:
         if path.suffix != ".py":
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=PYTHON_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=PYTHON_ROOTS):
             continue
         if is_review_probe_test_path(path):
             continue
 
         report.files_scanned += 1
-        text = (
-            guard.read_text_from_ref(path, args.head_ref)
-            if args.since_ref
-            else guard.read_text_from_worktree(path)
-        )
+        text = guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
         if text is None:
             continue
 

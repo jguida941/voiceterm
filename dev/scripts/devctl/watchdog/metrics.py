@@ -6,7 +6,6 @@ import json
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any
 
 from .models import (
     GuardedCodingEpisode,
@@ -75,8 +74,7 @@ def build_watchdog_metrics(rows: list[GuardedCodingEpisode]) -> WatchdogMetrics:
                 episodes=count,
                 success_rate_pct=round((guard_success[family] / count) * 100.0, 2),
                 avg_time_to_green_seconds=round(
-                    guard_time_to_green_sum[family]
-                    / max(guard_time_to_green_count[family], 1),
+                    guard_time_to_green_sum[family] / max(guard_time_to_green_count[family], 1),
                     3,
                 ),
             )

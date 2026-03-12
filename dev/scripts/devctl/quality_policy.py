@@ -12,10 +12,10 @@ from .quality_policy_defaults import (
     AI_GUARD_REGISTRY,
     DEFAULT_AI_GUARD_CHECKS,
     DEFAULT_ENABLED_AI_GUARD_IDS,
-    DEFAULT_ENABLED_REVIEW_PROBE_IDS,
     DEFAULT_REVIEW_PROBE_CHECKS,
-    QualityStepSpec,
+    DEFAULT_ENABLED_REVIEW_PROBE_IDS,
     REVIEW_PROBE_REGISTRY,
+    QualityStepSpec,
 )
 from .quality_policy_loader import (
     QUALITY_POLICY_ENV_VAR,
@@ -61,9 +61,7 @@ class ResolvedQualityPolicy:
 
 
 def _manifest_exists(repo_root: Path, filename: str) -> bool:
-    return (repo_root / filename).exists() or any(
-        candidate.is_file() for candidate in repo_root.glob(f"*/{filename}")
-    )
+    return (repo_root / filename).exists() or any(candidate.is_file() for candidate in repo_root.glob(f"*/{filename}"))
 
 
 def _has_python_sources(repo_root: Path) -> bool:
@@ -190,15 +188,9 @@ def resolve_quality_policy(
         payload.get("enabled_review_probe_ids") if payload else None,
         DEFAULT_ENABLED_REVIEW_PROBE_IDS,
     )
-    ai_guard_overrides = coerce_overrides(
-        payload.get("ai_guard_overrides") if payload else None
-    )
-    probe_overrides = coerce_overrides(
-        payload.get("review_probe_overrides") if payload else None
-    )
-    guard_configs = coerce_guard_configs(
-        payload.get("guard_configs") if payload else None
-    )
+    ai_guard_overrides = coerce_overrides(payload.get("ai_guard_overrides") if payload else None)
+    probe_overrides = coerce_overrides(payload.get("review_probe_overrides") if payload else None)
+    guard_configs = coerce_guard_configs(payload.get("guard_configs") if payload else None)
     ai_guard_checks = _resolve_specs(
         enabled_ids=ai_guard_ids,
         registry=AI_GUARD_REGISTRY,
@@ -243,10 +235,7 @@ def resolve_ai_guard_checks(
 ) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
     """Return active AI-guard steps for the repo policy."""
     policy = resolve_quality_policy(repo_root=repo_root, policy_path=policy_path)
-    return tuple(
-        (spec.step_name, spec.script_id, spec.extra_args)
-        for spec in policy.ai_guard_checks
-    )
+    return tuple((spec.step_name, spec.script_id, spec.extra_args) for spec in policy.ai_guard_checks)
 
 
 def resolve_review_probe_checks(
@@ -256,10 +245,7 @@ def resolve_review_probe_checks(
 ) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
     """Return active review-probe steps for the repo policy."""
     policy = resolve_quality_policy(repo_root=repo_root, policy_path=policy_path)
-    return tuple(
-        (spec.step_name, spec.script_id, spec.extra_args)
-        for spec in policy.review_probe_checks
-    )
+    return tuple((spec.step_name, spec.script_id, spec.extra_args) for spec in policy.review_probe_checks)
 
 
 def resolve_review_probe_script_ids(

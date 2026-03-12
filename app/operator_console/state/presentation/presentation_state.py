@@ -62,7 +62,9 @@ def build_status_bar_text(
             sha = repo_state.head_short or "?"
             bits.append(f"{repo_state.branch}{dirty_marker}@{sha}")
             if repo_state.is_dirty:
-                bits.append(f"dirty:{repo_state.dirty_file_count} risk:{repo_state.risk_summary}")
+                bits.append(
+                    f"dirty:{repo_state.dirty_file_count} risk:{repo_state.risk_summary}"
+                )
         if snapshot.review_state_path:
             bits.append(f"review_state: {snapshot.review_state_path}")
         else:
@@ -112,9 +114,7 @@ def build_system_banner_state(snapshot: OperatorConsoleSnapshot) -> SystemBanner
 
     codex_lane = snapshot.codex_lane
     risk_text = (
-        f"Risk: {codex_lane.risk_label or 'Unknown'}"
-        if codex_lane
-        else "Risk: Unknown"
+        f"Risk: {codex_lane.risk_label or 'Unknown'}" if codex_lane else "Risk: Unknown"
     )
     confidence_text = (
         f"Confidence: {codex_lane.confidence_label or 'Unknown'}"
@@ -122,7 +122,9 @@ def build_system_banner_state(snapshot: OperatorConsoleSnapshot) -> SystemBanner
         else "Confidence: Unknown"
     )
     mode_text = snapshot.review_mode or "markdown-only"
-    agent_summary = " | ".join(_lane_chip_text(lane) for lane in lanes) or "No lanes detected"
+    agent_summary = (
+        " | ".join(_lane_chip_text(lane) for lane in lanes) or "No lanes detected"
+    )
 
     return SystemBannerState(
         health_label=health_label,
@@ -217,8 +219,7 @@ def build_analytics_view_state(
     watchdog_snapshot = snapshot.watchdog_snapshot
     if watchdog_snapshot is not None:
         overview_lines.append(
-            "    Watchdog:     "
-            + watchdog_summary_line(watchdog_snapshot)
+            "    Watchdog:     " + watchdog_summary_line(watchdog_snapshot)
         )
     overview_lines.append("")
 
@@ -367,7 +368,9 @@ def _build_kpi_values(
 ) -> dict[str, str]:
     ci_runs = "\u2014"
     if repo_analytics is not None and repo_analytics.ci_runs_total is not None:
-        ci_runs = f"{repo_analytics.ci_success_runs}/{max(repo_analytics.ci_runs_total, 1)}"
+        ci_runs = (
+            f"{repo_analytics.ci_success_runs}/{max(repo_analytics.ci_runs_total, 1)}"
+        )
     return {
         "dirty_files": _format_kpi_number(
             repo_analytics.changed_files if repo_analytics is not None else None

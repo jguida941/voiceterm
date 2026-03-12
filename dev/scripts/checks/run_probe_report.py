@@ -41,7 +41,8 @@ def _run_probe(script: str, since_ref: str | None, head_ref: str) -> dict | None
     cmd = [
         sys.executable,
         str(REPO_ROOT / "dev" / "scripts" / "checks" / script),
-        "--format", "json",
+        "--format",
+        "json",
     ]
     if since_ref:
         cmd.extend(["--since-ref", since_ref, "--head-ref", head_ref])
@@ -62,13 +63,9 @@ def _run_probe(script: str, since_ref: str | None, head_ref: str) -> dict | None
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Run all review probes and produce a combined report"
-    )
+    parser = argparse.ArgumentParser(description="Run all review probes and produce a combined report")
     parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument(
-        "--head-ref", default="HEAD", help="Head ref (default: HEAD)"
-    )
+    parser.add_argument("--head-ref", default="HEAD", help="Head ref (default: HEAD)")
     parser.add_argument(
         "--format",
         choices=("md", "terminal", "json"),

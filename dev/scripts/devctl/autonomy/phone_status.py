@@ -3,88 +3,58 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 from .loop_helpers import iso_z, packet_risk, utc_now
 from ..phone_status_views import render_ralph_section_lines
+from ..text_utils import truncate_text
 
 
-def _latest_attempt(triage_report: dict[str, Any]) -> dict[str, Any]:
-    attempts = triage_report.get("attempts", [])
-    if not isinstance(attempts, list):
-        return {}
-    for row in reversed(attempts):
-        if isinstance(row, dict):
-            return row
-    return {}
+@dataclass(frozen=True)
+class RalphSection:
+    available: bool = False
+    phase: str = "idle"
+    attempt: int = 0
+    max_attempts: int = 0
+    fix_rate_pct: float = 0.0
+    total_findings: int = 0
+    fixed_count: int = 0
+    unresolved_count: int = 0
+    branch: str | None = None
+    last_run: str | None = None
 
+    @classmethod
+    def from_repo_root(cls, repo_root: Path) -> RalphSection:
+        report_path = (
+            repo_root / "dev" / "reports" / "ralph" / "latest" / "ralph-report.json"
+        )
+        if not report_path.is_file():
+            return cls()
+        try:
+            data = json.loads(report_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return cls()
+        if not isinstance(data, dict):
+            return cls()
+        total = int(data.get("total_findings") or 0)
+        fixed = int(data.get("fixed_count") or 0)
+        return cls(
+            available=True,
+            phase=str(data.get("phase") or "idle"),
+            attempt=int(data.get("attempt") or 0),
+            max_attempts=int(data.get("max_attempts") or 0),
+            fix_rate_pct=round((fixed / total) * 100, 1) if total > 0 else 0.0,
+            total_findings=total,
+            fixed_count=fixed,
+            unresolved_count=int(data.get("unresolved_count") or 0),
+            branch=data.get("branch") or None,
+            last_run=data.get("last_run") or None,
+        )
 
-def _truncate_text(value: Any, max_chars: int) -> str:
-    text = str(value or "").strip()
-    if max_chars <= 0:
-        return ""
-    if len(text) <= max_chars:
-        return text
-    return text[: max_chars - 3] + "..."
-
-
-def _normalize_trace_lines(value: Any, max_lines: int) -> list[str]:
-    if max_lines <= 0:
-        return []
-    if not isinstance(value, list):
-        return []
-    lines: list[str] = []
-    for row in value:
-        text = str(row).strip()
-        if not text:
-            continue
-        lines.append(_truncate_text(text, 220))
-        if len(lines) >= max_lines:
-            break
-    return lines
-
-
-def _ralph_defaults() -> dict[str, Any]:
-    return {
-        "available": False,
-        "phase": "idle",
-        "attempt": 0,
-        "max_attempts": 0,
-        "fix_rate_pct": 0.0,
-        "total_findings": 0,
-        "fixed_count": 0,
-        "unresolved_count": 0,
-        "branch": None,
-        "last_run": None,
-    }
-
-
-def _load_ralph_section(repo_root: Path) -> dict[str, Any]:
-    report_path = repo_root / "dev" / "reports" / "ralph" / "latest" / "ralph-report.json"
-    if not report_path.is_file():
-        return _ralph_defaults()
-    try:
-        data = json.loads(report_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return _ralph_defaults()
-    if not isinstance(data, dict):
-        return _ralph_defaults()
-    total = int(data.get("total_findings") or 0)
-    fixed = int(data.get("fixed_count") or 0)
-    fix_rate = round((fixed / total) * 100, 1) if total > 0 else 0.0
-    return {
-        "available": True,
-        "phase": str(data.get("phase") or "idle"),
-        "attempt": int(data.get("attempt") or 0),
-        "max_attempts": int(data.get("max_attempts") or 0),
-        "fix_rate_pct": fix_rate,
-        "total_findings": total,
-        "fixed_count": fixed,
-        "unresolved_count": int(data.get("unresolved_count") or 0),
-        "branch": data.get("branch") or None,
-        "last_run": data.get("last_run") or None,
-    }
+    def as_payload(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 def build_phone_status(
@@ -111,7 +81,13 @@ def build_phone_status(
     max_trace_lines: int,
     repo_root: Path | None = None,
 ) -> dict[str, Any]:
-    attempt = _latest_attempt(triage_report)
+    attempts = triage_report.get("attempts", [])
+    attempt: dict[str, Any] = {}
+    if isinstance(attempts, list):
+        for row in reversed(attempts):
+            if isinstance(row, dict):
+                attempt = row
+                break
     triage_reason = str(triage_report.get("reason") or "unknown")
     unresolved = int(triage_report.get("unresolved_count") or 0)
     risk = packet_risk(loop_packet_report, triage_report)
@@ -123,14 +99,20 @@ def build_phone_status(
     terminal_packet = loop_packet_report.get("terminal_packet")
     if not isinstance(terminal_packet, dict):
         terminal_packet = {}
-    draft_text = _truncate_text(
+    draft_text = truncate_text(
         terminal_packet.get("draft_text") or checkpoint_packet.get("draft_text"),
         max_draft_chars,
     )
-    terminal_trace = _normalize_trace_lines(
-        checkpoint_packet.get("terminal_trace"),
-        max_trace_lines,
-    )
+    terminal_trace: list[str] = []
+    trace_rows = checkpoint_packet.get("terminal_trace")
+    if max_trace_lines > 0 and isinstance(trace_rows, list):
+        for row in trace_rows:
+            text = str(row).strip()
+            if not text:
+                continue
+            terminal_trace.append(truncate_text(text, 220))
+            if len(terminal_trace) >= max_trace_lines:
+                break
     status_phase = "running"
     if errors:
         status_phase = "error"
@@ -138,6 +120,7 @@ def build_phone_status(
         status_phase = "resolved"
     elif reason in {"max_rounds_reached", "max_tasks_reached", "max_hours_reached"}:
         status_phase = "paused"
+    ralph = RalphSection.from_repo_root(repo_root) if repo_root else RalphSection()
 
     return {
         "schema_version": 1,
@@ -179,7 +162,7 @@ def build_phone_status(
             "attempt_status": attempt.get("status"),
             "attempt_message": attempt.get("message"),
         },
-        "ralph": _load_ralph_section(repo_root) if repo_root else _ralph_defaults(),
+        "ralph": ralph.as_payload(),
         "warnings": [str(row) for row in warnings],
         "errors": [str(row) for row in errors],
     }

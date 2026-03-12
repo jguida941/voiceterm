@@ -9,9 +9,7 @@ from argparse import Namespace
 from pathlib import Path
 from unittest.mock import patch
 
-from dev.scripts.devctl import cli
-from dev.scripts.devctl import common_io
-from dev.scripts.devctl import quality_policy
+from dev.scripts.devctl import cli, common_io, quality_policy
 from dev.scripts.devctl.commands import quality_policy as quality_policy_command
 
 
@@ -134,9 +132,7 @@ class QualityPolicyTests(unittest.TestCase):
         self.assertEqual(resolved.scopes.python_probe_roots, ())
         self.assertEqual(resolved.scopes.rust_guard_roots, ())
         self.assertEqual(resolved.scopes.rust_probe_roots, ())
-        self.assertTrue(
-            any("rust_best_practices" in warning for warning in resolved.warnings)
-        )
+        self.assertTrue(any("rust_best_practices" in warning for warning in resolved.warnings))
         self.assertTrue(any("probe_concurrency" in warning for warning in resolved.warnings))
 
     def test_resolve_quality_policy_warns_on_missing_policy_and_uses_defaults(self) -> None:
@@ -228,15 +224,8 @@ class QualityPolicyTests(unittest.TestCase):
             resolved.scopes.python_guard_roots,
             (Path("app"), Path(".")),
         )
-        self.assertTrue(
-            any("ignored path escaping repo root" in warning for warning in resolved.warnings)
-        )
-        self.assertTrue(
-            any(
-                "ignored absolute path outside repo" in warning
-                for warning in resolved.warnings
-            )
-        )
+        self.assertTrue(any("ignored path escaping repo root" in warning for warning in resolved.warnings))
+        self.assertTrue(any("ignored absolute path outside repo" in warning for warning in resolved.warnings))
 
     def test_resolve_quality_policy_merges_extended_presets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -323,9 +312,7 @@ class QualityPolicyTests(unittest.TestCase):
             ["probe_design_smells", "probe_concurrency"],
         )
         self.assertEqual(
-            resolved.guard_configs["code_shape"]["namespace_family_rules"][0][
-                "namespace_subdir"
-            ],
+            resolved.guard_configs["code_shape"]["namespace_family_rules"][0]["namespace_subdir"],
             "family",
         )
         self.assertEqual(

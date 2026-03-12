@@ -42,7 +42,9 @@ def watchdog_summary_line(watchdog_snapshot: WatchdogSummaryArtifact | None) -> 
     )
 
 
-def watchdog_topline_lines(watchdog_snapshot: WatchdogSummaryArtifact | None) -> list[str]:
+def watchdog_topline_lines(
+    watchdog_snapshot: WatchdogSummaryArtifact | None,
+) -> list[str]:
     """Render the top-level watchdog bullet lines used across views."""
     metrics = _metrics(watchdog_snapshot)
     if metrics is None:

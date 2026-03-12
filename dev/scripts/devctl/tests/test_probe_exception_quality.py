@@ -38,7 +38,7 @@ class ProbeExceptionQualityTests(unittest.TestCase):
         report = SCRIPT.build_report(
             repo_root=self.root,
             candidate_paths=[path.relative_to(self.root)],
-            current_text_by_path={"dev/scripts/example.py": path.read_text(encoding='utf-8')},
+            current_text_by_path={"dev/scripts/example.py": path.read_text(encoding="utf-8")},
             mode="working-tree",
         )
 
@@ -62,9 +62,7 @@ class ProbeExceptionQualityTests(unittest.TestCase):
         report = SCRIPT.build_report(
             repo_root=self.root,
             candidate_paths=[path.relative_to(self.root)],
-            current_text_by_path={
-                "app/operator_console/example.py": path.read_text(encoding="utf-8")
-            },
+            current_text_by_path={"app/operator_console/example.py": path.read_text(encoding="utf-8")},
             mode="working-tree",
         )
 
@@ -90,9 +88,7 @@ class ProbeExceptionQualityTests(unittest.TestCase):
         report = SCRIPT.build_report(
             repo_root=self.root,
             candidate_paths=[path.relative_to(self.root)],
-            current_text_by_path={
-                "dev/scripts/contextful.py": path.read_text(encoding="utf-8")
-            },
+            current_text_by_path={"dev/scripts/contextful.py": path.read_text(encoding="utf-8")},
             mode="working-tree",
         )
 

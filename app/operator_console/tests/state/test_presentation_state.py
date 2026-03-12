@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import unittest
 
-from app.operator_console.state.snapshots.analytics_snapshot import RepoAnalyticsSnapshot
+from app.operator_console.state.snapshots.analytics_snapshot import (
+    RepoAnalyticsSnapshot,
+)
 from app.operator_console.state.core.models import (
     AgentLaneData,
     ApprovalRequest,
     OperatorConsoleSnapshot,
 )
-from app.operator_console.state.snapshots.phone_status_snapshot import PhoneControlSnapshot
+from app.operator_console.state.snapshots.phone_status_snapshot import (
+    PhoneControlSnapshot,
+)
 from app.operator_console.state.presentation.presentation_state import (
     build_activity_text,
     build_analytics_view_state,
@@ -232,9 +236,7 @@ class PresentationStateTests(unittest.TestCase):
                     avg_escaped_findings=0.5,
                     false_positive_rate_pct=25.0,
                     known_provider_pct=100.0,
-                    providers=(
-                        WatchdogProviderMetrics(provider="codex", episodes=3),
-                    ),
+                    providers=(WatchdogProviderMetrics(provider="codex", episodes=3),),
                     guard_families=(
                         WatchdogGuardFamilyMetrics(
                             guard_family="python",
@@ -249,7 +251,10 @@ class PresentationStateTests(unittest.TestCase):
 
         view_state = build_analytics_view_state(snapshot)
 
-        self.assertIn("Watchdog:     4 episodes | 75% accepted | 25% noisy/skipped", view_state.text)
+        self.assertIn(
+            "Watchdog:     4 episodes | 75% accepted | 25% noisy/skipped",
+            view_state.text,
+        )
         self.assertIn("WATCHDOG", view_state.quality_text)
         self.assertIn("- Total episodes: 4", view_state.quality_text)
         self.assertIn("- Known provider coverage: 100%", view_state.quality_text)

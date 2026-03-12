@@ -89,10 +89,7 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
     _arg(
         "--promotion-plan",
         default=DEFAULT_PROMOTION_PLAN_REL,
-        help=(
-            "Active-plan checklist used for repo-owned next-task promotion and "
-            "derived queue projections"
-        ),
+        help=("Active-plan checklist used for repo-owned next-task promotion and " "derived queue projections"),
     ),
     _arg(
         "--artifact-root",
@@ -113,10 +110,7 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         "--rollover-threshold-pct",
         type=int,
         default=DEFAULT_ROLLOVER_THRESHOLD_PCT,
-        help=(
-            "Context-remaining percentage that should trigger a planned self-relaunch "
-            "before compaction"
-        ),
+        help=("Context-remaining percentage that should trigger a planned self-relaunch " "before compaction"),
     ),
     _arg(
         "--rollover-trigger",

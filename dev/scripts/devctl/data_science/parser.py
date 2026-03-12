@@ -73,9 +73,5 @@ def add_data_science_parser(sub: argparse._SubParsersAction) -> None:
     data_science_cmd.add_argument("--format", choices=["json", "md"], default="md")
     data_science_cmd.add_argument("--output")
     data_science_cmd.add_argument("--json-output")
-    data_science_cmd.add_argument(
-        "--pipe-command", help="Pipe report output to a command"
-    )
-    data_science_cmd.add_argument(
-        "--pipe-args", nargs="*", help="Extra args for pipe command"
-    )
+    data_science_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
+    data_science_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 from ..approval_mode import normalize_approval_mode
 from ..common import display_path
@@ -75,11 +76,7 @@ def validate_live_launch_conflicts(
         detect_active_session_conflicts_fn = detect_active_session_conflicts
     if summarize_active_session_conflicts_fn is None:
         summarize_active_session_conflicts_fn = summarize_active_session_conflicts
-    if (
-        args.action == "launch"
-        and args.terminal == "terminal-app"
-        and not args.dry_run
-    ):
+    if args.action == "launch" and args.terminal == "terminal-app" and not args.dry_run:
         active_session_conflicts = detect_active_session_conflicts_fn(
             session_output_root=status_dir,
         )
@@ -88,8 +85,7 @@ def validate_live_launch_conflicts(
                 "Live review-channel launch refused because existing session "
                 "artifacts still look active. Close the current conductor "
                 "windows or wait for the session traces to go stale before "
-                "launching again: "
-                + summarize_active_session_conflicts_fn(active_session_conflicts)
+                "launching again: " + summarize_active_session_conflicts_fn(active_session_conflicts)
             )
 
 
@@ -104,9 +100,7 @@ def resolve_terminal_launch_state(
     if list_terminal_profiles_fn is None:
         list_terminal_profiles_fn = list_terminal_profiles
     warnings: list[str] = []
-    available_profiles = (
-        list_terminal_profiles_fn() if args.terminal == "terminal-app" else []
-    )
+    available_profiles = list_terminal_profiles_fn() if args.terminal == "terminal-app" else []
     terminal_profile_applied = resolve_terminal_profile_name(
         args.terminal_profile,
         available_profiles=available_profiles,
@@ -121,11 +115,7 @@ def resolve_terminal_launch_state(
             "Requested Claude worker budget exceeds the current lane table; "
             f"using {len(claude_lanes)} advertised Claude lanes."
         )
-    if (
-        args.terminal == "terminal-app"
-        and args.terminal_profile == "auto-dark"
-        and terminal_profile_applied is None
-    ):
+    if args.terminal == "terminal-app" and args.terminal_profile == "auto-dark" and terminal_profile_applied is None:
         warnings.append(
             "No known dark Terminal.app profile was found; live launch will "
             "fall back to the current Terminal default."
@@ -252,21 +242,17 @@ def post_session_lifecycle_event(
     if context.artifact_paths is None or not event_state_exists_fn(context.artifact_paths):
         return
 
-    provider_names = [
-        str(session.get("provider", "")).capitalize()
-        for session in context.sessions
-    ]
+    provider_names = [str(session.get("provider", "")).capitalize() for session in context.sessions]
     label = "rollover" if action == "rollover" else "launch"
     summary = f"Session {label}: {', '.join(provider_names)} conductors started"
     lane_counts = [
-        f"{session.get('provider', '?')}: {session.get('lane_count', 0)} lanes"
-        for session in context.sessions
+        f"{session.get('provider', '?')}: {session.get('lane_count', 0)} lanes" for session in context.sessions
     ]
     body = (
         f"The operator {label}ed {len(context.sessions)} conductor session(s). "
         f"Lane allocation: {'; '.join(lane_counts)}."
     )
-    try:
+    with contextlib.suppress(OSError, ValueError):
         post_packet_fn(
             repo_root=context.repo_root,
             review_channel_path=context.review_channel_path,
@@ -284,5 +270,3 @@ def post_session_lifecycle_event(
             approval_required=False,
             expires_in_minutes=60,
         )
-    except (OSError, ValueError):
-        pass

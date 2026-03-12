@@ -458,15 +458,9 @@ class ReportCommandTests(unittest.TestCase):
 
         call_kwargs = mock_build_report.call_args.kwargs
         self.assertTrue(call_kwargs["include_pedantic"])
-        self.assertEqual(
-            call_kwargs["pedantic_summary_path"], "/tmp/pedantic-summary.json"
-        )
-        self.assertEqual(
-            call_kwargs["pedantic_lints_path"], "/tmp/pedantic-lints.json"
-        )
-        self.assertEqual(
-            call_kwargs["pedantic_policy_path"], "/tmp/pedantic-policy.json"
-        )
+        self.assertEqual(call_kwargs["pedantic_summary_path"], "/tmp/pedantic-summary.json")
+        self.assertEqual(call_kwargs["pedantic_lints_path"], "/tmp/pedantic-lints.json")
+        self.assertEqual(call_kwargs["pedantic_policy_path"], "/tmp/pedantic-policy.json")
 
     @patch("dev.scripts.devctl.commands.report.write_output")
     @patch("dev.scripts.devctl.commands.report.build_project_report")
@@ -670,9 +664,7 @@ class ReportCommandTests(unittest.TestCase):
             self.assertTrue(json_path.exists())
             payload = json.loads(json_path.read_text(encoding="utf-8"))
             self.assertEqual(payload["bundle"]["markdown_path"], str(md_path))
-            self.assertEqual(
-                payload["rust_audits"]["charts"], ["/tmp/chart.png"]
-            )
+            self.assertEqual(payload["rust_audits"]["charts"], ["/tmp/chart.png"])
 
 
 if __name__ == "__main__":

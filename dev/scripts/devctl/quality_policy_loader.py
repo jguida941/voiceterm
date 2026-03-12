@@ -82,9 +82,7 @@ def load_policy_payload(
         if isinstance(raw_extends, str) and raw_extends.strip():
             extends_paths = (raw_extends.strip(),)
         elif isinstance(raw_extends, list):
-            extends_paths = tuple(
-                str(item).strip() for item in raw_extends if str(item).strip()
-            )
+            extends_paths = tuple(str(item).strip() for item in raw_extends if str(item).strip())
         else:
             extends_paths = ()
 

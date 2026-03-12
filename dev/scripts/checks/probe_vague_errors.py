@@ -40,16 +40,10 @@ except ModuleNotFoundError:  # pragma: no cover
         emit_probe_report,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
-is_review_probe_test_path = import_attr(
-    "probe_path_filters", "is_review_probe_test_path"
-)
-scan_rust_functions = import_attr(
-    "code_shape_function_policy", "scan_rust_functions"
-)
+is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
+scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -65,24 +59,16 @@ VAGUE_HIGH = 4
 
 # Regex: bail!("literal string without format args")
 # Matches bail!("...") where the string does NOT contain { } format placeholders.
-BAIL_VAGUE_RE = re.compile(
-    r"""bail!\s*\(\s*"([^"]*?)"\s*\)"""
-)
+BAIL_VAGUE_RE = re.compile(r"""bail!\s*\(\s*"([^"]*?)"\s*\)""")
 
 # Regex: anyhow!("literal string without format args")
-ANYHOW_VAGUE_RE = re.compile(
-    r"""anyhow!\s*\(\s*"([^"]*?)"\s*\)"""
-)
+ANYHOW_VAGUE_RE = re.compile(r"""anyhow!\s*\(\s*"([^"]*?)"\s*\)""")
 
 # Regex: .context("literal without format args")
-CONTEXT_VAGUE_RE = re.compile(
-    r"""\.context\s*\(\s*"([^"]*?)"\s*\)"""
-)
+CONTEXT_VAGUE_RE = re.compile(r"""\.context\s*\(\s*"([^"]*?)"\s*\)""")
 
 # Regex: .with_context(|| "literal") — also vague if no format args.
-WITH_CONTEXT_VAGUE_RE = re.compile(
-    r"""\.with_context\s*\(\s*\|\s*\|\s*"([^"]*?)"\s*\)"""
-)
+WITH_CONTEXT_VAGUE_RE = re.compile(r"""\.with_context\s*\(\s*\|\s*\|\s*"([^"]*?)"\s*\)""")
 
 # Check if a string contains format placeholders like {var} or {}.
 FORMAT_PLACEHOLDER_RE = re.compile(r"\{[^}]*\}")
@@ -104,15 +90,15 @@ AI_INSTRUCTIONS = {
         ".with_context(|| format!(...)) for chained errors."
     ),
 }
+
+
 def _is_vague_message(message: str) -> bool:
     """Return True if the error message lacks runtime context."""
     # Has format placeholders — not vague.
     if FORMAT_PLACEHOLDER_RE.search(message):
         return False
     # Very short messages (e.g., "timeout") are acceptable.
-    if len(message) <= _SHORT_MESSAGE_MAX:
-        return False
-    return True
+    return not len(message) <= _SHORT_MESSAGE_MAX
 
 
 def _scan_rust_file(text: str, path: Path) -> list[RiskHint]:
@@ -181,7 +167,9 @@ def main() -> int:
             guard.validate_ref(args.since_ref)
             guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            guard.run_git, args.since_ref, args.head_ref,
+            guard.run_git,
+            args.since_ref,
+            args.head_ref,
         )
     except RuntimeError:
         return emit_probe_report(report, output_format=args.format)
@@ -194,19 +182,13 @@ def main() -> int:
     for path in changed_paths:
         if path.suffix != ".rs":
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             continue
         if is_review_probe_test_path(path):
             continue
 
         report.files_scanned += 1
-        text = (
-            guard.read_text_from_ref(path, args.head_ref)
-            if args.since_ref
-            else guard.read_text_from_worktree(path)
-        )
+        text = guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
         if text is None:
             continue
 

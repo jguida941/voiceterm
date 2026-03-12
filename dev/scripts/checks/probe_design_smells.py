@@ -42,16 +42,10 @@ except ModuleNotFoundError:  # pragma: no cover
         emit_probe_report,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
-is_review_probe_test_path = import_attr(
-    "probe_path_filters", "is_review_probe_test_path"
-)
-scan_python_functions = import_attr(
-    "code_shape_function_policy", "scan_python_functions"
-)
+is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
+scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
@@ -71,9 +65,7 @@ GETATTR_RECEIVER_ALLOWLIST = frozenset({"args", "self", "cls"})
 
 # Regex patterns.
 GETATTR_RE = re.compile(r"getattr\s*\(\s*(\w+)\s*,\s*[\"']")
-OBJECT_PARAM_RE = re.compile(
-    r"(?:^|\s)(\w+)\s*:\s*object(?:\s*\||\s*[,)])"
-)
+OBJECT_PARAM_RE = re.compile(r"(?:^|\s)(\w+)\s*:\s*object(?:\s*\||\s*[,)])")
 FORMAT_HELPER_RE = re.compile(r"^def\s+(_fmt_\w+|_format_\w+)\s*\(", re.MULTILINE)
 
 AI_INSTRUCTIONS = {
@@ -103,11 +95,7 @@ def _count_getattr_by_receiver(body: str) -> Counter:
     Receivers in the allowlist (e.g. ``args`` for argparse.Namespace)
     are excluded because getattr() is idiomatic there.
     """
-    return Counter(
-        m.group(1)
-        for m in GETATTR_RE.finditer(body)
-        if m.group(1) not in GETATTR_RECEIVER_ALLOWLIST
-    )
+    return Counter(m.group(1) for m in GETATTR_RE.finditer(body) if m.group(1) not in GETATTR_RECEIVER_ALLOWLIST)
 
 
 def _find_object_params(def_line: str) -> set[str]:
@@ -115,9 +103,35 @@ def _find_object_params(def_line: str) -> set[str]:
     return {m.group(1) for m in OBJECT_PARAM_RE.finditer(def_line)}
 
 
-def _scan_function_smells(
-    text: str, path: Path
-) -> list[RiskHint]:
+def _getattr_density_signal(body: str) -> tuple[list[str], str | None, Counter]:
+    signals: list[str] = []
+    signal_key: str | None = None
+    receiver_counts = _count_getattr_by_receiver(body)
+    top_receiver = receiver_counts.most_common(1)
+    if not top_receiver:
+        return signals, signal_key, receiver_counts
+    receiver, count = top_receiver[0]
+    if count >= GETATTR_DENSITY_HIGH:
+        signals.append(f"{count} getattr() calls on '{receiver}' (replace with typed model)")
+        signal_key = "getattr_density"
+    elif count >= GETATTR_DENSITY_MEDIUM:
+        signals.append(f"{count} getattr() calls on '{receiver}' (consider typed model)")
+        signal_key = "getattr_density"
+    return signals, signal_key, receiver_counts
+
+
+def _object_param_signal(def_line: str, body: str) -> tuple[list[str], str | None]:
+    for param in _find_object_params(def_line):
+        param_getattr_count = sum(1 for match in GETATTR_RE.finditer(body) if match.group(1) == param)
+        if param_getattr_count >= 2:
+            return (
+                [f"parameter '{param}: object' accessed via getattr() {param_getattr_count} times"],
+                "untyped_object_param",
+            )
+    return [], None
+
+
+def _scan_function_smells(text: str, path: Path) -> list[RiskHint]:
     """Scan one Python file for per-function design smells."""
     hints: list[RiskHint] = []
     functions = scan_python_functions(text)
@@ -135,50 +149,15 @@ def _scan_function_smells(
         body_lines = lines[start + 1 : end]
         body = "\n".join(body_lines)
 
-        signals: list[str] = []
-        signal_key: str | None = None
-
-        # Signal 1: getattr() density on the same receiver.
-        receiver_counts = _count_getattr_by_receiver(body)
-        for receiver, count in receiver_counts.most_common(1):
-            if count >= GETATTR_DENSITY_HIGH:
-                signals.append(
-                    f"{count} getattr() calls on '{receiver}' "
-                    f"(replace with typed model)"
-                )
-                signal_key = "getattr_density"
-            elif count >= GETATTR_DENSITY_MEDIUM:
-                signals.append(
-                    f"{count} getattr() calls on '{receiver}' "
-                    f"(consider typed model)"
-                )
-                signal_key = "getattr_density"
-
-        # Signal 2: parameter typed as `object` + getattr usage on it.
+        signals, signal_key, receiver_counts = _getattr_density_signal(body)
         if not signal_key:
-            object_params = _find_object_params(def_line)
-            for param in object_params:
-                param_getattr_count = sum(
-                    1 for m in GETATTR_RE.finditer(body)
-                    if m.group(1) == param
-                )
-                if param_getattr_count >= 2:
-                    signals.append(
-                        f"parameter '{param}: object' accessed via "
-                        f"getattr() {param_getattr_count} times"
-                    )
-                    signal_key = "untyped_object_param"
+            signals, signal_key = _object_param_signal(def_line, body)
 
         if signals:
             severity = (
-                "high"
-                if receiver_counts
-                and receiver_counts.most_common(1)[0][1] >= GETATTR_DENSITY_HIGH
-                else "medium"
+                "high" if receiver_counts and receiver_counts.most_common(1)[0][1] >= GETATTR_DENSITY_HIGH else "medium"
             )
-            ai_instruction = AI_INSTRUCTIONS.get(
-                signal_key or "", AI_INSTRUCTIONS["getattr_density"]
-            )
+            ai_instruction = AI_INSTRUCTIONS.get(signal_key or "", AI_INSTRUCTIONS["getattr_density"])
             hints.append(
                 RiskHint(
                     file=rel_path,
@@ -207,14 +186,39 @@ def _scan_file_level_smells(text: str, path: Path) -> list[RiskHint]:
                 risk_type="design_smell",
                 severity="low",
                 signals=[
-                    f"{len(helper_matches)} private format helpers "
-                    f"({helper_names}) — consider shared presenter"
+                    f"{len(helper_matches)} private format helpers " f"({helper_names}) — consider shared presenter"
                 ],
                 ai_instruction=AI_INSTRUCTIONS["format_helper_sprawl"],
                 review_lens=REVIEW_LENS,
             )
         )
     return hints
+
+
+def _should_scan_path(path: Path) -> bool:
+    if path.suffix != ".py":
+        return False
+    if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
+        return False
+    return not is_review_probe_test_path(path)
+
+
+def _load_probe_text(path: Path, *, since_ref: str | None, head_ref: str) -> str | None:
+    if since_ref:
+        return guard.read_text_from_ref(path, head_ref)
+    return guard.read_text_from_worktree(path)
+
+
+def _extend_report_for_path(report: ProbeReport, path: Path, text: str, files_with_hints: set[str]) -> None:
+    func_hints = _scan_function_smells(text, path)
+    file_hints = _scan_file_level_smells(text, path)
+    all_hints = func_hints + file_hints
+    if not all_hints:
+        return
+    files_with_hints.add(path.as_posix())
+    report.risk_hints.extend(all_hints)
+
+
 def main() -> int:
     args = build_probe_parser(__doc__ or "").parse_args()
     report = ProbeReport(command="probe_design_smells")
@@ -224,7 +228,9 @@ def main() -> int:
             guard.validate_ref(args.since_ref)
             guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            guard.run_git, args.since_ref, args.head_ref,
+            guard.run_git,
+            args.since_ref,
+            args.head_ref,
         )
     except RuntimeError:
         return emit_probe_report(report, output_format=args.format)
@@ -235,31 +241,14 @@ def main() -> int:
     files_with_hints: set[str] = set()
 
     for path in changed_paths:
-        if path.suffix != ".py":
-            continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
-            continue
-        if is_review_probe_test_path(path):
+        if not _should_scan_path(path):
             continue
 
         report.files_scanned += 1
-        if args.since_ref:
-            text = guard.read_text_from_ref(path, args.head_ref)
-        else:
-            text = guard.read_text_from_worktree(path)
-
+        text = _load_probe_text(path, since_ref=args.since_ref, head_ref=args.head_ref)
         if text is None:
             continue
-
-        func_hints = _scan_function_smells(text, path)
-        file_hints = _scan_file_level_smells(text, path)
-        all_hints = func_hints + file_hints
-
-        if all_hints:
-            files_with_hints.add(path.as_posix())
-            report.risk_hints.extend(all_hints)
+        _extend_report_for_path(report, path, text, files_with_hints)
 
     report.files_with_hints = len(files_with_hints)
     return emit_probe_report(report, output_format=args.format)

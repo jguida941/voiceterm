@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -93,9 +93,7 @@ class LoopPacketCommandTests(unittest.TestCase):
                 json.dumps(
                     {
                         "command": "triage-loop",
-                        "timestamp": datetime.now(timezone.utc)
-                        .isoformat()
-                        .replace("+00:00", "Z"),
+                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                         "branch": "develop",
                         "reason": "report_only_below_threshold",
                         "unresolved_count": 3,
@@ -115,18 +113,14 @@ class LoopPacketCommandTests(unittest.TestCase):
         self.assertIn("Loop feedback packet", payload["terminal_packet"]["draft_text"])
 
     @patch("dev.scripts.devctl.commands.loop_packet.write_output")
-    def test_allow_auto_send_only_when_low_risk_source_is_eligible(
-        self, write_output_mock
-    ) -> None:
+    def test_allow_auto_send_only_when_low_risk_source_is_eligible(self, write_output_mock) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             source_path = Path(tmp_dir) / "coderabbit-ralph-loop.json"
             source_path.write_text(
                 json.dumps(
                     {
                         "command": "triage-loop",
-                        "timestamp": datetime.now(timezone.utc)
-                        .isoformat()
-                        .replace("+00:00", "Z"),
+                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                         "branch": "develop",
                         "reason": "resolved",
                         "unresolved_count": 0,
@@ -150,9 +144,7 @@ class LoopPacketCommandTests(unittest.TestCase):
                 json.dumps(
                     {
                         "command": "mutation-loop",
-                        "timestamp": (datetime.now(timezone.utc) - timedelta(hours=200))
-                        .isoformat()
-                        .replace("+00:00", "Z"),
+                        "timestamp": (datetime.now(UTC) - timedelta(hours=200)).isoformat().replace("+00:00", "Z"),
                         "reason": "report_only_below_threshold",
                         "last_score": 0.55,
                         "threshold": 0.8,
@@ -170,24 +162,18 @@ class LoopPacketCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.loop_packet.write_output")
     @patch("dev.scripts.devctl.commands.loop_packet._build_live_triage_source")
-    def test_falls_back_to_live_triage_source_when_artifacts_missing(
-        self, fallback_mock, write_output_mock
-    ) -> None:
+    def test_falls_back_to_live_triage_source_when_artifacts_missing(self, fallback_mock, write_output_mock) -> None:
         fallback_mock.return_value = ArtifactSourceRow(
             path="<generated:live-triage>",
             command="triage",
             payload={
                 "command": "triage",
-                "timestamp": datetime.now(timezone.utc)
-                .isoformat()
-                .replace("+00:00", "Z"),
+                "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 "rollup": {"total": 0, "by_severity": {"high": 0, "medium": 0}},
-                "next_actions": [
-                    "No urgent triage actions detected from current signals."
-                ],
+                "next_actions": ["No urgent triage actions detected from current signals."],
             },
-            timestamp=datetime.now(timezone.utc),
-            mtime=datetime.now(timezone.utc).timestamp(),
+            timestamp=datetime.now(UTC),
+            mtime=datetime.now(UTC).timestamp(),
         )
         args = _base_args(source_json=["/tmp/does-not-exist-feedback-loop-source.json"])
         rc = loop_packet.run(args)
@@ -197,9 +183,7 @@ class LoopPacketCommandTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["source_path"], "<generated:live-triage>")
         self.assertEqual(payload["source_command"], "triage")
-        self.assertTrue(
-            any("no artifact source found" in row for row in payload["warnings"])
-        )
+        self.assertTrue(any("no artifact source found" in row for row in payload["warnings"]))
 
 
 if __name__ == "__main__":

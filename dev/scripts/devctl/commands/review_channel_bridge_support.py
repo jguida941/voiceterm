@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from ..review_channel.core import (
     AUTO_DARK_TERMINAL_PROFILES,
@@ -21,9 +21,9 @@ from ..review_channel.handoff import (
     wait_for_rollover_ack,
     write_handoff_bundle,
 )
+from ..review_channel.heartbeat import refresh_bridge_heartbeat
 from ..review_channel.launch import launch_terminal_sessions
 from ..review_channel.promotion import resolve_scope_plan_path, scope_bridge_instruction
-from ..review_channel.heartbeat import refresh_bridge_heartbeat
 
 
 def bridge_launch_state(
@@ -46,10 +46,14 @@ def bridge_launch_state(
     bridge_refresh = None
     refreshable_actions = set(bridge_actions) | {"status"}
     allow_status_refresh = args.action != "status" or not getattr(args, "dry_run", False)
-    if args.action in refreshable_actions and allow_status_refresh and getattr(
-        args,
-        "refresh_bridge_heartbeat_if_stale",
-        False,
+    if (
+        args.action in refreshable_actions
+        and allow_status_refresh
+        and getattr(
+            args,
+            "refresh_bridge_heartbeat_if_stale",
+            False,
+        )
     ):
         stale_errors = stale_bridge_launch_errors(
             repo_root=repo_root,
@@ -73,8 +77,7 @@ def bridge_launch_state(
         if not bridge_guard_report.get("ok", False):
             raise ValueError(
                 "Fresh conductor bootstrap requires a green review-channel "
-                "bridge guard before launch: "
-                + summarize_bridge_guard_failures(bridge_guard_report)
+                "bridge guard before launch: " + summarize_bridge_guard_failures(bridge_guard_report)
             )
         launch_state_errors = validate_launch_bridge_state(
             bridge_snapshot,
@@ -83,8 +86,7 @@ def bridge_launch_state(
         if launch_state_errors:
             raise ValueError(
                 "Fresh conductor bootstrap requires a live bridge "
-                "contract before launch: "
-                + "; ".join(launch_state_errors)
+                "contract before launch: " + "; ".join(launch_state_errors)
             )
     bridge_liveness = bridge_liveness_to_dict(bridge_liveness_state)
     codex_lanes = filter_provider_lanes(lanes, provider="codex")
@@ -142,9 +144,7 @@ def stale_bridge_launch_errors(
         return []
     if review_channel.get("error") or review_channel.get("missing_markers"):
         return []
-    if code_audit.get("error") or code_audit.get("missing_h2") or code_audit.get(
-        "missing_markers"
-    ):
+    if code_audit.get("error") or code_audit.get("missing_h2") or code_audit.get("missing_markers"):
         return []
     state_errors = code_audit.get("state_errors")
     if isinstance(state_errors, list) and state_errors:
@@ -209,11 +209,7 @@ def launch_sessions_if_requested(
     launched = False
     handoff_ack_required = False
     handoff_ack_observed = None
-    if (
-        args.action in {"launch", "rollover"}
-        and args.terminal == "terminal-app"
-        and not args.dry_run
-    ):
+    if args.action in {"launch", "rollover"} and args.terminal == "terminal-app" and not args.dry_run:
         launch_terminal_sessions_fn(
             sessions,
             terminal_profile=terminal_profile_applied,
@@ -221,11 +217,7 @@ def launch_sessions_if_requested(
             auto_dark_terminal_profiles=AUTO_DARK_TERMINAL_PROFILES,
         )
         launched = True
-        if (
-            args.action == "rollover"
-            and handoff_bundle is not None
-            and args.await_ack_seconds > 0
-        ):
+        if args.action == "rollover" and handoff_bundle is not None and args.await_ack_seconds > 0:
             handoff_ack_required = True
             handoff_ack_observed = wait_for_rollover_ack(
                 bridge_path=bridge_path,

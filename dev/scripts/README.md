@@ -6,6 +6,13 @@ Canonical maintainer control plane:
 python3 dev/scripts/devctl.py ...
 ```
 
+Runtime note:
+- Repo-owned Python subprocesses launched by `devctl` now inherit the
+  interpreter used to start `dev/scripts/devctl.py`. On machines where
+  `python3` is older than the repo baseline, run `python3.11
+  dev/scripts/devctl.py ...` so `check`, `probe-report`, and `guard-run`
+  follow-ups stay on the same runtime.
+
 Use `devctl` first for release, verification, docs-governance, and reporting.
 Legacy shell scripts remain as compatibility adapters that route into `devctl`.
 For active-doc discovery, use `dev/active/INDEX.md`.

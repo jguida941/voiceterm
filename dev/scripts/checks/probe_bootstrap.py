@@ -67,9 +67,7 @@ def build_probe_parser(description: str) -> argparse.ArgumentParser:
     """Build the standard CLI parser shared by all probes."""
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument(
-        "--head-ref", default="HEAD", help="Head ref used with --since-ref"
-    )
+    parser.add_argument("--head-ref", default="HEAD", help="Head ref used with --since-ref")
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 

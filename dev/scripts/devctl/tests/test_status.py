@@ -197,9 +197,7 @@ class StatusCommandTests(unittest.TestCase):
         self.assertEqual(code, 0)
         output = mock_write_output.call_args.args[0]
         self.assertIn("- Mutation score: unknown", output)
-        self.assertIn(
-            "- Mutation score note: No results found under rust/mutants.out", output
-        )
+        self.assertIn("- Mutation score note: No results found under rust/mutants.out", output)
 
     @patch("dev.scripts.devctl.commands.status.write_output")
     @patch("dev.scripts.devctl.commands.status.build_project_report")

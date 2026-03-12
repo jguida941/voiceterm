@@ -62,10 +62,7 @@ def apply_optional_inputs(
             if supports_triage:
                 use_cihub = True
             else:
-                cihub_warning = (
-                    "cihub binary does not support `triage`; skipping CIHub triage "
-                    f"(probe={source})."
-                )
+                cihub_warning = "cihub binary does not support `triage`; skipping CIHub triage " f"(probe={source})."
 
     triage_report["cihub"] = {"enabled": use_cihub, "emit_dir": str(emit_dir)}
     if cihub_warning:
@@ -94,9 +91,7 @@ def apply_optional_inputs(
         triage_report["cihub"].update(cihub_payload)
         step = triage_report["cihub"].get("step", {})
         if isinstance(step, dict) and step.get("returncode") not in (None, 0):
-            triage_report["warnings"].append(
-                "cihub triage command failed; using local-only signals."
-            )
+            triage_report["warnings"].append("cihub triage command failed; using local-only signals.")
             triage_report["issues"].append(
                 {
                     "category": "infra",
@@ -123,9 +118,7 @@ def apply_optional_inputs(
         )
         if external_error:
             row["error"] = external_error
-            triage_report["warnings"].append(
-                f"external issues ingest failed ({raw_path}): {external_error}"
-            )
+            triage_report["warnings"].append(f"external issues ingest failed ({raw_path}): {external_error}")
             triage_report["issues"].append(
                 {
                     "category": "infra",
@@ -148,9 +141,7 @@ def apply_optional_inputs(
     artifacts = triage_report["cihub"].get("artifacts", {})
     missing_artifacts = not isinstance(artifacts, dict) or not artifacts
     if not triage_report["cihub"].get("enabled") or step_failed or missing_artifacts:
-        triage_report["cihub"][
-            "warning"
-        ] = "cihub triage is required but command/artifacts were not successful."
+        triage_report["cihub"]["warning"] = "cihub triage is required but command/artifacts were not successful."
         triage_report["issues"].append(
             {
                 "category": "infra",

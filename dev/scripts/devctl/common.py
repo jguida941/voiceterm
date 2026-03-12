@@ -4,6 +4,7 @@ import os
 import queue
 import signal
 import subprocess
+import sys
 import threading
 import time
 from collections import deque
@@ -35,6 +36,24 @@ LIVE_OUTPUT_TIMEOUT_SECONDS = 1800.0
 
 # Keep the shared module object visible so existing patch paths still work.
 shutil = _common_io.shutil
+
+
+def resolve_repo_python_command(cmd: List[str], *, cwd: Optional[Path] = None) -> List[str]:
+    """Use the active interpreter for repo-owned Python scripts launched as `python3 ...`."""
+    if len(cmd) < 2 or cmd[0] != "python3":
+        return cmd
+    script_arg = cmd[1]
+    if not script_arg.endswith(".py"):
+        return cmd
+    script_path = Path(script_arg).expanduser()
+    if not script_path.is_absolute():
+        script_path = (cwd or REPO_ROOT) / script_path
+    try:
+        resolved = script_path.resolve(strict=False)
+        resolved.relative_to(REPO_ROOT)
+    except (OSError, ValueError):
+        return cmd
+    return [sys.executable or "python3", *cmd[1:]]
 
 
 def _trim_failure_output(output_tail: str) -> str:
@@ -73,10 +92,11 @@ def _run_with_live_output(
     env: Optional[dict],
 ) -> Tuple[int, str]:
     """Stream command output live while retaining a bounded failure excerpt."""
+    effective_cmd = resolve_repo_python_command(cmd, cwd=cwd)
     effective_env = dict(os.environ if env is None else env)
     effective_env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
     process = subprocess.Popen(
-        cmd,
+        effective_cmd,
         cwd=cwd,
         env=effective_env,
         stdout=subprocess.PIPE,
@@ -172,10 +192,11 @@ def _run_without_live_output(
     env: Optional[dict],
 ) -> Tuple[int, str]:
     """Run a command quietly while retaining combined stdout/stderr text."""
+    effective_cmd = resolve_repo_python_command(cmd, cwd=cwd)
     effective_env = dict(os.environ if env is None else env)
     effective_env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
     process = subprocess.Popen(
-        cmd,
+        effective_cmd,
         cwd=cwd,
         env=effective_env,
         stdout=subprocess.PIPE,

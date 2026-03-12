@@ -27,10 +27,10 @@ from .commands import (
     data_science,
     docs_check,
     failure_cleanup,
-    guard_run,
-    governance_export,
     governance_bootstrap,
+    governance_export,
     governance_review,
+    guard_run,
     homebrew,
     hygiene,
     integrations_import,
@@ -48,10 +48,10 @@ from .commands import (
     path_audit,
     path_rewrite,
     phone_status,
+    probe_report,
     process_audit,
     process_cleanup,
     process_watch,
-    probe_report,
     publication_sync,
     pypi,
     quality_policy,
@@ -59,9 +59,9 @@ from .commands import (
     release,
     release_gates,
     release_notes,
-    review_channel,
     report,
     reports_cleanup,
+    review_channel,
     security,
     ship,
     status,
@@ -86,8 +86,8 @@ from .mutation_loop_parser import add_mutation_loop_parser
 from .orchestrate_parser import add_orchestrate_parsers
 from .path_audit_parser import add_path_audit_parser, add_path_rewrite_parser
 from .publication_sync_parser import add_publication_sync_parser
-from .review_channel_parser import add_review_channel_parser
 from .reports_cleanup_parser import add_reports_cleanup_parser
+from .review_channel_parser import add_review_channel_parser
 from .security_parser import add_security_parser
 from .sync_parser import add_sync_parser
 from .triage_loop_parser import add_triage_loop_parser

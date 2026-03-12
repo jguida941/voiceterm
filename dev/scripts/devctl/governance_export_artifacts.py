@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 from .commands import quality_policy as quality_policy_command
@@ -44,34 +44,19 @@ def write_generated_artifacts(
             rust=policy.capabilities.rust,
         ),
         quality_scopes=quality_policy_command.ScopePayload(
-            python_guard_roots=[
-                path.as_posix() for path in policy.scopes.python_guard_roots
-            ],
-            python_probe_roots=[
-                path.as_posix() for path in policy.scopes.python_probe_roots
-            ],
-            rust_guard_roots=[
-                path.as_posix() for path in policy.scopes.rust_guard_roots
-            ],
-            rust_probe_roots=[
-                path.as_posix() for path in policy.scopes.rust_probe_roots
-            ],
+            python_guard_roots=[path.as_posix() for path in policy.scopes.python_guard_roots],
+            python_probe_roots=[path.as_posix() for path in policy.scopes.python_probe_roots],
+            rust_guard_roots=[path.as_posix() for path in policy.scopes.rust_guard_roots],
+            rust_probe_roots=[path.as_posix() for path in policy.scopes.rust_probe_roots],
         ),
-        ai_guard_checks=[
-            quality_policy_command._step_payload(spec) for spec in policy.ai_guard_checks
-        ],
-        review_probe_checks=[
-            quality_policy_command._step_payload(spec)
-            for spec in policy.review_probe_checks
-        ],
+        ai_guard_checks=[quality_policy_command._step_payload(spec) for spec in policy.ai_guard_checks],
+        review_probe_checks=[quality_policy_command._step_payload(spec) for spec in policy.review_probe_checks],
         guard_configs=policy.guard_configs,
         warnings=list(policy.warnings),
     )
     quality_json_path = quality_output_dir / "quality_policy.json"
     quality_md_path = quality_output_dir / "quality_policy.md"
-    quality_json_path.write_text(
-        json.dumps(asdict(quality_payload), indent=2), encoding="utf-8"
-    )
+    quality_json_path.write_text(json.dumps(asdict(quality_payload), indent=2), encoding="utf-8")
     quality_md_path.write_text(
         quality_policy_command._render_markdown(policy),
         encoding="utf-8",

@@ -40,16 +40,10 @@ except ModuleNotFoundError:  # pragma: no cover
         emit_probe_report,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
-is_review_probe_test_path = import_attr(
-    "probe_path_filters", "is_review_probe_test_path"
-)
-scan_rust_functions = import_attr(
-    "code_shape_function_policy", "scan_rust_functions"
-)
+is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
+scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -64,8 +58,7 @@ CONVERSION_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     (
         re.compile(r"\.\s*as_str\s*\(\s*\)\s*\.\s*to_string\s*\(\s*\)"),
         ".as_str().to_string()",
-        "String→&str→String round-trip. Use .clone() if you need a copy, "
-        "or pass &str if the caller only reads.",
+        "String→&str→String round-trip. Use .clone() if you need a copy, " "or pass &str if the caller only reads.",
     ),
     (
         re.compile(r"\.\s*as_ref\s*\(\s*\)\s*\.\s*to_owned\s*\(\s*\)"),
@@ -75,26 +68,22 @@ CONVERSION_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     (
         re.compile(r"\.\s*to_string\s*\(\s*\)\s*\.\s*as_str\s*\(\s*\)"),
         ".to_string().as_str()",
-        "Creates a temporary String just to get &str. "
-        "Use the original &str directly.",
+        "Creates a temporary String just to get &str. " "Use the original &str directly.",
     ),
     (
         re.compile(r"\.\s*to_owned\s*\(\s*\)\s*\.\s*as_ref\s*\(\s*\)"),
         ".to_owned().as_ref()",
-        "Creates an owned copy just to borrow it. "
-        "Use the original reference directly.",
+        "Creates an owned copy just to borrow it. " "Use the original reference directly.",
     ),
     (
         re.compile(r"\.\s*clone\s*\(\s*\)\s*\.\s*as_str\s*\(\s*\)"),
         ".clone().as_str()",
-        "Clones a String just to borrow it as &str. "
-        "Borrow the original instead.",
+        "Clones a String just to borrow it as &str. " "Borrow the original instead.",
     ),
     (
         re.compile(r"\.\s*to_string\s*\(\s*\)\s*\.\s*into\s*\(\s*\)"),
         ".to_string().into()",
-        "Double conversion — .to_string() already produces a String. "
-        "Use .to_string() or .into() alone.",
+        "Double conversion — .to_string() already produces a String. " "Use .to_string() or .into() alone.",
     ),
 ]
 
@@ -104,6 +93,8 @@ AI_INSTRUCTION = (
     "when you need an owned copy, pass references when you only read, "
     "or restructure to avoid the conversion entirely."
 )
+
+
 def _scan_rust_file(text: str, path: Path) -> list[RiskHint]:
     """Detect redundant type conversions in one Rust file."""
     hints: list[RiskHint] = []
@@ -121,9 +112,7 @@ def _scan_rust_file(text: str, path: Path) -> list[RiskHint]:
         for pattern, label, explanation in CONVERSION_PATTERNS:
             matches = pattern.findall(body)
             if matches:
-                signals.append(
-                    f"{len(matches)}x {label} — {explanation}"
-                )
+                signals.append(f"{len(matches)}x {label} — {explanation}")
 
         if signals:
             hints.append(
@@ -150,7 +139,9 @@ def main() -> int:
             guard.validate_ref(args.since_ref)
             guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            guard.run_git, args.since_ref, args.head_ref,
+            guard.run_git,
+            args.since_ref,
+            args.head_ref,
         )
     except RuntimeError:
         return emit_probe_report(report, output_format=args.format)
@@ -163,19 +154,13 @@ def main() -> int:
     for path in changed_paths:
         if path.suffix != ".rs":
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             continue
         if is_review_probe_test_path(path):
             continue
 
         report.files_scanned += 1
-        text = (
-            guard.read_text_from_ref(path, args.head_ref)
-            if args.since_ref
-            else guard.read_text_from_worktree(path)
-        )
+        text = guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
         if text is None:
             continue
 

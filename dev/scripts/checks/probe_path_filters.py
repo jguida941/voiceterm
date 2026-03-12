@@ -13,11 +13,7 @@ except ModuleNotFoundError:  # pragma: no cover
 def is_python_test_path(path: Path) -> bool:
     """Return True when a path is a Python test path."""
     normalized = f"/{path.as_posix().lstrip('/')}/"
-    return (
-        path.name.startswith("test_")
-        or "/tests/" in normalized
-        or "/test/" in normalized
-    )
+    return path.name.startswith("test_") or "/tests/" in normalized or "/test/" in normalized
 
 
 def is_review_probe_test_path(path: Path) -> bool:

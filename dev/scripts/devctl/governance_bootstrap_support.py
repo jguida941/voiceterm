@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 from .time_utils import utc_timestamp

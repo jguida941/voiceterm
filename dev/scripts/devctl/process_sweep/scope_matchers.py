@@ -15,12 +15,12 @@ from .config import (
     REPO_TOOLING_WRAPPER_RE,
     VOICETERM_SWEEP_TARGET_RE,
 )
-from .internals import (
+from .internals import select_matching_rows
+from .matching import (
     is_attached_noninteractive_repo_helper,
     is_repo_background_candidate,
     path_is_under_repo,
     row_looks_backgrounded,
-    select_matching_rows,
 )
 
 RunCmd = Callable[..., Any]

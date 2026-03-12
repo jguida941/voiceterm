@@ -161,6 +161,10 @@ the concrete minimum inventory after edits:
 5. If you need to run raw Rust tests or test binaries directly, prefer:
    - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...`
    - This enforces the required post-run hygiene follow-up automatically.
+   - `guard-run`, `check`, and `probe-report` now reuse the interpreter that
+     launched `dev/scripts/devctl.py` for repo-owned Python subprocesses, so
+     use `python3.11 dev/scripts/devctl.py ...` on machines where `python3`
+     still points to an older runtime.
 
 Use the bundle as the source of truth for exact command sets. This section is a
 human-readable reminder of the minimum checks that should be covered after file

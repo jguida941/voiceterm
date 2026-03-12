@@ -36,9 +36,7 @@ except ModuleNotFoundError:  # pragma: no cover
         emit_probe_report,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 is_rust_test_path = import_attr("rust_guard_common", "is_test_path")
 scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
@@ -124,9 +122,7 @@ def _scan_file(text: str, path: Path) -> list[RiskHint]:
         # Arc<Mutex> or Arc<RwLock> with spawn — shared mutable state
         # crosses a task boundary, which is a real ownership concern.
         has_arc_mutex = bool(ARC_MUTEX_RE.search(func_text))
-        has_spawn = bool(TOKIO_SPAWN_RE.search(func_text)) or bool(
-            THREAD_SPAWN_RE.search(func_text)
-        )
+        has_spawn = bool(TOKIO_SPAWN_RE.search(func_text)) or bool(THREAD_SPAWN_RE.search(func_text))
         if has_arc_mutex and has_spawn:
             signals.append("Arc<Mutex/RwLock> shared with spawned task")
             signal_key = signal_key or "arc_mutex_spawn"
@@ -138,8 +134,7 @@ def _scan_file(text: str, path: Path) -> list[RiskHint]:
         atomic_flag_count = len(ATOMIC_FLAG_DECL_RE.findall(func_text))
         if atomic_flag_count >= 2 and ATOMIC_RELAXED_RE.search(func_text):
             signals.append(
-                f"{atomic_flag_count} Arc<AtomicBool> flags with Ordering::Relaxed "
-                f"(verify flags are independent)"
+                f"{atomic_flag_count} Arc<AtomicBool> flags with Ordering::Relaxed " f"(verify flags are independent)"
             )
             signal_key = signal_key or "atomic_relaxed_multi_flag"
 
@@ -150,9 +145,7 @@ def _scan_file(text: str, path: Path) -> list[RiskHint]:
 
         if signals:
             severity = "high" if lock_count >= 2 else "medium"
-            ai_instruction = AI_INSTRUCTIONS.get(
-                signal_key or "", DEFAULT_AI_INSTRUCTION
-            )
+            ai_instruction = AI_INSTRUCTIONS.get(signal_key or "", DEFAULT_AI_INSTRUCTION)
             hints.append(
                 RiskHint(
                     file=rel_path,
@@ -177,7 +170,9 @@ def main() -> int:
             guard.validate_ref(args.since_ref)
             guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            guard.run_git, args.since_ref, args.head_ref,
+            guard.run_git,
+            args.since_ref,
+            args.head_ref,
         )
     except RuntimeError:
         return emit_probe_report(report, output_format=args.format)
@@ -190,9 +185,7 @@ def main() -> int:
     for path in changed_paths:
         if path.suffix != ".rs":
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             continue
         if is_rust_test_path(path):
             continue

@@ -64,10 +64,7 @@ def derive_promotion_candidate(
     """Return the first unchecked execution-checklist item, if any."""
     if not promotion_plan_path.exists():
         if require_exists:
-            raise ValueError(
-                "Promotion plan is missing: "
-                f"{display_path(promotion_plan_path, repo_root=repo_root)}"
-            )
+            raise ValueError("Promotion plan is missing: " f"{display_path(promotion_plan_path, repo_root=repo_root)}")
         return None
 
     plan_text = promotion_plan_path.read_text(encoding="utf-8")
@@ -85,10 +82,7 @@ def derive_promotion_candidate(
     phase_prefix = f"{phase_heading}: " if phase_heading else ""
     source_path = display_path(promotion_plan_path, repo_root=repo_root)
     return PromotionCandidate(
-        instruction=(
-            f"- Next scoped plan item ({source_path}): "
-            f"{phase_prefix}{checklist_item}"
-        ),
+        instruction=(f"- Next scoped plan item ({source_path}): " f"{phase_prefix}{checklist_item}"),
         source_path=source_path,
         phase_heading=phase_heading,
         checklist_item=checklist_item,
@@ -100,17 +94,12 @@ def validate_promotion_ready(snapshot: BridgeSnapshot) -> list[str]:
     errors: list[str] = []
     current_verdict = snapshot.sections.get("Current Verdict", "").strip().lower()
     open_findings = snapshot.sections.get("Open Findings", "").strip().lower()
-    current_instruction = (
-        snapshot.sections.get(CURRENT_INSTRUCTION_SECTION, "").strip().lower()
-    )
+    current_instruction = snapshot.sections.get(CURRENT_INSTRUCTION_SECTION, "").strip().lower()
 
     if not current_verdict:
         errors.append("Missing `Current Verdict`; cannot promote from unknown review state.")
     elif not _contains_any(current_verdict, RESOLVED_VERDICT_MARKERS):
-        errors.append(
-            "`Current Verdict` must show an accepted/resolved slice before "
-            "the next task is promoted."
-        )
+        errors.append("`Current Verdict` must show an accepted/resolved slice before " "the next task is promoted.")
 
     if open_findings and not _contains_any(open_findings, IDLE_FINDING_MARKERS):
         errors.append(
@@ -123,8 +112,7 @@ def validate_promotion_ready(snapshot: BridgeSnapshot) -> list[str]:
         PROMOTABLE_INSTRUCTION_MARKERS,
     ):
         errors.append(
-            "`Current Instruction For Claude` still looks live; refuse to "
-            "overwrite an active instruction."
+            "`Current Instruction For Claude` still looks live; refuse to " "overwrite an active instruction."
         )
 
     return errors
@@ -136,12 +124,13 @@ def rewrite_current_instruction(
     instruction: str,
 ) -> str:
     """Rewrite only the live Claude-instruction section in `code_audit.md`."""
-    replacement = lambda match: f"{match.group(1)}\n{instruction.strip()}\n\n"
+
+    def replacement(match):
+        return f"{match.group(1)}\n{instruction.strip()}\n\n"
+
     rewritten, count = CURRENT_INSTRUCTION_SECTION_RE.subn(replacement, bridge_text, count=1)
     if count != 1:
-        raise ValueError(
-            f"Unable to locate `{CURRENT_INSTRUCTION_SECTION}` in the markdown bridge."
-        )
+        raise ValueError(f"Unable to locate `{CURRENT_INSTRUCTION_SECTION}` in the markdown bridge.")
     return rewritten
 
 
@@ -184,9 +173,7 @@ def _iter_unchecked_checklist_items(
     def flush_current_item() -> None:
         nonlocal current_item_mark, current_item_lines
         if current_item_mark == " " and current_item_lines:
-            unchecked_items.append(
-                (current_phase, _normalize_item_text(current_item_lines))
-            )
+            unchecked_items.append((current_phase, _normalize_item_text(current_item_lines)))
         current_item_mark = None
         current_item_lines = []
 
@@ -298,10 +285,7 @@ def scope_bridge_instruction(
     )
     assert candidate is not None
     source = display_path(scope_plan_path, repo_root=repo_root)
-    instruction = (
-        f"Scoped from `{source}` via `--scope`.\n\n"
-        f"{candidate.instruction}"
-    )
+    instruction = f"Scoped from `{source}` via `--scope`.\n\n" f"{candidate.instruction}"
     updated = rewrite_current_instruction(
         bridge_text=bridge_text,
         instruction=instruction,

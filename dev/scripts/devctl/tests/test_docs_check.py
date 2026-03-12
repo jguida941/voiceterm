@@ -6,8 +6,8 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl import collect
-from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
 from dev.scripts.devctl.commands import docs_check
+from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
 
 
 class CollectGitStatusTests(unittest.TestCase):
@@ -15,9 +15,7 @@ class CollectGitStatusTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/git")
     @patch("dev.scripts.devctl.collect.subprocess.check_output")
-    def test_collect_git_status_uses_worktree_porcelain(
-        self, mock_check_output, _mock_git
-    ) -> None:
+    def test_collect_git_status_uses_worktree_porcelain(self, mock_check_output, _mock_git) -> None:
         mock_check_output.side_effect = [
             "feature/test\n",
             " M guides/USAGE.md\nA  dev/CHANGELOG.md\n",
@@ -43,9 +41,7 @@ class CollectGitStatusTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/git")
     @patch("dev.scripts.devctl.collect.subprocess.check_output")
-    def test_collect_git_status_uses_commit_range_diff(
-        self, mock_check_output, _mock_git
-    ) -> None:
+    def test_collect_git_status_uses_commit_range_diff(self, mock_check_output, _mock_git) -> None:
         mock_check_output.side_effect = [
             "feature/test\n",
             "M\tguides/USAGE.md\nR100\told.md\tdev/CHANGELOG.md\n",
@@ -70,9 +66,7 @@ class CollectGitStatusTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/git")
     @patch("dev.scripts.devctl.collect.subprocess.check_output")
-    def test_collect_git_status_supports_adoption_scan(
-        self, mock_check_output, _mock_git
-    ) -> None:
+    def test_collect_git_status_supports_adoption_scan(self, mock_check_output, _mock_git) -> None:
         mock_check_output.side_effect = [
             "HEAD\n",
             "README.md\ndev/scripts/devctl.py\n",
@@ -229,10 +223,7 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertIn("failure_reasons", payload)
         self.assertIn("next_actions", payload)
         self.assertTrue(
-            any(
-                "Missing required `dev/CHANGELOG.md` update" in reason
-                for reason in payload["failure_reasons"]
-            )
+            any("Missing required `dev/CHANGELOG.md` update" in reason for reason in payload["failure_reasons"])
         )
         self.assertTrue(any("triage" in action for action in payload["next_actions"]))
 
@@ -706,10 +697,7 @@ class DocsCheckCommandTests(unittest.TestCase):
             "ok": False,
             "checked_file_count": 10,
             "excluded_prefixes": ["dev/archive/"],
-            "rules": {
-                "dev/scripts/"
-                + "check_agents_contract.py": "dev/scripts/checks/check_agents_contract.py"
-            },
+            "rules": {"dev/scripts/" + "check_agents_contract.py": "dev/scripts/checks/check_agents_contract.py"},
             "violations": [
                 {
                     "file": "AGENTS.md",
@@ -827,12 +815,7 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
         payload = json.loads(mock_write_output.call_args.args[0])
         self.assertFalse(payload["markdown_metadata_header_ok"])
-        self.assertTrue(
-            any(
-                "Markdown metadata header gate failed" in reason
-                for reason in payload["failure_reasons"]
-            )
-        )
+        self.assertTrue(any("Markdown metadata header gate failed" in reason for reason in payload["failure_reasons"]))
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch(
@@ -915,12 +898,7 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
         payload = json.loads(mock_write_output.call_args.args[0])
         self.assertFalse(payload["workflow_shell_hygiene_ok"])
-        self.assertTrue(
-            any(
-                "Workflow shell hygiene gate failed" in reason
-                for reason in payload["failure_reasons"]
-            )
-        )
+        self.assertTrue(any("Workflow shell hygiene gate failed" in reason for reason in payload["failure_reasons"]))
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch(
@@ -947,9 +925,7 @@ class DocsCheckCommandTests(unittest.TestCase):
                 {
                     "bundle": "bundle.tooling",
                     "workflow": ".github/workflows/tooling_control_plane.yml",
-                    "missing_commands": [
-                        "python3 dev/scripts/checks/check_naming_consistency.py"
-                    ],
+                    "missing_commands": ["python3 dev/scripts/checks/check_naming_consistency.py"],
                 }
             ],
         },
@@ -1004,12 +980,7 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
         payload = json.loads(mock_write_output.call_args.args[0])
         self.assertFalse(payload["bundle_workflow_parity_ok"])
-        self.assertTrue(
-            any(
-                "Bundle/workflow parity gate failed" in reason
-                for reason in payload["failure_reasons"]
-            )
-        )
+        self.assertTrue(any("Bundle/workflow parity gate failed" in reason for reason in payload["failure_reasons"]))
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch(
@@ -1082,12 +1053,7 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
         payload = json.loads(mock_write_output.call_args.args[0])
         self.assertFalse(payload["agents_bundle_render_ok"])
-        self.assertTrue(
-            any(
-                "AGENTS bundle render gate failed" in reason
-                for reason in payload["failure_reasons"]
-            )
-        )
+        self.assertTrue(any("AGENTS bundle render gate failed" in reason for reason in payload["failure_reasons"]))
 
 
 if __name__ == "__main__":

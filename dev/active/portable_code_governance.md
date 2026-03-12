@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-03-11 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-03-12 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under `MP-376`.
 
@@ -306,6 +306,43 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   `external_ref=9cf965f`). The paper repo now derives its appendix snapshot
   stats from the shared JSON snapshot instead of freezing those counts in
   prose, and `check_publication_sync.py` is back to zero drift.
+- 2026-03-12: Closed the next GitHub-only parity follow-up after PR #16 moved
+  onto the refreshed governance branch head. `test_process_sweep.py` now
+  derives repo and `rust/` cwd fixtures from the live checkout root instead of
+  a hard-coded workstation path, review-channel bridge tests pin freshness
+  enforcement explicitly so `GITHUB_ACTIONS=true` no longer changes stale-poll
+  expectations by accident, the startup-banner render-mode test now clears
+  runtime/style-pack overrides before asserting the fallback path, iOS
+  `xcode-build` now targets the generic simulator destination instead of a
+  runner-specific device name, and the changed-file `pre-commit` lane is back
+  to green after explicit watchdog/snapshot re-export cleanup plus the
+  corresponding Ruff/format sweep across the touched PR file set.
+- 2026-03-12: Finished the next CI-parity cleanup pass on top of that branch
+  refresh. `devctl` now keeps repo-owned Python subprocesses on the invoking
+  interpreter so local `python3.11 dev/scripts/devctl.py check|probe-report`
+  runs no longer fall back to an older `python3` on PATH, split-module
+  compatibility exports were restored for `quality_policy`, `collect`,
+  `status_report`, `triage/support`, `check_phases`, and
+  `check_python_global_mutable`, new support modules
+  `dev/scripts/devctl/phone_status_view_support.py`,
+  `dev/scripts/devctl/text_utils.py`, and
+  `app/operator_console/state/activity/activity_report_support.py` pulled
+  `phone_status_views.py` and `activity_reports.py` back under code-shape
+  limits without duplicate logic, and the follow-up guard fixes removed the new
+  broad-except / suppression-debt / nesting-depth regressions introduced during
+  the changed-file Ruff sweep.
+- 2026-03-12: Burned down the remaining working-tree review-probe debt from
+  the phone/mobile control-plane surfaces. `dev/scripts/devctl/autonomy/phone_status.py`
+  now uses a typed `RalphSection` boundary instead of large anonymous helper
+  dicts and inlines the one-call latest-attempt / trace-normalization logic in
+  `build_phone_status()`, `dev/scripts/devctl/mobile_status_projection.py`
+  now carries the typed mobile compact/alert/actions payload models plus view
+  parsing/render helpers so `mobile_status_views.py` stays under its
+  code-shape limit, and `dev/scripts/devctl/commands/loop_packet_helpers.py`
+  now uses `LoopPacketSourceCommand` instead of the last remaining auto-send
+  string-literal chain. Focused `phone_status` / `mobile_status` /
+  `loop_packet` tests are green, `probe-report` now returns a clean packet,
+  and the reviewed outcomes are recorded as `fixed` in `governance-review`.
 
 ## Audit Evidence
 

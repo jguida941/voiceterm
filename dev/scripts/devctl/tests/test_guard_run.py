@@ -385,28 +385,24 @@ class WatchdogEpisodeTests(TestCase):
                     "--strict-tooling",
                 ]
             )
-            with mock.patch.dict(
-                "os.environ",
-                {"DEVCTL_WATCHDOG_EPISODE_ROOT": str(root)},
-                clear=False,
-            ):
-                with mock.patch(
+            with (
+                mock.patch.dict(
+                    "os.environ",
+                    {"DEVCTL_WATCHDOG_EPISODE_ROOT": str(root)},
+                    clear=False,
+                ),
+                mock.patch(
                     "dev.scripts.devctl.commands.guard_run.run_cmd",
                     side_effect=[{"returncode": 0}, {"returncode": 0}],
-                ):
-                    with mock.patch(
-                        "dev.scripts.devctl.commands.guard_run.write_output"
-                    ) as write_output_mock:
-                        rc = guard_run.run(args)
+                ),
+                mock.patch("dev.scripts.devctl.commands.guard_run.write_output") as write_output_mock,
+            ):
+                rc = guard_run.run(args)
 
             self.assertEqual(rc, 0)
             jsonl_path = root / "guarded_coding_episode.jsonl"
             self.assertTrue(jsonl_path.exists())
-            rows = [
-                json.loads(line)
-                for line in jsonl_path.read_text(encoding="utf-8").splitlines()
-                if line.strip()
-            ]
+            rows = [json.loads(line) for line in jsonl_path.read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["guard_family"], "docs")
             self.assertEqual(rows[0]["provider"], "codex")

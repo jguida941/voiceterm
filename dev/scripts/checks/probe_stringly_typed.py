@@ -40,19 +40,11 @@ except ModuleNotFoundError:  # pragma: no cover
         emit_probe_report,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
-is_review_probe_test_path = import_attr(
-    "probe_path_filters", "is_review_probe_test_path"
-)
-scan_python_functions = import_attr(
-    "code_shape_function_policy", "scan_python_functions"
-)
-scan_rust_functions = import_attr(
-    "code_shape_function_policy", "scan_rust_functions"
-)
+is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
+scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
+scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -71,9 +63,7 @@ STRING_COMPARE_HIGH = 5
 PY_STR_CMP_RE = re.compile(r"\b(\w+)\s*==\s*[\"']([^\"']+)[\"']")
 
 # Python: "literal" in {set} pattern — detects action/status sets
-PY_STR_SET_RE = re.compile(
-    r'\{[^}]*"[^"]*"(?:\s*,\s*"[^"]*"){2,}[^}]*\}'
-)
+PY_STR_SET_RE = re.compile(r'\{[^}]*"[^"]*"(?:\s*,\s*"[^"]*"){2,}[^}]*\}')
 
 # Rust: "literal" => in match arms
 RS_STR_MATCH_RE = re.compile(r'"([^"]+)"\s*=>')
@@ -91,9 +81,9 @@ AI_INSTRUCTIONS = {
         "the valid values discoverable."
     ),
 }
-def _scan_python_function_body(
-    body: str, func_name: str, rel_path: str
-) -> list[RiskHint]:
+
+
+def _scan_python_function_body(body: str, func_name: str, rel_path: str) -> list[RiskHint]:
     """Detect string-comparison chains in one Python function."""
     hints: list[RiskHint] = []
     var_counts: Counter = Counter()
@@ -106,11 +96,7 @@ def _scan_python_function_body(
         if count < STRING_COMPARE_MEDIUM:
             continue
         # Collect the literal values being compared.
-        literals = [
-            m.group(2)
-            for m in PY_STR_CMP_RE.finditer(body)
-            if m.group(1) == var
-        ]
+        literals = [m.group(2) for m in PY_STR_CMP_RE.finditer(body) if m.group(1) == var]
         sample = ", ".join(f'"{v}"' for v in literals[:5])
         severity = "high" if count >= STRING_COMPARE_HIGH else "medium"
         hints.append(
@@ -119,10 +105,7 @@ def _scan_python_function_body(
                 symbol=func_name,
                 risk_type="design_smell",
                 severity=severity,
-                signals=[
-                    f"'{var}' compared against {count} string literals "
-                    f"({sample}) — use enum"
-                ],
+                signals=[f"'{var}' compared against {count} string literals " f"({sample}) — use enum"],
                 ai_instruction=AI_INSTRUCTIONS[severity],
                 review_lens=REVIEW_LENS,
             )
@@ -141,9 +124,7 @@ def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
         start = func["start_line"] - 1
         end = func["end_line"]
         body = "\n".join(lines[start + 1 : end])
-        hints.extend(
-            _scan_python_function_body(body, func["name"], rel)
-        )
+        hints.extend(_scan_python_function_body(body, func["name"], rel))
 
     return hints
 
@@ -157,9 +138,15 @@ def _scan_rust_file(text: str, path: Path) -> list[RiskHint]:
     rel = path.as_posix()
 
     # Trait impl functions where string matching IS the correct pattern.
-    _RUST_PARSER_FUNCTIONS = frozenset({
-        "from_str", "try_from", "from", "deserialize", "parse",
-    })
+    _RUST_PARSER_FUNCTIONS = frozenset(
+        {
+            "from_str",
+            "try_from",
+            "from",
+            "deserialize",
+            "parse",
+        }
+    )
 
     for func in functions:
         if func["name"] in _RUST_PARSER_FUNCTIONS:
@@ -182,10 +169,7 @@ def _scan_rust_file(text: str, path: Path) -> list[RiskHint]:
                 symbol=func["name"],
                 risk_type="design_smell",
                 severity=severity,
-                signals=[
-                    f"match with {count} string-literal arms "
-                    f"({sample}) — use enum"
-                ],
+                signals=[f"match with {count} string-literal arms " f"({sample}) — use enum"],
                 ai_instruction=AI_INSTRUCTIONS[severity],
                 review_lens=REVIEW_LENS,
             )
@@ -203,7 +187,9 @@ def main() -> int:
             guard.validate_ref(args.since_ref)
             guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            guard.run_git, args.since_ref, args.head_ref,
+            guard.run_git,
+            args.since_ref,
+            args.head_ref,
         )
     except RuntimeError:
         return emit_probe_report(report, output_format=args.format)
@@ -217,29 +203,17 @@ def main() -> int:
         if is_review_probe_test_path(path):
             continue
 
-        is_python = path.suffix == ".py" and is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=PYTHON_ROOTS
-        )
-        is_rust = path.suffix == ".rs" and is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=RUST_ROOTS
-        )
+        is_python = path.suffix == ".py" and is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=PYTHON_ROOTS)
+        is_rust = path.suffix == ".rs" and is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=RUST_ROOTS)
         if not is_python and not is_rust:
             continue
 
         report.files_scanned += 1
-        text = (
-            guard.read_text_from_ref(path, args.head_ref)
-            if args.since_ref
-            else guard.read_text_from_worktree(path)
-        )
+        text = guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
         if text is None:
             continue
 
-        hints = (
-            _scan_python_file(text, path)
-            if is_python
-            else _scan_rust_file(text, path)
-        )
+        hints = _scan_python_file(text, path) if is_python else _scan_rust_file(text, path)
         if hints:
             files_with_hints.add(path.as_posix())
             report.risk_hints.extend(hints)

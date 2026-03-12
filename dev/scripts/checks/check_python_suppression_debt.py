@@ -30,23 +30,17 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         utc_timestamp,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
-TARGET_ROOTS = (
-    *resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),
-)
+TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
 SUPPRESSION_PATTERNS = {
     "noqa": re.compile(r"^#\s*noqa(?:\b|:)", re.IGNORECASE),
     "type_ignore": re.compile(r"^#\s*type:\s*ignore\b", re.IGNORECASE),
-    "pylint_disable": re.compile(
-        r"^#\s*pylint:\s*disable(?:\b|=)", re.IGNORECASE
-    ),
+    "pylint_disable": re.compile(r"^#\s*pylint:\s*disable(?:\b|=)", re.IGNORECASE),
     "pyright_ignore": re.compile(r"^#\s*pyright:\s*ignore\b", re.IGNORECASE),
 }
 SUPPRESSION_LABELS = {
@@ -67,9 +61,7 @@ def _iter_comment_tokens(text: str | None) -> tuple[str, ...]:
     try:
         stream = io.StringIO(text)
         return tuple(
-            token.string
-            for token in tokenize.generate_tokens(stream.readline)
-            if token.type == tokenize.COMMENT
+            token.string for token in tokenize.generate_tokens(stream.readline) if token.type == tokenize.COMMENT
         )
     except (SyntaxError, tokenize.TokenError):
         return ()
@@ -93,11 +85,7 @@ def _has_positive_growth(growth: dict[str, int]) -> bool:
 
 
 def _format_growth(growth: dict[str, int]) -> str:
-    parts = [
-        f"{SUPPRESSION_LABELS[kind]} {value:+d}"
-        for kind, value in growth.items()
-        if value != 0
-    ]
+    parts = [f"{SUPPRESSION_LABELS[kind]} {value:+d}" for kind, value in growth.items() if value != 0]
     return ", ".join(parts) if parts else "none"
 
 
@@ -112,9 +100,7 @@ def build_report(
     files_considered = 0
     files_skipped_non_python = 0
     violations: list[dict] = []
-    totals = {
-        f"{kind}_growth": 0 for kind in SUPPRESSION_PATTERNS
-    }
+    totals = {f"{kind}_growth": 0 for kind in SUPPRESSION_PATTERNS}
 
     for candidate in candidate_paths:
         if candidate.suffix != ".py":
@@ -128,11 +114,7 @@ def build_report(
             files_skipped_non_python += 1
             continue
 
-        relative_path = (
-            candidate.relative_to(repo_root).as_posix()
-            if candidate.is_absolute()
-            else candidate.as_posix()
-        )
+        relative_path = candidate.relative_to(repo_root).as_posix() if candidate.is_absolute() else candidate.as_posix()
         files_considered += 1
 
         base = _count_suppressions(base_text_by_path.get(relative_path))
@@ -178,9 +160,7 @@ def _render_md(report: dict) -> str:
     if report.get("head_ref"):
         lines.append(f"- head_ref: {report['head_ref']}")
 
-    aggregate_growth = {
-        kind: report["totals"][f"{kind}_growth"] for kind in SUPPRESSION_PATTERNS
-    }
+    aggregate_growth = {kind: report["totals"][f"{kind}_growth"] for kind in SUPPRESSION_PATTERNS}
     lines.append(f"- aggregate_growth: {_format_growth(aggregate_growth)}")
 
     if report["violations"]:
@@ -216,9 +196,7 @@ def main() -> int:
             args.head_ref,
         )
     except RuntimeError as exc:
-        return emit_runtime_error(
-            "check_python_suppression_debt", args.format, str(exc)
-        )
+        return emit_runtime_error("check_python_suppression_debt", args.format, str(exc))
 
     base_text_by_path: dict[str, str | None] = {}
     current_text_by_path: dict[str, str | None] = {}

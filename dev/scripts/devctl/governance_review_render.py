@@ -16,12 +16,8 @@ def render_governance_review_markdown(report: dict[str, Any]) -> str:
     lines.append(f"- total_rows: {stats.get('total_rows')}")
     lines.append(f"- total_findings: {stats.get('total_findings')}")
     lines.append(f"- false_positive_count: {stats.get('false_positive_count')}")
-    lines.append(
-        f"- false_positive_rate_pct: {stats.get('false_positive_rate_pct')}"
-    )
-    lines.append(
-        f"- positive_finding_count: {stats.get('positive_finding_count')}"
-    )
+    lines.append(f"- false_positive_rate_pct: {stats.get('false_positive_rate_pct')}")
+    lines.append(f"- positive_finding_count: {stats.get('positive_finding_count')}")
     lines.append(f"- fixed_count: {stats.get('fixed_count')}")
     lines.append(f"- cleanup_rate_pct: {stats.get('cleanup_rate_pct')}")
     lines.append("")
@@ -32,9 +28,7 @@ def render_governance_review_markdown(report: dict[str, Any]) -> str:
     for row in stats.get("by_check_id") or []:
         lines.append(
             "| {bucket} | {total_findings} | {false_positive_count} | "
-            "{false_positive_rate_pct} | {fixed_count} | {cleanup_rate_pct} |".format(
-                **row
-            )
+            "{false_positive_rate_pct} | {fixed_count} | {cleanup_rate_pct} |".format(**row)
         )
     if not stats.get("by_check_id"):
         lines.append("| - | - | - | - | - | - |")

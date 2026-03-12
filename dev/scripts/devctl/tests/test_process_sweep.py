@@ -7,6 +7,10 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.process_sweep import core as process_sweep
+from dev.scripts.devctl.process_sweep.config import REPO_ROOT_RESOLVED
+
+TEST_REPO_ROOT = str(REPO_ROOT_RESOLVED)
+TEST_RUST_ROOT = f"{TEST_REPO_ROOT}/rust"
 
 
 class ProcessSweepTests(TestCase):
@@ -52,9 +56,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(lines[3], "- ... 1 more cleanup targets")
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_voiceterm_test_binaries_matches_path_and_basename(
-        self, run_mock
-    ) -> None:
+    def test_scan_voiceterm_test_binaries_matches_path_and_basename(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess(
             process_sweep.PROCESS_SWEEP_CMD,
             0,
@@ -74,9 +76,7 @@ class ProcessSweepTests(TestCase):
 
         self.assertEqual(warnings, [])
         self.assertEqual([row["pid"] for row in rows], [123, 124, 125, 126])
-        self.assertTrue(
-            any("cargo test --bin voiceterm" in row["command"] for row in rows)
-        )
+        self.assertTrue(any("cargo test --bin voiceterm" in row["command"] for row in rows))
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_voiceterm_test_binaries_respects_skip_pid(self, run_mock) -> None:
@@ -84,8 +84,7 @@ class ProcessSweepTests(TestCase):
             process_sweep.PROCESS_SWEEP_CMD,
             0,
             stdout=(
-                "223 1 ?? 05:00 voiceterm-deadbeef --nocapture\n"
-                "224 1 ?? 04:00 voiceterm-feedface --nocapture\n"
+                "223 1 ?? 05:00 voiceterm-deadbeef --nocapture\n" "224 1 ?? 04:00 voiceterm-feedface --nocapture\n"
             ),
             stderr="",
         )
@@ -97,9 +96,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[0]["pid"], 223)
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_voiceterm_test_binaries_matches_stale_stress_screen_sessions(
-        self, run_mock
-    ) -> None:
+    def test_scan_voiceterm_test_binaries_matches_stale_stress_screen_sessions(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess(
             process_sweep.PROCESS_SWEEP_CMD,
             0,
@@ -215,9 +212,7 @@ class ProcessSweepTests(TestCase):
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "210"],
                 0,
-                stdout=(
-                    "p210\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p210\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
             subprocess.CompletedProcess(
@@ -261,9 +256,7 @@ class ProcessSweepTests(TestCase):
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "902"],
                 0,
-                stdout=(
-                    "p902\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p902\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
             subprocess.CompletedProcess(
@@ -303,9 +296,7 @@ class ProcessSweepTests(TestCase):
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "903"],
                 0,
-                stdout=(
-                    "p903\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p903\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
         ]
@@ -339,25 +330,19 @@ class ProcessSweepTests(TestCase):
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "902,903"],
                 0,
-                stdout=(
-                    "p902\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p902\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "902"],
                 0,
-                stdout=(
-                    "p902\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p902\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "902"],
                 0,
-                stdout=(
-                    "p902\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p902\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
         ]
@@ -392,10 +377,7 @@ class ProcessSweepTests(TestCase):
             return subprocess.CompletedProcess(
                 cmd,
                 0,
-                stdout=(
-                    "p902\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p903\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p902\0fcwd\0n{TEST_REPO_ROOT}\0" f"p903\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             )
 
@@ -407,9 +389,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual({row["pid"] for row in rows}, {902, 903})
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_tooling_process_tree_matches_direct_repo_scripts(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_tooling_process_tree_matches_direct_repo_scripts(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
@@ -424,10 +404,7 @@ class ProcessSweepTests(TestCase):
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "220,222"],
                 0,
-                stdout=(
-                    "p220\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p222\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p220\0fcwd\0n{TEST_REPO_ROOT}\0" f"p222\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
             subprocess.CompletedProcess(
@@ -446,9 +423,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[2]["match_source"], "direct")
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_tooling_process_tree_ignores_attached_interactive_generic_helpers(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_tooling_process_tree_ignores_attached_interactive_generic_helpers(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
@@ -463,9 +438,7 @@ class ProcessSweepTests(TestCase):
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "341"],
                 0,
-                stdout=(
-                    "p341\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p341\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
         ]
@@ -476,9 +449,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual([row["pid"] for row in rows], [341, 342])
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_tooling_process_tree_matches_tty_attached_repo_helpers(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_tooling_process_tree_matches_tty_attached_repo_helpers(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
@@ -493,9 +464,7 @@ class ProcessSweepTests(TestCase):
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "350"],
                 0,
-                stdout=(
-                    "p350\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p350\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
         ]
@@ -508,9 +477,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[1]["match_source"], "descendant")
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_tooling_process_tree_matches_tty_attached_pytest_helpers(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_tooling_process_tree_matches_tty_attached_pytest_helpers(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
@@ -525,9 +492,7 @@ class ProcessSweepTests(TestCase):
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "360"],
                 0,
-                stdout=(
-                    "p360\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p360\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
         ]
@@ -540,9 +505,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[1]["match_source"], "descendant")
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_background_process_tree_matches_repo_cwd_helpers(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_background_process_tree_matches_repo_cwd_helpers(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
@@ -558,10 +521,10 @@ class ProcessSweepTests(TestCase):
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "310,311,312"],
                 0,
                 stdout=(
-                    "p310\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p311\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p312\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                    f"p310\0fcwd\0n{TEST_REPO_ROOT}\0"
+                    f"p311\0fcwd\0n{TEST_REPO_ROOT}\0"
+                    f"p312\0fcwd\0n{TEST_REPO_ROOT}\0"
+                ).encode(),
                 stderr=b"",
             ),
         ]
@@ -574,9 +537,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[1]["match_scope"], "repo_background")
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_background_process_tree_matches_direct_shell_script_wrappers(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_background_process_tree_matches_direct_shell_script_wrappers(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
@@ -592,10 +553,10 @@ class ProcessSweepTests(TestCase):
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "320,321,322"],
                 0,
                 stdout=(
-                    "p320\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p321\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p322\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                    f"p320\0fcwd\0n{TEST_REPO_ROOT}\0"
+                    f"p321\0fcwd\0n{TEST_REPO_ROOT}\0"
+                    f"p322\0fcwd\0n{TEST_REPO_ROOT}\0"
+                ).encode(),
                 stderr=b"",
             ),
         ]
@@ -608,9 +569,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[1]["match_scope"], "repo_background")
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_background_process_tree_matches_tty_attached_orphan_repo_helpers(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_background_process_tree_matches_tty_attached_orphan_repo_helpers(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
@@ -626,10 +585,10 @@ class ProcessSweepTests(TestCase):
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "325,326,327"],
                 0,
                 stdout=(
-                    "p325\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p326\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p327\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                    f"p325\0fcwd\0n{TEST_REPO_ROOT}\0"
+                    f"p326\0fcwd\0n{TEST_REPO_ROOT}\0"
+                    f"p327\0fcwd\0n{TEST_REPO_ROOT}\0"
+                ).encode(),
                 stderr=b"",
             ),
         ]
@@ -642,9 +601,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[1]["match_source"], "descendant")
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_background_process_tree_matches_detached_pytest_helpers(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_background_process_tree_matches_detached_pytest_helpers(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
@@ -660,10 +617,10 @@ class ProcessSweepTests(TestCase):
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "328,329,330"],
                 0,
                 stdout=(
-                    "p328\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p329\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
+                    f"p328\0fcwd\0n{TEST_REPO_ROOT}\0"
+                    f"p329\0fcwd\0n{TEST_REPO_ROOT}\0"
                     "p330\0fcwd\0n/tmp/elsewhere\0"
-                ).encode("utf-8"),
+                ).encode(),
                 stderr=b"",
             ),
         ]
@@ -683,19 +640,13 @@ class ProcessSweepTests(TestCase):
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
                 0,
-                stdout=(
-                    "330 1 ?? 12:00 autofsd\n"
-                    "331 1 ?? 12:00 aslmanager\n"
-                ),
+                stdout=("330 1 ?? 12:00 autofsd\n" "331 1 ?? 12:00 aslmanager\n"),
                 stderr="",
             ),
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "330,331"],
                 0,
-                stdout=(
-                    "p330\0fcwd\0n/\0"
-                    "p331\0fcwd\0n/\0"
-                ).encode("utf-8"),
+                stdout=(b"p330\0fcwd\0n/\0" b"p331\0fcwd\0n/\0"),
                 stderr=b"",
             ),
         ]
@@ -706,15 +657,11 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows, [])
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_lookup_process_cwds_parses_newline_prefixed_lsof_tokens(
-        self, run_mock
-    ) -> None:
+    def test_lookup_process_cwds_parses_newline_prefixed_lsof_tokens(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess(
             [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "330"],
             0,
-            stdout="p330\0\nfcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0\n".encode(
-                "utf-8"
-            ),
+            stdout=f"p330\0\nfcwd\0n{TEST_REPO_ROOT}\0\n".encode(),
             stderr=b"",
         )
 
@@ -723,13 +670,11 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(warnings, [])
         self.assertEqual(
             cwd_map,
-            {330: "/Users/jguida941/testing_upgrade/codex-voice"},
+            {330: TEST_REPO_ROOT},
         )
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_background_process_tree_ignores_bare_relative_app_helpers(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_background_process_tree_ignores_bare_relative_app_helpers(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
@@ -743,10 +688,7 @@ class ProcessSweepTests(TestCase):
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "520,521"],
                 0,
-                stdout=(
-                    "p520\0fcwd\0n/\0"
-                    "p521\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=("p520\0fcwd\0n/\0" f"p521\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
         ]
@@ -757,9 +699,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual([row["pid"] for row in rows], [521])
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_runtime_process_tree_matches_repo_cwd_cargo_commands(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_runtime_process_tree_matches_repo_cwd_cargo_commands(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
@@ -774,10 +714,7 @@ class ProcessSweepTests(TestCase):
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "410,412"],
                 0,
-                stdout=(
-                    "p410\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice/rust\0"
-                    "p412\0fcwd\0n/tmp/elsewhere\0"
-                ).encode("utf-8"),
+                stdout=(f"p410\0fcwd\0n{TEST_RUST_ROOT}\0" "p412\0fcwd\0n/tmp/elsewhere\0").encode(),
                 stderr=b"",
             ),
         ]
@@ -790,9 +727,7 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows[1]["match_source"], "descendant")
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_hygiene_process_tree_merges_voiceterm_tooling_and_background(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_hygiene_process_tree_merges_voiceterm_tooling_and_background(self, run_mock) -> None:
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
@@ -812,40 +747,32 @@ class ProcessSweepTests(TestCase):
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "100,101,150,151,210,211,310"],
                 0,
                 stdout=(
-                    "p100\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice/rust\0"
-                    "p101\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice/rust\0"
-                    "p150\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice/rust\0"
-                    "p151\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice/rust\0"
-                    "p210\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p211\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p310\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                    f"p100\0fcwd\0n{TEST_RUST_ROOT}\0"
+                    f"p101\0fcwd\0n{TEST_RUST_ROOT}\0"
+                    f"p150\0fcwd\0n{TEST_RUST_ROOT}\0"
+                    f"p151\0fcwd\0n{TEST_RUST_ROOT}\0"
+                    f"p210\0fcwd\0n{TEST_REPO_ROOT}\0"
+                    f"p211\0fcwd\0n{TEST_REPO_ROOT}\0"
+                    f"p310\0fcwd\0n{TEST_REPO_ROOT}\0"
+                ).encode(),
                 stderr=b"",
             ),
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "100,150"],
                 0,
-                stdout=(
-                    "p100\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice/rust\0"
-                    "p150\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice/rust\0"
-                ).encode("utf-8"),
+                stdout=(f"p100\0fcwd\0n{TEST_RUST_ROOT}\0" f"p150\0fcwd\0n{TEST_RUST_ROOT}\0").encode(),
                 stderr=b"",
             ),
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "210"],
                 0,
-                stdout=(
-                    "p210\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p210\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "151,210,211,310"],
                 0,
-                stdout=(
-                    "p210\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                    "p310\0fcwd\0n/Users/jguida941/testing_upgrade/codex-voice\0"
-                ).encode("utf-8"),
+                stdout=(f"p210\0fcwd\0n{TEST_REPO_ROOT}\0" f"p310\0fcwd\0n{TEST_REPO_ROOT}\0").encode(),
                 stderr=b"",
             ),
         ]
@@ -868,26 +795,21 @@ class ProcessSweepTests(TestCase):
         )
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_runtime_process_tree_ignores_relative_binary_outside_this_checkout(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_runtime_process_tree_ignores_relative_binary_outside_this_checkout(self, run_mock) -> None:
         """Relative target-binary paths from another checkout are not classified."""
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
                 0,
                 stdout=(
-                    "500 1 ?? 08:00 ./target/debug/deps/voiceterm-deadbeef01 --nocapture\n"
-                    "501 500 ?? 07:59 cat\n"
+                    "500 1 ?? 08:00 ./target/debug/deps/voiceterm-deadbeef01 --nocapture\n" "501 500 ?? 07:59 cat\n"
                 ),
                 stderr="",
             ),
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "500"],
                 0,
-                stdout=(
-                    "p500\0fcwd\0n/tmp/other-checkout\0"
-                ).encode("utf-8"),
+                stdout=(b"p500\0fcwd\0n/tmp/other-checkout\0"),
                 stderr=b"",
             ),
         ]
@@ -898,34 +820,27 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows, [])
 
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
-    def test_scan_repo_tooling_process_tree_ignores_relative_scripts_outside_this_checkout(
-        self, run_mock
-    ) -> None:
+    def test_scan_repo_tooling_process_tree_ignores_relative_scripts_outside_this_checkout(self, run_mock) -> None:
         """Relative dev/scripts paths from another checkout are not classified."""
         run_mock.side_effect = [
             subprocess.CompletedProcess(
                 process_sweep.PROCESS_SWEEP_CMD,
                 0,
                 stdout=(
-                    "600 1 ?? 08:00 python3 dev/scripts/devctl.py check --profile ci\n"
-                    "601 600 ?? 07:59 helper\n"
+                    "600 1 ?? 08:00 python3 dev/scripts/devctl.py check --profile ci\n" "601 600 ?? 07:59 helper\n"
                 ),
                 stderr="",
             ),
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "600"],
                 0,
-                stdout=(
-                    "p600\0fcwd\0n/tmp/other-checkout\0"
-                ).encode("utf-8"),
+                stdout=(b"p600\0fcwd\0n/tmp/other-checkout\0"),
                 stderr=b"",
             ),
             subprocess.CompletedProcess(
                 [*process_sweep.PROCESS_CWD_LOOKUP_PREFIX, "600"],
                 0,
-                stdout=(
-                    "p600\0fcwd\0n/tmp/other-checkout\0"
-                ).encode("utf-8"),
+                stdout=(b"p600\0fcwd\0n/tmp/other-checkout\0"),
                 stderr=b"",
             ),
         ]

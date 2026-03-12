@@ -57,8 +57,7 @@ class PythonGuardReportTests(unittest.TestCase):
                             "growth": {"high_branch_functions": 1},
                         }
                     ],
-                }
-                ,
+                },
                 returncode=1,
             ),
             _completed(
@@ -72,8 +71,7 @@ class PythonGuardReportTests(unittest.TestCase):
                             "growth": {"cyclic_imports": 1},
                         }
                     ],
-                }
-                ,
+                },
                 returncode=1,
             ),
             _completed(
@@ -180,9 +178,7 @@ class PythonGuardReportTests(unittest.TestCase):
             "run",
             side_effect=side_effect,
         ) as mock_run:
-            python_guard_report.collect_python_guard_report(
-                policy_path="~/portable-policy.json"
-            )
+            python_guard_report.collect_python_guard_report(policy_path="~/portable-policy.json")
 
         env = mock_run.call_args.kwargs["env"]
         self.assertEqual(

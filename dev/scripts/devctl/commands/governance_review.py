@@ -23,9 +23,7 @@ def run(args) -> int:
     """Record one governance finding review row or render the current summary."""
     try:
         log_path = resolve_governance_review_log_path(getattr(args, "log_path", None))
-        summary_root = resolve_governance_review_summary_root(
-            getattr(args, "summary_root", None)
-        )
+        summary_root = resolve_governance_review_summary_root(getattr(args, "summary_root", None))
         if bool(getattr(args, "record", False)):
             row = build_governance_review_row(
                 review_input=GovernanceReviewInput(
@@ -50,18 +48,12 @@ def run(args) -> int:
             log_path=log_path,
             max_rows=int(getattr(args, "max_rows", 5000)),
         )
-        report["paths"] = write_governance_review_summary(
-            report, summary_root=summary_root
-        )
+        report["paths"] = write_governance_review_summary(report, summary_root=summary_root)
     except ValueError as exc:
         print(f"error: {exc}")
         return 2
 
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else render_governance_review_markdown(report)
-    )
+    output = json.dumps(report, indent=2) if args.format == "json" else render_governance_review_markdown(report)
     pipe_code = emit_output(
         output,
         output_path=args.output,

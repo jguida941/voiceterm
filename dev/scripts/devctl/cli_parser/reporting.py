@@ -9,6 +9,14 @@ from ..autonomy.status_parsers import (
     add_mobile_status_parser,
     add_phone_status_parser,
 )
+from ..common import add_standard_output_arguments
+from ..data_science.parser import add_data_science_parser
+from ..governance_bootstrap_parser import add_governance_bootstrap_parser
+from ..governance_export_parser import add_governance_export_parser
+from ..governance_review_parser import add_governance_review_parser
+from ..probe_report_parser import add_probe_report_parser
+from ..quality_policy_parser import add_quality_policy_parser
+from ..ralph_status_parser import add_ralph_status_parser
 from .builders_ops import (
     add_audit_scaffold_parser,
     add_docs_check_parser,
@@ -18,14 +26,6 @@ from .builders_ops import (
     add_status_parser,
 )
 from .hygiene import add_process_hygiene_parsers
-from ..common import add_standard_output_arguments
-from ..data_science.parser import add_data_science_parser
-from ..governance_bootstrap_parser import add_governance_bootstrap_parser
-from ..governance_export_parser import add_governance_export_parser
-from ..governance_review_parser import add_governance_review_parser
-from ..probe_report_parser import add_probe_report_parser
-from ..quality_policy_parser import add_quality_policy_parser
-from ..ralph_status_parser import add_ralph_status_parser
 
 
 def add_reporting_parsers(
@@ -95,9 +95,7 @@ def add_autonomy_swarm_parser(sub: argparse._SubParsersAction) -> None:
         "autonomy-swarm",
         help="Run an adaptive autonomy swarm with metadata-driven agent sizing",
     )
-    autonomy_swarm_cmd.add_argument(
-        "--repo", help="owner/repo (optional; falls back to env/repo detection)"
-    )
+    autonomy_swarm_cmd.add_argument("--repo", help="owner/repo (optional; falls back to env/repo detection)")
     autonomy_swarm_cmd.add_argument("--run-label", help="Optional swarm run label")
     autonomy_swarm_cmd.add_argument(
         "--output-root",
@@ -161,10 +159,7 @@ def add_autonomy_swarm_parser(sub: argparse._SubParsersAction) -> None:
     )
     autonomy_swarm_cmd.add_argument(
         "--fix-command",
-        help=(
-            "Nested fix command forwarded to each autonomy-loop worker when "
-            "--mode is plan-then-fix/fix-only"
-        ),
+        help=("Nested fix command forwarded to each autonomy-loop worker when " "--mode is plan-then-fix/fix-only"),
     )
     autonomy_swarm_cmd.add_argument("--max-rounds", type=int, default=1)
     autonomy_swarm_cmd.add_argument("--max-hours", type=float, default=1.0)

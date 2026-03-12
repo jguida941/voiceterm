@@ -9,7 +9,6 @@ variable names — a common pattern when AI agents copy-paste and rename.
 from __future__ import annotations
 
 import argparse
-import ast
 import hashlib
 import json
 import re
@@ -35,17 +34,13 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         utc_timestamp,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_rust_test_path = import_attr("rust_guard_common", "is_test_path")
 scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
 scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
-mask_rust_comments_and_strings = import_attr(
-    "rust_check_text_utils", "mask_rust_comments_and_strings"
-)
+mask_rust_comments_and_strings = import_attr("rust_check_text_utils", "mask_rust_comments_and_strings")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
@@ -98,9 +93,7 @@ def _structural_hash(normalized_body: str) -> str:
     return hashlib.sha256(normalized_body.encode("utf-8")).hexdigest()[:16]
 
 
-def _collect_fingerprints(
-    text: str | None, *, suffix: str, path_str: str
-) -> list[dict]:
+def _collect_fingerprints(text: str | None, *, suffix: str, path_str: str) -> list[dict]:
     """Return structural fingerprints for functions in a single file."""
     if text is None:
         return []
@@ -121,12 +114,14 @@ def _collect_fingerprints(
         normalized = normalizer(source, func)
         if normalized is None:
             continue
-        fingerprints.append({
-            "path": path_str,
-            "name": func["name"],
-            "hash": _structural_hash(normalized),
-            "lines": func["line_count"],
-        })
+        fingerprints.append(
+            {
+                "path": path_str,
+                "name": func["name"],
+                "hash": _structural_hash(normalized),
+                "lines": func["line_count"],
+            }
+        )
     return fingerprints
 
 
@@ -171,8 +166,7 @@ def _render_md(report: dict) -> str:
     lines.append(f"- files_skipped_tests: {report['files_skipped_tests']}")
     lines.append(f"- functions_fingerprinted: {report['functions_fingerprinted']}")
     lines.append(
-        "- aggregate_growth: structural_similar_pairs "
-        f"{report['totals']['structural_similar_pairs_growth']:+d}"
+        "- aggregate_growth: structural_similar_pairs " f"{report['totals']['structural_similar_pairs_growth']:+d}"
     )
     lines.append(f"- min_body_lines: {MIN_BODY_LINES}")
 
@@ -185,9 +179,7 @@ def _render_md(report: dict) -> str:
             "common helper module."
         )
         for group in report["similar_groups"]:
-            members = ", ".join(
-                f"`{fp['path']}::{fp['name']}`" for fp in group
-            )
+            members = ", ".join(f"`{fp['path']}::{fp['name']}`" for fp in group)
             lines.append(f"- [{members}]")
     return "\n".join(lines)
 
@@ -209,9 +201,7 @@ def main() -> int:
             args.head_ref,
         )
     except RuntimeError as exc:
-        return emit_runtime_error(
-            "check_structural_similarity", args.format, str(exc)
-        )
+        return emit_runtime_error("check_structural_similarity", args.format, str(exc))
 
     mode = "commit-range" if args.since_ref else "working-tree"
     files_considered = 0
@@ -225,9 +215,7 @@ def main() -> int:
         if path.suffix not in (".rs", ".py"):
             files_skipped_non_source += 1
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             files_skipped_non_source += 1
             continue
         if path.suffix == ".rs" and _is_rust_test_path(path):
@@ -246,12 +234,8 @@ def main() -> int:
             base_text = guard.read_text_from_ref(base_path, "HEAD")
             current_text = guard.read_text_from_worktree(path)
 
-        base_fingerprints.extend(
-            _collect_fingerprints(base_text, suffix=path.suffix, path_str=path.as_posix())
-        )
-        current_fingerprints.extend(
-            _collect_fingerprints(current_text, suffix=path.suffix, path_str=path.as_posix())
-        )
+        base_fingerprints.extend(_collect_fingerprints(base_text, suffix=path.suffix, path_str=path.as_posix()))
+        current_fingerprints.extend(_collect_fingerprints(current_text, suffix=path.suffix, path_str=path.as_posix()))
 
     base_metrics = _count_metrics(base_fingerprints)
     current_metrics = _count_metrics(current_fingerprints)
@@ -261,10 +245,7 @@ def main() -> int:
     by_hash: dict[str, list[dict]] = {}
     for fp in current_fingerprints:
         by_hash.setdefault(fp["hash"], []).append(fp)
-    similar_groups = [
-        group for group in by_hash.values()
-        if len({fp["path"] for fp in group}) > 1
-    ]
+    similar_groups = [group for group in by_hash.values() if len({fp["path"] for fp in group}) > 1]
 
     report = {
         "command": "check_structural_similarity",

@@ -10,12 +10,8 @@ from ..common import add_standard_output_arguments
 def add_docs_check_parser(sub: argparse._SubParsersAction) -> None:
     """Register the `docs-check` parser."""
     docs_cmd = sub.add_parser("docs-check", help="Verify user-facing docs are updated")
-    docs_cmd.add_argument(
-        "--user-facing", action="store_true", help="Enforce user-facing doc updates"
-    )
-    docs_cmd.add_argument(
-        "--strict", action="store_true", help="Require all user docs when --user-facing"
-    )
+    docs_cmd.add_argument("--user-facing", action="store_true", help="Enforce user-facing doc updates")
+    docs_cmd.add_argument("--strict", action="store_true", help="Require all user docs when --user-facing")
     docs_cmd.add_argument(
         "--strict-tooling",
         action="store_true",
@@ -40,9 +36,7 @@ def add_status_parser(
 ) -> None:
     """Register the `status` parser."""
     status_cmd = sub.add_parser("status", help="Summarize git + mutation status")
-    status_cmd.add_argument(
-        "--ci", action="store_true", help="Include recent GitHub runs"
-    )
+    status_cmd.add_argument("--ci", action="store_true", help="Include recent GitHub runs")
     status_cmd.add_argument("--ci-limit", type=int, default=default_ci_limit)
     status_cmd.add_argument(
         "--require-ci",
@@ -96,9 +90,7 @@ def add_report_parser(
 ) -> None:
     """Register the `report` parser."""
     report_cmd = sub.add_parser("report", help="Generate a JSON/MD report")
-    report_cmd.add_argument(
-        "--ci", action="store_true", help="Include recent GitHub runs"
-    )
+    report_cmd.add_argument("--ci", action="store_true", help="Include recent GitHub runs")
     report_cmd.add_argument("--ci-limit", type=int, default=default_ci_limit)
     report_cmd.add_argument(
         "--dev-logs",

@@ -33,8 +33,12 @@ try:
         count_dataclass_default_traps as _count_dataclass_default_traps,
         count_function_call_default_args as _count_function_call_default_args,
         count_global_statements as _count_global_statements,
+        )
+    from python_default_trap_core import (
         count_metrics as _count_metrics,
         count_mutable_default_args as _count_mutable_default_args,
+    )
+    from python_default_trap_core import (
         format_growth as _format_growth,
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
@@ -43,22 +47,22 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         count_dataclass_default_traps as _count_dataclass_default_traps,
         count_function_call_default_args as _count_function_call_default_args,
         count_global_statements as _count_global_statements,
+    )
+    from dev.scripts.checks.python_default_trap_core import (
         count_metrics as _count_metrics,
         count_mutable_default_args as _count_mutable_default_args,
+    )
+    from dev.scripts.checks.python_default_trap_core import (
         format_growth as _format_growth,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
-TARGET_ROOTS = (
-    *resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),
-)
+TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
 
 
 def _is_test_path(path: Path) -> bool:
@@ -100,11 +104,7 @@ def _render_md(report: dict) -> str:
             "initialization, and `field(default_factory=...)` for dataclasses."
         )
         for item in report["violations"]:
-            growth_bits = [
-                f"{METRIC_LABELS[key]} {value:+d}"
-                for key, value in item["growth"].items()
-                if value > 0
-            ]
+            growth_bits = [f"{METRIC_LABELS[key]} {value:+d}" for key, value in item["growth"].items() if value > 0]
             lines.append(f"- `{item['path']}`: {', '.join(growth_bits)}")
     return "\n".join(lines)
 
@@ -126,9 +126,7 @@ def main() -> int:
             args.head_ref,
         )
     except RuntimeError as exc:
-        return emit_runtime_error(
-            "check_python_global_mutable", args.format, str(exc)
-        )
+        return emit_runtime_error("check_python_global_mutable", args.format, str(exc))
 
     mode = "commit-range" if args.since_ref else "working-tree"
     files_considered = 0
@@ -141,9 +139,7 @@ def main() -> int:
         if path.suffix != ".py":
             files_skipped_non_python += 1
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             files_skipped_non_python += 1
             continue
         if _is_test_path(path):

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from tempfile import gettempdir
 from typing import Any
@@ -14,7 +15,24 @@ from ..status_report import build_project_report
 from ..triage.enrich import apply_defaults_to_issues, build_issue_rollup
 from ..triage.support import build_next_actions, classify_issues
 
-ALLOWED_SOURCE_COMMANDS = {"triage-loop", "mutation-loop", "triage"}
+
+class LoopPacketSourceCommand(StrEnum):
+    TRIAGE_LOOP = "triage-loop"
+    MUTATION_LOOP = "mutation-loop"
+    TRIAGE = "triage"
+
+    @classmethod
+    def parse(cls, value: Any) -> LoopPacketSourceCommand | None:
+        normalized = str(value or "").strip().lower()
+        if normalized == "mutation_loop":
+            normalized = cls.MUTATION_LOOP.value
+        try:
+            return cls(normalized)
+        except ValueError:
+            return None
+
+
+ALLOWED_SOURCE_COMMANDS = frozenset(command.value for command in LoopPacketSourceCommand)
 SYSTEM_TMPDIR = Path(gettempdir())
 DEFAULT_SOURCE_CANDIDATES = (
     ".cihub/coderabbit/coderabbit-ralph-loop.json",
@@ -66,8 +84,8 @@ def _parse_iso_timestamp(raw_value: Any) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _freshness_hours(timestamp: datetime, now_utc: datetime) -> float:
@@ -96,17 +114,18 @@ def _discover_artifact_sources(
         if not isinstance(payload, dict):
             warnings.append(f"{path}: unexpected non-object payload")
             continue
-        command = str(payload.get("command") or "").strip().lower()
-        if command == "mutation_loop":
-            command = "mutation-loop"
-        if command not in ALLOWED_SOURCE_COMMANDS:
-            warnings.append(f"{path}: unsupported command '{command or 'missing'}'")
+        command = LoopPacketSourceCommand.parse(payload.get("command"))
+        if command is None:
+            raw_command = str(payload.get("command") or "").strip().lower()
+            warnings.append(
+                f"{path}: unsupported command '{raw_command or 'missing'}'"
+            )
             continue
         timestamp = _parse_iso_timestamp(payload.get("timestamp"))
         rows.append(
             ArtifactSourceRow(
                 path=str(path),
-                command=command,
+                command=command.value,
                 payload=payload,
                 timestamp=timestamp,
                 mtime=path.stat().st_mtime,
@@ -122,10 +141,20 @@ def _choose_source(
 ) -> ArtifactSourceRow | None:
     if not rows:
         return None
-    command_order = [prefer_source] + [
+    preferred_command = LoopPacketSourceCommand.parse(prefer_source)
+    preferred_value = (
+        preferred_command.value
+        if preferred_command is not None
+        else LoopPacketSourceCommand.TRIAGE_LOOP.value
+    )
+    command_order = [preferred_value] + [
         name
-        for name in ("triage-loop", "mutation-loop", "triage")
-        if name != prefer_source
+        for name in (
+            LoopPacketSourceCommand.TRIAGE_LOOP.value,
+            LoopPacketSourceCommand.MUTATION_LOOP.value,
+            LoopPacketSourceCommand.TRIAGE.value,
+        )
+        if name != preferred_value
     ]
     rank = {name: idx for idx, name in enumerate(command_order)}
 
@@ -153,8 +182,8 @@ def _build_live_triage_source() -> ArtifactSourceRow:
     )
     issues = apply_defaults_to_issues(classify_issues(project_report), {})
     payload = {
-        "command": "triage",
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "command": LoopPacketSourceCommand.TRIAGE.value,
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "project": project_report,
         "issues": issues,
         "rollup": build_issue_rollup(issues),
@@ -162,10 +191,10 @@ def _build_live_triage_source() -> ArtifactSourceRow:
     }
     return ArtifactSourceRow(
         path="<generated:live-triage>",
-        command="triage",
+        command=LoopPacketSourceCommand.TRIAGE.value,
         payload=payload,
         timestamp=_parse_iso_timestamp(payload.get("timestamp")),
-        mtime=datetime.now(timezone.utc).timestamp(),
+        mtime=datetime.now(UTC).timestamp(),
     )
 
 
@@ -189,16 +218,10 @@ def _build_packet_body(
         risk = "low" if unresolved == 0 else ("high" if unresolved > 8 else "medium")
         actions = []
         if unresolved == 0:
-            actions.append(
-                "No medium/high backlog remains. Continue with normal CI verification."
-            )
+            actions.append("No medium/high backlog remains. Continue with normal CI verification.")
         else:
-            actions.append(
-                "Review unresolved findings and apply bounded fixes with the same source run correlation."
-            )
-            actions.append(
-                "Re-run report-only loop and verify unresolved count trends downward."
-            )
+            actions.append("Review unresolved findings and apply bounded fixes with the same source run correlation.")
+            actions.append("Re-run report-only loop and verify unresolved count trends downward.")
         draft = "\n".join(
             [
                 "Loop feedback packet:",
@@ -216,23 +239,15 @@ def _build_packet_body(
         score_text = "n/a" if score is None else f"{float(score):.2%}"
         threshold_text = "n/a" if threshold is None else f"{float(threshold):.2%}"
         below_threshold = (
-            isinstance(score, (int, float))
-            and isinstance(threshold, (int, float))
-            and float(score) < float(threshold)
+            isinstance(score, int | float) and isinstance(threshold, int | float) and float(score) < float(threshold)
         )
         risk = "high" if below_threshold else "low"
-        hotspots = (
-            payload.get("last_hotspots")
-            if isinstance(payload.get("last_hotspots"), list)
-            else []
-        )
+        hotspots = payload.get("last_hotspots") if isinstance(payload.get("last_hotspots"), list) else []
         hotspot_items: list[str] = []
         for row in hotspots[:3]:
             if not isinstance(row, dict):
                 continue
-            module = str(
-                row.get("module") or row.get("target") or row.get("path") or "unknown"
-            )
+            module = str(row.get("module") or row.get("target") or row.get("path") or "unknown")
             missed = row.get("missed")
             if isinstance(missed, int):
                 hotspot_items.append(f"{module} (missed={missed})")
@@ -241,13 +256,9 @@ def _build_packet_body(
 
         actions = []
         if below_threshold:
-            actions.append(
-                "Prioritize mutation hotspots and add focused tests before enabling fix mode."
-            )
+            actions.append("Prioritize mutation hotspots and add focused tests before enabling fix mode.")
         else:
-            actions.append(
-                "Mutation score meets threshold. Keep report-only monitoring active."
-            )
+            actions.append("Mutation score meets threshold. Keep report-only monitoring active.")
         if hotspot_items:
             actions.append("Top hotspots: " + ", ".join(hotspot_items))
 
@@ -263,9 +274,7 @@ def _build_packet_body(
 
     rollup = payload.get("rollup") if isinstance(payload.get("rollup"), dict) else {}
     total = int(rollup.get("total") or 0)
-    by_severity = (
-        rollup.get("by_severity") if isinstance(rollup.get("by_severity"), dict) else {}
-    )
+    by_severity = rollup.get("by_severity") if isinstance(rollup.get("by_severity"), dict) else {}
     high = int(by_severity.get("high") or 0)
     medium = int(by_severity.get("medium") or 0)
     if high > 0:
@@ -275,11 +284,7 @@ def _build_packet_body(
     else:
         risk = "low"
     next_actions = payload.get("next_actions")
-    actions = (
-        [str(row).strip() for row in next_actions]
-        if isinstance(next_actions, list)
-        else []
-    )
+    actions = [str(row).strip() for row in next_actions] if isinstance(next_actions, list) else []
     actions = [row for row in actions if row]
     if not actions:
         actions = ["No explicit next actions found; review triage snapshot and owners."]
@@ -293,19 +298,16 @@ def _build_packet_body(
     return risk, "\n".join(lines), actions
 
 
-def _auto_send_eligible(
-    source_command: str, payload: dict[str, Any], risk: str
-) -> bool:
+def _auto_send_eligible(source_command: str, payload: dict[str, Any], risk: str) -> bool:
     if risk != "low":
         return False
-    if source_command == "triage-loop":
+    selected_source = LoopPacketSourceCommand.parse(source_command)
+    if selected_source is LoopPacketSourceCommand.TRIAGE_LOOP:
         unresolved = int(payload.get("unresolved_count") or 0)
         return unresolved == 0 and str(payload.get("reason") or "") == "resolved"
-    if source_command == "mutation-loop":
+    if selected_source is LoopPacketSourceCommand.MUTATION_LOOP:
         return str(payload.get("reason") or "") == "threshold_met"
-    if source_command == "triage":
-        rollup = (
-            payload.get("rollup") if isinstance(payload.get("rollup"), dict) else {}
-        )
+    if selected_source is LoopPacketSourceCommand.TRIAGE:
+        rollup = payload.get("rollup") if isinstance(payload.get("rollup"), dict) else {}
         return int(rollup.get("total") or 0) == 0
     return False

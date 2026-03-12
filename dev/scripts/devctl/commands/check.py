@@ -9,11 +9,10 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ..common import build_env
 from ..config import REPO_ROOT
-from .process_cleanup import build_process_cleanup_report
 from ..process_sweep.core import (
     kill_processes,
     scan_repo_hygiene_process_tree,
@@ -23,6 +22,7 @@ from ..process_sweep.core import (
 from ..quality_policy import resolve_quality_policy
 from ..quality_scan_mode import resolve_scan_mode
 from ..script_catalog import check_script_cmd
+from ..steps import format_steps_md
 from . import check_phases as check_phases_module
 from .check_phases import (
     CheckContext,
@@ -31,7 +31,6 @@ from .check_phases import (
     run_specialized_phases,
     run_test_build_phase,
 )
-from ..steps import format_steps_md
 from .check_process_sweep import (
     cleanup_host_processes,
     cleanup_orphaned_voiceterm_test_binaries,
@@ -39,13 +38,15 @@ from .check_process_sweep import (
 )
 from .check_profile import resolve_profile_settings, validate_profile_flag_conflicts
 from .check_progress import count_quality_steps
+from .process_cleanup import build_process_cleanup_report
+
 
 def build_report_and_emit(ctx: CheckContext) -> int:
     """Format the final report while preserving existing test patch paths."""
     success = all(step["returncode"] == 0 for step in ctx.steps)
     report = {
         "command": "check",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "success": success,
         "steps": ctx.steps,
     }
@@ -150,9 +151,8 @@ def run(args) -> int:
         ),
     )
     process_sweep_cleanup = not getattr(args, "no_process_sweep_cleanup", False)
-    host_process_cleanup = (
-        getattr(args, "profile", None) in {"quick", "fast"}
-        and not getattr(args, "no_host_process_cleanup", False)
+    host_process_cleanup = getattr(args, "profile", None) in {"quick", "fast"} and not getattr(
+        args, "no_host_process_cleanup", False
     )
 
     if process_sweep_cleanup:

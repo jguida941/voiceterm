@@ -82,10 +82,7 @@ def command_uses_shell_wrapper(command: list[str]) -> bool:
     executable_name = os.path.basename(command[0])
     if executable_name not in SHELL_EXECUTABLES:
         return False
-    return any(
-        argument == "-c" or (argument.startswith("-") and "c" in argument[1:])
-        for argument in command[1:]
-    )
+    return any(argument == "-c" or (argument.startswith("-") and "c" in argument[1:]) for argument in command[1:])
 
 
 def resolve_guard_post_action(command: list[str], *, requested_action: str) -> str:
@@ -149,9 +146,7 @@ def capture_guard_git_snapshot(cwd: Path) -> GuardGitSnapshot:
                 lines_removed += int(parts[1])
 
     return GuardGitSnapshot(
-        reviewed_worktree_hash=(
-            head_result.stdout.strip() if head_result.returncode == 0 else ""
-        ),
+        reviewed_worktree_hash=(head_result.stdout.strip() if head_result.returncode == 0 else ""),
         files_changed=tuple(sorted(files_changed)),
         file_count=len(files_changed),
         lines_added=lines_added,

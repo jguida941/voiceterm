@@ -152,9 +152,7 @@ def build_governance_review_stats(rows: list[dict[str, Any]]) -> GovernanceRevie
     """Reduce review-log rows into false-positive and cleanup metrics."""
     latest_rows = _latest_rows_by_finding(rows)
     total_findings = len(latest_rows)
-    verdict_counts = Counter(
-        _optional_text(row.get("verdict")) or "unknown" for row in latest_rows
-    )
+    verdict_counts = Counter(_optional_text(row.get("verdict")) or "unknown" for row in latest_rows)
     positive_count = sum(verdict_counts[verdict] for verdict in POSITIVE_VERDICTS)
     fixed_count = verdict_counts["fixed"]
     false_positive_count = verdict_counts["false_positive"]
@@ -171,10 +169,7 @@ def build_governance_review_stats(rows: list[dict[str, Any]]) -> GovernanceRevie
         deferred_count=verdict_counts["deferred"],
         waived_count=verdict_counts["waived"],
         unknown_count=verdict_counts["unknown"],
-        by_verdict=tuple(
-            {"verdict": verdict, "count": count}
-            for verdict, count in verdict_counts.most_common()
-        ),
+        by_verdict=tuple({"verdict": verdict, "count": count} for verdict, count in verdict_counts.most_common()),
         by_check_id=tuple(_bucket_stats(latest_rows, key_name="check_id")),
         by_signal_type=tuple(_bucket_stats(latest_rows, key_name="signal_type")),
     )
@@ -224,9 +219,7 @@ def _bucket_stats(
     ranked = sorted(grouped.items(), key=lambda item: (-len(item[1]), item[0]))
     stats: list[GovernanceReviewBucketStat] = []
     for bucket, bucket_rows in ranked:
-        verdict_counts = Counter(
-            _optional_text(row.get("verdict")) or "unknown" for row in bucket_rows
-        )
+        verdict_counts = Counter(_optional_text(row.get("verdict")) or "unknown" for row in bucket_rows)
         positive_count = sum(verdict_counts[verdict] for verdict in POSITIVE_VERDICTS)
         fixed_count = verdict_counts["fixed"]
         false_positive_count = verdict_counts["false_positive"]
@@ -235,9 +228,7 @@ def _bucket_stats(
                 bucket=bucket,
                 total_findings=len(bucket_rows),
                 false_positive_count=false_positive_count,
-                false_positive_rate_pct=_rate(
-                    false_positive_count, len(bucket_rows)
-                ),
+                false_positive_rate_pct=_rate(false_positive_count, len(bucket_rows)),
                 fixed_count=fixed_count,
                 cleanup_rate_pct=_rate(fixed_count, positive_count),
             )

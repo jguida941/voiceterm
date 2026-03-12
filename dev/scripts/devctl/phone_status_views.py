@@ -5,76 +5,29 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
-from .phone_status_projection import (ActionsPhoneStatusProjection,
-                                      CompactPhoneStatusProjection,
-                                      PhoneStatusView,
-                                      TracePhoneStatusProjection)
 
-
-def _truncate(value: Any, max_chars: int) -> str:
-    text = str(value or "").strip()
-    if max_chars <= 0:
-        return ""
-    if len(text) <= max_chars:
-        return text
-    return text[: max_chars - 3] + "..."
-
-
-def _section(payload: dict[str, Any], key: str) -> dict[str, Any]:
-    value = payload.get(key)
-    return value if isinstance(value, dict) else {}
-
-
-def render_ralph_section_lines(ralph: dict[str, Any]) -> list[str]:
-    """Render Ralph guardrail status as markdown bullet lines (shared helper)."""
-    if not isinstance(ralph, dict) or not ralph.get("available"):
-        return ["- unavailable"]
-    return [
-        f"- phase: {ralph.get('phase')}",
-        f"- attempt: {ralph.get('attempt')}/{ralph.get('max_attempts')}",
-        f"- fix_rate: {ralph.get('fix_rate_pct')}%",
-        (
-            f"- findings: {ralph.get('fixed_count')} fixed / "
-            f"{ralph.get('total_findings')} total | "
-            f"{ralph.get('unresolved_count')} unresolved"
-        ),
-        f"- branch: {ralph.get('branch') or 'n/a'}",
-        f"- last_run: {ralph.get('last_run') or 'n/a'}",
-    ]
-
-
-def _terminal_trace(payload: dict[str, Any]) -> list[str]:
-    terminal = _section(payload, "terminal")
-    trace = terminal.get("trace")
-    if not isinstance(trace, list):
-        return []
-    rows: list[str] = []
-    for row in trace:
-        text = str(row).strip()
-        if text:
-            rows.append(text)
-    return rows
-
-
-def _next_actions(payload: dict[str, Any]) -> list[str]:
-    loop_payload = _section(payload, "loop")
-    rows = loop_payload.get("next_actions")
-    if not isinstance(rows, list):
-        return []
-    actions: list[str] = []
-    for row in rows:
-        text = str(row).strip()
-        if text:
-            actions.append(text)
-    return actions
+from .phone_status_view_support import (
+    OPERATOR_ACTIONS,
+    next_action_rows,
+    render_ralph_section_lines,
+    section_dict,
+    terminal_trace_rows,
+    truncate_status_text,
+)
+from .phone_status_projection import (
+    ActionsPhoneStatusProjection,
+    CompactPhoneStatusProjection,
+    PhoneStatusView,
+    TracePhoneStatusProjection,
+)
 
 
 def compact_view(payload: dict[str, Any]) -> dict[str, Any]:
-    controller = _section(payload, "controller")
-    loop_payload = _section(payload, "loop")
-    source_run = _section(payload, "source_run")
-    terminal = _section(payload, "terminal")
-    ralph = _section(payload, "ralph")
+    controller = section_dict(payload, "controller")
+    loop_payload = section_dict(payload, "loop")
+    source_run = section_dict(payload, "source_run")
+    terminal = section_dict(payload, "terminal")
+    ralph = section_dict(payload, "ralph")
     return CompactPhoneStatusProjection(
         schema_version=1,
         view=PhoneStatusView.COMPACT.value,
@@ -95,9 +48,9 @@ def compact_view(payload: dict[str, Any]) -> dict[str, Any]:
         source_run_url=str(source_run.get("run_url") or ""),
         source_run_id=source_run.get("run_id"),
         source_run_sha=source_run.get("run_sha"),
-        trace_lines=len(_terminal_trace(payload)),
-        draft_preview=_truncate(terminal.get("draft_text"), 240),
-        next_actions=_next_actions(payload)[:5],
+        trace_lines=len(terminal_trace_rows(payload)),
+        draft_preview=truncate_status_text(terminal.get("draft_text"), 240),
+        next_actions=next_action_rows(payload)[:5],
         ralph_phase=str(ralph.get("phase") or "idle"),
         ralph_fix_rate_pct=float(ralph.get("fix_rate_pct") or 0.0),
         ralph_unresolved=int(ralph.get("unresolved_count") or 0),
@@ -107,48 +60,30 @@ def compact_view(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def trace_view(payload: dict[str, Any]) -> dict[str, Any]:
-    controller = _section(payload, "controller")
-    terminal = _section(payload, "terminal")
+    controller = section_dict(payload, "controller")
+    terminal = section_dict(payload, "terminal")
     return TracePhoneStatusProjection(
         schema_version=1,
         view=PhoneStatusView.TRACE.value,
         controller_run_id=str(controller.get("controller_run_id") or ""),
         phase=str(payload.get("phase") or "unknown"),
         reason=str(payload.get("reason") or "unknown"),
-        trace=_terminal_trace(payload),
+        trace=terminal_trace_rows(payload),
         draft_text=str(terminal.get("draft_text") or ""),
         auto_send=bool(terminal.get("auto_send", False)),
     ).to_dict()
 
 
-_OPERATOR_ACTIONS: list[dict[str, str]] = [
-    {"name": "dispatch-report-only", "kind": "write", "guard": "policy-gated",
-     "command": "python3 dev/scripts/devctl.py controller-action --action dispatch-report-only --branch develop --dry-run --format md"},
-    {"name": "pause-loop", "kind": "write", "guard": "policy-gated",
-     "command": "python3 dev/scripts/devctl.py controller-action --action pause-loop --dry-run --format md"},
-    {"name": "resume-loop", "kind": "write", "guard": "policy-gated",
-     "command": "python3 dev/scripts/devctl.py controller-action --action resume-loop --dry-run --format md"},
-    {"name": "controller-report", "kind": "read",
-     "command": "python3 dev/scripts/devctl.py autonomy-report --format md"},
-    {"name": "ralph-start", "kind": "write", "guard": "policy-gated",
-     "command": "devctl ralph-control start"},
-    {"name": "ralph-pause", "kind": "write", "guard": "policy-gated",
-     "command": "devctl ralph-control pause"},
-    {"name": "ralph-status", "kind": "read", "guard": "none",
-     "command": "devctl ralph-status --format md"},
-]
-
-
 def actions_view(payload: dict[str, Any]) -> dict[str, Any]:
-    controller = _section(payload, "controller")
+    controller = section_dict(payload, "controller")
     return ActionsPhoneStatusProjection(
         schema_version=1,
         view=PhoneStatusView.ACTIONS.value,
         controller_run_id=str(controller.get("controller_run_id") or ""),
         phase=str(payload.get("phase") or "unknown"),
         reason=str(payload.get("reason") or "unknown"),
-        next_actions=_next_actions(payload),
-        operator_actions=_OPERATOR_ACTIONS,
+        next_actions=next_action_rows(payload),
+        operator_actions=OPERATOR_ACTIONS,
     ).to_dict()
 
 
@@ -215,11 +150,7 @@ def _render_view_markdown(view_payload: dict[str, Any], view: str) -> str:
             lines.append("- none")
         return "\n".join(lines)
 
-    compact = (
-        view_payload
-        if selected_view is PhoneStatusView.COMPACT
-        else compact_view(view_payload)
-    )
+    compact = view_payload if selected_view is PhoneStatusView.COMPACT else compact_view(view_payload)
     lines = ["## Compact View", ""]
     lines.append(f"- phase: {compact.get('phase')}")
     lines.append(f"- reason: {compact.get('reason')}")

@@ -101,13 +101,8 @@ class WatchdogMetrics:
         payload["avg_escaped_findings"] = self.avg_escaped_findings
         payload["false_positive_rate_pct"] = self.false_positive_rate_pct
         payload["known_provider_pct"] = self.known_provider_pct
-        payload["providers"] = [
-            {"provider": row.provider, "episodes": row.episodes}
-            for row in self.providers
-        ]
-        payload["guard_families"] = [
-            _guard_family_metrics_to_dict(row) for row in self.guard_families
-        ]
+        payload["providers"] = [{"provider": row.provider, "episodes": row.episodes} for row in self.providers]
+        payload["guard_families"] = [_guard_family_metrics_to_dict(row) for row in self.guard_families]
         return payload
 
 
@@ -191,31 +186,19 @@ def watchdog_metrics_from_dict(payload: dict[str, Any]) -> WatchdogMetrics:
             guard_family=_text(item.get("guard_family"), "unknown"),
             episodes=to_int(item.get("episodes"), default=0),
             success_rate_pct=to_float(item.get("success_rate_pct"), default=0.0),
-            avg_time_to_green_seconds=to_float(
-                item.get("avg_time_to_green_seconds"), default=0.0
-            ),
+            avg_time_to_green_seconds=to_float(item.get("avg_time_to_green_seconds"), default=0.0),
         )
         for item in _dict_list(payload.get("guard_families"))
     )
     return WatchdogMetrics(
         total_episodes=to_int(payload.get("total_episodes"), default=0),
         success_rate_pct=to_float(payload.get("success_rate_pct"), default=0.0),
-        avg_time_to_green_seconds=to_float(
-            payload.get("avg_time_to_green_seconds"), default=0.0
-        ),
-        p50_time_to_green_seconds=to_float(
-            payload.get("p50_time_to_green_seconds"), default=0.0
-        ),
-        avg_guard_runtime_seconds=to_float(
-            payload.get("avg_guard_runtime_seconds"), default=0.0
-        ),
+        avg_time_to_green_seconds=to_float(payload.get("avg_time_to_green_seconds"), default=0.0),
+        p50_time_to_green_seconds=to_float(payload.get("p50_time_to_green_seconds"), default=0.0),
+        avg_guard_runtime_seconds=to_float(payload.get("avg_guard_runtime_seconds"), default=0.0),
         avg_retry_count=to_float(payload.get("avg_retry_count"), default=0.0),
-        avg_escaped_findings=to_float(
-            payload.get("avg_escaped_findings"), default=0.0
-        ),
-        false_positive_rate_pct=to_float(
-            payload.get("false_positive_rate_pct"), default=0.0
-        ),
+        avg_escaped_findings=to_float(payload.get("avg_escaped_findings"), default=0.0),
+        false_positive_rate_pct=to_float(payload.get("false_positive_rate_pct"), default=0.0),
         known_provider_pct=to_float(payload.get("known_provider_pct"), default=0.0),
         providers=providers,
         guard_families=guard_families,

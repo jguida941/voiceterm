@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import json
 import shutil
+from dataclasses import asdict, dataclass
 from pathlib import Path
+
 from .config import REPO_ROOT
 from .governance_export_artifacts import write_generated_artifacts
 from .quality_policy import resolve_quality_policy
@@ -121,8 +122,7 @@ def build_governance_export(
     if snapshot_dir.exists():
         if not request.force:
             raise ValueError(
-                f"snapshot destination already exists: {snapshot_dir} "
-                "(re-run with --force to replace it)"
+                f"snapshot destination already exists: {snapshot_dir} " "(re-run with --force to replace it)"
             )
         shutil.rmtree(snapshot_dir)
     snapshot_dir.mkdir(parents=True, exist_ok=True)

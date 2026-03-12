@@ -46,16 +46,10 @@ except ModuleNotFoundError:  # pragma: no cover
         emit_probe_report,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
-is_review_probe_test_path = import_attr(
-    "probe_path_filters", "is_review_probe_test_path"
-)
-scan_python_functions = import_attr(
-    "code_shape_function_policy", "scan_python_functions"
-)
+is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
+scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
@@ -119,12 +113,10 @@ def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
         func_name = func["name"]
         start = func["start_line"] - 1
         end = func["end_line"]
-        body = "\n".join(lines[start + 1:end])
+        body = "\n".join(lines[start + 1 : end])
 
         # Count isinstance checks per variable.
-        var_counts = Counter(
-            m.group(1) for m in ISINSTANCE_RE.finditer(body)
-        )
+        var_counts = Counter(m.group(1) for m in ISINSTANCE_RE.finditer(body))
 
         # Find variables with too many isinstance checks.
         for var_name, count in var_counts.most_common():
@@ -151,7 +143,9 @@ def main() -> int:
             guard.validate_ref(args.since_ref)
             guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            guard.run_git, args.since_ref, args.head_ref,
+            guard.run_git,
+            args.since_ref,
+            args.head_ref,
         )
     except RuntimeError:
         return emit_probe_report(report, output_format=args.format)
@@ -164,19 +158,13 @@ def main() -> int:
     for path in changed_paths:
         if path.suffix != ".py":
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=PYTHON_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=PYTHON_ROOTS):
             continue
         if is_review_probe_test_path(path):
             continue
 
         report.files_scanned += 1
-        text = (
-            guard.read_text_from_ref(path, args.head_ref)
-            if args.since_ref
-            else guard.read_text_from_worktree(path)
-        )
+        text = guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
         if text is None:
             continue
 

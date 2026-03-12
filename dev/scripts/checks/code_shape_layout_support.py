@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 try:
     from check_bootstrap import resolve_guard_config
@@ -76,10 +76,7 @@ def _load_namespace_docs_sync_rules(config: object) -> tuple[NamespaceDocsSyncRu
         if not isinstance(raw_docs, list):
             continue
         required_docs = tuple(
-            doc_path
-            for raw_doc in raw_docs
-            for doc_path in (_coerce_path(raw_doc),)
-            if doc_path is not None
+            doc_path for raw_doc in raw_docs for doc_path in (_coerce_path(raw_doc),) if doc_path is not None
         )
         if namespace_root is None or not required_token or not required_docs:
             continue
@@ -98,9 +95,7 @@ def _resolved_layout_rules(
 ) -> tuple[tuple[NamespaceFamilyRule, ...], tuple[NamespaceDocsSyncRule, ...]]:
     config = resolve_guard_config("code_shape", repo_root=repo_root)
     family_rules = _load_namespace_family_rules(config.get("namespace_family_rules"))
-    docs_sync_rules = _load_namespace_docs_sync_rules(
-        config.get("namespace_docs_sync_rules")
-    )
+    docs_sync_rules = _load_namespace_docs_sync_rules(config.get("namespace_docs_sync_rules"))
     return family_rules, docs_sync_rules
 
 
@@ -129,11 +124,7 @@ def collect_namespace_layout_violations(
             continue
 
         for changed_path in changed_paths:
-            relative = (
-                changed_path.relative_to(repo_root)
-                if changed_path.is_absolute()
-                else changed_path
-            )
+            relative = changed_path.relative_to(repo_root) if changed_path.is_absolute() else changed_path
             if relative.suffix != ".py":
                 continue
             if relative.parent != rule.root:
@@ -197,11 +188,7 @@ def collect_namespace_docs_sync_violations(
         _family_rules, active_docs_sync_rules = _resolved_layout_rules(repo_root)
 
     for changed_path in changed_paths:
-        relative = (
-            changed_path.relative_to(repo_root)
-            if changed_path.is_absolute()
-            else changed_path
-        )
+        relative = changed_path.relative_to(repo_root) if changed_path.is_absolute() else changed_path
         if relative.suffix != ".py":
             continue
         if read_text_from_ref(relative, base_ref) is not None:
@@ -240,9 +227,7 @@ def collect_namespace_docs_sync_violations(
                         "oversize_growth_limit": 0,
                         "hard_lock_growth_limit": 0,
                     },
-                    "policy_source": (
-                        f"namespace_docs_sync:{rule.namespace_root.as_posix()}"
-                    ),
+                    "policy_source": (f"namespace_docs_sync:{rule.namespace_root.as_posix()}"),
                     "required_token": rule.required_token,
                     "required_docs": [doc.as_posix() for doc in rule.required_docs],
                 }

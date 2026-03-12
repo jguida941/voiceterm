@@ -57,9 +57,7 @@ class CheckPythonDesignComplexityTests(unittest.TestCase):
             repo_root=self.root,
             candidate_paths=[self.root / relative_path],
             base_text_by_path={relative_path: ""},
-            current_text_by_path={
-                relative_path: (self.root / relative_path).read_text(encoding="utf-8")
-            },
+            current_text_by_path={relative_path: (self.root / relative_path).read_text(encoding="utf-8")},
             mode="working-tree",
             guard_config={"max_branches": 2, "max_returns": 2},
         )
@@ -103,9 +101,7 @@ class CheckPythonDesignComplexityTests(unittest.TestCase):
                     "    return 4\n"
                 )
             },
-            current_text_by_path={
-                relative_path: (self.root / relative_path).read_text(encoding="utf-8")
-            },
+            current_text_by_path={relative_path: (self.root / relative_path).read_text(encoding="utf-8")},
             mode="working-tree",
             guard_config={"max_branches": 2, "max_returns": 10},
         )

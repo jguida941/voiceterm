@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime
+from typing import Any
 
 from ..common import emit_output, pipe_output, run_cmd, write_output
 from ..config import REPO_ROOT
@@ -29,9 +29,7 @@ from .check_support import build_clippy_pedantic_collect_cmd
 
 def run(args) -> int:
     """Generate triage report with optional CIHub integration."""
-    owner_map, owner_map_warnings = load_owner_map(
-        getattr(args, "owner_map_file", None)
-    )
+    owner_map, owner_map_warnings = load_owner_map(getattr(args, "owner_map_file", None))
     pedantic_refresh = None
     if getattr(args, "pedantic", False) and getattr(args, "pedantic_refresh", False):
         pedantic_refresh = run_cmd(
@@ -62,9 +60,9 @@ def run(args) -> int:
     pedantic_info = project_report.get("pedantic", {})
     if isinstance(pedantic_info, dict) and pedantic_refresh is not None:
         pedantic_info["refresh"] = pedantic_refresh
-    triage_report: Dict[str, Any] = {
+    triage_report: dict[str, Any] = {
         "command": "triage",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "project": project_report,
         "issues": apply_defaults_to_issues(classify_issues(project_report), owner_map),
         "owner_map": owner_map,
@@ -72,15 +70,11 @@ def run(args) -> int:
     }
     pedantic_info = project_report.get("pedantic", {})
     if isinstance(pedantic_info, dict):
-        triage_report["issues"].extend(
-            apply_defaults_to_issues(pedantic_info.get("issues", []), owner_map)
-        )
+        triage_report["issues"].extend(apply_defaults_to_issues(pedantic_info.get("issues", []), owner_map))
     triage_report["next_actions"] = build_next_actions(triage_report["issues"])
     apply_optional_inputs(triage_report, args=args, owner_map=owner_map)
 
-    triage_report["issues"] = apply_defaults_to_issues(
-        triage_report["issues"], owner_map
-    )
+    triage_report["issues"] = apply_defaults_to_issues(triage_report["issues"], owner_map)
     triage_report["rollup"] = build_issue_rollup(triage_report["issues"])
     triage_report["next_actions"] = build_next_actions(triage_report["issues"])
     if args.emit_bundle:
@@ -119,9 +113,7 @@ def run(args) -> int:
     if pipe_rc != 0:
         return pipe_rc
 
-    has_high_issues = any(
-        issue.get("severity") == "high" for issue in triage_report.get("issues", [])
-    )
+    has_high_issues = any(issue.get("severity") == "high" for issue in triage_report.get("issues", []))
     if args.require_cihub and has_high_issues:
         return 1
     return 0

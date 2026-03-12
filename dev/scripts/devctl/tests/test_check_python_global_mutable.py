@@ -5,9 +5,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-SCRIPT_PATH = (
-    Path(__file__).resolve().parents[2] / "checks" / "check_python_global_mutable.py"
-)
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "checks" / "check_python_global_mutable.py"
 
 
 def _load_module():
@@ -33,11 +31,7 @@ class TestCountGlobalStatements:
         assert mod._count_global_statements(code) == 2
 
     def test_multiple_global_statements(self):
-        code = (
-            "a = None\nb = None\n"
-            "def foo():\n    global a\n    a = 1\n"
-            "def bar():\n    global b\n    b = 2\n"
-        )
+        code = "a = None\nb = None\n" "def foo():\n    global a\n    a = 1\n" "def bar():\n    global b\n    b = 2\n"
         assert mod._count_global_statements(code) == 2
 
     def test_none_input(self):
@@ -66,17 +60,11 @@ class TestMutableDefaultArgs:
         assert mod._count_mutable_default_args(code) == 0
 
     def test_literal_mutable_defaults(self):
-        code = (
-            "def sample(items=[]):\n    return items\n"
-            "def other(mapping={}):\n    return mapping\n"
-        )
+        code = "def sample(items=[]):\n    return items\n" "def other(mapping={}):\n    return mapping\n"
         assert mod._count_mutable_default_args(code) == 2
 
     def test_factory_mutable_defaults(self):
-        code = (
-            "def sample(items=list()):\n    return items\n"
-            "def other(values=set()):\n    return values\n"
-        )
+        code = "def sample(items=list()):\n    return items\n" "def other(values=set()):\n    return values\n"
         assert mod._count_mutable_default_args(code) == 2
 
     def test_none_input(self):

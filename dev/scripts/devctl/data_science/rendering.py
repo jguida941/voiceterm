@@ -52,9 +52,7 @@ def _write_bar_chart_svg(
         height_px = (value / max_value) * plot_h if max_value else 0.0
         x = margin_l + (idx + 0.5) * group_w - (bar_w / 2)
         y = margin_t + plot_h - height_px
-        lines.append(
-            f'<rect x="{x:.2f}" y="{y:.2f}" width="{bar_w:.2f}" height="{height_px:.2f}" fill="{color}"/>'
-        )
+        lines.append(f'<rect x="{x:.2f}" y="{y:.2f}" width="{bar_w:.2f}" height="{height_px:.2f}" fill="{color}"/>')
         lines.append(
             f'<text x="{x + bar_w/2:.2f}" y="{y - 6:.2f}" text-anchor="middle" font-family="Arial" font-size="10" fill="#1f2937">{value:.2f}</text>'
         )
@@ -89,20 +87,14 @@ def write_data_science_charts(
         _write_bar_chart_svg(
             title="Agent Recommendation Score",
             labels=[str(row.get("selected_agents")) for row in agent_metric_rows],
-            values=[
-                to_float(row.get("recommendation_score"), default=0.0)
-                for row in agent_metric_rows
-            ],
+            values=[to_float(row.get("recommendation_score"), default=0.0) for row in agent_metric_rows],
             output_path=charts_dir / "agent_recommendation_score.svg",
             color="#f28e2b",
         )
         _write_bar_chart_svg(
             title="Tasks Per Minute by Agent Count",
             labels=[str(row.get("selected_agents")) for row in agent_metric_rows],
-            values=[
-                to_float(row.get("tasks_per_minute"), default=0.0)
-                for row in agent_metric_rows
-            ],
+            values=[to_float(row.get("tasks_per_minute"), default=0.0) for row in agent_metric_rows],
             output_path=charts_dir / "agent_tasks_per_minute.svg",
             color="#59a14f",
         )
@@ -120,10 +112,7 @@ def write_data_science_charts(
         _write_bar_chart_svg(
             title="Watchdog Avg Time To Green",
             labels=[str(row.get("guard_family")) for row in top_families],
-            values=[
-                to_float(row.get("avg_time_to_green_seconds"), default=0.0)
-                for row in top_families
-            ],
+            values=[to_float(row.get("avg_time_to_green_seconds"), default=0.0) for row in top_families],
             output_path=charts_dir / "watchdog_time_to_green.svg",
             color="#76b7b2",
         )
@@ -137,15 +126,9 @@ def render_data_science_markdown(report: dict[str, Any]) -> str:
     rows = agent_stats.get("rows", []) if isinstance(agent_stats, dict) else []
     raw_rec = agent_stats.get("recommendation") if isinstance(agent_stats, dict) else {}
     rec = raw_rec if isinstance(raw_rec, dict) else {}
-    watchdog_rows = (
-        watchdog_stats.get("guard_families", [])
-        if isinstance(watchdog_stats, dict)
-        else []
-    )
+    watchdog_rows = watchdog_stats.get("guard_families", []) if isinstance(watchdog_stats, dict) else []
     governance_check_rows = (
-        governance_review_stats.get("by_check_id", [])
-        if isinstance(governance_review_stats, dict)
-        else []
+        governance_review_stats.get("by_check_id", []) if isinstance(governance_review_stats, dict) else []
     )
 
     lines = [
@@ -175,9 +158,7 @@ def render_data_science_markdown(report: dict[str, Any]) -> str:
     for row in rows:
         lines.append(
             "| {selected_agents} | {runs} | {success_rate_pct} | {avg_tasks_completed} | "
-            "{avg_tasks_per_agent} | {tasks_per_minute} | {recommendation_score} |".format(
-                **row
-            )
+            "{avg_tasks_per_agent} | {tasks_per_minute} | {recommendation_score} |".format(**row)
         )
     if not rows:
         lines.append("| - | - | - | - | - | - | - |")
@@ -201,11 +182,7 @@ def render_data_science_markdown(report: dict[str, Any]) -> str:
         ]
     )
     for row in watchdog_rows:
-        lines.append(
-            "| {guard_family} | {episodes} | {success_rate_pct} | {avg_time_to_green_seconds} |".format(
-                **row
-            )
-        )
+        lines.append("| {guard_family} | {episodes} | {success_rate_pct} | {avg_time_to_green_seconds} |".format(**row))
     if not watchdog_rows:
         lines.append("| - | - | - | - |")
 
@@ -229,9 +206,7 @@ def render_data_science_markdown(report: dict[str, Any]) -> str:
     for row in governance_check_rows:
         lines.append(
             "| {bucket} | {total_findings} | {false_positive_count} | "
-            "{false_positive_rate_pct} | {fixed_count} | {cleanup_rate_pct} |".format(
-                **row
-            )
+            "{false_positive_rate_pct} | {fixed_count} | {cleanup_rate_pct} |".format(**row)
         )
     if not governance_check_rows:
         lines.append("| - | - | - | - | - | - |")

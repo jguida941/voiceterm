@@ -33,9 +33,7 @@ def rank_neighbors(
     rows: list[dict[str, Any]] = []
     neighbors = incoming.get(file_path, set()) | outgoing.get(file_path, set())
     for neighbor in sorted(neighbors):
-        both = neighbor in incoming.get(file_path, set()) and neighbor in outgoing.get(
-            file_path, set()
-        )
+        both = neighbor in incoming.get(file_path, set()) and neighbor in outgoing.get(file_path, set())
         direction = "both" if both else "inbound"
         if not both and neighbor in outgoing.get(file_path, set()):
             direction = "outbound"
@@ -62,9 +60,7 @@ def priority_score(
     changed: bool,
     owners: list[str],
 ) -> int:
-    score = sum(
-        SEVERITY_POINTS.get(str(hint.get("severity") or "low"), 10) for hint in hints
-    )
+    score = sum(SEVERITY_POINTS.get(str(hint.get("severity") or "low"), 10) for hint in hints)
     bridge_score = min(fan_in, fan_out)
     score += min(fan_in, 8) * 7
     score += min(fan_out, 8) * 5
@@ -100,15 +96,9 @@ def priority_reason(
 
 
 def bounded_next_slice(file_path: str, hints: list[dict[str, Any]]) -> str:
-    symbols = [
-        str(hint.get("symbol") or "").strip()
-        for hint in hints
-        if str(hint.get("symbol") or "").strip()
-    ]
+    symbols = [str(hint.get("symbol") or "").strip() for hint in hints if str(hint.get("symbol") or "").strip()]
     focus = ", ".join(dict.fromkeys(symbols)) or "the top hinted functions"
-    dominant_lens = Counter(
-        str(hint.get("review_lens") or "unknown") for hint in hints
-    ).most_common(1)
+    dominant_lens = Counter(str(hint.get("review_lens") or "unknown") for hint in hints).most_common(1)
     lens = dominant_lens[0][0] if dominant_lens else "quality"
     action_map = {
         "concurrency": "reduce shared-state scope before touching adjacent modules",
@@ -138,11 +128,7 @@ def build_focused_graph(
             if isinstance(neighbor, dict):
                 focus_nodes.add(str(neighbor.get("file") or ""))
     focus_nodes.discard("")
-    edge_rows = [
-        edge
-        for edge in edges
-        if edge["from"] in focus_nodes and edge["to"] in focus_nodes
-    ]
+    edge_rows = [edge for edge in edges if edge["from"] in focus_nodes and edge["to"] in focus_nodes]
     node_rows: list[dict[str, Any]] = []
     for file_path in sorted(focus_nodes):
         node = nodes.get(file_path, {})

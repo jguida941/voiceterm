@@ -35,26 +35,22 @@ except ModuleNotFoundError:  # pragma: no cover
         sys.path.insert(0, repo_root_str)
     from dev.scripts.devctl.quality_scan_mode import is_adoption_scan
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
-TARGET_ROOTS = (
-    *resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),
-)
-HUNK_RE = re.compile(
-    r"^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@"
-)
+TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
+HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@")
 RATIONALE_RE = re.compile(r"broad-except:\s*allow\b.*\breason\s*=")
 FALLBACK_RE = re.compile(r"broad-except:\s*allow\b.*\bfallback\s*=")
 
 
 def _is_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
+
+
 def _collect_python_paths(
     *,
     repo_root: Path,
@@ -65,15 +61,9 @@ def _collect_python_paths(
     for candidate in candidate_paths:
         if candidate.suffix != ".py":
             continue
-        if not is_under_target_roots(
-            candidate, repo_root=repo_root, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(candidate, repo_root=repo_root, target_roots=TARGET_ROOTS):
             continue
-        relative = (
-            candidate.relative_to(repo_root)
-            if candidate.is_absolute()
-            else candidate
-        )
+        relative = candidate.relative_to(repo_root) if candidate.is_absolute() else candidate
         if _is_test_path(relative):
             skipped_tests += 1
             continue
@@ -92,22 +82,13 @@ def _handler_kind(node_type: ast.expr | None) -> str | None:
     }:
         return node_type.attr
     if isinstance(node_type, ast.Tuple):
-        members = sorted(
-            {
-                kind
-                for element in node_type.elts
-                for kind in [_handler_kind(element)]
-                if kind is not None
-            }
-        )
+        members = sorted({kind for element in node_type.elts for kind in [_handler_kind(element)] if kind is not None})
         if members:
             return ",".join(members)
     return None
 
 
-def _has_contract_token(
-    lines: list[str], line_number: int, *, token_pattern: re.Pattern[str]
-) -> bool:
+def _has_contract_token(lines: list[str], line_number: int, *, token_pattern: re.Pattern[str]) -> bool:
     index = line_number - 1
     if index < 0 or index >= len(lines):
         return False
@@ -141,9 +122,7 @@ def _handler_suppresses_control_flow(handler: ast.ExceptHandler) -> bool:
         node = stack.pop()
         if isinstance(node, ast.Raise):
             return False
-        if isinstance(
-            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
-        ):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda):
             continue
         stack.extend(ast.iter_child_nodes(node))
     return True
@@ -191,11 +170,7 @@ def _diff_added_lines(path: Path, *, since_ref: str | None, head_ref: str) -> se
         if lines is None:
             return set()
         return set(range(1, len(lines.splitlines()) + 1))
-    relative = (
-        path.relative_to(REPO_ROOT).as_posix()
-        if path.is_absolute()
-        else path.as_posix()
-    )
+    relative = path.relative_to(REPO_ROOT).as_posix() if path.is_absolute() else path.as_posix()
     if since_ref:
         cmd = ["git", "diff", "--unified=0", since_ref, head_ref, "--", relative]
     else:
@@ -251,8 +226,7 @@ def build_report(
                         "line": handler["line"],
                         "kind": handler["kind"],
                         "reason": (
-                            "new broad exception handler is missing "
-                            "`broad-except: allow reason=...` rationale"
+                            "new broad exception handler is missing " "`broad-except: allow reason=...` rationale"
                         ),
                     }
                 )
@@ -304,16 +278,9 @@ def _render_md(report: dict) -> str:
     lines.append(f"- files_skipped_tests: {report['files_skipped_tests']}")
     lines.append(f"- broad_handlers: {report['broad_handlers']}")
     lines.append(f"- candidate_handlers: {report['candidate_handlers']}")
-    lines.append(
-        f"- documented_candidate_handlers: {report['documented_candidate_handlers']}"
-    )
-    lines.append(
-        f"- suppressive_candidate_handlers: {report['suppressive_candidate_handlers']}"
-    )
-    lines.append(
-        "- fallback_documented_candidate_handlers: "
-        f"{report['fallback_documented_candidate_handlers']}"
-    )
+    lines.append(f"- documented_candidate_handlers: {report['documented_candidate_handlers']}")
+    lines.append(f"- suppressive_candidate_handlers: {report['suppressive_candidate_handlers']}")
+    lines.append("- fallback_documented_candidate_handlers: " f"{report['fallback_documented_candidate_handlers']}")
     lines.append(f"- violations: {len(report['violations'])}")
     lines.append(f"- parse_errors: {len(report['parse_errors'])}")
     if report.get("since_ref"):
@@ -338,18 +305,14 @@ def _render_md(report: dict) -> str:
             "declare `fallback=...`."
         )
         for item in report["violations"]:
-            lines.append(
-                f"- `{item['path']}:{item['line']}` ({item['kind']}): {item['reason']}"
-            )
+            lines.append(f"- `{item['path']}:{item['line']}` ({item['kind']}): {item['reason']}")
     return "\n".join(lines)
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument(
-        "--head-ref", default="HEAD", help="Head ref used with --since-ref"
-    )
+    parser.add_argument("--head-ref", default="HEAD", help="Head ref used with --since-ref")
     parser.add_argument(
         "--paths",
         nargs="+",
@@ -385,9 +348,7 @@ def main() -> int:
             for path in changed_paths:
                 if path.suffix != ".py":
                     continue
-                if not is_under_target_roots(
-                    path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-                ):
+                if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
                     continue
                 relative = path.as_posix()
                 base_path = base_map.get(path, path)

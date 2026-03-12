@@ -6,7 +6,7 @@ import argparse
 import importlib
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -63,23 +63,19 @@ def resolve_guard_config(
 
 def utc_timestamp() -> str:
     """Return a stable UTC ISO-8601 timestamp for JSON/markdown reports."""
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def build_since_ref_format_parser(description: str) -> argparse.ArgumentParser:
     """Build the standard since-ref/head-ref/format parser shared by guards."""
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument(
-        "--head-ref", default="HEAD", help="Head ref used with --since-ref"
-    )
+    parser.add_argument("--head-ref", default="HEAD", help="Head ref used with --since-ref")
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 
 
-def is_under_target_roots(
-    path: Path, *, repo_root: Path, target_roots: tuple[Path, ...]
-) -> bool:
+def is_under_target_roots(path: Path, *, repo_root: Path, target_roots: tuple[Path, ...]) -> bool:
     """Return whether a repo path falls within one of the configured roots."""
     try:
         relative = path.relative_to(repo_root)

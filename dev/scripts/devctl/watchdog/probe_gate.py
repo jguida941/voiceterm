@@ -10,8 +10,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from dataclasses import asdict, dataclass, field
-from pathlib import Path
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from ..config import REPO_ROOT
@@ -82,9 +81,7 @@ def run_probe_scan(*, timeout_seconds: int = 120) -> ProbeScanResult:
     else:
         try:
             allowlist_data = json.loads(ALLOWLIST_PATH.read_text())
-            allowlist_entries = allowlist_data.get("entries", []) + allowlist_data.get(
-                "suppressed", []
-            )
+            allowlist_entries = allowlist_data.get("entries", []) + allowlist_data.get("suppressed", [])
         except (json.JSONDecodeError, OSError):
             allowlist_entries = []
 
@@ -98,8 +95,7 @@ def run_probe_scan(*, timeout_seconds: int = 120) -> ProbeScanResult:
         probe_name = report.get("command", "unknown")
         for hint in report.get("risk_hints", []):
             allowlisted = any(
-                entry.get("file") == hint.get("file")
-                and entry.get("symbol") == hint.get("symbol")
+                entry.get("file") == hint.get("file") and entry.get("symbol") == hint.get("symbol")
                 for entry in allowlist_entries
             )
             if allowlisted:

@@ -6,8 +6,20 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .mobile_status_projection import (
+    ActionsMobileStatusProjection,
+    AlertMobileStatusProjection,
+    CompactMobileStatusProjection,
+    MobileStatusView,
+    OperatorActionPayload,
+    append_bullets,
+    append_operator_actions,
+    operator_action_rows,
+    parse_mobile_status_view,
+    string_rows,
+)
+from .phone_status_view_support import truncate_status_text
 from .phone_status_views import (
-    _truncate,
     actions_view as phone_actions_view,
     compact_view as phone_compact_view,
 )
@@ -49,6 +61,8 @@ def _review_agents(payload: dict[str, Any]) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [row for row in value if isinstance(row, dict)]
+
+
 def _agent_status(payload: dict[str, Any], agent_id: str) -> str:
     for agent in _review_agents(payload):
         if str(agent.get("agent_id") or "").strip() == agent_id:
@@ -69,41 +83,39 @@ def compact_view(payload: dict[str, Any]) -> dict[str, Any]:
     review_meta = review_meta if isinstance(review_meta, dict) else {}
     approval_policy = payload.get("approval_policy")
     approval_policy = approval_policy if isinstance(approval_policy, dict) else {}
-    return {
-        "schema_version": 1,
-        "view": "compact",
-        "headline": (
+    return CompactMobileStatusProjection(
+        headline=(
             f"{controller_phase.upper()} | review {review_bridge_state} | "
             f"unresolved {unresolved_count}"
         ),
-        "controller_phase": controller_phase,
-        "controller_reason": str(controller_compact.get("reason") or "unknown"),
-        "controller_risk": str(controller_compact.get("risk") or "unknown"),
-        "plan_id": str(
+        controller_phase=controller_phase,
+        controller_reason=str(controller_compact.get("reason") or "unknown"),
+        controller_risk=str(controller_compact.get("risk") or "unknown"),
+        plan_id=str(
             controller_compact.get("plan_id") or review_meta.get("plan_id") or ""
         ),
-        "controller_run_id": str(controller_compact.get("controller_run_id") or ""),
-        "review_bridge_state": review_bridge_state,
-        "codex_poll_state": str(review_liveness.get("codex_poll_state") or "unknown"),
-        "codex_last_poll_utc": str(review_bridge.get("last_codex_poll_utc") or ""),
-        "last_worktree_hash": str(review_bridge.get("last_worktree_hash") or ""),
-        "pending_total": review_pending_total,
-        "unresolved_count": unresolved_count,
-        "current_instruction": _truncate(
+        controller_run_id=str(controller_compact.get("controller_run_id") or ""),
+        review_bridge_state=review_bridge_state,
+        codex_poll_state=str(review_liveness.get("codex_poll_state") or "unknown"),
+        codex_last_poll_utc=str(review_bridge.get("last_codex_poll_utc") or ""),
+        last_worktree_hash=str(review_bridge.get("last_worktree_hash") or ""),
+        pending_total=review_pending_total,
+        unresolved_count=unresolved_count,
+        current_instruction=truncate_status_text(
             review_bridge.get("current_instruction"),
             280,
         ),
-        "open_findings": _truncate(review_bridge.get("open_findings"), 280),
-        "claude_status": _truncate(review_bridge.get("claude_status"), 220),
-        "claude_ack": _truncate(review_bridge.get("claude_ack"), 220),
-        "codex_status": _agent_status(payload, "codex"),
-        "claude_lane_status": _agent_status(payload, "claude"),
-        "operator_status": _agent_status(payload, "operator"),
-        "source_run_url": str(controller_compact.get("source_run_url") or ""),
-        "approval_mode": str(approval_policy.get("mode") or "unknown"),
-        "approval_summary": str(approval_policy.get("summary") or ""),
-        "next_actions": controller_compact.get("next_actions", []),
-    }
+        open_findings=truncate_status_text(review_bridge.get("open_findings"), 280),
+        claude_status=truncate_status_text(review_bridge.get("claude_status"), 220),
+        claude_ack=truncate_status_text(review_bridge.get("claude_ack"), 220),
+        codex_status=_agent_status(payload, "codex"),
+        claude_lane_status=_agent_status(payload, "claude"),
+        operator_status=_agent_status(payload, "operator"),
+        source_run_url=str(controller_compact.get("source_run_url") or ""),
+        approval_mode=str(approval_policy.get("mode") or "unknown"),
+        approval_summary=str(approval_policy.get("summary") or ""),
+        next_actions=string_rows(controller_compact.get("next_actions")),
+    ).to_dict()
 
 
 def alert_view(payload: dict[str, Any]) -> dict[str, Any]:
@@ -122,72 +134,70 @@ def alert_view(payload: dict[str, Any]) -> dict[str, Any]:
         reasons.append(f"{compact['pending_total']} pending review packets")
     if not reasons:
         reasons.append("controller and review state are currently aligned")
-    return {
-        "schema_version": 1,
-        "view": "alert",
-        "severity": severity,
-        "summary": compact["headline"],
-        "approval_mode": compact["approval_mode"],
-        "approval_summary": compact["approval_summary"],
-        "why": reasons,
-        "current_instruction": compact["current_instruction"],
-        "next_actions": compact["next_actions"],
-        "commands": [
+    return AlertMobileStatusProjection(
+        severity=severity,
+        summary=str(compact["headline"]),
+        approval_mode=str(compact["approval_mode"]),
+        approval_summary=str(compact["approval_summary"]),
+        why=reasons,
+        current_instruction=str(compact["current_instruction"]),
+        next_actions=string_rows(compact.get("next_actions")),
+        commands=[
             "python3 dev/scripts/devctl.py mobile-status --view compact --format md",
             "python3 dev/scripts/devctl.py phone-status --view trace --format md",
             "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md",
         ],
-    }
+    ).to_dict()
 
 
 def actions_view(payload: dict[str, Any]) -> dict[str, Any]:
     controller_actions = phone_actions_view(_controller_payload(payload))
     operator_actions = [
-        {
-            "name": "refresh-mobile-status",
-            "command": "python3 dev/scripts/devctl.py mobile-status --view compact --format md",
-            "kind": "read",
-        },
-        {
-            "name": "review-status",
-            "command": "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md",
-            "kind": "read",
-        },
-        {
-            "name": "phone-trace",
-            "command": "python3 dev/scripts/devctl.py phone-status --view trace --format md",
-            "kind": "read",
-        },
+        OperatorActionPayload(
+            name="refresh-mobile-status",
+            command="python3 dev/scripts/devctl.py mobile-status --view compact --format md",
+            kind="read",
+        ),
+        OperatorActionPayload(
+            name="review-status",
+            command="python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md",
+            kind="read",
+        ),
+        OperatorActionPayload(
+            name="phone-trace",
+            command="python3 dev/scripts/devctl.py phone-status --view trace --format md",
+            kind="read",
+        ),
     ]
     nested_actions = controller_actions.get("operator_actions")
-    if isinstance(nested_actions, list):
-        for row in nested_actions:
-            if isinstance(row, dict):
-                operator_actions.append(row)
+    operator_actions.extend(operator_action_rows(nested_actions))
     compact = compact_view(payload)
-    return {
-        "schema_version": 1,
-        "view": "actions",
-        "summary": compact["headline"],
-        "approval_mode": compact["approval_mode"],
-        "approval_summary": compact["approval_summary"],
-        "next_actions": compact["next_actions"],
-        "operator_actions": operator_actions,
-    }
+    return ActionsMobileStatusProjection(
+        summary=str(compact["headline"]),
+        approval_mode=str(compact["approval_mode"]),
+        approval_summary=str(compact["approval_summary"]),
+        next_actions=string_rows(compact.get("next_actions")),
+        operator_actions=operator_actions,
+    ).to_dict()
 
 
-def view_payload(payload: dict[str, Any], view: str) -> dict[str, Any]:
-    if view == "full":
+def view_payload(payload: dict[str, Any], view: str | MobileStatusView) -> dict[str, Any]:
+    selected_view = parse_mobile_status_view(view)
+    if selected_view is MobileStatusView.FULL:
         return payload
-    if view == "alert":
+    if selected_view is MobileStatusView.ALERT:
         return alert_view(payload)
-    if view == "actions":
+    if selected_view is MobileStatusView.ACTIONS:
         return actions_view(payload)
     return compact_view(payload)
 
 
-def _render_view_markdown(view_payload_value: dict[str, Any], view: str) -> str:
-    if view == "full":
+def _render_view_markdown(
+    view_payload_value: dict[str, Any],
+    view: str | MobileStatusView,
+) -> str:
+    selected_view = parse_mobile_status_view(view)
+    if selected_view is MobileStatusView.FULL:
         return "\n".join(
             [
                 "## Full View",
@@ -198,19 +208,14 @@ def _render_view_markdown(view_payload_value: dict[str, Any], view: str) -> str:
             ]
         )
 
-    if view == "alert":
+    if selected_view is MobileStatusView.ALERT:
         lines = ["## Alert View", ""]
         lines.append(f"- severity: {view_payload_value.get('severity')}")
         lines.append(f"- summary: {view_payload_value.get('summary')}")
         lines.append("")
         lines.append("### Why")
         lines.append("")
-        why = view_payload_value.get("why")
-        if isinstance(why, list) and why:
-            for row in why:
-                lines.append(f"- {row}")
-        else:
-            lines.append("- none")
+        append_bullets(lines, string_rows(view_payload_value.get("why")))
         lines.append("")
         lines.append("### Current Instruction")
         lines.append("")
@@ -218,44 +223,30 @@ def _render_view_markdown(view_payload_value: dict[str, Any], view: str) -> str:
         lines.append("")
         lines.append("### Next Actions")
         lines.append("")
-        next_actions = view_payload_value.get("next_actions")
-        if isinstance(next_actions, list) and next_actions:
-            for row in next_actions:
-                lines.append(f"- {row}")
-        else:
-            lines.append("- none")
+        append_bullets(lines, string_rows(view_payload_value.get("next_actions")))
         return "\n".join(lines)
 
-    if view == "actions":
+    if selected_view is MobileStatusView.ACTIONS:
         lines = ["## Actions View", ""]
         lines.append(f"- summary: {view_payload_value.get('summary')}")
         lines.append("")
         lines.append("### Next Actions")
         lines.append("")
-        next_actions = view_payload_value.get("next_actions")
-        if isinstance(next_actions, list) and next_actions:
-            for row in next_actions:
-                lines.append(f"- {row}")
-        else:
-            lines.append("- none")
+        append_bullets(lines, string_rows(view_payload_value.get("next_actions")))
         lines.append("")
         lines.append("### Operator Actions")
         lines.append("")
-        operator_actions = view_payload_value.get("operator_actions")
-        if isinstance(operator_actions, list) and operator_actions:
-            for row in operator_actions:
-                if not isinstance(row, dict):
-                    continue
-                label = str(row.get("name") or "action")
-                command = str(row.get("command") or "")
-                kind = str(row.get("kind") or "unknown")
-                guard = str(row.get("guard") or "none")
-                lines.append(f"- {label} ({kind}, guard={guard}): `{command}`")
-        else:
-            lines.append("- none")
+        append_operator_actions(
+            lines,
+            operator_action_rows(view_payload_value.get("operator_actions")),
+        )
         return "\n".join(lines)
 
-    compact = view_payload_value if view == "compact" else compact_view(view_payload_value)
+    compact = (
+        view_payload_value
+        if selected_view is MobileStatusView.COMPACT
+        else compact_view(view_payload_value)
+    )
     lines = ["## Compact View", ""]
     lines.append(f"- headline: {compact.get('headline')}")
     lines.append(f"- plan_id: {compact.get('plan_id')}")
@@ -285,12 +276,7 @@ def _render_view_markdown(view_payload_value: dict[str, Any], view: str) -> str:
     lines.append("")
     lines.append("### Next Actions")
     lines.append("")
-    next_actions = compact.get("next_actions")
-    if isinstance(next_actions, list) and next_actions:
-        for row in next_actions:
-            lines.append(f"- {row}")
-    else:
-        lines.append("- none")
+    append_bullets(lines, string_rows(compact.get("next_actions")))
     return "\n".join(lines)
 
 
@@ -326,7 +312,12 @@ def render_report_markdown(report: dict[str, Any]) -> str:
 
     view_payload_value = report.get("view_payload")
     if isinstance(view_payload_value, dict):
-        lines.append(_render_view_markdown(view_payload_value, str(report.get("view"))))
+        lines.append(
+            _render_view_markdown(
+                view_payload_value,
+                parse_mobile_status_view(str(report.get("view"))),
+            )
+        )
     return "\n".join(lines)
 
 
@@ -350,7 +341,7 @@ def write_projection_bundle(
     alert_path.write_text(json.dumps(alert_payload, indent=2), encoding="utf-8")
     actions_path.write_text(json.dumps(actions_payload, indent=2), encoding="utf-8")
     latest_md_path.write_text(
-        _render_view_markdown(compact_payload, "compact"),
+        _render_view_markdown(compact_payload, MobileStatusView.COMPACT),
         encoding="utf-8",
     )
 

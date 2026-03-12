@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..common import emit_output, pipe_output, write_output
 from .loop_packet_helpers import (
-    ArtifactSourceRow,
     DEFAULT_SOURCE_CANDIDATES,
     RISK_CONFIDENCE,
     _auto_send_eligible,
@@ -39,9 +38,7 @@ def _render_markdown(report: dict[str, Any]) -> str:
     lines.append("## Draft")
     lines.append("")
     draft = (
-        report.get("terminal_packet", {}).get("draft_text")
-        if isinstance(report.get("terminal_packet"), dict)
-        else ""
+        report.get("terminal_packet", {}).get("draft_text") if isinstance(report.get("terminal_packet"), dict) else ""
     )
     lines.append(str(draft or "").strip() or "(none)")
     lines.append("")
@@ -80,9 +77,7 @@ def run(args) -> int:
         return 2
 
     source_inputs = list(args.source_json or []) or list(DEFAULT_SOURCE_CANDIDATES)
-    source_rows, source_warnings, checked_paths = _discover_artifact_sources(
-        source_inputs
-    )
+    source_rows, source_warnings, checked_paths = _discover_artifact_sources(source_inputs)
     source_row = _choose_source(rows=source_rows, prefer_source=args.prefer_source)
     if source_row is None:
         source_row = _build_live_triage_source()
@@ -93,7 +88,7 @@ def run(args) -> int:
     source_path = source_row.path or "<unknown>"
 
     timestamp = source_row.timestamp
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     if not isinstance(timestamp, datetime):
         report = {
             "command": "loop-packet",
@@ -103,7 +98,7 @@ def run(args) -> int:
             "source_command": source_command,
             "source_path": source_path,
             "checked_paths": checked_paths,
-            "warnings": source_warnings + ["source timestamp missing or invalid"],
+            "warnings": [*source_warnings, "source timestamp missing or invalid"],
         }
         pipe_rc = _emit_report(report, args)
         if pipe_rc != 0:
@@ -134,9 +129,7 @@ def run(args) -> int:
         payload=payload,
     )
     confidence = RISK_CONFIDENCE.get(risk, RISK_CONFIDENCE["medium"])
-    auto_send = bool(args.allow_auto_send) and _auto_send_eligible(
-        source_command, payload, risk
-    )
+    auto_send = bool(args.allow_auto_send) and _auto_send_eligible(source_command, payload, risk)
     draft_text = _truncate_chars(raw_draft, int(args.max_draft_chars))
     packet_seed = "|".join(
         [
@@ -148,8 +141,7 @@ def run(args) -> int:
     )
     packet_id = hashlib.sha256(packet_seed.encode("utf-8")).hexdigest()[:16]
     summary = (
-        f"packet {packet_id} ready from {source_command} "
-        f"(risk={risk}, auto_send={'yes' if auto_send else 'no'})"
+        f"packet {packet_id} ready from {source_command} " f"(risk={risk}, auto_send={'yes' if auto_send else 'no'})"
     )
 
     report = {

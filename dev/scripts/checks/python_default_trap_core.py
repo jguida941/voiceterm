@@ -35,7 +35,7 @@ def count_global_statements(text: str | None) -> int:
 
 
 def _default_is_mutable(node: ast.AST) -> bool:
-    if isinstance(node, (ast.List, ast.Dict, ast.Set)):
+    if isinstance(node, ast.List | ast.Dict | ast.Set):
         return True
     if isinstance(node, ast.Call):
         target = node.func
@@ -49,7 +49,7 @@ def _default_is_mutable(node: ast.AST) -> bool:
 def _iter_function_defaults(tree: ast.AST) -> tuple[ast.AST, ...]:
     defaults: list[ast.AST] = []
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
         defaults.extend(node.args.defaults)
         defaults.extend(item for item in node.args.kw_defaults if item is not None)
@@ -106,11 +106,7 @@ def _is_classvar_annotation(node: ast.AST) -> bool:
 def _classify_dataclass_default(node: ast.AST) -> str | None:
     if _is_field_call(node):
         assert isinstance(node, ast.Call)
-        keyword_map = {
-            keyword.arg: keyword.value
-            for keyword in node.keywords
-            if keyword.arg is not None
-        }
+        keyword_map = {keyword.arg: keyword.value for keyword in node.keywords if keyword.arg is not None}
         if "default_factory" in keyword_map:
             default_factory = keyword_map["default_factory"]
             if isinstance(default_factory, ast.Call):
@@ -170,9 +166,5 @@ def count_metrics(text: str | None) -> dict[str, int]:
 
 
 def format_growth(growth: dict[str, int]) -> str:
-    parts = [
-        f"{METRIC_LABELS[key]} {value:+d}"
-        for key, value in growth.items()
-        if value != 0
-    ]
+    parts = [f"{METRIC_LABELS[key]} {value:+d}" for key, value in growth.items() if value != 0]
     return ", ".join(parts) if parts else "none"

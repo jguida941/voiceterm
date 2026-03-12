@@ -25,6 +25,9 @@ def list_changed_paths_with_base_map(
     for baseline comparisons (`old -> new` for renames/copies, identity
     otherwise).
     """
+    changed: set[Path] = set()
+    base_map: dict[Path, Path] = {}
+
     if is_adoption_scan(since_ref=since_ref, head_ref=head_ref):
         tracked = run_git(["git", "ls-files"])
         untracked = run_git(["git", "ls-files", "--others", "--exclude-standard"])
@@ -55,9 +58,6 @@ def list_changed_paths_with_base_map(
             "--diff-filter=ACMR",
             "HEAD",
         ]
-
-    changed: set[Path] = set()
-    base_map: dict[Path, Path] = {}
 
     for raw_line in run_git(diff_cmd).stdout.splitlines():
         line = raw_line.strip()

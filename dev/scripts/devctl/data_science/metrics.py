@@ -18,6 +18,13 @@ from ..governance_review_log import (
     read_governance_review_rows,
     resolve_governance_review_log_path,
 )
+from ..numeric import to_int
+from ..time_utils import utc_timestamp
+from ..watchdog import (
+    build_watchdog_metrics,
+    read_guarded_coding_episodes,
+    watchdog_metrics_to_dict,
+)
 from .aggregates import build_agent_metrics, build_event_metrics
 from .rendering import (
     render_data_science_markdown,
@@ -28,13 +35,6 @@ from .source_rows import (
     collect_swarm_summary_rows,
     read_jsonl_dict_tail,
 )
-from ..watchdog import (
-    build_watchdog_metrics,
-    read_guarded_coding_episodes,
-    watchdog_metrics_to_dict,
-)
-from ..numeric import to_int
-from ..time_utils import utc_timestamp
 
 DEFAULT_OUTPUT_ROOT = "dev/reports/data_science"
 DEFAULT_SWARM_ROOT = "dev/reports/autonomy/swarms"
@@ -75,11 +75,7 @@ def run_data_science_snapshot(
     charts_dir.mkdir(parents=True, exist_ok=True)
     history_dir.mkdir(parents=True, exist_ok=True)
 
-    event_log = (
-        _resolve_path(event_log_path)
-        if event_log_path
-        else resolve_event_log_path().resolve()
-    )
+    event_log = _resolve_path(event_log_path) if event_log_path else resolve_event_log_path().resolve()
     swarm_dir = _resolve_path(swarm_root or DEFAULT_SWARM_ROOT)
     benchmark_dir = _resolve_path(benchmark_root or DEFAULT_BENCHMARK_ROOT)
     watchdog_dir = _resolve_path(watchdog_root or DEFAULT_WATCHDOG_ROOT)
@@ -90,23 +86,17 @@ def run_data_science_snapshot(
 
     event_rows = read_jsonl_dict_tail(event_log, max_rows=max_events)
     event_stats = build_event_metrics(event_rows)
-    agent_rows = collect_swarm_summary_rows(
-        swarm_dir, max_files=max_swarm_files
-    ) + collect_benchmark_summary_rows(
+    agent_rows = collect_swarm_summary_rows(swarm_dir, max_files=max_swarm_files) + collect_benchmark_summary_rows(
         benchmark_dir, max_files=max_benchmark_files
     )
     agent_stats = build_agent_metrics(agent_rows)
-    watchdog_rows = read_guarded_coding_episodes(
-        watchdog_dir, max_rows=max_watchdog_rows
-    )
+    watchdog_rows = read_guarded_coding_episodes(watchdog_dir, max_rows=max_watchdog_rows)
     watchdog_stats = watchdog_metrics_to_dict(build_watchdog_metrics(watchdog_rows))
     governance_review_rows = read_governance_review_rows(
         governance_review_path,
         max_rows=max_governance_review_rows,
     )
-    governance_review_stats = build_governance_review_stats(
-        governance_review_rows
-    ).to_dict()
+    governance_review_stats = build_governance_review_stats(governance_review_rows).to_dict()
 
     report = {
         "generated_at": utc_timestamp(),
@@ -139,9 +129,7 @@ def run_data_science_snapshot(
     )
 
     markdown = render_data_science_markdown(report)
-    (latest_dir / "summary.json").write_text(
-        json.dumps(report, indent=2), encoding="utf-8"
-    )
+    (latest_dir / "summary.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     (latest_dir / "summary.md").write_text(markdown, encoding="utf-8")
     with (history_dir / "snapshots.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(report, sort_keys=True))
@@ -168,25 +156,12 @@ def maybe_auto_refresh_data_science(
     }:
         return
 
-    output_root = (
-        str(os.environ.get("DEVCTL_DATA_SCIENCE_OUTPUT_ROOT") or "").strip() or None
-    )
-    event_log = (
-        str(os.environ.get("DEVCTL_DATA_SCIENCE_EVENT_LOG") or "").strip() or None
-    )
-    swarm_root = (
-        str(os.environ.get("DEVCTL_DATA_SCIENCE_SWARM_ROOT") or "").strip() or None
-    )
-    benchmark_root = (
-        str(os.environ.get("DEVCTL_DATA_SCIENCE_BENCHMARK_ROOT") or "").strip() or None
-    )
-    watchdog_root = (
-        str(os.environ.get("DEVCTL_DATA_SCIENCE_WATCHDOG_ROOT") or "").strip() or None
-    )
-    governance_review_log = (
-        str(os.environ.get("DEVCTL_DATA_SCIENCE_GOVERNANCE_REVIEW_LOG") or "").strip()
-        or None
-    )
+    output_root = str(os.environ.get("DEVCTL_DATA_SCIENCE_OUTPUT_ROOT") or "").strip() or None
+    event_log = str(os.environ.get("DEVCTL_DATA_SCIENCE_EVENT_LOG") or "").strip() or None
+    swarm_root = str(os.environ.get("DEVCTL_DATA_SCIENCE_SWARM_ROOT") or "").strip() or None
+    benchmark_root = str(os.environ.get("DEVCTL_DATA_SCIENCE_BENCHMARK_ROOT") or "").strip() or None
+    watchdog_root = str(os.environ.get("DEVCTL_DATA_SCIENCE_WATCHDOG_ROOT") or "").strip() or None
+    governance_review_log = str(os.environ.get("DEVCTL_DATA_SCIENCE_GOVERNANCE_REVIEW_LOG") or "").strip() or None
     max_events = to_int(
         os.environ.get("DEVCTL_DATA_SCIENCE_MAX_EVENTS"),
         default=DEFAULT_MAX_EVENTS,

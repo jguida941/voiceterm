@@ -173,9 +173,7 @@ class DataScienceSnapshotTests(unittest.TestCase):
                 max_governance_review_rows=100,
             )
 
-            recommendation = (report.get("agent_stats") or {}).get(
-                "recommendation"
-            ) or {}
+            recommendation = (report.get("agent_stats") or {}).get("recommendation") or {}
             self.assertEqual(recommendation.get("selected_agents"), 5)
             watchdog_stats = report.get("watchdog_stats") or {}
             self.assertEqual(watchdog_stats.get("total_episodes"), 2)
@@ -187,9 +185,7 @@ class DataScienceSnapshotTests(unittest.TestCase):
             self.assertEqual(governance_review_stats.get("total_findings"), 2)
             self.assertEqual(governance_review_stats.get("false_positive_count"), 1)
             self.assertEqual(governance_review_stats.get("fixed_count"), 1)
-            self.assertEqual(
-                governance_review_stats.get("false_positive_rate_pct"), 50.0
-            )
+            self.assertEqual(governance_review_stats.get("false_positive_rate_pct"), 50.0)
 
             summary_json = Path((report.get("paths") or {}).get("summary_json") or "")
             summary_md = Path((report.get("paths") or {}).get("summary_md") or "")
@@ -199,21 +195,9 @@ class DataScienceSnapshotTests(unittest.TestCase):
                 "Governance Review Metrics",
                 summary_md.read_text(encoding="utf-8"),
             )
-            self.assertTrue(
-                (summary_json.parent / "charts" / "command_frequency.svg").exists()
-            )
-            self.assertTrue(
-                (
-                    summary_json.parent / "charts" / "agent_recommendation_score.svg"
-                ).exists()
-            )
-            self.assertTrue(
-                (
-                    summary_json.parent
-                    / "charts"
-                    / "watchdog_guard_family_frequency.svg"
-                ).exists()
-            )
+            self.assertTrue((summary_json.parent / "charts" / "command_frequency.svg").exists())
+            self.assertTrue((summary_json.parent / "charts" / "agent_recommendation_score.svg").exists())
+            self.assertTrue((summary_json.parent / "charts" / "watchdog_guard_family_frequency.svg").exists())
 
     def test_load_watchdog_summary_artifact_returns_typed_metrics(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -275,39 +259,37 @@ class DataScienceCliIntegrationTests(unittest.TestCase):
             watchdog_root.mkdir(parents=True, exist_ok=True)
             governance_review_log.write_text("", encoding="utf-8")
 
-            with patch.dict(
-                "os.environ",
-                {
-                    "DEVCTL_AUDIT_EVENT_LOG": str(event_log),
-                    "DEVCTL_AUDIT_CYCLE_ID": "unit-cycle",
-                    "DEVCTL_EXECUTION_SOURCE": "script_only",
-                    "DEVCTL_EXECUTION_ACTOR": "script",
-                    "DEVCTL_DATA_SCIENCE_OUTPUT_ROOT": str(output_root),
-                    "DEVCTL_DATA_SCIENCE_SWARM_ROOT": str(swarm_root),
-                    "DEVCTL_DATA_SCIENCE_BENCHMARK_ROOT": str(benchmark_root),
-                    "DEVCTL_DATA_SCIENCE_WATCHDOG_ROOT": str(watchdog_root),
-                    "DEVCTL_DATA_SCIENCE_GOVERNANCE_REVIEW_LOG": str(
-                        governance_review_log
-                    ),
-                    "DEVCTL_DATA_SCIENCE_MAX_EVENTS": "100",
-                    "DEVCTL_DATA_SCIENCE_MAX_SWARM_FILES": "10",
-                    "DEVCTL_DATA_SCIENCE_MAX_BENCHMARK_FILES": "10",
-                    "DEVCTL_DATA_SCIENCE_MAX_WATCHDOG_ROWS": "25",
-                    "DEVCTL_DATA_SCIENCE_MAX_GOVERNANCE_REVIEW_ROWS": "25",
-                },
-                clear=False,
+            with (
+                patch.dict(
+                    "os.environ",
+                    {
+                        "DEVCTL_AUDIT_EVENT_LOG": str(event_log),
+                        "DEVCTL_AUDIT_CYCLE_ID": "unit-cycle",
+                        "DEVCTL_EXECUTION_SOURCE": "script_only",
+                        "DEVCTL_EXECUTION_ACTOR": "script",
+                        "DEVCTL_DATA_SCIENCE_OUTPUT_ROOT": str(output_root),
+                        "DEVCTL_DATA_SCIENCE_SWARM_ROOT": str(swarm_root),
+                        "DEVCTL_DATA_SCIENCE_BENCHMARK_ROOT": str(benchmark_root),
+                        "DEVCTL_DATA_SCIENCE_WATCHDOG_ROOT": str(watchdog_root),
+                        "DEVCTL_DATA_SCIENCE_GOVERNANCE_REVIEW_LOG": str(governance_review_log),
+                        "DEVCTL_DATA_SCIENCE_MAX_EVENTS": "100",
+                        "DEVCTL_DATA_SCIENCE_MAX_SWARM_FILES": "10",
+                        "DEVCTL_DATA_SCIENCE_MAX_BENCHMARK_FILES": "10",
+                        "DEVCTL_DATA_SCIENCE_MAX_WATCHDOG_ROWS": "25",
+                        "DEVCTL_DATA_SCIENCE_MAX_GOVERNANCE_REVIEW_ROWS": "25",
+                    },
+                    clear=False,
+                ),
+                patch("sys.argv", ["devctl", "list"]),
             ):
-                with patch("sys.argv", ["devctl", "list"]):
-                    rc = cli.main()
+                rc = cli.main()
 
             self.assertEqual(rc, 0)
             snapshot = output_root / "latest" / "summary.json"
             self.assertTrue(snapshot.exists())
             payload = json.loads(snapshot.read_text(encoding="utf-8"))
             self.assertEqual(payload.get("trigger_command"), "devctl:list")
-            self.assertGreaterEqual(
-                int((payload.get("event_stats") or {}).get("total_events") or 0), 1
-            )
+            self.assertGreaterEqual(int((payload.get("event_stats") or {}).get("total_events") or 0), 1)
             self.assertEqual(
                 payload.get("governance_review_log"),
                 str(governance_review_log.resolve()),

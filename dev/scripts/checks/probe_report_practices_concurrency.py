@@ -116,14 +116,13 @@ CONCURRENCY_PRACTICES: dict[str, dict[str, Any]] = {
             "3. Consider whether the panic path can be eliminated instead."
         ),
         "example_before": (
-            "let data = lock.lock().unwrap_or_else(|e| e.into_inner());\n"
-            "// Silently uses potentially-corrupt data"
+            "let data = lock.lock().unwrap_or_else(|e| e.into_inner());\n" "// Silently uses potentially-corrupt data"
         ),
         "example_after": (
             "let data = match lock.lock() {\n"
             "    Ok(guard) => guard,\n"
             "    Err(poisoned) => {\n"
-            "        tracing::warn!(\"lock was poisoned, recovering\");\n"
+            '        tracing::warn!("lock was poisoned, recovering");\n'
             "        let recovered = poisoned.into_inner();\n"
             "        // Validate recovered state\n"
             "        recovered\n"

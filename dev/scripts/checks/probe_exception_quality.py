@@ -49,13 +49,9 @@ except ModuleNotFoundError:  # pragma: no cover
         sys.path.insert(0, repo_root_str)
     from dev.scripts.devctl.quality_scan_mode import is_adoption_scan
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
-is_review_probe_test_path = import_attr(
-    "probe_path_filters", "is_review_probe_test_path"
-)
+is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
@@ -118,17 +114,13 @@ def _returns_sentinel(handler: ast.ExceptHandler) -> bool:
     for node in ast.walk(handler):
         if isinstance(node, ast.Return):
             return True
-        if isinstance(node, (ast.Pass, ast.Continue, ast.Break)):
+        if isinstance(node, ast.Pass | ast.Continue | ast.Break):
             return True
     return False
 
 
 def _name_set(node: ast.AST) -> set[str]:
-    return {
-        child.id
-        for child in ast.walk(node)
-        if isinstance(child, ast.Name)
-    }
+    return {child.id for child in ast.walk(node) if isinstance(child, ast.Name)}
 
 
 def _call_context_names(call: ast.Call) -> set[str]:
@@ -169,6 +161,7 @@ def _symbol_name(stack: list[str]) -> str:
         return "(module)"
     return stack[-1]
 
+
 def _is_silent_suppressive_handler(node: ast.ExceptHandler) -> bool:
     kind = _handler_kind(node.type)
     if kind is None:
@@ -197,9 +190,7 @@ def _build_hint(
     )
 
 
-def _iter_generic_translation_raises(
-    node: ast.ExceptHandler, exc_name: str | None
-) -> list[ast.Raise]:
+def _iter_generic_translation_raises(node: ast.ExceptHandler, exc_name: str | None) -> list[ast.Raise]:
     matches: list[ast.Raise] = []
     for child in ast.walk(node):
         if isinstance(child, ast.Raise) and _is_generic_raise_message(child, exc_name):
@@ -232,8 +223,7 @@ class _ExceptionQualityVisitor(ast.NodeVisitor):
                     symbol=symbol,
                     severity="high",
                     signals=[
-                        f"{SUPPRESSIVE_SIGNAL} at line {node.lineno} falls back "
-                        "without logging or runtime context"
+                        f"{SUPPRESSIVE_SIGNAL} at line {node.lineno} falls back " "without logging or runtime context"
                     ],
                     instruction_key="silent_suppressive_broad",
                 )
@@ -267,17 +257,11 @@ def build_report(
     for path in candidate_paths:
         if path.suffix != ".py":
             continue
-        if not is_under_target_roots(
-            path, repo_root=repo_root, target_roots=target_roots
-        ):
+        if not is_under_target_roots(path, repo_root=repo_root, target_roots=target_roots):
             continue
         if is_review_probe_test_path(path):
             continue
-        relative = (
-            path.relative_to(repo_root).as_posix()
-            if path.is_absolute()
-            else path.as_posix()
-        )
+        relative = path.relative_to(repo_root).as_posix() if path.is_absolute() else path.as_posix()
         text = current_text_by_path.get(relative)
         if text is None:
             continue
@@ -321,11 +305,7 @@ def main() -> int:
         if path.suffix != ".py":
             continue
         relative = path.as_posix()
-        text = (
-            guard.read_text_from_ref(path, args.head_ref)
-            if args.since_ref
-            else guard.read_text_from_worktree(path)
-        )
+        text = guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
         current_text_by_path[relative] = text
 
     mode = (

@@ -33,17 +33,13 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         utc_timestamp,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
-TARGET_ROOTS = (
-    *resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),
-)
+TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
 
 # A file is facade-heavy when it has this many pure-delegation wrappers
 FACADE_THRESHOLD = 3
@@ -59,18 +55,13 @@ def _is_pure_delegation(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     Ignores a leading docstring (Expr wrapping a Constant) so that
     ``def f(): "doc"; return g()`` still counts as delegation.
     """
-    stmts = [
-        s for s in node.body
-        if not (isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant))
-    ]
+    stmts = [s for s in node.body if not (isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant))]
     if len(stmts) != 1:
         return False
     stmt = stmts[0]
     if isinstance(stmt, ast.Return) and isinstance(stmt.value, ast.Call):
         return True
-    if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
-        return True
-    return False
+    return bool(isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call))
 
 
 def _count_facade_wrappers(text: str | None) -> int:
@@ -82,9 +73,8 @@ def _count_facade_wrappers(text: str | None) -> int:
         return 0
     wrappers = 0
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if _is_pure_delegation(node):
-                wrappers += 1
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and _is_pure_delegation(node):
+            wrappers += 1
     return wrappers
 
 
@@ -162,9 +152,7 @@ def main() -> int:
             args.head_ref,
         )
     except RuntimeError as exc:
-        return emit_runtime_error(
-            "check_facade_wrappers", args.format, str(exc)
-        )
+        return emit_runtime_error("check_facade_wrappers", args.format, str(exc))
 
     mode = "commit-range" if args.since_ref else "working-tree"
     files_considered = 0
@@ -180,9 +168,7 @@ def main() -> int:
         if path.suffix != ".py":
             files_skipped_non_python += 1
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             files_skipped_non_python += 1
             continue
         if _is_test_path(path):
@@ -207,12 +193,14 @@ def main() -> int:
         totals["facade_wrappers_growth"] += growth["facade_wrappers"]
 
         if _has_positive_growth(growth):
-            violations.append({
-                "path": path.as_posix(),
-                "base": base,
-                "current": current,
-                "growth": growth,
-            })
+            violations.append(
+                {
+                    "path": path.as_posix(),
+                    "base": base,
+                    "current": current,
+                    "growth": growth,
+                }
+            )
 
     report = {
         "command": "check_facade_wrappers",

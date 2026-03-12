@@ -21,9 +21,9 @@ RUST_PRACTICES: dict[str, dict[str, Any]] = {
         ),
         "example_before": (
             "match action.as_str() {\n"
-            "    \"create\" => do_create(),\n"
-            "    \"update\" => do_update(),\n"
-            "    \"delete\" => do_delete(),\n"
+            '    "create" => do_create(),\n'
+            '    "update" => do_update(),\n'
+            '    "delete" => do_delete(),\n'
             "    _ => { /* new variants silently ignored */ }\n"
             "}"
         ),
@@ -100,7 +100,7 @@ RUST_PRACTICES: dict[str, dict[str, Any]] = {
             "fn load_config(path: &str) -> Config {\n"
             "    let text = fs::read_to_string(path).unwrap();\n"
             "    let parsed: Value = serde_json::from_str(&text).unwrap();\n"
-            "    let name = parsed[\"name\"].as_str().unwrap().to_string();\n"
+            '    let name = parsed["name"].as_str().unwrap().to_string();\n'
             "    Config { name }\n"
             "}"
         ),
@@ -108,7 +108,7 @@ RUST_PRACTICES: dict[str, dict[str, Any]] = {
             "fn load_config(path: &str) -> anyhow::Result<Config> {\n"
             "    let text = fs::read_to_string(path)?;\n"
             "    let parsed: Value = serde_json::from_str(&text)?;\n"
-            "    let name = parsed[\"name\"]\n"
+            '    let name = parsed["name"]\n'
             "        .as_str()\n"
             "        .ok_or_else(|| anyhow!(\"missing 'name' field\"))?\n"
             "        .to_string();\n"
@@ -193,7 +193,7 @@ RUST_PRACTICES: dict[str, dict[str, Any]] = {
     "vague_errors": {
         "title": "Include runtime context in error messages",
         "explanation": (
-            "Error messages like bail!(\"failed to open config\") are useless in "
+            'Error messages like bail!("failed to open config") are useless in '
             "production — you know something failed but have no idea which config "
             "file, what the path was, or what the OS error was. Every bail!/anyhow! "
             "should include the variables that caused the failure so the error log "
@@ -207,15 +207,15 @@ RUST_PRACTICES: dict[str, dict[str, Any]] = {
         ),
         "example_before": (
             "let config = fs::read_to_string(path)\n"
-            "    .context(\"failed to read config\")?;\n"
+            '    .context("failed to read config")?;\n'
             "let parsed = toml::from_str(&config)\n"
-            "    .context(\"failed to parse config\")?;"
+            '    .context("failed to parse config")?;'
         ),
         "example_after": (
             "let config = fs::read_to_string(path)\n"
-            "    .with_context(|| format!(\"failed to read config at {path:?}\"))?;\n"
+            '    .with_context(|| format!("failed to read config at {path:?}"))?;\n'
             "let parsed: Config = toml::from_str(&config)\n"
-            "    .with_context(|| format!(\"failed to parse TOML in {path:?}\"))?;"
+            '    .with_context(|| format!("failed to parse TOML in {path:?}"))?;'
         ),
         "references": [
             "anyhow crate: Error context",

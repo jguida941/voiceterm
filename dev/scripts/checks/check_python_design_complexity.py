@@ -41,9 +41,7 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         resolve_thresholds,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -87,11 +85,7 @@ def build_report(
             files_skipped_tests += 1
             continue
 
-        relative_path = (
-            candidate.relative_to(repo_root).as_posix()
-            if candidate.is_absolute()
-            else candidate.as_posix()
-        )
+        relative_path = candidate.relative_to(repo_root).as_posix() if candidate.is_absolute() else candidate.as_posix()
         files_considered += 1
         base_functions = collect_excessive_functions(
             base_text_by_path.get(relative_path),
@@ -171,10 +165,7 @@ def _render_md(report: dict) -> str:
         f"high_branch_functions {report['totals']['high_branch_functions_growth']:+d}, "
         f"high_return_functions {report['totals']['high_return_functions_growth']:+d}"
     )
-    lines.append(
-        f"- thresholds: branches >{thresholds['max_branches']}, "
-        f"returns >{thresholds['max_returns']}"
-    )
+    lines.append(f"- thresholds: branches >{thresholds['max_branches']}, " f"returns >{thresholds['max_returns']}")
 
     if report["violations"]:
         lines.extend(

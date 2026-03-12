@@ -8,8 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from dev.scripts.devctl import cli
-from dev.scripts.devctl import governance_export_support
+from dev.scripts.devctl import cli, governance_export_support
 from dev.scripts.devctl.commands import governance_export
 
 
@@ -138,9 +137,7 @@ class GovernanceExportCommandTests(unittest.TestCase):
     def test_command_writes_json_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = Path(tmp_dir) / "export.json"
-            with patch(
-                "dev.scripts.devctl.commands.governance_export.build_governance_export"
-            ) as mock_export:
+            with patch("dev.scripts.devctl.commands.governance_export.build_governance_export") as mock_export:
                 mock_export.return_value = governance_export_support.GovernanceExportResult(
                     snapshot_dir="/tmp/snapshot",
                     zip_path="/tmp/snapshot.zip",
@@ -159,9 +156,7 @@ class GovernanceExportCommandTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(payload["command"], "governance-export")
         self.assertEqual(payload["snapshot_dir"], "/tmp/snapshot")
-        self.assertEqual(
-            payload["generated_artifacts"]["quality_policy_md"], "/tmp/quality.md"
-        )
+        self.assertEqual(payload["generated_artifacts"]["quality_policy_md"], "/tmp/quality.md")
 
     def test_command_rejects_conflicting_scan_modes(self) -> None:
         args = cli.build_parser().parse_args(

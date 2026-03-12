@@ -16,14 +16,14 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from dev.scripts.checks.probe_report_support import aggregate_probe_results
     from dev.scripts.checks.probe_report_renderer_core import (
         render_rich_report,
         render_terminal_report,
     )
-    from dev.scripts.checks.probe_report_support import aggregate_probe_results
 except ModuleNotFoundError:  # pragma: no cover
-    from probe_report_renderer_core import render_rich_report, render_terminal_report
     from probe_report_support import aggregate_probe_results
+    from probe_report_renderer_core import render_rich_report, render_terminal_report
 
 
 def _load_reports(input_path: str | None) -> list[dict[str, Any]]:
@@ -37,9 +37,7 @@ def main() -> int:
     """CLI entry point — reads probe JSON from stdin or file."""
     import argparse as _argparse
 
-    parser = _argparse.ArgumentParser(
-        description="Render rich human-readable probe reports"
-    )
+    parser = _argparse.ArgumentParser(description="Render rich human-readable probe reports")
     parser.add_argument(
         "--input",
         help="JSON file with probe results (reads stdin if omitted)",

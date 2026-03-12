@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 import tempfile
 from pathlib import Path
 
@@ -128,11 +127,7 @@ def maybe_emit_ai_guard_scaffold(
     if not with_ai_guard or already_emitted:
         return already_emitted, None
 
-    failed_guard_steps = [
-        result["name"]
-        for result in failed_results
-        if result["name"] in ai_guard_step_names
-    ]
+    failed_guard_steps = [result["name"] for result in failed_results if result["name"] in ai_guard_step_names]
     if not failed_guard_steps:
         return already_emitted, None
 

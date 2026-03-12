@@ -14,7 +14,7 @@ class PhoneStatusView(str, Enum):
     COMPACT = "compact"
 
     @classmethod
-    def parse(cls, raw_value: object) -> "PhoneStatusView":
+    def parse(cls, raw_value: object) -> PhoneStatusView:
         normalized = str(raw_value or cls.COMPACT.value).strip().lower()
         for member in cls:
             if member.value == normalized:

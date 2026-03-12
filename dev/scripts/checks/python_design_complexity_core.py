@@ -12,11 +12,7 @@ DEFAULT_MAX_RETURNS = 10
 def is_python_test_path(path) -> bool:
     normalized = f"/{path.as_posix()}/"
     name = path.name
-    return (
-        "/tests/" in normalized
-        or name.startswith("test_")
-        or name.endswith("_test.py")
-    )
+    return "/tests/" in normalized or name.startswith("test_") or name.endswith("_test.py")
 
 
 def _coerce_positive_int(value: Any, default: int) -> int:
@@ -50,9 +46,7 @@ class _FunctionMetricsVisitor(ast.NodeVisitor):
         del node
         return None
 
-    def visit_AsyncFunctionDef(
-        self, node: ast.AsyncFunctionDef
-    ) -> None:  # pragma: no cover - nested defs skipped
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:  # pragma: no cover - nested defs skipped
         del node
         return None
 
@@ -85,12 +79,7 @@ class _FunctionMetricsVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Try(self, node: ast.Try) -> None:
-        self.branch_count += (
-            1
-            + len(node.handlers)
-            + int(bool(node.orelse))
-            + int(bool(node.finalbody))
-        )
+        self.branch_count += 1 + len(node.handlers) + int(bool(node.orelse)) + int(bool(node.finalbody))
         self.generic_visit(node)
 
     def visit_Match(self, node: ast.Match) -> None:
@@ -113,17 +102,12 @@ class _FunctionCollector(ast.NodeVisitor):
         self.stack.append(node.name)
         try:
             for child in node.body:
-                if isinstance(
-                    child,
-                    (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
-                ):
+                if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
                     self.visit(child)
         finally:
             self.stack.pop()
 
-    def _record_function(
-        self, node: ast.FunctionDef | ast.AsyncFunctionDef
-    ) -> None:
+    def _record_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         visitor = _FunctionMetricsVisitor()
         for statement in node.body:
             visitor.visit(statement)
@@ -137,10 +121,7 @@ class _FunctionCollector(ast.NodeVisitor):
         self.stack.append(node.name)
         try:
             for child in node.body:
-                if isinstance(
-                    child,
-                    (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
-                ):
+                if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
                     self.visit(child)
         finally:
             self.stack.pop()
@@ -162,8 +143,7 @@ def collect_excessive_functions(
     return {
         qualname: metrics
         for qualname, metrics in collector.functions.items()
-        if int(metrics["branches"]) > thresholds["max_branches"]
-        or int(metrics["returns"]) > thresholds["max_returns"]
+        if int(metrics["branches"]) > thresholds["max_branches"] or int(metrics["returns"]) > thresholds["max_returns"]
     }
 
 

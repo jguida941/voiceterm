@@ -3,20 +3,15 @@
 import json
 import shutil
 import subprocess
-from typing import Any, Dict
+from typing import Any
 
 from .clippy_pedantic import build_snapshot as build_clippy_pedantic_snapshot
-from .collect_dev_logs import (
-    DevLogSessionRow,
-    DevLogSummary,
-    collect_dev_log_summary,
-)
+from .collect_dev_logs import collect_dev_log_summary
 from .config import REPO_ROOT
 from .quality_scan_mode import is_adoption_scan
 
 CI_RUN_FIELDS_EXTENDED = (
-    "status,conclusion,displayTitle,name,event,headBranch,headSha,"
-    "createdAt,updatedAt,url,databaseId"
+    "status,conclusion,displayTitle,name,event,headBranch,headSha," "createdAt,updatedAt,url,databaseId"
 )
 CI_RUN_FIELDS_FALLBACK = "status,conclusion,displayTitle,headSha,createdAt,updatedAt"
 CI_RUN_FALLBACK_MARKERS = (
@@ -33,9 +28,9 @@ def _build_git_status_payload(
     since_ref: str | None,
     head_ref: str | None,
     mode: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     changed_paths = {change["path"] for change in changes}
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "branch": branch,
         "changes": changes,
     }
@@ -47,7 +42,7 @@ def _build_git_status_payload(
     return payload
 
 
-def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> Dict:
+def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> dict:
     """Return branch and dirty state info from git."""
     if not shutil.which("git"):
         return {"error": "git not found"}
@@ -127,7 +122,7 @@ def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> 
     )
 
 
-def collect_ci_runs(limit: int) -> Dict:
+def collect_ci_runs(limit: int) -> dict:
     """Return recent GitHub Actions runs via gh, if available."""
     if not shutil.which("gh"):
         return {"error": "gh not found"}
@@ -163,11 +158,10 @@ def collect_ci_runs(limit: int) -> Dict:
                 row.setdefault("url", None)
                 row.setdefault("databaseId", None)
                 normalized_runs.append(row)
-            result: Dict[str, Any] = {"runs": normalized_runs}
+            result: dict[str, Any] = {"runs": normalized_runs}
             if fields != CI_RUN_FIELDS_EXTENDED:
                 result["warning"] = (
-                    "gh run list fallback mode: extended fields unavailable; "
-                    "upgrade gh for full CI run metadata."
+                    "gh run list fallback mode: extended fields unavailable; " "upgrade gh for full CI run metadata."
                 )
             return result
         except subprocess.CalledProcessError as exc:
@@ -187,7 +181,7 @@ def collect_ci_runs(limit: int) -> Dict:
     return {"error": f"gh run list failed: {last_error}"}
 
 
-def collect_mutation_summary() -> Dict:
+def collect_mutation_summary() -> dict:
     """Return the latest mutation summary via mutants.py."""
     if not shutil.which("python3"):
         return {"error": "python3 not found"}
@@ -209,9 +203,7 @@ def collect_mutation_summary() -> Dict:
         payload = output.strip()
         if not payload:
             result = dict(unavailable_result)
-            result["warning"] = (
-                "mutation outcomes are unavailable (empty results payload)"
-            )
+            result["warning"] = "mutation outcomes are unavailable (empty results payload)"
             return result
         if payload.lower().startswith("no results found under"):
             result = dict(unavailable_result)
@@ -234,8 +226,7 @@ def collect_mutation_summary() -> Dict:
     except OSError as exc:
         return {
             "error": (
-                "mutants summary failed while running "
-                f"`python3 dev/scripts/mutants.py --results-only --json`: {exc}"
+                "mutants summary failed while running " f"`python3 dev/scripts/mutants.py --results-only --json`: {exc}"
             )
         }
 
@@ -244,7 +235,7 @@ def collect_clippy_pedantic_summary(
     summary_path: str | None = None,
     lints_path: str | None = None,
     policy_path: str | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return advisory `clippy::pedantic` summary from existing artifacts."""
     return build_clippy_pedantic_snapshot(
         summary_path=summary_path,

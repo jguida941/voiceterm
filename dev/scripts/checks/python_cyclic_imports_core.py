@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 try:
     from python_cyclic_imports_graph import (
@@ -38,11 +38,7 @@ class CycleReportInputs:
 
 
 def is_test_path(path: Path) -> bool:
-    return (
-        "tests" in path.parts
-        or path.name.startswith("test_")
-        or path.name.endswith("_test.py")
-    )
+    return "tests" in path.parts or path.name.startswith("test_") or path.name.endswith("_test.py")
 
 
 def normalize_repo_path(path: Path, repo_root: Path) -> Path:
@@ -153,8 +149,6 @@ def list_python_paths_from_ref(
     return sorted(paths)
 
 
-
-
 def build_cycle_report(
     *,
     repo_root: Path,
@@ -215,16 +209,14 @@ def build_cycle_report(
         target_roots=inputs.target_roots,
     )
     base_signatures = {
-        cycle_signature(component, rename_map={})
-        for component in strongly_connected_components(base_graph)
+        cycle_signature(component, rename_map={}) for component in strongly_connected_components(base_graph)
     }
     current_components = strongly_connected_components(current_graph)
     new_cycles = [
         component
         for component in current_components
         if any(path in changed_python_paths for path in component)
-        and cycle_signature(component, rename_map=normalized_base_map)
-        not in base_signatures
+        and cycle_signature(component, rename_map=normalized_base_map) not in base_signatures
         and cycle_signature(component, rename_map={}) not in ignored_cycle_signatures
     ]
 
@@ -257,9 +249,6 @@ def build_cycle_report(
         "ignored_paths": [path.as_posix() for path in ignored_paths],
         "ignored_cycle_count": len(ignored_cycle_signatures),
         "totals": {"cyclic_imports_growth": len(new_cycles)},
-        "cycles": [
-            {"members": [path.as_posix() for path in component]}
-            for component in new_cycles
-        ],
+        "cycles": [{"members": [path.as_posix() for path in component]} for component in new_cycles],
         "violations": violations,
     }

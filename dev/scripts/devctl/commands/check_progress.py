@@ -7,7 +7,6 @@ currently executing without interfering with ``--format``/``--output``.
 from __future__ import annotations
 
 import sys
-from typing import List
 
 from ..quality_policy import DEFAULT_AI_GUARD_CHECKS, DEFAULT_REVIEW_PROBE_CHECKS
 
@@ -61,7 +60,7 @@ def count_quality_steps(
 
 
 def emit_progress(
-    step_specs: List[dict],
+    step_specs: list[dict],
     current: int,
     total: int,
     is_parallel: bool,

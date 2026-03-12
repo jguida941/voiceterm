@@ -43,9 +43,7 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         list_python_paths_from_worktree,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -75,9 +73,7 @@ def _render_md(report: dict) -> str:
         lines.append(f"- since_ref: {report['since_ref']}")
     if report.get("head_ref"):
         lines.append(f"- head_ref: {report['head_ref']}")
-    lines.append(
-        f"- aggregate_growth: cyclic_imports {report['totals']['cyclic_imports_growth']:+d}"
-    )
+    lines.append(f"- aggregate_growth: cyclic_imports {report['totals']['cyclic_imports_growth']:+d}")
     if report["ignored_paths"]:
         lines.append("- ignored_paths: " + ", ".join(report["ignored_paths"]))
     lines.append(f"- ignored_cycle_count: {report['ignored_cycle_count']}")
@@ -148,14 +144,11 @@ def main() -> int:
         )
 
     base_text_by_path = {
-        path.as_posix(): guard.read_text_from_ref(path, args.since_ref or "HEAD")
-        for path in base_paths
+        path.as_posix(): guard.read_text_from_ref(path, args.since_ref or "HEAD") for path in base_paths
     }
     current_text_by_path = {
         path.as_posix(): (
-            guard.read_text_from_ref(path, args.head_ref)
-            if args.since_ref
-            else guard.read_text_from_worktree(path)
+            guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
         )
         for path in current_paths
     }

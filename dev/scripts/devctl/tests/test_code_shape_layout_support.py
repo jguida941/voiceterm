@@ -153,18 +153,14 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             repo_root=self.root,
             changed_paths=[Path("dev/scripts/devctl/review_channel/new_lane.py")],
             read_text_from_ref=_read_text_from_ref,
-            read_text_from_worktree=lambda path: (self.root / path).read_text(
-                encoding="utf-8"
-            ),
+            read_text_from_worktree=lambda path: (self.root / path).read_text(encoding="utf-8"),
             since_ref=None,
             docs_sync_rules=docs_sync_rules,
         )
 
         self.assertEqual(scanned, 1)
         self.assertEqual(len(violations), 1)
-        self.assertEqual(
-            violations[0]["reason"], "new_namespace_path_missing_docs_reference"
-        )
+        self.assertEqual(violations[0]["reason"], "new_namespace_path_missing_docs_reference")
 
     def test_docs_sync_passes_when_required_token_is_documented(self) -> None:
         self._write(
@@ -194,9 +190,7 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             repo_root=self.root,
             changed_paths=[Path("dev/scripts/devctl/review_channel/new_lane.py")],
             read_text_from_ref=_read_text_from_ref,
-            read_text_from_worktree=lambda path: (self.root / path).read_text(
-                encoding="utf-8"
-            ),
+            read_text_from_worktree=lambda path: (self.root / path).read_text(encoding="utf-8"),
             since_ref=None,
             docs_sync_rules=docs_sync_rules,
         )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
 
 from ..common import cmd_str, emit_output, pipe_output, run_cmd, write_output
@@ -23,8 +24,9 @@ from ..time_utils import utc_timestamp
 from ..watchdog_episodes import emit_guarded_coding_episode
 
 POST_ACTIONS = {"auto", "quick", "cleanup", "none"}
+DEVCTL_PYTHON_EXECUTABLE = sys.executable or "python3"
 QUICK_FOLLOWUP_CMD = [
-    "python3",
+    DEVCTL_PYTHON_EXECUTABLE,
     "dev/scripts/devctl.py",
     "check",
     "--profile",
@@ -34,7 +36,7 @@ QUICK_FOLLOWUP_CMD = [
     "--no-parallel",
 ]
 CLEANUP_FOLLOWUP_CMD = [
-    "python3",
+    DEVCTL_PYTHON_EXECUTABLE,
     "dev/scripts/devctl.py",
     "process-cleanup",
     "--verify",
@@ -133,7 +135,8 @@ def build_guard_run_report(
 
             scan = _probe_scan(timeout_seconds=120)
             probe_scan_result = scan.to_dict()
-        except Exception as exc:  # broad-except: allow reason=probe scan must fail open fallback=emit warning and continue
+        # broad-except: allow reason=probe scan must fail open fallback=emit warning and continue
+        except Exception as exc:
             warnings.append(f"Probe scan skipped: {exc}")
 
     finished_at_utc = utc_timestamp()
@@ -180,19 +183,14 @@ def run(args) -> int:
     )
     should_emit_episode = report.get("command_result") is not None
     try:
-        summary_path = (
-            emit_guarded_coding_episode(report) if should_emit_episode else None
-        )
-    except Exception as exc:  # broad-except: allow reason=watchdog artifact writes must fail open fallback=emit warning and continue
+        summary_path = emit_guarded_coding_episode(report) if should_emit_episode else None
+    # broad-except: allow reason=watchdog artifact writes must fail open fallback=emit warning and continue
+    except Exception as exc:
         report["warnings"].append(f"Watchdog episode emit skipped: {exc}")
         summary_path = None
     if summary_path:
         report["watchdog_summary_path"] = summary_path
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else build_guard_run_markdown(report)
-    )
+    output = json.dumps(report, indent=2) if args.format == "json" else build_guard_run_markdown(report)
     pipe_rc = emit_output(
         output,
         output_path=args.output,

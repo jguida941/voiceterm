@@ -42,16 +42,10 @@ except ModuleNotFoundError:  # pragma: no cover
         emit_probe_report,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
-is_review_probe_test_path = import_attr(
-    "probe_path_filters", "is_review_probe_test_path"
-)
-scan_python_functions = import_attr(
-    "code_shape_function_policy", "scan_python_functions"
-)
+is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
+scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
@@ -71,17 +65,25 @@ FILE_THRESHOLD_HIGH = 6
 PRIVATE_DEF_RE = re.compile(r"^\s*def\s+(_[a-zA-Z]\w*)\s*\(", re.MULTILINE)
 
 # Names to skip even if they look private.
-_SKIP_PREFIXES = frozenset({
-    "__",           # Dunder methods
-    "_test_",       # Test helpers
-    "_fixture_",    # Fixture builders
-    "_mock_",       # Mock builders
-})
+_SKIP_PREFIXES = frozenset(
+    {
+        "__",  # Dunder methods
+        "_test_",  # Test helpers
+        "_fixture_",  # Fixture builders
+        "_mock_",  # Mock builders
+    }
+)
 
 # Common callback/hook names that are registered, not called directly.
-_CALLBACK_PATTERNS = frozenset({
-    "_on_", "_handle_", "_hook_", "_callback_", "_listener_",
-})
+_CALLBACK_PATTERNS = frozenset(
+    {
+        "_on_",
+        "_handle_",
+        "_hook_",
+        "_callback_",
+        "_listener_",
+    }
+)
 
 AI_INSTRUCTION = (
     "This file has private functions that are each called only once. "
@@ -89,15 +91,14 @@ AI_INSTRUCTION = (
     "of a clear abstraction, inline it at the call site. Single-use "
     "helpers fragment control flow and force readers to jump around."
 )
+
+
 def _should_skip_name(name: str) -> bool:
     """Return True if the function name suggests it's a callback or special."""
     for prefix in _SKIP_PREFIXES:
         if name.startswith(prefix):
             return True
-    for pattern in _CALLBACK_PATTERNS:
-        if pattern in name:
-            return True
-    return False
+    return any(pattern in name for pattern in _CALLBACK_PATTERNS)
 
 
 def _count_references(text: str, func_name: str) -> int:
@@ -148,10 +149,7 @@ def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
             symbol="(file-level)",
             risk_type="design_smell",
             severity=severity,
-            signals=[
-                f"{len(single_use)} private functions called only once "
-                f"({sample}) — consider inlining"
-            ],
+            signals=[f"{len(single_use)} private functions called only once " f"({sample}) — consider inlining"],
             ai_instruction=AI_INSTRUCTION,
             review_lens=REVIEW_LENS,
         )
@@ -167,7 +165,9 @@ def main() -> int:
             guard.validate_ref(args.since_ref)
             guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            guard.run_git, args.since_ref, args.head_ref,
+            guard.run_git,
+            args.since_ref,
+            args.head_ref,
         )
     except RuntimeError:
         return emit_probe_report(report, output_format=args.format)
@@ -180,19 +180,13 @@ def main() -> int:
     for path in changed_paths:
         if path.suffix != ".py":
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=PYTHON_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=PYTHON_ROOTS):
             continue
         if is_review_probe_test_path(path):
             continue
 
         report.files_scanned += 1
-        text = (
-            guard.read_text_from_ref(path, args.head_ref)
-            if args.since_ref
-            else guard.read_text_from_worktree(path)
-        )
+        text = guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
         if text is None:
             continue
 

@@ -133,10 +133,7 @@ def _append_rich_findings_for_file(
         template = AllowlistEntry.from_hint(hint)
         lines.extend(
             [
-                (
-                    f"*To suppress: add to `{ALLOWLIST_FILENAME}`: "
-                    f"`{json.dumps(template.to_dict())}`*"
-                ),
+                (f"*To suppress: add to `{ALLOWLIST_FILENAME}`: " f"`{json.dumps(template.to_dict())}`*"),
                 "",
                 "---",
                 "",
@@ -171,9 +168,7 @@ def render_rich_report(
             ]
         )
         if suppressed_count:
-            lines.append(
-                f"- Allowlisted findings: {suppressed_count} (via `{ALLOWLIST_FILENAME}`)"
-            )
+            lines.append(f"- Allowlisted findings: {suppressed_count} (via `{ALLOWLIST_FILENAME}`)")
         return "\n".join(lines)
 
     active_severity: dict[str, int] = defaultdict(int)
@@ -195,19 +190,18 @@ def render_rich_report(
     for severity in ("high", "medium", "low"):
         count = active_severity.get(severity, 0)
         if count:
-            lines.append(f"- **{count} {severity.upper()}** — " + {
-                "high": "fix before merge",
-                "medium": "fix or document in handoff",
-                "low": "informational",
-            }[severity])
+            lines.append(
+                f"- **{count} {severity.upper()}** — "
+                + {
+                    "high": "fix before merge",
+                    "medium": "fix or document in handoff",
+                    "low": "informational",
+                }[severity]
+            )
     if findings.suppressed:
-        lines.append(
-            f"- **{len(findings.suppressed)} SUPPRESSED** — marked intentional in `{ALLOWLIST_FILENAME}`"
-        )
+        lines.append(f"- **{len(findings.suppressed)} SUPPRESSED** — marked intentional in `{ALLOWLIST_FILENAME}`")
     if findings.design_decisions:
-        lines.append(
-            f"- **{len(findings.design_decisions)} DESIGN DECISIONS** — visible for senior review"
-        )
+        lines.append(f"- **{len(findings.design_decisions)} DESIGN DECISIONS** — visible for senior review")
     lines.extend(["", "## Findings by File", ""])
 
     def file_sort_key(item: tuple[str, list[dict[str, Any]]]) -> tuple[int, str]:
@@ -261,17 +255,12 @@ def render_rich_report(
             [
                 "## Suppressed Findings",
                 "",
-                (
-                    f"The following {len(findings.suppressed)} findings are suppressed "
-                    f"via `{ALLOWLIST_FILENAME}`:"
-                ),
+                (f"The following {len(findings.suppressed)} findings are suppressed " f"via `{ALLOWLIST_FILENAME}`:"),
                 "",
             ]
         )
         for hint, entry in findings.suppressed:
-            lines.append(
-                f"- `{hint.get('file')}::{hint.get('symbol')}` — {hint.get('signals', [''])[0]}"
-            )
+            lines.append(f"- `{hint.get('file')}::{hint.get('symbol')}` — {hint.get('signals', [''])[0]}")
             if entry.reason:
                 lines.append(f"  Reason: *{entry.reason}*")
         lines.append("")

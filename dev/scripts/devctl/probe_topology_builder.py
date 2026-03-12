@@ -138,10 +138,7 @@ def build_probe_topology_artifact(
 
     incoming: dict[str, set[str]] = defaultdict(set)
     outgoing: dict[str, set[str]] = defaultdict(set)
-    edge_rows = [
-        {"from": src, "to": dst, "kind": kind}
-        for src, dst, kind in sorted(python_edges | rust_edges)
-    ]
+    edge_rows = [{"from": src, "to": dst, "kind": kind} for src, dst, kind in sorted(python_edges | rust_edges)]
     for edge in edge_rows:
         outgoing[edge["from"]].add(edge["to"])
         incoming[edge["to"]].add(edge["from"])
@@ -245,14 +242,10 @@ def build_review_packet(
     packet_summary["probe_count"] = int(summary.get("probe_count", 0))
     packet_summary["top_hotspot"] = hotspots[0] if hotspots else None
     packet_summary["changed_hint_files"] = int(
-        topology_summary.get("changed_hint_files", 0)
-        if isinstance(topology_summary, dict)
-        else 0
+        topology_summary.get("changed_hint_files", 0) if isinstance(topology_summary, dict) else 0
     )
     packet_summary["topology_edges"] = int(
-        topology_summary.get("edge_count", 0)
-        if isinstance(topology_summary, dict)
-        else 0
+        topology_summary.get("edge_count", 0) if isinstance(topology_summary, dict) else 0
     )
 
     verification: dict[str, Any] = {}

@@ -12,7 +12,7 @@ def _count_bucket_value(bucket: Any, key: str) -> int:
     if not isinstance(bucket, dict):
         return 0
     raw_value = bucket.get(key)
-    if not isinstance(raw_value, (int, float)):
+    if not isinstance(raw_value, int | float):
         return 0
     return int(raw_value)
 
@@ -96,10 +96,7 @@ def classify_probe_report_issues(probe_report: object) -> list[dict[str, str]]:
     low_count = _count_bucket_value(hints_by_severity, "low")
     severity = "high" if high_count > 0 else ("medium" if medium_count > 0 else "low")
 
-    summary_text = (
-        f"Review probes flagged {risk_hints} risk hints across "
-        f"{files_with_hints} file(s)."
-    )
+    summary_text = f"Review probes flagged {risk_hints} risk hints across " f"{files_with_hints} file(s)."
     counts = [
         f"high={high_count}" if high_count > 0 else "",
         f"medium={medium_count}" if medium_count > 0 else "",
@@ -124,7 +121,4 @@ def classify_probe_report_issues(probe_report: object) -> list[dict[str, str]]:
 
 
 def issues_include_probe_signal(sources: set[str]) -> bool:
-    return any(
-        source == PROBE_SOURCE or source.startswith(PROBE_INFRA_SOURCE)
-        for source in sources
-    )
+    return any(source == PROBE_SOURCE or source.startswith(PROBE_INFRA_SOURCE) for source in sources)

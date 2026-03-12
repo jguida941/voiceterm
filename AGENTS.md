@@ -201,6 +201,13 @@ Required tools (install before running any bundle):
 - **GitHub CLI**: `gh auth status -h github.com`
 - **jscpd** (optional, duplication audits): `npm install -g jscpd`
 
+Interpreter note:
+- `devctl` now keeps repo-owned Python subprocesses on the interpreter that
+  launched `dev/scripts/devctl.py` (checks, probes, and `guard-run`
+  follow-ups). If local `python3` is older than the repo requirement, invoke
+  `python3.11 dev/scripts/devctl.py ...` so nested guard runs stay on the same
+  runtime.
+
 Verify with: `python3 dev/scripts/devctl.py list` (exits non-zero if critical
 tools are missing).
 

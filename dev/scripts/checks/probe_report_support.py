@@ -34,9 +34,7 @@ def extract_source_snippet(
         (
             index
             for index, line in enumerate(lines)
-            if f"def {symbol}(" in line
-            or f"class {symbol}" in line
-            or f"fn {symbol}(" in line
+            if f"def {symbol}(" in line or f"class {symbol}" in line or f"fn {symbol}(" in line
         ),
         None,
     )
@@ -81,7 +79,7 @@ class AllowlistEntry:
         return payload
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AllowlistEntry":
+    def from_dict(cls, data: dict[str, Any]) -> AllowlistEntry:
         return cls(
             file=data.get("file", ""),
             symbol=data.get("symbol", ""),
@@ -97,7 +95,7 @@ class AllowlistEntry:
         hint: dict[str, Any],
         *,
         disposition: str = "suppressed",
-    ) -> "AllowlistEntry":
+    ) -> AllowlistEntry:
         return cls(
             file=hint.get("file", ""),
             symbol=hint.get("symbol", ""),
@@ -112,12 +110,8 @@ class FilteredFindings:
     """Result of splitting probe findings against the allowlist."""
 
     active: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
-    suppressed: list[tuple[dict[str, Any], AllowlistEntry]] = field(
-        default_factory=list
-    )
-    design_decisions: list[tuple[dict[str, Any], AllowlistEntry]] = field(
-        default_factory=list
-    )
+    suppressed: list[tuple[dict[str, Any], AllowlistEntry]] = field(default_factory=list)
+    design_decisions: list[tuple[dict[str, Any], AllowlistEntry]] = field(default_factory=list)
 
 
 def load_allowlist(repo_root: Path | None) -> list[AllowlistEntry]:

@@ -34,10 +34,12 @@ class ResolvedQualityScopes:
     python_probe_roots: tuple[Path, ...] = ()
     rust_guard_roots: tuple[Path, ...] = ()
     rust_probe_roots: tuple[Path, ...] = ()
+
+
 def _discover_rust_scope_roots(
     repo_root: Path,
     *,
-    capabilities: "RepoCapabilities",
+    capabilities: RepoCapabilities,
 ) -> tuple[Path, ...]:
     if not capabilities.rust:
         return ()
@@ -62,7 +64,7 @@ def resolve_quality_scopes(
     payload: dict[str, Any] | None,
     *,
     repo_root: Path,
-    capabilities: "RepoCapabilities",
+    capabilities: RepoCapabilities,
     warnings: list[str],
     has_python_sources,
 ) -> ResolvedQualityScopes:
@@ -71,8 +73,7 @@ def resolve_quality_scopes(
         python_defaults = tuple(
             candidate
             for candidate in COMMON_PYTHON_SCOPE_CANDIDATES
-            if (repo_root / candidate).is_dir()
-            and has_python_sources(repo_root / candidate)
+            if (repo_root / candidate).is_dir() and has_python_sources(repo_root / candidate)
         )
         if not python_defaults and has_python_sources(repo_root):
             python_defaults = (Path("."),)
@@ -109,16 +110,11 @@ def resolve_quality_scopes(
                 try:
                     candidate = candidate.relative_to(repo_root)
                 except ValueError:
-                    warnings.append(
-                        "quality scope "
-                        f"`{scope_name}` ignored absolute path outside repo: {raw}"
-                    )
+                    warnings.append("quality scope " f"`{scope_name}` ignored absolute path outside repo: {raw}")
                     continue
             normalized = Path(".") if candidate in {Path(""), Path(".")} else candidate
             if normalized.parts and normalized.parts[0] == "..":
-                warnings.append(
-                    f"quality scope `{scope_name}` ignored path escaping repo root: {raw}"
-                )
+                warnings.append(f"quality scope `{scope_name}` ignored path escaping repo root: {raw}")
                 continue
             if normalized in seen:
                 continue

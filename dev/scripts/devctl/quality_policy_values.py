@@ -25,11 +25,7 @@ def coerce_bool(value: Any, default: bool) -> bool:
 
 
 def coerce_extra_args(value: Any) -> tuple[str, ...] | None:
-    return (
-        tuple(str(item) for item in value if str(item).strip())
-        if isinstance(value, list)
-        else None
-    )
+    return tuple(str(item) for item in value if str(item).strip()) if isinstance(value, list) else None
 
 
 def coerce_overrides(value: Any) -> dict[str, dict[str, Any]]:

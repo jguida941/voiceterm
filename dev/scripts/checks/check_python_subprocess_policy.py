@@ -28,21 +28,19 @@ except ModuleNotFoundError:  # pragma: no cover - package-style fallback for tes
         utc_timestamp,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
-TARGET_ROOTS = (
-    *resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),
-)
+TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
 
 
 def _is_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
+
+
 def _collect_python_paths(
     *,
     repo_root: Path,
@@ -67,15 +65,9 @@ def _collect_python_paths(
     for candidate in candidate_paths:
         if candidate.suffix != ".py":
             continue
-        if not is_under_target_roots(
-            candidate, repo_root=repo_root, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(candidate, repo_root=repo_root, target_roots=TARGET_ROOTS):
             continue
-        relative = (
-            candidate.relative_to(repo_root)
-            if candidate.is_absolute()
-            else candidate
-        )
+        relative = candidate.relative_to(repo_root) if candidate.is_absolute() else candidate
         if _is_test_path(relative):
             skipped_tests += 1
             continue
@@ -213,9 +205,7 @@ def _render_md(report: dict) -> str:
             "code must pass `check=` explicitly so failure semantics are intentional."
         )
         for item in report["violations"]:
-            lines.append(
-                f"- `{item['path']}:{item['line']}`: {item['reason']}"
-            )
+            lines.append(f"- `{item['path']}:{item['line']}`: {item['reason']}")
     return "\n".join(lines)
 
 

@@ -15,10 +15,7 @@ def add_governance_export_parser(sub: argparse._SubParsersAction) -> None:
     )
     export_cmd.add_argument(
         "--quality-policy",
-        help=(
-            "Optional repo policy JSON file used to resolve the exported "
-            "quality-policy and probe artifacts."
-        ),
+        help=("Optional repo policy JSON file used to resolve the exported " "quality-policy and probe artifacts."),
     )
     export_cmd.add_argument(
         "--export-base-dir",

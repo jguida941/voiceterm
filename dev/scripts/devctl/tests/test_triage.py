@@ -145,9 +145,7 @@ class TriageCommandTests(unittest.TestCase):
                         "triage_markdown_path": "/tmp/triage.md",
                     },
                 },
-                "external_inputs": [
-                    {"source": "jira", "path": "/tmp/jira.json", "issues": 2}
-                ],
+                "external_inputs": [{"source": "jira", "path": "/tmp/jira.json", "issues": 2}],
                 "bundle": {
                     "written": True,
                     "markdown_path": "/tmp/triage.md",
@@ -190,18 +188,8 @@ class TriageCommandTests(unittest.TestCase):
         self.assertEqual(rc, 0)
 
         payload = json.loads(write_output_mock.call_args.args[0])
-        self.assertTrue(
-            any(
-                issue["source"] == "devctl.pedantic"
-                for issue in payload["issues"]
-            )
-        )
-        self.assertTrue(
-            any(
-                "check --profile pedantic" in action
-                for action in payload["next_actions"]
-            )
-        )
+        self.assertTrue(any(issue["source"] == "devctl.pedantic" for issue in payload["issues"]))
+        self.assertTrue(any("check --profile pedantic" in action for action in payload["next_actions"]))
 
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.run_cmd")
@@ -269,9 +257,7 @@ class TriageCommandTests(unittest.TestCase):
                             "hint_count": 3,
                         }
                     ],
-                    "top_files": [
-                        {"file": "dev/scripts/devctl/commands/triage.py", "hint_count": 3}
-                    ],
+                    "top_files": [{"file": "dev/scripts/devctl/commands/triage.py", "hint_count": 3}],
                 },
                 "warnings": [],
                 "errors": [],
@@ -296,9 +282,7 @@ class TriageCommandTests(unittest.TestCase):
         )
         self.assertIn(expected, summaries)
         self.assertEqual(summaries[expected]["severity"], "high")
-        self.assertTrue(
-            any("probe-report --format md" in action for action in payload["next_actions"])
-        )
+        self.assertTrue(any("probe-report --format md" in action for action in payload["next_actions"]))
         self.assertTrue(
             any("triage --probe-report --no-cihub --format md" in action for action in payload["next_actions"])
         )
@@ -351,8 +335,7 @@ class TriageCommandTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(
             any(
-                issue["summary"] == "Review probe run incomplete: 1 probe error(s)."
-                and issue["category"] == "infra"
+                issue["summary"] == "Review probe run incomplete: 1 probe error(s)." and issue["category"] == "infra"
                 for issue in payload["issues"]
             )
         )
@@ -393,9 +376,7 @@ class TriageCommandTests(unittest.TestCase):
             summaries = {issue["summary"]: issue for issue in payload["issues"]}
             self.assertIn("CodeRabbit flagged unsafe command interpolation", summaries)
             self.assertEqual(
-                summaries["CodeRabbit flagged unsafe command interpolation"][
-                    "severity"
-                ],
+                summaries["CodeRabbit flagged unsafe command interpolation"]["severity"],
                 "high",
             )
             self.assertTrue(payload["external_inputs"])
@@ -416,16 +397,10 @@ class TriageCommandTests(unittest.TestCase):
         self.assertEqual(rc, 0)
 
         payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(any("external issues ingest failed" in warning for warning in payload["warnings"]))
         self.assertTrue(
             any(
-                "external issues ingest failed" in warning
-                for warning in payload["warnings"]
-            )
-        )
-        self.assertTrue(
-            any(
-                issue["summary"]
-                == "external issues ingest failed for /tmp/does-not-exist-triage-input.json"
+                issue["summary"] == "external issues ingest failed for /tmp/does-not-exist-triage-input.json"
                 for issue in payload["issues"]
             )
         )
@@ -583,12 +558,8 @@ class TriageCommandTests(unittest.TestCase):
 
             payload = json.loads(write_output_mock.call_args.args[0])
             summaries = {issue["summary"]: issue for issue in payload["issues"]}
-            self.assertEqual(
-                summaries["Critical dependency exposure"]["severity"], "high"
-            )
-            self.assertEqual(
-                summaries["Critical dependency exposure"]["owner"], "security"
-            )
+            self.assertEqual(summaries["Critical dependency exposure"]["severity"], "high")
+            self.assertEqual(summaries["Critical dependency exposure"]["owner"], "security")
             self.assertEqual(summaries["Flaky workflow retries"]["severity"], "medium")
             self.assertEqual(summaries["Flaky workflow retries"]["owner"], "platform")
 
@@ -642,16 +613,10 @@ class TriageCommandTests(unittest.TestCase):
             self.assertEqual(rc, 0)
 
             payload = json.loads(write_output_mock.call_args.args[0])
-            matching = [
-                issue
-                for issue in payload["issues"]
-                if issue["summary"] == "Policy drift detected"
-            ]
+            matching = [issue for issue in payload["issues"] if issue["summary"] == "Policy drift detected"]
             self.assertTrue(matching)
             self.assertEqual(matching[0]["owner"], "secops")
-            self.assertTrue(
-                any("owner map loaded" in warning for warning in payload["warnings"])
-            )
+            self.assertTrue(any("owner map loaded" in warning for warning in payload["warnings"]))
 
     @patch("dev.scripts.devctl.triage.input_sources.run_cmd")
     @patch("dev.scripts.devctl.triage.input_sources.cihub_supports_triage")
@@ -680,16 +645,10 @@ class TriageCommandTests(unittest.TestCase):
         self.assertEqual(rc, 0)
 
         payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(any("cihub triage command failed" in warning for warning in payload["warnings"]))
         self.assertTrue(
             any(
-                "cihub triage command failed" in warning
-                for warning in payload["warnings"]
-            )
-        )
-        self.assertTrue(
-            any(
-                issue["summary"]
-                == "cihub triage command failed; check cihub version/flags."
+                issue["summary"] == "cihub triage command failed; check cihub version/flags."
                 for issue in payload["issues"]
             )
         )
@@ -712,9 +671,7 @@ class TriageCommandTests(unittest.TestCase):
 
         payload = json.loads(write_output_mock.call_args.args[0])
         summaries = [issue["summary"] for issue in payload["issues"]]
-        self.assertNotIn(
-            "cihub triage command failed; check cihub version/flags.", summaries
-        )
+        self.assertNotIn("cihub triage command failed; check cihub version/flags.", summaries)
         self.assertIn("warning", payload["cihub"])
         self.assertIn("does not support `triage`", payload["cihub"]["warning"])
 

@@ -29,9 +29,7 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         utc_timestamp,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_rust_test_path = import_attr("rust_guard_common", "is_test_path")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
@@ -83,7 +81,7 @@ def _count_python_high_param_fns(text: str | None) -> int:
         return 0
     count = 0
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
         args = node.args
         param_count = len(args.args) + len(args.posonlyargs) + len(args.kwonlyargs)
@@ -95,9 +93,7 @@ def _count_python_high_param_fns(text: str | None) -> int:
     return count
 
 
-def _count_metrics(
-    text: str | None, *, suffix: str = ".rs"
-) -> dict[str, int]:
+def _count_metrics(text: str | None, *, suffix: str = ".rs") -> dict[str, int]:
     if suffix == ".rs":
         return {"high_param_functions": _count_rust_high_param_fns(text)}
     if suffix == ".py":
@@ -128,13 +124,8 @@ def _render_md(report: dict) -> str:
         lines.append(f"- head_ref: {report['head_ref']}")
 
     totals = report["totals"]
-    lines.append(
-        "- aggregate_growth: "
-        f"high_param_functions {totals['high_param_functions_growth']:+d}"
-    )
-    lines.append(
-        f"- thresholds: python >{PYTHON_PARAM_THRESHOLD}, rust >{RUST_PARAM_THRESHOLD}"
-    )
+    lines.append("- aggregate_growth: " f"high_param_functions {totals['high_param_functions_growth']:+d}")
+    lines.append(f"- thresholds: python >{PYTHON_PARAM_THRESHOLD}, rust >{RUST_PARAM_THRESHOLD}")
 
     if report["violations"]:
         lines.append("")
@@ -145,11 +136,7 @@ def _render_md(report: dict) -> str:
             "Extract parameter groups into dataclasses or structs."
         )
         for item in report["violations"]:
-            growth_bits = [
-                f"{key} {value:+d}"
-                for key, value in item["growth"].items()
-                if value > 0
-            ]
+            growth_bits = [f"{key} {value:+d}" for key, value in item["growth"].items() if value > 0]
             lines.append(f"- `{item['path']}`: {', '.join(growth_bits)}")
     return "\n".join(lines)
 
@@ -171,9 +158,7 @@ def main() -> int:
             args.head_ref,
         )
     except RuntimeError as exc:
-        return emit_runtime_error(
-            "check_parameter_count", args.format, str(exc)
-        )
+        return emit_runtime_error("check_parameter_count", args.format, str(exc))
 
     mode = "commit-range" if args.since_ref else "working-tree"
     files_considered = 0
@@ -186,9 +171,7 @@ def main() -> int:
         if path.suffix not in (".rs", ".py"):
             files_skipped_non_source += 1
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             files_skipped_non_source += 1
             continue
         if path.suffix == ".rs" and _is_rust_test_path(path):

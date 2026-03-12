@@ -238,13 +238,9 @@ def _build_default_checks(
 # guards are enabled through repo presets instead of leaking into every repo that
 # adopts the quality-policy resolver.
 DEFAULT_ENABLED_AI_GUARD_IDS = tuple(
-    spec.script_id
-    for spec in DEFAULT_AI_GUARD_SPECS
-    if spec.script_id not in VOICETERM_ONLY_AI_GUARD_IDS
+    spec.script_id for spec in DEFAULT_AI_GUARD_SPECS if spec.script_id not in VOICETERM_ONLY_AI_GUARD_IDS
 )
-DEFAULT_ENABLED_REVIEW_PROBE_IDS = tuple(
-    spec.script_id for spec in DEFAULT_REVIEW_PROBE_SPECS
-)
+DEFAULT_ENABLED_REVIEW_PROBE_IDS = tuple(spec.script_id for spec in DEFAULT_REVIEW_PROBE_SPECS)
 DEFAULT_AI_GUARD_CHECKS = _build_default_checks(
     DEFAULT_ENABLED_AI_GUARD_IDS,
     AI_GUARD_REGISTRY,

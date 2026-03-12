@@ -52,9 +52,7 @@ def add_governance_review_parser(sub: argparse._SubParsersAction) -> None:
     review_cmd.add_argument("--path", help="Repo-relative file path for the finding")
     review_cmd.add_argument("--symbol", help="Optional symbol/function/class name")
     review_cmd.add_argument("--line", type=int, help="Optional 1-based line number")
-    review_cmd.add_argument(
-        "--severity", choices=["low", "medium", "high", "critical"]
-    )
+    review_cmd.add_argument("--severity", choices=["low", "medium", "high", "critical"])
     review_cmd.add_argument("--risk-type", help="Optional risk type/category label")
     review_cmd.add_argument(
         "--source-command",
