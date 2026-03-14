@@ -20,7 +20,7 @@ from .time_utils import utc_timestamp
 DEFAULT_GOVERNANCE_REVIEW_LOG = Path("dev/reports/governance/finding_reviews.jsonl")
 DEFAULT_GOVERNANCE_REVIEW_SUMMARY_ROOT = Path("dev/reports/governance/latest")
 DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS = 5_000
-VALID_SIGNAL_TYPES = frozenset({"guard", "probe"})
+VALID_SIGNAL_TYPES = frozenset({"guard", "probe", "audit"})
 VALID_VERDICTS = frozenset(
     {
         "confirmed_issue",
@@ -86,6 +86,8 @@ def build_governance_review_row(
     normalized_symbol = _optional_text(review_input.symbol)
     normalized_line = _optional_line_number(review_input.line)
     review_finding_id = review_input.finding_id or _default_finding_id(
+        repo_name=_optional_text(review_input.repo_name),
+        repo_path=_optional_text(review_input.repo_path),
         signal_type=normalized_signal_type,
         check_id=normalized_check_id,
         file_path=normalized_path,
@@ -238,6 +240,8 @@ def _bucket_stats(
 
 def _default_finding_id(
     *,
+    repo_name: str | None,
+    repo_path: str | None,
     signal_type: str,
     check_id: str,
     file_path: str,
@@ -246,6 +250,8 @@ def _default_finding_id(
 ) -> str:
     raw = "::".join(
         [
+            repo_name or "",
+            repo_path or "",
             signal_type,
             check_id,
             file_path,

@@ -10,6 +10,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+        REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -17,7 +18,7 @@ try:
         resolve_quality_scope_roots,
         utc_timestamp,
     )
-    from python_cyclic_imports_core import (
+    from python_analysis.cyclic_imports_core import (
         CycleGraphInputs,
         CycleReportInputs,
         build_cycle_report,
@@ -27,6 +28,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+        REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -34,7 +36,7 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         resolve_quality_scope_roots,
         utc_timestamp,
     )
-    from dev.scripts.checks.python_cyclic_imports_core import (
+    from dev.scripts.checks.python_analysis.cyclic_imports_core import (
         CycleGraphInputs,
         CycleReportInputs,
         build_cycle_report,
@@ -43,19 +45,24 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         list_python_paths_from_worktree,
     )
 
+try:
+    from dev.scripts.devctl.quality_scan_mode import is_adoption_scan
+except ModuleNotFoundError:  # pragma: no cover
+    repo_root_str = str(REPO_ROOT)
+    if repo_root_str not in sys.path:
+        sys.path.insert(0, repo_root_str)
+    from dev.scripts.devctl.quality_scan_mode import is_adoption_scan
+
 list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = tuple(resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT))
 build_report = build_cycle_report
 
-
 def _resolve_guard_config(script_id: str, repo_root: Path) -> dict:
     return resolve_guard_config(script_id, repo_root=repo_root)
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_python_cyclic_imports", ""]
@@ -90,13 +97,12 @@ def _render_md(report: dict) -> str:
             lines.append("- " + " -> ".join(cycle["members"]))
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
 
-
 def main() -> int:
     args = _build_parser().parse_args()
+    adoption_scan = is_adoption_scan(since_ref=args.since_ref, head_ref=args.head_ref)
 
     try:
         if args.since_ref:
@@ -111,7 +117,14 @@ def main() -> int:
             repo_root=REPO_ROOT,
             resolve_guard_config_fn=_resolve_guard_config,
         )
-        if args.since_ref:
+        if adoption_scan:
+            base_paths = []
+            current_paths = list_python_paths_from_worktree(
+                repo_root=REPO_ROOT,
+                target_roots=TARGET_ROOTS,
+                ignored_paths=ignored_paths,
+            )
+        elif args.since_ref:
             base_paths = list_python_paths_from_ref(
                 ref=args.since_ref,
                 run_git_fn=guard.run_git,
@@ -148,7 +161,9 @@ def main() -> int:
     }
     current_text_by_path = {
         path.as_posix(): (
-            guard.read_text_from_ref(path, args.head_ref) if args.since_ref else guard.read_text_from_worktree(path)
+            guard.read_text_from_ref(path, args.head_ref)
+            if args.since_ref and not adoption_scan
+            else guard.read_text_from_worktree(path)
         )
         for path in current_paths
     }
@@ -163,21 +178,20 @@ def main() -> int:
             ),
             base_text_by_path=base_text_by_path,
             current_text_by_path=current_text_by_path,
-            mode="commit-range" if args.since_ref else "working-tree",
+            mode="adoption-scan" if adoption_scan else ("commit-range" if args.since_ref else "working-tree"),
             target_roots=TARGET_ROOTS,
         ),
         resolve_guard_config_fn=_resolve_guard_config,
     )
     report["timestamp"] = utc_timestamp()
-    report["since_ref"] = args.since_ref
-    report["head_ref"] = args.head_ref
+    report["since_ref"] = None if adoption_scan else args.since_ref
+    report["head_ref"] = None if adoption_scan else args.head_ref
 
     if args.format == "json":
         print(json.dumps(report, indent=2))
     else:
         print(_render_md(report))
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

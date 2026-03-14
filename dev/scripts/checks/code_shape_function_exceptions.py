@@ -75,7 +75,7 @@ FUNCTION_POLICY_EXCEPTIONS: dict[str, FunctionShapeException] = {
         follow_up_mp="MP-347 Phase 3",
         reason="Cross-doc board/instruction/ledger reconciliation remains consolidated pending extraction.",
     ),
-    "dev/scripts/devctl/cli_parser_release.py::add_release_parsers": FunctionShapeException(
+    "dev/scripts/devctl/cli_parser/release.py::add_release_parsers": FunctionShapeException(
         max_lines=175,
         owner="MP-347",
         expires_on="2026-05-15",

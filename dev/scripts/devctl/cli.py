@@ -7,11 +7,11 @@ import sys
 import time
 
 from .audit_events import emit_devctl_audit_event
-from .autonomy_benchmark_parser import add_autonomy_benchmark_parser
-from .autonomy_loop_parser import add_autonomy_loop_parser
-from .autonomy_run_parser import add_autonomy_run_parser
+from .autonomy.benchmark_parser import add_autonomy_benchmark_parser
+from .autonomy.loop_parser import add_autonomy_loop_parser
+from .autonomy.run_parser import add_autonomy_run_parser
 from .cihub_setup_parser import add_cihub_setup_parser
-from .cli_parser_builders import add_standard_parsers
+from .cli_parser.builders import add_standard_parsers
 from .commands import (
     audit_scaffold,
     autonomy_benchmark,
@@ -27,9 +27,6 @@ from .commands import (
     data_science,
     docs_check,
     failure_cleanup,
-    governance_bootstrap,
-    governance_export,
-    governance_review,
     guard_run,
     homebrew,
     hygiene,
@@ -45,6 +42,7 @@ from .commands import (
     mutation_score,
     orchestrate_status,
     orchestrate_watch,
+    platform_contracts,
     path_audit,
     path_rewrite,
     phone_status,
@@ -69,6 +67,14 @@ from .commands import (
     triage,
     triage_loop,
 )
+from .commands.governance import (
+    bootstrap as governance_bootstrap,
+    export as governance_export,
+    import_findings as governance_import_findings,
+    render_surfaces,
+    review as governance_review,
+    simple_lanes,
+)
 from .config import (
     DEFAULT_CI_LIMIT,
     DEFAULT_MEM_ITERATIONS,
@@ -76,22 +82,31 @@ from .config import (
     DEFAULT_MUTATION_THRESHOLD,
 )
 from .controller_action_parser import add_controller_action_parser
-from .data_science_metrics import maybe_auto_refresh_data_science
+from .data_science.metrics import maybe_auto_refresh_data_science
 from .failure_cleanup_parser import add_failure_cleanup_parser
-from .integrations_import_parser import add_integrations_import_parser
-from .integrations_sync_parser import add_integrations_sync_parser
-from .loop_packet_parser import add_loop_packet_parser
+from .governance.parser import (
+    add_governance_import_findings_parser,
+    add_launcher_check_parser,
+    add_launcher_policy_parser,
+    add_launcher_probes_parser,
+    add_render_surfaces_parser,
+)
+from .integrations.import_parser import add_integrations_import_parser
+from .integrations.sync_parser import add_integrations_sync_parser
+from .loops.packet_parser import add_loop_packet_parser
 from .mobile_app_parser import add_mobile_app_parser
-from .mutation_loop_parser import add_mutation_loop_parser
+from .mutation_loop.parser import add_mutation_loop_parser
 from .orchestrate_parser import add_orchestrate_parsers
 from .path_audit_parser import add_path_audit_parser, add_path_rewrite_parser
-from .publication_sync_parser import add_publication_sync_parser
+from .platform.parser import add_platform_contracts_parser
+from .publication_sync.parser import add_publication_sync_parser
 from .reports_cleanup_parser import add_reports_cleanup_parser
-from .review_channel_parser import add_review_channel_parser
-from .security_parser import add_security_parser
+from .review_channel.parser import add_review_channel_parser
+from .security.parser import add_security_parser
 from .sync_parser import add_sync_parser
-from .triage_loop_parser import add_triage_loop_parser
-from .triage_parser import add_triage_parser
+from .runtime.machine_output import clear_machine_output_metrics, consume_machine_output_metrics
+from .triage.loop_parser import add_triage_loop_parser
+from .triage.parser import add_triage_parser
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -106,8 +121,14 @@ def build_parser() -> argparse.ArgumentParser:
         default_mutants_timeout=DEFAULT_MUTANTS_TIMEOUT,
         default_mutation_threshold=DEFAULT_MUTATION_THRESHOLD,
     )
+    add_governance_import_findings_parser(sub)
     add_orchestrate_parsers(sub)
     add_publication_sync_parser(sub)
+    add_platform_contracts_parser(sub)
+    add_render_surfaces_parser(sub)
+    add_launcher_check_parser(sub)
+    add_launcher_probes_parser(sub)
+    add_launcher_policy_parser(sub)
     add_review_channel_parser(sub)
     add_path_audit_parser(sub)
     add_path_rewrite_parser(sub)
@@ -146,13 +167,19 @@ COMMAND_HANDLERS = {
     "status": status.run,
     "orchestrate-status": orchestrate_status.run,
     "orchestrate-watch": orchestrate_watch.run,
+    "platform-contracts": platform_contracts.run,
     "report": report.run,
     "triage": triage.run,
     "data-science": data_science.run,
     "probe-report": probe_report.run,
     "quality-policy": quality_policy.run,
+    "launcher-check": simple_lanes.run_launcher_check,
+    "launcher-probes": simple_lanes.run_launcher_probes,
+    "launcher-policy": simple_lanes.run_launcher_policy,
+    "render-surfaces": render_surfaces.run,
     "governance-export": governance_export.run,
     "governance-bootstrap": governance_bootstrap.run,
+    "governance-import-findings": governance_import_findings.run,
     "governance-review": governance_review.run,
     "triage-loop": triage_loop.run,
     "loop-packet": loop_packet.run,
@@ -204,6 +231,7 @@ def main() -> int:
     if handler is None:
         print(f"error: unknown command '{args.command}'", file=sys.stderr)
         return 1
+    clear_machine_output_metrics()
     started = time.monotonic()
     return_code = 1
     try:
@@ -217,6 +245,7 @@ def main() -> int:
             returncode=return_code,
             duration_seconds=duration_seconds,
             argv=sys.argv[1:],
+            machine_output=consume_machine_output_metrics(),
         )
         if args.command != "data-science":
             maybe_auto_refresh_data_science(command=args.command)

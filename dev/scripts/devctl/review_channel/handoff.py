@@ -24,68 +24,25 @@ from pathlib import Path
 from ..common import display_path
 from ..markdown_sections import parse_markdown_sections as extract_bridge_sections
 from ..time_utils import utc_timestamp
-MARKDOWN_ITEM_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)(?P<value>.+)$")
-BRIDGE_METADATA_PATTERNS = {
-    "last_codex_poll_utc": re.compile(r"^- Last Codex poll:\s*`(?P<value>.+?)`\s*$"),
-    "last_codex_poll_local": re.compile(
-        r"^- Last Codex poll \(Local America/New_York\):\s*`(?P<value>.+?)`\s*$"
-    ),
-    "last_non_audit_worktree_hash": re.compile(
-        r"^- Last non-audit worktree hash:\s*`(?P<value>.+?)`\s*$"
-    ),
-}
-TRACKED_BRIDGE_SECTIONS = (
-    "Poll Status",
-    "Current Verdict",
-    "Open Findings",
-    "Current Instruction For Claude",
-    "Claude Status",
-    "Claude Questions",
-    "Claude Ack",
-    "Last Reviewed Scope",
+from .handoff_constants import (
+    BRIDGE_LIVENESS_KEYS,
+    BRIDGE_METADATA_PATTERNS,
+    DEFAULT_CODEX_POLL_DUE_AFTER_SECONDS,
+    DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS,
+    IDLE_FINDING_MARKERS,
+    IDLE_NEXT_ACTION_MARKERS,
+    MARKDOWN_ITEM_RE,
+    PLACEHOLDER_STATUS_MARKERS,
+    RESOLVED_VERDICT_MARKERS,
+    ROLLOVER_ACK_PREFIX,
+    ROLLOVER_ACK_SECTION,
+    TRACKED_BRIDGE_SECTIONS,
+    _RESOLVED_ECHO_RE,
+    _is_substantive_text,
 )
-ROLLOVER_ACK_PREFIX = {
-    "codex": "Codex rollover ack:",
-    "claude": "Claude rollover ack:",
-}
-ROLLOVER_ACK_SECTION = {
-    "codex": "Poll Status",
-    "claude": "Claude Ack",
-}
-BRIDGE_LIVENESS_KEYS = (
-    "overall_state",
-    "codex_poll_state",
-    "last_codex_poll_utc",
-    "last_codex_poll_age_seconds",
-    "last_reviewed_scope_present",
-    "next_action_present",
-    "open_findings_present",
-    "claude_status_present",
-    "claude_ack_present",
-)
-DEFAULT_CODEX_POLL_DUE_AFTER_SECONDS = 180
-DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS = 300
-IDLE_NEXT_ACTION_MARKERS = (
-    "all green so far",
-    "no next action",
-    "n/a",
-    "none recorded",
-    "idle",
-    "placeholder",
-)
-IDLE_FINDING_MARKERS = (
-    "(none)",
-    "none",
-    "no blockers",
-    "all clear",
-    "all green",
-    "resolved",
-)
-RESOLVED_VERDICT_MARKERS = (
-    "accepted",
-    "all green",
-    "clean",
-    "resolved",
+from .peer_liveness import (
+    CodexPollState,
+    OverallLivenessState,
 )
 
 
@@ -164,27 +121,29 @@ def summarize_bridge_liveness(
         now_utc=now_utc,
     )
     if last_codex_poll_age_seconds is None:
-        codex_poll_state = "missing"
+        codex_poll_state = CodexPollState.MISSING
     elif last_codex_poll_age_seconds > codex_poll_stale_after_seconds:
-        codex_poll_state = "stale"
+        codex_poll_state = CodexPollState.STALE
     elif last_codex_poll_age_seconds > codex_poll_due_after_seconds:
-        codex_poll_state = "poll_due"
+        codex_poll_state = CodexPollState.POLL_DUE
     else:
-        codex_poll_state = "fresh"
+        codex_poll_state = CodexPollState.FRESH
 
-    next_action_present = bool(current_instruction)
+    next_action_present = bool(current_instruction) and not any(
+        marker in current_instruction.lower() for marker in IDLE_NEXT_ACTION_MARKERS
+    )
     last_reviewed_scope_present = bool(last_reviewed_scope)
-    claude_status_present = bool(claude_status)
-    claude_ack_present = bool(claude_ack)
+    claude_status_present = _is_substantive_text(claude_status)
+    claude_ack_present = _is_substantive_text(claude_ack)
 
-    if codex_poll_state in {"missing", "stale"}:
-        overall_state = "stale"
+    if codex_poll_state in {CodexPollState.MISSING, CodexPollState.STALE}:
+        overall_state = OverallLivenessState.STALE
     elif not last_reviewed_scope_present or not next_action_present:
-        overall_state = "waiting_on_peer"
+        overall_state = OverallLivenessState.WAITING_ON_PEER
     elif next_action_present and (not claude_status_present or not claude_ack_present):
-        overall_state = "waiting_on_peer"
+        overall_state = OverallLivenessState.WAITING_ON_PEER
     else:
-        overall_state = "fresh"
+        overall_state = OverallLivenessState.FRESH
 
     return BridgeLiveness(
         overall_state=overall_state,
@@ -329,6 +288,32 @@ def wait_for_rollover_ack(
         time.sleep(max(poll_interval_seconds, 0.1))
 
 
+def wait_for_codex_poll_refresh(
+    *,
+    bridge_path: Path,
+    previous_poll_utc: str | None,
+    timeout_seconds: int,
+    poll_interval_seconds: float = 2.0,
+) -> dict[str, object]:
+    """Wait for a fresh Codex reviewer heartbeat after live launch."""
+    deadline = time.monotonic() + max(timeout_seconds, 0)
+    while True:
+        snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
+        current_poll_utc = snapshot.metadata.get("last_codex_poll_utc")
+        observed = _codex_poll_advanced(
+            previous_poll_utc=previous_poll_utc,
+            current_poll_utc=current_poll_utc,
+        )
+        if observed or time.monotonic() >= deadline:
+            liveness = summarize_bridge_liveness(snapshot)
+            return {
+                "observed": observed,
+                "last_codex_poll_utc": current_poll_utc,
+                "codex_poll_state": liveness.codex_poll_state,
+            }
+        time.sleep(max(poll_interval_seconds, 0.1))
+
+
 def validate_live_bridge_contract(snapshot: BridgeSnapshot) -> list[str]:
     """Return contract errors for the minimum live bridge state."""
     errors: list[str] = []
@@ -360,7 +345,7 @@ def validate_live_bridge_contract(snapshot: BridgeSnapshot) -> list[str]:
             not open_findings
             or any(marker in open_findings for marker in IDLE_FINDING_MARKERS)
         )
-        and any(marker in current_instruction.lower() for marker in RESOLVED_VERDICT_MARKERS)
+        and bool(_RESOLVED_ECHO_RE.search(current_instruction))
     ):
         errors.append(
             "Resolved bridge verdicts must promote the next scoped task in "
@@ -378,12 +363,12 @@ def validate_launch_bridge_state(
     """Return launch-blocking bridge errors for fresh-conductor bootstrap."""
     errors = validate_live_bridge_contract(snapshot)
     effective_liveness = liveness or summarize_bridge_liveness(snapshot)
-    if effective_liveness.codex_poll_state == "missing":
+    if effective_liveness.codex_poll_state == CodexPollState.MISSING:
         errors.append(
             "Missing `Last Codex poll`; fresh launch requires a live reviewer poll "
             "timestamp in the bridge header."
         )
-    elif effective_liveness.codex_poll_state == "stale":
+    elif effective_liveness.codex_poll_state == CodexPollState.STALE:
         errors.append(
             "`Last Codex poll` is stale; fresh launch requires bridge activity "
             "within the five-minute heartbeat contract."
@@ -603,6 +588,20 @@ def _timestamp_age_seconds(
     current = now_utc or datetime.now(timezone.utc)
     age_seconds = int((current - parsed).total_seconds())
     return max(age_seconds, 0)
+
+
+def _codex_poll_advanced(
+    *,
+    previous_poll_utc: str | None,
+    current_poll_utc: str | None,
+) -> bool:
+    current = _parse_utc_z(current_poll_utc)
+    if current is None:
+        return False
+    previous = _parse_utc_z(previous_poll_utc)
+    if previous is None:
+        return True
+    return current > previous
 
 
 def _parse_utc_z(raw_value: str | None) -> datetime | None:

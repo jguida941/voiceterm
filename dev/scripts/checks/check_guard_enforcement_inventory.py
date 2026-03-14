@@ -10,14 +10,14 @@ import re
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+_boot_root = str(Path(__file__).resolve().parents[3])
+if _boot_root not in sys.path:
+    sys.path.insert(0, _boot_root)
 
 try:
-    from check_bootstrap import emit_runtime_error, utc_timestamp
+    from check_bootstrap import REPO_ROOT, emit_runtime_error, utc_timestamp
 except ModuleNotFoundError:  # pragma: no cover - package-style fallback for tests
-    from dev.scripts.checks.check_bootstrap import emit_runtime_error, utc_timestamp
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT, emit_runtime_error, utc_timestamp
 
 _bundle_registry = importlib.import_module("dev.scripts.devctl.bundle_registry")
 _quality_policy = importlib.import_module("dev.scripts.devctl.quality_policy")
@@ -36,6 +36,10 @@ ENFORCEMENT_EXEMPTIONS = {
     "bootstrap": {
         "kind": "helper",
         "reason": "shared bootstrap helper imported by other checks, not a lane-owned guard",
+    },
+    "command_source_validation": {
+        "kind": "pilot-lane",
+        "reason": "launcher-only hard guard currently ships through the selectable launcher policy/command surface until broader repo rollout is complete",
     },
     "duplication_audit_support": {
         "kind": "helper",
@@ -72,13 +76,13 @@ INDIRECT_DEVCTL_COMMAND_SCRIPT_IDS = {
             "active_plan_sync",
             "agents_bundle_render",
             "bundle_workflow_parity",
+            "instruction_surface_sync",
             "markdown_metadata_header",
             "multi_agent_sync",
             "workflow_shell_hygiene",
         }
     ),
 }
-
 
 def _workflow_texts(repo_root: Path) -> dict[str, str]:
     texts: dict[str, str] = {}
@@ -89,10 +93,8 @@ def _workflow_texts(repo_root: Path) -> dict[str, str]:
         texts[path.relative_to(repo_root).as_posix()] = path.read_text(encoding="utf-8")
     return texts
 
-
 def _collect_devctl_commands(text: str) -> set[str]:
     return {match.group("command") for match in DEVCTL_COMMAND_RE.finditer(text)}
-
 
 def _collect_direct_bundle_refs(relative_path: str) -> list[str]:
     refs: list[str] = []
@@ -101,13 +103,11 @@ def _collect_direct_bundle_refs(relative_path: str) -> list[str]:
             refs.append(bundle_name)
     return refs
 
-
 def _collect_direct_workflow_refs(
     relative_path: str,
     workflow_texts: dict[str, str],
 ) -> list[str]:
     return [workflow_path for workflow_path, text in workflow_texts.items() if relative_path in text]
-
 
 def _collect_indirect_bundle_refs(script_id: str) -> list[str]:
     refs: list[str] = []
@@ -119,7 +119,6 @@ def _collect_indirect_bundle_refs(script_id: str) -> list[str]:
         ):
             refs.append(bundle_name)
     return refs
-
 
 def _collect_indirect_workflow_refs(
     script_id: str,
@@ -134,7 +133,6 @@ def _collect_indirect_workflow_refs(
         ):
             refs.append(workflow_path)
     return refs
-
 
 def build_report(repo_root: Path = REPO_ROOT) -> dict:
     workflow_texts = _workflow_texts(repo_root)
@@ -206,7 +204,6 @@ def build_report(repo_root: Path = REPO_ROOT) -> dict:
         "violations": violations,
     }
 
-
 def _render_md(report: dict) -> str:
     lines = ["# check_guard_enforcement_inventory", ""]
     lines.append(f"- ok: {report['ok']}")
@@ -238,12 +235,10 @@ def _render_md(report: dict) -> str:
             lines.append(f"- `{item['kind']}` `{item['script_id']}` -> `{item['path']}`")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -261,7 +256,6 @@ def main() -> int:
     else:
         print(_render_md(report))
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

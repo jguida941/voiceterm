@@ -15,6 +15,7 @@ from ..mobile_status_views import (
     view_payload,
     write_projection_bundle,
 )
+from ..runtime import ControlStateContext, build_control_state
 from ..review_channel.events import (
     event_state_exists,
     load_or_refresh_event_bundle,
@@ -157,19 +158,33 @@ def run(args) -> int:
     merged_payload: dict[str, Any] = {}
     if not errors:
         approval_mode = normalize_approval_mode(getattr(args, "approval_mode", None))
+        approval_policy = build_approval_policy_payload(approval_mode)
+        source_paths = {
+            "phone_input_path": str(phone_input_path),
+            "review_channel_path": str(review_channel_path),
+            "bridge_path": str(bridge_path),
+            "review_status_dir": str(review_status_dir),
+        }
+        control_state = build_control_state(
+            controller_payload=controller_payload,
+            review_payload=review_payload,
+            context=ControlStateContext(
+                approval_policy=approval_policy,
+                sources=source_paths,
+                timestamp=_iso_z(datetime.now(timezone.utc)),
+                warnings=tuple(warnings),
+                errors=tuple(errors),
+            ),
+        )
         merged_payload = {
             "schema_version": 1,
             "command": "mobile-status",
             "timestamp": _iso_z(datetime.now(timezone.utc)),
-            "approval_policy": build_approval_policy_payload(approval_mode),
-            "sources": {
-                "phone_input_path": str(phone_input_path),
-                "review_channel_path": str(review_channel_path),
-                "bridge_path": str(bridge_path),
-                "review_status_dir": str(review_status_dir),
-            },
+            "approval_policy": approval_policy,
+            "sources": source_paths,
             "controller_payload": controller_payload,
             "review_payload": review_payload,
+            "control_state": control_state.to_dict(),
         }
 
     selected_view = view_payload(merged_payload, str(args.view)) if not errors else {}

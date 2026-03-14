@@ -19,6 +19,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -31,6 +32,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -47,7 +49,6 @@ GuardContext = import_attr("rust_guard_common", "GuardContext")
 is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
 scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = resolve_quality_scope_roots("python_probe", repo_root=REPO_ROOT)
@@ -88,7 +89,6 @@ AI_INSTRUCTIONS = {
     ),
 }
 
-
 def _count_getattr_by_receiver(body: str) -> Counter:
     """Count getattr() calls grouped by receiver variable name.
 
@@ -97,11 +97,9 @@ def _count_getattr_by_receiver(body: str) -> Counter:
     """
     return Counter(m.group(1) for m in GETATTR_RE.finditer(body) if m.group(1) not in GETATTR_RECEIVER_ALLOWLIST)
 
-
 def _find_object_params(def_line: str) -> set[str]:
     """Return parameter names annotated as `: object` on a def line."""
     return {m.group(1) for m in OBJECT_PARAM_RE.finditer(def_line)}
-
 
 def _getattr_density_signal(body: str) -> tuple[list[str], str | None, Counter]:
     signals: list[str] = []
@@ -119,7 +117,6 @@ def _getattr_density_signal(body: str) -> tuple[list[str], str | None, Counter]:
         signal_key = "getattr_density"
     return signals, signal_key, receiver_counts
 
-
 def _object_param_signal(def_line: str, body: str) -> tuple[list[str], str | None]:
     for param in _find_object_params(def_line):
         param_getattr_count = sum(1 for match in GETATTR_RE.finditer(body) if match.group(1) == param)
@@ -129,7 +126,6 @@ def _object_param_signal(def_line: str, body: str) -> tuple[list[str], str | Non
                 "untyped_object_param",
             )
     return [], None
-
 
 def _scan_function_smells(text: str, path: Path) -> list[RiskHint]:
     """Scan one Python file for per-function design smells."""
@@ -172,7 +168,6 @@ def _scan_function_smells(text: str, path: Path) -> list[RiskHint]:
 
     return hints
 
-
 def _scan_file_level_smells(text: str, path: Path) -> list[RiskHint]:
     """Scan for file-level design smells (format helper sprawl)."""
     hints: list[RiskHint] = []
@@ -194,7 +189,6 @@ def _scan_file_level_smells(text: str, path: Path) -> list[RiskHint]:
         )
     return hints
 
-
 def _should_scan_path(path: Path) -> bool:
     if path.suffix != ".py":
         return False
@@ -202,12 +196,10 @@ def _should_scan_path(path: Path) -> bool:
         return False
     return not is_review_probe_test_path(path)
 
-
 def _load_probe_text(path: Path, *, since_ref: str | None, head_ref: str) -> str | None:
     if since_ref:
         return guard.read_text_from_ref(path, head_ref)
     return guard.read_text_from_worktree(path)
-
 
 def _extend_report_for_path(report: ProbeReport, path: Path, text: str, files_with_hints: set[str]) -> None:
     func_hints = _scan_function_smells(text, path)
@@ -217,7 +209,6 @@ def _extend_report_for_path(report: ProbeReport, path: Path, text: str, files_wi
         return
     files_with_hints.add(path.as_posix())
     report.risk_hints.extend(all_hints)
-
 
 def main() -> int:
     args = build_probe_parser(__doc__ or "").parse_args()
@@ -252,7 +243,6 @@ def main() -> int:
 
     report.files_with_hints = len(files_with_hints)
     return emit_probe_report(report, output_format=args.format)
-
 
 if __name__ == "__main__":
     sys.exit(main())

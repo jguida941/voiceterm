@@ -9,7 +9,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 
 
 def run_capture(cmd: list[str], *, cwd: Path = REPO_ROOT) -> tuple[int, str, str]:

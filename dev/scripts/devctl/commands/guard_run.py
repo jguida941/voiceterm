@@ -21,7 +21,7 @@ from ..guard_run_core import (
 )
 from ..process_sweep.core import path_is_under_repo
 from ..time_utils import utc_timestamp
-from ..watchdog_episodes import emit_guarded_coding_episode
+from ..watchdog.episode import emit_guarded_coding_episode
 
 POST_ACTIONS = {"auto", "quick", "cleanup", "none"}
 DEVCTL_PYTHON_EXECUTABLE = sys.executable or "python3"

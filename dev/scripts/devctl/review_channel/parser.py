@@ -123,9 +123,10 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         type=int,
         default=DEFAULT_ROLLOVER_ACK_WAIT_SECONDS,
         help=(
-            "How long a live rollover should wait for visible Codex/Claude ACK lines "
-            "from the fresh conductor sessions before failing closed. "
-            "Must be greater than zero for rollover."
+            "How long a live launch should wait for a fresh Codex reviewer "
+            "heartbeat, and how long a live rollover should wait for visible "
+            "Codex/Claude ACK lines from the fresh conductor sessions before "
+            "failing closed. Must be greater than zero for rollover."
         ),
     ),
     _arg("--codex-workers", type=int, default=8, help="Requested Codex reviewer-worker budget"),

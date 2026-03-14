@@ -16,16 +16,16 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from dev.scripts.checks.probe_report_renderer_core import (
+    from dev.scripts.checks.probe_report.renderer_core import (
         render_rich_report,
         render_terminal_report,
     )
-    from dev.scripts.checks.probe_report_support import (
+    from dev.scripts.checks.probe_report.support import (
         aggregate_probe_results as _aggregate_probe_results,
     )
 except ModuleNotFoundError:  # pragma: no cover
-    from probe_report_renderer_core import render_rich_report, render_terminal_report
-    from probe_report_support import (
+    from probe_report.renderer_core import render_rich_report, render_terminal_report
+    from probe_report.support import (
         aggregate_probe_results as _aggregate_probe_results,
     )
 

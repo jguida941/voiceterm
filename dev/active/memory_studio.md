@@ -1877,6 +1877,16 @@ python3 dev/scripts/checks/check_survival_index_recall.py  # Level 4-5 A/B recal
 
 ## Progress Log
 
+- 2026-03-14: Corrected a partial MP-233/MP-234 overlay prototype so it
+  follows the active Memory Studio proving path instead of creating a parallel
+  executor/UI contract. The shared Memory Browser and Action Center overlays
+  remain valid VoiceTerm runtime surfaces, but the current proof opens them
+  from the Rust operator cockpit (`Memory` tab -> `b`, `Actions` tab -> `a`)
+  rather than intercepting global `Ctrl+B` / `Ctrl+A` bytes. The same sweep
+  removed the raw-shell Action Center executor, kept action execution on the
+  existing typed `dev_command` catalog/approval model, restored the test-harness
+  state shape, and extracted shared overlay helpers/submodules so the new code
+  stays under Rust shape/duplication guard thresholds.
 - 2026-03-09: Tightened the boot-pack proving substrate so summary fields stay
   provenance-aligned under token pressure. `generate_boot_pack()` now derives
   `active_tasks` and `recent_decisions` from the same budget-included evidence
@@ -1958,6 +1968,10 @@ failures remain tracked outside this spec.
 | `cargo test memory::survival_index:: -- --nocapture` | `5 passed`; verifies deterministic survival-index query planning, fallback retrieval behavior, task/decision extraction, and markdown rendering for compaction-recovery exports. | done |
 | `cargo test dev_panel_overlay::refresh_poll::memory_page_enter -- --nocapture` | `2 passed`; validates Memory cockpit Enter-refresh path and confirms `survival_index.json` includes structured `query_traces` + `evidence` payload keys. | done |
 | `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | passed after rerunning with host-process access when the initial guard-run follow-up hit sandboxed `ps`; final quick profile finished green. | done |
+| `cargo test --bin voiceterm` | `1799 passed`; validates the corrected Memory Browser / Action Center cockpit-entry path plus the supporting overlay/input/render refactors against the full VoiceTerm Rust suite. | done |
+| `python3 dev/scripts/checks/check_rust_security_footguns.py --format md` + `python3 dev/scripts/checks/check_rust_lint_debt.py --format md` + `python3 dev/scripts/checks/check_rust_test_shape.py --format md` + `python3 dev/scripts/checks/check_structural_complexity.py --format md` + `python3 dev/scripts/checks/check_rust_best_practices.py --format md` | all `ok: True` on 2026-03-14 after removing the raw-shell executor, restoring the `EventLoopState` fixture shape, and finishing the overlay refactor. | done |
+| `python3 dev/scripts/checks/check_function_duplication.py --format md` + `python3 dev/scripts/checks/check_structural_similarity.py --format md` + `python3 dev/scripts/checks/check_code_shape.py --format md` | Rust-side duplication/similarity/shape regressions from the overlay prototype were closed on 2026-03-14: `function_duplication` now only reports an unrelated Python duplicate, `structural_similarity` is green, and `code_shape` only reports unrelated Python soft-limit findings after extracting `overlay/memory_action_input.rs`. | done |
+| `python3 dev/scripts/devctl.py governance-review --record ...` | recorded the 2026-03-14 correction sweep in `dev/reports/governance/finding_reviews.jsonl`: fixed `rust-security-footguns-guard`, `code-shape-guard`, and `function-duplication-guard` rows for the memory-overlay slice, and deferred the unrelated dirty-tree Python shape/duplication findings encountered during validation. | done |
 
 ## Research References (2026-02-19)
 

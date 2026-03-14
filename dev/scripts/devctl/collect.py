@@ -7,7 +7,7 @@ from typing import Any
 
 from .clippy_pedantic import build_snapshot as build_clippy_pedantic_snapshot
 from .collect_dev_logs import collect_dev_log_summary as _collect_dev_log_summary
-from .config import REPO_ROOT
+from .config import REPO_ROOT, get_repo_root
 from .quality_scan_mode import is_adoption_scan
 
 CI_RUN_FIELDS_EXTENDED = (
@@ -47,21 +47,22 @@ def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> 
     """Return branch and dirty state info from git."""
     if not shutil.which("git"):
         return {"error": "git not found"}
+    repo_root = get_repo_root()
     try:
         branch = subprocess.check_output(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=REPO_ROOT,
+            cwd=repo_root,
             text=True,
         ).strip()
         if is_adoption_scan(since_ref=since_ref, head_ref=head_ref):
             tracked_raw = subprocess.check_output(
                 ["git", "ls-files"],
-                cwd=REPO_ROOT,
+                cwd=repo_root,
                 text=True,
             )
             untracked_raw = subprocess.check_output(
                 ["git", "ls-files", "--others", "--exclude-standard"],
-                cwd=REPO_ROOT,
+                cwd=repo_root,
                 text=True,
             )
             changes = []
@@ -81,13 +82,13 @@ def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> 
         if since_ref:
             status_raw = subprocess.check_output(
                 ["git", "diff", "--name-status", f"{since_ref}...{head_ref}"],
-                cwd=REPO_ROOT,
+                cwd=repo_root,
                 text=True,
             )
         else:
             status_raw = subprocess.check_output(
                 ["git", "status", "--porcelain", "--untracked-files=all"],
-                cwd=REPO_ROOT,
+                cwd=repo_root,
                 text=True,
             )
     except subprocess.CalledProcessError as exc:
@@ -183,7 +184,7 @@ def collect_ci_runs(limit: int) -> dict:
 
 
 def collect_mutation_summary() -> dict:
-    """Return the latest mutation summary via mutants.py."""
+    """Return the latest mutation summary via the canonical mutation CLI."""
     if not shutil.which("python3"):
         return {"error": "python3 not found"}
 
@@ -197,7 +198,7 @@ def collect_mutation_summary() -> dict:
     }
     try:
         output = subprocess.check_output(
-            ["python3", "dev/scripts/mutants.py", "--results-only", "--json"],
+            ["python3", "dev/scripts/mutation/cli.py", "--results-only", "--json"],
             cwd=REPO_ROOT,
             text=True,
         )
@@ -227,7 +228,7 @@ def collect_mutation_summary() -> dict:
     except OSError as exc:
         return {
             "error": (
-                "mutants summary failed while running " f"`python3 dev/scripts/mutants.py --results-only --json`: {exc}"
+                "mutants summary failed while running " f"`python3 dev/scripts/mutation/cli.py --results-only --json`: {exc}"
             )
         }
 

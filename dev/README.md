@@ -22,8 +22,10 @@ The main starting points are:
 | See what is in scope right now | [`dev/active/INDEX.md`](active/INDEX.md), then [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) |
 | Build, test, or release | [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) |
 | Understand how the runtime works | [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) |
+| Understand the reusable AI governance platform thesis and architecture | [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) and [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) |
 | Understand how the current Codex/Claude collaboration system works | [`dev/guides/AGENT_COLLABORATION_SYSTEM.md`](guides/AGENT_COLLABORATION_SYSTEM.md) |
 | Export or benchmark the portable governance stack on other repos | [`dev/guides/PORTABLE_CODE_GOVERNANCE.md`](guides/PORTABLE_CODE_GOVERNANCE.md) and [`dev/active/portable_code_governance.md`](active/portable_code_governance.md) |
+| Plan or execute the full reusable AI governance platform extraction | [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) and [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) |
 | Launch or extend the optional PyQt6 Operator Console | [`../app/operator_console/AGENTS.md`](../app/operator_console/AGENTS.md), [`../app/operator_console/README.md`](../app/operator_console/README.md), and [`dev/active/operator_console.md`](active/operator_console.md) |
 | Change tooling, process, or CI | [`AGENTS.md`](../AGENTS.md) and [`dev/scripts/README.md`](scripts/README.md) |
 
@@ -34,8 +36,9 @@ The main starting points are:
 3. [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) for exact commands.
 4. [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) for runtime design.
 5. [`dev/scripts/README.md`](scripts/README.md) for `devctl` and check commands.
-6. [`dev/guides/PORTABLE_CODE_GOVERNANCE.md`](guides/PORTABLE_CODE_GOVERNANCE.md) when the task is about portable guards, exports, or multi-repo evaluation.
-7. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) if you need the why behind the current process.
+6. [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) when the task is about the standalone governance product, repo packs, extraction, or frontend/runtime convergence.
+7. [`dev/guides/PORTABLE_CODE_GOVERNANCE.md`](guides/PORTABLE_CODE_GOVERNANCE.md) when the task is about portable guards, exports, or multi-repo evaluation.
+8. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) if you need the why behind the current process.
 
 ## Active Plans By Area
 
@@ -48,7 +51,8 @@ The main starting points are:
 - Optional operator console: [`dev/active/operator_console.md`](active/operator_console.md)
 - Ralph guardrail loop: [`dev/active/ralph_guardrail_control_plane.md`](active/ralph_guardrail_control_plane.md)
 - Review probes: [`dev/active/review_probes.md`](active/review_probes.md)
-- Portable code governance: [`dev/active/portable_code_governance.md`](active/portable_code_governance.md)
+- Portable code governance engine/adoption companion: [`dev/active/portable_code_governance.md`](active/portable_code_governance.md)
+- AI governance platform extraction only main active plan for this product scope: [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md)
 - Naming/API cleanup: [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md)
 - IDE/provider modularization: [`dev/active/ide_provider_modularization.md`](active/ide_provider_modularization.md)
 - Pre-release audit follow-up: [`dev/active/pre_release_architecture_audit.md`](active/pre_release_architecture_audit.md)

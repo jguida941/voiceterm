@@ -13,6 +13,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -25,6 +26,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -42,7 +44,6 @@ is_rust_test_path = import_attr("rust_guard_common", "is_test_path")
 scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = resolve_quality_scope_roots("rust_probe", repo_root=REPO_ROOT)
@@ -88,14 +89,12 @@ TOKIO_SPAWN_RE = re.compile(r"tokio::(spawn|task::spawn)")
 THREAD_SPAWN_RE = re.compile(r"thread::spawn")
 POISONED_RECOVERY_RE = re.compile(r"poisoned.*into_inner|lock_or_recover")
 
-
 def _count_lock_calls_in_scope(lines: list[str], start: int, end: int) -> int:
     """Count distinct lock/read/write calls within a line range."""
     count = 0
     for line in lines[start:end]:
         count += len(LOCK_CALL_RE.findall(line))
     return count
-
 
 def _scan_file(text: str, path: Path) -> list[RiskHint]:
     """Scan one Rust file for concurrency risk patterns."""
@@ -160,7 +159,6 @@ def _scan_file(text: str, path: Path) -> list[RiskHint]:
 
     return hints
 
-
 def main() -> int:
     args = build_probe_parser(__doc__ or "").parse_args()
     report = ProbeReport(command="probe_concurrency")
@@ -206,7 +204,6 @@ def main() -> int:
 
     report.files_with_hints = len(files_with_hints)
     return emit_probe_report(report, output_format=args.format)
-
 
 if __name__ == "__main__":
     sys.exit(main())

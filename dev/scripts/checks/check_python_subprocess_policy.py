@@ -11,6 +11,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -20,6 +21,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - package-style fallback for tests
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -31,15 +33,12 @@ except ModuleNotFoundError:  # pragma: no cover - package-style fallback for tes
 list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
 
-
 def _is_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
-
 
 def _collect_python_paths(
     *,
@@ -75,7 +74,6 @@ def _collect_python_paths(
 
     return sorted(paths), skipped_tests
 
-
 def _collect_run_bindings(tree: ast.AST) -> tuple[set[str], set[str]]:
     subprocess_module_names = {"subprocess"}
     subprocess_run_names: set[str] = set()
@@ -90,7 +88,6 @@ def _collect_run_bindings(tree: ast.AST) -> tuple[set[str], set[str]]:
                     subprocess_run_names.add(alias.asname or alias.name)
     return subprocess_module_names, subprocess_run_names
 
-
 def _call_uses_subprocess_run(
     node: ast.Call,
     *,
@@ -103,7 +100,6 @@ def _call_uses_subprocess_run(
     if isinstance(func, ast.Name):
         return func.id in subprocess_run_names
     return False
-
 
 def _find_run_calls_without_explicit_check(text: str) -> tuple[int, list[int]]:
     tree = ast.parse(text)
@@ -124,7 +120,6 @@ def _find_run_calls_without_explicit_check(text: str) -> tuple[int, list[int]]:
             continue
         violation_lines.append(node.lineno)
     return total_calls, violation_lines
-
 
 def build_report(
     *,
@@ -176,7 +171,6 @@ def build_report(
         "target_roots": [path.as_posix() for path in TARGET_ROOTS],
     }
 
-
 def _render_md(report: dict) -> str:
     lines = ["# check_python_subprocess_policy", ""]
     lines.append(f"- mode: {report['mode']}")
@@ -208,10 +202,8 @@ def _render_md(report: dict) -> str:
             lines.append(f"- `{item['path']}:{item['line']}`: {item['reason']}")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -240,7 +232,6 @@ def main() -> int:
     else:
         print(_render_md(report))
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

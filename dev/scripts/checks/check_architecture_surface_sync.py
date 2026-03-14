@@ -14,6 +14,7 @@ submodules, which is acceptable because this repo currently has no submodules.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import subprocess
@@ -24,7 +25,10 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Final
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 
 INDEX_REL: Final[str] = "dev/active/INDEX.md"
 MASTER_PLAN_REL: Final[str] = "dev/active/MASTER_PLAN.md"
@@ -57,7 +61,9 @@ DEVCTL_COMMAND_EXCLUDES: Final[tuple[str, ...]] = (
 
 SURFACE_SYNC_ALLOWLIST: Final[dict[str, tuple[str, ...]]] = {
     "active-plan": (),
-    "check-script": (),
+    "check-script": (
+        "dev/scripts/checks/check_command_source_validation.py",
+    ),
     "devctl-command": (),
     "app-surface": (),
     "workflow": (),
@@ -325,94 +331,115 @@ def _validate_check_script(
     return violations
 
 
-def _extract_command_handlers(cli_text: str) -> dict[str, list[str]]:
+def _command_module_key(path: Path) -> str:
+    module_path = path.relative_to("dev/scripts/devctl").with_suffix("")
+    return ".".join(module_path.parts)
+
+
+def _extract_cli_command_bindings(cli_text: str) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    aliases: dict[str, list[str]] = defaultdict(list)
     handlers: dict[str, list[str]] = defaultdict(list)
-    pattern = re.compile(r'["\']([^"\']+)["\']\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\.run')
-    for command_name, module_name in pattern.findall(cli_text):
-        handlers[module_name].append(command_name)
-    return dict(handlers)
+    try:
+        module = ast.parse(cli_text)
+    except SyntaxError:
+        pattern = re.compile(r'["\']([^"\']+)["\']\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\.run')
+        for command_name, module_name in pattern.findall(cli_text):
+            handlers[module_name].append(command_name)
+        return {}, dict(handlers)
+
+    for node in ast.walk(module):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.level != 1 or node.module is None or (
+            node.module != "commands" and not node.module.startswith("commands.")
+        ):
+            continue
+        for alias in node.names:
+            if alias.name == "*":
+                continue
+            module_key = f"{node.module}.{alias.name}"
+            local_name = alias.asname or alias.name
+            if local_name not in aliases[module_key]:
+                aliases[module_key].append(local_name)
+
+    for node in module.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not isinstance(node.value, ast.Dict) or not any(
+            isinstance(target, ast.Name) and target.id == "COMMAND_HANDLERS"
+            for target in node.targets
+        ):
+            continue
+        for key_node, value_node in zip(node.value.keys, node.value.values):
+            if not isinstance(key_node, ast.Constant) or not isinstance(key_node.value, str):
+                continue
+            if not isinstance(value_node, ast.Attribute) or value_node.attr != "run":
+                continue
+            if not isinstance(value_node.value, ast.Name):
+                continue
+            handlers[value_node.value.id].append(key_node.value)
+    return dict(aliases), dict(handlers)
 
 
 def _has_run_entrypoint(source_text: str) -> bool:
     return re.search(r"^def\s+run\s*\(", source_text, re.MULTILINE) is not None
 
 
-def _validate_devctl_command(
-    repo_root: Path,
-    path: Path,
-    cache: dict[str, str],
-) -> list[dict[str, str]]:
+def _validate_devctl_command(repo_root: Path, path: Path, cache: dict[str, str]) -> list[dict[str, str]]:
     source_text = _read_text(repo_root, path.as_posix(), cache)
     if not _has_run_entrypoint(source_text):
         return []
 
-    module_name = path.stem
+    module_key = _command_module_key(path)
     cli_text = _read_text(repo_root, CLI_REL, cache)
     listing_text = _read_text(repo_root, LISTING_REL, cache)
     docs_text = _read_text(repo_root, COMMAND_DOCS_REL, cache)
     violations: list[dict[str, str]] = []
 
-    if not re.search(rf"^\s*{re.escape(module_name)},\s*$", cli_text, re.MULTILINE):
-        violations.append(
-            _violation(
-                path=path,
-                zone="devctl-command",
-                rule="missing-cli-import",
-                hint=(
-                    f"Import `{module_name}` in `{CLI_REL}` so the command module is "
-                    "reachable from the public CLI surface."
-                ),
-            )
-        )
+    alias_map, handlers = _extract_cli_command_bindings(cli_text)
+    import_aliases = alias_map.get(module_key, [])
+    if not import_aliases:
+        violations.append(_violation(
+            path=path,
+            zone="devctl-command",
+            rule="missing-cli-import",
+            hint=f"Import `{module_key}` in `{CLI_REL}` so the command module is reachable from the public CLI surface, even when it uses a package-local alias.",
+        ))
 
-    handlers = _extract_command_handlers(cli_text)
-    command_names = handlers.get(module_name, [])
+    command_names = list(dict.fromkeys(
+        command_name for alias in import_aliases for command_name in handlers.get(alias, [])
+    ))
     if not command_names:
-        violations.append(
-            _violation(
-                path=path,
-                zone="devctl-command",
-                rule="missing-command-handler",
-                hint=(
-                    f"Add a `COMMAND_HANDLERS` entry for `{module_name}.run` in "
-                    f"`{CLI_REL}` and wire the parser in the same slice."
-                ),
-            )
-        )
+        violations.append(_violation(
+            path=path,
+            zone="devctl-command",
+            rule="missing-command-handler",
+            hint=f"Add a `COMMAND_HANDLERS` entry for `{path.stem}.run` in `{CLI_REL}` and wire the parser in the same slice.",
+        ))
         return violations
 
     for command_name in command_names:
         quoted_name = f'"{command_name}"'
         alt_quoted_name = f"'{command_name}'"
         if quoted_name not in listing_text and alt_quoted_name not in listing_text:
-            violations.append(
-                _violation(
-                    path=path,
-                    zone="devctl-command",
-                    rule="missing-list-command",
-                    hint=(
-                        f"Add `{command_name}` to `{LISTING_REL}` so `devctl list` "
-                        "stays aligned with the public command surface."
-                    ),
-                )
-            )
+            violations.append(_violation(
+                path=path,
+                zone="devctl-command",
+                rule="missing-list-command",
+                hint=f"Add `{command_name}` to `{LISTING_REL}` so `devctl list` stays aligned with the public command surface.",
+            ))
 
         doc_tokens = (
             f"devctl.py {command_name}",
             f"`{command_name}`",
         )
         if not _contains_any_token(docs_text, doc_tokens):
-            violations.append(
-                _violation(
-                    path=path,
-                    zone="devctl-command",
-                    rule="missing-command-docs",
-                    hint=(
-                        f"Document `{command_name}` in `{COMMAND_DOCS_REL}` so the "
-                        "maintainer command reference stays authoritative."
-                    ),
-                )
-            )
+            violations.append(_violation(
+                path=path,
+                zone="devctl-command",
+                rule="missing-command-docs",
+                hint=f"Document `{command_name}` in `{COMMAND_DOCS_REL}` so the maintainer command reference stays authoritative.",
+            ))
 
     return violations
 

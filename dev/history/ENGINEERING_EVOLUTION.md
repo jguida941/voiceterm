@@ -46,6 +46,238 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-13 - Repo-pack surface generation moved behind policy
+
+Fact: the first concrete repo-pack surface-generation slice is now real code
+instead of plan prose. `dev/config/devctl_repo_policy.json` owns a new
+`repo_governance.surface_generation` contract for repo-pack metadata, shared
+template context, and governed output surfaces; `devctl render-surfaces`
+renders or validates those surfaces; `check_instruction_surface_sync` plus
+`docs-check --strict-tooling` keep the template-backed outputs aligned; and
+portable starter policy/bootstrap flows now seed the same contract for adopter
+repos. That matters because local `CLAUDE.md`, slash/skill templates, and
+starter hook/workflow stubs are no longer independent manually edited surfaces
+with duplicated context. They now resolve from one repo-owned policy source,
+which is the first real proof that the platform can package repo-pack
+instruction surfaces as governed product behavior instead of chat-only
+convention.
+
+Evidence:
+
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/governance/surfaces.py`
+- `dev/scripts/devctl/governance/parser.py`
+- `dev/scripts/devctl/commands/governance/render_surfaces.py`
+- `dev/scripts/checks/package_layout/instruction_surface_sync.py`
+- `dev/scripts/devctl/commands/docs_check.py`
+- `dev/scripts/devctl/commands/docs/check_runtime.py`
+- `dev/scripts/devctl/governance/bootstrap_policy.py`
+- `dev/scripts/devctl/governance_bootstrap_support.py`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+- `dev/scripts/devctl/tests/governance/test_governance_bootstrap.py`
+- `dev/scripts/devctl/tests/test_docs_check.py`
+- `dev/scripts/README.md`
+- `dev/guides/DEVCTL_AUTOGUIDE.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+Follow-up note: the subsequent namespace split kept the same generated-surface
+design but changed the active helper path to
+`dev/scripts/devctl/governance/surface_runtime.py`. The focused regression path
+now relies on package-style `check_agents_bundle_render` imports, the public
+generated-surface runner lives at
+`dev/scripts/checks/package_layout/check_instruction_surface_sync.py`, and the
+strict-tooling docs-check fixture points at
+`dev/scripts/devctl/commands/governance/render_surfaces.py` instead of the old
+flat command location.
+
+### 2026-03-12 - Compatibility shims became a full guard-plus-probe contract
+
+Fact: compatibility wrappers are no longer governed only by one package-layout
+exception path. The same AST-first shim primitive now drives both the blocking
+layout guard and an advisory stale-shim probe. `check_package_layout.py`
+continues to enforce structural/layout policy and crowding baselines, while
+the new `probe_compatibility_shims.py` ranks missing canonical metadata,
+expired wrappers, broken shim targets, and shim-heavy roots/families. In the
+same cleanup slice, the fallback `run_probe_report.py` runner stopped carrying
+its own hard-coded probe filename list and now resolves registered probes from
+shared quality policy and script-catalog state. That matters because the repo
+is moving from one-off wrapper exceptions toward one reusable governance
+primitive with a single source of truth for both semantics and orchestration.
+
+Evidence:
+
+- `dev/scripts/checks/package_layout/rules.py`
+- `dev/scripts/checks/package_layout/bootstrap.py`
+- `dev/scripts/checks/check_package_layout.py`
+- `dev/scripts/checks/probe_compatibility_shims.py`
+- `dev/scripts/checks/run_probe_report.py`
+- `dev/config/quality_presets/portable_python.json`
+- `dev/config/quality_presets/voiceterm.json`
+- `dev/scripts/devctl/tests/test_code_shape_layout_support.py`
+- `dev/scripts/devctl/tests/checks/package_layout/test_probe_compatibility_shims.py`
+
+### 2026-03-12 - The first shared runtime contract moved from blueprint to code
+
+Fact: the reusable-platform work is no longer only architectural prose plus a
+read-only blueprint command. `dev/scripts/devctl/runtime/control_state.py`
+now defines a real typed `ControlState` contract, `devctl mobile-status`
+emits that contract alongside the existing compatibility payloads, and the
+PyQt6 Operator Console phone snapshot reader consumes the shared contract
+instead of independently re-deriving the same review/controller fields from
+raw nested JSON dicts. This matters because it proves the extraction strategy:
+frontends can migrate onto typed runtime objects while the outer artifact
+shape stays stable for existing readers, which is how the rest of the review,
+Ralph, mutation, and phone/desktop surfaces should move off repo-local
+ad-hoc payload parsing.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/control_state.py`
+- `dev/scripts/devctl/commands/mobile_status.py`
+- `dev/scripts/devctl/mobile_status_views.py`
+- `app/operator_console/state/snapshots/phone_status_snapshot.py`
+- `dev/active/ai_governance_platform.md`
+- `dev/guides/AI_GOVERNANCE_PLATFORM.md`
+
+### 2026-03-12 - The reusable AI governance platform target is now explicit
+
+Fact: the repo no longer treats "portable governance" and "the full reusable
+product" as the same problem. `dev/active/portable_code_governance.md`
+continues to own the reusable guard/probe/policy/bootstrap/export engine, but
+the broader extraction of Ralph-style loops, shared control-plane/runtime
+contracts, repo-pack packaging, and frontend convergence across CLI, PyQt6,
+overlay, and phone/mobile surfaces now has its own active architecture plan at
+`dev/active/ai_governance_platform.md`. That matters because the user goal is
+not just "run a few portable checks on another repo"; it is "install one
+coherent AI-governance system into another repo and have the same architecture
+work there too." The same doc split also makes organization requirements
+explicit: directory layout should mirror platform layers and public entrypoints,
+not accumulate flat roots full of mixed helper modules.
+
+Evidence:
+
+- `dev/active/ai_governance_platform.md`
+- `dev/active/portable_code_governance.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/INDEX.md`
+- `dev/guides/PORTABLE_CODE_GOVERNANCE.md`
+- `dev/README.md`
+- `DEV_INDEX.md`
+- `AGENTS.md`
+
+### 2026-03-12 - Script layout enforcement moved from cleanup advice into tooling policy
+
+Fact: `dev/scripts` package cleanup is no longer just "please keep this tidy."
+The repo now treats packaged Python entrypoints as the canonical shape: the
+old root-level wrappers for mutation, workflow bridges, badge renderers,
+artifact helpers, and CodeRabbit helpers were removed once repo-owned
+workflows/docs/tests/commands were migrated to their package paths. The
+important follow-up is that `devctl path-audit` and `path-rewrite` now carry
+that migration map directly, so stale references are detected and rewritten
+systematically instead of being cleaned up by hand each time the layout moves.
+The same slice also made the portability boundary explicit rather than implied:
+the guard/probe engine is policy-driven enough to reuse elsewhere, but the
+higher-level Ralph, mutation, process-hygiene, and some docs/router surfaces
+are still repo-local and need more extraction before the full control plane is
+truly repo-agnostic.
+The immediate next cleanup pass burned down part of that remaining router/docs
+debt too: `check-router` lane classification + risk add-ons and `docs-check`
+canonical-doc/deprecated-reference policy now resolve from
+`dev/config/devctl_repo_policy.json`, and both commands accept
+`--quality-policy` overrides so another repo can replace those repo-owned
+contracts without editing the command modules.
+
+Evidence:
+
+- `dev/scripts/devctl/script_catalog.py`
+- `dev/scripts/devctl/path_audit.py`
+- `dev/scripts/devctl/repo_policy.py`
+- `dev/scripts/devctl/commands/check_router_constants.py`
+- `dev/scripts/devctl/commands/docs_check_policy.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/README.md`
+- `dev/scripts/checks/README.md`
+- `dev/scripts/coderabbit/README.md`
+- `dev/scripts/workflow_bridge/README.md`
+- `dev/active/pre_release_architecture_audit.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-12 - Router and docs governance moved behind repo policy
+
+Fact: the next portability pass took two more repo-shaped behaviors out of
+inline Python constants and put them into `dev/config/devctl_repo_policy.json`.
+`devctl check-router` now resolves lane mapping, path classification, and
+risk-add-on commands from repo governance policy, while `devctl docs-check`
+now resolves its canonical user-doc set, maintainer-doc requirements,
+evolution-trigger paths, and deprecated-reference patterns from the same
+policy file. Both commands also accept `--quality-policy`, so another codebase
+can reuse the engine by supplying a different repo policy instead of patching
+the command implementation. This does not make the whole control plane
+portable yet: Ralph, mutation, and process-hygiene workflow logic still carry
+VoiceTerm-specific assumptions, but the router/docs governance layer no longer
+needs to.
+
+Evidence:
+
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/repo_policy.py`
+- `dev/scripts/devctl/commands/check_router_constants.py`
+- `dev/scripts/devctl/commands/check_router.py`
+- `dev/scripts/devctl/commands/docs_check_policy.py`
+- `dev/scripts/devctl/commands/docs_check.py`
+- `dev/scripts/devctl/tests/test_check_router.py`
+- `dev/scripts/devctl/tests/test_check_router_support.py`
+- `dev/scripts/devctl/tests/test_docs_check.py`
+- `dev/scripts/devctl/tests/test_docs_check_constants.py`
+
+### 2026-03-12 - Governance bootstrap became a real repo-onboarding path
+
+Fact: portable-governance onboarding no longer stops at "repair the copied
+repo's `.git` pointer." `devctl governance-bootstrap` now also writes a
+starter `dev/config/devctl_repo_policy.json` into the target repo when one is
+missing, picking the nearest portable preset from detected Python/Rust
+capabilities and seeding conservative repo-governance defaults for
+`check-router` and `docs-check`. The exported template set now includes one
+AI-friendly onboarding guide and one starter repo-policy JSON so another repo
+has a real first-run setup path instead of reverse-engineering our policy from
+VoiceTerm-specific files.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/bootstrap_policy.py`
+- `dev/scripts/devctl/governance_bootstrap_support.py`
+- `dev/scripts/devctl/governance_bootstrap_parser.py`
+- `dev/scripts/devctl/commands/governance/bootstrap.py`
+- `dev/scripts/devctl/tests/governance/test_governance_bootstrap.py`
+- `dev/config/templates/portable_governance_repo_setup.template.md`
+- `dev/config/templates/portable_devctl_repo_policy.template.json`
+- `dev/config/templates/README.md`
+- `dev/guides/PORTABLE_CODE_GOVERNANCE.md`
+- `dev/scripts/README.md`
+
+### 2026-03-12 - Bootstrap now leaves one obvious repo-local setup file
+
+Fact: exported template files were still one step too indirect for first-run
+repo adoption. `devctl governance-bootstrap` now also writes
+`dev/guides/PORTABLE_GOVERNANCE_SETUP.md` into the target repo, so an AI or
+maintainer has one obvious local file with run order, policy path, and
+customization guidance after bootstrap. In the same cleanup slice,
+`dev/scripts/checks` moved the `active_plan`, `python_analysis`, and
+`probe_report` helper families behind documented internal subpackages so the
+root of `checks/` stays closer to a list of runnable entrypoints.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/bootstrap_guide.py`
+- `dev/scripts/devctl/governance_bootstrap_support.py`
+- `dev/scripts/devctl/commands/governance/bootstrap.py`
+- `dev/scripts/devctl/tests/governance/test_governance_bootstrap.py`
+- `dev/scripts/checks/active_plan/README.md`
+- `dev/scripts/checks/python_analysis/README.md`
+- `dev/scripts/checks/probe_report/README.md`
+- `dev/scripts/checks/README.md`
+
 ### 2026-03-09 - Release governance now forces full maintainer and user doc coverage
 
 Fact: the release audit path now treats documentation drift the same way it
@@ -92,8 +324,8 @@ Evidence:
 - `dev/config/templates/portable_governance_eval_record.schema.json`
 - `dev/scripts/devctl/governance_export_parser.py`
 - `dev/scripts/devctl/governance_export_support.py`
-- `dev/scripts/devctl/commands/governance_export.py`
-- `dev/scripts/devctl/tests/test_governance_export.py`
+- `dev/scripts/devctl/commands/governance/export.py`
+- `dev/scripts/devctl/tests/governance/test_governance_export.py`
 - `dev/active/portable_code_governance.md`
 - `dev/active/MASTER_PLAN.md`
 
@@ -114,7 +346,7 @@ Evidence:
 
 - `dev/scripts/devctl/governance_bootstrap_parser.py`
 - `dev/scripts/devctl/governance_bootstrap_support.py`
-- `dev/scripts/devctl/commands/governance_bootstrap.py`
+- `dev/scripts/devctl/commands/governance/bootstrap.py`
 - `dev/scripts/devctl/quality_scan_mode.py`
 - `dev/scripts/devctl/commands/check.py`
 - `dev/scripts/devctl/commands/probe_report.py`
@@ -134,11 +366,11 @@ Evidence:
 
 - `dev/scripts/devctl/governance_review_log.py`
 - `dev/scripts/devctl/governance_review_parser.py`
-- `dev/scripts/devctl/commands/governance_review.py`
+- `dev/scripts/devctl/commands/governance/review.py`
 - `dev/scripts/devctl/data_science/metrics.py`
 - `dev/scripts/devctl/data_science/rendering.py`
 - `dev/config/templates/portable_governance_finding_review.schema.json`
-- `dev/scripts/devctl/tests/test_governance_review.py`
+- `dev/scripts/devctl/tests/governance/test_governance_review.py`
 - `dev/scripts/devctl/tests/test_data_science.py`
 - `dev/active/portable_code_governance.md`
 - `dev/active/MASTER_PLAN.md`
@@ -183,9 +415,9 @@ Evidence:
 - `dev/scripts/devctl/tests/test_data_science.py`
 - `dev/active/portable_code_governance.md`
 - `dev/active/MASTER_PLAN.md`
-- `dev/scripts/devctl/commands/governance_export.py`
+- `dev/scripts/devctl/commands/governance/export.py`
 - `dev/scripts/checks/probe_exception_quality.py`
-- `dev/scripts/devctl/tests/test_governance_bootstrap.py`
+- `dev/scripts/devctl/tests/governance/test_governance_bootstrap.py`
 - `dev/scripts/devctl/tests/test_probe_exception_quality.py`
 - `dev/active/portable_code_governance.md`
 
@@ -253,8 +485,8 @@ Evidence:
 
 - `dev/active/continuous_swarm.md`
 - `dev/active/MASTER_PLAN.md`
-- `dev/scripts/devctl/review_channel_launch.py`
-- `dev/scripts/devctl/review_channel_prompt.py`
+- `dev/scripts/devctl/review_channel/launch.py`
+- `dev/scripts/devctl/review_channel/prompt.py`
 - `dev/scripts/devctl/tests/test_review_channel.py`
 - `dev/scripts/README.md`
 - `dev/guides/DEVCTL_AUTOGUIDE.md`
@@ -582,8 +814,8 @@ enforced directly.
 Evidence:
 
 - `dev/scripts/devctl/commands/audit_scaffold.py` +
-  `dev/scripts/devctl/cli_parser_reporting.py` +
-  `dev/scripts/devctl/cli_parser_builders_ops.py` +
+  `dev/scripts/devctl/cli_parser/reporting.py` +
+  `dev/scripts/devctl/cli_parser/builders_ops.py` +
   `dev/scripts/devctl/tests/test_audit_scaffold.py`
   (`audit-scaffold` now accepts only `dev/reports/audits/*` output roots)
 - `dev/scripts/devctl/commands/docs_check_policy.py` +
@@ -725,7 +957,7 @@ inline shell patterns.
 
 Evidence:
 
-- `dev/scripts/workflow_shell_bridge.py` (deterministic commit-range/scope,
+- `dev/scripts/workflow_bridge/shell.py` (deterministic commit-range/scope,
   failure-artifact, and first-match path resolution for workflow lanes)
 - `.github/workflows/tooling_control_plane.yml` (range resolution + strict
   user-doc gate signal now use helper script, plus explicit workflow-shell
@@ -755,7 +987,7 @@ realigned to the same-SHA preflight-first release-gate sequence.
 
 Evidence:
 
-- `dev/scripts/autonomy_workflow_bridge.py` +
+- `dev/scripts/workflow_bridge/autonomy.py` +
   `dev/scripts/workflow_bridge/*`
   (workflow bridge command router split from config/export helper logic)
 - `dev/scripts/devctl/commands/hygiene_audits.py` +
@@ -815,7 +1047,7 @@ Evidence:
   blocking)
 - `dev/scripts/devctl/commands/loop_packet_helpers.py`,
   `dev/scripts/devctl/commands/ship.py`,
-  `dev/scripts/mutation_ralph_workflow_bridge.py`
+  `dev/scripts/workflow_bridge/mutation_ralph.py`
   (temp artifact default paths now derive from `tempfile.gettempdir()`)
 - `dev/scripts/devctl/tests/test_mutation_ralph_workflow_bridge.py`,
   `dev/scripts/devctl/tests/test_loop_packet.py`,
@@ -984,7 +1216,7 @@ Evidence:
   `dev/scripts/devctl/tests/test_audit_scaffold.py`
   (`audit-scaffold` now aggregates/action-synthesizes findings for test-shape
   and runtime panic-policy guard failures)
-- `dev/scripts/collect_clippy_warnings.py` +
+- `dev/scripts/rust_tools/collect_clippy_warnings.py` +
   `dev/scripts/checks/check_clippy_high_signal.py` +
   `dev/config/clippy/high_signal_lints.json` +
   `.github/workflows/rust_ci.yml`
@@ -1080,13 +1312,13 @@ comment path.
 
 Evidence:
 
-- `dev/scripts/devctl/triage_loop_policy.py` (policy evaluation for
+- `dev/scripts/devctl/triage/loop_policy.py` (policy evaluation for
   `AUTONOMY_MODE`, branch allowlist, and fix-command prefix allowlist with
   `TRIAGE_LOOP_ALLOWED_PREFIXES` override)
 - `dev/config/control_plane_policy.json` (`triage_loop.allowed_fix_command_prefixes`)
 - `dev/scripts/devctl/commands/triage_loop.py` (policy wiring +
   `fix_block_reason` propagation + escalation publish path)
-- `dev/scripts/devctl/triage_loop_support.py` (separate escalation marker and
+- `dev/scripts/devctl/triage/loop_support.py` (separate escalation marker and
   idempotent escalation upsert helper)
 - `dev/scripts/checks/coderabbit_ralph_loop_core.py` (`fix_command_policy_blocked`
   handling and `escalation_needed=true` on max-attempt exhaustion)
@@ -1114,7 +1346,7 @@ Evidence:
   to `swarm_run`, with historical pre-rename evidence explicitly labeled)
 - `dev/scripts/devctl/loop_fix_policy.py` (shared fix-policy parser/allowlist
   engine)
-- `dev/scripts/devctl/triage_loop_policy.py`,
+- `dev/scripts/devctl/triage/loop_policy.py`,
   `dev/scripts/devctl/mutation_loop_policy.py` (thin wrappers over shared
   engine)
 - `dev/scripts/devctl/tests/test_triage_loop_policy.py`,
@@ -1326,7 +1558,7 @@ run contributes to measurable productivity and agent-sizing analytics.
 Evidence:
 
 - `data_science/README.md`
-- `dev/scripts/devctl/data_science_metrics.py`
+- `dev/scripts/devctl/data_science/metrics.py`
 - `dev/scripts/devctl/commands/data_science.py`
 - `dev/scripts/devctl/cli.py` (post-command auto-refresh hook)
 - `dev/scripts/devctl/tests/test_data_science.py`
@@ -1405,12 +1637,12 @@ manual agent-count tuning.
 
 Evidence:
 
-- `dev/scripts/devctl/autonomy_run_feedback.py` (cycle metrics extraction from
+- `dev/scripts/devctl/autonomy/run_feedback.py` (cycle metrics extraction from
   worker `autonomy-loop` reports, streak tracking, downshift/upshift decisions)
 - `dev/scripts/devctl/commands/autonomy_run.py` (feedback-state wiring, cycle
   agent override forwarding, report payload integration)
-- `dev/scripts/devctl/autonomy_run_parser.py` (`--feedback-*` control flags)
-- `dev/scripts/devctl/autonomy_run_helpers.py` (per-cycle `--agents` override
+- `dev/scripts/devctl/autonomy/run_parser.py` (`--feedback-*` control flags)
+- `dev/scripts/devctl/autonomy/run_helpers.py` (per-cycle `--agents` override
   support)
 - `dev/scripts/devctl/tests/test_autonomy_run_feedback.py`,
   `dev/scripts/devctl/tests/test_autonomy_run.py` (config + behavior coverage)
@@ -1526,11 +1758,11 @@ Evidence:
 
 - `.github/workflows/autonomy_run.yml`
 - `dev/scripts/devctl/commands/autonomy_run.py`
-- `dev/scripts/devctl/autonomy_run_parser.py`
-- `dev/scripts/devctl/autonomy_run_helpers.py`
-- `dev/scripts/devctl/autonomy_run_render.py`
+- `dev/scripts/devctl/autonomy/run_parser.py`
+- `dev/scripts/devctl/autonomy/run_helpers.py`
+- `dev/scripts/devctl/autonomy/run_render.py`
 - `dev/scripts/devctl/tests/test_autonomy_run.py`
-- `dev/scripts/mutants.py` (shape-budget compaction to restore local
+- `dev/scripts/mutation/cli.py` (shape-budget compaction to restore local
   `check_code_shape` pass state in dirty-tree sessions)
 - `AGENTS.md`, `dev/scripts/README.md`, `dev/DEVELOPMENT.md`,
   `dev/ARCHITECTURE.md` (command inventory/workflow contract updates)
@@ -1648,7 +1880,7 @@ Evidence:
 
 - `dev/scripts/devctl/commands/security.py`
 - `dev/scripts/devctl/cli.py`
-- `dev/scripts/devctl/security_parser.py`
+- `dev/scripts/devctl/security/parser.py`
 - `dev/scripts/devctl/commands/listing.py`
 - `dev/scripts/devctl/tests/test_security.py`
 - `dev/scripts/devctl/process_sweep.py` (plain-language process-sweep context
@@ -1943,10 +2175,10 @@ explicit infra warnings when the `cihub triage` command path fails.
 
 Evidence:
 
-- `dev/scripts/devctl/triage_enrich.py`
-- `dev/scripts/devctl/triage_parser.py` (`--owner-map-file`)
+- `dev/scripts/devctl/triage/enrich.py`
+- `dev/scripts/devctl/triage/parser.py` (`--owner-map-file`)
 - `dev/scripts/devctl/commands/triage.py`
-- `dev/scripts/devctl/triage_support.py` (rollup + owner-aware markdown output)
+- `dev/scripts/devctl/triage/support.py` (rollup + owner-aware markdown output)
 - `dev/scripts/devctl/tests/test_triage.py`
 - `dev/scripts/README.md`
 - `dev/active/MASTER_PLAN.md` (`MP-302`)
@@ -1984,10 +2216,10 @@ Evidence:
   bounded retries, backlog artifact ingestion, and new-run polling)
 - `dev/scripts/devctl/commands/ship_steps.py` (`ship --verify` now runs the
   CodeRabbit gate before release/governance checks)
-- `dev/scripts/devctl/triage_parser.py` (`--external-issues-file`)
+- `dev/scripts/devctl/triage/parser.py` (`--external-issues-file`)
 - `dev/scripts/devctl/commands/triage.py` (external issue-file ingestion path)
-- `dev/scripts/devctl/triage_enrich.py` (shared payload/file extraction helpers)
-- `dev/scripts/devctl/triage_support.py` (external-source markdown rendering)
+- `dev/scripts/devctl/triage/enrich.py` (shared payload/file extraction helpers)
+- `dev/scripts/devctl/triage/support.py` (external-source markdown rendering)
 - `dev/scripts/devctl/tests/test_triage.py` (parser and external-ingest coverage)
 - `dev/scripts/devctl/tests/test_ship.py` (release verify gate coverage)
 - `.github/workflows/failure_triage.yml` (includes `CodeRabbit Triage Bridge`
@@ -2007,7 +2239,7 @@ report-only default plus policy-gated fix mode.
 
 Evidence:
 
-- `dev/scripts/devctl/triage_loop_parser.py` (`--source-run-id`,
+- `dev/scripts/devctl/triage/loop_parser.py` (`--source-run-id`,
   `--source-run-sha`, `--source-event`, `--comment-target`,
   `--comment-pr-number`)
 - `dev/scripts/checks/coderabbit_ralph_loop_core.py` (authoritative source-run
@@ -2041,12 +2273,12 @@ handoff paths, including a continuously refreshed phone-ready status feed.
 
 Evidence:
 
-- `dev/scripts/devctl/autonomy_loop_parser.py`
+- `dev/scripts/devctl/autonomy/loop_parser.py`
 - `dev/scripts/devctl/commands/autonomy_loop.py` (round/hour/task caps,
   policy-aware mode gating via `AUTONOMY_MODE`, checkpoint packet schema with
   terminal/action trace payloads, queue inbox artifacts, phone-status snapshots
   at `dev/reports/autonomy/queue/phone/latest.{json,md}`)
-- `dev/scripts/devctl/autonomy_loop_helpers.py` (phone-status payload builder +
+- `dev/scripts/devctl/autonomy/loop_helpers.py` (phone-status payload builder +
   markdown renderer with run URL/SHA context and next-action summaries)
 - `dev/scripts/devctl/tests/test_autonomy_loop.py` (parser + controller command
   behavior coverage including phone-status artifact assertions)
@@ -2127,7 +2359,7 @@ and release publish workflows.
 
 Evidence:
 
-- `dev/scripts/devctl/triage_loop_parser.py` (parser wiring for `triage-loop`)
+- `dev/scripts/devctl/triage/loop_parser.py` (parser wiring for `triage-loop`)
 - `dev/scripts/devctl/commands/triage_loop.py` (loop execution, md/json output,
   bundle emission, optional MASTER_PLAN proposal artifact)
 - `dev/scripts/devctl/cli.py` /
@@ -2185,7 +2417,7 @@ scripts hygiene, and reports removed/skipped/failed cache paths explicitly.
 
 Evidence:
 
-- `dev/scripts/devctl/cli_parser_reporting.py` (new `hygiene --fix` flag)
+- `dev/scripts/devctl/cli_parser/reporting.py` (new `hygiene --fix` flag)
 - `dev/scripts/devctl/commands/hygiene.py` (safe cache-dir removal flow with
   repo-root guardrails and fix report output)
 - `dev/scripts/devctl/tests/test_hygiene.py` (parser + cleanup + end-to-end fix
@@ -2265,9 +2497,9 @@ bundle with markdown, JSON, copied source artifacts, and chart outputs.
 Evidence:
 
 - `dev/scripts/devctl/commands/autonomy_report.py`
-- `dev/scripts/devctl/autonomy_report_helpers.py`
-- `dev/scripts/devctl/autonomy_report_render.py`
-- `dev/scripts/devctl/cli_parser_reporting.py` and
+- `dev/scripts/devctl/autonomy/report_helpers.py`
+- `dev/scripts/devctl/autonomy/report_render.py`
+- `dev/scripts/devctl/cli_parser/reporting.py` and
   `dev/scripts/devctl/commands/listing.py` (command wiring + discovery)
 - `dev/scripts/devctl/tests/test_autonomy_report.py` (parser + bundle
   generation coverage)
@@ -2289,9 +2521,9 @@ Evidence:
 
 - `dev/scripts/devctl/commands/autonomy_swarm.py`
   (reviewer-lane reservation + post-audit bundling path)
-- `dev/scripts/devctl/cli_parser_reporting.py`
+- `dev/scripts/devctl/cli_parser/reporting.py`
   (`--reviewer-lane` and post-audit argument surface)
-- `dev/scripts/devctl/autonomy_swarm_helpers.py`
+- `dev/scripts/devctl/autonomy/swarm_helpers.py`
   (markdown output includes reviewer/post-audit summary fields)
 - `dev/scripts/devctl/tests/test_autonomy_swarm.py`
   (reviewer-lane reservation + post-audit behavior coverage)
@@ -2313,9 +2545,9 @@ runner that validates active-plan scope (`plan-doc`, `INDEX`, `MASTER_PLAN`,
 Evidence:
 
 - `dev/scripts/devctl/commands/autonomy_benchmark.py`
-- `dev/scripts/devctl/autonomy_benchmark_parser.py`
-- `dev/scripts/devctl/autonomy_benchmark_helpers.py`
-- `dev/scripts/devctl/autonomy_benchmark_render.py`
+- `dev/scripts/devctl/autonomy/benchmark_parser.py`
+- `dev/scripts/devctl/autonomy/benchmark_helpers.py`
+- `dev/scripts/devctl/autonomy/benchmark_render.py`
 - `dev/scripts/devctl/tests/test_autonomy_benchmark.py`
 - `dev/scripts/devctl/cli.py`,
   `dev/scripts/devctl/commands/listing.py` (command wiring + discovery)
@@ -2576,7 +2808,7 @@ Evidence:
 - `dev/scripts/devctl/commands/mutation_score.py`,
   `dev/scripts/devctl/cli.py`, `dev/scripts/devctl/commands/check.py`
   (`devctl mutation-score` + release-profile wiring for freshness flags)
-- `dev/scripts/mutants.py`, `dev/scripts/devctl/commands/status.py`,
+- `dev/scripts/mutation/cli.py`, `dev/scripts/devctl/commands/status.py`,
   `dev/scripts/devctl/commands/report.py` (status/report exposure of mutation
   outcomes path + age metadata)
 - `dev/active/MASTER_PLAN.md` (`MP-015` execution note)
@@ -3077,7 +3309,7 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - `dev/scripts/generate-release-notes.sh`
 - `dev/scripts/release.sh`
 - `.github/workflows/mutation-testing.yml`
-- `dev/scripts/render_mutation_badge.py`
+- `dev/scripts/badges/mutation.py`
 - `.github/badges/mutation-score.json`
 - `rust/src/pty_session/pty.rs` and `rust/src/pty_session/tests.rs`
 - `rust/src/pty_session/session_guard.rs`
@@ -4067,6 +4299,29 @@ The full technical showcase is consolidated above in Appendix G of this document
   Python branch/return complexity, Python default-argument traps,
   Python cyclic-import detection, and Rust `result_large_err` /
   `large_enum_variant` evaluation.
+
+### 2026-03-13 - Simple Launcher Lane Aliases
+
+- Added a focused repo-local launcher policy at
+  `dev/config/devctl_policies/launcher.json` so the Python launcher surfaces
+  under `scripts/` and `pypi/src` can be scanned without dragging in the full
+  VoiceTerm repo policy.
+- Added three short `devctl` aliases for that lane:
+  `launcher-check`, `launcher-probes`, and `launcher-policy`.
+- Kept the implementation under `dev/scripts/devctl/commands/governance/`
+  instead of growing the crowded flat command root again, and added targeted
+  governance CLI tests for parser wiring plus delegated policy forwarding.
+- Followed immediately with the first launcher-only hard guard,
+  `check_command_source_validation.py`, so the new lane owns a real
+  repeatable security rule instead of only a wrapper shell. The pilot guard
+  catches free-form `shlex.split(...)` on CLI/env/config input, raw
+  `sys.argv` forwarding, and env-controlled command argv without validator
+  helpers.
+- Tightened the live launcher offenders in the same slice:
+  `scripts/python_fallback.py` now rejects deprecated `--codex-args`
+  free-form passthrough in favor of repeatable `--codex-arg`, and
+  `pypi/src/voiceterm/cli.py` now validates bootstrap repo URL/ref plus
+  forwarded argv before calling `git clone` or the native binary.
 
 ### 2026-03-11 - CI Parity for Portable Governance
 

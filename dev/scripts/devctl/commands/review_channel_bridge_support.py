@@ -18,6 +18,7 @@ from ..review_channel.handoff import (
     extract_bridge_snapshot,
     summarize_bridge_liveness,
     validate_launch_bridge_state,
+    wait_for_codex_poll_refresh,
     wait_for_rollover_ack,
     write_handoff_bundle,
 )
@@ -207,6 +208,9 @@ def launch_sessions_if_requested(
     launched = False
     handoff_ack_required = False
     handoff_ack_observed = None
+    prelaunch_poll_utc = extract_bridge_snapshot(
+        bridge_path.read_text(encoding="utf-8")
+    ).metadata.get("last_codex_poll_utc")
     if args.action in {"launch", "rollover"} and args.terminal == "terminal-app" and not args.dry_run:
         launch_terminal_sessions_fn(
             sessions,
@@ -215,6 +219,23 @@ def launch_sessions_if_requested(
             auto_dark_terminal_profiles=AUTO_DARK_TERMINAL_PROFILES,
         )
         launched = True
+        if args.action == "launch" and args.await_ack_seconds > 0:
+            launch_poll = wait_for_codex_poll_refresh(
+                bridge_path=bridge_path,
+                previous_poll_utc=prelaunch_poll_utc,
+                timeout_seconds=args.await_ack_seconds,
+            )
+            if not bool(launch_poll.get("observed")):
+                latest_poll_utc = str(
+                    launch_poll.get("last_codex_poll_utc") or "missing"
+                )
+                previous_poll_display = prelaunch_poll_utc or "missing"
+                raise ValueError(
+                    "Live review-channel launch did not produce a fresh Codex "
+                    f"reviewer heartbeat within {args.await_ack_seconds}s. "
+                    f"`Last Codex poll` stayed at {latest_poll_utc} "
+                    f"(pre-launch {previous_poll_display})."
+                )
         if args.action == "rollover" and handoff_bundle is not None and args.await_ack_seconds > 0:
             handoff_ack_required = True
             handoff_ack_observed = wait_for_rollover_ack(

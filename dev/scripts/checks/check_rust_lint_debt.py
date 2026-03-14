@@ -11,9 +11,9 @@ from datetime import datetime
 from pathlib import Path
 
 try:
-    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 
 list_changed_paths_with_base_map = import_attr(
     "git_change_paths", "list_changed_paths_with_base_map"
@@ -22,7 +22,6 @@ GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_test_path = import_attr("rust_guard_common", "is_test_path")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 ALLOW_ATTR_RE = re.compile(r"#\s*!?\s*\[\s*allow\s*\(")
@@ -35,11 +34,9 @@ UNWRAP_EXPECT_RE = re.compile(r"\b(?:unwrap|expect)\s*\(")
 UNWRAP_EXPECT_UNCHECKED_RE = re.compile(r"\b(?:unwrap_unchecked|expect_unchecked)\s*\(")
 PANIC_MACRO_RE = re.compile(r"\bpanic!\s*\(")
 
-
 def _strip_cfg_test_blocks(text: str) -> str:
     """Backward-compatible wrapper used by unit tests."""
     return strip_cfg_test_blocks(text)
-
 
 def _collect_dead_code_allow_instances(text: str | None) -> list[dict]:
     if text is None:
@@ -58,7 +55,6 @@ def _collect_dead_code_allow_instances(text: str | None) -> list[dict]:
             }
         )
     return instances
-
 
 def _count_metrics(text: str | None) -> dict[str, int]:
     if text is None:
@@ -79,7 +75,6 @@ def _count_metrics(text: str | None) -> dict[str, int]:
         "panic_macro_calls": len(PANIC_MACRO_RE.findall(text)),
     }
 
-
 def _list_all_rust_paths(*, include_tests: bool) -> list[Path]:
     paths: set[Path] = set()
     tracked = guard.run_git(["git", "ls-files"]).stdout.splitlines()
@@ -96,7 +91,6 @@ def _list_all_rust_paths(*, include_tests: bool) -> list[Path]:
             continue
         paths.add(path)
     return sorted(paths)
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_rust_lint_debt", ""]
@@ -163,7 +157,6 @@ def _render_md(report: dict) -> str:
             )
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -203,7 +196,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -377,7 +369,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

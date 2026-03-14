@@ -9,6 +9,7 @@ from ..collect import collect_git_status
 from ..common import emit_output, pipe_output, run_cmd, write_output
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
+from .check_router_constants import resolve_check_router_config
 from .check_router_render import render_markdown
 from .check_router_support import BUNDLE_BY_LANE
 from .check_router_support import classify_lane as _classify_lane
@@ -36,6 +37,9 @@ def run(args) -> int:
     """Route and optionally execute the required check lane."""
     since_ref = getattr(args, "since_ref", None)
     head_ref = getattr(args, "head_ref", "HEAD")
+    policy_path = getattr(args, "quality_policy", None)
+    router_config = resolve_check_router_config(policy_path=policy_path)
+    bundle_by_lane = router_config.bundle_by_lane
     git_info = collect_git_status(since_ref, head_ref)
     if "error" in git_info:
         report = {
@@ -43,7 +47,9 @@ def run(args) -> int:
             "timestamp": utc_timestamp(),
             "ok": False,
             "lane": "tooling",
-            "bundle": BUNDLE_BY_LANE["tooling"],
+            "bundle": bundle_by_lane["tooling"],
+            "policy_path": router_config.policy_path,
+            "policy_warnings": list(router_config.warnings),
             "since_ref": since_ref,
             "head_ref": head_ref,
             "changed_paths": [],
@@ -72,11 +78,11 @@ def run(args) -> int:
         return 1
 
     changed_paths = sorted({row["path"] for row in git_info.get("changes", [])})
-    classification = _classify_lane(changed_paths)
+    classification = _classify_lane(changed_paths, policy_path=policy_path)
     lane = classification["lane"]
-    bundle_name = BUNDLE_BY_LANE[lane]
+    bundle_name = bundle_by_lane[lane]
     bundle_commands, bundle_error = _extract_bundle_commands(bundle_name)
-    risk_addons = _detect_risk_addons(changed_paths)
+    risk_addons = _detect_risk_addons(changed_paths, policy_path=policy_path)
 
     planned_rows = [
         {"source": bundle_name, "command": command} for command in bundle_commands
@@ -116,6 +122,8 @@ def run(args) -> int:
         "ok": ok,
         "lane": lane,
         "bundle": bundle_name,
+        "policy_path": router_config.policy_path,
+        "policy_warnings": list(router_config.warnings),
         "since_ref": since_ref,
         "head_ref": head_ref,
         "changed_paths": changed_paths,

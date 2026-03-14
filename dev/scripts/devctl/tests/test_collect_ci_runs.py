@@ -168,4 +168,4 @@ class CollectMutationSummaryTests(TestCase):
         report = collect.collect_mutation_summary()
 
         self.assertIn("error", report)
-        self.assertIn("mutants.py --results-only --json", report["error"])
+        self.assertIn("mutation/cli.py --results-only --json", report["error"])

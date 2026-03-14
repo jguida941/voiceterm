@@ -10,6 +10,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -19,6 +20,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -80,23 +82,18 @@ _count_mutable_default_args = _count_mutable_default_args_impl
 list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
 
-
 def _is_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
-
 
 def _growth(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
     return {key: current[key] - base[key] for key in base}
 
-
 def _has_positive_growth(growth: dict[str, int]) -> bool:
     return any(value > 0 for value in growth.values())
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_python_global_mutable", ""]
@@ -129,10 +126,8 @@ def _render_md(report: dict) -> str:
             lines.append(f"- `{item['path']}`: {', '.join(growth_bits)}")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -215,7 +210,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

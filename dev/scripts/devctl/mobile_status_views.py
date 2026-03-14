@@ -25,6 +25,7 @@ from .phone_status_views import (
 from .phone_status_views import (
     compact_view as phone_compact_view,
 )
+from .runtime import ControlState, control_state_from_payload
 
 
 def _controller_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -32,90 +33,84 @@ def _controller_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def _review_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    value = payload.get("review_payload")
-    return value if isinstance(value, dict) else {}
+def _control_state(payload: dict[str, Any] | ControlState) -> ControlState | None:
+    if isinstance(payload, ControlState):
+        return payload
+    return control_state_from_payload(payload)
 
 
-def _review_state(payload: dict[str, Any]) -> dict[str, Any]:
-    review_payload = _review_payload(payload)
-    value = review_payload.get("review_state")
-    return value if isinstance(value, dict) else {}
-
-
-def _review_queue(payload: dict[str, Any]) -> dict[str, Any]:
-    value = _review_state(payload).get("queue")
-    return value if isinstance(value, dict) else {}
-
-
-def _review_bridge(payload: dict[str, Any]) -> dict[str, Any]:
-    value = _review_state(payload).get("bridge")
-    return value if isinstance(value, dict) else {}
-
-
-def _review_liveness(payload: dict[str, Any]) -> dict[str, Any]:
-    value = _review_payload(payload).get("bridge_liveness")
-    return value if isinstance(value, dict) else {}
-
-
-def _review_agents(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    value = _review_state(payload).get("agents")
-    if not isinstance(value, list):
-        return []
-    return [row for row in value if isinstance(row, dict)]
-
-
-def _agent_status(payload: dict[str, Any], agent_id: str) -> str:
-    for agent in _review_agents(payload):
-        if str(agent.get("agent_id") or "").strip() == agent_id:
-            return str(agent.get("status") or "unknown")
-    return "unknown"
-
-
-def compact_view(payload: dict[str, Any]) -> dict[str, Any]:
+def _fallback_compact(payload: dict[str, Any]) -> CompactMobileStatusProjection:
     controller_compact = phone_compact_view(_controller_payload(payload))
-    review_bridge = _review_bridge(payload)
-    review_liveness = _review_liveness(payload)
-    review_queue = _review_queue(payload)
     controller_phase = str(controller_compact.get("phase") or "unknown")
-    review_bridge_state = str(review_liveness.get("overall_state") or "unknown")
     unresolved_count = int(controller_compact.get("unresolved_count") or 0)
-    review_pending_total = int(review_queue.get("pending_total") or 0)
-    review_meta = _review_state(payload).get("review")
-    review_meta = review_meta if isinstance(review_meta, dict) else {}
-    approval_policy = payload.get("approval_policy")
-    approval_policy = approval_policy if isinstance(approval_policy, dict) else {}
     return CompactMobileStatusProjection(
-        headline=(f"{controller_phase.upper()} | review {review_bridge_state} | " f"unresolved {unresolved_count}"),
+        headline=(f"{controller_phase.upper()} | review unknown | unresolved {unresolved_count}"),
         controller_phase=controller_phase,
         controller_reason=str(controller_compact.get("reason") or "unknown"),
         controller_risk=str(controller_compact.get("risk") or "unknown"),
-        plan_id=str(controller_compact.get("plan_id") or review_meta.get("plan_id") or ""),
+        plan_id=str(controller_compact.get("plan_id") or ""),
         controller_run_id=str(controller_compact.get("controller_run_id") or ""),
-        review_bridge_state=review_bridge_state,
-        codex_poll_state=str(review_liveness.get("codex_poll_state") or "unknown"),
-        codex_last_poll_utc=str(review_bridge.get("last_codex_poll_utc") or ""),
-        last_worktree_hash=str(review_bridge.get("last_worktree_hash") or ""),
-        pending_total=review_pending_total,
+        review_bridge_state="unknown",
+        codex_poll_state="unknown",
+        codex_last_poll_utc="",
+        last_worktree_hash="",
+        pending_total=0,
         unresolved_count=unresolved_count,
-        current_instruction=truncate_status_text(
-            review_bridge.get("current_instruction"),
-            280,
-        ),
-        open_findings=truncate_status_text(review_bridge.get("open_findings"), 280),
-        claude_status=truncate_status_text(review_bridge.get("claude_status"), 220),
-        claude_ack=truncate_status_text(review_bridge.get("claude_ack"), 220),
-        codex_status=_agent_status(payload, "codex"),
-        claude_lane_status=_agent_status(payload, "claude"),
-        operator_status=_agent_status(payload, "operator"),
+        current_instruction="",
+        open_findings="",
+        claude_status="",
+        claude_ack="",
+        codex_status="unknown",
+        claude_lane_status="unknown",
+        operator_status="unknown",
         source_run_url=str(controller_compact.get("source_run_url") or ""),
-        approval_mode=str(approval_policy.get("mode") or "unknown"),
-        approval_summary=str(approval_policy.get("summary") or ""),
+        approval_mode="unknown",
+        approval_summary="",
         next_actions=string_rows(controller_compact.get("next_actions")),
+    )
+
+
+def compact_view(payload: dict[str, Any] | ControlState) -> dict[str, Any]:
+    state = _control_state(payload)
+    if state is None:
+        fallback_payload = payload if isinstance(payload, dict) else {}
+        return _fallback_compact(fallback_payload).to_dict()
+    active_run = state.primary_run()
+    if active_run is None:
+        fallback_payload = payload if isinstance(payload, dict) else {}
+        return _fallback_compact(fallback_payload).to_dict()
+    bridge = state.review_bridge
+    return CompactMobileStatusProjection(
+        headline=(
+            f"{active_run.phase.upper()} | review {bridge.overall_state} | "
+            f"unresolved {active_run.unresolved_count}"
+        ),
+        controller_phase=active_run.phase,
+        controller_reason=active_run.reason,
+        controller_risk=active_run.risk,
+        plan_id=active_run.plan_id,
+        controller_run_id=active_run.controller_run_id,
+        review_bridge_state=bridge.overall_state,
+        codex_poll_state=bridge.codex_poll_state,
+        codex_last_poll_utc=bridge.last_codex_poll_utc,
+        last_worktree_hash=bridge.last_worktree_hash,
+        pending_total=bridge.pending_total,
+        unresolved_count=active_run.unresolved_count,
+        current_instruction=truncate_status_text(active_run.current_instruction, 280),
+        open_findings=truncate_status_text(active_run.open_findings, 280),
+        claude_status=truncate_status_text(bridge.claude_status, 220),
+        claude_ack=truncate_status_text(bridge.claude_ack, 220),
+        codex_status=state.agent_status("codex"),
+        claude_lane_status=state.agent_status("claude"),
+        operator_status=state.agent_status("operator"),
+        source_run_url=active_run.source_run_url,
+        approval_mode=state.approvals.mode,
+        approval_summary=state.approvals.summary,
+        next_actions=list(active_run.next_actions),
     ).to_dict()
 
 
-def alert_view(payload: dict[str, Any]) -> dict[str, Any]:
+def alert_view(payload: dict[str, Any] | ControlState) -> dict[str, Any]:
     compact = compact_view(payload)
     severity = "info"
     if compact["review_bridge_state"] == "stale" or compact["controller_risk"] == "high":
@@ -147,8 +142,9 @@ def alert_view(payload: dict[str, Any]) -> dict[str, Any]:
     ).to_dict()
 
 
-def actions_view(payload: dict[str, Any]) -> dict[str, Any]:
-    controller_actions = phone_actions_view(_controller_payload(payload))
+def actions_view(payload: dict[str, Any] | ControlState) -> dict[str, Any]:
+    controller_payload = payload if isinstance(payload, dict) else {}
+    controller_actions = phone_actions_view(_controller_payload(controller_payload))
     operator_actions = [
         OperatorActionPayload(
             name="refresh-mobile-status",
@@ -178,10 +174,13 @@ def actions_view(payload: dict[str, Any]) -> dict[str, Any]:
     ).to_dict()
 
 
-def view_payload(payload: dict[str, Any], view: str | MobileStatusView) -> dict[str, Any]:
+def view_payload(
+    payload: dict[str, Any] | ControlState,
+    view: str | MobileStatusView,
+) -> dict[str, Any]:
     selected_view = parse_mobile_status_view(view)
     if selected_view is MobileStatusView.FULL:
-        return payload
+        return payload if isinstance(payload, dict) else payload.to_dict()
     if selected_view is MobileStatusView.ALERT:
         return alert_view(payload)
     if selected_view is MobileStatusView.ACTIONS:

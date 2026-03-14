@@ -16,6 +16,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -25,6 +26,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -36,7 +38,6 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
 list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
@@ -44,10 +45,8 @@ TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT
 # A file is facade-heavy when it has this many pure-delegation wrappers
 FACADE_THRESHOLD = 3
 
-
 def _is_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
-
 
 def _is_pure_delegation(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     """Return True when a function body is a single return-of-call statement.
@@ -63,7 +62,6 @@ def _is_pure_delegation(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
         return True
     return bool(isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call))
 
-
 def _count_facade_wrappers(text: str | None) -> int:
     if text is None:
         return 0
@@ -77,10 +75,8 @@ def _count_facade_wrappers(text: str | None) -> int:
             wrappers += 1
     return wrappers
 
-
 def _is_facade_heavy(text: str | None) -> bool:
     return _count_facade_wrappers(text) > FACADE_THRESHOLD
-
 
 def _count_metrics(text: str | None) -> dict[str, int]:
     return {
@@ -88,14 +84,11 @@ def _count_metrics(text: str | None) -> dict[str, int]:
         "facade_wrappers": _count_facade_wrappers(text),
     }
 
-
 def _growth(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
     return {key: current[key] - base[key] for key in base}
 
-
 def _has_positive_growth(growth: dict[str, int]) -> bool:
     return growth.get("facade_heavy_modules", 0) > 0
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_facade_wrappers", ""]
@@ -134,10 +127,8 @@ def _render_md(report: dict) -> str:
             )
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -223,7 +214,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

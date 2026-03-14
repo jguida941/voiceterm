@@ -85,10 +85,10 @@ class LoopPacketCommandTests(unittest.TestCase):
         call_kwargs = build_report_mock.call_args.kwargs
         self.assertTrue(call_kwargs["include_probe_report"])
 
-    @patch("dev.scripts.devctl.commands.loop_packet.write_output")
-    def test_builds_packet_from_triage_loop_source(self, write_output_mock) -> None:
+    def test_builds_packet_from_triage_loop_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             source_path = Path(tmp_dir) / "coderabbit-ralph-loop.json"
+            output_path = Path(tmp_dir) / "packet.json"
             source_path.write_text(
                 json.dumps(
                     {
@@ -101,21 +101,21 @@ class LoopPacketCommandTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            args = _base_args(source_json=[str(source_path)])
+            args = _base_args(source_json=[str(source_path)], output=str(output_path))
             rc = loop_packet.run(args)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
 
         self.assertEqual(rc, 0)
-        payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["source_command"], "triage-loop")
         self.assertEqual(payload["risk"], "medium")
         self.assertFalse(payload["terminal_packet"]["auto_send"])
         self.assertIn("Loop feedback packet", payload["terminal_packet"]["draft_text"])
 
-    @patch("dev.scripts.devctl.commands.loop_packet.write_output")
-    def test_allow_auto_send_only_when_low_risk_source_is_eligible(self, write_output_mock) -> None:
+    def test_allow_auto_send_only_when_low_risk_source_is_eligible(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             source_path = Path(tmp_dir) / "coderabbit-ralph-loop.json"
+            output_path = Path(tmp_dir) / "packet.json"
             source_path.write_text(
                 json.dumps(
                     {
@@ -128,18 +128,22 @@ class LoopPacketCommandTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            args = _base_args(source_json=[str(source_path)], allow_auto_send=True)
+            args = _base_args(
+                source_json=[str(source_path)],
+                allow_auto_send=True,
+                output=str(output_path),
+            )
             rc = loop_packet.run(args)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
 
         self.assertEqual(rc, 0)
-        payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(payload["ok"])
         self.assertTrue(payload["terminal_packet"]["auto_send"])
 
-    @patch("dev.scripts.devctl.commands.loop_packet.write_output")
-    def test_stale_source_fails_guard(self, write_output_mock) -> None:
+    def test_stale_source_fails_guard(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             source_path = Path(tmp_dir) / "mutation-ralph-loop.json"
+            output_path = Path(tmp_dir) / "packet.json"
             source_path.write_text(
                 json.dumps(
                     {
@@ -152,17 +156,20 @@ class LoopPacketCommandTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            args = _base_args(source_json=[str(source_path)], max_age_hours=24.0)
+            args = _base_args(
+                source_json=[str(source_path)],
+                max_age_hours=24.0,
+                output=str(output_path),
+            )
             rc = loop_packet.run(args)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
 
         self.assertEqual(rc, 1)
-        payload = json.loads(write_output_mock.call_args.args[0])
         self.assertFalse(payload["ok"])
         self.assertEqual(payload["reason"], "source_stale")
 
-    @patch("dev.scripts.devctl.commands.loop_packet.write_output")
     @patch("dev.scripts.devctl.commands.loop_packet._build_live_triage_source")
-    def test_falls_back_to_live_triage_source_when_artifacts_missing(self, fallback_mock, write_output_mock) -> None:
+    def test_falls_back_to_live_triage_source_when_artifacts_missing(self, fallback_mock) -> None:
         fallback_mock.return_value = ArtifactSourceRow(
             path="<generated:live-triage>",
             command="triage",
@@ -175,11 +182,16 @@ class LoopPacketCommandTests(unittest.TestCase):
             timestamp=datetime.now(UTC),
             mtime=datetime.now(UTC).timestamp(),
         )
-        args = _base_args(source_json=["/tmp/does-not-exist-feedback-loop-source.json"])
-        rc = loop_packet.run(args)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "packet.json"
+            args = _base_args(
+                source_json=["/tmp/does-not-exist-feedback-loop-source.json"],
+                output=str(output_path),
+            )
+            rc = loop_packet.run(args)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
 
         self.assertEqual(rc, 0)
-        payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["source_path"], "<generated:live-triage>")
         self.assertEqual(payload["source_command"], "triage")

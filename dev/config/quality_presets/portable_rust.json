@@ -3,6 +3,7 @@
   "repo_name": "portable-rust",
   "enabled_ai_guard_ids": [
     "code_shape",
+    "package_layout",
     "duplicate_types",
     "structural_complexity",
     "rust_test_shape",

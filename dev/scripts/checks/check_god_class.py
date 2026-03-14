@@ -12,6 +12,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -21,6 +22,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -34,7 +36,6 @@ GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_rust_test_path = import_attr("rust_guard_common", "is_test_path")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (
@@ -49,10 +50,8 @@ RUST_IMPL_METHOD_THRESHOLD = 20
 RUST_IMPL_RE = re.compile(r"\bimpl(?:\s*<[^>]*>)?\s+([A-Za-z_][A-Za-z0-9_]*)")
 RUST_FN_IN_IMPL_RE = re.compile(r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?fn\s+")
 
-
 def _is_python_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
-
 
 def _count_python_god_classes(text: str | None) -> int:
     if text is None:
@@ -85,7 +84,6 @@ def _count_python_god_classes(text: str | None) -> int:
             count += 1
     return count
 
-
 def _count_rust_god_impls(text: str | None) -> int:
     if text is None:
         return 0
@@ -116,7 +114,6 @@ def _count_rust_god_impls(text: str | None) -> int:
 
     return sum(1 for count in impl_methods.values() if count > RUST_IMPL_METHOD_THRESHOLD)
 
-
 def _count_metrics(text: str | None, *, suffix: str = ".rs") -> dict[str, int]:
     if suffix == ".py":
         return {"god_classes": _count_python_god_classes(text)}
@@ -124,14 +121,11 @@ def _count_metrics(text: str | None, *, suffix: str = ".rs") -> dict[str, int]:
         return {"god_classes": _count_rust_god_impls(text)}
     return {"god_classes": 0}
 
-
 def _growth(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
     return {key: current[key] - base[key] for key in base}
 
-
 def _has_positive_growth(growth: dict[str, int]) -> bool:
     return any(value > 0 for value in growth.values())
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_god_class", ""]
@@ -166,10 +160,8 @@ def _render_md(report: dict) -> str:
             lines.append(f"- `{item['path']}`: {', '.join(growth_bits)}")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -254,7 +246,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

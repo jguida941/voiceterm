@@ -18,6 +18,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -30,6 +31,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -53,7 +55,6 @@ list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 REVIEW_LENS = "error_handling"
@@ -74,7 +75,6 @@ AI_INSTRUCTIONS = {
     ),
 }
 
-
 def _handler_kind(node_type: ast.expr | None) -> str | None:
     if node_type is None:
         return "bare"
@@ -90,7 +90,6 @@ def _handler_kind(node_type: ast.expr | None) -> str | None:
         return name
     return None
 
-
 def _tuple_handler_kind(node_type: ast.Tuple) -> str | None:
     members: set[str] = set()
     for element in node_type.elts:
@@ -101,14 +100,11 @@ def _tuple_handler_kind(node_type: ast.Tuple) -> str | None:
         return None
     return ",".join(sorted(members))
 
-
 def _has_raise(handler: ast.ExceptHandler) -> bool:
     return any(isinstance(node, ast.Raise) for node in ast.walk(handler))
 
-
 def _has_observable_call(handler: ast.ExceptHandler) -> bool:
     return any(isinstance(node, ast.Call) for node in ast.walk(handler))
-
 
 def _returns_sentinel(handler: ast.ExceptHandler) -> bool:
     for node in ast.walk(handler):
@@ -118,10 +114,8 @@ def _returns_sentinel(handler: ast.ExceptHandler) -> bool:
             return True
     return False
 
-
 def _name_set(node: ast.AST) -> set[str]:
     return {child.id for child in ast.walk(node) if isinstance(child, ast.Name)}
-
 
 def _call_context_names(call: ast.Call) -> set[str]:
     names: set[str] = set()
@@ -131,7 +125,6 @@ def _call_context_names(call: ast.Call) -> set[str]:
         if keyword.value is not None:
             names.update(_name_set(keyword.value))
     return names
-
 
 def _is_generic_raise_message(node: ast.Raise, exc_name: str | None) -> bool:
     if node.exc is None:
@@ -155,12 +148,10 @@ def _is_generic_raise_message(node: ast.Raise, exc_name: str | None) -> bool:
         return not context_names or context_names <= allowed
     return False
 
-
 def _symbol_name(stack: list[str]) -> str:
     if not stack:
         return "(module)"
     return stack[-1]
-
 
 def _is_silent_suppressive_handler(node: ast.ExceptHandler) -> bool:
     kind = _handler_kind(node.type)
@@ -169,7 +160,6 @@ def _is_silent_suppressive_handler(node: ast.ExceptHandler) -> bool:
     if _has_raise(node) or not _returns_sentinel(node):
         return False
     return not _has_observable_call(node)
-
 
 def _build_hint(
     *,
@@ -189,14 +179,12 @@ def _build_hint(
         review_lens=REVIEW_LENS,
     )
 
-
 def _iter_generic_translation_raises(node: ast.ExceptHandler, exc_name: str | None) -> list[ast.Raise]:
     matches: list[ast.Raise] = []
     for child in ast.walk(node):
         if isinstance(child, ast.Raise) and _is_generic_raise_message(child, exc_name):
             matches.append(child)
     return matches
-
 
 class _ExceptionQualityVisitor(ast.NodeVisitor):
     def __init__(self, path: Path) -> None:
@@ -241,7 +229,6 @@ class _ExceptionQualityVisitor(ast.NodeVisitor):
             )
         self.generic_visit(node)
 
-
 def build_report(
     *,
     repo_root: Path,
@@ -278,7 +265,6 @@ def build_report(
 
     report.files_with_hints = len(files_with_hints)
     return report
-
 
 def main() -> int:
     args = build_probe_parser(__doc__ or "").parse_args()
@@ -322,7 +308,6 @@ def main() -> int:
     report.since_ref = args.since_ref
     report.head_ref = args.head_ref
     return emit_probe_report(report, output_format=args.format)
-
 
 if __name__ == "__main__":
     sys.exit(main())

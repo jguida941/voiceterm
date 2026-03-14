@@ -10,22 +10,25 @@ import sys
 from pathlib import Path
 
 try:
-    from dev.scripts.checks.active_plan_contract import (
+    from dev.scripts.checks.active_plan.contract import (
         EXECUTION_PLAN_MARKER,
         validate_execution_plan_contract,
     )
-    from dev.scripts.checks.active_plan_snapshot import (
+    from dev.scripts.checks.active_plan.snapshot import (
         latest_git_semver_tag,
         read_cargo_release_tag,
     )
 except ModuleNotFoundError:
-    from active_plan_contract import (
+    from active_plan.contract import (
         EXECUTION_PLAN_MARKER,
         validate_execution_plan_contract,
     )
-    from active_plan_snapshot import latest_git_semver_tag, read_cargo_release_tag
+    from active_plan.snapshot import latest_git_semver_tag, read_cargo_release_tag
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 ACTIVE_DIR = REPO_ROOT / "dev/active"
 INDEX_PATH = ACTIVE_DIR / "INDEX.md"
 MASTER_PLAN_PATH = ACTIVE_DIR / "MASTER_PLAN.md"

@@ -13,6 +13,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -22,6 +23,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -33,7 +35,6 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
 list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
@@ -50,10 +51,8 @@ SUPPRESSION_LABELS = {
     "pyright_ignore": "# pyright: ignore",
 }
 
-
 def _empty_counts() -> dict[str, int]:
     return {key: 0 for key in SUPPRESSION_PATTERNS}
-
 
 def _iter_comment_tokens(text: str | None) -> tuple[str, ...]:
     if text is None:
@@ -66,7 +65,6 @@ def _iter_comment_tokens(text: str | None) -> tuple[str, ...]:
     except (SyntaxError, tokenize.TokenError):
         return ()
 
-
 def _count_suppressions(text: str | None) -> dict[str, int]:
     counts = _empty_counts()
     for comment in _iter_comment_tokens(text):
@@ -75,19 +73,15 @@ def _count_suppressions(text: str | None) -> dict[str, int]:
                 counts[kind] += 1
     return counts
 
-
 def _growth(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
     return {key: current[key] - base[key] for key in base}
-
 
 def _has_positive_growth(growth: dict[str, int]) -> bool:
     return any(value > 0 for value in growth.values())
 
-
 def _format_growth(growth: dict[str, int]) -> str:
     parts = [f"{SUPPRESSION_LABELS[kind]} {value:+d}" for kind, value in growth.items() if value != 0]
     return ", ".join(parts) if parts else "none"
-
 
 def build_report(
     *,
@@ -146,7 +140,6 @@ def build_report(
         "violations": violations,
     }
 
-
 def _render_md(report: dict) -> str:
     lines = ["# check_python_suppression_debt", ""]
     lines.append(f"- mode: {report['mode']}")
@@ -178,10 +171,8 @@ def _render_md(report: dict) -> str:
             lines.append(f"- `{item['path']}`: {_format_growth(item['growth'])}")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -229,7 +220,6 @@ def main() -> int:
     else:
         print(_render_md(report))
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

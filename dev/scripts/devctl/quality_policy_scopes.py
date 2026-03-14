@@ -19,11 +19,27 @@ SCOPE_ATTRIBUTE_MAP = {
 COMMON_PYTHON_SCOPE_CANDIDATES = (
     Path("src"),
     Path("app"),
+    Path("lib"),
     Path("scripts"),
     Path("tools"),
     Path("dev/scripts"),
     Path("python"),
 )
+PYTHON_SCOPE_SKIP_DIRS = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "target",
+    "venv",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +76,48 @@ def _discover_rust_scope_roots(
     return (Path("src"),) if (repo_root / "src").is_dir() else ()
 
 
+def _discover_python_scope_roots(
+    repo_root: Path,
+    *,
+    capabilities: RepoCapabilities,
+    has_python_sources,
+) -> tuple[Path, ...]:
+    if not capabilities.python:
+        return ()
+    roots: list[Path] = []
+    seen: set[Path] = set()
+
+    def add_root(candidate: Path) -> None:
+        normalized = Path(".") if candidate in {Path(""), Path(".")} else candidate
+        if normalized in seen:
+            return
+        if normalized != Path(".") and any(
+            existing != Path(".") and existing.is_relative_to(normalized)
+            for existing in seen
+        ):
+            return
+        if normalized != Path("."):
+            candidate_path = repo_root / normalized
+            if not candidate_path.is_dir() or not has_python_sources(candidate_path):
+                return
+        seen.add(normalized)
+        roots.append(normalized)
+
+    for candidate in COMMON_PYTHON_SCOPE_CANDIDATES:
+        add_root(candidate)
+
+    for child in sorted(repo_root.iterdir()):
+        if not child.is_dir():
+            continue
+        if child.name in PYTHON_SCOPE_SKIP_DIRS:
+            continue
+        add_root(child.relative_to(repo_root))
+
+    if roots:
+        return tuple(roots)
+    return (Path("."),) if has_python_sources(repo_root) else ()
+
+
 def resolve_quality_scopes(
     payload: dict[str, Any] | None,
     *,
@@ -69,16 +127,11 @@ def resolve_quality_scopes(
     has_python_sources,
 ) -> ResolvedQualityScopes:
     """Resolve repo-relative scope roots for guards and probes."""
-    if capabilities.python:
-        python_defaults = tuple(
-            candidate
-            for candidate in COMMON_PYTHON_SCOPE_CANDIDATES
-            if (repo_root / candidate).is_dir() and has_python_sources(repo_root / candidate)
-        )
-        if not python_defaults and has_python_sources(repo_root):
-            python_defaults = (Path("."),)
-    else:
-        python_defaults = ()
+    python_defaults = _discover_python_scope_roots(
+        repo_root,
+        capabilities=capabilities,
+        has_python_sources=has_python_sources,
+    )
     rust_defaults = _discover_rust_scope_roots(
         repo_root,
         capabilities=capabilities,

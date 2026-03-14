@@ -10,7 +10,7 @@ from unittest import TestCase, mock
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import guard_run
 from dev.scripts.devctl.config import REPO_ROOT
-from dev.scripts.devctl.watchdog_episodes import build_guarded_coding_episode
+from dev.scripts.devctl.watchdog.episode import build_guarded_coding_episode
 
 
 class GuardRunParserTests(TestCase):

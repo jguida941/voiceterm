@@ -1,4 +1,4 @@
-"""Unit tests for the Ralph AI fix wrapper (ralph_ai_fix.py)."""
+"""Unit tests for the Ralph AI fix wrapper (coderabbit/ralph_ai_fix.py)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from dev.scripts.ralph_ai_fix import (
+from dev.scripts.coderabbit.ralph_ai_fix import (
     _FALLBACK_CATEGORY_TO_ARCH,
     build_prompt,
     commit_and_push,
@@ -207,14 +207,14 @@ class DetectArchitecturesTests(unittest.TestCase):
 
 
 class HasChangesTests(unittest.TestCase):
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_returns_true_when_diff_exits_nonzero(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess(
             ["git", "diff", "--quiet"], returncode=1
         )
         self.assertTrue(has_changes())
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_returns_false_when_diff_exits_zero(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess(
             ["git", "diff", "--quiet"], returncode=0
@@ -226,7 +226,7 @@ class HasChangesTests(unittest.TestCase):
 
 
 class CommitAndPushTests(unittest.TestCase):
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_success_path(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         result = commit_and_push("develop", attempt=2, item_count=5)
@@ -234,7 +234,7 @@ class CommitAndPushTests(unittest.TestCase):
         # Should call: git add -u, git commit, git push
         self.assertEqual(run_mock.call_count, 3)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_commit_failure_returns_false(self, run_mock) -> None:
         def side_effect(cmd, **kwargs):
             if cmd[0] == "git" and cmd[1] == "commit":
@@ -245,7 +245,7 @@ class CommitAndPushTests(unittest.TestCase):
         result = commit_and_push("develop", attempt=1, item_count=3)
         self.assertFalse(result)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_push_failure_returns_false(self, run_mock) -> None:
         def side_effect(cmd, **kwargs):
             if cmd[0] == "git" and cmd[1] == "push":
@@ -256,7 +256,7 @@ class CommitAndPushTests(unittest.TestCase):
         result = commit_and_push("develop", attempt=1, item_count=2)
         self.assertFalse(result)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_commit_message_includes_attempt_and_count(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         commit_and_push("develop", attempt=4, item_count=7)
@@ -267,7 +267,7 @@ class CommitAndPushTests(unittest.TestCase):
         self.assertIn("attempt 4", msg)
         self.assertIn("7", msg)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_push_targets_correct_branch(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         commit_and_push("feature/ralph-fix", attempt=1, item_count=1)
@@ -280,7 +280,7 @@ class CommitAndPushTests(unittest.TestCase):
 
 
 class InvokeClaudeTests(unittest.TestCase):
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_trusted_mode_uses_skip_permissions(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "trusted"}):
@@ -289,7 +289,7 @@ class InvokeClaudeTests(unittest.TestCase):
         self.assertIn("--dangerously-skip-permissions", cmd)
         self.assertNotIn("--permission-mode", cmd)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_balanced_mode_uses_auto_permissions(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "balanced"}):
@@ -299,7 +299,7 @@ class InvokeClaudeTests(unittest.TestCase):
         self.assertIn("auto", cmd)
         self.assertNotIn("--dangerously-skip-permissions", cmd)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_strict_mode_uses_auto_permissions(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "strict"}):
@@ -308,7 +308,7 @@ class InvokeClaudeTests(unittest.TestCase):
         self.assertIn("--permission-mode", cmd)
         self.assertNotIn("--dangerously-skip-permissions", cmd)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_default_mode_without_env_var(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         env = os.environ.copy()
@@ -319,14 +319,14 @@ class InvokeClaudeTests(unittest.TestCase):
         # Default is "balanced", which uses --permission-mode auto
         self.assertIn("--permission-mode", cmd)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_returns_subprocess_exit_code(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=42)
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "balanced"}):
             rc = invoke_claude("fix stuff")
         self.assertEqual(rc, 42)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_prompt_is_appended_to_command(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "balanced"}):
@@ -359,17 +359,17 @@ class MainTests(unittest.TestCase):
             rc = main()
         self.assertEqual(rc, 2)
 
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=[])
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=[])
     def test_empty_backlog_returns_0(self, _load_mock) -> None:
         with patch.dict(os.environ, self._env(), clear=True):
             rc = main()
         self.assertEqual(rc, 0)
 
-    @patch("dev.scripts.ralph_ai_fix.commit_and_push", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.run_arch_checks", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.has_changes", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=0)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.commit_and_push", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.run_arch_checks", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_happy_path_returns_0(
         self, _load, _invoke, _changes, _checks, _commit
     ) -> None:
@@ -378,26 +378,26 @@ class MainTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         _commit.assert_called_once_with("develop", 1, 2)
 
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=1)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=1)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_claude_failure_returns_1(self, _load, _invoke) -> None:
         with patch.dict(os.environ, self._env(), clear=True):
             rc = main()
         self.assertEqual(rc, 1)
 
-    @patch("dev.scripts.ralph_ai_fix.has_changes", return_value=False)
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=0)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=False)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_no_changes_returns_0(self, _load, _invoke, _changes) -> None:
         with patch.dict(os.environ, self._env(), clear=True):
             rc = main()
         self.assertEqual(rc, 0)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
-    @patch("dev.scripts.ralph_ai_fix.run_arch_checks", return_value=False)
-    @patch("dev.scripts.ralph_ai_fix.has_changes", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=0)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.run_arch_checks", return_value=False)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_failed_arch_checks_reverts_and_returns_1(
         self, _load, _invoke, _changes, _checks, _subprocess_run
     ) -> None:
@@ -409,11 +409,11 @@ class MainTests(unittest.TestCase):
         revert_call = _subprocess_run.call_args[0][0]
         self.assertEqual(revert_call, ["git", "checkout", "."])
 
-    @patch("dev.scripts.ralph_ai_fix.commit_and_push", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.run_arch_checks", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.has_changes", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=0)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.commit_and_push", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.run_arch_checks", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_missing_branch_returns_2(
         self, _load, _invoke, _changes, _checks, _commit
     ) -> None:
@@ -422,11 +422,11 @@ class MainTests(unittest.TestCase):
             rc = main()
         self.assertEqual(rc, 2)
 
-    @patch("dev.scripts.ralph_ai_fix.commit_and_push", return_value=False)
-    @patch("dev.scripts.ralph_ai_fix.run_arch_checks", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.has_changes", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=0)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.commit_and_push", return_value=False)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.run_arch_checks", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_commit_push_failure_returns_1(
         self, _load, _invoke, _changes, _checks, _commit
     ) -> None:

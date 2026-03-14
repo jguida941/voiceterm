@@ -11,14 +11,13 @@ from datetime import datetime
 from pathlib import Path
 
 try:
-    from check_bootstrap import import_attr, utc_timestamp
+    from check_bootstrap import REPO_ROOT, import_attr, utc_timestamp
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.check_bootstrap import import_attr, utc_timestamp
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT, import_attr, utc_timestamp
 
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 list_changed_paths = import_attr("rust_guard_common", "list_changed_paths")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 SOURCE_ROOT = REPO_ROOT / "rust" / "src"
 SOURCE_ROOT_RELATIVE = SOURCE_ROOT.relative_to(REPO_ROOT)
@@ -37,7 +36,6 @@ PATTERNS = {
     "lossy_vad_cast_i16": re.compile(r"\(\s*clamped\s*\*\s*32_768\.0\s*\)\s*as\s*i16"),
 }
 
-
 def _iter_rust_paths() -> list[Path]:
     if not SOURCE_ROOT.exists():
         return []
@@ -48,11 +46,9 @@ def _iter_rust_paths() -> list[Path]:
         paths.add(path)
     return sorted(paths)
 
-
 def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
     """Compatibility wrapper over shared changed-path helper."""
     return list_changed_paths(guard.run_git, since_ref, head_ref)
-
 
 def _is_runtime_source_path(path: Path) -> bool:
     """Return True if *path* (repo-relative) is under SOURCE_ROOT."""
@@ -62,16 +58,13 @@ def _is_runtime_source_path(path: Path) -> bool:
     except ValueError:
         return False
 
-
 def _count_metrics(text: str | None) -> dict[str, int]:
     if text is None:
         return {name: 0 for name in PATTERNS}
     return {name: len(pattern.findall(text)) for name, pattern in PATTERNS.items()}
 
-
 def _has_positive_metrics(metrics: dict[str, int]) -> bool:
     return any(value > 0 for value in metrics.values())
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_rust_audit_patterns", ""]
@@ -108,7 +101,6 @@ def _render_md(report: dict) -> str:
             lines.append(f"- `{item['path']}`: {flagged}")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since-ref", help="Compare against this git ref")
@@ -117,7 +109,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -205,7 +196,6 @@ def main() -> int:
     if error is not None:
         return 2
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

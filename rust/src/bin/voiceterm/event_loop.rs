@@ -30,10 +30,10 @@ use crate::help::{
 };
 use crate::input::InputEvent;
 use crate::overlays::{
-    show_cockpit_page_overlay, show_dev_panel_overlay, show_help_overlay,
-    show_review_surface_overlay, show_settings_overlay, show_theme_picker_overlay,
-    show_theme_studio_overlay, show_toast_history_overlay, show_transcript_history_overlay,
-    OverlayMode,
+    show_action_center_overlay, show_cockpit_page_overlay, show_dev_panel_overlay,
+    show_help_overlay, show_memory_browser_overlay, show_review_surface_overlay,
+    show_settings_overlay, show_theme_picker_overlay, show_theme_studio_overlay,
+    show_toast_history_overlay, show_transcript_history_overlay, OverlayMode,
 };
 use crate::prompt::should_auto_trigger;
 use crate::runtime_compat::{self, BackendFamily, TerminalHost};
@@ -78,12 +78,14 @@ use dev_panel_commands::{
 use input_dispatch::{handle_input_event, handle_wake_word_detection};
 use output_dispatch::handle_output_chunk;
 use overlay_dispatch::{
-    close_overlay, open_dev_panel_overlay, open_help_overlay, open_settings_overlay,
-    open_theme_picker_overlay, open_theme_studio_overlay, open_toast_history_overlay,
-    open_transcript_history_overlay, render_dev_panel_overlay_for_state,
-    render_help_overlay_for_state, render_settings_overlay_for_state,
-    render_theme_picker_overlay_for_state, render_theme_studio_overlay_for_state,
-    render_toast_history_overlay_for_state, render_transcript_history_overlay_for_state,
+    close_overlay, open_action_center_overlay, open_dev_panel_overlay, open_help_overlay,
+    open_memory_browser_overlay, open_settings_overlay, open_theme_picker_overlay,
+    open_theme_studio_overlay, open_toast_history_overlay, open_transcript_history_overlay,
+    render_action_center_overlay_for_state, render_dev_panel_overlay_for_state,
+    render_help_overlay_for_state, render_memory_browser_overlay_for_state,
+    render_settings_overlay_for_state, render_theme_picker_overlay_for_state,
+    render_theme_studio_overlay_for_state, render_toast_history_overlay_for_state,
+    render_transcript_history_overlay_for_state,
 };
 use periodic_tasks::run_periodic_tasks;
 use prompt_occlusion::{

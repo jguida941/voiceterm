@@ -7,6 +7,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from .common import resolve_repo_python_command
 from .config import REPO_ROOT
 
 
@@ -21,8 +22,12 @@ def run_json_policy_gate(script_path: Path, gate_label: str) -> dict:
     try:
         env = dict(os.environ)
         env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
-        completed = subprocess.run(
+        cmd = resolve_repo_python_command(
             ["python3", str(script_path), "--format", "json"],
+            cwd=REPO_ROOT,
+        )
+        completed = subprocess.run(
+            cmd,
             cwd=REPO_ROOT,
             env=env,
             capture_output=True,

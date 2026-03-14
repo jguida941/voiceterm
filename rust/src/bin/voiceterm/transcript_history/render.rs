@@ -3,7 +3,8 @@
 //! Extracted from `transcript_history.rs` (MP-265 module decomposition).
 
 use crate::overlay_frame::{
-    centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
+    centered_title_line, display_width, frame_bottom, frame_separator, frame_top,
+    framed_content_line, truncate_display,
 };
 use crate::theme::{overlay_close_symbol, overlay_separator, Theme, ThemeColors};
 
@@ -39,34 +40,6 @@ pub(crate) fn transcript_history_visible_rows() -> usize {
 
 /// Row offset where list entries start (1-based from overlay top).
 pub(crate) const TRANSCRIPT_HISTORY_ENTRY_START_ROW: usize = 6;
-
-fn framed_overlay_row(
-    colors: &ThemeColors,
-    borders: &crate::theme::BorderSet,
-    inner_width: usize,
-    content: &str,
-    content_color: &str,
-) -> String {
-    let clipped = truncate_display(content, inner_width);
-    let pad = " ".repeat(inner_width.saturating_sub(display_width(&clipped)));
-    let body_plain = format!("{clipped}{pad}");
-    let body = if content_color.is_empty() {
-        body_plain
-    } else {
-        format!("{content_color}{body_plain}{}", colors.reset)
-    };
-
-    format!(
-        "{}{}{}{}{}{}{}",
-        colors.border,
-        borders.vertical,
-        colors.reset,
-        body,
-        colors.border,
-        borders.vertical,
-        colors.reset
-    )
-}
 
 fn wrap_display_lines(text: &str, max_width: usize, max_lines: usize) -> Vec<String> {
     if max_lines == 0 {
@@ -126,7 +99,7 @@ pub(crate) fn format_transcript_history_overlay(
     } else {
         (format!(" Search: {}", state.search_query), "")
     };
-    lines.push(framed_overlay_row(
+    lines.push(framed_content_line(
         &colors,
         borders,
         inner,
@@ -142,7 +115,7 @@ pub(crate) fn format_transcript_history_overlay(
         } else {
             "No matches"
         };
-        lines.push(framed_overlay_row(
+        lines.push(framed_content_line(
             &colors,
             borders,
             inner,
@@ -150,7 +123,7 @@ pub(crate) fn format_transcript_history_overlay(
             colors.dim,
         ));
         for _ in 1..VISIBLE_ROWS {
-            lines.push(framed_overlay_row(&colors, borders, inner, "", ""));
+            lines.push(framed_content_line(&colors, borders, inner, "", ""));
         }
     } else {
         let visible_end = (state.scroll_offset + VISIBLE_ROWS).min(total);
@@ -165,14 +138,14 @@ pub(crate) fn format_transcript_history_overlay(
                 let text_preview = truncate_display(entry.text.trim(), text_budget);
                 let content = format!("{prefix}{text_preview}");
                 let row_color = if is_selected { colors.info } else { "" };
-                lines.push(framed_overlay_row(
+                lines.push(framed_content_line(
                     &colors, borders, inner, &content, row_color,
                 ));
             }
         }
         let rendered = visible_end - state.scroll_offset;
         for _ in rendered..VISIBLE_ROWS {
-            lines.push(framed_overlay_row(&colors, borders, inner, "", ""));
+            lines.push(framed_content_line(&colors, borders, inner, "", ""));
         }
     }
 
@@ -197,7 +170,7 @@ pub(crate) fn format_transcript_history_overlay(
             }
         });
     for line in wrap_display_lines(&preview_seed, inner, PREVIEW_ROWS) {
-        lines.push(framed_overlay_row(
+        lines.push(framed_content_line(
             &colors, borders, inner, &line, colors.dim,
         ));
     }

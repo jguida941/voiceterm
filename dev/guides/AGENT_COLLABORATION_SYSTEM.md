@@ -172,7 +172,7 @@ The implementation lives in:
 
 1. [`../scripts/devctl/commands/autonomy_swarm.py`](../scripts/devctl/commands/autonomy_swarm.py)
 2. [`../scripts/devctl/commands/autonomy_swarm_core.py`](../scripts/devctl/commands/autonomy_swarm_core.py)
-3. [`../scripts/devctl/autonomy_swarm_helpers.py`](../scripts/devctl/autonomy_swarm_helpers.py)
+3. [`../scripts/devctl/autonomy/swarm_helpers.py`](../scripts/devctl/autonomy/swarm_helpers.py)
 
 ### `autonomy-loop`
 
@@ -206,8 +206,8 @@ Current implementation:
 The implementation lives in:
 
 1. [`../scripts/devctl/commands/autonomy_run.py`](../scripts/devctl/commands/autonomy_run.py)
-2. [`../scripts/devctl/autonomy_run_helpers.py`](../scripts/devctl/autonomy_run_helpers.py)
-3. [`../scripts/devctl/autonomy_run_plan.py`](../scripts/devctl/autonomy_run_plan.py)
+2. [`../scripts/devctl/autonomy/run_helpers.py`](../scripts/devctl/autonomy/run_helpers.py)
+3. [`../scripts/devctl/autonomy/run_plan.py`](../scripts/devctl/autonomy/run_plan.py)
 
 ## Where The State Lives
 
@@ -322,8 +322,8 @@ without hunting across the repo.
 | Swarm fanout logic | [`../scripts/devctl/commands/autonomy_swarm.py`](../scripts/devctl/commands/autonomy_swarm.py) | Chooses lane count, reserves reviewer lanes, and coordinates worker execution. |
 | Bounded worker lane | [`../scripts/devctl/commands/autonomy_loop.py`](../scripts/devctl/commands/autonomy_loop.py) | Enforces max rounds, hours, tasks, and execution mode per worker. |
 | Governance bundle authority | [`../scripts/devctl/bundle_registry.py`](../scripts/devctl/bundle_registry.py) | Canonical source for bundle command lists used locally and in CI. |
-| `swarm_run` governance pack | [`../scripts/devctl/autonomy_run_helpers.py`](../scripts/devctl/autonomy_run_helpers.py) | Defines the post-swarm checks and orchestrator reporting commands. |
-| Plan evidence appender | [`../scripts/devctl/autonomy_run_plan.py`](../scripts/devctl/autonomy_run_plan.py) | Writes `Progress Log` and `Audit Evidence` entries back into the active plan. |
+| `swarm_run` governance pack | [`../scripts/devctl/autonomy/run_helpers.py`](../scripts/devctl/autonomy/run_helpers.py) | Defines the post-swarm checks and orchestrator reporting commands. |
+| Plan evidence appender | [`../scripts/devctl/autonomy/run_plan.py`](../scripts/devctl/autonomy/run_plan.py) | Writes `Progress Log` and `Audit Evidence` entries back into the active plan. |
 | Collaboration guard scripts | [`../scripts/checks/`](../scripts/checks/) | Enforces bridge, plan, workflow, naming, compat, and Rust quality contracts. |
 | CI/CD workflow mirrors | [`../../.github/workflows/`](../../.github/workflows/) | Runs the same policy model in push/PR, manual autonomy, and release lanes. |
 
@@ -421,8 +421,8 @@ These are the main command surfaces and what they enforce:
    handles `swarm_run`. It validates active-plan scope, collects unchecked
    checklist items, derives the prompt, runs the swarm, runs governance, and
    appends `Progress Log` plus `Audit Evidence` entries back into the active
-   plan via [`../scripts/devctl/autonomy_run_plan.py`](../scripts/devctl/autonomy_run_plan.py).
-3. [`../scripts/devctl/autonomy_run_helpers.py`](../scripts/devctl/autonomy_run_helpers.py)
+   plan via [`../scripts/devctl/autonomy/run_plan.py`](../scripts/devctl/autonomy/run_plan.py).
+3. [`../scripts/devctl/autonomy/run_helpers.py`](../scripts/devctl/autonomy/run_helpers.py)
    defines the governance command pack used by `swarm_run`:
    `check_active_plan_sync.py`, `check_multi_agent_sync.py`,
    `docs-check --strict-tooling`, `orchestrate-status`, and
@@ -430,7 +430,7 @@ These are the main command surfaces and what they enforce:
 4. [`../scripts/devctl/commands/autonomy_swarm.py`](../scripts/devctl/commands/autonomy_swarm.py)
    handles bounded multi-agent fanout. It can auto-size agent count from diff
    size, file count, prompt size, and difficulty keywords through
-   [`../scripts/devctl/autonomy_swarm_helpers.py`](../scripts/devctl/autonomy_swarm_helpers.py),
+   [`../scripts/devctl/autonomy/swarm_helpers.py`](../scripts/devctl/autonomy/swarm_helpers.py),
    reserves `AGENT-REVIEW` when applicable, and writes swarm bundles under
    [`../reports/autonomy/swarms/`](../reports/autonomy/swarms/).
 5. [`../scripts/devctl/commands/autonomy_loop.py`](../scripts/devctl/commands/autonomy_loop.py)
@@ -476,7 +476,7 @@ current implementation.
 3. [`../scripts/devctl/commands/autonomy_run.py`](../scripts/devctl/commands/autonomy_run.py)
    verifies the plan path exists in the active-doc chain and that the MP scope
    exists in [`../active/MASTER_PLAN.md`](../active/MASTER_PLAN.md).
-4. [`../scripts/devctl/autonomy_run_helpers.py`](../scripts/devctl/autonomy_run_helpers.py)
+4. [`../scripts/devctl/autonomy/run_helpers.py`](../scripts/devctl/autonomy/run_helpers.py)
    collects the next unchecked checklist items and derives a prompt slice.
 5. `swarm_run` shells into `autonomy-swarm`, which chooses or accepts the lane
    count, reserves `AGENT-REVIEW` when applicable, and starts bounded

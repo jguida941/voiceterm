@@ -41,6 +41,11 @@ def add_data_science_parser(sub: argparse._SubParsersAction) -> None:
         help="Governance review JSONL used to measure false-positive and cleanup rates",
     )
     data_science_cmd.add_argument(
+        "--external-finding-log",
+        default="dev/reports/governance/external_pilot_findings.jsonl",
+        help="Imported external-finding JSONL used to measure corpus size and adjudication coverage",
+    )
+    data_science_cmd.add_argument(
         "--max-events",
         type=int,
         default=20000,
@@ -69,6 +74,12 @@ def add_data_science_parser(sub: argparse._SubParsersAction) -> None:
         type=int,
         default=5000,
         help="Maximum governance review rows sampled from JSONL",
+    )
+    data_science_cmd.add_argument(
+        "--max-external-finding-rows",
+        type=int,
+        default=10000,
+        help="Maximum imported external finding rows sampled from JSONL",
     )
     data_science_cmd.add_argument("--format", choices=["json", "md"], default="md")
     data_science_cmd.add_argument("--output")

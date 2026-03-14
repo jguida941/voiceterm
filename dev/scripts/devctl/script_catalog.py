@@ -18,6 +18,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("bundle_workflow_parity", "check_bundle_workflow_parity.py"),
     ("cli_flags_parity", "check_cli_flags_parity.py"),
     ("clippy_high_signal", "check_clippy_high_signal.py"),
+    ("command_source_validation", "check_command_source_validation.py"),
     ("duplication_audit", "check_duplication_audit.py"),
     ("duplication_audit_support", "check_duplication_audit_support.py"),
     ("duplicate_types", "check_duplicate_types.py"),
@@ -27,9 +28,14 @@ _CHECK_SCRIPT_ENTRIES = (
     ("compat_matrix", "check_compat_matrix.py"),
     ("compat_matrix_smoke", "compat_matrix_smoke.py"),
     ("code_shape", "check_code_shape.py"),
+    ("package_layout", "check_package_layout.py"),
     ("coderabbit_gate", "check_coderabbit_gate.py"),
     ("coderabbit_ralph_gate", "check_coderabbit_ralph_gate.py"),
     ("ide_provider_isolation", "check_ide_provider_isolation.py"),
+    (
+        "instruction_surface_sync",
+        "check_instruction_surface_sync.py",
+    ),
     ("naming_consistency", "check_naming_consistency.py"),
     ("mobile_relay_protocol", "check_mobile_relay_protocol.py"),
     ("multi_agent_sync", "check_multi_agent_sync.py"),
@@ -87,6 +93,7 @@ _PROBE_SCRIPT_ENTRIES = (
     ("probe_defensive_overchecking", "probe_defensive_overchecking.py"),
     ("probe_single_use_helpers", "probe_single_use_helpers.py"),
     ("probe_exception_quality", "probe_exception_quality.py"),
+    ("probe_compatibility_shims", "probe_compatibility_shims.py"),
 )
 
 PROBE_SCRIPT_FILES = dict(_PROBE_SCRIPT_ENTRIES)
@@ -110,6 +117,26 @@ LEGACY_CHECK_SCRIPT_REWRITES = {
     for _name, filename in _CHECK_SCRIPT_ENTRIES
     for relative in (f"{CHECKS_DIR}/{filename}",)
 }
+
+_LEGACY_ENTRYPOINT_REWRITE_ENTRIES = (
+    ("dev/scripts/autonomy_workflow_bridge.py", "dev/scripts/workflow_bridge/autonomy.py"),
+    ("dev/scripts/coderabbit_triage_bridge.py", "dev/scripts/coderabbit/bridge.py"),
+    ("dev/scripts/collect_clippy_warnings.py", "dev/scripts/rust_tools/collect_clippy_warnings.py"),
+    ("dev/scripts/dependency_graph_probe.py", "dev/scripts/rust_tools/dependency_graph_probe.py"),
+    ("dev/scripts/mutants.py", "dev/scripts/mutation/cli.py"),
+    ("dev/scripts/mutation_ralph_workflow_bridge.py", "dev/scripts/workflow_bridge/mutation_ralph.py"),
+    ("dev/scripts/ralph_ai_fix.py", "dev/scripts/coderabbit/ralph_ai_fix.py"),
+    ("dev/scripts/render_ci_badge.py", "dev/scripts/badges/ci.py"),
+    ("dev/scripts/render_clippy_badge.py", "dev/scripts/badges/clippy.py"),
+    ("dev/scripts/render_mutation_badge.py", "dev/scripts/badges/mutation.py"),
+    ("dev/scripts/workflow_shell_bridge.py", "dev/scripts/workflow_bridge/shell.py"),
+    ("dev/scripts/write_sha256_checksum.py", "dev/scripts/artifacts/sha256.py"),
+)
+
+LEGACY_ENTRYPOINT_SCRIPT_REWRITES = dict(_LEGACY_ENTRYPOINT_REWRITE_ENTRIES)
+
+LEGACY_SCRIPT_PATH_REWRITES = dict(LEGACY_CHECK_SCRIPT_REWRITES)
+LEGACY_SCRIPT_PATH_REWRITES.update(LEGACY_ENTRYPOINT_SCRIPT_REWRITES)
 
 
 def check_script_relative_path(name: str) -> str:

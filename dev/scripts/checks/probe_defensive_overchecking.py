@@ -23,6 +23,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -35,6 +36,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -51,7 +53,6 @@ GuardContext = import_attr("rust_guard_common", "GuardContext")
 is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
 scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 PYTHON_ROOTS = resolve_quality_scope_roots("python_probe", repo_root=REPO_ROOT)
@@ -78,7 +79,6 @@ AI_INSTRUCTIONS = {
     ),
 }
 
-
 def _build_isinstance_hint(
     *,
     rel_path: str,
@@ -100,7 +100,6 @@ def _build_isinstance_hint(
         ai_instruction=AI_INSTRUCTIONS[severity],
         review_lens=REVIEW_LENS,
     )
-
 
 def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
     """Detect isinstance over-checking in one Python file."""
@@ -132,7 +131,6 @@ def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
             )
 
     return hints
-
 
 def main() -> int:
     args = build_probe_parser(__doc__ or "").parse_args()
@@ -175,7 +173,6 @@ def main() -> int:
 
     report.files_with_hints = len(files_with_hints)
     return emit_probe_report(report, output_format=args.format)
-
 
 if __name__ == "__main__":
     sys.exit(main())

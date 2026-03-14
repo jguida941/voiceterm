@@ -14,6 +14,23 @@ DEFAULT_POLICY_PATH = REPO_ROOT / DEFAULT_POLICY_RELATIVE_PATH
 QUALITY_POLICY_ENV_VAR = "DEVCTL_QUALITY_POLICY"
 
 
+def _resolve_extended_policy_path(
+    policy_path: Path,
+    extended_path: str,
+) -> Path:
+    """Resolve one inherited policy path with an engine-root fallback."""
+    parent_policy_path = Path(extended_path).expanduser()
+    if parent_policy_path.is_absolute():
+        return parent_policy_path
+    adjacent_path = policy_path.parent / parent_policy_path
+    if adjacent_path.exists():
+        return adjacent_path
+    engine_fallback = DEFAULT_POLICY_PATH.parent / parent_policy_path
+    if engine_fallback.exists():
+        return engine_fallback
+    return adjacent_path
+
+
 def resolve_policy_path(
     *,
     repo_root: Path,
@@ -72,7 +89,10 @@ def load_policy_payload(
         return None
     active_paths.add(resolved_path)
     try:
-        payload, error = read_json_object(policy_path)
+        payload, error = read_json_object(
+            policy_path,
+            reject_duplicate_keys=True,
+        )
         if error:
             warnings.append(f"quality policy unavailable ({error})")
             return None
@@ -87,9 +107,10 @@ def load_policy_payload(
             extends_paths = ()
 
         for extended_path in extends_paths:
-            parent_policy_path = Path(extended_path).expanduser()
-            if not parent_policy_path.is_absolute():
-                parent_policy_path = policy_path.parent / parent_policy_path
+            parent_policy_path = _resolve_extended_policy_path(
+                policy_path,
+                extended_path,
+            )
             parent_payload = load_policy_payload(
                 parent_policy_path,
                 warnings=warnings,

@@ -1,8 +1,16 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-03-12 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-03-14 | **Owner:** Tooling/code governance
 Execution plan contract: required
-This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under `MP-376`.
+This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
+`MP-376`. It is the narrower engine/adoption companion to
+`dev/active/ai_governance_platform.md`, not a peer architecture authority for
+the full standalone governance product.
+
+Do not use this file as a second main plan for the product. Keep cross-product
+architecture, documentation-consolidation, extraction sequencing, and
+standalone-repo boundary decisions in `dev/active/ai_governance_platform.md`,
+then use this file only for deeper engine/adoption detail within that frame.
 
 ## Scope
 
@@ -12,6 +20,12 @@ itself. The goal is deterministic structural governance for AI-assisted coding:
 guards reject recurring bad pattern families, probes rank the remaining design
 smells, and the same artifact stream becomes evaluation data for later retrieval
 and training work.
+
+The broader "full reusable product" extraction now lives in
+`dev/active/ai_governance_platform.md`, which is the main active plan for that
+scope. This plan stays narrower on purpose: portable engine boundaries, repo
+policy/preset layering, measurement/data capture, external-repo rollout, and
+export/bootstrap packaging for off-repo analysis.
 
 This scope is broader than `dev/active/review_probes.md`. That spec still owns
 probe implementation and operator-facing review artifacts. This plan owns the
@@ -26,7 +40,8 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 2. Hold guard code to the same or stricter structural standard than guarded code;
    path budgets are temporary stabilization bridges, not the target state.
 3. Capture enough run data to evaluate whether the system materially improves
-   AI-assisted code quality over time.
+   AI-assisted code quality over time without quietly demanding unsustainable
+   prompt/context volume.
 4. Package the system and its reports cleanly enough that a reasoning model or a
    maintainer can inspect the full governance stack outside this repo.
 
@@ -46,6 +61,10 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 - [x] Define the measurement/event schema for guarded coding episodes:
       task class, changed files, initial diff/output, guard hits, repair loops,
       accepted diff, human edits, test outcomes, and later review outcomes.
+- [ ] Extend guarded-episode measurement with context-budget metrics:
+      estimated prompt size (`tokens` when available, otherwise bytes/lines/
+      files), compression ratio, overflow path, and actual provider usage when
+      exposed so quality gains can be evaluated against prompt cost.
 - [x] Decide artifact retention rules for portable evaluation data and sample
       exports so the corpus is usable for retrieval/evaluation before any model
       training is attempted.
@@ -69,8 +88,91 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       trustworthy baseline ref exists.
 - [x] Add copied-repo bootstrap support so pilot repos with broken submodule
       `.git` indirection can be normalized without manual git surgery.
+- [x] Promote compatibility shims into a portable governance primitive with
+      structural validation and policy-owned metadata requirements instead of
+      leaving wrapper exceptions as repo-specific layout hacks.
+- [x] Add an explicit long-lived public-shim allowlist plus lifecycle
+      classification so temporary shims split into `migrate-callers` vs
+      `remove-now` instead of one undifferentiated budget warning.
+- [x] Burn down the first zero-caller temporary shim tranche once the lifecycle
+      scan can prove removal safety from repo-visible evidence.
+- [x] Migrate the remaining `review_channel_*` root shim callers to the
+      `dev/scripts/devctl/review_channel/` package and delete the leftover
+      temporary wrappers once repo-visible usage is gone.
+- [x] Re-run the shim governance bundle after the `review_channel_*` migration
+      and record the remaining temporary-wrapper counts in the plan and
+      governance ledger.
+- [x] Burn down the next largest temporary `dev/scripts/devctl` shim families
+      or explicitly bless any deliberate long-lived public seams in repo
+      policy so the root wrapper count keeps converging instead of plateauing.
+- [x] Continue burning down the remaining temporary `dev/scripts/devctl` root
+      shim families, starting with `cli_parser_*` by wrapper count and
+      `triage_*` by repo-visible reference count, so the post-autonomy shim
+      backlog keeps converging from 39 wrappers / 87 references instead of
+      plateauing again.
+- [x] Continue burning down the remaining temporary `dev/scripts/devctl` root
+      shim families, now starting with `process_sweep_*` while the current
+      docs-led probe examples keep flagging `data_science_metrics.py` plus
+      `governance_bootstrap_*`, so the post-security backlog keeps converging
+      instead of flattening out again.
 - [ ] Automate the multi-repo benchmark runner around the new evaluation
       schema/templates instead of keeping the experiment contract doc-only.
+- [ ] Add a portable structural-readability governance tranche for repo-policy-
+      driven file/module/symbol naming and API-intent checks. Keep deterministic
+      filename/layout rules eligible for hard guards, but start function/symbol
+      clarity and broader KISS/readability enforcement as advisory probes or
+      optional autofix/report surfaces until signal quality is proven across
+      multiple repos.
+- [ ] Build the short-term anti-pattern feedback loop before any model-training
+      push: when guards/probes fire, emit compact repair packets, attach the
+      most relevant repo-local good examples and policy hints, rerun targeted
+      repair passes, and store reviewed bad->fixed episodes as machine-readable
+      evidence for later retrieval, evaluation, and only then possible
+      fine-tuning.
+- [ ] Define one portable versioned finding schema for guard/probe output so
+      rule families, review packets, suppression flow, autofix metadata, and
+      later replay/eval records all project from the same evidence contract
+      instead of growing separate per-surface payload shapes.
+- [ ] Expand the compact machine-output receipt path into a portable artifact-
+      cost contract: path/hash/bytes/token estimates, content type, receipt
+      size, and rule-family/command metadata should be emitted consistently for
+      JSON-canonical surfaces so context spend and reread avoidance are
+      measurable across repos.
+- [ ] Build the replayable benchmark corpus earlier and more concretely:
+      seeded must-flag and must-not-flag Python/Rust examples, reviewed
+      historical repo findings, and stable replay inputs for rule-precision
+      comparisons before stronger portability or ML claims are made.
+- [ ] Tighten Python type/boundary enforcement for the portable engine by
+      evaluating stricter typed-contract lanes and executable import-boundary
+      checks on core/runtime/report/policy modules instead of relying only on
+      the current advisory mypy posture.
+- [ ] Evaluate bounded structural-search/autofix integrations for portable
+      rule families: AST/semgrep-style matching is useful where it improves
+      deterministic detection or safe rewrites, but repo-owned policy and
+      evidence contracts must stay authoritative.
+- [ ] Add first-class machine-readable wrappers for the highest-value external
+      quality lanes so adopters get the same evidence model across native and
+      third-party tools: typed Python checks, import-boundary checks, Rust test
+      execution, dependency/security audit, and coverage artifacts.
+- [ ] Close the false-green layout gap in crowded roots: package-layout
+      governance should prove real namespace decomposition for
+      `dev/scripts/devctl`, `dev/scripts/devctl/commands`, and the mirrored
+      test roots, not only freeze further flat growth while existing crowded
+      trees remain mostly intact.
+- [ ] Turn the documented `devctl/commands` taxonomy into tree reality instead
+      of policy-only intent: converge the still-flat command families on the
+      target subpackages (`check/`, `autonomy/`, `review_channel/`,
+      `release/`, `process/`) so layout checks and docs describe the same
+      package boundary.
+- [ ] Burn down the remaining temporary root shim backlog to policy budget and
+      remove zero-caller wrappers promptly; current probe evidence should not
+      keep tolerating dead shims such as `autonomy_loop_parser.py`,
+      `review_channel_prompt.py`, or `watchdog_episodes.py` once repo-visible
+      usage is confirmed absent.
+- [ ] Align bootstrap/self-hosting interpreter contracts with the repo's Python
+      3.11+ requirement so governance entrypoints and AGENTS bootstrap commands
+      do not fail on machines where `python3` still resolves to 3.10 before the
+      real layout/quality checks can even start.
 - [ ] Mine the next repeated pattern families from live evidence before
       promoting any more hard guards; prefer probe-first rollout unless the
       signal is low-noise and clearly portable.
@@ -125,6 +227,170 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   `devctl governance-bootstrap` repairs copied repo git state for disposable
   pilots, and `--adoption-scan` now gives `check`, `probe-report`, and
   `governance-export` a first-class full-surface onboarding mode.
+- 2026-03-12: Tightened the bootstrap handoff for adopted repos so the target
+  checkout now gets one obvious repo-local first-read file:
+  `dev/guides/PORTABLE_GOVERNANCE_SETUP.md`. `governance-bootstrap` still
+  writes the starter repo policy, but now also writes a concrete AI-friendly
+  run order and customization checklist into the target repo instead of
+  leaving the exported markdown template as the only onboarding surface.
+- 2026-03-12: Split the broader architecture ownership cleanly. `MP-376`
+  continues to own the portable governance engine, policy layering,
+  onboarding/export, and evaluation corpus; the new `MP-377` plan at
+  `dev/active/ai_governance_platform.md` now owns the full reusable product
+  extraction across runtime/control-plane contracts, repo-pack packaging,
+  frontend convergence, and the path toward VoiceTerm becoming one consumer of
+  an installable platform.
+- 2026-03-12: Added the next shim-governance layer on top of the shared
+  compatibility-shim primitive. `probe_compatibility_shims.py` now reuses the
+  same AST-first shim validator to rank missing canonical metadata, expired
+  wrappers, broken `shim-target` convergence, and shim-heavy roots/families,
+  while `run_probe_report.py` now resolves probe entrypoints from the shared
+  quality policy/script catalog instead of keeping a second hard-coded probe
+  list.
+- 2026-03-12: Continued the structural cleanup inside `dev/scripts/checks`
+  without moving public entrypoints: the `active_plan`, `python_analysis`, and
+  `probe_report` helper families now live behind documented internal
+  subpackages so the root of `checks/` stays closer to a list of runnable
+  guard/probe scripts instead of mixed entrypoints plus support modules.
+- 2026-03-13: Split the new `package_layout` shim-governance seams internally
+  without changing the public contract. `package_layout.rules` now re-exports
+  focused model/loading/shim-validation helpers, and
+  `package_layout.probe_compatibility_shims` now keeps `build_report()` /
+  `main()` stable while delegating rule loading, scan logic, and hint building
+  to internal modules. This keeps the self-hosting import surface flat and
+  testable while letting the implementation stop growing as two large files.
+- 2026-03-13: Captured the next pattern-mining direction explicitly after
+  maintainership discussion: portable readability governance, not one monolithic
+  "clean code" script. The intended slice is repo-policy-driven filename/module
+  naming, symbol clarity, and public API intent checks with machine-readable
+  findings. Rollout should stay modular: deterministic filename/layout contracts
+  can graduate to hard guards once low-noise, while function naming, KISS/
+  readability, and broader Python clean-code heuristics should start as
+  advisory probes plus optional autofix/report surfaces until cross-repo
+  evidence proves them portable.
+- 2026-03-13: Captured the short-term path toward better AI output more
+  explicitly. The next leverage point is not immediate model training; it is a
+  governed repair loop with compact guard/probe repair packets, targeted
+  repo-local example retrieval, and reviewed bad->fixed episode storage. That
+  gives the platform a practical near-term path to better first-pass code and a
+  cleaner long-term dataset for retrieval or fine-tuning later, instead of
+  trying to learn directly from raw noisy failure logs.
+- 2026-03-13: Captured the next portable-engine follow-ups from a broader
+  architecture/product review so they do not stay trapped in chat. The review
+  largely matched the repo's existing direction, but it sharpened the missing
+  engine-level pieces: one versioned finding schema, stable machine receipts
+  plus artifact-cost telemetry, a replayable must-flag/must-not-flag corpus,
+  stronger typed/boundary enforcement for portable Python contracts, bounded
+  structural-search/autofix integration, and machine-readable wrappers for the
+  highest-value third-party lanes. The repo already has early receipt helpers,
+  advisory mypy, and security/dependency tooling, so the actual task is to
+  harden and productize those seams rather than starting from zero.
+- 2026-03-13: Logged a concrete self-hosting gap from live maintainership
+  review: the current layout guards are still green for partially the wrong
+  reason. `freeze`-mode crowding prevents new flat growth, but it does not yet
+  prove the crowded `devctl` roots are actually decomposed, and the intended
+  `commands/{check,autonomy,review_channel,release,process}` taxonomy still
+  exists more strongly in docs/policy than in the tree. The same review also
+  confirmed that root shim debt remains above policy budget and that bootstrap
+  still has a Python-version footgun on machines where `python3` is 3.10, so
+  those are now explicit execution items rather than chat-only warnings.
+- 2026-03-13: Burned down the next self-hosting crowded-root slice in
+  `dev/scripts/devctl` without breaking public imports. The new portable
+  bootstrap helpers now live under `dev/scripts/devctl/governance/`, the
+  `platform-contracts` implementation lives under `dev/scripts/devctl/platform/`,
+  the `PathAuditAggregateReport` model moved under
+  `dev/scripts/devctl/path_audit_support/`, and the new runtime/platform/probe
+  tests moved under topic-aligned test packages instead of the crowded root test
+  directory. The root files stay as metadata-bearing compatibility shims, the
+  direct unit slices plus `check_package_layout` stay green, `devctl check
+  --profile ci` now passes on this branch head, and the remaining pre-existing
+  medium `probe_compatibility_shims` backlog for older `devctl` root shims was
+  explicitly recorded as `deferred` in `governance-review`.
+- 2026-03-13: Finished the next shim-governance follow-up on that same
+  `dev/scripts/devctl` root backlog. All 84 previously metadata-free root
+  compatibility shims now carry canonical `shim-owner` / `shim-reason` /
+  `shim-expiry` / `shim-target` fields, the stale `# noqa` suppressions were
+  removed from those wrappers, and the missing-metadata variant of
+  `probe_compatibility_shims` is gone. The post-fix audit is now much cleaner:
+  `devctl check --profile ci` still passes, `probe-report` narrows to pure shim
+  budget pressure, and the next highest-signal extraction target is the
+  `review_channel_*` root family (13 approved wrappers against a family budget
+  of 4) rather than more wrapper metadata work.
+- 2026-03-13: Extended shim governance from metadata-only auditing into an
+  explicit lifecycle model. `probe_compatibility_shims` now loads a
+  repo-policy allowlist for long-lived public shims, treats every other valid
+  wrapper as temporary by default, and scans repo-visible imports/path/module
+  references to classify temporary shims into `migrate-callers` vs
+  `remove-now`. The first VoiceTerm policy seed deliberately stays narrow:
+  public `dev/scripts/checks/{check_,probe_,run_}*.py` entrypoints are
+  allowlisted, generated artifacts under `dev/reports/` are excluded from
+  usage scanning so probe output does not self-justify wrappers, and the
+  remaining `dev/scripts/devctl` root wrappers now show up as explicit
+  temporary migration debt unless future repo policy blesses specific public
+  seams.
+- 2026-03-13: Used that new lifecycle scan to burn down the first concrete
+  removal slice immediately instead of just recording it. Deleted 25
+  zero-caller temporary root shims from `dev/scripts/devctl` (including the
+  stale `watchdog_episodes.py` wrapper and six `review_channel_*` wrappers),
+  updated the watchdog README to point at the canonical package module, and
+  reran the governance bundle. The shim audit state is now materially better:
+  the `remove-now` high-severity bucket is gone, `dev/scripts/devctl` root
+  temporary wrappers dropped from 88 to 63, and the `review_channel_*` family
+  dropped from 13 wrappers to 6. The remaining shim backlog is now purely
+  medium-severity caller migration / budget pressure, which makes
+  `review_channel_*` the clean next family to finish instead of a mixed
+  metadata-plus-delete cleanup.
+- 2026-03-13: Finished that `review_channel_*` cleanup tranche end-to-end.
+  Updated the remaining docs/tests/active-plan references to the canonical
+  `dev/scripts/devctl/review_channel/{event_store,handoff,launch,parser,prompt,state}.py`
+  modules, deleted the six leftover temporary root wrappers, reran the review
+  channel regression slice plus the shim-governance bundle, and recorded the
+  new state. `probe-report` no longer emits a `review_channel_*` family
+  finding; the broader `dev/scripts/devctl` root backlog dropped again from 63
+  temporary wrappers / 143 repo-visible references to 57 wrappers / 135
+  references. The next highest-signal shim work is now the larger remaining
+  temporary root families rather than review-channel residue.
+- 2026-03-13: Retired the temporary `security_*` root shim family after the
+  next probe rerun narrowed the backlog to 23 wrappers / 46 repo-visible
+  references. Workflow trigger paths, maintainer docs, active-plan notes, and
+  engineering history now point at the canonical
+  `dev/scripts/devctl/security/{parser,codeql,python_scope,tiers}.py`
+  modules, and the four obsolete root wrappers were deleted. The next
+  shim-governance target is now `process_sweep_*` plus the remaining
+  docs-led callers for `data_science_metrics.py` and
+  `governance_bootstrap_{guide,policy}.py`.
+- 2026-03-13: Retired the next largest temporary `dev/scripts/devctl` root
+  shim family, `autonomy_*`. Migrated the remaining repo-visible
+  docs/history/plan references to the canonical
+  `dev/scripts/devctl/autonomy/{benchmark_helpers,benchmark_matrix,benchmark_parser,benchmark_render,benchmark_runner,loop_helpers,loop_parser,phone_status,report_helpers,report_render,run_feedback,run_helpers,run_parser,run_plan,run_render,status_parsers,swarm_helpers,swarm_post_audit}.py`
+  modules, renamed the package-layout probe's synthetic fixture paths so tests
+  no longer self-justify a real wrapper name, deleted the 18 obsolete root
+  autonomy shims, and reran autonomy plus review-channel regression coverage.
+  The shim-governance state improved materially again: `probe-report` dropped
+  the broader `dev/scripts/devctl` root backlog from 57 temporary wrappers /
+  135 repo-visible references to 39 wrappers / 87 references, and the next
+  highest-signal families are now `cli_parser_*` by wrapper count (8 wrappers /
+  12 references) and `triage_*` by repo-visible references (4 wrappers / 14
+  references).
+- 2026-03-13: Finished the next caller-migration tranche after `autonomy_*`.
+  Migrated the remaining repo-visible `cli_parser_*`, `triage_*`, and
+  `triage_loop_*` docs/history/active-plan references to the canonical
+  `dev/scripts/devctl/cli_parser/` and `dev/scripts/devctl/triage/`
+  package-owned modules, then deleted 16 obsolete root wrappers. The shim
+  backlog dropped again: `probe-report` now shows 23 temporary
+  `dev/scripts/devctl` root shims with 46 repo-visible callers or references,
+  down from 39 / 87. The remaining wrapper-heavy families are now
+  `process_sweep_*` and `security_*` (4 wrappers each), while the current
+  repo-visible-reference examples point at `data_science_metrics.py` and the
+  `governance_bootstrap_*` wrappers.
+- 2026-03-13: Retired the next shim tranche: `process_sweep_*` (4 wrappers),
+  `data_science_metrics.py`, and `governance_bootstrap_{guide,policy}.py`.
+  All seven had zero active Python callers; only doc/markdown references
+  remained. Updated `AGENTS.md`, `dev/scripts/README.md`,
+  `dev/active/ai_governance_platform.md`, `dev/history/ENGINEERING_EVOLUTION.md`,
+  and the `process_sweep/README.md` to point at canonical package paths, then
+  deleted the root shims. The `dev/scripts/devctl` root temporary wrapper
+  count dropped from 23 to 16. All 1274 tests pass.
 - 2026-03-11: Added `probe_exception_quality.py` as the next evidence-driven
   Python review probe. It surfaces suppressive broad handlers and generic
   exception translation without runtime context, which showed up as a real
@@ -396,6 +662,81 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   provisions Rust and `libasound2-dev` before the compile-time Rust guard, and
   maintainer docs now call out that tooling/docs jobs cannot assume Rust lane
   prerequisites automatically.
+- 2026-03-12: Promoted compatibility shims into the portable governance engine
+  instead of treating them as an ad hoc VoiceTerm carve-out. The package-layout
+  support now uses a shared bootstrap seam, validates shim shape structurally
+  before reading optional metadata, supports policy-owned required metadata
+  fields such as `owner` / `reason` / `expiry` / `target`, and lets crowded
+  root/family reports exclude approved shims from implementation density while
+  still surfacing shim counts explicitly.
+- 2026-03-12: Tightened the crowded `checks/` root follow-through for that
+  shim primitive. The root shim exemption no longer hard-codes
+  `package_layout.command`; it now accepts any thin `package_layout.*` wrapper,
+  ignores canonical shim metadata lines in the wrapper-size budget, and keeps
+  both `check_package_layout.py` and `probe_compatibility_shims.py` as stable
+  root entrypoints over package-owned implementations. The paired devctl tests
+  also moved under `dev/scripts/devctl/tests/checks/package_layout/` so the
+  crowded test root mirrors the same package boundary.
+- 2026-03-13: Added context-efficiency as an explicit portable-governance
+  measurement requirement. The engine plan already tracked guarded-episode
+  data, evaluation corpora, and adoption evidence, but it did not yet say
+  whether better rule outcomes had to be weighed against prompt/context cost.
+  The execution checklist now requires context-budget metrics so future
+  evaluation can compare code-quality gains against actual context usage rather
+  than treating prompt volume as invisible overhead.
+- 2026-03-14: Corrected the external-repo proof path after validating that the
+  earlier March 14 `ci-cd-hub` claim was only partially portable. The raw
+  `probe-report --repo-path` numbers were reproducible, but policy resolution,
+  relative artifact paths, topology scans, and git-status collection still
+  leaked the engine checkout, while starter policies only scanned `scripts/`
+  in repos with larger top-level Python packages. The portable fixes now route
+  repo-root lookups through the runtime override, seed portable preset JSON
+  files into bootstrapped repos, and write explicit `quality_scopes` into
+  starter policies so repos like `ci-cd-hub` scan `scripts`, `_quarantine`,
+  `cihub`, and `tests` instead of silently narrowing to `scripts/`.
+- 2026-03-14: Reran the corrected pilot corpus after those fixes. The previous
+  quoted `ci-cd-hub` result (`7` hints: `1 high`, `5 medium`, `1 low`) was an
+  under-scan; the corrected March 14 onboarding run found `159` hints
+  (`53 high`, `104 medium`, `2 low`) across `509` source files with `93`
+  hinted files. The corrected 13-repo aggregate is now `311` hints
+  (`115 high`, `193 medium`, `3 low`) with `3` clean repos and `0` scan
+  errors, replacing the previously quoted `158`-hint aggregate. The durable
+  audit note and machine-readable summary live at
+  `dev/reports/audits/2026-03-14-portable-governance-pilot-rerun.md` and
+  `dev/reports/audits/portable_governance_pilot_2026-03-14.json`.
+- 2026-03-14: The rerun also clarified why some repos still look "low":
+  current portable coverage is Python/Rust-only, so repos with large Java,
+  TypeScript, or React surfaces only get findings from Python-side tooling or
+  scripts until language packs for those ecosystems are added. That gap is now
+  explicit evidence for the next portability tranche instead of a vague chat
+  concern.
+- 2026-03-14: Confirmed that the hard-guard lane is now portable enough to use
+  in onboarding mode, not just the probe lane. Running
+  `check --profile ci --repo-path /tmp/governance-pilots/ci-cd-hub --adoption-scan`
+  completed without engine crashes and returned `13` failing guard families out
+  of `16` executed steps, while `package-layout-guard`, `god-class-guard`, and
+  `audit-scaffold-auto` stayed clean. That result is now captured beside the
+  corrected probe counts in the audit note/JSON, and six representative
+  `ci-cd-hub` probe findings were recorded into `governance-review` as
+  `confirmed_issue` rows so the proof path includes adjudicated external
+  evidence, not only raw packets.
+
+## Session Resume
+
+- Corrected March 14 pilot evidence is now durable in
+  `dev/reports/audits/2026-03-14-portable-governance-pilot-rerun.md` and
+  `dev/reports/audits/portable_governance_pilot_2026-03-14.json`.
+- `probe-report --repo-path` now resolves target repo policy, scope, topology,
+  git-status, and artifact paths consistently enough to trust cross-repo
+  counts for Python/Rust repos.
+- `ci-cd-hub` is the strongest proof point: `7` hints was an under-scan;
+  corrected onboarding counts are `159` hints across `scripts`, `_quarantine`,
+  `cihub`, and `tests`.
+- The harder validation path now works too: `check --repo-path --adoption-scan`
+  on `ci-cd-hub` completes and surfaces `13` failing guard families, so the
+  engine is catching real hard-guard debt instead of only emitting probes.
+- Next portability step should expand beyond Python/Rust so mixed Java/React
+  and TypeScript repos stop looking artificially clean.
 
 ## Audit Evidence
 
@@ -417,6 +758,15 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   `python3 dev/scripts/checks/check_guard_enforcement_inventory.py`
   `python3 dev/scripts/checks/check_bundle_workflow_parity.py`
   `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+- 2026-03-13 autonomy shim-family retirement evidence:
+  `python3.11 -m pytest dev/scripts/devctl/tests/checks/package_layout/test_probe_compatibility_shims.py dev/scripts/devctl/tests/test_autonomy_benchmark.py dev/scripts/devctl/tests/test_autonomy_loop.py dev/scripts/devctl/tests/test_autonomy_report.py dev/scripts/devctl/tests/test_autonomy_run.py dev/scripts/devctl/tests/test_autonomy_swarm.py dev/scripts/devctl/tests/test_review_channel.py -q --tb=short`
+  `python3 dev/scripts/devctl.py probe-report --format md`
+  `python3 dev/scripts/devctl.py check --profile ci`
+  `python3 dev/scripts/devctl.py governance-review --record --finding-id devctl-autonomy-root-shims --signal-type probe --check-id probe_compatibility_shims --verdict fixed --path dev/scripts/devctl --symbol 'autonomy_*' --severity medium --risk-type compatibility_shim_family_budget --source-command "python3 dev/scripts/devctl.py probe-report --format md" --scan-mode working-tree --notes "...deleted 18 temporary root autonomy shims..." --format md`
+  `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+  `python3 dev/scripts/checks/check_active_plan_sync.py`
+  `python3 dev/scripts/checks/check_review_channel_bridge.py` (`code_audit.md` failed only because `Last Codex poll` was stale in the live bridge state)
+  `python3 dev/scripts/devctl.py process-cleanup --verify --format md`
   `python3 dev/scripts/devctl.py process-cleanup --verify --format md`
 - Export path:
   `python3 dev/scripts/devctl.py governance-export --format md`
@@ -425,6 +775,16 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   `python3 dev/scripts/devctl.py governance-review --record --signal-type <guard|probe> --check-id <id> --verdict <verdict> --path <file> --format md`
 - Pilot bootstrap path:
   `python3 dev/scripts/devctl.py governance-bootstrap --target-repo <path> --format md`
+- 2026-03-14 corrected external-pilot rerun:
+  `python3 dev/scripts/devctl.py governance-bootstrap --target-repo /tmp/governance-pilots/ci-cd-hub --force-starter-policy --format json`
+  `python3 dev/scripts/devctl.py probe-report --adoption-scan --repo-path /tmp/governance-pilots/ci-cd-hub --format json --output /tmp/cihub-probe-report.json`
+  `python3 dev/scripts/devctl.py check --profile ci --repo-path /tmp/governance-pilots/ci-cd-hub --adoption-scan --format json --output /tmp/cihub-check-adoption.json`
+  `python3 dev/scripts/devctl.py governance-review --record --signal-type probe --check-id <probe_id> --verdict confirmed_issue --repo-name ci-cd-hub --repo-path /tmp/governance-pilots/ci-cd-hub ...`
+  local 13-repo rerun over `/tmp/governance-pilots/*` via repeated
+  `governance-bootstrap --force-starter-policy` plus
+  `probe-report --adoption-scan --repo-path`; durable summary saved to
+  `dev/reports/audits/portable_governance_pilot_2026-03-14.json` and
+  `dev/reports/audits/2026-03-14-portable-governance-pilot-rerun.md`
 - Known unrelated hygiene warning:
   `python3 dev/scripts/devctl.py hygiene --strict-warnings` remains red because
   of pre-existing publication drift and because hygiene can observe the cleanup

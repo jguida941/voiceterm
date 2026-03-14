@@ -700,7 +700,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Retire `.github/workflows/audit_traceability_guard.yml`, remove `dev/scripts/check_audit_traceability.py`, and remove the `make traceability-audit` helper target to simplify active CI/tooling flow around `MASTER_PLAN.md`.
 - Add `dev/scripts/generate-release-notes.sh` plus `devctl release-notes`/`make release-notes` wrappers, and wire `release.sh` to auto-generate `/tmp/voiceterm-release-vX.Y.Z.md` for `gh release create --notes-file`.
-- Add mutation-score badge generation (`dev/scripts/render_mutation_badge.py` + `.github/badges/mutation-score.json`) and switch README mutation badge to a percentage endpoint (red/orange/green by score, `failed` only when outcomes are unavailable or invalid).
+- Add mutation-score badge generation (`dev/scripts/badges/mutation.py` + `.github/badges/mutation-score.json`) and switch README mutation badge to a percentage endpoint (red/orange/green by score, `failed` only when outcomes are unavailable or invalid).
 
 ### Runtime Hardening
 
@@ -1360,7 +1360,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Major codebase reorganization: `rust_tui/` → `src/`, `docs/` → `guides/` + `dev/`
 - Rename Rust crate from `rust_tui` to `voiceterm` to match project name
 - Add Makefile for common developer commands
-- Add `dev/scripts/mutants.py` for interactive mutation testing
+- Add `dev/scripts/mutation/cli.py` for interactive mutation testing
 
 ### Bug Fixes
 

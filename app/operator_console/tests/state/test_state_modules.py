@@ -459,6 +459,69 @@ class StateModuleTests(unittest.TestCase):
             snapshot.claude_session_registry_text,
         )
 
+    def test_build_operator_console_snapshot_reads_canonical_full_projection_shape(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            full_path = root / "dev/reports/review_channel/latest/full.json"
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "command": "review-channel",
+                        "action": "status",
+                        "timestamp": "2026-03-09T10:00:00Z",
+                        "ok": True,
+                        "review_state": {
+                            "review": {
+                                "surface_mode": "event-store",
+                                "session_id": "session-123",
+                                "active_lane": "review",
+                            },
+                            "packets": [
+                                {
+                                    "packet_id": "pkt-1",
+                                    "from_agent": "codex",
+                                    "to_agent": "operator",
+                                    "summary": "Approve guarded push",
+                                    "body": "Need operator approval before push.",
+                                    "policy_hint": "operator_approval_required",
+                                    "requested_action": "git_push",
+                                    "approval_required": True,
+                                    "status": "pending",
+                                }
+                            ],
+                        },
+                        "agent_registry": {
+                            "timestamp": "2026-03-09T10:05:00Z",
+                            "agents": [
+                                {
+                                    "agent_id": "AGENT-1",
+                                    "display_name": "AGENT-1",
+                                    "provider": "codex",
+                                    "lane": "codex",
+                                    "job_state": "active",
+                                    "current_job": "Reviewing bridge hardening",
+                                }
+                            ],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            snapshot = build_operator_console_snapshot(root)
+
+        self.assertEqual(len(snapshot.pending_approvals), 1)
+        self.assertIn("surface_mode: event-store", snapshot.codex_session_stats_text)
+        self.assertIn(
+            "AGENT-1 [active] Reviewing bridge hardening",
+            snapshot.codex_session_registry_text,
+        )
+
     def test_build_operator_console_snapshot_prefers_live_session_trace_when_available(
         self,
     ) -> None:
@@ -528,6 +591,65 @@ class StateModuleTests(unittest.TestCase):
         self.assertIn(
             "source: review-channel projection + markdown bridge",
             snapshot.claude_session_stats_text,
+        )
+
+    def test_build_operator_console_snapshot_surfaces_review_attention_from_full_projection(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            full_path = root / "dev/reports/review_channel/latest/full.json"
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "command": "review-channel",
+                        "action": "status",
+                        "timestamp": "2026-03-09T10:00:00Z",
+                        "ok": False,
+                        "warnings": [
+                            "Bridge liveness is stale: the latest Codex poll timestamp is older than the five-minute heartbeat contract."
+                        ],
+                        "review_state": {
+                            "review": {
+                                "surface_mode": "markdown-bridge",
+                                "session_id": "markdown-bridge",
+                                "active_lane": "review",
+                            },
+                            "attention": {
+                                "status": "reviewer_heartbeat_stale",
+                                "owner": "codex",
+                                "summary": "Codex reviewer heartbeat is stale; do not treat the current review loop as live.",
+                                "recommended_action": "Relaunch or restore the reviewer lane.",
+                                "recommended_command": "python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json --refresh-bridge-heartbeat-if-stale",
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            snapshot = build_operator_console_snapshot(root)
+
+        self.assertIn(
+            "Codex reviewer heartbeat is stale; do not treat the current review loop as live.",
+            snapshot.warnings,
+        )
+        self.assertIn(
+            "Suggested review-channel command: python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json --refresh-bridge-heartbeat-if-stale",
+            snapshot.warnings,
+        )
+        self.assertEqual(snapshot.codex_lane.status_hint, "stale")
+        self.assertEqual(snapshot.operator_lane.status_hint, "stale")
+        self.assertEqual(
+            dict(snapshot.codex_lane.rows)["Attention"],
+            "Codex reviewer heartbeat is stale; do not treat the current review loop as live.",
+        )
+        self.assertIn(
+            "attention_status: reviewer_heartbeat_stale",
+            snapshot.codex_session_stats_text,
         )
 
     def test_build_operator_console_snapshot_prefers_rendered_screen_over_history_noise(

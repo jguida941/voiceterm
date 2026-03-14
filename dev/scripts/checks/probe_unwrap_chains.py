@@ -16,6 +16,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -28,6 +29,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -45,7 +47,6 @@ is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_t
 scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = resolve_quality_scope_roots("rust_probe", repo_root=REPO_ROOT)
@@ -93,11 +94,9 @@ AI_INSTRUCTIONS = {
     ),
 }
 
-
 def _has_justified_unwraps(body: str) -> bool:
     """Check if unwraps in the body have explicit justification comments."""
     return any(pattern in body for pattern in _JUSTIFIED_UNWRAP_PATTERNS)
-
 
 def _scan_rust_file(text: str, path: Path) -> list[RiskHint]:
     """Detect functions with excessive unwrap/expect in one Rust file."""
@@ -151,7 +150,6 @@ def _scan_rust_file(text: str, path: Path) -> list[RiskHint]:
 
     return hints
 
-
 def main() -> int:
     args = build_probe_parser(__doc__ or "").parse_args()
     report = ProbeReport(command="probe_unwrap_chains")
@@ -193,7 +191,6 @@ def main() -> int:
 
     report.files_with_hints = len(files_with_hints)
     return emit_probe_report(report, output_format=args.format)
-
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -5,7 +5,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from ..config import REPO_ROOT
+from ..config import REPO_ROOT, get_repo_root, resolve_src_dir
 from ..quality_policy import (
     DEFAULT_AI_GUARD_CHECKS,
     DEFAULT_REVIEW_PROBE_CHECKS,
@@ -16,6 +16,22 @@ from ..script_catalog import check_script_cmd, probe_script_cmd
 
 AI_GUARD_CHECKS = DEFAULT_AI_GUARD_CHECKS
 REVIEW_PROBE_CHECKS = DEFAULT_REVIEW_PROBE_CHECKS
+
+
+def _repo_check_reports_root() -> Path:
+    return get_repo_root() / "dev" / "reports" / "check"
+
+
+def _clippy_high_signal_lints_path() -> Path:
+    return _repo_check_reports_root() / "clippy-lints.json"
+
+
+def _clippy_pedantic_summary_path() -> Path:
+    return _repo_check_reports_root() / "clippy-pedantic-summary.json"
+
+
+def _clippy_pedantic_lints_path() -> Path:
+    return _repo_check_reports_root() / "clippy-pedantic-lints.json"
 
 
 def build_probe_cmd(
@@ -33,11 +49,6 @@ def build_probe_cmd(
     elif since_ref and review_probe_supports_commit_range(script_id):
         cmd.extend(["--since-ref", since_ref, "--head-ref", head_ref])
     return cmd
-
-
-CLIPPY_HIGH_SIGNAL_LINTS_PATH = REPO_ROOT / "dev/reports/check/clippy-lints.json"
-CLIPPY_PEDANTIC_SUMMARY_PATH = REPO_ROOT / "dev/reports/check/clippy-pedantic-summary.json"
-CLIPPY_PEDANTIC_LINTS_PATH = REPO_ROOT / "dev/reports/check/clippy-pedantic-lints.json"
 
 
 def build_ai_guard_cmd(
@@ -66,11 +77,11 @@ def build_clippy_high_signal_collect_cmd() -> list[str]:
     """Build the strict clippy lint-histogram collection command."""
     return [
         "python3",
-        "dev/scripts/collect_clippy_warnings.py",
+        "dev/scripts/rust_tools/collect_clippy_warnings.py",
         "--working-directory",
-        "rust",
+        str(resolve_src_dir(get_repo_root())),
         "--output-lints-json",
-        str(CLIPPY_HIGH_SIGNAL_LINTS_PATH),
+        str(_clippy_high_signal_lints_path()),
         "--deny-warnings",
         "--quiet-json-stream",
         "--propagate-exit-code",
@@ -82,7 +93,7 @@ def build_clippy_high_signal_guard_cmd() -> list[str]:
     return check_script_cmd(
         "clippy_high_signal",
         "--input-lints-json",
-        str(CLIPPY_HIGH_SIGNAL_LINTS_PATH),
+        str(_clippy_high_signal_lints_path()),
         "--format",
         "md",
     )
@@ -94,13 +105,13 @@ def build_clippy_pedantic_collect_cmd(
     lints_path: str | Path | None = None,
 ) -> list[str]:
     """Build the pedantic clippy collection command."""
-    resolved_summary_path = str(summary_path or CLIPPY_PEDANTIC_SUMMARY_PATH)
-    resolved_lints_path = str(lints_path or CLIPPY_PEDANTIC_LINTS_PATH)
+    resolved_summary_path = str(summary_path or _clippy_pedantic_summary_path())
+    resolved_lints_path = str(lints_path or _clippy_pedantic_lints_path())
     return [
         "python3",
-        "dev/scripts/collect_clippy_warnings.py",
+        "dev/scripts/rust_tools/collect_clippy_warnings.py",
         "--working-directory",
-        "rust",
+        str(resolve_src_dir(get_repo_root())),
         "--output-json",
         resolved_summary_path,
         "--output-lints-json",

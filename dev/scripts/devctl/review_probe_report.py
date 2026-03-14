@@ -26,7 +26,7 @@ except ModuleNotFoundError:  # pragma: no cover
     render_terminal_report = probe_report_render.render_terminal_report
 
 from .common import resolve_repo_python_command
-from .config import REPO_ROOT
+from .config import REPO_ROOT, get_repo_root
 from .probe_report_artifacts import write_probe_artifacts
 from .probe_topology import (
     build_probe_topology_artifact,
@@ -47,7 +47,7 @@ def resolve_probe_report_path(raw_path: str | Path | None) -> Path:
     path = Path(raw).expanduser()
     if path.is_absolute():
         return path
-    return REPO_ROOT / path
+    return get_repo_root() / path
 
 
 def _build_summary(
@@ -146,7 +146,11 @@ def build_probe_report(
     probe_ids: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     """Run registered probes and return one aggregated report payload."""
-    quality_policy = resolve_quality_policy(policy_path=policy_path)
+    effective_root = get_repo_root()
+    quality_policy = resolve_quality_policy(
+        repo_root=effective_root,
+        policy_path=policy_path,
+    )
     warnings = list(quality_policy.warnings)
     active_probe_ids = probe_ids or tuple(spec.script_id for spec in quality_policy.review_probe_checks)
     probe_results: list[dict[str, Any]] = []
@@ -156,6 +160,7 @@ def build_probe_report(
         if since_ref:
             cmd.extend(["--since-ref", since_ref, "--head-ref", head_ref])
         env = os.environ.copy()
+        env["DEVCTL_REPO_ROOT"] = str(effective_root)
         if policy_path:
             env[QUALITY_POLICY_ENV_VAR] = str(Path(policy_path).expanduser())
         try:

@@ -159,9 +159,21 @@ def _run_bridge_action(
                 sessions=sessions,
             ),
         )
+        status_snapshot = refresh_status_snapshot(
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            review_channel_path=review_channel_path,
+            output_root=status_dir,
+            promotion_plan_path=promotion_plan_path,
+            execution_mode=args.execution_mode,
+            warnings=status_snapshot.warnings,
+            errors=[],
+        )
+    bridge_liveness = status_snapshot.bridge_liveness
     return build_bridge_success_report(
         args=args,
         bridge_liveness=bridge_liveness,
+        attention=status_snapshot.attention,
         codex_lanes=codex_lanes,
         claude_lanes=claude_lanes,
         terminal_profile_applied=terminal_profile_applied,

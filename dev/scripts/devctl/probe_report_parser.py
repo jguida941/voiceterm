@@ -58,3 +58,7 @@ def add_probe_report_parser(sub: argparse._SubParsersAction) -> None:
         "--json-output",
         help="Optional path for the JSON report when --format is not json",
     )
+    probe_report_cmd.add_argument(
+        "--repo-path",
+        help="Run probes against an external repo instead of the current worktree.",
+    )

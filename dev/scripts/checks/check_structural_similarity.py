@@ -17,6 +17,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -26,6 +27,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -42,7 +44,6 @@ scan_python_functions = import_attr("code_shape_function_policy", "scan_python_f
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 mask_rust_comments_and_strings = import_attr("rust_check_text_utils", "mask_rust_comments_and_strings")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (
@@ -55,10 +56,8 @@ IDENT_RE = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
 NUMBER_RE = re.compile(r"\b\d+\b")
 STRING_RE = re.compile(r'"(?:\\.|[^"\\])*"')
 
-
 def _is_python_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
-
 
 def _normalize_python_body(text: str, func: dict) -> str | None:
     """Normalize a Python function body by replacing identifiers and literals."""
@@ -74,7 +73,6 @@ def _normalize_python_body(text: str, func: dict) -> str | None:
     body = IDENT_RE.sub("_", body)
     return body.strip()
 
-
 def _normalize_rust_body(text: str, func: dict) -> str | None:
     """Normalize a Rust function body by replacing identifiers and literals."""
     lines = text.splitlines()
@@ -88,10 +86,8 @@ def _normalize_rust_body(text: str, func: dict) -> str | None:
     body = IDENT_RE.sub("_", body)
     return body.strip()
 
-
 def _structural_hash(normalized_body: str) -> str:
     return hashlib.sha256(normalized_body.encode("utf-8")).hexdigest()[:16]
-
 
 def _collect_fingerprints(text: str | None, *, suffix: str, path_str: str) -> list[dict]:
     """Return structural fingerprints for functions in a single file."""
@@ -124,7 +120,6 @@ def _collect_fingerprints(text: str | None, *, suffix: str, path_str: str) -> li
         )
     return fingerprints
 
-
 def _count_cross_file_similar_pairs(
     all_fingerprints: list[dict],
 ) -> int:
@@ -139,7 +134,6 @@ def _count_cross_file_similar_pairs(
             count += len(group) - 1
     return count
 
-
 def _count_metrics(
     all_fingerprints: list[dict],
 ) -> dict[str, int]:
@@ -147,14 +141,11 @@ def _count_metrics(
         "structural_similar_pairs": _count_cross_file_similar_pairs(all_fingerprints),
     }
 
-
 def _growth(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
     return {key: current[key] - base[key] for key in base}
 
-
 def _has_positive_growth(growth: dict[str, int]) -> bool:
     return any(value > 0 for value in growth.values())
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_structural_similarity", ""]
@@ -183,10 +174,8 @@ def _render_md(report: dict) -> str:
             lines.append(f"- [{members}]")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -271,7 +260,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

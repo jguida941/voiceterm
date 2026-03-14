@@ -65,4 +65,12 @@ def _add_check_router_parser(sub: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Continue execution after a failed routed command",
     )
+    router_cmd.add_argument(
+        "--quality-policy",
+        help=(
+            "Optional repo policy JSON file used to resolve repo-governance routing "
+            "rules (defaults to dev/config/devctl_repo_policy.json or "
+            "DEVCTL_QUALITY_POLICY)."
+        ),
+    )
     add_standard_output_arguments(router_cmd, format_choices=("text", "json", "md"))

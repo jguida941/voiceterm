@@ -11,6 +11,13 @@ from typing import Any
 from ..audit_events import resolve_event_log_path
 from ..common import resolve_repo_path
 from ..config import REPO_ROOT
+from ..governance.external_findings_log import (
+    DEFAULT_EXTERNAL_FINDING_LOG,
+    DEFAULT_MAX_EXTERNAL_FINDING_ROWS,
+    build_external_finding_stats,
+    read_external_finding_rows,
+    resolve_external_finding_log_path,
+)
 from ..governance_review_log import (
     DEFAULT_GOVERNANCE_REVIEW_LOG,
     DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS,
@@ -45,6 +52,7 @@ DEFAULT_MAX_SWARM_FILES = 2_000
 DEFAULT_MAX_BENCHMARK_FILES = 500
 DEFAULT_MAX_WATCHDOG_ROWS = 5_000
 DEFAULT_GOVERNANCE_REVIEW_LOG_PATH = str(DEFAULT_GOVERNANCE_REVIEW_LOG)
+DEFAULT_EXTERNAL_FINDING_LOG_PATH = str(DEFAULT_EXTERNAL_FINDING_LOG)
 
 
 def _resolve_path(value: str) -> Path:
@@ -60,11 +68,13 @@ def run_data_science_snapshot(
     benchmark_root: str | None = None,
     watchdog_root: str | None = None,
     governance_review_log: str | None = None,
+    external_finding_log: str | None = None,
     max_events: int = DEFAULT_MAX_EVENTS,
     max_swarm_files: int = DEFAULT_MAX_SWARM_FILES,
     max_benchmark_files: int = DEFAULT_MAX_BENCHMARK_FILES,
     max_watchdog_rows: int = DEFAULT_MAX_WATCHDOG_ROWS,
     max_governance_review_rows: int = DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS,
+    max_external_finding_rows: int = DEFAULT_MAX_EXTERNAL_FINDING_ROWS,
 ) -> dict[str, Any]:
     output = _resolve_path(output_root or DEFAULT_OUTPUT_ROOT)
     output.mkdir(parents=True, exist_ok=True)
@@ -83,6 +93,10 @@ def run_data_science_snapshot(
         governance_review_log or DEFAULT_GOVERNANCE_REVIEW_LOG_PATH,
         repo_root=REPO_ROOT,
     )
+    external_finding_path = resolve_external_finding_log_path(
+        external_finding_log or DEFAULT_EXTERNAL_FINDING_LOG_PATH,
+        repo_root=REPO_ROOT,
+    )
 
     event_rows = read_jsonl_dict_tail(event_log, max_rows=max_events)
     event_stats = build_event_metrics(event_rows)
@@ -97,6 +111,14 @@ def run_data_science_snapshot(
         max_rows=max_governance_review_rows,
     )
     governance_review_stats = build_governance_review_stats(governance_review_rows).to_dict()
+    external_finding_rows = read_external_finding_rows(
+        external_finding_path,
+        max_rows=max_external_finding_rows,
+    )
+    external_finding_stats = build_external_finding_stats(
+        external_finding_rows,
+        governance_review_rows,
+    ).to_dict()
 
     report = {
         "generated_at": utc_timestamp(),
@@ -107,17 +129,21 @@ def run_data_science_snapshot(
         "watchdog_stats": watchdog_stats,
         "governance_review_log": str(governance_review_path),
         "governance_review_stats": governance_review_stats,
+        "external_finding_log": str(external_finding_path),
+        "external_finding_stats": external_finding_stats,
         "source_roots": {
             "swarm_root": str(swarm_dir),
             "benchmark_root": str(benchmark_dir),
             "watchdog_root": str(watchdog_dir),
             "governance_review_log": str(governance_review_path),
+            "external_finding_log": str(external_finding_path),
         },
         "source_counts": {
             "event_rows": len(event_rows),
             "agent_rows": len(agent_rows),
             "watchdog_rows": len(watchdog_rows),
             "governance_review_rows": len(governance_review_rows),
+            "external_finding_rows": len(external_finding_rows),
         },
     }
 
@@ -162,6 +188,7 @@ def maybe_auto_refresh_data_science(
     benchmark_root = str(os.environ.get("DEVCTL_DATA_SCIENCE_BENCHMARK_ROOT") or "").strip() or None
     watchdog_root = str(os.environ.get("DEVCTL_DATA_SCIENCE_WATCHDOG_ROOT") or "").strip() or None
     governance_review_log = str(os.environ.get("DEVCTL_DATA_SCIENCE_GOVERNANCE_REVIEW_LOG") or "").strip() or None
+    external_finding_log = str(os.environ.get("DEVCTL_DATA_SCIENCE_EXTERNAL_FINDING_LOG") or "").strip() or None
     max_events = to_int(
         os.environ.get("DEVCTL_DATA_SCIENCE_MAX_EVENTS"),
         default=DEFAULT_MAX_EVENTS,
@@ -182,6 +209,10 @@ def maybe_auto_refresh_data_science(
         os.environ.get("DEVCTL_DATA_SCIENCE_MAX_GOVERNANCE_REVIEW_ROWS"),
         default=DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS,
     )
+    max_external_finding_rows = to_int(
+        os.environ.get("DEVCTL_DATA_SCIENCE_MAX_EXTERNAL_FINDING_ROWS"),
+        default=DEFAULT_MAX_EXTERNAL_FINDING_ROWS,
+    )
 
     # Fail-open so telemetry refresh never blocks normal devctl flows.
     try:
@@ -193,11 +224,13 @@ def maybe_auto_refresh_data_science(
             benchmark_root=benchmark_root,
             watchdog_root=watchdog_root,
             governance_review_log=governance_review_log,
+            external_finding_log=external_finding_log,
             max_events=max_events,
             max_swarm_files=max_swarm_files,
             max_benchmark_files=max_benchmark_files,
             max_watchdog_rows=max_watchdog_rows,
             max_governance_review_rows=max_governance_review_rows,
+            max_external_finding_rows=max_external_finding_rows,
         )
     # broad-except: allow reason=Telemetry refresh must never block devctl command flow fallback=skip telemetry update and continue command execution.
     except Exception as exc:

@@ -2,12 +2,15 @@
 
 import io
 import json
+import tempfile
 import time
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
+from dev.scripts.devctl.config import REPO_ROOT, get_repo_root
 from dev.scripts.devctl.commands import (
     check,
     check_profile,
@@ -67,6 +70,8 @@ def make_args(profile: str) -> SimpleNamespace:
         cargo_target_dir=None,
         no_process_sweep_cleanup=True,
         no_host_process_cleanup=False,
+        quality_policy=None,
+        repo_path=None,
     )
 
 
@@ -190,6 +195,11 @@ class CheckProfileTests(TestCase):
         )
         self.assertEqual(args.quality_policy, "/tmp/portable-policy.json")
 
+    def test_cli_accepts_repo_path_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["check", "--repo-path", "/tmp/external-repo"])
+        self.assertEqual(args.repo_path, "/tmp/external-repo")
+
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
     @patch("builtins.print")
@@ -276,7 +286,7 @@ class CheckProfileTests(TestCase):
         self.assertNotIn("build-release", names)
 
         clippy_cmd = next(call["cmd"] for call in calls if call["name"] == "clippy")
-        self.assertEqual(clippy_cmd[0:2], ["python3", "dev/scripts/collect_clippy_warnings.py"])
+        self.assertEqual(clippy_cmd[0:2], ["python3", "dev/scripts/rust_tools/collect_clippy_warnings.py"])
         self.assertIn("--output-json", clippy_cmd)
         self.assertIn("--output-lints-json", clippy_cmd)
         self.assertIn("--extra-clippy-arg", clippy_cmd)
@@ -524,6 +534,35 @@ class CheckProfileTests(TestCase):
         self.assertIn("rust-runtime-panic-policy-guard", names)
         self.assertIn("rust-audit-patterns-guard", names)
         self.assertIn("rust-security-footguns-guard", names)
+
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_external_python_repo_skips_rust_only_steps_and_restores_repo_root(
+        self,
+        mock_build_env,
+        mock_run_cmd,
+    ) -> None:
+        mock_build_env.return_value = {}
+        calls = []
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            (repo_root / "pkg").mkdir()
+            (repo_root / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+            args = make_args("ci")
+            args.repo_path = str(repo_root)
+
+            rc = check.run(args)
+
+        self.assertEqual(rc, 0)
+        names = [call["name"] for call in calls]
+        self.assertNotIn("fmt-check", names)
+        self.assertNotIn("clippy", names)
+        self.assertNotIn("test", names)
+        self.assertNotIn("build-release", names)
+        self.assertIn("code-shape-guard", names)
+        self.assertEqual(get_repo_root(), REPO_ROOT)
 
     @patch("dev.scripts.devctl.commands.check_phases.run_cmd")
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")

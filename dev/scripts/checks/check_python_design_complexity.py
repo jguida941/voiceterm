@@ -10,6 +10,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -18,7 +19,7 @@ try:
         resolve_quality_scope_roots,
         utc_timestamp,
     )
-    from python_design_complexity_core import (
+    from python_analysis.design_complexity_core import (
         build_function_violation,
         collect_excessive_functions,
         is_python_test_path,
@@ -26,6 +27,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -34,7 +36,7 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
         resolve_quality_scope_roots,
         utc_timestamp,
     )
-    from dev.scripts.checks.python_design_complexity_core import (
+    from dev.scripts.checks.python_analysis.design_complexity_core import (
         build_function_violation,
         collect_excessive_functions,
         is_python_test_path,
@@ -44,12 +46,10 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
 list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT)
 _collect_excessive_functions = collect_excessive_functions
-
 
 def build_report(
     *,
@@ -145,7 +145,6 @@ def build_report(
         "violations": violations,
     }
 
-
 def _render_md(report: dict) -> str:
     thresholds = report["thresholds"]
     lines = ["# check_python_design_complexity", ""]
@@ -188,10 +187,8 @@ def _render_md(report: dict) -> str:
                 )
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -247,7 +244,6 @@ def main() -> int:
     else:
         print(_render_md(report))
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

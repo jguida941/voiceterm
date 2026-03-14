@@ -85,18 +85,77 @@ Out of scope until the local proof gate is green:
 - [x] Freeze the initial local-first operating contract for this loop:
       task promotion order, the 50% context-rotation threshold, and
       terminal-rotation ACK rules.
-- [ ] Extend that contract with explicit peer-heartbeat state names and
+- [x] Extend that contract with explicit peer-heartbeat state names and
       stale-peer handling so implementation does not invent them ad hoc.
-- [ ] Classify current issues into:
+      Landed in `dev/scripts/devctl/review_channel/peer_liveness.py` as
+      `CodexPollState`, `OverallLivenessState`, `AttentionStatus` StrEnums,
+      `CODEX_POLL_DUE_AFTER_SECONDS` / `CODEX_POLL_STALE_AFTER_SECONDS`
+      threshold constants, and `STALE_PEER_RECOVERY` contract mapping each
+      attention state to its guard behavior and recovery action. All string
+      literals in `handoff.py`, `state.py`, `attention.py`, and
+      `status_projection.py` now import from the canonical enums.
+- [x] Classify current issues into:
       `verified-current`, `field-report-intermittent`, or `obsolete`.
+      Classification completed 2026-03-13 against live code, 54 passing
+      review-channel tests, and verified CLI dry-runs.
+
+      **obsolete** (fixed with code + test evidence):
+      - "Five-minute heartbeat aged out so launcher just dies":
+        `--refresh-bridge-heartbeat-if-stale` refreshes stale heartbeat on
+        launch; real corruption still fails closed with structured error +
+        recovery command.
+      - "Two terminals exist masquerading as healthy loop": launcher now
+        waits for `Last Codex poll` to advance after opening terminals and
+        fails closed when reviewer heartbeat never appears.
+      - "Host hygiene: active conductors misclassified as stale at 600s":
+        `review_channel_conductor` match scope keeps supervised conductors
+        visible without tripping stale-process failures; `process-audit
+        --strict` shows `active_supervised_conductors` correctly.
+      - "Stale-peer detection not machine-readable": `attention` contract
+        in status projection provides `status`, `owner`,
+        `recommended_action`, and `recommended_command` for every attention
+        state. Auto-recovery is a separate Phase 2 deliverable.
+      - "Launcher doesn't prove full bridge guard before bootstrap":
+        launcher now requires green bridge guard before launch; fails
+        closed on stale bridge with structured error.
+      - "Zero-second ACK wait accepted silently": launcher rejects
+        zero-second ACK waits fail-closed; default is 180 seconds.
+
+      **field-report-intermittent** (mitigated, not fully proven):
+      - "Both conductors stopped after a summary": anti-stall supervision
+        (`restart-on-clean-exit`) relaunches on clean provider exit, and
+        bootstrap prompt explicitly forbids exiting on summary or
+        `waiting_on_peer`. Root cause (provider compliance) is
+        unverifiable by repo tools alone; stays in scope as regression
+        hardening per Locked Decision #4.
+
+      **verified-current** (genuine open work in later phases):
+      - Automatic next-task promotion not proven end-to-end: typed
+        `--action promote` works and refuses to overwrite active
+        instructions, but invocation still depends on conductor
+        discipline, not a repo-owned queue executor (Phase 2).
+      - Stale-peer auto-recovery: detection is machine-readable and
+        recovery commands are recommended, but no automatic relaunch of
+        the missing side (Phase 2).
+      - 2-3 min poll / five-minute heartbeat contract not fully enforced:
+        detection/reporting works via bridge guard + attention, but
+        enforcement depends on provider compliance — inherent
+        architectural boundary (Phase 2).
+      - Context rotation not auto-triggered at 50% threshold: manual
+        `--action rollover` works and produces structured handoff bundles,
+        but no automatic detection of remaining context (Phase 3).
 - [x] Record the current report-level stale-peer freshness threshold and
       bridge state names so implementation does not invent them ad hoc:
       `fresh | stale | waiting_on_peer`, with the Codex poll considered
-      stale after 600 seconds without a new reviewer heartbeat.
+      stale after 300 seconds (five-minute heartbeat window) without a new
+      reviewer heartbeat and poll-due after 180 seconds (2-3 minute
+      reviewer cadence). Canonical source:
+      `dev/scripts/devctl/review_channel/peer_liveness.py`.
 - [x] Define the minimum repo-visible handoff payload:
       current blocker set, next action, reviewed worktree hash, owned lanes,
       current atomic step, and launch ACK state. Landed in
-      `review_channel_handoff.py` as structured `resume_state` output inside
+      `dev/scripts/devctl/review_channel/handoff.py` as structured
+      `resume_state` output inside
       the rollover handoff bundle (`handoff.json` + `handoff.md`), with
       review-channel regression coverage.
 
@@ -118,6 +177,11 @@ Out of scope until the local proof gate is green:
 
 - [ ] Implement automatic next-task promotion so the conductor does not stop
       after one accepted slice while scoped work still exists.
+- [ ] Keep bridge truth synchronized when the reviewer heartbeat advances:
+      `code_audit.md`, `latest.md`, and `review_state.json` must move the
+      reviewed hash, current verdict, open findings, plan alignment, and next
+      instruction together instead of advertising a fresh heartbeat on stale
+      review state or a completed task.
 - [ ] Add peer-liveness guards:
       Claude cannot start new coding work on stale Codex review state, and
       Codex cannot keep issuing new fix cycles on stale Claude state.
@@ -127,6 +191,15 @@ Out of scope until the local proof gate is green:
 - [ ] Ensure the loop uses one master document chain:
       `MASTER_PLAN` -> relevant active-plan checklist -> `code_audit.md`
       current-state bridge.
+- [ ] Keep tracker/runbook truth aligned when launcher blockers change state:
+      `MASTER_PLAN`, `review_channel.md`, and `continuous_swarm.md` may not
+      simultaneously describe the same bridge-bootstrap blocker as both open
+      and obsolete/closed.
+- [ ] Keep cadence and live-session metadata honest:
+      `poll_due` remains the 180-second reviewer cadence, `stale` remains the
+      300-second heartbeat window, the bridge prose must match those thresholds,
+      and `latest/sessions/*.json` plus `review-channel --action status` must
+      describe the actually active conductor instance or clearly report none.
 - [ ] Add `--scope` / `--plan` flag to `review-channel --action launch` so
       the launcher can re-scope `Current Instruction For Claude` automatically
       from a named active-plan doc instead of requiring manual bridge edits
@@ -160,6 +233,47 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-03-13: Validated the next bridge-truth drift after the Phase 0
+  classification write. The bridge header heartbeat/hash advanced to
+  `2026-03-14T02:17:03Z` / `95a196f52cce...`, but `code_audit.md` still clears
+  reviewed hash `6d277...`, still points `Plan Alignment` at
+  `review_probes.md`, and still instructs Claude to rerun the already-complete
+  Phase 0 classification while `dev/reports/review_channel/latest/latest.md`
+  already derives the Phase 1 cleanup item. The same audit also confirmed live
+  session provenance drift: `latest/sessions/*.json` rewrote to a new
+  `review-channel-launch-gbh8czwt` temp dir while the still-running Codex
+  conductor process remained on the older `review-channel-launch-38a4x4q_`
+  script path and `review-channel --action status --format json` reported
+  `sessions: []`. Added Phase 2 follow-ups for bridge truth synchronization,
+  tracker/runbook closure parity, and cadence/session metadata honesty so these
+  regressions are tracked as loop-behavior debt instead of being mistaken for
+  fresh proof.
+- 2026-03-13: Completed the Phase 0 issue classification against live code,
+  54 passing review-channel tests, and verified CLI dry-runs. Result: 6
+  issues classified `obsolete` (heartbeat-aged-out launcher death,
+  two-terminals-masquerading-as-healthy, host-hygiene conductor
+  misclassification, stale-peer detection not machine-readable, launcher
+  missing bridge guard, zero-second ACK acceptance), 1 classified
+  `field-report-intermittent` (both-conductors-stopped-after-summary,
+  mitigated by anti-stall supervision but root cause is provider
+  compliance), and 4 classified `verified-current` (automatic next-task
+  promotion, stale-peer auto-recovery, heartbeat contract enforcement,
+  context rotation auto-trigger) which map to open Phase 2-3 checklist
+  items. Phase 0 contract and diagnostics items are now fully closed.
+- 2026-03-13: Closed the next proof-of-liveness gap exposed by the broken live
+  reviewer session. `review-channel --action launch --terminal terminal-app`
+  now waits for `Last Codex poll` to advance after the windows open and fails
+  closed when the reviewer heartbeat never appears, so "two terminals exist"
+  no longer masquerades as a healthy Codex/Claude loop. The same slice also
+  turns stale-peer detection into a machine-readable `attention` contract on
+  the bridge-backed `review_state` payload and carries that signal into the
+  PyQt6 Operator Console snapshot warnings, which gives the desktop shell a
+  repo-owned way to say "Codex is stale / Claude ACK is missing / poll is due"
+  instead of relying on provider memory or operator guesswork. A same-slice
+  follow-up split that attention/launch logic into dedicated review-channel
+  modules and now drives Codex/operator lane health plus session stats from the
+  same attention state, so the default desktop workbench shows the loop as
+  stale even before the operator opens a diagnostics report.
 - 2026-03-09: Closed the next launcher self-heal gap exposed by live Operator
   Console use. `review-channel --action launch` and `--action rollover` now
   accept `--refresh-bridge-heartbeat-if-stale`, which refreshes the
@@ -282,6 +396,17 @@ Out of scope until the local proof gate is green:
 
 ## Audit Evidence
 
+- `python3.11 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
+  - 2026-03-13 local run: stale after the 300-second heartbeat window; bridge
+    still advertises a stale Phase 0 instruction while the latest derived-next
+    projection has already advanced to Phase 1
+- `python3.11 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+  - 2026-03-13 local run: `sessions: []` even while repo-owned conductor
+    processes were still present
+- `ps -axo pid,ppid,etime,command | rg 'review-channel-launch-'`
+  - 2026-03-13 local run: live Codex conductor still running from the older
+    `review-channel-launch-38a4x4q_` script path while latest session metadata
+    pointed at `review-channel-launch-gbh8czwt`
 - `python3 dev/scripts/checks/check_review_channel_bridge.py --format md`
   - 2026-03-09 local run after heartbeat refresh: pass
 - `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format json`

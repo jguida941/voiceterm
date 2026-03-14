@@ -20,7 +20,10 @@ try:
 except ImportError:  # pragma: no cover
     from yaml_json_loader import load_yaml_or_json
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 MATRIX_PATH = REPO_ROOT / "dev/config/compat/ide_provider_matrix.yaml"
 REQUIRED_HOSTS = {"cursor", "jetbrains", "other"}
 REQUIRED_PROVIDERS = {"codex", "claude", "gemini", "aider", "opencode", "custom"}

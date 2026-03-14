@@ -15,18 +15,18 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         utc_timestamp,
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         utc_timestamp,
     )
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
 
 RUST_TYPES_PATH = Path("rust/src/bin/voiceterm/daemon/types.rs")
 SWIFT_MODELS_PATH = Path(
@@ -63,7 +63,6 @@ RUST_DERIVE_SERIALIZE_RE = re.compile(
     r"#\s*\[\s*derive\s*\((?P<body>.*?)\)\s*\]",
     re.DOTALL,
 )
-
 
 def _find_matching_brace(text: str, open_index: int) -> int | None:
     """Find the closing brace that matches the opening brace at open_index."""
@@ -119,7 +118,6 @@ def _find_matching_brace(text: str, open_index: int) -> int | None:
         index += 1
     return None
 
-
 def _prelude_text(text: str, match_start: int) -> str:
     """Extract attribute lines above a struct/enum declaration."""
     line_start = text.rfind("\n", 0, match_start)
@@ -136,14 +134,12 @@ def _prelude_text(text: str, match_start: int) -> str:
         block_start = prev_line_end
     return text[block_start:match_start]
 
-
 def _has_serialize_or_deserialize(prelude: str) -> bool:
     for m in RUST_DERIVE_SERIALIZE_RE.finditer(prelude):
         members = {tok.strip().rsplit("::", 1)[-1] for tok in m.group("body").split(",")}
         if "Serialize" in members or "Deserialize" in members:
             return True
     return False
-
 
 def parse_rust_structs(text: str) -> dict[str, dict]:
     """Extract serde-participating structs from Rust source text.
@@ -185,7 +181,6 @@ def parse_rust_structs(text: str) -> dict[str, dict]:
         structs[name] = {"fields": fields, "line": line}
 
     return structs
-
 
 def parse_rust_enum_variants(text: str) -> dict[str, dict]:
     """Extract serde-tagged enum variants and their struct fields.
@@ -244,7 +239,6 @@ def parse_rust_enum_variants(text: str) -> dict[str, dict]:
 
     return enums
 
-
 # ---------------------------------------------------------------------------
 # Swift parsing
 # ---------------------------------------------------------------------------
@@ -267,7 +261,6 @@ SWIFT_CODING_KEY_PLAIN_RE = re.compile(
 SWIFT_CODING_KEYS_BLOCK_RE = re.compile(
     r"enum\s+CodingKeys\s*:\s*String\s*,\s*CodingKey\s*\{",
 )
-
 
 def _find_swift_brace_end(text: str, open_index: int) -> int | None:
     """Find matching closing brace in Swift source."""
@@ -297,7 +290,6 @@ def _find_swift_brace_end(text: str, open_index: int) -> int | None:
                 return index
         index += 1
     return None
-
 
 def parse_swift_structs(text: str) -> dict[str, dict]:
     """Extract Codable structs from Swift source text.
@@ -352,7 +344,6 @@ def parse_swift_structs(text: str) -> dict[str, dict]:
 
     return structs
 
-
 # ---------------------------------------------------------------------------
 # Comparison logic
 # ---------------------------------------------------------------------------
@@ -370,7 +361,6 @@ IGNORED_STRUCTS: set[str] = {
     "DaemonConfig",
 }
 
-
 def match_struct_pairs(
     rust_structs: dict[str, dict],
     swift_structs: dict[str, dict],
@@ -385,7 +375,6 @@ def match_struct_pairs(
             pairs.append((rust_name, swift_name))
     return pairs
 
-
 def compare_fields(
     rust_fields: dict[str, str],
     swift_fields: dict[str, str],
@@ -399,14 +388,11 @@ def compare_fields(
     swift_wires = set(swift_fields.keys())
     return sorted(rust_wires - swift_wires), sorted(swift_wires - rust_wires)
 
-
 # ---------------------------------------------------------------------------
 # Report building
 # ---------------------------------------------------------------------------
 
-
 _UNSET = object()
-
 
 def build_report(
     *,
@@ -534,7 +520,6 @@ def build_report(
         "violations": violations,
     }
 
-
 def _render_md(report: dict) -> str:
     lines = ["# check_mobile_relay_protocol", ""]
     lines.append(f"- mode: {report['mode']}")
@@ -565,10 +550,8 @@ def _render_md(report: dict) -> str:
             )
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -607,7 +590,6 @@ def main() -> int:
     else:
         print(_render_md(report))
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

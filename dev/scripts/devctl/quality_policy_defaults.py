@@ -18,6 +18,7 @@ class QualityStepSpec:
 
 DEFAULT_AI_GUARD_SPECS = (
     QualityStepSpec("code-shape-guard", "code_shape", languages=("python", "rust")),
+    QualityStepSpec("package-layout-guard", "package_layout"),
     QualityStepSpec(
         "python-broad-except-guard",
         "python_broad_except",
@@ -26,6 +27,11 @@ DEFAULT_AI_GUARD_SPECS = (
     QualityStepSpec(
         "python-subprocess-policy-guard",
         "python_subprocess_policy",
+        languages=("python",),
+    ),
+    QualityStepSpec(
+        "command-source-validation-guard",
+        "command_source_validation",
         languages=("python",),
     ),
     QualityStepSpec("duplicate-types-guard", "duplicate_types", languages=("rust",)),
@@ -205,6 +211,11 @@ DEFAULT_REVIEW_PROBE_SPECS = (
     QualityStepSpec(
         "probe-exception-quality",
         "probe_exception_quality",
+        languages=("python",),
+    ),
+    QualityStepSpec(
+        "probe-compatibility-shims",
+        "probe_compatibility_shims",
         languages=("python",),
     ),
 )

@@ -1651,13 +1651,13 @@ Acceptance:
   handoff routing, and a deferred unified timeline/replay projection under the
   umbrella controller contract.
 - 2026-02-25: Implemented triage-loop fix execution parity with mutation policy
-  gates (new `triage_loop_policy.py`, `control_plane_policy.json`
+  gates (new `triage/loop_policy.py`, `control_plane_policy.json`
   `triage_loop.allowed_fix_command_prefixes`, workflow env wiring for
   `AUTONOMY_MODE`/`TRIAGE_LOOP_ALLOWED_PREFIXES`, and `fix_block_reason`
   propagation into dry-run/live reports).
 - 2026-02-25: Added review escalation flow for exhausted triage loops:
   `coderabbit_ralph_loop_core.py` now sets `escalation_needed=true` on
-  max-attempt exhaustion, `triage_loop_support.py` now upserts dedicated
+  max-attempt exhaustion, `triage/loop_support.py` now upserts dedicated
   escalation comments with a separate marker, and `devctl triage-loop` now
   publishes escalation comments when unresolved backlog remains.
 - 2026-02-24: Plan created under `dev/active/` with execution-contract marker,
@@ -1839,7 +1839,7 @@ Acceptance:
 | `python3 -m unittest dev.scripts.devctl.tests.test_phone_status dev.scripts.devctl.tests.test_autonomy_report` | phone-status parser/command/projection bundle behavior covered and phone reason metric extraction fixed (`Ran 5 tests ... OK`, 2026-02-24 local run) | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_controller_action` | controller-action parser/guard/action behavior covered (`refresh-status`, allowlist-reject, allowlist dry-run dispatch, pause-loop mode-file write) (`Ran 5 tests ... OK`, 2026-02-24 local run) | done |
 | `python3 dev/scripts/checks/check_code_shape.py` | `ok: True` after autonomy-loop helper split (2026-02-24 local run) | done |
-| `python3 dev/scripts/checks/check_code_shape.py` | `ok: True` after guarded `swarm_run` split + `dev/scripts/mutants.py` compaction removed pre-existing growth-budget violation (2026-02-24 local run) | done |
+| `python3 dev/scripts/checks/check_code_shape.py` | `ok: True` after guarded `swarm_run` split + `dev/scripts/mutation/cli.py` compaction removed pre-existing growth-budget violation (2026-02-24 local run) | done |
 | `python3 dev/scripts/audits/audit_metrics.py --input dev/audits/templates/audit_events_template.jsonl --output-md /tmp/audit-metrics.md --output-json /tmp/audit-metrics.json --chart-dir /tmp/audit-metrics-charts` | summary + JSON + chart outputs emitted (2026-02-24 local run) | done |
 | `DEVCTL_AUDIT_CYCLE_ID=baseline-2026-02-24 DEVCTL_EXECUTION_SOURCE=script_only python3 dev/scripts/devctl.py list` | event row appended to `dev/reports/audits/devctl_events.jsonl` (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label autonomy-run-live-20260224-091724Z` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/autonomy-run-live-20260224-091724Z/summary.md` (2026-02-24 local run) | done |

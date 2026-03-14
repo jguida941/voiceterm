@@ -11,6 +11,7 @@ from subprocess import CompletedProcess
 from unittest.mock import patch
 
 from dev.scripts.devctl import cli, quality_policy, review_probe_report
+from dev.scripts.devctl.config import REPO_ROOT, get_repo_root
 from dev.scripts.devctl.commands import probe_report
 from dev.scripts.devctl.quality_policy_loader import QUALITY_POLICY_ENV_VAR
 from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
@@ -184,7 +185,10 @@ class ProbeReportCommandTests(unittest.TestCase):
             ):
                 rc = probe_report.run(args)
 
-            mock_resolve_probe_ids.assert_called_once_with(policy_path="/tmp/portable-policy.json")
+            mock_resolve_probe_ids.assert_called_once_with(
+                repo_root=None,
+                policy_path="/tmp/portable-policy.json",
+            )
 
             self.assertEqual(rc, 0)
             summary_path = output_root / "latest" / "summary.json"
@@ -361,6 +365,58 @@ class ProbeReportCommandTests(unittest.TestCase):
         cmd = mock_run.call_args.args[0]
         self.assertIn(ADOPTION_BASE_REF, cmd)
         self.assertIn(WORKTREE_HEAD_REF, cmd)
+
+    def test_run_uses_external_repo_policy_and_restores_repo_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            (repo_root / "dev" / "config").mkdir(parents=True)
+            (repo_root / "dev" / "config" / "devctl_repo_policy.json").write_text(
+                json.dumps({"repo_name": "external-demo"}),
+                encoding="utf-8",
+            )
+            output_root = repo_root / "probe-output"
+            args = Namespace(
+                since_ref=None,
+                adoption_scan=False,
+                head_ref="HEAD",
+                quality_policy=None,
+                output_root=str(output_root),
+                emit_artifacts=True,
+                format="json",
+                output=str(repo_root / "probe-report.json"),
+                json_output=None,
+                pipe_command=None,
+                pipe_args=None,
+                repo_path=str(repo_root),
+            )
+
+            with (
+                patch(
+                    "dev.scripts.devctl.review_probe_report.subprocess.run",
+                    return_value=CompletedProcess(
+                        ["python3"],
+                        0,
+                        stdout=json.dumps(_probe_payload("probe_design_smells")),
+                        stderr="",
+                    ),
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
+                    return_value=_topology_payload(),
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.build_review_packet",
+                    return_value=_review_packet_payload(),
+                ),
+            ):
+                rc = probe_report.run(args)
+
+            payload = json.loads((repo_root / "probe-report.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(payload["repo_policy"]["repo_name"], "external-demo")
+        self.assertTrue(payload["artifact_paths"]["summary_json"].startswith(str(output_root)))
+        self.assertEqual(get_repo_root(), REPO_ROOT)
 
 
 class ProbeReportParserTests(unittest.TestCase):

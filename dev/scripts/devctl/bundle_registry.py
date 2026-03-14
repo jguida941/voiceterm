@@ -31,6 +31,7 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_cli_flags_parity.py",
     "python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120",
     "python3 dev/scripts/checks/check_code_shape.py",
+    "python3 dev/scripts/checks/check_package_layout.py",
     "python3 dev/scripts/checks/check_python_subprocess_policy.py",
     "python3 dev/scripts/checks/check_workflow_shell_hygiene.py",
     "python3 dev/scripts/checks/check_workflow_action_pinning.py",
@@ -62,6 +63,7 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
 _POST_PUSH_DIFF_GUARD_COMMANDS: Final[frozenset[str]] = frozenset(
     {
         "python3 dev/scripts/checks/check_code_shape.py",
+        "python3 dev/scripts/checks/check_package_layout.py",
         "python3 dev/scripts/checks/check_python_subprocess_policy.py",
         "python3 dev/scripts/checks/check_rust_test_shape.py",
         "python3 dev/scripts/checks/check_rust_lint_debt.py",
@@ -90,6 +92,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_repo_url_parity.py",
     "python3 dev/scripts/checks/check_guard_enforcement_inventory.py",
     "python3 dev/scripts/checks/check_architecture_surface_sync.py",
+    "python3 dev/scripts/checks/check_instruction_surface_sync.py",
     "python3 dev/scripts/checks/check_bundle_registry_dry.py",
     "python3 dev/scripts/checks/check_bundle_workflow_parity.py",
     "python3 dev/scripts/checks/check_review_channel_bridge.py",

@@ -56,6 +56,7 @@ def render_bridge_md(
     append_common_report_sections(lines, report)
     _append_handoff_bundle(lines, report.get("handoff_bundle"))
     _append_promotion(lines, report.get("promotion"))
+    _append_attention(lines, report.get("attention"))
     _append_bridge_heartbeat_refresh(lines, report.get("bridge_heartbeat_refresh"))
     _append_sessions(lines, report.get("sessions"))
     return "\n".join(lines)
@@ -65,6 +66,7 @@ def build_bridge_success_report(
     *,
     args,
     bridge_liveness: dict[str, object],
+    attention: dict[str, object],
     codex_lanes: list,
     claude_lanes: list,
     terminal_profile_applied: str | None,
@@ -121,6 +123,7 @@ def build_bridge_success_report(
         "sessions": sessions,
         "handoff_bundle": handoff_bundle_to_dict(handoff_bundle),
         "bridge_liveness": bridge_liveness,
+        "attention": attention,
         "projection_paths": projection_paths_to_dict(projection_paths),
         "promotion": promotion_candidate_to_dict(promotion),
         "bridge_heartbeat_refresh": bridge_heartbeat_refresh_to_dict(
@@ -230,6 +233,22 @@ def _append_promotion(lines: list[str], promotion: object) -> None:
     if promotion.get("phase_heading"):
         lines.append(f"- phase_heading: {promotion.get('phase_heading')}")
     lines.append(f"- checklist_item: {promotion.get('checklist_item')}")
+
+
+def _append_attention(lines: list[str], attention: object) -> None:
+    if not isinstance(attention, dict):
+        return
+    lines.append("")
+    lines.append("## Attention")
+    lines.append(f"- status: {attention.get('status')}")
+    lines.append(f"- owner: {attention.get('owner')}")
+    lines.append(f"- summary: {attention.get('summary')}")
+    lines.append(
+        f"- recommended_action: {attention.get('recommended_action') or 'n/a'}"
+    )
+    lines.append(
+        f"- recommended_command: {attention.get('recommended_command') or 'n/a'}"
+    )
 
 
 def _append_bridge_heartbeat_refresh(lines: list[str], refresh: object) -> None:

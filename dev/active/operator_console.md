@@ -1006,6 +1006,21 @@ progressive disclosure, and 8px base grid spacing.
   adds explicit View->Layout controls to reset to defaults, export a
   reproducible layout snapshot, and import that snapshot back into a live
   session, closing the recoverability half of the persisted-layout contract.
+- 2026-03-13: Closed the next honesty gap in the PyQt6 read model after the
+  failed live review-channel launch. The desktop snapshot path was already
+  loading structured `review_state`, but it was silently dropping the contract's
+  own warnings/error/attention payload and therefore could miss the real
+  "Codex reviewer stale / waiting on peer / poll due" reason even when the JSON
+  already knew it. The snapshot builder now carries forward structured review
+  warnings plus the new bridge-attention summary/command into the shared warning
+  surface, so Home/Activity/Monitor can surface the same repo-owned stale-peer
+  truth the launcher and runtime contracts see instead of looking green because
+  the file merely parsed.
+- 2026-03-13: Followed the same slice through the default session-first desktop
+  layout. Non-healthy review attention now also degrades the Codex/operator
+  lane health indicators and appears in session stats, so the workbench can
+  show "reviewer stale / poll due / waiting on peer" at a glance instead of
+  requiring the operator to notice the footer or drill into warnings first.
 - 2026-03-09: Closed the first reproducible layout-state slice for MP-359.
   The desktop shell now persists the selected layout mode plus workbench
   preset/tab/splitter state under
@@ -1646,7 +1661,7 @@ progressive disclosure, and 8px base grid spacing.
   - 2026-03-09 local run: pass (`406` passed) after preferring reconstructed
     screen text, trimming partial tail prefixes, and landing the flippable
     session detail card contract
-- `python3 -m py_compile dev/scripts/devctl/review_channel.py dev/scripts/devctl/review_channel_launch.py dev/scripts/devctl/commands/review_channel.py app/operator_console/state/session_trace_reader.py app/operator_console/state/session_builder.py app/operator_console/state/snapshot_builder.py app/operator_console/views/main_window.py app/operator_console/tests/state/test_state_modules.py dev/scripts/devctl/tests/test_review_channel.py`
+- `python3 -m py_compile dev/scripts/devctl/review_channel.py dev/scripts/devctl/review_channel/launch.py dev/scripts/devctl/commands/review_channel.py app/operator_console/state/session_trace_reader.py app/operator_console/state/session_builder.py app/operator_console/state/snapshot_builder.py app/operator_console/views/main_window.py app/operator_console/tests/state/test_state_modules.py dev/scripts/devctl/tests/test_review_channel.py`
   - 2026-03-09 local run: pass after wiring launcher-emitted session trace
     artifacts plus Operator Console live-tail preference
 - `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py app/operator_console/tests/state/test_state_modules.py -q --tb=short`

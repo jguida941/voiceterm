@@ -23,14 +23,14 @@ class BadgeRendererTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.ci_badge = load_module("render_ci_badge", "dev/scripts/render_ci_badge.py")
+        cls.ci_badge = load_module("render_ci_badge", "dev/scripts/badges/ci.py")
         cls.clippy_badge = load_module(
             "render_clippy_badge",
-            "dev/scripts/render_clippy_badge.py",
+            "dev/scripts/badges/clippy.py",
         )
         cls.mutation_badge = load_module(
             "render_mutation_badge",
-            "dev/scripts/render_mutation_badge.py",
+            "dev/scripts/badges/mutation.py",
         )
 
     def test_ci_badge_pass_status_maps_to_black(self) -> None:

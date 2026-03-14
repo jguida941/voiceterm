@@ -7,11 +7,8 @@ from typing import TYPE_CHECKING
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE
 from ..common import display_path
-from .handoff import (
-    BRIDGE_LIVENESS_KEYS,
-    expected_rollover_ack_line,
-    expected_rollover_ack_section,
-)
+from .handoff import BRIDGE_LIVENESS_KEYS, expected_rollover_ack_line, expected_rollover_ack_section
+from .prompt_contract import shared_post_edit_verification_lines
 
 if TYPE_CHECKING:
     from .core import LaneAssignment
@@ -69,6 +66,7 @@ def build_conductor_prompt(
             "Operating contract:",
             *_operating_contract_lines(
                 provider_name=provider_name,
+                repo_root=repo_root,
                 approval_mode=approval_mode,
                 rollover_threshold_pct=rollover_threshold_pct,
                 promote_command=promote_command,
@@ -172,6 +170,7 @@ def _rollover_ack_details(
 def _operating_contract_lines(
     *,
     provider_name: str,
+    repo_root: Path,
     approval_mode: str,
     rollover_threshold_pct: int,
     promote_command: str,
@@ -197,6 +196,7 @@ def _operating_contract_lines(
             "- Use the repo-owned `devctl`/check scripts instead of ad-hoc shell "
             "work whenever policy already defines the command path."
         ),
+        *shared_post_edit_verification_lines(repo_root=repo_root),
         (
             "- Shared approval mode for this conductor session is "
             f"`{approval_mode}`. Destructive/publish-class actions still require "
@@ -262,6 +262,13 @@ def _provider_bootstrap_guard_lines(
                 "- First action after bootstrap on every fresh launch: refresh "
                 "`Last Codex poll`, `Last non-audit worktree hash`, and `Poll Status` "
                 "in `code_audit.md` before worker fan-out or long-running analysis."
+            ),
+            (
+                "- Do not spawn workers, start side investigations, or wait on "
+                "Claude until that refreshed `Last Codex poll` is visible in "
+                "repo state. If you cannot advance the bridge heartbeat "
+                "immediately, treat the launch as failed instead of pretending "
+                "the reviewer loop is live."
             ),
             (
                 "- Do not leave the reviewer parked on unanswered approval prompts. "

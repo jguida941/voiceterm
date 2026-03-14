@@ -32,6 +32,10 @@ class DataScienceSnapshotTests(unittest.TestCase):
                                 "execution_source": "script_only",
                                 "success": True,
                                 "duration_seconds": 9.5,
+                                "machine_output": {
+                                    "size_bytes": 120,
+                                    "estimated_tokens": 30,
+                                },
                             }
                         ),
                         json.dumps(
@@ -186,6 +190,9 @@ class DataScienceSnapshotTests(unittest.TestCase):
             self.assertEqual(governance_review_stats.get("false_positive_count"), 1)
             self.assertEqual(governance_review_stats.get("fixed_count"), 1)
             self.assertEqual(governance_review_stats.get("false_positive_rate_pct"), 50.0)
+            event_stats = report.get("event_stats") or {}
+            self.assertEqual(event_stats.get("total_machine_output_bytes"), 120)
+            self.assertEqual(event_stats.get("total_estimated_machine_tokens"), 30)
 
             summary_json = Path((report.get("paths") or {}).get("summary_json") or "")
             summary_md = Path((report.get("paths") or {}).get("summary_md") or "")
@@ -193,6 +200,10 @@ class DataScienceSnapshotTests(unittest.TestCase):
             self.assertTrue(summary_md.exists())
             self.assertIn(
                 "Governance Review Metrics",
+                summary_md.read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "total_estimated_machine_tokens: 30",
                 summary_md.read_text(encoding="utf-8"),
             )
             self.assertTrue((summary_json.parent / "charts" / "command_frequency.svg").exists())

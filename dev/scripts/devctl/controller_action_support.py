@@ -5,10 +5,12 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime, timezone
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from .autonomy_loop_helpers import load_policy, resolve_path
+from .autonomy.loop_helpers import load_policy, resolve_path
+from .runtime import TypedAction
 
 try:
     from dev.scripts.checks.coderabbit_gate_support import (
@@ -22,6 +24,17 @@ except ModuleNotFoundError:
     from checks.coderabbit_gate_support import (
         looks_like_connectivity_error as _looks_like_connectivity_error,
     )
+
+DEFAULT_TRIAGE_BRANCH = "develop"
+DEFAULT_REPO_PACK_ID = "voiceterm"
+CONTROLLER_ACTION_REQUESTED_BY = "devctl.controller-action"
+
+
+class ControllerActionName(StrEnum):
+    REFRESH_STATUS = "refresh-status"
+    DISPATCH_REPORT_ONLY = "dispatch-report-only"
+    PAUSE_LOOP = "pause-loop"
+    RESUME_LOOP = "resume-loop"
 
 
 def iso_z(value: datetime) -> str:
@@ -51,13 +64,13 @@ def workflow_allowed(policy: dict[str, Any], workflow_path: str) -> bool:
 def branch_allowed(policy: dict[str, Any], branch: str) -> bool:
     triage_cfg = policy.get("triage_loop")
     if not isinstance(triage_cfg, dict):
-        return branch == "develop"
+        return branch == DEFAULT_TRIAGE_BRANCH
     allowed = triage_cfg.get("allowed_branches")
     if not isinstance(allowed, list) or not allowed:
-        return branch == "develop"
+        return branch == DEFAULT_TRIAGE_BRANCH
     normalized = {str(row).strip() for row in allowed if str(row).strip()}
     if not normalized:
-        return branch == "develop"
+        return branch == DEFAULT_TRIAGE_BRANCH
     return branch in normalized
 
 
@@ -84,6 +97,49 @@ def load_phone_payload(phone_json: str) -> tuple[dict[str, Any], str | None]:
     return payload, None
 
 
+def requested_mode_for_action(action: ControllerActionName) -> str:
+    if action is ControllerActionName.PAUSE_LOOP:
+        return "read-only"
+    if action is ControllerActionName.RESUME_LOOP:
+        return "operate"
+    return ""
+
+
+def build_controller_typed_action(
+    *,
+    args,
+    action: ControllerActionName,
+    repo: str,
+    requested_mode: str = "",
+) -> TypedAction:
+    parameters: dict[str, object] = {"repo": repo}
+    if action is ControllerActionName.REFRESH_STATUS:
+        parameters["phone_json"] = str(args.phone_json)
+        parameters["view"] = str(args.view)
+    elif action is ControllerActionName.DISPATCH_REPORT_ONLY:
+        parameters["branch"] = str(args.branch)
+        parameters["workflow"] = str(args.workflow)
+        parameters["max_attempts"] = int(args.max_attempts)
+    elif action in {
+        ControllerActionName.PAUSE_LOOP,
+        ControllerActionName.RESUME_LOOP,
+    }:
+        parameters["branch"] = str(args.branch)
+        parameters["mode_file"] = str(args.mode_file)
+        parameters["remote"] = bool(args.remote)
+        if requested_mode:
+            parameters["requested_mode"] = requested_mode
+    return TypedAction(
+        schema_version=1,
+        contract_id="TypedAction",
+        action_id=f"controller-action.{action.value}",
+        repo_pack_id=DEFAULT_REPO_PACK_ID,
+        parameters=parameters,
+        requested_by=CONTROLLER_ACTION_REQUESTED_BY,
+        dry_run=bool(args.dry_run),
+    )
+
+
 def write_controller_mode(
     *,
     mode_file: str,
@@ -96,6 +152,7 @@ def write_controller_mode(
     dry_run: bool,
     warnings: list[str],
     errors: list[str],
+    typed_action: dict[str, object],
 ) -> str:
     path = resolve_path(mode_file)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -111,6 +168,7 @@ def write_controller_mode(
         "dry_run": dry_run,
         "warnings": [str(row) for row in warnings],
         "errors": [str(row) for row in errors],
+        "typed_action": typed_action,
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return str(path)
@@ -168,6 +226,13 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines.append(f"- workflow: {report.get('workflow') or 'n/a'}")
     lines.append(f"- autonomy_mode_runtime: {report.get('autonomy_mode_runtime')}")
     lines.append(f"- dry_run: {report.get('dry_run')}")
+    typed_action = report.get("typed_action")
+    if isinstance(typed_action, dict) and typed_action:
+        lines.append("")
+        lines.append("## Typed Action")
+        lines.append("")
+        for key in sorted(typed_action.keys()):
+            lines.append(f"- {key}: {typed_action.get(key)}")
     result = report.get("result")
     if isinstance(result, dict) and result:
         lines.append("")

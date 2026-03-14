@@ -1,6 +1,6 @@
 """Parser registration helpers for process-hygiene commands.
 
-Extracted from cli_parser_reporting.py to keep that module under the
+Extracted from cli_parser/reporting.py to keep that module under the
 code-shape soft limit. Covers the process-audit/process-cleanup/process-watch
 subcommands that inspect/clean/watch repo-related host process trees.
 """

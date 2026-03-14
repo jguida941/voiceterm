@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from .python_guard_report import render_python_guard_markdown
-from .quality_backlog_report import render_quality_backlog_markdown
-from .rust_audit_report import render_rust_audit_markdown
+from .quality_backlog.report import render_quality_backlog_markdown
+from .rust_audit.report import render_rust_audit_markdown
 
 _PROBE_HOTSPOT_LIMIT = 3
 

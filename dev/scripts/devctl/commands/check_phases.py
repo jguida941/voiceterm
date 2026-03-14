@@ -13,7 +13,7 @@ from ..common import pipe_output as _pipe_output
 from ..common import run_cmd
 from ..common import should_emit_output as _should_emit_output
 from ..common import write_output as _write_output
-from ..config import REPO_ROOT, SRC_DIR
+from ..config import REPO_ROOT, get_repo_root, resolve_src_dir
 from ..quality_policy import QualityStepSpec
 from .check_phase_support import (
     SpecializedPhaseDeps,
@@ -38,6 +38,7 @@ emit_output = _emit_output
 pipe_output = _pipe_output
 should_emit_output = _should_emit_output
 write_output = _write_output
+
 
 # -------------------------------------------------------
 # Shared state for a single check run
@@ -156,14 +157,21 @@ def run_setup_phase(ctx: CheckContext) -> None:
 
     if not ctx.args.skip_fmt:
         if ctx.args.fix:
-            setup_specs.append(_make_step_spec(ctx, "fmt", ["cargo", "fmt", "--all"], cwd=SRC_DIR))
+            setup_specs.append(
+                _make_step_spec(
+                    ctx,
+                    "fmt",
+                    ["cargo", "fmt", "--all"],
+                    cwd=resolve_src_dir(get_repo_root()),
+                )
+            )
         else:
             setup_specs.append(
                 _make_step_spec(
                     ctx,
                     "fmt-check",
                     ["cargo", "fmt", "--all", "--", "--check"],
-                    cwd=SRC_DIR,
+                    cwd=resolve_src_dir(get_repo_root()),
                 )
             )
 
@@ -195,7 +203,14 @@ def run_setup_phase(ctx: CheckContext) -> None:
                 )
             )
         else:
-            setup_specs.append(_make_step_spec(ctx, "clippy", ctx.clippy_cmd, cwd=SRC_DIR))
+            setup_specs.append(
+                _make_step_spec(
+                    ctx,
+                    "clippy",
+                    ctx.clippy_cmd,
+                    cwd=resolve_src_dir(get_repo_root()),
+                )
+            )
 
     if ctx.settings["with_ai_guard"]:
         since_ref = ctx.scan_since_ref
@@ -229,7 +244,7 @@ def run_test_build_phase(ctx: CheckContext) -> None:
                 ctx,
                 "test",
                 ["cargo", "test", "--workspace", "--all-features"],
-                cwd=SRC_DIR,
+                cwd=resolve_src_dir(get_repo_root()),
             )
         )
     if not ctx.settings["skip_build"]:
@@ -238,7 +253,7 @@ def run_test_build_phase(ctx: CheckContext) -> None:
                 ctx,
                 "build-release",
                 ["cargo", "build", "--release", "--bin", "voiceterm"],
-                cwd=SRC_DIR,
+                cwd=resolve_src_dir(get_repo_root()),
             )
         )
     _add_steps(ctx, specs, allow_parallel=True)

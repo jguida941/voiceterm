@@ -112,7 +112,7 @@ jobs:
           set -euo pipefail
           if [ -f coverage-devctl.xml ]; then
             echo "Coverage XML generated: coverage-devctl.xml"
-            python3 dev/scripts/workflow_shell_bridge.py print-coverage-summary \
+            python3 dev/scripts/workflow_bridge/shell.py print-coverage-summary \
               --coverage-xml coverage-devctl.xml \
               --label "Devctl"
           else
@@ -157,7 +157,7 @@ jobs:
           set -euo pipefail
           if [ -f coverage-operator-console.xml ]; then
             echo "Coverage XML generated: coverage-operator-console.xml"
-            python3 dev/scripts/workflow_shell_bridge.py print-coverage-summary \
+            python3 dev/scripts/workflow_bridge/shell.py print-coverage-summary \
               --coverage-xml coverage-operator-console.xml \
               --label "Operator console"
           else
@@ -177,6 +177,7 @@ jobs:
           set -euo pipefail
           VERSION="$(python3 dev/scripts/checks/check_release_version_parity.py --print-version)"
           python3 dev/scripts/devctl.py list --format md
+          python3 dev/scripts/devctl.py render-surfaces --format md
           python3 dev/scripts/devctl.py audit-scaffold --dry-run --force --yes --format md
           python3 dev/scripts/devctl.py pypi --dry-run
           python3 dev/scripts/devctl.py homebrew --version "${VERSION}" --dry-run
@@ -296,7 +297,7 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/workflow_shell_bridge.py resolve-range \
+          python3 dev/scripts/workflow_bridge/shell.py resolve-range \
             --event-name "${EVENT_NAME}" \
             --push-before "${PUSH_BEFORE}" \
             --push-head "${PUSH_HEAD}" \
@@ -311,7 +312,7 @@ jobs:
         id: docs_signal
         run: |
           set -euo pipefail
-          python3 dev/scripts/workflow_shell_bridge.py evaluate-user-docs-gate \
+          python3 dev/scripts/workflow_bridge/shell.py evaluate-user-docs-gate \
             --changed-files-input /tmp/docs-policy-changed-files.txt \
             --github-output "${GITHUB_OUTPUT}"
 
@@ -364,6 +365,9 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
+      - name: Run instruction-surface sync guard
+        run: python3 dev/scripts/checks/check_instruction_surface_sync.py
+
       - name: Run bundle-registry DRY guard
         run: python3 dev/scripts/checks/check_bundle_registry_dry.py
 
@@ -392,6 +396,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 dev/scripts/checks/check_code_shape.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run package-layout guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_package_layout.py \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 

@@ -74,9 +74,9 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-12T01:38:53Z`
-- Last Codex poll (Local America/New_York): `2026-03-11 21:38:53 EDT`
-- Last non-audit worktree hash: `57a9f35a6a6b4ea91f36538fc198e501240ee08e400f6d4587e85580eb192174`
+- Last Codex poll: `2026-03-14T03:09:35Z`
+- Last Codex poll (Local America/New_York): `2026-03-13 23:09:35 EDT`
+- Last non-audit worktree hash: `3110c5350e5b81e89b71a75fe11b8bdf53d917c38de9b4689914e95daca70d7f`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -117,38 +117,34 @@ treat these rules as active workflow instructions immediately.
 
 
 
-
-
-
-
-
-- Auto-refreshed reviewer heartbeat: `2026-03-12T01:38:53Z` (reason: devctl review-channel status; tree: 57a9f35a6a6b).
-- Codex polling mode: active reviewer watch loop on the whole unpushed worktree; poll non-`code_audit.md` changes every 5 minutes while code is moving.
-- Current poll result: Codex conductor heartbeat refreshed at `2026-03-09T15:01:21Z` and the reviewed non-audit worktree hash is now `e9665d7dc2fc3b2a23cae512b701638bba0d5fe5785cd267afcf80a9f3e0f192`. The interface capped reviewer fan-out at `6`, so `AGENT-1..AGENT-6` are running as live reviewer lanes and the conductor is covering the `AGENT-7` guard/test sweep plus the `AGENT-8` integration pass locally. The dedicated `../codex-voice-wt-a1..a8` reviewer worktrees are still absent locally, so all reviewer work is running from the shared checkout.
-- Validation for this current pass: `python3 -m pytest app/operator_console/tests/test_theme_engine.py app/operator_console/tests/test_overlay_import.py app/operator_console/tests/test_theme.py app/operator_console/tests/test_theme_editor.py -q --tb=short` passed (`89` tests) and `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py dev/scripts/devctl/tests/test_mobile_status.py -q --tb=short` passed (`41` tests). `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json` and `python3 dev/scripts/devctl.py mobile-status --view full --format json` are green on the live tree. Direct local repro now confirms the old theme partial-import blockers are closed, while two current issues still reproduce: a corrupt event-state sentinel still makes `review-channel` / `mobile-status` fail instead of falling back to the valid markdown bridge, and fresh live traces still force the Operator Console lanes to `Reviewing` / `Implementing` even when the bridge state says approval-blocked.
-- Review scope for this current pass: the active MP-355 bridge queue plus `app/operator_console/theme/*.py`, `app/operator_console/state/*.py`, `dev/scripts/devctl/commands/review_channel.py`, `dev/scripts/devctl/commands/mobile_status.py`, `dev/scripts/devctl/review_channel_event_store.py`, and the Rust review-artifact loader files.
-- Reviewer heartbeat: the conductor loop is live, the inherited theme blockers have been retired from the live queue, and the remaining reviewer focus is bridge-versus-event authority plus Operator Console lane-state honesty on the current hash.
+- Auto-refreshed reviewer heartbeat: `2026-03-14T03:09:35Z` (reason: devctl review-channel status; tree: 3110c5350e5b).
+- Codex polling mode: active conductor loop in the shared checkout; poll non-`code_audit.md` deltas every 2-5 minutes while Claude code is moving.
+- Current poll result: reviewed non-audit worktree hash `3110c5350e5b81e89b71a75fe11b8bdf53d917c38de9b4689914e95daca70d7f`.
+- Claude's current review-channel slice is still centered on the peer-liveness follow-up files plus the launcher path: `dev/scripts/devctl/review_channel/peer_liveness.py`, `dev/scripts/devctl/review_channel/handoff.py`, `dev/scripts/devctl/review_channel/state.py`, `dev/scripts/devctl/review_channel/status_projection.py`, `dev/scripts/devctl/review_channel/launch.py`, `dev/scripts/devctl/commands/review_channel_bridge_handler.py`, `dev/scripts/devctl/tests/test_review_channel.py`, and `dev/active/continuous_swarm.md`.
+- Validation on this pass: `python3.11 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short` now passes with `71` tests. `python3.11 -m pytest dev/scripts/devctl/tests/test_collect_ci_runs.py -q --tb=short` passes (`8` tests). `python3.11 dev/scripts/devctl.py review-channel --action status --terminal none --format json --refresh-bridge-heartbeat-if-stale` refreshed the bridge header to the current tree and reports `overall_state=fresh`.
+- Validation on the latest delta: Claude updated `dev/scripts/devctl/review_channel/launch.py` and `dev/scripts/devctl/tests/test_review_channel.py`; `python3.11 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short` now passes with `58` tests.
+- H1 is closed: the planned rollover/promote commands now use the active interpreter in `launch.py`.
+- H2 is closed: `handoff.py` now rejects filler `Claude Status` / `Claude Ack` text and the added regression tests are green.
+- New reviewer finding on this pass: the bridge-backed `review_state.json` payload still omits `bridge_liveness`, so runtime consumers parsed through `dev/scripts/devctl/runtime/review_state_parser.py` fall back to `bridge.overall_state='unknown'` / `codex_poll_state='unknown'` even when the bridge is fresh.
 
 ## Current Verdict
-
-- Overall tracker status: the previously inherited theme partial-import blockers are no longer current on hash `e9665d7dc2fc3b2a23cae512b701638bba0d5fe5785cd267afcf80a9f3e0f192`. Targeted proof is green, and direct local repro now shows field-preserving partial imports, custom identity after divergent partial imports, blocked overlay export for the resulting custom state, and correct named partial-import naming behavior.
-- Current live reviewer blockers are now two bug families: `review-channel` / `mobile-status` / Rust review loading still auto-prefer event-backed artifacts in `auto` mode when sentinel files exist even though the markdown bridge is the current operating authority, and fresh Operator Console session traces still override blocked/waiting bridge workflow truth with active `Reviewing` / `Implementing` labels.
-- The branch is still not reviewer-accepted for handoff or merge. `check_architecture_surface_sync.py --since-ref origin/develop --head-ref HEAD` remains red on branch-level authority/doc gaps outside this slice, and `python3 dev/scripts/devctl.py publication-sync --format md` still reports real external drift for `terminal-as-interface`.
+- Reviewed dirty-tree hash `3110c5350e5b81e89b71a75fe11b8bdf53d917c38de9b4689914e95daca70d7f`.
+- The peer-liveness / projection cleanup is still not reviewer-accepted. The launch-safety blockers in `launch.py` and `handoff.py` are fixed, but one projection/runtime blocker remains in `status_projection.py`.
+- Keep the loop on `MP-358` / `dev/active/continuous_swarm.md`. The stale `review_probes` / Phase 0 instruction is no longer the active scope for this pass.
 
 ## Open Findings
-
-- High: `review-channel --action status` and `mobile-status` still auto-prefer event-backed artifacts in `auto` mode whenever review-channel sentinel files exist, even while the markdown bridge is the active operating authority. `review-channel` only stays on the bridge when `execution_mode == "markdown-bridge"` ([review_channel.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/commands/review_channel.py):824 and [review_channel.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/commands/review_channel.py):825), `mobile-status` uses the same `execution_mode != "markdown-bridge"` gate ([mobile_status.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/commands/mobile_status.py):80), and sentinel detection is still just `trace.ndjson` or `state/latest.json` existence ([review_channel_event_store.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/review_channel_event_store.py):48). Local proof on this pass: in a temp repo with a valid `code_audit.md` bridge plus corrupt `dev/reports/review_channel/state/latest.json`, `review-channel --action status` exits `1` with `Invalid review-channel state JSON...`, and `mobile-status` exits `1` with the same parse error plus `no live mobile data sources were available`, instead of falling back to the valid bridge. The Rust Review surface still prefers event-backed projections first ([artifact.rs](/Users/jguida941/testing_upgrade/codex-voice/rust/src/bin/voiceterm/dev_command/review_artifact/artifact.rs):5 and [artifact.rs](/Users/jguida941/testing_upgrade/codex-voice/rust/src/bin/voiceterm/dev_command/review_artifact/artifact.rs):84), and its tests still lock in that priority ([tests.rs](/Users/jguida941/testing_upgrade/codex-voice/rust/src/bin/voiceterm/dev_command/review_artifact/tests.rs):118). Add bridge-authority fallback or explicit bridge-mode gating end-to-end, plus focused Python and Rust regression coverage for corrupt/stale event artifacts.
-- Medium: Fresh live traces still override blocked/waiting bridge workflow truth in the Operator Console lane builder. `build_codex_lane()` forces `state_label = "Reviewing"` whenever `_live_trace_status()` returns non-`None` ([lane_builder.py](/Users/jguida941/testing_upgrade/codex-voice/app/operator_console/state/lane_builder.py):23 and [lane_builder.py](/Users/jguida941/testing_upgrade/codex-voice/app/operator_console/state/lane_builder.py):29), and `build_claude_lane()` forces `state_label = "Implementing"` on the same condition ([lane_builder.py](/Users/jguida941/testing_upgrade/codex-voice/app/operator_console/state/lane_builder.py):87 and [lane_builder.py](/Users/jguida941/testing_upgrade/codex-voice/app/operator_console/state/lane_builder.py):91). Direct proof on this hash: a fresh `SessionTraceSnapshot` plus bridge sections `Claude Status: blocked on operator approval` and `Claude Ack: blocked` still renders `state_label=Implementing` / `status_hint=active`; the same shape makes Codex show `Reviewing` / `active` even when `Poll Status` says approval-waiting. Live traces should enrich freshness metadata, not overwrite bridge-owned workflow truth.
-- Medium: `check_architecture_surface_sync.py --since-ref origin/develop --head-ref HEAD` is still red on branch-level authority/doc gaps unrelated to this diff (`app/__init__.py`, `check_function_duplication.py`, `check_python_broad_except.py`, `guard_run.py`, `process_watch.py`). Do not call the tooling lane green until that external debt is cleared or explicitly waived.
-- Medium: `python3 dev/scripts/devctl.py publication-sync --format md` still reports real external drift for `terminal-as-interface`; do not paper over it locally.
+- H3: `dev/scripts/devctl/review_channel/status_projection.py:71-150` builds `review_state.json` without a root or nested `bridge_liveness` block, but `dev/scripts/devctl/runtime/review_state_parser.py:40-46` and `dev/scripts/devctl/runtime/review_state_parser.py:98-104` derive `ReviewBridgeState.overall_state` and `codex_poll_state` only from `bridge_liveness`. I reproduced this locally by loading `dev/reports/review_channel/latest/review_state.json` through `review_state_from_payload(...)`; the parsed runtime contract came back with `bridge.overall_state == 'unknown'` and `bridge.codex_poll_state == 'unknown'` even though the bridge itself was fresh. Add the liveness fields to the review-state payload and add regression coverage in `dev/scripts/devctl/tests/test_review_channel.py` and/or the runtime review-state tests.
 
 ## Claude Status
 
-- **Session 20 — Implementing Review Probes framework (MP-368..MP-375)**
-- Started: `2026-03-10T01:00:00Z`
-- Task: Build the review probes infrastructure and first probe (`probe_concurrency.py`)
-- Plan doc: `dev/active/review_probes.md`
-- Prior session blockers (theme/status-routing) remain as-is in Open Findings
+- **Session 23 — H1 interpreter fix + shim burndown (MP-358, MP-376)**
+- Started: `2026-03-14T03:10:00Z`
+- H1 interpreter fix: `launch.py` `build_rollover_command()` and `build_promote_command()` now use `_DEVCTL_INTERPRETER = os.path.basename(sys.executable)` instead of hardcoded `python3`, matching the `peer_liveness.py` pattern. 4 new regression tests added to `test_review_channel.py` (mock `_DEVCTL_INTERPRETER` to `python3.11` to prove the command tracks the active interpreter).
+- Shim burndown (MP-376): deleted 7 zero-caller root shims (`process_sweep_core.py`, `process_sweep_matching.py`, `process_sweep_scans.py`, `process_sweep_scope_matchers.py`, `data_science_metrics.py`, `governance_bootstrap_guide.py`, `governance_bootstrap_policy.py`). Updated doc references in `AGENTS.md`, `dev/scripts/README.md`, `dev/active/ai_governance_platform.md`, `dev/history/ENGINEERING_EVOLUTION.md`, and `process_sweep/README.md` to canonical package paths.
+- Test fix: `test_collect_ci_runs.py` assertion updated from old `mutants.py` path to new `mutation/cli.py` path.
+- H2 placeholder fix: `handoff.py` now uses `_is_substantive_text()` to reject placeholder `Claude Status`/`Claude Ack` values (`none`, `n/a`, `not started`, `pending`, etc.). Added `PLACEHOLDER_STATUS_MARKERS` tuple for consistent detection. 13 new regression tests covering unit-level placeholder detection, liveness summary integration, and launch validation gate.
+- Verification: 1291 tests pass (1274 + 4 interpreter + 13 placeholder), 71 review_channel tests pass.
+- Files changed: `launch.py`, `handoff.py`, `test_review_channel.py`, `test_collect_ci_runs.py`, 7 deleted shims, 5 updated docs
 
 ## Claude Questions
 
@@ -156,7 +152,8 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- Session 20 acknowledged current instruction. Pivoting to review probes implementation per `dev/active/review_probes.md` (MP-368..MP-375). Prior open findings from session 19 remain tracked but are not the current scope.
+- H1 (hardcoded `python3` in rollover/promote): fixed. `launch.py` now uses `_DEVCTL_INTERPRETER`. 4 regression tests.
+- H2 (placeholder status/ack as present): fixed. `handoff.py` now uses `_is_substantive_text()` with `PLACEHOLDER_STATUS_MARKERS`. 13 regression tests. Ready for Codex re-review.
 
 ## Resolved Summary
 
@@ -170,15 +167,12 @@ treat these rules as active workflow instructions immediately.
 ## Current Instruction For Claude
 
 
-
-Scoped from `dev/active/review_probes.md` via `--scope`.
-
-- Next scoped plan item (dev/active/review_probes.md): Phase 1: Probe framework (MP-372): Create `dev/scripts/checks/probe_bootstrap.py` with shared probe base: CLI args, JSON/MD output, `risk_hint` schema, severity enum.
+- Fix H3 in `dev/scripts/devctl/review_channel/status_projection.py`: include `bridge_liveness` in the emitted `review_state.json` payload so runtime parsers keep `overall_state` / `codex_poll_state`, then add regression coverage proving `review_state_from_payload(...)` preserves those fields on the bridge-backed status path.
 
 ## Plan Alignment
 
-- Current execution authority for this slice is `dev/active/review_probes.md` and the mirrored MP rows in `dev/active/MASTER_PLAN.md` under `MP-368..MP-375`.
-- This is a tooling/quality-intelligence lane. Prior theme/status-routing work is not the live scope for this pass.
+- Current execution authority for this slice is `dev/active/continuous_swarm.md` and the mirrored MP rows in `dev/active/MASTER_PLAN.md` under `MP-358`.
+- This is the review-channel / continuous-swarm launcher-hardening lane. The earlier `review_probes` / Phase 0 classification text was stale bridge state, not the live scope for this pass.
 
 ## Last Reviewed Scope
 

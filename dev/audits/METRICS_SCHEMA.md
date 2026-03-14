@@ -3,6 +3,11 @@
 Use this schema for JSONL event logs that feed
 `python3 dev/scripts/audits/audit_metrics.py`.
 
+This schema is for machine-readable operational telemetry. It is not the prose
+session-history surface. For AI/contributor handoff, update the active plan's
+`Session Resume` and `Progress Log`; use these JSONL logs for command/run
+metrics, governance evidence, later SQLite indexing, and ML/ranking inputs.
+
 ## Event fields
 
 Required:

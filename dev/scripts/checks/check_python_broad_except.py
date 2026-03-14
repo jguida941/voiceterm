@@ -12,6 +12,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
@@ -20,6 +21,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - package-style fallback for tests
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
@@ -38,7 +40,6 @@ except ModuleNotFoundError:  # pragma: no cover
 list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
@@ -46,10 +47,8 @@ HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@
 RATIONALE_RE = re.compile(r"broad-except:\s*allow\b.*\breason\s*=")
 FALLBACK_RE = re.compile(r"broad-except:\s*allow\b.*\bfallback\s*=")
 
-
 def _is_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
-
 
 def _collect_python_paths(
     *,
@@ -70,7 +69,6 @@ def _collect_python_paths(
         paths.add(repo_root / candidate if not candidate.is_absolute() else candidate)
     return sorted(paths), skipped_tests
 
-
 def _handler_kind(node_type: ast.expr | None) -> str | None:
     if node_type is None:
         return "bare"
@@ -86,7 +84,6 @@ def _handler_kind(node_type: ast.expr | None) -> str | None:
         if members:
             return ",".join(members)
     return None
-
 
 def _has_contract_token(lines: list[str], line_number: int, *, token_pattern: re.Pattern[str]) -> bool:
     index = line_number - 1
@@ -107,14 +104,11 @@ def _has_contract_token(lines: list[str], line_number: int, *, token_pattern: re
         break
     return False
 
-
 def _has_rationale(lines: list[str], line_number: int) -> bool:
     return _has_contract_token(lines, line_number, token_pattern=RATIONALE_RE)
 
-
 def _has_fallback_contract(lines: list[str], line_number: int) -> bool:
     return _has_contract_token(lines, line_number, token_pattern=FALLBACK_RE)
-
 
 def _handler_suppresses_control_flow(handler: ast.ExceptHandler) -> bool:
     stack = list(handler.body)
@@ -126,7 +120,6 @@ def _handler_suppresses_control_flow(handler: ast.ExceptHandler) -> bool:
             continue
         stack.extend(ast.iter_child_nodes(node))
     return True
-
 
 def _collect_broad_except_handlers(text: str) -> list[dict]:
     tree = ast.parse(text)
@@ -149,7 +142,6 @@ def _collect_broad_except_handlers(text: str) -> list[dict]:
         )
     return handlers
 
-
 def _parse_added_line_numbers(diff_text: str) -> set[int]:
     added_lines: set[int] = set()
     for line in diff_text.splitlines():
@@ -162,7 +154,6 @@ def _parse_added_line_numbers(diff_text: str) -> set[int]:
             continue
         added_lines.update(range(start, start + count))
     return added_lines
-
 
 def _diff_added_lines(path: Path, *, since_ref: str | None, head_ref: str) -> set[int]:
     if is_adoption_scan(since_ref=since_ref, head_ref=head_ref):
@@ -179,7 +170,6 @@ def _diff_added_lines(path: Path, *, since_ref: str | None, head_ref: str) -> se
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or f"failed to diff {relative}")
     return _parse_added_line_numbers(result.stdout)
-
 
 def build_report(
     *,
@@ -269,7 +259,6 @@ def build_report(
         "target_roots": [path.as_posix() for path in TARGET_ROOTS],
     }
 
-
 def _render_md(report: dict) -> str:
     lines = ["# check_python_broad_except", ""]
     lines.append(f"- mode: {report['mode']}")
@@ -308,7 +297,6 @@ def _render_md(report: dict) -> str:
             lines.append(f"- `{item['path']}:{item['line']}` ({item['kind']}): {item['reason']}")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since-ref", help="Compare against this git ref")
@@ -320,7 +308,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -376,7 +363,6 @@ def main() -> int:
     else:
         print(_render_md(report))
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

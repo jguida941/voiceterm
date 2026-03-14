@@ -36,7 +36,7 @@ def add_governance_review_parser(sub: argparse._SubParsersAction) -> None:
         help="Maximum JSONL rows sampled when rendering the summary",
     )
     review_cmd.add_argument("--finding-id", help="Optional stable finding id override")
-    review_cmd.add_argument("--signal-type", choices=["guard", "probe"])
+    review_cmd.add_argument("--signal-type", choices=["guard", "probe", "audit"])
     review_cmd.add_argument("--check-id", help="Guard/probe id being adjudicated")
     review_cmd.add_argument(
         "--verdict",
@@ -60,7 +60,7 @@ def add_governance_review_parser(sub: argparse._SubParsersAction) -> None:
     )
     review_cmd.add_argument(
         "--scan-mode",
-        choices=["working-tree", "commit-range", "adoption-scan", "absolute"],
+        choices=["working-tree", "commit-range", "adoption-scan", "absolute", "external"],
         help="Scan mode used when the finding was produced",
     )
     review_cmd.add_argument("--repo-name", help="Optional repo name override")

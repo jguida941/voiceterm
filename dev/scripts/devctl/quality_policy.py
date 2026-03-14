@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .config import REPO_ROOT
+from .config import REPO_ROOT, get_repo_root
 from .quality_policy_defaults import (
     AI_GUARD_REGISTRY,
     DEFAULT_ENABLED_AI_GUARD_IDS,
@@ -77,8 +77,14 @@ def _has_python_sources(repo_root: Path) -> bool:
     return any(any(repo_root.glob(pattern)) for pattern in ("*.py", "*/*.py", "*/*/*.py"))
 
 
-def detect_repo_capabilities(repo_root: Path = REPO_ROOT) -> RepoCapabilities:
+def _effective_repo_root(repo_root: Path | None) -> Path:
+    """Return the supplied repo root or the active runtime override."""
+    return repo_root if repo_root is not None else get_repo_root()
+
+
+def detect_repo_capabilities(repo_root: Path | None = None) -> RepoCapabilities:
     """Detect broad repo language capabilities using common manifests."""
+    repo_root = _effective_repo_root(repo_root)
     rust = _manifest_exists(repo_root, "Cargo.toml")
     python = any(
         _manifest_exists(repo_root, filename)
@@ -164,10 +170,11 @@ def _resolve_specs(
 
 def resolve_quality_policy(
     *,
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path | None = None,
     policy_path: str | Path | None = None,
 ) -> ResolvedQualityPolicy:
     """Resolve the active repo quality policy with safe defaults."""
+    repo_root = _effective_repo_root(repo_root)
     default_policy_path = repo_root / DEFAULT_POLICY_RELATIVE_PATH
     resolved_policy_path = resolve_policy_path(
         repo_root=repo_root,
@@ -239,7 +246,7 @@ def resolve_quality_policy(
 
 def resolve_ai_guard_checks(
     *,
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path | None = None,
     policy_path: str | Path | None = None,
 ) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
     """Return active AI-guard steps for the repo policy."""
@@ -249,7 +256,7 @@ def resolve_ai_guard_checks(
 
 def resolve_review_probe_checks(
     *,
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path | None = None,
     policy_path: str | Path | None = None,
 ) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
     """Return active review-probe steps for the repo policy."""
@@ -259,7 +266,7 @@ def resolve_review_probe_checks(
 
 def resolve_review_probe_script_ids(
     *,
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path | None = None,
     policy_path: str | Path | None = None,
 ) -> tuple[str, ...]:
     """Return active probe script ids for aggregated probe-report runs."""
@@ -270,7 +277,7 @@ def resolve_review_probe_script_ids(
 def resolve_quality_scope_roots(
     scope_id: str,
     *,
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path | None = None,
     policy_path: str | Path | None = None,
 ) -> tuple[Path, ...]:
     """Return the repo-relative roots for one configured quality scope."""
@@ -284,7 +291,7 @@ def resolve_quality_scope_roots(
 def resolve_guard_config(
     script_id: str,
     *,
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path | None = None,
     policy_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Return the resolved per-script config payload for one guard or probe."""

@@ -12,6 +12,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -21,6 +22,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -34,7 +36,6 @@ GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_rust_test_path = import_attr("rust_guard_common", "is_test_path")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (
@@ -51,10 +52,8 @@ RUST_FN_SIG_RE = re.compile(
 )
 SELF_PARAM_RE = re.compile(r"^\s*&?\s*(?:mut\s+)?self\s*$")
 
-
 def _is_python_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
-
 
 def _count_rust_high_param_fns(text: str | None) -> int:
     if text is None:
@@ -70,7 +69,6 @@ def _count_rust_high_param_fns(text: str | None) -> int:
         if len(params) > RUST_PARAM_THRESHOLD:
             count += 1
     return count
-
 
 def _count_python_high_param_fns(text: str | None) -> int:
     if text is None:
@@ -92,7 +90,6 @@ def _count_python_high_param_fns(text: str | None) -> int:
             count += 1
     return count
 
-
 def _count_metrics(text: str | None, *, suffix: str = ".rs") -> dict[str, int]:
     if suffix == ".rs":
         return {"high_param_functions": _count_rust_high_param_fns(text)}
@@ -100,14 +97,11 @@ def _count_metrics(text: str | None, *, suffix: str = ".rs") -> dict[str, int]:
         return {"high_param_functions": _count_python_high_param_fns(text)}
     return {"high_param_functions": 0}
 
-
 def _growth(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
     return {key: current[key] - base[key] for key in base}
 
-
 def _has_positive_growth(growth: dict[str, int]) -> bool:
     return any(value > 0 for value in growth.values())
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_parameter_count", ""]
@@ -140,10 +134,8 @@ def _render_md(report: dict) -> str:
             lines.append(f"- `{item['path']}`: {', '.join(growth_bits)}")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -228,7 +220,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

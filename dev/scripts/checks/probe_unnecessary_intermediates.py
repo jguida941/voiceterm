@@ -20,6 +20,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -32,6 +33,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -48,7 +50,6 @@ GuardContext = import_attr("rust_guard_common", "GuardContext")
 is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
 scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 PYTHON_ROOTS = resolve_quality_scope_roots("python_probe", repo_root=REPO_ROOT)
@@ -95,7 +96,6 @@ AI_INSTRUCTION = (
     "communicates meaningful intent (e.g., `validated_config` not `result`)."
 )
 
-
 def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
     """Detect unnecessary intermediates in one Python file."""
     hints: list[RiskHint] = []
@@ -139,7 +139,6 @@ def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
 
     return hints
 
-
 def main() -> int:
     args = build_probe_parser(__doc__ or "").parse_args()
     report = ProbeReport(command="probe_unnecessary_intermediates")
@@ -181,7 +180,6 @@ def main() -> int:
 
     report.files_with_hints = len(files_with_hints)
     return emit_probe_report(report, output_format=args.format)
-
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -14,7 +14,7 @@ Use this with:
 
 `devctl` is the maintainer entrypoint for:
 
-1. Quality gates (`check`, `docs-check`, `hygiene`, security guards)
+1. Quality gates (`check`, `docs-check`, `render-surfaces`, `hygiene`, security guards)
    plus host-process/report-retention cleanup (`process-cleanup`,
    `reports-cleanup`)
 2. Triage and reporting (`status`, `report`, `data-science`, `triage`, `triage-loop`, `mutation-loop`, `swarm_run`, `autonomy-report`, `phone-status`, `mobile-status`, `controller-action`, `review-channel`, `autonomy-swarm`, `autonomy-benchmark`)
@@ -46,12 +46,18 @@ stricter tooling lane.
 ### Tooling/process/CI path
 
 ```bash
+python3 dev/scripts/devctl.py render-surfaces --format md
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py orchestrate-status --format md
 python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 python3 dev/scripts/devctl.py triage --ci --no-cihub --emit-bundle \
   --bundle-dir .cihub/coderabbit --bundle-prefix tooling-pass --format md
 ```
+
+If the slice changes repo-pack templates or starter-surface policy context,
+run `python3 dev/scripts/devctl.py render-surfaces --write --format md` before
+`docs-check --strict-tooling` so generated instruction/starter outputs stay in
+sync.
 
 ### Current review swarm bootstrap
 
@@ -496,6 +502,8 @@ Guard behavior:
    `dev/config/control_plane_policy.json`
 2. All write actions are blocked when `AUTONOMY_MODE=off`
 3. `--dry-run` shows intended remote command without executing it
+4. JSON/markdown reports include a stable `typed_action` contract for agent and
+   frontend consumers
 
 ## Adaptive Swarm (Metadata + Budget)
 

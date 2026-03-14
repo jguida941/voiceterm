@@ -19,6 +19,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -31,6 +32,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         import_attr,
         is_under_target_roots,
         resolve_quality_scope_roots,
@@ -47,7 +49,6 @@ GuardContext = import_attr("rust_guard_common", "GuardContext")
 is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
 scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 PYTHON_ROOTS = resolve_quality_scope_roots("python_probe", repo_root=REPO_ROOT)
@@ -92,7 +93,6 @@ AI_INSTRUCTION = (
     "helpers fragment control flow and force readers to jump around."
 )
 
-
 def _should_skip_name(name: str) -> bool:
     """Return True if the function name suggests it's a callback or special."""
     for prefix in _SKIP_PREFIXES:
@@ -100,14 +100,12 @@ def _should_skip_name(name: str) -> bool:
             return True
     return any(pattern in name for pattern in _CALLBACK_PATTERNS)
 
-
 def _count_references(text: str, func_name: str) -> int:
     """Count references to func_name in the file text (excluding its definition)."""
     # Use word boundary to avoid partial matches.
     pattern = re.compile(r"(?<!\bdef\s)" + re.escape(func_name) + r"\b")
     matches = pattern.findall(text)
     return len(matches)
-
 
 def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
     """Detect single-use private helpers in one Python file."""
@@ -155,7 +153,6 @@ def _scan_python_file(text: str, path: Path) -> list[RiskHint]:
         )
     ]
 
-
 def main() -> int:
     args = build_probe_parser(__doc__ or "").parse_args()
     report = ProbeReport(command="probe_single_use_helpers")
@@ -197,7 +194,6 @@ def main() -> int:
 
     report.files_with_hints = len(files_with_hints)
     return emit_probe_report(report, output_format=args.format)
-
 
 if __name__ == "__main__":
     sys.exit(main())

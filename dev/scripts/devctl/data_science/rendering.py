@@ -123,12 +123,19 @@ def render_data_science_markdown(report: dict[str, Any]) -> str:
     agent_stats = report.get("agent_stats", {})
     watchdog_stats = report.get("watchdog_stats", {})
     governance_review_stats = report.get("governance_review_stats", {})
+    external_finding_stats = report.get("external_finding_stats", {})
     rows = agent_stats.get("rows", []) if isinstance(agent_stats, dict) else []
     raw_rec = agent_stats.get("recommendation") if isinstance(agent_stats, dict) else {}
     rec = raw_rec if isinstance(raw_rec, dict) else {}
     watchdog_rows = watchdog_stats.get("guard_families", []) if isinstance(watchdog_stats, dict) else []
     governance_check_rows = (
         governance_review_stats.get("by_check_id", []) if isinstance(governance_review_stats, dict) else []
+    )
+    external_repo_rows = (
+        external_finding_stats.get("by_repo", []) if isinstance(external_finding_stats, dict) else []
+    )
+    external_check_rows = (
+        external_finding_stats.get("by_check_id", []) if isinstance(external_finding_stats, dict) else []
     )
 
     lines = [
@@ -138,6 +145,7 @@ def render_data_science_markdown(report: dict[str, Any]) -> str:
         f"- trigger_command: {report.get('trigger_command')}",
         f"- event_log: {report.get('event_log')}",
         f"- governance_review_log: {report.get('governance_review_log')}",
+        f"- external_finding_log: {report.get('external_finding_log')}",
         "",
         "## devctl Event Metrics",
         f"- total_events: {event_stats.get('total_events')}",
@@ -145,6 +153,8 @@ def render_data_science_markdown(report: dict[str, Any]) -> str:
         f"- avg_duration_seconds: {event_stats.get('avg_duration_seconds')}",
         f"- p50_duration_seconds: {event_stats.get('p50_duration_seconds')}",
         f"- p95_duration_seconds: {event_stats.get('p95_duration_seconds')}",
+        f"- total_machine_output_bytes: {event_stats.get('total_machine_output_bytes')}",
+        f"- total_estimated_machine_tokens: {event_stats.get('total_estimated_machine_tokens')}",
         "",
         "## Agent Recommendation",
         f"- recommended_agents: {rec.get('selected_agents')}",
@@ -185,6 +195,48 @@ def render_data_science_markdown(report: dict[str, Any]) -> str:
         lines.append("| {guard_family} | {episodes} | {success_rate_pct} | {avg_time_to_green_seconds} |".format(**row))
     if not watchdog_rows:
         lines.append("| - | - | - | - |")
+
+    lines.extend(
+        [
+            "",
+            "## External Finding Corpus",
+            f"- total_findings: {external_finding_stats.get('total_findings')}",
+            f"- unique_repo_count: {external_finding_stats.get('unique_repo_count')}",
+            f"- unique_import_run_count: {external_finding_stats.get('unique_import_run_count')}",
+            f"- reviewed_count: {external_finding_stats.get('reviewed_count')}",
+            f"- unreviewed_count: {external_finding_stats.get('unreviewed_count')}",
+            f"- adjudication_coverage_pct: {external_finding_stats.get('adjudication_coverage_pct')}",
+            f"- false_positive_count: {external_finding_stats.get('false_positive_count')}",
+            f"- fixed_count: {external_finding_stats.get('fixed_count')}",
+            "",
+            "## External Findings By Repo",
+            "| Repo | Findings | Reviewed | Coverage % | False Positives | Fixed |",
+            "|---|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for row in external_repo_rows:
+        lines.append(
+            "| {bucket} | {total_findings} | {reviewed_count} | "
+            "{adjudication_coverage_pct} | {false_positive_count} | {fixed_count} |".format(**row)
+        )
+    if not external_repo_rows:
+        lines.append("| - | - | - | - | - | - |")
+
+    lines.extend(
+        [
+            "",
+            "## External Findings By Check",
+            "| Check | Findings | Reviewed | Coverage % | False Positives | Fixed |",
+            "|---|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for row in external_check_rows:
+        lines.append(
+            "| {bucket} | {total_findings} | {reviewed_count} | "
+            "{adjudication_coverage_pct} | {false_positive_count} | {fixed_count} |".format(**row)
+        )
+    if not external_check_rows:
+        lines.append("| - | - | - | - | - | - |")
 
     lines.extend(
         [

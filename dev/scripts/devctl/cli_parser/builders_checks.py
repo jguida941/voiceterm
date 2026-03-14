@@ -142,6 +142,10 @@ def add_check_parser(
         action="store_true",
         help="Disable the default host-side cleanup/verify step for quick/fast profiles",
     )
+    check_cmd.add_argument(
+        "--repo-path",
+        help="Run checks against an external repo instead of the current worktree.",
+    )
 
 
 def add_mutants_parser(

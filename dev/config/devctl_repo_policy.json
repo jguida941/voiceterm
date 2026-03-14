@@ -8,6 +8,400 @@
     "python": true,
     "rust": true
   },
+  "repo_governance": {
+    "check_router": {
+      "bundle_by_lane": {
+        "docs": "bundle.docs",
+        "runtime": "bundle.runtime",
+        "tooling": "bundle.tooling",
+        "release": "bundle.release"
+      },
+      "release_exact_paths": [
+        "rust/Cargo.toml",
+        "rust/Cargo.lock",
+        "pypi/pyproject.toml",
+        "app/macos/VoiceTerm.app/Contents/Info.plist"
+      ],
+      "release_workflow_files": [
+        "release_preflight.yml",
+        "publish_pypi.yml",
+        "publish_homebrew.yml",
+        "publish_release_binaries.yml",
+        "release_attestation.yml"
+      ],
+      "tooling_exact_paths": [
+        "AGENTS.md",
+        "Makefile",
+        "dev/ARCHITECTURE.md",
+        "dev/DEVELOPMENT.md",
+        "dev/MCP_DEVCTL_ALIGNMENT.md",
+        "dev/guides/DEVELOPMENT.md",
+        "dev/guides/ARCHITECTURE.md",
+        "dev/guides/DEVCTL_AUTOGUIDE.md",
+        "dev/guides/MCP_DEVCTL_ALIGNMENT.md",
+        "dev/scripts/README.md",
+        "dev/DEVCTL_AUTOGUIDE.md",
+        "dev/history/ENGINEERING_EVOLUTION.md"
+      ],
+      "tooling_prefixes": [
+        "dev/scripts/",
+        ".github/workflows/",
+        ".github/scripts/",
+        "scripts/macro-packs/"
+      ],
+      "tooling_markdown_prefixes": [
+        "dev/active/",
+        "dev/config/"
+      ],
+      "runtime_prefixes": [
+        "rust/src/",
+        "rust/tests/",
+        "rust/benches/"
+      ],
+      "runtime_exact_paths": [
+        "rust/Cargo.toml",
+        "rust/Cargo.lock",
+        "rust/clippy.toml"
+      ],
+      "docs_prefixes": [
+        "guides/",
+        "img/",
+        "docs/"
+      ],
+      "docs_exact_paths": [
+        "README.md",
+        "QUICK_START.md",
+        "DEV_INDEX.md",
+        "dev/README.md",
+        "scripts/README.md",
+        "pypi/README.md",
+        "app/README.md"
+      ],
+      "risk_addons": [
+        {
+          "id": "overlay-hud-controls",
+          "label": "Overlay/input/status/HUD add-ons",
+          "tokens": [
+            "/hud/",
+            "/status_line/",
+            "/overlay",
+            "/input/",
+            "rust/src/bin/voiceterm/config/cli.rs",
+            "rust/src/config/mod.rs"
+          ],
+          "commands": [
+            "python3 dev/scripts/devctl.py check --profile ci",
+            "cd rust && cargo test --bin voiceterm",
+            "python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel"
+          ]
+        },
+        {
+          "id": "performance-latency",
+          "label": "Performance/latency add-ons",
+          "tokens": [
+            "latency",
+            "perf",
+            "/event_loop/",
+            "voice_benchmark",
+            "/audio/"
+          ],
+          "commands": [
+            "python3 dev/scripts/devctl.py check --profile prepush",
+            "./dev/scripts/tests/measure_latency.sh --voice-only --synthetic",
+            "./dev/scripts/tests/measure_latency.sh --ci-guard",
+            "python3 dev/scripts/devctl.py process-cleanup --verify --format md"
+          ]
+        },
+        {
+          "id": "wake-word",
+          "label": "Wake-word add-ons",
+          "tokens": [
+            "wake_word",
+            "voice_control/navigation",
+            "voice_control/manager"
+          ],
+          "commands": [
+            "bash dev/scripts/tests/wake_word_guard.sh",
+            "python3 dev/scripts/devctl.py check --profile release",
+            "python3 dev/scripts/devctl.py process-cleanup --verify --format md"
+          ]
+        },
+        {
+          "id": "threading-lifecycle-memory",
+          "label": "Threading/lifecycle/memory add-ons",
+          "tokens": [
+            "pty_session",
+            "terminal_restore",
+            "/event_loop/",
+            "memory_guard"
+          ],
+          "commands": [
+            "cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture",
+            "python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel"
+          ]
+        },
+        {
+          "id": "unsafe-ffi-lifecycle",
+          "label": "Unsafe/FFI lifecycle add-ons",
+          "tokens": [
+            "pty_session",
+            "terminal_restore",
+            "rust/src/stt.rs"
+          ],
+          "commands": [
+            "cd rust && cargo test pty_session::tests::pty_cli_session_drop_terminates_descendants_in_process_group -- --nocapture",
+            "cd rust && cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture",
+            "cd rust && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_load -- --nocapture",
+            "python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel"
+          ]
+        },
+        {
+          "id": "parser-ansi-boundary",
+          "label": "Parser/ANSI boundary add-ons",
+          "tokens": [
+            "/ansi",
+            "/parser",
+            "prompt/strip",
+            "pty_session"
+          ],
+          "commands": [
+            "cd rust && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture",
+            "cd rust && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture",
+            "cd rust && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture",
+            "python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel"
+          ]
+        },
+        {
+          "id": "dependency-security",
+          "label": "Dependency/security-hardening add-ons",
+          "tokens": [
+            "Cargo.toml",
+            "Cargo.lock",
+            "pyproject.toml",
+            "requirements",
+            "dev/security/",
+            "security_guard.yml"
+          ],
+          "commands": [
+            "python3 dev/scripts/devctl.py security"
+          ]
+        }
+      ]
+    },
+    "docs_check": {
+      "user_docs": [
+        "README.md",
+        "QUICK_START.md",
+        "guides/USAGE.md",
+        "guides/CLI_FLAGS.md",
+        "guides/INSTALL.md",
+        "guides/TROUBLESHOOTING.md"
+      ],
+      "tooling_change_prefixes": [
+        "dev/scripts/",
+        "scripts/macro-packs/",
+        ".github/workflows/"
+      ],
+      "tooling_change_exact": [
+        "Makefile",
+        "AGENTS.md",
+        "dev/DEVELOPMENT.md",
+        "dev/guides/DEVELOPMENT.md",
+        "dev/scripts/README.md"
+      ],
+      "tooling_required_docs": [
+        "AGENTS.md",
+        "dev/guides/DEVELOPMENT.md",
+        "dev/scripts/README.md",
+        "dev/active/MASTER_PLAN.md"
+      ],
+      "tooling_required_doc_aliases": {},
+      "tooling_doc_requirement_rules": [
+        {
+          "id": "ai_governance_platform_plan",
+          "trigger_prefixes": [
+            "dev/scripts/devctl/platform/",
+            "dev/scripts/devctl/runtime/",
+            "dev/scripts/devctl/quality_policy",
+            "dev/scripts/devctl/governance/",
+            "dev/scripts/devctl/governance_",
+            "dev/scripts/devctl/commands/platform_",
+            "dev/scripts/devctl/commands/governance_",
+            "dev/scripts/checks/package_layout/"
+          ],
+          "trigger_exact_paths": [
+            "dev/config/devctl_repo_policy.json",
+            "dev/scripts/devctl/repo_policy.py",
+            "dev/scripts/checks/probe_compatibility_shims.py",
+            "dev/active/portable_code_governance.md",
+            "dev/guides/PORTABLE_CODE_GOVERNANCE.md",
+            "dev/active/ai_governance_platform.md",
+            "dev/guides/AI_GOVERNANCE_PLATFORM.md"
+          ],
+          "required_docs": [
+            "dev/active/ai_governance_platform.md"
+          ]
+        }
+      ],
+      "evolution_doc": "dev/history/ENGINEERING_EVOLUTION.md",
+      "evolution_change_prefixes": [
+        "dev/scripts/",
+        ".github/workflows/"
+      ],
+      "evolution_change_exact": [
+        "AGENTS.md",
+        "dev/ARCHITECTURE.md",
+        "dev/DEVELOPMENT.md",
+        "dev/guides/ARCHITECTURE.md",
+        "dev/guides/DEVELOPMENT.md",
+        "dev/scripts/README.md",
+        "dev/active/MASTER_PLAN.md"
+      ],
+      "deprecated_reference_targets": [
+        "AGENTS.md",
+        "dev/DEVELOPMENT.md",
+        "dev/guides/DEVELOPMENT.md",
+        "dev/scripts/README.md",
+        "scripts/macro-packs/full-dev.yaml",
+        "Makefile"
+      ],
+      "deprecated_reference_patterns": [
+        {
+          "name": "release-script",
+          "regex": "\\./dev/scripts/release\\.sh\\b",
+          "replacement": "python3 dev/scripts/devctl.py release --version <version>"
+        },
+        {
+          "name": "homebrew-script",
+          "regex": "\\./dev/scripts/update-homebrew\\.sh\\b",
+          "replacement": "python3 dev/scripts/devctl.py homebrew --version <version>"
+        },
+        {
+          "name": "pypi-script",
+          "regex": "\\./dev/scripts/publish-pypi\\.sh\\b",
+          "replacement": "python3 dev/scripts/devctl.py pypi --upload"
+        },
+        {
+          "name": "notes-script",
+          "regex": "\\./dev/scripts/generate-release-notes\\.sh\\b",
+          "replacement": "python3 dev/scripts/devctl.py release-notes --version <version>"
+        }
+      ]
+    },
+    "surface_generation": {
+      "repo_pack_metadata": {
+        "pack_id": "voiceterm",
+        "pack_version": "0.1.0-dev",
+        "product_name": "VoiceTerm",
+        "repo_name": "codex-voice"
+      },
+      "context": {
+        "process_doc": "AGENTS.md",
+        "execution_tracker_doc": "dev/active/MASTER_PLAN.md",
+        "active_registry_doc": "dev/active/INDEX.md",
+        "architecture_doc": "dev/guides/AI_GOVERNANCE_PLATFORM.md",
+        "development_doc": "dev/guides/DEVELOPMENT.md",
+        "scripts_readme_doc": "dev/scripts/README.md",
+        "ci_workflows_doc": ".github/workflows/README.md",
+        "cli_flags_doc": "rust/src/bin/voiceterm/config/cli.rs",
+        "project_summary": "Rust voice-first terminal overlay for AI CLIs (Codex, Claude, Gemini)",
+        "rust_source": "rust/src/bin/voiceterm/",
+        "python_tooling": "dev/scripts/devctl/",
+        "guard_scripts": "dev/scripts/checks/",
+        "msrv": "1.88.0, edition 2021",
+        "branch_policy": "`master` (release), `develop` (dev work)",
+        "voice_command": "voiceterm --capture-once --format text",
+        "development_branch": "develop",
+        "python_version": "3.11",
+        "bootstrap_steps": [
+          "Read `AGENTS.md` (mandatory 12-step SOP, task router, bundle commands).",
+          "Read `dev/active/INDEX.md` (registry of all active plan docs with roles).",
+          "Read `dev/active/MASTER_PLAN.md` (canonical execution state for all MPs).",
+          "Only load additional active docs when the task class requires them."
+        ],
+        "key_commands_block": "# Full CI check\npython3 dev/scripts/devctl.py check --profile ci\n\n# Quick local check\npython3 dev/scripts/devctl.py check --profile quick\n\n# Docs governance\npython3 dev/scripts/devctl.py docs-check --strict-tooling\n\n# Render policy-owned instruction surfaces\npython3 dev/scripts/devctl.py render-surfaces --format md\n\n# Hygiene\npython3 dev/scripts/devctl.py hygiene\n\n# Rust tests\ncd rust && cargo test --bin voiceterm\n\n# Python tests\npython3 -m pytest dev/scripts/devctl/tests/ -q",
+        "post_edit_verification_intro": "After EVERY file create/edit, you MUST run the repo-required verification before reporting the task as done.",
+        "post_edit_verification_steps": [
+          "Run the task-class bundle from `AGENTS.md` after every file create/edit: `bundle.runtime`, `bundle.docs`, `bundle.tooling`, or `bundle.release`.",
+          "Run any additional path or risk checks required by `AGENTS.md` and `dev/guides/DEVELOPMENT.md#after-file-edits`.",
+          "For complex edits, refactors, new modules, or business-logic changes, run `python3 dev/scripts/devctl.py check --profile ci`.",
+          "If you changed repo-pack templates, repo policy, or generated instruction surfaces, run `python3 dev/scripts/devctl.py render-surfaces --write --format md` and `python3 dev/scripts/checks/check_instruction_surface_sync.py`.",
+          "`python3 dev/scripts/devctl.py check --profile quick` is only a fast local iteration step; it does not replace the required bundle or handoff verification."
+        ],
+        "post_edit_verification_done_criteria": "Done means the required guards/tests passed. Do not report completion after only writing code or running a partial subset of checks. If a required guard fails, fix it or report the blocker explicitly.",
+        "guard_limits_block": "- **Rust function length**: max 100 lines (`code_shape` guard). Exceptions tracked\n  in `code_shape_policy.py::FUNCTION_POLICY_EXCEPTIONS` with expiry.\n- **Python function length**: max 150 lines (`code_shape` guard).\n- **No duplicated function bodies**: identical normalized bodies >= 6 lines across\n  different files are blocked (`function_duplication` guard). Extract to a shared\n  module instead of copying.\n- **Rust file size**: soft 900 / hard 1400 lines. Python: soft 350 / hard 650.\n- If you hit a guard violation, decompose the function or extract shared helpers.\n  Only add a `FunctionShapeException` when decomposition is genuinely blocked and\n  must be deferred (requires owner, expiry date, follow-up MP).",
+        "user_preferences_block": "- Comments must be forward-looking and useful — never reference past refactoring\n- No duplicated logic — extract shared helpers\n- If a file exceeds soft limit, modularize it (don't trim comments)\n- Get to solid stopping points for Codex review\n- Explain things at junior-to-mid level (user is an architect learning Rust)\n- Don't write dumb comments nobody will understand in the future"
+      },
+      "surfaces": [
+        {
+          "id": "agents_bundle_reference",
+          "surface_type": "process_doc",
+          "renderer": "agents_bundle_section",
+          "output_path": "AGENTS.md",
+          "tracked": true,
+          "local_only": false,
+          "description": "Rendered AGENTS command-bundle reference section."
+        },
+        {
+          "id": "claude_instructions",
+          "surface_type": "local_instructions",
+          "renderer": "template_file",
+          "template_path": "dev/config/templates/claude_instructions.template.md",
+          "output_path": "CLAUDE.md",
+          "tracked": false,
+          "local_only": true,
+          "description": "Local-only Claude instructions surface rendered from repo-pack policy.",
+          "required_contains": [
+            "## Mandatory post-edit verification (blocking)",
+            "After EVERY file create/edit, you MUST run the repo-required verification before",
+            "Done means the required guards/tests passed.",
+            "`bundle.runtime`, `bundle.docs`, `bundle.tooling`, or `bundle.release`",
+            "python3 dev/scripts/devctl.py check --profile ci"
+          ]
+        },
+        {
+          "id": "codex_voice_slash",
+          "surface_type": "assistant_template",
+          "renderer": "template_file",
+          "template_path": "dev/config/templates/codex_voice_slash.template.md",
+          "output_path": "dev/templates/slash/codex/voice.md",
+          "tracked": true,
+          "local_only": false,
+          "description": "Slash-command template for one-shot VoiceTerm capture in Codex."
+        },
+        {
+          "id": "claude_voice_skill",
+          "surface_type": "assistant_template",
+          "renderer": "template_file",
+          "template_path": "dev/config/templates/claude_voice_skill.template.md",
+          "output_path": "dev/templates/slash/claude/SKILL.md",
+          "tracked": true,
+          "local_only": false,
+          "description": "Claude skill template for one-shot VoiceTerm capture."
+        },
+        {
+          "id": "portable_pre_commit_hook_stub",
+          "surface_type": "starter_artifact",
+          "renderer": "template_file",
+          "template_path": "dev/config/templates/portable_governance_pre_commit_hook.stub.template.sh",
+          "output_path": "dev/config/templates/portable_governance_pre_commit_hook.stub.sh",
+          "tracked": true,
+          "local_only": false,
+          "description": "Generated starter pre-commit hook stub for governance adopters."
+        },
+        {
+          "id": "portable_tooling_workflow_stub",
+          "surface_type": "starter_artifact",
+          "renderer": "template_file",
+          "template_path": "dev/config/templates/portable_governance_tooling_workflow.stub.template.yml",
+          "output_path": "dev/config/templates/portable_governance_tooling_workflow.stub.yml",
+          "tracked": true,
+          "local_only": false,
+          "description": "Generated starter tooling workflow stub for governance adopters."
+        }
+      ]
+    }
+  },
   "quality_scopes": {
     "python_guard_roots": [
       "dev/scripts",
@@ -20,7 +414,7 @@
     "rust_guard_roots": [
       "rust/src"
     ],
-    "rust_probe_roots": [
+      "rust_probe_roots": [
       "rust/src"
     ]
   },

@@ -104,3 +104,15 @@ class PathAuditCommandTests(TestCase):
                 "codeowners_src_root",
             },
         )
+
+    def test_legacy_scanner_detects_packaged_entrypoint_reference(self) -> None:
+        legacy_path = "dev/scripts/" + "workflow_shell_bridge.py"
+        violations = path_audit_helpers._scan_text_for_legacy_references(
+            "AGENTS.md",
+            "python3 " + legacy_path + " resolve-range",
+        )
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(
+            violations[0]["replacement_path"],
+            "dev/scripts/workflow_bridge/shell.py",
+        )

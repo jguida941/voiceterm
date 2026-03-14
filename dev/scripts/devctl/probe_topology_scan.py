@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 from .collect import collect_git_status
-from .config import REPO_ROOT
+from .config import get_repo_root
 
 SKIP_DIRS = {
     ".git",
@@ -26,15 +26,21 @@ RUST_MOD_RE = re.compile(r"^\s*(?:pub\s+)?mod\s+([a-zA-Z0-9_]+)\s*;", re.MULTILI
 
 
 def repo_relative(path: Path) -> str:
-    return path.relative_to(REPO_ROOT).as_posix()
+    return path.relative_to(_repo_root()).as_posix()
+
+
+def _repo_root() -> Path:
+    """Return the active repo root for topology scans."""
+    return get_repo_root()
 
 
 def iter_source_files() -> dict[str, list[Path]]:
     buckets: dict[str, list[Path]] = {"python": [], "rust": []}
-    for path in REPO_ROOT.rglob("*"):
+    repo_root = _repo_root()
+    for path in repo_root.rglob("*"):
         if not path.is_file():
             continue
-        rel_parts = path.relative_to(REPO_ROOT).parts
+        rel_parts = path.relative_to(repo_root).parts
         if any(part in SKIP_DIRS for part in rel_parts):
             continue
         if path.suffix == ".py":
@@ -45,7 +51,7 @@ def iter_source_files() -> dict[str, list[Path]]:
 
 
 def python_module_name(path: Path) -> str:
-    rel = path.relative_to(REPO_ROOT).with_suffix("")
+    rel = path.relative_to(_repo_root()).with_suffix("")
     parts = list(rel.parts)
     if parts and parts[-1] == "__init__":
         parts = parts[:-1]
@@ -138,7 +144,7 @@ def collect_python_edges(
 
 
 def rust_tokens_for_path(path: Path) -> tuple[str, ...]:
-    rust_root = REPO_ROOT / "rust" / "src"
+    rust_root = _repo_root() / "rust" / "src"
     if not path.is_relative_to(rust_root):
         return ()
     parts = list(path.relative_to(rust_root).parts)
@@ -192,7 +198,7 @@ def resolve_rust_target(
 
 
 def resolve_rust_mod_target(rel_path: str, module_name: str) -> str | None:
-    parent = (REPO_ROOT / rel_path).parent
+    parent = (_repo_root() / rel_path).parent
     for candidate in (
         parent / f"{module_name}.rs",
         parent / module_name / "mod.rs",
@@ -233,7 +239,7 @@ def collect_rust_edges(
 
 
 def parse_codeowners_rules() -> list[tuple[str, list[str]]]:
-    path = REPO_ROOT / ".github" / "CODEOWNERS"
+    path = _repo_root() / ".github" / "CODEOWNERS"
     if not path.exists():
         return []
     rules: list[tuple[str, list[str]]] = []

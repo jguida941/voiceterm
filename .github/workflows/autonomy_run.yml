@@ -116,7 +116,7 @@ jobs:
           INPUT_STALE_MINUTES: ${{ inputs.stale_minutes }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/autonomy_workflow_bridge.py resolve-swarm-config \
+          python3 dev/scripts/workflow_bridge/autonomy.py resolve-swarm-config \
             --github-output "${GITHUB_OUTPUT}"
 
       - name: Run swarm_run pipeline
@@ -173,7 +173,7 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          python3 dev/scripts/autonomy_workflow_bridge.py export-swarm \
+          python3 dev/scripts/workflow_bridge/autonomy.py export-swarm \
             --input-file /tmp/swarm-run.json \
             --github-output "${GITHUB_OUTPUT}"
 
@@ -223,5 +223,5 @@ jobs:
             echo "swarm_run command returned ${RC}"
             exit "${RC}"
           fi
-          python3 dev/scripts/autonomy_workflow_bridge.py assert-swarm-ok \
+          python3 dev/scripts/workflow_bridge/autonomy.py assert-swarm-ok \
             --input-file /tmp/swarm-run.json

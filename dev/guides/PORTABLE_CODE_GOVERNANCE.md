@@ -1,9 +1,17 @@
 # Portable Code Governance
 
-**Status**: active reference  |  **Last updated**: 2026-03-11 | **Owner:** Tooling/code governance
+**Status**: active reference  |  **Last updated**: 2026-03-14 | **Owner:** Tooling/code governance
 
 This guide explains how to treat the current guard/probe stack as a reusable
 system instead of a VoiceTerm-only pile of scripts.
+
+This guide stays focused on the portable governance engine and repo-adoption
+path. The broader reusable product/package/runtime/frontend architecture now
+lives in `dev/active/ai_governance_platform.md`, which is the main active plan
+for that scope.
+This guide is not a second main plan; when engine work changes the broader
+product boundary or extraction sequence, update
+`dev/active/ai_governance_platform.md` first and keep this guide subordinate.
 
 ## Purpose
 
@@ -111,19 +119,59 @@ another checkout:
 
 ```bash
 python3 dev/scripts/devctl.py governance-bootstrap --target-repo /path/to/copied-repo --format md
-python3 dev/scripts/devctl.py check --profile ci --quality-policy /path/to/pilot-policy.json --adoption-scan
-python3 dev/scripts/devctl.py probe-report --quality-policy /path/to/pilot-policy.json --adoption-scan --format md
-python3 dev/scripts/devctl.py governance-export --quality-policy /path/to/pilot-policy.json --adoption-scan --format md
+cd /path/to/copied-repo
+python3 dev/scripts/devctl.py quality-policy --format md
+python3 dev/scripts/devctl.py render-surfaces --write --format md
+python3 dev/scripts/devctl.py check --profile ci --adoption-scan
+python3 dev/scripts/devctl.py probe-report --adoption-scan --format md
+python3 dev/scripts/devctl.py governance-export --adoption-scan --format md
+
+# Or run the scan from the engine checkout without `cd`:
+python3 /path/to/engine/dev/scripts/devctl.py probe-report --repo-path /path/to/copied-repo --adoption-scan --format md
 ```
 
 Why these steps exist:
 
 - `governance-bootstrap` repairs copied/submodule `.git` indirection so git-based
   guards can run locally instead of failing on stale `gitdir:` pointers.
+- The same bootstrap command now also writes a starter
+  `dev/config/devctl_repo_policy.json` when the target repo does not already
+  have one, choosing the nearest portable preset from detected Python/Rust
+  capabilities and seeding conservative `check-router` / `docs-check`
+  repo-governance defaults plus starter
+  `repo_governance.surface_generation` policy for local instructions and
+  tracked starter artifacts. It now also copies the portable preset JSON files
+  into `dev/config/quality_presets/` and writes explicit `quality_scopes` so
+  first-run scans do not silently narrow large Python repos to `scripts/` only.
+- The same bootstrap command now also writes a repo-local
+  `dev/guides/PORTABLE_GOVERNANCE_SETUP.md` guide so an AI or maintainer has
+  one obvious file to read inside the adopted repo instead of starting from the
+  exported template set alone.
+- `render-surfaces --write` materializes the starter instruction/stub surfaces
+  owned by that repo-pack policy so adopters begin from generated files instead
+  of hand-copying local instructions or workflow stubs.
 - `--adoption-scan` treats the full current worktree as the baseline when the
   repo has no trusted historical ref for growth-only checks yet.
 - `probe-report` should usually run in the same onboarding mode so the first
   packet ranks the whole repo instead of only a meaningless empty diff.
+- When `probe-report` is driven from the engine repo with `--repo-path`, the
+  default artifact root now follows the target repo, so the packet lands under
+  `<target>/dev/reports/probes/` instead of the engine checkout.
+- `probe_compatibility_shims.py` is now the portable stale-wrapper review
+  layer: package-layout keeps the structural/baseline contract, while the
+  probe ranks missing metadata, expired wrappers, broken shim targets, and
+  shim-heavy roots/families without forcing every adopting repo to hard-fail
+  that debt on day one.
+
+Starter artifacts exported with the governance stack:
+
+- `dev/config/templates/portable_governance_repo_setup.template.md`
+- `dev/config/templates/portable_devctl_repo_policy.template.json`
+
+Use those when an AI or maintainer needs one obvious file set to follow rather
+than reverse-engineering the engine layout from the whole repo. After running
+`governance-bootstrap`, the repo-local first-read file becomes
+`dev/guides/PORTABLE_GOVERNANCE_SETUP.md`.
 
 ## Pilot Corpus
 
@@ -140,9 +188,17 @@ Selection rules:
 
 Current proof point:
 
-- `ci-cd-hub` already exposed the two main onboarding gaps this guide now
-  addresses: broken copied-repo `.git` state and the need for a first-class
-  full-surface adoption scan.
+- `ci-cd-hub` still anchors the strongest external proof. The early March 14
+  narrow rerun (`7` hints) turned out to be a `scripts/`-only under-scan.
+  After the corrected portability pass, the same repo now scans `scripts`,
+  `_quarantine`, `cihub`, and `tests`, and the March 14 rerun found
+  `159` hints (`53 high`, `104 medium`, `2 low`) across `509` source files.
+- The corrected 13-repo pilot aggregate is now `311` hints
+  (`115 high`, `193 medium`, `3 low`) with `3` clean repos and `0` scan
+  errors. The previous `158`-hint aggregate should not be reused as proof.
+- Remaining coverage caveat: the portable pack is still Python/Rust only, so
+  repos dominated by Java, TypeScript, or React code remain partially covered
+  until those language packs exist.
 
 ## Evaluation Framework
 
@@ -204,3 +260,12 @@ Promote a pattern from probe to hard guard only when all of these are true:
 5. The rule belongs in the engine or a portable preset, not only here.
 
 Probe-first remains the default rollout.
+
+Portable example:
+
+- Compatibility shims are now a first-class portable governance concept rather
+  than a VoiceTerm-only exception. The engine should validate shim shape from
+  structure first (AST/minimal wrapper semantics), use text parsing only for
+  metadata extraction when needed, and let repo policy decide allowed roots,
+  required metadata fields, whether approved shims count toward density, and
+  how much shim debt is tolerated.

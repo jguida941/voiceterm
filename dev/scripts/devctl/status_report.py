@@ -18,9 +18,9 @@ from .collect import (
 )
 from .collect_dev_logs import collect_dev_log_summary
 from .python_guard_report import collect_python_guard_report
-from .quality_backlog_report import collect_quality_backlog
+from .quality_backlog.report import collect_quality_backlog
 from .review_probe_report import build_probe_report
-from .rust_audit_report import collect_rust_audit_report
+from .rust_audit.report import collect_rust_audit_report
 from .status_report_render import render_project_markdown as _render_project_markdown
 from .time_utils import utc_timestamp
 

@@ -26,6 +26,13 @@ def add_docs_check_parser(sub: argparse._SubParsersAction) -> None:
         default="HEAD",
         help="Range-mode head ref used with --since-ref (default: HEAD)",
     )
+    docs_cmd.add_argument(
+        "--quality-policy",
+        help=(
+            "Optional repo policy JSON file used to resolve repo-governance docs rules "
+            "(defaults to dev/config/devctl_repo_policy.json or DEVCTL_QUALITY_POLICY)."
+        ),
+    )
     add_standard_output_arguments(docs_cmd)
 
 

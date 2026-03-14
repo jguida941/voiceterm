@@ -10,6 +10,7 @@
 //! - Writer thread: serializes output to avoid interleaving
 //! - Voice worker: background audio capture and STT
 
+mod action_center;
 mod ansi;
 mod arrow_keys;
 mod audio_meter;
@@ -34,8 +35,10 @@ mod icons;
 mod image_mode;
 mod input;
 mod memory;
+mod memory_browser;
 mod onboarding;
 mod overlay_frame;
+mod overlay_list;
 mod overlays;
 mod persistence_io;
 mod persistent_config;
@@ -743,6 +746,7 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor,
+        memory_browser_state: crate::memory_browser::MemoryBrowserState::new(),
         theme_file_watcher: std::env::var("VOICETERM_THEME_FILE").ok().and_then(|p| {
             let path = std::path::PathBuf::from(p.trim());
             if path.exists() {

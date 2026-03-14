@@ -28,7 +28,7 @@ class MutationRalphWorkflowBridgeTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.script = load_module(
             "mutation_ralph_workflow_bridge",
-            "dev/scripts/mutation_ralph_workflow_bridge.py",
+            "dev/scripts/workflow_bridge/mutation_ralph.py",
         )
 
     def test_resolve_dispatch_config_uses_dispatch_defaults(self) -> None:

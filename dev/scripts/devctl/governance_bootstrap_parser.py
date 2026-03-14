@@ -21,6 +21,18 @@ def add_governance_bootstrap_parser(sub: argparse._SubParsersAction) -> None:
         required=True,
         help="Path to the copied target repository that will host the governance pilot",
     )
+    bootstrap_cmd.add_argument(
+        "--no-starter-policy",
+        dest="write_starter_policy",
+        action="store_false",
+        help="Skip writing a starter devctl repo policy file into the target repo",
+    )
+    bootstrap_cmd.add_argument(
+        "--force-starter-policy",
+        action="store_true",
+        help="Overwrite an existing starter repo policy file in the target repo",
+    )
+    bootstrap_cmd.set_defaults(write_starter_policy=True)
     add_standard_output_arguments(
         bootstrap_cmd,
         format_choices=("json", "md"),

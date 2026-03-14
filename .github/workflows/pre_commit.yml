@@ -50,7 +50,7 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/workflow_shell_bridge.py resolve-range \
+          python3 dev/scripts/workflow_bridge/shell.py resolve-range \
             --event-name "${EVENT_NAME}" \
             --push-before "${PUSH_BEFORE}" \
             --push-head "${PUSH_HEAD}" \

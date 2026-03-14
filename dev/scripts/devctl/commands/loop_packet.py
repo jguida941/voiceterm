@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from datetime import UTC, datetime
 from typing import Any
 
-from ..common import emit_output, pipe_output, write_output
+from ..runtime.machine_output import ArtifactOutputOptions, emit_machine_artifact_output
 from .loop_packet_helpers import (
     DEFAULT_SOURCE_CANDIDATES,
     RISK_CONFIDENCE,
@@ -49,24 +48,6 @@ def _render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _render_output(report: dict[str, Any], output_format: str) -> str:
-    if output_format == "json":
-        return json.dumps(report, indent=2)
-    return _render_markdown(report)
-
-
-def _emit_report(report: dict[str, Any], args) -> int:
-    output = _render_output(report, args.format)
-    return emit_output(
-        output,
-        output_path=args.output,
-        pipe_command=args.pipe_command,
-        pipe_args=args.pipe_args,
-        writer=write_output,
-        piper=pipe_output,
-    )
-
-
 def run(args) -> int:
     """Build a guarded terminal feedback packet from triage/loop sources."""
     if args.max_age_hours <= 0:
@@ -100,10 +81,13 @@ def run(args) -> int:
             "checked_paths": checked_paths,
             "warnings": [*source_warnings, "source timestamp missing or invalid"],
         }
-        pipe_rc = _emit_report(report, args)
-        if pipe_rc != 0:
-            return pipe_rc
-        return 1
+        return emit_machine_artifact_output(
+            args,
+            command="loop-packet",
+            json_payload=report,
+            human_output=_render_markdown(report),
+            options=ArtifactOutputOptions(ok=False, summary={"reason": report["reason"]}),
+        )
 
     freshness_hours = _freshness_hours(timestamp, now_utc)
     if freshness_hours > float(args.max_age_hours):
@@ -119,10 +103,16 @@ def run(args) -> int:
             "checked_paths": checked_paths,
             "warnings": source_warnings,
         }
-        pipe_rc = _emit_report(report, args)
-        if pipe_rc != 0:
-            return pipe_rc
-        return 1
+        return emit_machine_artifact_output(
+            args,
+            command="loop-packet",
+            json_payload=report,
+            human_output=_render_markdown(report),
+            options=ArtifactOutputOptions(
+                ok=False,
+                summary={"reason": report["reason"], "risk": "stale"},
+            ),
+        )
 
     risk, raw_draft, next_actions = _build_packet_body(
         source_command=source_command,
@@ -191,7 +181,16 @@ def run(args) -> int:
         },
     }
 
-    pipe_rc = _emit_report(report, args)
-    if pipe_rc != 0:
-        return pipe_rc
-    return 0
+    return emit_machine_artifact_output(
+        args,
+        command="loop-packet",
+        json_payload=report,
+        human_output=_render_markdown(report),
+        options=ArtifactOutputOptions(
+            summary={
+                "risk": risk,
+                "confidence": confidence,
+                "auto_send": auto_send,
+            }
+        ),
+    )
