@@ -161,6 +161,37 @@ class DataScienceSnapshotTests(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
+            external_finding_log = root / "external_findings.jsonl"
+            external_finding_log.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "finding_id": "probe-1",
+                                "timestamp_utc": "2026-03-11T00:00:00Z",
+                                "repo_name": "alpha",
+                                "signal_type": "audit",
+                                "check_id": "probe_single_use_helpers",
+                                "file_path": "demo.py",
+                                "import_run_id": "pilot-1",
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "finding_id": "external-2",
+                                "timestamp_utc": "2026-03-11T00:10:00Z",
+                                "repo_name": "beta",
+                                "signal_type": "audit",
+                                "check_id": "external_audit",
+                                "file_path": "worker.py",
+                                "import_run_id": "pilot-1",
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
 
             report = run_data_science_snapshot(
                 trigger_command="unit-test",
@@ -170,11 +201,13 @@ class DataScienceSnapshotTests(unittest.TestCase):
                 benchmark_root=str(benchmark_root),
                 watchdog_root=str(watchdog_root),
                 governance_review_log=str(governance_review_log),
+                external_finding_log=str(external_finding_log),
                 max_events=100,
                 max_swarm_files=100,
                 max_benchmark_files=100,
                 max_watchdog_rows=100,
                 max_governance_review_rows=100,
+                max_external_finding_rows=100,
             )
 
             recommendation = (report.get("agent_stats") or {}).get("recommendation") or {}
@@ -190,6 +223,14 @@ class DataScienceSnapshotTests(unittest.TestCase):
             self.assertEqual(governance_review_stats.get("false_positive_count"), 1)
             self.assertEqual(governance_review_stats.get("fixed_count"), 1)
             self.assertEqual(governance_review_stats.get("false_positive_rate_pct"), 50.0)
+            external_finding_stats = report.get("external_finding_stats") or {}
+            self.assertEqual(external_finding_stats.get("total_findings"), 2)
+            self.assertEqual(external_finding_stats.get("unique_repo_count"), 2)
+            self.assertEqual(external_finding_stats.get("reviewed_count"), 1)
+            self.assertEqual(
+                external_finding_stats.get("adjudication_coverage_pct"),
+                50.0,
+            )
             event_stats = report.get("event_stats") or {}
             self.assertEqual(event_stats.get("total_machine_output_bytes"), 120)
             self.assertEqual(event_stats.get("total_estimated_machine_tokens"), 30)
@@ -200,6 +241,10 @@ class DataScienceSnapshotTests(unittest.TestCase):
             self.assertTrue(summary_md.exists())
             self.assertIn(
                 "Governance Review Metrics",
+                summary_md.read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "External Finding Corpus",
                 summary_md.read_text(encoding="utf-8"),
             )
             self.assertIn(
@@ -265,10 +310,12 @@ class DataScienceCliIntegrationTests(unittest.TestCase):
             benchmark_root = root / "benchmarks-empty"
             watchdog_root = root / "watchdog-empty"
             governance_review_log = root / "governance-reviews.jsonl"
+            external_finding_log = root / "external-findings.jsonl"
             swarm_root.mkdir(parents=True, exist_ok=True)
             benchmark_root.mkdir(parents=True, exist_ok=True)
             watchdog_root.mkdir(parents=True, exist_ok=True)
             governance_review_log.write_text("", encoding="utf-8")
+            external_finding_log.write_text("", encoding="utf-8")
 
             with (
                 patch.dict(
@@ -283,11 +330,13 @@ class DataScienceCliIntegrationTests(unittest.TestCase):
                         "DEVCTL_DATA_SCIENCE_BENCHMARK_ROOT": str(benchmark_root),
                         "DEVCTL_DATA_SCIENCE_WATCHDOG_ROOT": str(watchdog_root),
                         "DEVCTL_DATA_SCIENCE_GOVERNANCE_REVIEW_LOG": str(governance_review_log),
+                        "DEVCTL_DATA_SCIENCE_EXTERNAL_FINDING_LOG": str(external_finding_log),
                         "DEVCTL_DATA_SCIENCE_MAX_EVENTS": "100",
                         "DEVCTL_DATA_SCIENCE_MAX_SWARM_FILES": "10",
                         "DEVCTL_DATA_SCIENCE_MAX_BENCHMARK_FILES": "10",
                         "DEVCTL_DATA_SCIENCE_MAX_WATCHDOG_ROWS": "25",
                         "DEVCTL_DATA_SCIENCE_MAX_GOVERNANCE_REVIEW_ROWS": "25",
+                        "DEVCTL_DATA_SCIENCE_MAX_EXTERNAL_FINDING_ROWS": "25",
                     },
                     clear=False,
                 ),
@@ -304,6 +353,10 @@ class DataScienceCliIntegrationTests(unittest.TestCase):
             self.assertEqual(
                 payload.get("governance_review_log"),
                 str(governance_review_log.resolve()),
+            )
+            self.assertEqual(
+                payload.get("external_finding_log"),
+                str(external_finding_log.resolve()),
             )
 
 
@@ -325,6 +378,10 @@ class DataScienceParserTests(unittest.TestCase):
                 "/tmp/reviews.jsonl",
                 "--max-governance-review-rows",
                 "120",
+                "--external-finding-log",
+                "/tmp/external-findings.jsonl",
+                "--max-external-finding-rows",
+                "240",
                 "--format",
                 "json",
             ]
@@ -336,6 +393,8 @@ class DataScienceParserTests(unittest.TestCase):
         self.assertEqual(args.max_watchdog_rows, 250)
         self.assertEqual(args.governance_review_log, "/tmp/reviews.jsonl")
         self.assertEqual(args.max_governance_review_rows, 120)
+        self.assertEqual(args.external_finding_log, "/tmp/external-findings.jsonl")
+        self.assertEqual(args.max_external_finding_rows, 240)
         self.assertEqual(args.format, "json")
 
 

@@ -139,6 +139,47 @@ class GovernanceReviewCommandTests(unittest.TestCase):
 
         self.assertEqual(rc, 2)
 
+    def test_record_accepts_audit_signal_type(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            log_path = root / "finding_reviews.jsonl"
+            summary_root = root / "summary"
+
+            args = cli.build_parser().parse_args(
+                [
+                    "governance-review",
+                    "--record",
+                    "--log-path",
+                    str(log_path),
+                    "--summary-root",
+                    str(summary_root),
+                    "--signal-type",
+                    "audit",
+                    "--check-id",
+                    "external_audit.command_source",
+                    "--verdict",
+                    "confirmed_issue",
+                    "--path",
+                    "scripts/python_fallback.py",
+                    "--repo-name",
+                    "ci-cd-hub",
+                    "--line",
+                    "479",
+                    "--format",
+                    "json",
+                ]
+            )
+
+            self.assertEqual(governance_review.run(args), 0)
+            payload = json.loads(
+                (summary_root / "review_summary.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(payload["stats"]["total_findings"], 1)
+            self.assertEqual(
+                (payload.get("recent_findings") or [{}])[0].get("signal_type"),
+                "audit",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

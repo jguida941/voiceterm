@@ -104,6 +104,41 @@ class GovernanceCliDispatchTests(unittest.TestCase):
         self.assertEqual(payload["command"], "governance-review")
         self.assertEqual(payload["stats"]["fixed_count"], 1)
 
+    def test_governance_import_findings_dispatch_emits_machine_output(self) -> None:
+        args, output_path = self._parse_args("governance-import-findings")
+        report = {
+            "ok": True,
+            "stats": {"total_findings": 3, "reviewed_count": 2},
+            "recent_findings": [
+                {"finding_id": "finding-1", "check_id": "external_audit"}
+            ],
+        }
+
+        with patch(
+            "dev.scripts.devctl.commands.governance.import_findings.resolve_external_finding_log_path",
+            return_value=Path("/tmp/external-findings.jsonl"),
+        ), patch(
+            "dev.scripts.devctl.commands.governance.import_findings.resolve_external_finding_summary_root",
+            return_value=Path("/tmp/external-findings-summary"),
+        ), patch(
+            "dev.scripts.devctl.commands.governance.import_findings.resolve_governance_review_log_path",
+            return_value=Path("/tmp/reviews.jsonl"),
+        ), patch(
+            "dev.scripts.devctl.commands.governance.import_findings.build_external_finding_report",
+            return_value=report,
+        ), patch(
+            "dev.scripts.devctl.commands.governance.import_findings.write_external_finding_summary",
+            return_value={
+                "summary_json": "/tmp/external-findings-summary/external_findings_summary.json"
+            },
+        ):
+            rc = cli.COMMAND_HANDLERS[args.command](args)
+
+        payload = json.loads(output_path.read_text(encoding="utf-8"))
+        self.assertEqual(rc, 0)
+        self.assertEqual(payload["command"], "governance-import-findings")
+        self.assertEqual(payload["stats"]["total_findings"], 3)
+
     def test_render_surfaces_dispatch_emits_machine_output(self) -> None:
         args, output_path = self._parse_args(
             "render-surfaces",
