@@ -159,7 +159,11 @@ def resolve_promotion_and_terminal_state(
             list_terminal_profiles_fn=list_terminal_profiles_fn,
         )
         if getattr(args, "auto_promote", False) and promotion is None:
-            from ..review_channel.handoff import extract_bridge_snapshot
+            from ..review_channel.handoff import (
+                extract_bridge_snapshot,
+                summarize_bridge_liveness,
+            )
+            from ..review_channel.heartbeat import compute_non_audit_worktree_hash
             from ..review_channel.promotion import (
                 derive_promotion_candidate,
                 validate_promotion_ready,
@@ -169,6 +173,21 @@ def resolve_promotion_and_terminal_state(
                 context.bridge_path.read_text(encoding="utf-8")
             )
             readiness_errors = validate_promotion_ready(snapshot)
+            try:
+                current_hash = compute_non_audit_worktree_hash(
+                    repo_root=context.repo_root,
+                    excluded_rel_paths=("code_audit.md",),
+                )
+            except (ValueError, OSError):
+                current_hash = None
+            liveness = summarize_bridge_liveness(
+                snapshot, current_worktree_hash=current_hash
+            )
+            if liveness.reviewed_hash_current is False:
+                readiness_errors.append(
+                    "Review content is stale: the worktree has changed since "
+                    "the last reviewed hash. Re-review before auto-promoting."
+                )
             candidate = derive_promotion_candidate(
                 repo_root=context.repo_root,
                 promotion_plan_path=context.promotion_plan_path,

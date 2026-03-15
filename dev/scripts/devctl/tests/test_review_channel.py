@@ -1319,7 +1319,13 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 pipe_args=None,
             )
 
-            with patch.object(review_channel_command, "REPO_ROOT", root):
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.heartbeat.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+            ):
                 rc = review_channel_command.run(args)
 
             self.assertEqual(rc, 0)
