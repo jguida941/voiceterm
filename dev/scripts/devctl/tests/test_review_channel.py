@@ -1258,6 +1258,147 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 updated_bridge,
             )
 
+    def test_auto_promote_on_launch_promotes_when_bridge_is_idle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(), encoding="utf-8"
+            )
+            promotion_plan_path = root / "dev/active/continuous_swarm.md"
+            promotion_plan_path.write_text(
+                "\n".join([
+                    "# Plan",
+                    "",
+                    "## Execution Checklist",
+                    "",
+                    "- [ ] First unchecked task for auto-promote test.",
+                    "- [ ] Second task.",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+            bridge_path = root / "code_audit.md"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    current_verdict="- accepted",
+                    open_findings="- all clear",
+                    current_instruction="- complete",
+                ),
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            args = SimpleNamespace(
+                action="launch",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                promotion_plan=str(promotion_plan_path.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                approval_mode="balanced",
+                scope=None,
+                script_dir=None,
+                dry_run=True,
+                auto_promote=True,
+                refresh_bridge_heartbeat_if_stale=False,
+                format="json",
+                output=str(output_path),
+                json_output=None,
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertIsNotNone(payload["promotion"])
+            self.assertIn(
+                "First unchecked task for auto-promote test",
+                payload["promotion"]["instruction"],
+            )
+
+    def test_auto_promote_skipped_when_bridge_has_active_instruction(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(), encoding="utf-8"
+            )
+            promotion_plan_path = root / "dev/active/continuous_swarm.md"
+            promotion_plan_path.write_text(
+                "\n".join([
+                    "# Plan",
+                    "",
+                    "## Execution Checklist",
+                    "",
+                    "- [ ] Should not be promoted.",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+            bridge_path = root / "code_audit.md"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    current_verdict="- still in progress",
+                    open_findings="- H1: real open finding",
+                    current_instruction="- fix the bug now",
+                ),
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            args = SimpleNamespace(
+                action="launch",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                promotion_plan=str(promotion_plan_path.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                approval_mode="balanced",
+                scope=None,
+                script_dir=None,
+                dry_run=True,
+                auto_promote=True,
+                refresh_bridge_heartbeat_if_stale=False,
+                format="json",
+                output=str(output_path),
+                json_output=None,
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertIsNone(payload["promotion"])
+
     def test_run_promote_refuses_when_open_findings_are_unresolved(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -2827,6 +2968,62 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
         ack_errors = [e for e in errors if "Claude Ack" in e]
         self.assertTrue(len(status_errors) > 0, "must reject placeholder Claude Status")
         self.assertTrue(len(ack_errors) > 0, "must reject placeholder Claude Ack")
+
+
+    def test_reviewed_hash_current_true_when_hashes_match(self) -> None:
+        stored_hash = "a" * 64
+        snapshot = extract_bridge_snapshot(_build_bridge_text())
+        liveness = summarize_bridge_liveness(
+            snapshot,
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            current_worktree_hash=stored_hash,
+        )
+        self.assertIs(liveness.reviewed_hash_current, True)
+
+    def test_reviewed_hash_current_false_when_hashes_differ(self) -> None:
+        different_hash = "b" * 64
+        snapshot = extract_bridge_snapshot(_build_bridge_text())
+        liveness = summarize_bridge_liveness(
+            snapshot,
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            current_worktree_hash=different_hash,
+        )
+        self.assertIs(liveness.reviewed_hash_current, False)
+
+    def test_reviewed_hash_current_none_when_no_current_hash_provided(self) -> None:
+        snapshot = extract_bridge_snapshot(_build_bridge_text())
+        liveness = summarize_bridge_liveness(
+            snapshot,
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+        )
+        self.assertIsNone(liveness.reviewed_hash_current)
+
+    def test_reviewed_hash_current_appears_in_liveness_dict(self) -> None:
+        from dev.scripts.devctl.review_channel.handoff import bridge_liveness_to_dict
+
+        stored_hash = "a" * 64
+        snapshot = extract_bridge_snapshot(_build_bridge_text())
+        liveness = summarize_bridge_liveness(
+            snapshot,
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            current_worktree_hash=stored_hash,
+        )
+        liveness_dict = bridge_liveness_to_dict(liveness)
+        self.assertIn("reviewed_hash_current", liveness_dict)
+        self.assertIs(liveness_dict["reviewed_hash_current"], True)
+
+    def test_reviewed_hash_current_false_when_snapshot_has_no_stored_hash(self) -> None:
+        bridge_text = _build_bridge_text().replace(
+            f"- Last non-audit worktree hash: `{'a' * 64}`",
+            "",
+        )
+        snapshot = extract_bridge_snapshot(bridge_text)
+        liveness = summarize_bridge_liveness(
+            snapshot,
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            current_worktree_hash="c" * 64,
+        )
+        self.assertIs(liveness.reviewed_hash_current, False)
 
 
 if __name__ == "__main__":
