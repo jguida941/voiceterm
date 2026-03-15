@@ -62,6 +62,10 @@ Out of scope until the local proof gate is green:
    handoff in repo-visible state.
 9. Any later template extraction must be carved from a modular, repo-proven
    core/profile boundary rather than from the current hardcoded VoiceTerm path.
+10. The transitional markdown bridge, generated skills/docs, PyQt6 launch
+    surfaces, and phone/mobile clients are all clients over the same
+    repo-owned loop/backend. MP-358 may harden the conductor and launcher, but
+    it may not fork task/plan authority into surface-local state.
 
 ## Cross-Plan Dependencies
 
@@ -258,6 +262,17 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-03-15: Made the launcher bridge-optional in auto execution mode.
+  `ensure_launcher_prereqs`, `bridge_launch_state`, heartbeat refresh,
+  `scope_bridge_instruction`, `promote_bridge_instruction`, bridge guard,
+  and auto-promote all gate bridge reads/writes behind `bridge_path.exists()`.
+  When the bridge is absent, the launcher falls through to lane parsing from
+  `review_channel.md` and constructs an empty `BridgeSnapshot`. Commits:
+  `7c9c901`, `89c6742`, `63a6c62`, `2e30bd6`, `37acd1b`.
+- 2026-03-15: Ran 8-lane audit. Key findings: no typed backend API layer,
+  `PhoneControlSnapshot`/`operator_decisions` are surface-local authority
+  leaks, `review_state` naming overloaded in `event_reducer.py` (defer
+  rename), plan set is healthy with one minor MP-376/377 boundary note.
 - 2026-03-15: Landed three bounded MP-358 slices:
   1. Fixed `--scope` promotion bug: `apply_scope_if_requested()` now returns
      the `PromotionCandidate`, launch report shows real `promotion` data
