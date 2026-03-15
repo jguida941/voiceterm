@@ -277,22 +277,24 @@ def scope_bridge_instruction(
 
     Unlike ``promote_bridge_instruction``, this does NOT validate that the
     current instruction is idle/resolved — the operator explicitly asked to
-    re-scope, so we overwrite unconditionally.
+    re-scope, so we overwrite unconditionally. When the bridge file does not
+    exist the candidate is still derived but no bridge rewrite occurs.
     """
-    bridge_text = bridge_path.read_text(encoding="utf-8")
     candidate = derive_promotion_candidate(
         repo_root=repo_root,
         promotion_plan_path=scope_plan_path,
         require_exists=True,
     )
     assert candidate is not None
-    source = display_path(scope_plan_path, repo_root=repo_root)
-    instruction = f"Scoped from `{source}` via `--scope`.\n\n" f"{candidate.instruction}"
-    updated = rewrite_current_instruction(
-        bridge_text=bridge_text,
-        instruction=instruction,
-    )
-    bridge_path.write_text(updated, encoding="utf-8")
+    if bridge_path.exists():
+        bridge_text = bridge_path.read_text(encoding="utf-8")
+        source = display_path(scope_plan_path, repo_root=repo_root)
+        instruction = f"Scoped from `{source}` via `--scope`.\n\n" f"{candidate.instruction}"
+        updated = rewrite_current_instruction(
+            bridge_text=bridge_text,
+            instruction=instruction,
+        )
+        bridge_path.write_text(updated, encoding="utf-8")
     return candidate
 
 
