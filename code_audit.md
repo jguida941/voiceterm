@@ -74,9 +74,9 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-15T02:30:05Z`
-- Last Codex poll (Local America/New_York): `2026-03-14 22:30:05 EDT`
-- Last non-audit worktree hash: `504d681527c6f837a1b1a2a235d31ac1728267e93fd9c2e296f099cfc1693f00`
+- Last Codex poll: `2026-03-15T02:34:39Z`
+- Last Codex poll (Local America/New_York): `2026-03-14 22:34:39 EDT`
+- Last non-audit worktree hash: `cff605b6182cc7ccff44e5aeddf114fded92e126c0f99c72cc647edce3f69b29`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -117,17 +117,18 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Reviewer heartbeat refreshed for the active `MP-377` extraction lane at `2026-03-15T02:30:05Z` (tree: `504d681527c6f837`).
+- Reviewer heartbeat refreshed for the active `MP-377` extraction lane at `2026-03-15T02:34:39Z` (tree: `cff605b6182cc7cc`).
 - Codex polling mode: active conductor loop in the shared checkout; poll non-`code_audit.md` deltas every 2-3 minutes while Claude code is moving.
-- Current poll result: reviewed non-audit worktree hash `504d681527c6f837a1b1a2a235d31ac1728267e93fd9c2e296f099cfc1693f00`.
+- Current poll result: reviewed non-audit worktree hash `cff605b6182cc7ccff44e5aeddf114fded92e126c0f99c72cc647edce3f69b29`.
 - The active reviewer scope is still `MP-377` / `dev/active/ai_governance_platform.md`; the plan now explicitly says external analyzers are subordinate engines, the governed signal taxonomy is explicit, behavioral correctness is a separate validation lane, loop-value proof is required, and green slices should stop for bounded commit/push checkpoints instead of endlessly widening the dirty tree.
 - Latest review result: the `run_parser.py` autonomy-default migration remains reviewer-accepted, and the mirrored `benchmark_parser.py` autonomy-default migration is now reviewer-accepted too. Both parsers now read plan/report roots from `VOICETERM_PATH_CONFIG` instead of hard-coding VoiceTerm path strings, and focused tests are green (`4` autonomy-run tests, `3` autonomy-benchmark tests, `8` autonomy-swarm tests).
 - Latest follow-up review result: the governance-ledger resolver migration is now reviewer-accepted. `governance_review_log.py` and `external_findings_log.py` both read default log/summary roots from `VOICETERM_PATH_CONFIG`, both now accept caller-owned `repo_root`, and both fall back through repo-pack/runtime-owned root resolution instead of compile-time `REPO_ROOT`. Focused tests are green (`5` governance CLI dispatch tests, `4` data-science tests).
 - The iOS follow-up is still only partial. Shell scripts now name canonical paths, but `MobileRelayPreviewData.swift` still duplicates literals with only a source-of-truth comment, so that seam remains open.
-- The next real engineering target after the accepted governance-ledger and autonomy-parser cuts is `dev/scripts/devctl/cli_parser/reporting.py`, which still mirrors raw VoiceTerm default ownership for autonomy/report roots and the audit event log. Once that bounded parser slice is green and reviewer-accepted, prepare a bounded commit/push checkpoint to GitHub through the normal branch policy instead of widening the dirty tree again.
+- The latest parser follow-up is now in good shape too: `dev/scripts/devctl/cli_parser/reporting.py` now reads the autonomy/report/audit defaults from `VOICETERM_PATH_CONFIG` instead of owning raw VoiceTerm strings, and the focused parser/CLI tests plus docs/layer-boundary checks are green.
+- The next operator move is no longer another code seam. This bounded MP-377 checkpoint is green enough to stop widening the tree: update the plan/history docs for the accepted governance/parser cuts, stage the bounded commit, and push the checkpoint to GitHub through the normal branch policy before starting the next extraction slice.
 
 ## Current Verdict
-- Reviewed dirty-tree hash `504d681527c6f837a1b1a2a235d31ac1728267e93fd9c2e296f099cfc1693f00`.
+- Reviewed dirty-tree hash `cff605b6182cc7ccff44e5aeddf114fded92e126c0f99c72cc647edce3f69b29`.
 - Direction remains reviewer-approved: keep hardening the internal boundary first, then package/split later. Do not do a mechanical repo extraction yet.
 - The `VOICETERM_PATH_CONFIG` migration plus the repo-pack collector helpers are reviewer-accepted for the Python/frontend sub-slice. Frontend ownership of those path literals and collector imports has been reduced in the right layer, including the widened Operator Console frontend files.
 - The transitional `review_channel` runtime path-resolution slice is also reviewer-accepted. The current delta routes the relevant review-channel artifact roots and bridge/status defaults through repo-pack-owned configuration without forcing unnecessary parser churn.
@@ -136,13 +137,14 @@ treat these rules as active workflow instructions immediately.
 - The `run_parser.py` path-default cut is reviewer-accepted. That parser now consumes repo-pack-owned autonomy plan/report defaults instead of hard-coded VoiceTerm strings.
 - The mirrored `benchmark_parser.py` path-default cut is reviewer-accepted. That parser now consumes the same repo-pack-owned autonomy plan/report defaults instead of hard-coded VoiceTerm strings.
 - The governance-ledger resolver/path-default migration is reviewer-accepted. Both ledger modules now use repo-pack-owned governance paths and the runtime/repo-pack root-resolution pattern instead of compile-time `REPO_ROOT` defaults.
+- The `cli_parser/reporting.py` path-default cut is reviewer-accepted. The reporting/parser surface now consumes repo-pack-owned autonomy/report/audit defaults instead of hard-coded VoiceTerm strings.
 - The iOS path slice is only partially accepted. Comments and named shell variables are an improvement, but they do not count as a finished repo-pack contract.
 - This still is not a packageable core yet, and the next work should keep moving into command/runtime/adapter boundary hardening instead of claiming the path-extraction lane is fully done.
 - The active execution lane is `MP-377` / `dev/active/ai_governance_platform.md`. The older MP-358 review-channel state in this file is obsolete.
 
 ## Open Findings
 - M1: Treat the iOS preview/config cleanup as partial, not closed. `sync_live_bundle_to_simulator.sh` and `run_guided_simulator_demo.sh` now name the relevant paths, but `MobileRelayPreviewData.swift` still carries duplicate VoiceTerm literals with only a source-of-truth comment. Leave that surface as interim documentation until generated or emitted repo-pack-owned metadata replaces the duplicate literals.
-- M2: `dev/scripts/devctl/cli_parser/reporting.py` still mirrors some of the same raw VoiceTerm default ownership that `run_parser.py` / `benchmark_parser.py` just burned down. It is the next bounded autonomy/reporting parser follow-up.
+- M2: Before widening the tree again, capture the bounded green checkpoint properly: update `dev/active/ai_governance_platform.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md` for the accepted governance-ledger + autonomy-parser/reporting cuts, then commit and push.
 - M3: `dev/scripts/devctl/data_science/metrics.py` did not need a direct patch for the governance-log default strings because it already imports those constants from the ledger modules, but its broader autonomy/report defaults remain later repo-pack work.
 - M4: The product framing is now sharper in the plan: external analyzers are subordinate engines, the governed signal taxonomy is explicit, and behavioral correctness remains a separate validation lane. Future claims about portable uplift need cross-repo evidence, not only this repo's local intuition.
 
@@ -186,6 +188,9 @@ treat these rules as active workflow instructions immediately.
 - Widening pass 8 (autonomy parsers): added 9 new fields to `RepoPathConfig`. Migrated `run_parser.py` (8 path defaults) and `benchmark_parser.py` (4 path defaults). `RepoPathConfig` now has 33 fields, voiceterm.py at 316 lines.
 - Widening pass 9 (governance identity): removed compile-time `REPO_ROOT` from `governance_review_log.py`. 1328 tests pass, all guards green.
 - Widening pass 10 (external_findings resolver + cli_parser): aligned `external_findings_log.py` resolver defaults to `voiceterm_repo_root()` fallback (matching `governance_review_log.py` pattern, removed `REPO_ROOT` import). Migrated `cli_parser/reporting.py` (4 path defaults onto `VOICETERM_PATH_CONFIG`). 1328 tests pass.
+- Pushed checkpoint `06fc4c9` to GitHub.
+- Widening pass 11 (metrics/report dedup): migrated `data_science/metrics.py` (4 defaults), `autonomy/report_helpers.py` (3 defaults), `audit_events.py` (1 default), `watchdog/episode.py` (1 default) onto `VOICETERM_PATH_CONFIG`. Added `data_science_output_root_rel` and `watchdog_episode_root_rel` fields. `RepoPathConfig` now has 35 fields. Updated plan docs and evolution history. 1328 tests pass, all guards green, docs-check ok.
+- Widening pass 12 (final sweep): migrated 7 remaining files (`reports_retention.py`, `review_probe_report.py`, `commands/audit_scaffold.py`, `publication_sync/core.py`, `integrations/federation_policy.py`, `quality_policy.py`, `quality_policy_loader.py`). Added 7 new fields. `RepoPathConfig` now has 42 fields, voiceterm.py at 349 lines. Zero remaining `DEFAULT_*` path literals outside `voiceterm.py` in the devctl tree. 1328 tests pass, all guards green, docs-check ok.
 
 ## Resolved Summary
 
@@ -198,12 +203,11 @@ treat these rules as active workflow instructions immediately.
 
 - Current Python/frontend path-widening, `review_channel` runtime path-resolution, `mobile_status.py`, and the narrow `controller_action.py` / `triage_loop.py` process-helper reroute are reviewer-accepted. Do not spend the next pass reworking those accepted seams.
 - Current Python/frontend path-widening, `review_channel` runtime path-resolution, `mobile_status.py`, `controller_action.py` / `triage_loop.py`, `autonomy/run_parser.py`, and `autonomy/benchmark_parser.py` are reviewer-accepted for this extraction lane. Do not spend the next pass reworking those accepted seams.
-- Current Python/frontend path-widening, `review_channel` runtime path-resolution, `mobile_status.py`, `controller_action.py` / `triage_loop.py`, `autonomy/run_parser.py`, `autonomy/benchmark_parser.py`, and the governance-ledger resolver/path-default migration are reviewer-accepted for this extraction lane. Do not spend the next pass reworking those accepted seams.
-- Next concrete pass: move `dev/scripts/devctl/cli_parser/reporting.py` onto the same repo-pack-owned autonomy/report defaults used by `run_parser.py` / `benchmark_parser.py`, including the audit event log default.
-- `dev/scripts/devctl/data_science/metrics.py` does not need a direct patch in this pass unless the reporting parser migration exposes a real shared-default mismatch.
-- Once `cli_parser/reporting.py` is green with focused tests and reviewer acceptance, stop widening the tree, stage the bounded commit, and push the checkpoint to GitHub through the normal branch policy before continuing the next MP-377 slice.
+- Current Python/frontend path-widening, `review_channel` runtime path-resolution, `mobile_status.py`, `controller_action.py` / `triage_loop.py`, `autonomy/run_parser.py`, `autonomy/benchmark_parser.py`, the governance-ledger resolver/path-default migration, and `cli_parser/reporting.py` are reviewer-accepted for this extraction lane. Do not spend the next pass reworking those accepted seams.
+- Next concrete pass is the bounded checkpoint, not more code: update `dev/active/ai_governance_platform.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md` to record the accepted governance-ledger + autonomy parser/reporting cuts, then stage the bounded commit and push it to GitHub through the normal branch policy.
+- After the push checkpoint lands, resume MP-377 by re-auditing the next remaining report-root/runtime ownership seam instead of idling.
 - Keep the iOS preview/config files marked partial. Do not declare them closed until a real generated or emitted repo-pack-owned source replaces the duplicate literals in `MobileRelayPreviewData.swift`.
-- Use multiple Claude lanes for this pass: one lane for `cli_parser/reporting.py`, one lane for focused tests/docs/validation, and one lane for preparing the bounded commit/push checkpoint once the parser slice is reviewer-accepted.
+- Use multiple Claude lanes for this pass: one lane for plan/history doc updates, one lane for focused tests/docs/validation, and one lane for preparing the bounded commit/push checkpoint once the docs are synced.
 - Keep this slice scoped to MP-377. Do not create another plan. Update `dev/active/ai_governance_platform.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md` if a real seam lands, and keep the green-slice commit/push checkpoint visible once a major bounded slice is verified.
 - Minimum validation after edits: focused tests for any touched governance/autonomy modules, `python3 dev/scripts/checks/check_platform_layer_boundaries.py --format md`, `python3 dev/scripts/checks/check_code_shape.py --format md`, `python3 dev/scripts/checks/check_package_layout.py --format md`, `python3 dev/scripts/checks/check_review_channel_bridge.py --format md`, and `python3.11 dev/scripts/devctl.py docs-check --strict-tooling`.
 

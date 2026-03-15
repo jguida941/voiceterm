@@ -8,8 +8,10 @@ from typing import Any
 
 from .common import read_json_object, resolve_repo_path
 from .config import REPO_ROOT
+from .repo_packs.voiceterm import VOICETERM_PATH_CONFIG
 
-DEFAULT_POLICY_RELATIVE_PATH = "dev/config/devctl_repo_policy.json"
+# Backward-compat alias sourced from repo-pack config
+DEFAULT_POLICY_RELATIVE_PATH = VOICETERM_PATH_CONFIG.repo_policy_rel
 DEFAULT_POLICY_PATH = REPO_ROOT / DEFAULT_POLICY_RELATIVE_PATH
 QUALITY_POLICY_ENV_VAR = "DEVCTL_QUALITY_POLICY"
 

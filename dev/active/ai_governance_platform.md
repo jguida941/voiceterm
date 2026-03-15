@@ -1896,6 +1896,17 @@ working on `MP-377`.
   `VOICETERM_PATH_CONFIG` instead of defining their own literals.
   `RepoPathConfig` has 20 fields total. `parser.py` and `events.py` needed
   no changes — backward-compat aliases flow through the import chain.
+- Widened the repo-pack boundary further with 4 more accepted passes:
+  `mobile_status.py` now routes review-state loading through
+  `repo_packs/review_helpers.py`; 6 command files moved `resolve_repo` /
+  `run_capture` off the checks layer into `repo_packs/process_helpers.py`;
+  governance ledger modules dropped compile-time `REPO_ROOT` for runtime
+  `voiceterm_repo_root()` fallback; and `run_parser.py`,
+  `benchmark_parser.py`, `cli_parser/reporting.py` all consume
+  `VOICETERM_PATH_CONFIG` for autonomy/report defaults. Remaining duplicate
+  defaults in `data_science/metrics.py`, `autonomy/report_helpers.py`,
+  `audit_events.py`, and `watchdog/episode.py` migrated onto the same
+  config. `RepoPathConfig` now has 35 fields, voiceterm.py at 322 lines.
 
 ### Next actions
 

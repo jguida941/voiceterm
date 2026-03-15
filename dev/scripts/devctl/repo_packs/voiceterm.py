@@ -154,6 +154,39 @@ class RepoPathConfig:
     # Audit event log (devctl event JSONL)
     audit_event_log_rel: str = "dev/reports/audits/devctl_events.jsonl"
 
+    # Data-science snapshot output root
+    data_science_output_root_rel: str = "dev/reports/data_science"
+
+    # Watchdog episode persistence root
+    watchdog_episode_root_rel: str = "dev/reports/autonomy/watchdog/episodes"
+
+    # Top-level reports root (used by retention helpers)
+    reports_root_rel: str = "dev/reports"
+
+    # Aggregated probe-report output root
+    probe_report_output_root_rel: str = "dev/reports/probes"
+
+    # Audit scaffold generated output
+    audit_scaffold_output_rel: str = (
+        "dev/reports/audits/RUST_AUDIT_FINDINGS.md"
+    )
+
+    # Audit scaffold template
+    audit_scaffold_template_rel: str = (
+        "dev/config/templates/rust_audit_findings_template.md"
+    )
+
+    # Publication sync registry
+    publication_sync_registry_rel: str = (
+        "dev/config/publication_sync_registry.json"
+    )
+
+    # Integration federation audit log
+    integration_audit_log_rel: str = "dev/reports/integration_import_audit.jsonl"
+
+    # Repo quality policy JSON
+    repo_policy_rel: str = "dev/config/devctl_repo_policy.json"
+
     @classmethod
     def voiceterm_defaults(cls) -> RepoPathConfig:
         """Return the standard VoiceTerm path configuration."""

@@ -9,10 +9,12 @@ from pathlib import Path
 from typing import Any
 
 from .config import REPO_ROOT
+from .repo_packs.voiceterm import VOICETERM_PATH_CONFIG
 
 POLICY_PATH = REPO_ROOT / "dev/config/control_plane_policy.json"
 POLICY_KEY = "audit_metrics"
-DEFAULT_EVENT_LOG = Path("dev/reports/audits/devctl_events.jsonl")
+# Backward-compat alias sourced from the repo-pack path config
+DEFAULT_EVENT_LOG = Path(VOICETERM_PATH_CONFIG.audit_event_log_rel)
 SOURCE_BUCKETS = {"script_only", "ai_assisted", "human_manual", "other"}
 AREA_BY_COMMAND = {
     "triage-loop": "loops",

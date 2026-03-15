@@ -46,6 +46,35 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-15 - Repo-pack extraction boundary widened across devctl runtime and commands
+
+Fact: the repo-pack extraction boundary now covers 35 `RepoPathConfig` fields,
+30+ migrated modules, 2 adapter helper modules (`review_helpers.py`,
+`process_helpers.py`), and runtime `voiceterm_repo_root()` fallback in
+governance ledger resolvers. Commands like `mobile_status.py` no longer
+import `review_channel` internals; 6 command files no longer reach into the
+checks layer for `resolve_repo`/`run_capture`; governance ledgers no longer
+stamp `repo_name`/`repo_path` from compile-time `REPO_ROOT`; and all
+autonomy/reporting parsers consume config-owned defaults. First bounded
+commit pushed to GitHub at `06fc4c9`.
+
+Evidence:
+
+- `dev/scripts/devctl/repo_packs/voiceterm.py` (35 fields, 322 lines)
+- `dev/scripts/devctl/repo_packs/review_helpers.py` (new)
+- `dev/scripts/devctl/repo_packs/process_helpers.py` (new)
+- `dev/scripts/devctl/commands/mobile_status.py`
+- `dev/scripts/devctl/commands/controller_action.py`
+- `dev/scripts/devctl/governance_review_log.py`
+- `dev/scripts/devctl/governance/external_findings_log.py`
+- `dev/scripts/devctl/autonomy/run_parser.py`
+- `dev/scripts/devctl/autonomy/benchmark_parser.py`
+- `dev/scripts/devctl/cli_parser/reporting.py`
+- `dev/scripts/devctl/data_science/metrics.py`
+- `dev/scripts/devctl/autonomy/report_helpers.py`
+- `dev/scripts/devctl/audit_events.py`
+- `dev/scripts/devctl/watchdog/episode.py`
+
 ### 2026-03-15 - RepoPathConfig and repo-pack collector helpers replace frontend-owned coupling
 
 Fact: `repo_packs.voiceterm` now owns a `RepoPathConfig` frozen dataclass (13

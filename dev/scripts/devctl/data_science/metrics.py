@@ -42,11 +42,13 @@ from .source_rows import (
     collect_swarm_summary_rows,
     read_jsonl_dict_tail,
 )
+from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG
 
-DEFAULT_OUTPUT_ROOT = "dev/reports/data_science"
-DEFAULT_SWARM_ROOT = "dev/reports/autonomy/swarms"
-DEFAULT_BENCHMARK_ROOT = "dev/reports/autonomy/benchmarks"
-DEFAULT_WATCHDOG_ROOT = "dev/reports/autonomy/watchdog/episodes"
+# Canonical defaults sourced from the repo-pack path config
+DEFAULT_OUTPUT_ROOT = VOICETERM_PATH_CONFIG.data_science_output_root_rel
+DEFAULT_SWARM_ROOT = VOICETERM_PATH_CONFIG.autonomy_swarm_root_rel
+DEFAULT_BENCHMARK_ROOT = VOICETERM_PATH_CONFIG.autonomy_benchmark_root_rel
+DEFAULT_WATCHDOG_ROOT = VOICETERM_PATH_CONFIG.watchdog_episode_root_rel
 DEFAULT_MAX_EVENTS = 20_000
 DEFAULT_MAX_SWARM_FILES = 2_000
 DEFAULT_MAX_BENCHMARK_FILES = 500
