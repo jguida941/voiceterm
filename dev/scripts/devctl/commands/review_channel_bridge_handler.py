@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..review_channel.attention import derive_bridge_attention
 from ..review_channel.core import (
     detect_active_session_conflicts,
     summarize_active_session_conflicts,
 )
 from ..review_channel.handoff import BRIDGE_LIVENESS_KEYS
+from ..review_channel.peer_liveness import STALE_PEER_RECOVERY
 from ..review_channel.launch import (
     build_launch_sessions,
     launch_terminal_sessions,
@@ -91,6 +93,15 @@ def _run_bridge_action(
         bridge_actions=BRIDGE_ACTIONS,
         build_bridge_guard_report_fn=build_bridge_guard_report,
     )
+    if args.action in BRIDGE_ACTIONS:
+        attention = derive_bridge_attention(bridge_liveness)
+        attention_status = str(attention.get("status", ""))
+        recovery_entry = STALE_PEER_RECOVERY.get(attention_status, {})
+        if str(recovery_entry.get("guard_behavior")) == "block_launch":
+            raise ValueError(
+                f"Peer-liveness guard blocks launch: {attention.get('summary', attention_status)}. "
+                f"Recovery: {attention.get('recommended_action', 'inspect bridge state')}."
+            )
     promotion, terminal_profile_applied, warnings = resolve_promotion_and_terminal_state(
         args=args,
         context=BridgePromotionContext(
