@@ -169,9 +169,13 @@ def resolve_promotion_and_terminal_state(
                 validate_promotion_ready,
             )
 
-            snapshot = extract_bridge_snapshot(
-                context.bridge_path.read_text(encoding="utf-8")
-            )
+            if context.bridge_path.exists():
+                snapshot = extract_bridge_snapshot(
+                    context.bridge_path.read_text(encoding="utf-8")
+                )
+            else:
+                from ..review_channel.handoff import BridgeSnapshot
+                snapshot = BridgeSnapshot(metadata={}, sections={})
             readiness_errors = validate_promotion_ready(snapshot)
             try:
                 current_hash = compute_non_audit_worktree_hash(
