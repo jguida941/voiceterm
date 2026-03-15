@@ -175,8 +175,13 @@ Out of scope until the local proof gate is green:
 
 ### Phase 2 - Continuous Loop Behavior
 
-- [ ] Implement automatic next-task promotion so the conductor does not stop
+- [x] Implement automatic next-task promotion so the conductor does not stop
       after one accepted slice while scoped work still exists.
+      Landed: `--auto-promote` flag wired into launch/status actions
+      (`review_channel_bridge_action_support.py`). When the bridge is in a
+      promotable state (accepted verdict, clear findings, idle instruction),
+      the next unchecked plan item is promoted into the bridge instruction
+      automatically. End-to-end proven with 2 focused tests (`5239d88`).
 - [ ] Keep bridge truth synchronized when the reviewer heartbeat advances:
       `code_audit.md`, `latest.md`, and `review_state.json` must move the
       reviewed hash, current verdict, open findings, plan alignment, and next
