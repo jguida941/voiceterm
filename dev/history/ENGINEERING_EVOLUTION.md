@@ -46,6 +46,30 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-15 - MP-358 tandem-loop promotion/sync/liveness contract hardened
+
+Fact: the continuous Codex/Claude review loop now has concrete tool-owned
+contracts instead of documented intent. `--scope` returns a real promotion
+payload (`86b902c`). `--auto-promote` promotes the next plan item
+automatically when the bridge is in a promotable state (`5239d88`).
+`reviewed_hash_current` flows through status, launch, attention, and
+handoff surfaces (`0935dc8`, `4ae9830`, `e76ddd2`). `REVIEWED_HASH_STALE`
+attention fires when review content is stale relative to the tree.
+`block_launch` peer-liveness guard enforces heartbeat freshness before
+opening sessions (`b2e2101`). 1335 tests pass across the combined slice.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel_bridge_support.py`
+- `dev/scripts/devctl/commands/review_channel_bridge_handler.py`
+- `dev/scripts/devctl/commands/review_channel_bridge_action_support.py`
+- `dev/scripts/devctl/review_channel/heartbeat.py`
+- `dev/scripts/devctl/review_channel/handoff.py`
+- `dev/scripts/devctl/review_channel/attention.py`
+- `dev/scripts/devctl/review_channel/peer_liveness.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/review_channel/parser.py`
+
 ### 2026-03-15 - Repo-pack extraction boundary widened across devctl runtime and commands
 
 Fact: the repo-pack extraction boundary now covers 35 `RepoPathConfig` fields,

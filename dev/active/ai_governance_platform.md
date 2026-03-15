@@ -1906,7 +1906,14 @@ working on `MP-377`.
   `VOICETERM_PATH_CONFIG` for autonomy/report defaults. Remaining duplicate
   defaults in `data_science/metrics.py`, `autonomy/report_helpers.py`,
   `audit_events.py`, and `watchdog/episode.py` migrated onto the same
-  config. `RepoPathConfig` now has 35 fields, voiceterm.py at 322 lines.
+  config. `RepoPathConfig` now has 42 fields, voiceterm.py at 349 lines.
+- MP-358 tandem-loop work is now underway alongside the extraction lane:
+  fixed `--scope` promotion bug (`86b902c`), added `--auto-promote` with
+  end-to-end tests, wired `reviewed_hash_current` into status/launch/
+  attention/handoff surfaces, enforced `block_launch` peer-liveness guard,
+  and added `REVIEWED_HASH_STALE` attention signal. These are runtime
+  contract improvements that complement the repo-pack extraction boundary
+  by making the shared runner surfaces honest about bridge truth.
 
 ### Next actions
 
