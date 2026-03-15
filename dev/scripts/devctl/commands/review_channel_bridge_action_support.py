@@ -158,6 +158,31 @@ def resolve_promotion_and_terminal_state(
             claude_lanes=context.claude_lanes,
             list_terminal_profiles_fn=list_terminal_profiles_fn,
         )
+        if getattr(args, "auto_promote", False) and promotion is None:
+            from ..review_channel.handoff import extract_bridge_snapshot
+            from ..review_channel.promotion import (
+                derive_promotion_candidate,
+                validate_promotion_ready,
+            )
+
+            snapshot = extract_bridge_snapshot(
+                context.bridge_path.read_text(encoding="utf-8")
+            )
+            readiness_errors = validate_promotion_ready(snapshot)
+            candidate = derive_promotion_candidate(
+                repo_root=context.repo_root,
+                promotion_plan_path=context.promotion_plan_path,
+                require_exists=False,
+            )
+            if not readiness_errors and candidate is not None:
+                promotion = promote_bridge_instruction_fn(
+                    repo_root=context.repo_root,
+                    bridge_path=context.bridge_path,
+                    promotion_plan_path=context.promotion_plan_path,
+                )
+                warnings.append(
+                    f"Auto-promoted next task: {candidate.checklist_item}"
+                )
         return promotion, terminal_profile_applied, warnings
 
     promotion = promote_bridge_instruction_fn(

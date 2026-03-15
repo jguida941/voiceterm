@@ -200,11 +200,14 @@ Out of scope until the local proof gate is green:
       300-second heartbeat window, the bridge prose must match those thresholds,
       and `latest/sessions/*.json` plus `review-channel --action status` must
       describe the actually active conductor instance or clearly report none.
-- [ ] Add `--scope` / `--plan` flag to `review-channel --action launch` so
+- [x] Add `--scope` / `--plan` flag to `review-channel --action launch` so
       the launcher can re-scope `Current Instruction For Claude` automatically
       from a named active-plan doc instead of requiring manual bridge edits
-      before every new task. This makes "point the swarm at a new plan" a
-      one-command operation.
+      before every new task. Landed in `review_channel/promotion.py`
+      (`resolve_scope_plan_path`, `scope_bridge_instruction`) and
+      `commands/review_channel_bridge_support.py` (`apply_scope_if_requested`).
+      The launch report now returns the promotion candidate instead of `null`
+      when `--scope` is used.
 
 ### Phase 3 - Context Rotation And Handoff
 

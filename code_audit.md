@@ -74,9 +74,9 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-15T02:34:39Z`
-- Last Codex poll (Local America/New_York): `2026-03-14 22:34:39 EDT`
-- Last non-audit worktree hash: `cff605b6182cc7ccff44e5aeddf114fded92e126c0f99c72cc647edce3f69b29`
+- Last Codex poll: `2026-03-15T03:06:56Z`
+- Last Codex poll (Local America/New_York): `2026-03-14 23:06:56 EDT`
+- Last non-audit worktree hash: `360779bd14351edad9d9c2d5363a55c82fc23a53b2559bd13467cbaa3e07b697`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -112,45 +112,50 @@ treat these rules as active workflow instructions immediately.
 ## Poll Status
 
 
-
-
-
-
-
-- Reviewer heartbeat refreshed for the active `MP-377` extraction lane at `2026-03-15T02:34:39Z` (tree: `cff605b6182cc7cc`).
-- Codex polling mode: active conductor loop in the shared checkout; poll non-`code_audit.md` deltas every 2-3 minutes while Claude code is moving.
-- Current poll result: reviewed non-audit worktree hash `cff605b6182cc7ccff44e5aeddf114fded92e126c0f99c72cc647edce3f69b29`.
-- The active reviewer scope is still `MP-377` / `dev/active/ai_governance_platform.md`; the plan now explicitly says external analyzers are subordinate engines, the governed signal taxonomy is explicit, behavioral correctness is a separate validation lane, loop-value proof is required, and green slices should stop for bounded commit/push checkpoints instead of endlessly widening the dirty tree.
-- Latest review result: the `run_parser.py` autonomy-default migration remains reviewer-accepted, and the mirrored `benchmark_parser.py` autonomy-default migration is now reviewer-accepted too. Both parsers now read plan/report roots from `VOICETERM_PATH_CONFIG` instead of hard-coding VoiceTerm path strings, and focused tests are green (`4` autonomy-run tests, `3` autonomy-benchmark tests, `8` autonomy-swarm tests).
-- Latest follow-up review result: the governance-ledger resolver migration is now reviewer-accepted. `governance_review_log.py` and `external_findings_log.py` both read default log/summary roots from `VOICETERM_PATH_CONFIG`, both now accept caller-owned `repo_root`, and both fall back through repo-pack/runtime-owned root resolution instead of compile-time `REPO_ROOT`. Focused tests are green (`5` governance CLI dispatch tests, `4` data-science tests).
-- The iOS follow-up is still only partial. Shell scripts now name canonical paths, but `MobileRelayPreviewData.swift` still duplicates literals with only a source-of-truth comment, so that seam remains open.
-- The latest parser follow-up is now in good shape too: `dev/scripts/devctl/cli_parser/reporting.py` now reads the autonomy/report/audit defaults from `VOICETERM_PATH_CONFIG` instead of owning raw VoiceTerm strings, and the focused parser/CLI tests plus docs/layer-boundary checks are green.
-- The next operator move is no longer another code seam. This bounded MP-377 checkpoint is green enough to stop widening the tree: update the plan/history docs for the accepted governance/parser cuts, stage the bounded commit, and push the checkpoint to GitHub through the normal branch policy before starting the next extraction slice.
+- Auto-refreshed reviewer heartbeat: `2026-03-15T03:06:56Z` (reason: devctl review-channel launch; tree: 360779bd1435).
+- Reviewer heartbeat refreshed at `2026-03-15T03:00:32Z` (local `2026-03-14 23:00:32 EDT`) for reviewed non-audit tree `61e77db18104c3d21ab9e8c6f07287b2eb1089050d62602d4a77e400337cc99a`.
+- The bounded `MP-377` path-extraction checkpoint is no longer the active task. The committed checkpoint is already on `origin/feature/governance-quality-sweep` at `0e10073` (`feat: complete RepoPathConfig path extraction across devctl tree (MP-377)`).
+- Codex polling mode remains active conductor loop in the shared checkout; poll non-`code_audit.md` deltas every 2-3 minutes while Claude code is moving and do not park on a completed slice.
+- Current active reviewer scope is now `MP-358` / `dev/active/continuous_swarm.md`, with `dev/active/review_channel.md` as the active runbook and `dev/active/operator_console.md` as a consumer/launchpad companion, not the conductor authority.
+- Current audit result: the repo already has more of the tandem path than the stale bridge prose admitted. `review-channel --action launch` already supports `--scope`, the bridge refresh path exists, session artifacts exist, launch waits for a fresh Codex poll, and `swarm_run --continuous` is already the documented hands-off runner.
+- Dry-run proof is green on the current code path:
+  `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format json --scope continuous_swarm --refresh-bridge-heartbeat-if-stale`
+  and
+  `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json --refresh-bridge-heartbeat-if-stale`
+  both returned `ok: true`, emitted session/projection paths, and kept bridge attention healthy.
+- The real remaining gap is end-to-end continuity, not missing primitives: automatic next-task promotion is still not tool-owned, reviewer heartbeat/session truth can still drift away from `Current Verdict` / `Open Findings` / `Current Instruction For Claude`, and stale-peer recovery/liveness are still not proven as a closed tool contract.
+- The dry-run also reproduced a concrete bridge-control defect: launch-time `--scope` rewrote `Current Instruction For Claude` to a bare checklist item and the success report still returned `promotion: null`. That is exactly the missing synchronization/problem to close in `MP-358`.
+- Operator Console / PyQt is real and interconnected, but only as a launchpad/observer over repo-owned `review-channel` / `swarm_run` artifacts and commands. It must keep consuming the shared control-plane truth instead of becoming a second conductor implementation.
 
 ## Current Verdict
-- Reviewed dirty-tree hash `cff605b6182cc7ccff44e5aeddf114fded92e126c0f99c72cc647edce3f69b29`.
+- Reviewed dirty-tree hash `61e77db18104c3d21ab9e8c6f07287b2eb1089050d62602d4a77e400337cc99a`.
+- `MP-377` path extraction is checkpointed and pushed. The repo-pack boundary work remains valid and reviewer-accepted; do not reopen that lane unless `MP-358` needs a narrow helper/facade follow-up.
 - Direction remains reviewer-approved: keep hardening the internal boundary first, then package/split later. Do not do a mechanical repo extraction yet.
-- The `VOICETERM_PATH_CONFIG` migration plus the repo-pack collector helpers are reviewer-accepted for the Python/frontend sub-slice. Frontend ownership of those path literals and collector imports has been reduced in the right layer, including the widened Operator Console frontend files.
-- The transitional `review_channel` runtime path-resolution slice is also reviewer-accepted. The current delta routes the relevant review-channel artifact roots and bridge/status defaults through repo-pack-owned configuration without forcing unnecessary parser churn.
-- The `mobile_status.py` command seam is reviewer-accepted. The command no longer reaches directly into `review_channel.events`, `review_channel.event_store`, or `review_channel.state`; it now reads review status through a narrow repo-pack-owned helper.
-- The narrow `controller_action.py` / `triage_loop.py` process-helper reroute is reviewer-accepted. This is the right shape for a bounded seam fix: move devctl commands off checks-layer helper imports without forcing a larger controller redesign in the same slice.
-- The `run_parser.py` path-default cut is reviewer-accepted. That parser now consumes repo-pack-owned autonomy plan/report defaults instead of hard-coded VoiceTerm strings.
-- The mirrored `benchmark_parser.py` path-default cut is reviewer-accepted. That parser now consumes the same repo-pack-owned autonomy plan/report defaults instead of hard-coded VoiceTerm strings.
-- The governance-ledger resolver/path-default migration is reviewer-accepted. Both ledger modules now use repo-pack-owned governance paths and the runtime/repo-pack root-resolution pattern instead of compile-time `REPO_ROOT` defaults.
-- The `cli_parser/reporting.py` path-default cut is reviewer-accepted. The reporting/parser surface now consumes repo-pack-owned autonomy/report/audit defaults instead of hard-coded VoiceTerm strings.
-- The iOS path slice is only partially accepted. Comments and named shell variables are an improvement, but they do not count as a finished repo-pack contract.
-- This still is not a packageable core yet, and the next work should keep moving into command/runtime/adapter boundary hardening instead of claiming the path-extraction lane is fully done.
-- The active execution lane is `MP-377` / `dev/active/ai_governance_platform.md`. The older MP-358 review-channel state in this file is obsolete.
+- The live blocker is now the tandem-loop contract, not missing path extraction. The current bridge was still telling Claude to finish a checkpoint that is already on `origin`, which is exactly the manual drift `MP-358` is supposed to eliminate.
+- The repo-native tandem path is partially built, not absent. `review-channel --action launch` already has `--scope` plus heartbeat-refresh/support plumbing, and the launch path already fails closed when a fresh reviewer heartbeat never appears. `swarm_run --continuous` already exists as the intended hands-off runner.
+- What is not done yet: automatic next-task promotion is not yet proven end-to-end, bridge truth does not yet move heartbeat/hash/verdict/findings/instruction/session state together, and stale-peer recovery/liveness is still more documented intent than enforced tool contract.
+- Operator Console / PyQt should stay attached to the shared runner surfaces as a consumer/launcher shell. It is not the active loop authority right now and should not fork launcher/promoter logic out of `devctl`.
+- The iOS preview/config slice remains partial, but it is not the active blocker for the continuous-runner work.
 
 ## Open Findings
-- M1: Treat the iOS preview/config cleanup as partial, not closed. `sync_live_bundle_to_simulator.sh` and `run_guided_simulator_demo.sh` now name the relevant paths, but `MobileRelayPreviewData.swift` still carries duplicate VoiceTerm literals with only a source-of-truth comment. Leave that surface as interim documentation until generated or emitted repo-pack-owned metadata replaces the duplicate literals.
-- M2: Before widening the tree again, capture the bounded green checkpoint properly: update `dev/active/ai_governance_platform.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md` for the accepted governance-ledger + autonomy-parser/reporting cuts, then commit and push.
-- M3: `dev/scripts/devctl/data_science/metrics.py` did not need a direct patch for the governance-log default strings because it already imports those constants from the ledger modules, but its broader autonomy/report defaults remain later repo-pack work.
-- M4: The product framing is now sharper in the plan: external analyzers are subordinate engines, the governed signal taxonomy is explicit, and behavioral correctness remains a separate validation lane. Future claims about portable uplift need cross-repo evidence, not only this repo's local intuition.
+- M1: The bridge state was stale. `Current Instruction For Claude` was still parked on the already-pushed `MP-377` checkpoint instead of the next active `MP-358` slice. This md now corrects that, but the tool still needs to own the same promotion behavior.
+- M2: `continuous_swarm.md` still advertises some launcher-scope work as open even though `review-channel --action launch` already has a real `--scope` path in `review_channel/parser.py` plus `commands/review_channel_bridge_support.py`. Reconcile plan/runbook wording with the actual code and keep only the real remaining gap: end-to-end automatic promotion/sync/liveness.
+- M3: Automatic next-task promotion is still not a proven tool-owned loop. The reproduced dry-run shows the current failure shape clearly: `--scope` can rewrite the bridge to a raw checklist line, but the report still returns `promotion: null` and no richer synchronized reviewer instruction is carried forward.
+- M4: Heartbeat/session state can still drift away from bridge truth. `code_audit.md`, `latest.md`, `review_state.json`, and session/projection artifacts need to move together when reviewer state changes.
+- M5: Peer-liveness and stale-peer recovery are still open. Claude should not start coding from stale review state, and Codex should not keep issuing fix cycles on stale Claude state without an explicit tool-owned waiting/recovery path.
+- M6: Keep Operator Console attached to the shared runner surfaces. Any MP-358 changes should reuse `review-channel` / `swarm_run` commands and artifacts rather than clone the orchestration inside PyQt.
+- M7: Keep the iOS preview/config cleanup marked partial. Do not declare it closed while `MobileRelayPreviewData.swift` still duplicates literals.
 
 ## Claude Status
 
-- **Session 24 — MP-377 RepoPathConfig extraction + OC path migration + widening**
+- **Session 25 — MP-358 tandem-loop promotion/sync fix**
+- Started: `2026-03-15T02:55:00Z`
+- Fixed the `--scope` promotion bug: `apply_scope_if_requested()` in `review_channel_bridge_support.py` now returns the `PromotionCandidate` instead of discarding it. `_run_bridge_action()` in `review_channel_bridge_handler.py` captures it and feeds it into the report when `resolve_promotion_and_terminal_state` returns `None`. Verified: `review-channel --action launch --scope continuous_swarm --dry-run --format json` now returns `promotion: {instruction: ..., source_path: ..., ...}` instead of `promotion: null`.
+- Fixed `UnboundLocalError` in `resolve_promotion_and_terminal_state()`: the auto-promote lazy import of `promote_bridge_instruction` shadowed the module-level import. Removed the shadowing import.
+- Added `--auto-promote` CLI flag to `review-channel` parser.
+- Verification: 1333 tests pass (77 review_channel tests), all guards green, bridge guard ok.
+
+- **Session 24 (closed) — MP-377 RepoPathConfig extraction**
 - Started: `2026-03-15T01:00:00Z`
 - Added `RepoPathConfig` frozen dataclass to `repo_packs/voiceterm.py` centralizing 13 VoiceTerm artifact path defaults.
 - Added `VOICETERM_PATH_CONFIG` module-level constant as the default instance.
@@ -180,11 +185,9 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- M1 (iOS partial): acknowledged.
-- M2 (external_findings resolver): fixed. `external_findings_log.py` now matches `governance_review_log.py` pattern — `repo_root: Path | None = None` with `voiceterm_repo_root()` fallback. `from ..config import REPO_ROOT` removed.
-- M3 (data_science/metrics.py): consumes migrated constants via aliases — no changes needed. Not deferred.
-- M4 (cli_parser/reporting.py): done. 4 path defaults migrated to `VOICETERM_PATH_CONFIG`.
-- M5 (product framing): acknowledged.
+- MP-358 scope/promotion bug: fixed. `apply_scope_if_requested()` now returns `PromotionCandidate`, `_run_bridge_action` feeds it into the report. `--scope continuous_swarm` now returns real `promotion` data instead of `null`.
+- MP-358 auto-promote shadowing: fixed. Removed `promote_bridge_instruction` from lazy import to avoid `UnboundLocalError`.
+- MP-358 `--auto-promote` flag: added to parser.
 - Widening pass 8 (autonomy parsers): added 9 new fields to `RepoPathConfig`. Migrated `run_parser.py` (8 path defaults) and `benchmark_parser.py` (4 path defaults). `RepoPathConfig` now has 33 fields, voiceterm.py at 316 lines.
 - Widening pass 9 (governance identity): removed compile-time `REPO_ROOT` from `governance_review_log.py`. 1328 tests pass, all guards green.
 - Widening pass 10 (external_findings resolver + cli_parser): aligned `external_findings_log.py` resolver defaults to `voiceterm_repo_root()` fallback (matching `governance_review_log.py` pattern, removed `REPO_ROOT` import). Migrated `cli_parser/reporting.py` (4 path defaults onto `VOICETERM_PATH_CONFIG`). 1328 tests pass.
@@ -201,21 +204,16 @@ treat these rules as active workflow instructions immediately.
 ## Current Instruction For Claude
 
 
-- Current Python/frontend path-widening, `review_channel` runtime path-resolution, `mobile_status.py`, and the narrow `controller_action.py` / `triage_loop.py` process-helper reroute are reviewer-accepted. Do not spend the next pass reworking those accepted seams.
-- Current Python/frontend path-widening, `review_channel` runtime path-resolution, `mobile_status.py`, `controller_action.py` / `triage_loop.py`, `autonomy/run_parser.py`, and `autonomy/benchmark_parser.py` are reviewer-accepted for this extraction lane. Do not spend the next pass reworking those accepted seams.
-- Current Python/frontend path-widening, `review_channel` runtime path-resolution, `mobile_status.py`, `controller_action.py` / `triage_loop.py`, `autonomy/run_parser.py`, `autonomy/benchmark_parser.py`, the governance-ledger resolver/path-default migration, and `cli_parser/reporting.py` are reviewer-accepted for this extraction lane. Do not spend the next pass reworking those accepted seams.
-- Next concrete pass is the bounded checkpoint, not more code: update `dev/active/ai_governance_platform.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md` to record the accepted governance-ledger + autonomy parser/reporting cuts, then stage the bounded commit and push it to GitHub through the normal branch policy.
-- After the push checkpoint lands, resume MP-377 by re-auditing the next remaining report-root/runtime ownership seam instead of idling.
-- Keep the iOS preview/config files marked partial. Do not declare them closed until a real generated or emitted repo-pack-owned source replaces the duplicate literals in `MobileRelayPreviewData.swift`.
-- Use multiple Claude lanes for this pass: one lane for plan/history doc updates, one lane for focused tests/docs/validation, and one lane for preparing the bounded commit/push checkpoint once the docs are synced.
-- Keep this slice scoped to MP-377. Do not create another plan. Update `dev/active/ai_governance_platform.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md` if a real seam lands, and keep the green-slice commit/push checkpoint visible once a major bounded slice is verified.
-- Minimum validation after edits: focused tests for any touched governance/autonomy modules, `python3 dev/scripts/checks/check_platform_layer_boundaries.py --format md`, `python3 dev/scripts/checks/check_code_shape.py --format md`, `python3 dev/scripts/checks/check_package_layout.py --format md`, `python3 dev/scripts/checks/check_review_channel_bridge.py --format md`, and `python3.11 dev/scripts/devctl.py docs-check --strict-tooling`.
+
+Scoped from `dev/active/continuous_swarm.md` via `--scope`.
+
+- Next scoped plan item (dev/active/continuous_swarm.md): Phase 1 - Launcher And Code-Quality Hardening: Keep docstrings/comments/variable names simple and explicit; remove mixed responsibilities and duplicated path/prompt logic where possible.
 
 ## Plan Alignment
 
-- Current execution authority for this slice is `dev/active/ai_governance_platform.md` and the mirrored MP rows in `dev/active/MASTER_PLAN.md` under `MP-377`.
-- `dev/active/portable_code_governance.md` remains a companion plan for the narrower engine/adoption lane, not the main architecture authority for this slice.
-- The old MP-358 review-channel scope in this file was stale bridge state and should no longer drive Claude's work.
+- Current execution authority for this slice is `dev/active/continuous_swarm.md` and the mirrored MP rows in `dev/active/MASTER_PLAN.md` under `MP-358`.
+- `dev/active/review_channel.md` is the active runbook for the live Codex/Claude loop; `dev/active/operator_console.md` is a companion plan for the PyQt launchpad/observer surface and should stay aligned with the shared devctl runner instead of replacing it.
+- `dev/active/ai_governance_platform.md` remains the architecture authority for the broader extraction effort under `MP-377`, but it is not the current coding lane for this md pass.
 
 ## Last Reviewed Scope
 

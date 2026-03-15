@@ -70,7 +70,7 @@ def _run_bridge_action(
         detect_active_session_conflicts_fn=detect_active_session_conflicts,
         summarize_active_session_conflicts_fn=summarize_active_session_conflicts,
     )
-    apply_bridge_scope_if_requested(
+    scope_promotion = apply_bridge_scope_if_requested(
         args=args,
         repo_root=repo_root,
         bridge_path=bridge_path,
@@ -103,6 +103,8 @@ def _run_bridge_action(
         ),
         list_terminal_profiles_fn=list_terminal_profiles,
     )
+    if promotion is None and scope_promotion is not None:
+        promotion = scope_promotion
     warnings = [*list(extra_warnings or []), *warnings]
     handoff_bundle, handoff_warnings = prepare_rollover_bundle(
         args=args,

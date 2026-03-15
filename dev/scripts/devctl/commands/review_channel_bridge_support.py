@@ -104,18 +104,22 @@ def bridge_launch_state(
     )
 
 
-def apply_scope_if_requested(*, args, repo_root: Path, bridge_path: Path) -> None:
-    """Rewrite the bridge instruction from ``--scope`` before launch."""
+def apply_scope_if_requested(*, args, repo_root: Path, bridge_path: Path) -> object | None:
+    """Rewrite the bridge instruction from ``--scope`` before launch.
+
+    Returns the :class:`PromotionCandidate` when scope was applied, or
+    ``None`` when no scope was requested.
+    """
     scope_value = getattr(args, "scope", None)
     if not scope_value:
-        return
+        return None
     if args.action != "launch":
         raise ValueError("--scope is only supported with --action launch.")
     scope_plan_path = resolve_scope_plan_path(
         repo_root=repo_root,
         scope_value=scope_value,
     )
-    scope_bridge_instruction(
+    return scope_bridge_instruction(
         repo_root=repo_root,
         bridge_path=bridge_path,
         scope_plan_path=scope_plan_path,

@@ -176,6 +176,15 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
             "metadata is stale or missing, refresh it before launch continues."
         ),
     ),
+    _arg(
+        "--auto-promote",
+        action="store_true",
+        help=(
+            "When the bridge shows an accepted verdict with no open findings "
+            "and an idle instruction, automatically promote the next unchecked "
+            "plan item into the bridge before continuing."
+        ),
+    ),
 ]
 
 PACKET_ARGUMENTS: list[ArgumentDef] = [
