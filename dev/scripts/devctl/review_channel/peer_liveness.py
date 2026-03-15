@@ -45,6 +45,7 @@ class AttentionStatus(StrEnum):
     CLAUDE_STATUS_MISSING = "claude_status_missing"
     CLAUDE_ACK_MISSING = "claude_ack_missing"
     WAITING_ON_PEER = "waiting_on_peer"
+    REVIEWED_HASH_STALE = "reviewed_hash_stale"
     HEALTHY = "healthy"
 
 
@@ -156,6 +157,19 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None]] = {
         "recovery": (
             "Inspect the bridge-owned sections and restore the missing peer "
             "state before promoting another slice."
+        ),
+        "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
+    },
+    AttentionStatus.REVIEWED_HASH_STALE: {
+        "guard_behavior": "warn",
+        "owner": "codex",
+        "summary": (
+            "The worktree has changed since the last reviewed hash; "
+            "verdict and findings may be stale."
+        ),
+        "recovery": (
+            "Codex should re-review the current tree and refresh the "
+            "bridge verdict/findings/hash before promotion."
         ),
         "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
     },

@@ -22,6 +22,8 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
     claude_status_present = bool(bridge_liveness.get("claude_status_present"))
     claude_ack_present = bool(bridge_liveness.get("claude_ack_present"))
 
+    reviewed_hash_current = bridge_liveness.get("reviewed_hash_current")
+
     if codex_poll_state == CodexPollState.MISSING:
         status = AttentionStatus.REVIEWER_HEARTBEAT_MISSING
     elif overall_state == OverallLivenessState.STALE:
@@ -34,6 +36,8 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
         status = AttentionStatus.CLAUDE_ACK_MISSING
     elif overall_state == OverallLivenessState.WAITING_ON_PEER:
         status = AttentionStatus.WAITING_ON_PEER
+    elif reviewed_hash_current is False:
+        status = AttentionStatus.REVIEWED_HASH_STALE
     else:
         status = AttentionStatus.HEALTHY
 

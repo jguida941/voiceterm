@@ -125,7 +125,7 @@ treat these rules as active workflow instructions immediately.
   both returned `ok: true`, emitted session/projection paths, and kept bridge attention healthy.
 - The `promotion: null` defect is now closed by `86b902c`: `apply_scope_if_requested()` returns the `PromotionCandidate`, `_run_bridge_action()` feeds it into the report, and `--auto-promote` is now wired into the parser/bridge action path.
 - The real remaining gap is still end-to-end continuity, not missing primitives: automatic next-task promotion is only partially landed, reviewer heartbeat/session truth can still drift away from `Current Verdict` / `Open Findings` / `Current Instruction For Claude`, and stale-peer recovery/liveness are still not proven as a closed tool contract.
-- New in-progress audit result: the follow-up `reviewed_hash_current` liveness signal exists in the dirty tree (`handoff.py`, `handoff_constants.py`, tests), but it is not yet wired into any real caller. No current call site passes `current_worktree_hash=` into `summarize_bridge_liveness(...)`, so the new signal is still dead data.
+- New in-progress audit result: the follow-up `reviewed_hash_current` liveness signal exists in the dirty tree (`handoff.py`, `handoff_constants.py`, tests), and launch/status already thread the current worktree hash into `summarize_bridge_liveness(...)`. The remaining gap is that attention, warnings, handoff/report payloads, and other recovery surfaces do not use the new signal yet, so the bridge truth is only partially improved.
 - Operator Console / PyQt is real and interconnected, but only as a launchpad/observer over repo-owned `review-channel` / `swarm_run` artifacts and commands. It must keep consuming the shared control-plane truth instead of becoming a second conductor implementation.
 
 ## Current Verdict
@@ -136,13 +136,13 @@ treat these rules as active workflow instructions immediately.
 - The repo-native tandem path is partially built, not absent. `review-channel --action launch` already has `--scope` plus heartbeat-refresh/support plumbing, and the launch path already fails closed when a fresh reviewer heartbeat never appears. `swarm_run --continuous` already exists as the intended hands-off runner.
 - `86b902c` is reviewer-accepted for its bounded scope: the `--scope` launch report now returns a real promotion payload, and the `--auto-promote` entrypoint exists.
 - What is not done yet: automatic next-task promotion is not yet proven end-to-end, bridge truth does not yet move heartbeat/hash/verdict/findings/instruction/session state together, and stale-peer recovery/liveness is still more documented intent than enforced tool contract.
-- The current dirty-tree follow-up is directionally correct but incomplete: `reviewed_hash_current` is a useful bridge-truth signal, but until the current worktree hash is actually threaded into live liveness/projection/attention call sites, it does not change behavior.
+- The current dirty-tree follow-up is directionally correct but incomplete: `reviewed_hash_current` is now available in live liveness for launch/status paths, but until attention/recovery/report surfaces consume it consistently, it still does not change the operator-facing behavior enough to close bridge-truth sync.
 - Operator Console / PyQt should stay attached to the shared runner surfaces as a consumer/launcher shell. It is not the active loop authority right now and should not fork launcher/promoter logic out of `devctl`.
 - The iOS preview/config slice remains partial, but it is not the active blocker for the continuous-runner work.
 
 ## Open Findings
 - M1: `86b902c` closed the `promotion: null` bug, but automatic next-task promotion is still only partially landed. The loop is still not proven to continue across accepted slices without an external relaunch/prove step.
-- M2: The new `reviewed_hash_current` liveness field is not yet wired into real behavior. `summarize_bridge_liveness(...)` has the parameter, but no current caller passes `current_worktree_hash=...`, so bridge truth still does not know whether the reviewed hash is current.
+- M2: The new `reviewed_hash_current` liveness field is only partially wired into real behavior. Launch/status already pass `current_worktree_hash=...`, but attention, warnings, handoff/report payloads, and recovery surfaces still do not use the signal consistently.
 - M3: Bridge truth sync remains open. `code_audit.md`, `latest.md`, `review_state.json`, session metadata, and any attention/recommended-action surface need to move together when reviewer state changes.
 - M4: Peer-liveness and stale-peer recovery are still open. Claude should not start coding from stale review state, and Codex should not keep issuing fix cycles on stale Claude state without an explicit tool-owned waiting/recovery path.
 - M5: `continuous_swarm.md` should now be updated narrowly to reflect what really landed: `--scope` is done, `--auto-promote` is partial, and bridge-truth sync / peer recovery remain open.
@@ -226,9 +226,9 @@ treat these rules as active workflow instructions immediately.
   `dev/scripts/devctl/commands/review_channel_bridge_handler.py`,
   and any narrow helpers/tests needed around them.
 - Required behavior:
-  - pass the current non-`code_audit.md` worktree hash into live liveness reduction,
+  - keep the current non-`code_audit.md` worktree hash threaded through every bridge-truth surface that needs it,
   - surface `reviewed_hash_current` through the real bridge status/projection path,
-  - make attention/recommended-action/report state honest when the reviewed hash is stale even if the timestamp is fresh,
+  - make attention/recommended-action/report/handoff state honest when the reviewed hash is stale even if the timestamp is fresh,
   - keep the bridge/projection path aligned with the same current-hash truth instead of only exposing it in tests.
 - After the signal is live, prove it with focused tests plus a typed status/launch proof. If the signal changes attention or warnings, keep Operator Console consuming that shared truth instead of adding GUI-only logic.
 - Update `dev/active/continuous_swarm.md`, `dev/active/review_channel.md`, and `dev/active/MASTER_PLAN.md` when this behavior lands so the plan matches the code.
