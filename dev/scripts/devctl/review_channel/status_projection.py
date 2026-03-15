@@ -55,6 +55,7 @@ class BridgeState(TypedDict):
     last_codex_poll_utc: str | None
     last_codex_poll_age_seconds: int | None
     last_worktree_hash: str | None
+    reviewed_hash_current: bool | None
     open_findings: str
     current_instruction: str
     claude_status: str
@@ -194,6 +195,7 @@ def build_bridge_review_state(
                 "last_codex_poll_age_seconds"
             ),
             last_worktree_hash=snapshot.metadata.get("last_non_audit_worktree_hash"),
+            reviewed_hash_current=bridge_liveness.get("reviewed_hash_current"),
             open_findings=open_findings,
             current_instruction=current_instruction,
             claude_status=claude_status,
