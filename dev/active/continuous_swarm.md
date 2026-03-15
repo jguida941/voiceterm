@@ -236,6 +236,16 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-03-15: Landed three bounded MP-358 slices:
+  1. Fixed `--scope` promotion bug: `apply_scope_if_requested()` now returns
+     the `PromotionCandidate`, launch report shows real `promotion` data
+     instead of `null`. Added `--auto-promote` CLI flag. (`86b902c`)
+  2. Wired `reviewed_hash_current` into live callers: `bridge_launch_state()`
+     and `refresh_status_snapshot()` compute current worktree hash and pass it
+     to `summarize_bridge_liveness()`. Status output shows `true/false`. (`0935dc8`)
+  3. Added `REVIEWED_HASH_STALE` attention signal: fires when all
+     higher-priority checks pass but the reviewed tree hash doesn't match the
+     current worktree. Recovery contract recommends Codex re-review. (`4ae9830`)
 - 2026-03-13: Validated the next bridge-truth drift after the Phase 0
   classification write. The bridge header heartbeat/hash advanced to
   `2026-03-14T02:17:03Z` / `95a196f52cce...`, but `code_audit.md` still clears
