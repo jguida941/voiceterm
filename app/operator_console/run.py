@@ -27,6 +27,7 @@ REPO_ROOT = _ensure_repo_root_on_sys_path()
 
 from app.operator_console.help_render import render_operator_console_help
 from app.operator_console.launch_support import ensure_pyqt6_installed
+from dev.scripts.devctl.repo_packs import VOICETERM_PATH_CONFIG
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -34,7 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     from app.operator_console.theme import available_theme_ids
     from app.operator_console.views.layout.ui_layouts import available_layout_ids
 
-    default_log_root = "dev/reports/review_channel/operator_console"
+    default_log_root = VOICETERM_PATH_CONFIG.dev_log_root_rel
     parser = argparse.ArgumentParser(
         add_help=False,
         description=(

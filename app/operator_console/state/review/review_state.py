@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from dev.scripts.devctl.repo_packs import VOICETERM_PATH_CONFIG
 from dev.scripts.devctl.runtime import (
     ReviewPacketState,
     ReviewState,
@@ -14,15 +15,9 @@ from dev.scripts.devctl.runtime import (
 from ...collaboration.context_pack_refs import parse_context_pack_refs
 from ..core.models import ApprovalRequest
 
-DEFAULT_REVIEW_STATE_CANDIDATES = (
-    "dev/reports/review_channel/projections/latest/review_state.json",
-    "dev/reports/review_channel/latest/review_state.json",
-    "dev/reports/review_channel/review_state.json",
-)
-DEFAULT_REVIEW_FULL_CANDIDATES = (
-    "dev/reports/review_channel/projections/latest/full.json",
-    "dev/reports/review_channel/latest/full.json",
-)
+# Backward-compat aliases — canonical values live in VOICETERM_PATH_CONFIG.
+DEFAULT_REVIEW_STATE_CANDIDATES = VOICETERM_PATH_CONFIG.review_state_candidates
+DEFAULT_REVIEW_FULL_CANDIDATES = VOICETERM_PATH_CONFIG.review_full_candidates
 
 
 def find_review_state_path(repo_root: Path) -> Path | None:

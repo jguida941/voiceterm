@@ -8,9 +8,9 @@ from collections import Counter, deque
 from pathlib import Path
 from typing import Any
 
-from ..config import REPO_ROOT
 from ..governance_review_log import read_governance_review_rows
 from ..jsonl_support import parse_json_line_dict
+from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG, voiceterm_repo_root
 from ..time_utils import utc_timestamp
 from .external_findings_models import (
     ExternalFindingBucketStat,
@@ -18,8 +18,8 @@ from .external_findings_models import (
     ExternalFindingStats,
 )
 
-DEFAULT_EXTERNAL_FINDING_LOG = Path("dev/reports/governance/external_pilot_findings.jsonl")
-DEFAULT_EXTERNAL_FINDING_SUMMARY_ROOT = Path("dev/reports/governance/external_findings_latest")
+DEFAULT_EXTERNAL_FINDING_LOG = Path(VOICETERM_PATH_CONFIG.external_finding_log_rel)
+DEFAULT_EXTERNAL_FINDING_SUMMARY_ROOT = Path(VOICETERM_PATH_CONFIG.external_finding_summary_root_rel)
 DEFAULT_MAX_EXTERNAL_FINDING_ROWS = 10_000
 DEFAULT_CHECK_ID = "external_audit"
 DEFAULT_SIGNAL_TYPE = "audit"
@@ -30,32 +30,34 @@ VALID_SIGNAL_TYPES = frozenset({"guard", "probe", "audit"})
 def resolve_external_finding_log_path(
     raw_path: str | Path | None,
     *,
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path | None = None,
 ) -> Path:
     """Resolve the imported external-finding JSONL path relative to the repo."""
+    effective_root = repo_root or voiceterm_repo_root() or Path(".")
     candidate = (
         Path(raw_path).expanduser()
         if raw_path is not None and str(raw_path).strip()
-        else repo_root / DEFAULT_EXTERNAL_FINDING_LOG
+        else effective_root / DEFAULT_EXTERNAL_FINDING_LOG
     )
     if not candidate.is_absolute():
-        candidate = repo_root / candidate
+        candidate = effective_root / candidate
     return candidate.resolve()
 
 
 def resolve_external_finding_summary_root(
     raw_path: str | Path | None,
     *,
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path | None = None,
 ) -> Path:
     """Resolve the imported external-finding summary root relative to the repo."""
+    effective_root = repo_root or voiceterm_repo_root() or Path(".")
     candidate = (
         Path(raw_path).expanduser()
         if raw_path is not None and str(raw_path).strip()
-        else repo_root / DEFAULT_EXTERNAL_FINDING_SUMMARY_ROOT
+        else effective_root / DEFAULT_EXTERNAL_FINDING_SUMMARY_ROOT
     )
     if not candidate.is_absolute():
-        candidate = repo_root / candidate
+        candidate = effective_root / candidate
     return candidate.resolve()
 
 

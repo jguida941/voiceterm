@@ -8,17 +8,17 @@ from collections import Counter, deque
 from pathlib import Path
 from typing import Any
 
-from .config import REPO_ROOT
 from .governance_review_models import (
     GovernanceReviewBucketStat,
     GovernanceReviewInput,
     GovernanceReviewStats,
 )
 from .jsonl_support import parse_json_line_dict
+from .repo_packs.voiceterm import VOICETERM_PATH_CONFIG, voiceterm_repo_root
 from .time_utils import utc_timestamp
 
-DEFAULT_GOVERNANCE_REVIEW_LOG = Path("dev/reports/governance/finding_reviews.jsonl")
-DEFAULT_GOVERNANCE_REVIEW_SUMMARY_ROOT = Path("dev/reports/governance/latest")
+DEFAULT_GOVERNANCE_REVIEW_LOG = Path(VOICETERM_PATH_CONFIG.governance_review_log_rel)
+DEFAULT_GOVERNANCE_REVIEW_SUMMARY_ROOT = Path(VOICETERM_PATH_CONFIG.governance_review_summary_root_rel)
 DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS = 5_000
 VALID_SIGNAL_TYPES = frozenset({"guard", "probe", "audit"})
 VALID_VERDICTS = frozenset(
@@ -37,40 +37,44 @@ POSITIVE_VERDICTS = frozenset({"confirmed_issue", "fixed", "waived", "deferred"}
 def resolve_governance_review_log_path(
     raw_path: str | Path | None,
     *,
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path | None = None,
 ) -> Path:
     """Resolve the governance review JSONL path relative to the repo."""
+    effective_root = repo_root or voiceterm_repo_root() or Path(".")
     candidate = (
         Path(raw_path).expanduser()
         if raw_path is not None and str(raw_path).strip()
-        else repo_root / DEFAULT_GOVERNANCE_REVIEW_LOG
+        else effective_root / DEFAULT_GOVERNANCE_REVIEW_LOG
     )
     if not candidate.is_absolute():
-        candidate = repo_root / candidate
+        candidate = effective_root / candidate
     return candidate.resolve()
 
 
 def resolve_governance_review_summary_root(
     raw_path: str | Path | None,
     *,
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path | None = None,
 ) -> Path:
     """Resolve the governance review summary root relative to the repo."""
+    effective_root = repo_root or voiceterm_repo_root() or Path(".")
     candidate = (
         Path(raw_path).expanduser()
         if raw_path is not None and str(raw_path).strip()
-        else repo_root / DEFAULT_GOVERNANCE_REVIEW_SUMMARY_ROOT
+        else effective_root / DEFAULT_GOVERNANCE_REVIEW_SUMMARY_ROOT
     )
     if not candidate.is_absolute():
-        candidate = repo_root / candidate
+        candidate = effective_root / candidate
     return candidate.resolve()
 
 
 def build_governance_review_row(
     *,
     review_input: GovernanceReviewInput,
+    repo_root: Path | None = None,
 ) -> dict[str, Any]:
     """Build one canonical review-log row."""
+    effective_root = repo_root or voiceterm_repo_root() or Path(".")
     normalized_signal_type = _require_choice(
         review_input.signal_type,
         VALID_SIGNAL_TYPES,
@@ -97,8 +101,8 @@ def build_governance_review_row(
     row: dict[str, Any] = {}
     row["finding_id"] = review_finding_id
     row["timestamp_utc"] = utc_timestamp()
-    row["repo_name"] = _optional_text(review_input.repo_name) or REPO_ROOT.name
-    row["repo_path"] = _optional_text(review_input.repo_path) or str(REPO_ROOT)
+    row["repo_name"] = _optional_text(review_input.repo_name) or effective_root.name
+    row["repo_path"] = _optional_text(review_input.repo_path) or str(effective_root)
     row["signal_type"] = normalized_signal_type
     row["check_id"] = normalized_check_id
     row["verdict"] = normalized_verdict

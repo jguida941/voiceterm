@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-12
+**Last Updated:** 2026-03-14
 
 ## At a Glance
 
@@ -45,6 +45,98 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-15 - RepoPathConfig and repo-pack collector helpers replace frontend-owned coupling
+
+Fact: `repo_packs.voiceterm` now owns a `RepoPathConfig` frozen dataclass (13
+artifact-path fields) plus 5 read-only collector helpers. Eight Operator
+Console modules consume `VOICETERM_PATH_CONFIG` instead of defining their own
+`dev/reports/*`, `dev/active/*`, and `code_audit.md` path literals.
+`analytics_snapshot.py` and `quality_snapshot.py` no longer import forbidden
+`dev.scripts.devctl.collect` or `dev.scripts.devctl.config` modules — they
+call repo-pack-owned helpers instead. Platform-layer-boundary guard confirms 0
+violations. 1328 tests pass.
+
+Evidence:
+
+- `dev/scripts/devctl/repo_packs/voiceterm.py` (RepoPathConfig + 5 helpers)
+- `app/operator_console/state/review/review_state.py`
+- `app/operator_console/state/review/artifact_locator.py`
+- `app/operator_console/state/bridge/bridge_sections.py`
+- `app/operator_console/state/sessions/session_trace_reader.py`
+- `app/operator_console/state/snapshots/watchdog_snapshot.py`
+- `app/operator_console/state/snapshots/ralph_guardrail_snapshot.py`
+- `app/operator_console/state/snapshots/analytics_snapshot.py`
+- `app/operator_console/state/snapshots/quality_snapshot.py`
+
+### 2026-03-14 - VoiceTerm repo-pack defaults started replacing frontend-owned metadata
+
+Fact: the first concrete `repo_packs.voiceterm` seam is now present in the
+tree. `dev/scripts/devctl/repo_packs/voiceterm.py` owns the Operator Console
+workflow preset definitions plus a narrow read-only helper that refreshes and
+loads review payloads from the live bridge. That matters because the Operator
+Console no longer has to import `dev.scripts.devctl.review_channel.*`
+internals just to project current state, and the frontend no longer owns
+several VoiceTerm-specific `dev/active/*` defaults directly. This is not the
+finished repo-pack contract yet, but it is a real boundary move instead of
+another architecture TODO.
+
+Evidence:
+
+- `dev/scripts/devctl/repo_packs/voiceterm.py`
+- `dev/scripts/devctl/repo_packs/__init__.py`
+- `dev/scripts/devctl/review_channel/core.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `app/operator_console/state/snapshots/phone_status_snapshot.py`
+- `app/operator_console/workflows/workflow_presets.py`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-14 - Routed bundle execution now reuses the active interpreter
+
+Fact: `devctl check-router --execute` no longer blindly shells the literal
+`python3 ...` bundle strings. The routed execution path now rewrites repo-owned
+Python commands to the interpreter that launched `dev/scripts/devctl.py`,
+including both direct script entrypoints and repo-owned `python3 -m pytest`
+style commands. That matters because the extraction/self-hosting plan had
+already identified a real reliability gap on machines where ambient `python3`
+still resolves to 3.10: routed governance lanes could fail even though direct
+`devctl check` / `guard-run` commands were already interpreter-stable. The
+bundle registry remains the human-readable command authority, but execution no
+longer depends on the wrong interpreter being first on `PATH`.
+
+Evidence:
+
+- `dev/scripts/devctl/common.py`
+- `dev/scripts/devctl/commands/check_router.py`
+- `dev/scripts/devctl/tests/test_common.py`
+- `dev/scripts/devctl/tests/test_check_router.py`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-14 - Extraction boundaries moved from plan prose into a hard guard
+
+Fact: the platform-extraction lane now has its first concrete self-hosting
+boundary guard. `check_platform_layer_boundaries.py` is registered as a
+repo-enabled AI guard, VoiceTerm policy now defines the first forbidden import
+seams, and the new rule blocks fresh Python code from reaching directly from
+Operator Console or shared runtime/platform files into repo-local devctl
+orchestration modules. That matters because the extraction plan is no longer
+only telling contributors to keep frontend/runtime seams clean; the repo now
+has executable enforcement that freezes new architectural debt while the larger
+package/repo-pack split continues.
+
+Evidence:
+
+- `dev/scripts/checks/check_platform_layer_boundaries.py`
+- `dev/scripts/checks/architecture_boundary/command.py`
+- `dev/config/quality_presets/voiceterm.json`
+- `dev/scripts/devctl/quality_policy_defaults.py`
+- `dev/scripts/devctl/script_catalog.py`
+- `dev/scripts/devctl/tests/checks/architecture_boundary/test_check_platform_layer_boundaries.py`
+- `dev/scripts/devctl/tests/test_check.py`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
 
 ### 2026-03-13 - Repo-pack surface generation moved behind policy
 
@@ -4417,5 +4509,16 @@ The full technical showcase is consolidated above in Appendix G of this document
   That workflow now provisions Rust plus `libasound2-dev` before the changed-
   file compiler warning scan, and maintainer docs explicitly note that
   tooling/docs jobs must provision compile-time Rust prerequisites themselves.
+- Added the missing raw external-evidence intake layer for the governance
+  stack. `devctl governance-import-findings` now imports JSON/JSONL
+  multi-repo findings into `dev/reports/governance/external_pilot_findings.jsonl`,
+  `governance-review` now accepts `audit` findings for adjudicated external
+  evidence, and `data-science` joins both ledgers so adjudication coverage by
+  repo/check becomes visible for the future database/ML path instead of
+  relying only on markdown notes or the reviewed subset. Maintainer docs now
+  describe the raw-vs-reviewed split explicitly across `AGENTS.md`,
+  `dev/guides/DEVELOPMENT.md`, `dev/guides/DEVCTL_AUTOGUIDE.md`,
+  `dev/guides/PORTABLE_CODE_GOVERNANCE.md`, `dev/scripts/README.md`, and
+  `data_science/README.md`.
 
 </details>

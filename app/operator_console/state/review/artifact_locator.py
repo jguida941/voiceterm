@@ -5,10 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from dev.scripts.devctl.repo_packs import VOICETERM_PATH_CONFIG
 
-DEFAULT_BRIDGE_REL = "code_audit.md"
-DEFAULT_OPERATOR_DECISION_REL = "dev/reports/review_channel/operator_decisions/latest.md"
-DEFAULT_ROLLOVER_ROOT_REL = "dev/reports/review_channel/rollovers"
+# Backward-compat aliases — canonical values live in VOICETERM_PATH_CONFIG.
+DEFAULT_BRIDGE_REL = VOICETERM_PATH_CONFIG.bridge_rel
+DEFAULT_OPERATOR_DECISION_REL = VOICETERM_PATH_CONFIG.operator_decision_rel
+DEFAULT_ROLLOVER_ROOT_REL = VOICETERM_PATH_CONFIG.rollover_root_rel
 
 
 @dataclass(frozen=True)

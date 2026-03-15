@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG
+
+DEFAULT_REVIEW_STATUS_DIR_REL = VOICETERM_PATH_CONFIG.review_status_dir_rel
 from .attention import derive_bridge_attention
 from .core import LaneAssignment, ensure_launcher_prereqs
 from .handoff import (
@@ -26,8 +29,6 @@ from .status_projection import (
     project_id_for_repo,
 )
 from ..time_utils import utc_timestamp
-
-DEFAULT_REVIEW_STATUS_DIR_REL = "dev/reports/review_channel/latest"
 
 
 def refresh_status_snapshot(

@@ -42,21 +42,19 @@ except ModuleNotFoundError:
         looks_like_connectivity_error as _looks_like_connectivity_error,
     )
 
+from ..repo_packs.process_helpers import resolve_repo, run_capture
+
 try:
     from dev.scripts.checks.coderabbit_ralph_loop_core import (
         execute_loop,
         gh_json,
         normalize_sha,
-        resolve_repo,
-        run_capture,
     )
 except ModuleNotFoundError:
     from checks.coderabbit_ralph_loop_core import (
         execute_loop,
         gh_json,
         normalize_sha,
-        resolve_repo,
-        run_capture,
     )
 
 

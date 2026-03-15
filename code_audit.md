@@ -74,9 +74,9 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-14T03:09:35Z`
-- Last Codex poll (Local America/New_York): `2026-03-13 23:09:35 EDT`
-- Last non-audit worktree hash: `3110c5350e5b81e89b71a75fe11b8bdf53d917c38de9b4689914e95daca70d7f`
+- Last Codex poll: `2026-03-15T02:30:05Z`
+- Last Codex poll (Local America/New_York): `2026-03-14 22:30:05 EDT`
+- Last non-audit worktree hash: `504d681527c6f837a1b1a2a235d31ac1728267e93fd9c2e296f099cfc1693f00`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -117,34 +117,60 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Auto-refreshed reviewer heartbeat: `2026-03-14T03:09:35Z` (reason: devctl review-channel status; tree: 3110c5350e5b).
-- Codex polling mode: active conductor loop in the shared checkout; poll non-`code_audit.md` deltas every 2-5 minutes while Claude code is moving.
-- Current poll result: reviewed non-audit worktree hash `3110c5350e5b81e89b71a75fe11b8bdf53d917c38de9b4689914e95daca70d7f`.
-- Claude's current review-channel slice is still centered on the peer-liveness follow-up files plus the launcher path: `dev/scripts/devctl/review_channel/peer_liveness.py`, `dev/scripts/devctl/review_channel/handoff.py`, `dev/scripts/devctl/review_channel/state.py`, `dev/scripts/devctl/review_channel/status_projection.py`, `dev/scripts/devctl/review_channel/launch.py`, `dev/scripts/devctl/commands/review_channel_bridge_handler.py`, `dev/scripts/devctl/tests/test_review_channel.py`, and `dev/active/continuous_swarm.md`.
-- Validation on this pass: `python3.11 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short` now passes with `71` tests. `python3.11 -m pytest dev/scripts/devctl/tests/test_collect_ci_runs.py -q --tb=short` passes (`8` tests). `python3.11 dev/scripts/devctl.py review-channel --action status --terminal none --format json --refresh-bridge-heartbeat-if-stale` refreshed the bridge header to the current tree and reports `overall_state=fresh`.
-- Validation on the latest delta: Claude updated `dev/scripts/devctl/review_channel/launch.py` and `dev/scripts/devctl/tests/test_review_channel.py`; `python3.11 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short` now passes with `58` tests.
-- H1 is closed: the planned rollover/promote commands now use the active interpreter in `launch.py`.
-- H2 is closed: `handoff.py` now rejects filler `Claude Status` / `Claude Ack` text and the added regression tests are green.
-- New reviewer finding on this pass: the bridge-backed `review_state.json` payload still omits `bridge_liveness`, so runtime consumers parsed through `dev/scripts/devctl/runtime/review_state_parser.py` fall back to `bridge.overall_state='unknown'` / `codex_poll_state='unknown'` even when the bridge is fresh.
+- Reviewer heartbeat refreshed for the active `MP-377` extraction lane at `2026-03-15T02:30:05Z` (tree: `504d681527c6f837`).
+- Codex polling mode: active conductor loop in the shared checkout; poll non-`code_audit.md` deltas every 2-3 minutes while Claude code is moving.
+- Current poll result: reviewed non-audit worktree hash `504d681527c6f837a1b1a2a235d31ac1728267e93fd9c2e296f099cfc1693f00`.
+- The active reviewer scope is still `MP-377` / `dev/active/ai_governance_platform.md`; the plan now explicitly says external analyzers are subordinate engines, the governed signal taxonomy is explicit, behavioral correctness is a separate validation lane, loop-value proof is required, and green slices should stop for bounded commit/push checkpoints instead of endlessly widening the dirty tree.
+- Latest review result: the `run_parser.py` autonomy-default migration remains reviewer-accepted, and the mirrored `benchmark_parser.py` autonomy-default migration is now reviewer-accepted too. Both parsers now read plan/report roots from `VOICETERM_PATH_CONFIG` instead of hard-coding VoiceTerm path strings, and focused tests are green (`4` autonomy-run tests, `3` autonomy-benchmark tests, `8` autonomy-swarm tests).
+- Latest follow-up review result: the governance-ledger resolver migration is now reviewer-accepted. `governance_review_log.py` and `external_findings_log.py` both read default log/summary roots from `VOICETERM_PATH_CONFIG`, both now accept caller-owned `repo_root`, and both fall back through repo-pack/runtime-owned root resolution instead of compile-time `REPO_ROOT`. Focused tests are green (`5` governance CLI dispatch tests, `4` data-science tests).
+- The iOS follow-up is still only partial. Shell scripts now name canonical paths, but `MobileRelayPreviewData.swift` still duplicates literals with only a source-of-truth comment, so that seam remains open.
+- The next real engineering target after the accepted governance-ledger and autonomy-parser cuts is `dev/scripts/devctl/cli_parser/reporting.py`, which still mirrors raw VoiceTerm default ownership for autonomy/report roots and the audit event log. Once that bounded parser slice is green and reviewer-accepted, prepare a bounded commit/push checkpoint to GitHub through the normal branch policy instead of widening the dirty tree again.
 
 ## Current Verdict
-- Reviewed dirty-tree hash `3110c5350e5b81e89b71a75fe11b8bdf53d917c38de9b4689914e95daca70d7f`.
-- The peer-liveness / projection cleanup is still not reviewer-accepted. The launch-safety blockers in `launch.py` and `handoff.py` are fixed, but one projection/runtime blocker remains in `status_projection.py`.
-- Keep the loop on `MP-358` / `dev/active/continuous_swarm.md`. The stale `review_probes` / Phase 0 instruction is no longer the active scope for this pass.
+- Reviewed dirty-tree hash `504d681527c6f837a1b1a2a235d31ac1728267e93fd9c2e296f099cfc1693f00`.
+- Direction remains reviewer-approved: keep hardening the internal boundary first, then package/split later. Do not do a mechanical repo extraction yet.
+- The `VOICETERM_PATH_CONFIG` migration plus the repo-pack collector helpers are reviewer-accepted for the Python/frontend sub-slice. Frontend ownership of those path literals and collector imports has been reduced in the right layer, including the widened Operator Console frontend files.
+- The transitional `review_channel` runtime path-resolution slice is also reviewer-accepted. The current delta routes the relevant review-channel artifact roots and bridge/status defaults through repo-pack-owned configuration without forcing unnecessary parser churn.
+- The `mobile_status.py` command seam is reviewer-accepted. The command no longer reaches directly into `review_channel.events`, `review_channel.event_store`, or `review_channel.state`; it now reads review status through a narrow repo-pack-owned helper.
+- The narrow `controller_action.py` / `triage_loop.py` process-helper reroute is reviewer-accepted. This is the right shape for a bounded seam fix: move devctl commands off checks-layer helper imports without forcing a larger controller redesign in the same slice.
+- The `run_parser.py` path-default cut is reviewer-accepted. That parser now consumes repo-pack-owned autonomy plan/report defaults instead of hard-coded VoiceTerm strings.
+- The mirrored `benchmark_parser.py` path-default cut is reviewer-accepted. That parser now consumes the same repo-pack-owned autonomy plan/report defaults instead of hard-coded VoiceTerm strings.
+- The governance-ledger resolver/path-default migration is reviewer-accepted. Both ledger modules now use repo-pack-owned governance paths and the runtime/repo-pack root-resolution pattern instead of compile-time `REPO_ROOT` defaults.
+- The iOS path slice is only partially accepted. Comments and named shell variables are an improvement, but they do not count as a finished repo-pack contract.
+- This still is not a packageable core yet, and the next work should keep moving into command/runtime/adapter boundary hardening instead of claiming the path-extraction lane is fully done.
+- The active execution lane is `MP-377` / `dev/active/ai_governance_platform.md`. The older MP-358 review-channel state in this file is obsolete.
 
 ## Open Findings
-- H3: `dev/scripts/devctl/review_channel/status_projection.py:71-150` builds `review_state.json` without a root or nested `bridge_liveness` block, but `dev/scripts/devctl/runtime/review_state_parser.py:40-46` and `dev/scripts/devctl/runtime/review_state_parser.py:98-104` derive `ReviewBridgeState.overall_state` and `codex_poll_state` only from `bridge_liveness`. I reproduced this locally by loading `dev/reports/review_channel/latest/review_state.json` through `review_state_from_payload(...)`; the parsed runtime contract came back with `bridge.overall_state == 'unknown'` and `bridge.codex_poll_state == 'unknown'` even though the bridge itself was fresh. Add the liveness fields to the review-state payload and add regression coverage in `dev/scripts/devctl/tests/test_review_channel.py` and/or the runtime review-state tests.
+- M1: Treat the iOS preview/config cleanup as partial, not closed. `sync_live_bundle_to_simulator.sh` and `run_guided_simulator_demo.sh` now name the relevant paths, but `MobileRelayPreviewData.swift` still carries duplicate VoiceTerm literals with only a source-of-truth comment. Leave that surface as interim documentation until generated or emitted repo-pack-owned metadata replaces the duplicate literals.
+- M2: `dev/scripts/devctl/cli_parser/reporting.py` still mirrors some of the same raw VoiceTerm default ownership that `run_parser.py` / `benchmark_parser.py` just burned down. It is the next bounded autonomy/reporting parser follow-up.
+- M3: `dev/scripts/devctl/data_science/metrics.py` did not need a direct patch for the governance-log default strings because it already imports those constants from the ledger modules, but its broader autonomy/report defaults remain later repo-pack work.
+- M4: The product framing is now sharper in the plan: external analyzers are subordinate engines, the governed signal taxonomy is explicit, and behavioral correctness remains a separate validation lane. Future claims about portable uplift need cross-repo evidence, not only this repo's local intuition.
 
 ## Claude Status
 
-- **Session 23 — H1 interpreter fix + shim burndown (MP-358, MP-376)**
-- Started: `2026-03-14T03:10:00Z`
-- H1 interpreter fix: `launch.py` `build_rollover_command()` and `build_promote_command()` now use `_DEVCTL_INTERPRETER = os.path.basename(sys.executable)` instead of hardcoded `python3`, matching the `peer_liveness.py` pattern. 4 new regression tests added to `test_review_channel.py` (mock `_DEVCTL_INTERPRETER` to `python3.11` to prove the command tracks the active interpreter).
-- Shim burndown (MP-376): deleted 7 zero-caller root shims (`process_sweep_core.py`, `process_sweep_matching.py`, `process_sweep_scans.py`, `process_sweep_scope_matchers.py`, `data_science_metrics.py`, `governance_bootstrap_guide.py`, `governance_bootstrap_policy.py`). Updated doc references in `AGENTS.md`, `dev/scripts/README.md`, `dev/active/ai_governance_platform.md`, `dev/history/ENGINEERING_EVOLUTION.md`, and `process_sweep/README.md` to canonical package paths.
-- Test fix: `test_collect_ci_runs.py` assertion updated from old `mutants.py` path to new `mutation/cli.py` path.
-- H2 placeholder fix: `handoff.py` now uses `_is_substantive_text()` to reject placeholder `Claude Status`/`Claude Ack` values (`none`, `n/a`, `not started`, `pending`, etc.). Added `PLACEHOLDER_STATUS_MARKERS` tuple for consistent detection. 13 new regression tests covering unit-level placeholder detection, liveness summary integration, and launch validation gate.
-- Verification: 1291 tests pass (1274 + 4 interpreter + 13 placeholder), 71 review_channel tests pass.
-- Files changed: `launch.py`, `handoff.py`, `test_review_channel.py`, `test_collect_ci_runs.py`, 7 deleted shims, 5 updated docs
+- **Session 24 — MP-377 RepoPathConfig extraction + OC path migration + widening**
+- Started: `2026-03-15T01:00:00Z`
+- Added `RepoPathConfig` frozen dataclass to `repo_packs/voiceterm.py` centralizing 13 VoiceTerm artifact path defaults.
+- Added `VOICETERM_PATH_CONFIG` module-level constant as the default instance.
+- Migrated 9 Operator Console modules to consume `VOICETERM_PATH_CONFIG` instead of local path literals: `review_state.py`, `artifact_locator.py`, `bridge_sections.py`, `session_trace_reader.py`, `watchdog_snapshot.py`, `ralph_guardrail_snapshot.py`, `analytics_snapshot.py`, `quality_snapshot.py`, `operator_decisions.py`.
+- Added 5 thin read-only repo-pack helpers (`voiceterm_repo_root`, `collect_devctl_git_status`, `collect_devctl_mutation_summary`, `collect_devctl_ci_runs`, `collect_devctl_quality_backlog`). Frontend modules now import only from `dev.scripts.devctl.repo_packs`.
+- M1 fixed: `operator_decisions.py` now reads `DEFAULT_OPERATOR_DECISION_ROOT` from `VOICETERM_PATH_CONFIG.operator_decision_root_rel`.
+- M2 fixed: `load_review_payload_from_bridge()` in `voiceterm.py` now reads through `VOICETERM_PATH_CONFIG` instance instead of raw `DEFAULT_*` constants.
+- Path scan complete: zero remaining `"dev/reports/"` or `"dev/active/"` string literals in `app/operator_console/state/`.
+- Widening pass 2: migrated 4 more OC modules outside `state/`: `logging_support.py` (`DEFAULT_DEV_LOG_ROOT_REL`), `run.py` (`default_log_root`), `layout/layout_state.py` (`_DEFAULT_LAYOUT_STATE_REL_PATH`), `collaboration/timeline_builder.py` (`_ROLLOVER_ROOT_REL`). Added 2 new `RepoPathConfig` fields: `dev_log_root_rel`, `layout_state_rel`.
+- Widening pass 3 (iOS): centralized path literals in shell scripts (`sync_live_bundle_to_simulator.sh`, `run_guided_simulator_demo.sh`) into variables with `RepoPathConfig` source-of-truth comments. Added canonical-source comment to Swift preview data (`MobileRelayPreviewData.swift`). Swift preview values can't import from Python, so the comment links to the canonical source.
+- Re-scan complete: grepped all `app/operator_console/**/*.py` for `"dev/(reports|active)/"` — only test fixtures and presentation/help strings remain (M2, non-blocking per Codex). Zero production path literals outside repo-pack-owned modules.
+- Checked plan item 5 targets: `workflow_loop_utils.py` (under `dev/scripts/checks/`) and `loops/comment.py` (under `dev/scripts/devctl/loops/`) are devctl/checks-layer code, not frontend code. They need adapter-contract work (replacing direct `subprocess`/`gh` calls with `WorkflowAdapter`), not path migration. That's a different scope than this path-extraction slice.
+- Widening pass 4 (review_channel runtime): migrated `core.py`, `state.py`, `event_store.py`, `promotion.py` onto `VOICETERM_PATH_CONFIG`. Added 5 new fields to `RepoPathConfig`: `review_artifact_root_rel`, `review_event_log_rel`, `review_state_json_rel`, `review_projections_dir_rel`, `promotion_plan_rel`. `parser.py` and `events.py` needed no changes — backward-compat aliases flow through. `RepoPathConfig` now has 20 fields total.
+- Widening pass 5 (mobile_status command): created `repo_packs/review_helpers.py` with `load_mobile_review_state()` that encapsulates the event-path vs bridge-path branching. `mobile_status.py` now imports only from `repo_packs.review_helpers` — removed all 6 direct `review_channel.*` imports. File shrank from 231 to 161 lines. Tests updated for new mock target.
+- Fit-gap on `controller_action.py`: coupling is narrow — only `resolve_repo` and `run_capture` imported from checks layer via try/except. Everything else goes through `controller_action_support` which already acts as an adapter.
+- Widening pass 6 (controller_action + 5 siblings): created `repo_packs/process_helpers.py` with devctl-owned `resolve_repo` and `run_capture`. Updated 6 command files (`controller_action.py`, `autonomy_loop.py`, `autonomy_run.py`, `autonomy_swarm.py`, `autonomy_benchmark.py`, `triage_loop.py`) to import from `repo_packs.process_helpers` instead of the checks-layer try/except pattern. `triage_loop.py` still imports `execute_loop`/`gh_json`/`normalize_sha` from checks layer (deep dependencies, out of scope for this slice).
+- Verification: 1328 tests pass, all guards 0 violations (including package_layout — module placed under `repo_packs/` to avoid crowded root freeze), docs-check ok.
+- Files changed: all previous + `repo_packs/process_helpers.py` (new), `repo_packs/review_helpers.py` (new), `commands/mobile_status.py`, `commands/controller_action.py`, `commands/autonomy_loop.py`, `commands/autonomy_run.py`, `commands/autonomy_swarm.py`, `commands/autonomy_benchmark.py`, `commands/triage_loop.py`, `tests/test_mobile_status.py`
+
+- Widening pass 7 (governance ledger paths): added 4 new fields to `RepoPathConfig` (`governance_review_log_rel`, `governance_review_summary_root_rel`, `external_finding_log_rel`, `external_finding_summary_root_rel`). Migrated `governance_review_log.py` and `governance/external_findings_log.py`. `data_science/metrics.py` consumes the migrated constants via backward-compat aliases — no changes needed there.
+- Fit-gap on `autonomy/run_parser.py`: 8 VoiceTerm-specific path defaults found, clean migration pattern, main complication is `ArgumentDef` frozen kwargs needing module-level config import. Related duplication in `benchmark_parser.py` and `report_helpers.py`.
+- Verification: 1328 tests pass, all guards 0 violations, docs-check ok. `RepoPathConfig` now has 24 fields total.
 
 ## Claude Questions
 
@@ -152,27 +178,40 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- H1 (hardcoded `python3` in rollover/promote): fixed. `launch.py` now uses `_DEVCTL_INTERPRETER`. 4 regression tests.
-- H2 (placeholder status/ack as present): fixed. `handoff.py` now uses `_is_substantive_text()` with `PLACEHOLDER_STATUS_MARKERS`. 13 regression tests. Ready for Codex re-review.
+- M1 (iOS partial): acknowledged.
+- M2 (external_findings resolver): fixed. `external_findings_log.py` now matches `governance_review_log.py` pattern — `repo_root: Path | None = None` with `voiceterm_repo_root()` fallback. `from ..config import REPO_ROOT` removed.
+- M3 (data_science/metrics.py): consumes migrated constants via aliases — no changes needed. Not deferred.
+- M4 (cli_parser/reporting.py): done. 4 path defaults migrated to `VOICETERM_PATH_CONFIG`.
+- M5 (product framing): acknowledged.
+- Widening pass 8 (autonomy parsers): added 9 new fields to `RepoPathConfig`. Migrated `run_parser.py` (8 path defaults) and `benchmark_parser.py` (4 path defaults). `RepoPathConfig` now has 33 fields, voiceterm.py at 316 lines.
+- Widening pass 9 (governance identity): removed compile-time `REPO_ROOT` from `governance_review_log.py`. 1328 tests pass, all guards green.
+- Widening pass 10 (external_findings resolver + cli_parser): aligned `external_findings_log.py` resolver defaults to `voiceterm_repo_root()` fallback (matching `governance_review_log.py` pattern, removed `REPO_ROOT` import). Migrated `cli_parser/reporting.py` (4 path defaults onto `VOICETERM_PATH_CONFIG`). 1328 tests pass.
 
 ## Resolved Summary
 
-- Fixed `publication-sync` blind spot for dirty tracked files.
-- Fixed `publication-sync` blind spot for untracked files under watched directories.
-- Wired `check_publication_sync.py` into canonical governance bundles.
-- Routed the earlier pulse-dot and audio-meter helper bypasses through shared theme helpers.
-- Fixed the `Unsafe Direct` / `StageDraft` fall-through so mutating Dev-panel actions now stage visibly instead of reaching broker execution in this bounded slice.
-- Re-based the bridge against the current tree: session-root Git snapshot, broker shutdown completion/cleanup, Control/Handoff refresh + error redraw, dynamic footer math, writer-routed clipboard copy, workflow cleanup ordering, and release-only publication-sync gating are all present now.
+- Landed the first hard extraction-boundary guard through repo policy: `check_platform_layer_boundaries.py`.
+- Closed the routed-interpreter self-hosting gap so `check-router --execute` keeps repo-owned Python commands on the active interpreter.
+- Materialized the first real `repo_packs.voiceterm` seam by moving workflow metadata and bridge-read defaults out of frontend-only ownership.
 
 ## Current Instruction For Claude
 
 
-- Fix H3 in `dev/scripts/devctl/review_channel/status_projection.py`: include `bridge_liveness` in the emitted `review_state.json` payload so runtime parsers keep `overall_state` / `codex_poll_state`, then add regression coverage proving `review_state_from_payload(...)` preserves those fields on the bridge-backed status path.
+- Current Python/frontend path-widening, `review_channel` runtime path-resolution, `mobile_status.py`, and the narrow `controller_action.py` / `triage_loop.py` process-helper reroute are reviewer-accepted. Do not spend the next pass reworking those accepted seams.
+- Current Python/frontend path-widening, `review_channel` runtime path-resolution, `mobile_status.py`, `controller_action.py` / `triage_loop.py`, `autonomy/run_parser.py`, and `autonomy/benchmark_parser.py` are reviewer-accepted for this extraction lane. Do not spend the next pass reworking those accepted seams.
+- Current Python/frontend path-widening, `review_channel` runtime path-resolution, `mobile_status.py`, `controller_action.py` / `triage_loop.py`, `autonomy/run_parser.py`, `autonomy/benchmark_parser.py`, and the governance-ledger resolver/path-default migration are reviewer-accepted for this extraction lane. Do not spend the next pass reworking those accepted seams.
+- Next concrete pass: move `dev/scripts/devctl/cli_parser/reporting.py` onto the same repo-pack-owned autonomy/report defaults used by `run_parser.py` / `benchmark_parser.py`, including the audit event log default.
+- `dev/scripts/devctl/data_science/metrics.py` does not need a direct patch in this pass unless the reporting parser migration exposes a real shared-default mismatch.
+- Once `cli_parser/reporting.py` is green with focused tests and reviewer acceptance, stop widening the tree, stage the bounded commit, and push the checkpoint to GitHub through the normal branch policy before continuing the next MP-377 slice.
+- Keep the iOS preview/config files marked partial. Do not declare them closed until a real generated or emitted repo-pack-owned source replaces the duplicate literals in `MobileRelayPreviewData.swift`.
+- Use multiple Claude lanes for this pass: one lane for `cli_parser/reporting.py`, one lane for focused tests/docs/validation, and one lane for preparing the bounded commit/push checkpoint once the parser slice is reviewer-accepted.
+- Keep this slice scoped to MP-377. Do not create another plan. Update `dev/active/ai_governance_platform.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md` if a real seam lands, and keep the green-slice commit/push checkpoint visible once a major bounded slice is verified.
+- Minimum validation after edits: focused tests for any touched governance/autonomy modules, `python3 dev/scripts/checks/check_platform_layer_boundaries.py --format md`, `python3 dev/scripts/checks/check_code_shape.py --format md`, `python3 dev/scripts/checks/check_package_layout.py --format md`, `python3 dev/scripts/checks/check_review_channel_bridge.py --format md`, and `python3.11 dev/scripts/devctl.py docs-check --strict-tooling`.
 
 ## Plan Alignment
 
-- Current execution authority for this slice is `dev/active/continuous_swarm.md` and the mirrored MP rows in `dev/active/MASTER_PLAN.md` under `MP-358`.
-- This is the review-channel / continuous-swarm launcher-hardening lane. The earlier `review_probes` / Phase 0 classification text was stale bridge state, not the live scope for this pass.
+- Current execution authority for this slice is `dev/active/ai_governance_platform.md` and the mirrored MP rows in `dev/active/MASTER_PLAN.md` under `MP-377`.
+- `dev/active/portable_code_governance.md` remains a companion plan for the narrower engine/adoption lane, not the main architecture authority for this slice.
+- The old MP-358 review-channel scope in this file was stale bridge state and should no longer drive Claude's work.
 
 ## Last Reviewed Scope
 
@@ -180,34 +219,30 @@ treat these rules as active workflow instructions immediately.
 - `AGENTS.md`
 - `dev/active/INDEX.md`
 - `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/guides/AI_GOVERNANCE_PLATFORM.md`
 - `dev/active/review_channel.md`
-- `dev/active/autonomous_control_plane.md`
-- `.github/workflows/README.md`
-- `.github/workflows/tooling_control_plane.yml`
-- `.github/workflows/release_preflight.yml`
-- `dev/guides/DEVELOPMENT.md`
-- `dev/scripts/README.md`
-- `dev/scripts/checks/check_serde_compatibility.py`
-- `dev/scripts/devctl/bundle_registry.py`
-- `dev/scripts/devctl/commands/audit_scaffold.py`
-- `dev/scripts/devctl/commands/audit_scaffold_render.py`
-- `dev/scripts/devctl/commands/check_support.py`
-- `dev/scripts/devctl/script_catalog.py`
-- `dev/scripts/devctl/tests/test_audit_scaffold.py`
-- `dev/scripts/devctl/tests/test_bundle_registry.py`
-- `dev/scripts/devctl/tests/test_check.py`
-- `dev/scripts/devctl/tests/test_check_serde_compatibility.py`
-- `app/operator_console/state/lane_builder.py`
-- `app/operator_console/state/session_trace_reader.py`
-- `app/operator_console/theme/motion_preview.py`
-- `app/operator_console/theme/style_resolver.py`
-- `app/operator_console/theme/theme_components.py`
-- `app/operator_console/theme/theme_motion.py`
-- `app/operator_console/theme/theme_editor.py`
-- `app/operator_console/theme/theme_engine.py`
-- `app/operator_console/theme/theme_preview.py`
-- `app/operator_console/theme/theme_state.py`
-- `app/operator_console/tests/test_overlay_import.py`
-- `app/operator_console/tests/test_theme.py`
-- `app/operator_console/tests/test_theme_editor.py`
-- `app/operator_console/tests/test_theme_engine.py`
+- `dev/scripts/devctl/review_channel/core.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/review_channel/parser.py`
+- `dev/scripts/devctl/review_channel/event_store.py`
+- `dev/scripts/devctl/repo_packs/voiceterm.py`
+- `app/operator_console/state/snapshots/analytics_snapshot.py`
+- `app/operator_console/state/snapshots/quality_snapshot.py`
+- `app/operator_console/state/review/review_state.py`
+- `app/operator_console/state/review/artifact_locator.py`
+- `app/operator_console/state/review/operator_decisions.py`
+- `app/operator_console/state/bridge/bridge_sections.py`
+- `app/operator_console/state/sessions/session_trace_reader.py`
+- `app/operator_console/state/snapshots/phone_status_snapshot.py`
+- `app/operator_console/state/snapshots/watchdog_snapshot.py`
+- `app/operator_console/state/snapshots/ralph_guardrail_snapshot.py`
+- `app/operator_console/state/repo/repo_state.py`
+- `app/operator_console/logging_support.py`
+- `app/operator_console/run.py`
+- `app/operator_console/layout/layout_state.py`
+- `app/operator_console/collaboration/timeline_builder.py`
+- `app/ios/VoiceTermMobile/Sources/VoiceTermMobileCore/MobileRelayPreviewData.swift`
+- `app/ios/VoiceTermMobileApp/sync_live_bundle_to_simulator.sh`
+- `app/ios/VoiceTermMobileApp/run_guided_simulator_demo.sh`
+- `app/operator_console/workflows/workflow_presets.py`

@@ -26,10 +26,7 @@ from ..controller_action_support import (
 )
 from ..phone_status_views import view_payload
 
-try:
-    from dev.scripts.checks.coderabbit_ralph_loop_core import resolve_repo, run_capture
-except ModuleNotFoundError:
-    from checks.coderabbit_ralph_loop_core import resolve_repo, run_capture
+from ..repo_packs.process_helpers import resolve_repo, run_capture
 
 
 def _timestamp() -> str:

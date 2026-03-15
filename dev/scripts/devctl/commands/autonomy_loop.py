@@ -26,10 +26,7 @@ from .autonomy_loop_support import validate_args as _validate_args
 from .autonomy_loop_support import write_final_phone_status as _write_final_phone_status
 from .autonomy_loop_support import write_validation_error as _write_validation_error
 
-try:
-    from dev.scripts.checks.coderabbit_ralph_loop_core import resolve_repo
-except ModuleNotFoundError:
-    from checks.coderabbit_ralph_loop_core import resolve_repo
+from ..repo_packs.process_helpers import resolve_repo
 
 
 def _resolve_env_or_default(env_key: str, default_value: str) -> str:

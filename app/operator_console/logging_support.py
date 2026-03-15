@@ -12,9 +12,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from dev.scripts.devctl.repo_packs import VOICETERM_PATH_CONFIG
+
 from .state.core.models import utc_timestamp
 
-DEFAULT_DEV_LOG_ROOT_REL = "dev/reports/review_channel/operator_console"
+DEFAULT_DEV_LOG_ROOT_REL = VOICETERM_PATH_CONFIG.dev_log_root_rel
 
 
 @dataclass(frozen=True)

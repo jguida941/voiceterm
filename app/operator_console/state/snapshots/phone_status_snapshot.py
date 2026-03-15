@@ -8,12 +8,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 
-from dev.scripts.devctl.phone_status_views import compact_view
-from dev.scripts.devctl.review_channel.core import DEFAULT_BRIDGE_REL, DEFAULT_REVIEW_CHANNEL_REL
-from dev.scripts.devctl.review_channel.state import (
+from dev.scripts.devctl.repo_packs import (
+    DEFAULT_BRIDGE_REL,
+    DEFAULT_MOBILE_STATUS_REL,
+    DEFAULT_PHONE_STATUS_REL,
+    DEFAULT_REVIEW_CHANNEL_REL,
     DEFAULT_REVIEW_STATUS_DIR_REL,
-    refresh_status_snapshot,
+    load_review_payload_from_bridge,
 )
+from dev.scripts.devctl.phone_status_views import compact_view
 from dev.scripts.devctl.runtime import (
     ControlState,
     ControlStateContext,
@@ -21,9 +24,6 @@ from dev.scripts.devctl.runtime import (
     control_state_from_payload,
 )
 from ..core.value_coercion import safe_int, safe_text
-
-DEFAULT_MOBILE_STATUS_REL = "dev/reports/mobile/latest/full.json"
-DEFAULT_PHONE_STATUS_REL = "dev/reports/autonomy/queue/phone/latest.json"
 _CACHE_LOCK = Lock()
 _CACHE: dict[
     str,
@@ -236,21 +236,10 @@ def _load_mobile_control_state(
     repo_root: Path,
     phone_payload: dict[str, object],
 ) -> tuple[ControlState | None, str | None]:
-    review_channel_path = repo_root / DEFAULT_REVIEW_CHANNEL_REL
-    bridge_path = repo_root / DEFAULT_BRIDGE_REL
-    status_root = repo_root / DEFAULT_REVIEW_STATUS_DIR_REL
-    if not review_channel_path.exists() or not bridge_path.exists():
+    if not (repo_root / DEFAULT_REVIEW_CHANNEL_REL).exists() or not (repo_root / DEFAULT_BRIDGE_REL).exists():
         return None, "Review bridge not available; showing phone-status fallback."
     try:
-        status_snapshot = refresh_status_snapshot(
-            repo_root=repo_root,
-            bridge_path=bridge_path,
-            review_channel_path=review_channel_path,
-            output_root=status_root,
-        )
-        review_payload = json.loads(
-            Path(status_snapshot.projection_paths.full_path).read_text(encoding="utf-8")
-        )
+        review_payload, warnings = load_review_payload_from_bridge(repo_root)
         control_state = build_control_state(
             controller_payload=phone_payload,
             review_payload=review_payload if isinstance(review_payload, dict) else {},
@@ -259,8 +248,8 @@ def _load_mobile_control_state(
     except (ValueError, OSError, json.JSONDecodeError) as exc:
         return None, f"Mobile relay fallback active ({exc.__class__.__name__}): {exc}"
     warning_note = None
-    if status_snapshot.warnings:
-        warning_note = "; ".join(status_snapshot.warnings[:2])
+    if warnings:
+        warning_note = "; ".join(warnings[:2])
     return control_state, warning_note
 
 

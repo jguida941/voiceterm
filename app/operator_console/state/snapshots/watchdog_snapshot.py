@@ -5,12 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from threading import Lock
 
+from dev.scripts.devctl.repo_packs import VOICETERM_PATH_CONFIG
 from dev.scripts.devctl.watchdog import (
     WatchdogSummaryArtifact,
     load_watchdog_summary_artifact,
 )
 
-DEFAULT_WATCHDOG_SUMMARY_REL = "dev/reports/data_science/latest/summary.json"
+# Backward-compat alias — canonical value lives in VOICETERM_PATH_CONFIG.
+DEFAULT_WATCHDOG_SUMMARY_REL = VOICETERM_PATH_CONFIG.watchdog_summary_rel
 _CACHE_LOCK = Lock()
 _CACHE: dict[str, tuple[int | None, WatchdogSummaryArtifact]] = {}
 

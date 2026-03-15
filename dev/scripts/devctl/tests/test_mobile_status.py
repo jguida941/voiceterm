@@ -288,7 +288,10 @@ class MobileStatusCommandTests(unittest.TestCase):
                 output=str(output_json),
             )
 
-            with patch.object(mobile_status, "event_state_exists", return_value=True):
+            with patch(
+                "dev.scripts.devctl.review_channel.events.event_state_exists",
+                return_value=True,
+            ):
                 rc = mobile_status.run(args)
 
             self.assertEqual(rc, 0)

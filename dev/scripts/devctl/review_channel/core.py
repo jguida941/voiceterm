@@ -27,15 +27,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..config import REPO_ROOT
+from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG
 from .launch import (
     list_terminal_profiles,
     resolve_terminal_profile_name,
 )
 
-DEFAULT_REVIEW_CHANNEL_REL = "dev/active/review_channel.md"
-DEFAULT_BRIDGE_REL = "code_audit.md"
+# Backward-compat aliases sourced from the frozen path config
+DEFAULT_BRIDGE_REL = VOICETERM_PATH_CONFIG.bridge_rel
+DEFAULT_REVIEW_CHANNEL_REL = VOICETERM_PATH_CONFIG.review_channel_rel
+
 DEFAULT_TERMINAL_PROFILE = "auto-dark"
-DEFAULT_ROLLOVER_DIR_REL = "dev/reports/review_channel/rollovers"
+DEFAULT_ROLLOVER_DIR_REL = VOICETERM_PATH_CONFIG.rollover_root_rel
 DEFAULT_ROLLOVER_THRESHOLD_PCT = 50
 DEFAULT_ROLLOVER_ACK_WAIT_SECONDS = 180
 BRIDGE_GUARD_SCRIPT_PATH = (
@@ -342,4 +345,3 @@ def summarize_bridge_guard_failures(report: dict[str, object]) -> str:
         if isinstance(state_errors, list):
             issues.extend(f"{path}: {error}" for error in state_errors)
     return "; ".join(issues) if issues else "bridge guard reported unknown errors"
-
