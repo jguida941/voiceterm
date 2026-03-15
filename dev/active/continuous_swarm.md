@@ -182,9 +182,16 @@ Out of scope until the local proof gate is green:
       reviewed hash, current verdict, open findings, plan alignment, and next
       instruction together instead of advertising a fresh heartbeat on stale
       review state or a completed task.
-- [ ] Add peer-liveness guards:
+      Partial: `reviewed_hash_current` signal is now live in liveness/status
+      output and `REVIEWED_HASH_STALE` attention fires when review content
+      doesn't match the current tree. Full truth sync (verdict/findings moving
+      with hash) is still open.
+- [x] Add peer-liveness guards:
       Claude cannot start new coding work on stale Codex review state, and
       Codex cannot keep issuing new fix cycles on stale Claude state.
+      Landed: `_run_bridge_action` now checks `guard_behavior: block_launch`
+      from the `STALE_PEER_RECOVERY` contract and refuses to open sessions
+      when reviewer heartbeat is missing or stale (`b2e2101`).
 - [ ] Define and implement the stale-peer recovery path:
       mark the bridge as waiting on peer, relaunch or re-seed the missing side,
       and resume from the last confirmed bridge state.
