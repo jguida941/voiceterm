@@ -74,9 +74,9 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-15T03:31:31Z`
-- Last Codex poll (Local America/New_York): `2026-03-14 23:31:31 EDT`
-- Last non-audit worktree hash: `a9da0c7be1954c7b9bea2820f2f2b7b7e1a0ecec0a0bb267054693dbd578292e`
+- Last Codex poll: `2026-03-15T03:37:52Z`
+- Last Codex poll (Local America/New_York): `2026-03-14 23:37:52 EDT`
+- Last non-audit worktree hash: `bacf0f2982e0aca9962564c7d7d0482bfc90c60ad7d50f7f9088d0267ffb8687`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -114,7 +114,8 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Auto-refreshed reviewer heartbeat: `2026-03-15T03:31:31Z` (reason: devctl review-channel status; tree: a9da0c7be195).
+
+- Auto-refreshed reviewer heartbeat: `2026-03-15T03:37:52Z` (reason: devctl review-channel status; tree: bacf0f2982e0).
 - Reviewer heartbeat refreshed at `2026-03-15T03:13:28Z` (local `2026-03-14 23:13:28 EDT`) for reviewed non-audit tree `e4a75a4e2230c99663581d877ca367305163e402c1ee308eb1c47a7abe5fb1bd`.
 - The latest accepted code slices now run through `70f101d` on `origin/feature/governance-quality-sweep`:
   `0935dc8` (`reviewed_hash_current` live in status/launch),
@@ -163,7 +164,16 @@ treat these rules as active workflow instructions immediately.
 - Fixed `UnboundLocalError` in `resolve_promotion_and_terminal_state()`: the auto-promote lazy import of `promote_bridge_instruction` shadowed the module-level import. Removed the shadowing import.
 - Added `--auto-promote` CLI flag to `review-channel` parser.
 - Wired `reviewed_hash_current` into live callers: `bridge_launch_state()` in `bridge_support.py` and `refresh_status_snapshot()` in `state.py` now compute the current worktree hash via `compute_non_audit_worktree_hash()` (made public from `heartbeat.py`) and pass it to `summarize_bridge_liveness()`. Status output now shows `reviewed_hash_current: true/false`. Verified: `review-channel --action status --format json` returns `reviewed_hash_current: false` when tree has changed since last review.
-- Verification: 1333 tests pass (77 review_channel tests), all guards green, bridge guard ok.
+- Added `REVIEWED_HASH_STALE` attention signal (`4ae9830`): fires in the attention cascade when review content doesn't match current tree.
+- Enforced `block_launch` peer-liveness guard (`b2e2101`): launcher refuses sessions when reviewer heartbeat is missing/stale.
+- Proven `--auto-promote` end-to-end with 2 focused tests (`5239d88`).
+- Threaded `reviewed_hash_current` into handoff bundle (`e76ddd2`): `write_handoff_bundle` now computes and passes the current hash.
+- Added `reviewed_hash_current` to `BridgeState` TypedDict in `review_state.json` (`cd0bd63`).
+- Added bridge truth staleness warning to status output (`adf78bc`): warns when verdict/findings may be stale.
+- Added `reviewed_hash_current` to `latest.md` markdown projection (`6bf27ec`).
+- Checked off `--scope`, auto-promote, and peer-liveness guards in `continuous_swarm.md` Phase 2 checklist.
+- Pushed 13 bounded commits to `origin/feature/governance-quality-sweep`.
+- Verification: 1335 tests pass (79 review_channel tests), all guards green, docs-check ok.
 
 - **Session 24 (closed) — MP-377 RepoPathConfig extraction**
 - Started: `2026-03-15T01:00:00Z`
