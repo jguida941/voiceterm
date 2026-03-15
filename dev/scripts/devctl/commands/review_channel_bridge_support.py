@@ -51,7 +51,8 @@ def bridge_launch_state(
     refreshable_actions = set(bridge_actions) | {"status"}
     allow_status_refresh = args.action != "status" or not getattr(args, "dry_run", False)
     if (
-        args.action in refreshable_actions
+        bridge_path.exists()
+        and args.action in refreshable_actions
         and allow_status_refresh
         and getattr(
             args,
