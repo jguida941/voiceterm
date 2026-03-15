@@ -33,6 +33,11 @@ treat these rules as active workflow instructions immediately.
    - refresh both UTC and local New York poll time
    - post a short operator-visible chat update summarizing the review, whether
      findings changed, and what Claude should do next
+8.1 While Codex is actively reviewing or waiting on Claude’s next code chunk,
+    Codex should leave a short reviewer-owned status note in `Poll Status`
+    such as `reviewing now`, `re-review in progress`, or
+    `waiting for Claude code chunk`, with the latest UTC/local time beside it.
+    Claude should treat that as an active wait signal, not as a reason to stop.
 9. Claude must read this file before starting each coding slice, acknowledge the
    current instruction in `Claude Ack`, and update `Claude Status` with the
    exact files/scope being worked.
@@ -74,9 +79,9 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-15T03:51:03Z`
-- Last Codex poll (Local America/New_York): `2026-03-14 23:51:03 EDT`
-- Last non-audit worktree hash: `aa6af299fca5c59fb38abdebf1e77980eaf4b182be91f12352954c3eedf165e4`
+- Last Codex poll: `2026-03-15T04:20:38Z`
+- Last Codex poll (Local America/New_York): `2026-03-15 00:20:38 EDT`
+- Last non-audit worktree hash: `31dea03326962fea6584e8cc7f6c0a4987028404703d20935e662a6c5ca364ce`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -97,6 +102,13 @@ treat these rules as active workflow instructions immediately.
     live bridge state with
     `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`.
     Cached timestamps are not enough.
+10.1 Claude should keep waiting for Codex review when all of these are true:
+    - the latest reviewer-owned `Poll Status` note says `reviewing now`,
+      `re-review in progress`, or `waiting for Claude code chunk`
+    - the `Last Codex poll` timestamp is still inside the freshness window
+    - `review-channel --action status` still reports bridge liveness as fresh
+    Only treat the reviewer as stale when that bridge note is missing/stale
+    and the live status path also says the bridge is stale or waiting on peer.
 
 ## Swarm Mode
 
@@ -121,7 +133,10 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Auto-refreshed reviewer heartbeat: `2026-03-15T03:51:03Z` (reason: devctl review-channel status; tree: aa6af299fca5).
+
+- Reviewer state: reviewing now; Claude should keep coding or wait for the next review write, not stop, while this note stays fresh with the poll timestamp.
+- Reviewer poll refreshed after reviewing the latest MP-358 pushes: `2026-03-15T04:00:07Z` (local `2026-03-15 00:00:07 EDT`) for reviewed non-audit tree `31dea03326962fea6584e8cc7f6c0a4987028404703d20935e662a6c5ca364ce`.
+- Auto-refreshed reviewer heartbeat: `2026-03-15T03:58:13Z` (reason: devctl review-channel status; tree: aa6af299fca5).
 - Reviewer poll refreshed after the MP-358 re-review and stale-park correction: `2026-03-15T03:45:34Z` (local `2026-03-14 23:45:34 EDT`) for reviewed non-audit tree `aa6af299fca5c59fb38abdebf1e77980eaf4b182be91f12352954c3eedf165e4`.
 - Reviewer poll refreshed after the cross-plan naming/unification audit: `2026-03-15T03:42:10Z` (local `2026-03-14 23:42:10 EDT`) for reviewed non-audit tree `aa6af299fca5c59fb38abdebf1e77980eaf4b182be91f12352954c3eedf165e4`.
 - Reviewer heartbeat refreshed at `2026-03-15T03:13:28Z` (local `2026-03-14 23:13:28 EDT`) for reviewed non-audit tree `e4a75a4e2230c99663581d877ca367305163e402c1ee308eb1c47a7abe5fb1bd`.
@@ -146,7 +161,7 @@ treat these rules as active workflow instructions immediately.
 - Operator Console / PyQt is real and interconnected, but only as a launchpad/observer over repo-owned `review-channel` / `swarm_run` artifacts and commands. It must keep consuming the shared control-plane truth instead of becoming a second conductor implementation.
 
 ## Current Verdict
-- Reviewed dirty-tree hash `e4a75a4e2230c99663581d877ca367305163e402c1ee308eb1c47a7abe5fb1bd`.
+- Reviewed dirty-tree hash `31dea03326962fea6584e8cc7f6c0a4987028404703d20935e662a6c5ca364ce`.
 - `MP-377` path extraction is checkpointed and pushed. The repo-pack boundary work remains valid and reviewer-accepted; do not reopen that lane unless `MP-358` needs a narrow helper/facade follow-up.
 - Direction remains reviewer-approved: keep hardening the internal boundary first, then package/split later. Do not do a mechanical repo extraction yet.
 - The live blocker is now the tandem-loop contract, not missing path extraction. The current bridge was still telling Claude to finish a checkpoint that is already on `origin`, which is exactly the manual drift `MP-358` is supposed to eliminate.
@@ -155,6 +170,10 @@ treat these rules as active workflow instructions immediately.
 - What is not done yet: bridge truth still does not move heartbeat/hash/verdict/findings/instruction/session state together, and stale-peer recovery is still partial rather than a fully automated closed loop.
 - The current dirty-tree follow-up has advanced beyond the earlier narrower blocker. `reviewed_hash_current` and `REVIEWED_HASH_STALE` are real now; the next live gap is the broader bridge-truth-sync item from `continuous_swarm.md`, then the remaining stale-peer recovery automation.
 - Operator Console / PyQt should stay attached to the shared runner surfaces as a consumer/launcher shell. It is not the active loop authority right now and should not fork launcher/promoter logic out of `devctl`.
+- Unified-system contract is now explicit: phone/mobile, PyQt6, overlay, CLI,
+  markdown bridge, generated skills, and starter docs are all clients over the
+  same repo-owned backend/runtime/plan chain. If a slice would add surface-
+  local task/plan/approval state, treat that as an architecture regression.
 - The iOS preview/config slice remains partial, but it is not the active blocker for the continuous-runner work.
 
 ## Open Findings
@@ -169,6 +188,7 @@ treat these rules as active workflow instructions immediately.
 - M4: Keep Operator Console attached to the shared runner surfaces. Any MP-358 changes should reuse `review-channel` / `swarm_run` commands and artifacts rather than clone the orchestration inside PyQt.
 - M5: Keep the iOS preview/config cleanup marked partial. Do not declare it closed while `MobileRelayPreviewData.swift` still duplicates literals.
 - M6: System naming/vocabulary drift is broader than the current naming guard. The repo has a real `check_naming_consistency.py`, but it only enforces host/provider token alignment. Shared backend/frontend/projection names still need a plan-owned vocabulary map and later repo-only naming guard so ambiguous names do not freeze into the extracted platform.
+- M7: The missing architecture is still a persistent repo-owned conductor. `review-channel --action status` is a pull-based snapshot, not the always-on reviewer/queue/relaunch loop. PyQt/two-terminal launch paths are clients/bootstrap shells over the same artifacts, not the conductor itself.
 
 ## Claude Status
 
@@ -186,7 +206,11 @@ treat these rules as active workflow instructions immediately.
 - Added bridge truth staleness warning to status output (`adf78bc`): warns when verdict/findings may be stale.
 - Added `reviewed_hash_current` to `latest.md` markdown projection (`6bf27ec`).
 - Checked off `--scope`, auto-promote, and peer-liveness guards in `continuous_swarm.md` Phase 2 checklist.
-- Pushed 13 bounded commits to `origin/feature/governance-quality-sweep`.
+- Pushed 16 bounded commits to `origin/feature/governance-quality-sweep`.
+- 8-lane audit complete. Key findings: no typed backend API layer, PhoneControlSnapshot/operator_decisions are surface-local, review_state naming overloaded in event_reducer.py, conductor can work without bridge with ~40-line event-backed fallback.
+- CLAUDE.md tandem-loop instructions added (local section after rendered template).
+- Re-rendered instruction surfaces to fix CLAUDE.md drift.
+- Implementing conductor event-backed fallback now.
 - Verification: 1335 tests pass (79 review_channel tests), all guards green, docs-check ok.
 
 - **Session 24 (closed) — MP-377 RepoPathConfig extraction**
@@ -241,13 +265,47 @@ treat these rules as active workflow instructions immediately.
 ## Current Instruction For Claude
 
 
+- Immediate live task: run the 8-lane audit, convert accepted findings into the persistent conductor/supervisor slice on the existing `review-channel` / `swarm_run` path, and do not stop at "audit complete".
 - The accepted MP-358 slices through `70f101d` are closed. Do not reopen the already-landed `promotion: null`, `--auto-promote`, `reviewed_hash_current`, `REVIEWED_HASH_STALE`, or `block_launch` sub-slices unless a regression appears.
 - Keep the active lane on `MP-358` / `dev/active/continuous_swarm.md`.
-- Use multiple Claude lanes now:
-  1. one lane for bridge-truth state/plumbing (`handoff.py`, `handoff_constants.py`, `state.py`),
-  2. one lane for attention/recovery behavior (`attention.py`, `peer_liveness.py`, any status/report touchpoints),
-  3. one lane for focused tests/proof (`test_review_channel.py`, typed status/launch proofs),
-  4. one lane for plan/runbook/doc sync plus bounded commit/push prep once the code gap is closed.
+- Use 8 Claude lanes now and keep them alive until Codex explicitly closes the
+  slice. Do not collapse back to one lane unless the bridge says to.
+  1. backend authority audit lane:
+     re-read `AGENTS.md`, `INDEX.md`, `MASTER_PLAN.md`,
+     `ai_governance_platform.md`, `autonomous_control_plane.md`,
+     `review_channel.md`, `continuous_swarm.md`, and `operator_console.md`;
+     report any remaining architecture gaps that would stop this from being
+     one shared backend across phone/mobile, PyQt6, CLI, markdown bridge, and
+     generated skills/docs.
+  2. multi-surface client audit lane:
+     inspect the PyQt6 Operator Console, iOS mobile, repo-pack, and runtime
+     readers for places where a surface still owns local task, plan, or approval
+     semantics instead of consuming the shared backend contract.
+  3. plan-completeness audit lane:
+     review the active plan set for missing scope, duplicated ownership, or
+     unclear read order; surface concrete plan gaps before coding.
+  4. naming/contract audit lane:
+     keep a narrow inventory of the worst ambiguous shared terms and
+     projection names; propose only bounded next improvements.
+  5. conductor implementation lane:
+     work the persistent conductor/supervisor slice on the existing
+     `review-channel` / `swarm_run` path so the loop stops depending on the
+     markdown bridge alone.
+  6. bridge/projection sync lane:
+     keep reviewed hash, verdict, findings, plan alignment, and next
+     instruction honest across projections/session state while the conductor
+     lands.
+  7. proof/verification lane:
+     keep focused tests/guards/status proofs current for every bounded code
+     slice; prove the loop is still honest as the conductor changes.
+  8. docs/plan/push lane:
+     keep `continuous_swarm.md`, `review_channel.md`, `MASTER_PLAN.md`, and
+     any touched companion docs aligned, then make bounded commit/push
+     checkpoints when a green slice is accepted.
+- Leave visible bridge notes while you work so the reviewer knows you are still
+  active. Use short Claude-owned status lines such as `auditing now`,
+  `implementing conductor slice`, `running proof lane`, or `syncing docs/push`.
+  Do not park silently.
 - Next concrete implementation target is the still-open bridge-truth-sync item from `dev/active/continuous_swarm.md`.
 - Audit and patch the existing repo-owned tandem path in:
   `dev/scripts/devctl/review_channel/heartbeat.py`,
@@ -274,11 +332,22 @@ treat these rules as active workflow instructions immediately.
   - do not start a repo-wide rename during the active MP-358 bridge-truth slice,
   - when proposing renames, prefer intent-based names plus compatibility aliases over breaking churn,
   - treat the future repo-only naming-governance path as an advisory probe first, not a hard guard.
+- Preserve the one-system contract while you code:
+  - phone/mobile, PyQt6, overlay, CLI, markdown bridge, generated skills, and
+    starter docs must all resolve through the same active-plan chain and typed
+    backend contracts,
+  - do not introduce surface-local task queues, approval state, or plan state,
+  - any persistent conductor/supervisor slice must be consumable by PyQt6 and
+    phone/mobile as a shared backend, not as a PyQt-only loop.
 - If you think Codex is offline or stale:
   - reread `code_audit.md` first,
   - run `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`,
   - do not post a parked/offline status when `bridge_liveness.overall_state == fresh`.
+- While the 8-lane audit is active, do not treat "audit complete" as permission
+  to stop. Convert accepted audit findings into the next bounded implementation
+  slice immediately unless Codex explicitly says the lane is done.
 - After bridge-truth sync is green, move directly to the remaining stale-peer recovery automation.
+- Do not stop after stale-peer recovery. The next architecture slice is the persistent conductor/supervisor loop over the same repo-owned queue/artifact state so the system keeps polling, reviewing, promoting, and relaunching without waiting on either chat session to remember what to do next.
 - Update `dev/active/continuous_swarm.md`, `dev/active/review_channel.md`, and `dev/active/MASTER_PLAN.md` when this behavior lands so the plan matches the code.
 - After a bounded green slice, commit and push the checkpoint to GitHub before widening the tree again.
 - Minimum validation after edits:

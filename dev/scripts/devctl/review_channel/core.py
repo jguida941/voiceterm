@@ -269,7 +269,13 @@ def ensure_launcher_prereqs(
     bridge_path: Path,
     execution_mode: str,
 ) -> tuple[str, list[LaneAssignment]]:
-    """Validate transitional-launch prerequisites and return parsed state."""
+    """Validate transitional-launch prerequisites and return parsed state.
+
+    When ``execution_mode`` is ``"auto"`` and the markdown bridge is inactive
+    or missing, the function still succeeds if ``review_channel.md`` exists
+    and contains lane assignments. This allows the launcher to operate from
+    event-backed state without a live ``code_audit.md`` bridge.
+    """
     if execution_mode == "overlay":
         raise ValueError(
             "Overlay-native launch is not implemented yet. This launcher is "
@@ -278,13 +284,14 @@ def ensure_launcher_prereqs(
     if not review_channel_path.exists():
         raise ValueError(f"Missing review-channel plan: {review_channel_path}")
     review_channel_text = load_text(review_channel_path)
-    if not bridge_is_active(review_channel_text):
-        raise ValueError(
-            "The transitional markdown bridge is inactive in review_channel.md. "
-            "Retire or migrate this launcher instead of using it against a "
-            "structured/overlay-native checkout."
-        )
-    if not bridge_path.exists():
+    bridge_active = bridge_is_active(review_channel_text) and bridge_path.exists()
+    if not bridge_active and execution_mode == "markdown-bridge":
+        if not bridge_is_active(review_channel_text):
+            raise ValueError(
+                "The transitional markdown bridge is inactive in review_channel.md. "
+                "Retire or migrate this launcher instead of using it against a "
+                "structured/overlay-native checkout."
+            )
         raise ValueError(
             f"Bridge mode is active but the live bridge file is missing: {bridge_path}"
         )

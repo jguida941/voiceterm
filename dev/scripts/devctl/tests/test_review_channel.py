@@ -1561,10 +1561,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(payload["ok"])
-            self.assertIn("inactive", payload["errors"][0])
-            self.assertEqual(
-                payload["retirement_note"],
-                REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+            self.assertTrue(
+                any(
+                    "inactive" in e or "No AGENT lane" in e
+                    for e in payload.get("errors", [])
+                ),
+                f"Expected bridge-inactive or no-lanes error in {payload.get('errors')}",
             )
 
     def test_run_fails_when_bridge_guard_is_red(self) -> None:
