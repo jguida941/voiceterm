@@ -195,6 +195,12 @@ Out of scope until the local proof gate is green:
 - [ ] Define and implement the stale-peer recovery path:
       mark the bridge as waiting on peer, relaunch or re-seed the missing side,
       and resume from the last confirmed bridge state.
+      Partial: `WAITING_ON_PEER` and `block_launch` are now enforced.
+      `--refresh-bridge-heartbeat-if-stale` is the bounded recovery path for
+      stale heartbeats. `STALE_PEER_RECOVERY` recommends relaunch commands.
+      Automatic relaunch of the missing peer (without operator approval) is
+      deferred to Phase 3/4 — it requires launching Terminal.app sessions
+      programmatically in response to detected peer absence.
 - [ ] Ensure the loop uses one master document chain:
       `MASTER_PLAN` -> relevant active-plan checklist -> `code_audit.md`
       current-state bridge.
