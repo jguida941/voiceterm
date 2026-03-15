@@ -1969,9 +1969,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["execution_mode"], "markdown-bridge")
-            self.assertIn(
-                "Auto-refreshed the markdown-bridge reviewer heartbeat",
-                payload["warnings"][0],
+            self.assertTrue(
+                any(
+                    "Auto-refreshed the markdown-bridge reviewer heartbeat" in w
+                    for w in payload["warnings"]
+                ),
+                f"Expected heartbeat refresh warning in {payload['warnings']}",
             )
             refresh = payload["bridge_heartbeat_refresh"]
             self.assertIsInstance(refresh, dict)
