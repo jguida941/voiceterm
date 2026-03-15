@@ -70,7 +70,11 @@ def bridge_launch_state(
                 bridge_path=bridge_path,
                 reason=f"devctl review-channel {args.action}",
             )
-    bridge_snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
+    if bridge_path.exists():
+        bridge_snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
+    else:
+        from ..review_channel.handoff import BridgeSnapshot
+        bridge_snapshot = BridgeSnapshot(metadata={}, sections={})
     try:
         current_hash = compute_non_audit_worktree_hash(
             repo_root=repo_root, excluded_rel_paths=("code_audit.md",)
@@ -80,7 +84,7 @@ def bridge_launch_state(
     bridge_liveness_state = summarize_bridge_liveness(
         bridge_snapshot, current_worktree_hash=current_hash
     )
-    if args.action in bridge_actions:
+    if args.action in bridge_actions and bridge_path.exists():
         bridge_guard_report = build_bridge_guard_report_fn(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
