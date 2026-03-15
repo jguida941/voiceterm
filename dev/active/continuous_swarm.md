@@ -187,10 +187,14 @@ Out of scope until the local proof gate is green:
       reviewed hash, current verdict, open findings, plan alignment, and next
       instruction together instead of advertising a fresh heartbeat on stale
       review state or a completed task.
-      Partial: `reviewed_hash_current` signal is now live in liveness/status
-      output and `REVIEWED_HASH_STALE` attention fires when review content
-      doesn't match the current tree. Full truth sync (verdict/findings moving
-      with hash) is still open.
+      Partial: `reviewed_hash_current` is threaded through all surfaces
+      (liveness, attention, status, launch, handoff, review_state.json,
+      latest.md). Heartbeat refresh no longer advances the reviewed hash
+      (`8b72f30`) — only real reviews do. Auto-promote blocks on stale
+      hash (`6cfb670`). `REVIEWED_HASH_STALE` attention fires with
+      recovery guidance. Full verdict/findings/instruction synchronization
+      (making those fields move atomically with the hash) is still open —
+      that requires Codex-owned bridge write behavior, not tool-only changes.
 - [x] Add peer-liveness guards:
       Claude cannot start new coding work on stale Codex review state, and
       Codex cannot keep issuing new fix cycles on stale Claude state.
