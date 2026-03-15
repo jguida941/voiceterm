@@ -2643,7 +2643,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertIsNone(payload["terminal_profile_applied"])
-            self.assertIn("Requested Terminal profile", payload["warnings"][-1])
+            self.assertTrue(
+                any("Requested Terminal profile" in w for w in payload["warnings"]),
+                f"Expected terminal profile warning in {payload['warnings']}",
+            )
 
     def test_markdown_bridge_mode_uses_bridge_path_for_status(self) -> None:
         """execution_mode=markdown-bridge must use bridge even when events exist."""

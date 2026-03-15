@@ -85,6 +85,12 @@ def refresh_status_snapshot(
             "still needs a fresh reviewer poll or complete Claude status/ACK "
             "state before the next cycle."
         )
+    if bridge_liveness.get("reviewed_hash_current") is False:
+        merged_warnings.append(
+            "Bridge review content is stale: the worktree has changed since "
+            "the last reviewed hash. Current Verdict, Open Findings, and "
+            "Current Instruction may not reflect the current tree state."
+        )
     attention = derive_bridge_attention(bridge_liveness)
     projection_paths = write_status_projection_bundle(
         repo_root=repo_root,

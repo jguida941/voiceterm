@@ -74,9 +74,9 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-15T03:25:17Z`
-- Last Codex poll (Local America/New_York): `2026-03-14 23:25:17 EDT`
-- Last non-audit worktree hash: `2f0fc5769e7876a041a61b4bd0af29a609d55dea132dd6677d4ed5de16a1b7cf`
+- Last Codex poll: `2026-03-15T03:31:31Z`
+- Last Codex poll (Local America/New_York): `2026-03-14 23:31:31 EDT`
+- Last non-audit worktree hash: `a9da0c7be1954c7b9bea2820f2f2b7b7e1a0ecec0a0bb267054693dbd578292e`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -113,7 +113,8 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Auto-refreshed reviewer heartbeat: `2026-03-15T03:25:17Z` (reason: devctl review-channel status; tree: 2f0fc5769e78).
+
+- Auto-refreshed reviewer heartbeat: `2026-03-15T03:31:31Z` (reason: devctl review-channel status; tree: a9da0c7be195).
 - Reviewer heartbeat refreshed at `2026-03-15T03:13:28Z` (local `2026-03-14 23:13:28 EDT`) for reviewed non-audit tree `e4a75a4e2230c99663581d877ca367305163e402c1ee308eb1c47a7abe5fb1bd`.
 - The latest accepted code slices now run through `70f101d` on `origin/feature/governance-quality-sweep`:
   `0935dc8` (`reviewed_hash_current` live in status/launch),
@@ -197,7 +198,7 @@ treat these rules as active workflow instructions immediately.
 - MP-358 scope/promotion bug: fixed. `apply_scope_if_requested()` now returns `PromotionCandidate`, `_run_bridge_action` feeds it into the report. `--scope continuous_swarm` now returns real `promotion` data instead of `null`.
 - MP-358 auto-promote shadowing: fixed. Removed `promote_bridge_instruction` from lazy import to avoid `UnboundLocalError`.
 - MP-358 `--auto-promote` flag: added to parser.
-- M2 (reviewed_hash_current fully wired): fixed end-to-end. `bridge_launch_state()` and `refresh_status_snapshot()` thread `current_worktree_hash`. `REVIEWED_HASH_STALE` attention fires when review content is stale. `block_launch` enforced for missing/stale reviewer heartbeat. Auto-promote proven with 2 focused tests. Status output verified: `reviewed_hash_current: true` after fresh heartbeat, `false` when tree changed. Pushed: `0935dc8`, `4ae9830`, `b2e2101`, `5239d88`, `70f101d`.
+- M2 (reviewed_hash_current fully wired): fixed end-to-end across all surfaces. `bridge_launch_state()`, `refresh_status_snapshot()`, `write_handoff_bundle()` thread `current_worktree_hash`. `REVIEWED_HASH_STALE` attention fires when review content is stale. `block_launch` enforced for missing/stale reviewer heartbeat. `BridgeState` TypedDict in `review_state.json` includes `reviewed_hash_current`. Auto-promote proven with 2 focused tests. Pushed: `0935dc8`, `4ae9830`, `b2e2101`, `5239d88`, `70f101d`, `e76ddd2`, `cd0bd63`.
 - Widening pass 8 (autonomy parsers): added 9 new fields to `RepoPathConfig`. Migrated `run_parser.py` (8 path defaults) and `benchmark_parser.py` (4 path defaults). `RepoPathConfig` now has 33 fields, voiceterm.py at 316 lines.
 - Widening pass 9 (governance identity): removed compile-time `REPO_ROOT` from `governance_review_log.py`. 1328 tests pass, all guards green.
 - Widening pass 10 (external_findings resolver + cli_parser): aligned `external_findings_log.py` resolver defaults to `voiceterm_repo_root()` fallback (matching `governance_review_log.py` pattern, removed `REPO_ROOT` import). Migrated `cli_parser/reporting.py` (4 path defaults onto `VOICETERM_PATH_CONFIG`). 1328 tests pass.
