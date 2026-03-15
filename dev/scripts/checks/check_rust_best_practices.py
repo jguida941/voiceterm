@@ -11,9 +11,9 @@ from datetime import datetime
 from pathlib import Path
 
 try:
-    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 
 list_changed_paths_with_base_map = import_attr(
     "git_change_paths", "list_changed_paths_with_base_map"
@@ -22,7 +22,6 @@ GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_test_path = import_attr("rust_guard_common", "is_test_path")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 ALLOW_ATTR_RE = re.compile(r"#\s*\[\s*allow\s*\((?P<body>[^\]]*)\)\s*\]", re.DOTALL)
@@ -106,14 +105,12 @@ METRIC_KEYS = (
     "custom_persistent_toml_parsers",
 )
 
-
 def _format_aggregate_growth(totals: dict[str, int]) -> str:
     """Render the one-line aggregate growth summary from totals dict."""
     return ", ".join(
         f"{metric} {totals[f'{metric}_growth']:+d}"
         for metric in METRIC_KEYS
     )
-
 
 def _format_violation_growth(item: dict) -> str:
     """Render per-file metric changes as a compact comma-separated string."""
@@ -125,7 +122,6 @@ def _format_violation_growth(item: dict) -> str:
         parts.append(f"{metric} {base} -> {current} ({growth:+d})")
     return ", ".join(parts)
 
-
 def _count_allow_without_reason(text: str | None) -> int:
     if text is None:
         return 0
@@ -135,7 +131,6 @@ def _count_allow_without_reason(text: str | None) -> int:
         if not ALLOW_REASON_RE.search(body):
             count += 1
     return count
-
 
 def _has_nearby_safety_comment(
     lines: list[str],
@@ -169,7 +164,6 @@ def _has_nearby_safety_comment(
             break
     return False
 
-
 def _count_undocumented_unsafe_blocks(text: str | None) -> int:
     if text is None:
         return 0
@@ -184,7 +178,6 @@ def _count_undocumented_unsafe_blocks(text: str | None) -> int:
         if not _has_nearby_safety_comment(lines, index, allow_following=True):
             count += 1
     return count
-
 
 def _public_unsafe_fn_missing_safety_docs(lines: list[str], index: int) -> bool:
     saw_doc = False
@@ -209,7 +202,6 @@ def _public_unsafe_fn_missing_safety_docs(lines: list[str], index: int) -> bool:
         break
     return not (saw_doc and saw_safety_heading)
 
-
 def _count_pub_unsafe_fn_missing_safety_docs(text: str | None) -> int:
     if text is None:
         return 0
@@ -221,7 +213,6 @@ def _count_pub_unsafe_fn_missing_safety_docs(text: str | None) -> int:
         if _public_unsafe_fn_missing_safety_docs(lines, index):
             count += 1
     return count
-
 
 def _count_unsafe_impl_missing_safety_comment(text: str | None) -> int:
     if text is None:
@@ -235,42 +226,35 @@ def _count_unsafe_impl_missing_safety_comment(text: str | None) -> int:
             count += 1
     return count
 
-
 def _count_mem_forget_calls(text: str | None) -> int:
     if text is None:
         return 0
     return len(MEM_FORGET_RE.findall(text))
-
 
 def _count_result_string(text: str | None) -> int:
     if text is None:
         return 0
     return len(RESULT_STRING_RE.findall(text))
 
-
 def _count_expect_on_join_recv(text: str | None) -> int:
     if text is None:
         return 0
     return len(EXPECT_JOIN_RECV_RE.findall(text))
-
 
 def _count_unwrap_on_join_recv(text: str | None) -> int:
     if text is None:
         return 0
     return len(UNWRAP_JOIN_RECV_RE.findall(text))
 
-
 def _count_dropped_send_results(text: str | None) -> int:
     if text is None:
         return 0
     return len(DROPPED_SEND_RESULT_RE.findall(text))
 
-
 def _count_dropped_emit_results(text: str | None) -> int:
     if text is None:
         return 0
     return len(DROPPED_EMIT_RESULT_RE.findall(text))
-
 
 def _enclosing_function_returns_join_handle(
     lines: list[str],
@@ -286,14 +270,12 @@ def _enclosing_function_returns_join_handle(
         return JOIN_HANDLE_RETURN_RE.search(window) is not None
     return False
 
-
 def _has_detached_thread_allow(lines: list[str], index: int, lookback: int = 2) -> bool:
     min_index = max(0, index - lookback)
     for probe in range(index, min_index - 1, -1):
         if DETACHED_THREAD_ALLOW_RE.search(lines[probe]):
             return True
     return False
-
 
 def _collect_spawn_statement(
     lines: list[str],
@@ -324,7 +306,6 @@ def _collect_spawn_statement(
             return "\n".join(statement_parts)
     return "\n".join(statement_parts)
 
-
 def _count_detached_thread_spawns(text: str | None) -> int:
     if text is None:
         return 0
@@ -350,12 +331,10 @@ def _count_detached_thread_spawns(text: str | None) -> int:
             findings += 1
     return findings
 
-
 def _count_env_mutation_calls(text: str | None) -> int:
     if text is None:
         return 0
     return len(ENV_MUTATION_RE.findall(text))
-
 
 def _open_options_window(text: str, start_index: int, max_lines: int = 12) -> str:
     lines: list[str] = []
@@ -370,7 +349,6 @@ def _open_options_window(text: str, start_index: int, max_lines: int = 12) -> st
         if len(lines) >= max_lines:
             break
     return "\n".join(lines)
-
 
 def _count_suspicious_open_options(text: str | None) -> int:
     if text is None:
@@ -391,7 +369,6 @@ def _count_suspicious_open_options(text: str | None) -> int:
         findings += 1
     return findings
 
-
 def _count_float_literal_comparisons(text: str | None) -> int:
     if text is None:
         return 0
@@ -404,7 +381,6 @@ def _count_float_literal_comparisons(text: str | None) -> int:
         code = STRING_LITERAL_RE.sub('""', code)
         findings += len(FLOAT_LITERAL_COMPARISON_RE.findall(code))
     return findings
-
 
 def _is_persistent_toml_scope(text: str | None, *, path: Path | None) -> bool:
     relative_path = path.as_posix() if path is not None else ""
@@ -422,11 +398,9 @@ def _is_persistent_toml_scope(text: str | None, *, path: Path | None) -> bool:
         or "persistent config" in lowered
     )
 
-
 def _looks_temp_path_expr(path_expr: str) -> bool:
     lowered = path_expr.lower()
     return "temp" in lowered or "tmp" in lowered
-
 
 def _count_nonatomic_persistent_toml_writes(
     text: str | None,
@@ -462,7 +436,6 @@ def _count_nonatomic_persistent_toml_writes(
 
     return findings
 
-
 def _function_window(text: str, start_index: int, max_lines: int = 40) -> str:
     lines = text[start_index:].splitlines()
     result: list[str] = []
@@ -471,7 +444,6 @@ def _function_window(text: str, start_index: int, max_lines: int = 40) -> str:
             break
         result.append(line)
     return "\n".join(result)
-
 
 def _is_custom_toml_parser_scope(text: str | None, *, path: Path | None) -> bool:
     relative_path = path.as_posix() if path is not None else ""
@@ -482,7 +454,6 @@ def _is_custom_toml_parser_scope(text: str | None, *, path: Path | None) -> bool
     lowered = text.lower()
     return ".toml" in lowered and "read_to_string" in text and "parse_" in text
 
-
 def _looks_like_custom_toml_parser(window: str) -> bool:
     if MANUAL_TOML_SPLIT_RE.search(window):
         return True
@@ -492,7 +463,6 @@ def _looks_like_custom_toml_parser(window: str) -> bool:
     ):
         return True
     return False
-
 
 def _count_custom_persistent_toml_parsers(
     text: str | None,
@@ -507,7 +477,6 @@ def _count_custom_persistent_toml_parsers(
         if _looks_like_custom_toml_parser(window):
             findings += 1
     return findings
-
 
 def _count_metrics(text: str | None, *, path: Path | None = None) -> dict[str, int]:
     if text is not None:
@@ -541,7 +510,6 @@ def _count_metrics(text: str | None, *, path: Path | None = None) -> dict[str, i
         ),
     }
 
-
 def _list_all_rust_paths() -> list[Path]:
     paths: set[Path] = set()
     tracked = guard.run_git(["git", "ls-files"]).stdout.splitlines()
@@ -556,7 +524,6 @@ def _list_all_rust_paths() -> list[Path]:
             continue
         paths.add(path)
     return sorted(paths)
-
 
 def _resolve_scan_targets(
     args: argparse.Namespace,
@@ -578,7 +545,6 @@ def _resolve_scan_targets(
     )
     mode = "commit-range" if args.since_ref else "working-tree"
     return changed_paths, base_map, mode
-
 
 def _read_path_pair(
     *,
@@ -602,23 +568,18 @@ def _read_path_pair(
         guard.read_text_from_worktree(path),
     )
 
-
 def _growth_from_metrics(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
     return {metric: current[metric] - base[metric] for metric in METRIC_KEYS}
 
-
 def _empty_growth_totals() -> dict[str, int]:
     return {f"{metric}_growth": 0 for metric in METRIC_KEYS}
-
 
 def _accumulate_growth_totals(totals: dict[str, int], growth: dict[str, int]) -> None:
     for metric, value in growth.items():
         totals[f"{metric}_growth"] += value
 
-
 def _has_positive_growth(growth: dict[str, int]) -> bool:
     return any(value > 0 for value in growth.values())
-
 
 def _scan_paths(
     *,
@@ -675,7 +636,6 @@ def _scan_paths(
         "violations": violations,
     }
 
-
 def _render_md(report: dict) -> str:
     lines = ["# check_rust_best_practices", ""]
     lines.append(f"- mode: {report['mode']}")
@@ -697,7 +657,6 @@ def _render_md(report: dict) -> str:
             lines.append(f"- `{item['path']}`: {_format_violation_growth(item)}")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -711,7 +670,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -743,7 +701,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

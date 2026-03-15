@@ -28,10 +28,7 @@ from ..autonomy.swarm_helpers import resolve_path, slug
 from ..common import emit_output, pipe_output, write_output
 from ..numeric import to_int
 
-try:
-    from dev.scripts.checks.coderabbit_ralph_loop_core import resolve_repo
-except ModuleNotFoundError:
-    from checks.coderabbit_ralph_loop_core import resolve_repo
+from ..repo_packs.process_helpers import resolve_repo
 
 
 def run(args) -> int:

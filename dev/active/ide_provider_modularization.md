@@ -1207,7 +1207,7 @@ MP-346 is complete only when all conditions below are true:
     `utc_timestamp()` ownership in `dev/scripts/checks/check_bootstrap.py` and
     `dev/scripts/devctl/time_utils.py`, then routing local-time report emitters in
     `dev/scripts/checks/`, `dev/scripts/devctl/commands/`, and
-    `dev/scripts/mutants.py` to UTC/Z timestamps so JSON/markdown outputs no
+    `dev/scripts/mutation/cli.py` to UTC/Z timestamps so JSON/markdown outputs no
     longer mix local wall-clock and UTC report metadata (`P11`),
   - replaced raw seconds-per-day literals with named `SECONDS_PER_DAY`
     constants in process-age/report-retention tooling paths
@@ -2343,7 +2343,7 @@ MP-346 is complete only when all conditions below are true:
   - full `devctl check --profile ci` rerun is now green in this session.
 - 2026-03-05: Tooling hygiene + workflow-bridge hardening slice landed:
   - extracted remaining workflow shell-heavy range/scope/path logic into
-    `dev/scripts/workflow_shell_bridge.py` and rewired
+    `dev/scripts/workflow_bridge/shell.py` and rewired
     `tooling_control_plane.yml`, `security_guard.yml`, `failure_triage.yml`,
     and `mutation-testing.yml`,
   - added `check_workflow_shell_hygiene.py` and wired it into
@@ -2359,7 +2359,7 @@ MP-346 is complete only when all conditions below are true:
 - 2026-03-05: Tooling closure + maintainability follow-up slice landed:
   - split oversized workflow bridge logic into dedicated helper modules under
     `dev/scripts/workflow_bridge/` and kept
-    `dev/scripts/autonomy_workflow_bridge.py` as a thin command router,
+    `dev/scripts/workflow_bridge/autonomy.py` as a thin command router,
   - split oversized hygiene ADR governance logic from
     `dev/scripts/devctl/commands/hygiene_audits.py` into focused companion
     modules (`hygiene_audits_archive.py`, `hygiene_audits_adrs*.py`) while
@@ -2390,12 +2390,12 @@ MP-346 is complete only when all conditions below are true:
     `python3 -m unittest dev.scripts.devctl.tests.test_collect_clippy_warnings dev.scripts.devctl.tests.test_check_clippy_high_signal dev.scripts.devctl.tests.test_check_rust_test_shape dev.scripts.devctl.tests.test_check_rust_runtime_panic_policy dev.scripts.devctl.tests.test_check dev.scripts.devctl.tests.test_audit_scaffold`,
     `python3 dev/scripts/checks/check_rust_test_shape.py --format md`,
     `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py --format md`,
-    `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json`,
+    `python3 dev/scripts/rust_tools/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json`,
     `python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md`.
 - 2026-03-05: Runtime-lane AI-guard commit-range enforcement landed:
   - `rust_ci.yml`, `release_preflight.yml`, and `security_guard.yml` now
     resolve `since/head` refs via
-    `python3 dev/scripts/workflow_shell_bridge.py resolve-range` and pass those
+    `python3 dev/scripts/workflow_bridge/shell.py resolve-range` and pass those
     refs into `devctl check --profile ai-guard`,
   - `rust_ci.yml` and `security_guard.yml` now run checkout with
     `fetch-depth: 0` so PR base/head refs are available for range-mode guards,
@@ -2416,7 +2416,7 @@ MP-346 is complete only when all conditions below are true:
     metadata matches the active CI MSRV lane contract,
   - validation:
     `cd rust && cargo fmt --all`,
-    `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --deny-warnings --quiet-json-stream --propagate-exit-code --output-lints-json /tmp/clippy-lints-postfix.json`,
+    `python3 dev/scripts/rust_tools/collect_clippy_warnings.py --working-directory rust --deny-warnings --quiet-json-stream --propagate-exit-code --output-lints-json /tmp/clippy-lints-postfix.json`,
     `python3 dev/scripts/devctl.py check --profile ai-guard --skip-tests --format md`.
 - 2026-03-05: Pending MP-346 guardrail closure slice landed:
   - fixed Python 3.11 compatibility in `devctl release-gates` markdown rendering
@@ -2700,7 +2700,7 @@ by 615 `if jetbrains { ... }` checks scattered across the codebase.
 
 | # | Severity | Category | File(s) | Description |
 |---|---|---|---|---|
-| P1 | HIGH | Duplicated logic | `cli_parser_quality.py` vs `cli_parser_builders_checks.py`, `cli_parser_reporting.py` vs `cli_parser_builders_ops.py` | ~430 lines of identical argparse registration across two file pairs. Pick one canonical source, delete duplicate. |
+| P1 | HIGH | Duplicated logic | `cli_parser/quality.py` vs `cli_parser/builders_checks.py`, `cli_parser/reporting.py` vs `cli_parser/builders_ops.py` | ~430 lines of identical argparse registration across two file pairs. Pick one canonical source, delete duplicate. |
 | P2 | HIGH | Duplicated boilerplate | All 9 `check_*.py` in `dev/scripts/checks/` | Identical try/except import fallback blocks repeated 3-4 times per file (~180 lines total). Make checks directory a proper package or add shared bootstrap. |
 | P3 | MEDIUM | Duplicated logic | `mcp_tools.py:92-135` | `tool_status_snapshot` and `tool_report_snapshot` near-identical. Extract `_snapshot_handler(tool_name, include_ci_default)`. |
 | P4 | MEDIUM | Duplicated error handling | 8 guard scripts | Identical 10-line `RuntimeError` catch block in every `main()`. Extract `emit_error_report()` into `rust_guard_common.py`. |
@@ -2735,8 +2735,8 @@ Prioritized execution order after validating findings against current code.
 
 Revalidation note for Python parser finding `P1`:
 
-1. `cli_parser_quality.py` vs `cli_parser_builders_checks.py` and
-   `cli_parser_reporting.py` vs `cli_parser_builders_ops.py` are currently
+1. `cli_parser/quality.py` vs `cli_parser/builders_checks.py` and
+   `cli_parser/reporting.py` vs `cli_parser/builders_ops.py` are currently
    split-owner parser modules, not direct copy-paste twins in current `develop`
    state.
 2. Keep `P1` as a conditional cleanup candidate only if a concrete duplication
@@ -2787,9 +2787,9 @@ Revalidation note for Python parser finding `P1`:
 | `python3 dev/scripts/checks/check_duplication_audit.py --run-jscpd --allow-missing-tool --run-python-fallback --format md` + `python3 -m unittest dev.scripts.devctl.tests.test_check_duplication_audit` | confirms duplication evidence can be regenerated in constrained environments through explicit fallback scanning while preserving `jscpd`-first flow and regression coverage (`8` tests passed) | done |
 | `nl -ba .github/workflows/rust_ci.yml | sed -n '44,132p'` + `nl -ba .github/workflows/release_preflight.yml | sed -n '30,132p'` + `nl -ba .github/workflows/security_guard.yml | sed -n '68,148p'` | confirms runtime/release/security workflows now resolve commit ranges and pass `--since-ref/--head-ref` into `devctl check --profile ai-guard` | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_check dev.scripts.devctl.tests.test_check_naming_consistency dev.scripts.devctl.tests.test_check_rust_runtime_panic_policy dev.scripts.devctl.tests.test_check_rust_test_shape dev.scripts.devctl.tests.test_check_rust_lint_debt dev.scripts.devctl.tests.test_collect_clippy_warnings` + `python3 dev/scripts/devctl.py check --profile ai-guard --format md` + `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md` + `python3 dev/scripts/devctl.py hygiene --fix --strict-warnings --format md` | confirms clippy sequencing fix, naming-check shape split, and strict tooling/hygiene governance remain green | done |
-| `cd rust && cargo fmt --all` + `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --deny-warnings --quiet-json-stream --propagate-exit-code --output-lints-json /tmp/clippy-lints-postfix.json` + `python3 dev/scripts/devctl.py check --profile ai-guard --skip-tests --format md` | confirms strict clippy is back to zero warnings after lint-family updates and AI-guard/clippy-high-signal gates remain green | done |
+| `cd rust && cargo fmt --all` + `python3 dev/scripts/rust_tools/collect_clippy_warnings.py --working-directory rust --deny-warnings --quiet-json-stream --propagate-exit-code --output-lints-json /tmp/clippy-lints-postfix.json` + `python3 dev/scripts/devctl.py check --profile ai-guard --skip-tests --format md` | confirms strict clippy is back to zero warnings after lint-family updates and AI-guard/clippy-high-signal gates remain green | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_collect_clippy_warnings dev.scripts.devctl.tests.test_check_clippy_high_signal dev.scripts.devctl.tests.test_check_rust_test_shape dev.scripts.devctl.tests.test_check_rust_runtime_panic_policy dev.scripts.devctl.tests.test_check dev.scripts.devctl.tests.test_audit_scaffold` | confirms collector histogram output behavior, new Rust guard scripts, AI-guard wiring, and audit-scaffold integration are regression-safe | done |
-| `python3 dev/scripts/checks/check_rust_test_shape.py --format md` + `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py --format md` + `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json` + `python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md` | confirms new test-shape/runtime-panic guards and clippy high-signal baseline gate execute cleanly against current tree | done |
+| `python3 dev/scripts/checks/check_rust_test_shape.py --format md` + `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py --format md` + `python3 dev/scripts/rust_tools/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json` + `python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md` | confirms new test-shape/runtime-panic guards and clippy high-signal baseline gate execute cleanly against current tree | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_workflow_shell_bridge dev.scripts.devctl.tests.test_check_workflow_shell_hygiene dev.scripts.devctl.tests.test_docs_check` | confirms workflow bridge, workflow-shell hygiene guard, and strict-tooling docs-check wiring regressions are green (`25` tests passed) | done |
 | `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md` | confirms strict-tooling governance gates remain green with workflow-shell hygiene enforcement active | done |
 | `python3 dev/scripts/checks/check_workflow_shell_hygiene.py --format md` + `rg -n "find .*\\| head -n 1|python(?:3)? <<|python(?:3)? -c" .github/workflows/*.yml` | confirms no banned shell patterns remain in workflow run blocks | done |
@@ -2813,7 +2813,7 @@ Revalidation note for Python parser finding `P1`:
 | `nl -ba dev/scripts/checks/check_code_shape.py` | hotspot freeze overrides now include `writer/state.rs`, `prompt_occlusion.rs`, and `claude_prompt_detect.rs`; plus new `--absolute` mode | done |
 | `python3 dev/scripts/checks/check_code_shape.py --absolute --format md` | absolute mode executes and reports repository-wide hard-limit results | done |
 | `nl -ba dev/scripts/devctl/commands/check_profile.py` + `python3 dev/scripts/devctl.py check --profile ci --dry-run` | `ci` profile now enables AI-guard steps | done |
-| `nl -ba dev/scripts/devctl/cli_parser_quality.py` + `nl -ba dev/scripts/devctl/commands/check.py` + `nl -ba dev/scripts/devctl/commands/check_support.py` | `devctl check` now accepts `--since-ref/--head-ref` and forwards commit-range args to supported AI-guard scripts | done |
+| `nl -ba dev/scripts/devctl/cli_parser/quality.py` + `nl -ba dev/scripts/devctl/commands/check.py` + `nl -ba dev/scripts/devctl/commands/check_support.py` | `devctl check` now accepts `--since-ref/--head-ref` and forwards commit-range args to supported AI-guard scripts | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_check_code_shape_guidance` | includes evaluator branch coverage for `_evaluate_shape` + `_evaluate_absolute_shape` | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_check.CheckProfileTests dev.scripts.devctl.tests.test_check.CheckProfileFlagConflictTests dev.scripts.devctl.tests.test_check.CheckProgressFeedbackTests` | validates parser/profile/AI-guard wiring updates and ref-forwarding behavior | done |
 | `dev/reports/mp346/checkpoints/20260302T032908Z-cp000/exit_codes.env` + `summary.md` | `CP-000` captured with explicit bundle pass/fail and `no-go` operator decision | done |
@@ -2931,5 +2931,5 @@ Revalidation note for Python parser finding `P1`:
 | `cd rust && cargo test ipc::tests:: -- --nocapture` + `cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture` | confirms IPC regression suite remains green with added Claude cancellation assertions (`89` passed) and targeted memory-guard lane is green (`1` passed) | done |
 | `cd rust && cargo test legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture` + `cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture` | confirms memory-guard assertion remains green in both default-feature and no-default-feature lane variants after baseline-wait stabilization update (`1` passed in each lane) | done |
 | `python3 dev/scripts/devctl.py check --profile ci` | confirms MP-346 closure-gate bundle is green after reviewer follow-up + memory-guard stabilization (`exit:0`; non-blocking process-sweep `ps` sandbox warnings only) | done |
-| `python3 dev/scripts/checks/check_code_shape.py` + `python3 dev/scripts/checks/check_duplication_audit.py` + `python3 dev/scripts/checks/check_structural_complexity.py` + `python3 dev/scripts/checks/check_duplicate_types.py` + `python3 dev/scripts/checks/check_naming_consistency.py` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `python3 dev/scripts/checks/check_rust_test_shape.py` + `python3 dev/scripts/checks/check_rust_lint_debt.py --absolute --report-dead-code` + `python3 dev/scripts/checks/check_rust_best_practices.py` + `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` + `python3 dev/scripts/checks/check_rust_security_footguns.py` + `python3 dev/scripts/collect_clippy_warnings.py --output-lints-json /tmp/clippy_lints.json --quiet-json-stream` + `python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy_lints.json` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` | architecture reconciliation rerun is now fully green after modularizing `check_router`/`docs_check_support` and generating fresh `jscpd` evidence (`duplication_percent=0.93`); historical `7/7` closure wording is superseded by IDE-first `4/4` release-scope gate | done |
+| `python3 dev/scripts/checks/check_code_shape.py` + `python3 dev/scripts/checks/check_duplication_audit.py` + `python3 dev/scripts/checks/check_structural_complexity.py` + `python3 dev/scripts/checks/check_duplicate_types.py` + `python3 dev/scripts/checks/check_naming_consistency.py` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `python3 dev/scripts/checks/check_rust_test_shape.py` + `python3 dev/scripts/checks/check_rust_lint_debt.py --absolute --report-dead-code` + `python3 dev/scripts/checks/check_rust_best_practices.py` + `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` + `python3 dev/scripts/checks/check_rust_security_footguns.py` + `python3 dev/scripts/rust_tools/collect_clippy_warnings.py --output-lints-json /tmp/clippy_lints.json --quiet-json-stream` + `python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy_lints.json` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` | architecture reconciliation rerun is now fully green after modularizing `check_router`/`docs_check_support` and generating fresh `jscpd` evidence (`duplication_percent=0.93`); historical `7/7` closure wording is superseded by IDE-first `4/4` release-scope gate | done |
 | `python3 dev/scripts/devctl.py hygiene --strict-warnings` + `python3 dev/scripts/devctl.py hygiene --fix --strict-warnings` | catalog/docs registration for `check_duplication_audit_support.py` is complete, but strict hygiene still shows local repeatability noise: after `docs-check --strict-tooling`, regenerated `dev/scripts/checks/__pycache__` warnings fail strict mode unless `--fix` is applied (`--fix --strict-warnings` rerun is green) | open |

@@ -27,15 +27,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..config import REPO_ROOT
+from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG
 from .launch import (
     list_terminal_profiles,
     resolve_terminal_profile_name,
 )
 
-DEFAULT_REVIEW_CHANNEL_REL = "dev/active/review_channel.md"
-DEFAULT_BRIDGE_REL = "code_audit.md"
+# Backward-compat aliases sourced from the frozen path config
+DEFAULT_BRIDGE_REL = VOICETERM_PATH_CONFIG.bridge_rel
+DEFAULT_REVIEW_CHANNEL_REL = VOICETERM_PATH_CONFIG.review_channel_rel
+
 DEFAULT_TERMINAL_PROFILE = "auto-dark"
-DEFAULT_ROLLOVER_DIR_REL = "dev/reports/review_channel/rollovers"
+DEFAULT_ROLLOVER_DIR_REL = VOICETERM_PATH_CONFIG.rollover_root_rel
 DEFAULT_ROLLOVER_THRESHOLD_PCT = 50
 DEFAULT_ROLLOVER_ACK_WAIT_SECONDS = 180
 BRIDGE_GUARD_SCRIPT_PATH = (
@@ -266,7 +269,13 @@ def ensure_launcher_prereqs(
     bridge_path: Path,
     execution_mode: str,
 ) -> tuple[str, list[LaneAssignment]]:
-    """Validate transitional-launch prerequisites and return parsed state."""
+    """Validate transitional-launch prerequisites and return parsed state.
+
+    When ``execution_mode`` is ``"auto"`` and the markdown bridge is inactive
+    or missing, the function still succeeds if ``review_channel.md`` exists
+    and contains lane assignments. This allows the launcher to operate from
+    event-backed state without a live ``code_audit.md`` bridge.
+    """
     if execution_mode == "overlay":
         raise ValueError(
             "Overlay-native launch is not implemented yet. This launcher is "
@@ -275,13 +284,14 @@ def ensure_launcher_prereqs(
     if not review_channel_path.exists():
         raise ValueError(f"Missing review-channel plan: {review_channel_path}")
     review_channel_text = load_text(review_channel_path)
-    if not bridge_is_active(review_channel_text):
-        raise ValueError(
-            "The transitional markdown bridge is inactive in review_channel.md. "
-            "Retire or migrate this launcher instead of using it against a "
-            "structured/overlay-native checkout."
-        )
-    if not bridge_path.exists():
+    bridge_active = bridge_is_active(review_channel_text) and bridge_path.exists()
+    if not bridge_active and execution_mode == "markdown-bridge":
+        if not bridge_is_active(review_channel_text):
+            raise ValueError(
+                "The transitional markdown bridge is inactive in review_channel.md. "
+                "Retire or migrate this launcher instead of using it against a "
+                "structured/overlay-native checkout."
+            )
         raise ValueError(
             f"Bridge mode is active but the live bridge file is missing: {bridge_path}"
         )
@@ -342,4 +352,3 @@ def summarize_bridge_guard_failures(report: dict[str, object]) -> str:
         if isinstance(state_errors, list):
             issues.extend(f"{path}: {error}" for error in state_errors)
     return "; ".join(issues) if issues else "bridge guard reported unknown errors"
-

@@ -6,14 +6,12 @@ from pathlib import Path
 from threading import Lock
 import time
 
-from ..core.models import QualityBacklogSnapshot, QualityPrioritySignal, utc_timestamp
+from dev.scripts.devctl.repo_packs import (
+    collect_devctl_quality_backlog,
+    voiceterm_repo_root,
+)
 
-try:
-    from dev.scripts.devctl.config import REPO_ROOT as DEVCTL_REPO_ROOT
-    from dev.scripts.devctl.quality_backlog.report import collect_quality_backlog
-except ImportError:  # pragma: no cover - repo import path should exist in-app
-    DEVCTL_REPO_ROOT = None
-    collect_quality_backlog = None
+from ..core.models import QualityBacklogSnapshot, QualityPrioritySignal, utc_timestamp
 
 _CACHE_TTL_SECONDS = 120.0
 _CACHE_LOCK = Lock()
@@ -27,9 +25,10 @@ def collect_quality_backlog_snapshot(
     include_tests: bool = False,
 ) -> QualityBacklogSnapshot | None:
     """Return a cached quality-backlog snapshot for the current repo."""
-    if collect_quality_backlog is None or DEVCTL_REPO_ROOT is None:
+    devctl_root = voiceterm_repo_root()
+    if devctl_root is None:
         return None
-    if repo_root.resolve() != Path(DEVCTL_REPO_ROOT).resolve():
+    if repo_root.resolve() != devctl_root.resolve():
         return None
 
     cache_key = str(repo_root.resolve())
@@ -50,9 +49,7 @@ def _collect_uncached(
     top_n: int,
     include_tests: bool,
 ) -> QualityBacklogSnapshot | None:
-    if collect_quality_backlog is None:
-        return None
-    payload = collect_quality_backlog(
+    payload = collect_devctl_quality_backlog(
         top_n=max(0, int(top_n)),
         include_tests=include_tests,
     )

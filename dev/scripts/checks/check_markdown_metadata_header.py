@@ -9,7 +9,10 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 DEFAULT_PATHS = (".",)
 DEFAULT_EXCLUDES = (
     "integrations/**",

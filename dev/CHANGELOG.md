@@ -88,6 +88,10 @@ Note: Some historical entries reference internal documents that are not publishe
   state, reconcile plan boundaries, and scope devctl reporting upgrade.
 - Update `dev/scripts/README.md` and `dev/guides/DEVELOPMENT.md` with new
   mutation testing module structure and CLI flags.
+- Simplify the main onboarding docs (`README.md`, `QUICK_START.md`,
+  `guides/INSTALL.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`) so the short
+  path stays beginner-friendly, advanced companion-app details live behind
+  links, and backend/IDE support wording stays consistent across docs.
 
 ## [1.1.1] - 2026-03-06
 ## [1.1.0] - 2026-03-05
@@ -696,7 +700,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Retire `.github/workflows/audit_traceability_guard.yml`, remove `dev/scripts/check_audit_traceability.py`, and remove the `make traceability-audit` helper target to simplify active CI/tooling flow around `MASTER_PLAN.md`.
 - Add `dev/scripts/generate-release-notes.sh` plus `devctl release-notes`/`make release-notes` wrappers, and wire `release.sh` to auto-generate `/tmp/voiceterm-release-vX.Y.Z.md` for `gh release create --notes-file`.
-- Add mutation-score badge generation (`dev/scripts/render_mutation_badge.py` + `.github/badges/mutation-score.json`) and switch README mutation badge to a percentage endpoint (red/orange/green by score, `failed` only when outcomes are unavailable or invalid).
+- Add mutation-score badge generation (`dev/scripts/badges/mutation.py` + `.github/badges/mutation-score.json`) and switch README mutation badge to a percentage endpoint (red/orange/green by score, `failed` only when outcomes are unavailable or invalid).
 
 ### Runtime Hardening
 
@@ -1356,7 +1360,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Major codebase reorganization: `rust_tui/` → `src/`, `docs/` → `guides/` + `dev/`
 - Rename Rust crate from `rust_tui` to `voiceterm` to match project name
 - Add Makefile for common developer commands
-- Add `dev/scripts/mutants.py` for interactive mutation testing
+- Add `dev/scripts/mutation/cli.py` for interactive mutation testing
 
 ### Bug Fixes
 

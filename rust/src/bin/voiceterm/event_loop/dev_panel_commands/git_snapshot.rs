@@ -67,7 +67,7 @@ fn capture_git_status(
                 let commits: Vec<String> = stdout
                     .lines()
                     .filter(|l| !l.is_empty())
-                    .map(|l| l.to_string())
+                    .map(std::string::ToString::to_string)
                     .collect();
                 if let Some(first) = commits.first() {
                     snapshot.last_commit = first.clone();

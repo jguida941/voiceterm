@@ -4,21 +4,26 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
+import os
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from dev.scripts.devctl.review_channel.handoff import (
-    DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS,
-    extract_bridge_snapshot,
-    validate_live_bridge_contract,
-)
+_review_channel_handoff = importlib.import_module("dev.scripts.devctl.review_channel.handoff")
+
+DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS = _review_channel_handoff.DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS
+extract_bridge_snapshot = _review_channel_handoff.extract_bridge_snapshot
+validate_live_bridge_contract = _review_channel_handoff.validate_live_bridge_contract
 
 CODE_AUDIT_PATH = REPO_ROOT / "code_audit.md"
 REVIEW_CHANNEL_PATH = REPO_ROOT / "dev/active/review_channel.md"
@@ -72,18 +77,13 @@ REQUIRED_REVIEW_CHANNEL_MARKERS = [
 ]
 
 UTC_TIMESTAMP_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
-LOCAL_POLL_PATTERN = re.compile(
-    r"^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} [A-Z]{3,4}$"
-)
+LOCAL_POLL_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} [A-Z]{3,4}$")
 WORKTREE_HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 MAX_POLL_AGE_MINUTES = DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS // 60
 
 
 def _extract_h2(text: str) -> list[str]:
-    return [
-        match.group(1).strip()
-        for match in re.finditer(r"^##\s+(.+?)\s*$", text, re.MULTILINE)
-    ]
+    return [match.group(1).strip() for match in re.finditer(r"^##\s+(.+?)\s*$", text, re.MULTILINE)]
 
 
 def _missing_markers(text: str, required_markers: list[str]) -> list[str]:
@@ -103,9 +103,7 @@ def _extract_code_audit_metadata(text: str) -> dict[str, str]:
     for line in text.splitlines():
         trimmed = line.strip().lstrip("-").strip()
         if trimmed.startswith("Last Codex poll (Local America/New_York):"):
-            metadata["last_codex_poll_local"] = _strip_backticks(
-                trimmed.split(":", 1)[1]
-            )
+            metadata["last_codex_poll_local"] = _strip_backticks(trimmed.split(":", 1)[1])
         elif trimmed.startswith("Last Codex poll:"):
             metadata["last_codex_poll"] = _strip_backticks(trimmed.split(":", 1)[1])
         elif trimmed.startswith("Last non-audit worktree hash:"):
@@ -114,7 +112,12 @@ def _extract_code_audit_metadata(text: str) -> dict[str, str]:
 
 
 def _current_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
+
+
+def _enforce_live_poll_freshness() -> bool:
+    """GitHub-hosted CI cannot act as the live Codex reviewer heartbeat owner."""
+    return os.getenv("GITHUB_ACTIONS", "").strip().lower() != "true"
 
 
 def _validate_code_audit_metadata(text: str) -> list[str]:
@@ -123,19 +126,14 @@ def _validate_code_audit_metadata(text: str) -> list[str]:
 
     last_codex_poll = metadata.get("last_codex_poll", "")
     if not UTC_TIMESTAMP_PATTERN.fullmatch(last_codex_poll):
-        errors.append(
-            "Invalid `Last Codex poll` timestamp; expected ISO-8601 UTC like "
-            "`2026-03-08T19:08:45Z`."
-        )
+        errors.append("Invalid `Last Codex poll` timestamp; expected ISO-8601 UTC like " "`2026-03-08T19:08:45Z`.")
     else:
-        poll_time = datetime.strptime(last_codex_poll, "%Y-%m-%dT%H:%M:%SZ").replace(
-            tzinfo=timezone.utc
-        )
+        poll_time = datetime.strptime(last_codex_poll, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
         max_age = timedelta(minutes=MAX_POLL_AGE_MINUTES)
         poll_age = _current_utc() - poll_time
         if poll_age < timedelta(0):
             errors.append("`Last Codex poll` is in the future.")
-        elif poll_age > max_age:
+        elif poll_age > max_age and _enforce_live_poll_freshness():
             errors.append(
                 "`Last Codex poll` is stale; bridge-active reviews must refresh "
                 f"within {MAX_POLL_AGE_MINUTES} minutes."
@@ -149,8 +147,7 @@ def _validate_code_audit_metadata(text: str) -> list[str]:
 
     if not WORKTREE_HASH_PATTERN.fullmatch(metadata.get("last_worktree_hash", "")):
         errors.append(
-            "Invalid `Last non-audit worktree hash`; expected a 64-character "
-            "lowercase SHA-256 hex digest."
+            "Invalid `Last non-audit worktree hash`; expected a 64-character " "lowercase SHA-256 hex digest."
         )
 
     return errors
@@ -209,11 +206,7 @@ def _build_path_report(
 
     text = path.read_text(encoding="utf-8")
     headings = _extract_h2(text)
-    missing_h2 = (
-        [heading for heading in required_h2 if heading not in headings]
-        if required_h2 is not None
-        else []
-    )
+    missing_h2 = [heading for heading in required_h2 if heading not in headings] if required_h2 is not None else []
     missing_markers = _missing_markers(text, required_markers)
     report: dict = {
         "path": relative_path,
@@ -229,11 +222,7 @@ def _build_path_report(
 
 
 def build_report() -> dict:
-    review_channel_text = (
-        REVIEW_CHANNEL_PATH.read_text(encoding="utf-8")
-        if REVIEW_CHANNEL_PATH.exists()
-        else ""
-    )
+    review_channel_text = REVIEW_CHANNEL_PATH.read_text(encoding="utf-8") if REVIEW_CHANNEL_PATH.exists() else ""
     review_bridge_active = _review_bridge_is_active(review_channel_text)
     code_audit = _build_path_report(
         path=CODE_AUDIT_PATH,
@@ -254,9 +243,7 @@ def build_report() -> dict:
             code_audit["state_errors"] = state_errors
     review_channel = _build_path_report(
         path=REVIEW_CHANNEL_PATH,
-        required_markers=(
-            REQUIRED_REVIEW_CHANNEL_MARKERS if review_bridge_active else []
-        ),
+        required_markers=(REQUIRED_REVIEW_CHANNEL_MARKERS if review_bridge_active else []),
         require_tracked=review_bridge_active,
     )
     return {
@@ -286,29 +273,15 @@ def render_md(report: dict) -> str:
             if section.get("untracked"):
                 continue
         missing_h2 = section.get("missing_h2", [])
-        lines.append(
-            f"- {key}_missing_h2: {', '.join(missing_h2) if missing_h2 else 'none'}"
-        )
+        lines.append(f"- {key}_missing_h2: {', '.join(missing_h2) if missing_h2 else 'none'}")
         missing_markers = section.get("missing_markers", [])
-        lines.append(
-            "- "
-            f"{key}_missing_markers: "
-            f"{', '.join(missing_markers) if missing_markers else 'none'}"
-        )
+        lines.append("- " f"{key}_missing_markers: " f"{', '.join(missing_markers) if missing_markers else 'none'}")
         metadata_errors = section.get("metadata_errors", [])
         if metadata_errors:
-            lines.append(
-                "- "
-                f"{key}_metadata_errors: "
-                f"{', '.join(metadata_errors) if metadata_errors else 'none'}"
-            )
+            lines.append("- " f"{key}_metadata_errors: " f"{', '.join(metadata_errors) if metadata_errors else 'none'}")
         state_errors = section.get("state_errors", [])
         if state_errors:
-            lines.append(
-                "- "
-                f"{key}_state_errors: "
-                f"{', '.join(state_errors) if state_errors else 'none'}"
-            )
+            lines.append("- " f"{key}_state_errors: " f"{', '.join(state_errors) if state_errors else 'none'}")
     return "\n".join(lines)
 
 

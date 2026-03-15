@@ -26,24 +26,18 @@ BACKGROUND_TTY_VALUES = {"", "?", "??", "-"}
 REPO_ROOT_RESOLVED = REPO_ROOT.resolve()
 
 VOICETERM_TEST_BINARY_RE = re.compile(r"(?:^|/|\s)voiceterm-[0-9a-f]{8,}(?:\s|$)")
-VOICETERM_CARGO_TEST_RE = re.compile(
-    r"\bcargo\s+test\b[^\n]*(?:^|\s)--bin\s+voiceterm(?:\s|$)"
-)
-VOICETERM_STRESS_SCREEN_RE = re.compile(
-    r"(?:^|/|\s)(?:SCREEN|screen)\s+-dmS\s+vt_hud_stress_[0-9]+(?:\s|$)"
-)
+VOICETERM_CARGO_TEST_RE = re.compile(r"\bcargo\s+test\b[^\n]*(?:^|\s)--bin\s+voiceterm(?:\s|$)")
+VOICETERM_STRESS_SCREEN_RE = re.compile(r"(?:^|/|\s)(?:SCREEN|screen)\s+-dmS\s+vt_hud_stress_[0-9]+(?:\s|$)")
 REPO_RUNTIME_CARGO_RE = re.compile(r"\bcargo\s+(?:test|run|bench|nextest)\b")
 REPO_RUNTIME_TARGET_BINARY_RE = re.compile(
     rf"{re.escape(str(REPO_ROOT_RESOLVED))}/(?:rust/)?target/(?:debug|release)/"
     r"(?:deps/[^\s/]+-[0-9a-f]{8,}|voiceterm)(?:\s|$)"
 )
 REPO_RUNTIME_RELATIVE_TARGET_BINARY_RE = re.compile(
-    r"(?:^|[\s\"'])(?:\./)?(?:rust/)?target/(?:debug|release)/"
-    r"(?:deps/[^\s/]+-[0-9a-f]{8,}|voiceterm)(?:\s|$)"
+    r"(?:^|[\s\"'])(?:\./)?(?:rust/)?target/(?:debug|release)/" r"(?:deps/[^\s/]+-[0-9a-f]{8,}|voiceterm)(?:\s|$)"
 )
 REPO_RUNTIME_COMMAND_RE = re.compile(
-    rf"(?:{REPO_RUNTIME_TARGET_BINARY_RE.pattern})|"
-    rf"(?:{REPO_RUNTIME_RELATIVE_TARGET_BINARY_RE.pattern})"
+    rf"(?:{REPO_RUNTIME_TARGET_BINARY_RE.pattern})|" rf"(?:{REPO_RUNTIME_RELATIVE_TARGET_BINARY_RE.pattern})"
 )
 VOICETERM_SWEEP_TARGET_RE = re.compile(
     rf"(?:{VOICETERM_TEST_BINARY_RE.pattern})|"
@@ -57,8 +51,7 @@ REPO_TOOLING_WRAPPER_RE = re.compile(
     r"(?:^|[\s\"'])(?:\./)?(?:dev/scripts|scripts)/[^\s\"']+(?:\s|$)"
 )
 REVIEW_CHANNEL_CONDUCTOR_SCRIPT_RE = re.compile(
-    r"(?:^|[\s\"'])(?:\S+/)?(?:codex|claude)-conductor\.sh"
-    r"(?:\s+__review_channel_inner)?(?:\s|$)"
+    r"(?:^|[\s\"'])(?:\S+/)?(?:codex|claude)-conductor\.sh" r"(?:\s+__review_channel_inner)?(?:\s|$)"
 )
 REVIEW_CHANNEL_CONDUCTOR_PROMPT_RE = re.compile(
     r"You are the (?:fresh )?(?:Codex|Claude) conductor for "
@@ -77,11 +70,18 @@ REPO_BACKGROUND_COMMAND_RE = re.compile(
     r"node|npm|npx|pnpm|uv|make|just|screen|SCREEN|tmux|pytest|py\.test)$"
 )
 REPO_SHELL_WRAPPER_RE = re.compile(
-    r"^\S*(?:bash|zsh|sh)(?:(?:\s+-[A-Za-z-]*c\b|\s+-c\b)|"
-    r"(?:\s+\S*(?:dev/scripts/|scripts/)[^\s]+))"
+    r"^\S*(?:bash|zsh|sh)(?:(?:\s+-[A-Za-z-]*c\b|\s+-c\b)|" r"(?:\s+\S*(?:dev/scripts/|scripts/)[^\s]+))"
 )
 SELF_HYGIENE_COMMAND_RE = re.compile(
-    r"\bdev/scripts/devctl\.py\s+process-(?:audit|cleanup)\b"
+    r"^(?:"
+    r"(?:\S*python(?:3(?:\.\d+)?)?\s+(?:\./)?dev/scripts/devctl\.py\s+"
+    r"(?:check|docs-check|hygiene)\b)|"
+    r"(?:\S*(?:bash|zsh|sh)\s+-c[^\n]*\bdev/scripts/devctl\.py\s+"
+    r"(?:check|docs-check|hygiene)\b)|"
+    r"(?:\S*python(?:3(?:\.\d+)?)?\s+(?:\./)?dev/scripts/checks/[^\s]+\.py(?:\s|$))|"
+    r"(?:\S*(?:bash|zsh|sh)\s+(?:\./)?dev/scripts/checks/[^\s]+\.py(?:\s|$))|"
+    r"(?:(?:\./)?dev/scripts/checks/[^\s]+\.py(?:\s|$))"
+    r")"
 )
 SCOPE_PRIORITY = {
     "repo_background": 1,

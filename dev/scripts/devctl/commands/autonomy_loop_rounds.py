@@ -17,6 +17,7 @@ from ..autonomy.loop_helpers import (
     utc_now,
 )
 from ..autonomy.phone_status import build_phone_status, render_phone_status_markdown
+from ..watchdog.probe_gate import run_probe_scan
 from . import loop_packet as loop_packet_command
 from . import triage_loop as triage_loop_command
 from .autonomy_loop_support import write_round_phone_status
@@ -62,9 +63,7 @@ def run_controller_rounds(
             reason = "max_tasks_reached"
             break
 
-        working_branch = (
-            f"{working_prefix}/{plan_id}/{controller_run_id}/r{round_index:03d}"
-        )
+        working_branch = f"{working_prefix}/{plan_id}/{controller_run_id}/r{round_index:03d}"
         latest_working_branch = working_branch
         loop_branch = branch_base if args.loop_branch_mode == "base" else working_branch
 
@@ -94,9 +93,7 @@ def run_controller_rounds(
         triage_rc = triage_loop_command.run(triage_args)
         triage_report, triage_error = json_load(triage_json_path)
         if triage_error or triage_report is None:
-            errors.append(
-                f"round {round_index}: failed to read triage-loop report ({triage_error})"
-            )
+            errors.append(f"round {round_index}: failed to read triage-loop report ({triage_error})")
             reason = "triage_report_missing"
             break
 
@@ -110,9 +107,7 @@ def run_controller_rounds(
         loop_packet_rc = loop_packet_command.run(loop_packet_args)
         loop_packet_report, loop_packet_error = json_load(loop_packet_json_path)
         if loop_packet_error or loop_packet_report is None:
-            errors.append(
-                f"round {round_index}: failed to read loop-packet report ({loop_packet_error})"
-            )
+            errors.append(f"round {round_index}: failed to read loop-packet report ({loop_packet_error})")
             reason = "packet_report_missing"
             break
 
@@ -128,13 +123,17 @@ def run_controller_rounds(
             trace_lines=args.terminal_trace_lines,
             packet_source_refs=[str(triage_json_path), str(loop_packet_json_path)],
         )
-        packet_id = str(
-            checkpoint_packet.get("idempotency_key") or f"r{round_index:03d}"
-        )
+        # Run probe quality scan after each round's triage completes.
+        try:
+            probe_result = run_probe_scan(timeout_seconds=120)
+            checkpoint_packet["probe_scan"] = probe_result.to_dict()
+        # broad-except: allow reason=probe scan must fail open fallback=omit probe scan from checkpoint packet
+        except Exception:
+            checkpoint_packet["probe_scan"] = None
+
+        packet_id = str(checkpoint_packet.get("idempotency_key") or f"r{round_index:03d}")
         checkpoint_path = round_dir / "checkpoint-packet.json"
-        checkpoint_path.write_text(
-            json.dumps(checkpoint_packet, indent=2), encoding="utf-8"
-        )
+        checkpoint_path.write_text(json.dumps(checkpoint_packet, indent=2), encoding="utf-8")
         last_triage_report = triage_report
         last_loop_packet_report = loop_packet_report
         last_checkpoint_packet = checkpoint_packet
@@ -174,12 +173,8 @@ def run_controller_rounds(
         )
 
         if round_index % int(args.checkpoint_every) == 0 or triage_rc != 0:
-            inbox_path = (
-                queue_inbox / f"{controller_run_id}-r{round_index:03d}-{packet_id}.json"
-            )
-            inbox_path.write_text(
-                json.dumps(checkpoint_packet, indent=2), encoding="utf-8"
-            )
+            inbox_path = queue_inbox / f"{controller_run_id}-r{round_index:03d}-{packet_id}.json"
+            inbox_path.write_text(json.dumps(checkpoint_packet, indent=2), encoding="utf-8")
         latest_packet = str(checkpoint_path)
 
         unresolved = int(triage_report.get("unresolved_count") or 0)
@@ -197,14 +192,13 @@ def run_controller_rounds(
                 "packet_path": str(checkpoint_path),
                 "phone_status_json": str(round_phone_json),
                 "requires_approval": bool(checkpoint_packet.get("requires_approval")),
+                "probe_scan": checkpoint_packet.get("probe_scan"),
             }
         )
         tasks_completed += 1
 
         if triage_reason in HARD_REASON_CODES:
-            errors.append(
-                f"round {round_index}: hard stop reason from triage-loop ({triage_reason})"
-            )
+            errors.append(f"round {round_index}: hard stop reason from triage-loop ({triage_reason})")
             reason = triage_reason
             break
         if triage_rc not in (0, 1):

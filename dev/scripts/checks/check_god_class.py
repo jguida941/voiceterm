@@ -12,35 +12,35 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_rust_test_path = import_attr("rust_guard_common", "is_test_path")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (
-    Path("rust/src"),
-    Path("dev/scripts"),
-    Path("app/operator_console"),
+    *resolve_quality_scope_roots("rust_guard", repo_root=REPO_ROOT),
+    *resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),
 )
 
 PYTHON_METHOD_THRESHOLD = 20
@@ -50,10 +50,8 @@ RUST_IMPL_METHOD_THRESHOLD = 20
 RUST_IMPL_RE = re.compile(r"\bimpl(?:\s*<[^>]*>)?\s+([A-Za-z_][A-Za-z0-9_]*)")
 RUST_FN_IN_IMPL_RE = re.compile(r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?fn\s+")
 
-
 def _is_python_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
-
 
 def _count_python_god_classes(text: str | None) -> int:
     if text is None:
@@ -66,14 +64,10 @@ def _count_python_god_classes(text: str | None) -> int:
     for node in ast.walk(tree):
         if not isinstance(node, ast.ClassDef):
             continue
-        methods = sum(
-            1
-            for child in node.body
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
-        )
+        methods = sum(1 for child in node.body if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef))
         ivars: set[str] = set()
         for child in node.body:
-            if not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if not isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
                 continue
             if child.name != "__init__":
                 continue
@@ -89,7 +83,6 @@ def _count_python_god_classes(text: str | None) -> int:
         if methods > PYTHON_METHOD_THRESHOLD or len(ivars) > PYTHON_IVAR_THRESHOLD:
             count += 1
     return count
-
 
 def _count_rust_god_impls(text: str | None) -> int:
     if text is None:
@@ -121,24 +114,18 @@ def _count_rust_god_impls(text: str | None) -> int:
 
     return sum(1 for count in impl_methods.values() if count > RUST_IMPL_METHOD_THRESHOLD)
 
-
-def _count_metrics(
-    text: str | None, *, suffix: str = ".rs"
-) -> dict[str, int]:
+def _count_metrics(text: str | None, *, suffix: str = ".rs") -> dict[str, int]:
     if suffix == ".py":
         return {"god_classes": _count_python_god_classes(text)}
     if suffix == ".rs":
         return {"god_classes": _count_rust_god_impls(text)}
     return {"god_classes": 0}
 
-
 def _growth(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
     return {key: current[key] - base[key] for key in base}
 
-
 def _has_positive_growth(growth: dict[str, int]) -> bool:
     return any(value > 0 for value in growth.values())
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_god_class", ""]
@@ -155,10 +142,7 @@ def _render_md(report: dict) -> str:
         lines.append(f"- head_ref: {report['head_ref']}")
 
     totals = report["totals"]
-    lines.append(
-        "- aggregate_growth: "
-        f"god_classes {totals['god_classes_growth']:+d}"
-    )
+    lines.append("- aggregate_growth: " f"god_classes {totals['god_classes_growth']:+d}")
     lines.append(
         f"- thresholds: python methods >{PYTHON_METHOD_THRESHOLD} or "
         f"ivars >{PYTHON_IVAR_THRESHOLD}, rust impl methods >{RUST_IMPL_METHOD_THRESHOLD}"
@@ -172,18 +156,12 @@ def _render_md(report: dict) -> str:
             "Extract method groups into helper classes, services, or mixins."
         )
         for item in report["violations"]:
-            growth_bits = [
-                f"{key} {value:+d}"
-                for key, value in item["growth"].items()
-                if value > 0
-            ]
+            growth_bits = [f"{key} {value:+d}" for key, value in item["growth"].items() if value > 0]
             lines.append(f"- `{item['path']}`: {', '.join(growth_bits)}")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -211,9 +189,7 @@ def main() -> int:
         if path.suffix not in (".rs", ".py"):
             files_skipped_non_source += 1
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             files_skipped_non_source += 1
             continue
         if path.suffix == ".rs" and _is_rust_test_path(path):
@@ -270,7 +246,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

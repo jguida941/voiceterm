@@ -9,7 +9,10 @@ import re
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 AGENTS_PATH = REPO_ROOT / "AGENTS.md"
 
 REQUIRED_H2 = [

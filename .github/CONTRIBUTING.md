@@ -13,6 +13,7 @@ for everyone.
 - For non-trivial changes, open or comment on an issue first so we can align on scope.
 - Keep docs and UX tables/controls lists in sync with actual behavior.
 - Update `dev/CHANGELOG.md` for user-facing changes.
+- Start from `develop`, not `master`, for normal feature and fix work.
 
 ## Contributor workflow
 
@@ -30,18 +31,22 @@ flowchart TD
 
 ## Development setup
 
-You need Rust stable (latest). Install from <https://rustup.rs>.
+You need Rust stable and the repo prerequisites from `AGENTS.md` /
+`dev/guides/DEVELOPMENT.md`.
 
-Install prerequisites listed in `guides/INSTALL.md`, then build:
+Install prerequisites listed in `guides/INSTALL.md`, then verify the repo tool
+surface:
 
 ```bash
-cd rust && cargo build --release --bin voiceterm
+python3 dev/scripts/devctl.py list
 ```
 
 ## Code style
 
 - Rust: `cargo fmt` and `cargo clippy --workspace --all-features -- -D warnings`.
 - Keep changes focused; prefer small, reviewable commits.
+- Prefer the repo `devctl` checks instead of raw one-off commands when you want
+  the current guarded workflow.
 
 ## Commit message style
 
@@ -51,30 +56,23 @@ cd rust && cargo build --release --bin voiceterm
 
 ## Tests
 
-Start with the basic test suite:
+Start with the repo guard path:
 
 ```bash
-cd rust && cargo test
+python3 dev/scripts/devctl.py check --profile ci
 ```
 
-For overlay-only changes:
+Useful follow-ups when you want a narrower pass:
 
 ```bash
-cd rust && cargo test --bin voiceterm
+python3 dev/scripts/devctl.py docs-check --user-facing
+python3 dev/scripts/devctl.py hygiene
 ```
 
-Targeted checks mirrored in CI (run when relevant):
+If you need raw Rust commands for a targeted runtime check:
 
 ```bash
-# Perf smoke (voice metrics)
-cd rust && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_voice_metrics -- --nocapture
-
-# Memory guard (thread cleanup)
-cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
-
-# Mutation testing (heavy; usually on demand)
-cd rust && cargo mutants --timeout 300 -o mutants.out
-python3 ../dev/scripts/checks/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
+python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm
 ```
 
 ## Pull requests
@@ -82,6 +80,7 @@ python3 ../dev/scripts/checks/check_mutation_score.py --path mutants.out/outcome
 - Explain the problem, the approach, and any tradeoffs.
 - Include test output or notes on what was run.
 - If UI output or flags change, update screenshots and docs that mention them.
+- Keep README and guide links current when adding a new user-visible surface.
 
 We aim to review PRs within a few days.
 

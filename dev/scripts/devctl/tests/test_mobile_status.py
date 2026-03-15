@@ -204,6 +204,7 @@ class MobileStatusCommandTests(unittest.TestCase):
             payload = json.loads(output_json.read_text(encoding="utf-8"))
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["approval_mode"], "balanced")
+            self.assertIn("control_state", json.loads((projection_dir / "full.json").read_text(encoding="utf-8")))
             self.assertEqual(
                 payload["view_payload"]["approval_mode"],
                 "balanced",
@@ -253,6 +254,10 @@ class MobileStatusCommandTests(unittest.TestCase):
             payload = json.loads(output_json.read_text(encoding="utf-8"))
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["approval_mode"], "balanced")
+            compact_payload = json.loads(
+                (projection_dir / "compact.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(compact_payload["review_bridge_state"], "stale")
             self.assertTrue(
                 any(
                     "phone status artifact not found" in row
@@ -283,7 +288,10 @@ class MobileStatusCommandTests(unittest.TestCase):
                 output=str(output_json),
             )
 
-            with patch.object(mobile_status, "event_state_exists", return_value=True):
+            with patch(
+                "dev.scripts.devctl.review_channel.events.event_state_exists",
+                return_value=True,
+            ):
                 rc = mobile_status.run(args)
 
             self.assertEqual(rc, 0)

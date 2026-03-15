@@ -461,7 +461,7 @@ impl DevPanelState {
             let label = self
                 .catalog
                 .get(index)
-                .map(|e| e.label())
+                .map(super::action_catalog::ActionEntry::label)
                 .unwrap_or("unknown");
             return format!("confirm '{}' (press Enter again; Esc/arrows clear)", label);
         }

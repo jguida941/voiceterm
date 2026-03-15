@@ -27,7 +27,7 @@ class DependencyGraphProbeTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.script = load_module(
             "dependency_graph_probe",
-            "dev/scripts/dependency_graph_probe.py",
+            "dev/scripts/rust_tools/dependency_graph_probe.py",
         )
 
     def test_probe_enabled_status_returns_true(self) -> None:

@@ -112,7 +112,10 @@ pub(crate) fn select_strategy(signal: &ContextSignal) -> ContextStrategy {
 
 /// Build the deterministic query plan for a given query and context signal.
 #[must_use = "query plans should be consumed by callers"]
-pub(crate) fn build_query_plan(query: &RetrievalQuery, signal: &ContextSignal) -> Vec<RetrievalQuery> {
+pub(crate) fn build_query_plan(
+    query: &RetrievalQuery,
+    signal: &ContextSignal,
+) -> Vec<RetrievalQuery> {
     let strategy = select_strategy(signal);
     match strategy {
         ContextStrategy::Rag | ContextStrategy::TaskPack => vec![query.clone()],
@@ -411,7 +414,11 @@ mod tests {
             .iter()
             .map(|row| row.event.event_id.clone())
             .collect();
-        assert_eq!(unique.len(), results.len(), "hybrid results should be deduplicated");
+        assert_eq!(
+            unique.len(),
+            results.len(),
+            "hybrid results should be deduplicated"
+        );
     }
 
     #[test]

@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import triage
+from dev.scripts.devctl.triage import support as triage_support
 
 
 def make_args(**overrides):
@@ -23,6 +24,10 @@ def make_args(**overrides):
         "pedantic_summary_json": None,
         "pedantic_lints_json": None,
         "pedantic_policy_file": None,
+        "probe_report": False,
+        "probe_since_ref": None,
+        "probe_head_ref": "HEAD",
+        "quality_policy": None,
         "cihub": False,
         "no_cihub": True,
         "require_cihub": False,
@@ -71,6 +76,13 @@ class TriageParserTests(unittest.TestCase):
                 "--pedantic-refresh",
                 "--pedantic-summary-json",
                 "/tmp/pedantic-summary.json",
+                "--probe-report",
+                "--probe-since-ref",
+                "origin/develop",
+                "--probe-head-ref",
+                "HEAD~1",
+                "--quality-policy",
+                "/tmp/policy.json",
                 "--cihub",
                 "--cihub-run",
                 "123",
@@ -93,6 +105,10 @@ class TriageParserTests(unittest.TestCase):
         self.assertTrue(args.pedantic)
         self.assertTrue(args.pedantic_refresh)
         self.assertEqual(args.pedantic_summary_json, "/tmp/pedantic-summary.json")
+        self.assertTrue(args.probe_report)
+        self.assertEqual(args.probe_since_ref, "origin/develop")
+        self.assertEqual(args.probe_head_ref, "HEAD~1")
+        self.assertEqual(args.quality_policy, "/tmp/policy.json")
         self.assertTrue(args.cihub)
         self.assertEqual(args.cihub_run, "123")
         self.assertEqual(args.cihub_repo, "owner/repo")
@@ -104,6 +120,47 @@ class TriageParserTests(unittest.TestCase):
 
 
 class TriageCommandTests(unittest.TestCase):
+    def test_render_triage_markdown_includes_cihub_and_external_sections(self) -> None:
+        markdown = triage_support.render_triage_markdown(
+            {
+                "timestamp": "2026-03-11T22:00:00Z",
+                "issues": [
+                    {
+                        "severity": "high",
+                        "category": "ci",
+                        "owner": "operator",
+                        "summary": "CI run failed",
+                    }
+                ],
+                "warnings": ["warning"],
+                "rollup": {"total": 1, "by_severity": {"high": 1}},
+                "project": minimal_project_report(),
+                "next_actions": ["Inspect the failing workflow."],
+                "cihub": {
+                    "enabled": True,
+                    "step": {"returncode": 0},
+                    "artifacts": {
+                        "triage_json_path": "/tmp/triage.json",
+                        "priority_json_path": "/tmp/priority.json",
+                        "triage_markdown_path": "/tmp/triage.md",
+                    },
+                },
+                "external_inputs": [{"source": "jira", "path": "/tmp/jira.json", "issues": 2}],
+                "bundle": {
+                    "written": True,
+                    "markdown_path": "/tmp/triage.md",
+                    "ai_json_path": "/tmp/triage.ai.json",
+                },
+            }
+        )
+
+        self.assertIn("## Project Snapshot", markdown)
+        self.assertIn("## CIHub", markdown)
+        self.assertIn("- triage_json: /tmp/triage.json", markdown)
+        self.assertIn("## External Issue Sources", markdown)
+        self.assertIn("- jira: /tmp/jira.json (issues=2)", markdown)
+        self.assertIn("## Bundle", markdown)
+
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_pedantic_snapshot_adds_issues_and_next_action(
@@ -131,18 +188,8 @@ class TriageCommandTests(unittest.TestCase):
         self.assertEqual(rc, 0)
 
         payload = json.loads(write_output_mock.call_args.args[0])
-        self.assertTrue(
-            any(
-                issue["source"] == "devctl.pedantic"
-                for issue in payload["issues"]
-            )
-        )
-        self.assertTrue(
-            any(
-                "check --profile pedantic" in action
-                for action in payload["next_actions"]
-            )
-        )
+        self.assertTrue(any(issue["source"] == "devctl.pedantic" for issue in payload["issues"]))
+        self.assertTrue(any("check --profile pedantic" in action for action in payload["next_actions"]))
 
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.run_cmd")
@@ -187,6 +234,114 @@ class TriageCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
+    def test_probe_report_is_forwarded_and_generates_triage_actions(
+        self,
+        build_report_mock,
+        write_output_mock,
+    ) -> None:
+        build_report_mock.return_value = {
+            **minimal_project_report(),
+            "probe_report": {
+                "ok": True,
+                "mode": "commit-range",
+                "summary": {
+                    "probe_count": 13,
+                    "files_scanned": 441,
+                    "files_with_hints": 14,
+                    "risk_hints": 23,
+                    "hints_by_severity": {"high": 8, "medium": 14, "low": 1},
+                    "priority_hotspots": [
+                        {
+                            "file": "dev/scripts/devctl/commands/triage.py",
+                            "priority_score": 181,
+                            "hint_count": 3,
+                        }
+                    ],
+                    "top_files": [{"file": "dev/scripts/devctl/commands/triage.py", "hint_count": 3}],
+                },
+                "warnings": [],
+                "errors": [],
+            },
+        }
+        args = make_args(
+            probe_report=True,
+            probe_since_ref="origin/develop",
+            probe_head_ref="HEAD~1",
+            format="json",
+        )
+
+        rc = triage.run(args)
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        summaries = {issue["summary"]: issue for issue in payload["issues"]}
+        expected = (
+            "Review probes flagged 23 risk hints across 14 file(s) "
+            "(high=8, medium=14, low=1). "
+            "Top hotspot: dev/scripts/devctl/commands/triage.py (score=181, hints=3)."
+        )
+        self.assertIn(expected, summaries)
+        self.assertEqual(summaries[expected]["severity"], "high")
+        self.assertTrue(any("probe-report --format md" in action for action in payload["next_actions"]))
+        self.assertTrue(
+            any("triage --probe-report --no-cihub --format md" in action for action in payload["next_actions"])
+        )
+        call_kwargs = build_report_mock.call_args.kwargs
+        self.assertTrue(call_kwargs["include_probe_report"])
+        self.assertEqual(call_kwargs["probe_since_ref"], "origin/develop")
+        self.assertEqual(call_kwargs["probe_head_ref"], "HEAD~1")
+        self.assertIsNone(call_kwargs["probe_policy_path"])
+
+    @patch("dev.scripts.devctl.commands.triage.write_output")
+    @patch("dev.scripts.devctl.commands.triage.build_project_report")
+    def test_quality_policy_flag_is_forwarded(
+        self,
+        build_report_mock,
+        _write_output_mock,
+    ) -> None:
+        build_report_mock.return_value = minimal_project_report()
+
+        triage.run(make_args(probe_report=True, quality_policy="/tmp/policy.json"))
+
+        call_kwargs = build_report_mock.call_args.kwargs
+        self.assertEqual(call_kwargs["probe_policy_path"], "/tmp/policy.json")
+
+    @patch("dev.scripts.devctl.commands.triage.write_output")
+    @patch("dev.scripts.devctl.commands.triage.build_project_report")
+    def test_probe_report_errors_add_infra_issue(
+        self,
+        build_report_mock,
+        write_output_mock,
+    ) -> None:
+        build_report_mock.return_value = {
+            **minimal_project_report(),
+            "probe_report": {
+                "ok": False,
+                "summary": {
+                    "probe_count": 11,
+                    "files_scanned": 300,
+                    "files_with_hints": 0,
+                    "risk_hints": 0,
+                },
+                "warnings": [],
+                "errors": ["probe_magic_numbers exited 1"],
+            },
+        }
+        args = make_args(probe_report=True, format="json")
+
+        rc = triage.run(args)
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(
+            any(
+                issue["summary"] == "Review probe run incomplete: 1 probe error(s)." and issue["category"] == "infra"
+                for issue in payload["issues"]
+            )
+        )
+
+    @patch("dev.scripts.devctl.commands.triage.write_output")
+    @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_external_issue_file_is_ingested(
         self,
         build_report_mock,
@@ -221,9 +376,7 @@ class TriageCommandTests(unittest.TestCase):
             summaries = {issue["summary"]: issue for issue in payload["issues"]}
             self.assertIn("CodeRabbit flagged unsafe command interpolation", summaries)
             self.assertEqual(
-                summaries["CodeRabbit flagged unsafe command interpolation"][
-                    "severity"
-                ],
+                summaries["CodeRabbit flagged unsafe command interpolation"]["severity"],
                 "high",
             )
             self.assertTrue(payload["external_inputs"])
@@ -244,16 +397,10 @@ class TriageCommandTests(unittest.TestCase):
         self.assertEqual(rc, 0)
 
         payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(any("external issues ingest failed" in warning for warning in payload["warnings"]))
         self.assertTrue(
             any(
-                "external issues ingest failed" in warning
-                for warning in payload["warnings"]
-            )
-        )
-        self.assertTrue(
-            any(
-                issue["summary"]
-                == "external issues ingest failed for /tmp/does-not-exist-triage-input.json"
+                issue["summary"] == "external issues ingest failed for /tmp/does-not-exist-triage-input.json"
                 for issue in payload["issues"]
             )
         )
@@ -305,8 +452,8 @@ class TriageCommandTests(unittest.TestCase):
         payload = json.loads(output)
         self.assertTrue(any(issue["severity"] == "high" for issue in payload["issues"]))
 
-    @patch("dev.scripts.devctl.commands.triage.run_cmd")
-    @patch("dev.scripts.devctl.commands.triage._cihub_supports_triage")
+    @patch("dev.scripts.devctl.triage.input_sources.run_cmd")
+    @patch("dev.scripts.devctl.triage.input_sources.cihub_supports_triage")
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_cihub_artifacts_are_ingested_when_available(
@@ -357,8 +504,8 @@ class TriageCommandTests(unittest.TestCase):
             self.assertEqual(artifacts["triage_json"]["summary"]["severity"], "high")
             self.assertIn("rollup", payload)
 
-    @patch("dev.scripts.devctl.commands.triage.run_cmd")
-    @patch("dev.scripts.devctl.commands.triage._cihub_supports_triage")
+    @patch("dev.scripts.devctl.triage.input_sources.run_cmd")
+    @patch("dev.scripts.devctl.triage.input_sources.cihub_supports_triage")
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_priority_entries_route_to_severity_and_owner(
@@ -411,17 +558,13 @@ class TriageCommandTests(unittest.TestCase):
 
             payload = json.loads(write_output_mock.call_args.args[0])
             summaries = {issue["summary"]: issue for issue in payload["issues"]}
-            self.assertEqual(
-                summaries["Critical dependency exposure"]["severity"], "high"
-            )
-            self.assertEqual(
-                summaries["Critical dependency exposure"]["owner"], "security"
-            )
+            self.assertEqual(summaries["Critical dependency exposure"]["severity"], "high")
+            self.assertEqual(summaries["Critical dependency exposure"]["owner"], "security")
             self.assertEqual(summaries["Flaky workflow retries"]["severity"], "medium")
             self.assertEqual(summaries["Flaky workflow retries"]["owner"], "platform")
 
-    @patch("dev.scripts.devctl.commands.triage.run_cmd")
-    @patch("dev.scripts.devctl.commands.triage._cihub_supports_triage")
+    @patch("dev.scripts.devctl.triage.input_sources.run_cmd")
+    @patch("dev.scripts.devctl.triage.input_sources.cihub_supports_triage")
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_owner_map_file_overrides_default_owner(
@@ -470,19 +613,13 @@ class TriageCommandTests(unittest.TestCase):
             self.assertEqual(rc, 0)
 
             payload = json.loads(write_output_mock.call_args.args[0])
-            matching = [
-                issue
-                for issue in payload["issues"]
-                if issue["summary"] == "Policy drift detected"
-            ]
+            matching = [issue for issue in payload["issues"] if issue["summary"] == "Policy drift detected"]
             self.assertTrue(matching)
             self.assertEqual(matching[0]["owner"], "secops")
-            self.assertTrue(
-                any("owner map loaded" in warning for warning in payload["warnings"])
-            )
+            self.assertTrue(any("owner map loaded" in warning for warning in payload["warnings"]))
 
-    @patch("dev.scripts.devctl.commands.triage.run_cmd")
-    @patch("dev.scripts.devctl.commands.triage._cihub_supports_triage")
+    @patch("dev.scripts.devctl.triage.input_sources.run_cmd")
+    @patch("dev.scripts.devctl.triage.input_sources.cihub_supports_triage")
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_cihub_failure_adds_warning_issue(
@@ -508,21 +645,15 @@ class TriageCommandTests(unittest.TestCase):
         self.assertEqual(rc, 0)
 
         payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(any("cihub triage command failed" in warning for warning in payload["warnings"]))
         self.assertTrue(
             any(
-                "cihub triage command failed" in warning
-                for warning in payload["warnings"]
-            )
-        )
-        self.assertTrue(
-            any(
-                issue["summary"]
-                == "cihub triage command failed; check cihub version/flags."
+                issue["summary"] == "cihub triage command failed; check cihub version/flags."
                 for issue in payload["issues"]
             )
         )
 
-    @patch("dev.scripts.devctl.commands.triage._cihub_supports_triage")
+    @patch("dev.scripts.devctl.triage.input_sources.cihub_supports_triage")
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_cihub_unsupported_subcommand_skips_without_medium_failure_issue(
@@ -540,9 +671,7 @@ class TriageCommandTests(unittest.TestCase):
 
         payload = json.loads(write_output_mock.call_args.args[0])
         summaries = [issue["summary"] for issue in payload["issues"]]
-        self.assertNotIn(
-            "cihub triage command failed; check cihub version/flags.", summaries
-        )
+        self.assertNotIn("cihub triage command failed; check cihub version/flags.", summaries)
         self.assertIn("warning", payload["cihub"])
         self.assertIn("does not support `triage`", payload["cihub"]["warning"])
 

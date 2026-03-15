@@ -447,6 +447,7 @@ fn build_harness(
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor: None,
+        memory_browser_state: crate::memory_browser::MemoryBrowserState::new(),
         theme_file_watcher: None,
     };
 

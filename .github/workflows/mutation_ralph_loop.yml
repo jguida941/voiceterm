@@ -143,7 +143,7 @@ jobs:
           LOOP_COMMENT_TARGET: ${{ vars.MUTATION_COMMENT_TARGET }}
           LOOP_COMMENT_PR_NUMBER: ${{ vars.MUTATION_COMMENT_PR_NUMBER }}
           LOOP_FIX_COMMAND: ${{ vars.MUTATION_LOOP_FIX_COMMAND }}
-        run: python3 dev/scripts/mutation_ralph_workflow_bridge.py resolve-config --github-output "${GITHUB_OUTPUT}"
+        run: python3 dev/scripts/workflow_bridge/mutation_ralph.py resolve-config --github-output "${GITHUB_OUTPUT}"
 
       - name: Run Mutation Ralph loop
         env:
@@ -163,7 +163,7 @@ jobs:
           COMMENT_PR_NUMBER: ${{ steps.cfg.outputs.comment_pr_number }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/mutation_ralph_workflow_bridge.py run-loop \
+          python3 dev/scripts/workflow_bridge/mutation_ralph.py run-loop \
             --target-repo "${TARGET_REPO}" \
             --target-branch "${TARGET_BRANCH}" \
             --max-attempts "${MAX_ATTEMPTS}" \

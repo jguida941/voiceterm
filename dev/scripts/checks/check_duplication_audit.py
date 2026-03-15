@@ -18,7 +18,10 @@ from check_duplication_audit_support import (
     run_python_fallback,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 DEFAULT_SOURCE_ROOT = REPO_ROOT / "rust" / "src"
 DEFAULT_REPORT_DIR = REPO_ROOT / "dev" / "reports" / "duplication"
 DEFAULT_REPORT_PATH = DEFAULT_REPORT_DIR / "jscpd-report.json"

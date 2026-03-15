@@ -19,7 +19,10 @@ try:
 except ImportError:  # pragma: no cover
     from yaml_json_loader import load_yaml_or_json
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 
 
 def _path_for_report(path: Path) -> str:

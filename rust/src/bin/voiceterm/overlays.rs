@@ -5,12 +5,15 @@ use std::path::Path;
 use crossbeam_channel::Sender;
 use voiceterm::devtools::DevModeSnapshot;
 
+use crate::action_center::render::{action_center_overlay_height, format_action_center_overlay};
 use crate::config::OverlayConfig;
 use crate::dev_command::{DevPanelState, DevPanelTab};
 use crate::dev_panel::{
     dev_panel_height, format_cockpit_page, format_dev_panel, format_review_surface,
 };
 use crate::help::{format_help_overlay, help_overlay_height};
+use crate::memory_browser::render::{format_memory_browser_overlay, memory_browser_overlay_height};
+use crate::memory_browser::MemoryBrowserState;
 use crate::settings::{
     format_settings_overlay, settings_overlay_height, SettingsMenuState, SettingsView,
 };
@@ -35,6 +38,8 @@ pub(crate) enum OverlayMode {
     Settings,
     TranscriptHistory,
     ToastHistory,
+    MemoryBrowser,
+    ActionCenter,
 }
 
 // Overlay naming convention:
@@ -156,6 +161,29 @@ pub(crate) fn show_toast_history_overlay(
 ) {
     let content = format_toast_history_overlay(toast_center, theme, cols as usize);
     let height = toast_history_overlay_height(toast_center);
+    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
+}
+
+pub(crate) fn show_memory_browser_overlay(
+    writer_tx: &Sender<WriterMessage>,
+    browser_state: &MemoryBrowserState,
+    events: &[&crate::memory::types::MemoryEvent],
+    theme: Theme,
+    cols: u16,
+) {
+    let content = format_memory_browser_overlay(browser_state, events, theme, cols as usize);
+    let height = memory_browser_overlay_height();
+    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
+}
+
+pub(crate) fn show_action_center_overlay(
+    writer_tx: &Sender<WriterMessage>,
+    action_state: &DevPanelState,
+    theme: Theme,
+    cols: u16,
+) {
+    let content = format_action_center_overlay(action_state, theme, cols as usize);
+    let height = action_center_overlay_height();
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
 

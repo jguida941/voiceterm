@@ -22,7 +22,7 @@ concurrency:
 jobs:
   swift-test:
     name: swift-test
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 20
 
     defaults:
@@ -41,7 +41,7 @@ jobs:
 
   xcode-build:
     name: xcode-build
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 30
 
     defaults:
@@ -61,7 +61,7 @@ jobs:
           xcodebuild build \
             -project VoiceTermMobileApp.xcodeproj \
             -scheme VoiceTermMobileApp \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \

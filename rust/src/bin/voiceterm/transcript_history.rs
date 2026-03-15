@@ -14,6 +14,7 @@ pub(crate) use render::{
 use std::collections::VecDeque;
 use std::time::Instant;
 
+use crate::overlay_list;
 use crate::stream_line_buffer::StreamLineBuffer;
 
 /// Maximum number of history entries retained.
@@ -237,33 +238,17 @@ impl TranscriptHistoryState {
 
     /// Move selection up.
     pub(crate) fn move_up(&mut self) {
-        if self.selected > 0 {
-            self.selected -= 1;
-            if self.selected < self.scroll_offset {
-                self.scroll_offset = self.selected;
-            }
-        }
+        overlay_list::move_selection_up(&mut self.selected, &mut self.scroll_offset);
     }
 
     /// Move selection down.
     pub(crate) fn move_down(&mut self) {
-        let max = self.filtered_indices.len().saturating_sub(1);
-        if self.selected < max {
-            self.selected += 1;
-        }
+        overlay_list::move_selection_down(&mut self.selected, self.filtered_indices.len());
     }
 
     /// Ensure scroll offset keeps the selected item visible for a given viewport.
     pub(crate) fn clamp_scroll(&mut self, visible_rows: usize) {
-        if visible_rows == 0 {
-            return;
-        }
-        if self.selected >= self.scroll_offset + visible_rows {
-            self.scroll_offset = self.selected.saturating_sub(visible_rows.saturating_sub(1));
-        }
-        if self.selected < self.scroll_offset {
-            self.scroll_offset = self.selected;
-        }
+        overlay_list::clamp_scroll(self.selected, &mut self.scroll_offset, visible_rows);
     }
 
     /// Get the entry index of the currently selected item, if any.

@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from unittest import TestCase
 
-from dev.scripts.checks.active_plan_contract import validate_execution_plan_contract
+from dev.scripts.checks.active_plan.contract import validate_execution_plan_contract
 
 
 class ActivePlanContractTests(TestCase):

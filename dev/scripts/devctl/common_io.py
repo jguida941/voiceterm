@@ -5,8 +5,9 @@ import os
 import shlex
 import shutil
 import subprocess
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any, Callable, Optional, Sequence
+from typing import Any
 
 from .config import REPO_ROOT, SRC_DIR
 
@@ -66,21 +67,42 @@ def resolve_repo_path(
     return candidate.resolve() if resolve else candidate
 
 
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Build one JSON object while rejecting duplicate keys."""
+    payload: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in payload:
+            raise ValueError(f"duplicate JSON key `{key}`")
+        payload[key] = value
+    return payload
+
+
 def read_json_object(
     path: Path,
     *,
     missing_message: str = "artifact missing: {path}",
     invalid_message: str = "invalid JSON ({error})",
     object_message: str = "expected top-level JSON object",
+    reject_duplicate_keys: bool = False,
 ) -> tuple[dict[str, Any] | None, str | None]:
     """Load one JSON object with caller-tunable error wording."""
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        raw_text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return None, missing_message.format(path=path)
     except OSError as exc:
         return None, str(exc)
+    try:
+        if reject_duplicate_keys:
+            payload = json.loads(
+                raw_text,
+                object_pairs_hook=_reject_duplicate_json_keys,
+            )
+        else:
+            payload = json.loads(raw_text)
     except json.JSONDecodeError as exc:
+        return None, invalid_message.format(path=path, error=exc)
+    except ValueError as exc:
         return None, invalid_message.format(path=path, error=exc)
     if not isinstance(payload, dict):
         return None, object_message.format(path=path)
@@ -96,23 +118,34 @@ def build_env(args) -> dict:
         env["CARGO_HOME"] = os.path.expanduser(args.cargo_home)
     if getattr(args, "cargo_target_dir", None):
         env["CARGO_TARGET_DIR"] = os.path.expanduser(args.cargo_target_dir)
+    if getattr(args, "quality_policy", None):
+        env["DEVCTL_QUALITY_POLICY"] = os.path.expanduser(args.quality_policy)
+    if getattr(args, "repo_path", None):
+        env["DEVCTL_REPO_ROOT"] = str(Path(args.repo_path).resolve())
     return env
 
 
-def write_output(content: str, output_path: Optional[str]) -> None:
+def write_output(
+    content: str,
+    output_path: str | None,
+    *,
+    announce_output_path: bool = True,
+    stdout_content: str | None = None,
+) -> None:
     """Write report output to a file, or print it to stdout."""
     if output_path:
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-        print(f"Report saved to: {path}")
+        if stdout_content is not None:
+            print(stdout_content)
+        elif announce_output_path:
+            print(f"Report saved to: {path}")
     else:
-        print(content)
+        print(stdout_content if stdout_content is not None else content)
 
 
-def pipe_output(
-    content: str, pipe_command: Optional[str], pipe_args: Optional[list[str]]
-) -> int:
+def pipe_output(content: str, pipe_command: str | None, pipe_args: list[str] | None) -> int:
     """Send report output to another command through stdin."""
     if not pipe_command:
         return 0
@@ -129,9 +162,7 @@ def pipe_output(
             check=False,
         )
     except subprocess.TimeoutExpired:
-        print(
-            f"Pipe command timed out after {PIPE_OUTPUT_TIMEOUT_SECONDS:.0f}s: {cmd_str(cmd)}"
-        )
+        print(f"Pipe command timed out after {PIPE_OUTPUT_TIMEOUT_SECONDS:.0f}s: {cmd_str(cmd)}")
         return 124
     except OSError as exc:
         print(f"Pipe command failed to start ({cmd_str(cmd)}): {exc}")
@@ -142,15 +173,30 @@ def pipe_output(
 def emit_output(
     content: str,
     *,
-    output_path: Optional[str],
-    pipe_command: Optional[str],
-    pipe_args: Optional[list[str]],
-    additional_outputs: Optional[Sequence[tuple[str, Optional[str]]]] = None,
-    writer: Callable[[str, Optional[str]], None] = write_output,
-    piper: Callable[[str, Optional[str], Optional[list[str]]], int] = pipe_output,
+    output_path: str | None,
+    pipe_command: str | None,
+    pipe_args: list[str] | None,
+    additional_outputs: Sequence[tuple[str, str | None]] | None = None,
+    announce_output_path: bool = True,
+    stdout_content: str | None = None,
+    writer: Callable[[str, str | None], None] = write_output,
+    piper: Callable[[str, str | None, list[str] | None], int] = pipe_output,
 ) -> int:
     """Write output and optionally pipe it, returning the pipe exit code."""
-    writer(content, output_path)
+    if announce_output_path and stdout_content is None:
+        writer(content, output_path)
+    else:
+        try:
+            writer(
+                content,
+                output_path,
+                announce_output_path=announce_output_path,
+                stdout_content=stdout_content,
+            )
+        except TypeError:
+            writer(content, output_path)
+            if output_path and stdout_content is not None:
+                print(stdout_content)
     for extra_content, extra_output_path in additional_outputs or ():
         writer(extra_content, extra_output_path)
     if not pipe_command:
@@ -160,11 +206,7 @@ def emit_output(
 
 def should_emit_output(args) -> bool:
     """Return True when the caller asked for formatted/output report text."""
-    return (
-        args.format != "text"
-        or bool(args.output)
-        or bool(getattr(args, "pipe_command", None))
-    )
+    return args.format != "text" or bool(args.output) or bool(getattr(args, "pipe_command", None))
 
 
 def confirm_or_abort(message: str, assume_yes: bool) -> None:
@@ -173,16 +215,16 @@ def confirm_or_abort(message: str, assume_yes: bool) -> None:
         return
     try:
         reply = input(f"{message} [y/N] ").strip().lower()
-    except EOFError:
+    except EOFError as err:
         print(f"{message} [y/N] <non-interactive input unavailable>")
         print("Aborted. Re-run with --yes for non-interactive usage.")
-        raise SystemExit(1)
+        raise SystemExit(1) from err
     if reply not in ("y", "yes"):
         print("Aborted.")
         raise SystemExit(1)
 
 
-def find_latest_outcomes_file(*, src_dir: Path = SRC_DIR) -> Optional[Path]:
+def find_latest_outcomes_file(*, src_dir: Path = SRC_DIR) -> Path | None:
     """Find the newest mutation `outcomes.json` file under `rust/mutants.out`."""
     output_dir = src_dir / "mutants.out"
     primary = output_dir / "outcomes.json"

@@ -42,6 +42,8 @@ class CheckRouterTests(unittest.TestCase):
                 "--execute",
                 "--dry-run",
                 "--keep-going",
+                "--quality-policy",
+                "/tmp/router-policy.json",
             ]
         )
         self.assertEqual(args.command, "check-router")
@@ -50,6 +52,7 @@ class CheckRouterTests(unittest.TestCase):
         self.assertTrue(args.execute)
         self.assertTrue(args.dry_run)
         self.assertTrue(args.keep_going)
+        self.assertEqual(args.quality_policy, "/tmp/router-policy.json")
 
     @patch("dev.scripts.devctl.commands.check_router.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")

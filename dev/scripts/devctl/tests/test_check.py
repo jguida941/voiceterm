@@ -2,19 +2,22 @@
 
 import io
 import json
+import tempfile
 import time
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
+from dev.scripts.devctl.config import REPO_ROOT, get_repo_root
 from dev.scripts.devctl.commands import (
     check,
-    check_phases,
     check_profile,
     check_progress,
     check_steps,
 )
+from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
 
 
 def make_args(profile: str) -> SimpleNamespace:
@@ -52,6 +55,7 @@ def make_args(profile: str) -> SimpleNamespace:
         mutation_score_warn_age_hours=24.0,
         mutation_score_max_age_hours=None,
         since_ref=None,
+        adoption_scan=False,
         head_ref="HEAD",
         keep_going=False,
         no_parallel=False,
@@ -66,6 +70,8 @@ def make_args(profile: str) -> SimpleNamespace:
         cargo_target_dir=None,
         no_process_sweep_cleanup=True,
         no_host_process_cleanup=False,
+        quality_policy=None,
+        repo_path=None,
     )
 
 
@@ -134,12 +140,8 @@ class CheckProfileTests(TestCase):
             self.assertFalse(settings["with_ci_release_gate"])
 
     def test_prepush_and_release_profiles_keep_heavy_checks_enabled(self) -> None:
-        prepush_settings, _ = check_profile.resolve_profile_settings(
-            make_args("prepush")
-        )
-        release_settings, _ = check_profile.resolve_profile_settings(
-            make_args("release")
-        )
+        prepush_settings, _ = check_profile.resolve_profile_settings(make_args("prepush"))
+        release_settings, _ = check_profile.resolve_profile_settings(make_args("release"))
 
         self.assertTrue(prepush_settings["with_perf"])
         self.assertTrue(prepush_settings["with_mem_loop"])
@@ -182,6 +184,22 @@ class CheckProfileTests(TestCase):
         self.assertEqual(args.since_ref, "origin/develop")
         self.assertEqual(args.head_ref, "HEAD")
 
+    def test_cli_accepts_quality_policy_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "check",
+                "--quality-policy",
+                "/tmp/portable-policy.json",
+            ]
+        )
+        self.assertEqual(args.quality_policy, "/tmp/portable-policy.json")
+
+    def test_cli_accepts_repo_path_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["check", "--repo-path", "/tmp/external-repo"])
+        self.assertEqual(args.repo_path, "/tmp/external-repo")
+
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
     @patch("builtins.print")
@@ -209,9 +227,7 @@ class CheckProfileTests(TestCase):
         rc = check.run(args)
         self.assertEqual(rc, 1)
 
-        printed = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
+        printed = "\n".join(call.args[0] for call in mock_print.call_args_list if call.args)
         self.assertIn("[check] step failed: clippy (exit 1)", printed)
         self.assertIn("[check] last output from clippy:", printed)
         self.assertIn("warning: unused variable", printed)
@@ -270,7 +286,7 @@ class CheckProfileTests(TestCase):
         self.assertNotIn("build-release", names)
 
         clippy_cmd = next(call["cmd"] for call in calls if call["name"] == "clippy")
-        self.assertEqual(clippy_cmd[0:2], ["python3", "dev/scripts/collect_clippy_warnings.py"])
+        self.assertEqual(clippy_cmd[0:2], ["python3", "dev/scripts/rust_tools/collect_clippy_warnings.py"])
         self.assertIn("--output-json", clippy_cmd)
         self.assertIn("--output-lints-json", clippy_cmd)
         self.assertIn("--extra-clippy-arg", clippy_cmd)
@@ -296,9 +312,7 @@ class CheckProfileTests(TestCase):
         self.assertEqual(rc, 0)
 
         wake_call = next(call for call in calls if call["name"] == "wake-guard")
-        self.assertEqual(
-            wake_call["cmd"], ["bash", "dev/scripts/tests/wake_word_guard.sh"]
-        )
+        self.assertEqual(wake_call["cmd"], ["bash", "dev/scripts/tests/wake_word_guard.sh"])
         self.assertEqual(wake_call["env"]["WAKE_WORD_SOAK_ROUNDS"], "7")
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
@@ -343,6 +357,8 @@ class CheckProfileTests(TestCase):
         self.assertIn("code-shape-guard", names)
         self.assertIn("python-broad-except-guard", names)
         self.assertIn("python-subprocess-policy-guard", names)
+        self.assertIn("python-design-complexity-guard", names)
+        self.assertIn("python-cyclic-imports-guard", names)
         self.assertIn("duplicate-types-guard", names)
         self.assertIn("structural-complexity-guard", names)
         self.assertIn("rust-test-shape-guard", names)
@@ -356,9 +372,7 @@ class CheckProfileTests(TestCase):
         self.assertIn("rust-audit-patterns-guard", names)
         self.assertIn("rust-security-footguns-guard", names)
         release_gate_commands = check.build_release_gate_commands()
-        ci_status_call = next(
-            call for call in calls if call["name"] == "ci-status-gate"
-        )
+        ci_status_call = next(call for call in calls if call["name"] == "ci-status-gate")
         self.assertEqual(ci_status_call["cmd"], release_gate_commands[0])
         mock_build_mutation_score_cmd.assert_called_once_with(
             "/tmp/outcomes.json",
@@ -367,12 +381,8 @@ class CheckProfileTests(TestCase):
             args.mutation_score_warn_age_hours,
             True,
         )
-        coderabbit_gate_call = next(
-            call for call in calls if call["name"] == "coderabbit-release-gate"
-        )
-        coderabbit_ralph_gate_call = next(
-            call for call in calls if call["name"] == "coderabbit-ralph-release-gate"
-        )
+        coderabbit_gate_call = next(call for call in calls if call["name"] == "coderabbit-release-gate")
+        coderabbit_ralph_gate_call = next(call for call in calls if call["name"] == "coderabbit-ralph-release-gate")
         self.assertEqual(coderabbit_gate_call["cmd"], release_gate_commands[1])
         self.assertEqual(coderabbit_ralph_gate_call["cmd"], release_gate_commands[2])
         self.assertEqual(coderabbit_gate_call["env"]["CI"], "1")
@@ -402,9 +412,7 @@ class CheckProfileTests(TestCase):
         self.assertEqual(rc, 1)
         report = json.loads(mock_write_output.call_args.args[0])
         self.assertFalse(report["success"])
-        check_halt = next(
-            step for step in report["steps"] if step["name"] == "check-halt"
-        )
+        check_halt = next(step for step in report["steps"] if step["name"] == "check-halt")
         self.assertEqual(check_halt["returncode"], 1)
         self.assertIn("mutation outcomes.json not found", check_halt["error"])
 
@@ -474,6 +482,8 @@ class CheckProfileTests(TestCase):
         self.assertIn("code-shape-guard", names)
         self.assertIn("python-broad-except-guard", names)
         self.assertIn("python-subprocess-policy-guard", names)
+        self.assertIn("python-design-complexity-guard", names)
+        self.assertIn("python-cyclic-imports-guard", names)
         self.assertIn("duplicate-types-guard", names)
         self.assertIn("structural-complexity-guard", names)
         self.assertIn("rust-test-shape-guard", names)
@@ -510,6 +520,8 @@ class CheckProfileTests(TestCase):
         self.assertIn("code-shape-guard", names)
         self.assertIn("python-broad-except-guard", names)
         self.assertIn("python-subprocess-policy-guard", names)
+        self.assertIn("python-design-complexity-guard", names)
+        self.assertIn("python-cyclic-imports-guard", names)
         self.assertIn("duplicate-types-guard", names)
         self.assertIn("structural-complexity-guard", names)
         self.assertIn("rust-test-shape-guard", names)
@@ -522,6 +534,35 @@ class CheckProfileTests(TestCase):
         self.assertIn("rust-runtime-panic-policy-guard", names)
         self.assertIn("rust-audit-patterns-guard", names)
         self.assertIn("rust-security-footguns-guard", names)
+
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_external_python_repo_skips_rust_only_steps_and_restores_repo_root(
+        self,
+        mock_build_env,
+        mock_run_cmd,
+    ) -> None:
+        mock_build_env.return_value = {}
+        calls = []
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            (repo_root / "pkg").mkdir()
+            (repo_root / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+            args = make_args("ci")
+            args.repo_path = str(repo_root)
+
+            rc = check.run(args)
+
+        self.assertEqual(rc, 0)
+        names = [call["name"] for call in calls]
+        self.assertNotIn("fmt-check", names)
+        self.assertNotIn("clippy", names)
+        self.assertNotIn("test", names)
+        self.assertNotIn("build-release", names)
+        self.assertIn("code-shape-guard", names)
+        self.assertEqual(get_repo_root(), REPO_ROOT)
 
     @patch("dev.scripts.devctl.commands.check_phases.run_cmd")
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
@@ -582,9 +623,7 @@ class CheckProfileTests(TestCase):
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
-    def test_ai_guard_commit_range_forwarding(
-        self, mock_build_env, mock_run_cmd
-    ) -> None:
+    def test_ai_guard_commit_range_forwarding(self, mock_build_env, mock_run_cmd) -> None:
         mock_build_env.return_value = {}
         calls = []
 
@@ -600,66 +639,28 @@ class CheckProfileTests(TestCase):
         rc = check.run(args)
         self.assertEqual(rc, 0)
 
-        code_shape_cmd = next(
-            call["cmd"] for call in calls if call["name"] == "code-shape-guard"
-        )
-        python_broad_except_cmd = next(
-            call["cmd"]
-            for call in calls
-            if call["name"] == "python-broad-except-guard"
-        )
+        code_shape_cmd = next(call["cmd"] for call in calls if call["name"] == "code-shape-guard")
+        python_broad_except_cmd = next(call["cmd"] for call in calls if call["name"] == "python-broad-except-guard")
         python_subprocess_policy_cmd = next(
-            call["cmd"]
-            for call in calls
-            if call["name"] == "python-subprocess-policy-guard"
+            call["cmd"] for call in calls if call["name"] == "python-subprocess-policy-guard"
         )
-        duplicate_types_cmd = next(
-            call["cmd"] for call in calls if call["name"] == "duplicate-types-guard"
+        python_design_complexity_cmd = next(
+            call["cmd"] for call in calls if call["name"] == "python-design-complexity-guard"
         )
-        structural_complexity_cmd = next(
-            call["cmd"]
-            for call in calls
-            if call["name"] == "structural-complexity-guard"
-        )
-        rust_test_shape_cmd = next(
-            call["cmd"] for call in calls if call["name"] == "rust-test-shape-guard"
-        )
-        rust_lint_cmd = next(
-            call["cmd"] for call in calls if call["name"] == "rust-lint-debt-guard"
-        )
-        rust_best_cmd = next(
-            call["cmd"] for call in calls if call["name"] == "rust-best-practices-guard"
-        )
-        serde_compatibility_cmd = next(
-            call["cmd"] for call in calls if call["name"] == "serde-compatibility-guard"
-        )
-        rust_panic_policy_cmd = next(
-            call["cmd"]
-            for call in calls
-            if call["name"] == "rust-runtime-panic-policy-guard"
-        )
-        rust_audit_patterns_cmd = next(
-            call["cmd"] for call in calls if call["name"] == "rust-audit-patterns-guard"
-        )
-        rust_footguns_cmd = next(
-            call["cmd"]
-            for call in calls
-            if call["name"] == "rust-security-footguns-guard"
-        )
-        isolation_cmd = next(
-            call["cmd"]
-            for call in calls
-            if call["name"] == "ide-provider-isolation-guard"
-        )
-        compat_matrix_cmd = next(
-            call["cmd"] for call in calls if call["name"] == "compat-matrix-guard"
-        )
-        compat_matrix_smoke_cmd = next(
-            call["cmd"] for call in calls if call["name"] == "compat-matrix-smoke-guard"
-        )
-        naming_consistency_cmd = next(
-            call["cmd"] for call in calls if call["name"] == "naming-consistency-guard"
-        )
+        python_cyclic_imports_cmd = next(call["cmd"] for call in calls if call["name"] == "python-cyclic-imports-guard")
+        duplicate_types_cmd = next(call["cmd"] for call in calls if call["name"] == "duplicate-types-guard")
+        structural_complexity_cmd = next(call["cmd"] for call in calls if call["name"] == "structural-complexity-guard")
+        rust_test_shape_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-test-shape-guard")
+        rust_lint_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-lint-debt-guard")
+        rust_best_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-best-practices-guard")
+        serde_compatibility_cmd = next(call["cmd"] for call in calls if call["name"] == "serde-compatibility-guard")
+        rust_panic_policy_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-runtime-panic-policy-guard")
+        rust_audit_patterns_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-audit-patterns-guard")
+        rust_footguns_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-security-footguns-guard")
+        isolation_cmd = next(call["cmd"] for call in calls if call["name"] == "ide-provider-isolation-guard")
+        compat_matrix_cmd = next(call["cmd"] for call in calls if call["name"] == "compat-matrix-guard")
+        compat_matrix_smoke_cmd = next(call["cmd"] for call in calls if call["name"] == "compat-matrix-smoke-guard")
+        naming_consistency_cmd = next(call["cmd"] for call in calls if call["name"] == "naming-consistency-guard")
 
         self.assertIn("--since-ref", code_shape_cmd)
         self.assertIn("--head-ref", code_shape_cmd)
@@ -667,6 +668,10 @@ class CheckProfileTests(TestCase):
         self.assertIn("--head-ref", python_broad_except_cmd)
         self.assertIn("--since-ref", python_subprocess_policy_cmd)
         self.assertIn("--head-ref", python_subprocess_policy_cmd)
+        self.assertIn("--since-ref", python_design_complexity_cmd)
+        self.assertIn("--head-ref", python_design_complexity_cmd)
+        self.assertIn("--since-ref", python_cyclic_imports_cmd)
+        self.assertIn("--head-ref", python_cyclic_imports_cmd)
         self.assertIn("--since-ref", duplicate_types_cmd)
         self.assertIn("--head-ref", duplicate_types_cmd)
         self.assertIn("--since-ref", structural_complexity_cmd)
@@ -690,6 +695,29 @@ class CheckProfileTests(TestCase):
         self.assertNotIn("--since-ref", compat_matrix_cmd)
         self.assertNotIn("--since-ref", compat_matrix_smoke_cmd)
         self.assertNotIn("--since-ref", naming_consistency_cmd)
+
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_ai_guard_adoption_scan_forwarding(self, mock_build_env, mock_run_cmd) -> None:
+        mock_build_env.return_value = {}
+        calls = []
+
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
+        args = make_args("ai-guard")
+        args.adoption_scan = True
+        args.skip_fmt = True
+        args.skip_clippy = True
+        args.skip_tests = True
+        args.skip_build = True
+
+        rc = check.run(args)
+        self.assertEqual(rc, 0)
+
+        code_shape_cmd = next(call["cmd"] for call in calls if call["name"] == "code-shape-guard")
+        self.assertIn("--since-ref", code_shape_cmd)
+        self.assertIn(ADOPTION_BASE_REF, code_shape_cmd)
+        self.assertIn("--head-ref", code_shape_cmd)
+        self.assertIn(WORKTREE_HEAD_REF, code_shape_cmd)
 
     @patch("dev.scripts.devctl.commands.check_phases.run_step_specs")
     @patch("dev.scripts.devctl.commands.check.build_env")
@@ -803,12 +831,15 @@ class CheckProfileTests(TestCase):
         rc = check.run(args)
         self.assertEqual(rc, 0)
 
-        self.assertEqual(len(calls), 2)
+        # 3 calls: parallel guard batch, sequential clippy guard, probe phase.
+        self.assertEqual(len(calls), 3)
         self.assertTrue(calls[0]["parallel_enabled"])
         self.assertIn("clippy", calls[0]["names"])
         self.assertNotIn("clippy-high-signal-guard", calls[0]["names"])
         self.assertFalse(calls[1]["parallel_enabled"])
         self.assertEqual(calls[1]["names"], ["clippy-high-signal-guard"])
+        # Third call is the probe phase.
+        self.assertTrue(calls[2]["parallel_enabled"])
 
 
 class CheckProcessSweepTests(TestCase):
@@ -846,9 +877,7 @@ class CheckProcessSweepTests(TestCase):
         )
         kill_mock.return_value = ([1234, 5678], [])
 
-        result = check._cleanup_orphaned_voiceterm_test_binaries(
-            "process-sweep-test", dry_run=False
-        )
+        result = check._cleanup_orphaned_voiceterm_test_binaries("process-sweep-test", dry_run=False)
 
         kill_mock.assert_called_once()
         self.assertEqual(result["detected_orphans"], 1)
@@ -858,17 +887,13 @@ class CheckProcessSweepTests(TestCase):
 
     @patch("dev.scripts.devctl.commands.check.kill_processes")
     @patch("dev.scripts.devctl.commands.check.scan_repo_hygiene_process_tree")
-    def test_cleanup_reports_warning_when_ps_unavailable(
-        self, scan_mock, kill_mock
-    ) -> None:
+    def test_cleanup_reports_warning_when_ps_unavailable(self, scan_mock, kill_mock) -> None:
         scan_mock.return_value = (
             [],
             ["Process sweep skipped: unable to execute ps (blocked)"],
         )
         kill_mock.return_value = ([], [])
-        result = check._cleanup_orphaned_voiceterm_test_binaries(
-            "process-sweep-test", dry_run=False
-        )
+        result = check._cleanup_orphaned_voiceterm_test_binaries("process-sweep-test", dry_run=False)
 
         kill_mock.assert_called_once_with([])
         self.assertEqual(result["detected_orphans"], 0)
@@ -1060,9 +1085,7 @@ class CheckParallelHelperTests(TestCase):
             {"name": "fmt-check", "cmd": ["cargo", "fmt"], "cwd": "src", "env": {}},
             {"name": "clippy", "cmd": ["cargo", "clippy"], "cwd": "src", "env": {}},
         ]
-        results = check_steps.run_step_specs_parallel(
-            specs, dry_run=False, max_workers=2
-        )
+        results = check_steps.run_step_specs_parallel(specs, dry_run=False, max_workers=2)
         self.assertEqual([entry["name"] for entry in results], ["fmt-check", "clippy"])
 
 
@@ -1179,9 +1202,7 @@ class CheckProfileFlagConflictTests(TestCase):
         # Check that at least one warning was printed (via the print calls
         # that include file=sys.stderr).
         warning_calls = [
-            call
-            for call in mock_print.call_args_list
-            if call.args and "[check] warning:" in str(call.args[0])
+            call for call in mock_print.call_args_list if call.args and "[check] warning:" in str(call.args[0])
         ]
         self.assertGreater(len(warning_calls), 0)
 
@@ -1278,9 +1299,7 @@ class CheckProgressFeedbackTests(TestCase):
         """Single-step serial prints [1/4] name..."""
         stderr = io.StringIO()
         with patch("sys.stderr", stderr):
-            check_progress.emit_progress(
-                [{"name": "fmt-check"}], current=0, total=4, is_parallel=False
-            )
+            check_progress.emit_progress([{"name": "fmt-check"}], current=0, total=4, is_parallel=False)
         self.assertEqual(stderr.getvalue().strip(), "[1/4] fmt-check...")
 
     def test_emit_progress_serial_multiple_steps(self) -> None:
@@ -1317,9 +1336,7 @@ class CheckProgressFeedbackTests(TestCase):
         """A single-step parallel call uses serial format (no range)."""
         stderr = io.StringIO()
         with patch("sys.stderr", stderr):
-            check_progress.emit_progress(
-                [{"name": "test"}], current=2, total=4, is_parallel=True
-            )
+            check_progress.emit_progress([{"name": "test"}], current=2, total=4, is_parallel=True)
         self.assertEqual(stderr.getvalue().strip(), "[3/4] test...")
 
     def test_emit_progress_empty_specs_is_noop(self) -> None:
@@ -1337,16 +1354,14 @@ class CheckProgressFeedbackTests(TestCase):
     ) -> None:
         """With --no-parallel, each step gets [N/M] progress on stderr."""
         mock_build_env.return_value = {}
-        mock_run_cmd.side_effect = (
-            lambda name, cmd, cwd=None, env=None, dry_run=False: {
-                "name": name,
-                "cmd": cmd,
-                "cwd": str(cwd),
-                "returncode": 0,
-                "duration_s": 0.0,
-                "skipped": False,
-            }
-        )
+        mock_run_cmd.side_effect = lambda name, cmd, cwd=None, env=None, dry_run=False: {
+            "name": name,
+            "cmd": cmd,
+            "cwd": str(cwd),
+            "returncode": 0,
+            "duration_s": 0.0,
+            "skipped": False,
+        }
 
         args = make_args("")
         args.no_parallel = True
@@ -1371,16 +1386,14 @@ class CheckProgressFeedbackTests(TestCase):
     ) -> None:
         """With parallel enabled, batched steps show range progress on stderr."""
         mock_build_env.return_value = {}
-        mock_run_cmd.side_effect = (
-            lambda name, cmd, cwd=None, env=None, dry_run=False: {
-                "name": name,
-                "cmd": cmd,
-                "cwd": str(cwd),
-                "returncode": 0,
-                "duration_s": 0.0,
-                "skipped": False,
-            }
-        )
+        mock_run_cmd.side_effect = lambda name, cmd, cwd=None, env=None, dry_run=False: {
+            "name": name,
+            "cmd": cmd,
+            "cwd": str(cwd),
+            "returncode": 0,
+            "duration_s": 0.0,
+            "skipped": False,
+        }
 
         args = make_args("")
         args.skip_tests = True

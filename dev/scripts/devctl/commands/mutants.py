@@ -1,4 +1,4 @@
-"""devctl mutants command wrapper."""
+"""devctl mutation command adapter."""
 
 from typing import List
 
@@ -7,8 +7,8 @@ from ..config import REPO_ROOT
 
 
 def build_mutants_cmd(args) -> List[str]:
-    """Build the mutants.py command line from args."""
-    cmd = ["python3", "dev/scripts/mutants.py"]
+    """Build the mutation CLI command line from args."""
+    cmd = ["python3", "dev/scripts/mutation/cli.py"]
 
     # Targeting flags
     if getattr(args, "changed", False):

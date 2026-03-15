@@ -5,6 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .lane_attention import (
+    attention_status_hint,
+    operator_state_label,
+    prefer_status_hint,
+)
 from ..core.models import AgentLaneData, ApprovalRequest
 from ..sessions.session_trace_reader import SessionTraceSnapshot
 
@@ -14,6 +19,8 @@ def build_codex_lane(
     last_codex_poll: str | None,
     last_worktree_hash: str | None,
     *,
+    attention_status: str | None = None,
+    attention_summary: str | None = None,
     live_trace: SessionTraceSnapshot | None = None,
 ) -> AgentLaneData:
     """Build structured Codex reviewer lane data from parsed sections."""
@@ -21,9 +28,9 @@ def build_codex_lane(
     verdict = sections.get("Current Verdict", "(missing)")
     findings = sections.get("Open Findings", "(missing)")
     live_status = _live_trace_status(live_trace)
-    status_hint = _lane_status_hint(
-        _codex_status_hint(poll_status, last_codex_poll),
-        live_status,
+    status_hint = prefer_status_hint(
+        _lane_status_hint(_codex_status_hint(poll_status, last_codex_poll), live_status),
+        attention_status_hint(attention_status),
     )
     state_label = _codex_state_label(poll_status, last_codex_poll)
     risk_label = _codex_risk_label(verdict, findings)
@@ -37,6 +44,8 @@ def build_codex_lane(
         f"\nCurrent Verdict:\n{verdict}",
         f"\nOpen Findings:\n{findings}",
     ]
+    if attention_summary:
+        raw_parts.append(f"\nAttention:\n{attention_summary}")
     rows = [
         ("State", state_label),
     ]
@@ -57,6 +66,8 @@ def build_codex_lane(
             ("Confidence", confidence_label),
         ]
     )
+    if attention_summary:
+        rows.append(("Attention", _one_line_summary(attention_summary)))
     return AgentLaneData(
         provider_name="Codex",
         lane_title="Codex Session Monitor" if live_trace is not None else "Codex Bridge Monitor",
@@ -68,7 +79,6 @@ def build_codex_lane(
         risk_label=risk_label,
         confidence_label=confidence_label,
     )
-
 
 def build_claude_lane(
     sections: dict[str, str],
@@ -118,13 +128,23 @@ def build_operator_lane(
     sections: dict[str, str],
     pending_approvals: tuple[ApprovalRequest, ...],
     review_state_path: Path | None,
+    *,
+    attention_status: str | None = None,
+    attention_summary: str | None = None,
 ) -> AgentLaneData:
     """Build structured operator lane data from parsed sections."""
     instruction = sections.get("Current Instruction For Claude", "(missing)")
     scope = sections.get("Last Reviewed Scope", "(missing)")
     approval_count = len(pending_approvals)
-    status_hint = "warning" if approval_count > 0 else "active"
-    state_label = _operator_state_label(instruction, approval_count)
+    status_hint = prefer_status_hint(
+        "warning" if approval_count > 0 else "active",
+        attention_status_hint(attention_status),
+    )
+    state_label = operator_state_label(
+        _one_line_summary(instruction),
+        approval_count,
+        attention_status,
+    )
 
     raw_parts = [
         f"Current Instruction For Claude:\n{instruction}",
@@ -132,22 +152,27 @@ def build_operator_lane(
         f"\nReview state: {review_state_path or '(not found)'}",
         f"Pending approvals: {approval_count}",
     ]
+    if attention_summary:
+        raw_parts.append(f"\nAttention:\n{attention_summary}")
+    rows = [
+        ("State", state_label),
+        ("Instruction", _one_line_summary(instruction)),
+        ("Scope", _one_line_summary(scope)),
+        ("Approvals", str(approval_count)),
+        (
+            "Review State",
+            str(review_state_path) if review_state_path else "(not found)",
+        ),
+    ]
+    if attention_summary:
+        rows.append(("Attention", _one_line_summary(attention_summary)))
     return AgentLaneData(
         provider_name="Operator",
         lane_title="Operator Bridge State",
         role_label="Human",
         status_hint=status_hint,
         state_label=state_label,
-        rows=(
-            ("State", state_label),
-            ("Instruction", _one_line_summary(instruction)),
-            ("Scope", _one_line_summary(scope)),
-            ("Approvals", str(approval_count)),
-            (
-                "Review State",
-                str(review_state_path) if review_state_path else "(not found)",
-            ),
-        ),
+        rows=tuple(rows),
         raw_text="\n".join(raw_parts),
     )
 
@@ -281,14 +306,6 @@ def _cursor_state_label(cursor_status: str, *, has_live_trace: bool) -> str:
     return "Idle"
 
 
-def _operator_state_label(instruction: str, approval_count: int) -> str:
-    if approval_count > 0:
-        return "Awaiting Approval"
-    if _one_line_summary(instruction) in {"(missing)", "(empty)"}:
-        return "Idle"
-    return "Supervising"
-
-
 def _codex_risk_label(verdict: str, findings: str) -> str:
     combined = f"{verdict}\n{findings}".lower()
     if any(word in combined for word in ("critical", "high", "unsafe", "blocker", "breaking")):
@@ -339,7 +356,6 @@ def _lane_status_hint(
     if bridge_status != "idle" or live_status is None:
         return bridge_status
     return live_status[0]
-
 
 def _live_trace_status(
     live_trace: SessionTraceSnapshot | None,

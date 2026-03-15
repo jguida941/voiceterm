@@ -7,12 +7,20 @@ currently executing without interfering with ``--format``/``--output``.
 from __future__ import annotations
 
 import sys
-from typing import List
 
-from .check_support import AI_GUARD_CHECKS
+from ..quality_policy import DEFAULT_AI_GUARD_CHECKS, DEFAULT_REVIEW_PROBE_CHECKS
+
+AI_GUARD_CHECKS = DEFAULT_AI_GUARD_CHECKS
+REVIEW_PROBE_CHECKS = DEFAULT_REVIEW_PROBE_CHECKS
 
 
-def count_quality_steps(args, settings: dict) -> int:
+def count_quality_steps(
+    args,
+    settings: dict,
+    *,
+    ai_guard_checks=AI_GUARD_CHECKS,
+    review_probe_checks=REVIEW_PROBE_CHECKS,
+) -> int:
     """Pre-count the number of quality-gate steps that will be executed.
 
     This mirrors the conditional logic in ``check.run()`` so progress feedback
@@ -27,7 +35,7 @@ def count_quality_steps(args, settings: dict) -> int:
         else:
             count += 1
     if settings["with_ai_guard"]:
-        count += len(AI_GUARD_CHECKS)
+        count += len(ai_guard_checks)
     if not settings["skip_tests"]:
         count += 1
     if not settings["skip_build"]:
@@ -46,11 +54,13 @@ def count_quality_steps(args, settings: dict) -> int:
         count += 1
     if settings.get("with_ci_release_gate", False):
         count += 3  # status --require-ci + strict CodeRabbit + strict Ralph gates
+    if settings.get("with_review_probes", False):
+        count += len(review_probe_checks)
     return count
 
 
 def emit_progress(
-    step_specs: List[dict],
+    step_specs: list[dict],
     current: int,
     total: int,
     is_parallel: bool,

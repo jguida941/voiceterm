@@ -13,7 +13,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 REGISTRY_PATH: Final[str] = "dev/scripts/devctl/bundle_registry.py"
 DEFAULT_MAX_SHARED: Final[int] = 5
 

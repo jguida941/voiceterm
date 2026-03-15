@@ -9,9 +9,7 @@ def add_triage_parser(sub, default_ci_limit: int) -> None:
         "triage",
         help="Generate human + AI triage outputs with optional CIHub ingestion",
     )
-    triage_cmd.add_argument(
-        "--ci", action="store_true", help="Include recent GitHub runs"
-    )
+    triage_cmd.add_argument("--ci", action="store_true", help="Include recent GitHub runs")
     triage_cmd.add_argument("--ci-limit", type=int, default=default_ci_limit)
     triage_cmd.add_argument(
         "--dev-logs",
@@ -51,6 +49,28 @@ def add_triage_parser(sub, default_ci_limit: int) -> None:
         help="Override pedantic lint policy file",
     )
     triage_cmd.add_argument(
+        "--probe-report",
+        action="store_true",
+        help="Include aggregated review-probe summary in triage classification",
+    )
+    triage_cmd.add_argument(
+        "--probe-since-ref",
+        help="Optional base ref for review-probe commit-range reporting",
+    )
+    triage_cmd.add_argument(
+        "--probe-head-ref",
+        default="HEAD",
+        help="Head ref used with --probe-since-ref (default: HEAD)",
+    )
+    triage_cmd.add_argument(
+        "--quality-policy",
+        help=(
+            "Optional repo policy JSON file used by --probe-report "
+            "(defaults to dev/config/devctl_repo_policy.json or "
+            "DEVCTL_QUALITY_POLICY)."
+        ),
+    )
+    triage_cmd.add_argument(
         "--cihub",
         action="store_true",
         help="Run cihub triage and ingest emitted artifacts (auto-enabled when cihub is installed)",
@@ -67,12 +87,8 @@ def add_triage_parser(sub, default_ci_limit: int) -> None:
     )
     triage_cmd.add_argument("--cihub-bin", default="cihub")
     triage_run_group = triage_cmd.add_mutually_exclusive_group()
-    triage_run_group.add_argument(
-        "--cihub-latest", action="store_true", help="Use latest run (default)"
-    )
-    triage_run_group.add_argument(
-        "--cihub-run", help="Specific run id for cihub triage"
-    )
+    triage_run_group.add_argument("--cihub-latest", action="store_true", help="Use latest run (default)")
+    triage_run_group.add_argument("--cihub-run", help="Specific run id for cihub triage")
     triage_cmd.add_argument("--cihub-repo", help="owner/repo passed to cihub triage")
     triage_cmd.add_argument(
         "--cihub-emit-dir",
@@ -102,12 +118,7 @@ def add_triage_parser(sub, default_ci_limit: int) -> None:
         "--external-issues-file",
         action="append",
         default=[],
-        help=(
-            "Optional JSON file with additional issue-like records "
-            "(repeat flag for multiple files)"
-        ),
+        help=("Optional JSON file with additional issue-like records " "(repeat flag for multiple files)"),
     )
     triage_cmd.add_argument("--dry-run", action="store_true")
-    add_standard_output_arguments(
-        triage_cmd, format_choices=("text", "json", "md")
-    )
+    add_standard_output_arguments(triage_cmd, format_choices=("text", "json", "md"))

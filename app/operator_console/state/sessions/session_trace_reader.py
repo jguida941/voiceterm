@@ -7,13 +7,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dev.scripts.devctl.repo_packs import VOICETERM_PATH_CONFIG
+
 from .session_trace_history import _sanitize_terminal_history
 from .session_trace_terminal import _render_terminal_screen, _sanitize_terminal_screen
 
-DEFAULT_SESSION_TRACE_DIR_CANDIDATES = (
-    "dev/reports/review_channel/projections/latest/sessions",
-    "dev/reports/review_channel/latest/sessions",
-)
+# Backward-compat alias — canonical value lives in VOICETERM_PATH_CONFIG.
+DEFAULT_SESSION_TRACE_DIR_CANDIDATES = VOICETERM_PATH_CONFIG.session_trace_dir_candidates
 DEFAULT_SESSION_NAME_SUFFIX = "-conductor"
 
 

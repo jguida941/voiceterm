@@ -11,9 +11,9 @@ from datetime import datetime
 from pathlib import Path
 
 try:
-    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 
 list_changed_paths_with_base_map = import_attr(
     "git_change_paths", "list_changed_paths_with_base_map"
@@ -26,18 +26,15 @@ mask_rust_comments_and_strings = import_attr(
 )
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 PANIC_MACRO_RE = re.compile(r"\bpanic!\s*\(")
 PANIC_ALLOW_MARKER_RE = re.compile(r"panic-policy:\s*allow\b", re.IGNORECASE)
 PANIC_ALLOW_REASON_RE = re.compile(r"\breason\s*=", re.IGNORECASE)
 
-
 def _is_comment_like(raw_line: str) -> bool:
     stripped = raw_line.strip()
     return stripped.startswith(("//", "/*", "*", "///", "//!"))
-
 
 def _has_allowlisted_panic_comment(
     lines: list[str], index: int, lookback: int = 3
@@ -52,7 +49,6 @@ def _has_allowlisted_panic_comment(
         if raw and not _is_comment_like(raw) and not raw.startswith("#["):
             break
     return False
-
 
 def _find_unallowlisted_panic_lines(text: str | None) -> list[int]:
     if text is None:
@@ -76,14 +72,12 @@ def _find_unallowlisted_panic_lines(text: str | None) -> list[int]:
             line_numbers.append(index + 1)
     return line_numbers
 
-
 def _count_metrics(text: str | None) -> dict[str, object]:
     line_numbers = _find_unallowlisted_panic_lines(text)
     return {
         "unallowlisted_panic_calls": len(line_numbers),
         "unallowlisted_panic_line_numbers": line_numbers,
     }
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_rust_runtime_panic_policy", ""]
@@ -124,7 +118,6 @@ def _render_md(report: dict) -> str:
             )
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -138,7 +131,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -236,7 +228,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

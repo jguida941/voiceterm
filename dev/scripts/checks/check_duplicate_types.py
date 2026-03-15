@@ -11,9 +11,9 @@ from datetime import datetime
 from pathlib import Path
 
 try:
-    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 
 list_changed_paths_with_base_map = import_attr(
     "git_change_paths", "list_changed_paths_with_base_map"
@@ -25,7 +25,6 @@ _normalize_changed_paths = import_attr(
 )
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 SOURCE_ROOT = REPO_ROOT / "rust" / "src"
 TYPE_DEF_RE = re.compile(
@@ -46,16 +45,13 @@ ALLOWLIST_DUPLICATES: dict[str, set[str]] = {
     },
 }
 
-
 def _path_for_report(path: Path) -> str:
     return path.relative_to(REPO_ROOT).as_posix()
-
 
 def _extract_type_names(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8", errors="replace")
     text = strip_cfg_test_blocks(text)
     return TYPE_DEF_RE.findall(text)
-
 
 def _build_type_index(files: list[Path]) -> tuple[dict[str, set[str]], int]:
     index: dict[str, set[str]] = {}
@@ -67,7 +63,6 @@ def _build_type_index(files: list[Path]) -> tuple[dict[str, set[str]], int]:
         for name in names:
             index.setdefault(name, set()).add(rel)
     return index, type_definitions
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_duplicate_types", ""]
@@ -107,7 +102,6 @@ def _render_md(report: dict) -> str:
 
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since-ref", help="Compare against this git ref")
@@ -121,7 +115,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -203,7 +196,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

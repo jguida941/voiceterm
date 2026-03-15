@@ -446,23 +446,27 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn build_startup_banner_for_cols_selects_expected_render_mode() {
-        let config = BannerConfig::default();
+        with_banner_env_vars(&[], || {
+            with_runtime_overrides(RuntimeStylePackOverrides::default(), || {
+                let config = BannerConfig::default();
 
-        let ascii = build_startup_banner_for_cols(&config, Theme::None, Some(66));
-        assert!(ascii.contains("██╗"));
-        assert!(ascii.contains("Initializing..."));
+                let ascii = build_startup_banner_for_cols(&config, Theme::None, Some(66));
+                assert!(ascii.contains("██╗"));
+                assert!(ascii.contains("Initializing..."));
 
-        let minimal = build_startup_banner_for_cols(&config, Theme::None, Some(59));
-        assert!(minimal.contains("Ctrl+R rec"));
-        assert!(!minimal.contains("Initializing..."));
+                let minimal = build_startup_banner_for_cols(&config, Theme::None, Some(59));
+                assert!(minimal.contains("Ctrl+R rec"));
+                assert!(!minimal.contains("Initializing..."));
 
-        let standard = build_startup_banner_for_cols(&config, Theme::None, Some(60));
-        assert!(standard.contains("mouse: click HUD buttons"));
-        assert!(!standard.contains("Initializing..."));
+                let standard = build_startup_banner_for_cols(&config, Theme::None, Some(60));
+                assert!(standard.contains("mouse: click HUD buttons"));
+                assert!(!standard.contains("Initializing..."));
 
-        let fallback = build_startup_banner_for_cols(&config, Theme::None, None);
-        assert!(fallback.contains("mouse: click HUD buttons"));
-        assert!(!fallback.contains("Initializing..."));
+                let fallback = build_startup_banner_for_cols(&config, Theme::None, None);
+                assert!(fallback.contains("mouse: click HUD buttons"));
+                assert!(!fallback.contains("Initializing..."));
+            });
+        });
     }
 
     #[test]

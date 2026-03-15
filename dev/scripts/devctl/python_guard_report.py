@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from .config import REPO_ROOT
+from .quality_policy_loader import QUALITY_POLICY_ENV_VAR
 
 PYTHON_GUARD_SPECS: dict[str, dict[str, Any]] = {
     "python_dict_schema": {
@@ -19,11 +21,29 @@ PYTHON_GUARD_SPECS: dict[str, dict[str, Any]] = {
         },
     },
     "python_global_mutable": {
-        "label": "global mutable",
+        "label": "default traps",
         "script": "dev/scripts/checks/check_python_global_mutable.py",
         "weights": {
             "global_statements": 280,
             "mutable_default_args": 260,
+            "function_call_default_args": 240,
+            "dataclass_mutable_defaults": 260,
+            "dataclass_call_defaults": 240,
+        },
+    },
+    "python_design_complexity": {
+        "label": "design complexity",
+        "script": "dev/scripts/checks/check_python_design_complexity.py",
+        "weights": {
+            "high_branch_functions": 210,
+            "high_return_functions": 180,
+        },
+    },
+    "python_cyclic_imports": {
+        "label": "cyclic imports",
+        "script": "dev/scripts/checks/check_python_cyclic_imports.py",
+        "weights": {
+            "cyclic_imports": 320,
         },
     },
     "parameter_count": {
@@ -83,6 +103,14 @@ def _guard_command(
     if since_ref:
         command.extend(["--since-ref", since_ref, "--head-ref", head_ref])
     return command
+
+
+def _guard_env(policy_path: str | None) -> dict[str, str] | None:
+    if not policy_path:
+        return None
+    env = os.environ.copy()
+    env[QUALITY_POLICY_ENV_VAR] = str(Path(policy_path).expanduser())
+    return env
 
 
 def _parse_guard_payload(
@@ -204,6 +232,7 @@ def collect_python_guard_report(
     since_ref: str | None = None,
     head_ref: str = "HEAD",
     top_n: int = 20,
+    policy_path: str | None = None,
 ) -> dict[str, Any]:
     """Run Python clean-code guards and aggregate a backlog summary."""
     warnings: list[str] = []
@@ -221,6 +250,7 @@ def collect_python_guard_report(
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
+            env=_guard_env(policy_path),
             check=False,
         )
         payload, guard_warnings, guard_errors = _parse_guard_payload(

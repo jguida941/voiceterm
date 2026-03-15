@@ -9,7 +9,8 @@ Current layout:
 
 - `core/`: shared dataclasses, readability, coercion
 - `activity/`: human-readable activity report builders
-- `bridge/`: bridge-section parsing and lane assembly
+- `bridge/`: bridge-section parsing, lane assembly, and attention-to-lane
+  health mapping
 - `jobs/`: background refresh job coordination
 - `presentation/`: banner/status/analytics presentation shaping
 - `repo/`: repo-state snapshots

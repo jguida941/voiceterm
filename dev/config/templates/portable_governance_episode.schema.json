@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "portable-governance/portable_governance_episode.schema.json",
+  "title": "Portable Governance Episode",
+  "description": "Portable event schema for one guarded coding episode. This is the measurement contract external pilot repos should populate even when repo-local tooling stores the data in a different physical format.",
+  "type": "object",
+  "required": [
+    "repo",
+    "task",
+    "initial_output",
+    "guard_hits",
+    "repair",
+    "accepted_diff",
+    "human_edits",
+    "tests",
+    "later_review"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "repo": {
+      "type": "object",
+      "required": ["name", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "language_mix": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": ["task_id", "task_class", "changed_files"],
+      "additionalProperties": false,
+      "properties": {
+        "task_id": { "type": "string", "minLength": 1 },
+        "task_class": { "type": "string", "minLength": 1 },
+        "changed_files": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "provider": { "type": "string" },
+        "session_id": { "type": "string" }
+      }
+    },
+    "initial_output": {
+      "type": "object",
+      "required": ["kind", "lines_added", "lines_removed", "diff_churn"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["diff", "patch", "file_bundle", "command_output", "unknown"]
+        },
+        "ref": { "type": "string" },
+        "lines_added": { "type": "integer", "minimum": 0 },
+        "lines_removed": { "type": "integer", "minimum": 0 },
+        "diff_churn": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "guard_hits": {
+      "type": "object",
+      "required": ["count"],
+      "additionalProperties": false,
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "families": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "repair": {
+      "type": "object",
+      "required": ["repair_loops", "time_to_green_seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "repair_loops": { "type": "integer", "minimum": 0 },
+        "time_to_green_seconds": { "type": ["number", "null"], "minimum": 0 },
+        "guard_runtime_seconds": { "type": "number", "minimum": 0 },
+        "notes": { "type": "string" }
+      }
+    },
+    "accepted_diff": {
+      "type": "object",
+      "required": ["lines_added", "lines_removed", "diff_churn"],
+      "additionalProperties": false,
+      "properties": {
+        "lines_added": { "type": "integer", "minimum": 0 },
+        "lines_removed": { "type": "integer", "minimum": 0 },
+        "diff_churn": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "human_edits": {
+      "type": "object",
+      "required": ["required", "edit_count"],
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": "boolean" },
+        "edit_count": { "type": "integer", "minimum": 0 },
+        "notes": { "type": "string" }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "required": ["build_passed", "tests_passed", "lint_passed", "typecheck_passed"],
+      "additionalProperties": false,
+      "properties": {
+        "build_passed": { "type": "boolean" },
+        "tests_passed": { "type": "boolean" },
+        "lint_passed": { "type": "boolean" },
+        "typecheck_passed": { "type": "boolean" },
+        "warning_delta": { "type": "integer" }
+      }
+    },
+    "later_review": {
+      "type": "object",
+      "required": ["outcome", "findings_count"],
+      "additionalProperties": false,
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": ["accepted", "accepted_with_followups", "rejected", "deferred", "unknown"]
+        },
+        "findings_count": { "type": "integer", "minimum": 0 },
+        "review_time_seconds": { "type": ["number", "null"], "minimum": 0 },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

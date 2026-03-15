@@ -74,7 +74,7 @@ async fn handle_ws_client(
                 match event_result {
                     Ok(event) => {
                         let json = encode_event(&event);
-                        if ws_sink.send(Message::Text(json.into())).await.is_err() {
+                        if ws_sink.send(Message::Text(json)).await.is_err() {
                             break;
                         }
                     }
@@ -119,7 +119,7 @@ async fn handle_ws_frame(
                         session_id: None,
                     });
                     // Client may have disconnected between read and write.
-                    if ws_sink.send(Message::Text(json.into())).await.is_err() {
+                    if ws_sink.send(Message::Text(json)).await.is_err() {
                         return true;
                     }
                 }

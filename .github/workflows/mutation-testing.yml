@@ -83,7 +83,7 @@ jobs:
       - name: Locate shard outcomes
         run: |
           set -euo pipefail
-          OUTCOME_PATH="$(python3 ../dev/scripts/workflow_shell_bridge.py find-first-file --search-root mutants.out --pattern outcomes.json)"
+          OUTCOME_PATH="$(python3 ../dev/scripts/workflow_bridge/shell.py find-first-file --search-root mutants.out --pattern outcomes.json)"
           if [ -z "${OUTCOME_PATH}" ]; then
             echo "outcomes.json not found" >&2
             exit 1
@@ -123,7 +123,7 @@ jobs:
 
       - name: Render mutation score badge
         if: always()
-        run: python3 dev/scripts/render_mutation_badge.py --glob "mutation-shards/**/shard-*-outcomes.json" --output .github/badges/mutation-score.json
+        run: python3 dev/scripts/badges/mutation.py --glob "mutation-shards/**/shard-*-outcomes.json" --output .github/badges/mutation-score.json
 
       - name: Commit mutation badge update
         if: always() && github.ref == 'refs/heads/master'

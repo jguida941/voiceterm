@@ -7,7 +7,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Tuple
 
-DEFAULT_REPORTS_ROOT_RELATIVE = Path("dev/reports")
+from .repo_packs.voiceterm import VOICETERM_PATH_CONFIG
+
+# Backward-compat alias sourced from repo-pack config
+DEFAULT_REPORTS_ROOT_RELATIVE = Path(VOICETERM_PATH_CONFIG.reports_root_rel)
 
 # Only these roots are considered ephemeral run artifacts.
 MANAGED_REPORT_SUBROOTS: Tuple[Path, ...] = (

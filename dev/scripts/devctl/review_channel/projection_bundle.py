@@ -215,6 +215,9 @@ def _render_latest_markdown(
     lines.append(
         f"- last_worktree_hash: {bridge.get('last_worktree_hash') or 'n/a'}"
     )
+    reviewed_hash_current = bridge.get("reviewed_hash_current")
+    if reviewed_hash_current is not None:
+        lines.append(f"- reviewed_hash_current: {reviewed_hash_current}")
     lines.append("")
     lines.append("## Current Instruction")
     lines.append(_current_focus_line(review_state))

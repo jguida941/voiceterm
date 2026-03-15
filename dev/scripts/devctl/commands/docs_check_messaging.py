@@ -7,6 +7,7 @@ from .docs_check_policy import (
     AGENTS_BUNDLE_RENDER_SCRIPT_REL,
     BUNDLE_WORKFLOW_PARITY_SCRIPT_REL,
     EVOLUTION_DOC,
+    INSTRUCTION_SURFACE_SYNC_SCRIPT_REL,
     MARKDOWN_METADATA_HEADER_SCRIPT_REL,
     MULTI_AGENT_SYNC_SCRIPT_REL,
     TOOLING_REQUIRED_DOCS,
@@ -40,6 +41,8 @@ def build_failure_reasons(
     updated_tooling_docs: list[str],
     strict_tooling: bool,
     missing_tooling_docs: list[str],
+    matched_tooling_doc_requirement_rules: list[str],
+    missing_triggered_tooling_docs: list[str],
     evolution_relevant_changes: list[str],
     evolution_policy_ok: bool,
     active_plan_sync_ok: bool,
@@ -56,9 +59,17 @@ def build_failure_reasons(
     bundle_workflow_parity_report: dict | None,
     agents_bundle_render_ok: bool,
     agents_bundle_render_report: dict | None,
+    instruction_surface_sync_ok: bool,
+    instruction_surface_sync_report: dict | None,
     deprecated_violations: list[dict],
+    user_docs: tuple[str, ...] | list[str] | None = None,
+    tooling_required_docs: tuple[str, ...] | list[str] | None = None,
+    evolution_doc: str | None = None,
 ) -> list[str]:
     """Build user-facing failure reasons for docs-check output."""
+    user_docs = tuple(user_docs or USER_DOCS)
+    tooling_required_docs = tuple(tooling_required_docs or TOOLING_REQUIRED_DOCS)
+    evolution_doc = evolution_doc or EVOLUTION_DOC
     reasons: list[str] = []
     if user_facing_enabled:
         if not changelog_updated:
@@ -74,7 +85,7 @@ def build_failure_reasons(
         elif not strict_user_docs and not updated_docs:
             reasons.append(
                 "User-facing docs mode requires at least one updated doc in: "
-                + ", ".join(USER_DOCS)
+                + ", ".join(user_docs)
                 + "."
             )
 
@@ -88,13 +99,25 @@ def build_failure_reasons(
         elif not strict_tooling and not updated_tooling_docs:
             reasons.append(
                 "Tooling changes detected without maintainer docs updates; expected one of: "
-                + ", ".join(TOOLING_REQUIRED_DOCS)
+                + ", ".join(tooling_required_docs)
                 + "."
             )
+    if missing_triggered_tooling_docs:
+        reasons.append(
+            "Tooling scope requires canonical plan updates"
+            + (
+                f" for rule(s) {', '.join(matched_tooling_doc_requirement_rules)}"
+                if matched_tooling_doc_requirement_rules
+                else ""
+            )
+            + "; missing: "
+            + ", ".join(missing_triggered_tooling_docs)
+            + "."
+        )
 
     if strict_tooling and evolution_relevant_changes and not evolution_policy_ok:
         reasons.append(
-            f"Engineering evolution log is required for this scope; missing `{EVOLUTION_DOC}` update."
+            f"Engineering evolution log is required for this scope; missing `{evolution_doc}` update."
         )
 
     if strict_tooling and not active_plan_sync_ok:
@@ -166,6 +189,17 @@ def build_failure_reasons(
             )
         )
 
+    if strict_tooling and not instruction_surface_sync_ok:
+        surface_messages = collect_gate_messages(instruction_surface_sync_report)
+        reasons.append(
+            "Instruction surface sync gate failed"
+            + (
+                ": " + " | ".join(surface_messages)
+                if surface_messages
+                else "; generated instruction/starter surfaces drifted from policy-owned templates."
+            )
+        )
+
     if deprecated_violations:
         reasons.append(
             f"Deprecated script references detected in governed docs/files ({len(deprecated_violations)})."
@@ -182,6 +216,8 @@ def build_next_actions(
     tooling_changes_detected: list[str],
     strict_tooling: bool,
     missing_tooling_docs: list[str],
+    matched_tooling_doc_requirement_rules: list[str],
+    missing_triggered_tooling_docs: list[str],
     evolution_relevant_changes: list[str],
     evolution_policy_ok: bool,
     active_plan_sync_ok: bool,
@@ -191,9 +227,14 @@ def build_next_actions(
     workflow_shell_hygiene_ok: bool,
     bundle_workflow_parity_ok: bool,
     agents_bundle_render_ok: bool,
+    instruction_surface_sync_ok: bool,
     deprecated_violations: list[dict],
+    user_docs: tuple[str, ...] | list[str] | None = None,
+    evolution_doc: str | None = None,
 ) -> list[str]:
     """Return actionable follow-up steps when docs-check fails."""
+    user_docs = tuple(user_docs or USER_DOCS)
+    evolution_doc = evolution_doc or EVOLUTION_DOC
     if not failure_reasons:
         return []
     actions: list[str] = []
@@ -204,14 +245,28 @@ def build_next_actions(
             )
         else:
             actions.append(
-                "Update at least one user doc from the canonical set in USER_DOCS."
+                "Update at least one user doc from the canonical set: "
+                + ", ".join(user_docs)
+                + "."
             )
     if tooling_changes_detected and missing_tooling_docs and strict_tooling:
         actions.append(
             "Update missing maintainer docs: " + ", ".join(missing_tooling_docs) + "."
         )
+    if missing_triggered_tooling_docs:
+        actions.append(
+            "Update canonical plan docs required by this tooling scope"
+            + (
+                f" ({', '.join(matched_tooling_doc_requirement_rules)})"
+                if matched_tooling_doc_requirement_rules
+                else ""
+            )
+            + ": "
+            + ", ".join(missing_triggered_tooling_docs)
+            + "."
+        )
     if strict_tooling and evolution_relevant_changes and not evolution_policy_ok:
-        actions.append(f"Update `{EVOLUTION_DOC}` with this tooling/process change.")
+        actions.append(f"Update `{evolution_doc}` with this tooling/process change.")
     if strict_tooling and not active_plan_sync_ok:
         actions.append(
             f"Fix active-plan sync drift: `python3 {ACTIVE_PLAN_SYNC_SCRIPT_REL}`."
@@ -243,6 +298,12 @@ def build_next_actions(
         actions.append(
             "Regenerate AGENTS rendered bundle section from registry: "
             f"`python3 {AGENTS_BUNDLE_RENDER_SCRIPT_REL} --write`."
+        )
+    if strict_tooling and not instruction_surface_sync_ok:
+        actions.append(
+            "Regenerate policy-owned instruction/starter surfaces: "
+            "`python3 dev/scripts/devctl.py render-surfaces --write --format md` "
+            f"or inspect `python3 {INSTRUCTION_SURFACE_SYNC_SCRIPT_REL} --format md`."
         )
     if deprecated_violations:
         actions.append(

@@ -10,7 +10,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 CANONICAL_URL = "github.com/jguida941/voiceterm"
 URL_PATTERN = re.compile(r"github\.com/jguida941/[a-zA-Z0-9_-]+")
 

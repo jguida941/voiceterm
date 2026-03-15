@@ -890,6 +890,30 @@ progressive disclosure, and 8px base grid spacing.
 
 ## Progress Log
 
+- 2026-03-11: Closed the next MP-359 presentation-state cleanup after the
+  guard-driven review pass narrowed the remaining Operator Console advisory
+  debt to one file. `app/operator_console/state/presentation/presentation_state.py`
+  no longer hides lane serialization, change-mix rendering, or CI KPI text
+  behind one-call helpers, the targeted presentation-state tests are green,
+  and the file drops out of both `probe_single_use_helpers` and the residual
+  low `probe_design_smells` formatter-helper hint set.
+- 2026-03-11: Revalidated the MP-359 desktop proof lane after the tooling
+  bundle exposed a help-dialog collection failure. The real import cycle was
+  package-init eager exports under `app/operator_console/views/layout/__init__.py`,
+  not the help-topic rendering path itself, so the layout package now lazy-loads
+  `WindowShellMixin`, `HAS_THEME_EDITOR`, and workbench helpers on demand.
+  That breaks the loop
+  `help_dialog -> layout.__init__ -> ui_window_shell -> help_dialog` without
+  changing the public package surface, and
+  `python3 -m pytest app/operator_console/tests/ -q --tb=short` is back to
+  green (`578 passed`).
+- 2026-03-10: Refactored the new watchdog readouts so the desktop shell now
+  consumes one shared typed watchdog summary artifact instead of re-parsing
+  JSON in multiple places. Snapshot loading is centralized under
+  `state/snapshots/watchdog_snapshot.py`, watchdog formatting moved into a
+  dedicated `state/watchdog_presenter.py`, and the Activity/Analytics surfaces
+  now stay orchestration-only rather than mixing schema parsing, metric
+  formatting, and report assembly in one long function.
 - 2026-03-09: Added a subtree-local `app/operator_console/AGENTS.md` so future
   agent work in the desktop shell sees package placement rules close to the
   code instead of only the repo-wide policy. Updated the main Operator Console
@@ -982,6 +1006,21 @@ progressive disclosure, and 8px base grid spacing.
   adds explicit View->Layout controls to reset to defaults, export a
   reproducible layout snapshot, and import that snapshot back into a live
   session, closing the recoverability half of the persisted-layout contract.
+- 2026-03-13: Closed the next honesty gap in the PyQt6 read model after the
+  failed live review-channel launch. The desktop snapshot path was already
+  loading structured `review_state`, but it was silently dropping the contract's
+  own warnings/error/attention payload and therefore could miss the real
+  "Codex reviewer stale / waiting on peer / poll due" reason even when the JSON
+  already knew it. The snapshot builder now carries forward structured review
+  warnings plus the new bridge-attention summary/command into the shared warning
+  surface, so Home/Activity/Monitor can surface the same repo-owned stale-peer
+  truth the launcher and runtime contracts see instead of looking green because
+  the file merely parsed.
+- 2026-03-13: Followed the same slice through the default session-first desktop
+  layout. Non-healthy review attention now also degrades the Codex/operator
+  lane health indicators and appears in session stats, so the workbench can
+  show "reviewer stale / poll due / waiting on peer" at a glance instead of
+  requiring the operator to notice the footer or drill into warnings first.
 - 2026-03-09: Closed the first reproducible layout-state slice for MP-359.
   The desktop shell now persists the selected layout mode plus workbench
   preset/tab/splitter state under
@@ -1566,6 +1605,18 @@ progressive disclosure, and 8px base grid spacing.
   flippable card per provider. That keeps the terminal pane readable, removes
   the lower-right dead-space feeling, and lets operators flip between
   freshness/signal detail and full registry state without losing lane context.
+- 2026-03-11: Bundle-tooling unblock follow-up landed for the desktop shell.
+  `views/help_dialog.py` now defers the layout-registry import until the
+  `Controls` topic is rendered, which breaks the package-init cycle
+  `help_dialog -> layout.__init__ -> ui_window_shell -> help_dialog` and
+  restores `app/operator_console/tests/views/test_help_dialog.py` collection.
+  The same validation pass exposed a real phone snapshot regression too:
+  `dev/scripts/devctl/phone_status_views.py` was still calling removed
+  `_controller/_loop/_source_run/_terminal/_ralph` helpers, so the Operator
+  Console fell back to unavailable phone state. Routing those call sites back
+  through the existing `_section()` helper restored compact/mobile snapshot
+  projection, `test_phone_status_snapshot.py` is green again, and the full
+  operator-console suite is back to green in the canonical tooling bundle path.
 
 ## Audit Evidence
 
@@ -1610,7 +1661,7 @@ progressive disclosure, and 8px base grid spacing.
   - 2026-03-09 local run: pass (`406` passed) after preferring reconstructed
     screen text, trimming partial tail prefixes, and landing the flippable
     session detail card contract
-- `python3 -m py_compile dev/scripts/devctl/review_channel.py dev/scripts/devctl/review_channel_launch.py dev/scripts/devctl/commands/review_channel.py app/operator_console/state/session_trace_reader.py app/operator_console/state/session_builder.py app/operator_console/state/snapshot_builder.py app/operator_console/views/main_window.py app/operator_console/tests/state/test_state_modules.py dev/scripts/devctl/tests/test_review_channel.py`
+- `python3 -m py_compile dev/scripts/devctl/review_channel.py dev/scripts/devctl/review_channel/launch.py dev/scripts/devctl/commands/review_channel.py app/operator_console/state/session_trace_reader.py app/operator_console/state/session_builder.py app/operator_console/state/snapshot_builder.py app/operator_console/views/main_window.py app/operator_console/tests/state/test_state_modules.py dev/scripts/devctl/tests/test_review_channel.py`
   - 2026-03-09 local run: pass after wiring launcher-emitted session trace
     artifacts plus Operator Console live-tail preference
 - `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py app/operator_console/tests/state/test_state_modules.py -q --tb=short`
@@ -1886,3 +1937,10 @@ progressive disclosure, and 8px base grid spacing.
     `views/` into `actions/`, `workspaces/`, and `shared`, split `theme/` into
     `runtime/`, `editor/`, and `io/`, and removed the old root-level `state/`
     and theme shim clutter
+- `python3 -m pytest app/operator_console/tests/views/test_help_dialog.py app/operator_console/tests/state/test_phone_status_snapshot.py dev/scripts/devctl/tests/test_phone_status.py -q --tb=short`
+  - 2026-03-11 local run: pass (`8` tests; covers the lazy help-dialog import
+    fix plus restored phone/mobile snapshot projection fallback)
+- `python3 -m pytest app/operator_console/tests/ -q --tb=short`
+  - 2026-03-11 local run: pass (`578` tests; full operator-console suite back
+    to green after the help-dialog import-cycle break and phone snapshot
+    projection repair)

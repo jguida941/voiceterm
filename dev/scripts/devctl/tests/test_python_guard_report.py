@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import subprocess
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from dev.scripts.devctl import python_guard_report
+from dev.scripts.devctl.quality_policy_loader import QUALITY_POLICY_ENV_VAR
 
 
 def _completed(payload: dict, *, returncode: int = 0) -> subprocess.CompletedProcess[str]:
@@ -43,6 +45,34 @@ class PythonGuardReportTests(unittest.TestCase):
                     "files_changed": 6,
                     "violations": [],
                 }
+            ),
+            _completed(
+                {
+                    "ok": False,
+                    "files_considered": 5,
+                    "files_changed": 6,
+                    "violations": [
+                        {
+                            "path": "app/operator_console/views/main_window.py",
+                            "growth": {"high_branch_functions": 1},
+                        }
+                    ],
+                },
+                returncode=1,
+            ),
+            _completed(
+                {
+                    "ok": False,
+                    "files_considered": 5,
+                    "files_changed": 6,
+                    "violations": [
+                        {
+                            "path": "dev/scripts/devctl/review_channel/state.py",
+                            "growth": {"cyclic_imports": 1},
+                        }
+                    ],
+                },
+                returncode=1,
             ),
             _completed(
                 {
@@ -129,14 +159,32 @@ class PythonGuardReportTests(unittest.TestCase):
 
         summary = report["summary"]
         self.assertEqual(report["mode"], "commit-range")
-        self.assertEqual(summary["guard_count"], 7)
-        self.assertEqual(summary["guard_failures"], 5)
+        self.assertEqual(summary["guard_count"], 9)
+        self.assertEqual(summary["guard_failures"], 7)
         self.assertEqual(summary["active_paths"], 3)
-        self.assertEqual(summary["total_active_findings"], 8)
-        self.assertEqual(summary["top_risk_score"], 800)
+        self.assertEqual(summary["total_active_findings"], 10)
+        self.assertEqual(summary["top_risk_score"], 1120)
         hotspots = report["hotspots"]
         self.assertEqual(hotspots[0]["path"], "dev/scripts/devctl/review_channel/state.py")
         self.assertEqual(hotspots[1]["path"], "app/operator_console/views/main_window.py")
+
+    def test_collect_python_guard_report_forwards_quality_policy_env(self) -> None:
+        side_effect = [
+            _completed({"ok": True, "files_considered": 0, "files_changed": 0, "violations": []})
+            for _ in python_guard_report.PYTHON_GUARD_SPECS
+        ]
+        with patch.object(
+            python_guard_report.subprocess,
+            "run",
+            side_effect=side_effect,
+        ) as mock_run:
+            python_guard_report.collect_python_guard_report(policy_path="~/portable-policy.json")
+
+        env = mock_run.call_args.kwargs["env"]
+        self.assertEqual(
+            env[QUALITY_POLICY_ENV_VAR],
+            str(Path("~/portable-policy.json").expanduser()),
+        )
 
     def test_render_python_guard_markdown(self) -> None:
         report = {

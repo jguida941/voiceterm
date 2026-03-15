@@ -4,14 +4,8 @@ from __future__ import annotations
 
 from .check_router_constants import (
     BUNDLE_BY_LANE,
-    DOCS_EXACT_PATHS,
-    DOCS_PREFIXES,
-    RELEASE_EXACT_PATHS,
-    RELEASE_WORKFLOW_FILES,
-    RISK_ADDONS,
-    RUNTIME_PREFIXES,
-    TOOLING_EXACT_PATHS,
-    TOOLING_PREFIXES,
+    CheckRouterConfig,
+    resolve_check_router_config,
 )
 
 __all__ = [
@@ -27,47 +21,55 @@ def sample_paths(paths: list[str], *, limit: int = 8) -> list[str]:
     return sorted(paths)[:limit]
 
 
-def _is_release_path(path: str) -> bool:
-    if path in RELEASE_EXACT_PATHS:
+def _is_release_path(path: str, config: CheckRouterConfig) -> bool:
+    if path in config.release_exact_paths:
         return True
     if not path.startswith(".github/workflows/"):
         return False
-    return path.rsplit("/", 1)[-1] in RELEASE_WORKFLOW_FILES
+    return path.rsplit("/", 1)[-1] in config.release_workflow_files
 
 
-def _is_tooling_path(path: str) -> bool:
-    if path in TOOLING_EXACT_PATHS:
+def _is_tooling_path(path: str, config: CheckRouterConfig) -> bool:
+    if path in config.tooling_exact_paths:
         return True
-    if any(path.startswith(prefix) for prefix in TOOLING_PREFIXES):
+    if any(path.startswith(prefix) for prefix in config.tooling_prefixes):
         return True
-    if path.startswith("dev/active/") and path.endswith(".md"):
-        return True
-    if path.startswith("dev/config/") and path.endswith(".md"):
-        return True
-    return False
-
-
-def _is_runtime_path(path: str) -> bool:
-    if any(path.startswith(prefix) for prefix in RUNTIME_PREFIXES):
-        return True
-    if path in {"rust/Cargo.toml", "rust/Cargo.lock", "rust/clippy.toml"}:
-        return True
-    return False
-
-
-def _is_docs_path(path: str) -> bool:
-    if path in DOCS_EXACT_PATHS:
-        return True
-    if any(path.startswith(prefix) for prefix in DOCS_PREFIXES):
-        return True
-    if path.endswith(".md") and not (
-        _is_release_path(path) or _is_tooling_path(path) or _is_runtime_path(path)
+    if any(
+        path.startswith(prefix) and path.endswith(".md")
+        for prefix in config.tooling_markdown_prefixes
     ):
         return True
     return False
 
 
-def classify_lane(changed_paths: list[str]) -> dict:
+def _is_runtime_path(path: str, config: CheckRouterConfig) -> bool:
+    if any(path.startswith(prefix) for prefix in config.runtime_prefixes):
+        return True
+    if path in config.runtime_exact_paths:
+        return True
+    return False
+
+
+def _is_docs_path(path: str, config: CheckRouterConfig) -> bool:
+    if path in config.docs_exact_paths:
+        return True
+    if any(path.startswith(prefix) for prefix in config.docs_prefixes):
+        return True
+    if path.endswith(".md") and not (
+        _is_release_path(path, config)
+        or _is_tooling_path(path, config)
+        or _is_runtime_path(path, config)
+    ):
+        return True
+    return False
+
+
+def classify_lane(
+    changed_paths: list[str],
+    *,
+    policy_path: str | None = None,
+) -> dict:
+    config = resolve_check_router_config(policy_path=policy_path)
     if not changed_paths:
         lane = "docs"
         reasons = ["No changed paths detected; defaulting to docs lane."]
@@ -80,10 +82,10 @@ def classify_lane(changed_paths: list[str]) -> dict:
         }
         return {"lane": lane, "reasons": reasons, "categories": categories}
 
-    release_paths = [path for path in changed_paths if _is_release_path(path)]
-    tooling_paths = [path for path in changed_paths if _is_tooling_path(path)]
-    runtime_paths = [path for path in changed_paths if _is_runtime_path(path)]
-    docs_paths = [path for path in changed_paths if _is_docs_path(path)]
+    release_paths = [path for path in changed_paths if _is_release_path(path, config)]
+    tooling_paths = [path for path in changed_paths if _is_tooling_path(path, config)]
+    runtime_paths = [path for path in changed_paths if _is_runtime_path(path, config)]
+    docs_paths = [path for path in changed_paths if _is_docs_path(path, config)]
     unknown_paths = [
         path
         for path in changed_paths
@@ -130,22 +132,27 @@ def classify_lane(changed_paths: list[str]) -> dict:
     }
 
 
-def detect_risk_addons(changed_paths: list[str]) -> list[dict]:
+def detect_risk_addons(
+    changed_paths: list[str],
+    *,
+    policy_path: str | None = None,
+) -> list[dict]:
+    config = resolve_check_router_config(policy_path=policy_path)
     addons: list[dict] = []
-    for spec in RISK_ADDONS:
+    for spec in config.risk_addons:
         matched_paths = [
             path
             for path in changed_paths
-            if any(token in path for token in spec["tokens"])
+            if any(token in path for token in spec.tokens)
         ]
         if not matched_paths:
             continue
         addons.append(
             {
-                "id": spec["id"],
-                "label": spec["label"],
+                "id": spec.id,
+                "label": spec.label,
                 "matched_paths": sorted(set(matched_paths)),
-                "commands": list(spec["commands"]),
+                "commands": list(spec.commands),
             }
         )
     return addons

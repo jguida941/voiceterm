@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
@@ -16,9 +16,7 @@ SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_review_channel_bridge.py"
 
 
 def _load_script_module():
-    spec = importlib.util.spec_from_file_location(
-        "check_review_channel_bridge_script", SCRIPT_PATH
-    )
+    spec = importlib.util.spec_from_file_location("check_review_channel_bridge_script", SCRIPT_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load check_review_channel_bridge.py")
     module = importlib.util.module_from_spec(spec)
@@ -40,7 +38,7 @@ def _valid_code_audit_text(script) -> str:
         "Each meaningful review must include an operator-visible chat update.",
         "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
         "Claude should start from `Current Verdict`, `Open Findings`, and `Current Instruction For Claude`, then acknowledge the active instruction in `Claude Ack` before coding.",
-        "When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at \"all green so far.\"",
+        'When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
         "Only the Codex conductor may update the Codex-owned sections in this file.",
         "Only the Claude conductor may update the Claude-owned sections in this file.",
         "Specialist workers should wake on owned-path changes or explicit conductor request instead of every worker polling the full tree blindly on the same cadence.",
@@ -105,7 +103,7 @@ class CheckReviewChannelBridgeTests(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.script = _load_script_module()
-        cls.fixed_now = datetime(2026, 3, 8, 5, 0, 0, tzinfo=timezone.utc)
+        cls.fixed_now = datetime(2026, 3, 8, 5, 0, 0, tzinfo=UTC)
 
     def _temp_path(self, name: str, text: str) -> Path:
         tmp_dir = tempfile.TemporaryDirectory(dir=REPO_ROOT)
@@ -124,10 +122,11 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        with patch.object(self.script, "CODE_AUDIT_PATH", code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
-        ), patch.object(self.script, "_is_tracked_by_git", return_value=True), patch.object(
-            self.script, "_current_utc", return_value=self.fixed_now
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertTrue(report["ok"])
@@ -142,8 +141,9 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _inactive_review_channel_text(),
         )
-        with patch.object(self.script, "CODE_AUDIT_PATH", missing_code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", missing_code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
         ):
             report = self.script.build_report()
         self.assertTrue(report["ok"])
@@ -160,10 +160,11 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        with patch.object(self.script, "CODE_AUDIT_PATH", code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
-        ), patch.object(self.script, "_is_tracked_by_git", return_value=False), patch.object(
-            self.script, "_current_utc", return_value=self.fixed_now
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=False),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
@@ -180,10 +181,11 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        with patch.object(self.script, "CODE_AUDIT_PATH", code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
-        ), patch.object(self.script, "_is_tracked_by_git", return_value=True), patch.object(
-            self.script, "_current_utc", return_value=self.fixed_now
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertTrue(report["ok"])
@@ -197,9 +199,11 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _inactive_review_channel_text(),
         )
-        with patch.object(self.script, "CODE_AUDIT_PATH", missing_code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
-        ), patch.object(self.script, "_is_tracked_by_git", return_value=False) as mock_tracked:
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", missing_code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=False) as mock_tracked,
+        ):
             report = self.script.build_report()
         self.assertTrue(report["ok"])
         mock_tracked.assert_not_called()
@@ -216,10 +220,11 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        with patch.object(self.script, "CODE_AUDIT_PATH", code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
-        ), patch.object(self.script, "_is_tracked_by_git", return_value=True), patch.object(
-            self.script, "_current_utc", return_value=self.fixed_now
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
@@ -240,10 +245,11 @@ class CheckReviewChannelBridgeTests(TestCase):
                 "",
             ),
         )
-        with patch.object(self.script, "CODE_AUDIT_PATH", code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
-        ), patch.object(self.script, "_is_tracked_by_git", return_value=True), patch.object(
-            self.script, "_current_utc", return_value=self.fixed_now
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
@@ -261,18 +267,39 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=timezone.utc)
-        with patch.object(self.script, "CODE_AUDIT_PATH", code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
-        ), patch.object(self.script, "_is_tracked_by_git", return_value=True), patch.object(
-            self.script, "_current_utc", return_value=stale_now
+        stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=UTC)
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=stale_now),
+            patch.object(self.script, "_enforce_live_poll_freshness", return_value=True),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
         self.assertIn("metadata_errors", report["code_audit"])
-        self.assertTrue(
-            any("stale" in error for error in report["code_audit"]["metadata_errors"])
+        self.assertTrue(any("stale" in error for error in report["code_audit"]["metadata_errors"]))
+
+    def test_build_report_allows_stale_last_codex_poll_in_github_actions(self) -> None:
+        code_audit = self._temp_path(
+            "code_audit.md",
+            _valid_code_audit_text(self.script),
         )
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=UTC)
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=stale_now),
+            patch.object(self.script, "_enforce_live_poll_freshness", return_value=False),
+        ):
+            report = self.script.build_report()
+        self.assertTrue(report["ok"])
+        self.assertNotIn("metadata_errors", report["code_audit"])
 
     def test_build_report_flags_invalid_worktree_hash(self) -> None:
         code_audit = self._temp_path(
@@ -283,17 +310,16 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        with patch.object(self.script, "CODE_AUDIT_PATH", code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
-        ), patch.object(self.script, "_is_tracked_by_git", return_value=True), patch.object(
-            self.script, "_current_utc", return_value=self.fixed_now
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
         self.assertIn("metadata_errors", report["code_audit"])
-        self.assertTrue(
-            any("worktree hash" in error.lower() for error in report["code_audit"]["metadata_errors"])
-        )
+        self.assertTrue(any("worktree hash" in error.lower() for error in report["code_audit"]["metadata_errors"]))
 
     def test_build_report_flags_missing_last_reviewed_scope_state(self) -> None:
         code_audit = self._temp_path(
@@ -307,20 +333,16 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        with patch.object(self.script, "CODE_AUDIT_PATH", code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
-        ), patch.object(self.script, "_is_tracked_by_git", return_value=True), patch.object(
-            self.script, "_current_utc", return_value=self.fixed_now
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
         self.assertIn("state_errors", report["code_audit"])
-        self.assertTrue(
-            any(
-                "Last Reviewed Scope" in error
-                for error in report["code_audit"]["state_errors"]
-            )
-        )
+        self.assertTrue(any("Last Reviewed Scope" in error for error in report["code_audit"]["state_errors"]))
 
     def test_build_report_flags_idle_current_instruction_state(self) -> None:
         code_audit = self._temp_path(
@@ -334,19 +356,17 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        with patch.object(self.script, "CODE_AUDIT_PATH", code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
-        ), patch.object(self.script, "_is_tracked_by_git", return_value=True), patch.object(
-            self.script, "_current_utc", return_value=self.fixed_now
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
         self.assertIn("state_errors", report["code_audit"])
         self.assertTrue(
-            any(
-                "Current Instruction For Claude" in error
-                for error in report["code_audit"]["state_errors"]
-            )
+            any("Current Instruction For Claude" in error for error in report["code_audit"]["state_errors"])
         )
 
     def test_build_report_flags_resolved_bridge_without_promoted_next_task(self) -> None:
@@ -361,17 +381,13 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        with patch.object(self.script, "CODE_AUDIT_PATH", code_audit), patch.object(
-            self.script, "REVIEW_CHANNEL_PATH", review_channel
-        ), patch.object(self.script, "_is_tracked_by_git", return_value=True), patch.object(
-            self.script, "_current_utc", return_value=self.fixed_now
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
         self.assertIn("state_errors", report["code_audit"])
-        self.assertTrue(
-            any(
-                "promote the next scoped task" in error
-                for error in report["code_audit"]["state_errors"]
-            )
-        )
+        self.assertTrue(any("promote the next scoped task" in error for error in report["code_audit"]["state_errors"]))

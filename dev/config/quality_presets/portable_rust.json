@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "repo_name": "portable-rust",
+  "enabled_ai_guard_ids": [
+    "code_shape",
+    "package_layout",
+    "duplicate_types",
+    "structural_complexity",
+    "rust_test_shape",
+    "rust_lint_debt",
+    "rust_best_practices",
+    "serde_compatibility",
+    "rust_runtime_panic_policy",
+    "rust_audit_patterns",
+    "rust_security_footguns",
+    "function_duplication",
+    "god_class",
+    "nesting_depth",
+    "parameter_count",
+    "structural_similarity"
+  ],
+  "enabled_review_probe_ids": [
+    "probe_concurrency",
+    "probe_boolean_params",
+    "probe_stringly_typed",
+    "probe_unwrap_chains",
+    "probe_clone_density",
+    "probe_type_conversions",
+    "probe_vague_errors"
+  ]
+}

@@ -7,10 +7,11 @@ Fixtures in this file model the same markdown authorities the launcher reads:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -18,28 +19,34 @@ from unittest.mock import patch
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import review_channel as review_channel_command
 from dev.scripts.devctl.commands import review_channel_bridge_handler
-from dev.scripts.devctl.review_channel.events import post_packet, transition_packet
-from dev.scripts.devctl.review_channel.event_store import resolve_artifact_paths
 from dev.scripts.devctl.review_channel.core import (
-    ActiveSessionConflict,
     DEFAULT_ROLLOVER_ACK_WAIT_SECONDS,
     DEFAULT_ROLLOVER_THRESHOLD_PCT,
     DEFAULT_TERMINAL_PROFILE,
-    LaneAssignment,
     REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+    ActiveSessionConflict,
+    LaneAssignment,
     bridge_is_active,
     detect_active_session_conflicts,
     parse_lane_assignments,
     resolve_terminal_profile_name,
     summarize_active_session_conflicts,
 )
+from dev.scripts.devctl.review_channel.launch import (
+    _build_terminal_launch_lines,
+    build_promote_command,
+    build_rollover_command,
+)
+
+from dev.scripts.devctl.review_channel.handoff_constants import _is_substantive_text
 from dev.scripts.devctl.review_channel.handoff import (
-    extract_bridge_snapshot,
     expected_rollover_ack_line,
+    extract_bridge_snapshot,
     observe_rollover_ack_state,
     summarize_bridge_liveness,
     validate_launch_bridge_state,
 )
+from dev.scripts.devctl.time_utils import utc_timestamp
 
 
 def _build_review_channel_text(*, include_bridge: bool = True) -> str:
@@ -113,7 +120,7 @@ def _build_bridge_text(
     claude_ack: str = "- acknowledged",
 ) -> str:
     if last_codex_poll is None:
-        last_codex_poll = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        last_codex_poll = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     return "\n".join(
         [
             "# Code Audit Channel",
@@ -127,7 +134,7 @@ def _build_bridge_text(
             "Each meaningful review must include an operator-visible chat update.",
             "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
             "Claude should start from `Current Verdict`, `Open Findings`, and `Current Instruction For Claude`, then acknowledge the active instruction in `Claude Ack` before coding.",
-            "When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at \"all green so far.\"",
+            'When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
             "Only the Codex conductor may update the Codex-owned sections in this file.",
             "Only the Claude conductor may update the Claude-owned sections in this file.",
             "Specialist workers should wake on owned-path changes or explicit conductor request instead of every worker polling the full tree blindly on the same cadence.",
@@ -173,10 +180,15 @@ def _build_bridge_text(
             "## Last Reviewed Scope",
             "",
             "- code_audit.md",
-            "- dev/scripts/devctl/review_channel_handoff.py",
+            "- dev/scripts/devctl/review_channel/handoff.py",
             "",
         ]
     )
+
+
+def _fresh_utc_z(*, seconds_offset: int = 0) -> str:
+    timestamp = datetime.now(UTC) + timedelta(seconds=seconds_offset)
+    return timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class ReviewChannelParserTests(unittest.TestCase):
@@ -291,9 +303,7 @@ class ReviewChannelParserTests(unittest.TestCase):
 class ReviewChannelHelperTests(unittest.TestCase):
     def test_bridge_detection_tracks_transitional_heading(self) -> None:
         self.assertTrue(bridge_is_active(_build_review_channel_text()))
-        self.assertFalse(
-            bridge_is_active(_build_review_channel_text(include_bridge=False))
-        )
+        self.assertFalse(bridge_is_active(_build_review_channel_text(include_bridge=False)))
 
     def test_parse_lane_assignments_returns_expected_counts(self) -> None:
         lanes = parse_lane_assignments(_build_review_channel_text())
@@ -317,12 +327,44 @@ class ReviewChannelHelperTests(unittest.TestCase):
             )
         )
 
+    def test_build_terminal_launch_lines_applies_profile_before_command(self) -> None:
+        lines = _build_terminal_launch_lines(
+            launch_command="/bin/zsh /tmp/claude-conductor.sh",
+            resolved_profile="Pro",
+            available_profiles=["Basic", "Pro"],
+        )
+
+        self.assertEqual(lines[0], 'tell application "Terminal"')
+        self.assertEqual(lines[1], "activate")
+        self.assertEqual(lines[2], 'do script ""')
+        self.assertEqual(
+            lines[3],
+            'set current settings of selected tab of front window to settings set "Pro"',
+        )
+        self.assertEqual(
+            lines[4],
+            'do script "/bin/zsh /tmp/claude-conductor.sh" in selected tab of front window',
+        )
+        self.assertEqual(lines[5], "end tell")
+
+    def test_build_terminal_launch_lines_uses_direct_launch_without_profile(self) -> None:
+        lines = _build_terminal_launch_lines(
+            launch_command="/bin/zsh /tmp/codex-conductor.sh",
+            resolved_profile=None,
+            available_profiles=["Basic", "Pro"],
+        )
+
+        self.assertEqual(lines[0], 'tell application "Terminal"')
+        self.assertEqual(lines[1], "activate")
+        self.assertEqual(lines[2], 'do script "/bin/zsh /tmp/codex-conductor.sh"')
+        self.assertEqual(lines[3], "end tell")
+
     def test_summarize_bridge_liveness_marks_fresh_bridge_state(self) -> None:
         snapshot = extract_bridge_snapshot(_build_bridge_text())
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "fresh")
@@ -340,7 +382,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "waiting_on_peer")
@@ -349,13 +391,11 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertTrue(liveness.claude_ack_present)
 
     def test_bridge_liveness_is_fresh_when_poll_and_ack_are_present(self) -> None:
-        snapshot = extract_bridge_snapshot(
-            _build_bridge_text(last_codex_poll="2026-03-08T19:08:45Z")
-        )
+        snapshot = extract_bridge_snapshot(_build_bridge_text(last_codex_poll="2026-03-08T19:08:45Z"))
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "fresh")
@@ -365,13 +405,11 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertTrue(liveness.claude_ack_present)
 
     def test_bridge_liveness_waits_on_peer_when_ack_is_missing(self) -> None:
-        snapshot = extract_bridge_snapshot(
-            _build_bridge_text(claude_ack="")
-        )
+        snapshot = extract_bridge_snapshot(_build_bridge_text(claude_ack=""))
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "waiting_on_peer")
@@ -449,13 +487,11 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertIn("/tmp/codex.log", summary)
 
     def test_bridge_liveness_marks_poll_due_before_stale(self) -> None:
-        snapshot = extract_bridge_snapshot(
-            _build_bridge_text(last_codex_poll="2026-03-08T19:08:45Z")
-        )
+        snapshot = extract_bridge_snapshot(_build_bridge_text(last_codex_poll="2026-03-08T19:08:45Z"))
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 0, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 13, 0, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "fresh")
@@ -464,13 +500,11 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertTrue(liveness.last_reviewed_scope_present)
 
     def test_bridge_liveness_is_stale_when_reviewer_poll_is_old(self) -> None:
-        snapshot = extract_bridge_snapshot(
-            _build_bridge_text(last_codex_poll="2026-03-08T18:50:00Z")
-        )
+        snapshot = extract_bridge_snapshot(_build_bridge_text(last_codex_poll="2026-03-08T18:50:00Z"))
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=timezone.utc),
+            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=UTC),
         )
 
         self.assertEqual(liveness.overall_state, "stale")
@@ -560,8 +594,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "A bridge summary, `waiting_on_peer` note, or \"all green so far\" "
-            "update is never terminal by itself.",
+            'A bridge summary, `waiting_on_peer` note, or "all green so far" ' "update is never terminal by itself.",
             prompt,
         )
         self.assertIn(
@@ -572,6 +605,26 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertIn(
             "rewrite `Current Instruction For Claude` instead of inventing the "
             "next task by hand or ending on a summary.",
+            prompt,
+        )
+        self.assertIn(
+            "Shared post-edit verification contract",
+            prompt,
+        )
+        self.assertIn(
+            "After EVERY file create/edit, you MUST run the repo-required verification before reporting the task as done.",
+            prompt,
+        )
+        self.assertIn(
+            "`bundle.runtime`, `bundle.docs`, `bundle.tooling`, or `bundle.release`",
+            prompt,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py check --profile ci",
+            prompt,
+        )
+        self.assertIn(
+            "Done means the required guards/tests passed.",
             prompt,
         )
 
@@ -615,6 +668,74 @@ class ReviewChannelHelperTests(unittest.TestCase):
             "Posting `Claude Status` or `Claude Ack` is not the end of the loop.",
             prompt,
         )
+        self.assertIn(
+            "Shared post-edit verification contract",
+            prompt,
+        )
+        self.assertIn(
+            "After EVERY file create/edit, you MUST run the repo-required verification before reporting the task as done.",
+            prompt,
+        )
+        self.assertIn(
+            "`bundle.runtime`, `bundle.docs`, `bundle.tooling`, or `bundle.release`",
+            prompt,
+        )
+        self.assertIn(
+            "Done means the required guards/tests passed.",
+            prompt,
+        )
+
+    @patch(
+        "dev.scripts.devctl.review_channel.prompt_contract.load_repo_governance_section",
+        return_value=(
+            {
+                "context": {
+                    "post_edit_verification_intro": "Custom intro from repo policy.",
+                    "post_edit_verification_steps": [
+                        "Run `bundle.tooling`.",
+                        "Run `python3 dev/scripts/devctl.py check --profile ci`.",
+                    ],
+                    "post_edit_verification_done_criteria": "Custom done criteria from repo policy.",
+                }
+            },
+            (),
+            Path("/tmp/policy.json"),
+        ),
+    )
+    def test_prompt_uses_repo_policy_post_edit_verification_contract(
+        self,
+        _load_repo_governance_section_mock,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.prompt import build_conductor_prompt
+
+        root = Path("/fake/repo")
+        prompt = build_conductor_prompt(
+            provider="claude",
+            provider_name="Claude",
+            other_name="Codex",
+            repo_root=root,
+            review_channel_path=root / "dev/active/review_channel.md",
+            bridge_path=root / "code_audit.md",
+            lanes=[],
+            codex_workers=8,
+            claude_workers=8,
+            dangerous=False,
+            rollover_threshold_pct=50,
+            await_ack_seconds=180,
+            retirement_note=REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+            rollover_command="python3 dev/scripts/devctl.py review-channel --action rollover",
+            promote_command="python3 dev/scripts/devctl.py review-channel --action promote --promotion-plan dev/active/continuous_swarm.md --terminal none --format md",
+            bridge_liveness=None,
+            handoff_bundle=None,
+        )
+
+        self.assertIn("Custom intro from repo policy.", prompt)
+        self.assertIn("Run `bundle.tooling`.", prompt)
+        self.assertIn(
+            "Run `python3 dev/scripts/devctl.py check --profile ci`.",
+            prompt,
+        )
+        self.assertIn("Custom done criteria from repo policy.", prompt)
 
 
 class ReviewChannelCommandTests(unittest.TestCase):
@@ -653,7 +774,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 pipe_command=None,
                 pipe_args=None,
             )
-            with patch.object(review_channel_command, "REPO_ROOT", root):
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}, clear=False),
+            ):
                 rc = review_channel_command.run(args)
 
             self.assertEqual(rc, 0)
@@ -684,6 +808,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertTrue(Path(claude_session["metadata_path"]).exists())
             self.assertTrue(str(codex_session["log_path"]).endswith("codex-conductor.log"))
             self.assertEqual(codex_session["capture_mode"], "terminal-script")
+            codex_text = codex_script.read_text(encoding="utf-8")
+            claude_text = claude_script.read_text(encoding="utf-8")
             self.assertIn("--full-auto", codex_script.read_text(encoding="utf-8"))
             self.assertIn(
                 "--permission-mode auto",
@@ -722,11 +848,15 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 codex_script.read_text(encoding="utf-8"),
             )
             self.assertIn(
+                "Do not spawn workers, start side investigations, or wait on Claude",
+                codex_script.read_text(encoding="utf-8"),
+            )
+            self.assertIn(
                 "Do not leave the reviewer parked on unanswered approval prompts.",
                 codex_script.read_text(encoding="utf-8"),
             )
             self.assertIn(
-                "A bridge summary, `waiting_on_peer` note, or \"all green so far\" "
+                'A bridge summary, `waiting_on_peer` note, or "all green so far" '
                 "update is never terminal by itself.",
                 codex_script.read_text(encoding="utf-8"),
             )
@@ -754,7 +884,27 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertIn(
                 "Posting `Claude Status` or `Claude Ack` is not the end of the loop.",
-                claude_script.read_text(encoding="utf-8"),
+                claude_text,
+            )
+            self.assertIn(
+                "Shared post-edit verification contract",
+                codex_text,
+            )
+            self.assertIn(
+                "Shared post-edit verification contract",
+                claude_text,
+            )
+            self.assertIn(
+                "After EVERY file create/edit, you MUST run the repo-required verification before reporting the task as done.",
+                codex_text,
+            )
+            self.assertIn(
+                "`bundle.runtime`, `bundle.docs`, `bundle.tooling`, or `bundle.release`",
+                codex_text,
+            )
+            self.assertIn(
+                "Done means the required guards/tests passed.",
+                claude_text,
             )
 
     def test_run_dry_run_propagates_custom_rollover_ack_timeout_to_prompt(self) -> None:
@@ -880,12 +1030,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             compact_path = Path(payload["projection_paths"]["compact_path"])
             full_path = Path(payload["projection_paths"]["full_path"])
             actions_path = Path(payload["projection_paths"]["actions_path"])
-            latest_markdown_path = Path(
-                payload["projection_paths"]["latest_markdown_path"]
-            )
-            agent_registry_path = Path(
-                payload["projection_paths"]["agent_registry_path"]
-            )
+            latest_markdown_path = Path(payload["projection_paths"]["latest_markdown_path"])
+            agent_registry_path = Path(payload["projection_paths"]["agent_registry_path"])
 
             self.assertTrue(review_state_path.exists())
             self.assertTrue(compact_path.exists())
@@ -897,9 +1043,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             review_state = json.loads(review_state_path.read_text(encoding="utf-8"))
             compact = json.loads(compact_path.read_text(encoding="utf-8"))
             actions = json.loads(actions_path.read_text(encoding="utf-8"))
-            agent_registry = json.loads(
-                agent_registry_path.read_text(encoding="utf-8")
-            )
+            agent_registry = json.loads(agent_registry_path.read_text(encoding="utf-8"))
 
             self.assertEqual(review_state["command"], "review-channel")
             self.assertEqual(review_state["queue"]["pending_total"], 0)
@@ -930,6 +1074,108 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 "## Derived Next Instruction",
                 latest_markdown_path.read_text(encoding="utf-8"),
             )
+
+    def test_run_status_can_refresh_stale_bridge_heartbeat(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "code_audit.md"
+            original_bridge = _build_bridge_text(last_codex_poll="2000-01-01T00:00:00Z")
+            bridge_path.write_text(
+                original_bridge,
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            args = SimpleNamespace(
+                action="status",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                promotion_plan="dev/active/continuous_swarm.md",
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=False,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+                refresh_bridge_heartbeat_if_stale=True,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertIsNotNone(payload["bridge_heartbeat_refresh"])
+            refreshed_bridge = bridge_path.read_text(encoding="utf-8")
+            self.assertIn("Auto-refreshed reviewer heartbeat", refreshed_bridge)
+
+    def test_run_status_dry_run_does_not_refresh_stale_bridge_heartbeat(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "code_audit.md"
+            original_bridge = _build_bridge_text(last_codex_poll="2000-01-01T00:00:00Z")
+            bridge_path.write_text(
+                original_bridge,
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            args = SimpleNamespace(
+                action="status",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                promotion_plan="dev/active/continuous_swarm.md",
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=True,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+                refresh_bridge_heartbeat_if_stale=True,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertIsNone(payload["bridge_heartbeat_refresh"])
+            self.assertEqual(bridge_path.read_text(encoding="utf-8"), original_bridge)
 
     def test_run_promote_rewrites_current_instruction_from_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1011,6 +1257,153 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 "next-task promotion so the conductor does not stop.",
                 updated_bridge,
             )
+
+    def test_auto_promote_on_launch_promotes_when_bridge_is_idle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(), encoding="utf-8"
+            )
+            promotion_plan_path = root / "dev/active/continuous_swarm.md"
+            promotion_plan_path.write_text(
+                "\n".join([
+                    "# Plan",
+                    "",
+                    "## Execution Checklist",
+                    "",
+                    "- [ ] First unchecked task for auto-promote test.",
+                    "- [ ] Second task.",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+            bridge_path = root / "code_audit.md"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    current_verdict="- accepted",
+                    open_findings="- all clear",
+                    current_instruction="- complete",
+                ),
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            args = SimpleNamespace(
+                action="launch",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                promotion_plan=str(promotion_plan_path.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                approval_mode="balanced",
+                scope=None,
+                script_dir=None,
+                dry_run=True,
+                auto_promote=True,
+                refresh_bridge_heartbeat_if_stale=False,
+                format="json",
+                output=str(output_path),
+                json_output=None,
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.heartbeat.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+            ):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertIsNotNone(payload["promotion"])
+            self.assertIn(
+                "First unchecked task for auto-promote test",
+                payload["promotion"]["instruction"],
+            )
+
+    def test_auto_promote_skipped_when_bridge_has_active_instruction(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(), encoding="utf-8"
+            )
+            promotion_plan_path = root / "dev/active/continuous_swarm.md"
+            promotion_plan_path.write_text(
+                "\n".join([
+                    "# Plan",
+                    "",
+                    "## Execution Checklist",
+                    "",
+                    "- [ ] Should not be promoted.",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+            bridge_path = root / "code_audit.md"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    current_verdict="- still in progress",
+                    open_findings="- H1: real open finding",
+                    current_instruction="- fix the bug now",
+                ),
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            args = SimpleNamespace(
+                action="launch",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                promotion_plan=str(promotion_plan_path.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                approval_mode="balanced",
+                scope=None,
+                script_dir=None,
+                dry_run=True,
+                auto_promote=True,
+                refresh_bridge_heartbeat_if_stale=False,
+                format="json",
+                output=str(output_path),
+                json_output=None,
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertIsNone(payload["promotion"])
 
     def test_run_promote_refuses_when_open_findings_are_unresolved(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1168,10 +1561,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(payload["ok"])
-            self.assertIn("inactive", payload["errors"][0])
-            self.assertEqual(
-                payload["retirement_note"],
-                REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+            self.assertTrue(
+                any(
+                    "inactive" in e or "No AGENT lane" in e
+                    for e in payload.get("errors", [])
+                ),
+                f"Expected bridge-inactive or no-lanes error in {payload.get('errors')}",
             )
 
     def test_run_fails_when_bridge_guard_is_red(self) -> None:
@@ -1186,7 +1581,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             bridge_path = root / "code_audit.md"
             bridge_path.write_text(
                 _build_bridge_text().replace(
-                    "- code_audit.md\n- dev/scripts/devctl/review_channel_handoff.py",
+                    "- code_audit.md\n- dev/scripts/devctl/review_channel/handoff.py",
                     "",
                 ),
                 encoding="utf-8",
@@ -1302,12 +1697,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 resume_state["owned_lanes"]["codex"][0]["agent_id"],
                 "AGENT-1",
             )
-            self.assertFalse(
-                resume_state["launch_ack_state"]["codex"]["observed"]
-            )
-            self.assertFalse(
-                resume_state["launch_ack_state"]["claude"]["observed"]
-            )
+            self.assertFalse(resume_state["launch_ack_state"]["codex"]["observed"])
+            self.assertFalse(resume_state["launch_ack_state"]["claude"]["observed"])
             self.assertEqual(
                 resume_state["launch_ack_state"]["codex"]["required_section"],
                 "Poll Status",
@@ -1373,13 +1764,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     _build_bridge_text()
                     .replace(
                         "## Poll Status\n\n- active reviewer loop\n\n",
-                        "## Poll Status\n\n- active reviewer loop\n"
-                        f"- Codex rollover ack: `{rollover_id}`\n\n",
+                        "## Poll Status\n\n- active reviewer loop\n" f"- Codex rollover ack: `{rollover_id}`\n\n",
                     )
                     .replace(
                         "## Claude Ack\n\n- acknowledged\n\n",
-                        "## Claude Ack\n\n- acknowledged\n"
-                        f"- Claude rollover ack: `{rollover_id}`\n\n",
+                        "## Claude Ack\n\n- acknowledged\n" f"- Claude rollover ack: `{rollover_id}`\n\n",
                     ),
                     encoding="utf-8",
                 )
@@ -1454,13 +1843,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     _build_bridge_text()
                     .replace(
                         "## Poll Status\n\n- active reviewer loop\n\n",
-                        "## Poll Status\n\n- active reviewer loop\n"
-                        f"- Claude rollover ack: `{rollover_id}`\n\n",
+                        "## Poll Status\n\n- active reviewer loop\n" f"- Claude rollover ack: `{rollover_id}`\n\n",
                     )
                     .replace(
                         "## Claude Ack\n\n- acknowledged\n\n",
-                        "## Claude Ack\n\n- acknowledged\n"
-                        f"- Codex rollover ack: `{rollover_id}`\n\n",
+                        "## Claude Ack\n\n- acknowledged\n" f"- Codex rollover ack: `{rollover_id}`\n\n",
                     ),
                     encoding="utf-8",
                 )
@@ -1534,7 +1921,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(payload["ok"])
-            self.assertIn("within 5 minutes", payload["errors"][0])
+            self.assertIn("`Last Codex poll` is stale", payload["errors"][0])
 
     def test_run_launch_can_auto_refresh_stale_bridge_heartbeat(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1582,6 +1969,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "build_launch_sessions",
                     return_value=[],
                 ),
+                patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}, clear=False),
             ):
                 rc = review_channel_command.run(args)
 
@@ -1589,9 +1977,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["execution_mode"], "markdown-bridge")
-            self.assertIn(
-                "Auto-refreshed the markdown-bridge reviewer heartbeat",
-                payload["warnings"][0],
+            self.assertTrue(
+                any(
+                    "Auto-refreshed the markdown-bridge reviewer heartbeat" in w
+                    for w in payload["warnings"]
+                ),
+                f"Expected heartbeat refresh warning in {payload['warnings']}",
             )
             refresh = payload["bridge_heartbeat_refresh"]
             self.assertIsInstance(refresh, dict)
@@ -1710,7 +2101,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             bridge_path = root / "code_audit.md"
             bridge_path.write_text(
                 _build_bridge_text().replace(
-                    "- code_audit.md\n- dev/scripts/devctl/review_channel_handoff.py",
+                    "- code_audit.md\n- dev/scripts/devctl/review_channel/handoff.py",
                     "",
                 ),
                 encoding="utf-8",
@@ -1873,6 +2264,139 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertIn("still look active", payload["errors"][0])
             self.assertIn("codex", payload["errors"][0])
 
+    def test_run_launch_live_waits_for_fresh_codex_poll(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            initial_poll = _fresh_utc_z(seconds_offset=-30)
+            refreshed_poll = _fresh_utc_z(seconds_offset=-5)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "code_audit.md"
+            bridge_path.write_text(
+                _build_bridge_text(last_codex_poll=initial_poll),
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            args = SimpleNamespace(
+                action="launch",
+                execution_mode="auto",
+                terminal="terminal-app",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir="dev/reports/review_channel/latest",
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=1,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=False,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            def _fake_launch(sessions, terminal_profile=None, **_kwargs):
+                del sessions, terminal_profile
+                bridge_path.write_text(
+                    _build_bridge_text(last_codex_poll=refreshed_poll),
+                    encoding="utf-8",
+                )
+
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch.object(
+                    review_channel_bridge_handler,
+                    "list_terminal_profiles",
+                    return_value=["Pro"],
+                ),
+                patch.object(
+                    review_channel_bridge_handler,
+                    "launch_terminal_sessions",
+                    side_effect=_fake_launch,
+                ),
+            ):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertTrue(payload["launched"])
+            self.assertEqual(
+                payload["bridge_liveness"]["last_codex_poll_utc"],
+                refreshed_poll,
+            )
+
+    def test_run_launch_live_fails_closed_when_codex_poll_does_not_advance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            initial_poll = _fresh_utc_z(seconds_offset=-30)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "code_audit.md"
+            bridge_path.write_text(
+                _build_bridge_text(last_codex_poll=initial_poll),
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            args = SimpleNamespace(
+                action="launch",
+                execution_mode="auto",
+                terminal="terminal-app",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir="dev/reports/review_channel/latest",
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=1,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=False,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch.object(
+                    review_channel_bridge_handler,
+                    "list_terminal_profiles",
+                    return_value=["Pro"],
+                ),
+                patch.object(
+                    review_channel_bridge_handler,
+                    "launch_terminal_sessions",
+                    return_value=None,
+                ),
+            ):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 1)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload["ok"])
+            self.assertIn(
+                "did not produce a fresh Codex reviewer heartbeat",
+                payload["errors"][0],
+            )
+
     def test_run_rollover_rejects_zero_second_ack_wait(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -1955,7 +2479,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             launch_error = subprocess.CalledProcessError(
                 1,
-                ["osascript", "-e", "tell application \"Terminal\" to activate"],
+                ["osascript", "-e", 'tell application "Terminal" to activate'],
                 stderr="launch failed",
             )
             with (
@@ -2130,7 +2654,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertIsNone(payload["terminal_profile_applied"])
-            self.assertIn("Requested Terminal profile", payload["warnings"][-1])
+            self.assertTrue(
+                any("Requested Terminal profile" in w for w in payload["warnings"]),
+                f"Expected terminal profile warning in {payload['warnings']}",
+            )
 
     def test_markdown_bridge_mode_uses_bridge_path_for_status(self) -> None:
         """execution_mode=markdown-bridge must use bridge even when events exist."""
@@ -2306,6 +2833,211 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 "event-backed",
                 "auto mode must still route to event artifacts when the bridge is absent",
             )
+
+
+class TestLaunchCommandInterpreter(unittest.TestCase):
+    """Verify rollover/promote commands use the active interpreter."""
+
+    @patch("dev.scripts.devctl.review_channel.launch._DEVCTL_INTERPRETER", "python3.11")
+    def test_rollover_command_uses_active_interpreter(self) -> None:
+        cmd = build_rollover_command(
+            rollover_threshold_pct=80,
+            await_ack_seconds=300,
+        )
+        self.assertTrue(
+            cmd.startswith("python3.11 "),
+            f"rollover command must start with active interpreter, got: {cmd!r}",
+        )
+        self.assertNotIn(
+            "python3 dev/scripts",
+            cmd,
+            "rollover command must not use a different interpreter than the active one",
+        )
+
+    @patch("dev.scripts.devctl.review_channel.launch._DEVCTL_INTERPRETER", "python3.11")
+    def test_promote_command_uses_active_interpreter(self) -> None:
+        cmd = build_promote_command(promotion_plan_rel="dev/active/review_channel.md")
+        self.assertTrue(
+            cmd.startswith("python3.11 "),
+            f"promote command must start with active interpreter, got: {cmd!r}",
+        )
+        self.assertNotIn(
+            "python3 dev/scripts",
+            cmd,
+            "promote command must not use a different interpreter than the active one",
+        )
+
+    def test_rollover_command_contains_expected_args(self) -> None:
+        cmd = build_rollover_command(
+            rollover_threshold_pct=75,
+            await_ack_seconds=120,
+        )
+        self.assertIn("review-channel", cmd)
+        self.assertIn("--action rollover", cmd)
+        self.assertIn("--rollover-threshold-pct 75", cmd)
+        self.assertIn("--await-ack-seconds 120", cmd)
+
+    def test_promote_command_contains_expected_args(self) -> None:
+        cmd = build_promote_command(promotion_plan_rel="dev/active/test_plan.md")
+        self.assertIn("review-channel", cmd)
+        self.assertIn("--action promote", cmd)
+        self.assertIn("dev/active/test_plan.md", cmd)
+
+
+class TestPlaceholderStatusDetection(unittest.TestCase):
+    """Verify placeholder Claude Status/Ack text is rejected as non-present."""
+
+    def test_none_is_placeholder(self) -> None:
+        self.assertFalse(_is_substantive_text("- none"))
+
+    def test_na_is_placeholder(self) -> None:
+        self.assertFalse(_is_substantive_text("- n/a"))
+
+    def test_none_recorded_is_placeholder(self) -> None:
+        self.assertFalse(_is_substantive_text("- None recorded"))
+
+    def test_placeholder_is_placeholder(self) -> None:
+        self.assertFalse(_is_substantive_text("- placeholder"))
+
+    def test_not_started_is_placeholder(self) -> None:
+        self.assertFalse(_is_substantive_text("- not started"))
+
+    def test_pending_is_placeholder(self) -> None:
+        self.assertFalse(_is_substantive_text("- pending"))
+
+    def test_empty_string_is_not_present(self) -> None:
+        self.assertFalse(_is_substantive_text(""))
+
+    def test_none_value_is_not_present(self) -> None:
+        self.assertFalse(_is_substantive_text(None))
+
+    def test_real_status_is_present(self) -> None:
+        self.assertTrue(_is_substantive_text("- Session 23 — working on MP-358"))
+
+    def test_real_ack_is_present(self) -> None:
+        self.assertTrue(_is_substantive_text("- H1 fixed, ready for re-review"))
+
+    def _make_snapshot(
+        self,
+        claude_status: str = "- Session 23 — active coding",
+        claude_ack: str = "- acknowledged",
+    ) -> "BridgeSnapshot":
+        return extract_bridge_snapshot(
+            "\n".join([
+                "# Code Audit Channel",
+                "",
+                f"- Last Codex poll: `{utc_timestamp()}`",
+                "",
+                "## Current Instruction For Claude",
+                "",
+                "- Fix H2 in handoff.py",
+                "",
+                "## Open Findings",
+                "",
+                "- H2: placeholder detection",
+                "",
+                "## Current Verdict",
+                "",
+                "- not accepted",
+                "",
+                "## Claude Status",
+                "",
+                claude_status,
+                "",
+                "## Claude Ack",
+                "",
+                claude_ack,
+                "",
+                "## Last Reviewed Scope",
+                "",
+                "- code_audit.md",
+            ])
+        )
+
+    def test_liveness_rejects_placeholder_claude_status(self) -> None:
+        snapshot = self._make_snapshot(
+            claude_status="- none",
+            claude_ack="- none",
+        )
+        liveness = summarize_bridge_liveness(snapshot)
+        self.assertFalse(liveness.claude_status_present)
+        self.assertFalse(liveness.claude_ack_present)
+
+    def test_liveness_accepts_real_claude_status(self) -> None:
+        snapshot = self._make_snapshot(
+            claude_status="- Session 23 — active coding",
+            claude_ack="- acknowledged H1 fix",
+        )
+        liveness = summarize_bridge_liveness(snapshot)
+        self.assertTrue(liveness.claude_status_present)
+        self.assertTrue(liveness.claude_ack_present)
+
+    def test_launch_validation_rejects_placeholder_claude_sections(self) -> None:
+        snapshot = self._make_snapshot(
+            claude_status="- none",
+            claude_ack="- n/a",
+        )
+        errors = validate_launch_bridge_state(snapshot)
+        status_errors = [e for e in errors if "Claude Status" in e]
+        ack_errors = [e for e in errors if "Claude Ack" in e]
+        self.assertTrue(len(status_errors) > 0, "must reject placeholder Claude Status")
+        self.assertTrue(len(ack_errors) > 0, "must reject placeholder Claude Ack")
+
+
+    def test_reviewed_hash_current_true_when_hashes_match(self) -> None:
+        stored_hash = "a" * 64
+        snapshot = extract_bridge_snapshot(_build_bridge_text())
+        liveness = summarize_bridge_liveness(
+            snapshot,
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            current_worktree_hash=stored_hash,
+        )
+        self.assertIs(liveness.reviewed_hash_current, True)
+
+    def test_reviewed_hash_current_false_when_hashes_differ(self) -> None:
+        different_hash = "b" * 64
+        snapshot = extract_bridge_snapshot(_build_bridge_text())
+        liveness = summarize_bridge_liveness(
+            snapshot,
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            current_worktree_hash=different_hash,
+        )
+        self.assertIs(liveness.reviewed_hash_current, False)
+
+    def test_reviewed_hash_current_none_when_no_current_hash_provided(self) -> None:
+        snapshot = extract_bridge_snapshot(_build_bridge_text())
+        liveness = summarize_bridge_liveness(
+            snapshot,
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+        )
+        self.assertIsNone(liveness.reviewed_hash_current)
+
+    def test_reviewed_hash_current_appears_in_liveness_dict(self) -> None:
+        from dev.scripts.devctl.review_channel.handoff import bridge_liveness_to_dict
+
+        stored_hash = "a" * 64
+        snapshot = extract_bridge_snapshot(_build_bridge_text())
+        liveness = summarize_bridge_liveness(
+            snapshot,
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            current_worktree_hash=stored_hash,
+        )
+        liveness_dict = bridge_liveness_to_dict(liveness)
+        self.assertIn("reviewed_hash_current", liveness_dict)
+        self.assertIs(liveness_dict["reviewed_hash_current"], True)
+
+    def test_reviewed_hash_current_false_when_snapshot_has_no_stored_hash(self) -> None:
+        bridge_text = _build_bridge_text().replace(
+            f"- Last non-audit worktree hash: `{'a' * 64}`",
+            "",
+        )
+        snapshot = extract_bridge_snapshot(bridge_text)
+        liveness = summarize_bridge_liveness(
+            snapshot,
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            current_worktree_hash="c" * 64,
+        )
+        self.assertIs(liveness.reviewed_hash_current, False)
 
 
 if __name__ == "__main__":

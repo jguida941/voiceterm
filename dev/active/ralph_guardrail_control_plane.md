@@ -69,7 +69,7 @@ operator visibility into what the loop is doing. This plan delivers:
 
 ### Phase 1: AI fix wrapper and policy wiring (MP-360)
 
-- [x] Create `dev/scripts/ralph_ai_fix.py` — AI fix wrapper that reads backlog,
+- [x] Create `dev/scripts/coderabbit/ralph_ai_fix.py` — AI fix wrapper that reads backlog,
       invokes Claude Code, validates per-architecture, commits and pushes
 - [x] Add `ralph_ai_fix.py` to `control_plane_policy.json` triage_loop allowlist
 - [x] Set `ralph_ai_fix.py` as default fix command in `coderabbit_ralph_loop.yml`
@@ -171,7 +171,7 @@ operator visibility into what the loop is doing. This plan delivers:
 - `python3 dev/scripts/checks/check_structural_similarity.py` → ok: True, -5 pairs
 - `python3 dev/scripts/checks/check_python_global_mutable.py` → ok: True, 0 violations
 - `python3 dev/scripts/devctl.py hygiene` → Scripts section clean (26 top-level, 51 check scripts)
-- `python3 -c "import ast; ast.parse(open('dev/scripts/ralph_ai_fix.py').read())"` → syntax valid
+- `python3 -c "import ast; ast.parse(open('dev/scripts/coderabbit/ralph_ai_fix.py').read())"` → syntax valid
 - `python3 -c "import json; json.load(open('dev/config/control_plane_policy.json'))"` → valid
 - `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/coderabbit_ralph_loop.yml'))"` → valid
 - `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/tooling_control_plane.yml'))"` → valid

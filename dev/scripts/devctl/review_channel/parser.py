@@ -89,10 +89,7 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
     _arg(
         "--promotion-plan",
         default=DEFAULT_PROMOTION_PLAN_REL,
-        help=(
-            "Active-plan checklist used for repo-owned next-task promotion and "
-            "derived queue projections"
-        ),
+        help=("Active-plan checklist used for repo-owned next-task promotion and " "derived queue projections"),
     ),
     _arg(
         "--artifact-root",
@@ -113,10 +110,7 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         "--rollover-threshold-pct",
         type=int,
         default=DEFAULT_ROLLOVER_THRESHOLD_PCT,
-        help=(
-            "Context-remaining percentage that should trigger a planned self-relaunch "
-            "before compaction"
-        ),
+        help=("Context-remaining percentage that should trigger a planned self-relaunch " "before compaction"),
     ),
     _arg(
         "--rollover-trigger",
@@ -129,9 +123,10 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         type=int,
         default=DEFAULT_ROLLOVER_ACK_WAIT_SECONDS,
         help=(
-            "How long a live rollover should wait for visible Codex/Claude ACK lines "
-            "from the fresh conductor sessions before failing closed. "
-            "Must be greater than zero for rollover."
+            "How long a live launch should wait for a fresh Codex reviewer "
+            "heartbeat, and how long a live rollover should wait for visible "
+            "Codex/Claude ACK lines from the fresh conductor sessions before "
+            "failing closed. Must be greater than zero for rollover."
         ),
     ),
     _arg("--codex-workers", type=int, default=8, help="Requested Codex reviewer-worker budget"),
@@ -156,6 +151,17 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
             "`claude --dangerously-skip-permissions`)"
         ),
     ),
+    _arg(
+        "--scope",
+        default=None,
+        help=(
+            "Active-plan doc to auto-scope the launch. Rewrites "
+            "`Current Instruction For Claude` from the plan's first unchecked "
+            "execution-checklist item before launching conductors. Accepts a "
+            "plan filename (e.g. `review_probes`), a full relative path "
+            "(e.g. `dev/active/review_probes.md`), or an MP id (e.g. `MP-368`)."
+        ),
+    ),
     _arg("--script-dir", help="Optional directory for generated conductor launch scripts"),
     _arg(
         "--dry-run",
@@ -168,6 +174,15 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         help=(
             "When the markdown bridge is otherwise launchable but reviewer heartbeat "
             "metadata is stale or missing, refresh it before launch continues."
+        ),
+    ),
+    _arg(
+        "--auto-promote",
+        action="store_true",
+        help=(
+            "When the bridge shows an accepted verdict with no open findings "
+            "and an idle instruction, automatically promote the next unchecked "
+            "plan item into the bridge before continuing."
         ),
     ),
 ]

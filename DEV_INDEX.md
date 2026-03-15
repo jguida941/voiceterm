@@ -12,7 +12,9 @@ Key companion docs:
 
 - [Development Workflow](dev/guides/DEVELOPMENT.md)
 - [Architecture](dev/guides/ARCHITECTURE.md)
+- [AI Governance Platform Guide](dev/guides/AI_GOVERNANCE_PLATFORM.md)
 - [Agent Collaboration Guide](dev/guides/AGENT_COLLABORATION_SYSTEM.md)
+- [Portable Code Governance Guide](dev/guides/PORTABLE_CODE_GOVERNANCE.md) (engine/adoption companion)
 - [Operator Console README](app/operator_console/README.md)
 - [Operator Console Local AGENTS](app/operator_console/AGENTS.md)
 - [Operator Console View Map](app/operator_console/views/README.md)
@@ -25,6 +27,8 @@ Key companion docs:
 - [VoiceTerm Operator Console Plan](dev/active/operator_console.md)
 - [Ralph Guardrail Control Plane Plan](dev/active/ralph_guardrail_control_plane.md)
 - [Review Probes Plan](dev/active/review_probes.md)
+- [Portable Code Governance Plan](dev/active/portable_code_governance.md) (engine/adoption companion)
+- [AI Governance Platform Plan](dev/active/ai_governance_platform.md) (only main active platform plan for this product scope)
 - [Engineering History](dev/history/ENGINEERING_EVOLUTION.md)
 - [ADRs](dev/adr/README.md)
 - [Changelog](dev/CHANGELOG.md)

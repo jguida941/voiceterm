@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from ..common import emit_output, pipe_output, write_output
+from ..runtime.machine_output import ArtifactOutputOptions, emit_machine_artifact_output
 from .loop_packet_helpers import (
     DEFAULT_SOURCE_CANDIDATES,
     RISK_CONFIDENCE,
@@ -38,9 +37,7 @@ def _render_markdown(report: dict[str, Any]) -> str:
     lines.append("## Draft")
     lines.append("")
     draft = (
-        report.get("terminal_packet", {}).get("draft_text")
-        if isinstance(report.get("terminal_packet"), dict)
-        else ""
+        report.get("terminal_packet", {}).get("draft_text") if isinstance(report.get("terminal_packet"), dict) else ""
     )
     lines.append(str(draft or "").strip() or "(none)")
     lines.append("")
@@ -61,20 +58,18 @@ def run(args) -> int:
         return 2
 
     source_inputs = list(args.source_json or []) or list(DEFAULT_SOURCE_CANDIDATES)
-    source_rows, source_warnings, checked_paths = _discover_artifact_sources(
-        source_inputs
-    )
+    source_rows, source_warnings, checked_paths = _discover_artifact_sources(source_inputs)
     source_row = _choose_source(rows=source_rows, prefer_source=args.prefer_source)
     if source_row is None:
         source_row = _build_live_triage_source()
         source_warnings.append("no artifact source found; generated live triage source")
 
-    payload = dict(source_row.get("payload") or {})
-    source_command = str(source_row.get("command") or "triage")
-    source_path = str(source_row.get("path") or "<unknown>")
+    payload = dict(source_row.payload or {})
+    source_command = source_row.command or "triage"
+    source_path = source_row.path or "<unknown>"
 
-    timestamp = source_row.get("timestamp")
-    now_utc = datetime.now(timezone.utc)
+    timestamp = source_row.timestamp
+    now_utc = datetime.now(UTC)
     if not isinstance(timestamp, datetime):
         report = {
             "command": "loop-packet",
@@ -84,24 +79,15 @@ def run(args) -> int:
             "source_command": source_command,
             "source_path": source_path,
             "checked_paths": checked_paths,
-            "warnings": source_warnings + ["source timestamp missing or invalid"],
+            "warnings": [*source_warnings, "source timestamp missing or invalid"],
         }
-        output = (
-            json.dumps(report, indent=2)
-            if args.format == "json"
-            else _render_markdown(report)
+        return emit_machine_artifact_output(
+            args,
+            command="loop-packet",
+            json_payload=report,
+            human_output=_render_markdown(report),
+            options=ArtifactOutputOptions(ok=False, summary={"reason": report["reason"]}),
         )
-        pipe_rc = emit_output(
-            output,
-            output_path=args.output,
-            pipe_command=args.pipe_command,
-            pipe_args=args.pipe_args,
-            writer=write_output,
-            piper=pipe_output,
-        )
-        if pipe_rc != 0:
-            return pipe_rc
-        return 1
 
     freshness_hours = _freshness_hours(timestamp, now_utc)
     if freshness_hours > float(args.max_age_hours):
@@ -117,31 +103,23 @@ def run(args) -> int:
             "checked_paths": checked_paths,
             "warnings": source_warnings,
         }
-        output = (
-            json.dumps(report, indent=2)
-            if args.format == "json"
-            else _render_markdown(report)
+        return emit_machine_artifact_output(
+            args,
+            command="loop-packet",
+            json_payload=report,
+            human_output=_render_markdown(report),
+            options=ArtifactOutputOptions(
+                ok=False,
+                summary={"reason": report["reason"], "risk": "stale"},
+            ),
         )
-        pipe_rc = emit_output(
-            output,
-            output_path=args.output,
-            pipe_command=args.pipe_command,
-            pipe_args=args.pipe_args,
-            writer=write_output,
-            piper=pipe_output,
-        )
-        if pipe_rc != 0:
-            return pipe_rc
-        return 1
 
     risk, raw_draft, next_actions = _build_packet_body(
         source_command=source_command,
         payload=payload,
     )
     confidence = RISK_CONFIDENCE.get(risk, RISK_CONFIDENCE["medium"])
-    auto_send = bool(args.allow_auto_send) and _auto_send_eligible(
-        source_command, payload, risk
-    )
+    auto_send = bool(args.allow_auto_send) and _auto_send_eligible(source_command, payload, risk)
     draft_text = _truncate_chars(raw_draft, int(args.max_draft_chars))
     packet_seed = "|".join(
         [
@@ -153,8 +131,7 @@ def run(args) -> int:
     )
     packet_id = hashlib.sha256(packet_seed.encode("utf-8")).hexdigest()[:16]
     summary = (
-        f"packet {packet_id} ready from {source_command} "
-        f"(risk={risk}, auto_send={'yes' if auto_send else 'no'})"
+        f"packet {packet_id} ready from {source_command} " f"(risk={risk}, auto_send={'yes' if auto_send else 'no'})"
     )
 
     report = {
@@ -204,19 +181,16 @@ def run(args) -> int:
         },
     }
 
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else _render_markdown(report)
+    return emit_machine_artifact_output(
+        args,
+        command="loop-packet",
+        json_payload=report,
+        human_output=_render_markdown(report),
+        options=ArtifactOutputOptions(
+            summary={
+                "risk": risk,
+                "confidence": confidence,
+                "auto_send": auto_send,
+            }
+        ),
     )
-    pipe_rc = emit_output(
-        output,
-        output_path=args.output,
-        pipe_command=args.pipe_command,
-        pipe_args=args.pipe_args,
-        writer=write_output,
-        piper=pipe_output,
-    )
-    if pipe_rc != 0:
-        return pipe_rc
-    return 0

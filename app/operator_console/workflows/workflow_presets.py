@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from dev.scripts.devctl.repo_packs import workflow_preset_definitions
+
 
 @dataclass(frozen=True)
 class WorkflowPreset:
@@ -19,57 +21,15 @@ class WorkflowPreset:
 DEFAULT_WORKFLOW_PRESET_ID = "operator_console"
 
 
-WORKFLOW_PRESETS: tuple[WorkflowPreset, ...] = (
+WORKFLOW_PRESETS: tuple[WorkflowPreset, ...] = tuple(
     WorkflowPreset(
-        preset_id="operator_console",
-        label="Operator Console",
-        plan_doc="dev/active/operator_console.md",
-        mp_scope="MP-359",
-        summary=(
-            "Desktop shell work: simplify the operator flow, keep backend commands "
-            "honest, and surface loop/audit state without hidden steps."
-        ),
-    ),
-    WorkflowPreset(
-        preset_id="continuous_swarm",
-        label="Continuous Swarm",
-        plan_doc="dev/active/continuous_swarm.md",
-        mp_scope="MP-358",
-        summary=(
-            "Reviewer/coder continuity work: keep Codex review and Claude coding "
-            "moving through the scoped plan with minimal operator babysitting."
-        ),
-    ),
-    WorkflowPreset(
-        preset_id="review_channel",
-        label="Review Channel",
-        plan_doc="dev/active/review_channel.md",
-        mp_scope="MP-355",
-        summary=(
-            "Shared review bridge work: packets, projections, and the live "
-            "Codex/Claude/operator coordination lane."
-        ),
-    ),
-    WorkflowPreset(
-        preset_id="autonomous_control_plane",
-        label="Autonomy Control",
-        plan_doc="dev/active/autonomous_control_plane.md",
-        mp_scope="MP-338",
-        summary=(
-            "Controller/autonomy work: guarded swarm runs, controller state, and "
-            "loop evidence attached to the active plan."
-        ),
-    ),
-    WorkflowPreset(
-        preset_id="cursor_editor",
-        label="Cursor Editor",
-        plan_doc="dev/active/operator_console.md",
-        mp_scope="MP-359",
-        summary=(
-            "IDE-integrated editing via Cursor: targeted file changes backed by "
-            "the same review-channel guard pipeline as Codex and Claude."
-        ),
-    ),
+        preset_id=definition.preset_id,
+        label=definition.label,
+        plan_doc=definition.plan_doc,
+        mp_scope=definition.mp_scope,
+        summary=definition.summary,
+    )
+    for definition in workflow_preset_definitions()
 )
 
 

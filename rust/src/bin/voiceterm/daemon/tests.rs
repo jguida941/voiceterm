@@ -1,5 +1,12 @@
 //! Unit tests for the daemon hub protocol and registry.
 
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+
+use tokio::sync::mpsc;
+
+use super::agent_driver::{AgentHandle, StartupGate};
 use super::client_codec::{decode_command, encode_event};
 use super::session_registry::SessionRegistry;
 use super::types::*;
@@ -122,6 +129,17 @@ fn registry_insert_and_list() {
 }
 
 #[test]
+fn registry_prune_dead_removes_exited_sessions() {
+    let mut registry = SessionRegistry::new();
+    registry.insert(test_handle("agent_live", true));
+    registry.insert(test_handle("agent_dead", false));
+
+    assert_eq!(registry.prune_dead(), 1);
+    assert_eq!(registry.len(), 1);
+    assert_eq!(registry.list()[0].session_id, "agent_live");
+}
+
+#[test]
 fn session_id_contains_agent_prefix() {
     let id = SessionId::new();
     assert!(id.0.starts_with("agent_"));
@@ -140,4 +158,23 @@ fn default_socket_path_ends_with_control_sock() {
     let path = DaemonConfig::default_socket_path();
     assert!(path.ends_with("control.sock"));
     assert!(path.to_string_lossy().contains(".voiceterm"));
+}
+
+fn test_handle(session_id: &str, alive: bool) -> AgentHandle {
+    let (cmd_tx, _cmd_rx) = mpsc::channel(1);
+    let alive_flag = Arc::new(AtomicBool::new(alive));
+    let startup_gate = StartupGate::opened();
+    if !alive {
+        alive_flag.store(false, Ordering::Relaxed);
+    }
+    AgentHandle {
+        session_id: SessionId(session_id.to_string()),
+        provider: "claude".to_string(),
+        label: session_id.to_string(),
+        working_dir: "/tmp".to_string(),
+        child_pid: 42,
+        cmd_tx,
+        alive: alive_flag,
+        startup_gate,
+    }
 }

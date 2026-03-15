@@ -25,10 +25,7 @@ from .autonomy_swarm_core import fallback_repo_from_origin as _fallback_repo_fro
 from .autonomy_swarm_core import run_one_agent as _run_one_agent
 from .autonomy_swarm_core import validate_args as _validate_args
 
-try:
-    from dev.scripts.checks.coderabbit_ralph_loop_core import resolve_repo
-except ModuleNotFoundError:
-    from checks.coderabbit_ralph_loop_core import resolve_repo
+from ..repo_packs.process_helpers import resolve_repo
 
 
 def _resolve_swarm_repo(args) -> str | None:

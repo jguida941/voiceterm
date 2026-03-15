@@ -96,6 +96,42 @@ flowchart TD
 Run the checks that match your change before pushing.
 CI runs the same checks, so local failures are faster to fix.
 
+Three quality layers matter in practice:
+
+- Hard guards (`check_*.py`) block regressions.
+- Review probes (`probe_*.py`) surface AI-style design smells without failing CI.
+- `python3 dev/scripts/devctl.py probe-report --format md` turns those probe
+  hints into one ranked review packet with topology artifacts for human or AI
+  follow-up.
+- Compatibility shims now use the same split governance model everywhere:
+  `check_package_layout.py` enforces structural/layout policy, while
+  `probe_compatibility_shims.py` ranks stale shim debt such as missing
+  metadata, expired wrappers, broken targets, and shim-heavy roots/families.
+- `dev/config/devctl_repo_policy.json` is the repo-local switchboard for which
+  built-in guards/probes are active by default; keep enablement there instead
+  of hard-coding repo behavior into `check` or `probe-report`.
+- When a policy-backed slice needs a simpler human-facing entrypoint, prefer a
+  short wrapper command over asking maintainers to remember raw policy paths.
+  Current examples: `python3 dev/scripts/devctl.py launcher-check`,
+  `python3 dev/scripts/devctl.py launcher-probes`, and
+  `python3 dev/scripts/devctl.py launcher-policy`.
+- Portable presets live under `dev/config/quality_presets/`; use those as the
+  starting point when validating another repo instead of copying VoiceTerm's
+  full policy surface.
+- Treat repo policy/preset JSON files as versioned source, not local-only
+  machine state. If a local run changes the active guard/probe surface, commit
+  the touched `dev/config/devctl_repo_policy.json` and/or
+  `dev/config/quality_presets/*.json` files with the code so CI sees the same
+  configuration.
+- `python3 dev/scripts/devctl.py quality-policy --format md` shows the resolved
+  active policy, scopes, and warnings; use `--quality-policy <path>` or
+  `DEVCTL_QUALITY_POLICY` when validating another repo or preset file. The same
+  override now flows through probe-backed `status`, `report`, and `triage`.
+- `python3 dev/scripts/devctl.py render-surfaces --format md` previews the
+  policy-owned instruction/starter surfaces defined in
+  `repo_governance.surface_generation`; use `--write` after updating those
+  templates, context values, or generated starter outputs.
+
 ## After file edits
 
 Any time you create a file or edit an existing file, run the task-class bundle
@@ -108,13 +144,16 @@ the concrete minimum inventory after edits:
    runtime-risky paths.
 3. Make sure the applicable baseline guards below were covered by that bundle
    or run them directly if you are doing a narrower targeted validation pass:
+   - `python3 dev/scripts/devctl.py check --profile ci`
    - `python3 dev/scripts/devctl.py docs-check --user-facing` or `python3 dev/scripts/devctl.py docs-check --strict-tooling`
    - `python3 dev/scripts/devctl.py hygiene`
    - `python3 dev/scripts/checks/check_active_plan_sync.py`
    - `python3 dev/scripts/checks/check_multi_agent_sync.py`
+   - `python3 dev/scripts/checks/package_layout/check_instruction_surface_sync.py`
    - `python3 dev/scripts/checks/check_cli_flags_parity.py`
    - `python3 dev/scripts/checks/check_code_shape.py`
    - `python3 dev/scripts/checks/check_python_subprocess_policy.py`
+   - `DEVCTL_QUALITY_POLICY=dev/config/devctl_policies/launcher.json python3 dev/scripts/checks/check_command_source_validation.py`
    - `python3 dev/scripts/checks/check_workflow_shell_hygiene.py`
    - `python3 dev/scripts/checks/check_workflow_action_pinning.py`
    - `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations`
@@ -128,10 +167,51 @@ the concrete minimum inventory after edits:
    - `python3 dev/scripts/checks/check_serde_compatibility.py`
    - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py`
    - `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`
+4. If you created a new module, refactored module/API layout, introduced
+   string-based dispatch, added a new 3+ parameter signature, or touched
+   concurrent/shared-state code, also run:
+   - `python3 dev/scripts/devctl.py probe-report --format md`
+   - Use `dev/reports/probes/latest/review_packet.md` or
+     `dev/reports/probes/latest/review_packet.json` as the handoff packet.
+   - For staged `devctl` or check-module splits, keep compatibility
+     re-exports or aliases in the old module until every repo importer, test,
+     workflow, and pre-commit path has been updated; do not remove those
+     seams unless the whole import surface moves together.
+   - For review-channel / triage-loop / similar control-plane commands, keep
+     dry-run, report-only, and simulated-launch paths portable on CI runners:
+     those flows should not require provider CLIs or GitHub API reachability
+     unless they are actually executing the live action.
+   - If a guard intentionally suppresses live reviewer-heartbeat freshness on
+     `GITHUB_ACTIONS=true` runners, stale-bridge auto-refresh logic must still
+     consult direct bridge liveness before `status` / `launch`; do not key
+     auto-repair solely off the CI-relaxed guard output.
+   - CI jobs that run compile-time Rust guards must install the same Rust
+     toolchain and required Linux headers as the main Rust lanes before those
+     guards execute; do not assume tooling-only workflows inherit Rust
+     prerequisites automatically.
+5. If you need to run raw Rust tests or test binaries directly, prefer:
+   - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...`
+   - This enforces the required post-run hygiene follow-up automatically.
+   - `guard-run`, `check`, and `probe-report` now reuse the interpreter that
+     launched `dev/scripts/devctl.py` for repo-owned Python subprocesses, so
+     use `python3.11 dev/scripts/devctl.py ...` on machines where `python3`
+     still points to an older runtime.
 
 Use the bundle as the source of truth for exact command sets. This section is a
 human-readable reminder of the minimum checks that should be covered after file
 edits, not a second bundle authority.
+
+Release note:
+- `bundle.release` is intentionally stricter than normal edit validation. If
+  your release range includes tooling/process/CI changes, update
+  `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/active/MASTER_PLAN.md`, and
+  `dev/history/ENGINEERING_EVOLUTION.md`. If the release range includes
+  user-facing behavior changes, update every canonical user doc, including
+  `QUICK_START.md` and `guides/TROUBLESHOOTING.md`, not just the changelog.
+- Mobile/control-plane changes now also need
+  `python3 dev/scripts/checks/check_mobile_relay_protocol.py` covered before
+  release so the Rust emitters, Python projections, and iOS consumer contract
+  do not drift.
 
 ### Runtime and UI changes
 
@@ -216,8 +296,10 @@ Why this model is safe:
 | Workflow action pinning drift | `python3 dev/scripts/checks/check_workflow_action_pinning.py` | `tooling_control_plane.yml` + `workflow_lint.yml` |
 | Check-script enforcement lane drift | `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` | `tooling_control_plane.yml` + `release_preflight.yml` |
 | AGENTS rendered bundle reference drift | `python3 dev/scripts/checks/check_agents_bundle_render.py` (`--write` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
+| Instruction/starter surface drift | `python3 dev/scripts/checks/package_layout/check_instruction_surface_sync.py` (`python3 dev/scripts/devctl.py render-surfaces --write --format md` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Python broad-except drift (new `except Exception` / `BaseException` without rationale) | `python3 dev/scripts/checks/check_python_broad_except.py --since-ref origin/develop --head-ref HEAD` | `tooling_control_plane.yml` + `release_preflight.yml` + `devctl check --profile ci` AI guard |
 | Python subprocess policy drift (`subprocess.run(...)` missing explicit `check=`) | `python3 dev/scripts/checks/check_python_subprocess_policy.py` | `tooling_control_plane.yml` + `release_preflight.yml` + `devctl check --profile ci` AI guard |
+| Launcher command-source drift (`shlex.split(...)` on CLI/env/config input, raw `sys.argv` forwarding, env-controlled command argv without validators) | `DEVCTL_QUALITY_POLICY=dev/config/devctl_policies/launcher.json python3 dev/scripts/checks/check_command_source_validation.py` | `launcher-check` selectable lane (pilot rollout) |
 | Host/provider naming contract drift | `python3 dev/scripts/checks/check_naming_consistency.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
 | Host/provider compatibility matrix drift | `python3 dev/scripts/checks/check_compat_matrix.py` + `python3 dev/scripts/checks/compat_matrix_smoke.py` | `tooling_control_plane.yml` + `release_preflight.yml` |
 | MCP allowlist/contract drift for read-only adapter surface | `python3 dev/scripts/devctl.py mcp --tool release_contract_snapshot --format json` + `python3 -m unittest dev.scripts.devctl.tests.test_mcp` | `tooling_control_plane.yml` (unit test lane) |
@@ -231,7 +313,7 @@ Why this model is safe:
 | Rust/Python function length drift (Rust: 100 lines, Python: 150 lines) | `python3 dev/scripts/checks/check_code_shape.py` (function-level evaluation within code-shape guard) | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
 | Cross-file function body duplication (identical normalized bodies >= 6 lines) | `python3 dev/scripts/checks/check_function_duplication.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
 | New-file shared helper / command scaffold clones (advisory) | `python3 dev/scripts/checks/check_duplication_audit.py --check-shared-logic --since-ref origin/develop --head-ref HEAD --report-path /tmp/voiceterm-duplication.json --format md` | local/reporting surface for now; keep advisory until false-positive behavior is well-understood |
-| High-signal Clippy lint baseline drift | `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json && python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md` | `rust_ci.yml` |
+| High-signal Clippy lint baseline drift | `python3 dev/scripts/rust_tools/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json && python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md` | `rust_ci.yml` |
 | Accidental root argument files | `find . -maxdepth 1 -type f -name '--*'` | `tooling_control_plane.yml` |
 
 Compatibility-matrix parser note:
@@ -415,19 +497,19 @@ cd rust && CARGO_HOME=/tmp/cargo-home CARGO_TARGET_DIR=/tmp/cargo-target CARGO_N
 python3 ../dev/scripts/checks/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 
 # Auto-target only changed .rs files (default when no flag given)
-python3 ../dev/scripts/mutants.py
+python3 ../dev/scripts/mutation/cli.py
 
 # Target specific files
-python3 ../dev/scripts/mutants.py --file src/pty_session/pty.rs,src/config/validation.rs
+python3 ../dev/scripts/mutation/cli.py --file src/pty_session/pty.rs,src/config/validation.rs
 
 # Target a predefined module group (offline env)
-python3 ../dev/scripts/mutants.py --module overlay --offline --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
+python3 ../dev/scripts/mutation/cli.py --module overlay --offline --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
 
 # Summarize top paths with survived mutants
-python3 ../dev/scripts/mutants.py --results-only --top 10
+python3 ../dev/scripts/mutation/cli.py --results-only --top 10
 
 # Plot hotspots (top 25% by default)
-python3 ../dev/scripts/mutants.py --results-only --plot --plot-scope dir --plot-top-pct 25
+python3 ../dev/scripts/mutation/cli.py --results-only --plot --plot-scope dir --plot-top-pct 25
 ```
 
 The default mode (`--changed`) auto-detects `.rs` files changed vs `master` via `git diff`, so you
@@ -576,7 +658,7 @@ python3 dev/scripts/checks/check_rust_audit_patterns.py
 python3 dev/scripts/checks/check_rust_security_footguns.py
 
 # Optional clippy high-signal baseline check
-python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json
+python3 dev/scripts/rust_tools/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json
 python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md
 
 # Release/distribution control plane
@@ -719,7 +801,62 @@ For substantive sessions, include this in the PR description or handoff summary:
 - MP items:
 - Risks/unknowns:
 - Rust references consulted (for non-trivial Rust changes):
+
+### Structured telemetry / ledger updates
+
+- `devctl` commands run this session (auto-emitted to `devctl_events.jsonl`):
+- `governance-review --record` rows added this session:
+- `false_positive` rows added this session and their root-cause follow-ups:
+- Deferred findings left open in the ledger:
+- Non-`devctl` work or telemetry gaps to call out explicitly:
 ```
+
+### New conversation resume prompt
+
+When you start a fresh AI conversation, paste a short prompt like this instead
+of re-explaining the whole project:
+
+```md
+Continue from the repo's current state. Do not start from scratch.
+
+Read:
+- `AGENTS.md`
+- `dev/active/INDEX.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+
+Treat `dev/active/ai_governance_platform.md` as the only main active plan for
+the standalone governance product scope. Read its `Session Resume` section and
+latest `Progress Log` entries first, then continue the listed next actions
+unless I reprioritize.
+
+Before you finish, update `dev/active/ai_governance_platform.md`:
+- `Session Resume`
+- `Progress Log`
+
+Also run the required repo checks for any files you edit.
+```
+
+For `MP-377` work, prefer updating the plan's `Session Resume` section over
+keeping "where we left off" only in chat. The chat can summarize, but the repo
+should hold the canonical restart state.
+
+Structured audit/event ledgers are separate from that handoff surface:
+
+- `dev/reports/audits/devctl_events.jsonl` records machine-readable `devctl`
+  command telemetry automatically.
+- `dev/reports/governance/finding_reviews.jsonl` records adjudicated
+  guard/probe outcomes through `python3 dev/scripts/devctl.py governance-review`.
+- Use those ledgers for metrics, runtime evidence, later database indexing,
+  and ML/ranking inputs, not for narrative "left off here" session state.
+- Practical operator rule:
+  - use `devctl` commands whenever the work should land in command telemetry;
+  - before handoff, append `governance-review --record` rows for any findings
+    you confirmed, fixed, deferred, waived, or judged false-positive;
+  - if you record a `false_positive`, add the root-cause analysis and the
+    planned rule/policy fix to the handoff instead of stopping at the verdict;
+  - if part of the session happened outside `devctl` and was not captured by
+    the ledgers, say so in the handoff instead of implying complete coverage.
 
 Root artifact prevention: run `find . -maxdepth 1 -type f -name '--*'` and remove accidental files before push.
 
@@ -759,6 +896,7 @@ Docs governance guardrails:
 - `python3 dev/scripts/checks/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes (including `#[allow(dead_code)]`), non-test `unwrap/expect`, `unwrap_unchecked/expect_unchecked`, and `panic!` call-sites in changed Rust files; use `--report-dead-code` to inventory instances and `--fail-on-undocumented-dead-code` / `--fail-on-any-dead-code` for stricter policy modes.
 - `python3 dev/scripts/checks/check_python_broad_except.py` blocks newly added broad Python handlers (`except Exception` / `except BaseException`) unless a nearby `broad-except: allow reason=...` comment makes the fail-soft behavior explicit.
 - `python3 dev/scripts/checks/check_python_subprocess_policy.py` blocks repo-owned Python tooling and Operator Console code from adding `subprocess.run(...)` calls without an explicit `check=` keyword, keeping subprocess failure handling intentional instead of relying on the default.
+- `DEVCTL_QUALITY_POLICY=dev/config/devctl_policies/launcher.json python3 dev/scripts/checks/check_command_source_validation.py` blocks the launcher/package pilot lane from reintroducing unsafe command construction patterns such as `shlex.split(...)` on untrusted input, raw `sys.argv` forwarding, and env-driven command argv without a validator helper.
 - `python3 dev/scripts/checks/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces without `# Safety` docs, `unsafe impl` blocks without nearby safety rationale, `std::mem::forget`/`mem::forget` usage, `Result<_, String>` surfaces, suppressed `send(...)`/`try_send(...)` and `emit(...)` results, bare detached `thread::spawn(...)` statements without a nearby `detached-thread: allow reason=...` note, suspicious `OpenOptions::new().create(true)` chains that omit explicit overwrite semantics (`append(true)`, `truncate(...)`, or `create_new(true)`), direct `==` / `!=` comparisons against float literals, app-owned persistent TOML writes that still overwrite the final file directly instead of using a temp-file swap, and hand-rolled persistent TOML parsers in changed Rust files.
 - `python3 dev/scripts/checks/check_serde_compatibility.py` blocks newly introduced internally/adjacently tagged Rust `Deserialize` enums unless they either define a `#[serde(other)]` fallback variant or document intentional fail-closed behavior with a nearby `serde-compat: allow reason=...` comment.
 - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` blocks non-regressive growth of unallowlisted runtime `panic!` call-sites unless nearby rationale comments (`panic-policy: allow reason=...`) are present.

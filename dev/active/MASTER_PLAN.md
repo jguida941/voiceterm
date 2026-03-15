@@ -18,6 +18,7 @@
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
 ## Status Snapshot (2026-03-07)
+
 - Last tagged release: `v1.1.1` (2026-03-06)
 - Current release target: `post-v1.1.1 planning`
 - Active development branch: `develop`
@@ -92,6 +93,15 @@
 - Release preflight auth stability update: `.github/workflows/release_preflight.yml`
   runtime bundle step now exports `GH_TOKEN: ${{ github.token }}` so
   `devctl check --profile release` can run `gh`-backed release gates in CI.
+- Release governance update (2026-03-09): the current pre-release audit
+  showed that shipping the mobile/control-plane tranche cleanly requires full
+  canonical-doc coverage, not just changelog plus a subset of guides.
+  Maintainer docs (`AGENTS.md`, `dev/guides/DEVELOPMENT.md`,
+  `dev/history/ENGINEERING_EVOLUTION.md`) and canonical user docs
+  (`QUICK_START.md`, `guides/TROUBLESHOOTING.md`) now carry explicit release
+  notes for the mobile app/install/control-plane path, and the release bundle
+  expectation is that `check_mobile_relay_protocol.py` remains green so Rust,
+  Python, and iOS payload contracts ship together.
 - Release preflight SARIF permission update:
   `.github/workflows/release_preflight.yml` preflight job now grants
   `security-events: write` so zizmor SARIF uploads can publish to code scanning.
@@ -144,6 +154,7 @@
 - MP-347 guard-utility expansion update (2026-03-09): `devctl report` now
   supports `--python-guard-backlog` with ranked hotspot aggregation across
   `check_python_dict_schema`, `check_python_global_mutable`,
+  `check_python_design_complexity`, `check_python_cyclic_imports`,
   `check_parameter_count`, `check_nesting_depth`, `check_god_class`,
   `check_python_broad_except`, and `check_python_subprocess_policy`, so Python
   clean-code debt can be burned down in priority order before stricter lane
@@ -158,6 +169,403 @@
   mutable default argument patterns (`[]`, `{}`, `set()/list()/dict()` style
   defaults) so Python mutable-state pitfalls are blocked even when `global`
   keywords are not involved.
+- MP-347 suppression-debt update (2026-03-11): `check_python_suppression_debt.py`
+  now enforces non-regressive growth of Python lint/type suppressions
+  (`# noqa`, `# type: ignore`, `# pylint: disable`, `# pyright: ignore`)
+  using tokenized comment scanning, and the portable Python preset now enables
+  it by default so the same engine can block new suppression debt here or in
+  another repo without hard-coded VoiceTerm path logic.
+- MP-347 default-evaluation hardening update (2026-03-11):
+  `check_python_global_mutable.py` now also blocks net-new function-call
+  default arguments plus dataclass fields that evaluate mutable or callable
+  defaults eagerly instead of routing through `field(default_factory=...)`, so
+  the portable Python guard stack now covers the next default-argument trap
+  slice without needing a second overlapping guard id.
+- MP-347 portability hardening update (2026-03-11):
+  `quality_policy.py` now resolves per-guard config payloads, standalone guard
+  scripts can read those configs through `check_bootstrap.py`, and
+  `devctl quality-policy` plus `devctl check --quality-policy` now surface and
+  propagate the same policy-owned settings. VoiceTerm-specific `code_shape`
+  namespace/layout rules moved out of the portable engine and into the
+  repo-owned preset so another repo can reuse the same guard without hidden
+  path assumptions.
+- MP-347 portable complexity/import update (2026-03-11):
+  `check_python_design_complexity.py` now blocks net-new branch-heavy or
+  return-heavy Python functions using policy-owned thresholds (with a
+  conservative portable default that repo policy can tighten), and
+  `check_python_cyclic_imports.py` now blocks net-new top-level local import
+  cycles with repo-policy allowlists for known transitional debt. Both guards
+  are registered in the portable Python preset, catalog, bundles, workflows,
+  and Python backlog report so the next portable hard-guard backlog narrows to
+  Rust `result_large_err` / `large_enum_variant`.
+- MP-376 portable governance execution-doc update (2026-03-11):
+  added `dev/active/portable_code_governance.md` to track the broader
+  reusable code-governance-engine direction explicitly: engine vs repo-policy
+  boundaries, measurement/data-capture goals, off-repo snapshot/export needs,
+  and the eventual multi-repo pilot rollout. This keeps the strategic
+  portability/evaluation goal from being scattered across review-probe log
+  entries alone.
+- MP-377 reusable AI governance platform kickoff (2026-03-12):
+  added `dev/active/ai_governance_platform.md` to separate the bigger product
+  extraction problem from the portable-governance-engine plan. `MP-376` stays
+  focused on guards/probes/policy/bootstrap/export/evaluation, while `MP-377`
+  now owns the broader reusable platform architecture: shared runtime/action
+  contracts, repo-pack/adopter boundaries, frontend convergence across CLI /
+  PyQt6 / overlay / phone surfaces, and the path toward VoiceTerm becoming a
+  first consumer of an installable AI-governance platform instead of the place
+  where the whole system remains embedded.
+- MP-377 runtime-contract expansion update (2026-03-12):
+  `ControlState` is no longer the only executable runtime seam. The new
+  `dev/scripts/devctl/runtime/review_state.py` contract now normalizes
+  review-channel `review_state.json` and `full.json` artifacts into typed
+  session/queue/bridge/packet/registry state, and the Operator Console
+  review/session/collaboration readers now consume that shared runtime model
+  instead of re-parsing raw review payloads locally. This keeps the current
+  migration moving in the planned direction: compact cross-surface summary in
+  `ControlState`, richer review-channel detail in adjacent runtime contracts,
+  and thinner frontend adapters over both.
+- MP-377 seam-cleanup follow-up (2026-03-13):
+  the remaining live `probe_single_use_helpers` debt in the current runtime /
+  governance extraction seam is burned down. `controller_action.py`,
+  `docs_check.py`, `path_audit.py`, and `runtime/control_state.py` now keep
+  only named seams instead of one-use private wrappers, and the probe backlog
+  now narrows to the real portability issue: the large
+  `dev/scripts/devctl` root compatibility-shim population that still needs
+  package/repo-pack extraction work rather than more local cleanup.
+- MP-377 repo-pack surface-generation update (2026-03-13):
+  the first concrete Phase 2 vertical slice is now in repo state.
+  `dev/config/devctl_repo_policy.json` owns a new
+  `repo_governance.surface_generation` section for repo-pack metadata,
+  template context, and governed surfaces; `devctl render-surfaces` renders or
+  validates those outputs; `check_instruction_surface_sync` plus
+  `docs-check --strict-tooling` enforce template-backed surface drift; and
+  starter bootstrap/template flows now seed the same contract for adopter
+  repos. The remaining Phase 2 follow-up is to add first-class context-budget
+  profiles / usage-tier guidance on top of this generated-surface path.
+- MP-377 generated-surface integration follow-up (2026-03-13):
+  the new repo-pack surface-generation slice is now wired end to end instead
+  of half-landed. `render-surfaces` is registered in the public CLI/listing,
+  its parser and command implementation now live under governance-owned
+  namespaces instead of crowded flat roots, and the paired
+  `package_layout/check_instruction_surface_sync.py` guard now runs in
+  tooling/release governance lanes.
+- MP-377 repo-pack surface-generation hardening update (2026-03-13):
+  report-mode surface checks now tolerate missing local-only outputs such as
+  `CLAUDE.md` while `render-surfaces --write` still materializes them;
+  bootstrap/template starter flows now point adopters at that write path; and
+  maintainer docs plus targeted tests now cover the generated-surface contract
+  instead of leaving it implicit.
+- MP-377 generated-surface concurrency follow-up (2026-03-13):
+  the broader governance namespace split briefly reintroduced stale targeted
+  references after the first validation pass. The active runtime helper path is
+  `dev/scripts/devctl/governance/surface_runtime.py`, the helper now resolves
+  `check_agents_bundle_render` through the package import path so focused
+  pytest collection stays stable, the public generated-surface runner now lives
+  under `dev/scripts/checks/package_layout/`, and the strict-tooling
+  docs-check fixture now points at
+  `dev/scripts/devctl/commands/governance/render_surfaces.py` instead of the
+  old flat command location.
+- MP-377 self-hosting layout follow-up (2026-03-13):
+  the generated-surface/layout slice is still green after the concurrent
+  modularization churn, but that green status needs the right interpretation:
+  `check_package_layout.py` is currently enforcing freeze-mode crowding rules
+  for `dev/scripts/checks`, `dev/scripts/devctl`,
+  `dev/scripts/devctl/commands`, and `dev/scripts/devctl/tests`. That means
+  new sprawl is blocked and the recent governance files landed in the correct
+  namespaces, but the repo still needs more package/test decomposition work
+  before those roots are actually tidy rather than merely baselined.
+- MP-377 machine-first governance-command follow-up (2026-03-13):
+  the moved governance command family now shares one package-local output/error
+  helper that treats JSON as the canonical machine payload and markdown as the
+  human projection, and a dispatch-level CLI stability test now proves parser
+  wiring, `COMMAND_HANDLERS`, and JSON output across
+  `governance-bootstrap`, `governance-export`, `governance-review`, and
+  `render-surfaces`. The self-hosting architecture guard was widened in the
+  same slice so aliased nested command imports under
+  `dev/scripts/devctl/commands/governance/` validate correctly instead of
+  forcing the repo back toward flat-root-only command wiring.
+- MP-377 machine-output contract audit (2026-03-13):
+  audited the shared output path before widening the machine-first rule across
+  the repo. The current `--output` flow already avoids full stdout JSON dumps;
+  `write_output()` writes the artifact and prints only `Report saved to: ...`.
+  The real remaining gap is architectural: that receipt is not a stable
+  machine control envelope, and `RunRecord` / `devctl_events` /
+  `data-science` still do not record artifact bytes, hashes, or estimated
+  token cost. The next slice should add a dedicated machine-artifact emitter
+  for JSON-canonical report/packet surfaces (`governance-*`,
+  `platform-contracts`, `probe-report`, `data-science`, `loop-packet`, later
+  review/autonomy) instead of globally rewriting `emit_output()` for every
+  human-oriented command.
+- MP-377 machine-artifact emission update (2026-03-13):
+  landed the first extraction-friendly implementation of that contract. The
+  JSON-canonical surfaces above now emit compact file artifacts plus compact
+  JSON stdout receipts when `--format json --output ...` is used, and command
+  telemetry/data-science aggregation now capture artifact path/hash/byte/token
+  metrics instead of only success/duration. That gives the repo its first
+  measurable control-channel contract for AI loops without forcing the same
+  behavior onto human-first commands.
+- MP-377 simple-command lane follow-up (2026-03-13):
+  the first vibecoder-facing façade over policy selection is now in repo
+  state. `dev/config/devctl_policies/launcher.json` defines a focused Python
+  launcher lane for `scripts/` + `pypi/src`, and `devctl` now exposes that
+  lane through short wrappers (`launcher-check`, `launcher-probes`,
+  `launcher-policy`) instead of requiring raw `--quality-policy` path
+  spelling. This keeps policy files authoritative while proving the product can
+  project simpler task-shaped command names for repeated workflows.
+- MP-377 launcher command-source pilot (2026-03-13):
+  the first launcher-only hard guard is now live behind that focused lane.
+  `check_command_source_validation.py` catches free-form `shlex.split(...)`
+  on CLI/env/config input, raw `sys.argv` forwarding, and env-controlled
+  command argv without validator helpers; `scripts/python_fallback.py` now
+  rejects deprecated `--codex-args` free-form passthrough, and
+  `pypi/src/voiceterm/cli.py` now validates bootstrap repo URL/ref plus
+  forwarded argv before invoking `git` or the native binary.
+- MP-376 export/evaluation update (2026-03-11):
+  `devctl governance-export` now packages the governance stack into an
+  external snapshot/zip with fresh `quality-policy`, `probe-report`, and
+  `data-science` artifacts, `dev/guides/PORTABLE_CODE_GOVERNANCE.md` now
+  defines the engine/preset/repo-policy boundary plus the evaluation rubric,
+  and template schemas now capture both the guarded-episode measurement
+  contract and the multi-repo benchmark record. The first broad external pilot
+  corpus source is explicitly the maintainer GitHub repo inventory
+  (`https://github.com/jguida941?tab=repositories`), while actual non-VoiceTerm
+  pilot execution remains open follow-up work.
+- MP-376 pilot-onboarding update (2026-03-11):
+  the first non-VoiceTerm pilot ran against `ci-cd-hub` and exposed the
+  remaining portability leaks directly. `devctl governance-bootstrap` now
+  normalizes copied/submodule repos with broken `.git` indirection, `check` /
+  `probe-report` / `governance-export` now accept `--adoption-scan` for
+  full-surface onboarding runs without a trusted baseline ref, and
+  `probe_exception_quality.py` joins the review-probe suite to surface
+  suppressive Python exception handling patterns seen in external tooling code.
+- MP-376 measurement-ledger update (2026-03-11):
+  `devctl governance-review` now records adjudicated guard/probe findings into
+  `dev/reports/governance/finding_reviews.jsonl`, writes rolled-up
+  `review_summary.{md,json}` artifacts, and feeds those metrics into
+  `devctl data-science` so false-positive rate, confirmed-signal rate, and
+  cleanup progress are tracked as durable repo evidence instead of chat-only
+  notes.
+- MP-376 live-cleanup adjudication update (2026-03-11):
+  the first high-severity probe debt was burned down through that ledger:
+  `probe_exception_quality` findings in `dev/scripts/devctl/collect.py` were
+  fixed by narrowing fallback exception handling, the medium translation hint in
+  `dev/scripts/devctl/commands/check_support.py` was removed by replacing the
+  subprocess-based tempdir lookup with a direct Python implementation, and the
+  reviewed outcomes are now recorded as `fixed` in `governance-review`.
+- MP-376 portable shim-governance update (2026-03-12):
+  compatibility shims are now a first-class portable governance primitive
+  instead of a VoiceTerm-only package-layout exception. The engine now owns a
+  shared package-layout bootstrap seam, validates shim shape structurally,
+  supports policy-owned required metadata fields (`owner`, `reason`, `expiry`,
+  `target`), and lets crowded-root/family reports exclude approved shims from
+  implementation density while still surfacing shim counts explicitly.
+- MP-376 shim-debt probe update (2026-03-12):
+  the same portable shim primitive now powers an advisory review layer too.
+  `probe_compatibility_shims.py` surfaces missing/expired shim metadata,
+  unresolved shim targets, and shim-heavy roots/families, while the fallback
+  `run_probe_report.py` path now resolves probe entrypoints from the shared
+  quality policy/script catalog instead of carrying a stale hard-coded list.
+- MP-376 package-layout wrapper follow-up (2026-03-12):
+  the crowded `dev/scripts/checks/` root no longer hard-codes
+  `package_layout.command` as its only allowed shim shape. The portable shim
+  validator now ignores canonical shim metadata lines in the thin-wrapper line
+  budget, accepts any `package_layout.*` wrapper at the crowded root, and the
+  paired devctl tests moved under `dev/scripts/devctl/tests/checks/package_layout/`
+  so the crowded test root mirrors the same package boundary.
+- MP-376 shim-family cleanup update (2026-03-13):
+  retired the next largest temporary `dev/scripts/devctl` root shim family,
+  `autonomy_*`, by migrating the remaining repo-visible docs/history/plan
+  references to the canonical `dev/scripts/devctl/autonomy/` modules, renaming
+  the shim-probe's synthetic fixture paths away from a live wrapper name, and
+  deleting 18 obsolete root wrappers. `probe-report` now shows the broader
+  `dev/scripts/devctl` root backlog down from 57 temporary wrappers / 135
+  repo-visible references to 39 wrappers / 87 references, with `cli_parser_*`
+  now the largest remaining family by wrapper count and `triage_*` the next
+  highest by repo-visible references.
+- MP-376 shim-family cleanup update (2026-03-13):
+  finished the next caller-migration tranche after `autonomy_*` by moving the
+  remaining repo-visible `cli_parser_*`, `triage_*`, and `triage_loop_*`
+  docs/history/active-plan references to the canonical
+  `dev/scripts/devctl/cli_parser/` and `dev/scripts/devctl/triage/` packages,
+  then deleting 16 obsolete root wrappers. `probe-report` now shows the
+  broader `dev/scripts/devctl` root backlog down again from 39 temporary
+  wrappers / 87 repo-visible references to 23 wrappers / 46 references; the
+  next wrapper-heavy families are `process_sweep_*` and `security_*`, while
+  the current repo-visible-reference examples include
+  `data_science_metrics.py` and `governance_bootstrap_*`.
+- MP-376 shim-family cleanup update (2026-03-13):
+  retired the temporary `security_*` root shim family by moving workflow/docs/
+  history references to the canonical `dev/scripts/devctl/security/`
+  modules and deleting the four obsolete root wrappers. The next
+  shim-governance follow-up is now the
+  remaining `process_sweep_*` family plus the docs-led wrapper examples
+  (`data_science_metrics.py`, `governance_bootstrap_*`) that still keep the
+  `dev/scripts/devctl` root above its temporary-shim budget.
+- MP-376 design-smell cleanup update (2026-03-11):
+  the next medium-severity `probe_single_use_helpers` slice is now burned down
+  too: `dev/scripts/devctl/collect.py` no longer carries one-use file-local
+  helpers, and the data-science row collectors were split into
+  `dev/scripts/devctl/data_science/source_rows.py` so
+  `dev/scripts/devctl/data_science/metrics.py` stays focused on snapshot
+  orchestration. Those reviewed outcomes are also now recorded as `fixed` in
+  `governance-review`.
+- MP-376 triage single-use-helper follow-up (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup moved the
+  CIHub/external-input triage helpers out of
+  `dev/scripts/devctl/commands/triage.py` so the command stays
+  orchestration-focused, and the reviewed outcome is now recorded as `fixed`
+  in `governance-review`.
+- MP-376 loop-packet single-use-helper follow-up (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down too:
+  `dev/scripts/devctl/commands/loop_packet_helpers.py` no longer hides JSON
+  source loading/command normalization or packet-body dispatch behind one-call
+  wrappers. This was treated as a real design-smell signal, not a false
+  positive, because the flagged helpers had no reuse or test-seam value; the
+  behavior now lives directly in `_discover_artifact_sources()` and
+  `_build_packet_body()`, and the reviewed outcome is now recorded as `fixed`
+  in `governance-review`.
+- MP-376 review-channel single-use-helper adjudication (2026-03-11):
+  the next `probe_single_use_helpers` candidate under
+  `dev/scripts/devctl/commands/review_channel_bridge_handler.py` is now logged
+  as `deferred`, not `false_positive`. Before review, the probe emitted one
+  file-level hint over five private helpers; after review, the repo state now
+  records the narrower call explicitly: `_validate_live_launch_conflicts()`
+  and `_load_bridge_runtime_state()` look like real one-use wrappers,
+  `_resolve_promotion_and_terminal_state()` and `_build_sessions()` remain
+  defensible seams, and `_post_session_lifecycle_event()` is borderline. That
+  keeps the next cleanup selective and auditable instead of treating the whole
+  hint as either pure noise or a blanket inline order.
+- MP-376 review-channel single-use-helper cleanup (2026-03-11):
+  that deferred `review_channel_bridge_handler.py` follow-up is now burned down
+  with the selective fix the adjudication called for. Before the fix, the file
+  mixed two real one-use wrappers with three meaningful seams; after the fix,
+  the live-launch conflict logic now reuses
+  `review_channel_bridge_action_support.py`, the one-use bridge-state wrapper
+  is removed, and the remaining session/promotion/event boundaries now live as
+  named action-support helpers instead of private single-use functions.
+  `review_channel_bridge_support.py` stays back under the code-shape soft
+  limit after that split. This was still treated as a real design-smell
+  signal, not a false positive, and `probe_single_use_helpers` no longer flags
+  the handler; the reviewed outcome is now recorded as `fixed` in
+  `governance-review`.
+- MP-376 governance-export single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/governance_export_artifacts.py`. Before the fix, the
+  export path hid quality-policy, probe-report, and data-science artifact
+  generation behind three one-call private helpers with no reuse or test-seam
+  value; after the fix, `write_generated_artifacts()` writes those artifact
+  families directly, `probe_single_use_helpers` no longer flags the file, and
+  the reviewed outcome is now recorded as `fixed` in `governance-review`.
+- MP-376 governance-export builder single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/governance_export_support.py`. Before the fix, the
+  export builder hid repository-external destination validation, snapshot
+  source copying, manifest emission, and path-containment checking behind four
+  one-call private helpers with no reuse or seam value; after the fix,
+  `build_governance_export()` performs those steps directly, leaves
+  `_sanitize_snapshot_name()` as the only local helper boundary, and
+  `probe_single_use_helpers` no longer flags the file. This was treated as a
+  real design-smell hit, not a false positive, and the reviewed outcome is now
+  recorded as `fixed` in `governance-review`.
+- MP-376 watchdog-episode single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/watchdog/episode.py`. Before the fix, the episode
+  builder hid provider inference, guard-family classification, and
+  escaped-findings counting behind three one-call private helpers with no
+  reuse or test-seam value; after the fix, `build_guarded_coding_episode()`
+  performs those derivations directly, leaves `_snapshot()` as the only reused
+  local helper boundary, and `probe_single_use_helpers` no longer flags the
+  file. This was treated as a real design-smell hit, not a false positive, and
+  the reviewed outcome is now recorded as `fixed` in `governance-review`.
+- MP-376 watchdog-probe-gate single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/watchdog/probe_gate.py`. Before the fix, the probe gate
+  hid allowlist loading, allowlist matching, and report summarization behind
+  three one-call private helpers with no reuse or test-seam value; after the
+  fix, `run_probe_scan()` performs those steps directly, focused unit tests now
+  cover allowlist filtering/fail-open behavior, and
+  `probe_single_use_helpers` no longer flags the file. This was treated as a
+  real design-smell hit, not a false positive, and the reviewed outcome is now
+  recorded as `fixed` in `governance-review`.
+- MP-376 quality-policy-scope single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/quality_policy_scopes.py`. Before the fix, the scope
+  resolver hid Python-root discovery plus configured-root normalization and
+  coercion behind four one-call private helpers with no reuse or test-seam
+  value; after the fix, `resolve_quality_scopes()` performs those steps
+  directly while `_discover_rust_scope_roots()` remains the only meaningful
+  helper boundary, focused unit tests now cover common Python-root discovery
+  plus invalid/duplicate scope handling, and `probe_single_use_helpers` no
+  longer flags the file. This was treated as a real design-smell hit, not a
+  false positive, and the reviewed outcome is now recorded as `fixed` in
+  `governance-review`.
+- MP-376 review-probe-report single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/review_probe_report.py`. Before the fix, the aggregated
+  probe reporter hid per-probe subprocess execution, hint enrichment, batch
+  collection, and terminal hotspot rendering behind four one-call private
+  helpers with no reuse or seam value; after the fix, `build_probe_report()`
+  drives probe execution and risk-hint enrichment directly,
+  `render_probe_report_terminal()` renders the top hotspot inline, focused
+  unit tests now cover the terminal hotspot path, and
+  `probe_single_use_helpers` no longer flags the file. This was treated as a
+  real design-smell hit, not a false positive, and the reviewed outcome is now
+  recorded as `fixed` in `governance-review`.
+- MP-376 triage-support single-use-helper cleanup (2026-03-11):
+  the next `probe_single_use_helpers` ledger cleanup is now burned down in
+  `dev/scripts/devctl/triage/support.py`. Before the fix, the markdown
+  renderer hid project snapshot, issue list, CIHub, and external-input
+  sections behind four one-call private helpers with no reuse or seam value;
+  after the fix, `render_triage_markdown()` builds those sections directly,
+  focused unit tests now cover CIHub/external-input markdown rendering, and
+  `probe_single_use_helpers` no longer flags the file. This was treated as a
+  real design-smell hit, not a false positive, and the reviewed outcome is now
+  recorded as `fixed` in `governance-review`.
+- MP-359 operator-console bundle unblock follow-up (2026-03-11):
+  the desktop proof lane is back to green after two bounded fixes. First,
+  `app/operator_console/views/layout/__init__.py` now lazy-loads
+  `WindowShellMixin`, `HAS_THEME_EDITOR`, and workbench helpers instead of
+  importing them eagerly during package init, breaking the package-init
+  cycle `help_dialog -> layout.__init__ -> ui_window_shell -> help_dialog`
+  that had been failing `test_help_dialog.py` during collection. Second,
+  `dev/scripts/devctl/phone_status_views.py` now routes compact/trace/action
+  projection through the existing `_section()` helper instead of calling
+  removed `_controller/_loop/_source_run/_terminal/_ralph` helpers, so the
+  Operator Console phone snapshot path is no longer stuck in unavailable
+  fallback. `app/operator_console/tests/` is green again in the canonical
+  bundle proof path.
+- MP-376 phone-status projection hotspot cleanup (2026-03-11):
+  the next high-severity Python review-probe hotspot is now burned down in
+  `dev/scripts/devctl/phone_status_views.py`. Before the fix,
+  `compact_view()`, `trace_view()`, and `actions_view()` returned large
+  ad-hoc dict literals and `view_payload()` plus `_render_view_markdown()`
+  branched on raw strings, so the `probe_dict_as_struct` and
+  `probe_stringly_typed` hints were treated as real signal, not false
+  positives. After the fix, `PhoneStatusView` parses the view boundary once,
+  typed projection models live in
+  `dev/scripts/devctl/phone_status_projection.py`, focused phone-status tests
+  cover compact fallback plus trace markdown rendering, `probe-report` no
+  longer flags the file, and the follow-on file split keeps
+  `phone_status_views.py` back under the code-shape soft limit.
+- MP-359 presentation-state probe cleanup follow-up (2026-03-11):
+  the remaining Operator Console advisory debt from the probe suite is now
+  burned down in `app/operator_console/state/presentation/presentation_state.py`.
+  Before the fix, the file hid snapshot-digest lane serialization,
+  repo-analytics change-mix rendering, and CI KPI text behind one-call
+  private helpers with no reuse or seam value; after the fix,
+  `probe_single_use_helpers` no longer flags the file, the residual low
+  formatter-helper `probe_design_smells` hint disappears in the same pass, and
+  `app/operator_console/tests/state/test_presentation_state.py` remains green.
+- MP-376 operator-console presentation-state single-use-helper cleanup (2026-03-11):
+  the final repo-wide `probe_single_use_helpers` ledger cleanup is now burned
+  down in `app/operator_console/state/presentation/presentation_state.py`.
+  Before the fix, the presentation layer hid snapshot-digest lane
+  serialization, repo-analytics change-mix formatting, and CI KPI rendering
+  behind one-call private helpers with no reuse or test-seam value; after the
+  fix, `snapshot_digest()`, `_build_repo_text()`, and `_build_kpi_values()`
+  perform those derivations directly, focused presentation-state tests remain
+  green, `probe_single_use_helpers` no longer flags any file repo-wide, and
+  the reviewed outcome is now recorded as `fixed` in `governance-review`.
 - MP-350 closure update (2026-03-05): additive read-only MCP adapter
   implementation is complete with code-level contract helpers/tests for
   `check --profile release`, `ship --verify`, and cleanup protections;
@@ -215,10 +623,26 @@
   to wait for backend-thread count return-to-baseline (removing a transient
   teardown race from suite-wide execution).
 - Tooling governance update: workflow shell-heavy commit-range/scope/path
-  resolution now routes through `dev/scripts/workflow_shell_bridge.py`,
+  resolution now routes through `dev/scripts/workflow_bridge/shell.py`,
   `docs-check --strict-tooling` now enforces `check_workflow_shell_hygiene.py`,
   and `tooling_control_plane.yml` now runs explicit naming-consistency and
   workflow-shell hygiene checks.
+- Tooling layout cleanup update (2026-03-12): root-level Python wrappers under
+  `dev/scripts/` were removed after package entrypoints were migrated into
+  `mutation/`, `coderabbit/`, `workflow_bridge/`, `rust_tools/`, `badges/`,
+  and `artifacts/`; `devctl path-audit/path-rewrite` now enforces those moved
+  script paths repo-wide, and directory READMEs now make the entrypoint/helper
+  split explicit. Portability review for the same slice is also explicit:
+  reusable guard/probe policy resolution is ahead of the higher-level workflow
+  helpers, while Ralph, mutation, process hygiene, and some docs/router policy
+  still carry VoiceTerm-specific code that remains tracked follow-up work.
+- Repo-governance portability update (2026-03-12): the next portability slice
+  moved `check-router` lane/risk-addon rules and `docs-check`
+  user-doc/tooling-doc/evolution/deprecated-reference path policy into
+  `dev/config/devctl_repo_policy.json`, with `--quality-policy` overrides on
+  both commands. That keeps current VoiceTerm behavior explicit while letting
+  another repo adopt the same engine by swapping repo policy instead of
+  patching command code.
 - MP-346 tooling closure pass update: oversized workflow/devctl helper modules
   were split into companion modules (`autonomy_workflow_bridge`, hygiene ADR
   audits), workflow-shell hygiene now scans both `.yml` + `.yaml` with
@@ -722,7 +1146,7 @@ Theme Studio mandatory verification bundle (per PR):
 - [x] MP-283 Harden release distribution automation by adding a CI release preflight lane (`release_preflight.yml`), a Homebrew publish workflow path (`publish_homebrew.yml`), and safety guards for Homebrew tarball/SHA validation plus `devctl ship` release-version parity enforcement before CI/local publish steps.
 - [x] MP-284 Reconcile ADR inventory to runtime truth: remove stale unimplemented proposal ADRs, promote architecture ADRs that match shipped behavior (overlay mode, runtime config precedence, session history boundaries, writer render invariants), and add missing ADR coverage for wake-word ownership, voice-macro precedence, and Claude prompt-safe HUD suppression.
 - [x] MP-292 Refactor `devctl` internals to reduce module size, remove command-output drift, and harden missing-binary behavior: extracted shared process-sweep helpers (`dev/scripts/devctl/process_sweep.py`) for `check`/`hygiene`, shared `check` profile normalization (`dev/scripts/devctl/commands/check_profile.py`), shared status/report payload+markdown rendering (`dev/scripts/devctl/status_report.py`), split ship orchestration from step/runtime helpers (`dev/scripts/devctl/commands/ship.py`, `dev/scripts/devctl/commands/ship_common.py`, `dev/scripts/devctl/commands/ship_steps.py`), extracted hygiene audit helpers (`dev/scripts/devctl/commands/hygiene_audits.py`), updated `run_cmd`/ship command checks to return structured failures instead of uncaught Python exceptions when required binaries are missing, and rewrote helper/module docstrings in plain language so junior developers and AI agents can quickly understand when/why each helper exists; verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
-- [x] MP-293 Add a dedicated `devctl security` command so maintainers can run a local security gate aligned with CI policy: landed `dev/scripts/devctl/commands/security.py` (RustSec JSON capture + policy enforcement + optional `zizmor` workflow scan with `--require-optional-tools` strict mode), extracted security CLI parser wiring into `dev/scripts/devctl/security_parser.py` to keep `dev/scripts/devctl/cli.py` below code-shape growth limits, wired list output in `dev/scripts/devctl/commands/listing.py`, added regression coverage in `dev/scripts/devctl/tests/test_security.py`, expanded plain-language process-sweep context for interrupted/stalled test cleanup in `dev/scripts/devctl/process_sweep.py`, and updated maintainer/governance docs (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`); verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py security --dry-run --with-zizmor --require-optional-tools --format json`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
+- [x] MP-293 Add a dedicated `devctl security` command so maintainers can run a local security gate aligned with CI policy: landed `dev/scripts/devctl/commands/security.py` (RustSec JSON capture + policy enforcement + optional `zizmor` workflow scan with `--require-optional-tools` strict mode), extracted security CLI parser wiring into `dev/scripts/devctl/security/parser.py` to keep `dev/scripts/devctl/cli.py` below code-shape growth limits, wired list output in `dev/scripts/devctl/commands/listing.py`, added regression coverage in `dev/scripts/devctl/tests/test_security.py`, expanded plain-language process-sweep context for interrupted/stalled test cleanup in `dev/scripts/devctl/process_sweep.py`, and updated maintainer/governance docs (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`); verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py security --dry-run --with-zizmor --require-optional-tools --format json`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
 - [x] MP-294 Consolidate engineering narrative docs into a single canonical history source by folding `dev/docs/TECHNICAL_SHOWCASE.md` and `dev/docs/LINKEDIN_POST.md` into appendices in `dev/history/ENGINEERING_EVOLUTION.md`, then retiring the duplicated `dev/docs/` source files so updates only target one document; verification evidence: `python3 dev/scripts/devctl.py docs-check --user-facing`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
 - [x] MP-297 Execute a focused `devctl check` usability/performance hardening sequence from maintainer review findings in ordered slices:
   - [x] `#5` failure-output diagnostics: `run_cmd` now streams subprocess output while preserving bounded failure excerpts for non-zero exits (`dev/scripts/devctl/common.py`), `check` prints explicit failed-step summaries with captured context (`dev/scripts/devctl/commands/check.py`), markdown reports include a dedicated failure-output section (`dev/scripts/devctl/steps.py`), and regression coverage/docs were updated (`dev/scripts/devctl/tests/test_common.py`, `dev/scripts/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`); verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
@@ -767,7 +1191,7 @@ Theme Studio mandatory verification bundle (per PR):
     `python3 -m unittest dev.scripts.devctl.tests.test_common dev.scripts.devctl.tests.test_ship`
     and `python3 dev/scripts/devctl.py ship --version 1.1.1 --verify --dry-run --format json`.
 - [x] MP-299 Add a `devctl triage` workflow that emits both human-readable markdown and AI-friendly JSON, with optional CIHub ingestion: landed new command surface (`dev/scripts/devctl/commands/triage.py`) plus parser/command inventory wiring (`dev/scripts/devctl/cli.py`, `dev/scripts/devctl/commands/listing.py`), optional `cihub triage` execution + artifact ingestion (`triage.json`, `priority.json`, `triage.md`) under configurable emit directories, and bundle emission mode (`--emit-bundle` writes `<prefix>.md` + `<prefix>.ai.json`) for project handoff/automation use; regression coverage/docs updated in `dev/scripts/devctl/tests/test_triage.py` and `dev/scripts/README.md`; verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
-- [x] MP-300 Deepen `devctl triage` CIHub integration with actionable routing data: map `cihub` artifact records (`priority.json`, `triage.json`) into normalized issues (`category`, `severity`, `owner`, `summary`) via shared enrichment helpers (`dev/scripts/devctl/triage_enrich.py`), add configurable category-owner overrides (`--owner-map-file`) in parser wiring (`dev/scripts/devctl/triage_parser.py`), include rollup counts by severity/category/owner in report payload + markdown output (`dev/scripts/devctl/triage_support.py`), and extend regression coverage for severity/owner routing + owner-map overrides (`dev/scripts/devctl/tests/test_triage.py`) with docs updates in `dev/scripts/README.md`; verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py triage --format md --no-cihub --emit-bundle --bundle-dir /tmp --bundle-prefix vt-triage-smoke --output /tmp/vt-triage-smoke.md`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
+- [x] MP-300 Deepen `devctl triage` CIHub integration with actionable routing data: map `cihub` artifact records (`priority.json`, `triage.json`) into normalized issues (`category`, `severity`, `owner`, `summary`) via shared enrichment helpers (`dev/scripts/devctl/triage/enrich.py`), add configurable category-owner overrides (`--owner-map-file`) in parser wiring (`dev/scripts/devctl/triage/parser.py`), include rollup counts by severity/category/owner in report payload + markdown output (`dev/scripts/devctl/triage/support.py`), and extend regression coverage for severity/owner routing + owner-map overrides (`dev/scripts/devctl/tests/test_triage.py`) with docs updates in `dev/scripts/README.md`; verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py triage --format md --no-cihub --emit-bundle --bundle-dir /tmp --bundle-prefix vt-triage-smoke --output /tmp/vt-triage-smoke.md`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
 - [x] MP-306 Add proactive report-retention governance to the `devctl` control plane: landed `devctl reports-cleanup` with retention safeguards (`--max-age-days`, `--keep-recent`, protected-path exclusions, dry-run preview, confirmation/`--yes` delete path), wired `hygiene` to always surface stale report-growth warnings with direct cleanup guidance, and added parser/command/hygiene regression coverage plus maintainer docs updates (`dev/scripts/README.md`, `dev/DEVCTL_AUTOGUIDE.md`).
 - [x] MP-339 Migrate repository Rust workspace path from `src/` to `rust/` and update runtime/tooling/CI/docs path contracts in one governed pass (`dev/archive/2026-03-07-rust-workspace-layout-migration.md`), preserving behavior while removing the `src/src` naming pattern (landed filesystem rename + path-contract rewrites across scripts/checks/workflows/docs; follow-up guard hardening landed rename-aware baseline mapping for Rust debt/security checks, active-root discovery + fail-fast behavior for `check_rust_audit_patterns.py`, and an explicit non-regressive `mem::forget` policy in `check_rust_best_practices.py`; sync/tooling gates and Rust build smoke from `rust/` succeeded).
 - [x] MP-303 Add automated release-metadata preparation to the `devctl` control plane so maintainers can run one command path before verify/tag: added `--prepare-release` support on `devctl ship`/`devctl release` (`dev/scripts/devctl/cli.py`, `dev/scripts/devctl/commands/release.py`, `dev/scripts/devctl/commands/ship.py`), implemented canonical metadata updaters for Cargo/PyPI/macOS app plist plus changelog heading rollover under `dev/scripts/devctl/commands/release_prep.py` and `ship_steps.py`, and covered step wiring + idempotent prep behavior in `dev/scripts/devctl/tests/test_ship.py` and `dev/scripts/devctl/tests/test_release_prep.py`; docs/governance updates in `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, and `dev/history/ENGINEERING_EVOLUTION.md`; verification evidence: `python3 -m unittest dev.scripts.devctl.tests.test_ship dev.scripts.devctl.tests.test_release_prep`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
@@ -946,7 +1370,7 @@ become the main product surface.
 - [ ] MP-336 Add `network-monitor-tui` to the external federation + dev-mode bridge scope: link a pinned `integrations/network-monitor-tui` source, define allowlisted import profile(s) for throughput/latency sampler primitives, expose a read-only metrics surface for `--dev` + phone status views without introducing remote-control side effects, and add isolated runtime mode flags (`--monitor` and/or `--mode monitor`) so monitor/tooling startup does not interfere with the default Whisper voice-overlay path. The future monitor entry path should open the same Rust operator cockpit used by `--dev`, not a second forked console.
 - [x] MP-337 Add repeat-to-automate governance and baseline scientific audit program: require repeated manual work to become guarded automation or explicit debt, add tracked `dev/audits/` runbook/register/schema artifacts, ship analyzer tooling (`dev/scripts/audits/audit_metrics.py`) that quantifies script-only vs AI-assisted vs manual execution share with optional chart outputs, and auto-emit per-command `devctl` audit events (`dev/reports/audits/devctl_events.jsonl`) for continuous trend data.
 - [ ] MP-338 Stand up a loop-output-to-chat coordination lane: maintain a dedicated runbook for loop suggestion handoff (`dev/active/loop_chat_bridge.md`), define dry-run/live-run evidence capture, and keep operator decisions/next actions append-only so loop guidance can be promoted safely into autonomous execution. (partial: added `devctl autonomy-report` dated digest bundles, upgraded `devctl autonomy-swarm` to one-command execution with default post-audit digest + reserved `AGENT-REVIEW` lane for live runs, added `devctl swarm_run` for guarded plan-scoped swarm + governance + plan-evidence append, added bounded continuous cycle support via `--continuous/--continuous-max-cycles` so runs keep advancing unchecked checklist items until `plan_complete`, `max_cycles_reached`, or `cycle_failed`, wired workflow-dispatch lane `.github/workflows/autonomy_run.yml`, and added `devctl autonomy-benchmark` matrix reports for plan-scoped swarm-size/tactic tradeoff evidence.)
-- [ ] MP-340 Deliver one-system operator surfaces + deterministic autonomy learning: keep Rust overlay as runtime primary, keep iPhone/SSH surfaces over one `controller_state` contract, and implement artifact-driven playbook learning (fingerprints, confidence, promotion/decay gates) so repeated loop tasks are reused safely with auditable evidence. This umbrella scope also owns the cross-plan contract that keeps Memory Studio (`MP-230..MP-255`), the review channel (`MP-355`), and controller surfaces on one shared event/header model, one provider-aware handoff path, and one future unified timeline/replay view rather than three parallel side channels. Current direction: grow the existing Rust Dev panel into a staged operator cockpit (`Control`, `Ops`, `Review`, `Actions`, `Handoff`, plus developer-oriented Git/GitHub/CI/script/memory views), then let `--monitor` reuse that same cockpit as a dedicated startup path. The first `Ops` slice is the Rust-first lane for host-process hygiene, triage summaries, and later external monitor adapters, so those readouts stay in the typed control surface instead of Theme Studio or a parallel ad hoc UI. Buttons may emit high-level intents and AI may resolve those intents to the correct approved playbook, but execution must still route through one typed action catalog plus shared policy/approval/waiver model rather than bypassing safety with raw shell/API execution. Current `phone-status` / `controller-action` payloads and Rust Dev-panel snapshot builders are still interim projections; `devctl mobile-status` is now the first merged SSH-safe phone shim that combines review + controller state, `app/ios/VoiceTermMobile` is the shared first-party core package over that payload, and `app/ios/VoiceTermMobileApp` is the runnable iPhone/iPad app shell over the same emitted mobile bundle with guided simulator demo plus live-review proving modes and typed Ralph/controller action previews, but true MP-340 convergence still only happens once Rust, phone, review, and memory all read one emitted `controller_state` projection set with parity tests and provider-aware memory pack attachments. The mobile end-state is no longer just read-first bundle import: the Mac-hosted Rust control service must become the shared live source for overlay/dev/phone clients, the iPhone must gain typed approvals and structured operator-note/message dispatch plus staged voice-to-action flows, and the same host state must remain reachable over both local Wi-Fi and a secure off-LAN/cellular adapter with reconnect/resume semantics so ongoing plans continue on the home machine without exposing raw PTY or freeform shell access publicly. Immediate follow-up is now explicit: prove a simple phone ping/alert path first, then close richer iPhone parity over the same backend with split/combined terminal-style lane mirrors, typed approvals/notes/instructions, plan-to-agent assignment, simple/technical modes, provider-aware continue/retask routing, and reconnect/resume behavior. PyQt6 today, iPhone now, and any future Electron/Tauri shell later are clients of that shared backend only; none of them become the backend. Execution profiles should be explicit: `Guarded` by default, `AI-assisted Guarded` when the planner picks from the approved catalog, and a visible dev-only `Unsafe Direct` mode for local bypasses that stays red, noisy, and auditable rather than hidden. (2026-02-26 reset: retired the optional `app/pyside6` desktop command-center scaffold to keep operator execution Rust-first; all active scope now routes through Rust Dev panel + `devctl phone-status` + policy-gated `controller-action`. 2026-02-26 federation follow-up: completed fit-gap audit and added narrow import profiles for targeted `code-link-ide`/`ci-cd-hub` reuse instead of broad tree imports.)
+- [ ] MP-340 Deliver one-system operator surfaces + deterministic autonomy learning: keep Rust overlay as runtime primary, keep iPhone/SSH surfaces over one `controller_state` contract, and implement artifact-driven playbook learning (fingerprints, confidence, promotion/decay gates) so repeated loop tasks are reused safely with auditable evidence. This umbrella scope also owns the cross-plan contract that keeps Memory Studio (`MP-230..MP-255`), the review channel (`MP-355`), and controller surfaces on one shared event/header model, one provider-aware handoff path, and one future unified timeline/replay view rather than three parallel side channels. Current direction: grow the existing Rust Dev panel into a staged operator cockpit (`Control`, `Ops`, `Review`, `Actions`, `Handoff`, plus developer-oriented Git/GitHub/CI/script/memory views), then let `--monitor` reuse that same cockpit as a dedicated startup path. The first `Ops` slice is the Rust-first lane for host-process hygiene, triage summaries, and later external monitor adapters, so those readouts stay in the typed control surface instead of Theme Studio or a parallel ad hoc UI. Buttons may emit high-level intents and AI may resolve those intents to the correct approved playbook, but execution must still route through one typed action catalog plus shared policy/approval/waiver model rather than bypassing safety with raw shell/API execution. MP-340 now also explicitly carries an overlay-native live guard-watchdog direction: the overlay may observe Codex/Claude PTY traffic, session-tail artifacts, repo diffs, and typed review/controller packets to infer what the agent is doing and trigger the matching repo guard family, but guard enforcement must stay typed, policy-gated, debounced, and auditable through `devctl` / controller actions rather than raw terminal injection. The watchdog is now also required to prove impact scientifically: capture matched before/after guarded coding episodes, use paired analysis by task, report effect sizes with confidence intervals plus practical-significance thresholds, and only then promote claims that the guards materially improve Codex/Claude output; the MP-340 analytics layer must also capture repo-owned speed/latency/churn/retry/collaboration metrics from terminal and guard episodes so the project can study time-to-green, guard-hit heatmaps, provider deltas, and other operational signals with a real dashboard instead of anecdotes. Later ML work is allowed, but only as a second-phase ranking/prediction layer over that same artifact corpus after deterministic learning and offline evaluation are already working. Current `phone-status` / `controller-action` payloads and Rust Dev-panel snapshot builders are still interim projections; `devctl mobile-status` is now the first merged SSH-safe phone shim that combines review + controller state, `app/ios/VoiceTermMobile` is the shared first-party core package over that payload, and `app/ios/VoiceTermMobileApp` is the runnable iPhone/iPad app shell over the same emitted mobile bundle with guided simulator demo plus live-review proving modes and typed Ralph/controller action previews, but true MP-340 convergence still only happens once Rust, phone, review, and memory all read one emitted `controller_state` projection set with parity tests and provider-aware memory pack attachments. The mobile end-state is no longer just read-first bundle import: the Mac-hosted Rust control service must become the shared live source for overlay/dev/phone clients, the iPhone must gain typed approvals and structured operator-note/message dispatch plus staged voice-to-action flows, and the same host state must remain reachable over both local Wi-Fi and a secure off-LAN/cellular adapter with reconnect/resume semantics so ongoing plans continue on the home machine without exposing raw PTY or freeform shell access publicly. Immediate follow-up is now explicit: prove a simple phone ping/alert path first, then close richer iPhone parity over the same backend with split/combined terminal-style lane mirrors, typed approvals/notes/instructions, plan-to-agent assignment, simple/technical modes, provider-aware continue/retask routing, and reconnect/resume behavior. PyQt6 today, iPhone now, and any future Electron/Tauri shell later are clients of that shared backend only; none of them become the backend. Execution profiles should be explicit: `Guarded` by default, `AI-assisted Guarded` when the planner picks from the approved catalog, and a visible dev-only `Unsafe Direct` mode for local bypasses that stays red, noisy, and auditable rather than hidden. (2026-02-26 reset: retired the optional `app/pyside6` desktop command-center scaffold to keep operator execution Rust-first; all active scope now routes through Rust Dev panel + `devctl phone-status` + policy-gated `controller-action`. 2026-02-26 federation follow-up: completed fit-gap audit and added narrow import profiles for targeted `code-link-ide`/`ci-cd-hub` reuse instead of broad tree imports.)
 - [ ] MP-341 Runtime architecture hardening pass for product-grade boundaries: tighten `rust/src/lib.rs` public surface (remove legacy re-export drift and prefer internal/facade boundaries), replace stringly `VoiceJobMessage::Error(String)` with typed error categories at subsystem boundaries, harden command parsing (`CustomBackend` quoting-safe parsing), reduce global-side-effect risk in Whisper stderr suppression path, and modernize PyPI launcher distribution flow away from clone+local-build bootstrap toward verified binary delivery. (partial 2026-02-25: hardened SIGWINCH registration via `sigaction` + `SA_RESTART`, removed production `unreachable!()` fallback in Theme Studio non-home renderer path, and reduced silent PTY-output drop risk with explicit unexpected-branch diagnostics.)
 - [ ] MP-342 Increase push-to-talk startup grace by about 1 second to prevent early cutoff when users do not speak immediately after pressing PTT: currently first-press captures can end too quickly if there is a short delay before speech starts. Reproduce in Codex/Claude sessions, tune initial-silence/warmup handling for natural speech onset, add regression coverage for delayed speech starts, and verify no regressions for intentional short taps.
 - [ ] MP-343 Stabilize screenshot button reliability: screenshot capture currently succeeds intermittently and can stop unexpectedly after some successful attempts. Reproduce repeated capture attempts in active sessions, harden button-triggered capture lifecycle/error handling, add regression coverage for repeated runs, and verify physical behavior with screenshot evidence.
@@ -1116,8 +1540,17 @@ become the main product surface.
   `latest/sessions/` artifacts still look active, so operators cannot
   accidentally open duplicate Codex/Claude conductor windows that race on the
   same session-tail files, but the remaining
-  event-backed `watch|inbox|ack|dismiss|apply|history` path is still open.
-  Execution spec: `dev/active/review_channel.md`.
+  event-backed `watch|inbox|ack|dismiss|apply|history` path is still open. A
+  2026-03-13 follow-up also closed the next live-launch honesty gap: the
+  Terminal-app launch path now waits for `Last Codex poll` to advance and fails
+  closed if a fresh reviewer heartbeat never appears, and the bridge-backed
+  `review_state` payload now emits a typed `attention` contract so stale
+  reviewer / poll-due / waiting-on-peer state is machine-readable instead of
+  living only in warning prose. A same-slice cleanup follow-up extracted that
+  attention/launch behavior into `attention.py`, `status_projection.py`, and
+  `terminal_app.py` so the live-launch honesty path stays inside the repo's
+  shape budget while keeping one typed liveness contract. Execution spec:
+  `dev/active/review_channel.md`.
 - [ ] MP-356 Tighten host-process hygiene automation so local AI/dev runs stop
   relying on manual Activity Monitor checks: add a dedicated host-side
   `devctl process-audit`/`devctl process-cleanup` surface, make the shared
@@ -1197,8 +1630,16 @@ become the main product surface.
   `Last Codex poll` guard failure when the rest of the bridge contract is
   still valid.
   The remaining open gaps are end-to-end auto-promotion proof, the 2-3 minute
-  poll / five-minute heartbeat contract, and stale-peer recovery. Execution
-  spec: `dev/active/continuous_swarm.md`.
+  poll / five-minute heartbeat contract, and stale-peer recovery. A
+  2026-03-13 follow-up also tightens the proof path: live launch now requires a
+  real post-launch reviewer heartbeat instead of counting opened windows as
+  success, and the same bridge-backed `review_state` path now emits typed
+  stale-peer/reviewer `attention` state that downstream restart/UI surfaces can
+  consume without re-deriving the condition ad hoc. The same follow-up now also
+  drives Codex/operator lane health plus session stats in the default desktop
+  workbench, so the local proof surface goes visibly stale instead of hiding
+  the failure only in warnings. Execution spec:
+  `dev/active/continuous_swarm.md`.
 - [ ] MP-359 Deliver a bounded optional PyQt6 VoiceTerm Operator Console for
   the current review-channel workflow: keep Rust as the PTY/runtime owner,
   keep `devctl review-channel` as the launcher/control surface, render Codex +
@@ -1254,7 +1695,15 @@ become the main product surface.
   multi-theme registry meant to converge on Rust overlay theme/style-pack
   semantics instead of becoming a desktop-only styling fork, with explicit
   style-pack import/read parity first and export/write parity only after the
-  desktop mapping is proven round-trip-safe. The plan now also explicitly
+  desktop mapping is proven round-trip-safe. A 2026-03-13 follow-up also closed
+  a read-model honesty gap: the PyQt6 snapshot builder now carries forward
+  structured review-state warnings/errors/attention instead of only file-load
+  failures, so the desktop shell can show the real repo-owned "Codex stale /
+  poll due / waiting on peer" state that the review-channel runtime already
+  computed. A same-slice follow-up now also maps non-healthy review attention
+  into Codex/operator lane health and session stats, which makes the default
+  session-first workbench visibly stale instead of burying the problem in the
+  warning list alone. The plan now also explicitly
   includes a repo-aware Command Center, built-in `What this does / When to use
   it / Before you run it / What it will execute / Success / Failure` guidance
   surfaces, repo-state workflow modes (`Develop`, `Review`, `Swarm`,
@@ -1461,25 +1910,233 @@ become the main product surface.
   `ralph_guardrails.json`, and a skill mapping — closing the loop so new
   guards are automatically wired into the full pipeline.
   Execution spec: `dev/active/ralph_guardrail_control_plane.md`.
-- [ ] MP-368 Implement `probe_concurrency` so heuristic review probes can flag
+- [x] MP-368 Implement `probe_concurrency` so heuristic review probes can flag
   async/shared-state race signals without blocking CI.
-- [ ] MP-369 Implement `probe_architecture` so structural coupling and
-  responsibility drift are surfaced as AI review targets before they become
-  hard-guard failures.
-- [ ] MP-370 Implement `probe_performance` so scale-only allocation, clone,
-  and hot-loop risks feed the review queue instead of relying on regressions.
-- [ ] MP-371 Implement `probe_product_logic` so policy drift, duplicated
-  thresholds, and scattered feature gates produce explicit review hints.
-- [ ] MP-372 Land the shared review-probe framework (`probe_bootstrap.py`,
-  shared schema/utilities, control-plane policy wiring, and check-profile
-  integration).
-- [ ] MP-373 Wire the first end-to-end review-probe path (`probe_concurrency`)
-  with tests and non-blocking `devctl check` integration.
-- [ ] MP-374 Deliver the remaining initial review probes plus aggregated
-  `review_targets.json` output for downstream triage consumers.
-- [ ] MP-375 Integrate probe output into the control plane, `devctl`
-  reporting/status surfaces, and optional operator-console review dashboards.
+- [x] MP-369 Implement `probe_design_smells` so Python AI-slop patterns such as
+  heavy `getattr()` density and formatter sprawl become typed review targets.
+- [x] MP-370 Implement `probe_boolean_params` so unreadable multi-bool
+  signatures in Python and Rust are surfaced before they calcify into APIs.
+- [x] MP-371 Implement `probe_stringly_typed` so string-dispatch paths that
+  should become enums/contracts are surfaced as explicit review hints.
+- [x] MP-372 Land the shared review-probe framework (`probe_bootstrap.py`,
+  shared schema/utilities, probe registration, and check-profile integration).
+- [x] MP-373 Wire the first end-to-end review-probe path with tests and
+  non-blocking `devctl check` integration.
+- [x] MP-374 Deliver the expanded review-probe catalog plus aggregated
+  `devctl probe-report` / `status --probe-report` / `report --probe-report`
+  surfaces and stable `review_targets.json` output. Remaining follow-up is
+  operator-facing ranking/baselines and deeper probe-specific regression
+  coverage, not initial plumbing.
+- [ ] MP-375 Shift review-probe next work to operator-first adoption:
+  ranking/baselines, self-contained senior-review packets, connectivity-aware
+  hotspot scoring, changed-subgraph / hotspot visuals, governance parity, and
+  optional operator-console review dashboards. 2026-03-10 follow-up:
+  `devctl triage --probe-report` now promotes aggregated probe debt into
+  routed issues/next actions, and local `loop-packet` fallback requests the
+  same probe summary so packets stay probe-aware even without a prior
+  artifact. Later 2026-03-10 follow-up: `devctl probe-report` now emits ranked
+  hotspot scoring, `file_topology.json`, `review_packet.{json,md}`, and
+  Mermaid/DOT hotspot views, while `status` / `report` / `triage` consume the
+  same ranked hotspot summary. A first cleanup pass using that packet reduced
+  live findings from 23 across 18 files to 18 across 14 files. Control-plane
+  or Ralph adapters stay later and should build on the same stable probe
+  artifacts. Latest follow-up: maintainer governance docs now explicitly tell
+  AI when to run `check --profile ci`, `probe-report`, and `guard-run`, and
+  document the topology/review-packet artifacts emitted by the probe stack.
+  Latest portability follow-up: built-in guard/probe capability metadata now
+  lives in `devctl/quality_policy_defaults.py`, repo-local
+  enablement/default args now live in `dev/config/devctl_repo_policy.json`,
+  and `check` / `probe-report` resolve active steps from the
+  `quality_policy*.py` policy stack so the current behavior is preserved here
+  while the engine moves toward repo-portable presets. Latest preset
+  follow-up: VoiceTerm now extends reusable portable presets under
+  `dev/config/quality_presets/`, VoiceTerm-only matrix/isolation guards live
+  behind the repo-specific preset instead of the portable fallback, and
+  `check` / `probe-report` plus probe-backed `status` / `report` / `triage`
+  all accept `--quality-policy`; `DEVCTL_QUALITY_POLICY` provides the same
+  automation override, and `devctl quality-policy` now renders the resolved
+  policy/scopes so maintainers can validate another repo policy without
+  editing orchestration code. Latest scope follow-up: scan roots are no longer baked
+  into the standalone Python/Rust guard+probe scripts; the repo policy now
+  owns `python_guard_roots`, `python_probe_roots`, `rust_guard_roots`, and
+  `rust_probe_roots`, and probe-report artifacts surface those resolved roots
+  for operator review. Latest onboarding follow-up: `governance-bootstrap`
+  now writes a starter `dev/config/devctl_repo_policy.json` for the target
+  repo when missing, chooses the nearest portable preset from detected
+  Python/Rust capabilities, and ships exported template files
+  (`portable_governance_repo_setup.template.md`,
+  `portable_devctl_repo_policy.template.json`) so another repo gets a real
+  first-run setup path instead of hand-assembling policy from scattered docs.
+  Latest usability follow-up: the same bootstrap command now writes a
+  repo-local `dev/guides/PORTABLE_GOVERNANCE_SETUP.md` file into the target
+  repo so an AI or maintainer has one obvious first-read setup surface after
+  export/bootstrap, and `dev/scripts/checks` moved another set of internal
+  helper families behind documented subpackages (`active_plan/`,
+  `python_analysis/`, `probe_report/`) to keep the root directory flatter.
+  Latest portable-guard slices now ship
+  `check_python_suppression_debt.py`, `check_python_design_complexity.py`, and
+  `check_python_cyclic_imports.py` as default portable Python guards, while
+  default-argument traps route through the expanded
+  `check_python_global_mutable.py` guard. Latest portability follow-up:
+  `check_code_shape.py` namespace/layout rules now resolve from repo-policy
+  guard config instead of VoiceTerm-only hard-coded tuples. Next portable
+  hard-guard backlog now narrows to Rust `result_large_err` /
+  `large_enum_variant` evaluation.
   Execution spec: `dev/active/review_probes.md`.
+
+- [ ] MP-376 Build the portable code-governance engine + evidence corpus:
+  keep the guard/probe/report stack reusable across arbitrary repos without
+  engine edits, define the boundary between engine code, portable presets, and
+  repo-local policy, capture guarded coding episodes as evaluation data
+  (initial output, guard hits, repair loops, accepted diff, human edits, test
+  and later-review outcomes), keep the adjudicated finding ledger
+  (`governance-review`) current so false-positive and cleanup rates are visible
+  in `data-science`, keep first-run onboarding (`governance-bootstrap` +
+  `--adoption-scan`) and export flows reusable across arbitrary repos, and
+  keep mining repeated low-noise pattern families from live evidence before
+  promoting more hard guards. The first external pilot (`ci-cd-hub`) is now
+  complete; remaining scope is benchmark automation, active cleanup against the
+  evidence log, more pilot-proof engine cleanup, and evidence-driven next
+  pattern selection while holding guard code to the same or stricter
+  structural standard as guarded code. Execution spec:
+  `dev/active/portable_code_governance.md`. Latest CI-parity follow-up
+  (2026-03-11): GitHub exposed that `dev/config/devctl_repo_policy.json` and
+  the portable preset JSON files were still ignored local artifacts, so local
+  validation and CI were resolving different guard/probe sets. The policy/preset
+  files are now tracked repo assets, maintainer docs explicitly call out that
+  policy changes must be committed, pre-commit CI is narrowed to changed files,
+  the tooling-control-plane mypy env export bug is fixed, iOS CI now runs on
+  `macos-15` for Swift 6 / newer Xcode project compatibility, and the current
+  maintainer-lint redundant-closure regressions are burned down. Latest
+  publication-sync follow-up: refreshed the external
+  `terminal-as-interface` paper snapshot from committed VoiceTerm HEAD and
+  recorded the new baseline in `dev/config/publication_sync_registry.json`
+  (`source_ref=4deb8ec8f8c3709f1fb35955f9763c6147df6a95`,
+  `external_ref=9cf965f`), returning `check_publication_sync.py` to zero drift.
+  Latest PR-gate follow-up (2026-03-12): the remaining GitHub-only failures on
+  PR #16 are burned down locally by making `process_sweep` fixtures checkout-
+  agnostic, pinning review-channel stale-poll tests to explicit freshness
+  policy, clearing leaked runtime/style-pack overrides from the startup-banner
+  fallback test, switching iOS `xcode-build` to the generic simulator
+  destination, and taking the changed-file `pre-commit` lane back to green.
+  Latest closure pass (2026-03-12): the next rerun exposed real local
+  portability debt instead of more GitHub workflow drift, so `devctl` now
+  keeps repo-owned Python subprocesses on the invoking interpreter,
+  compatibility exports are restored for split modules
+  (`quality_policy`, `collect`, `status_report`, `triage/support`,
+  `check_phases`, `check_python_global_mutable`), and new support modules for
+  phone-status plus Activity-tab report helpers pull the touched Python files
+  back under code-shape/function-duplication limits without changing behavior.
+  Latest probe-cleanup follow-up (2026-03-12): the remaining working-tree
+  review hints are now burned down too. `autonomy/phone_status.py` uses a
+  typed `RalphSection` boundary instead of anonymous dict helpers,
+  `mobile_status_views.py` now delegates typed payload/view support to the new
+  `mobile_status_projection.py` module so the renderer stays below its
+  code-shape cap, `loop_packet_helpers.py` uses `LoopPacketSourceCommand` for
+  the last auto-send string dispatch, the probe packet rerun is clean, and the
+  governance ledger is updated with six additional `fixed` probe rows.
+  Latest push-repair follow-up (2026-03-12): the first rerun on the refreshed
+  PR caught a real changed-file `pre-commit` regression where Ruff had stripped
+  compatibility exports still used across the repo. Those re-export seams are
+  now restored compactly in `common.py`, `status_report.py`, `collect.py`,
+  `triage/support.py`, `commands/check_phases.py`, `process_sweep/core.py`,
+  `phone_status_view_support.py`, `quality_policy.py`,
+  `check_python_global_mutable.py`, and `probe_report_render.py`; `common.py`
+  stays back under its shape cap; changed-file `pre-commit` is green locally
+  again; and the full `dev/scripts/devctl/tests` suite reran at
+  `1184 passed, 4 subtests passed`.
+  Latest external-pilot rerun (2026-03-14): `probe-report --repo-path` plus
+  starter-policy scope generation now resolve the target repo consistently
+  enough to trust cross-repo counts; rerunning the 13 pilot repos changed the
+  durable aggregate from the previously quoted `158` hints to `311`, because
+  `ci-cd-hub` widened from a `scripts/`-only under-scan (`7` hints) to a full
+  starter-scope scan of `scripts`, `_quarantine`, `cihub`, and `tests`
+  (`159` hints). The harder onboarding lane now works too:
+  `check --profile ci --repo-path /tmp/governance-pilots/ci-cd-hub --adoption-scan`
+  completed and returned `13` failing guard families, and six representative
+  `ci-cd-hub` probe findings were recorded into the governance-review ledger
+  as `confirmed_issue` evidence. Remaining external coverage gap:
+  non-Python/Rust repos still need JS/TS/Java guard/probe packs.
+  Latest docs-governance follow-up (2026-03-12): strict-tooling drift is
+  closed too. `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, and
+  `dev/scripts/README.md` now document that staged `dev/scripts/**` module
+  splits must keep compatibility re-exports until repo importers, tests,
+  workflows, and pre-commit hooks migrate together. After refreshing the
+  review-channel heartbeat, `docs-check --strict-tooling` and the full
+  canonical `bundle.tooling` replay are green again under `python3.11` on the
+  local workstation, including `397 passed, 181 skipped` in the Operator
+  Console suite and a clean `process-cleanup --verify`.
+  Latest CI-runner parity follow-up (2026-03-12): the next GitHub rerun
+  exposed two environment-sensitive Python regressions plus one operator-
+  console timing bug, and they are now burned down locally. Review-channel
+  bridge session generation no longer hard-fails when the default resolver
+  cannot find `codex`/`claude` on the current PATH before a dry-run or
+  simulated launch script is even written, `triage-loop` now passes the
+  command module's CI/connectivity predicates through its preflight helper so
+  the existing non-blocking-local connectivity test holds under GitHub
+  Actions, and `JobRecord.duration_seconds` clamps negative monotonic deltas
+  to zero. The reproduced failure shapes are green locally, the full
+  `dev/scripts/devctl/tests` suite reran at `1184 passed, 4 subtests passed`,
+  and `app/operator_console/tests/` reran at `397 passed, 181 skipped`.
+  Review-channel heartbeat parity follow-up (2026-03-12): the next PR rerun
+  showed one more CI-only mismatch. `devctl review-channel` auto-refreshes a
+  stale bridge heartbeat before `status` / `launch`, but the helper had been
+  keying that decision off `check_review_channel_bridge.py` metadata errors.
+  On GitHub runners the bridge guard intentionally skips live heartbeat
+  freshness enforcement (`GITHUB_ACTIONS=true`), so the refresh path never
+  triggered even though bridge liveness was still stale. The helper now keeps
+  using the guard for structural bridge validity but derives refreshability
+  from direct bridge snapshot/liveness analysis, and the stale-heartbeat tests
+  now pin `GITHUB_ACTIONS=true` explicitly so CI runner parity stays covered.
+  Tooling-control-plane workflow parity follow-up (2026-03-12): after that fix
+  landed, the only remaining PR blocker in `docs policy + governance guard`
+  was not a docs regression at all. The workflow's nested
+  `check_rust_compiler_warnings.py` step was compiling changed Rust files
+  without provisioning the Rust toolchain or Linux ALSA development headers,
+  even though the dedicated Rust lanes install both. `tooling_control_plane.yml`
+  now installs Rust plus `libasound2-dev` before the compile-time Rust guard
+  runs so the docs/governance lane matches the real Rust CI prerequisites.
+
+- [ ] MP-377 Extract the reusable AI governance platform architecture:
+  package the current VoiceTerm-local code-quality/control-plane stack as one
+  installable system with shared backend contracts for runtime state, typed
+  actions, repo packs, provider/workflow adapters, and artifact storage so the
+  same platform can power VoiceTerm, a PyQt6 dashboard, CLI flows, and future
+  phone/mobile surfaces across arbitrary repos. This scope owns the product-
+  level extraction of Ralph/mutation/review-channel/process-hygiene loops and
+  the filesystem/package reorganization needed to mirror those layers cleanly.
+  It now explicitly includes self-hosting directory/layout governance for
+  `devctl` itself plus baseline/adoption layout scanning so external repos can
+  receive the same organization contract agents use here, including crowded
+  flat-family namespace reporting for `devctl/commands` and other high-density
+  roots. It also owns the context-budget architecture for AI-facing runs:
+  typed context packs, repo-pack-tunable budget profiles, usage telemetry,
+  overflow/fallback behavior, and future operator/adopter guidance so better
+  code quality does not depend on hidden prompt bloat. This scope also now
+  explicitly includes the real package/install surface (`pyproject.toml`,
+  build backend, stable CLI entrypoints), repo-pack-owned path resolution for
+  removing hard-coded VoiceTerm filesystem assumptions, repo-pack/platform
+  compatibility checks, the central finding/review/metric evidence schema, and
+  phase-scoped replay/evaluation plus waiver/promotion lifecycle work required
+  before external pilots count as proof. It also now explicitly owns the
+  self-hosting enforcement backlog behind "why didn't our tools catch this?":
+  layer-boundary enforcement, portable-path construction purity,
+  provider/workflow adapter routing, contract-completion/orphaned-contract
+  checks, schema/platform compatibility validation, and the first repeatable
+  command-source/shell-execution checks for platform-grade misses. Public proof
+  is part of the deliverable too, not a marketing afterthought: external pilot
+  packs should preserve the platform's differentiators in a durable/public
+  whitepaper or comparison surface, not only in internal plan text.
+  `MP-376` remains the narrower engine/policy/evaluation track. Execution spec:
+  `dev/active/ai_governance_platform.md`. This spec is now the only main
+  active architecture plan for the standalone governance product scope and
+  carries the consolidated repo-grounded assessment, separation roadmap,
+  documentation consolidation plan, phase-by-phase implementation order, the
+  explicit platform completion gates, and the standing Python/Rust-first
+  pattern-mining plus future-language-extension strategy. Do not treat this
+  scope as complete when the repo is merely split or packaged; closure requires
+  architecture boundary proof, pipeline parity, telemetry trust, replayable
+  evidence quality, and cross-repo adoption evidence together.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 

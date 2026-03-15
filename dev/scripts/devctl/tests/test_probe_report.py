@@ -1,0 +1,457 @@
+"""Tests for the devctl probe-report command."""
+
+from __future__ import annotations
+
+import json
+import tempfile
+import unittest
+from argparse import Namespace
+from pathlib import Path
+from subprocess import CompletedProcess
+from unittest.mock import patch
+
+from dev.scripts.devctl import cli, quality_policy, review_probe_report
+from dev.scripts.devctl.config import REPO_ROOT, get_repo_root
+from dev.scripts.devctl.commands import probe_report
+from dev.scripts.devctl.quality_policy_loader import QUALITY_POLICY_ENV_VAR
+from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
+
+
+def _probe_payload(
+    command: str,
+    *,
+    file: str = "app/operator_console/state/watchdog_presenter.py",
+    symbol: str = "watchdog_summary_line",
+    severity: str = "medium",
+    review_lens: str = "design_quality",
+) -> dict:
+    return {
+        "command": command,
+        "timestamp": "2026-03-10T04:00:00Z",
+        "ok": True,
+        "mode": "working-tree",
+        "since_ref": None,
+        "head_ref": "HEAD",
+        "risk_hints": [
+            {
+                "file": file,
+                "symbol": symbol,
+                "risk_type": "design_smell",
+                "severity": severity,
+                "signals": ["sample signal"],
+                "ai_instruction": "fix it",
+                "review_lens": review_lens,
+                "attach_docs": [],
+            }
+        ],
+        "files_scanned": 3,
+        "files_with_hints": 1,
+    }
+
+
+def _topology_payload() -> dict:
+    return {
+        "summary": {
+            "source_files": 8,
+            "edge_count": 12,
+            "changed_files": 2,
+            "changed_hint_files": 1,
+            "focused_files": 2,
+        },
+        "changed_files": ["dev/scripts/devctl/commands/loop_packet.py"],
+        "focused_files": [
+            "app/operator_console/state/watchdog_presenter.py",
+            "rust/src/bin/voiceterm/main.rs",
+        ],
+        "nodes": {},
+        "edges": [],
+        "hotspots": [
+            {
+                "file": "rust/src/bin/voiceterm/main.rs",
+                "priority_score": 148,
+                "hint_count": 1,
+                "fan_in": 4,
+                "fan_out": 6,
+                "bridge_score": 4,
+                "changed": True,
+                "owners": ["@jguida941"],
+                "connected_files": [],
+                "representative_hints": [],
+                "bounded_next_slice": "fix the main render path",
+            }
+        ],
+        "focused_graph": {"nodes": [], "edges": []},
+        "warnings": [],
+    }
+
+
+def _review_packet_payload() -> dict:
+    hotspot = _topology_payload()["hotspots"][0]
+    return {
+        "summary": {
+            "risk_hints": 2,
+            "files_with_hints": 2,
+            "probe_count": 2,
+            "top_hotspot": hotspot,
+            "changed_hint_files": 1,
+            "topology_edges": 12,
+        },
+        "hotspots": [hotspot],
+        "focused_graph": {"nodes": [], "edges": []},
+        "verification": {
+            "probe_errors": [],
+            "probe_warnings": [],
+            "verified_by": ["devctl probe-report"],
+        },
+        "recommended_command": "python3 dev/scripts/devctl.py probe-report --format md",
+    }
+
+
+class ProbeReportCommandTests(unittest.TestCase):
+    def test_render_probe_report_terminal_includes_top_hotspot(self) -> None:
+        report = {
+            "probe_results": [_probe_payload("probe_design_smells")],
+            "review_packet": {"hotspots": _review_packet_payload()["hotspots"]},
+            "warnings": [],
+            "errors": [],
+        }
+
+        output = review_probe_report.render_probe_report_terminal(report)
+
+        self.assertIn("Top hotspot:", output)
+        self.assertIn("rust/src/bin/voiceterm/main.rs", output)
+
+    def test_run_aggregates_probe_results_and_writes_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_root = Path(tmp_dir) / "probes"
+            args = Namespace(
+                since_ref=None,
+                adoption_scan=False,
+                head_ref="HEAD",
+                quality_policy="/tmp/portable-policy.json",
+                output_root=str(output_root),
+                emit_artifacts=True,
+                format="json",
+                output=str(output_root / "command-output.json"),
+                json_output=None,
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            payloads = [
+                CompletedProcess(
+                    ["python3"],
+                    0,
+                    stdout=json.dumps(_probe_payload("probe_design_smells")),
+                    stderr="",
+                ),
+                CompletedProcess(
+                    ["python3"],
+                    0,
+                    stdout=json.dumps(
+                        _probe_payload(
+                            "probe_clone_density",
+                            file="rust/src/bin/voiceterm/main.rs",
+                            symbol="render",
+                            severity="high",
+                            review_lens="ownership",
+                        )
+                    ),
+                    stderr="",
+                ),
+            ]
+
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
+                    return_value=("probe_design_smells", "probe_clone_density"),
+                ) as mock_resolve_probe_ids,
+                patch(
+                    "dev.scripts.devctl.review_probe_report.subprocess.run",
+                    side_effect=payloads,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
+                    return_value=_topology_payload(),
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.build_review_packet",
+                    return_value=_review_packet_payload(),
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
+                    return_value=quality_policy.resolve_quality_policy(),
+                ),
+            ):
+                rc = probe_report.run(args)
+
+            mock_resolve_probe_ids.assert_called_once_with(
+                repo_root=None,
+                policy_path="/tmp/portable-policy.json",
+            )
+
+            self.assertEqual(rc, 0)
+            summary_path = output_root / "latest" / "summary.json"
+            review_targets_path = output_root / "review_targets.json"
+            summary_md_path = output_root / "latest" / "summary.md"
+            topology_path = output_root / "latest" / "file_topology.json"
+            review_packet_json = output_root / "latest" / "review_packet.json"
+            review_packet_md = output_root / "latest" / "review_packet.md"
+            hotspots_mermaid = output_root / "latest" / "hotspots.mmd"
+            hotspots_dot = output_root / "latest" / "hotspots.dot"
+            self.assertTrue(summary_path.exists())
+            self.assertTrue(review_targets_path.exists())
+            self.assertTrue(summary_md_path.exists())
+            self.assertTrue(topology_path.exists())
+            self.assertTrue(review_packet_json.exists())
+            self.assertTrue(review_packet_md.exists())
+            self.assertTrue(hotspots_mermaid.exists())
+            self.assertTrue(hotspots_dot.exists())
+
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload["summary"]["probe_count"], 2)
+            self.assertEqual(payload["summary"]["risk_hints"], 2)
+            self.assertEqual(payload["summary"]["hints_by_severity"]["high"], 1)
+            self.assertEqual(payload["summary"]["hints_by_probe"]["probe_clone_density"], 1)
+            self.assertEqual(payload["summary"]["topology"]["edge_count"], 12)
+            self.assertEqual(payload["summary"]["priority_hotspots"][0]["priority_score"], 148)
+            self.assertEqual(len(payload["risk_hints"]), 2)
+            self.assertEqual(payload["risk_hints"][0]["probe"], "probe_design_smells")
+            self.assertEqual(payload["repo_policy"]["repo_name"], "VoiceTerm")
+            self.assertIn("quality_scopes", payload["repo_policy"])
+            self.assertIn(
+                "python_probe_roots",
+                payload["repo_policy"]["quality_scopes"],
+            )
+            self.assertIn("review_packet", payload)
+
+    def test_run_returns_error_when_probe_execution_fails(self) -> None:
+        args = Namespace(
+            since_ref=None,
+            adoption_scan=False,
+            head_ref="HEAD",
+            quality_policy=None,
+            output_root="dev/reports/probes",
+            emit_artifacts=False,
+            format="json",
+            output=None,
+            json_output=None,
+            pipe_command=None,
+            pipe_args=None,
+        )
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
+                return_value=("probe_design_smells",),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.subprocess.run",
+                return_value=CompletedProcess(["python3"], 2, stdout="", stderr="boom"),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
+                return_value=_topology_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_review_packet",
+                return_value=_review_packet_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
+                return_value=quality_policy.resolve_quality_policy(),
+            ),
+        ):
+            rc = probe_report.run(args)
+
+        self.assertEqual(rc, 1)
+
+    def test_run_forwards_quality_policy_env_to_probe_subprocesses(self) -> None:
+        args = Namespace(
+            since_ref=None,
+            adoption_scan=False,
+            head_ref="HEAD",
+            quality_policy="~/portable-policy.json",
+            output_root="dev/reports/probes",
+            emit_artifacts=False,
+            format="json",
+            output=None,
+            json_output=None,
+            pipe_command=None,
+            pipe_args=None,
+        )
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
+                return_value=("probe_design_smells",),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.subprocess.run",
+                return_value=CompletedProcess(
+                    ["python3"],
+                    0,
+                    stdout=json.dumps(_probe_payload("probe_design_smells")),
+                    stderr="",
+                ),
+            ) as mock_run,
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
+                return_value=_topology_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_review_packet",
+                return_value=_review_packet_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
+                return_value=quality_policy.resolve_quality_policy(),
+            ),
+        ):
+            rc = probe_report.run(args)
+
+        self.assertEqual(rc, 0)
+        env = mock_run.call_args.kwargs["env"]
+        self.assertEqual(
+            env[QUALITY_POLICY_ENV_VAR],
+            str(Path("~/portable-policy.json").expanduser()),
+        )
+
+    def test_run_supports_adoption_scan_forwarding(self) -> None:
+        args = Namespace(
+            since_ref=None,
+            adoption_scan=True,
+            head_ref="HEAD",
+            quality_policy=None,
+            output_root="dev/reports/probes",
+            emit_artifacts=False,
+            format="json",
+            output=None,
+            json_output=None,
+            pipe_command=None,
+            pipe_args=None,
+        )
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.probe_report.resolve_review_probe_script_ids",
+                return_value=("probe_design_smells",),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.subprocess.run",
+                return_value=CompletedProcess(
+                    ["python3"],
+                    0,
+                    stdout=json.dumps(_probe_payload("probe_design_smells")),
+                    stderr="",
+                ),
+            ) as mock_run,
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
+                return_value=_topology_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.build_review_packet",
+                return_value=_review_packet_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
+                return_value=quality_policy.resolve_quality_policy(),
+            ),
+        ):
+            rc = probe_report.run(args)
+
+        self.assertEqual(rc, 0)
+        cmd = mock_run.call_args.args[0]
+        self.assertIn(ADOPTION_BASE_REF, cmd)
+        self.assertIn(WORKTREE_HEAD_REF, cmd)
+
+    def test_run_uses_external_repo_policy_and_restores_repo_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            (repo_root / "dev" / "config").mkdir(parents=True)
+            (repo_root / "dev" / "config" / "devctl_repo_policy.json").write_text(
+                json.dumps({"repo_name": "external-demo"}),
+                encoding="utf-8",
+            )
+            output_root = repo_root / "probe-output"
+            args = Namespace(
+                since_ref=None,
+                adoption_scan=False,
+                head_ref="HEAD",
+                quality_policy=None,
+                output_root=str(output_root),
+                emit_artifacts=True,
+                format="json",
+                output=str(repo_root / "probe-report.json"),
+                json_output=None,
+                pipe_command=None,
+                pipe_args=None,
+                repo_path=str(repo_root),
+            )
+
+            with (
+                patch(
+                    "dev.scripts.devctl.review_probe_report.subprocess.run",
+                    return_value=CompletedProcess(
+                        ["python3"],
+                        0,
+                        stdout=json.dumps(_probe_payload("probe_design_smells")),
+                        stderr="",
+                    ),
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.build_probe_topology_artifact",
+                    return_value=_topology_payload(),
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.build_review_packet",
+                    return_value=_review_packet_payload(),
+                ),
+            ):
+                rc = probe_report.run(args)
+
+            payload = json.loads((repo_root / "probe-report.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(payload["repo_policy"]["repo_name"], "external-demo")
+        self.assertTrue(payload["artifact_paths"]["summary_json"].startswith(str(output_root)))
+        self.assertEqual(get_repo_root(), REPO_ROOT)
+
+
+class ProbeReportParserTests(unittest.TestCase):
+    def test_cli_parser_accepts_probe_report_command(self) -> None:
+        parser = cli.build_parser()
+        args = parser.parse_args(
+            [
+                "probe-report",
+                "--since-ref",
+                "origin/develop",
+                "--head-ref",
+                "HEAD",
+                "--quality-policy",
+                "/tmp/portable-policy.json",
+                "--format",
+                "terminal",
+                "--output-root",
+                "/tmp/probes",
+            ]
+        )
+
+        self.assertEqual(args.command, "probe-report")
+        self.assertEqual(args.since_ref, "origin/develop")
+        self.assertEqual(args.head_ref, "HEAD")
+        self.assertEqual(args.quality_policy, "/tmp/portable-policy.json")
+        self.assertEqual(args.format, "terminal")
+        self.assertEqual(args.output_root, "/tmp/probes")
+
+    def test_cli_parser_accepts_adoption_scan_flag(self) -> None:
+        parser = cli.build_parser()
+        args = parser.parse_args(["probe-report", "--adoption-scan"])
+
+        self.assertEqual(args.command, "probe-report")
+        self.assertTrue(args.adoption_scan)
+
+
+if __name__ == "__main__":
+    unittest.main()

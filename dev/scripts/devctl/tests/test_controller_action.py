@@ -95,6 +95,18 @@ class ControllerActionCommandTests(unittest.TestCase):
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["reason"], "status_refreshed")
             self.assertEqual(payload["result"]["view"], "compact")
+            self.assertEqual(
+                payload["typed_action"]["action_id"],
+                "controller-action.refresh-status",
+            )
+            self.assertEqual(
+                payload["typed_action"]["parameters"]["phone_json"],
+                str(phone_json),
+            )
+            self.assertEqual(
+                payload["typed_action"]["parameters"]["view"],
+                "compact",
+            )
 
     @patch(
         "dev.scripts.devctl.commands.controller_action.resolve_repo",
@@ -116,6 +128,14 @@ class ControllerActionCommandTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertFalse(payload["ok"])
         self.assertEqual(payload["reason"], "workflow_not_allowlisted")
+        self.assertEqual(
+            payload["typed_action"]["action_id"],
+            "controller-action.dispatch-report-only",
+        )
+        self.assertEqual(
+            payload["typed_action"]["parameters"]["workflow"],
+            ".github/workflows/not-allowed.yml",
+        )
 
     @patch(
         "dev.scripts.devctl.commands.controller_action.load_controller_policy",
@@ -145,6 +165,11 @@ class ControllerActionCommandTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["reason"], "dispatched_report_only")
         self.assertIn("gh workflow run", payload["result"]["command"])
+        self.assertEqual(
+            payload["typed_action"]["parameters"]["max_attempts"],
+            3,
+        )
+        self.assertTrue(payload["typed_action"]["dry_run"])
 
     @patch(
         "dev.scripts.devctl.commands.controller_action.resolve_repo",
@@ -169,9 +194,22 @@ class ControllerActionCommandTests(unittest.TestCase):
             self.assertTrue(mode_file.exists())
             mode_payload = json.loads(mode_file.read_text(encoding="utf-8"))
             self.assertEqual(mode_payload["requested_mode"], "read-only")
+            self.assertEqual(
+                mode_payload["typed_action"]["action_id"],
+                "controller-action.pause-loop",
+            )
+            self.assertEqual(
+                mode_payload["typed_action"]["parameters"]["requested_mode"],
+                "read-only",
+            )
             payload = json.loads(write_output_mock.call_args.args[0])
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["reason"], "mode_updated")
+            self.assertEqual(
+                payload["typed_action"]["parameters"]["mode_file"],
+                str(mode_file),
+            )
+            self.assertFalse(payload["typed_action"]["parameters"]["remote"])
 
 
 if __name__ == "__main__":

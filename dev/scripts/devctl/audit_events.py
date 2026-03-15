@@ -9,10 +9,12 @@ from pathlib import Path
 from typing import Any
 
 from .config import REPO_ROOT
+from .repo_packs.voiceterm import VOICETERM_PATH_CONFIG
 
 POLICY_PATH = REPO_ROOT / "dev/config/control_plane_policy.json"
 POLICY_KEY = "audit_metrics"
-DEFAULT_EVENT_LOG = Path("dev/reports/audits/devctl_events.jsonl")
+# Backward-compat alias sourced from the repo-pack path config
+DEFAULT_EVENT_LOG = Path(VOICETERM_PATH_CONFIG.audit_event_log_rel)
 SOURCE_BUCKETS = {"script_only", "ai_assisted", "human_manual", "other"}
 AREA_BY_COMMAND = {
     "triage-loop": "loops",
@@ -117,6 +119,7 @@ def build_audit_event_payload(
     returncode: Any,
     duration_seconds: float,
     argv: list[str] | None = None,
+    machine_output: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build one normalized audit event payload."""
     normalized_rc = _normalized_returncode(returncode)
@@ -147,6 +150,8 @@ def build_audit_event_payload(
     }
     if argv:
         payload["argv"] = argv
+    if isinstance(machine_output, dict) and machine_output:
+        payload["machine_output"] = dict(machine_output)
     return payload
 
 
@@ -157,6 +162,7 @@ def emit_devctl_audit_event(
     returncode: Any,
     duration_seconds: float,
     argv: list[str] | None = None,
+    machine_output: dict[str, Any] | None = None,
 ) -> None:
     """Append one audit event unless disabled."""
     if _bool_env("DEVCTL_AUDIT_DISABLE", default=False):
@@ -167,6 +173,7 @@ def emit_devctl_audit_event(
         returncode=returncode,
         duration_seconds=duration_seconds,
         argv=argv,
+        machine_output=machine_output,
     )
     output_path = resolve_event_log_path()
     output_path.parent.mkdir(parents=True, exist_ok=True)

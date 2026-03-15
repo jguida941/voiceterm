@@ -57,7 +57,7 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/workflow_shell_bridge.py resolve-range \
+          python3 dev/scripts/workflow_bridge/shell.py resolve-range \
             --event-name "${EVENT_NAME}" \
             --push-before "${PUSH_BEFORE}" \
             --push-head "${PUSH_HEAD}" \
@@ -184,6 +184,7 @@ jobs:
           python3 dev/scripts/checks/check_repo_url_parity.py
           python3 dev/scripts/checks/check_guard_enforcement_inventory.py
           python3 dev/scripts/checks/check_architecture_surface_sync.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
+          python3 dev/scripts/checks/check_instruction_surface_sync.py
           python3 dev/scripts/checks/check_bundle_registry_dry.py
           python3 dev/scripts/checks/check_bundle_workflow_parity.py
           python3 dev/scripts/checks/check_review_channel_bridge.py
@@ -195,6 +196,7 @@ jobs:
           python3 dev/scripts/checks/check_cli_flags_parity.py
           python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
           python3 dev/scripts/checks/check_code_shape.py
+          python3 dev/scripts/checks/check_package_layout.py
           python3 dev/scripts/checks/check_python_broad_except.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
           python3 dev/scripts/checks/check_python_subprocess_policy.py
           python3 dev/scripts/checks/check_workflow_shell_hygiene.py
@@ -216,6 +218,9 @@ jobs:
           python3 dev/scripts/checks/check_parameter_count.py
           python3 dev/scripts/checks/check_python_dict_schema.py
           python3 dev/scripts/checks/check_python_global_mutable.py
+          python3 dev/scripts/checks/check_python_design_complexity.py
+          python3 dev/scripts/checks/check_python_cyclic_imports.py
+          python3 dev/scripts/checks/check_python_suppression_debt.py
           python3 dev/scripts/checks/check_structural_similarity.py
           markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
             README.md \

@@ -262,6 +262,8 @@ pub(in super::super) fn build_runtime_diagnostics_snapshot(
         crate::overlays::OverlayMode::Settings => "Settings",
         crate::overlays::OverlayMode::TranscriptHistory => "TranscriptHistory",
         crate::overlays::OverlayMode::ToastHistory => "ToastHistory",
+        crate::overlays::OverlayMode::MemoryBrowser => "MemoryBrowser",
+        crate::overlays::OverlayMode::ActionCenter => "ActionCenter",
     };
     let auto_voice = if state.auto_voice_enabled {
         if state.auto_voice_paused_by_user {

@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from dev.scripts.devctl.watchdog import WatchdogSummaryArtifact
 
 
 @dataclass(frozen=True)
@@ -114,6 +118,7 @@ class OperatorConsoleSnapshot:
     cursor_session_stats_text: str = ""
     cursor_session_registry_text: str = ""
     quality_backlog: QualityBacklogSnapshot | None = None
+    watchdog_snapshot: WatchdogSummaryArtifact | None = None
 
 
 @dataclass(frozen=True)

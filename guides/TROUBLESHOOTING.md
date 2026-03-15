@@ -33,6 +33,8 @@ Fast first checks:
 | Startup splash behaves oddly | Tune splash env vars | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme colors look muted | Verify truecolor env | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme file edits do not apply | Verify `--theme-file` / `VOICETERM_THEME_FILE` and check logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| iPhone app import screen does not clear | Re-sync the live bundle and relaunch the app | [Mobile App Issues](#mobile-app-issues) |
+| iPhone install command cannot find device | Verify trust, cable, team ID, and device support | [Mobile App Issues](#mobile-app-issues) |
 
 ## Status Messages
 
@@ -197,6 +199,45 @@ Note for Cursor terminal:
   You can still operate HUD controls with keyboard focus and `Enter`.
 
 </details>
+
+## Mobile App Issues
+
+### iPhone app import screen does not clear
+
+The phone/simulator app only clears the import prompt after it sees a valid
+live bundle.
+
+1. Re-run the guided simulator path:
+
+```bash
+python3 dev/scripts/devctl.py mobile-app --action simulator-demo --live-review --format md
+```
+
+1. If you are using Simulator, confirm the app container contains
+   `Documents/LiveBundle/full.json`.
+2. Relaunch the app after the sync step completes.
+3. If the app still stays on the import screen, use the sample bundle once to
+   verify the UI itself still responds, then inspect the live bundle path and
+   app logs.
+
+### iPhone install command cannot find device
+
+`device-install` uses Apple tooling to detect real connected hardware. It does
+not guess.
+
+1. Unlock the phone and trust this Mac.
+2. Confirm Xcode can see the device.
+3. Re-run with your Apple Development Team:
+
+```bash
+python3 dev/scripts/devctl.py mobile-app --action device-install --development-team <TEAM_ID> --allow-provisioning-updates --format md
+```
+
+1. If detection still fails, check the physical connection and whether the
+   installed Xcode supports the device OS version.
+2. If build/signing succeeds but the app still does not launch, collect the
+   printed `xcodebuild` / `devicectl` failure and compare it with
+   `app/ios/VoiceTermMobileApp/README.md`.
 
 ## Audio Setup
 

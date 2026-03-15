@@ -2,6 +2,7 @@
 
 All `voiceterm` flags in one place.
 If you are new, start with [Quick Reference](#quick-reference).
+If you want the simpler day-to-day guide, use [USAGE.md](USAGE.md).
 
 Docs map:
 
@@ -48,6 +49,13 @@ voiceterm --mic-meter                   # Calibrate mic threshold
 voiceterm --logs                        # Enable debug logging
 voiceterm --session-memory              # Write user/backend chat memory to markdown
 ```
+
+Start here if you only need the basics:
+
+- `voiceterm`
+- `voiceterm --claude`
+- `voiceterm --auto-voice --wake-word --voice-send-mode insert`
+- `voiceterm --logs`
 
 ---
 
@@ -134,11 +142,7 @@ voiceterm --login --claude      # Login to Claude CLI
 - `--backend` accepts a custom command string, for example: `voiceterm --backend "my-custom-cli --flag"`.
 - Gemini is currently nonfunctional. Aider/OpenCode presets are untested. Custom backends are overlay-only. Only Codex and Claude are fully supported.
 - In `--json-ipc` mode, provider selection accepts only `codex` and `claude`; `gemini`, `aider`, `opencode`, and `custom` are explicitly classified as overlay-only non-IPC backends.
-- JetBrains + Claude is fully supported on current releases. Rare edge case:
-  after very long parallel tool calls or parallel web-search turns, temporary
-  HUD/transcript overlap can appear at turn completion. Quick workaround:
-  resize the terminal once (even by 1 row/column). Details:
-  [TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output](TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output).
+- IDE-specific caveats and verified-host status live in [USAGE.md](USAGE.md#ide-compatibility) and [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ---
 
@@ -267,6 +271,19 @@ IPC provider sessions currently support `codex` and `claude`.
 `gemini` is overlay-only experimental, and `aider` / `opencode` / `custom` are
 overlay-only non-IPC backends. All four are rejected in IPC provider selection
 paths with explicit diagnostics.
+
+### Daemon Mode
+
+| Flag | Purpose | Default |
+|------|---------|---------|
+| `--daemon` | Run VoiceTerm as a headless daemon hub instead of launching the TUI | off |
+| `--ws-port <PORT>` | WebSocket bridge port used in daemon mode | 9876 |
+| `--no-ws` | Disable the WebSocket bridge in daemon mode | off |
+| `--socket-path <PATH>` | Unix socket path used in daemon mode | `~/.voiceterm/control.sock` |
+
+Daemon mode is for external clients such as the PyQt6 Operator Console, the
+mobile control surface, or other repo-owned integrations. Most users do not
+need these flags.
 
 ---
 

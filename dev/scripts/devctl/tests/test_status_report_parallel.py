@@ -13,9 +13,7 @@ from dev.scripts.devctl.status_report import (
 # Deterministic fake collectors for testing.
 FAKE_GIT = {"branch": "develop", "changes": [{"status": "M", "path": "a.rs"}]}
 FAKE_MUTANTS = {"results": {"score": 85.0}}
-FAKE_CI = {
-    "runs": [{"displayTitle": "ci_run", "status": "completed", "conclusion": "success"}]
-}
+FAKE_CI = {"runs": [{"displayTitle": "ci_run", "status": "completed", "conclusion": "success"}]}
 FAKE_DEV_LOGS = {
     "dev_root": "/tmp/dev",
     "sessions_scanned": 1,
@@ -41,6 +39,24 @@ FAKE_RUST_AUDITS = {
     "guards": [],
     "categories": [],
     "hotspots": [],
+}
+FAKE_PROBE_REPORT = {
+    "ok": True,
+    "mode": "working-tree",
+    "summary": {
+        "probe_count": 2,
+        "files_scanned": 7,
+        "files_with_hints": 1,
+        "risk_hints": 3,
+        "top_files": [
+            {
+                "file": "rust/src/bin/voiceterm/main.rs",
+                "hint_count": 2,
+            }
+        ],
+    },
+    "warnings": [],
+    "errors": [],
 }
 
 
@@ -68,6 +84,10 @@ def _fake_rust_audits(**_kwargs):
     return dict(FAKE_RUST_AUDITS)
 
 
+def _fake_probe_report(**_kwargs):
+    return dict(FAKE_PROBE_REPORT)
+
+
 class RunProbesSerialTests(unittest.TestCase):
     """Validate _run_probes_serial returns all results in order."""
 
@@ -78,9 +98,7 @@ class RunProbesSerialTests(unittest.TestCase):
             ("c", lambda: {"value": 3}),
         ]
         results = _run_probes_serial(probes)
-        self.assertEqual(
-            results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}}
-        )
+        self.assertEqual(results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}})
 
     def test_serial_empty_probes(self) -> None:
         self.assertEqual(_run_probes_serial([]), {})
@@ -96,9 +114,7 @@ class RunProbesParallelTests(unittest.TestCase):
             ("c", lambda: {"value": 3}),
         ]
         results = _run_probes_parallel(probes, max_workers=4)
-        self.assertEqual(
-            results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}}
-        )
+        self.assertEqual(results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}})
 
     def test_parallel_empty_probes(self) -> None:
         self.assertEqual(_run_probes_parallel([], max_workers=4), {})
@@ -254,6 +270,43 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         self.assertIn("rust_audits", report)
         self.assertEqual(report["rust_audits"]["summary"]["total_active_findings"], 5)
 
+    @patch(
+        "dev.scripts.devctl.status_report.build_probe_report",
+        side_effect=_fake_probe_report,
+    )
+    @patch(
+        "dev.scripts.devctl.status_report.collect_mutation_summary",
+        side_effect=_fake_mutants,
+    )
+    @patch("dev.scripts.devctl.status_report.collect_git_status", side_effect=_fake_git)
+    def test_probe_report_can_be_enabled(
+        self,
+        _mock_git,
+        _mock_mutants,
+        _mock_probe_report,
+    ) -> None:
+        report = build_project_report(
+            command="report",
+            include_ci=False,
+            ci_limit=5,
+            include_dev_logs=False,
+            dev_root=None,
+            dev_sessions_limit=5,
+            include_probe_report=True,
+            probe_since_ref="origin/develop",
+            probe_head_ref="HEAD~1",
+            parallel=False,
+        )
+        self.assertIn("probe_report", report)
+        self.assertTrue(report["probe_report"]["ok"])
+        self.assertEqual(report["probe_report"]["summary"]["risk_hints"], 3)
+        _mock_probe_report.assert_called_once_with(
+            since_ref="origin/develop",
+            head_ref="HEAD~1",
+            policy_path=None,
+            emit_artifacts=False,
+        )
+
     @patch("dev.scripts.devctl.status_report.collect_ci_runs", side_effect=_fake_ci)
     @patch(
         "dev.scripts.devctl.status_report.collect_mutation_summary",
@@ -373,6 +426,16 @@ class CliNoParallelFlagTests(unittest.TestCase):
         parser = build_parser()
         args = parser.parse_args(["report"])
         self.assertFalse(args.no_parallel)
+
+    def test_status_accepts_probe_report_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["status", "--probe-report"])
+        self.assertTrue(args.probe_report)
+
+    def test_report_accepts_probe_report_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["report", "--probe-report"])
+        self.assertTrue(args.probe_report)
 
 
 if __name__ == "__main__":

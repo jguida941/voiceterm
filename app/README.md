@@ -2,6 +2,12 @@
 
 Platform-specific application launchers for VoiceTerm.
 
+Start here based on what you want:
+
+- macOS launcher: use `macos/VoiceTerm.app`
+- Desktop operator workflow: read [operator_console/README.md](operator_console/README.md)
+- iPhone/iPad companion: read [ios/README.md](ios/README.md)
+
 ## macOS
 
 `macos/VoiceTerm.app` - Double-click app that opens a folder picker and launches VoiceTerm in Terminal.
@@ -39,6 +45,9 @@ Operator control surfaces stay Rust-first in this repo:
 `operator_console/` - optional PyQt6 VoiceTerm Operator Console for the
 current review-channel workflow.
 
+Use this when you want a desktop control/read surface for the repo workflow.
+Do not start here if you only want the normal VoiceTerm overlay.
+
 Current prototype scope:
 
 - bridge-derived Codex, Claude, and Operator status panes (parsed from `code_audit.md`)
@@ -70,6 +79,9 @@ not replace the Rust overlay or embed a full terminal emulator.
 
 `ios/VoiceTermMobile/` - the shared Swift package used by that app for bundle
 decoding and dashboard UI.
+
+Use this when you want a mobile read/control surface backed by repo-emitted
+mobile bundles.
 
 Current scope:
 

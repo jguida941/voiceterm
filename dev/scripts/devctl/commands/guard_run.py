@@ -3,23 +3,30 @@
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
+import sys
+import time
 
 from ..common import cmd_str, emit_output, pipe_output, run_cmd, write_output
 from ..config import REPO_ROOT
-from ..process_sweep.core import path_is_under_repo
-from ..process_sweep.config import (
-    REPO_RUNTIME_CARGO_RE,
-    REPO_RUNTIME_RELATIVE_TARGET_BINARY_RE,
-    REPO_RUNTIME_TARGET_BINARY_RE,
+from ..guard_run_core import (
+    GuardGitSnapshot,
+    GuardRunRequest,
+    WatchdogContext,
+    build_guard_run_markdown,
+    capture_guard_git_snapshot,
+    command_uses_shell_wrapper,
+    resolve_guard_cwd,
+    resolve_guard_post_action,
+    watchdog_context_from_args,
 )
+from ..process_sweep.core import path_is_under_repo
 from ..time_utils import utc_timestamp
+from ..watchdog.episode import emit_guarded_coding_episode
 
 POST_ACTIONS = {"auto", "quick", "cleanup", "none"}
-SHELL_EXECUTABLES = {"bash", "zsh", "sh"}
+DEVCTL_PYTHON_EXECUTABLE = sys.executable or "python3"
 QUICK_FOLLOWUP_CMD = [
-    "python3",
+    DEVCTL_PYTHON_EXECUTABLE,
     "dev/scripts/devctl.py",
     "check",
     "--profile",
@@ -29,7 +36,7 @@ QUICK_FOLLOWUP_CMD = [
     "--no-parallel",
 ]
 CLEANUP_FOLLOWUP_CMD = [
-    "python3",
+    DEVCTL_PYTHON_EXECUTABLE,
     "dev/scripts/devctl.py",
     "process-cleanup",
     "--verify",
@@ -38,106 +45,29 @@ CLEANUP_FOLLOWUP_CMD = [
 ]
 
 
-def _normalize_command(command_args: list[str]) -> list[str]:
-    command = list(command_args)
-    if command and command[0] == "--":
-        command = command[1:]
-    return command
-
-
-def _resolve_cwd(raw_cwd: str | None) -> Path:
-    if not raw_cwd:
-        return REPO_ROOT
-    path = Path(raw_cwd).expanduser()
-    if not path.is_absolute():
-        path = REPO_ROOT / path
-    return path.resolve(strict=False)
-
-
-def _is_shell_c_wrapper(command: list[str]) -> bool:
-    if not command:
-        return False
-    executable_name = os.path.basename(command[0])
-    if executable_name not in SHELL_EXECUTABLES:
-        return False
-    return any(
-        argument == "-c" or (argument.startswith("-") and "c" in argument[1:])
-        for argument in command[1:]
-    )
-
-
-def _resolve_post_action(command: list[str], *, requested_action: str) -> str:
-    if requested_action != "auto":
-        return requested_action
-    rendered = cmd_str(command)
-    if (
-        REPO_RUNTIME_CARGO_RE.search(rendered)
-        or REPO_RUNTIME_TARGET_BINARY_RE.search(rendered)
-        or REPO_RUNTIME_RELATIVE_TARGET_BINARY_RE.search(rendered)
-    ):
-        return "quick"
-    return "cleanup"
-
-
-def _post_followup_command(action: str) -> list[str] | None:
-    if action == "quick":
-        return list(QUICK_FOLLOWUP_CMD)
-    if action == "cleanup":
-        return list(CLEANUP_FOLLOWUP_CMD)
-    return None
-
-
-def _render_md(report: dict) -> str:
-    lines = ["# devctl guard-run", ""]
-    lines.append(f"- label: {report['label']}")
-    lines.append(f"- cwd: {report['cwd']}")
-    lines.append(f"- dry_run: {report['dry_run']}")
-    lines.append(f"- requested_post_action: {report['requested_post_action']}")
-    lines.append(f"- resolved_post_action: {report['resolved_post_action']}")
-    lines.append(f"- ok: {report['ok']}")
-    lines.append("")
-    lines.append("## Guarded Command")
-    lines.append(f"- cmd: {report['command_display']}")
-    if report["command_result"] is not None:
-        lines.append(f"- returncode: {report['command_result']['returncode']}")
-    if report["post_result"] is not None:
-        lines.append("")
-        lines.append("## Post-Run Hygiene")
-        lines.append(f"- cmd: {report['post_result_display']}")
-        lines.append(f"- returncode: {report['post_result']['returncode']}")
-    if report["warnings"]:
-        lines.append("")
-        lines.append("## Warnings")
-        for warning in report["warnings"]:
-            lines.append(f"- {warning}")
-    if report["errors"]:
-        lines.append("")
-        lines.append("## Errors")
-        for error in report["errors"]:
-            lines.append(f"- {error}")
-    return "\n".join(lines)
-
-
 def build_guard_run_report(
+    request: GuardRunRequest,
     *,
-    command_args: list[str],
-    cwd: str | None,
-    requested_post_action: str,
-    label: str | None,
-    dry_run: bool,
+    watchdog_context: WatchdogContext | None = None,
 ) -> dict:
     """Run one guarded command and always follow with the selected hygiene step."""
+    started_at_utc = utc_timestamp()
+    started_monotonic = time.perf_counter()
     errors: list[str] = []
     warnings: list[str] = []
-    command = _normalize_command(command_args)
-    resolved_cwd = _resolve_cwd(cwd)
+    command = list(request.command_args)
+    if command and command[0] == "--":
+        command = command[1:]
+    resolved_cwd = resolve_guard_cwd(request.cwd)
     command_result: dict | None = None
     post_result: dict | None = None
     post_result_display: str | None = None
+    diff_snapshot_before: GuardGitSnapshot | None = None
+    diff_snapshot_after: GuardGitSnapshot | None = None
 
-    if requested_post_action not in POST_ACTIONS:
+    if request.requested_post_action not in POST_ACTIONS:
         errors.append(
-            f"Unknown post-action '{requested_post_action}'. Expected one of: {', '.join(sorted(POST_ACTIONS))}."
+            f"Unknown post-action '{request.requested_post_action}'. Expected one of: {', '.join(sorted(POST_ACTIONS))}."
         )
     if not command:
         errors.append("No command provided. Pass the guarded command after `--`.")
@@ -146,25 +76,34 @@ def build_guard_run_report(
             f"--cwd resolves outside this checkout: {resolved_cwd}. "
             "guard-run only guarantees post-run hygiene for this repository."
         )
-    elif _is_shell_c_wrapper(command):
+    elif command_uses_shell_wrapper(command):
         errors.append(
             "Shell `-c` wrappers are not allowed in `guard-run`; pass the command directly or "
             "invoke an explicit script path instead."
         )
 
     resolved_post_action = (
-        _resolve_post_action(command, requested_action=requested_post_action)
+        resolve_guard_post_action(
+            command,
+            requested_action=request.requested_post_action,
+        )
         if not errors
-        else requested_post_action
+        else request.requested_post_action
     )
-    post_followup_cmd = _post_followup_command(resolved_post_action)
+    if resolved_post_action == "quick":
+        post_followup_cmd = list(QUICK_FOLLOWUP_CMD)
+    elif resolved_post_action == "cleanup":
+        post_followup_cmd = list(CLEANUP_FOLLOWUP_CMD)
+    else:
+        post_followup_cmd = None
 
     if not errors:
+        diff_snapshot_before = capture_guard_git_snapshot(resolved_cwd)
         command_result = run_cmd(
-            label or "guarded-command",
+            request.label or "guarded-command",
             command,
             cwd=resolved_cwd,
-            dry_run=dry_run,
+            dry_run=request.dry_run,
         )
         if post_followup_cmd is not None:
             post_result_display = cmd_str(post_followup_cmd)
@@ -172,7 +111,7 @@ def build_guard_run_report(
                 "guarded-post-run-hygiene",
                 post_followup_cmd,
                 cwd=REPO_ROOT,
-                dry_run=dry_run,
+                dry_run=request.dry_run,
             )
         if command_result["returncode"] != 0:
             errors.append(
@@ -186,36 +125,72 @@ def build_guard_run_report(
                 "Post-run hygiene was disabled; use this only when the command cannot create repo-owned "
                 "runtime/tooling processes."
             )
+        diff_snapshot_after = capture_guard_git_snapshot(resolved_cwd)
 
-    return {
-        "command": "guard-run",
-        "timestamp": utc_timestamp(),
-        "label": label or "guarded-command",
-        "cwd": str(resolved_cwd),
-        "dry_run": bool(dry_run),
-        "requested_post_action": requested_post_action,
-        "resolved_post_action": resolved_post_action,
-        "command_args": command,
-        "command_display": cmd_str(command) if command else "",
-        "command_result": command_result,
-        "post_result": post_result,
-        "post_result_display": post_result_display,
-        "warnings": warnings,
-        "errors": errors,
-        "ok": not errors,
-    }
+    # Run probe quality scan when enabled (autonomy loops turn this on).
+    probe_scan_result: dict[str, object] | None = None
+    if request.run_probe_scan and not request.dry_run and diff_snapshot_after is not None:
+        try:
+            from ..watchdog.probe_gate import run_probe_scan as _probe_scan
+
+            scan = _probe_scan(timeout_seconds=120)
+            probe_scan_result = scan.to_dict()
+        # broad-except: allow reason=probe scan must fail open fallback=emit warning and continue
+        except Exception as exc:
+            warnings.append(f"Probe scan skipped: {exc}")
+
+    finished_at_utc = utc_timestamp()
+    runtime_seconds = round(max(time.perf_counter() - started_monotonic, 0.0), 3)
+
+    report: dict[str, object] = {}
+    report["command"] = "guard-run"
+    report["timestamp"] = finished_at_utc
+    report["label"] = request.label or "guarded-command"
+    report["cwd"] = str(resolved_cwd)
+    report["dry_run"] = bool(request.dry_run)
+    report["requested_post_action"] = request.requested_post_action
+    report["resolved_post_action"] = resolved_post_action
+    report["guard_started_at_utc"] = started_at_utc
+    report["guard_finished_at_utc"] = finished_at_utc
+    report["guard_runtime_seconds"] = runtime_seconds
+    report["command_args"] = command
+    report["command_display"] = cmd_str(command) if command else ""
+    report["command_result"] = command_result
+    report["post_result"] = post_result
+    report["post_result_display"] = post_result_display
+    report["diff_snapshot_before"] = diff_snapshot_before.to_dict() if diff_snapshot_before else None
+    report["diff_snapshot_after"] = diff_snapshot_after.to_dict() if diff_snapshot_after else None
+    report["watchdog_context"] = watchdog_context.to_dict() if watchdog_context else {}
+    report["probe_scan"] = probe_scan_result
+    report["warnings"] = warnings
+    report["errors"] = errors
+    report["ok"] = not errors
+    return report
 
 
 def run(args) -> int:
     """Run a local command with guaranteed post-run process hygiene follow-up."""
-    report = build_guard_run_report(
+    request = GuardRunRequest(
         command_args=list(getattr(args, "guarded_command", [])),
         cwd=getattr(args, "cwd", None),
         requested_post_action=str(getattr(args, "post_action", "auto")),
         label=getattr(args, "label", None),
         dry_run=bool(getattr(args, "dry_run", False)),
     )
-    output = json.dumps(report, indent=2) if args.format == "json" else _render_md(report)
+    report = build_guard_run_report(
+        request,
+        watchdog_context=watchdog_context_from_args(args),
+    )
+    should_emit_episode = report.get("command_result") is not None
+    try:
+        summary_path = emit_guarded_coding_episode(report) if should_emit_episode else None
+    # broad-except: allow reason=watchdog artifact writes must fail open fallback=emit warning and continue
+    except Exception as exc:
+        report["warnings"].append(f"Watchdog episode emit skipped: {exc}")
+        summary_path = None
+    if summary_path:
+        report["watchdog_summary_path"] = summary_path
+    output = json.dumps(report, indent=2) if args.format == "json" else build_guard_run_markdown(report)
     pipe_rc = emit_output(
         output,
         output_path=args.output,

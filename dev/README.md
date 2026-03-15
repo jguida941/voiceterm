@@ -5,34 +5,15 @@ This page points you to the right doc based on your task.
 This is the canonical developer index.
 Root shortcut: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 
-## System Frame
+## What This Folder Is For
 
-VoiceTerm is evolving into a local-first agent operating system for
-terminal-native AI work.
+Use `dev/` when you are changing the product, tooling, CI, or release process.
+The main starting points are:
 
-- [`dev/active/memory_studio.md`](active/memory_studio.md) owns durable recall,
-  context packs, and survival-index recovery.
-- [`dev/active/autonomous_control_plane.md`](active/autonomous_control_plane.md)
-  owns operator surfaces, governance, and the umbrella `controller_state`
-  contract.
-- [`dev/active/review_channel.md`](active/review_channel.md) owns structured
-  agent-review coordination and shared-screen visibility.
-- [`dev/active/continuous_swarm.md`](active/continuous_swarm.md) owns the
-  local-first continuous Codex-reviewer / Claude-coder loop hardening path:
-  next-task continuation, peer-liveness guards, context rotation, and the
-  phase-gated later template-extraction proof path.
-- [`dev/active/operator_console.md`](active/operator_console.md) owns the
-  optional VoiceTerm Operator Console: a thin PyQt6 shared-screen wrapper over
-  the existing review-channel and launcher flow.
-- [`dev/active/ralph_guardrail_control_plane.md`](active/ralph_guardrail_control_plane.md)
-  owns the Ralph guardrail loop, analytics surfaces, and shared guardrail
-  control-state path.
-- [`dev/active/review_probes.md`](active/review_probes.md) owns the
-  non-blocking heuristic review-probe lane that feeds AI investigation targets
-  into the broader control plane.
-
-These lanes must share one auditable artifact contract. Hidden side channels or
-plan-local shadow state are out of bounds.
+- [`dev/active/INDEX.md`](active/INDEX.md) for active-doc routing
+- [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) for current execution scope
+- [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) for build/test/check commands
+- [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) for runtime structure
 
 ## Pick Your Path
 
@@ -41,41 +22,41 @@ plan-local shadow state are out of bounds.
 | See what is in scope right now | [`dev/active/INDEX.md`](active/INDEX.md), then [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) |
 | Build, test, or release | [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) |
 | Understand how the runtime works | [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) |
+| Understand the reusable AI governance platform thesis and architecture | [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) and [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) |
 | Understand how the current Codex/Claude collaboration system works | [`dev/guides/AGENT_COLLABORATION_SYSTEM.md`](guides/AGENT_COLLABORATION_SYSTEM.md) |
+| Export or benchmark the portable governance stack on other repos | [`dev/guides/PORTABLE_CODE_GOVERNANCE.md`](guides/PORTABLE_CODE_GOVERNANCE.md) and [`dev/active/portable_code_governance.md`](active/portable_code_governance.md) |
+| Plan or execute the full reusable AI governance platform extraction | [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) and [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) |
 | Launch or extend the optional PyQt6 Operator Console | [`../app/operator_console/AGENTS.md`](../app/operator_console/AGENTS.md), [`../app/operator_console/README.md`](../app/operator_console/README.md), and [`dev/active/operator_console.md`](active/operator_console.md) |
 | Change tooling, process, or CI | [`AGENTS.md`](../AGENTS.md) and [`dev/scripts/README.md`](scripts/README.md) |
 
 ## Recommended Reading Order
 
-1. [`dev/active/INDEX.md`](active/INDEX.md) -- list of active planning docs (read this first).
-2. [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) -- current scope and what ships next.
-3. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) -- Theme and overlay design plan.
-4. [`dev/active/memory_studio.md`](active/memory_studio.md) -- Memory and action-system plan.
-5. [`dev/active/autonomous_control_plane.md`](active/autonomous_control_plane.md) -- autonomy loop and mobile control-plane plan.
-6. [`dev/active/review_channel.md`](active/review_channel.md) -- shared review-channel and dual-agent shared-screen execution plan for `MP-355`.
-7. [`dev/active/continuous_swarm.md`](active/continuous_swarm.md) -- local-first continuous Codex-reviewer / Claude-coder loop hardening plan for `MP-358`.
-8. [`dev/active/operator_console.md`](active/operator_console.md) -- bounded optional VoiceTerm Operator Console plan for `MP-359`.
-9. [`dev/active/host_process_hygiene.md`](active/host_process_hygiene.md) -- host-side process cleanup and Activity Monitor automation plan for `MP-356`.
-10. [`dev/active/ralph_guardrail_control_plane.md`](active/ralph_guardrail_control_plane.md) -- Ralph guardrail remediation + analytics plan for `MP-360..MP-367`.
-11. [`dev/active/review_probes.md`](active/review_probes.md) -- heuristic review-probe execution plan for `MP-368..MP-375`.
-12. [`dev/guides/AGENT_COLLABORATION_SYSTEM.md`](guides/AGENT_COLLABORATION_SYSTEM.md) -- plain-language map of the current Codex/Claude collaboration system, bridge flow, execution modes, and report artifacts.
-13. [`dev/active/loop_chat_bridge.md`](active/loop_chat_bridge.md) -- how loop output is handed to chat suggestions.
-14. [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md) -- naming/API cohesion execution plan for `MP-267`.
-15. [`dev/active/ide_provider_modularization.md`](active/ide_provider_modularization.md) -- host/provider adapter modularization and compatibility-hardening plan for `MP-346`.
-16. [`dev/active/pre_release_architecture_audit.md`](active/pre_release_architecture_audit.md) -- canonical pre-release architecture/tooling findings + execution plan for `MP-347` and `MP-349`.
-17. [`dev/guides/MCP_DEVCTL_ALIGNMENT.md`](guides/MCP_DEVCTL_ALIGNMENT.md) -- durable architecture/rules for MCP as an optional read-only adapter.
-18. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- external repo links and import rules.
-19. [`dev/audits/README.md`](audits/README.md) -- where audit runs and evidence rules live.
-20. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeated manual work we still need to automate.
-21. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- audit metrics and chart definitions.
-22. [`dev/active/review_channel.md`](active/review_channel.md) -- also carries the merged markdown-swarm lane map and signoff template for the current parallel Codex/Claude cycle.
-23. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
-24. [`dev/history/README.md`](history/README.md) -- index for historical records.
-25. [`dev/archive/2026-03-07-rust-workspace-layout-migration.md`](archive/2026-03-07-rust-workspace-layout-migration.md) -- closed record for the completed Rust workspace path/layout migration.
-26. [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) -- how the runtime is structured today.
-27. [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) -- build, test, and release commands.
-28. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.
-29. [`dev/CHANGELOG.md`](CHANGELOG.md) -- release history and user-visible changes.
+1. [`dev/active/INDEX.md`](active/INDEX.md) for active-doc routing.
+2. [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) for current scope.
+3. [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) for exact commands.
+4. [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) for runtime design.
+5. [`dev/scripts/README.md`](scripts/README.md) for `devctl` and check commands.
+6. [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) when the task is about the standalone governance product, repo packs, extraction, or frontend/runtime convergence.
+7. [`dev/guides/PORTABLE_CODE_GOVERNANCE.md`](guides/PORTABLE_CODE_GOVERNANCE.md) when the task is about portable guards, exports, or multi-repo evaluation.
+8. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) if you need the why behind the current process.
+
+## Active Plans By Area
+
+- Visual/theme work: [`dev/active/theme_upgrade.md`](active/theme_upgrade.md)
+- Memory/context-pack work: [`dev/active/memory_studio.md`](active/memory_studio.md)
+- Autonomy/mobile control plane: [`dev/active/autonomous_control_plane.md`](active/autonomous_control_plane.md)
+- Shared review workflow: [`dev/active/review_channel.md`](active/review_channel.md)
+- Continuous Codex/Claude loop: [`dev/active/continuous_swarm.md`](active/continuous_swarm.md)
+- Host process cleanup/audit: [`dev/active/host_process_hygiene.md`](active/host_process_hygiene.md)
+- Optional operator console: [`dev/active/operator_console.md`](active/operator_console.md)
+- Ralph guardrail loop: [`dev/active/ralph_guardrail_control_plane.md`](active/ralph_guardrail_control_plane.md)
+- Review probes: [`dev/active/review_probes.md`](active/review_probes.md)
+- Portable code governance engine/adoption companion: [`dev/active/portable_code_governance.md`](active/portable_code_governance.md)
+- AI governance platform extraction only main active plan for this product scope: [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md)
+- Naming/API cleanup: [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md)
+- IDE/provider modularization: [`dev/active/ide_provider_modularization.md`](active/ide_provider_modularization.md)
+- Pre-release audit follow-up: [`dev/active/pre_release_architecture_audit.md`](active/pre_release_architecture_audit.md)
+- Loop-to-chat handoff runbook: [`dev/active/loop_chat_bridge.md`](active/loop_chat_bridge.md)
 
 ## Three Core Docs
 

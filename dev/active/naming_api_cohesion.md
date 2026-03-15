@@ -59,7 +59,7 @@ Out of scope:
 
 | Severity | Surface | Duplicate pattern | Canonical owner decision |
 |---|---|---|---|
-| high | `dev/scripts/devctl/triage_loop_policy.py`, `mutation_loop_policy.py` | Nearly identical policy parsing/allowlist logic duplicated line-for-line. | fixed: shared engine in `dev/scripts/devctl/loop_fix_policy.py` with thin wrappers |
+| high | `dev/scripts/devctl/triage/loop_policy.py`, `mutation_loop_policy.py` | Nearly identical policy parsing/allowlist logic duplicated line-for-line. | fixed: shared engine in `dev/scripts/devctl/loop_fix_policy.py` with thin wrappers |
 | medium | `rust/src/bin/voiceterm/theme_studio/*` | Repeated page-navigation helpers (`move_up`, `move_down`, `render`, label/index cycling) across page modules. | fixed: shared `theme_studio/nav.rs` + consistent `select_prev`/`select_next` state APIs |
 | medium | `dev/scripts/devctl/*` render/metrics helpers | Repeated numeric helper variants (`safe_int`, `_safe_int`, `safe_float`, `_safe_float`) across autonomy/report/data-science helpers. | fixed: shared `dev/scripts/devctl/numeric.py` (`to_int`/`to_float`/`to_optional_float`) |
 

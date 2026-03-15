@@ -31,6 +31,7 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_cli_flags_parity.py",
     "python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120",
     "python3 dev/scripts/checks/check_code_shape.py",
+    "python3 dev/scripts/checks/check_package_layout.py",
     "python3 dev/scripts/checks/check_python_subprocess_policy.py",
     "python3 dev/scripts/checks/check_workflow_shell_hygiene.py",
     "python3 dev/scripts/checks/check_workflow_action_pinning.py",
@@ -51,6 +52,9 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_parameter_count.py",
     "python3 dev/scripts/checks/check_python_dict_schema.py",
     "python3 dev/scripts/checks/check_python_global_mutable.py",
+    "python3 dev/scripts/checks/check_python_design_complexity.py",
+    "python3 dev/scripts/checks/check_python_cyclic_imports.py",
+    "python3 dev/scripts/checks/check_python_suppression_debt.py",
     "python3 dev/scripts/checks/check_structural_similarity.py",
     "markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md",
     "find . -maxdepth 1 -type f -name '--*'",
@@ -59,6 +63,7 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
 _POST_PUSH_DIFF_GUARD_COMMANDS: Final[frozenset[str]] = frozenset(
     {
         "python3 dev/scripts/checks/check_code_shape.py",
+        "python3 dev/scripts/checks/check_package_layout.py",
         "python3 dev/scripts/checks/check_python_subprocess_policy.py",
         "python3 dev/scripts/checks/check_rust_test_shape.py",
         "python3 dev/scripts/checks/check_rust_lint_debt.py",
@@ -73,6 +78,9 @@ _POST_PUSH_DIFF_GUARD_COMMANDS: Final[frozenset[str]] = frozenset(
         "python3 dev/scripts/checks/check_parameter_count.py",
         "python3 dev/scripts/checks/check_python_dict_schema.py",
         "python3 dev/scripts/checks/check_python_global_mutable.py",
+        "python3 dev/scripts/checks/check_python_design_complexity.py",
+        "python3 dev/scripts/checks/check_python_cyclic_imports.py",
+        "python3 dev/scripts/checks/check_python_suppression_debt.py",
         "python3 dev/scripts/checks/check_structural_similarity.py",
     }
 )
@@ -84,6 +92,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_repo_url_parity.py",
     "python3 dev/scripts/checks/check_guard_enforcement_inventory.py",
     "python3 dev/scripts/checks/check_architecture_surface_sync.py",
+    "python3 dev/scripts/checks/check_instruction_surface_sync.py",
     "python3 dev/scripts/checks/check_bundle_registry_dry.py",
     "python3 dev/scripts/checks/check_bundle_workflow_parity.py",
     "python3 dev/scripts/checks/check_review_channel_bridge.py",
@@ -92,9 +101,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
 # Publication drift only blocks release lanes. Normal tooling/post-push work
 # still sees the warning via hygiene, but should not fail on unrelated external
 # site sync debt.
-_RELEASE_ONLY_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
-    "python3 dev/scripts/checks/check_publication_sync.py",
-)
+_RELEASE_ONLY_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = ("python3 dev/scripts/checks/check_publication_sync.py",)
 
 # Orchestration status commands used by tooling, release, and post-push bundles.
 _ORCHESTRATE_COMMANDS: Final[tuple[str, ...]] = (
@@ -103,14 +110,10 @@ _ORCHESTRATE_COMMANDS: Final[tuple[str, ...]] = (
 )
 
 # Host-side cleanup/audit step for repo-related stale/orphan process trees.
-_HOST_PROCESS_HYGIENE_COMMAND: Final[str] = (
-    "python3 dev/scripts/devctl.py process-cleanup --verify --format md"
-)
+_HOST_PROCESS_HYGIENE_COMMAND: Final[str] = "python3 dev/scripts/devctl.py process-cleanup --verify --format md"
 
 # Operator Console proof path for tooling changes touching the optional PyQt UI.
-_OPERATOR_CONSOLE_TESTS_COMMAND: Final[str] = (
-    "python3 -m pytest app/operator_console/tests/ -q --tb=short"
-)
+_OPERATOR_CONSOLE_TESTS_COMMAND: Final[str] = "python3 -m pytest app/operator_console/tests/ -q --tb=short"
 
 
 def _compose_post_push_guard_checks() -> tuple[str, ...]:
@@ -216,9 +219,7 @@ def render_bundle_reference_markdown(bundle_name: str) -> str:
 
 def render_all_bundle_reference_markdown() -> str:
     """Render all bundles in AGENTS markdown style."""
-    return "\n\n".join(
-        render_bundle_reference_markdown(bundle_name) for bundle_name in bundle_names()
-    )
+    return "\n\n".join(render_bundle_reference_markdown(bundle_name) for bundle_name in bundle_names())
 
 
 def render_agents_bundle_section_markdown() -> str:

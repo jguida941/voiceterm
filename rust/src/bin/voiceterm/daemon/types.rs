@@ -81,10 +81,7 @@ pub(crate) enum DaemonCommand {
 
     /// Send text to a specific agent session's PTY.
     #[serde(rename = "send_to_agent")]
-    SendToAgent {
-        session_id: String,
-        text: String,
-    },
+    SendToAgent { session_id: String, text: String },
 
     /// Gracefully kill a specific agent session.
     #[serde(rename = "kill_agent")]
@@ -135,10 +132,7 @@ pub(crate) enum DaemonEvent {
 
     /// Output from an agent's PTY stream.
     #[serde(rename = "agent_output")]
-    AgentOutput {
-        session_id: String,
-        text: String,
-    },
+    AgentOutput { session_id: String, text: String },
 
     /// An agent session has exited.
     #[serde(rename = "agent_exited")]

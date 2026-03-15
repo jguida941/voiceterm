@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import tempfile
+from pathlib import Path
 from unittest import TestCase
 
 from dev.scripts.devctl.commands import docs_check_constants, docs_check_policy
@@ -22,6 +25,10 @@ class DocsCheckConstantsCompatibilityTests(TestCase):
             docs_check_constants.EVOLUTION_DOC, docs_check_policy.EVOLUTION_DOC
         )
         self.assertIs(
+            docs_check_constants.INSTRUCTION_SURFACE_SYNC_SCRIPT_REL,
+            docs_check_policy.INSTRUCTION_SURFACE_SYNC_SCRIPT_REL,
+        )
+        self.assertIs(
             docs_check_constants.DEPRECATED_REFERENCE_PATTERNS,
             docs_check_policy.DEPRECATED_REFERENCE_PATTERNS,
         )
@@ -39,3 +46,30 @@ class DocsCheckConstantsCompatibilityTests(TestCase):
             docs_check_constants.scan_deprecated_references,
             docs_check_policy.scan_deprecated_references,
         )
+
+    def test_policy_override_can_replace_tooling_and_evolution_paths(self) -> None:
+        policy_payload = {
+            "schema_version": 1,
+            "repo_governance": {
+                "docs_check": {
+                    "tooling_change_prefixes": ["ops/"],
+                    "evolution_change_exact": ["ops/review.md"],
+                }
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            policy_path = Path(tmpdir) / "policy.json"
+            policy_path.write_text(json.dumps(policy_payload), encoding="utf-8")
+
+            self.assertTrue(
+                docs_check_policy.is_tooling_change(
+                    "ops/runbook.md",
+                    policy_path=str(policy_path),
+                )
+            )
+            self.assertTrue(
+                docs_check_policy.requires_evolution_update(
+                    "ops/review.md",
+                    policy_path=str(policy_path),
+                )
+            )

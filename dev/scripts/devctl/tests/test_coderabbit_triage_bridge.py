@@ -31,7 +31,7 @@ class CodeRabbitTriageBridgeTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.script = load_module(
             "coderabbit_triage_bridge",
-            "dev/scripts/coderabbit_triage_bridge.py",
+            "dev/scripts/coderabbit/bridge.py",
         )
 
     def test_enforce_command_fails_on_medium_plus(self) -> None:

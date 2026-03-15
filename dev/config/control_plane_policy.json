@@ -47,7 +47,7 @@
     "allowed_fix_command_prefixes": [
       [
         "python3",
-        "dev/scripts/ralph_ai_fix.py"
+        "dev/scripts/coderabbit/ralph_ai_fix.py"
       ],
       [
         "python3",

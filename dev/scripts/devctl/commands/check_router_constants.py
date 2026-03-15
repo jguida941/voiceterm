@@ -1,6 +1,10 @@
-"""Static classification/risk constants used by check-router helpers."""
+"""Default routing constants plus repo-policy resolution for check-router."""
 
 from __future__ import annotations
+
+from dataclasses import dataclass
+
+from ..repo_policy import load_repo_governance_section
 
 BUNDLE_BY_LANE = {
     "docs": "bundle.docs",
@@ -46,11 +50,22 @@ TOOLING_PREFIXES = (
     "scripts/macro-packs/",
 )
 
+TOOLING_MARKDOWN_PREFIXES = (
+    "dev/active/",
+    "dev/config/",
+)
+
 RUNTIME_PREFIXES = (
     "rust/src/",
     "rust/tests/",
     "rust/benches/",
 )
+
+RUNTIME_EXACT_PATHS = {
+    "rust/Cargo.toml",
+    "rust/Cargo.lock",
+    "rust/clippy.toml",
+}
 
 DOCS_PREFIXES = (
     "guides/",
@@ -176,3 +191,158 @@ RISK_ADDONS = (
         "commands": ("python3 dev/scripts/devctl.py security",),
     },
 )
+
+
+@dataclass(frozen=True, slots=True)
+class CheckRouterConfig:
+    """Resolved repo-governance policy used by check-router."""
+
+    bundle_by_lane: dict[str, str]
+    release_exact_paths: frozenset[str]
+    release_workflow_files: frozenset[str]
+    tooling_exact_paths: frozenset[str]
+    tooling_prefixes: tuple[str, ...]
+    tooling_markdown_prefixes: tuple[str, ...]
+    runtime_prefixes: tuple[str, ...]
+    runtime_exact_paths: frozenset[str]
+    docs_prefixes: tuple[str, ...]
+    docs_exact_paths: frozenset[str]
+    risk_addons: tuple["RiskAddonSpec", ...]
+    policy_path: str
+    warnings: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RiskAddonSpec:
+    """One risk add-on rule surfaced by check-router."""
+
+    id: str
+    label: str
+    tokens: tuple[str, ...]
+    commands: tuple[str, ...]
+
+
+def _coerce_str_tuple(
+    raw_value: Any,
+    fallback: tuple[str, ...],
+) -> tuple[str, ...]:
+    if not isinstance(raw_value, list):
+        return fallback
+    values = tuple(str(item).strip() for item in raw_value if str(item).strip())
+    return values or fallback
+
+
+def _coerce_str_set(
+    raw_value: Any,
+    fallback: set[str],
+) -> frozenset[str]:
+    if not isinstance(raw_value, list):
+        return frozenset(fallback)
+    values = frozenset(str(item).strip() for item in raw_value if str(item).strip())
+    return values or frozenset(fallback)
+
+
+def _coerce_bundle_by_lane(raw_value: Any) -> dict[str, str]:
+    if not isinstance(raw_value, dict):
+        return dict(BUNDLE_BY_LANE)
+    resolved = dict(BUNDLE_BY_LANE)
+    for lane in BUNDLE_BY_LANE:
+        override = str(raw_value.get(lane, "")).strip()
+        if override:
+            resolved[lane] = override
+    return resolved
+
+
+def _default_risk_addons() -> tuple[RiskAddonSpec, ...]:
+    return tuple(
+        RiskAddonSpec(
+            id=str(spec["id"]),
+            label=str(spec["label"]),
+            tokens=tuple(spec["tokens"]),
+            commands=tuple(spec["commands"]),
+        )
+        for spec in RISK_ADDONS
+    )
+
+
+def _coerce_risk_addons(raw_value: Any) -> tuple[RiskAddonSpec, ...]:
+    if not isinstance(raw_value, list):
+        return _default_risk_addons()
+    resolved: list[RiskAddonSpec] = []
+    for item in raw_value:
+        if not isinstance(item, dict):
+            continue
+        addon_id = str(item.get("id", "")).strip()
+        label = str(item.get("label", "")).strip()
+        tokens = tuple(
+            str(token).strip()
+            for token in item.get("tokens", [])
+            if str(token).strip()
+        )
+        commands = tuple(
+            str(command).strip()
+            for command in item.get("commands", [])
+            if str(command).strip()
+        )
+        if addon_id and label and tokens and commands:
+            resolved.append(
+                RiskAddonSpec(
+                    id=addon_id,
+                    label=label,
+                    tokens=tokens,
+                    commands=commands,
+                )
+            )
+    return tuple(resolved) or _default_risk_addons()
+
+
+def resolve_check_router_config(
+    policy_path: str | None = None,
+) -> CheckRouterConfig:
+    """Resolve repo-specific routing rules from the shared repo policy file."""
+    section, warnings, resolved_policy_path = load_repo_governance_section(
+        "check_router",
+        policy_path=policy_path,
+    )
+    return CheckRouterConfig(
+        bundle_by_lane=_coerce_bundle_by_lane(section.get("bundle_by_lane")),
+        release_exact_paths=_coerce_str_set(
+            section.get("release_exact_paths"),
+            RELEASE_EXACT_PATHS,
+        ),
+        release_workflow_files=_coerce_str_set(
+            section.get("release_workflow_files"),
+            RELEASE_WORKFLOW_FILES,
+        ),
+        tooling_exact_paths=_coerce_str_set(
+            section.get("tooling_exact_paths"),
+            TOOLING_EXACT_PATHS,
+        ),
+        tooling_prefixes=_coerce_str_tuple(
+            section.get("tooling_prefixes"),
+            TOOLING_PREFIXES,
+        ),
+        tooling_markdown_prefixes=_coerce_str_tuple(
+            section.get("tooling_markdown_prefixes"),
+            TOOLING_MARKDOWN_PREFIXES,
+        ),
+        runtime_prefixes=_coerce_str_tuple(
+            section.get("runtime_prefixes"),
+            RUNTIME_PREFIXES,
+        ),
+        runtime_exact_paths=_coerce_str_set(
+            section.get("runtime_exact_paths"),
+            RUNTIME_EXACT_PATHS,
+        ),
+        docs_prefixes=_coerce_str_tuple(
+            section.get("docs_prefixes"),
+            DOCS_PREFIXES,
+        ),
+        docs_exact_paths=_coerce_str_set(
+            section.get("docs_exact_paths"),
+            DOCS_EXACT_PATHS,
+        ),
+        risk_addons=_coerce_risk_addons(section.get("risk_addons")),
+        policy_path=str(resolved_policy_path),
+        warnings=warnings,
+    )

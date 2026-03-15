@@ -11,37 +11,37 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_rust_test_path = import_attr("rust_guard_common", "is_test_path")
 scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
 scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (
-    Path("rust/src"),
-    Path("dev/scripts"),
-    Path("app/operator_console"),
+    *resolve_quality_scope_roots("rust_guard", repo_root=REPO_ROOT),
+    *resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),
 )
 
 PYTHON_NESTING_THRESHOLD = 4
@@ -49,14 +49,10 @@ RUST_NESTING_THRESHOLD = 5
 
 PYTHON_DEF_RE = re.compile(r"^(\s*)def\s+")
 
-
 def _is_python_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
 
-
-def _scan_python_function_depth(
-    lines: list[str], start: int, def_indent: int
-) -> tuple[int, int]:
+def _scan_python_function_depth(lines: list[str], start: int, def_indent: int) -> tuple[int, int]:
     """Return (max_nesting_depth, next_line_index) for one Python function."""
     base_indent = def_indent + 4
     max_depth = 0
@@ -76,7 +72,6 @@ def _scan_python_function_depth(
         i += 1
     return max_depth, i
 
-
 def _max_python_nesting(text: str | None) -> int:
     """Count functions whose body exceeds the nesting threshold."""
     if text is None:
@@ -95,7 +90,6 @@ def _max_python_nesting(text: str | None) -> int:
         if max_depth > PYTHON_NESTING_THRESHOLD:
             count += 1
     return count
-
 
 def _rust_function_brace_depth(func_lines: list[str]) -> int:
     """Return the max brace nesting depth within a single Rust function body."""
@@ -120,7 +114,6 @@ def _rust_function_brace_depth(func_lines: list[str]) -> int:
                 max_depth = current
     return max_depth
 
-
 def _max_rust_nesting(text: str | None) -> int:
     """Count functions whose body exceeds the nesting threshold."""
     if text is None:
@@ -137,24 +130,18 @@ def _max_rust_nesting(text: str | None) -> int:
             count += 1
     return count
 
-
-def _count_metrics(
-    text: str | None, *, suffix: str = ".rs"
-) -> dict[str, int]:
+def _count_metrics(text: str | None, *, suffix: str = ".rs") -> dict[str, int]:
     if suffix == ".py":
         return {"deeply_nested_functions": _max_python_nesting(text)}
     if suffix == ".rs":
         return {"deeply_nested_functions": _max_rust_nesting(text)}
     return {"deeply_nested_functions": 0}
 
-
 def _growth(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
     return {key: current[key] - base[key] for key in base}
 
-
 def _has_positive_growth(growth: dict[str, int]) -> bool:
     return any(value > 0 for value in growth.values())
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_nesting_depth", ""]
@@ -171,14 +158,8 @@ def _render_md(report: dict) -> str:
         lines.append(f"- head_ref: {report['head_ref']}")
 
     totals = report["totals"]
-    lines.append(
-        "- aggregate_growth: "
-        f"deeply_nested_functions {totals['deeply_nested_functions_growth']:+d}"
-    )
-    lines.append(
-        f"- thresholds: python >{PYTHON_NESTING_THRESHOLD} levels, "
-        f"rust >{RUST_NESTING_THRESHOLD} levels"
-    )
+    lines.append("- aggregate_growth: " f"deeply_nested_functions {totals['deeply_nested_functions_growth']:+d}")
+    lines.append(f"- thresholds: python >{PYTHON_NESTING_THRESHOLD} levels, " f"rust >{RUST_NESTING_THRESHOLD} levels")
 
     if report["violations"]:
         lines.append("")
@@ -188,18 +169,12 @@ def _render_md(report: dict) -> str:
             "functions, using early returns, or inverting conditions."
         )
         for item in report["violations"]:
-            growth_bits = [
-                f"{key} {value:+d}"
-                for key, value in item["growth"].items()
-                if value > 0
-            ]
+            growth_bits = [f"{key} {value:+d}" for key, value in item["growth"].items() if value > 0]
             lines.append(f"- `{item['path']}`: {', '.join(growth_bits)}")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -227,9 +202,7 @@ def main() -> int:
         if path.suffix not in (".rs", ".py"):
             files_skipped_non_source += 1
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             files_skipped_non_source += 1
             continue
         if path.suffix == ".rs" and _is_rust_test_path(path):
@@ -286,7 +259,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())
