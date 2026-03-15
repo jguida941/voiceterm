@@ -183,6 +183,12 @@ def prepare_rollover_bundle(
     """Write a rollover handoff bundle if the action is rollover."""
     if args.action != "rollover":
         return None, []
+    try:
+        rollover_hash = compute_non_audit_worktree_hash(
+            repo_root=repo_root, excluded_rel_paths=("code_audit.md",)
+        )
+    except (ValueError, OSError):
+        rollover_hash = None
     handoff_bundle = write_handoff_bundle(
         repo_root=repo_root,
         bridge_path=bridge_path,
@@ -201,6 +207,7 @@ def prepare_rollover_bundle(
             }
             for lane in lanes
         ],
+        current_worktree_hash=rollover_hash,
     )
     return handoff_bundle, [
         "Planned rollover created a repo-visible handoff bundle. "

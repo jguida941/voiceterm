@@ -67,6 +67,7 @@ class BridgeLiveness:
     open_findings_present: bool
     claude_status_present: bool
     claude_ack_present: bool
+    reviewed_hash_current: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,7 @@ def summarize_bridge_liveness(
     now_utc: datetime | None = None,
     codex_poll_due_after_seconds: int = DEFAULT_CODEX_POLL_DUE_AFTER_SECONDS,
     codex_poll_stale_after_seconds: int = DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS,
+    current_worktree_hash: str | None = None,
 ) -> BridgeLiveness:
     """Reduce current bridge state into a small machine-readable liveness summary."""
     current_instruction = snapshot.sections.get("Current Instruction For Claude", "").strip()
@@ -145,6 +147,13 @@ def summarize_bridge_liveness(
     else:
         overall_state = OverallLivenessState.FRESH
 
+    reviewed_hash_current: bool | None = None
+    if current_worktree_hash is not None:
+        stored_hash = snapshot.metadata.get("last_non_audit_worktree_hash")
+        reviewed_hash_current = (
+            stored_hash is not None and stored_hash == current_worktree_hash
+        )
+
     return BridgeLiveness(
         overall_state=overall_state,
         codex_poll_state=codex_poll_state,
@@ -155,6 +164,7 @@ def summarize_bridge_liveness(
         open_findings_present=bool(open_findings),
         claude_status_present=claude_status_present,
         claude_ack_present=claude_ack_present,
+        reviewed_hash_current=reviewed_hash_current,
     )
 
 
@@ -172,6 +182,7 @@ def write_handoff_bundle(
     trigger: str,
     threshold_pct: int,
     lane_assignments: list[dict[str, str]] | None = None,
+    current_worktree_hash: str | None = None,
 ) -> HandoffBundle:
     """Write markdown + JSON handoff artifacts and return their locations."""
     generated_at = utc_timestamp()
@@ -194,7 +205,11 @@ def write_handoff_bundle(
         "review_channel_path": display_path(review_channel_path, repo_root=repo_root),
         "metadata": snapshot.metadata,
         "sections": snapshot.sections,
-        "liveness": bridge_liveness_to_dict(summarize_bridge_liveness(snapshot)),
+        "liveness": bridge_liveness_to_dict(
+            summarize_bridge_liveness(
+                snapshot, current_worktree_hash=current_worktree_hash
+            )
+        ),
         "resume_state": resume_state,
     }
 

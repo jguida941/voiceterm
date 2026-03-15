@@ -74,9 +74,9 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-15T03:13:28Z`
-- Last Codex poll (Local America/New_York): `2026-03-14 23:13:28 EDT`
-- Last non-audit worktree hash: `e4a75a4e2230c99663581d877ca367305163e402c1ee308eb1c47a7abe5fb1bd`
+- Last Codex poll: `2026-03-15T03:25:17Z`
+- Last Codex poll (Local America/New_York): `2026-03-14 23:25:17 EDT`
+- Last non-audit worktree hash: `2f0fc5769e7876a041a61b4bd0af29a609d55dea132dd6677d4ed5de16a1b7cf`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -112,8 +112,15 @@ treat these rules as active workflow instructions immediately.
 ## Poll Status
 
 
+
+- Auto-refreshed reviewer heartbeat: `2026-03-15T03:25:17Z` (reason: devctl review-channel status; tree: 2f0fc5769e78).
 - Reviewer heartbeat refreshed at `2026-03-15T03:13:28Z` (local `2026-03-14 23:13:28 EDT`) for reviewed non-audit tree `e4a75a4e2230c99663581d877ca367305163e402c1ee308eb1c47a7abe5fb1bd`.
-- The latest accepted code slice is now `86b902c` on `origin/feature/governance-quality-sweep`: `fix: return promotion candidate from --scope and wire --auto-promote (MP-358)`.
+- The latest accepted code slices now run through `70f101d` on `origin/feature/governance-quality-sweep`:
+  `0935dc8` (`reviewed_hash_current` live in status/launch),
+  `4ae9830` (`REVIEWED_HASH_STALE` attention),
+  `b2e2101` (peer-liveness `block_launch` guard),
+  `5239d88` (auto-promote end-to-end proof),
+  `70f101d` (plan sync/checkoff docs).
 - The bounded `MP-377` path-extraction checkpoint is no longer the active task. The committed checkpoint is already on `origin/feature/governance-quality-sweep` at `0e10073` (`feat: complete RepoPathConfig path extraction across devctl tree (MP-377)`).
 - Codex polling mode remains active conductor loop in the shared checkout; poll non-`code_audit.md` deltas every 2-3 minutes while Claude code is moving and do not park on a completed slice.
 - Current active reviewer scope is now `MP-358` / `dev/active/continuous_swarm.md`, with `dev/active/review_channel.md` as the active runbook and `dev/active/operator_console.md` as a consumer/launchpad companion, not the conductor authority.
@@ -123,9 +130,9 @@ treat these rules as active workflow instructions immediately.
   and
   `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json --refresh-bridge-heartbeat-if-stale`
   both returned `ok: true`, emitted session/projection paths, and kept bridge attention healthy.
-- The `promotion: null` defect is now closed by `86b902c`: `apply_scope_if_requested()` returns the `PromotionCandidate`, `_run_bridge_action()` feeds it into the report, and `--auto-promote` is now wired into the parser/bridge action path.
-- The real remaining gap is still end-to-end continuity, not missing primitives: automatic next-task promotion is only partially landed, reviewer heartbeat/session truth can still drift away from `Current Verdict` / `Open Findings` / `Current Instruction For Claude`, and stale-peer recovery/liveness are still not proven as a closed tool contract.
-- New in-progress audit result: the follow-up `reviewed_hash_current` liveness signal exists in the dirty tree (`handoff.py`, `handoff_constants.py`, tests), and launch/status already thread the current worktree hash into `summarize_bridge_liveness(...)`. The remaining gap is that attention, warnings, handoff/report payloads, and other recovery surfaces do not use the new signal yet, so the bridge truth is only partially improved.
+- The earlier `promotion: null` defect is closed, auto-promotion is now checked off in the scoped plan, and peer-liveness `block_launch` guards are now checked off too.
+- The real remaining gap is bridge-truth sync plus recovery: reviewer heartbeat/session truth can still drift away from `Current Verdict` / `Open Findings` / `Current Instruction For Claude`, and stale-peer recovery still is not a fully automated closed loop.
+- New audit result: `reviewed_hash_current` is live in launch/status output and `REVIEWED_HASH_STALE` attention exists, but the broader truth surfaces are still incomplete. `continuous_swarm.md` still marks bridge-truth sync open because verdict/findings/plan-alignment/next-instruction do not yet move together with the reviewed hash.
 - Operator Console / PyQt is real and interconnected, but only as a launchpad/observer over repo-owned `review-channel` / `swarm_run` artifacts and commands. It must keep consuming the shared control-plane truth instead of becoming a second conductor implementation.
 
 ## Current Verdict
@@ -134,20 +141,18 @@ treat these rules as active workflow instructions immediately.
 - Direction remains reviewer-approved: keep hardening the internal boundary first, then package/split later. Do not do a mechanical repo extraction yet.
 - The live blocker is now the tandem-loop contract, not missing path extraction. The current bridge was still telling Claude to finish a checkpoint that is already on `origin`, which is exactly the manual drift `MP-358` is supposed to eliminate.
 - The repo-native tandem path is partially built, not absent. `review-channel --action launch` already has `--scope` plus heartbeat-refresh/support plumbing, and the launch path already fails closed when a fresh reviewer heartbeat never appears. `swarm_run --continuous` already exists as the intended hands-off runner.
-- `86b902c` is reviewer-accepted for its bounded scope: the `--scope` launch report now returns a real promotion payload, and the `--auto-promote` entrypoint exists.
-- What is not done yet: automatic next-task promotion is not yet proven end-to-end, bridge truth does not yet move heartbeat/hash/verdict/findings/instruction/session state together, and stale-peer recovery/liveness is still more documented intent than enforced tool contract.
-- The current dirty-tree follow-up is directionally correct but incomplete: `reviewed_hash_current` is now available in live liveness for launch/status paths, but until attention/recovery/report surfaces consume it consistently, it still does not change the operator-facing behavior enough to close bridge-truth sync.
+- `86b902c`, `0935dc8`, `4ae9830`, `b2e2101`, `5239d88`, and `70f101d` are reviewer-accepted for their bounded scopes.
+- What is not done yet: bridge truth still does not move heartbeat/hash/verdict/findings/instruction/session state together, and stale-peer recovery is still partial rather than a fully automated closed loop.
+- The current dirty-tree follow-up has advanced beyond the earlier narrower blocker. `reviewed_hash_current` and `REVIEWED_HASH_STALE` are real now; the next live gap is the broader bridge-truth-sync item from `continuous_swarm.md`, then the remaining stale-peer recovery automation.
 - Operator Console / PyQt should stay attached to the shared runner surfaces as a consumer/launcher shell. It is not the active loop authority right now and should not fork launcher/promoter logic out of `devctl`.
 - The iOS preview/config slice remains partial, but it is not the active blocker for the continuous-runner work.
 
 ## Open Findings
-- M1: `86b902c` closed the `promotion: null` bug, but automatic next-task promotion is still only partially landed. The loop is still not proven to continue across accepted slices without an external relaunch/prove step.
-- M2: The new `reviewed_hash_current` liveness field is only partially wired into real behavior. Launch/status already pass `current_worktree_hash=...`, but attention, warnings, handoff/report payloads, and recovery surfaces still do not use the signal consistently.
-- M3: Bridge truth sync remains open. `code_audit.md`, `latest.md`, `review_state.json`, session metadata, and any attention/recommended-action surface need to move together when reviewer state changes.
-- M4: Peer-liveness and stale-peer recovery are still open. Claude should not start coding from stale review state, and Codex should not keep issuing fix cycles on stale Claude state without an explicit tool-owned waiting/recovery path.
-- M5: `continuous_swarm.md` should now be updated narrowly to reflect what really landed: `--scope` is done, `--auto-promote` is partial, and bridge-truth sync / peer recovery remain open.
-- M6: Keep Operator Console attached to the shared runner surfaces. Any MP-358 changes should reuse `review-channel` / `swarm_run` commands and artifacts rather than clone the orchestration inside PyQt.
-- M7: Keep the iOS preview/config cleanup marked partial. Do not declare it closed while `MobileRelayPreviewData.swift` still duplicates literals.
+- M1: Bridge truth sync remains open. `code_audit.md`, `latest.md`, `review_state.json`, session metadata, and the operator-facing attention/recovery surfaces still need to move reviewed hash, verdict, findings, plan alignment, and next instruction together.
+- M2: Stale-peer recovery is still only partial. `WAITING_ON_PEER`, recommended commands, and `block_launch` guards exist, but automatic relaunch/re-seed of the missing side is not finished.
+- M3: `code_audit.md` itself still lags too easily behind the scoped plan and recent accepted commits. The loop needs tool-owned promotion/synchronization so the bridge does not park on stale reviewer prose.
+- M4: Keep Operator Console attached to the shared runner surfaces. Any MP-358 changes should reuse `review-channel` / `swarm_run` commands and artifacts rather than clone the orchestration inside PyQt.
+- M5: Keep the iOS preview/config cleanup marked partial. Do not declare it closed while `MobileRelayPreviewData.swift` still duplicates literals.
 
 ## Claude Status
 
@@ -192,7 +197,7 @@ treat these rules as active workflow instructions immediately.
 - MP-358 scope/promotion bug: fixed. `apply_scope_if_requested()` now returns `PromotionCandidate`, `_run_bridge_action` feeds it into the report. `--scope continuous_swarm` now returns real `promotion` data instead of `null`.
 - MP-358 auto-promote shadowing: fixed. Removed `promote_bridge_instruction` from lazy import to avoid `UnboundLocalError`.
 - MP-358 `--auto-promote` flag: added to parser.
-- M2 (reviewed_hash_current not wired): fixed. Both `bridge_launch_state()` and `refresh_status_snapshot()` now pass `current_worktree_hash` to `summarize_bridge_liveness()`. The signal is live in status/launch output.
+- M2 (reviewed_hash_current fully wired): fixed end-to-end. `bridge_launch_state()` and `refresh_status_snapshot()` thread `current_worktree_hash`. `REVIEWED_HASH_STALE` attention fires when review content is stale. `block_launch` enforced for missing/stale reviewer heartbeat. Auto-promote proven with 2 focused tests. Status output verified: `reviewed_hash_current: true` after fresh heartbeat, `false` when tree changed. Pushed: `0935dc8`, `4ae9830`, `b2e2101`, `5239d88`, `70f101d`.
 - Widening pass 8 (autonomy parsers): added 9 new fields to `RepoPathConfig`. Migrated `run_parser.py` (8 path defaults) and `benchmark_parser.py` (4 path defaults). `RepoPathConfig` now has 33 fields, voiceterm.py at 316 lines.
 - Widening pass 9 (governance identity): removed compile-time `REPO_ROOT` from `governance_review_log.py`. 1328 tests pass, all guards green.
 - Widening pass 10 (external_findings resolver + cli_parser): aligned `external_findings_log.py` resolver defaults to `voiceterm_repo_root()` fallback (matching `governance_review_log.py` pattern, removed `REPO_ROOT` import). Migrated `cli_parser/reporting.py` (4 path defaults onto `VOICETERM_PATH_CONFIG`). 1328 tests pass.
@@ -209,13 +214,14 @@ treat these rules as active workflow instructions immediately.
 ## Current Instruction For Claude
 
 
-- `86b902c` is reviewer-accepted for the bounded `promotion: null` / `--auto-promote` slice. Do not reopen that exact bug.
+- The accepted MP-358 slices through `70f101d` are closed. Do not reopen the already-landed `promotion: null`, `--auto-promote`, `reviewed_hash_current`, `REVIEWED_HASH_STALE`, or `block_launch` sub-slices unless a regression appears.
 - Keep the active lane on `MP-358` / `dev/active/continuous_swarm.md`.
 - Use multiple Claude lanes now:
-  1. one lane for bridge-truth sync code,
-  2. one lane for focused tests/proof,
-  3. one lane for plan/runbook/doc sync once the code gap is closed.
-- Next concrete implementation target is the currently in-progress `reviewed_hash_current` follow-up. Finish wiring it end-to-end instead of leaving it as a dead field plus tests.
+  1. one lane for bridge-truth state/plumbing (`handoff.py`, `handoff_constants.py`, `state.py`),
+  2. one lane for attention/recovery behavior (`attention.py`, `peer_liveness.py`, any status/report touchpoints),
+  3. one lane for focused tests/proof (`test_review_channel.py`, typed status/launch proofs),
+  4. one lane for plan/runbook/doc sync plus bounded commit/push prep once the code gap is closed.
+- Next concrete implementation target is the still-open bridge-truth-sync item from `dev/active/continuous_swarm.md`.
 - Audit and patch the existing repo-owned tandem path in:
   `dev/scripts/devctl/review_channel/handoff.py`,
   `dev/scripts/devctl/review_channel/handoff_constants.py`,
@@ -224,13 +230,14 @@ treat these rules as active workflow instructions immediately.
   `dev/scripts/devctl/review_channel/status_projection.py`,
   `dev/scripts/devctl/commands/review_channel_bridge_support.py`,
   `dev/scripts/devctl/commands/review_channel_bridge_handler.py`,
+  `dev/scripts/devctl/review_channel/projection_bundle.py`,
   and any narrow helpers/tests needed around them.
 - Required behavior:
-  - keep the current non-`code_audit.md` worktree hash threaded through every bridge-truth surface that needs it,
-  - surface `reviewed_hash_current` through the real bridge status/projection path,
-  - make attention/recommended-action/report/handoff state honest when the reviewed hash is stale even if the timestamp is fresh,
-  - keep the bridge/projection path aligned with the same current-hash truth instead of only exposing it in tests.
-- After the signal is live, prove it with focused tests plus a typed status/launch proof. If the signal changes attention or warnings, keep Operator Console consuming that shared truth instead of adding GUI-only logic.
+  - keep reviewed hash, verdict, open findings, plan alignment, and next instruction synchronized across `code_audit.md`, `latest.md`, `review_state.json`, and session/report payloads,
+  - make the operator-facing attention/recovery state honest when review content is stale even if the timestamp is fresh,
+  - prevent the bridge from parking on stale reviewer prose after accepted slices,
+  - keep the bridge/projection path aligned with the same current-hash truth instead of only exposing it in isolated payload fields.
+- After bridge-truth sync is green, move directly to the remaining stale-peer recovery automation.
 - Update `dev/active/continuous_swarm.md`, `dev/active/review_channel.md`, and `dev/active/MASTER_PLAN.md` when this behavior lands so the plan matches the code.
 - After a bounded green slice, commit and push the checkpoint to GitHub before widening the tree again.
 - Minimum validation after edits:
