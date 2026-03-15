@@ -22,7 +22,10 @@ from ..review_channel.handoff import (
     wait_for_rollover_ack,
     write_handoff_bundle,
 )
-from ..review_channel.heartbeat import refresh_bridge_heartbeat
+from ..review_channel.heartbeat import (
+    compute_non_audit_worktree_hash,
+    refresh_bridge_heartbeat,
+)
 from ..review_channel.launch import launch_terminal_sessions
 from ..review_channel.promotion import resolve_scope_plan_path, scope_bridge_instruction
 
@@ -68,7 +71,15 @@ def bridge_launch_state(
                 reason=f"devctl review-channel {args.action}",
             )
     bridge_snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
-    bridge_liveness_state = summarize_bridge_liveness(bridge_snapshot)
+    try:
+        current_hash = compute_non_audit_worktree_hash(
+            repo_root=repo_root, excluded_rel_paths=("code_audit.md",)
+        )
+    except (ValueError, OSError):
+        current_hash = None
+    bridge_liveness_state = summarize_bridge_liveness(
+        bridge_snapshot, current_worktree_hash=current_hash
+    )
     if args.action in bridge_actions:
         bridge_guard_report = build_bridge_guard_report_fn(
             repo_root=repo_root,

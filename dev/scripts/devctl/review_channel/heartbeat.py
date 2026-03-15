@@ -81,7 +81,7 @@ def refresh_bridge_heartbeat(
     now_utc = datetime.now(timezone.utc)
     last_codex_poll_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     last_codex_poll_local = _format_new_york_timestamp(now_utc)
-    last_worktree_hash = _compute_non_audit_worktree_hash(
+    last_worktree_hash = compute_non_audit_worktree_hash(
         repo_root=repo_root,
         excluded_rel_paths=("code_audit.md",),
     )
@@ -165,7 +165,7 @@ def _format_new_york_timestamp(timestamp_utc: datetime) -> str:
     return local.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
-def _compute_non_audit_worktree_hash(
+def compute_non_audit_worktree_hash(
     *,
     repo_root: Path,
     excluded_rel_paths: tuple[str, ...],

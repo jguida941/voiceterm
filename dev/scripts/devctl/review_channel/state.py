@@ -14,6 +14,7 @@ from .handoff import (
     extract_bridge_snapshot,
     summarize_bridge_liveness,
 )
+from .heartbeat import compute_non_audit_worktree_hash
 from .peer_liveness import CodexPollState, OverallLivenessState
 from .projection_bundle import (
     ReviewChannelProjectionPaths,
@@ -49,7 +50,15 @@ def refresh_status_snapshot(
         execution_mode=execution_mode,
     )
     snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
-    bridge_liveness = bridge_liveness_to_dict(summarize_bridge_liveness(snapshot))
+    try:
+        current_hash = compute_non_audit_worktree_hash(
+            repo_root=repo_root, excluded_rel_paths=("code_audit.md",)
+        )
+    except (ValueError, OSError):
+        current_hash = None
+    bridge_liveness = bridge_liveness_to_dict(
+        summarize_bridge_liveness(snapshot, current_worktree_hash=current_hash)
+    )
     merged_warnings = list(warnings or [])
     merged_errors = list(errors or [])
     codex_poll_state = str(bridge_liveness.get("codex_poll_state") or "unknown")
