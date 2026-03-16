@@ -175,6 +175,12 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     finds a new leaked-process shape, extend the cleanup/audit automation in
     the same MP scope before closure or log explicit debt with the missed
     process shape and the guard path needed to catch it next time.
+2.2 When a real issue is found by audit/review/manual use and the current
+    tooling did not catch it, first decide whether the miss belongs in an
+    existing guard/probe/runtime contract or should become a new reusable,
+    low-noise modular enforcement path. Prefer fixing the detection gap over
+    landing a one-off patch without a corresponding enforcement follow-up, and
+    keep that decision in repo-visible plan state before closure.
 3. "Cannot automate yet" is acceptable only with a documented reason and a
    guard path (checklist/runbook entry that prevents unsafe execution).
 4. When automation lands, update command/docs surfaces in the same change
@@ -752,10 +758,14 @@ python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_repo_url_parity.py
 python3 dev/scripts/checks/check_guard_enforcement_inventory.py
 python3 dev/scripts/checks/check_architecture_surface_sync.py
+python3 dev/scripts/checks/check_guide_contract_sync.py
 python3 dev/scripts/checks/check_instruction_surface_sync.py
 python3 dev/scripts/checks/check_bundle_registry_dry.py
 python3 dev/scripts/checks/check_bundle_workflow_parity.py
+python3 dev/scripts/checks/check_platform_layer_boundaries.py
+python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
+python3 dev/scripts/checks/check_tandem_consistency.py
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
@@ -806,10 +816,14 @@ python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_repo_url_parity.py
 python3 dev/scripts/checks/check_guard_enforcement_inventory.py
 python3 dev/scripts/checks/check_architecture_surface_sync.py
+python3 dev/scripts/checks/check_guide_contract_sync.py
 python3 dev/scripts/checks/check_instruction_surface_sync.py
 python3 dev/scripts/checks/check_bundle_registry_dry.py
 python3 dev/scripts/checks/check_bundle_workflow_parity.py
+python3 dev/scripts/checks/check_platform_layer_boundaries.py
+python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
+python3 dev/scripts/checks/check_tandem_consistency.py
 python3 dev/scripts/checks/check_publication_sync.py
 CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
 CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master

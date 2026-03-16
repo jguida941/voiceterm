@@ -27,12 +27,20 @@ pub(super) async fn run_ws_bridge(
             Ok((stream, addr)) => {
                 let client_id = ClientId::new("ws");
                 let cmd_tx = cmd_tx.clone();
-                let event_rx = event_bus.subscribe();
+                let (event_rx, initial_event, initial_agent_list) =
+                    event_bus.subscribe_with_snapshot();
                 log_debug(&format!(
                     "daemon: WebSocket client connected: {} from {addr}",
                     client_id.0
                 ));
-                tokio::spawn(handle_ws_client(stream, client_id, cmd_tx, event_rx));
+                tokio::spawn(handle_ws_client(
+                    stream,
+                    client_id,
+                    cmd_tx,
+                    event_rx,
+                    initial_event,
+                    initial_agent_list,
+                ));
             }
             Err(err) => {
                 log_debug(&format!("daemon: WebSocket accept error: {err}"));
@@ -47,6 +55,8 @@ async fn handle_ws_client(
     client_id: ClientId,
     cmd_tx: mpsc::Sender<ClientCommand>,
     mut event_rx: tokio::sync::broadcast::Receiver<DaemonEvent>,
+    initial_event: Option<DaemonEvent>,
+    initial_agent_list: Option<DaemonEvent>,
 ) {
     let ws_stream = match accept_async(stream).await {
         Ok(ws) => ws,
@@ -61,6 +71,15 @@ async fn handle_ws_client(
 
     let (mut ws_sink, mut ws_source) = ws_stream.split();
     let cid = client_id.0.clone();
+
+    // Send lifecycle snapshot then agent roster so late-attaching clients
+    // learn both daemon status and current agents.
+    for snapshot in [initial_event, initial_agent_list].into_iter().flatten() {
+        let snapshot_json = encode_event(&snapshot);
+        if ws_sink.send(Message::Text(snapshot_json)).await.is_err() {
+            return;
+        }
+    }
 
     loop {
         tokio::select! {

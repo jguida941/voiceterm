@@ -91,6 +91,22 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             "python3 dev/scripts/devctl.py check --profile ci",
             rendered_text,
         )
+        self.assertIn(
+            "## Mode-aware review-channel bootstrap",
+            rendered_text,
+        )
+        self.assertIn(
+            "review-channel --action status --terminal none --format json",
+            rendered_text,
+        )
+        self.assertIn(
+            "If reviewer-owned bridge state says `hold steady`, `waiting for reviewer promotion`,",
+            rendered_text,
+        )
+        self.assertIn(
+            "On each repoll, read `Last Codex poll` / `Poll Status` first.",
+            rendered_text,
+        )
 
 
 class RenderSurfacesCliIntegrationTests(unittest.TestCase):

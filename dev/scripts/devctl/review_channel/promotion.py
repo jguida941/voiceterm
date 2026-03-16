@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from ..common import display_path
-from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG
+from ..repo_packs import active_path_config
 from .handoff import (
     IDLE_FINDING_MARKERS,
     IDLE_NEXT_ACTION_MARKERS,
@@ -17,7 +17,7 @@ from .handoff import (
 )
 
 # Backward-compat alias sourced from the frozen path config
-DEFAULT_PROMOTION_PLAN_REL = VOICETERM_PATH_CONFIG.promotion_plan_rel
+DEFAULT_PROMOTION_PLAN_REL = active_path_config().promotion_plan_rel
 EXECUTION_CHECKLIST_HEADING = "## Execution Checklist"
 CHECKLIST_ITEM_RE = re.compile(r"^- \[(?P<mark>[ xX])\]\s+(?P<body>.+)$")
 SECTION_RE = re.compile(r"^##\s+")

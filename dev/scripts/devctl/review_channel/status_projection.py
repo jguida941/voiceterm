@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 from ..common import display_path
+from ..runtime.role_profile import TandemRole
 from .handoff import BridgeSnapshot
 from .peer_liveness import OverallLivenessState
 from .promotion import PromotionCandidate, promotion_candidate_to_dict
@@ -43,6 +44,7 @@ class QueueState(TypedDict):
     pending_total: int
     pending_codex: int
     pending_claude: int
+    pending_cursor: int
     pending_operator: int
     stale_packet_count: int
     derived_next_instruction: str | None
@@ -52,10 +54,13 @@ class QueueState(TypedDict):
 class BridgeState(TypedDict):
     """Typed bridge section snapshot."""
 
+    reviewer_mode: str
     last_codex_poll_utc: str | None
     last_codex_poll_age_seconds: int | None
     last_worktree_hash: str | None
     reviewed_hash_current: bool | None
+    implementer_completion_stall: bool
+    publisher_running: bool
     open_findings: str
     current_instruction: str
     claude_status: str
@@ -114,6 +119,8 @@ def build_bridge_review_state(
     errors = list(context.errors)
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
     projection_ok = overall_state == OverallLivenessState.FRESH and not errors
+    if overall_state == OverallLivenessState.INACTIVE and not errors:
+        projection_ok = True
     claude_status_present = bool(bridge_liveness.get("claude_status_present"))
     claude_status = _clean_section(snapshot.sections.get("Claude Status", ""))
     claude_ack = _clean_section(snapshot.sections.get("Claude Ack", ""))
@@ -126,6 +133,8 @@ def build_bridge_review_state(
         if overall_state == OverallLivenessState.WAITING_ON_PEER
         else "warning"
         if overall_state == OverallLivenessState.STALE
+        else "idle"
+        if overall_state == OverallLivenessState.INACTIVE
         else "active"
     )
     state = ReviewStateSnapshot(
@@ -148,7 +157,7 @@ def build_bridge_review_state(
             AgentEntry(
                 agent_id="codex",
                 display_name="Codex",
-                role="reviewer",
+                role=TandemRole.REVIEWER,
                 status=overall_state,
                 capabilities=["review", "planning", "coordination"],
                 lane="codex",
@@ -156,7 +165,7 @@ def build_bridge_review_state(
             AgentEntry(
                 agent_id="claude",
                 display_name="Claude",
-                role="implementer",
+                role=TandemRole.IMPLEMENTER,
                 status=(
                     "active"
                     if claude_status_present
@@ -165,6 +174,14 @@ def build_bridge_review_state(
                 ),
                 capabilities=["implementation", "fixes", "handoff"],
                 lane="claude",
+            ),
+            AgentEntry(
+                agent_id="cursor",
+                display_name="Cursor",
+                role=TandemRole.IMPLEMENTER,
+                status="idle",
+                capabilities=["implementation", "fixes", "handoff"],
+                lane="cursor",
             ),
             AgentEntry(
                 agent_id="operator",
@@ -180,6 +197,7 @@ def build_bridge_review_state(
             pending_total=0,
             pending_codex=0,
             pending_claude=0,
+            pending_cursor=0,
             pending_operator=0,
             stale_packet_count=0,
             derived_next_instruction=(
@@ -190,12 +208,15 @@ def build_bridge_review_state(
             ),
         ),
         bridge=BridgeState(
+            reviewer_mode=str(bridge_liveness.get("reviewer_mode") or "active_dual_agent"),
             last_codex_poll_utc=snapshot.metadata.get("last_codex_poll_utc"),
             last_codex_poll_age_seconds=bridge_liveness.get(
                 "last_codex_poll_age_seconds"
             ),
             last_worktree_hash=snapshot.metadata.get("last_non_audit_worktree_hash"),
             reviewed_hash_current=bridge_liveness.get("reviewed_hash_current"),
+            implementer_completion_stall=bool(bridge_liveness.get("implementer_completion_stall")),
+            publisher_running=bool(bridge_liveness.get("publisher_running")),
             open_findings=open_findings,
             current_instruction=current_instruction,
             claude_status=claude_status,

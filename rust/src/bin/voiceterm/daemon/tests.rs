@@ -8,6 +8,7 @@ use tokio::sync::mpsc;
 
 use super::agent_driver::{AgentHandle, StartupGate};
 use super::client_codec::{decode_command, encode_event};
+use super::event_bus::EventBus;
 use super::session_registry::SessionRegistry;
 use super::types::*;
 
@@ -104,11 +105,176 @@ fn event_daemon_status_serializes() {
         active_agents: 3,
         connected_clients: 2,
         uptime_secs: 42.5,
+        socket_path: "/tmp/voiceterm.sock".to_string(),
+        ws_port: Some(9876),
+        ws_url: Some("ws://127.0.0.1:9876".to_string()),
+        lifecycle: DaemonLifecycleState::Running,
+        primary_attach: DaemonAttachTransport::WebSocket,
+        pid: 4242,
+        started_at_unix_ms: 123_456,
+        working_dir: "/tmp/repo".to_string(),
+        memory_mode: "assist".to_string(),
     };
     let json = encode_event(&event);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["event"], "daemon_status");
     assert_eq!(parsed["active_agents"], 3);
+    assert_eq!(parsed["lifecycle"], "running");
+    assert_eq!(parsed["primary_attach"], "web_socket");
+    assert_eq!(parsed["socket_path"], "/tmp/voiceterm.sock");
+    assert_eq!(parsed["ws_url"], "ws://127.0.0.1:9876");
+    assert_eq!(parsed["memory_mode"], "assist");
+}
+
+#[test]
+fn event_daemon_ready_serializes_attach_metadata() {
+    let event = DaemonEvent::DaemonReady {
+        version: "1.1.1".to_string(),
+        socket_path: "/tmp/voiceterm.sock".to_string(),
+        ws_port: None,
+        ws_url: None,
+        lifecycle: DaemonLifecycleState::Running,
+        primary_attach: DaemonAttachTransport::UnixSocket,
+        pid: 9001,
+        started_at_unix_ms: 777,
+        working_dir: "/tmp/repo".to_string(),
+        memory_mode: "capture_only".to_string(),
+    };
+    let json = encode_event(&event);
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed["event"], "daemon_ready");
+    assert_eq!(parsed["primary_attach"], "unix_socket");
+    assert_eq!(parsed["pid"], 9001);
+    assert_eq!(parsed["working_dir"], "/tmp/repo");
+    assert_eq!(parsed["memory_mode"], "capture_only");
+    assert!(parsed.get("ws_url").is_none());
+}
+
+#[test]
+fn late_subscriber_receives_latest_lifecycle_snapshot() {
+    let event_bus = EventBus::new();
+    event_bus.broadcast(DaemonEvent::DaemonReady {
+        version: "1.1.1".to_string(),
+        socket_path: "/tmp/voiceterm.sock".to_string(),
+        ws_port: Some(9876),
+        ws_url: Some("ws://127.0.0.1:9876".to_string()),
+        lifecycle: DaemonLifecycleState::Running,
+        primary_attach: DaemonAttachTransport::WebSocket,
+        pid: 4242,
+        started_at_unix_ms: 123_456,
+        working_dir: "/tmp/repo".to_string(),
+        memory_mode: "assist".to_string(),
+    });
+
+    let (_rx, snapshot, _agent_list) = event_bus.subscribe_with_snapshot();
+    let snapshot = snapshot.expect("late subscriber should receive lifecycle snapshot");
+    match snapshot {
+        DaemonEvent::DaemonReady {
+            lifecycle,
+            primary_attach,
+            ws_url,
+            ..
+        } => {
+            assert_eq!(lifecycle, DaemonLifecycleState::Running);
+            assert_eq!(primary_attach, DaemonAttachTransport::WebSocket);
+            assert_eq!(ws_url.as_deref(), Some("ws://127.0.0.1:9876"));
+        }
+        other => panic!("expected DaemonReady snapshot, got {other:?}"),
+    }
+}
+
+#[test]
+fn lifecycle_snapshot_tracks_latest_status_only() {
+    let event_bus = EventBus::new();
+    event_bus.broadcast(DaemonEvent::DaemonReady {
+        version: "1.1.1".to_string(),
+        socket_path: "/tmp/voiceterm.sock".to_string(),
+        ws_port: None,
+        ws_url: None,
+        lifecycle: DaemonLifecycleState::Running,
+        primary_attach: DaemonAttachTransport::UnixSocket,
+        pid: 1111,
+        started_at_unix_ms: 1,
+        working_dir: "/tmp/repo".to_string(),
+        memory_mode: "assist".to_string(),
+    });
+    event_bus.broadcast(DaemonEvent::AgentSpawned {
+        session_id: "agent_1".to_string(),
+        provider: "claude".to_string(),
+        label: "reviewer".to_string(),
+        working_dir: "/tmp/repo".to_string(),
+        pid: 2222,
+    });
+    event_bus.broadcast(DaemonEvent::DaemonStatus {
+        version: "1.1.1".to_string(),
+        active_agents: 1,
+        connected_clients: 2,
+        uptime_secs: 42.5,
+        socket_path: "/tmp/voiceterm.sock".to_string(),
+        ws_port: None,
+        ws_url: None,
+        lifecycle: DaemonLifecycleState::Running,
+        primary_attach: DaemonAttachTransport::UnixSocket,
+        pid: 1111,
+        started_at_unix_ms: 1,
+        working_dir: "/tmp/repo".to_string(),
+        memory_mode: "assist".to_string(),
+    });
+
+    let (_rx, snapshot, _agent_list) = event_bus.subscribe_with_snapshot();
+    let snapshot = snapshot.expect("late subscriber should receive latest lifecycle snapshot");
+    match snapshot {
+        DaemonEvent::DaemonStatus {
+            active_agents,
+            connected_clients,
+            ..
+        } => {
+            assert_eq!(active_agents, 1);
+            assert_eq!(connected_clients, 2);
+        }
+        other => panic!("expected DaemonStatus snapshot, got {other:?}"),
+    }
+}
+
+#[test]
+fn late_subscriber_receives_agent_list_snapshot() {
+    let event_bus = EventBus::new();
+
+    // Broadcast a lifecycle event and an agent_list event
+    event_bus.broadcast(DaemonEvent::DaemonReady {
+        version: "1.1.1".to_string(),
+        socket_path: "/tmp/test.sock".to_string(),
+        ws_port: Some(9876),
+        ws_url: Some("ws://localhost:9876".to_string()),
+        lifecycle: super::types::DaemonLifecycleState::Running,
+        primary_attach: super::types::DaemonAttachTransport::WebSocket,
+        pid: 4242,
+        started_at_unix_ms: 100_000,
+        working_dir: "/tmp/repo".to_string(),
+        memory_mode: "assist".to_string(),
+    });
+    event_bus.broadcast(DaemonEvent::AgentList {
+        agents: vec![super::types::AgentInfo {
+            session_id: "agent_1".to_string(),
+            provider: "claude".to_string(),
+            label: "test-agent".to_string(),
+            working_dir: "/tmp/repo".to_string(),
+            pid: 12345,
+            is_alive: true,
+        }],
+    });
+
+    // Late subscriber should get both snapshots
+    let (_rx, lifecycle, agent_list) = event_bus.subscribe_with_snapshot();
+    assert!(lifecycle.is_some(), "should receive lifecycle snapshot");
+    assert!(agent_list.is_some(), "should receive agent_list snapshot");
+    match agent_list.unwrap() {
+        DaemonEvent::AgentList { agents } => {
+            assert_eq!(agents.len(), 1);
+            assert_eq!(agents[0].label, "test-agent");
+        }
+        other => panic!("expected AgentList snapshot, got {other:?}"),
+    }
 }
 
 #[test]

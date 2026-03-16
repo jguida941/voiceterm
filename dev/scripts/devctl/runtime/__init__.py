@@ -38,6 +38,14 @@ from .review_state import (
     ReviewState,
     review_state_from_payload,
 )
+from .role_profile import (
+    RoleProfile,
+    TandemProfile,
+    TandemRole,
+    build_default_tandem_profile,
+    role_for_provider,
+    role_profile_from_mapping,
+)
 
 __all__ = [
     "ActiveRunState",
@@ -70,4 +78,10 @@ __all__ = [
     "run_record_from_mapping",
     "typed_action_from_mapping",
     "workflow_adapter_from_mapping",
+    "RoleProfile",
+    "TandemProfile",
+    "TandemRole",
+    "build_default_tandem_profile",
+    "role_for_provider",
+    "role_profile_from_mapping",
 ]

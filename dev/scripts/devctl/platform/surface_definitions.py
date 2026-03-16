@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from .contracts import (
+    CallerAuthoritySpec,
     FrontendSurfaceSpec,
     PlatformLayerSpec,
     PortabilityStatusSpec,
     RepoBoundarySpec,
+    ServiceLifecycleSpec,
 )
 
 
@@ -73,7 +75,11 @@ def frontend_surfaces() -> tuple[FrontendSurfaceSpec, ...]:
             surface_id="overlay_tui",
             authority="thin client",
             consumes_contracts=("ControlState", "TypedAction"),
-            notes="VoiceTerm overlay may observe and dispatch typed actions only.",
+            notes=(
+                "VoiceTerm overlay may observe and dispatch typed actions, and may "
+                "optionally host/launch the shared local service without becoming "
+                "a second backend."
+            ),
         ),
         FrontendSurfaceSpec(
             surface_id="phone_mobile",
@@ -86,6 +92,104 @@ def frontend_surfaces() -> tuple[FrontendSurfaceSpec, ...]:
             authority="optional adapter",
             consumes_contracts=("ControlState", "RunRecord"),
             notes="MCP remains additive transport, not the release/safety authority.",
+        ),
+    )
+
+
+def service_lifecycle() -> tuple[ServiceLifecycleSpec, ...]:
+    return (
+        ServiceLifecycleSpec(
+            service_id="voiceterm_daemon",
+            launch_entrypoints=(
+                "voiceterm --daemon",
+                "VoiceTerm overlay/dev shell as optional local host path",
+                "future devctl launcher/attach helpers",
+            ),
+            discovery_fields=(
+                "version",
+                "socket_path",
+                "ws_port",
+                "ws_url",
+                "lifecycle",
+                "primary_attach",
+                "pid",
+                "started_at_unix_ms",
+                "working_dir",
+                "memory_mode",
+            ),
+            health_signals=(
+                "lifecycle",
+                "uptime_secs",
+                "active_agents",
+                "connected_clients",
+            ),
+            shutdown_entrypoints=(
+                "daemon command: shutdown",
+                "process signal / graceful runtime exit",
+            ),
+            notes=(
+                "The service remains VoiceTerm-optional even when VoiceTerm is the "
+                "preferred local host or launcher. Late-attaching clients must "
+                "receive backend-owned lifecycle/status truth without depending "
+                "on startup timing."
+            ),
+        ),
+    )
+
+
+def caller_authority() -> tuple[CallerAuthoritySpec, ...]:
+    return (
+        CallerAuthoritySpec(
+            caller_id="human_operator",
+            allowed_actions=(
+                "status",
+                "report",
+                "check",
+                "probe-report",
+                "review-channel post|ack|dismiss|apply",
+                "controller-action pause|resume|dispatch-report-only",
+            ),
+            stage_only_actions=(
+                "terminal_packet send",
+                "agent instruction draft",
+            ),
+            approval_required_actions=(
+                "publish",
+                "release",
+                "dangerous mutating fixes",
+            ),
+            forbidden_actions=("bypass policy gates",),
+        ),
+        CallerAuthoritySpec(
+            caller_id="agent_runtime",
+            allowed_actions=(
+                "status",
+                "check",
+                "probe-report",
+                "quality-policy",
+                "review-channel post",
+            ),
+            stage_only_actions=(
+                "terminal_packet send",
+                "mutating remediation proposal",
+            ),
+            approval_required_actions=(
+                "review-channel apply",
+                "controller-action pause|resume|dispatch-report-only when policy says approval",
+            ),
+            forbidden_actions=("publish", "release", "destructive git operations"),
+        ),
+        CallerAuthoritySpec(
+            caller_id="automation_loop",
+            allowed_actions=(
+                "status",
+                "check",
+                "probe-report",
+                "policy-gated loop actions",
+            ),
+            stage_only_actions=("mutating fix proposal",),
+            approval_required_actions=("branch/tag/release-impacting actions",),
+            forbidden_actions=("unbounded shell execution",),
         ),
     )
 
@@ -118,6 +222,7 @@ def adoption_flow() -> tuple[str, ...]:
         "Run quality-policy to inspect the resolved guard/probe surface.",
         "Run check --adoption-scan and probe-report for first-pass intake.",
         "Enable the desired frontend clients over the same backend contracts.",
+        "If a local service is needed, attach through the same lifecycle/discovery contract instead of a client-local shortcut.",
     )
 
 

@@ -10,7 +10,8 @@ from typing import Any
 
 from ..governance_review_log import read_governance_review_rows
 from ..jsonl_support import parse_json_line_dict
-from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG, voiceterm_repo_root
+from ..repo_packs import active_path_config
+from ..repo_packs.voiceterm import voiceterm_repo_root
 from ..time_utils import utc_timestamp
 from .external_findings_models import (
     ExternalFindingBucketStat,
@@ -18,8 +19,8 @@ from .external_findings_models import (
     ExternalFindingStats,
 )
 
-DEFAULT_EXTERNAL_FINDING_LOG = Path(VOICETERM_PATH_CONFIG.external_finding_log_rel)
-DEFAULT_EXTERNAL_FINDING_SUMMARY_ROOT = Path(VOICETERM_PATH_CONFIG.external_finding_summary_root_rel)
+DEFAULT_EXTERNAL_FINDING_LOG = Path(active_path_config().external_finding_log_rel)
+DEFAULT_EXTERNAL_FINDING_SUMMARY_ROOT = Path(active_path_config().external_finding_summary_root_rel)
 DEFAULT_MAX_EXTERNAL_FINDING_ROWS = 10_000
 DEFAULT_CHECK_ID = "external_audit"
 DEFAULT_SIGNAL_TYPE = "audit"

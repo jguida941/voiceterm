@@ -5,8 +5,8 @@ from __future__ import annotations
 import secrets
 from pathlib import Path
 
+from .event_models import ReviewChannelEventBundle
 from .event_reducer import (
-    ReviewChannelEventBundle,
     filter_history_events,
     filter_inbox_packets,
     load_or_refresh_event_bundle,

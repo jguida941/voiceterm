@@ -9,6 +9,8 @@ from ..review_channel.core import REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE
 from ..review_channel.handoff import handoff_bundle_to_dict
 from ..review_channel.heartbeat import bridge_heartbeat_refresh_to_dict
 from ..review_channel.promotion import promotion_candidate_to_dict
+from ..review_channel.peer_liveness import OverallLivenessState
+from ..review_channel.reviewer_state import reviewer_state_write_to_dict
 from ..review_channel.state import projection_paths_to_dict
 from ..time_utils import utc_timestamp
 
@@ -58,6 +60,7 @@ def render_bridge_md(
     _append_promotion(lines, report.get("promotion"))
     _append_attention(lines, report.get("attention"))
     _append_bridge_heartbeat_refresh(lines, report.get("bridge_heartbeat_refresh"))
+    _append_reviewer_state_write(lines, report.get("reviewer_state_write"))
     _append_sessions(lines, report.get("sessions"))
     return "\n".join(lines)
 
@@ -82,7 +85,10 @@ def build_bridge_success_report(
     execution_mode_override: str | None = None,
 ) -> tuple[dict, int]:
     """Assemble the bridge-action success report dict."""
-    report_ok = str(bridge_liveness.get("overall_state") or "unknown") == "fresh"
+    report_ok = str(bridge_liveness.get("overall_state") or "unknown") in {
+        OverallLivenessState.FRESH,
+        OverallLivenessState.INACTIVE,
+    }
     report = {
         "command": "review-channel",
         "timestamp": utc_timestamp(),
@@ -129,6 +135,7 @@ def build_bridge_success_report(
         "bridge_heartbeat_refresh": bridge_heartbeat_refresh_to_dict(
             bridge_heartbeat_refresh
         ),
+        "reviewer_state_write": reviewer_state_write_to_dict(None),
     }
     if bridge_heartbeat_refresh is not None:
         report["warnings"].append(
@@ -261,6 +268,20 @@ def _append_bridge_heartbeat_refresh(lines: list[str], refresh: object) -> None:
     lines.append(f"- last_codex_poll_utc: {refresh.get('last_codex_poll_utc')}")
     lines.append(f"- last_codex_poll_local: {refresh.get('last_codex_poll_local')}")
     lines.append(f"- last_worktree_hash: {refresh.get('last_worktree_hash')}")
+
+
+def _append_reviewer_state_write(lines: list[str], write: object) -> None:
+    if not isinstance(write, dict):
+        return
+    lines.append("")
+    lines.append("## Reviewer State Write")
+    lines.append(f"- bridge_path: {write.get('bridge_path')}")
+    lines.append(f"- action: {write.get('action')}")
+    lines.append(f"- reviewer_mode: {write.get('reviewer_mode')}")
+    lines.append(f"- reason: {write.get('reason')}")
+    lines.append(f"- last_codex_poll_utc: {write.get('last_codex_poll_utc')}")
+    lines.append(f"- last_codex_poll_local: {write.get('last_codex_poll_local')}")
+    lines.append(f"- last_worktree_hash: {write.get('last_worktree_hash')}")
 
 
 def _append_sessions(lines: list[str], sessions: object) -> None:

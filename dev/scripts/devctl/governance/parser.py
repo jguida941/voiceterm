@@ -185,6 +185,48 @@ def add_launcher_policy_parser(sub: argparse._SubParsersAction) -> None:
     )
 
 
+def add_tandem_validate_parser(sub: argparse._SubParsersAction) -> None:
+    """Register the `tandem-validate` parser."""
+    tandem_validate_cmd = sub.add_parser(
+        "tandem-validate",
+        help=(
+            "Run the canonical live tandem validation lane "
+            "(policy resolution, router-derived bundle/risk add-ons, final bridge/tandem guards)"
+        ),
+    )
+    tandem_validate_cmd.add_argument(
+        "--since-ref",
+        help="Optional git base ref used to route against a commit range instead of the current dirty tree",
+    )
+    tandem_validate_cmd.add_argument(
+        "--head-ref",
+        default="HEAD",
+        help="Head ref used with --since-ref (default: HEAD)",
+    )
+    tandem_validate_cmd.add_argument(
+        "--quality-policy",
+        help=(
+            "Optional repo policy JSON file used for router resolution and "
+            "policy-aware delegated devctl commands"
+        ),
+    )
+    tandem_validate_cmd.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Render and audit the routed command plan without executing it",
+    )
+    tandem_validate_cmd.add_argument(
+        "--keep-going",
+        action="store_true",
+        help="Continue through delegated command failures instead of stopping at the first one",
+    )
+    add_standard_output_arguments(
+        tandem_validate_cmd,
+        format_choices=("json", "md"),
+        default_format="md",
+    )
+
+
 def add_render_surfaces_parser(sub: argparse._SubParsersAction) -> None:
     """Register the `render-surfaces` parser."""
     render_cmd = sub.add_parser(

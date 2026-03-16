@@ -23,6 +23,7 @@ class ReviewQueueState:
     pending_total: int
     pending_codex: int
     pending_claude: int
+    pending_cursor: int
     pending_operator: int
     stale_packet_count: int
     derived_next_instruction: str
@@ -33,6 +34,7 @@ class ReviewQueueState:
 class ReviewBridgeState:
     overall_state: str
     codex_poll_state: str
+    reviewer_mode: str
     last_codex_poll_utc: str
     last_codex_poll_age_seconds: int
     last_worktree_hash: str
@@ -41,6 +43,8 @@ class ReviewBridgeState:
     claude_status: str
     claude_ack: str
     last_reviewed_scope: str
+    implementer_completion_stall: bool = False
+    publisher_running: bool = False
 
 
 @dataclass(frozen=True, slots=True)

@@ -44,10 +44,20 @@ class TestDaemonEvent:
             "version": "1.1.1",
             "socket_path": "/tmp/test.sock",
             "ws_port": 9876,
+            "ws_url": "ws://127.0.0.1:9876",
+            "lifecycle": "running",
+            "primary_attach": "web_socket",
+            "pid": 4242,
+            "started_at_unix_ms": 123456,
+            "working_dir": "/tmp/repo",
+            "memory_mode": "assist",
         })
         event = DaemonEvent.from_json(line)
         assert event.event_type == "daemon_ready"
         assert event.payload["version"] == "1.1.1"
+        assert event.payload["ws_url"] == "ws://127.0.0.1:9876"
+        assert event.payload["primary_attach"] == "web_socket"
+        assert event.payload["memory_mode"] == "assist"
 
     def test_from_json_daemon_status(self):
         line = json.dumps({
@@ -56,10 +66,22 @@ class TestDaemonEvent:
             "active_agents": 2,
             "connected_clients": 3,
             "uptime_secs": 42.5,
+            "socket_path": "/tmp/test.sock",
+            "ws_port": 9876,
+            "ws_url": "ws://127.0.0.1:9876",
+            "lifecycle": "running",
+            "primary_attach": "web_socket",
+            "pid": 4242,
+            "started_at_unix_ms": 123456,
+            "working_dir": "/tmp/repo",
+            "memory_mode": "assist",
         })
         event = DaemonEvent.from_json(line)
         assert event.event_type == "daemon_status"
         assert event.payload["active_agents"] == 2
+        assert event.payload["connected_clients"] == 3
+        assert event.payload["lifecycle"] == "running"
+        assert event.payload["working_dir"] == "/tmp/repo"
 
     def test_from_json_agent_spawned(self):
         line = json.dumps({

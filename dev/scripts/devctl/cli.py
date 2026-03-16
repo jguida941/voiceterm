@@ -90,6 +90,7 @@ from .governance.parser import (
     add_launcher_policy_parser,
     add_launcher_probes_parser,
     add_render_surfaces_parser,
+    add_tandem_validate_parser,
 )
 from .integrations.import_parser import add_integrations_import_parser
 from .integrations.sync_parser import add_integrations_sync_parser
@@ -129,6 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_launcher_check_parser(sub)
     add_launcher_probes_parser(sub)
     add_launcher_policy_parser(sub)
+    add_tandem_validate_parser(sub)
     add_review_channel_parser(sub)
     add_path_audit_parser(sub)
     add_path_rewrite_parser(sub)
@@ -176,6 +178,7 @@ COMMAND_HANDLERS = {
     "launcher-check": simple_lanes.run_launcher_check,
     "launcher-probes": simple_lanes.run_launcher_probes,
     "launcher-policy": simple_lanes.run_launcher_policy,
+    "tandem-validate": simple_lanes.run_tandem_validate,
     "render-surfaces": render_surfaces.run,
     "governance-export": governance_export.run,
     "governance-bootstrap": governance_bootstrap.run,

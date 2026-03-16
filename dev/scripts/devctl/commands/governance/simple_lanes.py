@@ -2,7 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
+
+from ...common import emit_output, pipe_output, run_cmd, write_output
+from ...config import REPO_ROOT
+from ...time_utils import utc_timestamp
+from .simple_lanes_support import (
+    TandemValidateExecution,
+    build_tandem_validate_plan,
+    build_tandem_validate_report,
+    render_tandem_validate_markdown,
+)
 
 LAUNCHER_POLICY_PATH = "dev/config/devctl_policies/launcher.json"
 
@@ -26,6 +37,61 @@ def _dispatch(argv: list[str]) -> int:
     if handler is None:
         raise ValueError(f"unknown delegated devctl command: {parsed.command}")
     return handler(parsed)
+
+
+def run_tandem_validate(args) -> int:
+    """Run the canonical live tandem validation lane."""
+    plan = build_tandem_validate_plan(
+        quality_policy_path=getattr(args, "quality_policy", None),
+        since_ref=getattr(args, "since_ref", None),
+        head_ref=getattr(args, "head_ref", "HEAD"),
+    )
+    steps: list[dict[str, object]] = []
+    ok = bool(plan["ok"])
+    if ok:
+        for index, row in enumerate(plan["planned_commands"], start=1):
+            command = str(row["command"])
+            result = run_cmd(
+                f"tandem-{index:02d}",
+                ["bash", "-lc", command],
+                cwd=REPO_ROOT,
+                dry_run=bool(getattr(args, "dry_run", False)),
+            )
+            step = dict(result)
+            step["command"] = command
+            step["source"] = row["source"]
+            steps.append(step)
+            if result["returncode"] != 0:
+                ok = False
+                if not getattr(args, "keep_going", False):
+                    break
+    report = build_tandem_validate_report(
+        plan=plan,
+        execution=TandemValidateExecution(
+            ok=ok,
+            dry_run=bool(getattr(args, "dry_run", False)),
+            keep_going=bool(getattr(args, "keep_going", False)),
+            quality_policy=getattr(args, "quality_policy", None),
+            steps=steps,
+            timestamp=utc_timestamp(),
+        ),
+    )
+    output = (
+        json.dumps(report, indent=2)
+        if getattr(args, "format", "md") == "json"
+        else render_tandem_validate_markdown(report)
+    )
+    pipe_rc = emit_output(
+        output,
+        output_path=getattr(args, "output", None),
+        pipe_command=getattr(args, "pipe_command", None),
+        pipe_args=getattr(args, "pipe_args", None),
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
+    return 0 if ok else 1
 
 
 def run_launcher_check(args) -> int:

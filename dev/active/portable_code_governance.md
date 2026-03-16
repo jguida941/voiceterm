@@ -166,9 +166,8 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       package boundary.
 - [ ] Burn down the remaining temporary root shim backlog to policy budget and
       remove zero-caller wrappers promptly; current probe evidence should not
-      keep tolerating dead shims such as `autonomy_loop_parser.py`,
-      `review_channel_prompt.py`, or `watchdog_episodes.py` once repo-visible
-      usage is confirmed absent.
+      keep tolerating dead root shims once repo-visible usage is confirmed
+      absent.
 - [ ] Align bootstrap/self-hosting interpreter contracts with the repo's Python
       3.11+ requirement so governance entrypoints and AGENTS bootstrap commands
       do not fail on machines where `python3` still resolves to 3.10 before the

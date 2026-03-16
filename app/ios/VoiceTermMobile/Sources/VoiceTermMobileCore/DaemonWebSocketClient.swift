@@ -46,10 +46,15 @@ public final class DaemonWebSocketClient: ObservableObject {
         public let version: String?
         public let socketPath: String?
         public let wsPort: UInt16?
+        public let wsURL: String?
+        public let lifecycle: String?
+        public let primaryAttach: String?
         public let provider: String?
         public let label: String?
         public let workingDir: String?
         public let pid: Int32?
+        public let startedAtUnixMs: UInt64?
+        public let memoryMode: String?
         public let exitCode: Int32?
         public let activeAgents: Int?
         public let connectedClients: Int?
@@ -64,10 +69,15 @@ public final class DaemonWebSocketClient: ObservableObject {
             case version
             case socketPath = "socket_path"
             case wsPort = "ws_port"
+            case wsURL = "ws_url"
+            case lifecycle
+            case primaryAttach = "primary_attach"
             case provider
             case label
             case workingDir = "working_dir"
             case pid
+            case startedAtUnixMs = "started_at_unix_ms"
+            case memoryMode = "memory_mode"
             case exitCode = "exit_code"
             case activeAgents = "active_agents"
             case connectedClients = "connected_clients"

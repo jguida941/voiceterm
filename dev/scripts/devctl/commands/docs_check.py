@@ -35,6 +35,7 @@ MARKDOWN_METADATA_HEADER_SCRIPT = check_script_path("markdown_metadata_header")
 WORKFLOW_SHELL_HYGIENE_SCRIPT = check_script_path("workflow_shell_hygiene")
 BUNDLE_WORKFLOW_PARITY_SCRIPT = check_script_path("bundle_workflow_parity")
 AGENTS_BUNDLE_RENDER_SCRIPT = check_script_path("agents_bundle_render")
+GUIDE_CONTRACT_SYNC_SCRIPT = check_script_path("guide_contract_sync")
 INSTRUCTION_SURFACE_SYNC_SCRIPT = check_script_path("instruction_surface_sync")
 
 
@@ -95,6 +96,17 @@ def run_agents_bundle_render_gate() -> dict:
 
 
 _run_agents_bundle_render_gate = run_agents_bundle_render_gate
+
+
+def run_guide_contract_sync_gate() -> dict:
+    """Run guide-contract sync guard and return parsed JSON report."""
+    return run_json_policy_gate(
+        GUIDE_CONTRACT_SYNC_SCRIPT,
+        "guide contract sync gate",
+    )
+
+
+_run_guide_contract_sync_gate = run_guide_contract_sync_gate
 
 
 def run_instruction_surface_sync_gate() -> dict:
@@ -158,6 +170,7 @@ def run(args) -> int:
             workflow_shell_hygiene_fn=_run_workflow_shell_hygiene_gate,
             bundle_workflow_parity_fn=_run_bundle_workflow_parity_gate,
             agents_bundle_render_fn=_run_agents_bundle_render_gate,
+            guide_contract_sync_fn=_run_guide_contract_sync_gate,
             instruction_surface_sync_fn=_run_instruction_surface_sync_gate,
         ),
         strict_tooling=strict_tooling,
@@ -190,6 +203,8 @@ def run(args) -> int:
         bundle_workflow_parity_report=gate_state.bundle_workflow_parity_report,
         agents_bundle_render_ok=gate_state.agents_bundle_render_ok,
         agents_bundle_render_report=gate_state.agents_bundle_render_report,
+        guide_contract_sync_ok=gate_state.guide_contract_sync_ok,
+        guide_contract_sync_report=gate_state.guide_contract_sync_report,
         instruction_surface_sync_ok=gate_state.instruction_surface_sync_ok,
         instruction_surface_sync_report=gate_state.instruction_surface_sync_report,
         deprecated_violations=deprecated_violations,
@@ -216,6 +231,7 @@ def run(args) -> int:
         workflow_shell_hygiene_ok=gate_state.workflow_shell_hygiene_ok,
         bundle_workflow_parity_ok=gate_state.bundle_workflow_parity_ok,
         agents_bundle_render_ok=gate_state.agents_bundle_render_ok,
+        guide_contract_sync_ok=gate_state.guide_contract_sync_ok,
         instruction_surface_sync_ok=gate_state.instruction_surface_sync_ok,
         deprecated_violations=deprecated_violations,
         user_docs=user_docs,

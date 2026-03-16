@@ -365,6 +365,9 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
+      - name: Run guide-contract sync guard
+        run: python3 dev/scripts/checks/check_guide_contract_sync.py
+
       - name: Run instruction-surface sync guard
         run: python3 dev/scripts/checks/check_instruction_surface_sync.py
 
@@ -377,8 +380,17 @@ jobs:
       - name: Run bundle/workflow parity guard
         run: python3 dev/scripts/checks/check_bundle_workflow_parity.py
 
+      - name: Run platform-layer-boundaries guard
+        run: python3 dev/scripts/checks/check_platform_layer_boundaries.py
+
+      - name: Run platform-contract sync guard
+        run: python3 dev/scripts/checks/check_platform_contract_sync.py
+
       - name: Run review-channel bridge guard
         run: python3 dev/scripts/checks/check_review_channel_bridge.py
+
+      - name: Run tandem-consistency guard
+        run: python3 dev/scripts/checks/check_tandem_consistency.py
 
       - name: Run active-plan sync guard
         run: python3 dev/scripts/checks/check_active_plan_sync.py

@@ -62,6 +62,9 @@ sync.
 ### Current review swarm bootstrap
 
 ```bash
+# Read the live reviewer/coder state first
+python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json
+
 # Dry-run first: validate the bridge is active and inspect generated launch scripts
 # while auto-repairing stale/missing reviewer heartbeat metadata when that is
 # the only blocker.
@@ -78,6 +81,15 @@ python3 dev/scripts/devctl.py review-channel --action launch --format md --refre
 
 # Planned anti-compaction rollover: relaunch fresh conductors before context gets bad
 python3 dev/scripts/devctl.py review-channel --action rollover --rollover-threshold-pct 50 --await-ack-seconds 180 --format md
+
+# Canonical tandem post-edit validator once code changes land
+python3 dev/scripts/devctl.py tandem-validate --format md
+
+# Honest solo-mode liveness writes when only one agent or tools are active
+python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md
+
+# Reviewer-owned truth update after a real accepted review pass
+python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --verdict "- reviewer accepted" --open-findings "- none" --instruction "- continue" --reviewed-scope-item code_audit.md --terminal none --format md
 ```
 
 Use this only for the current markdown-bridge cycle:
@@ -108,6 +120,21 @@ Use this only for the current markdown-bridge cycle:
    a conductor that posts one summary and quits is restarted from repo state in
    the same terminal; non-zero exits still stop fail-closed so real CLI/auth
    failures remain visible.
+11. After code edits in the dual-agent lane, `tandem-validate` is the
+    canonical validator. Do not replace it with an ad hoc subset unless you
+    are debugging one known failing command and then returning to the routed
+    validator.
+12. In `single_agent` or `tools_only`, keep the same backend/check flow and
+    write the honest mode via `reviewer-heartbeat`; do not pretend the bridge
+    is stale just because a second live agent is absent.
+13. After a real reviewer acceptance pass, use `reviewer-checkpoint` to move
+    reviewed hash, verdict, findings, and instruction together instead of
+    hand-editing partial reviewer state.
+14. Implementer polling is full-section, not fixed-offset: read `Last Codex poll`
+    / `Poll Status` first, then reread `Current Verdict`, `Open Findings`, and
+    `Current Instruction For Claude` together. If those reviewer-owned sections
+    are unchanged after the current bounded work is done, that is a live wait
+    state; wait on cadence instead of hammering one unchanged line range.
 
 ### Release path
 
@@ -121,6 +148,77 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --
 release-preflight, Ralph loop) before publish/tag flow. `ship --verify`
 aggregates its independent verify subchecks in parallel and then applies the
 same declared substep order when deciding the first failure to surface.
+
+## System Coverage Map
+
+`DEVCTL_AUTOGUIDE.md` is the operator playbook, not the full command reference.
+Keep `dev/scripts/README.md` authoritative for the exhaustive inventory and use
+this section to keep the whole system in scope when you are steering VoiceTerm,
+the PyQt6 console, phone/mobile flows, or agent-only/dev-only modes.
+
+This guide is also protected by `python3 dev/scripts/checks/check_guide_contract_sync.py`
+so the core system surfaces below cannot silently disappear from the operator
+playbook when the control plane grows.
+
+### Policy, contract, and portability surfaces
+
+Use these when the task is about understanding or exporting the platform, not
+only running one local guard bundle:
+
+- `python3 dev/scripts/devctl.py render-surfaces --format md`
+- `python3 dev/scripts/devctl.py quality-policy --format md`
+- `python3 dev/scripts/devctl.py platform-contracts --format md`
+- `python3 dev/scripts/devctl.py probe-report --format md`
+- `python3 dev/scripts/devctl.py governance-export --format md`
+- `python3 dev/scripts/devctl.py governance-bootstrap --help`
+- `python3 dev/scripts/devctl.py governance-import-findings --help`
+- `python3 dev/scripts/devctl.py governance-review --format md`
+- `python3 dev/scripts/devctl.py launcher-check --help`
+- `python3 dev/scripts/devctl.py launcher-probes --help`
+- `python3 dev/scripts/devctl.py launcher-policy --help`
+
+### Review, runtime, and operator loop surfaces
+
+These are the shared backend/operator commands that keep the same review,
+queue, and attention signals visible across VoiceTerm, the PyQt6 console,
+phone/mobile clients, and agent-only or developer-only flows:
+
+- `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
+- `python3 dev/scripts/devctl.py tandem-validate --format md`
+- `python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md`
+- `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --verdict "- reviewer accepted" --open-findings "- none" --instruction "- continue" --reviewed-scope-item code_audit.md --terminal none --format md`
+- `python3 dev/scripts/devctl.py swarm_run --help`
+- `python3 dev/scripts/devctl.py phone-status --help`
+- `python3 dev/scripts/devctl.py mobile-status --help`
+- `python3 dev/scripts/devctl.py controller-action --help`
+- `python3 dev/scripts/devctl.py orchestrate-status --format md`
+- `python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md`
+- `python3 dev/scripts/devctl.py integrations-sync --status-only --format md`
+- `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md`
+- `python3 dev/scripts/devctl.py mcp --format md`
+
+### Mutation, compatibility, and publication helpers
+
+These are still part of the same system even when the current task is focused
+on review-channel or tandem work:
+
+- `python3 dev/scripts/devctl.py mutants --help`
+- `python3 dev/scripts/devctl.py mutation-score --help`
+- `python3 dev/scripts/devctl.py compat-matrix --format md`
+- `python3 dev/scripts/devctl.py publication-sync --help`
+- `python3 dev/scripts/devctl.py release-notes --help`
+- `python3 dev/scripts/devctl.py ralph-status --help`
+
+### Queue, device, and recovery helpers
+
+These keep the queue/controller/device side of the platform in scope:
+
+- `python3 dev/scripts/devctl.py loop-packet --help`
+- `python3 dev/scripts/devctl.py mobile-app --help`
+- `python3 dev/scripts/devctl.py cihub-setup --help`
+- `python3 dev/scripts/devctl.py failure-cleanup --help`
+- `python3 dev/scripts/devctl.py path-audit --help`
+- `python3 dev/scripts/devctl.py path-rewrite --help`
 
 ## Check Profile Picker
 

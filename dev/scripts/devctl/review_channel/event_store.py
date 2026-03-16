@@ -8,13 +8,13 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG
+from ..repo_packs import active_path_config
 from .state import DEFAULT_REVIEW_STATUS_DIR_REL, write_projection_bundle
 
-DEFAULT_REVIEW_ARTIFACT_ROOT_REL = VOICETERM_PATH_CONFIG.review_artifact_root_rel
-DEFAULT_REVIEW_EVENT_LOG_REL = VOICETERM_PATH_CONFIG.review_event_log_rel
-DEFAULT_REVIEW_STATE_JSON_REL = VOICETERM_PATH_CONFIG.review_state_json_rel
-DEFAULT_REVIEW_PROJECTIONS_DIR_REL = VOICETERM_PATH_CONFIG.review_projections_dir_rel
+DEFAULT_REVIEW_ARTIFACT_ROOT_REL = active_path_config().review_artifact_root_rel
+DEFAULT_REVIEW_EVENT_LOG_REL = active_path_config().review_event_log_rel
+DEFAULT_REVIEW_STATE_JSON_REL = active_path_config().review_state_json_rel
+DEFAULT_REVIEW_PROJECTIONS_DIR_REL = active_path_config().review_projections_dir_rel
 DEFAULT_REVIEW_CHANNEL_SESSION_ID = "local-review"
 DEFAULT_REVIEW_CHANNEL_PLAN_ID = "MP-355"
 DEFAULT_PACKET_TTL_MINUTES = 30

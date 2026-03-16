@@ -44,6 +44,29 @@ class FrontendSurfaceSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class ServiceLifecycleSpec:
+    """One supported lifecycle/attach path for the shared local backend."""
+
+    service_id: str
+    launch_entrypoints: tuple[str, ...]
+    discovery_fields: tuple[str, ...]
+    health_signals: tuple[str, ...]
+    shutdown_entrypoints: tuple[str, ...]
+    notes: str
+
+
+@dataclass(frozen=True, slots=True)
+class CallerAuthoritySpec:
+    """Allowed/staged/approval/forbidden action buckets for one caller class."""
+
+    caller_id: str
+    allowed_actions: tuple[str, ...]
+    stage_only_actions: tuple[str, ...]
+    approval_required_actions: tuple[str, ...]
+    forbidden_actions: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class RepoBoundarySpec:
     """A repo-local boundary that should stay outside the portable core."""
 
@@ -72,6 +95,8 @@ class PlatformBlueprint:
     layers: tuple[PlatformLayerSpec, ...]
     shared_contracts: tuple[ContractSpec, ...]
     frontend_surfaces: tuple[FrontendSurfaceSpec, ...]
+    service_lifecycle: tuple[ServiceLifecycleSpec, ...]
+    caller_authority: tuple[CallerAuthoritySpec, ...]
     repo_local_boundaries: tuple[RepoBoundarySpec, ...]
     adoption_flow: tuple[str, ...]
     portability_status: tuple[PortabilityStatusSpec, ...]

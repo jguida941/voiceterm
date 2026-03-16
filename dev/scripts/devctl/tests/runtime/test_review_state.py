@@ -25,6 +25,7 @@ class ReviewStateTests(unittest.TestCase):
                     },
                     "queue": {"pending_total": 1},
                     "bridge": {
+                        "reviewer_mode": "tools_only",
                         "last_codex_poll_utc": "2026-03-12T00:00:00Z",
                         "last_worktree_hash": "abc123",
                         "current_instruction": "continue",
@@ -78,6 +79,7 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.review.session_id, "session-1")
         self.assertEqual(state.queue.pending_total, 1)
         self.assertEqual(state.bridge.overall_state, "fresh")
+        self.assertEqual(state.bridge.reviewer_mode, "tools_only")
         self.assertEqual(state.attention.status, "healthy")
         self.assertEqual(state.packets[0].posted_at, "2026-03-12T00:01:00Z")
         self.assertEqual(state.pending_approvals()[0].packet_id, "pkt-1")
@@ -117,6 +119,31 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.review.surface_mode, "markdown-bridge")
         self.assertEqual(state.packets[0].packet_id, "pkt-legacy")
         self.assertEqual(state.lane_agents("claude")[0].agent_id, "AGENT-9")
+
+
+    def test_implementer_completion_stall_survives_parser_roundtrip(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-03-16T02:00:00Z",
+                "ok": True,
+                "review_state": {
+                    "review": {"session_id": "session-stall"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {
+                        "reviewer_mode": "active_dual_agent",
+                        "implementer_completion_stall": True,
+                    },
+                    "packets": [],
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertTrue(state.bridge.implementer_completion_stall)
 
 
 if __name__ == "__main__":

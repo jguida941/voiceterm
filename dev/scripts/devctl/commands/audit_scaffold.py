@@ -13,7 +13,7 @@ from ..common import (
     resolve_repo_path,
 )
 from ..config import REPO_ROOT
-from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG
+from ..repo_packs import active_path_config
 from ..script_catalog import check_script_cmd
 from .audit_scaffold_render import render_generated_doc, report_output
 from ..time_utils import utc_timestamp
@@ -21,8 +21,8 @@ from ..time_utils import utc_timestamp
 REPORTS_AUDIT_ROOT = (REPO_ROOT / "dev" / "reports" / "audits").resolve()
 
 # Backward-compat aliases sourced from repo-pack config
-DEFAULT_OUTPUT = VOICETERM_PATH_CONFIG.audit_scaffold_output_rel
-DEFAULT_TEMPLATE = VOICETERM_PATH_CONFIG.audit_scaffold_template_rel
+DEFAULT_OUTPUT = active_path_config().audit_scaffold_output_rel
+DEFAULT_TEMPLATE = active_path_config().audit_scaffold_template_rel
 
 GUARD_SPECS = (
     {

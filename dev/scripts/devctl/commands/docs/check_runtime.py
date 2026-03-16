@@ -63,6 +63,7 @@ class StrictToolingGateFns:
     workflow_shell_hygiene_fn: object
     bundle_workflow_parity_fn: object
     agents_bundle_render_fn: object
+    guide_contract_sync_fn: object
     instruction_surface_sync_fn: object
 
 
@@ -74,6 +75,8 @@ class StrictToolingGateState:
     active_plan_sync_report: dict | None = None
     agents_bundle_render_ok: bool = True
     agents_bundle_render_report: dict | None = None
+    guide_contract_sync_ok: bool = True
+    guide_contract_sync_report: dict | None = None
     instruction_surface_sync_ok: bool = True
     instruction_surface_sync_report: dict | None = None
     bundle_workflow_parity_ok: bool = True
@@ -200,12 +203,15 @@ def collect_strict_tooling_gates(
     workflow_shell_hygiene_report = gate_fns.workflow_shell_hygiene_fn()
     bundle_workflow_parity_report = gate_fns.bundle_workflow_parity_fn()
     agents_bundle_render_report = gate_fns.agents_bundle_render_fn()
+    guide_contract_sync_report = gate_fns.guide_contract_sync_fn()
     instruction_surface_sync_report = gate_fns.instruction_surface_sync_fn()
     return StrictToolingGateState(
         active_plan_sync_ok=bool(active_plan_sync_report.get("ok", False)),
         active_plan_sync_report=active_plan_sync_report,
         agents_bundle_render_ok=bool(agents_bundle_render_report.get("ok", False)),
         agents_bundle_render_report=agents_bundle_render_report,
+        guide_contract_sync_ok=bool(guide_contract_sync_report.get("ok", False)),
+        guide_contract_sync_report=guide_contract_sync_report,
         instruction_surface_sync_ok=bool(
             instruction_surface_sync_report.get("ok", False)
         ),
@@ -246,6 +252,7 @@ def build_report_payload(context: DocsReportPayloadInput) -> dict:
         and gate_state.workflow_shell_hygiene_ok
         and gate_state.bundle_workflow_parity_ok
         and gate_state.agents_bundle_render_ok
+        and gate_state.guide_contract_sync_ok
         and gate_state.instruction_surface_sync_ok
     )
     payload = {
@@ -321,6 +328,12 @@ def build_report_payload(context: DocsReportPayloadInput) -> dict:
     payload.update(
         {
             "agents_bundle_render_report": gate_state.agents_bundle_render_report,
+            "guide_contract_sync_ok": gate_state.guide_contract_sync_ok,
+            "guide_contract_sync_report": gate_state.guide_contract_sync_report,
+        }
+    )
+    payload.update(
+        {
             "instruction_surface_sync_ok": gate_state.instruction_surface_sync_ok,
             "instruction_surface_sync_report": gate_state.instruction_surface_sync_report,
             "deprecated_reference_ok": evaluation.deprecated_ok,

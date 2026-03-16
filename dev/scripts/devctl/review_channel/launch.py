@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE, normalize_approval_mode
+from ..runtime.role_profile import role_for_provider
 from .launch_script import build_session_script
 from .prompt import build_conductor_prompt
 from .terminal_app import (
@@ -138,15 +139,15 @@ def build_launch_sessions(
         else None
     )
     prepared_at = utc_timestamp()
-    provider_roster: list[tuple[str, str, str, list, int]] = [
-        ("codex", "Codex", "Claude", codex_lanes, codex_workers),
-        ("claude", "Claude", "Codex", claude_lanes, claude_workers),
+    provider_roster: list[tuple[str, str, str, list, int, str]] = [
+        ("codex", "Codex", "Claude", codex_lanes, codex_workers, str(role_for_provider("codex"))),
+        ("claude", "Claude", "Codex", claude_lanes, claude_workers, str(role_for_provider("claude"))),
     ]
     if cursor_lanes:
         provider_roster.append(
-            ("cursor", "Cursor", "Claude", cursor_lanes, cursor_workers),
+            ("cursor", "Cursor", "Claude", cursor_lanes, cursor_workers, str(role_for_provider("cursor"))),
         )
-    for provider, provider_name, other_name, lanes, worker_budget in provider_roster:
+    for provider, provider_name, other_name, lanes, worker_budget, _role in provider_roster:
         session_name = f"{provider}-conductor"
         log_path = None if session_dir is None else session_dir / f"{session_name}.log"
         metadata_path = (

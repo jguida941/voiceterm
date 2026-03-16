@@ -20,6 +20,17 @@ DEFAULT_AI_GUARD_SPECS = (
     QualityStepSpec("code-shape-guard", "code_shape", languages=("python", "rust")),
     QualityStepSpec("package-layout-guard", "package_layout"),
     QualityStepSpec(
+        "platform-layer-boundaries-guard",
+        "platform_layer_boundaries",
+        languages=("python",),
+    ),
+    QualityStepSpec(
+        "platform-contract-sync-guard",
+        "platform_contract_sync",
+        languages=("python",),
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
         "python-broad-except-guard",
         "python_broad_except",
         languages=("python",),
@@ -144,6 +155,12 @@ DEFAULT_AI_GUARD_SPECS = (
         "facade_wrappers",
         languages=("python",),
     ),
+    QualityStepSpec(
+        "tandem-consistency-guard",
+        "tandem_consistency",
+        extra_args=("--ci-bundle",),
+        supports_commit_range=False,
+    ),
 )
 
 DEFAULT_REVIEW_PROBE_SPECS = (
@@ -227,6 +244,8 @@ VOICETERM_ONLY_AI_GUARD_IDS = (
     "compat_matrix",
     "compat_matrix_smoke",
     "naming_consistency",
+    "platform_layer_boundaries",
+    "tandem_consistency",
 )
 
 

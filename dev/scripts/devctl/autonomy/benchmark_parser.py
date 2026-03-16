@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG as _PC
+from ..repo_packs import active_path_config as _active_path_config
 
 
 def add_autonomy_benchmark_parser(sub) -> None:
@@ -21,11 +21,11 @@ def add_autonomy_benchmark_parser(sub) -> None:
     )
     benchmark_cmd.add_argument("--run-label", help="Optional explicit benchmark label")
     benchmark_cmd.add_argument(
-        "--plan-doc", default=_PC.autonomy_plan_doc_rel
+        "--plan-doc", default=_active_path_config().autonomy_plan_doc_rel
     )
-    benchmark_cmd.add_argument("--index-doc", default=_PC.active_index_doc_rel)
+    benchmark_cmd.add_argument("--index-doc", default=_active_path_config().active_index_doc_rel)
     benchmark_cmd.add_argument(
-        "--master-plan-doc", default=_PC.active_master_plan_doc_rel
+        "--master-plan-doc", default=_active_path_config().active_master_plan_doc_rel
     )
     benchmark_cmd.add_argument("--mp-scope", default="MP-338")
     benchmark_cmd.add_argument("--next-steps-limit", type=int, default=8)
@@ -38,7 +38,7 @@ def add_autonomy_benchmark_parser(sub) -> None:
     )
     benchmark_cmd.add_argument(
         "--output-root",
-        default=_PC.autonomy_benchmark_root_rel,
+        default=_active_path_config().autonomy_benchmark_root_rel,
         help="Root directory for benchmark bundles",
     )
     benchmark_cmd.add_argument(

@@ -1,7 +1,7 @@
 //! Main daemon runtime: binds listeners, processes commands, manages lifecycle.
 
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use tokio::net::{TcpListener, UnixListener};
 use tokio::sync::mpsc;
@@ -12,12 +12,15 @@ use super::agent_driver;
 use super::event_bus::EventBus;
 use super::session_registry::SessionRegistry;
 use super::socket_listener::{self, ClientCommand};
-use super::types::{DaemonCommand, DaemonConfig, DaemonEvent};
+use super::types::{
+    DaemonAttachTransport, DaemonCommand, DaemonConfig, DaemonEvent, DaemonLifecycleState,
+};
 use super::ws_bridge;
 
 /// Run the daemon hub until shutdown is requested or SIGINT/SIGTERM is received.
 pub(crate) async fn run_daemon(config: DaemonConfig) -> anyhow::Result<()> {
     let start = Instant::now();
+    let started_at_unix_ms = daemon_started_at_unix_ms();
     let event_bus = Arc::new(EventBus::new());
     let (cmd_tx, mut cmd_rx) = mpsc::channel::<ClientCommand>(256);
     let mut registry = SessionRegistry::new();
@@ -31,18 +34,19 @@ pub(crate) async fn run_daemon(config: DaemonConfig) -> anyhow::Result<()> {
 
     let ws_port = maybe_bind_ws(&config, &cmd_tx, &event_bus).await;
 
-    event_bus.broadcast(DaemonEvent::DaemonReady {
-        version: env!("CARGO_PKG_VERSION").to_string(),
-        socket_path: config.socket_path.display().to_string(),
-        ws_port,
-    });
+    event_bus.broadcast(build_ready_event(&config, ws_port, started_at_unix_ms));
     print_daemon_banner(&config, ws_port);
 
     loop {
         tokio::select! {
             Some(client_cmd) = cmd_rx.recv() => {
                 let should_shutdown = handle_command(
-                    client_cmd.command, &config, &mut registry, &event_bus, start,
+                    client_cmd.command,
+                    &config,
+                    &mut registry,
+                    &event_bus,
+                    start,
+                    started_at_unix_ms,
                 ).await;
                 if should_shutdown { break; }
             }
@@ -116,6 +120,7 @@ async fn handle_command(
     registry: &mut SessionRegistry,
     event_bus: &Arc<EventBus>,
     start: Instant,
+    started_at_unix_ms: u64,
 ) -> bool {
     prune_dead_sessions(registry);
     match command {
@@ -166,12 +171,13 @@ async fn handle_command(
             });
         }
         DaemonCommand::GetStatus => {
-            event_bus.broadcast(DaemonEvent::DaemonStatus {
-                version: env!("CARGO_PKG_VERSION").to_string(),
-                active_agents: registry.len(),
-                connected_clients: event_bus.subscriber_count(),
-                uptime_secs: start.elapsed().as_secs_f64(),
-            });
+            event_bus.broadcast(build_status_event(
+                config,
+                registry,
+                event_bus,
+                start,
+                started_at_unix_ms,
+            ));
         }
         DaemonCommand::Shutdown => {
             log_debug("daemon: shutdown requested by client");
@@ -186,6 +192,70 @@ async fn handle_command(
         }
     }
     false
+}
+
+fn build_ready_event(
+    config: &DaemonConfig,
+    ws_port: Option<u16>,
+    started_at_unix_ms: u64,
+) -> DaemonEvent {
+    DaemonEvent::DaemonReady {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        socket_path: config.socket_path.display().to_string(),
+        ws_port,
+        ws_url: websocket_url(ws_port),
+        lifecycle: DaemonLifecycleState::Running,
+        primary_attach: primary_attach_transport(ws_port),
+        pid: std::process::id(),
+        started_at_unix_ms,
+        working_dir: config.working_dir.clone(),
+        memory_mode: config.memory_mode.as_str().to_string(),
+    }
+}
+
+fn build_status_event(
+    config: &DaemonConfig,
+    registry: &SessionRegistry,
+    event_bus: &EventBus,
+    start: Instant,
+    started_at_unix_ms: u64,
+) -> DaemonEvent {
+    let ws_port = config.ws_enabled.then_some(config.ws_port);
+    DaemonEvent::DaemonStatus {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        active_agents: registry.len(),
+        connected_clients: event_bus.subscriber_count(),
+        uptime_secs: start.elapsed().as_secs_f64(),
+        socket_path: config.socket_path.display().to_string(),
+        ws_port,
+        ws_url: websocket_url(ws_port),
+        lifecycle: DaemonLifecycleState::Running,
+        primary_attach: primary_attach_transport(ws_port),
+        pid: std::process::id(),
+        started_at_unix_ms,
+        working_dir: config.working_dir.clone(),
+        memory_mode: config.memory_mode.as_str().to_string(),
+    }
+}
+
+fn daemon_started_at_unix_ms() -> u64 {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    millis.min(u64::MAX as u128) as u64
+}
+
+fn primary_attach_transport(ws_port: Option<u16>) -> DaemonAttachTransport {
+    if ws_port.is_some() {
+        DaemonAttachTransport::WebSocket
+    } else {
+        DaemonAttachTransport::UnixSocket
+    }
+}
+
+fn websocket_url(ws_port: Option<u16>) -> Option<String> {
+    ws_port.map(|port| format!("ws://127.0.0.1:{port}"))
 }
 
 /// Handle the SpawnAgent command with its multi-step lifecycle.

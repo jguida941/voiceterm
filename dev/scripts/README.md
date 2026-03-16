@@ -98,6 +98,9 @@ Most maintainers only need a small set of commands:
 python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py probe-report --format md
 python3 dev/scripts/devctl.py quality-policy --format md
+python3 dev/scripts/devctl.py tandem-validate --format md
+python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md
+python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --verdict "- reviewer accepted" --open-findings "- none" --instruction "- continue" --reviewed-scope-item code_audit.md --terminal none --format md
 python3 dev/scripts/devctl.py launcher-check
 python3 dev/scripts/devctl.py launcher-probes
 python3 dev/scripts/devctl.py launcher-policy
@@ -158,6 +161,27 @@ Portability note:
 - `check-router`, `docs-check`, and `render-surfaces` all accept
   `--quality-policy <path>` so another repo can replace those repo-owned
   contracts without patching command code.
+- `tandem-validate` is the repo-owned tandem-session validator: it resolves the
+  lane and risk add-ons through `check-router`, runs the routed bundle, then
+  re-runs final bridge/tandem guards so Codex/Claude sessions do not rely on a
+  hand-maintained checklist.
+- `review-channel --action reviewer-heartbeat` is the repo-owned liveness write
+  for solo-dev / tools-only / paused tandem states. It updates heartbeat and
+  mode metadata without claiming a new reviewed hash.
+- `review-channel --action reviewer-checkpoint` is the repo-owned review-truth
+  write. Use it only after a real review pass to advance the reviewed hash,
+  verdict, findings, instruction, and reviewed scope together.
+- Keep the mode model simple: `active_dual_agent` means live reviewer/implementer
+  freshness is enforced; `single_agent`, `tools_only`, `paused`, and `offline`
+  keep the same backend and checks but suspend stale dual-agent warnings until
+  the reviewer resumes active mode.
+- Human-facing shorthand is accepted on the CLI without changing the stored
+  contract: `agents` normalizes to `active_dual_agent`, and `developer`
+  normalizes to `single_agent`.
+- When `tandem-validate` is red only because a release-lane CI/network/status
+  check cannot reach an external service, treat that as a local environment
+  blocker rather than a code-quality regression. Keep real CI/release lanes
+  strict; do not silently downgrade those failures in automation.
 - VoiceTerm also ships simple repo-local wrappers for policy-backed launcher
   scanning so vibecoders do not need to memorize policy paths:
   `launcher-check`, `launcher-probes`, and `launcher-policy` all target
@@ -177,6 +201,7 @@ python3 dev/scripts/devctl.py report --pedantic --format md
 python3 dev/scripts/devctl.py report --rust-audits --with-charts --emit-bundle --format md
 python3 dev/scripts/devctl.py report --python-guard-backlog --python-guard-backlog-top-n 15 --format md
 python3 dev/scripts/devctl.py quality-policy --format md
+python3 dev/scripts/devctl.py tandem-validate --format md
 python3 dev/scripts/devctl.py launcher-check
 python3 dev/scripts/devctl.py launcher-probes
 python3 dev/scripts/devctl.py launcher-policy
@@ -566,9 +591,11 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/checks/check_bootstrap.py` | Check bootstrap helper | Shared import-resolution and UTC runtime-error/timestamp helpers used by standalone guard scripts; not invoked directly by bundles. |
 | `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, archive-vs-active doc boundaries for the required active set, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
 | `dev/scripts/checks/check_architecture_surface_sync.py` | Architecture-surface sync guard | Scans newly added files and fails when active-plan docs, new check scripts, new `devctl` commands, new `app/**` surfaces, or new workflow files are not wired into the repo's owning authority docs/bundles/workflow docs. Supports `--since-ref`/`--head-ref` for branch diffs and `--paths` for targeted local verification. |
+| `dev/scripts/checks/check_guide_contract_sync.py` | Durable guide contract sync guard | Verifies repo-policy-owned durable guide/playbook coverage contracts (for example `dev/guides/DEVCTL_AUTOGUIDE.md`) so major control-plane surfaces cannot silently fall out of the operator docs while code keeps moving. |
 | `dev/scripts/checks/check_instruction_surface_sync.py` | Generated-surface sync guard | Verifies policy-owned instruction/starter surfaces still match the current repo-pack templates/context without writing files, so `render-surfaces --write` stays paired with a real enforcement lane in tooling/release validation. |
 | `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` board parity with the merged markdown-swarm tables in `dev/active/review_channel.md` for dynamic `AGENT-<N>` lanes (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
 | `dev/scripts/checks/check_review_channel_bridge.py` | Markdown-bridge contract gate | Verifies the active `code_audit.md` bridge exposes the required bootstrap sections/markers, tracked-file safety, and current poll/hash heartbeat metadata while `dev/active/review_channel.md` still declares the transitional markdown bridge active. |
+| `dev/scripts/checks/check_tandem_consistency.py` | Tandem role-profile consistency gate | Verifies that the tandem review/code loop role-profile seam is consistent across peer-liveness, event-reducer, status-projection, launch, prompt, and handoff modules. |
 | `dev/scripts/checks/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
 | `dev/scripts/checks/check_coderabbit_gate.py` | Workflow release gate helper | Verifies the latest run for a target workflow/branch+commit SHA is successful before release/publish steps proceed (`--workflow` override + optional `--wait-seconds`/`--poll-seconds` for asynchronous gate arrival). |
 | `dev/scripts/checks/check_coderabbit_ralph_gate.py` | CodeRabbit Ralph release gate | Verifies the latest `CodeRabbit Ralph Loop` run is successful for a target branch+commit SHA before release/publish steps proceed. |
@@ -614,6 +641,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/checks/check_rustsec_policy.py` | RustSec policy gate | Enforces advisory thresholds. |
 | `dev/scripts/checks/check_facade_wrappers.py` | Python facade-wrapper non-regression guard | Fails when changed Python files grow facade-heavy modules (files with more than 3 pure-delegation wrappers that just forward all arguments to another function). Tests are excluded; supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_god_class.py` | God-class non-regression guard | Fails when changed Rust or Python files introduce classes/impl blocks with excessive method counts (Python: >20 methods or >10 instance vars, Rust: >20 impl methods). Tests are excluded; `#[cfg(test)]` blocks are stripped for Rust scans; supports `--since-ref/--head-ref` and `--format`. |
+| `dev/scripts/checks/check_platform_contract_sync.py` | Platform-contract sync guard | Fails when the shared `platform-contracts` rows drift from the lifecycle/authority spec dataclasses used by the reusable backend blueprint, so field additions like `shutdown_entrypoints` or `forbidden_actions` cannot land in only one layer. Supports `--format`. |
 | `dev/scripts/checks/check_mobile_relay_protocol.py` | Mobile relay projection contract guard | Fails when the shared mobile relay payload shape drifts across the Rust/controller emitters, Python projection tooling, and iOS consumer contract. Supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_nesting_depth.py` | Nesting-depth non-regression guard | Fails when changed Rust or Python files introduce functions with deeply nested control flow (Python: >4 indent levels, Rust: >5 brace-depth levels). Uses the same function scanners as `check_code_shape.py`; tests are excluded; supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_parameter_count.py` | Parameter-count non-regression guard | Fails when changed Rust or Python files introduce functions with excessive parameter counts (Python: >6 params, Rust: >7 params, excluding `self`/`cls`/`&self`/`&mut self`). Tests are excluded; `#[cfg(test)]` blocks are stripped for Rust scans; supports `--since-ref/--head-ref` and `--format`. |
@@ -666,7 +694,7 @@ Machine-first output note:
   - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; unknown paths escalate to the stricter tooling lane.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold/freshness checker for outcomes (strict by default; use `--report-only` for non-blocking reminders)
-- `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + markdown metadata-header + workflow-shell hygiene + bundle/workflow parity + stale-path audit)
+- `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + markdown metadata-header + workflow-shell hygiene + guide-contract sync + bundle/workflow parity + stale-path audit)
   - Canonical doc sets and deprecated-reference patterns resolve from
     `repo_governance.docs_check` in the active repo policy; use
     `--quality-policy <path>` to point the same command at another repo's
@@ -772,6 +800,7 @@ Machine-first output note:
 | `check --profile fast` | you need a very fast local sanity pass while iterating | alias of `quick`; runs local guard checks (including AI-guard scripts) and is not a substitute for pre-push validation |
 | `check-router --since-ref origin/develop --execute` | before push when changed files span multiple surfaces | auto-selects required lane + risk add-ons and executes the routed command set from `bundle_registry.py` (unknown paths escalate to tooling) |
 | `check-router --since-ref origin/develop --quality-policy /tmp/pilot-policy.json` | you are piloting the governance router in another repo clone | reuses the same lane-selection engine against another repo's policy-owned path/risk rules |
+| `tandem-validate --format md` | a Codex/Claude tandem slice needs one canonical validator instead of a hand-written checklist | runs preflight policy/status, derives the real lane and risk add-ons from `check-router`, executes the routed bundle, then rechecks `check_review_channel_bridge.py` and `check_tandem_consistency.py` at the end |
 | `check --profile ci` | before a normal push | catches build/test/lint issues early |
 | `check --profile prepush` | runtime changes touch perf/latency/parser/wake-word/memory-sensitive paths | adds perf + memory-heavy validation before CI catches it |
 | `check --profile maintainer-lint` | you are doing focused lint/debt cleanup | runs stricter maintainer lint policy without full runtime build/test loop |
@@ -790,7 +819,7 @@ Machine-first output note:
 | `launcher-probes` | you want one ranked review packet for launcher/package Python entrypoints | delegates to `probe-report` with the same focused launcher policy and normal probe artifacts |
 | `launcher-policy` | you want to inspect what the focused launcher lane actually enables | renders the resolved launcher policy, scopes, and warnings without spelling out `--quality-policy` |
 | `docs-check --user-facing` | you changed user docs or user behavior | keeps docs and behavior aligned |
-| `docs-check --strict-tooling` | you changed tooling, workflows, or process docs | enforces governance and active-plan sync |
+| `docs-check --strict-tooling` | you changed tooling, workflows, or process docs | enforces governance, active-plan sync, and durable guide coverage contracts |
 | `docs-check --strict-tooling --quality-policy /tmp/pilot-policy.json` | you want the same docs-governance contract in another repo without patching devctl | resolves canonical doc paths and deprecated-command policy from the supplied repo policy file |
 | `render-surfaces --format md` | you need to inspect repo-pack instruction/starter surfaces or validate drift without writing files | resolves `repo_governance.surface_generation` and reports current sync state for each governed surface |
 | `render-surfaces --write --format md` | you changed a repo-pack template, starter stub, or surface-generation policy context | regenerates the governed outputs in place so `docs-check --strict-tooling` and the standalone guard stay green |

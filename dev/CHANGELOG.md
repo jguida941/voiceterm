@@ -36,6 +36,16 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### Tooling
 
+- Add `runtime/role_profile.py` with `TandemRole`, `RoleProfile`,
+  `TandemProfile`, and `role_for_provider()` as the provider-agnostic contract
+  for the review/code tandem loop.
+- Add `check_tandem_consistency.py` guard validating role-profile seam
+  alignment across peer-liveness, event-reducer, status-projection, launch,
+  prompt, and handoff modules. Wired into `bundle.tooling`, CI workflows, and
+  quality-policy presets.
+- Wire cursor agent entry into event-reducer `_build_agents` and
+  status-projection bridge review-state so the 3-agent roster becomes 4.
+- Add `pending_cursor` field to `ReviewQueueState` and queue output.
 - Modularize `mutants.py` (730-line monolith) into five focused modules:
   `mutants_config.py` (module registry, shard parsing), `mutants_git.py`
   (git-diff-based file targeting), `mutants_runner.py` (cargo-mutants

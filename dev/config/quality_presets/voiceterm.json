@@ -8,7 +8,10 @@
     "ide_provider_isolation",
     "compat_matrix",
     "compat_matrix_smoke",
-    "naming_consistency"
+    "naming_consistency",
+    "platform_layer_boundaries",
+    "platform_contract_sync",
+    "tandem_consistency"
   ],
   "guard_configs": {
     "package_layout": {
@@ -135,6 +138,9 @@
           "max_files": 40,
           "enforcement_mode": "freeze",
           "recommended_subdir": "package_layout",
+          "shim_contains_all": [
+            "dev/scripts/checks/"
+          ],
           "shim_max_nonblank_lines": 6,
           "shim_required_metadata_fields": [
             "owner",
@@ -170,6 +176,39 @@
           "max_files": 72,
           "enforcement_mode": "freeze",
           "guidance": "Mirror `devctl` package topology in tests once the flat test root is crowded. New tests should land under topic-aligned test packages instead of the root test directory."
+        }
+      ]
+    },
+    "platform_layer_boundaries": {
+      "rules": [
+        {
+          "rule_id": "operator_console_frontend_no_devctl_orchestration",
+          "include_globs": [
+            "app/operator_console/*.py",
+            "app/operator_console/**/*.py"
+          ],
+          "exclude_globs": [
+            "app/operator_console/tests/**"
+          ],
+          "forbidden_import_prefixes": [
+            "dev.scripts.devctl.commands",
+            "dev.scripts.devctl.review_channel",
+            "dev.scripts.devctl.config",
+            "dev.scripts.checks"
+          ],
+          "guidance": "Operator Console must consume stable runtime/snapshot contracts, not devctl command handlers, review-channel orchestrators, or raw guard entrypoints."
+        },
+        {
+          "rule_id": "review_channel_backend_no_surface_imports",
+          "include_globs": [
+            "dev/scripts/devctl/review_channel/*.py",
+            "dev/scripts/devctl/review_channel/**/*.py"
+          ],
+          "forbidden_import_prefixes": [
+            "app.operator_console",
+            "app.ios"
+          ],
+          "guidance": "Review-channel backend code must not import UI/mobile surface layers; keep surfaces as clients of shared backend truth."
         }
       ]
     },

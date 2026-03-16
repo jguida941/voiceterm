@@ -46,6 +46,56 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-15 - Durable guide-contract sync added to docs governance
+
+Fact: `docs-check --strict-tooling` and the shared tooling/release governance
+lanes now enforce repo-policy-owned durable guide coverage through the new
+`check_guide_contract_sync.py` guard instead of relying only on touched-doc
+presence and generated-surface sync. `dev/config/devctl_repo_policy.json` now
+defines `guide_contract_rules` for `dev/guides/DEVCTL_AUTOGUIDE.md`, and the
+guide gained a `System Coverage Map` section that keeps
+policy/contract/governance, launcher, mutation/compatibility, and
+queue/device/recovery command surfaces visible in one operator playbook. A
+follow-up hardening pass moved the contract beyond whole-file substring checks:
+the rule now supports section-scoped coverage requirements so the `System
+Coverage Map` itself must keep the shared runtime/operator surfaces visible
+(`render-surfaces`, `review-channel`, `tandem-validate`,
+`reviewer-heartbeat`, `reviewer-checkpoint`, `swarm_run`, `mobile-status`,
+`phone-status`, `controller-action`, `orchestrate-*`, `integrations-*`,
+`mcp`) instead of letting those disappear while the same tokens survive
+elsewhere in the file.
+
+Evidence:
+
+- `dev/scripts/checks/check_guide_contract_sync.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/guides/DEVCTL_AUTOGUIDE.md`
+- `dev/scripts/devctl/commands/docs_check.py`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+### 2026-03-15 - MP-358 tandem-consistency guard and role-profile seam
+
+Fact: `runtime/role_profile.py` introduces `TandemRole`, `RoleProfile`,
+`TandemProfile`, and `role_for_provider()` as the provider-agnostic contract
+for the review/code tandem loop. Hardcoded provider-name checks in
+peer-liveness, event-reducer, status-projection, launch, prompt, and handoff
+modules now route through this shared role seam. A new
+`check_tandem_consistency.py` guard validates alignment across all six modules,
+wired into `bundle.tooling`, both CI workflows, and the quality-policy preset.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/role_profile.py`
+- `dev/scripts/checks/check_tandem_consistency.py`
+- `dev/scripts/checks/tandem_consistency/`
+- `dev/scripts/devctl/review_channel/peer_liveness.py`
+- `dev/scripts/devctl/review_channel/event_reducer.py`
+- `dev/scripts/devctl/review_channel/status_projection.py`
+- `dev/scripts/devctl/review_channel/launch.py`
+- `dev/scripts/devctl/review_channel/prompt.py`
+- `dev/scripts/devctl/review_channel/handoff.py`
+
 ### 2026-03-15 - MP-358 tandem-loop promotion/sync/liveness contract hardened
 
 Fact: the continuous Codex/Claude review loop now has concrete tool-owned

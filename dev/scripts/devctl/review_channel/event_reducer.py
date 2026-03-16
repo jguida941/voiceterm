@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from ..common import display_path
+from ..runtime.role_profile import role_for_provider
 from .core import load_text, parse_lane_assignments
 from .context_refs import normalize_context_pack_refs
+from .event_models import ReviewAgentRow, ReviewChannelEventBundle, ReviewPacketRow
 from .event_store import (
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
@@ -20,23 +21,26 @@ from .event_store import (
     write_legacy_projection_mirror,
 )
 from .state import (
-    ReviewChannelProjectionPaths,
     build_agent_registry_from_lanes,
     project_id_for_repo,
     write_projection_bundle,
 )
 from ..time_utils import utc_timestamp
 
+_ROLE_JOB_STATE: dict[str, str] = {
+    "reviewer": "reviewing",
+    "implementer": "implementing",
+    "operator": "waiting",
+}
 
-@dataclass(frozen=True)
-class ReviewChannelEventBundle:
-    """One reduced view of the current event-backed review state."""
 
-    artifact_paths: ReviewChannelArtifactPaths
-    projection_paths: ReviewChannelProjectionPaths
-    review_state: dict[str, object]
-    agent_registry: dict[str, object]
-    events: list[dict[str, object]]
+def _agent_capabilities(agent_id: str) -> list[str]:
+    """Return the declared capabilities for a known agent provider."""
+    if agent_id == "codex":
+        return ["review", "planning", "coordination"]
+    if agent_id == "operator":
+        return ["approval", "dispatch", "triage"]
+    return ["implementation", "fixes", "handoff"]
 
 
 def load_or_refresh_event_bundle(
@@ -61,7 +65,10 @@ def load_or_refresh_event_bundle(
     try:
         review_state = json.loads(state_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid review-channel state JSON: {exc}") from exc
+        raise ValueError(
+            "Invalid review-channel state JSON at "
+            f"{display_path(state_path, repo_root=repo_root)}: {exc}"
+        ) from exc
     if not isinstance(review_state, dict):
         raise ValueError("Invalid review-channel state JSON: expected top-level object")
     agent_registry = load_agent_registry(Path(artifact_paths.projections_root))
@@ -122,6 +129,16 @@ def refresh_event_bundle(
     )
 
 
+def _build_queue_summary(
+    pending_counts: dict[str, int], stale_packet_count: int
+) -> dict[str, object]:
+    summary: dict[str, object] = {"pending_total": sum(pending_counts.values())}
+    for provider, count in pending_counts.items():
+        summary[f"pending_{provider}"] = count
+    summary["stale_packet_count"] = stale_packet_count
+    return summary
+
+
 def reduce_events(
     *,
     events: list[dict[str, object]],
@@ -130,14 +147,14 @@ def reduce_events(
     lanes: list | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Reduce the append-only event log into the latest packet/state snapshot."""
-    packets_by_id: dict[str, dict[str, object]] = {}
+    packets_by_id: dict[str, ReviewPacketRow] = {}
     warnings: list[str] = []
     errors: list[str] = []
     latest_timestamp = utc_timestamp()
     latest_session_id = DEFAULT_REVIEW_CHANNEL_SESSION_ID
     latest_plan_id = DEFAULT_REVIEW_CHANNEL_PLAN_ID
     latest_controller_run_id = None
-    provider_state = {"codex": {}, "claude": {}, "operator": {}}
+    provider_state = {"codex": {}, "claude": {}, "cursor": {}, "operator": {}}
     for event in events:
         packet_id = str(event.get("packet_id") or "").strip()
         if not packet_id:
@@ -198,13 +215,7 @@ def reduce_events(
         },
         "agents": _build_agents(packet_rows, latest_timestamp),
         "packets": packet_rows,
-        "queue": {
-            "pending_total": sum(pending_counts.values()),
-            "pending_codex": pending_counts["codex"],
-            "pending_claude": pending_counts["claude"],
-            "pending_operator": pending_counts["operator"],
-            "stale_packet_count": stale_packet_count,
-        },
+        "queue": _build_queue_summary(pending_counts, stale_packet_count),
         "warnings": warnings,
         "errors": errors,
     }
@@ -290,12 +301,12 @@ def _record_provider_packet_state(
 
 
 def _summarize_packets(
-    packets_by_id: dict[str, dict[str, object]],
+    packets_by_id: dict[str, ReviewPacketRow],
 ) -> tuple[list[dict[str, object]], dict[str, int], int]:
     now_utc = datetime.now(timezone.utc)
     stale_packet_count = 0
     packet_rows: list[dict[str, object]] = []
-    pending_counts = {"codex": 0, "claude": 0, "operator": 0}
+    pending_counts = {"codex": 0, "claude": 0, "cursor": 0, "operator": 0}
     for packet in sorted(
         packets_by_id.values(),
         key=lambda item: str(item.get("_sort_timestamp") or ""),
@@ -318,32 +329,28 @@ def _hydrate_provider_job_state(
     provider_state: dict[str, dict[str, object]],
     pending_counts: dict[str, int],
 ) -> None:
-    provider_state["codex"].setdefault(
-        "job_state",
-        "reviewing" if pending_counts["codex"] else "assigned",
-    )
-    provider_state["claude"].setdefault(
-        "job_state",
-        "implementing" if pending_counts["claude"] else "assigned",
-    )
-    provider_state["operator"].setdefault(
-        "job_state",
-        "waiting" if pending_counts["operator"] else "assigned",
-    )
+    for provider in provider_state:
+        role = role_for_provider(provider)
+        active_label = _ROLE_JOB_STATE.get(role.value, "waiting")
+        provider_state[provider].setdefault(
+            "job_state",
+            active_label if pending_counts.get(provider, 0) else "assigned",
+        )
     for provider, count in pending_counts.items():
-        if count:
+        if count and provider in provider_state:
             provider_state[provider]["waiting_on"] = provider
 
 
 def _build_agents(
     packets: list[dict[str, object]],
     latest_timestamp: str,
-) -> list[dict[str, object]]:
+) -> list[ReviewAgentRow]:
     pending_targets = {
         str(packet.get("to_agent") or "").strip()
         for packet in packets
         if packet.get("status") == "pending"
     }
+    agent_ids = ("codex", "claude", "cursor", "operator")
     latest_packet_by_target = {
         agent_id: next(
             (
@@ -354,33 +361,18 @@ def _build_agents(
             ),
             None,
         )
-        for agent_id in ("codex", "claude", "operator")
+        for agent_id in agent_ids
     }
     return [
         _agent_row(
-            agent_id="codex",
-            display_name="Codex",
-            role="reviewer",
-            pending=bool("codex" in pending_targets),
-            latest_packet=latest_packet_by_target["codex"],
+            agent_id=agent_id,
+            display_name=agent_id.title(),
+            role=str(role_for_provider(agent_id)),
+            pending=bool(agent_id in pending_targets),
+            latest_packet=latest_packet_by_target[agent_id],
             latest_timestamp=latest_timestamp,
-        ),
-        _agent_row(
-            agent_id="claude",
-            display_name="Claude",
-            role="implementer",
-            pending=bool("claude" in pending_targets),
-            latest_packet=latest_packet_by_target["claude"],
-            latest_timestamp=latest_timestamp,
-        ),
-        _agent_row(
-            agent_id="operator",
-            display_name="Operator",
-            role="approver",
-            pending=bool("operator" in pending_targets),
-            latest_packet=latest_packet_by_target["operator"],
-            latest_timestamp=latest_timestamp,
-        ),
+        )
+        for agent_id in agent_ids
     ]
 
 
@@ -390,73 +382,67 @@ def _agent_row(
     display_name: str,
     role: str,
     pending: bool,
-    latest_packet: dict[str, object] | None,
+    latest_packet: ReviewPacketRow | dict[str, object] | None,
     latest_timestamp: str,
-) -> dict[str, object]:
-    if agent_id == "codex" and pending:
-        job_status = "reviewing"
-    elif agent_id == "claude" and pending:
-        job_status = "implementing"
-    elif pending:
-        job_status = "waiting"
+) -> ReviewAgentRow:
+    role_label = str(role_for_provider(agent_id))
+    active_label = _ROLE_JOB_STATE.get(role_label, "waiting")
+    if pending:
+        job_status = active_label
     elif latest_packet is not None:
         job_status = "done"
     else:
         job_status = "waiting"
-    return {
-        "agent_id": agent_id,
-        "display_name": display_name,
-        "role": role,
-        "status": "active" if pending else "idle",
-        "capabilities": {
-            "codex": ["review", "planning", "coordination"],
-            "claude": ["implementation", "fixes", "handoff"],
-            "operator": ["approval", "dispatch", "triage"],
-        }[agent_id],
-        "lane": agent_id,
-        "last_seen_utc": latest_timestamp if latest_packet is not None else None,
-        "assigned_job": latest_packet.get("summary") if latest_packet else None,
-        "job_status": job_status,
-        "waiting_on": (
+    return ReviewAgentRow(
+        agent_id=agent_id,
+        display_name=display_name,
+        role=role,
+        status="active" if pending else "idle",
+        capabilities=_agent_capabilities(agent_id),
+        lane=agent_id,
+        last_seen_utc=latest_timestamp if latest_packet is not None else None,
+        assigned_job=latest_packet.get("summary") if latest_packet else None,
+        job_status=job_status,
+        waiting_on=(
             latest_packet.get("from_agent")
             if latest_packet is not None and latest_packet.get("to_agent") == agent_id
             else None
         ),
-        "last_packet_id_seen": latest_packet.get("packet_id") if latest_packet else None,
-        "last_packet_id_applied": (
+        last_packet_id_seen=latest_packet.get("packet_id") if latest_packet else None,
+        last_packet_id_applied=(
             latest_packet.get("packet_id")
             if latest_packet is not None and latest_packet.get("status") == "applied"
             else None
         ),
-        "script_profile": "review-channel-event",
-    }
+        script_profile="review-channel-event",
+    )
 
 
-def _packet_from_event(event: dict[str, object]) -> dict[str, object]:
-    return {
-        "packet_id": event.get("packet_id"),
-        "trace_id": event.get("trace_id"),
-        "latest_event_id": event.get("event_id"),
-        "from_agent": event.get("from_agent"),
-        "to_agent": event.get("to_agent"),
-        "kind": event.get("kind"),
-        "summary": event.get("summary"),
-        "body": event.get("body"),
-        "evidence_refs": list(event.get("evidence_refs") or []),
-        "context_pack_refs": normalize_context_pack_refs(
+def _packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
+    return ReviewPacketRow(
+        packet_id=event.get("packet_id"),
+        trace_id=event.get("trace_id"),
+        latest_event_id=event.get("event_id"),
+        from_agent=event.get("from_agent"),
+        to_agent=event.get("to_agent"),
+        kind=event.get("kind"),
+        summary=event.get("summary"),
+        body=event.get("body"),
+        evidence_refs=list(event.get("evidence_refs") or []),
+        context_pack_refs=normalize_context_pack_refs(
             event.get("context_pack_refs")
         ),
-        "confidence": float(event.get("confidence") or 0.0),
-        "requested_action": event.get("requested_action"),
-        "policy_hint": event.get("policy_hint"),
-        "approval_required": bool(event.get("approval_required")),
-        "status": event.get("status"),
-        "acked_by": None,
-        "acked_at_utc": None,
-        "applied_at_utc": None,
-        "expires_at_utc": event.get("expires_at_utc"),
-        "_sort_timestamp": event.get("timestamp_utc"),
-    }
+        confidence=float(event.get("confidence") or 0.0),
+        requested_action=event.get("requested_action"),
+        policy_hint=event.get("policy_hint"),
+        approval_required=bool(event.get("approval_required")),
+        status=event.get("status"),
+        acked_by=None,
+        acked_at_utc=None,
+        applied_at_utc=None,
+        expires_at_utc=event.get("expires_at_utc"),
+        _sort_timestamp=event.get("timestamp_utc"),
+    )
 
 
 def _apply_transition(

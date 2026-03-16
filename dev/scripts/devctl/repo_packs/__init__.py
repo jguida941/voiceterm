@@ -1,4 +1,9 @@
-"""Repo-pack owned VoiceTerm metadata and thin read-only helpers."""
+"""Repo-pack owned metadata, path resolution, and thin read-only helpers."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from functools import lru_cache
 
 from .review_helpers import MobileReviewStateResult, load_mobile_review_state
 from .voiceterm import (
@@ -19,7 +24,40 @@ from .voiceterm import (
     workflow_preset_definitions,
 )
 
+
+@dataclass(slots=True)
+class _ActivePathConfigState:
+    """Tiny state holder for the active repo-pack override."""
+
+    config: RepoPathConfig | None = None
+
+
+@lru_cache(maxsize=1)
+def _active_path_config_state() -> _ActivePathConfigState:
+    """Return the repo-local override state for the active path config."""
+    return _ActivePathConfigState()
+
+
+def active_path_config() -> RepoPathConfig:
+    """Return the active repo-pack path configuration.
+
+    Defaults to the VoiceTerm config. Other repos override by calling
+    ``set_active_path_config()`` during bootstrap.
+    """
+    override = _active_path_config_state().config
+    if override is not None:
+        return override
+    return VOICETERM_PATH_CONFIG
+
+
+def set_active_path_config(config: RepoPathConfig) -> None:
+    """Override the active repo-pack path configuration."""
+    _active_path_config_state().config = config
+
+
 __all__ = [
+    "active_path_config",
+    "set_active_path_config",
     "DEFAULT_BRIDGE_REL",
     "DEFAULT_MOBILE_STATUS_REL",
     "DEFAULT_PHONE_STATUS_REL",

@@ -39,10 +39,10 @@ from .quality_policy_values import (
     coerce_guard_configs,
     coerce_overrides,
 )
-from .repo_packs.voiceterm import VOICETERM_PATH_CONFIG
+from .repo_packs import active_path_config
 
 # Backward-compat alias sourced from repo-pack config
-DEFAULT_POLICY_RELATIVE_PATH = VOICETERM_PATH_CONFIG.repo_policy_rel
+DEFAULT_POLICY_RELATIVE_PATH = active_path_config().repo_policy_rel
 DEFAULT_AI_GUARD_CHECKS = _DEFAULT_AI_GUARD_CHECKS
 DEFAULT_REVIEW_PROBE_CHECKS = _DEFAULT_REVIEW_PROBE_CHECKS
 QUALITY_POLICY_ENV_VAR = _QUALITY_POLICY_ENV_VAR

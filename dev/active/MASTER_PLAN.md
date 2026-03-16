@@ -11,8 +11,10 @@
 - `dev/active/loop_chat_bridge.md` is the loop artifact-to-chat suggestion coordination runbook; execution evidence and operator handoffs for this path stay there under `MP-338`.
 - `dev/active/naming_api_cohesion.md` is the naming/API cohesion execution spec; implementation tasks stay in this file under `MP-267`.
 - `dev/active/ide_provider_modularization.md` is the IDE/provider adapter modularization execution spec; implementation tasks stay in this file under `MP-346`, `MP-354`.
-- `dev/active/review_channel.md` now carries the merged markdown-swarm lane plan,
-  instruction log, and signoff template for the current Codex/Claude parallel cycle.
+- `dev/active/review_channel.md` now carries the reusable review/runtime
+  contract slice for MP-355 plus the temporary markdown-swarm operating mode
+  used by the current Codex/Claude cycle; implementation tasks stay in that
+  file under MP-355 and must preserve the broader shared-backend boundary.
 - `dev/active/ralph_guardrail_control_plane.md` is the Ralph guardrail control plane execution spec; implementation tasks stay in this file under `MP-360..MP-367`.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
@@ -1462,6 +1464,11 @@ become the main product surface.
   shaping routed through Memory adapter profiles instead of a review-only pack
   format. Current
   transitional operating mode uses repo-root `code_audit.md` as a sanctioned
+  temporary projection for the current Codex/Claude swarm, but MP-355 itself
+  remains a reusable review/runtime contract slice over the shared backend
+  rather than the product boundary.
+  Current
+  transitional operating mode uses repo-root `code_audit.md` as a sanctioned
   coordination-log projection with explicit ownership, poll cadence, current-
   state fields, and `check_review_channel_bridge.py` governance until the
   structured artifact path lands, and the final artifact model must remain
@@ -1549,7 +1556,12 @@ become the main product surface.
   living only in warning prose. A same-slice cleanup follow-up extracted that
   attention/launch behavior into `attention.py`, `status_projection.py`, and
   `terminal_app.py` so the live-launch honesty path stays inside the repo's
-  shape budget while keeping one typed liveness contract. Execution spec:
+  shape budget while keeping one typed liveness contract. The next MP-358
+  follow-up is now explicit too: the newer `implementer_completion_stall`
+  tandem guard must graduate into shared review-channel attention/runtime
+  state so the same "Claude parked on review/polling" signal is visible to
+  VoiceTerm, PyQt6, phone/mobile, CLI, and generated instruction surfaces
+  instead of living only in prompt text plus an on-demand validator. Execution spec:
   `dev/active/review_channel.md`.
 - [ ] MP-356 Tighten host-process hygiene automation so local AI/dev runs stop
   relying on manual Activity Monitor checks: add a dedicated host-side
@@ -1638,7 +1650,24 @@ become the main product surface.
   consume without re-deriving the condition ad hoc. The same follow-up now also
   drives Codex/operator lane health plus session stats in the default desktop
   workbench, so the local proof surface goes visibly stale instead of hiding
-  the failure only in warnings. Execution spec:
+  the failure only in warnings. 2026-03-15 tandem-consistency guard landed:
+  `check_tandem_consistency.py` validates role-profile seam alignment across
+  peer-liveness, event-reducer, status-projection, launch, prompt, and handoff
+  modules; wired into bundle.tooling, CI workflows, and quality-policy presets.
+  A second 2026-03-15 anti-stall hardening pass now blocks the next real loop
+  failure shape too: `implementer_completion_stall` fails when Claude-owned
+  status/ack text parks on "instruction unchanged / continuing to poll /
+  Codex should review" while the current instruction is still active and not in
+  an explicit reviewer-owned wait state, and the bridge writer/guard now scrub
+  + reject contradictory reviewer-mode prose in `Poll Status`.
+  The next closure slice is now explicit too: keep one backend for developers
+  and agents, treat this loop as one local proof harness over the broader
+  shared backend instead of the product boundary itself, and make future loop
+  work remove or narrow VoiceTerm-embedded assumptions rather than deepening
+  them.
+  and agents, add a repo-owned inactive-mode liveness emitter, and expose only
+  thin mode toggles/aliases (`agents` / `developer`) over that same contract
+  instead of a separate dev-only control plane. Execution spec:
   `dev/active/continuous_swarm.md`.
 - [ ] MP-359 Deliver a bounded optional PyQt6 VoiceTerm Operator Console for
   the current review-channel workflow: keep Rust as the PTY/runtime owner,
@@ -2136,7 +2165,107 @@ become the main product surface.
   pattern-mining plus future-language-extension strategy. Do not treat this
   scope as complete when the repo is merely split or packaged; closure requires
   architecture boundary proof, pipeline parity, telemetry trust, replayable
-  evidence quality, and cross-repo adoption evidence together.
+  evidence quality, and cross-repo adoption evidence together. Current explicit
+  follow-up: make typed JSON runtime state the live authority over markdown/UI
+  projections, generate agent/developer startup surfaces from the same repo-pack
+  policy, prove the same-context/same-check-path flow across Codex, Claude,
+  `active_dual_agent`, `single_agent`, and `tools_only`, separate collaboration
+  mode from objective profiles like `bootstrap` / `audit` / `refactor` /
+  `review` / `remediation`, define the standalone platform-repo plus VoiceTerm
+  back-import proof path, freeze the typed queue/action contract, and keep
+  local tandem validation honest about
+  external CI/network/environment failures versus real code-quality
+  regressions. Keep the whole system in scope here: governance core, runtime,
+  adapters, frontends, repo packs, and VoiceTerm as a consumer plus first-party
+  local operator shell. VoiceTerm may be the preferred main app and local host
+  path, but the backend must remain callable without VoiceTerm by CLI, PyQt6,
+  phone/mobile, skills/hooks, automation loops, and external repos. VoiceTerm
+  should also be able to drive the full platform action surface through that
+  same backend path: guards, probes, quality/reporting, bootstrap/export,
+  review-channel actions, remediation loops, and generated instruction/skills
+  surfaces. Remaining missing-proof items now explicitly include: local
+  service lifecycle/attach semantics, a portable contract-sync guard for that
+  lifecycle/authority surface, caller authority + approval matrix, and golden
+  cross-client parity fixtures over the same backend snapshots. This scope
+  also owns durable operator-guide coverage as a first-class contract:
+  maintain system-level guide/playbook surfaces (`DEVCTL_AUTOGUIDE`,
+  starter instructions, generated local instructions) through repo-policy
+  contracts and guard-backed sync rather than human memory alone. This scope
+  also keeps the existing `package_layout` engine as the self-hosting
+  organization seam rather than inventing a second crowding guard: the next
+  platform follow-up is to generalize those layout/family rules beyond the
+  current Python-biased/freeze-mode coverage so the same modular organization
+  contract can govern Rust/workflow/docs families too.
+  This scope
+  also treats "why didn't the tools catch this?" as an execution rule:
+  when a real issue slips through, the follow-up must decide whether the miss
+  belongs in an existing reusable guard/probe/contract or a new low-noise
+  modular enforcement path instead of stopping at a one-off patch.
+  The same scope also owns operator-visible loop observability as a product
+  requirement rather than a chat habit: reviewer/coder heartbeat, findings,
+  next action, and stale/healthy state must publish automatically through the
+  shared backend so chat, CLI, PyQt6, phone/mobile, and overlay users can see
+  progress without reopening markdown bridges or manually prompting the loop.
+  `MP-340`,
+  `MP-355`,
+  `MP-358`, and `MP-359` are subordinate implementation lanes inside this
+  boundary, not alternate product architectures. Immediate separation-first
+  queue: remove direct `repo_packs.voiceterm` imports from portable/runtime
+  layers, stop frontend imports of repo-internal `devctl` modules and bridge
+  files, move typed JSON/runtime state to live authority over `code_audit.md`
+  while keeping markdown as an optional backend-fed mode/projection, freeze
+  the VoiceTerm operator-shell boundary over the same backend used by
+  CLI/PyQt6/phone, add one simple backend-owned agent lifecycle
+  `ensure/start/resume/stop` surface for all clients, and push remaining
+  VoiceTerm-only env/log/process defaults into adopter-layer wiring. Keep
+  landing new loop/control-plane capability behind reusable seams while this
+  extraction work is active; do not keep widening the VoiceTerm-embedded shape
+  and defer separation to a later cleanup pass.
+  Completion proof now explicitly includes collaboration-mode parity: the same
+  system must work for `Codex+Claude`, `human+Claude`, and `human+tools-only`
+  operation with one backend truth, the same routed checks, and the same
+  operator-visible progress semantics across chat/CLI/PyQt6/phone/overlay.
+  Naming/abstraction proof is now explicit too: keep the backend command/action
+  inventory complete and stable, then project simpler user-facing aliases,
+  skills, slash commands, and client buttons grouped by user goal (`inspect`,
+  `review`, `fix`, `run`, `control`, `adopt`, `publish`, `maintain`) so the
+  system stays understandable without hiding major architecture surfaces like
+  review packets, control-plane loops, operator/device controls, portability,
+  release/reporting flows, and whole-system maintenance/cleanup. Those
+  user-facing wrappers should be repo-pack/policy configurable so developers
+  and agent adopters can tune names/defaults without patching the portable
+  core. The first concrete lifecycle/control-plane follow-up is now the shared
+  `review-channel ensure/watch` slice so reviewer heartbeat/update publishing
+  and mode-aware liveness move into the backend instead of remaining chat/MD
+  habits. The first publisher step in that slice now exists as
+  `review-channel ensure --follow`, which advances reviewer heartbeat on
+  cadence and emits structured status frames, but controller-owned supervision
+  and auto-start lifecycle still remain open. The newer
+  `--start-publisher-if-missing` seam is real progress, but active dual-agent
+  mode still false-greens when the publisher is missing because that lifecycle
+  state is not yet part of the shared attention/runtime truth. The recent
+  5-hour Claude wait also proved the same controller path still lacks timeout
+  budgets, overdue escalation, and clean stop/cleanup semantics, so those are
+  now part of the same lifecycle contract instead of future operator polish.
+  The bounded M55 truth slice is now accepted, and the bounded M63 timeout/
+  escalation slice is accepted too: the shared reviewer/coder loop now emits
+  machine-readable `reviewer_overdue` attention with a configurable threshold.
+  The next controller follow-up is `M64`, the first clean stop/shutdown
+  contract for follow-backed controller runs. The next
+  same-scope platform
+  contracts also need to freeze
+  repo/worktree-scoped service identity, backend attach/auth semantics, the
+  daemon-event to runtime-state reducer, and the retirement path for
+  VoiceTerm-local action brokerage so the "one backend" claim becomes
+  executable rather than aspirational. Preferred end-state is now explicit too:
+  VoiceTerm should host/supervise that shared daemon/controller stack as the
+  best local shell when present, but the same backend must remain directly
+  attachable by CLI, PyQt6, phone/mobile, and skills/hooks without hidden
+  VoiceTerm-only orchestration. The existing VoiceTerm daemon/session transport
+  is necessary, but it is not yet the controller loop: PTY/session attach and
+  terminal packet staging do not by themselves satisfy reviewer heartbeat,
+  agent lifecycle `ensure/watch`, queue/action routing, or shared
+  review/control-state publishing.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 
@@ -2151,11 +2280,14 @@ Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..36
 5. Keep desktop GUI clients non-canonical; allow only thin optional wrappers
    over Rust surfaces (`--dev`, future shared-screen review UI),
    `phone-status`, `controller-action`, and `devctl` APIs.
-6. Add guarded operator actions (`dispatch-report-only`, `pause`, `resume`, `refresh`) with full audit logging.
-7. Add reviewer-agent packet ingestion lane so loop-review feedback is machine-consumable, not manual copy/paste.
-8. Add charted KPI trend surfaces (loop throughput, unresolved trend, mutation trend, automation-vs-AI mix) for architect decisions.
-9. Add deterministic learning loop (`fingerprint -> playbook -> confidence -> guarded promote/decay`) with explicit evidence.
-10. Promote staged write controls and any true shared-session mode only after replay protection + branch-protection-aware promotion guards are verified.
+6. Freeze a typed queue/action path (`plan item`/packet/operator intent ->
+   queue record -> typed action -> adapter/runtime handler -> receipt/state)
+   so VoiceTerm stages and renders actions without becoming a second backend.
+7. Add guarded operator actions (`dispatch-report-only`, `pause`, `resume`, `refresh`) with full audit logging.
+8. Add reviewer-agent packet ingestion lane so loop-review feedback is machine-consumable, not manual copy/paste.
+9. Add charted KPI trend surfaces (loop throughput, unresolved trend, mutation trend, automation-vs-AI mix) for architect decisions.
+10. Add deterministic learning loop (`fingerprint -> playbook -> confidence -> guarded promote/decay`) with explicit evidence.
+11. Promote staged write controls and any true shared-session mode only after replay protection + branch-protection-aware promotion guards are verified.
 
 ## Deferred Plans
 

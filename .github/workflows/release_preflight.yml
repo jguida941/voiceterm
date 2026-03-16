@@ -185,9 +185,13 @@ jobs:
           python3 dev/scripts/checks/check_guard_enforcement_inventory.py
           python3 dev/scripts/checks/check_architecture_surface_sync.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
           python3 dev/scripts/checks/check_instruction_surface_sync.py
+          python3 dev/scripts/checks/check_guide_contract_sync.py
           python3 dev/scripts/checks/check_bundle_registry_dry.py
           python3 dev/scripts/checks/check_bundle_workflow_parity.py
+          python3 dev/scripts/checks/check_platform_layer_boundaries.py
+          python3 dev/scripts/checks/check_platform_contract_sync.py
           python3 dev/scripts/checks/check_review_channel_bridge.py
+          python3 dev/scripts/checks/check_tandem_consistency.py
           python3 dev/scripts/checks/check_publication_sync.py
           CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
           CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master

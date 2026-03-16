@@ -90,6 +90,7 @@ MARKDOWN_METADATA_HEADER_SCRIPT_REL = check_script_relative_path(
 WORKFLOW_SHELL_HYGIENE_SCRIPT_REL = check_script_relative_path("workflow_shell_hygiene")
 BUNDLE_WORKFLOW_PARITY_SCRIPT_REL = check_script_relative_path("bundle_workflow_parity")
 AGENTS_BUNDLE_RENDER_SCRIPT_REL = check_script_relative_path("agents_bundle_render")
+GUIDE_CONTRACT_SYNC_SCRIPT_REL = check_script_relative_path("guide_contract_sync")
 INSTRUCTION_SURFACE_SYNC_SCRIPT_REL = check_script_relative_path(
     "instruction_surface_sync"
 )

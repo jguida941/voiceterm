@@ -15,6 +15,7 @@ BRIDGE_METADATA_PATTERNS = {
     "last_codex_poll_local": re.compile(
         r"^- Last Codex poll \(Local America/New_York\):\s*`(?P<value>.+?)`\s*$"
     ),
+    "reviewer_mode": re.compile(r"^- Reviewer mode:\s*`(?P<value>.+?)`\s*$"),
     "last_non_audit_worktree_hash": re.compile(
         r"^- Last non-audit worktree hash:\s*`(?P<value>.+?)`\s*$"
     ),
@@ -29,6 +30,11 @@ TRACKED_BRIDGE_SECTIONS = (
     "Claude Ack",
     "Last Reviewed Scope",
 )
+# Rollover ACK contract: only providers that own bridge sections participate.
+# Cursor is intentionally excluded because it does not own a dedicated bridge
+# section (no "Cursor Status" / "Cursor Ack" in code_audit.md). Cursor lanes
+# are present in the event-backed queue, projection roster, and runtime state,
+# but rollover ACK is a bridge-section-ownership protocol.
 ROLLOVER_ACK_PREFIX = {
     "codex": "Codex rollover ack:",
     "claude": "Claude rollover ack:",
@@ -39,6 +45,7 @@ ROLLOVER_ACK_SECTION = {
 }
 BRIDGE_LIVENESS_KEYS = (
     "overall_state",
+    "reviewer_mode",
     "codex_poll_state",
     "last_codex_poll_utc",
     "last_codex_poll_age_seconds",
@@ -47,6 +54,7 @@ BRIDGE_LIVENESS_KEYS = (
     "open_findings_present",
     "claude_status_present",
     "claude_ack_present",
+    "implementer_completion_stall",
 )
 DEFAULT_CODEX_POLL_DUE_AFTER_SECONDS = CODEX_POLL_DUE_AFTER_SECONDS
 DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS = CODEX_POLL_STALE_AFTER_SECONDS

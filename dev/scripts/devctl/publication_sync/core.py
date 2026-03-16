@@ -8,7 +8,7 @@ from typing import Any
 
 from ..common import normalize_string_field, resolve_repo_path
 from ..config import REPO_ROOT
-from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG
+from ..repo_packs import active_path_config
 from .git import (
     display_path,
     list_changed_paths,
@@ -20,7 +20,7 @@ from .git import (
 from ..time_utils import utc_timestamp
 
 # Backward-compat alias sourced from repo-pack config
-DEFAULT_PUBLICATION_SYNC_REGISTRY_REL = VOICETERM_PATH_CONFIG.publication_sync_registry_rel
+DEFAULT_PUBLICATION_SYNC_REGISTRY_REL = active_path_config().publication_sync_registry_rel
 DEFAULT_PUBLICATION_SYNC_REGISTRY = REPO_ROOT / DEFAULT_PUBLICATION_SYNC_REGISTRY_REL
 PUBLICATION_SYNC_SCHEMA_VERSION = 1
 

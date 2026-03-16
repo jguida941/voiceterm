@@ -30,11 +30,23 @@ POLL_STATUS_SECTION_RE = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 AUTO_REFRESH_PREFIX = "- Auto-refreshed reviewer heartbeat:"
+_REPO_OWNED_POLL_STATUS_PREFIXES = (
+    AUTO_REFRESH_PREFIX,
+    "- Reviewer checkpoint updated through repo-owned tooling",
+    "- Reviewer heartbeat refreshed through repo-owned tooling",
+    "- Reviewer state:",
+    "- Reviewer mode ",
+    "- Reviewer conductor ",
+)
 REFRESHABLE_LAUNCH_ERRORS = (
     "Missing `Last Codex poll`;",
     "Missing `Last Codex poll`",
     "`Last Codex poll` is stale;",
     "`Last Codex poll` is stale",
+)
+NON_AUDIT_HASH_EXCLUDED_PREFIXES = (
+    "dev/reports/",
+    ".voiceterm/memory/",
 )
 
 
@@ -133,7 +145,7 @@ def _replace_or_insert_metadata_line(
     marker = "\n## Protocol\n"
     if marker not in text:
         raise ValueError("Unable to locate the markdown-bridge metadata block.")
-    return text.replace(marker, f"{replacement}\n{marker}", 1)
+    return text.replace(marker, f"\n{replacement}{marker}", 1)
 
 
 def _rewrite_poll_status(text: str, *, note: str) -> str:
@@ -142,7 +154,7 @@ def _rewrite_poll_status(text: str, *, note: str) -> str:
         filtered_lines = [
             line
             for line in body_lines
-            if line.strip() and not line.strip().startswith(AUTO_REFRESH_PREFIX)
+            if line.strip() and not _is_repo_owned_poll_status_line(line)
         ]
         new_body_lines = [note, *filtered_lines]
         body = "\n".join(new_body_lines).strip()
@@ -154,6 +166,13 @@ def _rewrite_poll_status(text: str, *, note: str) -> str:
     return rewritten
 
 
+def _is_repo_owned_poll_status_line(line: str) -> bool:
+    stripped = line.strip()
+    return any(
+        stripped.startswith(prefix) for prefix in _REPO_OWNED_POLL_STATUS_PREFIXES
+    )
+
+
 def _format_new_york_timestamp(timestamp_utc: datetime) -> str:
     local = timestamp_utc.astimezone(ZoneInfo("America/New_York"))
     return local.strftime("%Y-%m-%d %H:%M:%S %Z")
@@ -163,6 +182,7 @@ def compute_non_audit_worktree_hash(
     *,
     repo_root: Path,
     excluded_rel_paths: tuple[str, ...],
+    excluded_prefixes: tuple[str, ...] = NON_AUDIT_HASH_EXCLUDED_PREFIXES,
 ) -> str:
     excluded = {path.strip() for path in excluded_rel_paths if path.strip()}
     if (repo_root / ".git").exists():
@@ -193,6 +213,8 @@ def compute_non_audit_worktree_hash(
     digest = hashlib.sha256()
     for relative_path in entries:
         if relative_path in excluded:
+            continue
+        if excluded_prefixes and any(relative_path.startswith(p) for p in excluded_prefixes):
             continue
         target = repo_root / relative_path
         digest.update(relative_path.encode("utf-8", errors="surrogateescape"))

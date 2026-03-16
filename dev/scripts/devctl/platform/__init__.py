@@ -2,6 +2,7 @@
 
 from .blueprint import build_platform_blueprint
 from .contracts import (
+    CallerAuthoritySpec,
     ContractField,
     ContractSpec,
     FrontendSurfaceSpec,
@@ -9,17 +10,20 @@ from .contracts import (
     PlatformLayerSpec,
     PortabilityStatusSpec,
     RepoBoundarySpec,
+    ServiceLifecycleSpec,
 )
 from .render import render_platform_blueprint_markdown
 
 __all__ = [
     "ContractField",
     "ContractSpec",
+    "CallerAuthoritySpec",
     "FrontendSurfaceSpec",
     "PlatformBlueprint",
     "PlatformLayerSpec",
     "PortabilityStatusSpec",
     "RepoBoundarySpec",
+    "ServiceLifecycleSpec",
     "build_platform_blueprint",
     "render_platform_blueprint_markdown",
 ]

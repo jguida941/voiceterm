@@ -41,6 +41,24 @@ from .review_channel_bridge_support import (
 BRIDGE_ACTIONS = {"launch", "rollover"}
 
 
+def _refresh_snapshot(
+    *, args, repo_root: Path, bridge_path: Path, review_channel_path: Path,
+    status_dir: Path, promotion_plan_path: Path, warnings: list[str],
+) -> "ReviewChannelStatusSnapshot":
+    """Refresh status projections with the current CLI overdue threshold."""
+    return refresh_status_snapshot(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        output_root=status_dir,
+        promotion_plan_path=promotion_plan_path,
+        execution_mode=args.execution_mode,
+        warnings=warnings,
+        errors=[],
+        reviewer_overdue_threshold_seconds=getattr(args, "reviewer_overdue_seconds", None),
+    )
+
+
 def _render_bridge_md(report: dict) -> str:
     return render_bridge_md(report, bridge_liveness_keys=BRIDGE_LIVENESS_KEYS)
 
@@ -126,15 +144,10 @@ def _run_bridge_action(
         lanes=lanes,
     )
     warnings.extend(handoff_warnings)
-    status_snapshot = refresh_status_snapshot(
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-        review_channel_path=review_channel_path,
-        output_root=status_dir,
-        promotion_plan_path=promotion_plan_path,
-        execution_mode=args.execution_mode,
-        warnings=warnings,
-        errors=[],
+    status_snapshot = _refresh_snapshot(
+        args=args, repo_root=repo_root, bridge_path=bridge_path,
+        review_channel_path=review_channel_path, status_dir=status_dir,
+        promotion_plan_path=promotion_plan_path, warnings=warnings,
     )
     sessions = build_bridge_sessions(
         args=args,
@@ -172,15 +185,11 @@ def _run_bridge_action(
                 sessions=sessions,
             ),
         )
-        status_snapshot = refresh_status_snapshot(
-            repo_root=repo_root,
-            bridge_path=bridge_path,
-            review_channel_path=review_channel_path,
-            output_root=status_dir,
+        status_snapshot = _refresh_snapshot(
+            args=args, repo_root=repo_root, bridge_path=bridge_path,
+            review_channel_path=review_channel_path, status_dir=status_dir,
             promotion_plan_path=promotion_plan_path,
-            execution_mode=args.execution_mode,
             warnings=status_snapshot.warnings,
-            errors=[],
         )
     bridge_liveness = status_snapshot.bridge_liveness
     return build_bridge_success_report(

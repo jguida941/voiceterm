@@ -38,6 +38,7 @@ COMMANDS = [
     "launcher-check",
     "launcher-probes",
     "launcher-policy",
+    "tandem-validate",
     "render-surfaces",
     "platform-contracts",
     "governance-export",

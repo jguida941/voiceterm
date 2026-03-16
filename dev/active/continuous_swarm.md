@@ -66,6 +66,14 @@ Out of scope until the local proof gate is green:
     surfaces, and phone/mobile clients are all clients over the same
     repo-owned loop/backend. MP-358 may harden the conductor and launcher, but
     it may not fork task/plan authority into surface-local state.
+11. Solo-developer and single-agent operation must reuse the same backend and
+    validator path. The difference between "developer mode" and "agent mode"
+    is an honest `reviewer_mode` value plus UI affordances, not a second
+    backend or a different check stack.
+12. `MP-358` is not the product boundary. This loop is one local proof harness
+    inside the modular/callable platform tracked under `MP-377`, so loop work
+    is only valid when it preserves or improves the shared backend/runtime/
+    repo-pack boundary instead of deepening VoiceTerm-specific coupling.
 
 ## Cross-Plan Dependencies
 
@@ -81,6 +89,10 @@ Out of scope until the local proof gate is green:
    `survival_index` semantics used to survive compaction/restart boundaries.
 5. `AGENTS.md`, `dev/scripts/README.md`, and `dev/guides/DEVCTL_AUTOGUIDE.md`
    remain the policy/docs authority for command usage and guard expectations.
+6. `dev/active/ai_governance_platform.md` owns the full-system modular/callable
+   boundary. Any MP-358 slice that makes the loop cleaner locally but widens
+   direct VoiceTerm coupling, duplicates backend logic, or creates a separate
+   dev-only control plane is out of bounds.
 
 ## Execution Checklist
 
@@ -199,6 +211,16 @@ Out of scope until the local proof gate is green:
       recovery guidance. Full verdict/findings/instruction synchronization
       (making those fields move atomically with the hash) is still open —
       that requires Codex-owned bridge write behavior, not tool-only changes.
+- [ ] Add a repo-owned reviewer liveness emitter so inactive modes stay
+      current without faking review truth. `reviewer-heartbeat` and
+      `reviewer-checkpoint` are now separate writes, but the loop still lacks
+      a persistent timer/daemon/session-owned caller that keeps
+      `single_agent`, `tools_only`, `paused`, and `offline` visibly alive
+      without manual refreshes.
+- [ ] Expose one thin mode switch over the shared backend instead of a dev-only
+      fork. Human-facing controls may offer `agents` / `developer` shorthands
+      and later PyQt6/phone toggles, but they must normalize onto the same
+      canonical reviewer-mode contract and routed validation path.
 - [x] Add peer-liveness guards:
       Claude cannot start new coding work on stale Codex review state, and
       Codex cannot keep issuing new fix cycles on stale Claude state.
@@ -214,14 +236,21 @@ Out of scope until the local proof gate is green:
       Automatic relaunch of the missing peer (without operator approval) is
       deferred to Phase 3/4 — it requires launching Terminal.app sessions
       programmatically in response to detected peer absence.
-- [ ] Ensure the loop uses one master document chain:
+- [ ] Promote implementer completion-stall into shared backend attention state
+      instead of keeping it tandem-only. The same reducer that powers
+      `check_tandem_consistency.py` should also drive review-channel
+      `AttentionStatus`, status projections, and downstream VoiceTerm/PyQt6/
+      phone/CLI surfaces so "Claude parked on review/polling" is visible as
+      repo-owned runtime truth rather than only prompt text plus an on-demand
+      validator.
+- [x] Ensure the loop uses one master document chain:
       `MASTER_PLAN` -> relevant active-plan checklist -> `code_audit.md`
       current-state bridge.
 - [ ] Keep tracker/runbook truth aligned when launcher blockers change state:
       `MASTER_PLAN`, `review_channel.md`, and `continuous_swarm.md` may not
       simultaneously describe the same bridge-bootstrap blocker as both open
       and obsolete/closed.
-- [ ] Keep cadence and live-session metadata honest:
+- [x] Keep cadence and live-session metadata honest:
       `poll_due` remains the 180-second reviewer cadence, `stale` remains the
       300-second heartbeat window, the bridge prose must match those thresholds,
       and `latest/sessions/*.json` plus `review-channel --action status` must
@@ -262,6 +291,89 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-03-15: Closed the next scope-drift miss on the operator-docs path.
+  `DEVCTL_AUTOGUIDE.md` had durable system knowledge in prose but no
+  deterministic sync contract, so `docs-check --strict-tooling` could stay
+  green while the playbook silently omitted major control-plane surfaces. The
+  repo now has `check_guide_contract_sync.py`, wired into docs governance,
+  tooling/release workflows, and the shared bundle registry, plus a new
+  `System Coverage Map` section in `DEVCTL_AUTOGUIDE.md` that keeps
+  policy/contract/governance, launcher, mutation/compatibility, and
+  queue/device/recovery helpers in explicit scope for Codex, Claude, and
+  maintainers.
+- 2026-03-15: Hardened the new guide-contract guard after the first live audit.
+  The initial `check_guide_contract_sync.py` pass only verified whole-file
+  substrings, which meant the `System Coverage Map` could drift while the same
+  command names still existed elsewhere in `DEVCTL_AUTOGUIDE.md`. The repo
+  policy now supports section-scoped `required_sections`, the guard validates
+  heading-local coverage, and the autoguide contract now pins the shared
+  review/runtime/operator surfaces (`render-surfaces`, `review-channel`,
+  `tandem-validate`, `reviewer-heartbeat`, `reviewer-checkpoint`,
+  `swarm_run`, `mobile-status`, `phone-status`, `controller-action`,
+  `orchestrate-*`, `integrations-*`, `mcp`) instead of over-weighting only
+  VoiceTerm-local convenience wrappers.
+- 2026-03-15: Re-activated the markdown bridge as a live `active_dual_agent`
+  reviewer path through `review-channel --action reviewer-checkpoint` after it
+  had drifted back to `single_agent`, then finished the role-owned tandem
+  guard split so `dev/scripts/checks/tandem_consistency/checks.py` is a thin
+  compatibility facade over `reviewer_checks.py`,
+  `implementer_checks.py`, `operator_checks.py`, and
+  `system_checks.py`. Focused tandem/review-channel tests and bridge/docs
+  governance are green again. The same review pass also confirmed the next
+  real loop-hardening gap: completion-stall is now a hard tandem guard, but it
+  is still not a first-class review-channel attention signal that shared
+  backend clients can render consistently.
+- 2026-03-15: Closed the next real loop-stall gap by turning "Claude says the
+  slice is done / instruction unchanged / continuing to poll" into hard
+  enforcement instead of prose. `check_tandem_consistency.py` now includes an
+  `implementer_completion_stall` check that fails when Claude-owned
+  status/ack text parks on reviewer promotion/polling while the current bridge
+  instruction is still active and not in an explicit reviewer-owned wait
+  state. The repo-owned reviewer writer also now strips stale reviewer-mode
+  prose from `Poll Status`, and the bridge guard fails when `Poll Status`
+  contradicts header `Reviewer mode`, so the backup markdown bridge cannot
+  silently rot into conflicting live states. The shared Claude instruction
+  surface (`claude_instructions.template.md` -> `CLAUDE.md`) now mirrors the
+  same anti-stall rule.
+- 2026-03-15: Re-audited the current loop after landing the reviewer-state
+  writer split and the routed `tandem-validate` lane. Confirmed the core
+  direction is right, then recorded the remaining architectural truth:
+  inactive modes are now honest (`single_agent`, `tools_only`, `paused`,
+  `offline`) and share the same backend, but the repo still needs a
+  persistent reviewer-liveness emitter, a thin shared mode toggle surface, and
+  JSON-first authority so markdown no longer acts like the live source of
+  truth by accident.
+- 2026-03-15: Re-read the broader architecture plan after a scope audit and
+  tightened the local-proof framing. `MP-358` now explicitly records that it
+  is one proving lane inside the full-system modular/callable extraction under
+  `MP-377`, not the product boundary by itself. Future loop work must name the
+  shared backend/runtime contract it strengthens and must not justify new
+  VoiceTerm-embedded or dev-only control paths.
+- 2026-03-15: Landed repo-owned reviewer-state actions for the markdown bridge
+  and mode-aware stale handling. `review-channel --action reviewer-heartbeat`
+  now updates liveness plus `Reviewer mode` without faking a new reviewed hash,
+  while `review-channel --action reviewer-checkpoint` atomically advances
+  reviewed hash, verdict, findings, instruction, and reviewed scope after a
+  real review pass. The bridge and tandem guards now treat
+  `single_agent` / `tools_only` / `paused` / `offline` as honest inactive
+  modes instead of stale dual-agent failure, which gives developers and solo
+  AI runs the same backend without a second control plane.
+- 2026-03-15: Replaced the narrow hand-maintained tandem validation checklist
+  with a repo-owned `devctl tandem-validate` lane for MP-358. The command now
+  resolves the real AGENTS lane and risk add-ons through `check-router`,
+  executes that routed bundle, and reruns final `check_review_channel_bridge`
+  / `check_tandem_consistency` postflight checks so Codex/Claude sessions use
+  the same validation authority as maintainers instead of grepping for a small
+  custom command list. Maintainer docs (`dev/scripts/README.md`,
+  `dev/guides/DEVELOPMENT.md`) now point tandem sessions at that wrapper.
+- 2026-03-15: Landed tandem-consistency guard and role-profile seam (MP-358).
+  `runtime/role_profile.py` defines `TandemRole`, `RoleProfile`,
+  `TandemProfile`, and `role_for_provider()`. `check_tandem_consistency.py`
+  validates alignment across peer-liveness, event-reducer, status-projection,
+  launch, prompt, and handoff. Wired into `bundle.tooling`, CI workflows,
+  quality-policy presets, and `VOICETERM_ONLY_AI_GUARD_IDS`. Cursor agent entry
+  added to event-reducer and status-projection (3-agent roster becomes 4).
+  `pending_cursor` added to `ReviewQueueState` and queue output.
 - 2026-03-15: Made the launcher bridge-optional in auto execution mode.
   `ensure_launcher_prereqs`, `bridge_launch_state`, heartbeat refresh,
   `scope_bridge_instruction`, `promote_bridge_instruction`, bridge guard,

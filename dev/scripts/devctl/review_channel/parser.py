@@ -24,8 +24,10 @@ from .events import (
     DEFAULT_REVIEW_PROJECTIONS_DIR_REL,
     DEFAULT_REVIEW_STATE_JSON_REL,
 )
+from .parser_bridge_controls import build_bridge_control_arguments
 from .promotion import DEFAULT_PROMOTION_PLAN_REL
 from .state import DEFAULT_REVIEW_STATUS_DIR_REL
+from .peer_liveness import REVIEWER_MODE_CLI_CHOICES, ReviewerMode
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +41,9 @@ REVIEW_ACTION_CHOICES = (
     "launch",
     "rollover",
     "status",
+    "ensure",
+    "reviewer-heartbeat",
+    "reviewer-checkpoint",
     "promote",
     "post",
     "watch",
@@ -168,22 +173,10 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         action="store_true",
         help="Build the launch bundle without opening Terminal.app windows",
     ),
-    _arg(
-        "--refresh-bridge-heartbeat-if-stale",
-        action="store_true",
-        help=(
-            "When the markdown bridge is otherwise launchable but reviewer heartbeat "
-            "metadata is stale or missing, refresh it before launch continues."
-        ),
-    ),
-    _arg(
-        "--auto-promote",
-        action="store_true",
-        help=(
-            "When the bridge shows an accepted verdict with no open findings "
-            "and an idle instruction, automatically promote the next unchecked "
-            "plan item into the bridge before continuing."
-        ),
+    *build_bridge_control_arguments(
+        _arg,
+        reviewer_mode_choices=REVIEWER_MODE_CLI_CHOICES,
+        default_reviewer_mode=ReviewerMode.ACTIVE_DUAL_AGENT,
     ),
 ]
 
@@ -251,9 +244,41 @@ QUERY_ARGUMENTS: list[ArgumentDef] = [
     _arg(
         "--follow",
         action="store_true",
-        help="Request a watch/follow view; current CLI emits one snapshot per run",
+        help="Stream NDJSON snapshots when the watched packet set changes",
+    ),
+    _arg(
+        "--start-publisher-if-missing",
+        action="store_true",
+        help="For `ensure`, start the persistent heartbeat/status publisher when active mode requires it and no publisher is running",
+    ),
+    _arg("--max-follow-snapshots", type=int, default=0, help="Max snapshots in follow mode (0=unbounded)"),
+    _arg(
+        "--follow-interval-seconds",
+        type=int,
+        default=120,
+        help="Heartbeat/status stream cadence for follow-enabled review-channel actions",
     ),
     _arg("--stale-minutes", type=int, default=30, help="Staleness threshold for watch views"),
+    _arg(
+        "--reviewer-overdue-seconds",
+        type=int,
+        default=900,
+        help=(
+            "Reviewer age threshold (seconds) for controller escalation. "
+            "When the reviewer heartbeat is stale beyond this limit, the "
+            "attention state escalates to `reviewer_overdue`."
+        ),
+    ),
+    _arg(
+        "--timeout-minutes",
+        type=int,
+        default=0,
+        help=(
+            "Absolute run budget for `ensure --follow`. When >0, the "
+            "publisher stops cleanly after this many minutes and writes "
+            "final state with stop_reason=timed_out. 0 = no timeout."
+        ),
+    ),
 ]
 
 EVENT_CONTEXT_ARGUMENTS: list[ArgumentDef] = [

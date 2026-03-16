@@ -88,6 +88,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             pending_total=_int(queue.get("pending_total")),
             pending_codex=_int(queue.get("pending_codex")),
             pending_claude=_int(queue.get("pending_claude")),
+            pending_cursor=_int(queue.get("pending_cursor")),
             pending_operator=_int(queue.get("pending_operator")),
             stale_packet_count=_int(queue.get("stale_packet_count")),
             derived_next_instruction=_string(queue.get("derived_next_instruction")),
@@ -99,6 +100,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             overall_state=_string(bridge_liveness.get("overall_state")) or "unknown",
             codex_poll_state=_string(bridge_liveness.get("codex_poll_state"))
             or "unknown",
+            reviewer_mode=_string(bridge.get("reviewer_mode")) or "active_dual_agent",
             last_codex_poll_utc=_string(bridge.get("last_codex_poll_utc")),
             last_codex_poll_age_seconds=_int(
                 bridge_liveness.get("last_codex_poll_age_seconds")
@@ -109,6 +111,8 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             claude_status=_string(bridge.get("claude_status")),
             claude_ack=_string(bridge.get("claude_ack")),
             last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
+            implementer_completion_stall=bool(bridge.get("implementer_completion_stall")),
+            publisher_running=bool(bridge.get("publisher_running")),
         ),
         attention=_attention_state_from_mapping(attention),
         packets=_packet_states_from_value(review_payload.get("packets")),

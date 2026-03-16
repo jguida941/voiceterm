@@ -27,18 +27,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..config import REPO_ROOT
-from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG
+from ..repo_packs import active_path_config
 from .launch import (
     list_terminal_profiles,
     resolve_terminal_profile_name,
 )
 
 # Backward-compat aliases sourced from the frozen path config
-DEFAULT_BRIDGE_REL = VOICETERM_PATH_CONFIG.bridge_rel
-DEFAULT_REVIEW_CHANNEL_REL = VOICETERM_PATH_CONFIG.review_channel_rel
+DEFAULT_BRIDGE_REL = active_path_config().bridge_rel
+DEFAULT_REVIEW_CHANNEL_REL = active_path_config().review_channel_rel
 
 DEFAULT_TERMINAL_PROFILE = "auto-dark"
-DEFAULT_ROLLOVER_DIR_REL = VOICETERM_PATH_CONFIG.rollover_root_rel
+DEFAULT_ROLLOVER_DIR_REL = active_path_config().rollover_root_rel
 DEFAULT_ROLLOVER_THRESHOLD_PCT = 50
 DEFAULT_ROLLOVER_ACK_WAIT_SECONDS = 180
 BRIDGE_GUARD_SCRIPT_PATH = (
@@ -244,6 +244,7 @@ def parse_lane_assignments(review_channel_text: str) -> list[LaneAssignment]:
 
 
 def _provider_from_lane(*, lane: str, agent_id: str) -> str:
+    """Infer the provider name from a lane assignment's lane title prefix."""
     lowered = lane.lower()
     if lowered.startswith("codex "):
         return "codex"

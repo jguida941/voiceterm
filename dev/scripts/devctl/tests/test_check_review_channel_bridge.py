@@ -37,8 +37,12 @@ def _valid_code_audit_text(script) -> str:
         "Codex must exclude `code_audit.md` itself when computing the reviewed worktree hash.",
         "Each meaningful review must include an operator-visible chat update.",
         "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
-        "Claude should start from `Current Verdict`, `Open Findings`, and `Current Instruction For Claude`, then acknowledge the active instruction in `Claude Ack` before coding.",
+        "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
+        "Claude must read `Last Codex poll` / `Poll Status` first on each repoll.",
+        "When `Reviewer mode` is `active_dual_agent`, this file is the live reviewer/coder authority.",
+        "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`, Claude must not assume a live Codex review loop.",
         'When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
+        "If `Current Instruction For Claude` or `Poll Status` says `hold steady`, `waiting for reviewer promotion`, `Codex committing/pushing`, or similar wait-state language, Claude must not mine plan docs for side work or self-promote the next slice. Keep polling until a reviewer-owned section changes.",
         "Only the Codex conductor may update the Codex-owned sections in this file.",
         "Only the Claude conductor may update the Claude-owned sections in this file.",
         "Specialist workers should wake on owned-path changes or explicit conductor request instead of every worker polling the full tree blindly on the same cadence.",
@@ -46,6 +50,7 @@ def _valid_code_audit_text(script) -> str:
         "",
         "- Last Codex poll: `2026-03-08T04:58:19Z`",
         "- Last Codex poll (Local America/New_York): `2026-03-07 23:58:19 EST`",
+        "- Reviewer mode: `active_dual_agent`",
         f"- Last non-audit worktree hash: `{'a' * 64}`",
         "",
     ]
@@ -76,6 +81,8 @@ def _valid_review_channel_text(script) -> str:
             "   `code_audit.md` must also emit a concise operator-visible chat update.",
             "Bridge writes stay conductor-owned: only one Codex conductor updates the Codex-owned bridge",
             "sections while specialist workers report back instead of editing the bridge directly.",
+            "Bridge behavior is mode-aware. When `Reviewer mode` is `active_dual_agent`, Claude must treat `code_audit.md` as the live reviewer/coder authority and",
+            "Claude must stay in polling mode. It must not mine plan docs for side work",
             "The reviewer should emit an operator-visible",
             "heartbeat every five minutes even when the blocker set is unchanged.",
             "Default multi-agent wakeups should be change-routed instead of brute-force.",
@@ -256,6 +263,56 @@ class CheckReviewChannelBridgeTests(TestCase):
         self.assertIn(
             "`check_review_channel_bridge.py`",
             report["review_channel"]["missing_markers"],
+        )
+
+    def test_build_report_flags_poll_status_mode_conflict(self) -> None:
+        code_audit = self._temp_path(
+            "code_audit.md",
+            _valid_code_audit_text(self.script).replace(
+                "## Current Verdict",
+                "- Reviewer mode is back to `single_agent`\n\n## Current Verdict",
+            ),
+        )
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
+        ):
+            report = self.script.build_report()
+        self.assertFalse(report["ok"])
+        self.assertIn(
+            "Poll Status contradicts `Reviewer mode` metadata",
+            "\n".join(report["code_audit"].get("state_errors", [])),
+        )
+
+    def test_build_report_flags_invalid_reviewer_mode(self) -> None:
+        code_audit = self._temp_path(
+            "code_audit.md",
+            _valid_code_audit_text(self.script).replace(
+                "- Reviewer mode: `active_dual_agent`\n",
+                "- Reviewer mode: `developer`\n",
+            ),
+        )
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
+        ):
+            report = self.script.build_report()
+        self.assertFalse(report["ok"])
+        self.assertIn(
+            "Invalid `Reviewer mode`",
+            "\n".join(report["code_audit"].get("metadata_errors", [])),
         )
 
     def test_build_report_flags_stale_last_codex_poll(self) -> None:

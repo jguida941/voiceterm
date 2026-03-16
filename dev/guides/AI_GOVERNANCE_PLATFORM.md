@@ -58,8 +58,23 @@ It is one platform with five layers:
    repo-local policy, docs templates, workflow defaults, and bounded
    repo-specific glue.
 
+Above those five layers sits the adopter/integration layer: VoiceTerm,
+operator shells, mobile shells, generated skills/hooks, and future repo-local
+wrappers should consume the platform rather than become a second backend for
+it.
+
 VoiceTerm should be one consumer of that platform, not the permanent home of
 all platform logic.
+
+Scope-preservation rule:
+
+- the target is the full system becoming modular and callable
+- tandem loops, control-plane loops, PyQt6 surfaces, overlay/TUI, mobile
+  surfaces, hooks, and generated skills are all consumers of one backend, not
+  separate products with separate backend authority
+- if a local improvement deepens direct VoiceTerm coupling or creates a second
+  backend, it is a regression against the platform direction even if the local
+  code looks cleaner
 
 ## What Should Be Portable
 
@@ -253,6 +268,10 @@ That means:
 
 1. Every AI-facing mode should have a declared context tier:
    bootstrap, full-repo scan, focused fix, review, or remediation.
+1.1 Keep collaboration mode separate from objective profile: the same backend
+   should be able to run those tiers under `active_dual_agent`,
+   `single_agent`, or script-first/tool-driven flows instead of treating
+   "refactor mode" as a separate subsystem.
 2. Repo packs should define budget defaults and reserved headroom for those
    modes instead of leaving prompt size to ad hoc caller behavior.
 3. The runtime should estimate context size before dispatch and record actual
@@ -339,6 +358,30 @@ The next architecture steps should be:
    runtime.
 6. Package VoiceTerm as a first-party adopter/repo pack instead of the only
    host repo.
+
+## Naming Layers
+
+Do not collapse the whole product into a tiny slash-command list.
+
+Use three naming layers:
+
+1. Backend command/action ids:
+   the stable technical contract (`review-channel`, `swarm_run`,
+   `controller-action`, `governance-bootstrap`, `governance-export`,
+   `probe-report`, `tandem-validate`, `platform-contracts`, `mobile-status`,
+   `release-gates`, `ship`).
+2. User-facing goal groups:
+   simple intent buckets like `inspect`, `review`, `fix`, `run`, `control`,
+   `adopt`, `publish`.
+3. Client-specific wrappers:
+   skills, slash commands, PyQt6 buttons, VoiceTerm actions, phone/mobile
+   controls that all resolve back to the same backend actions.
+
+That is how the system stays both simple and complete:
+
+1. the backend keeps the full architecture surface
+2. the user sees simpler names
+3. every client still drives the same system
 
 ## Decision Summary
 

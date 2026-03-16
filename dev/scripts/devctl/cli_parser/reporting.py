@@ -10,7 +10,7 @@ from ..autonomy.status_parsers import (
     add_phone_status_parser,
 )
 from ..common import add_standard_output_arguments
-from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG as _PC
+from ..repo_packs import active_path_config as _active_path_config
 from ..data_science.parser import add_data_science_parser
 from ..governance_bootstrap_parser import add_governance_bootstrap_parser
 from ..governance_export_parser import add_governance_export_parser
@@ -100,7 +100,7 @@ def add_autonomy_swarm_parser(sub: argparse._SubParsersAction) -> None:
     autonomy_swarm_cmd.add_argument("--run-label", help="Optional swarm run label")
     autonomy_swarm_cmd.add_argument(
         "--output-root",
-        default=_PC.autonomy_swarm_root_rel,
+        default=_active_path_config().autonomy_swarm_root_rel,
         help="Root directory for swarm run bundles",
     )
     autonomy_swarm_cmd.add_argument(
@@ -189,17 +189,17 @@ def add_autonomy_swarm_parser(sub: argparse._SubParsersAction) -> None:
     )
     autonomy_swarm_cmd.add_argument(
         "--audit-source-root",
-        default=_PC.autonomy_source_root_rel,
+        default=_active_path_config().autonomy_source_root_rel,
         help="Source root used by post-audit autonomy-report",
     )
     autonomy_swarm_cmd.add_argument(
         "--audit-library-root",
-        default=_PC.autonomy_library_root_rel,
+        default=_active_path_config().autonomy_library_root_rel,
         help="Library root used by post-audit autonomy-report",
     )
     autonomy_swarm_cmd.add_argument(
         "--audit-event-log",
-        default=_PC.audit_event_log_rel,
+        default=_active_path_config().audit_event_log_rel,
         help="Event log path used by post-audit autonomy-report",
     )
     autonomy_swarm_cmd.add_argument(

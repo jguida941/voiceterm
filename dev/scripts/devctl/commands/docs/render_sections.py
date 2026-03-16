@@ -217,6 +217,31 @@ def append_agents_bundle_render(lines: list[str], report: dict) -> None:
         lines.append(f"- agents_bundle_render_more_diff: {len(diff_preview) - 10}")
 
 
+def append_guide_contract_sync(lines: list[str], report: dict) -> None:
+    """Render guide-contract sync status and missing tokens."""
+    lines.append("- guide_contract_sync_ok: " + str(report.get("guide_contract_sync_ok")))
+    if report.get("guide_contract_sync_ok"):
+        return
+    guide_report = report.get("guide_contract_sync_report") or {}
+    guide_error = guide_report.get("error")
+    if guide_error:
+        lines.append(f"- guide_contract_sync_error: {guide_error}")
+    for violation in guide_report.get("violations", [])[:10]:
+        lines.append(
+            "- guide_contract_sync_violation: "
+            f"{violation.get('rule_id')} -> {violation.get('doc_path')}"
+        )
+        missing = violation.get("missing_contains") or []
+        if missing:
+            lines.append(
+                "- guide_contract_sync_missing_contains: "
+                + " | ".join(str(item) for item in missing[:6])
+            )
+    remaining = len(guide_report.get("violations", [])) - 10
+    if remaining > 0:
+        lines.append(f"- guide_contract_sync_more_violations: {remaining}")
+
+
 def append_instruction_surface_sync(lines: list[str], report: dict) -> None:
     """Render instruction/starter surface sync status and diff preview."""
     lines.append(
@@ -253,6 +278,7 @@ def append_strict_tooling_sections(lines: list[str], report: dict) -> None:
     append_workflow_shell_hygiene(lines, report)
     append_bundle_workflow_parity(lines, report)
     append_agents_bundle_render(lines, report)
+    append_guide_contract_sync(lines, report)
     append_instruction_surface_sync(lines, report)
 
 

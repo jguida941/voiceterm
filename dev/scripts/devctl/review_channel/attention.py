@@ -8,10 +8,12 @@ contract in ``peer_liveness``.
 from __future__ import annotations
 
 from .peer_liveness import (
+    CODEX_POLL_OVERDUE_AFTER_SECONDS,
     STALE_PEER_RECOVERY,
     AttentionStatus,
     CodexPollState,
     OverallLivenessState,
+    reviewer_mode_is_active,
 )
 
 
@@ -23,9 +25,24 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
     claude_ack_present = bool(bridge_liveness.get("claude_ack_present"))
 
     reviewed_hash_current = bridge_liveness.get("reviewed_hash_current")
+    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
+    poll_age = bridge_liveness.get("last_codex_poll_age_seconds")
+    overdue_threshold = bridge_liveness.get(
+        "reviewer_overdue_threshold_seconds",
+        CODEX_POLL_OVERDUE_AFTER_SECONDS,
+    )
 
-    if codex_poll_state == CodexPollState.MISSING:
+    if not reviewer_mode_is_active(reviewer_mode):
+        status = AttentionStatus.INACTIVE
+    elif codex_poll_state == CodexPollState.MISSING:
         status = AttentionStatus.REVIEWER_HEARTBEAT_MISSING
+    elif (
+        overall_state == OverallLivenessState.STALE
+        and isinstance(poll_age, (int, float))
+        and isinstance(overdue_threshold, (int, float))
+        and poll_age > overdue_threshold
+    ):
+        status = AttentionStatus.REVIEWER_OVERDUE
     elif overall_state == OverallLivenessState.STALE:
         status = AttentionStatus.REVIEWER_HEARTBEAT_STALE
     elif codex_poll_state == CodexPollState.POLL_DUE:
@@ -38,6 +55,13 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
         status = AttentionStatus.WAITING_ON_PEER
     elif reviewed_hash_current is False:
         status = AttentionStatus.REVIEWED_HASH_STALE
+    elif bool(bridge_liveness.get("implementer_completion_stall")):
+        status = AttentionStatus.IMPLEMENTER_COMPLETION_STALL
+    elif (
+        reviewer_mode_is_active(reviewer_mode)
+        and not bool(bridge_liveness.get("publisher_running"))
+    ):
+        status = AttentionStatus.PUBLISHER_MISSING
     else:
         status = AttentionStatus.HEALTHY
 

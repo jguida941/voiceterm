@@ -28,6 +28,8 @@ def render_platform_blueprint_markdown(blueprint: PlatformBlueprint) -> str:
     lines.append(f"- layer_count: {len(blueprint.layers)}")
     lines.append(f"- shared_contract_count: {len(blueprint.shared_contracts)}")
     lines.append(f"- frontend_surface_count: {len(blueprint.frontend_surfaces)}")
+    lines.append(f"- service_lifecycle_count: {len(blueprint.service_lifecycle)}")
+    lines.append(f"- caller_authority_count: {len(blueprint.caller_authority)}")
     lines.append(f"- repo_boundary_count: {len(blueprint.repo_local_boundaries)}")
     lines.extend(["", "## Thesis", "", blueprint.thesis, "", "## Platform Layers", ""])
     for layer in blueprint.layers:
@@ -43,6 +45,26 @@ def render_platform_blueprint_markdown(blueprint: PlatformBlueprint) -> str:
         lines.append(
             f"- {surface.surface_id}: authority={surface.authority}; "
             f"consumes={contracts}; {surface.notes}"
+        )
+    lines.extend(["", "## Service Lifecycle", ""])
+    for spec in blueprint.service_lifecycle:
+        launch = ", ".join(spec.launch_entrypoints)
+        discovery = ", ".join(spec.discovery_fields)
+        health = ", ".join(spec.health_signals)
+        shutdown = ", ".join(spec.shutdown_entrypoints)
+        lines.append(
+            f"- {spec.service_id}: launch={launch}; discovery={discovery}; "
+            f"health={health}; shutdown={shutdown}; {spec.notes}"
+        )
+    lines.extend(["", "## Caller Authority", ""])
+    for spec in blueprint.caller_authority:
+        allowed = ", ".join(spec.allowed_actions) or "none"
+        stage_only = ", ".join(spec.stage_only_actions) or "none"
+        approval = ", ".join(spec.approval_required_actions) or "none"
+        forbidden = ", ".join(spec.forbidden_actions) or "none"
+        lines.append(
+            f"- {spec.caller_id}: allowed={allowed}; stage_only={stage_only}; "
+            f"approval_required={approval}; forbidden={forbidden}"
         )
     lines.extend(["", "## Repo-Local Boundaries", ""])
     for boundary in blueprint.repo_local_boundaries:

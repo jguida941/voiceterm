@@ -5,10 +5,12 @@ from __future__ import annotations
 from .contracts import PlatformBlueprint
 from .definitions import (
     adoption_flow,
+    caller_authority,
     frontend_surfaces,
     platform_layers,
     portability_status,
     repo_local_boundaries,
+    service_lifecycle,
     shared_contracts,
 )
 
@@ -28,6 +30,8 @@ def build_platform_blueprint() -> PlatformBlueprint:
         layers=platform_layers(),
         shared_contracts=shared_contracts(),
         frontend_surfaces=frontend_surfaces(),
+        service_lifecycle=service_lifecycle(),
+        caller_authority=caller_authority(),
         repo_local_boundaries=repo_local_boundaries(),
         adoption_flow=adoption_flow(),
         portability_status=portability_status(),

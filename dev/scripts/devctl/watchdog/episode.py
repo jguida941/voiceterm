@@ -11,11 +11,11 @@ from typing import Any
 
 from ..config import REPO_ROOT
 from ..jsonl_support import parse_json_line_dict
-from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG
+from ..repo_packs import active_path_config
 from .models import GuardedCodingEpisode, guarded_coding_episode_from_dict
 
 # Backward-compat alias sourced from the repo-pack path config
-DEFAULT_EPISODE_ROOT = Path(VOICETERM_PATH_CONFIG.watchdog_episode_root_rel)
+DEFAULT_EPISODE_ROOT = Path(active_path_config().watchdog_episode_root_rel)
 _KNOWN_PROVIDERS = frozenset({"codex", "claude", "shared", "unknown"})
 _KNOWN_GUARD_RESULTS = frozenset({"pass", "fail", "skipped", "noisy"})
 _KNOWN_REVIEWER_VERDICTS = frozenset({"accepted", "accepted_with_followups", "rejected", "deferred"})

@@ -243,6 +243,63 @@
           ]
         }
       ],
+      "guide_contract_rules": [
+        {
+          "id": "devctl_autoguide_system_surface",
+          "doc_path": "dev/guides/DEVCTL_AUTOGUIDE.md",
+          "required_contains": [
+            "AGENTS.md",
+            "dev/guides/DEVELOPMENT.md",
+            "dev/guides/AGENT_COLLABORATION_SYSTEM.md",
+            "dev/scripts/README.md",
+            "check_guide_contract_sync.py",
+            "## System Coverage Map"
+          ]
+          ,
+          "required_sections": [
+            {
+              "heading": "System Coverage Map",
+              "required_contains": [
+                "render-surfaces",
+                "quality-policy",
+                "platform-contracts",
+                "probe-report",
+                "governance-export",
+                "governance-bootstrap",
+                "governance-import-findings",
+                "governance-review",
+                "review-channel",
+                "tandem-validate",
+                "reviewer-heartbeat",
+                "reviewer-checkpoint",
+                "swarm_run",
+                "mobile-status",
+                "phone-status",
+                "controller-action",
+                "orchestrate-status",
+                "orchestrate-watch",
+                "integrations-sync",
+                "integrations-import",
+                "mcp",
+                "launcher-check",
+                "launcher-probes",
+                "launcher-policy",
+                "publication-sync",
+                "release-notes",
+                "compat-matrix",
+                "mutants",
+                "loop-packet",
+                "mobile-app",
+                "ralph-status",
+                "failure-cleanup",
+                "cihub-setup",
+                "path-audit",
+                "path-rewrite"
+              ]
+            }
+          ]
+        }
+      ],
       "evolution_doc": "dev/history/ENGINEERING_EVOLUTION.md",
       "evolution_change_prefixes": [
         "dev/scripts/",

@@ -6,7 +6,7 @@ import argparse
 from dataclasses import dataclass
 from typing import Any
 
-from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG as _PC
+from ..repo_packs import active_path_config as _active_path_config
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,9 +22,9 @@ def _arg(*flags: str, **kwargs: Any) -> ArgumentDef:
 BASE_ARGUMENTS: list[ArgumentDef] = [
     _arg("--repo", help="owner/repo (optional; falls back to env/repo detection)"),
     _arg("--run-label", help="Optional explicit run label"),
-    _arg("--plan-doc", default=_PC.autonomy_plan_doc_rel),
-    _arg("--index-doc", default=_PC.active_index_doc_rel),
-    _arg("--master-plan-doc", default=_PC.active_master_plan_doc_rel),
+    _arg("--plan-doc", default=_active_path_config().autonomy_plan_doc_rel),
+    _arg("--index-doc", default=_active_path_config().active_index_doc_rel),
+    _arg("--master-plan-doc", default=_active_path_config().active_master_plan_doc_rel),
     _arg("--mp-scope", default="MP-338"),
     _arg("--next-steps-limit", type=int, default=8),
     _arg(
@@ -33,12 +33,12 @@ BASE_ARGUMENTS: list[ArgumentDef] = [
     ),
     _arg(
         "--run-root",
-        default=_PC.autonomy_run_root_rel,
+        default=_active_path_config().autonomy_run_root_rel,
         help="Root directory for swarm_run bundles",
     ),
     _arg(
         "--swarm-output-root",
-        default=_PC.autonomy_swarm_root_rel,
+        default=_active_path_config().autonomy_swarm_root_rel,
         help="Root directory for nested autonomy-swarm bundles",
     ),
     _arg("--branch-base", default="develop"),
@@ -91,17 +91,17 @@ AUDIT_ARGUMENTS: list[ArgumentDef] = [
     ),
     _arg(
         "--audit-source-root",
-        default=_PC.autonomy_source_root_rel,
+        default=_active_path_config().autonomy_source_root_rel,
         help="Source root for nested post-audit autonomy-report runs",
     ),
     _arg(
         "--audit-library-root",
-        default=_PC.autonomy_library_root_rel,
+        default=_active_path_config().autonomy_library_root_rel,
         help="Library root for nested post-audit autonomy-report bundles",
     ),
     _arg(
         "--audit-event-log",
-        default=_PC.audit_event_log_rel,
+        default=_active_path_config().audit_event_log_rel,
         help="Event log for nested post-audit autonomy-report runs",
     ),
     _arg(

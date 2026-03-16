@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from ..mutation_loop.policy import load_policy
-from ..repo_packs.voiceterm import VOICETERM_PATH_CONFIG
+from ..repo_packs import active_path_config
 
 DEFAULT_ALLOWED_DESTINATION_ROOTS = ["dev/integrations/imports"]
 
 # Backward-compat alias sourced from repo-pack config
-DEFAULT_AUDIT_LOG_PATH = VOICETERM_PATH_CONFIG.integration_audit_log_rel
+DEFAULT_AUDIT_LOG_PATH = active_path_config().integration_audit_log_rel
 POLICY_KEY = "integration_federation"
 
 

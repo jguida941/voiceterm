@@ -23,6 +23,7 @@ from pathlib import Path
 
 from ..common import display_path
 from ..markdown_sections import parse_markdown_sections as extract_bridge_sections
+from ..runtime.role_profile import role_for_provider
 from ..time_utils import utc_timestamp
 from .handoff_constants import (
     BRIDGE_LIVENESS_KEYS,
@@ -40,9 +41,14 @@ from .handoff_constants import (
     _RESOLVED_ECHO_RE,
     _is_substantive_text,
 )
+from .handoff_render import render_handoff_markdown
 from .peer_liveness import (
     CodexPollState,
+    IMPLEMENTER_STALL_MARKERS,
     OverallLivenessState,
+    ReviewerMode,
+    normalize_reviewer_mode,
+    reviewer_mode_is_active,
 )
 
 
@@ -59,6 +65,7 @@ class BridgeLiveness:
     """Reduced liveness signals derived from the transitional markdown bridge."""
 
     overall_state: str
+    reviewer_mode: str
     codex_poll_state: str
     last_codex_poll_utc: str | None
     last_codex_poll_age_seconds: int | None
@@ -68,6 +75,7 @@ class BridgeLiveness:
     claude_status_present: bool
     claude_ack_present: bool
     reviewed_hash_current: bool | None = None
+    implementer_completion_stall: bool = False
 
 
 @dataclass(frozen=True)
@@ -81,6 +89,14 @@ class HandoffBundle:
     rollover_id: str
     trigger: str
     threshold_pct: int
+
+
+_POLL_STATUS_REVIEWER_MODE_PATTERNS = (
+    re.compile(
+        r"(?i)\breviewer mode(?:\s+is(?:\s+\w+)?(?:\s+to)?|\s*:)\s*`(?P<mode>[^`]+)`"
+    ),
+    re.compile(r"\(mode:\s*(?P<mode>[a-z_]+)\b"),
+)
 
 
 def extract_bridge_snapshot(bridge_text: str) -> BridgeSnapshot:
@@ -117,6 +133,7 @@ def summarize_bridge_liveness(
     last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
     claude_status = snapshot.sections.get("Claude Status", "").strip()
     claude_ack = snapshot.sections.get("Claude Ack", "").strip()
+    reviewer_mode = normalize_reviewer_mode(snapshot.metadata.get("reviewer_mode"))
     last_codex_poll_utc = snapshot.metadata.get("last_codex_poll_utc")
     last_codex_poll_age_seconds = _timestamp_age_seconds(
         last_codex_poll_utc,
@@ -138,7 +155,9 @@ def summarize_bridge_liveness(
     claude_status_present = _is_substantive_text(claude_status)
     claude_ack_present = _is_substantive_text(claude_ack)
 
-    if codex_poll_state in {CodexPollState.MISSING, CodexPollState.STALE}:
+    if not reviewer_mode_is_active(reviewer_mode):
+        overall_state = OverallLivenessState.INACTIVE
+    elif codex_poll_state in {CodexPollState.MISSING, CodexPollState.STALE}:
         overall_state = OverallLivenessState.STALE
     elif not last_reviewed_scope_present or not next_action_present:
         overall_state = OverallLivenessState.WAITING_ON_PEER
@@ -154,8 +173,16 @@ def summarize_bridge_liveness(
             stored_hash is not None and stored_hash == current_worktree_hash
         )
 
+    # Detect implementer completion-stall from bridge status/ack text
+    combined_implementer = f"{claude_status}\n{claude_ack}".lower()
+    implementer_stalled = (
+        next_action_present
+        and any(marker in combined_implementer for marker in IMPLEMENTER_STALL_MARKERS)
+    )
+
     return BridgeLiveness(
         overall_state=overall_state,
+        reviewer_mode=reviewer_mode,
         codex_poll_state=codex_poll_state,
         last_codex_poll_utc=last_codex_poll_utc,
         last_codex_poll_age_seconds=last_codex_poll_age_seconds,
@@ -165,6 +192,7 @@ def summarize_bridge_liveness(
         claude_status_present=claude_status_present,
         claude_ack_present=claude_ack_present,
         reviewed_hash_current=reviewed_hash_current,
+        implementer_completion_stall=implementer_stalled,
     )
 
 
@@ -215,7 +243,13 @@ def write_handoff_bundle(
 
     markdown_path = bundle_dir / "handoff.md"
     json_path = bundle_dir / "handoff.json"
-    markdown_path.write_text(_render_handoff_markdown(payload), encoding="utf-8")
+    markdown_path.write_text(
+        render_handoff_markdown(
+            payload,
+            expected_rollover_ack_line=expected_rollover_ack_line,
+        ),
+        encoding="utf-8",
+    )
     json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     return HandoffBundle(
@@ -261,8 +295,9 @@ def build_handoff_resume_state(
                 ),
                 "required_section": expected_rollover_ack_section(provider=provider),
                 "observed": False,
+                "role": str(role_for_provider(provider)),
             }
-            for provider in ("codex", "claude")
+            for provider in ROLLOVER_ACK_PREFIX
         },
     }
 
@@ -332,6 +367,7 @@ def wait_for_codex_poll_refresh(
 def validate_live_bridge_contract(snapshot: BridgeSnapshot) -> list[str]:
     """Return contract errors for the minimum live bridge state."""
     errors: list[str] = []
+    reviewer_mode = normalize_reviewer_mode(snapshot.metadata.get("reviewer_mode"))
     last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
     if not last_reviewed_scope:
         errors.append(
@@ -367,7 +403,33 @@ def validate_live_bridge_contract(snapshot: BridgeSnapshot) -> list[str]:
             "`Current Instruction For Claude` instead of echoing a completed state."
         )
 
+    conflicting_poll_status_modes = [
+        mode
+        for mode in _extract_poll_status_reviewer_modes(
+            snapshot.sections.get("Poll Status", "")
+        )
+        if mode != reviewer_mode
+    ]
+    if conflicting_poll_status_modes:
+        errors.append(
+            "Poll Status contradicts `Reviewer mode` metadata; conflicting modes: "
+            + ", ".join(f"`{mode}`" for mode in conflicting_poll_status_modes)
+            + f" (metadata: `{reviewer_mode}`)."
+        )
+
     return errors
+
+
+def _extract_poll_status_reviewer_modes(poll_status: str) -> tuple[str, ...]:
+    """Return normalized reviewer modes explicitly asserted inside Poll Status."""
+    seen: list[str] = []
+    valid_modes = {mode.value for mode in ReviewerMode}
+    for pattern in _POLL_STATUS_REVIEWER_MODE_PATTERNS:
+        for match in pattern.finditer(poll_status):
+            normalized = normalize_reviewer_mode(match.group("mode"))
+            if normalized in valid_modes and normalized not in seen:
+                seen.append(normalized)
+    return tuple(seen)
 
 
 def validate_launch_bridge_state(
@@ -378,6 +440,8 @@ def validate_launch_bridge_state(
     """Return launch-blocking bridge errors for fresh-conductor bootstrap."""
     errors = validate_live_bridge_contract(snapshot)
     effective_liveness = liveness or summarize_bridge_liveness(snapshot)
+    if not reviewer_mode_is_active(effective_liveness.reviewer_mode):
+        return errors
     if effective_liveness.codex_poll_state == CodexPollState.MISSING:
         errors.append(
             "Missing `Last Codex poll`; fresh launch requires a live reviewer poll "
@@ -399,105 +463,6 @@ def validate_launch_bridge_state(
             "ACK before bootstrap."
         )
     return errors
-
-
-def _render_handoff_markdown(payload: dict[str, object]) -> str:
-    lines = ["# Review Channel Handoff", ""]
-    lines.append(f"- generated_at: {payload['generated_at']}")
-    lines.append(f"- rollover_id: {payload['rollover_id']}")
-    lines.append(f"- trigger: {payload['trigger']}")
-    lines.append(f"- threshold_pct: {payload['threshold_pct']}")
-    lines.append(f"- bridge_path: {payload['bridge_path']}")
-    lines.append(f"- review_channel_path: {payload['review_channel_path']}")
-    lines.append(
-        "- required_codex_ack: "
-        f"{expected_rollover_ack_line(provider='codex', rollover_id=str(payload['rollover_id']))}"
-    )
-    lines.append(
-        "- required_claude_ack: "
-        f"{expected_rollover_ack_line(provider='claude', rollover_id=str(payload['rollover_id']))}"
-    )
-
-    metadata = payload.get("metadata")
-    if isinstance(metadata, dict) and metadata:
-        lines.append("")
-        lines.append("## Metadata")
-        for key, value in metadata.items():
-            lines.append(f"- {key}: {value}")
-
-    liveness = payload.get("liveness")
-    if isinstance(liveness, dict) and liveness:
-        lines.append("")
-        lines.append("## Liveness")
-        for key in BRIDGE_LIVENESS_KEYS:
-            lines.append(f"- {key}: {liveness.get(key)}")
-
-    resume_state = payload.get("resume_state")
-    if isinstance(resume_state, dict) and resume_state:
-        lines.append("")
-        lines.append("## Resume State")
-        lines.append(f"- next_action: {resume_state.get('next_action') or 'n/a'}")
-        lines.append(
-            "- reviewed_worktree_hash: "
-            f"{resume_state.get('reviewed_worktree_hash') or 'n/a'}"
-        )
-        lines.append(
-            "- current_atomic_step: "
-            f"{resume_state.get('current_atomic_step') or 'n/a'}"
-        )
-
-        current_blockers = resume_state.get("current_blockers")
-        if isinstance(current_blockers, list):
-            lines.append("")
-            lines.append("### Current Blockers")
-            if current_blockers:
-                for blocker in current_blockers:
-                    lines.append(f"- {blocker}")
-            else:
-                lines.append("- (none)")
-
-        owned_lanes = resume_state.get("owned_lanes")
-        if isinstance(owned_lanes, dict):
-            lines.append("")
-            lines.append("### Owned Lanes")
-            for provider in ("codex", "claude"):
-                provider_lanes = owned_lanes.get(provider, [])
-                lines.append(f"- {provider}:")
-                if isinstance(provider_lanes, list) and provider_lanes:
-                    for lane in provider_lanes:
-                        if not isinstance(lane, dict):
-                            continue
-                        lines.append(
-                            "  - "
-                            f"{lane.get('agent_id')} | {lane.get('lane')} | "
-                            f"{lane.get('worktree')} | {lane.get('branch')} | "
-                            f"{lane.get('mp_scope')}"
-                        )
-                else:
-                    lines.append("  - (none)")
-
-        launch_ack_state = resume_state.get("launch_ack_state")
-        if isinstance(launch_ack_state, dict):
-            lines.append("")
-            lines.append("### Launch ACK State")
-            for provider in ("codex", "claude"):
-                ack_state = launch_ack_state.get(provider, {})
-                if not isinstance(ack_state, dict):
-                    continue
-                status = "observed" if ack_state.get("observed") else "pending"
-                lines.append(
-                    f"- {provider}: {status} | {ack_state.get('required_section')} | "
-                    f"{ack_state.get('required_line')}"
-                )
-
-    sections = payload.get("sections")
-    if isinstance(sections, dict) and sections:
-        for name, value in sections.items():
-            lines.append("")
-            lines.append(f"## {name}")
-            lines.append(str(value).strip() or "(empty)")
-
-    return "\n".join(lines)
 
 
 def _safe_timestamp(timestamp: str) -> str:
@@ -526,14 +491,14 @@ def observe_rollover_ack_state(
         in _extract_markdown_items(
             sections.get(expected_rollover_ack_section(provider=provider), "")
         )
-        for provider in ("codex", "claude")
+        for provider in ROLLOVER_ACK_PREFIX
     }
 
 
 def _group_owned_lanes(
     lane_assignments: list[dict[str, str]],
 ) -> dict[str, list[dict[str, str]]]:
-    grouped: dict[str, list[dict[str, str]]] = {"codex": [], "claude": []}
+    grouped: dict[str, list[dict[str, str]]] = {p: [] for p in ROLLOVER_ACK_PREFIX}
     for lane in lane_assignments:
         provider = lane.get("provider", "").strip().lower()
         if provider not in grouped:

@@ -20,10 +20,12 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 _review_channel_handoff = importlib.import_module("dev.scripts.devctl.review_channel.handoff")
+_peer_liveness = importlib.import_module("dev.scripts.devctl.review_channel.peer_liveness")
 
 DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS = _review_channel_handoff.DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS
 extract_bridge_snapshot = _review_channel_handoff.extract_bridge_snapshot
 validate_live_bridge_contract = _review_channel_handoff.validate_live_bridge_contract
+reviewer_mode_is_active = _peer_liveness.reviewer_mode_is_active
 
 CODE_AUDIT_PATH = REPO_ROOT / "code_audit.md"
 REVIEW_CHANNEL_PATH = REPO_ROOT / "dev/active/review_channel.md"
@@ -51,14 +53,19 @@ REQUIRED_CODE_AUDIT_MARKERS = [
     "Codex must exclude `code_audit.md` itself when computing the reviewed",
     "operator-visible chat update",
     "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
-    "Claude should start from `Current Verdict`, `Open Findings`, and `Current Instruction For Claude`",
+    "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`",
+    "Claude must read `Last Codex poll` / `Poll Status` first on each repoll.",
+    "When `Reviewer mode` is `active_dual_agent`, this file is the live",
+    "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or",
     "When the current slice is accepted and scoped plan work remains, Codex must",
+    "If `Current Instruction For Claude` or `Poll Status` says `hold steady`,",
     "Only the Codex conductor may update the Codex-owned sections",
     "Only the Claude conductor may update the Claude-owned sections",
     "Specialist workers should wake on owned-path changes",
     "Codex must emit an operator-visible heartbeat every 5 minutes",
     "- Last Codex poll:",
     "- Last Codex poll (Local America/New_York):",
+    "- Reviewer mode:",
     "- Last non-audit worktree hash:",
 ]
 
@@ -71,6 +78,8 @@ REQUIRED_REVIEW_CHANNEL_MARKERS = [
     "`check_review_channel_bridge.py`",
     "`devctl swarm_run --continuous`",
     "only one Codex conductor updates the Codex-owned bridge",
+    "Bridge behavior is mode-aware.",
+    "Claude must stay in polling mode",
     "heartbeat every five minutes even when the blocker set is unchanged",
     "Default multi-agent wakeups should be change-routed instead of brute-force",
     "Completion stall",
@@ -106,6 +115,8 @@ def _extract_code_audit_metadata(text: str) -> dict[str, str]:
             metadata["last_codex_poll_local"] = _strip_backticks(trimmed.split(":", 1)[1])
         elif trimmed.startswith("Last Codex poll:"):
             metadata["last_codex_poll"] = _strip_backticks(trimmed.split(":", 1)[1])
+        elif trimmed.startswith("Reviewer mode:"):
+            metadata["reviewer_mode"] = _strip_backticks(trimmed.split(":", 1)[1])
         elif trimmed.startswith("Last non-audit worktree hash:"):
             metadata["last_worktree_hash"] = _strip_backticks(trimmed.split(":", 1)[1])
     return metadata
@@ -123,6 +134,23 @@ def _enforce_live_poll_freshness() -> bool:
 def _validate_code_audit_metadata(text: str) -> list[str]:
     metadata = _extract_code_audit_metadata(text)
     errors: list[str] = []
+    reviewer_mode = metadata.get("reviewer_mode", "")
+    valid_reviewer_modes = {
+        mode.value for mode in getattr(_peer_liveness, "ReviewerMode")
+    }
+
+    if not reviewer_mode:
+        errors.append(
+            "Missing `Reviewer mode`; expected one of: "
+            + ", ".join(sorted(valid_reviewer_modes))
+            + "."
+        )
+    elif reviewer_mode not in valid_reviewer_modes:
+        errors.append(
+            "Invalid `Reviewer mode`; expected one of: "
+            + ", ".join(sorted(valid_reviewer_modes))
+            + f". Got `{reviewer_mode}`."
+        )
 
     last_codex_poll = metadata.get("last_codex_poll", "")
     if not UTC_TIMESTAMP_PATTERN.fullmatch(last_codex_poll):
@@ -133,7 +161,11 @@ def _validate_code_audit_metadata(text: str) -> list[str]:
         poll_age = _current_utc() - poll_time
         if poll_age < timedelta(0):
             errors.append("`Last Codex poll` is in the future.")
-        elif poll_age > max_age and _enforce_live_poll_freshness():
+        elif (
+            poll_age > max_age
+            and _enforce_live_poll_freshness()
+            and reviewer_mode_is_active(reviewer_mode)
+        ):
             errors.append(
                 "`Last Codex poll` is stale; bridge-active reviews must refresh "
                 f"within {MAX_POLL_AGE_MINUTES} minutes."

@@ -1315,6 +1315,90 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertFalse(payload["agents_bundle_render_ok"])
         self.assertTrue(any("AGENTS bundle render gate failed" in reason for reason in payload["failure_reasons"]))
 
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
+        return_value={"ok": True, "mode": "check", "changed_paths": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_workflow_shell_hygiene_gate",
+        return_value={"ok": True, "violations": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_instruction_surface_sync_gate",
+        return_value={"ok": True, "surfaces": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_guide_contract_sync_gate",
+        return_value={"ok": False, "error": "autoguide drift"},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_agents_bundle_render_gate",
+        return_value={"ok": True, "changed": False, "diff_preview": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_bundle_workflow_parity_gate",
+        return_value={"ok": True, "targets": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check.scan_legacy_path_references",
+        return_value={
+            "ok": True,
+            "checked_file_count": 10,
+            "excluded_prefixes": ["dev/archive/"],
+            "rules": {},
+            "violations": [],
+        },
+    )
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_strict_tooling_fails_when_guide_contract_sync_fails(
+        self,
+        mock_collect_git_status,
+        _mock_path_audit,
+        _mock_active_plan_sync,
+        _mock_multi_agent_sync,
+        _mock_bundle_workflow_parity,
+        _mock_agents_bundle_render,
+        _mock_guide_contract_sync,
+        _mock_instruction_surface_sync,
+        _mock_workflow_shell_hygiene,
+        _mock_metadata_header,
+        _mock_scan_deprecated,
+        mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {"changes": []}
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=True,
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref=None,
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
+        payload = json.loads(mock_write_output.call_args.args[0])
+        self.assertFalse(payload["guide_contract_sync_ok"])
+        self.assertTrue(any("Guide contract sync gate failed" in reason for reason in payload["failure_reasons"]))
+        self.assertTrue(any("check_guide_contract_sync.py" in action for action in payload["next_actions"]))
+
 
 if __name__ == "__main__":
     unittest.main()

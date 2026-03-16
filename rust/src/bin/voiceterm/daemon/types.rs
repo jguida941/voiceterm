@@ -55,6 +55,21 @@ impl DaemonConfig {
     }
 }
 
+/// Lifecycle stage for the local daemon process.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum DaemonLifecycleState {
+    Running,
+}
+
+/// Canonical local attach transport clients should prefer first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum DaemonAttachTransport {
+    UnixSocket,
+    WebSocket,
+}
+
 // ============================================================================
 // Commands (client → daemon)
 // ============================================================================
@@ -118,6 +133,14 @@ pub(crate) enum DaemonEvent {
         version: String,
         socket_path: String,
         ws_port: Option<u16>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ws_url: Option<String>,
+        lifecycle: DaemonLifecycleState,
+        primary_attach: DaemonAttachTransport,
+        pid: u32,
+        started_at_unix_ms: u64,
+        working_dir: String,
+        memory_mode: String,
     },
 
     /// A new agent session was created.
@@ -156,6 +179,16 @@ pub(crate) enum DaemonEvent {
         active_agents: usize,
         connected_clients: usize,
         uptime_secs: f64,
+        socket_path: String,
+        ws_port: Option<u16>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ws_url: Option<String>,
+        lifecycle: DaemonLifecycleState,
+        primary_attach: DaemonAttachTransport,
+        pid: u32,
+        started_at_unix_ms: u64,
+        working_dir: String,
+        memory_mode: String,
     },
 
     /// Error response.

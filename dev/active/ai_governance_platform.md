@@ -53,6 +53,31 @@ governance product direction.
    `docs-check` rule is policy-owned and should enforce this requirement
    without hardcoding VoiceTerm-specific logic into the command implementation.
 
+## Scope Preservation Rule
+
+The target is the full system becoming modular and callable from any repo, not
+only one loop or one frontend getting cleaner inside the embedded VoiceTerm
+tree.
+
+Apply these rules while executing `MP-377`:
+
+1. Treat `governance_core`, `governance_runtime`, `governance_adapters`,
+   `governance_frontends`, `repo_packs`, and `product_integrations` as one
+   product boundary. The extraction target is the whole stack.
+2. Treat `MP-340`, `MP-355`, `MP-358`, and `MP-359` as subordinate
+   implementation lanes inside that boundary, not as alternate long-term
+   backend authorities.
+3. When any loop/control-plane/frontend slice lands, state which shared
+   contract or layer it strengthens and which current VoiceTerm-embedded
+   assumption it removes or narrows in the same tranche.
+4. If a change improves one local surface while increasing direct VoiceTerm
+   coupling, duplicating backend logic, or creating a surface-local ruleset,
+   it is off-plan even if the local slice looks cleaner.
+5. "Modular and callable" means the same typed actions, state, evidence, and
+   policy surfaces can be invoked by AI agents, human developers, CLI flows,
+   PyQt6, overlay/TUI, phone/mobile clients, and later skills/hooks without
+   each surface inventing a second backend or a different check stack.
+
 ## Platform Layers
 
 Use these layers consistently while reorganizing the repo and extracting the
@@ -126,6 +151,163 @@ Versioning rules sit beside those contracts, not outside them:
 
 If a surface cannot be expressed through those shared contracts, it is still
 too repo-local to count as extracted.
+
+## VoiceTerm Operator-Shell Contract
+
+VoiceTerm is a good fit for the first-party local operator shell, but it is not
+the backend.
+
+Use this decision rule:
+
+1. VoiceTerm may become the richest local cockpit for the extracted platform:
+   shared-screen review, staged drafts, queue visibility, PTY-aware status,
+   voice shortcuts, launcher actions, and thin client-launch affordances.
+2. VoiceTerm must consume the same backend authority as CLI, PyQt6, phone, and
+   future skills/hooks. It must not own a second orchestration truth model,
+   provider-specific ruleset, or repo-local action router that bypasses the
+   shared runtime contracts.
+3. PTY/output observation is evidence only. Typed state and typed actions stay
+   authoritative.
+4. PyQt6 and phone/mobile may still be useful operator clients, but they remain
+   peers over the same backend rather than children of a VoiceTerm-only control
+   plane.
+
+The target architecture is:
+
+`plan item / review packet / operator intent -> typed queue record ->
+TypedAction -> ProviderAdapter or workflow/runtime handler -> staged terminal
+packet or non-terminal execution -> receipt/telemetry -> ControlState /
+ReviewState projection`
+
+Rules for that queue/action path:
+
+1. Queue records must be typed, replayable, and auditable. Do not use raw chat
+   text or textbox state as the canonical queue contract.
+2. Any terminal-directed send must be derived from a typed `terminal_packet`
+   or equivalent typed action payload with explicit policy, approval, and audit
+   semantics.
+3. Raw terminal injection may exist only as a bounded execution mechanism under
+   the typed action system. It must never become the sole source of truth for
+   plan state, review state, or controller state.
+4. VoiceTerm may render and stage these actions more elegantly than other
+   clients, but another client must still be able to drive the same queue/action
+   flow through the same backend contract.
+5. If a feature only works when VoiceTerm owns hidden privileged logic, it is
+   off-plan and does not count as extracted platform progress.
+
+## Unified System Contract
+
+This product is one system with many interchangeable entrypoints.
+
+Use this rule set:
+
+1. VoiceTerm may be the preferred first-party app for operators who want the
+   richest local shell, terminal-native control plane, and voice-assisted
+   experience.
+2. The same backend must still be callable without VoiceTerm by CLI, PyQt6,
+   phone/mobile, skills/hooks, automation loops, and external repos.
+3. If a local background service exists, VoiceTerm may host or launch it as a
+   convenience, but the service contract must remain product-owned and
+   VoiceTerm-optional.
+4. PyQt6, phone/mobile, and future wrappers may use VoiceTerm as a richer local
+   host path when available, but they must also be able to talk to the same
+   backend directly through the same contract.
+4.1 Preferred end-state: VoiceTerm should act as the first-party local host
+    and supervisor for the shared daemon/controller stack when present, while
+    CLI, PyQt6, phone/mobile, and skills/hooks can still attach to that same
+    backend directly. Host/supervisor convenience belongs to VoiceTerm;
+    backend truth does not.
+4.2 Treat the existing VoiceTerm daemon/session transport as necessary but not
+    sufficient. PTY/session transport, socket/WebSocket attach, and terminal
+    packet staging are not the same thing as the controller loop that owns
+    reviewer heartbeat cadence, agent lifecycle `ensure/watch`, queue/action
+    routing, and shared review/control-state publishing.
+5. Client differences should be shell affordances, not logic forks. VoiceTerm
+   may add voice input, PTY-aware staging, richer terminal visualization, and
+   local shell ergonomics, but it must not gain unique backend-only semantics
+   that other clients can never reach.
+6. Repo portability remains mandatory: another repo must be able to install the
+   platform without adopting VoiceTerm, while VoiceTerm remains a powerful
+   adopter/integration layer for repos that want it.
+
+VoiceTerm action-surface expectation:
+
+1. VoiceTerm should be able to invoke the same platform actions available
+   elsewhere: guards, probes, quality-policy/status/report surfaces, bootstrap,
+   governance export, review-channel actions, remediation loops, and generated
+   skills/hooks/instruction surfaces.
+2. VoiceTerm should support those actions in both human-developer and
+   agent-assisted modes, including `single_agent`, `active_dual_agent`, and
+   `tools_only` flows, using the same routed checks and policy gates as the
+   CLI/devctl path.
+3. If VoiceTerm offers a richer local UX for those actions, that is an
+   adopter-shell advantage, not a license to fork the underlying logic.
+4. VoiceTerm should eventually host/supervise the shared daemon/controller
+   stack for local-first operation, but that stack must still expose the same
+   attach/discovery/auth/state contracts to non-VoiceTerm clients.
+
+What not to do:
+
+1. Do not make PyQt6, iPhone, skills, or automation loops depend on hidden
+   VoiceTerm-only state.
+2. Do not make VoiceTerm mandatory for non-VoiceTerm adopters.
+3. Do not duplicate orchestration logic across clients just to make a local
+   surface feel richer.
+
+## User-Facing Naming And Abstraction Contract
+
+The product already has far more surface area than a handful of slash
+commands. The right abstraction is layered, not flattened.
+
+Use this rule set:
+
+1. Keep backend command ids and typed actions stable, explicit, and technical.
+   Those are the maintainer/runtime contract.
+2. Add simpler user-facing aliases, slash commands, skills, PyQt6 buttons, and
+   VoiceTerm actions on top of that same backend contract for developers,
+   agent-assisted users, and less technical operators. Those wrapper names,
+   defaults, and starter bundles should be repo-pack/policy configurable so a
+   developer or agent adopter can tune the surface without editing core code.
+3. Do not make user-facing names the only source of truth. Friendly wrappers
+   should resolve to canonical backend actions instead of inventing separate
+   workflows.
+4. Generated surfaces should expose multiple layers of vocabulary:
+   maintainer command ids, operator-friendly aliases, and agent-facing
+   skill/slash wrappers.
+5. Name user-facing wrappers by intent, not implementation detail. Prefer
+   names that explain outcome directly (`review`, `fix`, `run-plan`,
+   `phone`, `export`, `publish`, `maintain`) over repo-internal nouns.
+
+Current system scope that the naming layer must cover:
+
+1. Quality and guard execution (`check`, `check-router`, `tandem-validate`,
+   `probe-report`, quality policy, guard-run).
+2. Review artifacts and packets (review packets, handoff packets, loop
+   packets, reviewer findings, adjudication).
+3. Collaboration/control-plane loops (`review-channel`, `swarm_run`,
+   `autonomy-swarm`, `autonomy-loop`, triage/remediation loops).
+4. Operator and device surfaces (VoiceTerm, PyQt6, phone/mobile,
+   `controller-action`, `phone-status`, `mobile-status`).
+5. Portability/adoption/install surfaces (`governance-bootstrap`,
+   `governance-export`, `integrations-import`, `render-surfaces`,
+   `platform-contracts`).
+6. Release/publish/reporting surfaces (`report`, `status`, `docs-check`,
+   `release`, `release-gates`, `ship`, package publishing).
+7. Maintenance/cleanup surfaces (`process-cleanup`, `reports-cleanup`,
+   failure cleanup, plan/index/archive/generated-surface cleanup, stale bridge
+   state repair, and governed doc regeneration).
+
+Naming model:
+
+1. Canonical backend command/action ids remain technical and stable.
+2. Friendly wrappers should be grouped by user goal, for example:
+   `inspect`, `review`, `fix`, `run`, `control`, `adopt`, `publish`,
+   `maintain`.
+3. Skills/slash commands should wrap those goal groups, not individual internal
+   files or one-off prompts.
+4. VoiceTerm, PyQt6, CLI, and generated skill surfaces should all project the
+   same grouped action model so a user can learn the system once and then use
+   it from any client.
 
 ## Machine-Readable Projection Contract
 
@@ -222,18 +404,29 @@ when all of these are true:
 2. The enforcement pipeline is trustworthy end to end: local CLI checks, CI
    workflows, docs-governance, review-ledger recording, and telemetry paths
    agree on the same policy surface.
-3. Context use is sustainable and operator-visible: budget profiles, overflow
+3. Provider parity is proven: Codex and Claude bootstrap from the same
+   repo-owned instruction surfaces, resolve the same active-plan chain, and
+   run the same routed validation stack by default; any remaining differences
+   are adapter-owned, explicit, and test-covered.
+4. Mode parity is proven: `active_dual_agent`, `single_agent`, and
+   `tools_only` reuse the same backend/runtime/contracts/check stack, with
+   only reviewer-liveness/checkpoint semantics changing instead of hidden
+   provider-local rules or a second control plane.
+5. Extraction/back-import proof is real: the standalone platform repo can be
+   validated on pilot repos and then consumed back into VoiceTerm through the
+   adopter seam with matching checks, projections, and artifact behavior.
+6. Context use is sustainable and operator-visible: budget profiles, overflow
    behavior, telemetry, and usage guidance exist for bootstrap/full-scan/
    focused modes, and quality claims do not depend on hidden oversized prompts.
-4. Platform accuracy claims are backed by broad evidence, not only local spot
+7. Platform accuracy claims are backed by broad evidence, not only local spot
    wins: repeated adoption scans, replayable evaluation runs, and reviewed
    finding quality across this repo plus external adopters.
-5. Python and Rust have both gone through continued pattern-mining passes so
+8. Python and Rust have both gone through continued pattern-mining passes so
    the first language lanes are materially stronger than today's baseline and
    no longer rely on a narrow initial rule set.
-6. The future database/ML path is bounded by explicit provenance,
+9. The future database/ML path is bounded by explicit provenance,
    privacy/redaction, replay, and waiver/suppression rules.
-7. The analyzer architecture is language-extensible: new languages plug into
+10. The analyzer architecture is language-extensible: new languages plug into
    shared finding/policy/telemetry contracts instead of forcing a second engine
    design.
 
@@ -760,6 +953,73 @@ families against its own tree:
 Every time an audit or external review finds a product-boundary defect, the
 follow-up should record whether the miss belongs to an existing rule, a new
 rule family, richer runtime contracts, or an explicitly out-of-scope category.
+
+### 2026-03-15 Separation Audit - Remaining VoiceTerm Coupling
+
+The current architecture direction is still right, but the remaining extraction
+blockers are now explicit.
+
+`P0` contract blockers:
+
+1. Portable/runtime layers still import the concrete VoiceTerm repo pack
+   directly instead of resolving an active repo-pack boundary.
+   Current hotspots:
+   `quality_policy.py`, `quality_policy_loader.py`, `audit_events.py`,
+   `reports_retention.py`, `review_probe_report.py`, `data_science/metrics.py`,
+   `publication_sync/core.py`, `integrations/federation_policy.py`,
+   `governance_review_log.py`, `governance/external_findings_log.py`,
+   `autonomy/{run_parser,benchmark_parser,report_helpers}.py`,
+   `review_channel/{core,event_store,promotion,state}.py`,
+   `watchdog/episode.py`, `commands/audit_scaffold.py`,
+   `cli_parser/reporting.py`.
+   Required exit: those modules must consume an active repo-pack/path provider
+   contract instead of importing `repo_packs.voiceterm` or
+   `VOICETERM_PATH_CONFIG` directly.
+2. Frontends still import repo-internal `devctl` modules and VoiceTerm path
+   config directly instead of consuming one installable runtime/API contract.
+   Current hotspots:
+   PyQt6 Operator Console modules under
+   `app/operator_console/{run.py,logging_support.py,layout/,collaboration/,state/,workflows/}`,
+   iOS preview/demo scaffolding in
+   `app/ios/VoiceTermMobile/Sources/VoiceTermMobileCore/MobileRelayPreviewData.swift`,
+   and Rust review-artifact readers in
+   `rust/src/bin/voiceterm/dev_command/review_artifact/artifact.rs`.
+   Required exit: frontends consume shared runtime state/contracts plus
+   repo-pack metadata or emitted projections, not `dev.scripts.devctl.*`
+   layout details.
+3. The transitional markdown bridge is still embedded into runtime/client code
+   as a live assumption instead of being only a temporary projection.
+   Current hotspots:
+   `review_channel/{core,prompt,handoff,heartbeat,reviewer_state}.py`,
+   `check_review_channel_bridge.py`,
+   `app/operator_console/state/bridge/bridge_sections.py`,
+   `app/operator_console/state/review/artifact_locator.py`, and
+   `rust/.../review_artifact/artifact.rs`.
+   Required exit: `review_state.json`, `controller_state`, and registry/event
+   projections become authoritative; `code_audit.md` remains a generated or
+   temporary bootstrap surface only.
+4. VoiceTerm integration details still leak through shared tooling defaults.
+   Current hotspots:
+   `commands/check_support.py` (`voiceterm_tui.log`),
+   `process_sweep/config.py` (`VOICETERM_*` process signatures),
+   VoiceTerm-specific environment/log paths in release/mobile helpers, and
+   direct `voiceterm_repo_root()` fallbacks in governance logs.
+   Required exit: move these assumptions under `repo_packs.voiceterm` or
+   `product_integrations.voiceterm` instead of leaving them in shared tooling.
+
+Separation-first queue:
+
+1. Replace direct `repo_packs.voiceterm` imports in portable/runtime/tooling
+   layers with active repo-pack resolution and generic path-provider wiring.
+2. Move frontend consumers onto shared runtime/API contracts and generated
+   projections instead of `dev.scripts.devctl.*` imports.
+3. Demote the markdown bridge from live runtime assumption to optional
+   projection/bootstrap/debug mode over the same backend authority instead of
+   deleting markdown outright.
+4. Isolate remaining VoiceTerm-named env/log/process/product details under the
+   adopter/integration layer.
+5. Re-run the whole-system coupling inventory after each tranche and keep the
+   remaining embedded assumptions listed here until they are gone.
 
 ## Consolidated Architecture Assessment And Roadmap
 
@@ -1615,16 +1875,218 @@ docs/
 - [ ] Define the shared runtime contracts (`RepoPack`, `ControlState`,
       `TypedAction`, `RunRecord`, `ArtifactStore`, `ProviderAdapter`,
       `WorkflowAdapter`) in one canonical backend layer.
+- [ ] Freeze the backend authority contract in executable form: define the
+      canonical reducer-backed JSON/runtime authority, typed action/write
+      surface, receipt/telemetry path, optional local service/API seam, and
+      which markdown/UI artifacts remain projections only.
+- [ ] Freeze the local service lifecycle contract: define how the shared
+      backend is launched, discovered, attached, health-checked, resumed,
+      and shut down when run standalone, through `devctl`, or through
+      VoiceTerm as an optional local host path, without changing backend
+      semantics across those entrypoints.
+- [ ] Freeze the daemon-vs-controller split explicitly: document which current
+      responsibilities belong to transport/session attach versus the
+      controller-owned review/queue/lifecycle loop so "daemon exists" never
+      gets treated as proof that the controller path is already complete.
+- [ ] Add a portable contract-sync guard for that same lifecycle surface:
+      `platform-contracts`, runtime/client parity tests, and cross-language
+      protocol checks must fail when lifecycle or caller-authority shape
+      drifts. This must work as reusable governance, not only as local
+      reviewer habit.
+      First bounded implementation: a dedicated `platform-contract-sync`
+      guard over the shared blueprint contracts, instead of overloading the
+      VoiceTerm mobile-relay guard or the architecture-surface sync guard.
+- [ ] Define the backend-closure milestone explicitly: one authority model,
+      one action router, one agent/job registry, one parity/conformance suite,
+      and markdown de-authorized to bootstrap/projection status only before
+      declaring the operator system stable.
 - [ ] Extract Ralph, mutation, review-channel, and host-process hygiene loops
       off repo-local assumptions and onto those shared contracts.
 - [ ] Converge CLI, PyQt6 operator console, overlay/TUI, and phone/mobile
       views onto the same runtime state model instead of duplicated shaping.
+- [ ] Make machine-readable runtime state authoritative in live operation:
+      `review_state.json`, typed projections, and registry state should be the
+      source of truth while markdown, PyQt6, phone/mobile, and terminal views
+      stay projections over that same backend.
 - [ ] Ship a bootstrap/adoption flow that an AI can run against a new repo
       without hand-editing core engine code.
+- [ ] Define the execution-mode matrix in one place: for
+      `active_dual_agent`, `single_agent`, `tools_only`, `paused`, and
+      `offline`, record allowed actions, required heartbeats, stale semantics,
+      promotion behavior, and which clients/operators can drive each mode.
+      Keep collaboration mode separate from objective profile so the same
+      backend can run `bootstrap`, `audit`, `refactor`, `review`, or
+      `remediation` work under either agent-assisted or script-first flows.
+- [ ] Generate simple operator/AI startup surfaces from the same repo-pack
+      policy: one shared backend, one routed check stack, thin
+      `agents` / `developer` / `refactor` / `audit` wrappers, and
+      provider-facing skills/hooks/docs that point at the same commands instead
+      of inventing provider-local rules.
+- [ ] Make those user-facing wrappers repo-pack/policy configurable: alias
+      names, default bundles, visible modes, and generated skills/slash
+      surfaces should be editable by developers/adopters without patching the
+      portable core or forking provider prompts.
+- [ ] Keep Codex/Claude startup parity explicit: generated instruction
+      surfaces, bridge/runbook bootstrap, and routed validation commands must
+      point both providers at the same repo-owned flow by default. Any
+      remaining divergence must be adapter-owned, documented, and test-covered
+      instead of living in chat habits or provider-specific memory.
+- [ ] Prove execution-mode parity across `active_dual_agent`,
+      `single_agent`, and `tools_only`: the same backend/runtime truth and
+      routed check stack must power all three modes, with only
+      reviewer-liveness/checkpoint behavior changing.
+- [ ] Prove collaboration-mode parity explicitly: the same system must work
+      for `Codex+Claude`, `human+Claude`, and `human+tools-only` operation,
+      with one backend truth, the same routed checks, and the same
+      operator-visible progress semantics instead of chat-only improvisation.
+- [ ] Define the extraction/back-import proof pack before the repo split:
+      maintain a file-family classification (`platform`,
+      `product_integrations.voiceterm`, `defer`), the standalone bootstrap
+      commands, pilot-repo validation commands, and the VoiceTerm re-import
+      diff/evidence checks needed to prove the extracted platform still drives
+      the adopter the same way.
+- [ ] Run periodic whole-system gap audits with multiple lanes: architecture
+      boundary, instruction-surface parity, extraction manifest, and proof
+      matrix. Record every still-missing contract here before calling a slice
+      complete so the system does not silently drift between Codex, Claude,
+      solo developer mode, and adopter surfaces.
+- [ ] Define the validation-routing contract once instead of relying on chat
+      habit: map backend actions and execution modes to the required routed
+      checks (`check-router`, `tandem-validate`, `check --profile ci`,
+      docs/probe/report lanes, risk add-ons) so Codex, Claude, and human
+      developers all know what to run at the same boundary.
+- [ ] Define the client capability matrix over the shared backend: CLI,
+      review-channel conductors, PyQt6, overlay/TUI, phone/mobile, developer
+      mode, and VoiceTerm adopter must each name what they can read, write,
+      approve, launch, or only observe.
+- [ ] Add one repo-owned operator-visible heartbeat/update stream over that
+      same backend: reviewer/coder status, findings, next action, and
+      stale/healthy state must publish automatically to shared projections so
+      chat, CLI, PyQt6, phone/mobile, and overlay users do not need to keep
+      asking whether the loop is still alive.
+- [ ] Land the first concrete controller-owned lifecycle slice as
+      `review-channel ensure/watch`: persistent reviewer heartbeat/update
+      publishing, mode-aware liveness ownership, and one canonical structured
+      state/projection path. Keep guards read-only and keep markdown as a
+      projection/bootstrap surface instead of live authority.
+- [ ] Freeze the collaboration timeout/escalation contract on that same
+      controller path: define configurable reviewer-overdue, coder-wait,
+      idle-session, and absolute-run budgets (for example `--timeout-minutes`
+      / policy defaults), what transitions from `fresh` -> `poll_due` ->
+      `overdue` -> `timed_out`, and which transitions only warn versus force
+      pause/stop. The system must never leave an agent parked for hours with
+      no controller-owned escalation.
+- [ ] Freeze the stop/shutdown contract for collaborative runs: `pause`,
+      `resume`, `stop`, timeout-driven stop, and completion-driven stop must
+      all write final backend state, terminate controller-owned publishers and
+      helper processes, and run the same repo-owned cleanup/verify path so the
+      loop does not leave stale sessions or host processes behind.
+- [ ] Define the caller authority + approval matrix over that same backend:
+      human operator, solo developer, reviewer agent, implementer agent,
+      automation loop, VoiceTerm shell, PyQt6, phone/mobile, and skills/hooks
+      must each map to allowed actions, stage-only actions, approval-required
+      actions, and forbidden actions under one policy contract.
+- [ ] Freeze the operator-shell contract for VoiceTerm in executable terms:
+      define which responsibilities belong to VoiceTerm as a first-party local
+      shell, which remain backend-owned, and which current behaviors are still
+      transitional bridge/adopter debt.
+- [ ] Prove full action-surface parity for VoiceTerm as an adopter shell:
+      VoiceTerm must be able to drive guards, probes, quality/reporting,
+      bootstrap/export, review-channel actions, remediation loops, and
+      generated skills/hooks/instruction flows through the same backend action
+      router and validation path used by CLI/devctl.
+- [ ] Prove VoiceTerm-optional operation explicitly: the same backend contract
+      must be runnable through CLI/devctl, PyQt6, phone/mobile, skills/hooks,
+      and external repos even when VoiceTerm is absent, while VoiceTerm remains
+      the preferred first-party shell when present.
+- [ ] Freeze the queue/action contract end-to-end: typed queue record shape,
+      allowed sources (`plan item`, `review packet`, operator action,
+      automation loop), reducer/receipt semantics, how `terminal_packet`
+      staging fits into the flow, and which actions are allowed to bypass the
+      terminal entirely.
+- [ ] Prove client parity for the queue/action path: VoiceTerm may be the best
+      local shell, but CLI, PyQt6, phone/mobile, and future skills/hooks must
+      still consume the same typed queue/action/backend contract without hidden
+      VoiceTerm-only logic.
+- [ ] Add version/compatibility handshake coverage for shared backend
+      contracts: clients must negotiate schema/platform compatibility instead of
+      silently assuming they are on the same commit or packet shape.
+- [ ] Add parity and fault-injection proof for the operator system: stale
+      heartbeat, dropped connection, crash mid-write, replay/reducer recovery,
+      reconnect/resume, and writer-lease contention must be testable against
+      the shared backend instead of only through manual operator sessions.
+- [ ] Add golden projection/parity fixtures for the shared backend: one
+      captured backend snapshot should drive equivalent critical fields,
+      action availability, and provenance across CLI, VoiceTerm, PyQt6,
+      phone/mobile, and generated skills/hooks surfaces.
+- [ ] Keep every major subsystem on the same extraction map: CLI, review-
+      channel, autonomy loops, PyQt6, overlay/TUI, phone/mobile, generated
+      skills/hooks/docs, and VoiceTerm integration work must each name the
+      shared backend contract they consume plus the remaining embedded
+      assumptions still blocking portability.
 - [ ] Define repo-pack packaging so repo-local policy/workflow/docs defaults
       live outside the portable core.
 - [ ] Keep VoiceTerm working as the first consumer while replacing direct
       imports of repo-embedded platform logic with explicit integration seams.
+- [ ] Treat separation as a live implementation constraint, not a late cleanup
+      phase: when new loop/control-plane capability lands, move it behind
+      reusable runtime/repo-pack seams first and let VoiceTerm call back into
+      that seam, rather than widening the VoiceTerm-embedded architecture and
+      promising to extract it later.
+- [ ] Treat loop/control-plane slices as consumers of the full-platform
+      boundary, not as the boundary itself: `MP-340`, `MP-355`, `MP-358`, and
+      `MP-359` may harden their local path, but each meaningful slice must
+      either remove a direct VoiceTerm-only dependency, move logic behind
+      runtime/repo-pack/adapter contracts, or record the remaining debt here
+      before the slice is considered complete.
+- [ ] Remove the remaining direct `repo_packs.voiceterm` imports from
+      portable/runtime/tooling layers and replace them with active repo-pack
+      resolution or explicit adopter-layer wiring.
+- [ ] Stop frontend clients from importing repo-internal `dev.scripts.devctl`
+      modules or VoiceTerm path config directly; consume shared runtime/API
+      contracts and emitted projections instead.
+- [ ] Remove `code_audit.md` as a required live runtime assumption in code
+      paths that should already be reading typed `review_state` /
+      `controller_state` authority, while keeping markdown available as an
+      optional projection/bootstrap/debug mode where still useful.
+- [ ] Define the markdown-authority demotion gate explicitly: list the typed
+      `review_state` / `controller_state` / registry projections and client
+      migrations that must exist before `code_audit.md` becomes a
+      backend-fed projection/bootstrap artifact instead of live authority.
+- [ ] Define one simple backend-owned agent lifecycle command/action surface
+      (for example `ensure/start/resume/stop` plus mode selection) that CLI,
+      PyQt6, phone/mobile, overlay, VoiceTerm, and later skills/hooks all call
+      instead of each client inventing its own launch logic.
+- [ ] Freeze the local host/supervisor contract explicitly: VoiceTerm may host
+      and supervise the shared daemon/controller stack as the preferred local
+      shell, but that same stack must remain directly attachable by CLI,
+      PyQt6, phone/mobile, and skills/hooks without hidden VoiceTerm-only
+      orchestration.
+- [ ] Freeze repo/worktree-scoped service identity and discovery for the shared
+      backend so multi-repo or multi-worktree clients attach to the correct
+      controller/daemon instance instead of whichever global socket or port is
+      already listening.
+- [ ] Freeze the backend attach/auth security contract before standardizing the
+      shared daemon path across VoiceTerm, PyQt6, and phone/mobile: local-only
+      vs off-LAN attach, auth tokens/keys, transport expectations, and
+      approval boundaries must be explicit backend policy instead of client
+      assumptions.
+- [ ] Name and implement the daemon-event to runtime-state reducer explicitly:
+      live daemon/session events must reduce into authoritative
+      `ControlState`/`ReviewState` contracts instead of leaving daemon protocol
+      and file-built projections as parallel truths.
+- [ ] Add a repo-pack-aware maintenance/cleanup workflow surface for the whole
+      system: managed plan/index/archive/generated-surface cleanup, stale
+      bridge/runtime-state cleanup, and report/session residue cleanup should
+      be callable through one guarded backend path without letting cleanup
+      rewrite semantic review truth or delete repo state ad hoc.
+- [ ] Retire VoiceTerm-local action brokerage as explicit migration debt:
+      overlay/TUI action catalogs may remain a client shell, but typed action
+      routing and argv mapping must converge onto the shared backend router so
+      VoiceTerm does not keep a second orchestration brain.
+- [ ] Push VoiceTerm-only env/log/process/product details down into
+      `repo_packs.voiceterm` or `product_integrations.voiceterm` so shared
+      tooling defaults stop carrying host-product naming and behavior.
 - [ ] When a meaningful MP-377 slice turns green with validation, docs, and
       reviewer signoff, capture a bounded commit/push checkpoint through the
       normal approval path instead of letting the extraction lane accumulate an
@@ -1645,6 +2107,10 @@ docs/
 - [ ] Add context-usage telemetry to `RunRecord`/event history/adoption
       evidence: estimated prompt size, actual provider usage when available,
       compression ratio, and explicit overflow/truncation path.
+- [ ] Separate local/offline validation posture from live external status
+      gates so tandem validation can distinguish code-quality failures from
+      GitHub/network/home-dir environment failures without weakening CI or
+      release enforcement.
 - [ ] Make "why didn't the tools catch this?" a first-class execution rule:
       for each externally found issue or audit finding, record the enforcement
       miss, decide whether it belongs to an existing guard/probe/runtime
@@ -1914,6 +2380,11 @@ working on `MP-377`.
   and added `REVIEWED_HASH_STALE` attention signal. These are runtime
   contract improvements that complement the repo-pack extraction boundary
   by making the shared runner surfaces honest about bridge truth.
+- MP-358 role-profile seam landed (2026-03-15): `runtime/role_profile.py`
+  defines `TandemRole`, `RoleProfile`, `TandemProfile`, and
+  `role_for_provider()` as the provider-agnostic contract that replaces
+  hardcoded provider-name checks across the review-channel modules.
+  `check_tandem_consistency.py` guard validates alignment.
 
 ### Next actions
 
@@ -2058,6 +2529,113 @@ prepare a bounded commit/push checkpoint through the normal approval path.
 
 ## Progress Log
 
+- 2026-03-16: Accepted the bounded `M63` timeout-escalation slice. The shared
+  review/controller path now exposes machine-readable `reviewer_overdue`
+  attention above plain stale reviewer heartbeat, threads the overdue
+  threshold through `review-channel status`, and proves the overdue/stale
+  boundary with the focused review-channel/runtime test bundle (`129`
+  passing). Promoted the next bounded lifecycle follow-up to `M64`: freeze the
+  first clean stop/shutdown contract for follow-backed controller runs with
+  explicit stop reasons, timeout budget, and final state write.
+- 2026-03-16: Accepted the bounded `M55` lifecycle-truth slice. The shared
+  backend now fails closed when the publisher is required but missing, the
+  shared status/runtime path emits `publisher_missing` instead of false-green
+  `healthy`, and the focused proof bundle is green (`127` tests). The runtime
+  still honestly reports `publisher_missing` in this session because no
+  controller-owned publisher is running; that is now truthful attention, not a
+  code-shape bug. Promoted the next bounded lifecycle follow-up to `M63`:
+  configurable timeout/escalation budgets for reviewer-overdue, coder-wait,
+  idle-session, and absolute-run limits.
+- 2026-03-16: Recorded the live 5-hour Claude wait as a real architecture
+  failure, not just operator annoyance. The current bridge/publisher work can
+  still leave Claude parked if reviewer cadence does not advance, which proves
+  the controller contract still lacks timeout budgets, overdue escalation, and
+  clean stop semantics. Added those as explicit platform requirements:
+  configurable reviewer/coder/session timeouts, controller-owned
+  `fresh -> overdue -> timed_out` escalation, and stop/shutdown cleanup that
+  terminates helper processes and verifies the repo/host is clean.
+- 2026-03-16: Re-reviewed the next `M55` lifecycle step after landing
+  `--start-publisher-if-missing` on `review-channel ensure`. The new
+  start/resume seam is real and focused tests are green, but the controller
+  contract is still not honest enough to count as done: in active dual-agent
+  mode the backend still reports `ok: true` when the publisher is required but
+  missing, and that lifecycle gap is not yet threaded through the shared
+  attention/runtime projection path. The next bounded step stays inside the
+  same slice: add a machine-readable publisher-missing attention state and
+  make `ensure` degrade unless auto-start actually recovers the publisher.
+- 2026-03-16: Landed the first concrete `M54` backend-owned publisher slice
+  instead of another markdown-only workaround. `review-channel ensure --follow`
+  now refreshes reviewer heartbeat on cadence through repo-owned tooling and
+  emits structured status frames via the shared output contract, with focused
+  proof coverage for follow semantics and heartbeat metadata. This is real
+  progress on the controller path, but it does **not** close the lifecycle
+  problem yet: the loop still requires an explicit command invocation, so the
+  next bounded step remains controller-owned ensure/watch supervision rather
+  than more bridge-only polish.
+- 2026-03-16: Re-audited the live platform from the operator/adopter angle
+  instead of only the local code-review loop and promoted three more missing
+  product requirements into `MP-377`. First, the next concrete control-plane
+  slice should be a controller-owned `review-channel ensure/watch` path so
+  reviewer heartbeat/update publishing and mode-aware liveness stop depending
+  on manual chat/markdown refreshes. Second, the user-facing abstraction
+  layer still needs repo-pack/policy-configurable aliases, skills, and
+  startup surfaces so developers and agent adopters can tune names/defaults
+  without patching the portable core. Third, the system still lacks one smart
+  maintenance/cleanup surface for plans/index/archive/generated surfaces plus
+  stale runtime/report/session residue; that belongs in the shared backend as
+  a guarded maintenance contract, not as ad hoc cleanup scripts or manual
+  reviewer work.
+- 2026-03-15: Re-audited self-hosting organization and multi-agent loop
+  enforcement from the product boundary, not only the local bridge. The
+  current package-layout system is the right enforcement seam and is already
+  blocking new flat growth in crowded roots, but the latest review confirmed
+  two remaining platform gaps that should stay explicit in `MP-377`: (1)
+  layout governance is still mostly Python-biased/freeze-mode and should be
+  generalized through the existing `package_layout` rule model instead of a
+  second crowding guard, and (2) implementer completion-stall is still only a
+  tandem validator plus prompt guidance, not shared backend attention/runtime
+  truth visible to VoiceTerm, PyQt6, phone/mobile, CLI, and generated skills.
+- 2026-03-15: Added the missing provider/mode parity and extraction-proof
+  gates after re-auditing the system from the operator viewpoint. `MP-377`
+  now explicitly requires Codex and Claude to bootstrap from the same
+  repo-owned instruction surfaces, run the same routed validation stack, and
+  prove parity across `active_dual_agent`, `single_agent`, and `tools_only`
+  modes. The same update also makes the standalone-repo plus VoiceTerm
+  back-import proof a first-class completion gate instead of an implied future
+  cleanup step.
+- 2026-03-15: Re-audited the live tandem/control-plane path after the latest
+  reviewer-state and validator work. Confirmed the product still wants one
+  shared backend for developers, solo agents, dual-agent loops, PyQt6, and
+  phone/mobile surfaces, then promoted the missing explicit rules into the
+  plan: JSON/typed projections must become the live authority, generated
+  agent/developer startup surfaces should come from the same repo-pack policy,
+  and local tandem validation must distinguish real code-quality failures from
+  offline/network/home-dir environment blockers in release-only checks.
+- 2026-03-15: Added the current extraction warning explicitly after the latest
+  architecture audit. The repo can keep landing loop/runtime improvements, but
+  it should stop widening the embedded VoiceTerm shape while the reusable
+  boundary is still being proven. The remaining provider-specific drift is now
+  clearly identified as downstream/client work in docs, Operator Console, and
+  iOS readers rather than a reason to keep the backend provider-first.
+- 2026-03-15: Re-read the active architecture chain after a scope audit and
+  tightened the plan language accordingly. `MP-377` now says explicitly that
+  the target is the whole system becoming modular and callable from any repo:
+  governance core, runtime, adapters, frontends, repo packs, and VoiceTerm as
+  a consumer. `MP-340`, `MP-355`, `MP-358`, and `MP-359` remain subordinate
+  implementation lanes inside that boundary, not alternate backend
+  authorities. New work must now state which shared contract it strengthens
+  and which VoiceTerm-embedded assumption it removes or narrows.
+- 2026-03-15: Ran a whole-system separation audit instead of another loop-only
+  pass and recorded the concrete blockers here. The highest-signal remaining
+  coupling is now explicit: 1) portable/runtime/tooling modules still import
+  `repo_packs.voiceterm` directly for default policy/report/review paths, 2)
+  PyQt6/iOS/Rust consumers still read repo-internal `devctl` modules and
+  VoiceTerm path config directly, 3) `code_audit.md` is still embedded in live
+  runtime/client code instead of being only a temporary projection, and 4)
+  VoiceTerm-only env/log/process defaults still leak through shared tooling.
+  The execution queue is now separation-first: active repo-pack resolution,
+  frontend contract separation, bridge de-authority, then product-integration
+  cleanup.
 - 2026-03-15: Re-audited `MP-377` against the current repo and the latest
   control-plane thesis. Confirmed the direction remains correct, then promoted
   the missing explicit rules into the plan: external analyzers

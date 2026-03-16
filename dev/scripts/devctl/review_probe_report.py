@@ -35,12 +35,12 @@ from .probe_topology import (
 from .quality_policy import resolve_quality_policy
 from .quality_policy_loader import QUALITY_POLICY_ENV_VAR
 from .quality_scan_mode import is_adoption_scan
-from .repo_packs.voiceterm import VOICETERM_PATH_CONFIG
+from .repo_packs import active_path_config
 from .script_catalog import probe_script_cmd
 from .time_utils import utc_timestamp
 
 # Backward-compat alias sourced from repo-pack config
-DEFAULT_PROBE_REPORT_OUTPUT_ROOT = VOICETERM_PATH_CONFIG.probe_report_output_root_rel
+DEFAULT_PROBE_REPORT_OUTPUT_ROOT = active_path_config().probe_report_output_root_rel
 
 
 def resolve_probe_report_path(raw_path: str | Path | None) -> Path:

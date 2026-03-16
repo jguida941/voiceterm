@@ -29,6 +29,13 @@ try:
     from check_bootstrap import REPO_ROOT
 except ModuleNotFoundError:
     from dev.scripts.checks.check_bootstrap import REPO_ROOT
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from dev.scripts.checks.architecture_surface_sync.support import (
+    extract_cli_command_bindings as _extract_cli_command_bindings,
+    app_reference_tokens as _app_reference_tokens,
+)
 
 INDEX_REL: Final[str] = "dev/active/INDEX.md"
 MASTER_PLAN_REL: Final[str] = "dev/active/MASTER_PLAN.md"
@@ -336,51 +343,6 @@ def _command_module_key(path: Path) -> str:
     return ".".join(module_path.parts)
 
 
-def _extract_cli_command_bindings(cli_text: str) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
-    aliases: dict[str, list[str]] = defaultdict(list)
-    handlers: dict[str, list[str]] = defaultdict(list)
-    try:
-        module = ast.parse(cli_text)
-    except SyntaxError:
-        pattern = re.compile(r'["\']([^"\']+)["\']\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\.run')
-        for command_name, module_name in pattern.findall(cli_text):
-            handlers[module_name].append(command_name)
-        return {}, dict(handlers)
-
-    for node in ast.walk(module):
-        if not isinstance(node, ast.ImportFrom):
-            continue
-        if node.level != 1 or node.module is None or (
-            node.module != "commands" and not node.module.startswith("commands.")
-        ):
-            continue
-        for alias in node.names:
-            if alias.name == "*":
-                continue
-            module_key = f"{node.module}.{alias.name}"
-            local_name = alias.asname or alias.name
-            if local_name not in aliases[module_key]:
-                aliases[module_key].append(local_name)
-
-    for node in module.body:
-        if not isinstance(node, ast.Assign):
-            continue
-        if not isinstance(node.value, ast.Dict) or not any(
-            isinstance(target, ast.Name) and target.id == "COMMAND_HANDLERS"
-            for target in node.targets
-        ):
-            continue
-        for key_node, value_node in zip(node.value.keys, node.value.values):
-            if not isinstance(key_node, ast.Constant) or not isinstance(key_node.value, str):
-                continue
-            if not isinstance(value_node, ast.Attribute) or value_node.attr != "run":
-                continue
-            if not isinstance(value_node.value, ast.Name):
-                continue
-            handlers[value_node.value.id].append(key_node.value)
-    return dict(aliases), dict(handlers)
-
-
 def _has_run_entrypoint(source_text: str) -> bool:
     return re.search(r"^def\s+run\s*\(", source_text, re.MULTILINE) is not None
 
@@ -442,16 +404,6 @@ def _validate_devctl_command(repo_root: Path, path: Path, cache: dict[str, str])
             ))
 
     return violations
-
-
-def _app_reference_tokens(path: Path) -> tuple[str, ...]:
-    parts = path.parts
-    tokens: list[str] = [path.as_posix()]
-    for index in range(len(parts) - 1, 1, -1):
-        prefix = "/".join(parts[:index])
-        if prefix != "app":
-            tokens.append(prefix)
-    return tuple(tokens)
 
 
 def _validate_app_surface(
