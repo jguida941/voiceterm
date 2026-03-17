@@ -8,6 +8,10 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from dev.scripts.checks.probe_report.decision_render import (
+        append_design_decision_packets_rich,
+        append_design_decision_packets_terminal,
+    )
     from dev.scripts.checks.probe_report.practices import match_best_practice
     from dev.scripts.checks.probe_report.support import (
         ALLOWLIST_FILENAME,
@@ -19,6 +23,10 @@ try:
         load_allowlist,
     )
 except ModuleNotFoundError:  # pragma: no cover
+    from probe_report.decision_render import (
+        append_design_decision_packets_rich,
+        append_design_decision_packets_terminal,
+    )
     from probe_report.practices import match_best_practice
     from probe_report.support import (
         ALLOWLIST_FILENAME,
@@ -201,7 +209,9 @@ def render_rich_report(
     if findings.suppressed:
         lines.append(f"- **{len(findings.suppressed)} SUPPRESSED** — marked intentional in `{ALLOWLIST_FILENAME}`")
     if findings.design_decisions:
-        lines.append(f"- **{len(findings.design_decisions)} DESIGN DECISIONS** — visible for senior review")
+        lines.append(
+            f"- **{len(findings.design_decisions)} DESIGN DECISION PACKETS** — visible to AI and humans with explicit decision modes"
+        )
     lines.extend(["", "## Findings by File", ""])
 
     def file_sort_key(item: tuple[str, list[dict[str, Any]]]) -> tuple[int, str]:
@@ -220,35 +230,10 @@ def render_rich_report(
         )
 
     if show_suppressed and findings.design_decisions:
-        lines.extend(
-            [
-                "## Design Decisions for Senior Review",
-                "",
-                (
-                    "The following findings were marked as intentional design "
-                    "decisions. They remain visible so senior engineers can review "
-                    "the trade-offs."
-                ),
-                "",
-            ]
+        append_design_decision_packets_rich(
+            lines=lines,
+            design_decisions=findings.design_decisions,
         )
-        for hint, entry in findings.design_decisions:
-            severity = hint.get("severity", "medium").upper()
-            symbol = hint.get("symbol", "unknown")
-            probe = hint.get("probe", "unknown")
-            lines.extend(
-                [
-                    f"#### [{severity}] `{hint.get('file')}::{symbol}`",
-                    "",
-                    f"*Detected by `{probe}`*",
-                    "",
-                ]
-            )
-            lines.extend(f"- {signal}" for signal in hint.get("signals", []))
-            lines.extend(["", f"**Design rationale:** *{entry.reason}*", ""])
-            if entry.research_instruction:
-                lines.extend([f"**AI research task:** {entry.research_instruction}", ""])
-            lines.extend(["---", ""])
 
     if show_suppressed and findings.suppressed:
         lines.extend(
@@ -327,12 +312,10 @@ def render_terminal_report(
             lines.extend(f"               {signal}" for signal in hint.get("signals", []))
 
     if findings.design_decisions:
-        lines.extend(["", "-" * 60, "  DESIGN DECISIONS (for senior review)", ""])
-        for hint, entry in findings.design_decisions:
-            severity = hint.get("severity", "medium").upper()
-            symbol = hint.get("symbol", "unknown")
-            lines.append(f"  DD [{severity:6s}] {hint.get('file')}::{symbol}")
-            lines.append(f"               {entry.reason}")
+        append_design_decision_packets_terminal(
+            lines=lines,
+            design_decisions=findings.design_decisions,
+        )
 
     lines.extend(["", "-" * 60, "  Run with --format md for detailed remediation guidance.", "=" * 60])
     return "\n".join(lines)

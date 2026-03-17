@@ -57,6 +57,39 @@ def render_review_packet_markdown(
             if formatted_hints:
                 lines.append(f"- representative_hints: {formatted_hints}")
         lines.append("")
+    decision_packets = packet.get("decision_packets", [])
+    if isinstance(decision_packets, list) and decision_packets:
+        lines.extend(
+            [
+                "## Decision Packets",
+                "",
+                (
+                    "These packets describe intentional design boundaries using "
+                    "the same evidence stack for AI agents and human reviewers. "
+                    "`decision_mode` controls whether the agent may auto-apply, "
+                    "should recommend, or must wait for approval."
+                ),
+                "",
+            ]
+        )
+        for index, decision in enumerate(decision_packets[:HOTSPOT_LIMIT], start=1):
+            if not isinstance(decision, dict):
+                continue
+            lines.append(f"### {index}. {decision.get('file')}::{decision.get('symbol')}")
+            lines.append("")
+            lines.append(f"- decision_mode: {decision.get('decision_mode')}")
+            lines.append(f"- severity: {decision.get('severity')}")
+            lines.append(f"- detected_by: {decision.get('probe')}")
+            lines.append(f"- rationale: {decision.get('rationale')}")
+            invariants = decision.get("invariants", [])
+            if isinstance(invariants, list) and invariants:
+                lines.append(f"- invariants: {' | '.join(str(item) for item in invariants)}")
+            if decision.get("precedent"):
+                lines.append(f"- precedent: {decision.get('precedent')}")
+            validation_plan = decision.get("validation_plan", [])
+            if isinstance(validation_plan, list) and validation_plan:
+                lines.append(f"- validation_plan: {' | '.join(str(item) for item in validation_plan)}")
+            lines.append("")
     lines.extend(["## Detailed Probe Findings", "", rich_report_markdown])
     return "\n".join(lines)
 

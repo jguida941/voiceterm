@@ -188,6 +188,19 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-17: Fixed a real self-hosting reporting bug in the portable
+  governance packet path. `devctl probe-report` had been rendering markdown
+  and terminal packets without passing `repo_root` into the shared render
+  helpers, which meant repo-root `.probe-allowlist.json` design-decision
+  entries were silently ignored in the main operator command even though the
+  fallback `run_probe_report.py` path already honored them. The main command
+  now threads `repo_root` through artifact generation and both render modes,
+  and the maintainer docs now describe the true allowlist contract:
+  top-level `entries`, `disposition`, and file+symbol matching with `probe`
+  retained only as audit intent. That closes the "why didn't the tools show
+  the filtered result?" gap for the canonical probe surface and leaves the
+  current local filtered backlog medium-only (`0` active high, `14` active
+  medium, `25` design decisions).
 - 2026-03-11: Created this execution-plan doc after maintainership review
   highlighted a tracking gap. Existing active docs already covered probe
   implementation and portable-guard slices, but not the broader portable
@@ -741,6 +754,10 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Session Resume
 
+- `devctl probe-report` now applies repo-root allowlist/design-decision
+  filtering consistently in artifact, markdown, and terminal modes; the
+  current local filtered backlog is `0` active high, `14` active medium, and
+  `25` design decisions.
 - Corrected March 14 pilot evidence is now durable in
   `dev/reports/audits/2026-03-14-portable-governance-pilot-rerun.md` and
   `dev/reports/audits/portable_governance_pilot_2026-03-14.json`.

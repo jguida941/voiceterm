@@ -10,6 +10,10 @@ from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
+from dev.scripts.checks.probe_report.support import (
+    AllowlistEntry,
+    build_design_decision_packets,
+)
 from dev.scripts.devctl import cli, quality_policy, review_probe_report
 from dev.scripts.devctl.config import REPO_ROOT, get_repo_root
 from dev.scripts.devctl.commands import probe_report
@@ -108,10 +112,35 @@ def _review_packet_payload() -> dict:
 
 
 class ProbeReportCommandTests(unittest.TestCase):
+    def test_build_design_decision_packets_defaults_mode_and_validation(self) -> None:
+        hint = _probe_payload("probe_design_smells")["risk_hints"][0]
+        packets = build_design_decision_packets(
+            hints_by_file={hint["file"]: [hint]},
+            allowlist=[
+                AllowlistEntry(
+                    file=hint["file"],
+                    symbol=hint["symbol"],
+                    probe="probe_design_smells",
+                    disposition="design_decision",
+                    reason="Keep the presenter boundary explicit while the state graph is still in flux.",
+                    invariants=("Preserve the presenter/public contract.",),
+                )
+            ],
+        )
+
+        self.assertEqual(len(packets), 1)
+        self.assertEqual(packets[0]["decision_mode"], "recommend_only")
+        self.assertEqual(
+            packets[0]["invariants"],
+            ["Preserve the presenter/public contract."],
+        )
+        self.assertTrue(any("check --profile ci" in step for step in packets[0]["validation_plan"]))
+
     def test_render_probe_report_terminal_includes_top_hotspot(self) -> None:
         report = {
             "probe_results": [_probe_payload("probe_design_smells")],
             "review_packet": {"hotspots": _review_packet_payload()["hotspots"]},
+            "decision_packets": [],
             "warnings": [],
             "errors": [],
         }
@@ -120,6 +149,34 @@ class ProbeReportCommandTests(unittest.TestCase):
 
         self.assertIn("Top hotspot:", output)
         self.assertIn("rust/src/bin/voiceterm/main.rs", output)
+
+    def test_render_probe_report_markdown_includes_decision_packets(self) -> None:
+        report = {
+            "ok": True,
+            "mode": "working-tree",
+            "summary": {"probe_count": 1},
+            "probe_results": [_probe_payload("probe_design_smells")],
+            "review_packet": _review_packet_payload(),
+            "decision_packets": [
+                {
+                    "file": "dev/scripts/devctl/review_probe_report.py",
+                    "symbol": "build_probe_report",
+                    "probe": "probe_side_effect_mixing",
+                    "severity": "medium",
+                    "decision_mode": "recommend_only",
+                    "rationale": "Keep the orchestration boundary visible while the packet contract settles.",
+                }
+            ],
+            "warnings": [],
+            "errors": [],
+            "artifact_paths": {},
+        }
+
+        output = review_probe_report.render_probe_report_markdown(report)
+
+        self.assertIn("## Design Decision Packets", output)
+        self.assertIn("[recommend_only]", output)
+        self.assertIn("build_probe_report", output)
 
     def test_run_aggregates_probe_results_and_writes_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -177,6 +234,18 @@ class ProbeReportCommandTests(unittest.TestCase):
                 patch(
                     "dev.scripts.devctl.review_probe_report.build_review_packet",
                     return_value=_review_packet_payload(),
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.render_probe_report_markdown",
+                    return_value="# probe report",
+                ),
+                patch(
+                    "dev.scripts.devctl.review_probe_report.render_rich_report",
+                    return_value="# rich report",
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.probe_report.render_probe_report_markdown",
+                    return_value="# probe report",
                 ),
                 patch(
                     "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
@@ -258,6 +327,10 @@ class ProbeReportCommandTests(unittest.TestCase):
                 return_value=_review_packet_payload(),
             ),
             patch(
+                "dev.scripts.devctl.commands.probe_report.render_probe_report_markdown",
+                return_value="# probe report",
+            ),
+            patch(
                 "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
                 return_value=quality_policy.resolve_quality_policy(),
             ),
@@ -302,6 +375,10 @@ class ProbeReportCommandTests(unittest.TestCase):
             patch(
                 "dev.scripts.devctl.review_probe_report.build_review_packet",
                 return_value=_review_packet_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.commands.probe_report.render_probe_report_markdown",
+                return_value="# probe report",
             ),
             patch(
                 "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
@@ -353,6 +430,10 @@ class ProbeReportCommandTests(unittest.TestCase):
             patch(
                 "dev.scripts.devctl.review_probe_report.build_review_packet",
                 return_value=_review_packet_payload(),
+            ),
+            patch(
+                "dev.scripts.devctl.commands.probe_report.render_probe_report_markdown",
+                return_value="# probe report",
             ),
             patch(
                 "dev.scripts.devctl.review_probe_report.resolve_quality_policy",
@@ -407,6 +488,10 @@ class ProbeReportCommandTests(unittest.TestCase):
                 patch(
                     "dev.scripts.devctl.review_probe_report.build_review_packet",
                     return_value=_review_packet_payload(),
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.probe_report.render_probe_report_markdown",
+                    return_value="# probe report",
                 ),
             ):
                 rc = probe_report.run(args)

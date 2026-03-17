@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -230,10 +230,12 @@ def build_review_packet(
     topology: dict[str, Any],
     errors: list[str],
     warnings: list[str],
+    decision_packets: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     hotspots = topology.get("hotspots", [])
     if not isinstance(hotspots, list):
         hotspots = []
+    decision_rows = decision_packets if isinstance(decision_packets, list) else []
     topology_summary = topology.get("summary", {})
 
     packet_summary: dict[str, Any] = {}
@@ -247,6 +249,11 @@ def build_review_packet(
     packet_summary["topology_edges"] = int(
         topology_summary.get("edge_count", 0) if isinstance(topology_summary, dict) else 0
     )
+    packet_summary["decision_packets"] = len(decision_rows)
+    if decision_rows:
+        packet_summary["decision_modes"] = dict(
+            Counter(str(row.get("decision_mode") or "recommend_only") for row in decision_rows)
+        )
 
     verification: dict[str, Any] = {}
     verification["probe_errors"] = errors
@@ -256,6 +263,7 @@ def build_review_packet(
     packet: dict[str, Any] = {}
     packet["summary"] = packet_summary
     packet["hotspots"] = hotspots
+    packet["decision_packets"] = decision_rows
     packet["focused_graph"] = topology.get("focused_graph", {})
     packet["verification"] = verification
     packet["recommended_command"] = "python3 dev/scripts/devctl.py probe-report --format md"

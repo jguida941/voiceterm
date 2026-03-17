@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from dev.scripts.checks.probe_report.support import (
+        build_design_decision_packets,
+        load_allowlist,
+    )
     from dev.scripts.checks.probe_report_render import (
         aggregate_probe_results,
         render_rich_report,
@@ -20,7 +24,10 @@ except ModuleNotFoundError:  # pragma: no cover
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "checks"))
+    probe_report_support = importlib.import_module("probe_report.support")
     probe_report_render = importlib.import_module("probe_report_render")
+    build_design_decision_packets = probe_report_support.build_design_decision_packets
+    load_allowlist = probe_report_support.load_allowlist
     aggregate_probe_results = probe_report_render.aggregate_probe_results
     render_rich_report = probe_report_render.render_rich_report
     render_terminal_report = probe_report_render.render_terminal_report
@@ -35,6 +42,10 @@ from .probe_topology import (
 from .quality_policy import resolve_quality_policy
 from .quality_policy_loader import QUALITY_POLICY_ENV_VAR
 from .quality_scan_mode import is_adoption_scan
+from .probe_report.renderers import (
+    render_probe_report_markdown as _render_probe_report_markdown,
+    render_probe_report_terminal as _render_probe_report_terminal,
+)
 from .repo_packs import active_path_config
 from .script_catalog import probe_script_cmd
 from .time_utils import utc_timestamp
@@ -94,6 +105,27 @@ def _augment_summary_with_topology(
     topology_summary = topology.get("summary", {})
     if isinstance(topology_summary, dict):
         summary["topology"] = topology_summary
+
+
+def _group_hints_by_file(risk_hints: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for hint in risk_hints:
+        file_path = str(hint.get("file") or "").strip()
+        if not file_path:
+            continue
+        grouped.setdefault(file_path, []).append(hint)
+    return grouped
+
+
+def _augment_summary_with_decision_packets(
+    *,
+    summary: dict[str, Any],
+    decision_packets: list[dict[str, Any]],
+) -> None:
+    summary["decision_packets"] = len(decision_packets)
+    summary["decision_modes"] = dict(
+        Counter(str(row.get("decision_mode") or "recommend_only") for row in decision_packets)
+    )
 
 
 def decode_probe_report(
@@ -193,12 +225,21 @@ def build_probe_report(
         head_ref=head_ref,
     )
     _augment_summary_with_topology(summary=summary, topology=topology)
+    decision_packets = build_design_decision_packets(
+        hints_by_file=_group_hints_by_file(risk_hints),
+        allowlist=load_allowlist(effective_root),
+    )
+    _augment_summary_with_decision_packets(
+        summary=summary,
+        decision_packets=decision_packets,
+    )
     warnings.extend(topology.get("warnings", []))
     review_packet = build_review_packet(
         summary=summary,
         topology=topology,
         errors=errors,
         warnings=warnings,
+        decision_packets=decision_packets,
     )
 
     report: dict[str, Any] = {}
@@ -229,6 +270,7 @@ def build_probe_report(
     }
     report["summary"] = summary
     report["risk_hints"] = risk_hints
+    report["decision_packets"] = decision_packets
     report["topology"] = topology
     report["review_packet"] = review_packet
     report["probe_results"] = probe_results
@@ -241,7 +283,10 @@ def build_probe_report(
             output_root=resolve_probe_report_path(output_root),
             report=report,
             summary_markdown=render_probe_report_markdown(report),
-            rich_report_markdown=render_rich_report(report["probe_results"]),
+            rich_report_markdown=render_rich_report(
+                report["probe_results"],
+                repo_root=REPO_ROOT,
+            ),
         )
 
     return report
@@ -249,74 +294,17 @@ def build_probe_report(
 
 def render_probe_report_markdown(report: dict[str, Any]) -> str:
     """Render the aggregated probe report in markdown."""
-    lines = [render_rich_report(report["probe_results"])]
-    packet = report.get("review_packet", {})
-    hotspots = packet.get("hotspots", []) if isinstance(packet, dict) else []
-    if isinstance(hotspots, list) and hotspots:
-        lines.extend(["", "## Senior Review Packet", ""])
-        for hotspot in hotspots[:3]:
-            if not isinstance(hotspot, dict):
-                continue
-            lines.append(
-                f"- {hotspot.get('file')}: score={hotspot.get('priority_score')}, "
-                f"hints={hotspot.get('hint_count')}, "
-                f"fan_in={hotspot.get('fan_in')}, fan_out={hotspot.get('fan_out')}"
-            )
-            lines.append(f"  next: {hotspot.get('bounded_next_slice')}")
-    lines.extend(["", "## Command Metadata", ""])
-    lines.append(f"- ok: {report['ok']}")
-    lines.append(f"- mode: {report['mode']}")
-    lines.append(f"- probes_run: {report['summary']['probe_count']}")
-    if report.get("since_ref"):
-        lines.append(f"- since_ref: {report['since_ref']}")
-    if report.get("artifact_paths"):
-        lines.append(f"- review_targets_json: {report['artifact_paths']['review_targets_json']}")
-        lines.append(f"- summary_json: {report['artifact_paths']['summary_json']}")
-        lines.append(f"- summary_md: {report['artifact_paths']['summary_md']}")
-        lines.append(f"- topology_json: {report['artifact_paths']['topology_json']}")
-        lines.append(f"- review_packet_json: {report['artifact_paths']['review_packet_json']}")
-        lines.append(f"- review_packet_md: {report['artifact_paths']['review_packet_md']}")
-        lines.append(f"- hotspots_mermaid: {report['artifact_paths']['hotspots_mermaid']}")
-        lines.append(f"- hotspots_dot: {report['artifact_paths']['hotspots_dot']}")
-    if report["warnings"]:
-        lines.extend(["", "## Warnings", ""])
-        lines.extend(f"- {warning}" for warning in report["warnings"])
-    if report["errors"]:
-        lines.extend(["", "## Errors", ""])
-        lines.extend(f"- {error}" for error in report["errors"])
-    return "\n".join(lines)
+    return _render_probe_report_markdown(
+        report,
+        repo_root=REPO_ROOT,
+        render_rich_report=render_rich_report,
+    )
 
 
 def render_probe_report_terminal(report: dict[str, Any]) -> str:
     """Render the aggregated probe report in compact terminal form."""
-    lines = [render_terminal_report(report["probe_results"])]
-    packet = report.get("review_packet", {})
-    first_hotspot = None
-    if isinstance(packet, dict):
-        hotspots = packet.get("hotspots", [])
-        if isinstance(hotspots, list):
-            first_hotspot = next(
-                (row for row in hotspots if isinstance(row, dict)),
-                None,
-            )
-    if first_hotspot is not None:
-        lines.extend(
-            [
-                "",
-                "Top hotspot:",
-                (
-                    f"- {first_hotspot.get('file')} "
-                    f"(score={first_hotspot.get('priority_score')}, "
-                    f"hints={first_hotspot.get('hint_count')}, "
-                    f"fan_in={first_hotspot.get('fan_in')}, "
-                    f"fan_out={first_hotspot.get('fan_out')})"
-                ),
-            ]
-        )
-    if report["warnings"]:
-        lines.extend(["", "Warnings:"])
-        lines.extend(f"- {warning}" for warning in report["warnings"])
-    if report["errors"]:
-        lines.extend(["", "Errors:"])
-        lines.extend(f"- {error}" for error in report["errors"])
-    return "\n".join(lines)
+    return _render_probe_report_terminal(
+        report,
+        repo_root=REPO_ROOT,
+        render_terminal_report=render_terminal_report,
+    )

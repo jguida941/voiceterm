@@ -985,19 +985,25 @@ Actions invoke:
 When a finding is intentional, add to `.probe-allowlist.json`:
 ```json
 {
-  "suppressed": [
+  "entries": [
     {
       "file": "src/lib.rs",
       "symbol": "my_function",
       "probe": "probe_clone_density",
-      "reason": "cloning required — data sent to spawned task"
+      "disposition": "design_decision",
+      "reason": "cloning required — data sent to spawned task",
+      "research_instruction": "Revisit if ownership changes remove the spawn boundary"
     }
   ]
 }
 ```
 
-The finding moves to "Suppressed Findings" with the documented reason —
-visible to reviewers but no longer active. Permanent audit trail.
+Entries are matched by `file` + `symbol`; `probe` is retained as audit intent.
+Use `disposition: "suppressed"` for straightforward intentional exceptions and
+`disposition: "design_decision"` when the current shape is a conscious
+architecture boundary that should stay visible in the report's design-decision
+bucket. The finding remains reviewer-visible with the documented reason and
+research note, but no longer counts as active debt.
 
 ### What makes this different from everything else
 

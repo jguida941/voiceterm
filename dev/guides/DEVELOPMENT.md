@@ -103,6 +103,13 @@ Three quality layers matter in practice:
 - `python3 dev/scripts/devctl.py probe-report --format md` turns those probe
   hints into one ranked review packet with topology artifacts for human or AI
   follow-up.
+- Repo-root `.probe-allowlist.json` entries now apply to that canonical
+  `probe-report` path too. Use `disposition: "design_decision"` when a seam
+  should stay visible as a typed decision packet without counting as active
+  debt; the matching key is `file` + `symbol` and `probe` is retained only as
+  audit intent. The same packet should guide AI agents and human reviewers;
+  `decision_mode` only gates whether the AI may auto-apply, should recommend,
+  or must explain and wait for approval.
 - Compatibility shims now use the same split governance model everywhere:
   `check_package_layout.py` enforces structural/layout policy, while
   `probe_compatibility_shims.py` ranks stale shim debt such as missing

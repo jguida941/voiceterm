@@ -375,6 +375,12 @@ is the canonical aggregated probe surface when an agent needs ranked cleanup
 order, topology context, or a self-contained handoff packet. It refreshes
 `review_targets.json`, `file_topology.json`, `review_packet.{json,md}`, and
 hotspot `hotspots.{mmd,dot}` artifacts under `dev/reports/probes/latest/`.
+Repo-root `.probe-allowlist.json` entries apply to that canonical `devctl`
+path too: `design_decision` entries stay visible in a typed decision-packet
+bucket instead of active debt, and matching is by `file` + `symbol` with
+`probe` retained as audit intent. Those packets are for AI agents and human
+reviewers alike; `decision_mode` only controls whether the agent may
+auto-apply, should recommend, or must explain and wait for approval.
 When the guard/probe surface itself changes (new `probe_*.py` or `check_*.py`
 entrypoints, `script_catalog.py`, `quality_policy_defaults.py`,
 `dev/config/quality_presets/*.json`, or `dev/config/devctl_repo_policy.json`),

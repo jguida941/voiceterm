@@ -66,19 +66,32 @@ If a finding is intentional, add it to `.probe-allowlist.json`:
 
 ```json
 {
-  "suppressed": [
+  "entries": [
     {
       "file": "src/lib.rs",
       "symbol": "my_function",
       "probe": "probe_clone_density",
-      "reason": "cloning is required here because the data is sent to a spawned task"
+      "disposition": "design_decision",
+      "decision_mode": "recommend_only",
+      "reason": "cloning is required here because the data is sent to a spawned task",
+      "research_instruction": "Revisit if the spawn boundary disappears",
+      "invariants": [
+        "preserve the spawn boundary's ownership safety"
+      ],
+      "validation_plan": [
+        "Run `python3 dev/scripts/devctl.py check --profile ci` after changing the boundary.",
+        "Run `python3 dev/scripts/devctl.py probe-report --format md` to refresh the decision packet."
+      ]
     }
   ]
 }
 ```
 
-The finding will move to the "Suppressed Findings" section of the report
-with your documented reason — visible to reviewers but no longer flagged.
+The finding will move into the report's design-decision packet section instead
+of disappearing. Entries are matched by `file` + `symbol`; `probe` is kept as
+audit intent. Use `design_decision` when the current shape is an intentional
+architecture boundary that should stay visible for AI and human decision-makers
+with explicit `decision_mode`, invariants, and validation steps.
 
 ## Adding to Your Project
 

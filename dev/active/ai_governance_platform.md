@@ -2572,6 +2572,16 @@ Practical rule for implementation:
       drive grouped discovery from it: `devctl list`, startup surfaces,
       wrappers, skills, and future `map` hints should all group by the same
       user goals instead of maintaining separate hand-curated command sets.
+- [ ] Define one typed AI decision-routing contract over findings and design
+      debt: the platform should distinguish at least `repairable`,
+      `decision_candidate`, `approval_required`, and `informational`, with
+      explicit auto-apply/recommend/explain-and-wait semantics so ordinary AI
+      users do not have to infer architecture choices from raw probe output.
+- [ ] Split the default fix packet from the typed decision packet: the
+      everyday AI/dev surface should carry deterministic fixes, scoped
+      evidence, and the next routed checks, while higher-order design choices
+      carry predeclared options, invariants, precedent, rationale fields, and
+      the validation plan needed for either AI or human decision-makers.
 - [ ] Add schema-version coverage for every durable machine artifact family:
       command receipts, event ledgers, findings, review packets, watchdog
       episodes, analytics snapshots, and other JSON/JSONL outputs should carry
@@ -2678,6 +2688,17 @@ working on `MP-377`.
   should work by itself in any repo and also compose into one integrated agent
   app through shared contracts. Treat "standalone but composable" as a hard
   architecture requirement, not a nice-to-have.
+- `devctl probe-report` now honors repo-root `.probe-allowlist.json`
+  design-decision entries in both artifact generation and terminal/markdown
+  render paths, so the canonical operator packet matches the same filtered
+  self-hosting view as the fallback script path. Current local probe state is
+  medium-only: `0` active high findings, `14` active medium findings, and
+  `25` routed design-decision packets.
+- The next platform contract also needs an explicit split between deterministic
+  agent repair and typed design-decision packets. AI should be able to consume
+  both lanes from the same evidence stack; repo policy should decide whether a
+  given decision packet is auto-applicable, recommend-only, or approval-gated
+  instead of forcing agents to infer architecture choices from raw probe prose.
 - The current execution order is now explicit too: `P0` is the must-have spine
   (coherence, identity, registry, lifecycle, approvals, `map`, evidence
   bridge, parity), `P1` is product-complete operation (packaging/adoption,
@@ -2977,6 +2998,48 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-17: Captured the next product-level clarification after maintainer
+  review: the platform must separate deterministic agent coding from raw
+  unstructured architecture debt, but not demote AI out of the design lane.
+  The next contract layer now needs to distinguish repairable findings from
+  typed design-choice packets with explicit invariants, options, precedent,
+  rationale fields, and validation plans. Long-term product rule is now
+  explicit in active state: general AI/dev surfaces should get the fix lane
+  plus routed checks, while `design_decision` material must move into a
+  reusable decision packet whose policy declares whether the agent may
+  auto-apply, should recommend-only, or must wait for approval.
+- 2026-03-17: Product intent was tightened again after architecture review: if
+  the platform cannot give AI enough typed evidence to reason over the same
+  design choice a senior developer can handle, that is a platform failure, not
+  a reason to keep a human-only judgment lane. The distinction is autonomy
+  mode, not intelligence tier. Decision packets should therefore be the same
+  backend contract for AI and humans, with policy only gating whether the AI
+  may apply the change, should recommend it, or must explain and wait.
+- 2026-03-17: Landed the first concrete decision-packet slice in the canonical
+  self-hosting surface: `.probe-allowlist.json` `design_decision` entries now
+  emit typed decision packets with `decision_mode`, rationale, optional
+  invariants/precedent/validation-plan fields, and the `devctl probe-report`
+  markdown/terminal artifacts now present them as AI/human decision packets
+  instead of a maintainer-only bucket. The slice also split the new renderer
+  code into dedicated helper modules to satisfy package-layout and code-shape
+  enforcement; `check --profile ci`, `docs-check --strict-tooling`, and
+  `check_active_plan_sync.py` all pass on the resulting implementation.
+- 2026-03-17: Burned down the next `MP-377` self-hosting hotspot in the
+  review-channel/control-plane seam and fixed a real governance-surface bug in
+  the canonical operator path. `dev/scripts/devctl/commands/review_channel.py`
+  now routes validation, runtime-path coercion, status enrichment, ensure
+  reads, action dispatch, and report emission through smaller typed helpers
+  while preserving the same CLI contract and focused test coverage. In the
+  same slice, `dev/scripts/devctl/review_probe_report.py` now passes
+  `repo_root` into markdown/terminal render helpers so
+  `.probe-allowlist.json` design-decision entries actually shape the main
+  `devctl probe-report` output instead of only the fallback
+  `run_probe_report.py` path. Maintainer-facing probe docs were corrected to
+  describe the real allowlist schema (`entries`, `disposition`, file+symbol
+  matching). Current local result after the fix/refactor: `probe-report`
+  shows `0` active high findings, `14` active medium findings, and `25`
+  design decisions, so the next cleanup order is medium-only identifier-
+  density debt plus the remaining root shim family budget.
 - 2026-03-17: Consolidated repo-wide plan routing after a maintainer review
   exposed that the first-read summary surfaces were still advertising the older
   Theme-first sequence. `MASTER_PLAN` now explicitly points repo-wide strategy

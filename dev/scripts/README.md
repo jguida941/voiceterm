@@ -731,9 +731,14 @@ Machine-first output note:
     another repo policy without changing shared orchestration code.
 - `data-science`: rolling telemetry snapshot builder that summarizes devctl event metrics plus swarm/benchmark agent-size productivity history, watchdog guarded-coding episodes, and governance-review false-positive/cleanup metrics; writes `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/` and supports local source/output overrides for experiments
 - `governance-review`: adjudicated finding ledger for hard-guard/probe outcomes; records reviewed findings into `dev/reports/governance/finding_reviews.jsonl`, writes refreshed `review_summary.{md,json}` artifacts under `dev/reports/governance/latest/`, and gives the repo a durable scoreboard for false-positive rate, fixed findings, and deferred debt
-- `probe-report`: aggregated review-probe surface that runs every registered `probe_*.py` script, renders markdown/terminal/json summaries, writes stable `dev/reports/probes/review_targets.json`, and refreshes `dev/reports/probes/latest/summary.{md,json}` plus `file_topology.json`, `review_packet.{json,md}`, and hotspot `hotspots.{mmd,dot}` artifacts for agent coaching, senior review, and human audit
+- `probe-report`: aggregated review-probe surface that runs every registered `probe_*.py` script, renders markdown/terminal/json summaries, writes stable `dev/reports/probes/review_targets.json`, and refreshes `dev/reports/probes/latest/summary.{md,json}` plus `file_topology.json`, `review_packet.{json,md}`, and hotspot `hotspots.{mmd,dot}` artifacts for agent coaching, AI/human design review, and audit
   - Use `--adoption-scan` for first-run/full-surface repo onboarding when there
     is no trustworthy baseline ref yet.
+  - Repo-root `.probe-allowlist.json` entries shape this canonical path too:
+    `design_decision` rows stay visible as typed decision packets instead of
+    active debt, and matching is by `file` + `symbol` with `probe` retained as
+    audit intent. `decision_mode` governs whether the AI may auto-apply,
+    should recommend, or must explain and wait for approval.
 - `quality-policy`: read-only resolver for the active guard/probe policy; shows
   resolved capabilities, scope roots, active steps, per-guard configs, and
   warnings, and accepts
@@ -900,6 +905,10 @@ Use this profile for fast guard-focused iteration; run your target full profile
 - `probe-report --format md` is the default ranked handoff packet after new
   modules, refactors, string-based dispatch, 3+ parameter signatures, or
   concurrent/shared-state changes.
+- If that packet shows `Design Decision Packets`, those entries came from
+  repo-root `.probe-allowlist.json` rather than a silent suppression; use them
+  as explicit architecture-review inputs for AI or human decision-makers, not
+  as a reason to skip follow-up.
 - `quality-policy --format md` is the canonical live inventory of which
   guards/probes are enabled for the current repo policy or a supplied portable
   policy override.

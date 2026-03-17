@@ -4669,5 +4669,17 @@ The full technical showcase is consolidated above in Appendix G of this document
   `dev/guides/DEVELOPMENT.md`, `dev/guides/DEVCTL_AUTOGUIDE.md`,
   `dev/guides/PORTABLE_CODE_GOVERNANCE.md`, `dev/scripts/README.md`, and
   `data_science/README.md`.
+- Closed the next probe-governance drift inside the portable platform lane.
+  `devctl probe-report` now passes `repo_root` through its markdown/terminal
+  render path, so repo-root `.probe-allowlist.json` design-decision entries
+  shape the canonical operator packet instead of only the fallback
+  `run_probe_report.py` route. The same slice refactored
+  `commands/review_channel.py` into smaller typed validation/status/lifecycle/
+  dispatch helpers without changing the CLI contract, and maintainer docs now
+  describe the real allowlist schema (`entries`, `disposition`, file+symbol
+  matching with `probe` kept as audit intent). Focused evidence is green:
+  `python3.11 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short`
+  passed at `145` tests, and the filtered local probe backlog is now
+  medium-only (`0` active high, `14` active medium, `25` design decisions).
 
 </details>

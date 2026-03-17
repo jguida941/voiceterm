@@ -2255,6 +2255,12 @@ become the main product surface.
   next action, and stale/healthy state must publish automatically through the
   shared backend so chat, CLI, PyQt6, phone/mobile, and overlay users can see
   progress without reopening markdown bridges or manually prompting the loop.
+  Latest self-hosting reporting follow-up (2026-03-17): the canonical
+  `devctl probe-report` path now threads `repo_root` through markdown/
+  terminal rendering so repo-owned `.probe-allowlist.json`
+  `design_decision` entries shape the main operator packet instead of only the
+  fallback script path; current local filtered probe backlog is medium-only
+  (`0` active high, `14` active medium, `25` design decisions).
   `MP-340`,
   `MP-355`,
   and the current `MP-377` priority ladder is now explicit: `P0` = coherence,
@@ -2266,7 +2272,15 @@ become the main product surface.
   limited to the `P0` contract-freeze tranche (`ActionResult`,
   `CommandGoalTaxonomy`, `RepoMapSnapshot` / `MapFocusQuery` /
   `TargetedCheckPlan`, attach/auth + service identity, write arbitration,
-  degraded-mode, and `Finding`/schema/artifact compatibility); packaging/
+  degraded-mode, `Finding`/schema/artifact compatibility, and the first typed
+  split between deterministic AI-fix packets and reusable design-decision
+  packets with policy-owned auto-apply/recommend/approval semantics for the
+  same AI/human evidence contract). Latest concrete landing (2026-03-17):
+  `probe-report` now emits typed decision packets from `.probe-allowlist.json`
+  `design_decision` entries with explicit decision modes and validation steps,
+  so the self-hosting packet matches that contract instead of exposing a
+  maintainer-only review bucket;
+  packaging/
   adoption/client-parity remains `P1`, and proof/scale extensions remain `P2`.
   `MP-358`, and `MP-359` are subordinate implementation lanes inside this
   boundary, not alternate product architectures. Immediate separation-first
