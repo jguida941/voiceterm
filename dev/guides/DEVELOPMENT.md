@@ -106,8 +106,9 @@ Three quality layers matter in practice:
 - Repo-root `.probe-allowlist.json` entries now apply to that canonical
   `probe-report` path too. Use `disposition: "design_decision"` when a seam
   should stay visible as a typed decision packet without counting as active
-  debt; the matching key is `file` + `symbol` and `probe` is retained only as
-  audit intent. The same packet should guide AI agents and human reviewers;
+  debt; the matching key is `file` + `symbol` + `probe` when `probe` is
+  declared, and the root file may carry `schema_version: 1` plus
+  `contract_id: "ProbeAllowlist"`. The same packet should guide AI agents and human reviewers;
   `decision_mode` only gates whether the AI may auto-apply, should recommend,
   or must explain and wait for approval.
 - Compatibility shims now use the same split governance model everywhere:

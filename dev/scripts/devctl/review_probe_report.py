@@ -11,6 +11,11 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from dev.scripts.checks.probe_report.contracts import (
+        PROBE_REPORT_CONTRACT_ID,
+        PROBE_REPORT_SCHEMA_VERSION,
+        enrich_probe_hint_contract,
+    )
     from dev.scripts.checks.probe_report.support import (
         build_design_decision_packets,
         load_allowlist,
@@ -24,8 +29,12 @@ except ModuleNotFoundError:  # pragma: no cover
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "checks"))
+    probe_report_contracts = importlib.import_module("probe_report.contracts")
     probe_report_support = importlib.import_module("probe_report.support")
     probe_report_render = importlib.import_module("probe_report_render")
+    PROBE_REPORT_CONTRACT_ID = probe_report_contracts.PROBE_REPORT_CONTRACT_ID
+    PROBE_REPORT_SCHEMA_VERSION = probe_report_contracts.PROBE_REPORT_SCHEMA_VERSION
+    enrich_probe_hint_contract = probe_report_contracts.enrich_probe_hint_contract
     build_design_decision_packets = probe_report_support.build_design_decision_packets
     load_allowlist = probe_report_support.load_allowlist
     aggregate_probe_results = probe_report_render.aggregate_probe_results
@@ -153,7 +162,12 @@ def decode_probe_report(
     return report, None
 
 
-def enrich_probe_hints(probe_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def enrich_probe_hints(
+    probe_results: list[dict[str, Any]],
+    *,
+    repo_name: str,
+    repo_path: str,
+) -> list[dict[str, Any]]:
     """Flatten probe-local risk hints into the aggregated report shape."""
     risk_hints: list[dict[str, Any]] = []
     for report in probe_results:
@@ -166,7 +180,13 @@ def enrich_probe_hints(probe_results: list[dict[str, Any]]) -> list[dict[str, An
                 continue
             hint = dict(raw_hint)
             hint["probe"] = probe_name
-            risk_hints.append(hint)
+            risk_hints.append(
+                enrich_probe_hint_contract(
+                    hint=hint,
+                    repo_name=repo_name,
+                    repo_path=repo_path,
+                )
+            )
     return risk_hints
 
 
@@ -217,7 +237,11 @@ def build_probe_report(
         if report is not None:
             probe_results.append(report)
 
-    risk_hints = enrich_probe_hints(probe_results)
+    risk_hints = enrich_probe_hints(
+        probe_results,
+        repo_name=quality_policy.repo_name,
+        repo_path=str(effective_root),
+    )
     summary = _build_summary(probe_results, risk_hints)
     topology = build_probe_topology_artifact(
         risk_hints=risk_hints,
@@ -225,9 +249,14 @@ def build_probe_report(
         head_ref=head_ref,
     )
     _augment_summary_with_topology(summary=summary, topology=topology)
+    allowlist = []
+    try:
+        allowlist = load_allowlist(effective_root)
+    except ValueError as exc:
+        errors.append(str(exc))
     decision_packets = build_design_decision_packets(
         hints_by_file=_group_hints_by_file(risk_hints),
-        allowlist=load_allowlist(effective_root),
+        allowlist=allowlist,
     )
     _augment_summary_with_decision_packets(
         summary=summary,
@@ -243,6 +272,8 @@ def build_probe_report(
     )
 
     report: dict[str, Any] = {}
+    report["schema_version"] = PROBE_REPORT_SCHEMA_VERSION
+    report["contract_id"] = PROBE_REPORT_CONTRACT_ID
     report["command"] = "probe-report"
     report["generated_at"] = utc_timestamp()
     report["ok"] = not errors
@@ -268,7 +299,9 @@ def build_probe_report(
         },
         "probe_count": len(quality_policy.review_probe_checks),
     }
+    report["repo_root"] = str(effective_root)
     report["summary"] = summary
+    report["findings"] = list(risk_hints)
     report["risk_hints"] = risk_hints
     report["decision_packets"] = decision_packets
     report["topology"] = topology
@@ -285,7 +318,7 @@ def build_probe_report(
             summary_markdown=render_probe_report_markdown(report),
             rich_report_markdown=render_rich_report(
                 report["probe_results"],
-                repo_root=REPO_ROOT,
+                repo_root=effective_root,
             ),
         )
 
@@ -294,17 +327,19 @@ def build_probe_report(
 
 def render_probe_report_markdown(report: dict[str, Any]) -> str:
     """Render the aggregated probe report in markdown."""
+    repo_root = Path(str(report.get("repo_root") or REPO_ROOT))
     return _render_probe_report_markdown(
         report,
-        repo_root=REPO_ROOT,
+        repo_root=repo_root,
         render_rich_report=render_rich_report,
     )
 
 
 def render_probe_report_terminal(report: dict[str, Any]) -> str:
     """Render the aggregated probe report in compact terminal form."""
+    repo_root = Path(str(report.get("repo_root") or REPO_ROOT))
     return _render_probe_report_terminal(
         report,
-        repo_root=REPO_ROOT,
+        repo_root=repo_root,
         render_terminal_report=render_terminal_report,
     )

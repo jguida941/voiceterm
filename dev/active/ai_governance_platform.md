@@ -3113,6 +3113,36 @@ Execution order for this section:
   `governance-review`, and `surface_generation` must derive workflow semantics
   from structured action/taxonomy metadata instead of repo-policy prose blocks
   alone.
+- 2026-03-17: Landed the first code slice of that contract-closure seam in the
+  canonical `probe-report` path. Aggregated probe hints now carry stable
+  `finding_id` / `rule_id` / `rule_version` metadata before decision-packet
+  routing, durable `probe-report` artifact families (`summary`, `file_topology`,
+  `review_packet`, `review_targets`) now emit explicit `schema_version` and
+  `contract_id` fields, and `.probe-allowlist.json` routing now honors
+  `file` + `symbol` + `probe` so multiple probes on one symbol can be routed
+  independently. Maintainer docs and the allowlist template now describe the
+  versioned root payload shape too. The runtime seam was tightened in the same
+  slice so finding identity now builds from a typed seed, decision packets
+  project from typed policy inputs instead of long ad hoc parameter lists, and
+  the contract file clears the repo's own parameter-count/dict-schema guards.
+  Validation is green:
+  `python3.11 -m pytest dev/scripts/devctl/tests/test_probe_report.py -q --tb=short`,
+  `python3.11 dev/scripts/devctl.py check --profile ci`,
+  `python3.11 dev/scripts/devctl.py docs-check --strict-tooling`, and
+  `python3.11 dev/scripts/checks/check_active_plan_sync.py`.
+- 2026-03-17: Fresh multi-agent architecture review narrowed the next
+  executable guard seam: add a new `check_platform_contract_closure.py`
+  instead of overloading the existing narrow `platform_contract_sync` guard.
+  The new guard should reconcile the plan-owned `P0` contract list,
+  `platform-contracts`, runtime models, schema/version matrices, and
+  generated AI/dev startup surfaces for the already-real families
+  (`TypedAction`, `RunRecord`, `ArtifactStore`, `ControlState`, `ReviewState`,
+  `Finding`, `DecisionPacket`, `ProbeReport`, `ReviewPacket`,
+  `ReviewTargets`, `FileTopology`, `ProbeAllowlist`) while treating later
+  packet families as planned, not implemented. The same review also confirmed
+  one portability defect still open in the first finding seam: durable finding
+  identity should move off checkout-path hashing and onto stable repo identity
+  plus repo-relative path, with absolute repo roots kept only as provenance.
 - 2026-03-17: Burned down the next `MP-377` self-hosting hotspot in the
   review-channel/control-plane seam and fixed a real governance-surface bug in
   the canonical operator path. `dev/scripts/devctl/commands/review_channel.py`

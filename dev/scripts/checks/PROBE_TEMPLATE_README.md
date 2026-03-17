@@ -66,6 +66,8 @@ If a finding is intentional, add it to `.probe-allowlist.json`:
 
 ```json
 {
+  "schema_version": 1,
+  "contract_id": "ProbeAllowlist",
   "entries": [
     {
       "file": "src/lib.rs",
@@ -88,10 +90,12 @@ If a finding is intentional, add it to `.probe-allowlist.json`:
 ```
 
 The finding will move into the report's design-decision packet section instead
-of disappearing. Entries are matched by `file` + `symbol`; `probe` is kept as
-audit intent. Use `design_decision` when the current shape is an intentional
-architecture boundary that should stay visible for AI and human decision-makers
-with explicit `decision_mode`, invariants, and validation steps.
+of disappearing. Entries are matched by `file` + `symbol` + `probe` when the
+entry declares a probe id; omit `probe` only when the same decision applies to
+every probe that can hit that symbol. Use `design_decision` when the current
+shape is an intentional architecture boundary that should stay visible for AI
+and human decision-makers with explicit `decision_mode`, invariants, and
+validation steps.
 
 ## Adding to Your Project
 

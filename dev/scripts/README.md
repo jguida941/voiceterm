@@ -736,8 +736,10 @@ Machine-first output note:
     is no trustworthy baseline ref yet.
   - Repo-root `.probe-allowlist.json` entries shape this canonical path too:
     `design_decision` rows stay visible as typed decision packets instead of
-    active debt, and matching is by `file` + `symbol` with `probe` retained as
-    audit intent. `decision_mode` governs whether the AI may auto-apply,
+    active debt, and matching is by `file` + `symbol` + `probe` when the entry
+    declares a probe id. The root allowlist payload may carry
+    `schema_version: 1` plus `contract_id: "ProbeAllowlist"`.
+    `decision_mode` governs whether the AI may auto-apply,
     should recommend, or must explain and wait for approval.
 - `quality-policy`: read-only resolver for the active guard/probe policy; shows
   resolved capabilities, scope roots, active steps, per-guard configs, and

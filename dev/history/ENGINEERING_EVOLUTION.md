@@ -4689,5 +4689,14 @@ The full technical showcase is consolidated above in Appendix G of this document
   routing, a `platform-contracts` authority upgrade, `devctl map`, repo-pack
   resolution, and a contract-closure/meta-governance guard as blocking `P0`
   items rather than implied future cleanup.
+- Landed the first executable contract-closure slice under that same `MP-377`
+  seam. `devctl probe-report` now enriches probe hints with stable
+  `finding_id` / `rule_id` / `rule_version` metadata before packet routing,
+  the emitted `summary`, `file_topology`, `review_packet`, and
+  `review_targets` JSON artifacts now carry explicit `schema_version` and
+  `contract_id` fields, and `.probe-allowlist.json` routing now keys on
+  `file` + `symbol` + `probe` when a probe id is declared. Maintainer docs and
+  the allowlist template were updated in the same slice so the repo-visible
+  contract matches the emitted packet/artifact behavior.
 
 </details>

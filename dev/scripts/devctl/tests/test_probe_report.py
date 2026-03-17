@@ -14,6 +14,11 @@ from dev.scripts.checks.probe_report.support import (
     AllowlistEntry,
     build_design_decision_packets,
 )
+from dev.scripts.checks.probe_report.contracts import (
+    DECISION_PACKET_CONTRACT_ID,
+    DECISION_PACKET_SCHEMA_VERSION,
+    enrich_probe_hint_contract,
+)
 from dev.scripts.devctl import cli, quality_policy, review_probe_report
 from dev.scripts.devctl.config import REPO_ROOT, get_repo_root
 from dev.scripts.devctl.commands import probe_report
@@ -55,6 +60,8 @@ def _probe_payload(
 
 def _topology_payload() -> dict:
     return {
+        "schema_version": 1,
+        "contract_id": "FileTopology",
         "summary": {
             "source_files": 8,
             "edge_count": 12,
@@ -92,6 +99,8 @@ def _topology_payload() -> dict:
 def _review_packet_payload() -> dict:
     hotspot = _topology_payload()["hotspots"][0]
     return {
+        "schema_version": 1,
+        "contract_id": "ReviewPacket",
         "summary": {
             "risk_hints": 2,
             "files_with_hints": 2,
@@ -113,7 +122,12 @@ def _review_packet_payload() -> dict:
 
 class ProbeReportCommandTests(unittest.TestCase):
     def test_build_design_decision_packets_defaults_mode_and_validation(self) -> None:
-        hint = _probe_payload("probe_design_smells")["risk_hints"][0]
+        raw_hint = _probe_payload("probe_design_smells")["risk_hints"][0]
+        raw_hint["probe"] = "probe_design_smells"
+        hint = enrich_probe_hint_contract(
+            hint=raw_hint,
+            repo_name="VoiceTerm",
+        )
         packets = build_design_decision_packets(
             hints_by_file={hint["file"]: [hint]},
             allowlist=[
@@ -129,12 +143,38 @@ class ProbeReportCommandTests(unittest.TestCase):
         )
 
         self.assertEqual(len(packets), 1)
+        self.assertEqual(packets[0]["schema_version"], DECISION_PACKET_SCHEMA_VERSION)
+        self.assertEqual(packets[0]["contract_id"], DECISION_PACKET_CONTRACT_ID)
+        self.assertTrue(packets[0]["finding_id"])
+        self.assertEqual(packets[0]["rule_id"], "probe_design_smells")
         self.assertEqual(packets[0]["decision_mode"], "recommend_only")
         self.assertEqual(
             packets[0]["invariants"],
             ["Preserve the presenter/public contract."],
         )
         self.assertTrue(any("check --profile ci" in step for step in packets[0]["validation_plan"]))
+
+    def test_build_design_decision_packets_match_probe_independently(self) -> None:
+        raw_hint = _probe_payload("probe_design_smells")["risk_hints"][0]
+        raw_hint["probe"] = "probe_design_smells"
+        hint = enrich_probe_hint_contract(
+            hint=raw_hint,
+            repo_name="VoiceTerm",
+        )
+        packets = build_design_decision_packets(
+            hints_by_file={hint["file"]: [hint]},
+            allowlist=[
+                AllowlistEntry(
+                    file=hint["file"],
+                    symbol=hint["symbol"],
+                    probe="probe_identifier_density",
+                    disposition="design_decision",
+                    reason="wrong probe",
+                )
+            ],
+        )
+
+        self.assertEqual(packets, [])
 
     def test_render_probe_report_terminal_includes_top_hotspot(self) -> None:
         report = {
@@ -278,6 +318,10 @@ class ProbeReportCommandTests(unittest.TestCase):
             self.assertTrue(hotspots_dot.exists())
 
             payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            review_targets_payload = json.loads(review_targets_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload["schema_version"], 1)
+            self.assertEqual(payload["contract_id"], "ProbeReport")
+            self.assertEqual(payload["repo_root"], str(REPO_ROOT))
             self.assertEqual(payload["summary"]["probe_count"], 2)
             self.assertEqual(payload["summary"]["risk_hints"], 2)
             self.assertEqual(payload["summary"]["hints_by_severity"]["high"], 1)
@@ -286,6 +330,9 @@ class ProbeReportCommandTests(unittest.TestCase):
             self.assertEqual(payload["summary"]["priority_hotspots"][0]["priority_score"], 148)
             self.assertEqual(len(payload["risk_hints"]), 2)
             self.assertEqual(payload["risk_hints"][0]["probe"], "probe_design_smells")
+            self.assertTrue(payload["risk_hints"][0]["finding_id"])
+            self.assertEqual(payload["risk_hints"][0]["rule_id"], "probe_design_smells")
+            self.assertEqual(payload["findings"][0]["contract_id"], "Finding")
             self.assertEqual(payload["repo_policy"]["repo_name"], "VoiceTerm")
             self.assertIn("quality_scopes", payload["repo_policy"])
             self.assertIn(
@@ -293,6 +340,10 @@ class ProbeReportCommandTests(unittest.TestCase):
                 payload["repo_policy"]["quality_scopes"],
             )
             self.assertIn("review_packet", payload)
+            self.assertEqual(payload["review_packet"]["contract_id"], "ReviewPacket")
+            self.assertEqual(payload["topology"]["contract_id"], "FileTopology")
+            self.assertEqual(review_targets_payload["contract_id"], "ReviewTargets")
+            self.assertEqual(review_targets_payload["findings"][0]["contract_id"], "Finding")
 
     def test_run_returns_error_when_probe_execution_fails(self) -> None:
         args = Namespace(
@@ -500,7 +551,11 @@ class ProbeReportCommandTests(unittest.TestCase):
 
         self.assertEqual(rc, 0)
         self.assertEqual(payload["repo_policy"]["repo_name"], "external-demo")
-        self.assertTrue(payload["artifact_paths"]["summary_json"].startswith(str(output_root)))
+        self.assertEqual(payload["repo_root"], str(repo_root.resolve()))
+        self.assertEqual(
+            Path(payload["artifact_paths"]["summary_json"]).resolve().parent.parent,
+            output_root.resolve(),
+        )
         self.assertEqual(get_repo_root(), REPO_ROOT)
 
 

@@ -6,6 +6,21 @@ from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from typing import Any
 
+try:
+    from dev.scripts.checks.probe_report.contracts import (
+        PROBE_TOPOLOGY_CONTRACT_ID,
+        PROBE_TOPOLOGY_SCHEMA_VERSION,
+        REVIEW_PACKET_CONTRACT_ID,
+        REVIEW_PACKET_SCHEMA_VERSION,
+    )
+except ModuleNotFoundError:  # pragma: no cover
+    from checks.probe_report.contracts import (
+        PROBE_TOPOLOGY_CONTRACT_ID,
+        PROBE_TOPOLOGY_SCHEMA_VERSION,
+        REVIEW_PACKET_CONTRACT_ID,
+        REVIEW_PACKET_SCHEMA_VERSION,
+    )
+
 from .probe_topology_packet import (
     SEVERITY_POINTS,
     bounded_next_slice,
@@ -31,6 +46,9 @@ from .probe_topology_scan import (
 
 @dataclass(frozen=True)
 class HintExcerpt:
+    finding_id: object
+    rule_id: object
+    rule_version: object
     probe: object
     symbol: object
     risk_type: object
@@ -60,6 +78,9 @@ def build_node_record(
 
 def build_hint_excerpt(hint: dict[str, Any]) -> HintExcerpt:
     return HintExcerpt(
+        finding_id=hint.get("finding_id"),
+        rule_id=hint.get("rule_id"),
+        rule_version=hint.get("rule_version"),
         probe=hint.get("probe"),
         symbol=hint.get("symbol"),
         risk_type=hint.get("risk_type"),
@@ -209,6 +230,8 @@ def build_probe_topology_artifact(
     summary["focused_files"] = len(hints_by_file)
 
     payload: dict[str, Any] = {}
+    payload["schema_version"] = PROBE_TOPOLOGY_SCHEMA_VERSION
+    payload["contract_id"] = PROBE_TOPOLOGY_CONTRACT_ID
     payload["summary"] = summary
     payload["changed_files"] = sorted(changed_paths)
     payload["focused_files"] = sorted(hints_by_file)
@@ -261,6 +284,8 @@ def build_review_packet(
     verification["verified_by"] = ["devctl probe-report"]
 
     packet: dict[str, Any] = {}
+    packet["schema_version"] = REVIEW_PACKET_SCHEMA_VERSION
+    packet["contract_id"] = REVIEW_PACKET_CONTRACT_ID
     packet["summary"] = packet_summary
     packet["hotspots"] = hotspots
     packet["decision_packets"] = decision_rows

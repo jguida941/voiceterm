@@ -6,6 +6,17 @@ import json
 from pathlib import Path
 from typing import Any
 
+try:
+    from dev.scripts.checks.probe_report.contracts import (
+        REVIEW_TARGETS_CONTRACT_ID,
+        REVIEW_TARGETS_SCHEMA_VERSION,
+    )
+except ModuleNotFoundError:  # pragma: no cover
+    from checks.probe_report.contracts import (
+        REVIEW_TARGETS_CONTRACT_ID,
+        REVIEW_TARGETS_SCHEMA_VERSION,
+    )
+
 from .probe_topology import (
     render_hotspot_dot,
     render_hotspot_mermaid,
@@ -57,12 +68,15 @@ def write_probe_artifacts(
     )
 
     review_targets_payload: dict[str, Any] = {}
+    review_targets_payload["schema_version"] = REVIEW_TARGETS_SCHEMA_VERSION
+    review_targets_payload["contract_id"] = REVIEW_TARGETS_CONTRACT_ID
     review_targets_payload["command"] = report["command"]
     review_targets_payload["generated_at"] = report["generated_at"]
     review_targets_payload["mode"] = report["mode"]
     review_targets_payload["since_ref"] = report["since_ref"]
     review_targets_payload["head_ref"] = report["head_ref"]
     review_targets_payload["summary"] = report["summary"]
+    review_targets_payload["findings"] = report.get("findings", [])
     review_targets_payload["risk_hints"] = report["risk_hints"]
     review_targets_payload["review_packet"] = report["review_packet"]
     review_targets_json.write_text(

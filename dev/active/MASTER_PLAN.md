@@ -54,6 +54,14 @@
   `CommandGoalTaxonomy` + validation-routing closure, and a contract-closure
   guard so packet families, generated surfaces, and the runtime contract
   catalog cannot drift apart.
+- Current accepted self-hosting slice inside that `P0` work: `probe-report`
+  now routes its first shared `Finding` / `DecisionPacket` contract seam
+  through `devctl.runtime`, durable `ProbeReport` / `ReviewPacket` /
+  `ReviewTargets` / `FileTopology` / `ProbeAllowlist` artifacts carry
+  explicit schema metadata, and the next blocking follow-up is a dedicated
+  platform contract-closure guard plus replacement of checkout-path-based
+  finding identity with stable repo identity + repo-relative path before
+  packaging the portable product.
 - Theme and Memory remain active tracked work, but they are not the repo's
   current top-level strategic lane while `MP-377` `P0` contract-freeze is
   active.

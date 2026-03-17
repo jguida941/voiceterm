@@ -377,8 +377,11 @@ order, topology context, or a self-contained handoff packet. It refreshes
 hotspot `hotspots.{mmd,dot}` artifacts under `dev/reports/probes/latest/`.
 Repo-root `.probe-allowlist.json` entries apply to that canonical `devctl`
 path too: `design_decision` entries stay visible in a typed decision-packet
-bucket instead of active debt, and matching is by `file` + `symbol` with
-`probe` retained as audit intent. Those packets are for AI agents and human
+bucket instead of active debt. Matching is by `file` + `symbol` + `probe`
+when the allowlist entry declares a probe id; omit `probe` only when the same
+decision intentionally applies across all probes for that symbol. The root
+payload may carry `schema_version: 1` and
+`contract_id: "ProbeAllowlist"`. Those packets are for AI agents and human
 reviewers alike; `decision_mode` only controls whether the agent may
 auto-apply, should recommend, or must explain and wait for approval.
 When the guard/probe surface itself changes (new `probe_*.py` or `check_*.py`
