@@ -6,6 +6,7 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from .attach_auth_render import append_attach_auth_policy_markdown
 from .core import LaneAssignment
 from .context_refs import (
     context_pack_ref_summary,
@@ -141,6 +142,8 @@ def write_projection_bundle(
 def _build_compact_projection(review_state: dict[str, object]) -> dict[str, object]:
     queue = review_state.get("queue", {})
     bridge = review_state.get("bridge", {})
+    service_identity = review_state.get("service_identity")
+    attach_auth_policy = review_state.get("attach_auth_policy")
     current_focus = bridge.get("current_instruction") or _current_focus_line(review_state)
     return {
         "schema_version": 1,
@@ -148,6 +151,8 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
         "timestamp": review_state.get("timestamp"),
         "ok": review_state.get("ok"),
         "review": review_state.get("review"),
+        "service_identity": service_identity,
+        "attach_auth_policy": attach_auth_policy,
         "bridge": {
             "last_codex_poll_utc": bridge.get("last_codex_poll_utc"),
             "last_worktree_hash": bridge.get("last_worktree_hash"),
@@ -202,6 +207,9 @@ def _render_latest_markdown(
 ) -> str:
     queue = review_state.get("queue", {})
     bridge = review_state.get("bridge", {})
+    runtime = review_state.get("runtime", {})
+    service_identity = review_state.get("service_identity", {})
+    attach_auth_policy = review_state.get("attach_auth_policy", {})
     agents = agent_registry.get("agents", [])
     packets = review_state.get("packets", [])
     lines = ["# review-channel status", ""]
@@ -218,6 +226,23 @@ def _render_latest_markdown(
     reviewed_hash_current = bridge.get("reviewed_hash_current")
     if reviewed_hash_current is not None:
         lines.append(f"- reviewed_hash_current: {reviewed_hash_current}")
+    if isinstance(service_identity, dict):
+        lines.append("")
+        lines.append("## Service Identity")
+        lines.append(f"- service_id: {service_identity.get('service_id') or 'n/a'}")
+        lines.append(f"- project_id: {service_identity.get('project_id') or 'n/a'}")
+        lines.append(f"- repo_root: {service_identity.get('repo_root') or 'n/a'}")
+        lines.append(
+            f"- worktree_root: {service_identity.get('worktree_root') or 'n/a'}"
+        )
+        lines.append(f"- bridge_path: {service_identity.get('bridge_path') or 'n/a'}")
+        lines.append(
+            "- review_channel_path: "
+            f"{service_identity.get('review_channel_path') or 'n/a'}"
+        )
+        lines.append(f"- status_root: {service_identity.get('status_root') or 'n/a'}")
+    append_attach_auth_policy_markdown(lines, attach_auth_policy)
+    _append_runtime_markdown(lines, runtime)
     lines.append("")
     lines.append("## Current Instruction")
     lines.append(_current_focus_line(review_state))
@@ -259,6 +284,32 @@ def _render_latest_markdown(
                 summary += f" | packs: {pack_kinds}"
             lines.append(summary)
     return "\n".join(lines)
+
+
+def _append_runtime_markdown(lines: list[str], runtime: object) -> None:
+    if not isinstance(runtime, dict):
+        return
+    daemons = runtime.get("daemons")
+    lines.append("")
+    lines.append("## Runtime")
+    lines.append(f"- active_daemons: {runtime.get('active_daemons') or 0}")
+    lines.append(
+        f"- last_daemon_event_utc: {runtime.get('last_daemon_event_utc') or 'n/a'}"
+    )
+    if not isinstance(daemons, dict):
+        return
+    for daemon_kind in ("publisher", "reviewer_supervisor"):
+        daemon_state = daemons.get(daemon_kind)
+        if not isinstance(daemon_state, dict):
+            continue
+        lines.append(
+            f"- {daemon_kind}: "
+            f"running={bool(daemon_state.get('running'))} "
+            f"pid={int(daemon_state.get('pid', 0) or 0)} "
+            f"snapshots={int(daemon_state.get('snapshots_emitted', 0) or 0)} "
+            f"last_heartbeat_utc={daemon_state.get('last_heartbeat_utc') or 'n/a'} "
+            f"stop_reason={daemon_state.get('stop_reason') or 'n/a'}"
+        )
 
 
 def _current_focus_line(review_state: dict[str, object]) -> str:

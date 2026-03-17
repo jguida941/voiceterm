@@ -23,6 +23,7 @@ treat these rules as active workflow instructions immediately.
    - Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.
    - Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.
    - Claude must read `Last Codex poll` / `Poll Status` first on each repoll. If the reviewer-owned timestamp and the reviewer-owned sections are unchanged after Claude already finished the current bounded work, treat that as a live wait state, wait on cadence, and reread the full reviewer-owned block instead of hammering one fixed offset/line.
+   - In `active_dual_agent` mode, Claude must enter polling mode immediately on bootstrap and stay in the closed loop `poll -> acknowledge current instruction -> code one bounded slice -> update Claude Status/Ack -> wait/poll for Codex re-review -> repeat` until the scoped plan is exhausted or a reviewer-owned section marks a real blocker/approval boundary.
 6. Codex must poll non-`code_audit.md` worktree changes every 2-3 minutes while
    code is moving, or sooner after a meaningful code chunk / explicit user
    request.
@@ -87,18 +88,25 @@ treat these rules as active workflow instructions immediately.
    derive the next highest-priority unchecked plan item from the active-plan
    chain and rewrite `Current Instruction For Claude` for the next slice
    instead of idling at "all green so far."
+19.1 Codex must run the same closed loop from the reviewer side: `poll repo
+     changes -> review the current Claude code chunk -> rewrite findings /
+     verdict / next instruction -> wait/poll for Claude response -> repeat`
+     until the scoped plan is actually complete or a real blocker stops the
+     loop.
 
 - Started: `2026-03-07T22:17:12Z`
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-16T12:47:59Z`
-- Last Codex poll (Local America/New_York): `2026-03-16 08:47:59 EDT`
-- Last non-audit worktree hash: `052ba91fe39486bb4b27acd623310175288fb96ec4946d925afb8ce359460659`
-- Reviewer mode: `active_dual_agent`
+- Last Codex poll: `2026-03-17T15:20:22Z`
+- Last Codex poll (Local America/New_York): `2026-03-17 11:20:22 EDT`
+- Last non-audit worktree hash: `608b294bd860eb750a1e935cb23132d0dcc32c574392cbc6364fe60db37aaa12`
+- Reviewer mode: `single_agent`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
+1.1 In `active_dual_agent`, Claude should start that polling immediately after
+     bootstrap, not after a second operator prompt.
 2. Codex will poll non-`code_audit.md` worktree changes, review meaningful deltas, and replace stale findings instead of appending endless snapshot history.
 3. `code_audit.md` itself is coordination state; do not treat its mtime as code drift worth reviewing.
 4. Section ownership is strict:
@@ -111,6 +119,11 @@ treat these rules as active workflow instructions immediately.
 9. If the current slice is reviewer-accepted and scoped plan work remains,
    Codex must promote the next scoped plan item into `Current Instruction For Claude`
    in the same or next review pass; do not leave the loop parked on a completed slice.
+9.1 The intended live bridge cycle is explicit: Claude polls, codes one
+     bounded slice, updates `Claude Status` / `Claude Ack`, then returns to
+     waiting/polling; Codex re-reviews, rewrites the bridge, and either
+     promotes the next bounded slice or marks a real blocker. Keep repeating
+     that back-and-forth until the scoped plan is done.
 10. Before Claude reports `Codex offline`, `reviewer stopped`, or any similar
     parked state, Claude must reread this file and, when needed, verify the
     live bridge state with
@@ -193,9 +206,1580 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: sync-plan-docs-before-safe-save; tree: 052ba91fe394).
-- Reviewing now. Active bounded slice is `M55`: the first controller-owned `review-channel ensure/watch` path for persistent reviewer heartbeat/update publishing and mode-aware liveness.
-- `M48` is accepted baseline and no longer the active coding lane. `MP-358` tandem/role-profile work also remains accepted baseline.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: post-fmt-review-pass; tree: 608b294bd860).
+- Reviewer re-review is complete on the current non-`code_audit.md` tree hash `88c3d95e27b3`; the reviewer checkpoint below is being refreshed through repo-owned tooling for this exact post-attach/auth tree.
+- Live loop is still active, but the accepted local baseline has moved forward: `review-channel` now emits both repo/worktree-scoped `service_identity` and machine-readable `attach_auth_policy` in bridge-backed status/report/projection surfaces.
+- Current attach/auth contract is explicit and local-first: transport is the filesystem markdown bridge, `off_lan_allowed=false`, `token_required=false`, `key_required=false`, and caller approval boundaries come from the shared platform authority buckets.
+- Next bounded coding slice after this review promotion is the daemon-event to runtime-state reducer in Python `devctl/review_channel`; do not widen into Rust/UI work or VoiceTerm-local action brokerage retirement yet.
 
 ## Current Verdict
 
@@ -234,9 +1818,24 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- The bounded M63 timeout-escalation slice is accepted. `review-channel status` now escalates stale reviewer heartbeat to `reviewer_overdue` above the configured threshold, the threshold is CLI-configurable, and the focused proof bundle is green (`129 passed`).
-- The current runtime may still show `publisher_missing` until the controller-owned publisher is running; that is honest runtime attention, not a false-green code defect.
-- M64 is now the next bounded lifecycle slice.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+- reviewer accepted
 
 ## Open Findings
 
@@ -275,35 +1874,82 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- M54: operator-visible progress is still not pushed from one always-on controller owner across chat/CLI/PyQt6/phone/overlay; the publisher path exists, but lifecycle ownership is still partial.
-- M56: the user-facing wrapper/skill layer is still too raw; grouped aliases/skills/buttons for inspect/review/fix/run/control/adopt/publish/maintain are not shipped yet or repo-pack configurable enough.
-- M57: the platform still lacks one repo-pack-aware maintenance/cleanup contract for plans/index/archive/generated surfaces plus stale bridge/runtime/report residue.
-- M58: `python3.11 dev/scripts/devctl.py check --profile ci` is still red on the unrelated pre-existing `check_nesting_depth` failure in `dev/scripts/checks/guide_contract_sync/command.py`; do not widen the active controller slice into that file.
-- M59: the shared backend still lacks repo/worktree-scoped service identity and discovery.
-- M60: the backend attach/auth security contract is still not frozen.
-- M61: the daemon protocol and file-built projections still act like parallel truths; the daemon-event -> runtime-state reducer gap remains real.
-- M62: VoiceTerm still carries a client-local action broker/catalog seam that must eventually converge on the shared backend router.
-- M64: collaborative stop/shutdown is still underspecified; timeout-stop, manual stop, completion stop, and pause/resume do not yet guarantee final state write, publisher teardown, and repo/host cleanup verification.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+- none
 
 ## Claude Status
 
-- **Session 31 — MP-377 M54/M55/M63**
+- **Session 34 — MP-377 daemon-event to runtime-state reducer**
+- Started: `2026-03-17T02:30:00Z`
+- Daemon-event reducer is now frozen in the shared backend. The event-backed
+  reducer (`reduce_events()`) now handles three daemon event types:
+  `daemon_started`, `daemon_stopped`, `daemon_heartbeat`. Each daemon kind
+  (`publisher`, `reviewer_supervisor`) accumulates through a `DaemonSnapshot`
+  mutable accumulator and the reduced `runtime` section ships in the review
+  state alongside packets/queue/agents.
+- Bridge-backed status path also produces a `runtime` section. When
+  event-reduced runtime is available (has `last_daemon_event_utc`), it takes
+  precedence over the bridge-derived fallback. Without daemon events, the
+  bridge-backed path synthesizes runtime from `bridge_liveness` publisher
+  state.
+- Extracted `daemon_reducer.py` into its own module to keep `event_reducer.py`
+  under the code shape soft limit. The new module owns `DAEMON_EVENT_TYPES`,
+  `DaemonSnapshot`, `DaemonStateDict` TypedDict, `reduce_daemon_event()`,
+  `build_runtime_state()`, and `empty_daemon_state()`.
+- Added `runtime` field to `ReviewStateSnapshot` dataclass in
+  `status_projection.py`. Threaded `reduced_runtime` parameter through
+  `build_bridge_review_state()` and `write_status_projection_bundle()`.
+- Live proof: `review_state.json` now contains `runtime.daemons.publisher`,
+  `runtime.daemons.reviewer_supervisor`, `runtime.active_daemons`, and
+  `runtime.last_daemon_event_utc`.
+- Proof: `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short` -> `141 passed`; `check_code_shape.py` -> 0 violations; `check_parameter_count.py` -> 0 violations; `check_python_dict_schema.py` -> 0 violations; `check_facade_wrappers.py` -> green; `check_review_channel_bridge.py` -> green; `check_active_plan_sync.py` -> green; `check_function_duplication.py` -> 0 duplicates.
+- Validators: all per Codex instruction.
+
+- **Session 33 (closed) — MP-377 attach/auth contract**
+- Started: `2026-03-17T02:14:01Z`
+- Attach/auth contract wired through bridge-backed Python review-channel path.
+- Proof: 135 passed, all guards green.
+
+- **Session 31 — MP-377 post-M69 follow-up**
 - Started: `2026-03-16T08:00:00Z`
-- M54 (done): `ensure_reviewer_heartbeat()` seam + wired `ensure --follow`.
-- M55 (accepted): lifecycle truth + start/resume + false-green fix + attention routing.
-- M63 (this slice): reviewer-overdue escalation state.
-  1. `REVIEWER_OVERDUE` in `AttentionStatus` (above `stale`, below `missing`).
-  2. `CODEX_POLL_OVERDUE_AFTER_SECONDS = 900` default threshold.
-  3. `REVIEW_CHANNEL_ENSURE_START_PUBLISHER_COMMAND` recovery for publisher-missing.
-  4. `derive_bridge_attention()` routes stale+age>threshold → `reviewer_overdue`.
-  5. `--reviewer-overdue-seconds` CLI arg for configurable threshold.
-  6. Threshold injected via `refresh_status_snapshot(..., reviewer_overdue_threshold_seconds=)`.
-  7. Extracted `_refresh_snapshot()` in bridge handler for code-shape compliance.
-  8. 2 focused escalation proof tests: overdue vs stale boundary.
-- Files changed: `review_channel/attention.py`, `review_channel/peer_liveness.py`,
-  `review_channel/parser.py`, `review_channel/state.py`,
-  `commands/review_channel_bridge_handler.py`, `tests/test_review_channel.py`.
-- Proof: 129 tests pass. All guards 0 violations. Plan-sync ok. Docs-check ok.
+- M54–M69 now accepted locally. Latest patch: lifecycle heartbeats now persist
+  the canonical shared file plus a per-PID variant, and lifecycle readers
+  prefer the freshest live publisher/reviewer-supervisor writer before
+  falling back to the freshest stopped/dead record. That closes the detached
+  dead-writer masking bug in the `M69` lifecycle/status seam.
+- Prior fixes accepted: publisher stop-reason routing, reviewer-worker
+  snapshot reuse, lifecycle/follow extraction, and follow-loop
+  `output_error` final-state persistence.
+- Service-identity/discovery slice is now landed in the bridge-backed Python
+  status/projection/report path. `review-channel` now emits a stable
+  repo/worktree-scoped `service_identity` payload with `service_id`,
+  `project_id`, `repo_root`, `worktree_root`, `bridge_path`,
+  `review_channel_path`, `status_root`, and explicit `discovery_fields`.
+- Tightened the controller seam so repo identity now lives in shared
+  `review_channel.core` instead of being owned only by the projection module.
+  Also collapsed bridge-handler helper parameter lists back under the guard
+  threshold with typed context wrappers.
+- Live proof: `python3.11 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+  now returns `service_identity.service_id=review-channel:sha256:...`,
+  `bridge_path=/Users/jguida941/testing_upgrade/codex-voice/code_audit.md`,
+  and `status_root=/Users/jguida941/testing_upgrade/codex-voice/dev/reports/review_channel/latest`.
+- Proof: `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short` -> `135 passed`; `python3.11 dev/scripts/checks/check_code_shape.py` -> green; `python3.11 dev/scripts/checks/check_parameter_count.py` -> green; `python3.11 dev/scripts/checks/check_facade_wrappers.py` -> green; `python3.11 dev/scripts/checks/check_review_channel_bridge.py --format md` -> green; `python3.11 dev/scripts/checks/check_active_plan_sync.py` -> green. `python3.11 dev/scripts/devctl.py check --profile ci` is blocked only by the unrelated Rust test `event_loop::tests::dev_panel_overlay::refresh_poll::memory_page_enter_refreshes_memory_cockpit_snapshot`.
 - Validators: all per Codex instruction.
 
 - **Session 30 (closed) — MP-377 M55: controller-owned ensure/watch**
@@ -447,10 +2093,22 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- Session 31 ack: M63 reviewer-overdue escalation landed.
-  `REVIEWER_OVERDUE` above stale, configurable via `--reviewer-overdue-seconds`.
-  `derive_bridge_attention()` escalates stale+age>threshold → overdue.
-  2 focused escalation tests. 129 tests pass. All guards 0 violations. needs-review.
+- Session 34 ack: daemon-event to runtime-state reducer is frozen in the
+  shared backend. `reduce_events()` now handles `daemon_started`,
+  `daemon_stopped`, `daemon_heartbeat` → produces authoritative `runtime`
+  section with per-daemon-kind snapshots. Bridge-backed status path also
+  produces `runtime`, preferring event-reduced state when available.
+  Extracted `daemon_reducer.py` to stay under code shape. 141 tests pass,
+  all guards clean. needs-review.
+- Session 33 ack (closed): attach/auth contract wired. 135 passed.
+- Session 31 ack: M69 continuing. Wired `reviewer_supervisor` into ensure
+  report + error report defaults. All status/ensure paths now expose both
+  publisher + reviewer supervisor lifecycle. 129 tests pass. needs-review.
+- Session 32 ack: repo/worktree service identity/discovery is wired through
+  the bridge-backed Python review-channel path and the live `status` command
+  proves it. Focused suite is `135 passed`; tooling guards are green; full
+  `check --profile ci` remains blocked only by the known unrelated Rust
+  `memory_page_enter_refreshes_memory_cockpit_snapshot` failure. needs-review.
 - Session 30 ack (closed): M55 follow contract fixed + tested. --limit for rows,
   --max-follow-snapshots for stream, emit_output() for format/pipe.
   3 focused follow tests added (TestWatchFollowContract). 94 tests pass.
@@ -516,11 +2174,24 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Start `M64`.
-- Land the smallest backend-only clean-stop slice first: add an explicit stop reason/state for follow-backed controller runs (`timed_out`, `manual_stop`, `completed`), thread it into follow completion/status outputs, and add `--timeout-minutes` for `review-channel ensure --follow` so the controller does not wait forever.
-- On timeout/completion/manual stop, write one final backend state refresh that marks the publisher stopped and records the stop reason.
-- Add focused tests for timeout stop and final-state emission.
-- Do not widen into pause/resume, provider-launch automation, UI rewires, repo/worktree service identity, auth, or host cleanup verification yet; those come after the first stop-reason contract exists.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+- continue with full validation and push when green
 
 ## Plan Alignment
 
@@ -538,42 +2209,5 @@ treat these rules as active workflow instructions immediately.
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-- dev/scripts/devctl/review_channel/attention.py
-- dev/scripts/devctl/review_channel/peer_liveness.py
-- dev/scripts/devctl/review_channel/state.py
-- dev/scripts/devctl/review_channel/parser.py
-- dev/scripts/devctl/commands/review_channel_bridge_handler.py
-- dev/scripts/devctl/tests/test_review_channel.py
-- dev/scripts/devctl/tests/runtime/test_review_state.py
-- dev/active/ai_governance_platform.md
-- dev/active/MASTER_PLAN.md
-- dev/active/review_channel.md
+- code_audit.md
 

@@ -1,12 +1,18 @@
 # Memory + Action Studio Plan (Semantic Memory + Agent Overlay)
 
 Date: 2026-02-19
-Status: Next primary product lane after Theme completion; active design/proof-path work is already underway for the operator-cockpit execution slice under `MP-233`, `MP-238`, and `MP-243` (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-230..MP-255)
+Status: Memory + Action Studio scoped lane; active design/proof-path work is already underway for the operator-cockpit execution slice under `MP-233`, `MP-238`, and `MP-243` (execution mirrored in `dev/active/MASTER_PLAN.md` as `MP-230..MP-255`). This is not the repo's top-level strategic lane while the extracted-platform work is active.
 Scope: Turn VoiceTerm memory from transcript snippets into a structured, AI-usable
 knowledge and action layer for Codex/Claude terminal workflows
 
 `dev/active/MASTER_PLAN.md` remains the canonical execution tracker. This file
 is the architecture/spec + quality gates for the Memory track.
+
+Execution coverage in this spec:
+`MP-230`, `MP-231`, `MP-232`, `MP-233`, `MP-234`, `MP-235`, `MP-236`,
+`MP-237`, `MP-238`, `MP-239`, `MP-240`, `MP-241`, `MP-242`, `MP-243`,
+`MP-244`, `MP-245`, `MP-246`, `MP-247`, `MP-248`, `MP-249`, `MP-250`,
+`MP-251`, `MP-252`, `MP-253`, `MP-254`, `MP-255`.
 
 ## Product Goal
 

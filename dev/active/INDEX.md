@@ -29,14 +29,20 @@ Agents must read this file first before loading active planning docs.
 | `dev/active/review_probes.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-368..MP-375` | when implementing heuristic review probes, non-blocking risk-hint collectors, or probe-fed AI review triage surfaces |
 | `dev/active/portable_code_governance.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-376` | when extending the portable guard/probe engine, defining repo-policy vs engine boundaries, building measurement/eval corpora, exporting the governance stack for off-repo review, or piloting the system on other repositories; this is a subordinate companion spec, not a second main product plan, so defer full-product architecture authority to `dev/active/ai_governance_platform.md` |
 | `dev/active/ai_governance_platform.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | read first for any standalone governance-product architecture, packaging, repo-pack, runtime-contract, or extraction work; this is the only main active plan for the transition from VoiceTerm-embedded tooling to an installable product |
+| `dev/active/code_shape_expansion.md` | `reference` | `supporting` | `MP-378` | when calibrating or sequencing Phase 5b+ probe candidates, thresholds, metadata, and shared infrastructure for future code-shape additions under `dev/active/review_probes.md`; this is a subordinate research/evidence companion, not a second execution authority |
 | `dev/active/phase2.md` | `reference` | `reference-only` | bridge pointer to canonical phase-2 companion-platform research context at `dev/deferred/phase2.md` (not active MP execution state) | only when evaluating long-range terminal companion planning; follow the bridge to deferred research |
 
 ## Load Order (Agent Bootstrap)
 
 1. Read this file (`dev/active/INDEX.md`).
 2. Read `dev/active/MASTER_PLAN.md`.
-3. Read only registry docs required by the task class.
-4. Do not treat any non-tracker file as execution state authority.
+3. If the task is repo-wide status, current strategy, extraction sequencing,
+   PyQt6, phone/mobile, or shared-backend architecture while `MP-377` is
+   active, read `dev/active/ai_governance_platform.md` next before narrower
+   domain specs. Theme and Memory docs are scoped lanes, not top-level
+   priority signals in that mode.
+4. Read only registry docs required by the task class after that.
+5. Do not treat any non-tracker file as execution state authority.
 
 ## Process: Add A New `dev/active/*.md` File
 

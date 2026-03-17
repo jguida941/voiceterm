@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-03-14 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-16 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -12,6 +12,10 @@ under `MP-377`.
 For this product scope, treat this file as the only main active plan. Companion
 docs may exist for narrower engine/adoption depth or durable guide material,
 but they must route back here instead of acting like peer execution authority.
+Repo-wide status and strategy surfaces must point here while `MP-377` is the
+active extraction lane; if another active doc claims top-level product
+priority, treat that as plan drift and correct the summary surface rather than
+interpreting it as a second main lane.
 
 ## Scope
 
@@ -123,18 +127,38 @@ contract set:
   approvals, and queue status.
 - `TypedAction`: explicit command contract for check, probe, bootstrap, fix,
   report, export, review, and remediation actions.
+- `ActionResult`: canonical command/service result envelope carrying
+  `schema_version`, `action_id`, success/failure state, reason codes,
+  retryability, partial-progress semantics, operator guidance, warnings, typed
+  result payloads, and artifact refs so CLI, services, UI clients, hooks, and
+  AI wrappers consume one outcome contract.
 - `RunRecord`: durable record for one governed execution episode, including
   inputs, context-pack telemetry, artifacts, findings, repairs, approvals, and
   outcomes.
+- `CommandGoalTaxonomy`: stable grouping for canonical backend actions
+  (`inspect`, `review`, `fix`, `run`, `control`, `adopt`, `publish`,
+  `maintain`) so help, wrappers, skills, startup guides, and future `map`
+  suggestions can stay simple without forking action ids.
+- `RepoMapSnapshot`: versioned repo-understanding snapshot that combines
+  topology, complexity, hotspot ranking, changed-scope overlays, ownership, and
+  guard/probe/review overlays into one machine-readable focus surface.
+- `MapFocusQuery`: typed request for one bounded repo slice by path/module,
+  owner, changed scope, risk lens, or task reference so clients can ask for
+  "just the relevant part" without inventing bespoke prompt instructions.
+- `TargetedCheckPlan`: machine-readable recommendation of the next guards,
+  probes, reports, docs surfaces, or focused tests that should run for a
+  `MapFocusQuery`, including rationale and artifact refs.
 - `Finding`, `FindingReview`, `MetricEvent`: versioned evidence/metrics records
   shared by guards, probes, governance review, replay/evaluation flows, and UI
   projections. `Finding` is the canonical machine record carrying `rule_id`,
   `rule_version`, category/language/severity/confidence, file/span, evidence,
   rationale, suggested fix, autofixable state, suppression metadata, and
   artifact refs so every agent/reviewer/markdown projection derives from the
-  same base object.
+  same base object. Guard/probe/import-specific shapes may exist only as
+  temporary translation seams while the whole evidence flow converges on this
+  record.
 - `ArtifactStore`: stable path/retention interface for reports, snapshots,
-  review packets, and benchmark evidence.
+  review packets, cached repo-map state, query indexes, and benchmark evidence.
 - `ProviderAdapter`: abstraction over Codex, Claude, or later providers so
   runtime loops do not hard-code one CLI.
 - `WorkflowAdapter`: abstraction over GitHub/CI/local workflow execution so
@@ -144,8 +168,11 @@ Versioning rules sit beside those contracts, not outside them:
 
 - repo packs must declare `platform_version_requirement`, owned path roots, and
   any compatibility-window assumptions up front
-- runtime/artifact payloads must own explicit `schema_version` fields plus one
-  documented migration and rollback path before the surface counts as stable
+- runtime/artifact payloads and command/service receipts must own explicit
+  `schema_version` fields plus one documented migration and rollback path
+  before the surface counts as stable
+- every durable JSON/JSONL row family must carry that version coverage under a
+  guardable contract; schema versioning is not an opt-in cleanup pass
 - CI/bootstrap/adoption flows should validate both package/runtime
   compatibility and schema-version compatibility before mutable execution
 
@@ -254,6 +281,165 @@ What not to do:
 3. Do not duplicate orchestration logic across clients just to make a local
    surface feel richer.
 
+## Composable Product Rule
+
+The target is not one giant inseparable app and not a pile of unrelated tools.
+
+The target is:
+
+1. a set of major pieces that can each work by themselves in any repo
+2. one integrated agent app that composes those same pieces without forking
+   their logic
+
+Every major subsystem must therefore satisfy both tests:
+
+1. standalone usefulness
+   - it can run from a CLI, API, service, or machine-readable artifact path on
+     its own
+2. integrated usefulness
+   - it plugs into the shared runtime/action/state/evidence contracts so the
+     full app becomes smarter without inventing a second backend
+
+If a feature only works inside one client, it is not done.
+If a feature only works as an isolated script with no shared contract, it is
+not done either.
+
+### Composable product spine
+
+| Piece | Useful by itself | Must also compose into the full app |
+|---|---|---|
+| `governance_core` | guards, probes, policy, export, bootstrap | shared policy/evidence engine for every client |
+| `governance_runtime` | typed state/actions, queueing, receipts | single orchestration truth for the full app |
+| repo intelligence | `map`, hotspots, targeted checks | focus/risk engine for AI, UI, and automation |
+| evidence and memory bridge | findings, ledgers, attach-by-ref context | durable recall and replay across agent runs |
+| tool/action/skill registry | command catalog and action metadata | one action surface for CLI, UI, and AI |
+| provider/workflow adapters | Codex, Claude, CI, VCS integration | interchangeable execution backends |
+| frontends | CLI, VoiceTerm, PyQt6, phone/mobile | multiple shells over one backend |
+| background service/API | attach, resume, watch, supervisor path | lets the app keep working outside chat |
+| observability/evals | telemetry, timelines, replay, benchmarks | proves the system is improving and stable |
+| repo packs | per-repo defaults and policies | makes the same platform work in any repo |
+
+### Missing product-grade pieces still worth adding
+
+To become a full agent app instead of only a smart governance toolkit, keep
+these missing pieces explicit in plan state:
+
+1. one unified agent/job/session/task registry instead of separate loop-local
+   notions of work
+2. one typed tool/action/skill catalog so AI, CLI, VoiceTerm, and PyQt6 all
+   discover the same actions the same way
+3. one background attach/resume/watch service contract so the system can keep
+   working outside the current chat session
+4. one replay/recovery/checkpoint contract so runs can be resumed, audited,
+   and recovered after crashes or detach
+5. one repo-intelligence store (`map` snapshots, targeted checks, hotspot
+   overlays, cache/index) so AI does not keep re-discovering the same repo
+6. one evidence-to-memory bridge so findings, runs, and repo intelligence can
+   be attached by ref into `ContextPack` instead of copied ad hoc
+7. one workflow/preset layer grouped by user goal (`inspect`, `review`, `fix`,
+   `run`, `control`, `adopt`, `publish`, `maintain`) instead of command sprawl
+8. one operator-visible timeline/observability surface across sessions,
+   findings, actions, approvals, and health
+9. one evaluation/proof path that measures correctness, structural quality,
+   cost, and stability across repos
+10. one packaging/install/update/adoption flow that makes the platform feel
+    like a product, not a local repo ritual
+11. one multi-repo/worktree contract so the app can manage more than a single
+    checkout safely
+12. one security/approval/identity contract for human, agent, service, and UI
+    callers
+
+### Scope filter for new ideas
+
+Before adding a feature or architecture idea to scope, force it through this
+filter:
+
+1. Which composable piece does it belong to?
+2. What standalone use does it unlock?
+3. What shared contract does it reuse instead of bypassing?
+4. How does it make the full integrated app better for both AI and humans?
+5. What older duplication, hidden state, or prompt ritual does it retire?
+6. What proof, guard, or parity test will keep it from becoming fragile?
+
+If an idea cannot answer those questions clearly, it is probably widening
+scope more than strengthening the product.
+
+## System Coherence Contract
+
+The missing cross-cutting rule is not "add more features." It is: define one
+coherence framework that tells every layer how drift is prevented.
+
+Without that, good subsystems still drift apart on naming, payload shape,
+lifecycle semantics, projections, and wrapper behavior.
+
+Use this coherence stack:
+
+| Coherence layer | What must stay consistent | Canonical owner |
+|---|---|---|
+| vocabulary | command words, wrapper aliases, beginner-facing terms | naming contract + repo policy |
+| identity | repo id, worktree id, run id, task id, agent/job/session ids | runtime contracts |
+| state | `ControlState`, `ReviewState`, thin snapshots, queue records | `governance_runtime` |
+| action | typed action names, params, approvals, receipts | `TypedAction` contract |
+| artifact | JSON/JSONL/SQLite payload families, hashes, retention, refs | `ArtifactStore` contract |
+| mutation safety | write ownership, idempotency, leases, replay protection | write-arbitration contract |
+| repo intelligence | `RepoMapSnapshot`, focus queries, targeted checks | repo-intelligence contract |
+| lifecycle | `ensure/start/resume/watch/pause/stop` semantics | service/controller lifecycle contract |
+| failure semantics | degraded modes, retryability, partial progress, operator guidance | action-result/error contract |
+| projections | markdown, UI panels, phone/mobile, generated docs, charts | projection contract over machine authority |
+| parity | provider parity, mode parity, client parity, repo-pack parity | contract-sync + parity fixtures |
+| portability | what is portable core vs repo pack vs product integration | layer boundaries + repo-pack contract |
+| evolution | deprecation windows, compatibility promises, migration path | public compatibility contract |
+
+### Coherence rules
+
+1. Every major surface must name its canonical owner.
+2. Every machine payload family must have a versioned schema.
+3. Every human-readable or UI-visible surface must be a projection over a
+   stronger machine contract.
+4. Every friendly wrapper must resolve to one canonical backend action.
+5. Every client must read the same lifecycle and approval semantics.
+6. Every repo-pack override must happen through policy/config, not hidden code
+   forks.
+7. Every public surface must declare compatibility, deprecation, and migration
+   rules before it is treated as stable.
+8. Every new subsystem must declare how it satisfies this coherence stack
+   before it counts as architecture progress.
+
+### Drift-prevention mechanism
+
+The platform should prevent drift with four layers, not one:
+
+1. contract definition
+   - typed models, schema versions, canonical ids, lifecycle semantics
+2. generated surfaces
+   - starter docs, wrappers, skills, and friendly help derived from those
+     contracts
+3. parity fixtures
+   - one backend snapshot should project consistently across CLI, VoiceTerm,
+     PyQt6, phone/mobile, and machine outputs
+4. drift guards
+   - checks that fail when docs, wrappers, schemas, commands, or clients drift
+     from the canonical contracts
+5. conformance packs
+   - adopters, providers, hooks, wrappers, and clients prove they satisfy the
+     same required contracts before they count as supported
+
+### The structure-understanding test
+
+The architecture is only clear enough if a new AI or developer can answer
+these questions quickly from repo-visible sources:
+
+1. What is the canonical action?
+2. What state changes when it runs?
+3. What artifact proves it happened?
+4. What wrapper/UI names point at it?
+5. What checks keep it honest?
+6. What is portable versus repo-specific?
+7. What happens when it fails, degrades, or runs concurrently with another
+   client?
+
+If those answers are not obvious, the structure is still too implicit.
+
 ## User-Facing Naming And Abstraction Contract
 
 The product already has far more surface area than a handful of slash
@@ -277,6 +463,8 @@ Use this rule set:
 5. Name user-facing wrappers by intent, not implementation detail. Prefer
    names that explain outcome directly (`review`, `fix`, `run-plan`,
    `phone`, `export`, `publish`, `maintain`) over repo-internal nouns.
+6. Guard the mapping between canonical backend ids and friendly wrappers so
+   beginner-friendly names never become a second behavior contract.
 
 Current system scope that the naming layer must cover:
 
@@ -300,14 +488,17 @@ Current system scope that the naming layer must cover:
 Naming model:
 
 1. Canonical backend command/action ids remain technical and stable.
-2. Friendly wrappers should be grouped by user goal, for example:
-   `inspect`, `review`, `fix`, `run`, `control`, `adopt`, `publish`,
-   `maintain`.
+2. Friendly wrappers should be grouped by one canonical
+   `CommandGoalTaxonomy`, for example: `inspect`, `review`, `fix`, `run`,
+   `control`, `adopt`, `publish`, `maintain`.
 3. Skills/slash commands should wrap those goal groups, not individual internal
    files or one-off prompts.
 4. VoiceTerm, PyQt6, CLI, and generated skill surfaces should all project the
    same grouped action model so a user can learn the system once and then use
    it from any client.
+5. Grouped discovery/help surfaces such as `devctl list`, startup guides, and
+   future `map` check hints should derive from that same taxonomy rather than
+   from hand-curated per-client command piles.
 
 ## Machine-Readable Projection Contract
 
@@ -1858,6 +2049,140 @@ docs/
 - VoiceTerm should survive as the first adopter and integration target, but it
   should stop being the permanent host architecture for the governance system.
 
+## Priority Ladder
+
+Do not treat every open checklist item as the same priority.
+
+Use this execution ladder:
+
+### `P0` Must-Have Spine
+
+These are the no-skip contracts that keep the whole product coherent:
+
+1. shared runtime authority and typed contracts
+2. system coherence matrix and drift-guard strategy
+3. canonical identity contract
+4. unified agent/job/session/task registry
+5. typed tool/action/skill registry plus capability discovery
+6. stable backend protocol/API boundary
+7. local service lifecycle plus daemon/controller split
+8. write arbitration and multi-client mutation model
+9. caller authority and approval matrix
+10. action-result/error plus degraded-mode contract
+11. public deprecation/compatibility contract
+12. `map` snapshot/focus/targeted-check contract plus cache/storage contract
+13. evidence-to-memory bridge and artifact attach-by-ref flow
+14. contract-sync, parity fixtures, validation-routing, and artifact taxonomy
+
+If `P0` is not frozen, the system may still look rich while remaining too easy
+to drift.
+
+### `P1` Product-Complete Requirements
+
+These make the platform feel like a full agent app instead of a strong backend:
+
+1. packaging/install/update/adoption flow
+2. product-operability layer: health, timeline, replay, recovery, checkpoints
+3. generated startup surfaces and repo-pack-configurable wrappers
+4. full client parity across CLI, VoiceTerm, PyQt6, phone/mobile, hooks/skills
+5. execution-mode parity and collaboration-mode parity
+6. bootstrap/adoption flow for arbitrary repos
+7. context-budget usage tiers and cost-visible operation
+8. broad replay/evaluation proof and cross-repo evidence density
+9. extension/adopter conformance packs for providers, hooks, wrappers, and
+   supported clients
+
+### `P2` Enrichments
+
+These are valuable, but they should not outrun `P0` or `P1`:
+
+1. richer wrappers, slash commands, hooks, and shell polish
+2. broader language packs and optional analyzer integrations
+3. deeper memory/retrieval intelligence beyond the first evidence bridge
+4. richer desktop/mobile UX and additional shell affordances
+5. extra analytics, charts, and operator comfort features
+
+Rule:
+
+- do not pull `P2` work forward if it bypasses or weakens a `P0` contract
+- use `P1` to decide "full app" readiness
+- use `P2` to improve reach and experience after the spine is stable
+
+### `P3` Far-Future — Advanced AI Coding Patterns
+
+These are ambitious research-grade capabilities that go beyond the current
+review-loop and guard-pipeline paradigm. None should be attempted until `P0`
+and `P1` are stable and the platform is installable in external repos.
+
+1. **Speculative branching** — agent tries N approaches in parallel worktrees,
+   runs tests and guards on each, and picks the best candidate based on guard
+   scores and test results instead of committing to one path serially
+2. **Semantic diffing** — instead of text-level review, agents reason about
+   behavioral equivalence: does this refactor preserve the same observable
+   behavior? Uses symbolic analysis, property-based testing, or trace
+   comparison instead of line-by-line reading
+3. **Continuous synthesis** — instead of writing whole functions in one shot,
+   agents maintain a running synthesis loop that refines partial solutions as
+   new information arrives (closer to how a human iterates mentally before
+   typing), with incremental guard feedback at each refinement step
+4. **Graph-based planning** — instead of linear "do step 1, then step 2,"
+   build a dependency graph of changes, execute independent leaves in parallel,
+   and merge results; the daemon-event reducer and worktree isolation already
+   lay groundwork for this
+5. **Learning from execution** — agent runs the code, observes actual runtime
+   behavior (traces, profiles, coverage deltas, memory snapshots), and uses
+   that as primary feedback for the next edit, not just static review or guard
+   output
+
+Rule:
+
+- do not pull `P3` work forward while `P0`/`P1`/`P2` are open
+- each item requires a proof-of-concept with measurable improvement over the
+  current loop before full investment
+- these items may depend on model capabilities that do not exist yet; revisit
+  when the underlying models support the required reasoning depth
+- the current event log, daemon reducer, worktree isolation, and guard pipeline
+  are architectural prerequisites that `P0`/`P1` work is already building
+
+### Audit Intake Sequencing (2026-03-16)
+
+The latest architecture re-audit added useful scope, but it must land under
+the ladder above instead of as a flat "do everything" backlog.
+
+Current execution tranche (`P0`, do now):
+
+1. freeze the missing contract spine added by the re-audit:
+   `ActionResult`, `CommandGoalTaxonomy`,
+   `RepoMapSnapshot` / `MapFocusQuery` / `TargetedCheckPlan`
+2. freeze the control-plane safety seam:
+   service identity/discovery, backend attach/auth, write arbitration,
+   caller authority, and degraded-mode semantics
+3. freeze the evidence/compatibility seam:
+   migrate evidence onto `Finding`, add schema-version coverage, define the
+   artifact taxonomy, and make deprecation/compatibility plus contract-sync
+   behavior executable
+
+Next tranche (`P1`, only after the current `P0` slice is green):
+
+1. packaging/install/update/adoption flow
+2. generated startup surfaces and repo-pack wrapper polish
+3. broader client/mode parity and replay/recovery operability
+4. context-budget usage tiers plus cross-repo evaluation density
+
+Later tranche (`P2`, do not pull forward while `P0`/`P1` are open):
+
+1. public whitepaper/proof packaging
+2. broader rule-quality mining loops and portable primitive ranking
+3. language expansion and optional analyzer/search integrations
+4. extra shell/mobile/operator comfort features
+
+Practical rule for implementation:
+
+- if a new audit item does not directly freeze a `P0` contract, it should not
+  displace the current tranche
+- if a `P1` or `P2` item depends on unfinished `P0` contract work, leave it
+  in backlog/progress notes instead of promoting it into the active slice
+
 ## Execution Checklist
 
 - [x] Consolidate the repo-grounded architecture review, boundary analysis, and
@@ -1875,10 +2200,22 @@ docs/
 - [ ] Define the shared runtime contracts (`RepoPack`, `ControlState`,
       `TypedAction`, `RunRecord`, `ArtifactStore`, `ProviderAdapter`,
       `WorkflowAdapter`) in one canonical backend layer.
+- [ ] Freeze the composable-module contract explicitly: each major subsystem
+      must name its standalone entrypoint, shared contract, and integrated-app
+      role so the platform stays modular without turning into disconnected
+      tools.
+- [ ] Define one system coherence matrix and guard strategy across vocabulary,
+      identity, state, action, artifact, lifecycle, projections, parity, and
+      portability so drift prevention is platform-owned instead of spread
+      across many local rules.
 - [ ] Freeze the backend authority contract in executable form: define the
       canonical reducer-backed JSON/runtime authority, typed action/write
       surface, receipt/telemetry path, optional local service/API seam, and
       which markdown/UI artifacts remain projections only.
+- [ ] Freeze the stable backend protocol boundary explicitly: define the
+      service/API contract that frontends, wrappers, hooks, and future shells
+      consume so file reads and command wrappers remain transitional rather
+      than becoming the permanent cross-client interface.
 - [ ] Freeze the local service lifecycle contract: define how the shared
       backend is launched, discovered, attached, health-checked, resumed,
       and shut down when run standalone, through `devctl`, or through
@@ -2004,6 +2341,11 @@ docs/
       automation loop), reducer/receipt semantics, how `terminal_packet`
       staging fits into the flow, and which actions are allowed to bypass the
       terminal entirely.
+- [ ] Define the multi-client write-arbitration contract across the whole app:
+      write ownership, idempotency, replay/nonces, lease or lock semantics,
+      stale-writer recovery, and conflict rules must apply consistently across
+      CLI, VoiceTerm, PyQt6, phone/mobile, services, and hooks rather than
+      living only in review-channel-specific rules.
 - [ ] Prove client parity for the queue/action path: VoiceTerm may be the best
       local shell, but CLI, PyQt6, phone/mobile, and future skills/hooks must
       still consume the same typed queue/action/backend contract without hidden
@@ -2011,6 +2353,10 @@ docs/
 - [ ] Add version/compatibility handshake coverage for shared backend
       contracts: clients must negotiate schema/platform compatibility instead of
       silently assuming they are on the same commit or packet shape.
+- [ ] Define the public-surface deprecation and compatibility contract: action
+      ids, aliases, hook/skill surfaces, projection fields, and wrapper names
+      need explicit support windows, migration paths, and guardable
+      deprecation semantics instead of evolving through local convention only.
 - [ ] Add parity and fault-injection proof for the operator system: stale
       heartbeat, dropped connection, crash mid-write, replay/reducer recovery,
       reconnect/resume, and writer-lease contention must be testable against
@@ -2057,6 +2403,16 @@ docs/
       (for example `ensure/start/resume/stop` plus mode selection) that CLI,
       PyQt6, phone/mobile, overlay, VoiceTerm, and later skills/hooks all call
       instead of each client inventing its own launch logic.
+- [ ] Define one unified agent/job/session/task registry over that same
+      backend so review loops, autonomous loops, UI clients, services, and AI
+      runs stop carrying separate local ideas of "the current work item".
+- [ ] Define one typed tool/action/skill registry so backend actions, friendly
+      wrappers, generated surfaces, and future slash/hook paths all resolve
+      from the same catalog instead of from scattered docs and ad hoc prompts.
+- [ ] Define one capability-discovery manifest over that same backend so
+      wrappers, hooks, skills, UI clients, and repo adopters can query what
+      actions, modes, approvals, projections, and transports are actually
+      available instead of hard-coding assumptions.
 - [ ] Freeze the local host/supervisor contract explicitly: VoiceTerm may host
       and supervise the shared daemon/controller stack as the preferred local
       shell, but that same stack must remain directly attachable by CLI,
@@ -2100,10 +2456,27 @@ docs/
       active-plan markdown while unifying `devctl_events`, governance review
       rows, watchdog episodes, swarm summaries, and future `RunRecord`
       artifacts behind one runtime/artifact-store contract.
+- [ ] Define one artifact taxonomy and ledger boundary contract for the whole
+      app: state snapshots, append-only events, projections, receipts,
+      repo-map artifacts, timelines, replay/benchmark evidence, and cleanup/
+      retention classes should have one canonical classification instead of
+      growing by subsystem.
 - [ ] Define first-class context contracts (`ContextPack`,
       `ContextBudgetPolicy`) plus repo-pack-tunable budget tiers so AI loops
       stay bounded across bootstrap, full-scan, focused-fix, review, and
       remediation modes.
+- [ ] Freeze the evidence-to-memory bridge contract: findings, run records,
+      repo-map snapshots, and other machine artifacts should be attachable by
+      ref into context packs and later memory/query flows instead of copied
+      ad hoc into prompts.
+- [ ] Freeze the public repo-understanding surface as a real backend contract:
+      promote `devctl map` from a thin topology byproduct into a first-class
+      machine-readable surface that combines topology, complexity, hotspots,
+      changed scope, and guard/probe/review overlays with focusable output.
+- [ ] Define the naming contract as two portable layers: canonical backend
+      command/action ids plus repo-pack-owned friendly aliases/wrappers for
+      docs, skills, slash commands, VoiceTerm, PyQt6, and beginner-facing
+      UX, with one guard-backed mapping between them.
 - [ ] Add context-usage telemetry to `RunRecord`/event history/adoption
       evidence: estimated prompt size, actual provider usage when available,
       compression ratio, and explicit overflow/truncation path.
@@ -2132,6 +2505,20 @@ docs/
 - [ ] Add adjudication-coverage metrics: reviewed-vs-unreviewed findings by
       guard/probe family, scan mode, repo, and time window so the repo can
       distinguish "good outcomes on a small sample" from broad signal quality.
+- [ ] Define the repo-map storage/cache contract before DB sprawl: canonical
+      JSON snapshot, append-only refresh ledger, optional SQLite query index,
+      repo-pack-owned retention rules, and explicit attach-by-ref flow into
+      `ContextPack` / AI runtime without making VoiceTerm memory the only
+      authority.
+- [ ] Define the product-operability layer explicitly: packaging/install/update,
+      multi-repo/worktree safety, operator-visible health/timeline surfaces,
+      and replay/recovery checkpoints should be first-class product contracts,
+      not later polish.
+- [ ] Define the degraded-mode and failure-domain matrix explicitly: provider
+      unavailable, backend stale, incompatible client, missing host shell,
+      offline repo, partial progress, and retryable vs non-retryable failures
+      should project consistently across CLI, services, UI clients, hooks, and
+      AI wrappers.
 - [ ] Define the database-ingestion/provenance contract before adding a DB:
       canonical IDs, schema-version migration rules, JSONL-to-DB mapping,
       repo-pack/policy version stamping, and backfill strategy.
@@ -2154,6 +2541,10 @@ docs/
       confidence, file/span, evidence, rationale, suggested fix, autofixable
       flag, suppression policy, and artifact refs, with every agent/reviewer/
       markdown projection derived from that same base record.
+- [ ] Define one canonical identity contract for the whole app: repo/worktree,
+      run, task, action, agent, job, session, artifact, and finding IDs should
+      have stable ownership and mapping rules so ledgers, services, UI, and AI
+      packets can refer to the same thing without ad hoc joins.
 - [ ] Finish the machine-receipt contract for JSON-canonical surfaces so
       stdout becomes a stable control channel rather than prose status output:
       compact receipts should include artifact path/hash/bytes/token estimates,
@@ -2169,6 +2560,27 @@ docs/
       storage target remains JSONL plus an optional SQLite catalog keyed by
       artifact path/hash/bytes/token estimate, run/task/git refs, and summary
       pointers rather than a mandatory database-backed runtime.
+- [ ] Migrate guard, probe, import, and adjudication evidence families onto
+      the canonical `Finding` contract: keep legacy shapes only as temporary
+      translation seams, then add coverage proving the same finding record can
+      flow through ledgers, review packets, reports, and UI projections.
+- [ ] Define one typed `ActionResult` and error contract for the whole app:
+      command handlers, service endpoints, wrappers, and clients should return
+      the same success/failure envelope with reason codes, retryability,
+      partial-progress semantics, operator guidance, and artifact refs.
+- [ ] Define one `CommandGoalTaxonomy` over the canonical action inventory and
+      drive grouped discovery from it: `devctl list`, startup surfaces,
+      wrappers, skills, and future `map` hints should all group by the same
+      user goals instead of maintaining separate hand-curated command sets.
+- [ ] Add schema-version coverage for every durable machine artifact family:
+      command receipts, event ledgers, findings, review packets, watchdog
+      episodes, analytics snapshots, and other JSON/JSONL outputs should carry
+      explicit `schema_version` fields with a guard proving coverage rather
+      than relying on selective adoption.
+- [ ] Define extension/adopter conformance packs explicitly: a new provider,
+      client, hook, wrapper, or plugin should have to declare supported
+      actions, modes, projections, approvals, and parity tests before it
+      counts as a supported platform surface.
 - [ ] Strengthen Python contract/boundary enforcement for the portable core:
       move beyond today's advisory mypy lane by evaluating stricter typed
       contract paths plus executable import-boundary enforcement for core vs
@@ -2248,6 +2660,29 @@ working on `MP-377`.
   `governance-review --record` owns adjudicated finding outcomes, and handoff
   notes must say when meaningful work happened outside those ledgers so
   coverage is not overstated.
+- Architecture review on 2026-03-16 closed a planning gap: the current
+  topology/hotspot outputs are useful but still too thin to count as the
+  public repo-understanding surface. The next public contract must be a real
+  `devctl map` snapshot/query layer that combines topology, complexity,
+  hotspots, changed scope, existing findings, and recommended checks.
+- That same review also clarified the storage rule: `map` may feed later
+  memory/database layers, but its authority should live under the shared
+  `ArtifactStore` as canonical JSON plus refresh-ledger rows and an optional
+  SQLite query index, so any repo can reuse cached focus state without
+  depending on VoiceTerm-only memory paths.
+- Naming simplification now has an explicit two-layer contract: one stable set
+  of backend ids and one repo-pack-owned friendly wrapper layer for beginners,
+  agents, and UI surfaces. The guard must validate the mapping between those
+  layers so simple names do not drift into a second workflow system.
+- The composable-product rule is now explicit too: every major subsystem
+  should work by itself in any repo and also compose into one integrated agent
+  app through shared contracts. Treat "standalone but composable" as a hard
+  architecture requirement, not a nice-to-have.
+- The current execution order is now explicit too: `P0` is the must-have spine
+  (coherence, identity, registry, lifecycle, approvals, `map`, evidence
+  bridge, parity), `P1` is product-complete operation (packaging/adoption,
+  product-operability, full client/mode parity), and `P2` is later
+  enrichments that must not bypass the spine.
 - The canonical platform docs are no longer untracked-only local state:
   `dev/active/ai_governance_platform.md` and
   `dev/guides/AI_GOVERNANCE_PLATFORM.md` are now staged in git so fresh AI
@@ -2392,11 +2827,24 @@ Operational reminder: when a meaningful MP-377 slice is green with code,
 validation, docs, and reviewer acceptance, stop widening the dirty tree and
 prepare a bounded commit/push checkpoint through the normal approval path.
 
+Execution order for this section:
+
+- treat items `1` through `7` as the current `P0` audit-intake tranche
+- treat items `8` through `18` as next work that should wait until the current
+  tranche is materially frozen
+- treat items `19` and higher as later proof/scale work unless the user
+  explicitly reprioritizes them
+
 1. Continue turning the remaining audit intake into self-hosting enforcement
    work: the first layer-boundary guard is live, and the next backlog should
    cover portable path construction, adapter routing, contract completion,
    schema compatibility, and repeatable command-source/shell-execution misses.
-2. ~~Move the next real seam from frontend path cleanup to transitional
+2. Freeze the repo-understanding and naming surfaces before more wrappers
+   proliferate: define `RepoMapSnapshot` / `MapFocusQuery` /
+   `TargetedCheckPlan`, define the JSON-plus-SQLite cache contract, and define
+   the guard-backed mapping between canonical backend ids and friendly wrapper
+   names.
+3. ~~Move the next real seam from frontend path cleanup to transitional
    runtime separation~~ — done enough to accept for this slice. The
    `review_channel` runtime modules now resolve VoiceTerm paths through
    repo-pack/runtime contracts, `mobile_status.py` now loads review status
@@ -2410,21 +2858,21 @@ prepare a bounded commit/push checkpoint through the normal approval path.
    `dev/reports/governance/*` defaults directly, then the follow-up seam is
    `autonomy/run_parser.py` reducing hard-coded VoiceTerm plan/report
    defaults.
-3. Keep the iOS/mobile path cleanup marked partial until generated or emitted
+4. Keep the iOS/mobile path cleanup marked partial until generated or emitted
    repo-pack-owned metadata replaces duplicate literals in preview/demo
    surfaces; comments alone do not close that seam.
-4. Define the installable governance package surface explicitly:
+5. Define the installable governance package surface explicitly:
    `pyproject.toml`, build backend, versioning, dependency contract, and stable
    CLI entrypoint(s) for clean-environment installs.
-5. ~~Widen `RepoPathConfig` coverage~~ — done. `RepoPathConfig` now has 15
+6. ~~Widen `RepoPathConfig` coverage~~ — done. `RepoPathConfig` now has 15
    fields, 13 OC/frontend modules consume `VOICETERM_PATH_CONFIG`, 5
    repo-pack collector helpers replace forbidden imports, and iOS shell
    scripts centralize paths with source-of-truth comments. Only non-blocking
    presentation/help strings and test fixtures retain inline path literals.
-6. Finish the compatibility contract, not just the version field:
+7. Finish the compatibility contract, not just the version field:
    document schema-version ownership, migration rules, compatibility checks,
    and rollback expectations alongside repo-pack/platform version pinning.
-7. Expand the adapter/frontend migration: `artifact_locator.py`,
+8. Expand the adapter/frontend migration: `artifact_locator.py`,
    `bridge_sections.py`, and `session_trace_reader.py` are now path-migrated
    to `VOICETERM_PATH_CONFIG`. The remaining deeper couplings are
    `workflow_loop_utils.py`, `loops/comment.py`, the transitional
@@ -2432,32 +2880,32 @@ prepare a bounded commit/push checkpoint through the normal approval path.
    adapter-contract work (replacing direct `subprocess`/`gh` calls and local
    path ownership with `WorkflowAdapter` / repo-pack contracts rather than
    more path migration).
-8. Continue `Phase 2 - Normalize repo-pack policy and surface generation` by
+9. Continue `Phase 2 - Normalize repo-pack policy and surface generation` by
    adding explicit repo-pack context-budget profiles and usage-tier guidance
    hooks; the generated surfaces are now policy-owned, but bounded context
    modes still need to become first-class repo-pack behavior too.
-9. Promote the missing runtime evidence contracts into the executable
+10. Promote the missing runtime evidence contracts into the executable
    `governance_runtime` surface: `ContextPack`, `ContextBudgetPolicy`,
    `Finding`, `FindingReview`, `MetricEvent`, and the thin-client snapshot
    states now scattered across operator-console readers.
-10. Keep using this section plus the `Progress Log` for session handoff. Do not
+11. Keep using this section plus the `Progress Log` for session handoff. Do not
    create a second "main plan" or a separate hidden scratch log for `MP-377`.
-11. Define the canonical event-history/runtime-evidence contract that unifies
+12. Define the canonical event-history/runtime-evidence contract that unifies
    existing JSONL ledgers (`devctl_events`, governance reviews, watchdog
    episodes, swarm summaries) without collapsing session handoff into the
    future database layer.
-12. Define the context-budget contract and first repo-pack usage tiers before
+13. Define the context-budget contract and first repo-pack usage tiers before
    packaging more AI-facing loops; prompt cost must stay explicit platform
    behavior instead of hidden product debt.
-13. Add a machine-artifact control-envelope contract for JSON-canonical
+14. Add a machine-artifact control-envelope contract for JSON-canonical
    surfaces so `--output` can produce compact machine receipts plus artifact
    hash/byte/token metadata without forcing the same behavior onto
    human-first commands.
-14. Promote the same machine-first projection rule beyond the governance
+15. Promote the same machine-first projection rule beyond the governance
    command family into review-channel, autonomy, and data-science packet
    surfaces so agents, operators, junior developers, and senior reviewers can
    consume one shared evidence payload at different projection/detail levels.
-15. Extend runtime evidence beyond command duration/success: `RunRecord`,
+16. Extend runtime evidence beyond command duration/success: `RunRecord`,
     `devctl_events`, and later data-science rollups need artifact-size,
     artifact-hash, and estimated token fields so the repo can measure whether
     machine-first outputs are actually reducing context cost.
@@ -2529,6 +2977,136 @@ prepare a bounded commit/push checkpoint through the normal approval path.
 
 ## Progress Log
 
+- 2026-03-17: Consolidated repo-wide plan routing after a maintainer review
+  exposed that the first-read summary surfaces were still advertising the older
+  Theme-first sequence. `MASTER_PLAN` now explicitly points repo-wide strategy
+  to `MP-377` first, `INDEX.md` tells agents to read this plan for repo-wide
+  status/extraction questions, and Theme/Memory plan headers no longer claim
+  primary-lane status. The intended order is now explicit in repo state:
+  extract the AI-governance system and shared runtime contracts first, converge
+  VoiceTerm/PyQt6/phone/CLI on that backend second, rebind VoiceTerm as a
+  first consumer third, then return to the broader Theme/Memory lanes.
+- 2026-03-16: Promoted the plain-language `devctl` system map into durable
+  repo guidance with `dev/guides/DEVCTL_ARCHITECTURE.md`. The guide now
+  explains the whole control-plane shape for AI and human readers: one backend,
+  many clients; which layers own policy/runtime/artifacts; how `devctl` fits
+  with VoiceTerm, PyQt6, phone/mobile, CI, and hooks; and the portable next
+  contracts now requested by the operator. Two product-level follow-ups are
+  now explicit in that guide instead of living only in chat: (1) turn the
+  narrow current naming check into a repo-policy-backed naming-contract guard
+  that any repo can reuse, and (2) promote the existing topology backend
+  (`probe_topology_*`, `file_topology.json`, hotspot graphs, review packets)
+  into a first-class `devctl map` surface for flowcharts, AI context packets,
+  and later hook/slash-command reuse.
+- 2026-03-16: Tightened the missing piece in that architecture direction after
+  maintainer review. `map` should not stop at topology or diagrams: the public
+  contract now needs to combine topology, complexity, hotspot ranking,
+  changed-scope overlays, guard/probe/review evidence, and recommended check
+  plans so AI can go from "understand the repo" to "run the right bounded
+  checks on the risky slice" without inventing the workflow in prompts. The
+  storage rule is now explicit too: keep map truth under the shared
+  `ArtifactStore` as canonical JSON plus refresh-ledger rows and an optional
+  SQLite query index; later memory/database layers may ingest refs to that
+  evidence, but they do not replace it as the authority. The naming contract
+  is also now explicitly two-layer: stable backend ids plus repo-pack-owned
+  friendly wrappers, guarded so simpler beginner/agent UX does not fork
+  behavior.
+- 2026-03-16: Captured the broader product-shape clarification so scope does
+  not drift. The platform is now explicitly defined as a set of standalone,
+  repo-portable pieces that must also compose into one integrated agent app.
+  The plan now names the missing product-grade pieces that still need to be
+  made first-class: unified agent/job/session registry, typed tool/action/
+  skill catalog, attach/resume/watch service contract, replay/recovery path,
+  repo-intelligence store, evidence-to-memory bridge, workflow presets by user
+  goal, observability timeline, product-grade packaging/adoption, multi-repo
+  safety, and caller identity/approval.
+- 2026-03-16: Converted the open platform backlog into an explicit priority
+  ladder so scope does not feel equally urgent everywhere. `P0` is now the
+  coherence spine: shared runtime authority, coherence matrix, identity,
+  registry, capability discovery, lifecycle, approvals, `map`, evidence
+  bridge, parity, and validation routing. `P1` is product-complete behavior:
+  packaging/adoption, health/timeline/replay/recovery, generated startup
+  surfaces, and full client/mode parity. `P2` is enrichments that should wait
+  until `P0`/`P1` are real. This same review also promoted two more likely
+  missing glue contracts into the checklist: a backend capability-discovery
+  manifest and a typed action-result/error contract.
+- 2026-03-16: Accepted the useful parts of a deeper 8-lane architecture audit
+  without widening product scope. The real additional glue gaps are now
+  explicit here: migrate all evidence families onto the existing canonical
+  `Finding` contract, freeze one `ActionResult` envelope for command/service
+  outcomes, define one `CommandGoalTaxonomy` for grouped discovery, and make
+  schema-version coverage guardable across every durable machine artifact
+  family. The same review confirmed that golden cross-client parity remains
+  `P0`, and that multi-client write arbitration should stay in the spine
+  rather than being deferred as later polish.
+- 2026-03-16: Rephased that same audit intake so it does not flatten the
+  roadmap. The current execution slice is now explicitly limited to `P0`
+  contract-freeze work: the missing contract spine
+  (`ActionResult`, `CommandGoalTaxonomy`, `RepoMapSnapshot` /
+  `MapFocusQuery` / `TargetedCheckPlan`), the control-plane safety seam
+  (service identity/discovery, attach/auth, write arbitration, degraded-mode),
+  and the evidence/compatibility seam (`Finding` migration, schema-version
+  coverage, artifact taxonomy, deprecation/compatibility, contract-sync).
+  Packaging/adoption/client-parity work remains `P1`, and proof/scale work
+  such as whitepaper/rule-mining/language expansion remains `P2`.
+- 2026-03-16: Accepted the bounded `M67` reviewer-worker status seam. The
+  first repo-owned reviewer-worker contract now lives under the extracted
+  Python `devctl/review_channel` backend boundary: `review-channel status`,
+  `ensure`, `reviewer-heartbeat`, `reviewer-checkpoint`, and the
+  bridge-backed `full.json` projection now emit machine-readable
+  `reviewer_worker` state, while `ensure --follow` cadence frames surface
+  `review_needed` without pretending semantic review completion. This closes
+  the first "outside chat" status/loop seam, but not the broader reviewer
+  worker problem. Next bounded follow-up: lift the signal-only seam into a
+  report-only supervisor/watch path that can keep polling and publishing
+  operator-visible updates outside chat before semantic review automation or
+  Rust/VoiceTerm host ownership moves further.
+- 2026-03-17: Accepted the bounded `M68` report-only reviewer supervisor/watch
+  slice. `reviewer-heartbeat --follow` now polls on cadence, refreshes
+  reviewer heartbeat through the repo-owned Python `devctl/review_channel`
+  seam, and emits operator-visible `reviewer_worker` frames without claiming
+  semantic review completion. Current local re-review is green (`122`
+  review-channel tests plus `check_review_channel_bridge.py`). The next
+  bounded follow-up is now `M69`: add repo-owned detached lifecycle/status
+  truth for that supervisor path so it can stay alive and observable outside
+  the current terminal/chat session before widening into semantic-review
+  automation or Rust/VoiceTerm host ownership.
+- 2026-03-16: Recorded the real reviewer-lane failure class explicitly: the
+  current Claude implementer path can behave like a persistent worker, but the
+  Codex reviewer path still is not a repo-owned persistent worker/service and
+  still depends on this chat session staying alive. The repo already has
+  heartbeat/checkpoint writers plus a publisher path, but it still does not
+  own semantic reviewer polling/re-review/promotion outside chat. Treat that
+  as a separate architecture blocker from the current bounded Claude coding
+  slice. Required fix: add a repo-owned Codex reviewer worker/supervisor path
+  that runs outside chat, polls on cadence, writes reviewer checkpoints, and
+  emits operator-visible updates without waiting for user prompts.
+- 2026-03-16: Accepted the bounded `M66` publisher-lifecycle attention slice.
+  Shared attention/runtime state now distinguishes `failed_start` and
+  `detached_exit` instead of collapsing both into generic
+  `publisher_missing`, and the focused review-channel/runtime bundle is green
+  (`135` passing). This does not change the broader extraction direction:
+  the existing VoiceTerm daemon remains the transport/session host path, but
+  the first `M67` reviewer-worker implementation should still land under the
+  extracted Python `devctl/review_channel` backend seam rather than moving
+  reviewer-worker ownership into the Rust/VoiceTerm daemon too early.
+- 2026-03-16: Accepted the bounded `M65` detached publisher durability slice.
+  The detached-start path now records `failed_start` when the spawned
+  publisher is dead on arrival, and `read_publisher_state()` infers
+  `detached_exit` when a previously started publisher dies before the next
+  controller read without writing its own stop reason. Focused review-channel/
+  runtime proof is green (`133` passing). Next bounded follow-up: lift those
+  publisher lifecycle outcomes into machine-readable attention/recovery state
+  instead of collapsing them into generic `publisher_missing`.
+- 2026-03-16: Accepted the bounded `M64` clean-stop slice for follow-backed
+  controller runs. `review-channel ensure --follow` now exposes explicit stop
+  reasons (`timed_out`, `manual_stop`, `completed`, `output_error`), supports
+  `--timeout-minutes`, and writes final publisher state on exit; the focused
+  review-channel/runtime bundle is green (`131` passing). New next blocker:
+  the detached `--start-publisher-if-missing` launcher path still needs a
+  truthful durability contract, because the auto-started publisher can die
+  immediately and leave lifecycle ambiguity unless the controller supervises
+  or reclassifies that path explicitly.
 - 2026-03-16: Accepted the bounded `M63` timeout-escalation slice. The shared
   review/controller path now exposes machine-readable `reviewer_overdue`
   attention above plain stale reviewer heartbeat, threads the overdue

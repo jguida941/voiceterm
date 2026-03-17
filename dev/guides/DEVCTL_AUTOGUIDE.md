@@ -6,6 +6,9 @@ minimal manual intervention.
 Use this with:
 
 - `AGENTS.md` for policy, required bundles, and release SOP
+- `dev/guides/DEVCTL_ARCHITECTURE.md` for the plain-language whole-system map,
+  stable command language, portable naming-contract guard direction, and
+  future `map` command shape
 - `dev/guides/DEVELOPMENT.md` for lifecycle flow and verification matrix
 - `dev/guides/AGENT_COLLABORATION_SYSTEM.md` for the current Codex/Claude collaboration flowchart and command-stack map
 - `dev/scripts/README.md` for full command inventory
@@ -176,6 +179,10 @@ only running one local guard bundle:
 - `python3 dev/scripts/devctl.py launcher-check --help`
 - `python3 dev/scripts/devctl.py launcher-probes --help`
 - `python3 dev/scripts/devctl.py launcher-policy --help`
+
+Use `quality-policy` as the canonical live inventory of the enabled
+guards/probes, and use `render-surfaces` right after policy/template changes
+to confirm the AI/dev instruction surfaces still describe the same system.
 
 ### Review, runtime, and operator loop surfaces
 

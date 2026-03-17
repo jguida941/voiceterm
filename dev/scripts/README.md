@@ -31,6 +31,9 @@ change. If a plan doc still contains unfinished or deferred backlog, keep it
 active.
 For a quick lifecycle/check/push guide, see `dev/guides/DEVELOPMENT.md` sections
 `End-to-end lifecycle flow`, `What checks protect us`, and `When to push where`.
+For the plain-language whole-system `devctl` map, including the portable
+naming-contract guard direction and future `map` command shape, see
+`dev/guides/DEVCTL_ARCHITECTURE.md`.
 For automation-first `devctl` routing and Ralph loop controls, see
 `dev/guides/DEVCTL_AUTOGUIDE.md`.
 For a plain-language map of how `review-channel`, `autonomy-swarm`, and
@@ -171,6 +174,10 @@ Portability note:
 - `review-channel --action reviewer-checkpoint` is the repo-owned review-truth
   write. Use it only after a real review pass to advance the reviewed hash,
   verdict, findings, instruction, and reviewed scope together.
+- `review-channel --action status|ensure|reviewer-heartbeat|reviewer-checkpoint`
+  now emit machine-readable `reviewer_worker` state, and
+  `review-channel --action ensure --follow` cadence frames also surface a
+  `review_needed` signal without claiming semantic review completion.
 - Keep the mode model simple: `active_dual_agent` means live reviewer/implementer
   freshness is enforced; `single_agent`, `tools_only`, `paused`, and `offline`
   keep the same backend and checks but suspend stale dual-agent warnings until
@@ -593,6 +600,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/checks/check_architecture_surface_sync.py` | Architecture-surface sync guard | Scans newly added files and fails when active-plan docs, new check scripts, new `devctl` commands, new `app/**` surfaces, or new workflow files are not wired into the repo's owning authority docs/bundles/workflow docs. Supports `--since-ref`/`--head-ref` for branch diffs and `--paths` for targeted local verification. |
 | `dev/scripts/checks/check_guide_contract_sync.py` | Durable guide contract sync guard | Verifies repo-policy-owned durable guide/playbook coverage contracts (for example `dev/guides/DEVCTL_AUTOGUIDE.md`) so major control-plane surfaces cannot silently fall out of the operator docs while code keeps moving. |
 | `dev/scripts/checks/check_instruction_surface_sync.py` | Generated-surface sync guard | Verifies policy-owned instruction/starter surfaces still match the current repo-pack templates/context without writing files, so `render-surfaces --write` stays paired with a real enforcement lane in tooling/release validation. |
+| `dev/scripts/checks/check_platform_layer_boundaries.py` | Platform-layer boundary guard | Stable shim entrypoint for the architecture-boundary guard that blocks forbidden imports across reusable-backend, surface, and mobile/frontend layers while the implementation lives under `dev/scripts/checks/architecture_boundary/`. |
 | `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` board parity with the merged markdown-swarm tables in `dev/active/review_channel.md` for dynamic `AGENT-<N>` lanes (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
 | `dev/scripts/checks/check_review_channel_bridge.py` | Markdown-bridge contract gate | Verifies the active `code_audit.md` bridge exposes the required bootstrap sections/markers, tracked-file safety, and current poll/hash heartbeat metadata while `dev/active/review_channel.md` still declares the transitional markdown bridge active. |
 | `dev/scripts/checks/check_tandem_consistency.py` | Tandem role-profile consistency gate | Verifies that the tandem review/code loop role-profile seam is consistent across peer-liveness, event-reducer, status-projection, launch, prompt, and handoff modules. |
@@ -783,7 +791,7 @@ Machine-first output note:
 - `mobile-app`: wrapper over the first-party iPhone/iPad app flow; can run the real simulator demo against the live repo bundle, optionally refresh live Ralph/review state first (`--live-review`), list available simulator/physical devices, open an honest physical-device install wizard, and attempt a real signed physical-device install/launch when an Apple Development Team is provided
 - `ralph-status`: Ralph guardrail analytics surface; reads `ralph-report*.json` artifacts, aggregates fix/open counts plus architecture breakdowns, and can emit SVG charts for CLI/reporting/mobile consumers
 - `controller-action`: policy-gated control surface for `refresh-status`, `dispatch-report-only`, `pause-loop`, and `resume-loop`; dispatch/mode actions enforce allowlisted workflows/branches, respect `AUTONOMY_MODE=off` kill-switch behavior, and emit auditable action reports plus a stable `typed_action` runtime contract and optional local controller-mode state artifact
-- `review-channel`: current bridge-gated review-swarm bootstrap surface; `--action launch` reads `dev/active/review_channel.md` + `code_audit.md`, emits Codex/Claude conductor launch scripts, defaults live macOS launches to an `auto-dark` Terminal profile when available, auto-relaunches a conductor in the same terminal when the provider exits cleanly, and enforces a two-phase fail-closed launch contract: first the `check_review_channel_bridge.py` guard must pass (required bootstrap sections, tracked-file safety, heartbeat metadata), then the live bridge state must show active Codex poll and Claude status within the five-minute heartbeat window; `--refresh-bridge-heartbeat-if-stale` is the typed self-heal flag for launch/rollover paths and will refresh the reviewer heartbeat metadata plus the non-audit worktree hash when stale/missing heartbeat metadata is the only blocker; non-zero provider exits still stop visibly so auth/CLI failures do not spin forever; `--action status` writes the latest bridge-backed projections under `dev/reports/review_channel/latest/` (`review_state.json`, `compact.json`, `full.json`, `actions.json`, `latest.md`, `registry/agents.json`) and now includes the derived next unchecked plan item from the configured promotion plan; `--action promote` is the typed repo-owned queue-advance path that rewrites `Current Instruction For Claude` from the next unchecked active-plan checklist item when the current slice is resolved and findings are clear; `--action rollover` writes a repo-visible handoff bundle, relaunches fresh conductors before compaction, and can wait for visible ACK lines in `code_audit.md`
+- `review-channel`: current bridge-gated review-swarm bootstrap surface; `--action launch` reads `dev/active/review_channel.md` + `code_audit.md`, emits Codex/Claude conductor launch scripts, defaults live macOS launches to an `auto-dark` Terminal profile when available, auto-relaunches a conductor in the same terminal when the provider exits cleanly, and enforces a two-phase fail-closed launch contract: first the `check_review_channel_bridge.py` guard must pass (required bootstrap sections, tracked-file safety, heartbeat metadata), then the live bridge state must show active Codex poll and Claude status within the five-minute heartbeat window; `--refresh-bridge-heartbeat-if-stale` is the typed self-heal flag for launch/rollover paths and will refresh the reviewer heartbeat metadata plus the non-audit worktree hash when stale/missing heartbeat metadata is the only blocker; non-zero provider exits still stop visibly so auth/CLI failures do not spin forever; `--action status` writes the latest bridge-backed projections under `dev/reports/review_channel/latest/` (`review_state.json`, `compact.json`, `full.json`, `actions.json`, `latest.md`, `registry/agents.json`) and now includes both the derived next unchecked plan item and machine-readable `reviewer_worker` state; `--action ensure`, `--action reviewer-heartbeat`, and `--action reviewer-checkpoint` emit the same reviewer-worker contract, while `--action ensure --follow` cadence frames add `review_needed` signals without claiming semantic review completion; `--action promote` is the typed repo-owned queue-advance path that rewrites `Current Instruction For Claude` from the next unchecked active-plan checklist item when the current slice is resolved and findings are clear; `--action rollover` writes a repo-visible handoff bundle, relaunches fresh conductors before compaction, and can wait for visible ACK lines in `code_audit.md`
 - `autonomy-benchmark`: active-plan-scoped swarm benchmark matrix runner (`swarm-counts x tactics`) that launches `autonomy-swarm` batches, captures per-swarm/per-scenario productivity metrics, and writes benchmark bundles under `dev/reports/autonomy/benchmarks/<label>` (non-report modes require `--fix-command`)
 - `swarm_run`: guarded autonomy pipeline wrapper around `autonomy-swarm` that loads plan scope context, derives next unchecked plan steps into one prompt, enforces reviewer lane + post-audit digest, runs governance checks (`check_active_plan_sync`, `check_multi_agent_sync`, `docs-check --strict-tooling`, `orchestrate-status/watch`), and appends run evidence to the active plan doc (`Progress Log` + `Audit Evidence`); supports optional continuous multi-cycle execution (`--continuous --continuous-max-cycles`) plus feedback sizing controls (`--feedback-sizing`, `--feedback-no-signal-rounds`, `--feedback-stall-rounds`, `--feedback-downshift-factor`, `--feedback-upshift-rounds`, `--feedback-upshift-factor`) for hands-off checklist progression (non-report modes require `--fix-command`)
 - `autonomy-report`: human-readable autonomy digest builder that scans loop/watch artifacts, writes dated bundles under `dev/reports/autonomy/library/<label>`, and emits summary markdown/json plus optional matplotlib charts
@@ -892,10 +900,29 @@ Use this profile for fast guard-focused iteration; run your target full profile
 - `probe-report --format md` is the default ranked handoff packet after new
   modules, refactors, string-based dispatch, 3+ parameter signatures, or
   concurrent/shared-state changes.
+- `quality-policy --format md` is the canonical live inventory of which
+  guards/probes are enabled for the current repo policy or a supplied portable
+  policy override.
 - `probe_compatibility_shims.py` is now part of that pack. It uses the same
   portable shim primitive as package-layout to surface missing metadata,
   expired wrappers, broken shim-target convergence, and shim-heavy roots or
   crowded flat families.
+- The promoted code-shape probe family now includes:
+  `probe_blank_line_frequency.py`, `probe_identifier_density.py`,
+  `probe_cognitive_complexity.py`, `probe_fan_out.py`,
+  `probe_side_effect_mixing.py`, `probe_mutable_parameter_density.py`,
+  `probe_match_arm_complexity.py`, and `probe_tuple_return_complexity.py`.
+  Together they surface fragmented flow, unreadable naming, branch overload,
+  orchestration sprawl, mixed side effects, mutable-parameter overload,
+  oversized `match` arms, and tuple-return debt before those patterns spread.
+- The broader staged code-shape probe implementations now live under
+  `dev/scripts/checks/code_shape_probes/`, with the stable root
+  `probe_*.py` files kept as thin wrappers so the crowded checks root stays
+  policy-compliant.
+- When you add or retune a guard/probe, preset, or repo policy file, run
+  `quality-policy --format md` and `render-surfaces --format md`; use
+  `render-surfaces --write --format md` when the governed instruction surfaces
+  need regeneration.
 - Probe packet artifacts live under `dev/reports/probes/latest/` and include:
   `summary.{md,json}`, `review_targets.json`, `file_topology.json`,
   `review_packet.{json,md}`, and hotspot `hotspots.{mmd,dot}` views.

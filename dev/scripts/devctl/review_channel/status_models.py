@@ -20,3 +20,6 @@ class ReviewChannelStatusSnapshot:
     warnings: list[str]
     errors: list[str]
     projection_paths: ReviewChannelProjectionPaths
+    reviewer_worker: dict[str, object] | None = None
+    service_identity: dict[str, object] | None = None
+    attach_auth_policy: dict[str, object] | None = None

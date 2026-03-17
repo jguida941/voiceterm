@@ -52,10 +52,8 @@ def resolve_artifact_paths(
 
 
 def event_state_exists(artifact_paths: ReviewChannelArtifactPaths) -> bool:
-    """Return True when event-backed review-channel artifacts already exist."""
-    return Path(artifact_paths.event_log_path).exists() or Path(
-        artifact_paths.state_path
-    ).exists()
+    """Return True when canonical event-backed state has been materialized."""
+    return Path(artifact_paths.state_path).exists()
 
 
 def summarize_review_state_errors(review_state: dict[str, object]) -> str | None:

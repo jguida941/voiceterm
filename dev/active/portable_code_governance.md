@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-03-14 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-03-16 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -123,6 +123,16 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       clarity and broader KISS/readability enforcement as advisory probes or
       optional autofix/report surfaces until signal quality is proven across
       multiple repos.
+- [ ] Promote repo understanding into a portable evidence contract: define a
+      versioned `map` schema that combines topology, complexity, hotspots,
+      changed scope, and guard/probe overlays with machine-readable targeted-
+      check hints so humans and AI can reuse one public surface instead of
+      inventing prompt-local repo walkthroughs.
+- [ ] Define the portable storage/index contract for that repo-understanding
+      surface: canonical JSON snapshot, append-only refresh ledger, optional
+      SQLite query cache, stable artifact receipts, and repo-policy retention
+      rules so another repo can reuse cached focus state without VoiceTerm-
+      specific memory paths.
 - [ ] Build the short-term anti-pattern feedback loop before any model-training
       push: when guards/probes fire, emit compact repair packets, attach the
       most relevant repo-local good examples and policy hints, rerun targeted
@@ -274,6 +284,15 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   gives the platform a practical near-term path to better first-pass code and a
   cleaner long-term dataset for retrieval or fine-tuning later, instead of
   trying to learn directly from raw noisy failure logs.
+- 2026-03-16: Maintainer review sharpened a second missing engine-level piece:
+  the repo already has topology scans, hotspot packets, and review artifacts,
+  but they still read like probe byproducts instead of a portable public
+  contract. The next portable surface should be a versioned `map` evidence
+  model that combines topology, complexity, changed scope, and guard/probe
+  overlays with targeted-check hints. Its storage contract should mirror the
+  broader platform direction: canonical JSON snapshot, refresh ledger rows,
+  optional SQLite query cache, and repo-policy-owned retention rules so cached
+  AI focus state works in any repo without depending on VoiceTerm memory paths.
 - 2026-03-13: Captured the next portable-engine follow-ups from a broader
   architecture/product review so they do not stay trapped in chat. The review
   largely matched the repo's existing direction, but it sharpened the missing
@@ -734,6 +753,11 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 - The harder validation path now works too: `check --repo-path --adoption-scan`
   on `ci-cd-hub` completes and surfaces `13` failing guard families, so the
   engine is catching real hard-guard debt instead of only emitting probes.
+- The next portability review also closed a product/engine gap: topology and
+  hotspot artifacts need to graduate into a portable `map` evidence contract
+  with targeted-check overlays and cacheable query state. Canonical truth
+  should be JSON plus refresh-ledger rows with optional SQLite indexing, not
+  VoiceTerm-only memory storage.
 - Next portability step should expand beyond Python/Rust so mixed Java/React
   and TypeScript repos stop looking artificially clean.
 

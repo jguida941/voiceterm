@@ -98,6 +98,14 @@ _PROBE_SCRIPT_ENTRIES = (
     ("probe_single_use_helpers", "probe_single_use_helpers.py"),
     ("probe_exception_quality", "probe_exception_quality.py"),
     ("probe_compatibility_shims", "probe_compatibility_shims.py"),
+    ("probe_blank_line_frequency", "probe_blank_line_frequency.py"),
+    ("probe_identifier_density", "probe_identifier_density.py"),
+    ("probe_cognitive_complexity", "probe_cognitive_complexity.py"),
+    ("probe_mutable_parameter_density", "probe_mutable_parameter_density.py"),
+    ("probe_fan_out", "probe_fan_out.py"),
+    ("probe_side_effect_mixing", "probe_side_effect_mixing.py"),
+    ("probe_match_arm_complexity", "probe_match_arm_complexity.py"),
+    ("probe_tuple_return_complexity", "probe_tuple_return_complexity.py"),
 )
 
 PROBE_SCRIPT_FILES = dict(_PROBE_SCRIPT_ENTRIES)

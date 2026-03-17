@@ -1,6 +1,6 @@
 # Review Probes Plan
 
-**Status**: active  |  **Last updated**: 2026-03-10 | **Owner:** Tooling/quality intelligence
+**Status**: active  |  **Last updated**: 2026-03-16 | **Owner:** Tooling/quality intelligence
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under `MP-368..MP-375`.
 
@@ -361,6 +361,55 @@ Acceptance:
 2. Visual outputs help a reviewer decide decomposition/refactor boundaries,
    not just decorate the report.
 
+### Phase 5b: Evidence-driven next signal tranche
+
+- [ ] Treat `dev/active/code_shape_expansion.md` (`MP-378`) as the research
+      and calibration companion for this tranche, not a second probe roadmap.
+      Promotion into implementation authority happens here after signal-quality
+      review, portability review, and metadata completion.
+- [ ] Require every promoted probe candidate to carry explicit
+      `review_lens`, `risk_type`, severity thresholds, and a matching
+      `practices.py` teaching entry before implementation starts, so the
+      `RiskHint` and renderer surfaces stay as specific as the probe itself.
+- [ ] Land shared prerequisites in order: lightweight identifier/tokenizer
+      utilities before identifier/Halstead/entropy work, then cohesion-graph
+      helpers before LCOM-style probes.
+- [ ] Evaluate readability probes (`probe_blank_line_frequency.py`,
+      `probe_cognitive_complexity.py`, `probe_identifier_density.py`) only
+      when they beat or complement existing structural-complexity coverage on
+      a fresh VoiceTerm baseline instead of just restating current checks.
+- [ ] Evaluate `probe_tuple_return_complexity.py` (Rust) for functions
+      returning tuples with 3+ elements when those slots carry mixed state or
+      flag semantics. Baseline current hits first and keep parser/conversion or
+      intentionally small tuple helpers allowlisted.
+- [ ] Evaluate `probe_fan_out.py` (Python + Rust) so hub/orchestrator
+      functions with too many distinct callees can be ranked even when they
+      stay under current line/branch limits; latest audit calibration says do
+      not ship the original `>10` threshold without baseline retuning.
+- [ ] Evaluate `probe_side_effect_mixing.py` (Python) plus a Rust-oriented
+      branch such as `probe_match_arm_complexity.py` when evidence shows large
+      dispatch arms or functions are mixing decision logic with mutation/I/O
+      side effects.
+- [ ] Keep `probe_mutation_density.py` out of the standalone queue unless a
+      future sample proves it is materially different from the existing
+      `probe_dict_as_struct.py` sequential-mutation signal.
+- [ ] Keep `probe_method_chain_length.py` rejected until a redesign can prove
+      it distinguishes real Demeter violations from idiomatic iterator or
+      builder chains at acceptable false-positive rates.
+- [ ] Keep `check_enum_conversion_duplication.py` as a hard-guard candidate
+      only after proving repeated enum conversion families are common enough
+      that derive/macro extraction is portable and low-noise.
+- [ ] Re-test whether a dedicated cognitive-complexity or readability probe
+      adds signal beyond existing coverage (`check_structural_complexity.py`,
+      Rust Clippy cognitive-complexity threshold, `check_code_shape.py`,
+      `check_parameter_count.py`) before adding blank-line, identifier-density,
+      or entropy-style metrics.
+- [ ] Keep `check_return_type_consistency.py`, LCOM/struct-field-cohesion,
+      maintainability-index, Halstead, and entropy families in research
+      backlog until a fresh sample overturns the prior "not probe-worthy /
+      not yet actionable" result and yields concrete `ai_instruction`
+      guidance.
+
 ### Phase 6: Optional control-plane adapters (later)
 
 - [ ] Wire `review_targets.json` into control-plane queues once the manual
@@ -511,6 +560,46 @@ Acceptance:
   policy slice also moved `check_code_shape.py` namespace/layout rules into
   repo-owned `guard_configs`, so the portable preset no longer carries
   VoiceTerm-only path assumptions inside the engine.
+- 2026-03-16: Captured the next probe-intake gap explicitly instead of leaving
+  it in chat. The next likely high-value advisory candidates are tuple-return
+  complexity, mutation density, method-chain length, fan-out, and
+  side-effect/match-arm complexity. `check_enum_conversion_duplication.py`
+  stays a hard-guard candidate, but only after portability proof. Several
+  other suggestions were intentionally not promoted yet: Rust cognitive
+  complexity overlaps with the existing Clippy threshold plus
+  `check_structural_complexity.py`, Python return-type consistency was
+  previously researched and found to have no genuine current hits, and
+  LCOM/field-cohesion plus Halstead/entropy-style metrics still need better
+  evidence that they produce actionable `ai_instruction` output rather than
+  abstract scores.
+- 2026-03-16: Re-audited the code-shape expansion intake and resolved the
+  authority conflict. `dev/active/code_shape_expansion.md` is now treated as
+  the subordinate research/calibration companion for Phase 5b+ instead of a
+  second implementation roadmap. The same pass dropped
+  `probe_method_chain_length` from active evaluation due to unacceptable false
+  positives, folded standalone mutation-density work back into
+  `probe_dict_as_struct`, promoted metadata/practice-entry requirements into
+  the gate itself, and kept cross-file/language-expansion families blocked on
+  `MP-377` portable runtime contracts.
+- 2026-03-16: Promoted the first bounded Phase 5b candidate into the shipped
+  pack. `probe_tuple_return_complexity.py` was already implemented in-tree and
+  had the strongest low-noise audit signal, so it is now enabled in the Rust
+  portable preset with direct script tests and linked best-practice guidance.
+  The rest of the code-shape tranche stays staged behind the same evidence and
+  portability gate instead of being bulk-enabled.
+- 2026-03-16: Full `check --profile ci` validation after that promotion stayed
+  red for two reasons: unrelated review-channel shape/dict-schema debt in the
+  concurrent MP-377 slice, and architecture debt in the broader code-shape
+  tranche itself. The newly added probe family still needs a namespace move
+  out of the crowded `dev/scripts/checks/` root plus small helper
+  deduplication before wider enablement can be treated as clean.
+- 2026-03-16: Completed that packaging cleanup for the staged probe family.
+  The code-shape implementations now live under
+  `dev/scripts/checks/code_shape_probes/`, root `probe_*.py` files are thin
+  shim wrappers with canonical metadata, the tuple-return test moved under
+  `dev/scripts/devctl/tests/checks/code_shape_probes/`, and the duplicated
+  Rust-signature/Python-path helpers were consolidated so the tranche no
+  longer adds avoidable package-layout or duplication noise.
 
 ## Research Notes (2026-03-09)
 

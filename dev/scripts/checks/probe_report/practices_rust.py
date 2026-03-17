@@ -222,4 +222,46 @@ RUST_PRACTICES: dict[str, dict[str, Any]] = {
             "Rust Error Handling Best Practices",
         ],
     },
+    "match_arm_complexity": {
+        "title": "Extract complex match arms into handler functions",
+        "explanation": (
+            "Match arms with many lines of procedural code turn the match "
+            "expression into a monolithic dispatcher that is hard to test and "
+            "review. Each arm should be a one-liner delegating to a named "
+            "function so the match reads as a clean dispatch table."
+        ),
+        "fix_pattern": (
+            "1. Extract each multi-line arm body into a named handler function.\n"
+            "2. Keep the match as a thin dispatch layer: "
+            "`Event::Click(btn) => handle_click(btn),`.\n"
+            "3. If many arms share setup/teardown, factor the common parts into "
+            "a wrapper that calls the per-variant handler."
+        ),
+        "example_before": (
+            "match event {\n"
+            "    Event::Click(btn) => {\n"
+            "        let target = resolve_target(btn);\n"
+            "        validate_target(&target)?;\n"
+            "        let result = perform_click(&target)?;\n"
+            "        log_click(&result);\n"
+            "        update_state(result);\n"
+            "    }\n"
+            "    Event::Hover(pos) => {\n"
+            "        let element = find_element(pos);\n"
+            "        highlight(element);\n"
+            "        update_tooltip(element);\n"
+            "    }\n"
+            "}"
+        ),
+        "example_after": (
+            "match event {\n"
+            "    Event::Click(btn) => handle_click(btn)?,\n"
+            "    Event::Hover(pos) => handle_hover(pos),\n"
+            "}"
+        ),
+        "references": [
+            "Rust Book: The match Control Flow Construct",
+            "Refactoring: Replace Conditional with Polymorphism",
+        ],
+    },
 }

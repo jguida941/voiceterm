@@ -25,6 +25,12 @@ from .state import (
     project_id_for_repo,
     write_projection_bundle,
 )
+from .daemon_reducer import (
+    DAEMON_EVENT_TYPES,
+    DaemonSnapshot,
+    build_runtime_state,
+    reduce_daemon_event,
+)
 from ..time_utils import utc_timestamp
 
 _ROLE_JOB_STATE: dict[str, str] = {
@@ -155,7 +161,17 @@ def reduce_events(
     latest_plan_id = DEFAULT_REVIEW_CHANNEL_PLAN_ID
     latest_controller_run_id = None
     provider_state = {"codex": {}, "claude": {}, "cursor": {}, "operator": {}}
+    daemon_snapshots: dict[str, DaemonSnapshot] = {}
+    last_daemon_event_utc = ""
     for event in events:
+        event_type = str(event.get("event_type") or "").strip()
+        if event_type in DAEMON_EVENT_TYPES:
+            reduce_daemon_event(daemon_snapshots, event)
+            last_daemon_event_utc = str(
+                event.get("timestamp_utc") or last_daemon_event_utc
+            )
+            latest_timestamp = str(event.get("timestamp_utc") or latest_timestamp)
+            continue
         packet_id = str(event.get("packet_id") or "").strip()
         if not packet_id:
             errors.append("Encountered review event without packet_id.")
@@ -164,7 +180,6 @@ def reduce_events(
         latest_session_id = str(event.get("session_id") or latest_session_id)
         latest_plan_id = str(event.get("plan_id") or latest_plan_id)
         latest_controller_run_id = event.get("controller_run_id")
-        event_type = str(event.get("event_type") or "").strip()
         if event_type == "packet_posted":
             packets_by_id[packet_id] = _packet_from_event(event)
         elif event_type in {"packet_acked", "packet_dismissed", "packet_applied"}:
@@ -198,6 +213,7 @@ def reduce_events(
         timestamp=latest_timestamp,
         provider_state=provider_state,
     )
+    runtime = build_runtime_state(daemon_snapshots, last_daemon_event_utc)
     review_state = {
         "schema_version": 1,
         "command": "review-channel",
@@ -216,6 +232,7 @@ def reduce_events(
         "agents": _build_agents(packet_rows, latest_timestamp),
         "packets": packet_rows,
         "queue": _build_queue_summary(pending_counts, stale_packet_count),
+        "runtime": runtime,
         "warnings": warnings,
         "errors": errors,
     }

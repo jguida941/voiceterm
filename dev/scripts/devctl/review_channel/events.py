@@ -250,8 +250,6 @@ def _validate_post_fields(
         raise ValueError(f"Unsupported review-channel policy hint: {policy_hint}")
     if expires_in_minutes <= 0:
         raise ValueError("--expires-in-minutes must be greater than zero.")
-
-
 def _validate_transition(
     *,
     packet: dict[str, object],

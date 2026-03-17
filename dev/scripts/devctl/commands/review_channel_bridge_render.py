@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from ..approval_mode import normalize_approval_mode
+from ..review_channel.attach_auth_render import append_attach_auth_policy_markdown
 from ..review_channel.core import REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE
 from ..review_channel.handoff import handoff_bundle_to_dict
 from ..review_channel.heartbeat import bridge_heartbeat_refresh_to_dict
@@ -59,6 +60,8 @@ def render_bridge_md(
     _append_handoff_bundle(lines, report.get("handoff_bundle"))
     _append_promotion(lines, report.get("promotion"))
     _append_attention(lines, report.get("attention"))
+    _append_service_identity(lines, report.get("service_identity"))
+    append_attach_auth_policy_markdown(lines, report.get("attach_auth_policy"))
     _append_bridge_heartbeat_refresh(lines, report.get("bridge_heartbeat_refresh"))
     _append_reviewer_state_write(lines, report.get("reviewer_state_write"))
     _append_sessions(lines, report.get("sessions"))
@@ -70,6 +73,7 @@ def build_bridge_success_report(
     args,
     bridge_liveness: dict[str, object],
     attention: dict[str, object],
+    reviewer_worker: dict[str, object] | None,
     codex_lanes: list,
     claude_lanes: list,
     terminal_profile_applied: str | None,
@@ -130,6 +134,7 @@ def build_bridge_success_report(
         "handoff_bundle": handoff_bundle_to_dict(handoff_bundle),
         "bridge_liveness": bridge_liveness,
         "attention": attention,
+        "reviewer_worker": reviewer_worker,
         "projection_paths": projection_paths_to_dict(projection_paths),
         "promotion": promotion_candidate_to_dict(promotion),
         "bridge_heartbeat_refresh": bridge_heartbeat_refresh_to_dict(
@@ -137,6 +142,8 @@ def build_bridge_success_report(
         ),
         "reviewer_state_write": reviewer_state_write_to_dict(None),
     }
+    if isinstance(reviewer_worker, dict):
+        report["review_needed"] = bool(reviewer_worker.get("review_needed"))
     if bridge_heartbeat_refresh is not None:
         report["warnings"].append(
             "Auto-refreshed the markdown-bridge reviewer heartbeat before "
@@ -256,6 +263,23 @@ def _append_attention(lines: list[str], attention: object) -> None:
     lines.append(
         f"- recommended_command: {attention.get('recommended_command') or 'n/a'}"
     )
+
+
+def _append_service_identity(lines: list[str], service_identity: object) -> None:
+    if not isinstance(service_identity, dict):
+        return
+    lines.append("")
+    lines.append("## Service Identity")
+    lines.append(f"- service_id: {service_identity.get('service_id') or 'n/a'}")
+    lines.append(f"- project_id: {service_identity.get('project_id') or 'n/a'}")
+    lines.append(f"- repo_root: {service_identity.get('repo_root') or 'n/a'}")
+    lines.append(f"- worktree_root: {service_identity.get('worktree_root') or 'n/a'}")
+    lines.append(f"- bridge_path: {service_identity.get('bridge_path') or 'n/a'}")
+    lines.append(
+        "- review_channel_path: "
+        f"{service_identity.get('review_channel_path') or 'n/a'}"
+    )
+    lines.append(f"- status_root: {service_identity.get('status_root') or 'n/a'}")
 
 
 def _append_bridge_heartbeat_refresh(lines: list[str], refresh: object) -> None:

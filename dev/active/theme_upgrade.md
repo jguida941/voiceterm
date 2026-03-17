@@ -1,7 +1,7 @@
 # Theme + Overlay Studio Plan (No-Code, Full-Surface Customization)
 
 Date: 2026-02-23  
-Status: Primary active product lane (execution mirrored in `dev/active/MASTER_PLAN.md` MP-099, MP-148..MP-151, MP-161..MP-167, MP-172..MP-182)  
+Status: Theme Studio scoped lane; execution mirrored in `dev/active/MASTER_PLAN.md` MP-099, MP-148..MP-151, MP-161..MP-167, MP-172..MP-182. This is not the repo's top-level strategic lane while the extracted-platform work is active.
 Scope: Canonical single source for Theme Studio architecture, overlay visual
 research, and active redesign details in one document.
 Execution plan contract: required

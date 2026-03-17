@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-14
+**Last Updated:** 2026-03-17
 
 ## At a Glance
 
@@ -45,6 +45,52 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-17 - MP-355 daemon-event runtime truth landed
+
+Fact: the next bounded runtime-truth slice now exists in the repo-owned
+`devctl/review_channel` backend instead of only in bridge heartbeat files.
+`review-channel ensure --follow` and `reviewer-heartbeat --follow` now append
+`daemon_started`, `daemon_heartbeat`, and `daemon_stopped` rows into the
+structured event log through a dedicated daemon-events seam, the shared daemon
+reducer now consumes those rows into `runtime.daemons.publisher` and
+`runtime.daemons.reviewer_supervisor`, and bridge-backed `status` uses the same
+runtime shape from persisted lifecycle heartbeat truth instead of reporting an
+always-empty reviewer supervisor. Operator-facing `latest.md` now renders that
+runtime block directly, and auto event-backed status stays gated on
+materialized `state.json` so daemon-only event logs do not silently replace the
+bridge-backed authority path.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/daemon_events.py`
+- `dev/scripts/devctl/review_channel/daemon_reducer.py`
+- `dev/scripts/devctl/review_channel/follow_controller.py`
+- `dev/scripts/devctl/review_channel/reviewer_follow.py`
+- `dev/scripts/devctl/review_channel/projection_bundle.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+
+### 2026-03-16 - MP-377 M67 reviewer-worker state seam landed outside chat
+
+Fact: the first bounded reviewer-worker slice now exists in the repo-owned
+`devctl/review_channel` backend seam instead of only in chat habit. The new
+mode-aware reviewer-worker contract reports `bridge_missing`,
+`inactive_mode`, `hash_unavailable`, `review_needed`, or `up_to_date`
+without claiming that semantic review itself already happened. `review-channel
+--action status`, `--action ensure`, `--action reviewer-heartbeat`, and
+`--action reviewer-checkpoint` now emit that `reviewer_worker` payload, the
+bridge-backed `full.json` projection carries it for downstream consumers, and
+`review-channel --action ensure --follow` cadence frames now keep the same
+`review_needed` signal visible while the publisher loop is running.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/reviewer_state.py`
+- `dev/scripts/devctl/commands/review_channel.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state.py`
 
 ### 2026-03-15 - Durable guide-contract sync added to docs governance
 

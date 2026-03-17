@@ -27,6 +27,7 @@ from ..review_channel.event_store import (
     build_bridge_status_fallback_warning,
     summarize_review_state_errors,
 )
+from ..review_channel.follow_controller import EnsureFollowDeps, run_ensure_follow_action
 from ..review_channel.follow_stream import (
     build_follow_completion_report,
     build_follow_output_error_report,
@@ -34,6 +35,7 @@ from ..review_channel.follow_stream import (
     reset_follow_output,
     validate_follow_json_format,
 )
+from ..review_channel.reviewer_follow import ReviewerFollowDeps, run_reviewer_follow_action
 from ..review_channel.promotion import DEFAULT_PROMOTION_PLAN_REL
 from ..review_channel.reviewer_state import (
     ReviewerCheckpointUpdate,
@@ -42,11 +44,22 @@ from ..review_channel.reviewer_state import (
     write_reviewer_checkpoint,
     write_reviewer_heartbeat,
 )
-from ..review_channel.state import (
+from ..review_channel.reviewer_worker import (
+    check_review_needed,
+    reviewer_worker_tick_to_dict,
+)
+from ..review_channel.lifecycle_state import (
     PublisherHeartbeat,
+    ReviewerSupervisorHeartbeat,
     read_publisher_state,
-    refresh_status_snapshot,
+    read_reviewer_supervisor_state,
     write_publisher_heartbeat,
+    write_reviewer_supervisor_heartbeat,
+)
+from ..review_channel.state import (
+    build_attach_auth_policy,
+    build_service_identity,
+    refresh_status_snapshot,
 )
 from ..time_utils import utc_timestamp
 
@@ -100,6 +113,10 @@ def _error_report(args, message: str, *, exit_code: int) -> tuple[dict, int]:
     report["history"] = []
     report["promotion"] = None
     report["bridge_heartbeat_refresh"] = None
+    report["reviewer_worker"] = None
+    report["reviewer_supervisor"] = None
+    report["service_identity"] = None
+    report["attach_auth_policy"] = None
     return report, exit_code
 
 
@@ -173,7 +190,13 @@ def _validate_args(args) -> None:
         raise ValueError("--follow-interval-seconds must be greater than zero.")
     if getattr(args, "start_publisher_if_missing", False) and args.action != "ensure":
         raise ValueError("--start-publisher-if-missing is only valid for review-channel ensure.")
-    if args.action in {"watch", "ensure"} and getattr(args, "follow", False):
+    if args.action == "reviewer-checkpoint" and getattr(args, "follow", False):
+        raise ValueError(
+            "review-channel reviewer-checkpoint does not support --follow."
+        )
+    if args.action in {"watch", "ensure", "reviewer-heartbeat"} and getattr(
+        args, "follow", False
+    ):
         validate_follow_json_format(
             action=args.action,
             output_format=getattr(args, "format", "json"),
@@ -232,6 +255,14 @@ def _run_status_action(
             )
             if exit_code == 0 and state_errors is None:
                 report["publisher"] = _read_publisher_state_safe(paths)
+                report["reviewer_supervisor"] = _read_reviewer_supervisor_state_safe(paths)
+                _attach_backend_contract(report, repo_root=repo_root, paths=paths)
+                if report.get("reviewer_worker") is None:
+                    _attach_reviewer_worker(
+                        report,
+                        repo_root=repo_root,
+                        bridge_path=paths.get("bridge_path"),
+                    )
                 return report, exit_code
             fallback_warnings.append(
                 build_bridge_status_fallback_warning(
@@ -243,6 +274,8 @@ def _run_status_action(
             args=args, repo_root=repo_root, paths=paths,
         )
         report["publisher"] = _read_publisher_state_safe(paths)
+        report["reviewer_supervisor"] = _read_reviewer_supervisor_state_safe(paths)
+        _attach_backend_contract(report, repo_root=repo_root, paths=paths)
         return report, exit_code
     try:
         report, exit_code = _run_bridge_action(
@@ -253,6 +286,8 @@ def _run_status_action(
             report_execution_mode="markdown-bridge",
         )
         report["publisher"] = _read_publisher_state_safe(paths)
+        report["reviewer_supervisor"] = _read_reviewer_supervisor_state_safe(paths)
+        _attach_backend_contract(report, repo_root=repo_root, paths=paths)
         return report, exit_code
     except ValueError as exc:
         raise ValueError(
@@ -269,6 +304,81 @@ def _read_publisher_state_safe(paths: dict[str, object]) -> dict[str, object]:
         return read_publisher_state(status_dir)
     except (OSError, ValueError):
         return {"running": False, "detail": "publisher state read failed"}
+
+
+def _read_reviewer_supervisor_state_safe(paths: dict[str, object]) -> dict[str, object]:
+    """Read reviewer supervisor state without failing the status report."""
+    status_dir = paths.get("status_dir")
+    if not isinstance(status_dir, Path):
+        return {"running": False, "detail": "status_dir not resolved"}
+    try:
+        return read_reviewer_supervisor_state(status_dir)
+    except (OSError, ValueError):
+        return {"running": False, "detail": "reviewer supervisor state read failed"}
+
+
+def _attach_service_identity(
+    report: dict[str, object],
+    *,
+    repo_root: Path,
+    paths: dict[str, object],
+) -> None:
+    """Attach the repo/worktree-scoped service identity to one report."""
+    bridge_path = paths.get("bridge_path")
+    review_channel_path = paths.get("review_channel_path")
+    status_dir = paths.get("status_dir")
+    if not isinstance(bridge_path, Path):
+        report["service_identity"] = None
+        return
+    if not isinstance(review_channel_path, Path):
+        report["service_identity"] = None
+        return
+    if not isinstance(status_dir, Path):
+        report["service_identity"] = None
+        return
+    report["service_identity"] = build_service_identity(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        output_root=status_dir,
+    )
+
+
+def _attach_attach_auth_policy(report: dict[str, object]) -> None:
+    """Attach the current attach/auth backend contract to one report."""
+    service_identity = report.get("service_identity")
+    if not isinstance(service_identity, dict):
+        report["attach_auth_policy"] = None
+        return
+    report["attach_auth_policy"] = build_attach_auth_policy(
+        service_identity=service_identity,
+    )
+
+
+def _attach_backend_contract(
+    report: dict[str, object],
+    *,
+    repo_root: Path,
+    paths: dict[str, object],
+) -> None:
+    """Attach service identity plus attach/auth policy to one report."""
+    _attach_service_identity(report, repo_root=repo_root, paths=paths)
+    _attach_attach_auth_policy(report)
+
+
+def _attach_reviewer_worker(
+    report: dict[str, object],
+    *,
+    repo_root: Path,
+    bridge_path: Path | object,
+) -> None:
+    """Attach the current reviewer-worker status to one command report."""
+    if not isinstance(bridge_path, Path):
+        report["reviewer_worker"] = None
+        return
+    tick = check_review_needed(repo_root=repo_root, bridge_path=bridge_path)
+    report["review_needed"] = tick.review_needed
+    report["reviewer_worker"] = reviewer_worker_tick_to_dict(tick)
 
 
 def _publisher_follow_command() -> str:
@@ -330,6 +440,33 @@ def _spawn_follow_publisher(
     return True, process.pid, str(log_path)
 
 
+def _verify_detached_start(
+    *,
+    pid: int | None,
+    paths: dict[str, object],
+) -> str:
+    """Check a recently spawned publisher and record failed-start if dead."""
+    from ..review_channel.lifecycle_state import _pid_is_alive
+
+    if pid is None or not _pid_is_alive(pid):
+        status_dir = paths.get("status_dir")
+        if isinstance(status_dir, Path):
+            write_publisher_heartbeat(
+                status_dir,
+                PublisherHeartbeat(
+                    pid=pid or 0,
+                    started_at_utc=utc_timestamp(),
+                    last_heartbeat_utc=utc_timestamp(),
+                    snapshots_emitted=0,
+                    reviewer_mode="unknown",
+                    stop_reason="failed_start",
+                    stopped_at_utc=utc_timestamp(),
+                ),
+            )
+        return "failed_start"
+    return "started"
+
+
 def _assess_publisher_lifecycle(
     *,
     args,
@@ -375,6 +512,10 @@ def _assess_publisher_lifecycle(
                     break
             result["publisher_state"] = publisher_state
             result["publisher_running"] = publisher_running
+            if not publisher_running:
+                result["publisher_start_status"] = _verify_detached_start(
+                    pid=pid, paths=paths,
+                )
             result["details"].append("Persistent publisher start was requested.")
         else:
             result["details"].append(
@@ -385,7 +526,13 @@ def _assess_publisher_lifecycle(
         result["details"].append("Persistent publisher is running.")
     else:
         result["publisher_status"] = "not_running"
-        result["attention_override"] = AttentionStatus.PUBLISHER_MISSING
+        stop_reason = str(publisher_state.get("stop_reason", ""))
+        if stop_reason == "failed_start":
+            result["attention_override"] = AttentionStatus.PUBLISHER_FAILED_START
+        elif stop_reason == "detached_exit":
+            result["attention_override"] = AttentionStatus.PUBLISHER_DETACHED_EXIT
+        else:
+            result["attention_override"] = AttentionStatus.PUBLISHER_MISSING
         if result["publisher_start_status"] != "started":
             result["recommended_command"] = _publisher_follow_command()
         result["details"].append(
@@ -479,6 +626,12 @@ def _run_ensure_action(
     result["publisher_required"] = pub["publisher_required"]
     result["publisher_status"] = pub["publisher_status"]
     result["publisher_start_status"] = pub["publisher_start_status"]
+    result["reviewer_worker"] = report.get("reviewer_worker")
+    result["reviewer_supervisor"] = report.get("reviewer_supervisor")
+    result["service_identity"] = report.get("service_identity")
+    result["attach_auth_policy"] = report.get("attach_auth_policy")
+    if isinstance(result["reviewer_worker"], dict):
+        result["review_needed"] = bool(result["reviewer_worker"].get("review_needed"))
     if pub["publisher_pid"] is not None:
         result["publisher_pid"] = pub["publisher_pid"]
     if pub["publisher_log_path"] is not None:
@@ -495,143 +648,101 @@ def _run_ensure_follow_action(
     repo_root: Path,
     paths: dict[str, object],
 ) -> tuple[dict, int]:
-    """Persistent heartbeat publisher: refresh + publish status on cadence.
-
-    Each iteration reads the current reviewer mode from the bridge (not from a
-    stale CLI arg), refreshes the heartbeat when mode is active, writes status
-    projections through the normal status path, writes a publisher heartbeat
-    file for lifecycle consumers, and emits an NDJSON frame.
-
-    Supports ``--timeout-minutes`` for an absolute run budget. On exit (timeout,
-    completion, or manual stop), writes final state with the stop reason.
-    """
-    bridge_path = paths.get("bridge_path")
-    status_dir = paths.get("status_dir")
-    assert isinstance(bridge_path, Path)
-    interval_seconds = max(1, int(getattr(args, "follow_interval_seconds", 120)))
-    max_snapshots = getattr(args, "max_follow_snapshots", 0) or 0
-    timeout_minutes = getattr(args, "timeout_minutes", 0) or 0
-    deadline = (time.monotonic() + timeout_minutes * 60) if timeout_minutes > 0 else 0
-    publisher_pid = os.getpid()
-    started_at = utc_timestamp()
-    stop_reason = "completed"
-
-    reset_follow_output(getattr(args, "output", None))
-    emitted_count = 0
-    seq = 0
-    exit_code = 0
-    last_mode = "unknown"
-
-    try:
-        while max_snapshots == 0 or emitted_count < max_snapshots:
-            if deadline and time.monotonic() >= deadline:
-                stop_reason = "timed_out"
-                break
-            emitted_count, seq, exit_code, last_mode, pipe_rc = _ensure_follow_tick(
-                args=args, repo_root=repo_root, paths=paths,
-                bridge_path=bridge_path, status_dir=status_dir,
-                publisher_pid=publisher_pid, started_at=started_at,
-                emitted_count=emitted_count, seq=seq,
-            )
-            if pipe_rc != 0:
-                stop_reason = "output_error"
-                _write_final_publisher_state(
-                    status_dir, publisher_pid, started_at, emitted_count,
-                    last_mode, stop_reason,
-                )
-                return build_follow_output_error_report(
-                    action="ensure",
-                    snapshots_emitted=emitted_count,
-                    pipe_rc=pipe_rc,
-                ), pipe_rc
-            if max_snapshots != 0 and emitted_count >= max_snapshots:
-                break
-            if deadline and time.monotonic() >= deadline:
-                stop_reason = "timed_out"
-                break
-            time.sleep(interval_seconds)
-    except KeyboardInterrupt:
-        stop_reason = "manual_stop"
-
-    _write_final_publisher_state(
-        status_dir, publisher_pid, started_at, emitted_count,
-        last_mode, stop_reason,
+    """Persistent heartbeat publisher: refresh + publish status on cadence."""
+    return run_ensure_follow_action(
+        args=args,
+        repo_root=repo_root,
+        paths=paths,
+        deps=EnsureFollowDeps(
+            ensure_reviewer_heartbeat_fn=ensure_reviewer_heartbeat,
+            reviewer_state_write_to_dict_fn=reviewer_state_write_to_dict,
+            run_status_action_fn=_run_status_action,
+            attach_reviewer_worker_fn=_attach_reviewer_worker,
+            emit_follow_ndjson_frame_fn=emit_follow_ndjson_frame,
+            reset_follow_output_fn=reset_follow_output,
+            build_follow_completion_report_fn=build_follow_completion_report,
+            build_follow_output_error_report_fn=build_follow_output_error_report,
+            write_publisher_heartbeat_fn=write_publisher_heartbeat,
+            read_publisher_state_fn=read_publisher_state,
+            utc_timestamp_fn=utc_timestamp,
+            sleep_fn=time.sleep,
+        ),
     )
-    result = build_follow_completion_report(
-        action="ensure",
-        snapshots_emitted=emitted_count,
-        ok=exit_code == 0,
-        reviewer_mode=last_mode,
-    )
-    result["stop_reason"] = stop_reason
-    return result, exit_code
 
 
-def _ensure_follow_tick(
+def _build_reviewer_state_report(
     *,
-    args, repo_root: Path, paths: dict[str, object],
-    bridge_path: Path, status_dir: Path | object,
-    publisher_pid: int, started_at: str,
-    emitted_count: int, seq: int,
-) -> tuple[int, int, int, str, int]:
-    """Run one ensure-follow iteration and return updated counters + pipe rc."""
-    ensure_result = ensure_reviewer_heartbeat(
+    args,
+    repo_root: Path,
+    paths: dict[str, object],
+) -> tuple[dict, int]:
+    """Build the current reviewer-state status report without mutating truth."""
+    bridge_path = paths["bridge_path"]
+    review_channel_path = paths["review_channel_path"]
+    status_dir = paths["status_dir"]
+    promotion_plan_path = paths["promotion_plan_path"]
+    assert isinstance(bridge_path, Path)
+    assert isinstance(review_channel_path, Path)
+    assert isinstance(status_dir, Path)
+    assert isinstance(promotion_plan_path, Path)
+
+    status_snapshot = refresh_status_snapshot(
         repo_root=repo_root,
         bridge_path=bridge_path,
-        reason="ensure-follow",
+        review_channel_path=review_channel_path,
+        output_root=status_dir,
+        promotion_plan_path=promotion_plan_path,
+        execution_mode=args.execution_mode,
+        warnings=[],
+        errors=[],
     )
-    last_mode = ensure_result.reviewer_mode
-    report, exit_code = _run_status_action(
-        args=args, repo_root=repo_root, paths=paths,
+    codex_lanes = filter_provider_lanes(status_snapshot.lanes, provider="codex")
+    claude_lanes = filter_provider_lanes(status_snapshot.lanes, provider="claude")
+    report, exit_code = build_bridge_success_report(
+        args=args,
+        bridge_liveness=status_snapshot.bridge_liveness,
+        attention=status_snapshot.attention,
+        reviewer_worker=status_snapshot.reviewer_worker,
+        codex_lanes=codex_lanes,
+        claude_lanes=claude_lanes,
+        terminal_profile_applied=None,
+        warnings=status_snapshot.warnings,
+        sessions=[],
+        handoff_bundle=None,
+        projection_paths=status_snapshot.projection_paths,
+        launched=False,
+        handoff_ack_required=False,
+        handoff_ack_observed=None,
+        promotion=None,
+        bridge_heartbeat_refresh=None,
+        execution_mode_override="markdown-bridge",
     )
-    if ensure_result.state_write is not None:
-        report["reviewer_state_write"] = reviewer_state_write_to_dict(
-            ensure_result.state_write,
-        )
-    report["ensure_refreshed"] = ensure_result.refreshed
-    if isinstance(status_dir, Path):
-        write_publisher_heartbeat(
-            status_dir,
-            PublisherHeartbeat(
-                pid=publisher_pid,
-                started_at_utc=started_at,
-                last_heartbeat_utc=utc_timestamp(),
-                snapshots_emitted=emitted_count + 1,
-                reviewer_mode=last_mode,
-            ),
-        )
-        publisher_state = read_publisher_state(status_dir)
-        report["publisher"] = publisher_state
-    frame = dict(report)
-    frame["follow"] = True
-    frame["snapshot_seq"] = seq
-    pipe_rc = emit_follow_ndjson_frame(frame, args=args)
-    if pipe_rc != 0:
-        return emitted_count, seq, exit_code, last_mode, pipe_rc
-    return emitted_count + 1, seq + 1, exit_code, last_mode, 0
+    _attach_backend_contract(report, repo_root=repo_root, paths=paths)
+    return report, exit_code
 
 
-def _write_final_publisher_state(
-    status_dir: Path | object,
-    publisher_pid: int,
-    started_at: str,
-    snapshots_emitted: int,
-    reviewer_mode: str,
-    stop_reason: str,
-) -> None:
-    """Write a final publisher heartbeat with the stop reason."""
-    if not isinstance(status_dir, Path):
-        return
-    write_publisher_heartbeat(
-        status_dir,
-        PublisherHeartbeat(
-            pid=publisher_pid,
-            started_at_utc=started_at,
-            last_heartbeat_utc=utc_timestamp(),
-            snapshots_emitted=snapshots_emitted,
-            reviewer_mode=reviewer_mode,
-            stop_reason=stop_reason,
-            stopped_at_utc=utc_timestamp(),
+def _run_reviewer_follow_action(
+    *,
+    args,
+    repo_root: Path,
+    paths: dict[str, object],
+) -> tuple[dict, int]:
+    """Poll reviewer-worker state on cadence and emit NDJSON follow frames."""
+    return run_reviewer_follow_action(
+        args=args,
+        repo_root=repo_root,
+        paths=paths,
+        deps=ReviewerFollowDeps(
+            ensure_reviewer_heartbeat_fn=ensure_reviewer_heartbeat,
+            build_reviewer_state_report_fn=_build_reviewer_state_report,
+            reviewer_state_write_to_dict_fn=reviewer_state_write_to_dict,
+            emit_follow_ndjson_frame_fn=emit_follow_ndjson_frame,
+            reset_follow_output_fn=reset_follow_output,
+            build_follow_completion_report_fn=build_follow_completion_report,
+            build_follow_output_error_report_fn=build_follow_output_error_report,
+            write_reviewer_supervisor_heartbeat_fn=write_reviewer_supervisor_heartbeat,
+            utc_timestamp_fn=utc_timestamp,
+            sleep_fn=time.sleep,
         ),
     )
 
@@ -643,14 +754,14 @@ def _run_reviewer_state_action(
     paths: dict[str, object],
 ) -> tuple[dict, int]:
     """Run one repo-owned reviewer heartbeat/checkpoint write and refresh projections."""
+    if args.action == "reviewer-heartbeat" and getattr(args, "follow", False):
+        return _run_reviewer_follow_action(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+        )
     bridge_path = paths["bridge_path"]
-    review_channel_path = paths["review_channel_path"]
-    status_dir = paths["status_dir"]
-    promotion_plan_path = paths["promotion_plan_path"]
     assert isinstance(bridge_path, Path)
-    assert isinstance(review_channel_path, Path)
-    assert isinstance(status_dir, Path)
-    assert isinstance(promotion_plan_path, Path)
 
     if args.action == "reviewer-heartbeat":
         state_write = write_reviewer_heartbeat(
@@ -673,35 +784,10 @@ def _run_reviewer_state_action(
             ),
         )
 
-    status_snapshot = refresh_status_snapshot(
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-        review_channel_path=review_channel_path,
-        output_root=status_dir,
-        promotion_plan_path=promotion_plan_path,
-        execution_mode=args.execution_mode,
-        warnings=[],
-        errors=[],
-    )
-    codex_lanes = filter_provider_lanes(status_snapshot.lanes, provider="codex")
-    claude_lanes = filter_provider_lanes(status_snapshot.lanes, provider="claude")
-    report, exit_code = build_bridge_success_report(
+    report, exit_code = _build_reviewer_state_report(
         args=args,
-        bridge_liveness=status_snapshot.bridge_liveness,
-        attention=status_snapshot.attention,
-        codex_lanes=codex_lanes,
-        claude_lanes=claude_lanes,
-        terminal_profile_applied=None,
-        warnings=status_snapshot.warnings,
-        sessions=[],
-        handoff_bundle=None,
-        projection_paths=status_snapshot.projection_paths,
-        launched=False,
-        handoff_ack_required=False,
-        handoff_ack_observed=None,
-        promotion=None,
-        bridge_heartbeat_refresh=None,
-        execution_mode_override="markdown-bridge",
+        repo_root=repo_root,
+        paths=paths,
     )
     report["reviewer_state_write"] = reviewer_state_write_to_dict(state_write)
     return report, exit_code

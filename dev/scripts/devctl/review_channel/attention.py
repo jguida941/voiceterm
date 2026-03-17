@@ -61,7 +61,13 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
         reviewer_mode_is_active(reviewer_mode)
         and not bool(bridge_liveness.get("publisher_running"))
     ):
-        status = AttentionStatus.PUBLISHER_MISSING
+        stop_reason = str(bridge_liveness.get("publisher_stop_reason") or "")
+        if stop_reason == "failed_start":
+            status = AttentionStatus.PUBLISHER_FAILED_START
+        elif stop_reason == "detached_exit":
+            status = AttentionStatus.PUBLISHER_DETACHED_EXIT
+        else:
+            status = AttentionStatus.PUBLISHER_MISSING
     else:
         status = AttentionStatus.HEALTHY
 

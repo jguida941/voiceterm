@@ -28,7 +28,12 @@
     "probe_defensive_overchecking",
     "probe_single_use_helpers",
     "probe_exception_quality",
-    "probe_compatibility_shims"
+    "probe_compatibility_shims",
+    "probe_blank_line_frequency",
+    "probe_identifier_density",
+    "probe_cognitive_complexity",
+    "probe_fan_out",
+    "probe_side_effect_mixing"
   ],
   "guard_configs": {
     "python_design_complexity": {

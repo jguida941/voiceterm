@@ -52,6 +52,7 @@ Release-governance note:
 | Where is the optional VoiceTerm Operator Console plan? | `dev/active/operator_console.md` |
 | Where is the Ralph guardrail remediation/control-plane plan? | `dev/active/ralph_guardrail_control_plane.md` |
 | Where is the heuristic review-probe execution plan? | `dev/active/review_probes.md` |
+| Where is the code-shape expansion research companion (readability, coupling, AI-specific, information-theoretic probes/guards)? | `dev/active/code_shape_expansion.md` (subordinate evidence/calibration companion feeding `dev/active/review_probes.md` Phase 5b+, not a second execution authority) |
 | Where is the portable code-governance engine / multi-repo portability and measurement plan? | `dev/active/portable_code_governance.md` (engine/adoption companion plan) |
 | Where is the full reusable AI governance platform / package-extraction architecture plan? | `dev/active/ai_governance_platform.md` (the only main active architecture plan for this product scope) |
 | Where is the durable reusable AI governance platform thesis/architecture guide? | `dev/guides/AI_GOVERNANCE_PLATFORM.md` (durable companion to the active platform plan) |
@@ -69,6 +70,7 @@ Release-governance note:
 | How do we run the current parallel Codex/Claude markdown swarm cycle? | `dev/active/review_channel.md` |
 | Where is the local-first continuous swarm execution contract (next-task promotion, peer liveness, context rotation)? | `dev/active/continuous_swarm.md` |
 | Where are `devctl` command semantics and examples? | `dev/scripts/README.md` |
+| Where is the plain-language `devctl` system architecture map, including portable naming/map direction? | `dev/guides/DEVCTL_ARCHITECTURE.md` |
 | Where is the devctl automation playbook? | `dev/guides/DEVCTL_AUTOGUIDE.md` |
 | Where is MCP-to-devctl architecture alignment and extension policy? | `dev/guides/MCP_DEVCTL_ALIGNMENT.md` |
 | Where is the portable-governance engine boundary, export flow, and benchmark/evaluation guide? | `dev/guides/PORTABLE_CODE_GOVERNANCE.md` (engine/adoption companion guide) |
@@ -338,6 +340,10 @@ exit 0 and emit structured `risk_hints` in JSON format. They are the
 | `probe_design_smells` | Excessive `getattr()` density, untyped `object` params with attribute access, format helper sprawl | yes | — |
 | `probe_boolean_params` | Functions with 3+ boolean parameters (unreadable call sites) | yes | yes |
 | `probe_stringly_typed` | String-literal dispatch chains that should be enums | yes | yes |
+| `probe_blank_line_frequency` | Excessive blank-line gaps that make function or module logic read as fragmented instead of cohesive | yes | yes |
+| `probe_identifier_density` | Dense short or opaque identifier mixes that usually signal unreadable local naming | yes | yes |
+| `probe_cognitive_complexity` | Branch-heavy control flow that is hard to review, test, or safely modify | yes | yes |
+| `probe_fan_out` | Functions or modules touching too many collaborators, suggesting orchestration sprawl | yes | yes |
 | `probe_unwrap_chains` | `.unwrap()`/`.expect()` chains in production code (should use `?` operator) | — | yes |
 | `probe_clone_density` | Excessive `.clone()` calls suggesting ownership confusion (Arc::clone excluded) | — | yes |
 | `probe_type_conversions` | Redundant type conversion chains (`.as_str().to_string()` round-trips) | — | yes |
@@ -345,10 +351,14 @@ exit 0 and emit structured `risk_hints` in JSON format. They are the
 | `probe_dict_as_struct` | Functions returning dicts with 5+ keys that should be dataclasses/TypedDict | yes | — |
 | `probe_unnecessary_intermediates` | Assign-then-return patterns with generic variable names (`result`, `ret`, `output`) | yes | — |
 | `probe_vague_errors` | `bail!()`/`anyhow!()` error messages without runtime context variables | — | yes |
+| `probe_side_effect_mixing` | Python functions that mix orchestration or mutation with value-shaping logic in one body | yes | — |
 | `probe_defensive_overchecking` | 3+ consecutive `isinstance()` checks on the same variable | yes | — |
 | `probe_single_use_helpers` | Private functions (`_name`) called only once in the file (indirection without reuse) | yes | — |
 | `probe_exception_quality` | Suppressive broad handlers and generic exception translation without runtime context | yes | — |
 | `probe_compatibility_shims` | Missing/expired shim metadata, unresolved shim targets, and shim-heavy roots/families | yes | — |
+| `probe_tuple_return_complexity` | Functions returning tuples with 3+ elements that should become named structs | — | yes |
+| `probe_mutable_parameter_density` | Rust functions carrying too many mutable parameters, indicating ownership or orchestration overload | — | yes |
+| `probe_match_arm_complexity` | Rust `match` arms with too much inline logic instead of extracted helpers or richer types | — | yes |
 
 ### When agents must run probes
 
@@ -365,6 +375,12 @@ is the canonical aggregated probe surface when an agent needs ranked cleanup
 order, topology context, or a self-contained handoff packet. It refreshes
 `review_targets.json`, `file_topology.json`, `review_packet.{json,md}`, and
 hotspot `hotspots.{mmd,dot}` artifacts under `dev/reports/probes/latest/`.
+When the guard/probe surface itself changes (new `probe_*.py` or `check_*.py`
+entrypoints, `script_catalog.py`, `quality_policy_defaults.py`,
+`dev/config/quality_presets/*.json`, or `dev/config/devctl_repo_policy.json`),
+also run `python3 dev/scripts/devctl.py quality-policy --format md` plus
+`python3 dev/scripts/devctl.py render-surfaces --format md`; use `--write`
+when the policy-owned AI/dev instruction surfaces need regeneration.
 For probes only:
 ```bash
 # Canonical aggregated probe packet:
@@ -380,6 +396,10 @@ python3 dev/scripts/checks/probe_concurrency.py
 python3 dev/scripts/checks/probe_design_smells.py
 python3 dev/scripts/checks/probe_boolean_params.py
 python3 dev/scripts/checks/probe_stringly_typed.py
+python3 dev/scripts/checks/probe_blank_line_frequency.py
+python3 dev/scripts/checks/probe_identifier_density.py
+python3 dev/scripts/checks/probe_cognitive_complexity.py
+python3 dev/scripts/checks/probe_fan_out.py
 python3 dev/scripts/checks/probe_unwrap_chains.py
 python3 dev/scripts/checks/probe_clone_density.py
 python3 dev/scripts/checks/probe_type_conversions.py
@@ -387,10 +407,14 @@ python3 dev/scripts/checks/probe_magic_numbers.py
 python3 dev/scripts/checks/probe_dict_as_struct.py
 python3 dev/scripts/checks/probe_unnecessary_intermediates.py
 python3 dev/scripts/checks/probe_vague_errors.py
+python3 dev/scripts/checks/probe_side_effect_mixing.py
 python3 dev/scripts/checks/probe_defensive_overchecking.py
 python3 dev/scripts/checks/probe_single_use_helpers.py
 python3 dev/scripts/checks/probe_exception_quality.py
 python3 dev/scripts/checks/probe_compatibility_shims.py
+python3 dev/scripts/checks/probe_tuple_return_complexity.py
+python3 dev/scripts/checks/probe_mutable_parameter_density.py
+python3 dev/scripts/checks/probe_match_arm_complexity.py
 ```
 
 Default AI operating rule:
@@ -1264,7 +1288,7 @@ Core commands:
 - `autonomy-report` (builds a human-readable autonomy digest bundle from loop/watch artifacts under `dev/reports/autonomy/library/<label>` with summary markdown/json, copied sources, and optional matplotlib charts)
 - `phone-status` (renders iPhone/SSH-safe autonomy status projections from `dev/reports/autonomy/queue/phone/latest.json` with selectable views `full|compact|trace|actions` and optional projection bundle emission: `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`)
 - `controller-action` (policy-gated operator action surface for `refresh-status`, `dispatch-report-only`, `pause-loop`, and `resume-loop`; dispatch and mode writes are bounded by workflow/branch allowlists and autonomy mode gates, with optional dry-run and mode-state artifact output)
-- `review-channel` (current bridge-gated review-swarm bootstrap surface; `--action launch` reads `dev/active/review_channel.md` + `code_audit.md`, emits Codex/Claude conductor launch scripts, defaults live macOS launches to an `auto-dark` Terminal profile when available, and fails closed when the markdown bridge is inactive; `--action rollover` writes a repo-visible handoff bundle, relaunches fresh conductors before compaction, and can wait for visible ACK lines in `code_audit.md`)
+- `review-channel` (current bridge-gated review-swarm bootstrap surface; `--action launch` reads `dev/active/review_channel.md` + `code_audit.md`, emits Codex/Claude conductor launch scripts, defaults live macOS launches to an `auto-dark` Terminal profile when available, and fails closed when the markdown bridge is inactive; `--action status`, `--action ensure`, `--action reviewer-heartbeat`, and `--action reviewer-checkpoint` now also emit machine-readable `reviewer_worker` state so the first repo-owned reviewer-worker seam stays visible outside chat, while `ensure --follow` frames carry `review_needed` without claiming semantic review completion; `--action rollover` writes a repo-visible handoff bundle, relaunches fresh conductors before compaction, and can wait for visible ACK lines in `code_audit.md`)
 - `autonomy-swarm` (adaptive multi-agent orchestration wrapper with metadata-driven worker sizing, optional `--plan-only` allocation mode, bounded per-agent autonomy-loop fanout, default reserved `AGENT-REVIEW` lane for post-audit review when execution runs with more than one lane, per-run swarm summary bundles under `dev/reports/autonomy/swarms/<label>/`, and default post-audit digest bundles under `dev/reports/autonomy/library/<label>-digest/`; disable with `--no-post-audit` and/or `--no-reviewer-lane`; non-report modes require `--fix-command`)
 - `mutation-loop` (bounded mutation remediation loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json/playbook bundles and supports policy-gated fix execution)
 - `failure-cleanup` (guarded cleanup for local failure triage bundles under `dev/reports/failures`; default path-root guard, optional `--allow-outside-failure-root` constrained to `dev/reports/**`, CI-green gating with optional `--ci-branch`/`--ci-workflow`/`--ci-event`/`--ci-sha` filters, plus `--dry-run` and confirmation)

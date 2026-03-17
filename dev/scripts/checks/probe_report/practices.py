@@ -184,6 +184,101 @@ BEST_PRACTICE_LIBRARY: dict[str, dict[str, Any]] = {
         "example_after": 'except OSError as exc:\n    raise RuntimeError(f"failed to read config at {path}") from exc',
         "references": ["Python docs: Exception chaining", "Effective Python: Raise exceptions with context"],
     },
+    "blank_line_structure": {
+        "title": "Add visual breaks between logical blocks",
+        "explanation": "Functions without blank lines are harder to scan. Research shows blank lines improve readability more than comments (Buse & Weimer 2008).",
+        "fix_pattern": "Add blank lines between logical sections: setup, computation, and output. Aim for one blank line every 5-8 lines of code.",
+        "example_before": "def process(data):\n    config = data['config']\n    result = compute(config)\n    log.info(result)\n    save(result)\n    return result",
+        "example_after": "def process(data):\n    config = data['config']\n\n    result = compute(config)\n\n    log.info(result)\n    save(result)\n    return result",
+        "references": ["Buse & Weimer (2008): A Metric for Software Readability"],
+    },
+    "mutable_parameter_density": {
+        "title": "Bundle &mut parameters into a context struct",
+        "explanation": "Functions taking 3+ mutable references obscure which parameters get modified, making call sites hard to review and reason about.",
+        "fix_pattern": "Group related mutable state into a context struct so the mutation surface is explicit and callers see one coherent unit.",
+        "example_before": "fn update(\n    state: &mut State,\n    timers: &mut Timers,\n    counters: &mut Counters,\n) { ... }",
+        "example_after": "struct Context<'a> {\n    state: &'a mut State,\n    timers: &'a mut Timers,\n    counters: &'a mut Counters,\n}\n\nfn update(ctx: &mut Context) { ... }",
+        "references": ["Rust API Guidelines: builder/options patterns"],
+    },
+    "cognitive_complexity": {
+        "title": "Flatten deeply nested control flow",
+        "explanation": "High cognitive complexity means the reader must track many nested conditions simultaneously, which slows comprehension and increases bug risk.",
+        "fix_pattern": "Extract inner blocks into named helpers, use early returns for guard clauses, and keep each function at one level of abstraction.",
+        "example_before": "def process(items):\n    for item in items:\n        if item.valid:\n            if item.ready:\n                for dep in item.deps:\n                    if dep.ok:\n                        handle(dep)",
+        "example_after": "def process(items):\n    for item in items:\n        if not item.valid or not item.ready:\n            continue\n        _handle_deps(item.deps)\n\ndef _handle_deps(deps):\n    for dep in deps:\n        if dep.ok:\n            handle(dep)",
+        "references": ["Cognitive Complexity (SonarSource paper)", "Clean Code: One Level of Abstraction per Function"],
+    },
+    "identifier_density": {
+        "title": "Reduce unique identifiers per function",
+        "explanation": "A function with 20+ unique names forces readers to track too many concepts simultaneously, exceeding typical working-memory capacity.",
+        "fix_pattern": "Extract sub-computations into helper functions that encapsulate their own variable scope, aiming for 10-15 identifiers per function.",
+        "example_before": "def process(data):\n    name = data['name']\n    status = data['status']\n    count = data['count']\n    total = data['total']\n    ratio = count / total\n    label = f'{name}: {status}'\n    # ... 15+ more variables",
+        "example_after": "def process(data):\n    summary = build_summary(data)\n    metrics = compute_metrics(data)\n    return format_output(summary, metrics)",
+        "references": ["Clean Code: Small Functions", "Cognitive Load Theory: Miller's Law"],
+    },
+    "fan_out": {
+        "title": "Split hub functions into focused sub-orchestrators",
+        "explanation": "A function calling 15+ distinct targets orchestrates too many concerns, making it a change magnet and coupling hub.",
+        "fix_pattern": "Group related calls into sub-functions that each handle one phase (setup, computation, output) so each orchestrator stays focused.",
+        "example_before": "def deploy(cfg):\n    validate(cfg)\n    check_deps(cfg)\n    build_artifact(cfg)\n    run_lint(cfg)\n    sign_artifact(cfg)\n    upload(cfg)\n    notify_slack(cfg)\n    update_dashboard(cfg)\n    # ... 10+ more calls",
+        "example_after": "def deploy(cfg):\n    validated = prepare_build(cfg)\n    artifact = build_and_verify(validated)\n    publish_and_notify(artifact)",
+        "references": ["Clean Code: One Level of Abstraction per Function", "SOLID: Single Responsibility Principle"],
+    },
+    "tuple_return_complexity": {
+        "title": "Replace large tuple returns with a named struct",
+        "explanation": (
+            "Returning a tuple with 3+ elements forces call sites to access "
+            "results by positional index (.0, .1, .2), hiding what each value "
+            "represents. A named struct with descriptive fields makes the code "
+            "self-documenting and lets the compiler catch field-name typos."
+        ),
+        "fix_pattern": (
+            "1. Define a struct with one field per tuple element.\n"
+            "2. Give each field a descriptive name that explains its purpose.\n"
+            "3. Return the struct from the function and access fields by name "
+            "at call sites."
+        ),
+        "example_before": (
+            "fn parse_header(raw: &[u8]) -> (u32, u16, bool) {\n"
+            "    let version = read_u32(raw);\n"
+            "    let length = read_u16(&raw[4..]);\n"
+            "    let compressed = raw[6] != 0;\n"
+            "    (version, length, compressed)\n"
+            "}\n"
+            "\n"
+            "let (v, l, c) = parse_header(&data);"
+        ),
+        "example_after": (
+            "struct Header {\n"
+            "    version: u32,\n"
+            "    length: u16,\n"
+            "    compressed: bool,\n"
+            "}\n"
+            "\n"
+            "fn parse_header(raw: &[u8]) -> Header {\n"
+            "    Header {\n"
+            "        version: read_u32(raw),\n"
+            "        length: read_u16(&raw[4..]),\n"
+            "        compressed: raw[6] != 0,\n"
+            "    }\n"
+            "}\n"
+            "\n"
+            "let header = parse_header(&data);\n"
+            "// header.version, header.length, header.compressed"
+        ),
+        "references": [
+            "Rust Book: Using Structs to Structure Related Data",
+            "Rust API Guidelines: C-STRUCT",
+        ],
+    },
+    "side_effect_mixing": {
+        "title": "Separate value computation from I/O side effects",
+        "explanation": "A function that both computes a return value and writes to disk/stdout is hard to test and reuse because callers cannot get the data without triggering I/O.",
+        "fix_pattern": "Extract the pure computation into its own function, then write a thin wrapper that calls the pure function and handles all I/O.",
+        "example_before": "def build_report(data, path):\n    content = format_rows(data)\n    path.write_text(content)\n    return content",
+        "example_after": "def build_report(data):\n    return format_rows(data)\n\ndef write_report(data, path):\n    content = build_report(data)\n    path.write_text(content)",
+        "references": ["Clean Architecture: Boundaries", "Functional Core, Imperative Shell"],
+    },
 }
 BEST_PRACTICE_LIBRARY.update(CONCURRENCY_PRACTICES)
 BEST_PRACTICE_LIBRARY.update(RUST_PRACTICES)
@@ -223,6 +318,14 @@ SIGNAL_TO_PRACTICE: tuple[tuple[str, str, str], ...] = (
         "translated exception without runtime context",
         "weak_exception_translation",
     ),
+    ("readability_smell", "blank line", "blank_line_structure"),
+    ("readability_smell", "unique identifier", "identifier_density"),
+    ("readability_smell", "cognitive complexity", "cognitive_complexity"),
+    ("ownership_smell", "mutable", "mutable_parameter_density"),
+    ("design_smell", "match arm", "match_arm_complexity"),
+    ("design_smell", "I/O", "side_effect_mixing"),
+    ("coupling_smell", "calls", "fan_out"),
+    ("design_smell", "tuple", "tuple_return_complexity"),
 )
 
 

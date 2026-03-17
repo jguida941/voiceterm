@@ -134,6 +134,10 @@ Three quality layers matter in practice:
   - After a real review pass, advance review truth with
     `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint ...`
     rather than hand-editing heartbeat/hash/verdict lines separately.
+  - `review-channel --action status|ensure|reviewer-heartbeat|reviewer-checkpoint`
+    now emit machine-readable `reviewer_worker` state, and
+    `review-channel --action ensure --follow` cadence frames carry the same
+    `review_needed` signal without pretending semantic review completion.
   - If `tandem-validate` is red only because a release-lane external status
     check cannot reach GitHub or another off-repo dependency, treat that as an
     environment blocker and call it out separately from code-quality failures.
@@ -153,6 +157,11 @@ Three quality layers matter in practice:
   policy-owned instruction/starter surfaces defined in
   `repo_governance.surface_generation`; use `--write` after updating those
   templates, context values, or generated starter outputs.
+- If you changed `script_catalog.py`, `quality_policy_defaults.py`,
+  `dev/config/quality_presets/*.json`, `dev/config/devctl_repo_policy.json`,
+  or added/retired a `check_*.py` or `probe_*.py` entrypoint, run both
+  `quality-policy --format md` and `render-surfaces --format md` before push
+  so the resolved inventory and AI/dev instruction surfaces stay aligned.
 
 ## After file edits
 

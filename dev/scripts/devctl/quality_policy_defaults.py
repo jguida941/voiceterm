@@ -235,6 +235,46 @@ DEFAULT_REVIEW_PROBE_SPECS = (
         "probe_compatibility_shims",
         languages=("python",),
     ),
+    QualityStepSpec(
+        "probe-blank-line-frequency",
+        "probe_blank_line_frequency",
+        languages=("python", "rust"),
+    ),
+    QualityStepSpec(
+        "probe-mutable-parameter-density",
+        "probe_mutable_parameter_density",
+        languages=("rust",),
+    ),
+    QualityStepSpec(
+        "probe-identifier-density",
+        "probe_identifier_density",
+        languages=("python", "rust"),
+    ),
+    QualityStepSpec(
+        "probe-cognitive-complexity",
+        "probe_cognitive_complexity",
+        languages=("python", "rust"),
+    ),
+    QualityStepSpec(
+        "probe-fan-out",
+        "probe_fan_out",
+        languages=("python", "rust"),
+    ),
+    QualityStepSpec(
+        "probe-side-effect-mixing",
+        "probe_side_effect_mixing",
+        languages=("python",),
+    ),
+    QualityStepSpec(
+        "probe-match-arm-complexity",
+        "probe_match_arm_complexity",
+        languages=("rust",),
+    ),
+    QualityStepSpec(
+        "probe-tuple-return-complexity",
+        "probe_tuple_return_complexity",
+        languages=("rust",),
+    ),
 )
 
 AI_GUARD_REGISTRY = {spec.script_id: spec for spec in DEFAULT_AI_GUARD_SPECS}

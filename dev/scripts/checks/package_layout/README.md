@@ -10,6 +10,10 @@ Helper logic for `check_package_layout.py`.
   under `dev/scripts/checks/package_layout/probe_compatibility_shims.py` so
   crowded-root policy can treat both root files as thin wrappers over the same
   package-owned shim-governance surface.
+- Keep the staged code-shape probe family under
+  `dev/scripts/checks/code_shape_probes/` while the public
+  `probe_{cognitive_complexity,identifier_density,fan_out,side_effect_mixing,match_arm_complexity,tuple_return_complexity,...}.py`
+  entrypoints stay as thin wrappers in the root.
 - Keep the generated-surface sync entrypoint at
   `dev/scripts/checks/package_layout/check_instruction_surface_sync.py`, with
   implementation under

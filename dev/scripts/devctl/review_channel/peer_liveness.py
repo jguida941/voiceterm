@@ -15,11 +15,9 @@ from enum import StrEnum
 
 from ..runtime.role_profile import TandemRole
 
-
 # ---------------------------------------------------------------------------
 # Peer-heartbeat state enums
 # ---------------------------------------------------------------------------
-
 
 class CodexPollState(StrEnum):
     """Reviewer-side poll freshness derived from ``Last Codex poll`` age."""
@@ -29,7 +27,6 @@ class CodexPollState(StrEnum):
     POLL_DUE = "poll_due"
     FRESH = "fresh"
 
-
 class OverallLivenessState(StrEnum):
     """Aggregate loop health derived from both peer signals."""
 
@@ -37,7 +34,6 @@ class OverallLivenessState(StrEnum):
     STALE = "stale"
     WAITING_ON_PEER = "waiting_on_peer"
     FRESH = "fresh"
-
 
 class ReviewerMode(StrEnum):
     """Top-level reviewer operating modes for the bridge-backed loop."""
@@ -48,7 +44,6 @@ class ReviewerMode(StrEnum):
     PAUSED = "paused"
     OFFLINE = "offline"
 
-
 REVIEWER_MODE_ALIASES: dict[str, ReviewerMode] = {
     "agents": ReviewerMode.ACTIVE_DUAL_AGENT,
     "developer": ReviewerMode.SINGLE_AGENT,
@@ -56,7 +51,6 @@ REVIEWER_MODE_ALIASES: dict[str, ReviewerMode] = {
     "tools": ReviewerMode.TOOLS_ONLY,
 }
 """Human-facing shorthand accepted by CLI surfaces and normalized on write."""
-
 
 REVIEWER_MODE_CLI_CHOICES = tuple(mode.value for mode in ReviewerMode) + tuple(
     REVIEWER_MODE_ALIASES.keys()
@@ -74,7 +68,6 @@ IMPLEMENTER_STALL_MARKERS = (
 )
 """Phrases in implementer status/ACK that indicate a completion-stall pattern."""
 
-
 class AttentionStatus(StrEnum):
     """Machine-readable attention signals for operator/console consumers."""
 
@@ -89,8 +82,9 @@ class AttentionStatus(StrEnum):
     REVIEWED_HASH_STALE = "reviewed_hash_stale"
     IMPLEMENTER_COMPLETION_STALL = "implementer_completion_stall"
     PUBLISHER_MISSING = "publisher_missing"
+    PUBLISHER_FAILED_START = "publisher_failed_start"
+    PUBLISHER_DETACHED_EXIT = "publisher_detached_exit"
     HEALTHY = "healthy"
-
 
 # ---------------------------------------------------------------------------
 # Threshold constants
@@ -115,7 +109,6 @@ INACTIVE_REVIEWER_MODES = frozenset(
     }
 )
 
-
 def normalize_reviewer_mode(value: str | None) -> ReviewerMode:
     """Normalize metadata text into one canonical reviewer mode."""
     raw = (value or "").strip().lower()
@@ -127,11 +120,9 @@ def normalize_reviewer_mode(value: str | None) -> ReviewerMode:
             return mode
     return ReviewerMode.ACTIVE_DUAL_AGENT
 
-
 def reviewer_mode_is_active(value: str | None) -> bool:
     """Return True only when the bridge declares an actively enforced dual-agent loop."""
     return normalize_reviewer_mode(value) in ACTIVE_REVIEWER_MODES
-
 
 # ---------------------------------------------------------------------------
 # Recommended-command templates used by the recovery contract
@@ -154,7 +145,6 @@ REVIEW_CHANNEL_ENSURE_START_PUBLISHER_COMMAND = (
     f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action ensure "
     "--start-publisher-if-missing --terminal none --format json"
 )
-
 
 # ---------------------------------------------------------------------------
 # Stale-peer handling contract
@@ -181,7 +171,6 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None | TandemRole]] = {
     AttentionStatus.REVIEWER_HEARTBEAT_MISSING: {
         "guard_behavior": "block_launch",
         "owner": "codex",
-
         "summary": (
             "Codex reviewer heartbeat is missing; the loop is not safely live."
         ),
@@ -194,7 +183,6 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None | TandemRole]] = {
     AttentionStatus.REVIEWER_HEARTBEAT_STALE: {
         "guard_behavior": "block_launch",
         "owner": "codex",
-
         "summary": (
             "Codex reviewer heartbeat is stale; do not treat the current "
             "review loop as live."
@@ -208,7 +196,6 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None | TandemRole]] = {
     AttentionStatus.REVIEWER_OVERDUE: {
         "guard_behavior": "block_launch",
         "owner": "codex",
-
         "summary": (
             "Codex reviewer is overdue; the controller should escalate "
             "or attempt automatic recovery."
@@ -222,7 +209,6 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None | TandemRole]] = {
     AttentionStatus.REVIEWER_POLL_DUE: {
         "guard_behavior": "warn",
         "owner": "codex",
-
         "summary": (
             "Codex reviewer poll is due; refresh the bridge before the "
             "five-minute heartbeat window expires."
@@ -236,7 +222,6 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None | TandemRole]] = {
     AttentionStatus.CLAUDE_STATUS_MISSING: {
         "guard_behavior": "warn",
         "owner": "claude",
-
         "summary": (
             "Claude lane has not published Claude Status; the next loop "
             "cycle is waiting on implementer state."
@@ -250,7 +235,6 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None | TandemRole]] = {
     AttentionStatus.CLAUDE_ACK_MISSING: {
         "guard_behavior": "warn",
         "owner": "claude",
-
         "summary": (
             "Claude has not acknowledged the live instruction yet; the loop "
             "is waiting on implementer ACK."
@@ -264,7 +248,6 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None | TandemRole]] = {
     AttentionStatus.WAITING_ON_PEER: {
         "guard_behavior": "warn",
         "owner": "system",
-
         "summary": (
             "The review loop is waiting on peer-visible bridge state before "
             "the next cycle can begin."
@@ -278,7 +261,6 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None | TandemRole]] = {
     AttentionStatus.REVIEWED_HASH_STALE: {
         "guard_behavior": "warn",
         "owner": "codex",
-
         "summary": (
             "The worktree has changed since the last reviewed hash; "
             "verdict and findings may be stale."
@@ -292,7 +274,6 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None | TandemRole]] = {
     AttentionStatus.IMPLEMENTER_COMPLETION_STALL: {
         "guard_behavior": "warn",
         "owner": "claude",
-
         "summary": (
             "Implementer appears parked on reviewer polling while the "
             "current instruction is still active."
@@ -306,7 +287,6 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None | TandemRole]] = {
     AttentionStatus.PUBLISHER_MISSING: {
         "guard_behavior": "warn",
         "owner": "system",
-
         "summary": (
             "Persistent heartbeat publisher is required but not running; "
             "status projections are not being pushed automatically."
@@ -318,10 +298,35 @@ STALE_PEER_RECOVERY: dict[str, dict[str, str | None | TandemRole]] = {
         ),
         "recommended_command": REVIEW_CHANNEL_ENSURE_START_PUBLISHER_COMMAND,
     },
+    AttentionStatus.PUBLISHER_FAILED_START: {
+        "guard_behavior": "warn",
+        "owner": "system",
+        "summary": (
+            "Publisher was started but exited immediately; the bridge "
+            "or runtime environment may be misconfigured."
+        ),
+        "recovery": (
+            "Check the publisher log for startup errors, then retry with "
+            "`review-channel ensure --start-publisher-if-missing`."
+        ),
+        "recommended_command": REVIEW_CHANNEL_ENSURE_START_PUBLISHER_COMMAND,
+    },
+    AttentionStatus.PUBLISHER_DETACHED_EXIT: {
+        "guard_behavior": "warn",
+        "owner": "system",
+        "summary": (
+            "Publisher was running but exited unexpectedly; the last "
+            "heartbeat file records the pre-exit state."
+        ),
+        "recovery": (
+            "Restart the publisher with `review-channel ensure "
+            "--start-publisher-if-missing`. Check the log for the exit cause."
+        ),
+        "recommended_command": REVIEW_CHANNEL_ENSURE_START_PUBLISHER_COMMAND,
+    },
     AttentionStatus.HEALTHY: {
         "guard_behavior": "none",
         "owner": "system",
-
         "summary": "Review loop signals are fresh.",
         "recovery": "Continue the scoped review/coding loop.",
         "recommended_command": None,

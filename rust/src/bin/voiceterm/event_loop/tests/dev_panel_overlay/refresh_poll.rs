@@ -114,7 +114,10 @@ fn memory_page_enter_refreshes_memory_cockpit_snapshot() {
         .dev_panel_commands
         .memory_cockpit_snapshot()
         .expect("Memory Enter should build cockpit snapshot");
-    assert_eq!(cockpit.task_query_source, "review bridge");
+    assert_eq!(
+        cockpit.task_query_source, "boot pack",
+        "Memory Enter should derive task focus from the boot-pack handoff until a review artifact is loaded"
+    );
     assert!(cockpit.task_query.starts_with("MP-"));
     assert!(
         cockpit

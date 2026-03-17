@@ -26,6 +26,13 @@
     "probe_unwrap_chains",
     "probe_clone_density",
     "probe_type_conversions",
-    "probe_vague_errors"
+    "probe_vague_errors",
+    "probe_tuple_return_complexity",
+    "probe_blank_line_frequency",
+    "probe_identifier_density",
+    "probe_cognitive_complexity",
+    "probe_fan_out",
+    "probe_mutable_parameter_density",
+    "probe_match_arm_complexity"
   ]
 }

@@ -28,7 +28,6 @@ MERGED_REVIEWER_MODE_RE = re.compile(
 _SECTION_RE_TEMPLATE = r"(^## {heading}\s*$\n)(.*?)(?=^##\s+|\Z)"
 _BRIDGE_EXCLUDED_REL_PATHS = ("code_audit.md",)
 
-
 @dataclass(frozen=True)
 class ReviewerStateWrite:
     """One repo-owned reviewer state write applied to the bridge."""
@@ -41,7 +40,6 @@ class ReviewerStateWrite:
     last_codex_poll_local: str
     last_worktree_hash: str
 
-
 @dataclass(frozen=True)
 class ReviewerCheckpointUpdate:
     """Reviewer-owned section updates for one checkpoint write."""
@@ -50,7 +48,6 @@ class ReviewerCheckpointUpdate:
     open_findings: str
     current_instruction: str
     reviewed_scope_items: tuple[str, ...]
-
 
 @dataclass(frozen=True)
 class ReviewerMetadataUpdate:
@@ -62,14 +59,12 @@ class ReviewerMetadataUpdate:
     worktree_hash: str | None
     poll_note: str
 
-
 def reviewer_state_write_to_dict(
     write: ReviewerStateWrite | None,
 ) -> dict[str, object] | None:
     if write is None:
         return None
     return asdict(write)
-
 
 def write_reviewer_heartbeat(
     *,
@@ -81,7 +76,7 @@ def write_reviewer_heartbeat(
     """Refresh only reviewer liveness metadata without claiming a new review."""
     bridge_text = bridge_path.read_text(encoding="utf-8")
     normalized_mode = normalize_reviewer_mode(reviewer_mode)
-    existing_hash = _current_reviewed_hash(bridge_text)
+    existing_hash = current_reviewed_hash(bridge_text)
     updated_text, write = _rewrite_reviewer_metadata(
         bridge_text=bridge_text,
         repo_root=repo_root,
@@ -99,7 +94,6 @@ def write_reviewer_heartbeat(
     )
     bridge_path.write_text(updated_text, encoding="utf-8")
     return write
-
 
 def write_reviewer_checkpoint(
     *,
@@ -155,7 +149,6 @@ def write_reviewer_checkpoint(
     bridge_path.write_text(updated_text, encoding="utf-8")
     return write
 
-
 def _rewrite_reviewer_metadata(
     *,
     bridge_text: str,
@@ -167,7 +160,7 @@ def _rewrite_reviewer_metadata(
     last_codex_poll_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     last_codex_poll_local = _format_new_york_timestamp(now_utc)
     updated_text = _normalize_metadata_layout(bridge_text)
-    current_bridge_hash = _current_reviewed_hash(bridge_text)
+    current_bridge_hash = current_reviewed_hash(bridge_text)
     updated_text = _replace_or_insert_metadata_line(
         updated_text,
         pattern=LAST_CODEX_POLL_RE,
@@ -205,18 +198,15 @@ def _rewrite_reviewer_metadata(
         last_worktree_hash=effective_hash,
     )
 
-
-def _current_reviewed_hash(bridge_text: str) -> str:
+def current_reviewed_hash(bridge_text: str) -> str:
     match = LAST_WORKTREE_HASH_RE.search(bridge_text)
     if match is None:
         return ""
     raw_line = match.group(0)
     return raw_line.split("`", 2)[1]
 
-
 def _normalize_metadata_layout(bridge_text: str) -> str:
     return MERGED_REVIEWER_MODE_RE.sub(r"\1\n\2", bridge_text)
-
 
 def _replace_section(text: str, *, heading: str, body: str) -> str:
     pattern = re.compile(
@@ -231,7 +221,6 @@ def _replace_section(text: str, *, heading: str, body: str) -> str:
     if count != 1:
         raise ValueError(f"Unable to locate `{heading}` in the markdown bridge.")
     return rewritten
-
 
 @dataclass(frozen=True)
 class EnsureHeartbeatResult:
@@ -265,13 +254,7 @@ def ensure_reviewer_heartbeat(
             error="Bridge file does not exist",
         )
     bridge_text = bridge_path.read_text(encoding="utf-8")
-    mode_match = REVIEWER_MODE_RE.search(bridge_text)
-    raw_mode = ""
-    if mode_match:
-        line = mode_match.group(0)
-        if "`" in line:
-            raw_mode = line.split("`", 2)[1]
-    current_mode = normalize_reviewer_mode(raw_mode)
+    current_mode = reviewer_mode_from_bridge_text(bridge_text)
     if current_mode != ReviewerMode.ACTIVE_DUAL_AGENT:
         return EnsureHeartbeatResult(
             refreshed=False,
@@ -293,6 +276,16 @@ def ensure_reviewer_heartbeat(
         state_write=state_write,
         error=None,
     )
+
+
+def reviewer_mode_from_bridge_text(bridge_text: str) -> ReviewerMode:
+    mode_match = REVIEWER_MODE_RE.search(bridge_text)
+    raw_mode = ""
+    if mode_match:
+        line = mode_match.group(0)
+        if "`" in line:
+            raw_mode = line.split("`", 2)[1]
+    return normalize_reviewer_mode(raw_mode)
 
 
 def _format_markdown_list(items: Iterable[str]) -> str:

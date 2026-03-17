@@ -152,12 +152,11 @@ pub(super) fn refresh_active_dev_panel_tab(
             snapshots::refresh_handoff_snapshot(state);
         }
         crate::dev_command::DevPanelTab::Memory => {
-            refresh_handoff_sources(
-                state,
-                deps,
-                matches!(mode, RefreshMode::Force),
-                matches!(mode, RefreshMode::Force),
-            );
+            if matches!(mode, RefreshMode::Force)
+                || state.dev_panel_commands.git_snapshot().is_none()
+            {
+                git_snapshot::refresh_git_snapshot(state, &deps.session);
+            }
             snapshots::refresh_memory_snapshot(state);
             snapshots::refresh_handoff_snapshot(state);
             snapshots::refresh_memory_cockpit_snapshot(state);
