@@ -2183,6 +2183,34 @@ Practical rule for implementation:
 - if a `P1` or `P2` item depends on unfinished `P0` contract work, leave it
   in backlog/progress notes instead of promoting it into the active slice
 
+### P0 Clarity Note
+
+Keep the landed slices separate from the still-open closure work so the plan
+does not imply that a first self-hosting implementation equals a frozen
+platform contract.
+
+Landed now:
+
+- `probe-report` can emit typed design-decision packets from
+  `.probe-allowlist.json` entries, and those packets now reach the canonical
+  `devctl probe-report` markdown/terminal surfaces.
+
+Still open before `P0` closes:
+
+- all review/fix/decision packets must become projections over the canonical
+  `Finding` record instead of being assembled directly from raw `risk_hints`
+  plus allowlist rows
+- the platform still needs one typed `FixPacket` contract, one typed
+  `DecisionPacket` contract, stable finding identity/routing, and a clear
+  closure loop into `governance-review`
+- packet/artifact families still need a schema/version matrix plus executable
+  compatibility enforcement
+- `platform-contracts` is still a partial blueprint, not yet the authoritative
+  catalog for every `P0` contract named in this plan
+- `RepoMapSnapshot` / `MapFocusQuery` / `TargetedCheckPlan` and the
+  command-goal/validation-routing seam are still open, so AI/dev startup
+  surfaces cannot derive their full workflow from one structured action model
+
 ## Execution Checklist
 
 - [x] Consolidate the repo-grounded architecture review, boundary analysis, and
@@ -2200,6 +2228,11 @@ Practical rule for implementation:
 - [ ] Define the shared runtime contracts (`RepoPack`, `ControlState`,
       `TypedAction`, `RunRecord`, `ArtifactStore`, `ProviderAdapter`,
       `WorkflowAdapter`) in one canonical backend layer.
+- [ ] Define one real resolved repo-pack contract before `P1`: the runtime,
+      frontends, and adopters should consume one typed repo-pack object
+      carrying pack identity, policy path, path config, workflow profiles,
+      compatibility/version requirements, and feature flags instead of
+      reconstructing that state from VoiceTerm-specific globals.
 - [ ] Freeze the composable-module contract explicitly: each major subsystem
       must name its standalone entrypoint, shared contract, and integrated-app
       role so the platform stays modular without turning into disconnected
@@ -2291,7 +2324,10 @@ Practical rule for implementation:
       habit: map backend actions and execution modes to the required routed
       checks (`check-router`, `tandem-validate`, `check --profile ci`,
       docs/probe/report lanes, risk add-ons) so Codex, Claude, and human
-      developers all know what to run at the same boundary.
+      developers all know what to run at the same boundary. The closure
+      surface must answer "what runs next, why, and in which mode" in one
+      canonical place instead of making operators infer between multiple
+      overlapping validator entrypoints.
 - [ ] Define the client capability matrix over the shared backend: CLI,
       review-channel conductors, PyQt6, overlay/TUI, phone/mobile, developer
       mode, and VoiceTerm adopter must each name what they can read, write,
@@ -2563,30 +2599,63 @@ Practical rule for implementation:
 - [ ] Migrate guard, probe, import, and adjudication evidence families onto
       the canonical `Finding` contract: keep legacy shapes only as temporary
       translation seams, then add coverage proving the same finding record can
-      flow through ledgers, review packets, reports, and UI projections.
+      flow through ledgers, review packets, reports, and UI projections. No
+      review/fix/decision packet should emit from raw hints once this closes:
+      every packet must carry stable finding identity, rule version, span, and
+      evidence/artifact provenance through that shared record.
 - [ ] Define one typed `ActionResult` and error contract for the whole app:
       command handlers, service endpoints, wrappers, and clients should return
       the same success/failure envelope with reason codes, retryability,
       partial-progress semantics, operator guidance, and artifact refs.
 - [ ] Define one `CommandGoalTaxonomy` over the canonical action inventory and
       drive grouped discovery from it: `devctl list`, startup surfaces,
-      wrappers, skills, and future `map` hints should all group by the same
-      user goals instead of maintaining separate hand-curated command sets.
+      wrappers, skills, future `map` hints, and validation-routing surfaces
+      should all group by the same user goals instead of maintaining separate
+      hand-curated command sets. `surface_generation` must derive workflow
+      semantics from this structured action metadata rather than from freeform
+      repo-policy prose blocks alone.
 - [ ] Define one typed AI decision-routing contract over findings and design
       debt: the platform should distinguish at least `repairable`,
       `decision_candidate`, `approval_required`, and `informational`, with
       explicit auto-apply/recommend/explain-and-wait semantics so ordinary AI
       users do not have to infer architecture choices from raw probe output.
+      Stable routing must support multiple findings on the same symbol without
+      collapsing them into one implicit decision state.
 - [ ] Split the default fix packet from the typed decision packet: the
       everyday AI/dev surface should carry deterministic fixes, scoped
-      evidence, and the next routed checks, while higher-order design choices
-      carry predeclared options, invariants, precedent, rationale fields, and
-      the validation plan needed for either AI or human decision-makers.
+      evidence, the next routed checks, and the preferred validator in a
+      first-class `FixPacket`, while higher-order design choices carry
+      predeclared options, invariants, precedent, rationale fields, and the
+      validation plan needed for either AI or human decision-makers in a
+      `DecisionPacket`. `governance-review` should become the canonical
+      close-out sink for both packet families.
 - [ ] Add schema-version coverage for every durable machine artifact family:
       command receipts, event ledgers, findings, review packets, watchdog
       episodes, analytics snapshots, and other JSON/JSONL outputs should carry
       explicit `schema_version` fields with a guard proving coverage rather
-      than relying on selective adoption.
+      than relying on selective adoption. The first required matrix must
+      include `probe-report`, `review_packet`, `decision_packet`,
+      `file_topology`, `review_targets`, `.probe-allowlist.json`, and the
+      JSONL finding/review ledgers with owner, compatibility window,
+      migration path, rollback path, and enforcing guard.
+- [ ] Promote `devctl platform-contracts` from partial blueprint to
+      authoritative contract catalog before `P1`: extend contract metadata so
+      every `P0` contract can declare version/stability/compatibility/migration
+      ownership, and do not describe the surface as authoritative until it
+      covers `ActionResult`, `CommandGoalTaxonomy`, `RepoMapSnapshot`,
+      `MapFocusQuery`, `TargetedCheckPlan`, `Finding`, `FixPacket`, and
+      `DecisionPacket`.
+- [ ] Add one contract-closure/meta-governance guard over the platform spine:
+      fail when a contract exists only in prose, only in a packet emitter, or
+      only in the machine-readable catalog. The guard should reconcile the
+      plan-owned `P0` contract list, `platform-contracts`, runtime models,
+      schema-version matrices, and generated startup surfaces so AI/dev
+      workflow structure cannot silently drift.
+- [ ] Promote `devctl map` from narrative target to checklist deliverable:
+      freeze `RepoMapSnapshot`, `MapFocusQuery`, and `TargetedCheckPlan` plus
+      cache/store identity, then require topology/hotspot/review outputs and
+      routed next-check guidance to be projections over that shared
+      repo-understanding contract instead of ad hoc helper artifacts.
 - [ ] Define extension/adopter conformance packs explicitly: a new provider,
       client, hook, wrapper, or plugin should have to declare supported
       actions, modes, projections, approvals, and parity tests before it
@@ -2595,6 +2664,14 @@ Practical rule for implementation:
       move beyond today's advisory mypy lane by evaluating stricter typed
       contract paths plus executable import-boundary enforcement for core vs
       adapters vs frontends vs repo-pack code.
+- [ ] Make "no VoiceTerm defaults in portable layers" an executable gate:
+      shared/core/runtime modules must not import `repo_packs.voiceterm`
+      directly or cache repo-pack-derived defaults at import time; portable
+      code should resolve an active repo-pack/context explicitly.
+- [ ] Freeze the bridge-retirement contract: allow no new `code_audit.md`
+      runtime consumers, migrate existing Python/Rust/frontend readers onto
+      typed projections, and keep markdown as generated debug/bootstrap output
+      only once those projections are in place.
 - [ ] Evaluate structural search/rewrite tooling as a bounded extension under
       platform contracts: use repo-owned Semgrep/AST-based rules and optional
       autofixers where they fit, but keep the canonical policy/evidence model
@@ -2792,12 +2869,11 @@ working on `MP-377`.
   Operator Console reads that repo-pack-owned surface instead of importing
   `review_channel` internals or hard-coding active-plan docs inside frontend
   modules.
-- `RepoPathConfig` is now a real frozen dataclass with 33 fields, exposed as
-  `VOICETERM_PATH_CONFIG`. Consumers span 13+ OC/frontend modules, 4
-  review-channel runtime modules, 2 governance ledger modules, 2 autonomy
-  parsers, and 7 devctl command files (via `process_helpers` and
-  `review_helpers` adapter modules under `repo_packs/`). Five read-only
-  collector helpers
+- `RepoPathConfig` is now a real frozen dataclass exposed as
+  `VOICETERM_PATH_CONFIG`. Consumers already span frontend modules,
+  review-channel runtime modules, governance ledger modules, autonomy
+  parsers, and `devctl` command files through `repo_packs` helper seams.
+  Read-only collector helpers
   (`voiceterm_repo_root`, `collect_devctl_git_status`,
   `collect_devctl_mutation_summary`, `collect_devctl_ci_runs`,
   `collect_devctl_quality_backlog`) let the frontend call devctl collection
@@ -2816,8 +2892,8 @@ working on `MP-377`.
 - The transitional `review_channel` runtime modules (`core.py`, `state.py`,
   `event_store.py`, `promotion.py`) now read path defaults from
   `VOICETERM_PATH_CONFIG` instead of defining their own literals.
-  `RepoPathConfig` has 20 fields total. `parser.py` and `events.py` needed
-  no changes — backward-compat aliases flow through the import chain.
+  `parser.py` and `events.py` needed no changes; backward-compat aliases flow
+  through the import chain.
 - Widened the repo-pack boundary further with 4 more accepted passes:
   `mobile_status.py` now routes review-state loading through
   `repo_packs/review_helpers.py`; 6 command files moved `resolve_repo` /
@@ -2828,7 +2904,8 @@ working on `MP-377`.
   `VOICETERM_PATH_CONFIG` for autonomy/report defaults. Remaining duplicate
   defaults in `data_science/metrics.py`, `autonomy/report_helpers.py`,
   `audit_events.py`, and `watchdog/episode.py` migrated onto the same
-  config. `RepoPathConfig` now has 42 fields, voiceterm.py at 349 lines.
+  config. `repo_packs/voiceterm.py` remains an active shrink target rather
+  than a closed contract.
 - MP-358 tandem-loop work is now underway alongside the extraction lane:
   fixed `--scope` promotion bug (`86b902c`), added `--auto-promote` with
   end-to-end tests, wired `reviewed_hash_current` into status/launch/
@@ -3024,6 +3101,18 @@ Execution order for this section:
   code into dedicated helper modules to satisfy package-layout and code-shape
   enforcement; `check --profile ci`, `docs-check --strict-tooling`, and
   `check_active_plan_sync.py` all pass on the resulting implementation.
+- 2026-03-17: Ran another architecture pass over the `P0` contract-freeze
+  seam after operator feedback and a three-lane review covering contracts,
+  AI/dev operating flow, and portability. The next missing layer is now
+  explicit in plan state: add a contract-closure/meta-governance guard so
+  schema/version structure, packet families, validation routing, and generated
+  AI/dev surfaces cannot drift independently. `P0` now says explicitly that
+  `platform-contracts` is still a partial blueprint until it covers the full
+  contract spine, every durable packet family gets a schema matrix plus
+  enforcing guard, `FixPacket` and `DecisionPacket` close through
+  `governance-review`, and `surface_generation` must derive workflow semantics
+  from structured action/taxonomy metadata instead of repo-policy prose blocks
+  alone.
 - 2026-03-17: Burned down the next `MP-377` self-hosting hotspot in the
   review-channel/control-plane seam and fixed a real governance-surface bug in
   the canonical operator path. `dev/scripts/devctl/commands/review_channel.py`

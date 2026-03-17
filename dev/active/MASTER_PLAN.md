@@ -34,6 +34,7 @@
 - Last tagged release: `v1.1.1` (2026-03-06)
 - Current release target: `post-v1.1.1 planning`
 - Active development branch: `develop`
+- Current `MP-377` execution branch: `feature/governance-quality-sweep`
 - Release branch: `master`
 - Current main product lane: `MP-377` AI governance platform extraction. Treat
   `dev/active/ai_governance_platform.md` as the main scoped plan for the
@@ -48,6 +49,11 @@
   first, converge CLI/VoiceTerm/PyQt6/phone on the same backend second,
   rebind VoiceTerm as a first consumer third, then resume broader Theme,
   Memory, and later product lanes.
+- Current `P0` closure focus inside that sequence: canonical `Finding`-based
+  packets, `FixPacket` / `DecisionPacket` split, schema/version matrices,
+  `CommandGoalTaxonomy` + validation-routing closure, and a contract-closure
+  guard so packet families, generated surfaces, and the runtime contract
+  catalog cannot drift apart.
 - Theme and Memory remain active tracked work, but they are not the repo's
   current top-level strategic lane while `MP-377` `P0` contract-freeze is
   active.

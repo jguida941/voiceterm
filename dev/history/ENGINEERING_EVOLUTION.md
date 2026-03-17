@@ -4681,5 +4681,13 @@ The full technical showcase is consolidated above in Appendix G of this document
   `python3.11 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short`
   passed at `145` tests, and the filtered local probe backlog is now
   medium-only (`0` active high, `14` active medium, `25` design decisions).
+- Tightened the repo-wide `MP-377` plan authority after another architecture
+  pass found one more missing process seam: contract closure itself needed to
+  become explicit tracked scope. `MASTER_PLAN` now keeps the current feature
+  branch visible alongside `develop`, and `ai_governance_platform.md` now
+  treats `FixPacket` / `DecisionPacket`, schema/version matrices, validation
+  routing, a `platform-contracts` authority upgrade, `devctl map`, repo-pack
+  resolution, and a contract-closure/meta-governance guard as blocking `P0`
+  items rather than implied future cleanup.
 
 </details>
