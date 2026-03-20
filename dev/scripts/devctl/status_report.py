@@ -13,6 +13,7 @@ from typing import Any
 from .collect import (
     collect_ci_runs,
     collect_clippy_pedantic_summary,
+    collect_failure_packet,
     collect_git_status,
     collect_mutation_summary,
 )
@@ -89,6 +90,7 @@ def build_project_report(
     probe_head_ref: str = "HEAD",
     probe_policy_path: str | None = None,
     probe_emit_artifacts: bool = False,
+    include_failure_packet: bool = True,
     parallel: bool = True,
     max_workers: int = DEFAULT_COLLECT_WORKERS,
 ) -> dict:
@@ -166,6 +168,8 @@ def build_project_report(
                 ),
             )
         )
+    if include_failure_packet:
+        probes.append(("failure_packet", collect_failure_packet))
 
     collected = _run_probes_parallel(probes, max_workers=max_workers) if parallel else _run_probes_serial(probes)
     report: dict = {

@@ -46,6 +46,12 @@ Note: Some historical entries reference internal documents that are not publishe
 - Wire cursor agent entry into event-reducer `_build_agents` and
   status-projection bridge review-state so the 3-agent roster becomes 4.
 - Add `pending_cursor` field to `ReviewQueueState` and queue output.
+- Add `doc-authority` and `governance-draft` command surfaces plus the
+  `check_startup_authority_contract.py` and `check_governance_closure.py`
+  guards so the MP-377 startup/governance contract is enforced through the
+  normal tooling/release surfaces instead of hand-checked drift.
+- Add `check_daemon_state_parity.py` so the Rust daemon lifecycle/state seam
+  is checked against the Python runtime models instead of staying manual-only.
 - Modularize `mutants.py` (730-line monolith) into five focused modules:
   `mutants_config.py` (module registry, shard parsing), `mutants_git.py`
   (git-diff-based file targeting), `mutants_runner.py` (cargo-mutants
@@ -80,6 +86,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add PyQt-free status-hint derivation across the Operator Console state layer
   (`AgentLaneData` plus lane builders) so each agent lane is classified as
   active/warning/stale/idle from parsed section keywords and timestamps.
+- Clarify the optional desktop companion around guarded `Dry Run` /
+  `Start Swarm` / `Launch Live` workflow expectations so the app stays an
+  honest repo-backed controller instead of a second runtime path.
 
 ### Mobile App
 
@@ -102,6 +111,9 @@ Note: Some historical entries reference internal documents that are not publishe
   `guides/INSTALL.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`) so the short
   path stays beginner-friendly, advanced companion-app details live behind
   links, and backend/IDE support wording stays consistent across docs.
+- Refresh the canonical user docs so the optional Operator Console and
+  iPhone/iPad companion surfaces, plus daemon-mode wording for those
+  integrations, are described consistently across install/usage/help paths.
 
 ## [1.1.1] - 2026-03-06
 ## [1.1.0] - 2026-03-05

@@ -31,6 +31,12 @@ DEFAULT_AI_GUARD_SPECS = (
         supports_commit_range=False,
     ),
     QualityStepSpec(
+        "platform-contract-closure-guard",
+        "platform_contract_closure",
+        languages=("python",),
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
         "python-broad-except-guard",
         "python_broad_except",
         languages=("python",),
@@ -144,6 +150,12 @@ DEFAULT_AI_GUARD_SPECS = (
         "python-suppression-debt-guard",
         "python_suppression_debt",
         languages=("python",),
+    ),
+    QualityStepSpec(
+        "startup-authority-contract-guard",
+        "startup_authority_contract",
+        languages=("python",),
+        supports_commit_range=False,
     ),
     QualityStepSpec(
         "structural-similarity-guard",
@@ -269,6 +281,11 @@ DEFAULT_REVIEW_PROBE_SPECS = (
         "probe-match-arm-complexity",
         "probe_match_arm_complexity",
         languages=("rust",),
+    ),
+    QualityStepSpec(
+        "probe-mixed-concerns",
+        "probe_mixed_concerns",
+        languages=("python",),
     ),
     QualityStepSpec(
         "probe-tuple-return-complexity",

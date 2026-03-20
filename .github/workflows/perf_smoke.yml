@@ -22,6 +22,7 @@ on:
 jobs:
   perf-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: rust

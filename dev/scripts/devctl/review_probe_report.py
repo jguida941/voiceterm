@@ -240,7 +240,7 @@ def build_probe_report(
     risk_hints = enrich_probe_hints(
         probe_results,
         repo_name=quality_policy.repo_name,
-        repo_path=str(effective_root),
+        repo_path="",
     )
     summary = _build_summary(probe_results, risk_hints)
     topology = build_probe_topology_artifact(

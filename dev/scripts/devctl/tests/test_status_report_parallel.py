@@ -58,6 +58,21 @@ FAKE_PROBE_REPORT = {
     "warnings": [],
     "errors": [],
 }
+FAKE_FAILURE_PACKET = {
+    "source": "workspace",
+    "runner": "pytest",
+    "status": "failed",
+    "total_tests": 3,
+    "failed_tests": 1,
+    "error_tests": 0,
+    "skipped_tests": 0,
+    "passed_tests": 2,
+    "primary_test_id": "pkg.test_mod::test_fail",
+    "primary_message": "assert 1 == 2",
+    "cases": [],
+    "artifact_paths": ["devctl-tests.junit.xml"],
+    "warnings": [],
+}
 
 
 def _fake_git():
@@ -86,6 +101,10 @@ def _fake_rust_audits(**_kwargs):
 
 def _fake_probe_report(**_kwargs):
     return dict(FAKE_PROBE_REPORT)
+
+
+def _fake_failure_packet():
+    return dict(FAKE_FAILURE_PACKET)
 
 
 class RunProbesSerialTests(unittest.TestCase):
@@ -148,6 +167,10 @@ class BuildProjectReportParallelTests(unittest.TestCase):
     """Validate build_project_report produces identical output in parallel vs sequential mode."""
 
     @patch(
+        "dev.scripts.devctl.status_report.collect_failure_packet",
+        side_effect=_fake_failure_packet,
+    )
+    @patch(
         "dev.scripts.devctl.status_report.collect_dev_log_summary",
         side_effect=_fake_dev_logs,
     )
@@ -163,6 +186,7 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         _mock_mutants,
         _mock_ci,
         _mock_dev_logs,
+        _mock_failure_packet,
     ) -> None:
         """Both modes must produce reports with the same keys and probe data."""
         common_kwargs = dict(
@@ -177,7 +201,7 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         report_serial = build_project_report(**common_kwargs, parallel=False)
 
         # Timestamps differ, so compare everything except timestamp.
-        for key in ("command", "git", "mutants", "ci", "dev_logs"):
+        for key in ("command", "git", "mutants", "ci", "dev_logs", "failure_packet"):
             self.assertEqual(
                 report_parallel[key],
                 report_serial[key],
@@ -332,7 +356,7 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         keys = list(report.keys())
         # command and timestamp come first, then probes in definition order.
         self.assertEqual(keys[:2], ["command", "timestamp"])
-        self.assertEqual(keys[2:], ["git", "mutants", "ci"])
+        self.assertEqual(keys[2:], ["git", "mutants", "ci", "failure_packet"])
 
     @patch(
         "dev.scripts.devctl.status_report.collect_dev_log_summary",
@@ -369,7 +393,10 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         )
         keys = list(report.keys())
         self.assertEqual(keys[:2], ["command", "timestamp"])
-        self.assertEqual(keys[2:], ["git", "mutants", "ci", "dev_logs", "rust_audits"])
+        self.assertEqual(
+            keys[2:],
+            ["git", "mutants", "ci", "dev_logs", "rust_audits", "failure_packet"],
+        )
 
 
 class ProbeExceptionTests(unittest.TestCase):

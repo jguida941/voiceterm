@@ -49,6 +49,9 @@ This app is intentionally a thin wrapper:
 - `devctl review-channel` still owns launch/rollover commands.
 - The desktop app reads repo-visible state and writes repo-visible operator
   decision artifacts.
+- Typed `review_state` / `control_state` style artifacts are the intended
+  primary contract. The markdown bridge and compatibility payload rebuilds are
+  transitional fallback/debug inputs, not long-term backend authority.
 - The desktop app now prefers the merged mobile relay read path when it can:
   it first reads the emitted `dev/reports/mobile/latest/full.json` projection
   bundle from `devctl mobile-status`, then falls back to rebuilding the merged

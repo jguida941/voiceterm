@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 from dataclasses import asdict, dataclass
@@ -110,21 +111,78 @@ def append_event(
     event: dict[str, object],
     *,
     existing_events: list[dict[str, object]],
-) -> None:
-    """Append one event after duplicate idempotency protection."""
-    idempotency_key = str(event.get("idempotency_key") or "").strip()
-    if any(
-        str(existing_event.get("idempotency_key") or "").strip() == idempotency_key
-        for existing_event in existing_events
-    ):
-        raise ValueError(
-            "Duplicate review-channel idempotency_key rejected: "
-            f"{idempotency_key or '(missing)'}"
-        )
+) -> dict[str, object]:
+    """Append one event with serialized event-id allocation. Returns the written event.
+
+    Acquires an exclusive file lock, re-reads the on-disk log to get the
+    true latest state, allocates the event_id from that fresh state, and
+    rechecks idempotency_key against the fresh log. This prevents duplicate
+    event_id values when concurrent writers hold stale snapshots.
+    """
     events_path.parent.mkdir(parents=True, exist_ok=True)
     with events_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, sort_keys=True))
-        handle.write("\n")
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            # Re-read the on-disk log while holding the lock to get fresh state.
+            fresh_events = _read_events_under_lock(events_path)
+
+            # Allocate event_id from fresh on-disk state, not stale caller snapshot.
+            event = dict(event)
+            event["event_id"] = next_event_id(fresh_events)
+
+            # Recheck idempotency_key against fresh state.
+            idempotency_key = str(event.get("idempotency_key") or "").strip()
+            if idempotency_key and any(
+                str(e.get("idempotency_key") or "").strip() == idempotency_key
+                for e in fresh_events
+            ):
+                raise ValueError(
+                    "Duplicate review-channel idempotency_key rejected: "
+                    f"{idempotency_key}"
+                )
+
+            # Recheck event_id uniqueness against fresh state.
+            new_event_id = str(event.get("event_id") or "")
+            if any(str(e.get("event_id") or "") == new_event_id for e in fresh_events):
+                raise ValueError(
+                    f"Duplicate review-channel event_id rejected: {new_event_id}"
+                )
+
+            handle.write(json.dumps(event, sort_keys=True) + "\n")
+            handle.flush()
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+    return event
+
+
+def _read_events_under_lock(events_path: Path) -> list[dict[str, object]]:
+    """Read all events from the NDJSON log (caller must hold the lock).
+
+    Fails closed on malformed rows: raises ValueError instead of silently
+    skipping, because the serialized append path must not allocate event_ids
+    based on a partial/corrupt view of the log.
+    """
+    if not events_path.exists():
+        return []
+    events: list[dict[str, object]] = []
+    for line_num, line in enumerate(events_path.read_text(encoding="utf-8").splitlines(), 1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Malformed event log at {events_path}:{line_num} — "
+                f"cannot allocate event_id from corrupt trace: {exc}"
+            ) from exc
+        if not isinstance(row, dict):
+            raise ValueError(
+                f"Non-object row at {events_path}:{line_num} — "
+                f"event log rows must be JSON objects"
+            )
+        events.append(row)
+    return events
 
 
 def artifact_paths_to_dict(
@@ -172,8 +230,23 @@ def write_legacy_projection_mirror(
 
 
 def next_event_id(events: list[dict[str, object]]) -> str:
-    """Generate the next sequential event id."""
-    return f"rev_evt_{len(events) + 1:04d}"
+    """Generate the next sequential event id.
+
+    Reads the highest existing event_id from the list rather than using
+    len(events) to avoid collisions when concurrent writers hold stale
+    snapshots with different event counts.
+    """
+    max_index = 0
+    for event in events:
+        eid = str(event.get("event_id") or "")
+        if eid.startswith("rev_evt_"):
+            try:
+                index = int(eid[len("rev_evt_"):])
+                if index > max_index:
+                    max_index = index
+            except ValueError:
+                pass
+    return f"rev_evt_{max_index + 1:04d}"
 
 
 def next_packet_id(events: list[dict[str, object]]) -> str:

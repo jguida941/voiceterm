@@ -283,6 +283,10 @@ Use a Linux environment in WSL2:
 This optional PyQt6 desktop wrapper is available from a source checkout only.
 It does not replace the Rust runtime or `devctl`.
 
+Use it when you want one repo-backed desktop surface for current
+review/control state, guarded `Dry Run` preflight, and the `Start Swarm` /
+`Launch Live` workflow from the same checkout.
+
 From the repo root:
 
 ```bash
@@ -292,6 +296,10 @@ From the repo root:
 
 If `PyQt6` is missing, the script attempts to install it for the current
 Python interpreter before launching the app.
+
+The matching iPhone/iPad companion uses the same repo-visible live bundle from
+the source checkout. See [app/ios/README.md](../app/ios/README.md) if you want
+the mobile surface as well.
 
 ## After install: run in your project
 

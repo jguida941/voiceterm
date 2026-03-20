@@ -2,6 +2,7 @@
 
 from .blueprint import build_platform_blueprint
 from .contracts import (
+    ArtifactSchemaSpec,
     CallerAuthoritySpec,
     ContractField,
     ContractSpec,
@@ -15,6 +16,7 @@ from .contracts import (
 from .render import render_platform_blueprint_markdown
 
 __all__ = [
+    "ArtifactSchemaSpec",
     "ContractField",
     "ContractSpec",
     "CallerAuthoritySpec",

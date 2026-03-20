@@ -96,6 +96,20 @@ class BuildLaunchCommandTests(unittest.TestCase):
         )
         self.assertIn("--refresh-bridge-heartbeat-if-stale", cmd)
 
+    def test_scope_and_promotion_plan_flags(self) -> None:
+        cmd = build_launch_command(
+            live=True,
+            scope="dev/active/operator_console.md",
+            promotion_plan="dev/active/operator_console.md",
+        )
+        self.assertIn("--scope", cmd)
+        self.assertIn("dev/active/operator_console.md", cmd)
+        self.assertIn("--promotion-plan", cmd)
+
+    def test_blank_scope_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            build_launch_command(live=True, scope="   ")
+
 
 class BuildRolloverCommandTests(unittest.TestCase):
     def test_basic_structure(self) -> None:

@@ -13,6 +13,7 @@ from .peer_liveness import (
     AttentionStatus,
     CodexPollState,
     OverallLivenessState,
+    ReviewerFreshness,
     reviewer_mode_is_active,
 )
 
@@ -23,9 +24,18 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
     codex_poll_state = str(bridge_liveness.get("codex_poll_state") or "unknown")
     claude_status_present = bool(bridge_liveness.get("claude_status_present"))
     claude_ack_present = bool(bridge_liveness.get("claude_ack_present"))
+    claude_ack_current = bool(bridge_liveness.get("claude_ack_current"))
 
     reviewed_hash_current = bridge_liveness.get("reviewed_hash_current")
     reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
+    review_needed = bool(bridge_liveness.get("review_needed"))
+    reviewer_supervisor_running = bool(
+        bridge_liveness.get("reviewer_supervisor_running")
+    )
+    implementer_completion_stall = bool(
+        bridge_liveness.get("implementer_completion_stall")
+    )
+    reviewer_freshness = str(bridge_liveness.get("reviewer_freshness") or "")
     poll_age = bridge_liveness.get("last_codex_poll_age_seconds")
     overdue_threshold = bridge_liveness.get(
         "reviewer_overdue_threshold_seconds",
@@ -34,28 +44,50 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
 
     if not reviewer_mode_is_active(reviewer_mode):
         status = AttentionStatus.INACTIVE
-    elif codex_poll_state == CodexPollState.MISSING:
+    elif reviewer_freshness == ReviewerFreshness.MISSING or (
+        not reviewer_freshness and codex_poll_state == CodexPollState.MISSING
+    ):
         status = AttentionStatus.REVIEWER_HEARTBEAT_MISSING
-    elif (
-        overall_state == OverallLivenessState.STALE
+    elif reviewer_freshness == ReviewerFreshness.OVERDUE or (
+        not reviewer_freshness
+        and overall_state == OverallLivenessState.STALE
         and isinstance(poll_age, (int, float))
         and isinstance(overdue_threshold, (int, float))
         and poll_age > overdue_threshold
     ):
         status = AttentionStatus.REVIEWER_OVERDUE
-    elif overall_state == OverallLivenessState.STALE:
+    elif reviewer_freshness == ReviewerFreshness.STALE or (
+        not reviewer_freshness and overall_state == OverallLivenessState.STALE
+    ):
         status = AttentionStatus.REVIEWER_HEARTBEAT_STALE
-    elif codex_poll_state == CodexPollState.POLL_DUE:
+    elif reviewer_freshness == ReviewerFreshness.POLL_DUE or (
+        not reviewer_freshness and codex_poll_state == CodexPollState.POLL_DUE
+    ):
         status = AttentionStatus.REVIEWER_POLL_DUE
+    elif (
+        reviewer_mode_is_active(reviewer_mode)
+        and codex_poll_state in {CodexPollState.FRESH, CodexPollState.POLL_DUE}
+        and implementer_completion_stall
+        and not review_needed
+    ):
+        status = AttentionStatus.DUAL_AGENT_IDLE
+    elif (
+        reviewer_mode_is_active(reviewer_mode)
+        and review_needed
+        and not reviewer_supervisor_running
+    ):
+        status = AttentionStatus.REVIEWER_SUPERVISOR_REQUIRED
     elif overall_state == OverallLivenessState.WAITING_ON_PEER and not claude_status_present:
         status = AttentionStatus.CLAUDE_STATUS_MISSING
     elif overall_state == OverallLivenessState.WAITING_ON_PEER and not claude_ack_present:
         status = AttentionStatus.CLAUDE_ACK_MISSING
+    elif overall_state == OverallLivenessState.WAITING_ON_PEER and not claude_ack_current:
+        status = AttentionStatus.CLAUDE_ACK_STALE
     elif overall_state == OverallLivenessState.WAITING_ON_PEER:
         status = AttentionStatus.WAITING_ON_PEER
     elif reviewed_hash_current is False:
         status = AttentionStatus.REVIEWED_HASH_STALE
-    elif bool(bridge_liveness.get("implementer_completion_stall")):
+    elif implementer_completion_stall:
         status = AttentionStatus.IMPLEMENTER_COMPLETION_STALL
     elif (
         reviewer_mode_is_active(reviewer_mode)

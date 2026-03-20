@@ -43,6 +43,10 @@ Use docs like this:
 - **`dev/active/INDEX.md`** -- active plan docs and when to read each one.
 - **`dev/active/MASTER_PLAN.md`** -- source of truth for current work.
 - **`dev/active/pre_release_architecture_audit.md`** -- canonical findings + execution checklist for pre-release architecture/tooling remediation (`MP-347`, `MP-349`).
+- Repo-root whole-system audits (for example `SYSTEM_AUDIT.md`) are temporary
+  reference evidence only. Accepted findings must be copied into canonical
+  active plans and maintainer docs; once integrated, retire the repo-root
+  audit copy instead of maintaining a second roadmap.
 - **`dev/active/theme_upgrade.md`** -- Theme and overlay plan.
 - **`dev/active/ide_provider_modularization.md`** -- host/provider adapter modularization and compatibility plan (`MP-346`).
 - **`dev/active/loop_chat_bridge.md`** -- loop output to chat runbook (`MP-338`).
@@ -100,6 +104,13 @@ Three quality layers matter in practice:
 
 - Hard guards (`check_*.py`) block regressions.
 - Review probes (`probe_*.py`) surface AI-style design smells without failing CI.
+- `probe_mixed_concerns.py` ranks Python files that contain 3+ independent
+  top-level function clusters so mixed-concern modules get split before line
+  counts hide the smell.
+- `check_code_shape.py` now ratchets path-override debt too: untouched legacy
+  over-cap overrides still show up as warnings, but touched files, newly added
+  over-cap overrides, worsened over-cap policies, and touched Python files
+  with mixed-concern clusters fail the guard.
 - `python3 dev/scripts/devctl.py probe-report --format md` turns those probe
   hints into one ranked review packet with topology artifacts for human or AI
   follow-up.
@@ -165,6 +176,12 @@ Three quality layers matter in practice:
   policy-owned instruction/starter surfaces defined in
   `repo_governance.surface_generation`; use `--write` after updating those
   templates, context values, or generated starter outputs.
+- `python3 dev/scripts/checks/check_platform_contract_closure.py` is the
+  bounded platform contract-closure guard for the current runtime/artifact
+  families. Pair it with `python3 dev/scripts/devctl.py platform-contracts --format md`
+  after changing `dev/scripts/devctl/platform/**`, shared runtime contract
+  models, durable probe/report schema constants, or startup-surface contract
+  routing in repo policy.
 - If you changed `script_catalog.py`, `quality_policy_defaults.py`,
   `dev/config/quality_presets/*.json`, `dev/config/devctl_repo_policy.json`,
   or added/retired a `check_*.py` or `probe_*.py` entrypoint, run both
@@ -207,7 +224,12 @@ the concrete minimum inventory after edits:
    - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py`
    - `python3 dev/scripts/checks/check_tandem_consistency.py`
    - `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`
-4. If you created a new module, refactored module/API layout, introduced
+4. If you changed shared platform/runtime contract surfaces (`dev/scripts/devctl/platform/**`,
+   shared runtime contract models, durable probe/report schema constants, or
+   startup-surface contract routing), also run:
+   - `python3 dev/scripts/checks/check_platform_contract_closure.py`
+   - `python3 dev/scripts/devctl.py platform-contracts --format md`
+5. If you created a new module, refactored module/API layout, introduced
    string-based dispatch, added a new 3+ parameter signature, or touched
    concurrent/shared-state code, also run:
    - `python3 dev/scripts/devctl.py probe-report --format md`
@@ -229,7 +251,7 @@ the concrete minimum inventory after edits:
      toolchain and required Linux headers as the main Rust lanes before those
      guards execute; do not assume tooling-only workflows inherit Rust
      prerequisites automatically.
-5. If you need to run raw Rust tests or test binaries directly, prefer:
+6. If you need to run raw Rust tests or test binaries directly, prefer:
    - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...`
    - This enforces the required post-run hygiene follow-up automatically.
    - `guard-run`, `check`, and `probe-report` now reuse the interpreter that
@@ -331,7 +353,7 @@ Why this model is safe:
 | Release version fields | `python3 dev/scripts/checks/check_release_version_parity.py` | `tooling_control_plane.yml` |
 | CLI docs vs clap schema | `python3 dev/scripts/checks/check_cli_flags_parity.py` | `tooling_control_plane.yml` |
 | Screenshot links/staleness | `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` | `tooling_control_plane.yml` |
-| Rust/Python source-file shape drift | `python3 dev/scripts/checks/check_code_shape.py` | `tooling_control_plane.yml` (`check_code_shape.py` also audits stale loose path overrides via review-window policy) |
+| Rust/Python source-file shape drift | `python3 dev/scripts/checks/check_code_shape.py` | `tooling_control_plane.yml` (`check_code_shape.py` also audits stale loose path overrides via review-window policy, emits advisory override-cap warnings when an untouched path override exceeds 3x the soft cap or 2x the hard cap, and fails touched Python files that still mix 3+ independent function clusters) |
 | Workflow shell anti-pattern drift | `python3 dev/scripts/checks/check_workflow_shell_hygiene.py` | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Workflow action pinning drift | `python3 dev/scripts/checks/check_workflow_action_pinning.py` | `tooling_control_plane.yml` + `workflow_lint.yml` |
 | Check-script enforcement lane drift | `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` | `tooling_control_plane.yml` + `release_preflight.yml` |
@@ -374,9 +396,10 @@ Workflow permissions note:
 1. Branch from `develop` (`feature/<topic>` or `fix/<topic>`).
 2. Prefer `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` to auto-select the required lane and risk add-ons from changed paths.
 3. If you are not using `check-router`, run the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`).
-4. Fix any failures, then commit and push.
-5. Merge to `develop` only after review and green checks.
-6. Run `bundle.post-push`.
+4. If you add or rename a `devctl` command, update the CLI inventory (`devctl list`) and the maintainer command docs in the same change so discovery stays truthful.
+5. Fix any failures, then commit and push.
+6. Merge to `develop` only after review and green checks.
+7. Run `bundle.post-push`.
 
 ### Release/tag/publish work
 
@@ -932,7 +955,7 @@ Docs governance guardrails:
 
 - `python3 dev/scripts/checks/check_cli_flags_parity.py` keeps clap long flags and `guides/CLI_FLAGS.md` synchronized.
 - `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
-- `python3 dev/scripts/checks/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files, oversized-file growth, and path-level hotspot growth budgets for Phase 3C decomposition targets).
+- `python3 dev/scripts/checks/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files, oversized-file growth, path-level hotspot growth budgets for Phase 3C decomposition targets, and touched Python files that still mix 3+ independent function clusters) and surfaces advisory override-cap warnings only for untouched path overrides that exceed 3x the soft cap or 2x the hard cap.
 - `python3 dev/scripts/checks/check_rust_test_shape.py` blocks non-regressive growth of oversized Rust test hotspots (`tests.rs`, `tests/**`) with path-specific budgets for known large suites.
 - `python3 dev/scripts/checks/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes (including `#[allow(dead_code)]`), non-test `unwrap/expect`, `unwrap_unchecked/expect_unchecked`, and `panic!` call-sites in changed Rust files; use `--report-dead-code` to inventory instances and `--fail-on-undocumented-dead-code` / `--fail-on-any-dead-code` for stricter policy modes.
 - `python3 dev/scripts/checks/check_python_broad_except.py` blocks newly added broad Python handlers (`except Exception` / `except BaseException`) unless a nearby `broad-except: allow reason=...` comment makes the fail-soft behavior explicit.

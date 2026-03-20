@@ -26,10 +26,17 @@ class ReviewPacketRow(TypedDict):
     requested_action: object
     policy_hint: object
     approval_required: bool
+    target_kind: object
+    target_ref: object
+    target_revision: object
+    anchor_refs: list[object]
+    intake_ref: object
+    mutation_op: object
     status: object
     acked_by: object
     acked_at_utc: object
     applied_at_utc: object
+    posted_at: object
     expires_at_utc: object
     _sort_timestamp: object
 

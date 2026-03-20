@@ -1429,6 +1429,15 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-17: Accepted the next mobile/backend architecture correction from a
+  focused iPhone/runtime review. The current mobile relay guard is not yet a
+  trustworthy live-seam guard: it compares Rust structs against bundle-only
+  Swift models, can still report `ok` with zero matched pairs, and does not
+  cover the live `DaemonWebSocketClient` path. The plan now explicitly
+  prioritizes a typed daemon-state/runtime contract plus an executable Rust ↔
+  Python ↔ Swift parity guard before more phone UI work, then projects that
+  typed daemon state through `mobile-status` so iPhone can move off
+  `controller_payload` / `review_payload` as primary inputs.
 - 2026-03-10: Refactored the first watchdog analytics slice onto a shared typed
   package instead of letting `guard-run`, data-science reducers, and Operator
   Console views each grow their own schema/parser logic. The canonical

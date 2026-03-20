@@ -5,6 +5,11 @@ This document explains how the Rust overlay works today.
 **PTY** (pseudo-terminal) and adds voice capture plus a small status overlay
 without replacing the backend UI.
 
+Scope note: this guide is the Rust/overlay product-architecture companion, not
+the top-level authority for the full AI governance platform. Repo-wide
+backend/runtime/front-end convergence and extraction sequencing live in
+`dev/active/ai_governance_platform.md` plus `dev/guides/DEVCTL_ARCHITECTURE.md`.
+
 A new developer should be able to read this document and understand the full
 system in under ten minutes.
 

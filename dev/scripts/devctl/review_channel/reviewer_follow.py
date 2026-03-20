@@ -9,10 +9,19 @@ from typing import Callable
 from .follow_loop import (
     FollowActionShape,
     FollowLoopTick,
+    build_claude_progress_token,
     run_configured_follow_action,
 )
+from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
+from .heartbeat import compute_non_audit_worktree_hash
 from .lifecycle_state import (
     ReviewerSupervisorHeartbeat,
+)
+from .plan_resolution import resolve_promotion_plan_path
+from .promotion import (
+    derive_promotion_candidate,
+    promote_bridge_instruction,
+    validate_promotion_ready,
 )
 
 
@@ -60,16 +69,40 @@ def _build_reviewer_follow_tick(
 ) -> FollowLoopTick:
     bridge_path = paths["bridge_path"]
     assert isinstance(bridge_path, Path)
+    progress_token = build_claude_progress_token(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+    )
     ensure_result = deps.ensure_reviewer_heartbeat_fn(
         repo_root=repo_root,
         bridge_path=bridge_path,
         reason="reviewer-follow",
+        requested_reviewer_mode=getattr(args, "reviewer_mode", None),
     )
     report, frame_exit_code = deps.build_reviewer_state_report_fn(
         args=args,
         repo_root=repo_root,
         paths=paths,
     )
+    auto_promotion = _maybe_auto_promote(
+        args=args,
+        repo_root=repo_root,
+        paths=paths,
+        bridge_path=bridge_path,
+    )
+    if auto_promotion is not None:
+        report["auto_promotion"] = auto_promotion
+        if bool(auto_promotion.get("promoted")):
+            report, frame_exit_code = deps.build_reviewer_state_report_fn(
+                args=args,
+                repo_root=repo_root,
+                paths=paths,
+            )
+            report["auto_promotion"] = auto_promotion
+            progress_token = build_claude_progress_token(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+            )
     report["reviewer_heartbeat_refreshed"] = ensure_result.refreshed
     _append_follow_error(report, ensure_result.error)
     if ensure_result.state_write is not None:
@@ -80,7 +113,87 @@ def _build_reviewer_follow_tick(
         report=report,
         exit_code=frame_exit_code,
         reviewer_mode=ensure_result.reviewer_mode,
+        progress_token=progress_token,
     )
+
+
+def _maybe_auto_promote(
+    *,
+    args,
+    repo_root: Path,
+    paths: dict[str, object],
+    bridge_path: Path,
+) -> dict[str, object] | None:
+    if not bool(getattr(args, "auto_promote", False)):
+        return None
+    if not bridge_path.exists():
+        return {"attempted": False, "promoted": False, "reason": "bridge_missing"}
+    explicit_plan_path = paths.get("promotion_plan_path")
+    if not isinstance(explicit_plan_path, Path):
+        explicit_plan_path = None
+    resolution = resolve_promotion_plan_path(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        explicit_plan_path=explicit_plan_path,
+    )
+    promotion_plan_path = resolution.path
+    if promotion_plan_path is None:
+        return {
+            "attempted": True,
+            "promoted": False,
+            "reason": "scope_missing",
+            "detail": resolution.detail or "Unable to resolve scoped plan path.",
+        }
+
+    bridge_text = bridge_path.read_text(encoding="utf-8")
+    snapshot = extract_bridge_snapshot(bridge_text)
+    readiness_errors = validate_promotion_ready(snapshot)
+    try:
+        current_hash = compute_non_audit_worktree_hash(
+            repo_root=repo_root,
+            excluded_rel_paths=("code_audit.md",),
+        )
+    except (OSError, ValueError):
+        current_hash = None
+    liveness = summarize_bridge_liveness(
+        snapshot,
+        current_worktree_hash=current_hash,
+    )
+    if liveness.reviewed_hash_current is False:
+        readiness_errors.append(
+            "reviewed_hash_stale"
+        )
+    candidate = derive_promotion_candidate(
+        repo_root=repo_root,
+        promotion_plan_path=promotion_plan_path,
+        require_exists=False,
+    )
+    if candidate is None:
+        return {
+            "attempted": True,
+            "promoted": False,
+            "reason": "no_unchecked_items",
+        }
+    if readiness_errors:
+        return {
+            "attempted": True,
+            "promoted": False,
+            "reason": "not_ready",
+            "errors": readiness_errors,
+        }
+
+    promoted = promote_bridge_instruction(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        promotion_plan_path=promotion_plan_path,
+    )
+    return {
+        "attempted": True,
+        "promoted": True,
+        "source_path": promoted.source_path,
+        "checklist_item": promoted.checklist_item,
+        "instruction": promoted.instruction,
+    }
 
 
 def _append_follow_error(report: dict[str, object], error: str | None) -> None:

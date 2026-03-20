@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from .value_coercion import (
     coerce_bool,
@@ -65,6 +65,58 @@ class WorkflowAdapter:
     transport: str
     allowed_actions: tuple[str, ...]
     available: bool = True
+
+
+ACTION_RESULT_CONTRACT_ID = "ActionResult"
+ACTION_RESULT_SCHEMA_VERSION = 1
+
+
+@dataclass(frozen=True, slots=True)
+class ActionResult:
+    """Canonical result envelope for any command, service call, or agent action.
+
+    Every devctl command, guard, and automation loop should return one of
+    these so CLI, UI, AI agents, and automation consumers all parse the
+    same outcome shape.
+    """
+
+    schema_version: int
+    contract_id: str
+    action_id: str
+    ok: bool
+    status: str = "unknown"
+    reason: str = ""
+    retryable: bool = False
+    partial_progress: bool = False
+    operator_guidance: str = ""
+    warnings: tuple[str, ...] = ()
+    findings_count: int = 0
+    artifact_paths: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        d = asdict(self)
+        d["warnings"] = list(self.warnings)
+        d["artifact_paths"] = list(self.artifact_paths)
+        return d
+
+
+def action_result_from_mapping(payload: Mapping[str, object]) -> ActionResult:
+    version = coerce_int(payload.get("schema_version")) or ACTION_RESULT_SCHEMA_VERSION
+    contract = coerce_string(payload.get("contract_id")) or ACTION_RESULT_CONTRACT_ID
+    return ActionResult(
+        schema_version=version,
+        contract_id=contract,
+        action_id=coerce_string(payload.get("action_id")),
+        ok=coerce_bool(payload.get("ok")),
+        status=coerce_string(payload.get("status")) or "unknown",
+        reason=coerce_string(payload.get("reason")),
+        retryable=coerce_bool(payload.get("retryable")),
+        partial_progress=coerce_bool(payload.get("partial_progress")),
+        operator_guidance=coerce_string(payload.get("operator_guidance")),
+        warnings=coerce_string_items(payload.get("warnings")),
+        findings_count=coerce_int(payload.get("findings_count")),
+        artifact_paths=coerce_string_items(payload.get("artifact_paths")),
+    )
 
 
 def typed_action_from_mapping(payload: Mapping[str, object]) -> TypedAction:

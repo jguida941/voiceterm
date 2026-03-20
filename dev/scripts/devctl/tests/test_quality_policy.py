@@ -157,6 +157,10 @@ class QualityPolicyTests(unittest.TestCase):
             "python_suppression_debt",
             {spec.script_id for spec in resolved.ai_guard_checks},
         )
+        self.assertIn(
+            "probe_mixed_concerns",
+            {spec.script_id for spec in resolved.review_probe_checks},
+        )
         self.assertNotIn(
             "ide_provider_isolation",
             {spec.script_id for spec in resolved.ai_guard_checks},

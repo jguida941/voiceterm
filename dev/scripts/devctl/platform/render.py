@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .contracts import ContractField, ContractSpec, PlatformBlueprint
+from .contracts import ArtifactSchemaSpec, ContractField, ContractSpec, PlatformBlueprint
 
 
 def _render_field(field: ContractField) -> str:
@@ -16,8 +16,33 @@ def _render_contract(contract: ContractSpec) -> list[str]:
             f"{contract.purpose}"
         )
     ]
+    if contract.runtime_model:
+        lines.append(f"  - runtime_model: {contract.runtime_model}")
+    if contract.startup_surface_tokens:
+        lines.append(
+            "  - startup_surface_tokens: "
+            + ", ".join(contract.startup_surface_tokens)
+        )
     lines.extend(_render_field(field) for field in contract.required_fields)
     return lines
+
+
+def _render_artifact_schema(spec: ArtifactSchemaSpec) -> list[str]:
+    return [
+        (
+            f"- {spec.contract_id}: owner_layer={spec.owner_layer}; "
+            f"schema_version={spec.schema_version}; {spec.purpose}"
+        ),
+        f"  - emitter_path: {spec.emitter_path}",
+        (
+            "  - constants: "
+            f"{spec.constants_module}.{spec.contract_id_attr} / "
+            f"{spec.constants_module}.{spec.schema_version_attr}"
+        ),
+        f"  - compatibility_window: {spec.compatibility_window}",
+        f"  - migration_path: {spec.migration_path}",
+        f"  - rollback_path: {spec.rollback_path}",
+    ]
 
 
 def render_platform_blueprint_markdown(blueprint: PlatformBlueprint) -> str:
@@ -27,6 +52,7 @@ def render_platform_blueprint_markdown(blueprint: PlatformBlueprint) -> str:
     lines.append(f"- schema_version: {blueprint.schema_version}")
     lines.append(f"- layer_count: {len(blueprint.layers)}")
     lines.append(f"- shared_contract_count: {len(blueprint.shared_contracts)}")
+    lines.append(f"- artifact_schema_count: {len(blueprint.artifact_schemas)}")
     lines.append(f"- frontend_surface_count: {len(blueprint.frontend_surfaces)}")
     lines.append(f"- service_lifecycle_count: {len(blueprint.service_lifecycle)}")
     lines.append(f"- caller_authority_count: {len(blueprint.caller_authority)}")
@@ -39,6 +65,9 @@ def render_platform_blueprint_markdown(blueprint: PlatformBlueprint) -> str:
     lines.extend(["", "## Shared Contracts", ""])
     for contract in blueprint.shared_contracts:
         lines.extend(_render_contract(contract))
+    lines.extend(["", "## Artifact Schema Matrix", ""])
+    for spec in blueprint.artifact_schemas:
+        lines.extend(_render_artifact_schema(spec))
     lines.extend(["", "## Frontend Surfaces", ""])
     for surface in blueprint.frontend_surfaces:
         contracts = ", ".join(surface.consumes_contracts)

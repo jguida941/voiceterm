@@ -26,6 +26,11 @@
   Repo-wide strategy, extraction, PyQt6, phone/mobile, and shared-backend
   questions must route from this tracker to that document before any narrower
   domain spec.
+- `dev/active/platform_authority_loop.md` is the current subordinate `MP-377`
+  execution spec for startup authority, repo-pack activation, typed plan
+  registry, runtime/evidence/context spine closure, and the first cross-repo
+  proof of the portable authority loop. Top-level product authority remains in
+  `dev/active/ai_governance_platform.md`.
 - `dev/active/code_shape_expansion.md` is the research/calibration companion for future code-shape additions under `MP-378`; promotion into implementation still flows through `dev/active/review_probes.md` once Phase 5b evidence gates pass.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
@@ -45,23 +50,346 @@
   `MP-340` shared control-plane/mobile contract, `MP-355` review-channel,
   `MP-356` host-process hygiene, `MP-358` continuous swarm, and `MP-359`
   Operator Console.
+- Current highest-priority subordinate `MP-377` lane:
+  `dev/active/platform_authority_loop.md`. This is the execution spec for
+  closing the portable authority loop:
+  `ProjectGovernance -> RepoPack -> PlanRegistry -> PlanTargetRef ->
+  WorkIntakePacket -> TypedAction -> ActionResult / RunRecord / Finding ->
+  ContextPack`.
 - Execution order: freeze and extract shared governance/runtime contracts
   first, converge CLI/VoiceTerm/PyQt6/phone on the same backend second,
   rebind VoiceTerm as a first consumer third, then resume broader Theme,
   Memory, and later product lanes.
+- Current immediate `P0` execution order inside that authority-loop lane:
+  first clear the blocking pre-spine hardening tranche (daemon attach/auth
+  security, autonomy authority boundaries, JSONL/evidence integrity, and
+  self-governance closure), then resume startup authority
+  (`governance-draft` + reviewed `project.governance`), repo-pack activation
+  and the full `active_path_config()` rewrite, typed plan registry, an
+  evidence-identity freeze in parallel with the repo-pack/plan-registry work,
+  one runtime slice through `TypedAction -> ActionResult -> RunRecord`,
+  evidence/provenance/ledger closure, portable `ContextPack`, and then the
+  two-repo proof with no core patches between adoptions.
 - Current `P0` closure focus inside that sequence: canonical `Finding`-based
   packets, `FixPacket` / `DecisionPacket` split, schema/version matrices,
   `CommandGoalTaxonomy` + validation-routing closure, and a contract-closure
   guard so packet families, generated surfaces, and the runtime contract
   catalog cannot drift apart.
+- Current meta-governance follow-up inside that `P0` closure: the platform
+  must also prove its own checking stack is complete. Track guard/probe test
+  coverage, CI invocation coverage, exception-list completeness, workflow
+  timeout coverage, and data-as-code/configuration drift as first-class
+  platform evidence instead of assuming the guard registry is self-policing.
 - Current accepted self-hosting slice inside that `P0` work: `probe-report`
   now routes its first shared `Finding` / `DecisionPacket` contract seam
   through `devctl.runtime`, durable `ProbeReport` / `ReviewPacket` /
   `ReviewTargets` / `FileTopology` / `ProbeAllowlist` artifacts carry
-  explicit schema metadata, and the next blocking follow-up is a dedicated
-  platform contract-closure guard plus replacement of checkout-path-based
-  finding identity with stable repo identity + repo-relative path before
-  packaging the portable product.
+  explicit schema metadata, and `check_platform_contract_closure.py` now
+  enforces runtime-model/artifact-matrix/startup-surface closure for the
+  current implemented platform families surfaced by `platform-contracts`.
+- Current governance-surface readout: the repository still has 62 raw
+  `check_*.py` entrypoints and 26 raw `probe_*.py` entrypoints on disk, while
+  the active policy-enabled surface currently exposes 32 hard guards and 23
+  review probes. Use the enabled counts for active enforcement scope and the
+  raw counts for filesystem inventory only.
+- Current blocking follow-up after that closure slice: replace checkout-path-
+  based finding identity with stable repo identity + repo-relative path, add
+  the first hard-guard-to-`Finding` normalization seam so blocking and
+  advisory evidence stop using different ontologies, extend the contract
+  catalog/closure guard to the remaining `P0` families (`ActionResult`,
+  `CommandGoalTaxonomy`, `RepoMapSnapshot` / `MapFocusQuery` /
+  `TargetedCheckPlan`, `FixPacket`), and keep packaging / adoption proof plus
+  tracker-hygiene follow-ups such as the `MASTER_PLAN` state/changelog split
+  in `P1`.
+- Current architecture caution: `platform-contracts` now covers the already-
+  real `ActionResult` / `Finding` / `DecisionPacket` rows, so the spine is no
+  longer missing from zero, but it is still not closed or authoritative for
+  the whole app. The review ledger still duplicates checkout-path-based
+  identity through `governance_review_log.py`, and the current frontend
+  clients still converge mostly through emitted projections and compatibility
+  adapters instead of one fully closed live backend/service protocol.
+- Audit-intake sequencing rule: accepted 2026-03-17 whole-system audit items
+  reinforce the current `P0 -> P1 -> P2` order rather than replacing it.
+  Close finding identity and guard/`Finding` evidence convergence first, then
+  do packaging / install-surface work and tracker compaction, then finish the
+  PyQt6/operator-console seam consolidation over the shared backend.
+- Repo-root audit alignment rule: `SYSTEM_AUDIT.md` is reference evidence, not
+  a second tracker or spec. Only its code-backed blocker tranche changes the
+  live execution order: daemon attach/auth hardening, autonomy authority
+  hardening, evidence-integrity closure, and self-governance coverage move
+  ahead of the remaining authority-loop spine. The rest of the 2026-03-19
+  audit remains corroborating reference until its stale counts and internal
+  contradictions are cleaned up, after which the tracked order still stays:
+  bounded `startup-context` / `ContextPack`, hot/warm/cold session context,
+  repo-pack/path-authority closure, then follow-on review-channel /
+  guard-boilerplate simplification.
+- Audit-integration rule: if a repo-root audit finding is accepted, rewrite it
+  into canonical execution state in `MASTER_PLAN`, the relevant active plan
+  doc, and maintainer docs when process policy changes. Do not keep live work
+  pointing back to `SYSTEM_AUDIT.md` after the canonical docs have been
+  updated. Once its accepted items are fully absorbed or explicitly rejected,
+  retire the repo-root audit copy instead of keeping a shadow roadmap.
+- Review-ledger caution: a zero false-positive rate is not a success metric on
+  its own. Read `false_positive_rate_pct` together with reviewed-vs-
+  unreviewed coverage, per-family disposition mix, and time-to-disposition
+  before drawing quality conclusions from the ledger.
+- Current startup-authority gap: the repo already has partial intake pieces
+  (`AGENTS.md` bootstrap order, `check-router`, `orchestrate-status`,
+  `docs-check`, `render-surfaces`, `swarm_run`), but not one enforced,
+  repo-pack-driven startup path that reads the active plan registry, inspects
+  the current git diff, maps the slice to MP scope, and routes accepted
+  decisions/findings into the correct plan docs or ledgers automatically.
+  Treat that as architecture work for the extracted platform, not as a
+  VoiceTerm-only operator habit.
+- Current governance-quality gap: plan/startup evidence still needs a
+  meta-layer that can report not just code findings but governance findings.
+  The platform should be able to say whether every guard has tests, every
+  probe has tests, every registered guard runs in CI, every exception entry
+  covers a real violation, and every workflow has a timeout. JSONL writers
+  and evidence collectors also need integrity checks so a malformed row or
+  silent skip is surfaced as a loss of evidence rather than disappearing from
+  the record. When the system encodes large static tables as Python
+  tuples/functions instead of policy or JSON/YAML config, that should surface
+  as a separate data-as-code smell.
+- Portable-engine framing: `MP-376` is the reusable engine/adoption layer
+  and `MP-377` is the product/repo-governance platform. The engine should
+  expose reusable guards, probes, evidence contracts, and startup artifacts;
+  repo-governance should own per-repo policy, preset, and adoption routing.
+  Keep that split explicit so portable machinery does not absorb product
+  authority and product scope does not leak into the engine contract.
+- Self-hosting simplification rule: once the blocker tranche and `P0` spine
+  are green, run one governance-engine consolidation pass on plan overlap,
+  bootstrap-token burden, review-channel sprawl, repeated checker/reporting
+  boilerplate, and spec-vs-reality labeling so the platform becomes evidence
+  that its own rules improve the codebase operating them.
+- Self-hosting structure-governance follow-up: that consolidation pass must
+  extend the existing package-layout / compatibility-shim governance into a
+  broader repo-owned structure policy over `devctl` root budgets, parser and
+  command placement, subsystem file-count budgets, source-of-truth ownership,
+  active-doc lifecycle, and shim expiry so the engine can block the same
+  accretive sprawl it currently reports.
+- Documentation-authority follow-up: this self-hosting pass must also deliver
+  one unified docs system for the platform itself. The repo needs governed
+  doc classes/lifecycles, bounded hot/warm/cold AI context, active-plan and
+  startup-token budgets, canonical markdown schema + anchor rules, and
+  docs-governance enforcement so scope stops getting lost in doc sprawl.
+- Documentation-authority first-step rule: do not start this cleanup as
+  another prose-only effort. The first bounded operator/AI entrypoint should
+  be a repo-owned `devctl` command that scans governed markdown, emits the
+  current doc registry/authority state, reports format drift and over-budget
+  docs, and proposes consolidation targets before `--write` remediation lands.
+- Full `SYSTEM_AUDIT.md` intake rule: treat the audit's whole tiered action
+  plan as canonical intake that must be mapped into the existing plan system,
+  not left in a parallel document. Required mapping: Tier `-1` security ->
+  blocker tranche; Tier `0` evidence/feedback -> startup/evidence/context
+  closure; Tier `1` bootstrap compression -> hot/warm/cold startup context;
+  Tier `2` memory/sessions -> `ContextPack` + memory bridge; Tier `3`
+  structural debt -> self-hosting simplification; Tier `4` surface
+  simplification -> command/workflow consolidation; Tier `5` portability ->
+  repo-pack/packaging/adoption proof; Tier `6` black-box strengthening ->
+  missing guards/probes + governance-ledger closure; Tier `7` test hardening
+  -> guard/runtime/integration coverage.
+- Portability-sequencing rule: do not wait until final packaging work to prove
+  the authority loop detaches from VoiceTerm. Once startup authority plus one
+  report-only runtime slice exist, run an intentionally rough second-repo
+  smoke test through repo-pack selection, one typed action, one blocking
+  check, one finding/evidence write, and one shared status/report render so
+  hidden VoiceTerm assumptions fail early instead of in Phase 7 polish.
+- Path-authority rule: do not replace `active_path_config()` sprawl with one
+  new giant hidden authority object. `RepoPathConfig` must decompose into
+  bounded groups such as repo roots, artifact/report roots, plan/docs
+  authority paths, memory roots, and review/bridge paths so portable modules
+  only learn the path family they actually need.
+- Proof-scoreboard rule: the portable-governance proof should stay small and
+  legible. At minimum track time-to-first-governed-run for a new repo, hard-
+  guard blocked-change count, reviewed false-positive rate, quality/cost per
+  successful fix, and whether a second repo works without core-engine
+  patches.
+- Next coherence-layer follow-up after the current `P0` blockers: widen the
+  existing naming-consistency seed into a portable, repo-policy-backed
+  naming/organization enforcement layer that can catch cross-file naming
+  drift, contract-field naming drift, import-pattern drift, and structural
+  template drift without hardcoding VoiceTerm-specific conventions into the
+  engine. Start advisory where calibration is unknown; promote only after
+  ledger-backed review evidence says the rules are accurate.
+- Follow-up after that intake gap is explicit: add one repo-neutral,
+  repo-pack-aware work-intake / startup-authority surface so AI agents and
+  humans can derive "what plan is active, what changed, what bundle applies,
+  and where accepted outcomes must be recorded" from the same executable
+  model instead of reconstructing it from prose plus operator memory.
+- Current plan amendment from the 2026-03-19 authority-loop audit: do not
+  treat repo-pack definition alone as sufficient. The execution scope must
+  also include the full runtime rewrite of module-level
+  `active_path_config()` freezes, bundle/check extensibility, platform-wide
+  contract versioning, proof-pack/evaluation schema, and provenance closure
+  for findings/runs/policy state.
+- Current transition-sequencing amendment from the 2026-03-19 validator pass:
+  do not freeze runtime review identity before the evidence identity scheme is
+  unified. Treat the evidence work as Phase `5a` (identity freeze in parallel
+  with repo-pack activation and plan registry) plus Phase `5b`
+  (provenance/ledger closure after the first runtime slice).
+- Current migration-governance amendment from the same pass: Phase 2 must use
+  a compatibility-first repo-pack rollout, the legacy governance-review
+  ledger needs backfill/upgrade coverage before hard schema enforcement,
+  `MP-359` path cleanup is a dependency of the repo-pack rewrite, and Phase 7
+  proof criteria must distinguish portable guards from VoiceTerm-specific
+  repo-structure guards.
+- Current planning-review amendment from the same pass: repo-neutral plan
+  hardening must flow through `PlanRegistry` + `PlanTargetRef` +
+  `WorkIntakePacket`, reuse the review-channel packet/reducer path for
+  plan-gap/patch/ready packets, and resolve canonical markdown targets by
+  registry-generated stable anchors rather than brittle surrounding prose or
+  raw line numbers. Planning review also needs intake-backed writer leases,
+  explicit mutation ops, and a minimum bootstrap artifact set for non-
+  VoiceTerm repos. Do not add a second authoritative `plan.md`.
+- Current final architecture adjudication from the combined 2026-03-19
+  Codex runtime slice plus Claude architecture pass: keep
+  `WorkIntakePacket` and `CollaborationSession` as separate `P0`/`P1`
+  contracts, keep intake-backed writer leases as the authority model for
+  canonical plan/session mutation, and treat `version_counter` /
+  `expected_revision` / `state_hash` checks as supplemental freshness guards
+  rather than replacements for designated writer ownership. Startup may auto:
+  inspect repo state, refresh stale authority artifacts, resume exactly one
+  valid session, auto-demote stale abandoned state, and emit one bounded
+  intake/resume packet. Startup must not auto: guess among multiple active
+  plans, launch conductors, or promote itself into `active_dual_agent`
+  without explicit operator/policy choice. Phase 7 proof now also needs a
+  replayable single-agent vs multi-agent comparison with adjudicated
+  findings and quality-to-cost telemetry instead of asserting reviewer-loop
+  value informally.
+- Startup-token burden is now explicit product debt: the repo should stop
+  re-deriving the same maintainer context every session and instead move to a
+  cached repo-intelligence layer (`plan snapshot`, `command map`,
+  `convention snapshot`, `map snapshot`, targeted-check hints, filtered probe
+  view) plus one bounded `startup-context` / `work-intake` surface that
+  refreshes only when git state, policy, or active-plan state actually
+  changes.
+- Memory-integration correction: the Rust Memory Studio already ships a real
+  v1 substrate (`ContextPack`, `SurvivalIndex`, deterministic retrieval
+  queries, JSONL persistence, in-memory index, staged SQLite schema), so the
+  startup-authority path should compose with that system rather than rebuild a
+  second unrelated memory stack. The open gap is integration: governance
+  evidence and cached repo-intelligence artifacts still do not flow into one
+  shared bounded packet with memory exports, and Memory Studio is not yet a
+  standalone startup authority by itself.
+- Bridge task: add one concrete governance-to-memory bridge that writes
+  findings, run records, and repo-intelligence snapshots into the Rust memory
+  substrate and lets `startup-context` / `master-report` consume that same
+  bounded packet instead of stitching the evidence together ad hoc.
+- Architectural Knowledge Base direction accepted (2026-03-17): the platform
+  should provide a topic-keyed, SQLite-backed knowledge store so AI agents
+  retrieve bounded architectural context by topic chapter instead of loading
+  entire plan documents. Auto-capture scripts flag architecturally significant
+  events (contract changes, guard/probe registration, plan milestones, schema
+  migrations). Each topic chapter has a token budget and exports as JSON into
+  the existing `ContextPack` system. The `ConceptIndex` / ZGraph navigation
+  artifact maps topic dependencies for graph-traversal-based selective
+  retrieval. `P0` prerequisite: activate the SQLite runtime and freeze the
+  evidence-to-memory bridge. `P1` deliverable: full topic-keyed knowledge
+  base with auto-capture, chapter budgets, and ConceptIndex integration.
+  Architecture details in `dev/active/ai_governance_platform.md` under
+  "Architectural Knowledge Base (Topic-Keyed AI Context)".
+- Bootstrap/adoption should also stop starting from raw policy JSON plus
+  scattered prose only. Add one reviewed repo-local governance contract
+  surface (`project.governance.md` as the current working name) that AI can
+  draft deterministically from repo facts, humans can finish with priorities /
+  debt / exception intent, and later startup/policy flows can consume as one
+  bounded source of truth.
+- Accepted setup-flow shape: `governance-draft` scans repo structure,
+  languages, test/CI shape, import topology, and current quality baselines to
+  draft that contract; human review/approval fills the non-deterministic
+  fields; `governance-bootstrap` and/or a later `governance-init` materialize
+  repo policy and startup surfaces from the approved contract; later drift
+  scans should suggest contract updates when the repo no longer matches the
+  declared layers/roots/rules.
+- Recursive convergence thesis is now explicit architecture work: the system
+  already re-measures fixes in pieces (`guard-run`, `probe-report`, Ralph
+  loops), but it still lacks one cached aggregate evidence surface
+  (`master-report`) and one fixed-point orchestration surface (`converge`) for
+  the whole guard/probe/ledger/convention stack. Do not treat that loop as
+  "done" until the remaining artifact families are schema-versioned and the
+  aggregated evidence contract is stable.
+- Governance-completeness is part of that convergence surface: `master-report`
+  should aggregate not only code findings but meta-findings about guard/test/
+  CI/exception coverage, and `converge` should be able to drive the platform
+  toward a fixed point where the governance layer itself is internally
+  consistent.
+- 25-agent architecture audit completed (2026-03-17): every major surface
+  audited (Rust A-, Python governance B+, guards B, probes B-, operator
+  console B+, CI B-, config A, docs A-, command UX B, portability 62/100,
+  error handling B, AI bootstrap C+, self-consistency C). Concrete gaps
+  closed in `ai_governance_platform.md` next-action items 30-33:
+  `check_governance_closure` meta-guard, JSONL/exception immediate fixes,
+  command UX standardization, CI workflow timeouts. Plans are now
+  execution-ready.
+- Accepted navigation-layer shape: add one deterministic concept index
+  (`ConceptIndex`, optionally emitted in a ZGraph-compatible encoding) above
+  the contract/policy/plan/map registry stack so startup/work-intake can route
+  by concepts without rereading the whole repo. Keep that index generated from
+  canonical contracts, plans, command taxonomy, and guard/probe metadata; do
+  not let semantic/vector retrieval become the only authority.
+- Startup-surface rule: keep one startup artifact family only. `startup-
+  context`, `WorkIntakePacket`, and later `ContextPack` are the canonical
+  startup/session packets; do not introduce a parallel `bootstrap-context`,
+  second manifest family, or free-form session compass that can drift from the
+  tracked authority chain.
+- Knowledge-base sequencing rule: the architectural knowledge-base / chapter /
+  ConceptIndex direction is valid, but it stays behind the current `P0`
+  contract/evidence freeze. Immediate priority is to fix the concrete defects
+  surfaced by the first governance-quality-feedback attempt: orphan library
+  without CLI/artifact wiring, per-check scoring keyed too loosely, canonical
+  `ReviewState` payload still carrying compatibility extras, Halstead file
+  paths still absolute, and missing dedicated tests for the new package.
+  Treat those as the next bounded execution slice before any broader
+  knowledge-base capture/UX work.
+- Quality-feedback scoring direction: do not treat the first single composite
+  maintainability score as the final product contract. The repo-aligned target
+  is a transparent multi-lens scorecard with explicit evidence coverage:
+  `CodeHealthScore`, `GovernanceQualityScore`, and `OperabilityScore`, plus at
+  most one secondary gated overall summary. Do not use median as the top-level
+  cross-lens aggregator because it can hide a red lens; if robustness is
+  needed, apply median only within one lens across related sub-metrics.
+- Naming/convention ownership rule: keep `MP-267` limited to repo-local
+  cohesion cleanup. Track the portable convention engine (`naming-scan`,
+  `naming-report`, repo-policy schema, reusable naming/organization
+  guards/probes) in `portable_code_governance.md`, and track startup/work-
+  intake integration plus command-goal taxonomy in
+  `ai_governance_platform.md`.
+- Current probe-signal calibration: the canonical `devctl probe-report` output
+  on this tree is dominated by Python readability/organization work rather
+  than Rust ownership/concurrency work (`107` findings total, `98` Python,
+  led by `probe_identifier_density` and `probe_blank_line_frequency`). Treat
+  that as slice-specific cleanup pressure that should drive filtered
+  startup/intake views, not as a claim that the repo's global architecture
+  risk is primarily Python readability debt.
+- Shared-state parity follow-up: Rust↔Swift daemon/mobile wire names already
+  have an explicit guard, but equivalent Python runtime models remain
+  unguarded copies. Keep the missing Rust daemon ↔ Python runtime parity guard
+  in the `MP-377` contract-closure lane until the shared state/service seam is
+  enforced across all consumers.
+- Probe guidance still needs one authoring contract: the current probe family
+  emits useful `ai_instruction` content, but authoring style is inconsistent
+  across families (per-signal dicts, severity dicts, and inline constants).
+  Treat a shared instruction template/keying rule as part of AI-usability
+  hardening, not as optional polish.
+- Current cross-surface convergence gap: the typed runtime direction is real,
+  but the repo still emits multiple review/control shapes across backend and
+  clients. `ReviewState` is still produced in different bridge-backed and
+  event-backed forms, the live review loop still depends on `code_audit.md`
+  as temporary authority, the review-channel `project_id` is still derived
+  from absolute checkout paths, the current mobile relay guard can return
+  green with zero matched Rust↔Swift pairs, and PyQt6/iPhone still consume
+  compatibility payloads before canonical typed state.
+- Accepted next bounded cross-surface order: (1) make bridge-backed and
+  event-backed review-channel producers emit one exact `ReviewState` contract
+  and move review-channel identity onto stable repo identity instead of
+  absolute paths; (2) add the missing daemon-state contract plus executable
+  Rust ↔ Python ↔ Swift parity guard so the mobile/backend seam stops
+  reporting false-green coverage; (3) migrate Operator Console and iPhone to
+  typed-state-first consumers with markdown / `controller_payload` /
+  `review_payload` fallback-only behavior; (4) only then keep burning down
+  repo-pack path leaks, local risk bucketing, and hard-coded CLI argv
+  contracts in surface code.
 - Theme and Memory remain active tracked work, but they are not the repo's
   current top-level strategic lane while `MP-377` `P0` contract-freeze is
   active.
@@ -1489,7 +1817,9 @@ become the main product surface.
   VoiceTerm surface where Codex + Claude + operator lanes are visible
   together as one collaborative terminal-native workflow, keep separate
   PTY ownership in the initial phases while packets/staged drafts/peer
-  awareness stay visible on that same surface, add the structured
+  awareness stay visible on that same surface, require Claude-side dual-agent
+  repolls to consume direct reviewer packets through `inbox/watch` alongside
+  bridge polling when the structured queue is available, add the structured
   `check_review_channel.py` guard plus retention/audit integration in the same
   tranche, and keep `check_review_channel_bridge.py` as the temporary
   markdown-bridge guard while `code_audit.md` remains the active projection.
@@ -1663,6 +1993,9 @@ become the main product surface.
   relevant active-plan checklist as the canonical queue, require automatic
   next-task promotion while scoped work remains, add peer-liveness/stale-peer
   guardrails so neither side keeps working blindly after the other goes stale,
+  require Claude-side wait/repoll behavior to consume direct reviewer packets
+  through `review-channel inbox/watch` on the same cadence as bridge polling
+  when the structured queue exists,
   modularize and clean up the Python launcher/orchestration path with explicit
   failure-report coverage, rotate both conductor terminals through repo-visible
   handoff state once remaining context drops below 50%, and keep host-process
@@ -1702,13 +2035,18 @@ become the main product surface.
   an explicit reviewer-owned wait state, and the bridge writer/guard now scrub
   + reject contradictory reviewer-mode prose in `Poll Status`.
   The next closure slice is now explicit too: keep one backend for developers
-  and agents, treat this loop as one local proof harness over the broader
-  shared backend instead of the product boundary itself, and make future loop
-  work remove or narrow VoiceTerm-embedded assumptions rather than deepening
-  them.
-  and agents, add a repo-owned inactive-mode liveness emitter, and expose only
+  and agents, add a repo-owned inactive-mode liveness emitter, expose only
   thin mode toggles/aliases (`agents` / `developer`) over that same contract
-  instead of a separate dev-only control plane. Execution spec:
+  instead of a separate dev-only control plane, and treat this loop as one
+  local proof harness over the broader shared backend instead of the product
+  boundary itself so future loop work removes or narrows VoiceTerm-embedded
+  assumptions rather than deepening them. Latest swarm-topology follow-up
+  (2026-03-17): Codex remains the sole conductor and final reviewer, Claude
+  may fan out bounded coding workers only behind one Claude conductor without
+  self-promoting scope or rewriting reviewer-owned bridge state, and every
+  non-trivial slice must keep a separate Codex-side architecture-fit reviewer
+  before acceptance so worker fan-out does not turn into a second control
+  plane. Execution spec:
   `dev/active/continuous_swarm.md`.
 - [ ] MP-359 Deliver a bounded optional PyQt6 VoiceTerm Operator Console for
   the current review-channel workflow: keep Rust as the PTY/runtime owner,
@@ -2086,6 +2424,13 @@ become the main product surface.
   the tooling-control-plane mypy env export bug is fixed, iOS CI now runs on
   `macos-15` for Swift 6 / newer Xcode project compatibility, and the current
   maintainer-lint redundant-closure regressions are burned down. Latest
+  adoption-flow follow-up (2026-03-17): starter policy plus a setup guide is
+  no longer enough for the portable path. The next onboarding contract is a
+  reviewed repo-local governance doc (`project.governance.md` working name)
+  that `governance-draft` can infer from repo facts, humans can finish with
+  priorities/debt/exceptions, and `governance-bootstrap` or later
+  `governance-init` can consume so adopter repos stop hand-authoring policy
+  from scratch. Latest
   publication-sync follow-up: refreshed the external
   `terminal-as-interface` paper snapshot from committed VoiceTerm HEAD and
   recorded the new baseline in `dev/config/publication_sync_registry.json`
@@ -2135,6 +2480,17 @@ become the main product surface.
   `ci-cd-hub` probe findings were recorded into the governance-review ledger
   as `confirmed_issue` evidence. Remaining external coverage gap:
   non-Python/Rust repos still need JS/TS/Java guard/probe packs.
+  Latest external-review adjudication follow-up (2026-03-17): reran the
+  portable stack against the pinned `integrations/ci-cd-hub` federated
+  checkout so the repo-local federation path has distinct evidence from the
+  corrected `/tmp/governance-pilots/ci-cd-hub` benchmark. The local-path rerun
+  produced `13/15` red AI guard steps plus a richer current probe packet
+  (`1828` findings across `266` files), and the target repo now has `7`
+  adjudicated ledger rows (`4 confirmed_issue`, `3 false_positive`) under
+  `integrations/ci-cd-hub/dev/reports/governance/`. Keep those receipts
+  separate from the March 14 cross-repo aggregate; today's run is the pinned
+  submodule/local-path proof and finding-quality follow-up, not a replacement
+  baseline.
   Latest docs-governance follow-up (2026-03-12): strict-tooling drift is
   closed too. `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, and
   `dev/scripts/README.md` now document that staged `dev/scripts/**` module
@@ -2217,7 +2573,10 @@ become the main product surface.
   evidence quality, and cross-repo adoption evidence together. Current explicit
   follow-up: make typed JSON runtime state the live authority over markdown/UI
   projections, generate agent/developer startup surfaces from the same repo-pack
-  policy, prove the same-context/same-check-path flow across Codex, Claude,
+  policy, add one reviewed repo-local governance contract
+  (`project.governance.md` working name) that AI can draft and startup
+  surfaces can summarize, prove the same-context/same-check-path flow across
+  Codex, Claude,
   `active_dual_agent`, `single_agent`, and `tools_only`, separate collaboration
   mode from objective profiles like `bootstrap` / `audit` / `refactor` /
   `review` / `remediation`, define the standalone platform-repo plus VoiceTerm
@@ -2293,7 +2652,12 @@ become the main product surface.
   `probe-report` now emits typed decision packets from `.probe-allowlist.json`
   `design_decision` entries with explicit decision modes and validation steps,
   so the self-hosting packet matches that contract instead of exposing a
-  maintainer-only review bucket;
+  maintainer-only review bucket; latest contract-closure follow-up
+  (2026-03-17): `check_platform_contract_closure.py` now enforces bounded
+  closure between the shared blueprint, current runtime dataclass contracts,
+  durable artifact schema metadata, and startup-surface command routing for
+  the already-real platform families, with repo policy, bundles, and
+  maintainer docs updated in the same slice;
   packaging/
   adoption/client-parity remains `P1`, and proof/scale extensions remain `P2`.
   `MP-358`, and `MP-359` are subordinate implementation lanes inside this

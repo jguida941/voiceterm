@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from hashlib import sha256
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,6 +31,7 @@ from .handoff_constants import (
     BRIDGE_METADATA_PATTERNS,
     DEFAULT_CODEX_POLL_DUE_AFTER_SECONDS,
     DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS,
+    GENERIC_NEXT_ACTION_MARKERS,
     IDLE_FINDING_MARKERS,
     IDLE_NEXT_ACTION_MARKERS,
     MARKDOWN_ITEM_RE,
@@ -41,12 +43,24 @@ from .handoff_constants import (
     _RESOLVED_ECHO_RE,
     _is_substantive_text,
 )
+
+# validate_launch_bridge_state and validate_live_bridge_contract moved to
+# bridge_validation.py. Import from there directly.
+from .handoff_markdown import (
+    _derive_current_atomic_step,
+    _extract_markdown_items,
+    _first_markdown_item,
+    _group_owned_lanes,
+    _normalize_inline_markdown,
+)
 from .handoff_render import render_handoff_markdown
+from .handoff_time import _codex_poll_advanced, _parse_utc_z, _timestamp_age_seconds
 from .peer_liveness import (
     CodexPollState,
     IMPLEMENTER_STALL_MARKERS,
     OverallLivenessState,
     ReviewerMode,
+    classify_reviewer_freshness,
     normalize_reviewer_mode,
     reviewer_mode_is_active,
 )
@@ -74,8 +88,12 @@ class BridgeLiveness:
     open_findings_present: bool
     claude_status_present: bool
     claude_ack_present: bool
+    claude_ack_current: bool
+    current_instruction_revision: str = ""
+    claude_ack_revision: str = ""
     reviewed_hash_current: bool | None = None
     implementer_completion_stall: bool = False
+    reviewer_freshness: str = ""
 
 
 @dataclass(frozen=True)
@@ -91,11 +109,8 @@ class HandoffBundle:
     threshold_pct: int
 
 
-_POLL_STATUS_REVIEWER_MODE_PATTERNS = (
-    re.compile(
-        r"(?i)\breviewer mode(?:\s+is(?:\s+\w+)?(?:\s+to)?|\s*:)\s*`(?P<mode>[^`]+)`"
-    ),
-    re.compile(r"\(mode:\s*(?P<mode>[a-z_]+)\b"),
+_CLAUDE_ACK_REVISION_RE = re.compile(
+    r"(?i)\binstruction(?:[-_ ]rev(?:ision)?)?\s*:\s*`?(?P<value>[a-f0-9]{8,64})`?"
 )
 
 
@@ -148,12 +163,27 @@ def summarize_bridge_liveness(
     else:
         codex_poll_state = CodexPollState.FRESH
 
+    lowered_instruction = current_instruction.lower()
     next_action_present = bool(current_instruction) and not any(
-        marker in current_instruction.lower() for marker in IDLE_NEXT_ACTION_MARKERS
+        marker in lowered_instruction
+        for marker in (*IDLE_NEXT_ACTION_MARKERS, *GENERIC_NEXT_ACTION_MARKERS)
     )
     last_reviewed_scope_present = bool(last_reviewed_scope)
     claude_status_present = _is_substantive_text(claude_status)
     claude_ack_present = _is_substantive_text(claude_ack)
+    current_instruction_revision = (
+        snapshot.metadata.get("current_instruction_revision") or ""
+    ).strip()
+    if not current_instruction_revision and current_instruction:
+        current_instruction_revision = _instruction_revision(current_instruction)
+    claude_ack_revision = _extract_claude_ack_revision(claude_ack)
+    claude_ack_current = (
+        claude_ack_present
+        and (
+            not current_instruction_revision
+            or claude_ack_revision == current_instruction_revision
+        )
+    )
 
     if not reviewer_mode_is_active(reviewer_mode):
         overall_state = OverallLivenessState.INACTIVE
@@ -161,7 +191,7 @@ def summarize_bridge_liveness(
         overall_state = OverallLivenessState.STALE
     elif not last_reviewed_scope_present or not next_action_present:
         overall_state = OverallLivenessState.WAITING_ON_PEER
-    elif next_action_present and (not claude_status_present or not claude_ack_present):
+    elif next_action_present and (not claude_status_present or not claude_ack_current):
         overall_state = OverallLivenessState.WAITING_ON_PEER
     else:
         overall_state = OverallLivenessState.FRESH
@@ -180,6 +210,8 @@ def summarize_bridge_liveness(
         and any(marker in combined_implementer for marker in IMPLEMENTER_STALL_MARKERS)
     )
 
+    freshness = classify_reviewer_freshness(last_codex_poll_age_seconds)
+
     return BridgeLiveness(
         overall_state=overall_state,
         reviewer_mode=reviewer_mode,
@@ -191,9 +223,33 @@ def summarize_bridge_liveness(
         open_findings_present=bool(open_findings),
         claude_status_present=claude_status_present,
         claude_ack_present=claude_ack_present,
+        claude_ack_current=claude_ack_current,
+        current_instruction_revision=current_instruction_revision,
+        claude_ack_revision=claude_ack_revision,
         reviewed_hash_current=reviewed_hash_current,
         implementer_completion_stall=implementer_stalled,
+        reviewer_freshness=freshness,
     )
+
+
+def _instruction_revision(text: str) -> str:
+    normalized = text.strip()
+    if not normalized:
+        return ""
+    return sha256(normalized.encode("utf-8")).hexdigest()[:12]
+
+
+def _extract_claude_ack_revision(text: str) -> str:
+    """Extract the latest Claude ACK revision from the Claude Ack section.
+
+    Contract: the FIRST instruction-rev match is the current/latest ACK.
+    Claude must prepend new ACKs at the top of the section so the first
+    regex match is always the most recent revision.
+    """
+    match = _CLAUDE_ACK_REVISION_RE.search(text or "")
+    if match is None:
+        return ""
+    return match.group("value").lower()
 
 
 def bridge_liveness_to_dict(liveness: BridgeLiveness) -> dict[str, object]:
@@ -364,105 +420,9 @@ def wait_for_codex_poll_refresh(
         time.sleep(max(poll_interval_seconds, 0.1))
 
 
-def validate_live_bridge_contract(snapshot: BridgeSnapshot) -> list[str]:
-    """Return contract errors for the minimum live bridge state."""
-    errors: list[str] = []
-    reviewer_mode = normalize_reviewer_mode(snapshot.metadata.get("reviewer_mode"))
-    last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
-    if not last_reviewed_scope:
-        errors.append(
-            "Missing live `Last Reviewed Scope`; bridge-active coordination must "
-            "keep the reviewed path set current."
-        )
 
-    current_instruction = snapshot.sections.get("Current Instruction For Claude", "").strip()
-    if not current_instruction:
-        errors.append(
-            "Missing live next action in `Current Instruction For Claude`; the "
-            "bridge must always expose the current coding queue."
-        )
-    elif any(marker in current_instruction.lower() for marker in IDLE_NEXT_ACTION_MARKERS):
-        errors.append(
-            "`Current Instruction For Claude` must point at the live next task, "
-            "not an idle placeholder."
-        )
-
-    current_verdict = snapshot.sections.get("Current Verdict", "").strip().lower()
-    open_findings = snapshot.sections.get("Open Findings", "").strip().lower()
-    if (
-        current_verdict
-        and any(marker in current_verdict for marker in RESOLVED_VERDICT_MARKERS)
-        and (
-            not open_findings
-            or any(marker in open_findings for marker in IDLE_FINDING_MARKERS)
-        )
-        and bool(_RESOLVED_ECHO_RE.search(current_instruction))
-    ):
-        errors.append(
-            "Resolved bridge verdicts must promote the next scoped task in "
-            "`Current Instruction For Claude` instead of echoing a completed state."
-        )
-
-    conflicting_poll_status_modes = [
-        mode
-        for mode in _extract_poll_status_reviewer_modes(
-            snapshot.sections.get("Poll Status", "")
-        )
-        if mode != reviewer_mode
-    ]
-    if conflicting_poll_status_modes:
-        errors.append(
-            "Poll Status contradicts `Reviewer mode` metadata; conflicting modes: "
-            + ", ".join(f"`{mode}`" for mode in conflicting_poll_status_modes)
-            + f" (metadata: `{reviewer_mode}`)."
-        )
-
-    return errors
-
-
-def _extract_poll_status_reviewer_modes(poll_status: str) -> tuple[str, ...]:
-    """Return normalized reviewer modes explicitly asserted inside Poll Status."""
-    seen: list[str] = []
-    valid_modes = {mode.value for mode in ReviewerMode}
-    for pattern in _POLL_STATUS_REVIEWER_MODE_PATTERNS:
-        for match in pattern.finditer(poll_status):
-            normalized = normalize_reviewer_mode(match.group("mode"))
-            if normalized in valid_modes and normalized not in seen:
-                seen.append(normalized)
-    return tuple(seen)
-
-
-def validate_launch_bridge_state(
-    snapshot: BridgeSnapshot,
-    *,
-    liveness: BridgeLiveness | None = None,
-) -> list[str]:
-    """Return launch-blocking bridge errors for fresh-conductor bootstrap."""
-    errors = validate_live_bridge_contract(snapshot)
-    effective_liveness = liveness or summarize_bridge_liveness(snapshot)
-    if not reviewer_mode_is_active(effective_liveness.reviewer_mode):
-        return errors
-    if effective_liveness.codex_poll_state == CodexPollState.MISSING:
-        errors.append(
-            "Missing `Last Codex poll`; fresh launch requires a live reviewer poll "
-            "timestamp in the bridge header."
-        )
-    elif effective_liveness.codex_poll_state == CodexPollState.STALE:
-        errors.append(
-            "`Last Codex poll` is stale; fresh launch requires bridge activity "
-            "within the five-minute heartbeat contract."
-        )
-    if not effective_liveness.claude_status_present:
-        errors.append(
-            "Missing live `Claude Status`; fresh launch requires the implementer "
-            "status section before bootstrap."
-        )
-    if not effective_liveness.claude_ack_present:
-        errors.append(
-            "Missing live `Claude Ack`; fresh launch requires a current Claude "
-            "ACK before bootstrap."
-        )
-    return errors
+# Cluster 2 (bridge validation) extracted to bridge_validation.py;
+# validate_live_bridge_contract and validate_launch_bridge_state imported above.
 
 
 def _safe_timestamp(timestamp: str) -> str:
@@ -495,103 +455,6 @@ def observe_rollover_ack_state(
     }
 
 
-def _group_owned_lanes(
-    lane_assignments: list[dict[str, str]],
-) -> dict[str, list[dict[str, str]]]:
-    grouped: dict[str, list[dict[str, str]]] = {p: [] for p in ROLLOVER_ACK_PREFIX}
-    for lane in lane_assignments:
-        provider = lane.get("provider", "").strip().lower()
-        if provider not in grouped:
-            continue
-        grouped[provider].append(
-            {
-                "agent_id": _normalize_inline_markdown(lane.get("agent_id", "").strip()),
-                "lane": _normalize_inline_markdown(lane.get("lane", "").strip()),
-                "worktree": _normalize_inline_markdown(lane.get("worktree", "").strip()),
-                "branch": _normalize_inline_markdown(lane.get("branch", "").strip()),
-                "mp_scope": _normalize_inline_markdown(lane.get("mp_scope", "").strip()),
-            }
-        )
-    return grouped
 
-
-def _derive_current_atomic_step(snapshot: BridgeSnapshot) -> str | None:
-    return (
-        _first_markdown_item(snapshot.sections.get("Claude Status", ""))
-        or _first_markdown_item(snapshot.sections.get("Current Instruction For Claude", ""))
-        or _first_markdown_item(snapshot.sections.get("Last Reviewed Scope", ""))
-    )
-
-
-def _first_markdown_item(raw_text: str) -> str | None:
-    items = _extract_markdown_items(raw_text)
-    return items[0] if items else None
-
-
-def _extract_markdown_items(raw_text: str) -> list[str]:
-    items: list[str] = []
-    for raw_line in raw_text.splitlines():
-        stripped = raw_line.strip()
-        if not stripped:
-            continue
-        match = MARKDOWN_ITEM_RE.match(stripped)
-        items.append(
-            _normalize_inline_markdown(
-                (match.group("value") if match is not None else stripped).strip()
-            )
-        )
-    return items
-
-
-def _normalize_inline_markdown(value: str) -> str:
-    normalized = value.strip()
-    wrappers = ("**", "__", "`")
-    changed = True
-    while normalized and changed:
-        changed = False
-        for wrapper in wrappers:
-            if normalized.startswith(wrapper) and normalized.endswith(wrapper):
-                normalized = normalized[len(wrapper) : -len(wrapper)].strip()
-                changed = True
-                break
-    return normalized
-
-
-def _timestamp_age_seconds(
-    raw_value: str | None,
-    *,
-    now_utc: datetime | None,
-) -> int | None:
-    parsed = _parse_utc_z(raw_value)
-    if parsed is None:
-        return None
-    current = now_utc or datetime.now(timezone.utc)
-    age_seconds = int((current - parsed).total_seconds())
-    return max(age_seconds, 0)
-
-
-def _codex_poll_advanced(
-    *,
-    previous_poll_utc: str | None,
-    current_poll_utc: str | None,
-) -> bool:
-    current = _parse_utc_z(current_poll_utc)
-    if current is None:
-        return False
-    previous = _parse_utc_z(previous_poll_utc)
-    if previous is None:
-        return True
-    return current > previous
-
-
-def _parse_utc_z(raw_value: str | None) -> datetime | None:
-    if not raw_value:
-        return None
-    normalized = raw_value.strip().replace("Z", "+00:00")
-    try:
-        parsed = datetime.fromisoformat(normalized)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+# Cluster 1 (timestamp), Cluster 3 (markdown/lane) extracted to handoff_time.py
+# and handoff_markdown.py; imported above for backward compatibility.

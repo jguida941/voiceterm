@@ -17,7 +17,6 @@ the repo-owned `devctl` guidance in `dev/scripts/README.md` and
 
 from __future__ import annotations
 
-import hashlib
 import importlib.util
 import json
 import re
@@ -33,6 +32,7 @@ from .launch import (
     list_terminal_profiles,
     resolve_terminal_profile_name,
 )
+from .service_identity import project_id_for_repo
 
 # Backward-compat aliases sourced from the frozen path config
 DEFAULT_BRIDGE_REL = active_path_config().bridge_rel
@@ -87,12 +87,6 @@ class ActiveSessionConflict:
     log_path: str | None
     age_seconds: int | None
     reason: str
-
-
-def project_id_for_repo(repo_root: Path) -> str:
-    """Build the stable repo/worktree identity used across review-channel artifacts."""
-    digest = hashlib.sha256(str(repo_root.resolve()).encode("utf-8")).hexdigest()
-    return f"sha256:{digest}"
 
 
 def load_text(path: Path) -> str:

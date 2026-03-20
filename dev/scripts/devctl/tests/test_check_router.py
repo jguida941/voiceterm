@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -278,10 +279,44 @@ class CheckRouterTests(unittest.TestCase):
         rc = check_router.run(make_args(execute=True))
         self.assertEqual(rc, 0)
         run_cmd_mock.assert_called_once()
+        executed = run_cmd_mock.call_args.args[1]
+        self.assertEqual(executed[:2], ["bash", "-lc"])
+        self.assertIn(sys.executable, executed[2])
+        self.assertFalse(
+            executed[2].startswith("python3 "),
+            f"Expected sys.executable at the start, got: {executed[2]!r}",
+        )
 
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(payload["execute"])
         self.assertEqual(len(payload["steps"]), 1)
+
+    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_quality_policy_override_flows_into_policy_aware_commands(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [{"status": "M", "path": "dev/scripts/devctl/commands/check.py"}]
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py docs-check --strict-tooling"],
+            None,
+        )
+
+        rc = check_router.run(
+            make_args(quality_policy="/tmp/router-policy.json")
+        )
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        planned = payload["planned_commands"][0]["command"]
+        self.assertIn(sys.executable, planned)
+        self.assertIn("--quality-policy /tmp/router-policy.json", planned)
 
     def test_bundle_contract_extracts_non_empty_commands(self) -> None:
         for lane, bundle_name in check_router.BUNDLE_BY_LANE.items():

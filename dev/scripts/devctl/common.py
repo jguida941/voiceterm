@@ -4,7 +4,6 @@ import os
 import queue
 import signal
 import subprocess
-import sys
 import threading
 import time
 from collections import deque
@@ -28,33 +27,19 @@ for _compat_name in (
     "confirm_or_abort",
     "display_path",
     "emit_output",
+    "inject_quality_policy_command",
     "normalize_string_field",
+    "normalize_repo_python_shell_command",
     "pipe_output",
     "read_json_object",
+    "resolve_repo_python_command",
     "resolve_repo_path",
     "should_emit_output",
+    "split_shell_prefix",
     "write_output",
 ):
     globals()[_compat_name] = getattr(_common_io, _compat_name)
 del _compat_name
-
-
-def resolve_repo_python_command(cmd: list[str], *, cwd: Path | None = None) -> list[str]:
-    """Use the active interpreter for repo-owned Python scripts launched as `python3 ...`."""
-    if len(cmd) < 2 or cmd[0] != "python3":
-        return cmd
-    script_arg = cmd[1]
-    if not script_arg.endswith(".py"):
-        return cmd
-    script_path = Path(script_arg).expanduser()
-    if not script_path.is_absolute():
-        script_path = (cwd or REPO_ROOT) / script_path
-    try:
-        resolved = script_path.resolve(strict=False)
-        resolved.relative_to(REPO_ROOT)
-    except (OSError, ValueError):
-        return cmd
-    return [sys.executable or "python3", *cmd[1:]]
 
 
 def _trim_failure_output(output_tail: str) -> str:

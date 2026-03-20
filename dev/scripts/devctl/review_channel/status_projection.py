@@ -1,75 +1,36 @@
-"""Helpers for bridge-backed review-state projection payloads."""
+"""Helpers for bridge-backed review-state projection payloads.
+
+Builds the canonical ``ReviewState`` shape from bridge markdown snapshots so
+the bridge-backed and event-backed paths emit the same top-level contract.
+Bridge-specific extras (``runtime``, ``service_identity``,
+``attach_auth_policy``, ``project_id``) are nested under a
+``_compat`` key so they do not masquerade as canonical contract fields.
+"""
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any
 
 from ..common import display_path
+from ..runtime.review_state_models import (
+    AgentRegistryEntryState,
+    AgentRegistryState,
+    ReviewAttentionState,
+    ReviewBridgeState,
+    ReviewQueueState,
+    ReviewSessionState,
+    ReviewState,
+)
 from ..runtime.role_profile import TandemRole
 from .attach_auth_projection import (
     build_attach_auth_policy_state,
     build_service_identity_state,
 )
-from .daemon_reducer import DaemonSnapshot, empty_daemon_state
 from .handoff import BridgeSnapshot
 from .peer_liveness import OverallLivenessState
 from .promotion import PromotionCandidate, promotion_candidate_to_dict
-
-
-class ReviewMeta(TypedDict):
-    """Typed review session metadata."""
-
-    plan_id: str
-    controller_run_id: None
-    session_id: str
-    surface_mode: str
-    active_lane: str
-    refresh_seq: int
-    bridge_path: str
-    review_channel_path: str
-
-
-class AgentEntry(TypedDict):
-    """Typed agent roster entry."""
-
-    agent_id: str
-    display_name: str
-    role: str
-    status: str
-    capabilities: list[str]
-    lane: str
-
-
-class QueueState(TypedDict):
-    """Typed packet queue summary."""
-
-    pending_total: int
-    pending_codex: int
-    pending_claude: int
-    pending_cursor: int
-    pending_operator: int
-    stale_packet_count: int
-    derived_next_instruction: str | None
-    derived_next_instruction_source: dict[str, Any] | None
-
-
-class BridgeState(TypedDict):
-    """Typed bridge section snapshot."""
-
-    reviewer_mode: str
-    last_codex_poll_utc: str | None
-    last_codex_poll_age_seconds: int | None
-    last_worktree_hash: str | None
-    reviewed_hash_current: bool | None
-    implementer_completion_stall: bool
-    publisher_running: bool
-    open_findings: str
-    current_instruction: str
-    claude_status: str
-    claude_ack: str
-    last_reviewed_scope: str
 
 
 @dataclass(frozen=True)
@@ -87,28 +48,6 @@ class ReviewStateContext:
     errors: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
-class ReviewStateSnapshot:
-    """Typed container for one bridge-backed review-state projection."""
-
-    schema_version: int
-    command: str
-    project_id: str
-    timestamp: str
-    ok: bool
-    review: dict[str, object]
-    agents: list[dict[str, object]]
-    packets: list[dict[str, object]]
-    queue: dict[str, object]
-    bridge: dict[str, object]
-    runtime: dict[str, object]
-    service_identity: dict[str, object]
-    attach_auth_policy: dict[str, object]
-    attention: dict[str, object]
-    warnings: list[str]
-    errors: list[str]
-
-
 def build_bridge_review_state(
     *,
     context: ReviewStateContext,
@@ -118,33 +57,58 @@ def build_bridge_review_state(
     promotion_candidate: PromotionCandidate | None,
     reduced_runtime: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    """Build a typed review-state snapshot and return it as a plain dict."""
+    """Build a canonical ReviewState dict from bridge markdown state."""
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
-    state = ReviewStateSnapshot(
+
+    review_state = ReviewState(
         schema_version=1,
+        contract_id="ReviewState",
         command="review-channel",
-        project_id=context.project_id,
+        action="status",
         timestamp=context.timestamp,
         ok=_projection_ok(overall_state, context.errors),
-        review=_build_review_meta(context),
-        agents=_build_agent_entries(
+        review=_build_review_session(context),
+        queue=_build_queue_state(promotion_candidate),
+        bridge=_build_bridge_state(snapshot, bridge_liveness, overall_state),
+        attention=_build_attention(attention),
+        packets=(),
+        registry=_build_agent_registry(
             overall_state=overall_state,
             bridge_liveness=bridge_liveness,
+            timestamp=context.timestamp,
         ),
-        packets=[],
-        queue=_build_queue_state(promotion_candidate),
-        bridge=_build_bridge_state(snapshot, bridge_liveness),
-        runtime=_build_bridge_runtime(bridge_liveness, reduced_runtime),
-        service_identity=build_service_identity_state(context.service_identity),
-        attach_auth_policy=build_attach_auth_policy_state(
-            context.attach_auth_policy,
-        ),
-        attention=attention,
-        warnings=list(context.warnings),
-        errors=list(context.errors),
+        warnings=context.warnings,
+        errors=context.errors,
     )
 
-    return asdict(state)
+    result: dict[str, object] = asdict(review_state)
+
+    # Bridge-specific extras live under _compat so the canonical ReviewState
+    # payload stays exact.  Consumers should migrate to _compat access; once
+    # all callers are migrated the _compat key can be removed entirely.
+    registry_dict = result.get("registry")
+    raw_agents = registry_dict.get("agents", []) if isinstance(registry_dict, dict) else []
+    legacy_agents = []
+    for agent in raw_agents:
+        entry = dict(agent) if isinstance(agent, dict) else {}
+        entry["status"] = entry.get("job_state", "")
+        entry["role"] = entry.get("current_job", "")
+        entry["capabilities"] = []
+        legacy_agents.append(entry)
+
+    result["_compat"] = {
+        "project_id": context.project_id,
+        "runtime": _build_bridge_runtime(bridge_liveness, reduced_runtime),
+        "service_identity": build_service_identity_state(
+            context.service_identity
+        ),
+        "attach_auth_policy": build_attach_auth_policy_state(
+            context.attach_auth_policy
+        ),
+        "agents": legacy_agents,
+    }
+
+    return result
 
 
 def _projection_ok(overall_state: str, errors: tuple[str, ...]) -> bool:
@@ -156,10 +120,10 @@ def _projection_ok(overall_state: str, errors: tuple[str, ...]) -> bool:
     )
 
 
-def _build_review_meta(context: ReviewStateContext) -> ReviewMeta:
-    return ReviewMeta(
+def _build_review_session(context: ReviewStateContext) -> ReviewSessionState:
+    return ReviewSessionState(
         plan_id="MP-355",
-        controller_run_id=None,
+        controller_run_id="",
         session_id="markdown-bridge",
         surface_mode="markdown-bridge",
         active_lane="review",
@@ -172,50 +136,92 @@ def _build_review_meta(context: ReviewStateContext) -> ReviewMeta:
     )
 
 
-def _build_agent_entries(
+def _build_agent_registry(
     *,
     overall_state: str,
     bridge_liveness: dict[str, object],
-) -> list[AgentEntry]:
-    return [
-        AgentEntry(
+    timestamp: str,
+) -> AgentRegistryState:
+    claude_status = _claude_agent_status(bridge_liveness)
+    operator_status = _operator_status(overall_state)
+    agents = (
+        AgentRegistryEntryState(
             agent_id="codex",
+            provider="codex",
             display_name="Codex",
-            role=TandemRole.REVIEWER,
-            status=overall_state,
-            capabilities=["review", "planning", "coordination"],
             lane="codex",
+            lane_title="Reviewer",
+            current_job=TandemRole.REVIEWER,
+            job_state=overall_state,
+            waiting_on="",
+            last_packet_seen="",
+            last_packet_applied="",
+            script_profile="markdown-bridge-conductor",
+            mp_scope="MP-355",
+            worktree="",
+            branch="",
+            updated_at=timestamp,
         ),
-        AgentEntry(
+        AgentRegistryEntryState(
             agent_id="claude",
+            provider="claude",
             display_name="Claude",
-            role=TandemRole.IMPLEMENTER,
-            status=_claude_agent_status(bridge_liveness),
-            capabilities=["implementation", "fixes", "handoff"],
             lane="claude",
+            lane_title="Implementer",
+            current_job=TandemRole.IMPLEMENTER,
+            job_state=claude_status,
+            waiting_on="",
+            last_packet_seen="",
+            last_packet_applied="",
+            script_profile="markdown-bridge-conductor",
+            mp_scope="MP-355",
+            worktree="",
+            branch="",
+            updated_at=timestamp,
         ),
-        AgentEntry(
+        AgentRegistryEntryState(
             agent_id="cursor",
+            provider="cursor",
             display_name="Cursor",
-            role=TandemRole.IMPLEMENTER,
-            status="idle",
-            capabilities=["implementation", "fixes", "handoff"],
             lane="cursor",
+            lane_title="Implementer",
+            current_job=TandemRole.IMPLEMENTER,
+            job_state="idle",
+            waiting_on="",
+            last_packet_seen="",
+            last_packet_applied="",
+            script_profile="",
+            mp_scope="",
+            worktree="",
+            branch="",
+            updated_at=timestamp,
         ),
-        AgentEntry(
+        AgentRegistryEntryState(
             agent_id="operator",
+            provider="operator",
             display_name="Operator",
-            role="approver",
-            status=_operator_status(overall_state),
-            capabilities=["approval", "launch", "rollover"],
             lane="operator",
+            lane_title="Approver",
+            current_job="approver",
+            job_state=operator_status,
+            waiting_on="",
+            last_packet_seen="",
+            last_packet_applied="",
+            script_profile="",
+            mp_scope="",
+            worktree="",
+            branch="",
+            updated_at=timestamp,
         ),
-    ]
+    )
+    return AgentRegistryState(timestamp=timestamp, agents=agents)
 
 
 def _claude_agent_status(bridge_liveness: dict[str, object]) -> str:
-    if bool(bridge_liveness.get("claude_status_present")) and bool(
-        bridge_liveness.get("claude_ack_present")
+    if (
+        bool(bridge_liveness.get("claude_status_present"))
+        and bool(bridge_liveness.get("claude_ack_present"))
+        and bool(bridge_liveness.get("claude_ack_current"))
     ):
         return "active"
     return "waiting"
@@ -231,8 +237,10 @@ def _operator_status(overall_state: str) -> str:
     return "active"
 
 
-def _build_queue_state(promotion_candidate: PromotionCandidate | None) -> QueueState:
-    return QueueState(
+def _build_queue_state(
+    promotion_candidate: PromotionCandidate | None,
+) -> ReviewQueueState:
+    return ReviewQueueState(
         pending_total=0,
         pending_codex=0,
         pending_claude=0,
@@ -240,10 +248,12 @@ def _build_queue_state(promotion_candidate: PromotionCandidate | None) -> QueueS
         pending_operator=0,
         stale_packet_count=0,
         derived_next_instruction=(
-            promotion_candidate.instruction if promotion_candidate is not None else None
+            promotion_candidate.instruction if promotion_candidate is not None else ""
         ),
-        derived_next_instruction_source=promotion_candidate_to_dict(
-            promotion_candidate
+        derived_next_instruction_source=(
+            promotion_candidate_to_dict(promotion_candidate)
+            if promotion_candidate is not None
+            else {}
         ),
     )
 
@@ -251,27 +261,54 @@ def _build_queue_state(promotion_candidate: PromotionCandidate | None) -> QueueS
 def _build_bridge_state(
     snapshot: BridgeSnapshot,
     bridge_liveness: dict[str, object],
-) -> BridgeState:
-    return BridgeState(
-        reviewer_mode=str(bridge_liveness.get("reviewer_mode") or "active_dual_agent"),
-        last_codex_poll_utc=snapshot.metadata.get("last_codex_poll_utc"),
-        last_codex_poll_age_seconds=bridge_liveness.get(
-            "last_codex_poll_age_seconds"
+    overall_state: str,
+) -> ReviewBridgeState:
+    return ReviewBridgeState(
+        overall_state=overall_state,
+        codex_poll_state=str(bridge_liveness.get("codex_poll_state") or "unknown"),
+        reviewer_freshness=str(
+            bridge_liveness.get("reviewer_freshness") or "unknown"
         ),
-        last_worktree_hash=snapshot.metadata.get("last_non_audit_worktree_hash"),
-        reviewed_hash_current=bridge_liveness.get("reviewed_hash_current"),
+        reviewer_mode=str(
+            bridge_liveness.get("reviewer_mode") or "active_dual_agent"
+        ),
+        last_codex_poll_utc=str(
+            snapshot.metadata.get("last_codex_poll_utc") or ""
+        ),
+        last_codex_poll_age_seconds=int(
+            bridge_liveness.get("last_codex_poll_age_seconds") or 0
+        ),
+        last_worktree_hash=str(
+            snapshot.metadata.get("last_non_audit_worktree_hash") or ""
+        ),
+        current_instruction=_section_text(
+            snapshot, "Current Instruction For Claude"
+        ),
+        open_findings=_section_text(snapshot, "Open Findings"),
+        claude_status=_section_text(snapshot, "Claude Status"),
+        claude_ack=_section_text(snapshot, "Claude Ack"),
+        claude_ack_current=bool(bridge_liveness.get("claude_ack_current")),
+        current_instruction_revision=str(
+            bridge_liveness.get("current_instruction_revision") or ""
+        ),
+        claude_ack_revision=str(bridge_liveness.get("claude_ack_revision") or ""),
+        last_reviewed_scope=_section_text(snapshot, "Last Reviewed Scope"),
         implementer_completion_stall=bool(
             bridge_liveness.get("implementer_completion_stall")
         ),
         publisher_running=bool(bridge_liveness.get("publisher_running")),
-        open_findings=_section_text(snapshot, "Open Findings"),
-        current_instruction=_section_text(
-            snapshot,
-            "Current Instruction For Claude",
-        ),
-        claude_status=_section_text(snapshot, "Claude Status"),
-        claude_ack=_section_text(snapshot, "Claude Ack"),
-        last_reviewed_scope=_section_text(snapshot, "Last Reviewed Scope"),
+    )
+
+
+def _build_attention(attention: dict[str, object]) -> ReviewAttentionState | None:
+    if not attention:
+        return None
+    return ReviewAttentionState(
+        status=str(attention.get("status") or ""),
+        owner=str(attention.get("owner") or ""),
+        summary=str(attention.get("summary") or ""),
+        recommended_action=str(attention.get("recommended_action") or ""),
+        recommended_command=str(attention.get("recommended_command") or ""),
     )
 
 
@@ -280,44 +317,5 @@ def _section_text(snapshot: BridgeSnapshot, section: str) -> str:
     return _clean_section(raw)
 
 
-def _build_bridge_runtime(
-    bridge_liveness: dict[str, object],
-    reduced_runtime: dict[str, object] | None,
-) -> dict[str, object]:
-    """Build the runtime section, preferring event-reduced state when available."""
-    if reduced_runtime and reduced_runtime.get("last_daemon_event_utc"):
-        return reduced_runtime
-
-    publisher_running = bool(bridge_liveness.get("publisher_running"))
-    pub = DaemonSnapshot()
-    pub.reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
-    pub.stop_reason = str(bridge_liveness.get("publisher_stop_reason") or "")
-
-    return {
-        "daemons": {
-            "publisher": (
-                pub.to_dict()
-                if not publisher_running
-                else _running_bridge_publisher(bridge_liveness)
-            ),
-            "reviewer_supervisor": empty_daemon_state(),
-        },
-        "active_daemons": 1 if publisher_running else 0,
-        "last_daemon_event_utc": "",
-    }
-
-
-def _running_bridge_publisher(bridge_liveness: dict[str, object]) -> dict[str, object]:
-    """Build a publisher daemon dict from bridge liveness when running."""
-    pub = DaemonSnapshot()
-
-    pub.pid = 1
-    pub.started_at_utc = "(bridge-derived)"
-    pub.last_heartbeat_utc = "(bridge-derived)"
-    pub.reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
-
-    return pub.to_dict()
-
-
-def _clean_section(raw: str) -> str:
-    return raw.strip() or "(missing)"
+from .status_projection_helpers import build_bridge_runtime as _build_bridge_runtime
+from .status_projection_helpers import clean_section as _clean_section

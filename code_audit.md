@@ -98,21 +98,23 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-17T15:20:22Z`
-- Last Codex poll (Local America/New_York): `2026-03-17 11:20:22 EDT`
-- Last non-audit worktree hash: `608b294bd860eb750a1e935cb23132d0dcc32c574392cbc6364fe60db37aaa12`
-- Reviewer mode: `single_agent`
+- Last Codex poll: `2026-03-20T23:04:06Z`
+- Last Codex poll (Local America/New_York): `2026-03-20 19:04:06 EDT`
+- Last non-audit worktree hash: `72ad7c031b2ff403ab4e037ac4c68cb23612fa60007c70472bd5dbbd31321666`
+- Reviewer mode: `paused`
+- Current instruction revision: `f44a03299b02`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
 1.1 In `active_dual_agent`, Claude should start that polling immediately after
      bootstrap, not after a second operator prompt.
 2. Codex will poll non-`code_audit.md` worktree changes, review meaningful deltas, and replace stale findings instead of appending endless snapshot history.
+2.1 Claude must treat `Current Instruction For Claude` as the live reviewer-owned execution authority for the current slice. `Current Verdict` and `Open Findings` may intentionally describe the last completed or last fully reviewed slice until Codex rewrites them; they do not override the current instruction block.
 3. `code_audit.md` itself is coordination state; do not treat its mtime as code drift worth reviewing.
 4. Section ownership is strict:
    - Claude owns `Claude Status`, `Claude Questions`, and `Claude Ack`.
    - Codex owns `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Poll Status`.
-5. If Claude finishes or rebases a finding, it should update `Claude Ack` with a short note like `acknowledged`, `fixed`, `needs-clarification`, or `blocked`.
+5. If Claude finishes or rebases a finding, it should update `Claude Ack` with a short note like `acknowledged`, `fixed`, `needs-clarification`, or `blocked`, and in active bridge mode that ACK must also include the current reviewer instruction token in the form `instruction-rev: \`<revision>\``.
 6. Only unresolved findings, current verdicts, current ack state, and next instructions should stay live here.
 7. Resolved items should be compressed into the short resolved summary below.
 8. After each meaningful Codex reviewer write here, Codex should also post a short operator-visible chat update that summarizes the reviewed non-`code_audit.md` hash, whether findings changed, and what Claude needs to do next.
@@ -138,6 +140,7 @@ treat these rules as active workflow instructions immediately.
     and the live status path also says the bridge is stale or waiting on peer.
 10.3 Claude must never use one unchanged line range as its whole polling strategy.
      Re-polls must reread `Poll Status`, `Current Verdict`, `Open Findings`,
+10.4 When the operator or reviewer redirects scope, Claude must reread `Current Instruction For Claude` first and restate that slice before coding. If the instruction block conflicts with older verdict/findings text, the instruction block wins.
      and `Current Instruction For Claude` together so reviewer verdict/findings
      updates are not missed when only one section changes.
 10.2 If reviewer-owned state says the current slice is accepted, push/commit is
@@ -1138,762 +1141,291 @@ treat these rules as active workflow instructions immediately.
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: post-fmt-review-pass; tree: 608b294bd860).
-- Reviewer re-review is complete on the current non-`code_audit.md` tree hash `88c3d95e27b3`; the reviewer checkpoint below is being refreshed through repo-owned tooling for this exact post-attach/auth tree.
-- Live loop is still active, but the accepted local baseline has moved forward: `review-channel` now emits both repo/worktree-scoped `service_identity` and machine-readable `attach_auth_policy` in bridge-backed status/report/projection surfaces.
-- Current attach/auth contract is explicit and local-first: transport is the filesystem markdown bridge, `off_lan_allowed=false`, `token_required=false`, `key_required=false`, and caller approval boundaries come from the shared platform authority buckets.
-- Next bounded coding slice after this review promotion is the daemon-event to runtime-state reducer in Python `devctl/review_channel`; do not widen into Rust/UI work or VoiceTerm-local action brokerage retirement yet.
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: paused; reason: auto-demote-stale-bridge; reviewed-tree: 72ad7c031b2f).
+- `2026-03-20T00:30:31Z` / `2026-03-19 20:30:31 EDT`: reviewer repoll confirms Claude ACK is current for instruction revision `02d4a121f492`. The current red state is reviewer-side `reviewed_hash_stale` on tree `3e15b773598b`, not a Claude compliance miss.
+- `2026-03-20T00:30:31Z`: bounded MP-359 side validation is green on the local tree. Operator Console `Launch Review` / `Start Swarm` now freeze the selected workflow preset into review-channel `--scope` + `--promotion-plan`; focused launch tests, `check --profile ci`, and the instruction-surface sync all passed on this tree.
+- `2026-03-20T00:03:06Z`: re-review complete on Session 41 / MP-377 Phase 1 / Slice B. Slice B is accepted on tree `76d765551dde`; Claude should move to the next bounded Phase 1 guard slice below.
+- Concurrency rule for Claude and Claude-side worker lanes: if another agent lands overlapping edits on the files you are touching, or bridge status shows `claude_ack_stale`, `reviewed_hash_stale`, or a new reviewer-owned instruction/scope change, hold steady, sleep 2-3 minutes, repoll `code_audit.md` plus `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`, and only resume after the reviewer-owned state is current again.
+- 2026-03-19T21:56:39Z / 2026-03-19 17:56:39 EDT: Codex restarted the live bridge for MP-377 startup authority and refreshed reviewer state through `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --terminal none --format json`.
+- Structural authority docs are green on the current tree: `check_active_plan_sync`, `check_agents_contract`, and `check_review_channel_bridge` all passed before the bridge reset.
+- Live bridge status now matches the reviewed tree hash from this pass; reviewer mode is `active_dual_agent`, and the reviewer supervisor remains healthy.
+- Bridge attention no longer reflects an ACK wait. Claude already ACKed reviewer instruction revision `02d4a121f492`; the remaining live gate is Codex re-review on the changed tree before any promotion beyond Slice C.
+- Concurrency hold rule: if overlapping reviewer/worker edits touch Claude's active slice or bridge state drifts during coding, Claude should stop mutating, sleep 2-3 minutes, repoll the bridge, and only resume once `Poll Status` plus the live status command agree again.
 
 ## Current Verdict
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-- reviewer accepted
+- Rejected the current MP-358 implementer-stall slice on the current tree.
+- `event_projection.py` now sets `implementer_completion_stall` in event-backed liveness, but the parity contract is still incomplete.
+- The current implementation changed behavior without proving the event-backed path honors the same reviewer-owned wait-state rules as the bridge-backed contract.
 
 ## Open Findings
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-- none
+- H1 (blocking): `dev/scripts/devctl/review_channel/event_projection.py` passes `queue.derived_next_instruction` as `poll_status` into `_detect_implementer_stall(...)` instead of a real reviewer-owned Poll Status signal. That means the event-backed path still cannot honor reviewer-owned wait markers from `Poll Status`, so the new stall attention can false-fire in cases the bridge-backed contract explicitly treats as healthy wait states.
+- M1: the requested focused regressions are still missing. `dev/scripts/devctl/tests/test_review_channel.py` has no event-backed test proving `implementer_completion_stall` flips only when reviewer-owned wait markers are absent; the current tests only cover bridge-backed liveness/attention plus the generic attention routing surface.
 
 ## Claude Status
+
+- **Session 42 / MP-358 stall (narrowed) — event-owned evidence only — DONE**
+- Narrowed `_detect_implementer_stall()` to only check instruction content for wait markers (not poll_status, which event path doesn't own).
+- Added `test_implementer_stall.py` with 6 focused regressions: no markers→clear, parked→stall, wait marker in instruction→clear, inactive mode→stall, promotion pending→clear, stall from ack text→stall.
+- 42/42 pass. code_shape 0. needs-review.
+
+- **Session 42 / MP-358 queue-truth (continued) — inbox/watch expired filter — DONE**
+- Extended expired-packet filter to `filter_inbox_packets` in `event_reducer.py`.
+- Now consistent: pending_total, per-agent counts, derived_next_instruction, AND inbox/watch --status pending all exclude expired packets.
+- 36/36 pass. code_shape 0. needs-review.
+
+- **Session 42 / MP-358 queue-truth — expired packets excluded from pending — DONE**
+- Fixed `event_packet_rows.py::summarize_packets` — expired pending packets no longer increment per-agent pending counts (only stale count).
+- Fixed `event_projection.py::_derived_next_instruction` + `_derived_next_instruction_source` — skip expired packets when deriving the live instruction.
+- Added `_is_expired()` helper in event_projection.py.
+- 36/36 pass. code_shape 0. needs-review.
+
+- **Session 42 / MP-358 bridge-truth sync — DONE**
+- Added `_refresh_projections_after_checkpoint` call to `write_reviewer_heartbeat`. Projections now sync on heartbeat, not just checkpoint.
+- 36/36 review_channel tests pass. code_shape 0. needs-review.
+
+- **Session 42 / MP-355 integrity (wire callers) — DONE**
+- Wired `written_event` through `post_packet` + `transition_packet` in `events.py`. Removed dead `return rows` line 200.
+- Added `test_caller_sees_written_event_id_not_stale`: stale evt_0003 → disk returns evt_0004. 11/11 pass. code_shape 0. needs-review.
+
+- **Session 42 / MP-355 integrity (harden) — DONE**
+- `_read_events_under_lock` raises ValueError on malformed JSON (fail closed, not silent skip).
+- `append_event` now returns `dict[str, object]` — the written event with serialized event_id.
+- 2 new regressions: malformed trace rejects append, stale event_id returns correct written ID.
+- 10/10 pass. code_shape 0. needs-review.
+
+- **Session 42 / MP-355 integrity (serialized) — DONE**
+
+- **Session 42 / MP-355 integrity (initial) — partial fix**
+- Fixed `append_event` atomicity: single `write()` call + `fcntl.flock(LOCK_EX)` for serialization.
+- Added 7 focused regressions: empty list, sequential, gaps, stale snapshot collision, malformed IDs, single-write atomicity, duplicate idempotency rejection.
+- 7/7 pass. code_shape 0. needs-review.
+
+- **Session 42 / MP-355 inbox slice — Claude inbox visibility — DONE**
+- Split inbox rendering into `## Pending Packets` and `## Resolved Packets` sections in `event_render.py`.
+- Added `pending_packets` and `resolved_packets` fields to JSON output (backward compatible — `packets` still contains all).
+- Newest pending Claude-targeted packet now visually distinct. 21/21 tests pass. code_shape 0. needs-review.
+
+- **Session 42 / CI contract fix — governance-closure end-to-end — DONE**
+- Wired `check_governance_closure.py` into `tooling_control_plane.yml` and `release_preflight.yml` as direct steps (not just bundle).
+- Removed `governance_closure` from `CI_COVERAGE_EXEMPTIONS` (no longer needed — directly in workflows).
+- Fixed `test_governance_closure_ci_policy_is_explicit` to assert NOT in exemptions + IS in both bundle and workflow.
+- Added `test_governance_closure_clean_summary_forced` — in-process mock of check functions, proves `ok=True`/`exit_code=0`/clean markdown path.
+- Multi-`instruction-rev` regressions already in `test_bridge_poll.py`: `test_multiple_ack_lines_uses_first_as_current` + `test_multiple_ack_lines_false_stale_when_first_is_old`.
+- `check_bundle_workflow_parity`: governance_closure missing count = 0. Self-flags = 0.
+- 20/20 tests pass. code_shape 0 violations. needs-review.
+- The meta-guard no longer flags itself as missing from CI (was 32 violations, now 30 — the 2 removed are governance_closure's own test + CI gaps).
+- 5/5 tests pass. code_shape 0 violations. needs-review.
+- 9/9 tests pass. code_shape 0 violations. needs-review.
+
+- **Session 42 / Slice D — MP-377 Phase 1: `review-channel --action bridge-poll` — ACCEPTED**
+- Codex reviewed and rewrote `_bridge_poll.py` with full RuntimePaths signature, worktree hash, bridge contract validation, approval mode normalization.
+- Codex rewrote tests with integration test pattern using `_run_bridge_poll` helper. 5/5 pass.
+- Claude initial impl merged with Codex's improvements. All green. Waiting for next instruction.
+
+- **Session 41 — MP-377 Phase 1 / Slice C: check_startup_authority_contract.py**
+- Guard validates 8 invariants: AGENTS.md exists, INDEX.md exists, MASTER_PLAN.md exists, active_docs non-empty, scripts non-empty, repo_name non-empty, registry_path non-empty, tracker_path non-empty.
+- Files touched:
+  - `dev/scripts/checks/check_startup_authority_contract.py` (new shim)
+  - `dev/scripts/checks/startup_authority_contract/command.py` (new, 130 lines)
+  - `dev/scripts/checks/startup_authority_contract/__init__.py` (new)
+  - `dev/scripts/devctl/script_catalog.py`: registered
+  - `dev/scripts/devctl/quality_policy_defaults.py`: added QualityStepSpec
+  - `dev/scripts/devctl/bundle_registry.py`: added to _SHARED_GOVERNANCE_CHECKS
+  - `dev/scripts/devctl/tests/checks/test_startup_authority_contract.py` (new, 5 tests)
+  - `dev/active/platform_authority_loop.md`: added `bridge-poll` checklist item to Phase 1
+- Live proof: guard runs 8/8 checks green on this repo
+- Guards: ALL GREEN. check --profile quick 0 step failures. 5 guard tests pass.
+- Plan update: added `devctl bridge-poll` (`review-channel --action bridge-poll`) to Phase 1 checklist — typed JSON bridge polling so agents stop grep-parsing raw markdown.
+- Status: needs-review.
+- **Prior — Slice B (ACCEPTED)**: M1-M3 fixed, e2e command test, resolved-policy parity, honest bundle_overrides.
+- **Prior — Session 41 — Slice A: ProjectGovernance contract (ACCEPTED)**
+- `ProjectGovernance` + 9 nested records + 10 mapping helpers. 9 focused tests. All guards green. Accepted by Codex.
+- **Prior — Session 40 — Round 18k: reviewer-supervisor persistence rework**
+- ALL GUARDS GREEN. `__init__.py` 307 lines, `ensure.py` 348 lines.
+- H1 FIXED: `ensure.py` auto-heal now uses `verify_reviewer_supervisor_start_fn`
+- M1 FIXED: Extracted `ensure_reviewer_supervisor_running` + `_try_restart_reviewer_supervisor`
+  into `_publisher.py` and helper. `__init__.py` no longer has inline control-plane logic.
+- 178 tests pass. needs-review.
+- **Prior — Round 18j: reviewer-supervisor start verification**
+- Added `verify_reviewer_supervisor_start` to `_publisher.py` — mirrors publisher's
+  `verify_detached_start` pattern: checks PID alive, writes failed-start lifecycle
+  state when dead-on-arrival.
+- `_ensure_reviewer_supervisor_running` now verifies after spawn and reports
+  `start_status: "started" | "failed_start" | "spawn_failed"`.
+- 2 new regression tests: successful start + dead-on-arrival failure.
+- 178 tests pass. needs-review.
+- **Prior — Round 18i: reviewer-checkpoint freshness gap**
+- `write_reviewer_checkpoint` now calls `_refresh_projections_after_checkpoint`
+  after writing bridge markdown, which refreshes status projections (review_state.json
+  etc.) atomically so JSON files are consistent with bridge content.
+- Best-effort: catches ImportError/OSError/ValueError silently so checkpoint writes
+  never fail due to projection issues.
+- Regression test: `test_reviewer_checkpoint_refreshes_projections_atomically`
+- 176 tests pass. Status green. needs-review.
+- **Prior — Round 18h: probe_mixed_concerns package-layout fix**
+- **ALL GUARDS GREEN.** `check --profile quick` passes with zero failures.
+- Moved implementation to `code_shape_support/probe_mixed_concerns.py`
+- Root file is now a valid backward-compat shim (imports + __all__ + SystemExit)
+- Test loads implementation module directly for patch.object compatibility
+- Added `_CHECKS_ROOT` sys.path fix so implementation finds sibling modules
+- 177 tests pass. needs-review.
+- **Prior — Round 18g: __init__.py under soft limit**
+- Extracted `_run_reviewer_state_action` (52 lines) into `_reviewer.py`
+- `__init__.py`: 352→296 lines (well under 350 soft limit)
+- 175 tests pass. needs-review.
+- **Prior — Round 18f: ensure callable-default debt cleanup**
+- **ensure.py debt cleanup**: DONE
+  - Replaced `EnsureActionDeps.sleep_fn` `staticmethod(lambda ...)` default with a typed `_noop_sleep()` function default
+  - Removed the last `# type: ignore` in `dev/scripts/devctl/commands/review_channel/ensure.py`
+  - Added regression test: `test_ensure_action_deps_default_sleep_fn_is_noop`
+  - Focused validation: `175` review-channel tests pass
+  - Quick check is now red only on standing backlog outside this slice: `dev/scripts/devctl/commands/review_channel/__init__.py` soft-limit and `dev/scripts/checks/probe_mixed_concerns.py` package-layout debt
+  - Live proof: `python3 dev/scripts/devctl.py review-channel --action ensure --terminal none --format json` auto-restarted the detached reviewer supervisor and reported a healthy loop on the current tree
+- needs-review.
+- **Prior — Round 18e: timeout/escalation contract**
+- **ReviewerFreshness contract**: DONE
+  - Added `ReviewerFreshness` enum (fresh/poll_due/stale/overdue/missing) to `peer_liveness.py`
+  - Added `classify_reviewer_freshness()` function with explicit threshold transitions
+  - Added `reviewer_freshness` field to `BridgeLiveness` dataclass + `summarize_bridge_liveness`
+  - Rewired `attention.py` routing to use `reviewer_freshness` instead of raw poll_age comparisons
+  - Status JSON now includes `bridge_liveness.reviewer_freshness`
+  - 3 new regression tests: transition boundaries, attention routing, liveness output
+- Tests: 174 pass. `review-channel --action status` green. needs-review.
+- **Prior — Round 18d: ensure auto-heal reporting fix**
+- **H1 FIXED**: `ensure.py` now recomputes bridge state AFTER successful
+  reviewer-supervisor restart. `ensure_ok` reflects healed state; stale
+  `recommended_command` / `attention_status` are no longer emitted post-restart.
+- Regression test added: `test_ensure_auto_heals_reviewer_supervisor_and_recomputes_state`
+- 171 tests pass (170 + 1 new). `review-channel --action status` green.
+- needs-review.
+- **Prior: circular import FIXED** — removed top-level re-export cycle.
+- **Previous: Session 40 — Round 18/18b + control-loop fixes**
+- Started: `2026-03-18T08:50:00Z`
+- **Round 18b (4 tasks)**: DONE. code-shape, facade-wrappers, suppression-debt GREEN.
+  - `__init__.py` → `_publisher.py` + `_reviewer.py` (470→349 lines)
+  - `handoff.py` → `handoff_time.py` + `bridge_validation.py` + `handoff_markdown.py` (663→452)
+  - Governance facades: added domain validation
+- **Codex review findings (4)**: ALL FIXED
+  1. HIGH: ensure auto-restarts dead reviewer supervisor via `spawn_reviewer_supervisor_fn`
+  2. MEDIUM: `_load_protocol_sources` no longer false-greens on missing relay model
+  3. MEDIUM: `normalize_identity_file_path` falls back to filename when no repo root
+  4. MEDIUM: attention routes `reviewer_supervisor_required` before Claude-facing symptoms
+- Tests: 271 pass. needs-review.
+- **Round 18 (3 workers)**: DONE (prior)
+- **Worker 1 (review-channel packaging)**: DONE
+  - Converted `review_channel.py` → `review_channel/__init__.py` package
+  - Moved `review_channel_status.py` → `review_channel/status.py`
+  - Moved `review_channel_ensure.py` → `review_channel/ensure.py`
+  - Moved `review_channel_bridge_promotion.py` → `review_channel/bridge_promotion.py` (domain module, breaks circular import)
+  - Updated 5 import sites; 170 review-channel tests pass
+- **Worker 2 (checks-layer cleanup)**: DONE
+  - Fixed `code_shape_support/render.py` nesting (extracted 4 violation renderers)
+  - Fixed `override_caps.py` param count (grouped docs context into `DocsContext` dataclass)
+  - Fixed `check_mobile_relay_protocol.py` nesting (extracted `_field_mismatch` helper)
+  - Deleted unused `mobile_relay_protocol_support.py` shim
+  - Moved `test_code_shape_policy.py` → `tests/checks/test_code_shape_policy.py`
+- **Worker 3 (governance-ledger dedupe)**: DONE
+  - Extracted `resolve_ledger_path`, `read_ledger_rows`, `append_ledger_rows` into `ledger_helpers.py`
+  - Updated `governance_review_log.py` and `external_findings_log.py` to use shared helpers
+  - Removed ~40 lines of duplicated resolver/reader/writer code
+- Tests: 1584 passed, 0 failures
+- Guards cleared: nesting-depth (was +2, now 0), parameter-count (was +1, now 0)
+- Guards still red:
+  - code-shape: `review_channel/__init__.py` 470 lines (artifact of package move — same code that was in review_channel.py)
+  - code-shape: `handoff.py` mixed concerns (H1 from findings, separate slice needed)
+  - package-layout: `probe_mixed_concerns.py` crowded directory (public probe entrypoint)
+- needs-review. If this tranche is accepted and Codex wants to promote `handoff.py` split as next slice, say so in Current Instruction.
+- **Session 39 (prior) — MP-377 quality sweep: dedupe + shape + noqa**
+- All 5 blockers from Session 39 FIXED (code_shape split, helper dedupe, noqa removal, facade-wrapper debt, governance log shared helpers).
+- Validation: 170 review-channel, 26 code-shape, 79 governance tests pass.
+  5. Push review only when all above are done
+- **Round 17 — ACK-freshness false-green + follow-loop hang** (current):
+  (1) `event_projection.py`: removed queue-derived ACK shortcut. `claude_ack_revision`
+  and `claude_ack_current` now default to empty/False in event-backed path since the
+  real ACK revision token lives in bridge markdown, not structured events. Prevents
+  false-green when queue has no pending packets but Claude ACK is actually stale.
+  (2) `follow_loop.py`: inactivity timeout now fires even when progress token is empty.
+  Previously `last_progress_monotonic` was never set when `tick.progress_token` was
+  empty, so the timeout condition at line 164 was always skipped.
+  Evidence: 161 review-channel tests pass, bridge guard green, code shape 0, status ok.
+- **Round 11 — close all 6 Codex findings**:
+  Fixed all 6 findings from `instruction-rev: 6ff5d5de354c`:
+  (1) Mobile parity: added `SWIFT_DAEMON_PATH`, `RUST_TO_SWIFT_NAME_MAP`,
+  Swift computed-property filter. `matched_pairs: 1`, guard green.
+  (2) Package layout: moved `check_daemon_state_parity.py` and
+  `check_governance_closure.py` to subpackages with thin root wrappers.
+  (3) Code shape: extracted `status_projection_helpers.py` from
+  `status_projection.py` (358→~320). Added `peer_liveness.py` path override
+  (380 soft limit for legitimate StrEnum growth).
+  (4) Suppression: removed `# type: ignore` via isinstance type narrowing.
+  (5) Param count: grouped 3 lane params into `lanes: dict` in
+  `snapshot_builder.py::_build_session_surfaces`.
+  Guards: 6/7 green. `check_parameter_count` has 1 pre-existing violation in
+  `follow_loop_support.py` (unchanged file, not in this slice).
+  Tests: 22 mobile relay pass, 580 operator console pass. needs-review.
+- **Round 9 — artifact + packet closure**: 22-check closure guard with 6
+  parity sub-checks. On-disk checks gated to event-backed mode.
+- **Round 8 — artifact closure proof**: On-disk bridge validation, round-trip test.
+- **Round 7 — typed event-backed ReviewState**:
+  Refactored `reduce_events()` to typed models. Split emitter_parity.py.
+  Identity refactor (repo-relative paths, portable fallback).
+  Checks: 159 pass, code_shape 2 (pre-existing), closure 19/19 green.
+- **Round 6 — hardened parity guard**: false-green fix, type strictness, negative tests.
+- **Round 5 — strengthened parity**: 3 sub-checks (keys, types, _compat).
+  Event bridge_state: added overall_state + codex_poll_state, removed reviewed_hash_current.
+  Now 19 checks total (9 runtime + 6 artifact + 1 startup + 3 parity), all pass.
+  Files changed: `event_projection.py`, `platform_contract_closure/support.py`.
+  Checks: 156 tests pass (151 review-channel + 5 contract closure), guard 19/19.
+  Checks: closure guard 17/17 green, 151 review-channel tests pass.
+- **Round 3 — ACK-freshness parity**: stale-ACK status fix + event ACK fields.
+- **Round 2 — guard burndown**: file splits, param-count, dict-schema, facades.
+- **Round 2 — guard blocker burndown**: file splits, param-count, dict-schema,
+  facade-wrappers, FailurePacket scope narrowing.
+- **Round 1 — governance-quality semantics + test fixes**: open_finding_count,
+  finding_density, check_router, mobile_status.
+- needs-review.
+
+- **Session 37 (prior) — MP-377 quality-feedback + review-channel _compat**
+- Rounds 1-8 completed. See history below for details.
+- Round 8: Codex refined score formulas. 1539 pass.
+- Round 7: Multi-lens score redesign. 1539 pass.
+- Round 6: Guard-subset fix. Round 5: Report-semantics fix.
+- Round 4: Registry-shape fix. Round 3: Availability-gating fix.
+- Previous score-contract fixes completed:
+  (b) Added `*_available` flags to `ScoreInputs`; `compute_maintainability_score()`
+  now excludes unavailable dimensions and renormalizes weights. Builder only marks
+  dimensions available when real evidence exists (`halstead_mi_available` when
+  files_scanned>0, `cleanup_rate_available` when review findings>0, etc.).
+  `code_shape`, `duplication`, `time_to_green` stay unavailable/excluded until
+  their data sources are wired.
+  (c) Renamed `probe_density` → `finding_density` and `high_findings` →
+  `positive_findings` across models, score functions, weights, and builder.
+  Label now honestly says "positive findings per scanned file" instead of
+  claiming HIGH-only severity filtering.
+  (d) Added 4 new tests: unavailable dims don't inflate, only available dims
+  participate, finding_density uses positive_findings, weight key is correct.
+  Fixed existing tests for renamed field.
+- Validation: 1535 passed, 2 pre-existing failures. needs-review.
+- Previously completed:
+  (a) CLI wiring confirmed already present — no action needed.
+  (b) per_check_score.py and improvement_tracker.py confirmed already using
+      composite `(check_id, signal_type)` key — no action needed.
+  (c) ReviewState canonical payload: moved `project_id`, `runtime`,
+      `service_identity`, `attach_auth_policy`, `agents` from top-level into
+      `_compat` sub-dict in both `status_projection.py` (bridge-backed) and
+      `event_reducer.py` (event-backed). Updated all consumers:
+      `event_projection.py`, `projection_bundle.py`, `control_state.py`, and
+      `test_review_channel.py`. 154 review-channel tests pass.
+  (d) Halstead paths confirmed already repo-relative — `analyze_file()` has
+      `relative_to` param and `analyze_directory()` passes `relative_to=root`.
+  (e) Added 12 dedicated quality-feedback tests in
+      `tests/governance/test_quality_feedback.py`: per-check composite key
+      separation, precision/FP-rate math, improvement delta composite key,
+      Halstead path portability, contract constants, serialization.
+- Validation: 1531 passed, 2 pre-existing failures (check_router, mobile_status).
+  Platform contract closure guard green. needs-review.
 
 - **Session 34 — MP-377 daemon-event to runtime-state reducer**
 - Started: `2026-03-17T02:30:00Z`
@@ -2093,6 +1625,129 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
+- acknowledged; instruction-rev: `f44a03299b02`
+- Session 42 / MP-358 stall (narrowed): DONE. Only instruction-owned wait markers. 6 regressions in test_implementer_stall.py. 42/42 pass. code_shape 0. needs-review.
+- Session 42 / MP-358 stall (narrow): Narrow detector to only event-owned evidence. Add focused regressions.
+- acknowledged; instruction-rev: `69a3e4f662d2`
+- Session 42 / MP-358 loop-health: DONE. Accepted.
+- acknowledged; instruction-rev: `42ce07ebf1cc`
+- Session 42 / MP-358 queue-truth (continued): DONE. Accepted.
+- acknowledged; instruction-rev: `f062bdfda0aa`
+- Session 42 / MP-358 queue-truth: DONE. Accepted.
+- acknowledged; instruction-rev: `8d3d4e286170`
+- Session 42 / MP-358 bridge-truth sync: DONE. Accepted.
+- acknowledged; instruction-rev: `21a89eff4cf7`
+- Session 42 / MP-355 integrity (wire callers): DONE. Accepted.
+- acknowledged; instruction-rev: `cd7a3f838d3e`
+- Session 42 / MP-355 integrity (harden): DONE. Accepted.
+- acknowledged; instruction-rev: `925f749cb52a`
+- Session 42 / MP-355 integrity (serialized): DONE. Accepted.
+- acknowledged; instruction-rev: `61ee60fc2662`
+- Session 42 / MP-355 integrity (initial): Partial fix — max-based next_event_id + fcntl.flock. Needs full serialized allocation.
+- acknowledged; instruction-rev: `2ac12e4c9748`
+- Session 42 / MP-355 inbox slice: DONE. Split rendering into Pending/Resolved sections. Added pending_packets/resolved_packets to JSON. 21/21 pass. code_shape 0. needs-review.
+- acknowledged; instruction-rev: `b4bd4c1ef62b`
+- Session 42 / CI contract fix: DONE. Accepted.
+- acknowledged; instruction-rev: `6810e91bea97`
+- Session 42 / Repair slice: DONE. Accepted.
+- acknowledged; instruction-rev: `248ef248a636`
+- acknowledged; instruction-rev: `b061cc56cb92`
+- Session 42 / Self-governance: DONE. Wired governance_closure into _SHARED_GOVERNANCE_CHECKS. Added CI exemption (runs via bundle). 5 focused tests. No longer self-flags. 30 pre-existing violations remain. needs-review.
+- Session 42 / Slice E (tighten): DONE. Accepted.
+- acknowledged; instruction-rev: `1dee08670a08`
+- Session 42 / Slice E (final): DONE. Malformed bridge fail-closed. Accepted.
+- acknowledged; instruction-rev: `7c129824e4f4`
+- Session 42 / Slice E (continued): DONE. Fully typed reviewer token. Accepted.
+- acknowledged; instruction-rev: `0d2fa803bfb7`
+- Session 42 / Slice E (initial): Routed _capture_wait_snapshot through build_bridge_poll_result. 8/8 pass.
+- acknowledged; instruction-rev: `c5d49df4cfd1`
+- Session 42 / Slice D: ACCEPTED. bridge-poll live with full RuntimePaths, worktree hash, contract validation.
+- acknowledged; instruction-rev: `if366419273a`
+- Session 42 ack (parser split): DONE. simple_lanes_parser.py extracted with 4 parsers. parser.py down to 228 lines (under 350 soft limit). code_shape 0 violations. test_simple_lanes 8/8 pass, test_governance_cli_dispatch 5/5 pass, test_doc_authority 30/30 pass. doc-authority command verified working post-refactor. needs-review.
+- acknowledged; instruction-rev: `02d4a121f492`
+- Session 41 ack (Slice C): DONE. Guard validates 8 invariants, subpackage layout, registered in catalog/policy/bundles. 8/8 live, 5 tests, 0 step failures. needs-review.
+- Session 41 ack (Slice B final): DONE. M1 FIXED: e2e command-path test captures payload through run(). M2 FIXED: enabled_checks test asserts specific VoiceTerm guard IDs + count thresholds. M3 FIXED: bundle_overrides emits {} until real bundle surface exists. 61 tests, 0 step failures. needs-review.
+- Session 41 ack (Slice B rework): DONE. H1+H2 fixed. policy_path threaded, resolve_quality_policy for checks.
+- Session 41 ack (Phase 1 / Slice B): DONE. ALL GUARDS GREEN. `governance-draft` command landed: `scan_repo_governance()` scans local repo facts (git state, policy file, filesystem paths, bridge mode, enabled guards/probes, bundle overrides, startup order). Full CLI wiring through parser + handler + __init__. Live proof: `governance-draft --format json` emits correct `ProjectGovernance` payload on this repo. Fixed subprocess-policy (added check=False) and nesting-depth (extracted `_parse_bridge_mode` helper). 59 tests pass. check --profile quick 0 step failures. needs-review.
+- Session 41 ack (Phase 1 / Slice A): DONE. ALL GUARDS GREEN. `ProjectGovernance` contract landed with 9 nested records (`RepoIdentity`, `RepoPackRef`, `PathRoots`, `PlanRegistryRoots`, `ArtifactRoots`, `MemoryRoots`, `BridgeConfig`, `EnabledChecks`, `BundleOverrides`), 10 mapping helpers, exported through `__init__.py`, documented in README.md, 9 focused tests (full-payload, defaults, round-trip, coercion, constants, tuple→list). Fixed facade-wrappers guard by adding intermediate variables to each helper. 54/54 runtime tests pass. check --profile quick 0 step failures. Accepted by Codex.
+- prior rev: `2d60024d3761`
+- Session 40 ack (round 18k): DONE. ALL GUARDS GREEN. verify threaded through
+  ensure, __init__.py 307 lines, ensure.py 348 lines. 178 pass. needs-review.
+- Session 40 ack (round 18j): REWORK needed. verify not in ensure path, __init__.py regressed.
+- Session 40 ack (round 18i): ACCEPTED. Checkpoint projection refresh.
+- Session 40 ack (round 18h): ACCEPTED. ALL GUARDS GREEN.
+- Session 40 ack (round 18g): ACCEPTED. __init__.py 352→296 lines.
+- Session 40 ack (round 18f): ACCEPTED. Replaced `EnsureActionDeps.sleep_fn` with typed `_noop_sleep()`, removed the `ensure.py` `# type: ignore`, added `test_ensure_action_deps_default_sleep_fn_is_noop`, `175` review-channel tests pass, and quick-check is red only on `review_channel/__init__.py` soft-limit plus `probe_mixed_concerns.py` package-layout debt. needs-review.
+- Session 40 ack (round 18e): ACCEPTED. ReviewerFreshness enum + classify function +
+  BridgeLiveness field + attention routing rewrite. 174 tests pass. needs-review.
+- Session 40 ack (round 18d): ACCEPTED. Ensure auto-heal fix + regression test.
+- prior rev: `3f6159c07274`
+- Session 40 ack (review findings): All 4 Codex findings fixed. ensure auto-restart,
+  mobile relay false-green, identity portability, attention priority. 271 tests pass.
+  needs-review.
+- Session 40 ack (round 18b): Codex re-reviewed Session 40, narrowed to 4 live
+  blockers. All 4 done: __init__.py split, handoff.py mixed-concern split,
+  (3) probe_mixed_concerns.py subpackage move, (4) governance facade-wrapper cleanup.
+  Coding now.
+- Session 40 ack (round 18): Workers 1 and 2 complete. Review-channel package
+  conversion done (status.py, ensure.py in package; bridge_promotion.py in domain
+  module to avoid circular import). Checks-layer: nesting, param-count, layout all
+  fixed. 195 tests pass. Starting Worker 3 (governance dedupe). Still red:
+  `__init__.py` 470 lines (package move artifact), `handoff.py` mixed concerns,
+  `probe_mixed_concerns.py` crowded directory.
+- Session 38 ack (round 17): Concrete slice from Codex. Two fixes:
+  (1) event_projection.py: remove queue-derived ACK shortcut, compute
+  claude_ack_revision from real bridge/runtime state.
+  (2) follow_loop.py: make inactivity timeout fire on empty progress token.
+  Coding both now.
+- Session 38 ack (round 13b): All blockers closed. Shim dual-import (Codex fix),
+  code shape (extracted mobile_relay_protocol_support.py + _load_protocol_sources).
+  Evidence: code_shape 0, mobile_relay 22 pass, review_channel 155 pass.
+  Both shim modes work (script + module). Continuing MP-377.
+  Extracting config/comparison helpers to reduce file + function size. Coding.
+- Session 38 ack (round 11): 6 findings closed. Protocol paths config-driven.
+  (2) Move new root checks to subpackages + thin wrappers
+  (3) Refactor peer_liveness.py + status_projection.py under shape limits
+  (4) Remove type:ignore suppression in status_projection.py
+  (5) Fix parameter-count in snapshot_builder.py
+  Coding now.
+  Do not widen into mobile/PyQt6. Coding now.
+- Session 38 ack (round 6): Codex accepted ACK-freshness parity. Fresh checkpoint
+  on tree `cc13bf57421f`. Next slice: closure-proof parity — make closure guard +
+  tests prove canonical ReviewState agreement between bridge-backed and event-backed
+  paths. Coding now.
+- Session 36 ack: MP-377 governance-quality-feedback redirected slice. Read `Last
+  Codex poll`, full `Current Instruction For Claude`, and both plan anchors
+  (`ai_governance_platform.md`, `portable_code_governance.md`). Restated active
+  slice in Claude Status. Confirmed: 8 core modules exist (models, halstead,
+  fp_classifier, maintainability_score, per_check_score, improvement_tracker,
+  recommendation_engine, report_builder). Missing: CLI command handler, tests,
+  script_catalog registration, platform artifact-schema wiring, artifact writes.
+  Fanning out 3 disjoint workers per bridge instruction. needs-review.
+- Session 35 ack: MP-377 P0 contract-closure slice — finding identity + guard-to-Finding adapter.
+  Completed: (1) stable finding identity — `review_probe_report.py:243` now passes `repo_path=""`
+  instead of `str(effective_root)`, docstring added to `FindingIdentitySeed`, portability test added.
+  (2) Guard-to-Finding adapter — `finding_from_guard_violation()` in new `guard_finding_contracts.py`
+  with `GuardFindingPolicy` dataclass, tested against code_shape and duplication violation schemas.
+  Guards now emit `signal_type="guard"` into the same `FindingRecord` pipeline as probes.
+  Codex refactored param-count violation by extracting the policy dataclass. Both slices verified:
+  7 focused tests pass, 1488/1490 full suite pass (2 pre-existing failures), parameter-count guard
+  clean, platform-contract-closure guard green for its implemented matrix (`8` runtime contracts + `5` artifact schemas), docs-check ok, hygiene ok.
+  Governance-review ledger: 101 rows, 3 new audit findings recorded with accuracy verdicts.
+  Corrected scope for plan (reviewed by Codex, cross-checked by Claude):
+  - Actual surface: 62 guard scripts (32 policy-enabled), 26 probe scripts (23 policy-enabled)
+  - Naming enforcement already exists as `check_naming_consistency.py` (host/provider naming)
+  - Design-pattern enforcement partially exists via `check_package_layout`, `check_facade_wrappers`,
+    `check_platform_layer_boundaries`
+  - Net-new guard opportunities: cross-file naming drift, contract-field consistency,
+    return-type consistency, import-pattern drift
+  - Widening the existing `check_naming_consistency.py` into a portable, policy-driven
+    `check_naming_conventions` guard is the right next step, not greenfield
+  - Proof path: reference repo pilot (small Python project, intentional bad patterns,
+    before/after findings, cleanup rate, false-positive rate)
+  - All new guards must be policy-configurable via `quality_presets/*.json` and
+    `devctl_repo_policy.json`, never hardcoded to VoiceTerm
+  needs-review.
 - Session 34 ack: daemon-event to runtime-state reducer is frozen in the
   shared backend. `reduce_events()` now handles `daemon_started`,
   `daemon_stopped`, `daemon_heartbeat` → produces authoritative `runtime`
@@ -2139,75 +1794,30 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-- continue with full validation and push when green
+- Repoll, ACK this reviewer instruction revision, then finish the bounded MP-358 implementer-stall slice.
+- Close the parity gap instead of partially mirroring it: either thread a real reviewer-owned wait-state signal into the event-backed projection path, or narrow the event-backed stall detector so it only uses evidence the event-backed state actually owns and cannot pretend to honor missing `Poll Status` semantics.
+- Add focused event-backed regressions in `dev/scripts/devctl/tests/test_review_channel.py` that prove the stall flag/attention stay clear under reviewer-owned wait states and fire only when the event-backed evidence truly shows a parked implementer.
+- Rerun the focused event-backed review-channel tests, then stop for Codex review.
 
 ## Plan Alignment
 
-- Current execution authority for this slice is `dev/active/ai_governance_platform.md` and the mirrored `MP-377` rows in `dev/active/MASTER_PLAN.md`.
+- Current execution authority for this slice is `dev/active/MASTER_PLAN.md`, routed through `dev/active/ai_governance_platform.md`, with `dev/active/platform_authority_loop.md` as the current subordinate Phase 1 execution spec for startup authority.
 - `dev/active/review_channel.md` remains the active runbook for the live Codex/Claude markdown loop while the bridge still exists.
 - `dev/active/continuous_swarm.md` remains a supporting runbook for reviewer/coder cadence and stale-loop hardening, not the product boundary or current primary coding lane.
 - `dev/guides/AI_GOVERNANCE_PLATFORM.md` and `dev/active/portable_code_governance.md` remain companion docs; they do not replace `MP-377` as the active execution authority.
+- `SYSTEM_AUDIT.md` is broad reference context only. It does not override the active-plan chain or the current bridge instruction.
 
 ## Last Reviewed Scope
 
+- dev/scripts/devctl/review_channel/event_projection.py
+- dev/scripts/devctl/review_channel/attention.py
+- dev/scripts/devctl/tests/test_review_channel.py
 
-
-
-
-
-
-
-- code_audit.md
+## Warnings
+- `rust/src/bin/voiceterm/event_loop/tests.rs` (soft_limit, hard_limit): Override soft_limit (6500) is 7.22x the .rs default (900). Override hard_limit (7000) is 5.00x the .rs default (1400). Operator intent keeps path overrides under 3.0x the soft cap and under 2.0x the hard cap.
+- `app/operator_console/theme/editor/theme_editor.py` (soft_limit, hard_limit): Override soft_limit (1400) is 4.00x the .py default (350). Override hard_limit (1500) is 2.31x the .py default (650). Operator intent keeps path overrides under 3.0x the soft cap and under 2.0x the hard cap.
+- `app/operator_console/views/ui_refresh.py` (soft_limit): Override soft_limit (1150) is 3.29x the .py default (350). Operator intent keeps path overrides under 3.0x the soft cap and under 2.0x the hard cap., ........                                                                 [100%]
+8 passed in 0.32s, and .....                                                                    [100%]
+5 passed in 0.27s.
+- Confirmed the  discovery/docs drift is fixed in-tree: , , and .
 

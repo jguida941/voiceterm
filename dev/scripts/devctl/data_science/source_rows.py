@@ -32,8 +32,12 @@ def read_jsonl_dict_tail(path: Path, *, max_rows: int) -> list[dict[str, Any]]:
     rows: deque[dict[str, Any]] = deque(maxlen=max(1, max_rows))
     try:
         with path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                payload = parse_json_line_dict(line)
+            for line_number, line in enumerate(handle, start=1):
+                payload = parse_json_line_dict(
+                    line,
+                    source=str(path),
+                    line_number=line_number,
+                )
                 if payload is not None:
                     rows.append(payload)
     except OSError:

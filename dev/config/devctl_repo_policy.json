@@ -376,12 +376,13 @@
           "Read `dev/active/MASTER_PLAN.md` (canonical execution state for all MPs).",
           "Only load additional active docs when the task class requires them."
         ],
-        "key_commands_block": "# Full CI check\npython3 dev/scripts/devctl.py check --profile ci\n\n# Quick local check\npython3 dev/scripts/devctl.py check --profile quick\n\n# Docs governance\npython3 dev/scripts/devctl.py docs-check --strict-tooling\n\n# Render policy-owned instruction surfaces\npython3 dev/scripts/devctl.py render-surfaces --format md\n\n# Hygiene\npython3 dev/scripts/devctl.py hygiene\n\n# Rust tests\ncd rust && cargo test --bin voiceterm\n\n# Python tests\npython3 -m pytest dev/scripts/devctl/tests/ -q",
+        "key_commands_block": "# Full CI check\npython3 dev/scripts/devctl.py check --profile ci\n\n# Quick local check\npython3 dev/scripts/devctl.py check --profile quick\n\n# Docs governance\npython3 dev/scripts/devctl.py docs-check --strict-tooling\n\n# Platform contract catalog\npython3 dev/scripts/devctl.py platform-contracts --format md\n\n# Platform contract closure guard\npython3 dev/scripts/checks/check_platform_contract_closure.py\n\n# Render policy-owned instruction surfaces\npython3 dev/scripts/devctl.py render-surfaces --format md\n\n# Hygiene\npython3 dev/scripts/devctl.py hygiene\n\n# Rust tests\ncd rust && cargo test --bin voiceterm\n\n# Python tests\npython3 -m pytest dev/scripts/devctl/tests/ -q",
         "post_edit_verification_intro": "After EVERY file create/edit, you MUST run the repo-required verification before reporting the task as done.",
         "post_edit_verification_steps": [
           "Run the task-class bundle from `AGENTS.md` after every file create/edit: `bundle.runtime`, `bundle.docs`, `bundle.tooling`, or `bundle.release`.",
           "Run any additional path or risk checks required by `AGENTS.md` and `dev/guides/DEVELOPMENT.md#after-file-edits`.",
           "For complex edits, refactors, new modules, or business-logic changes, run `python3 dev/scripts/devctl.py check --profile ci`.",
+          "If you changed platform/runtime contract models, `platform-contracts`, probe-report packet schemas, or contract-routing surfaces, run `python3 dev/scripts/checks/check_platform_contract_closure.py` and `python3 dev/scripts/devctl.py platform-contracts --format md`.",
           "If you changed repo-pack templates, repo policy, or generated instruction surfaces, run `python3 dev/scripts/devctl.py render-surfaces --write --format md` and `python3 dev/scripts/checks/check_instruction_surface_sync.py`.",
           "`python3 dev/scripts/devctl.py check --profile quick` is only a fast local iteration step; it does not replace the required bundle or handoff verification."
         ],
@@ -474,6 +475,16 @@
       "rust_probe_roots": [
       "rust/src"
     ]
+  },
+  "protocol_boundary": {
+    "rust_daemon_types": "rust/src/bin/voiceterm/daemon/types.rs",
+    "swift_relay_models": "app/ios/VoiceTermMobile/Sources/VoiceTermMobileCore/MobileRelayModels.swift",
+    "swift_daemon_models": "app/ios/VoiceTermMobile/Sources/VoiceTermMobileCore/DaemonWebSocketClient.swift",
+    "python_daemon_reducer": "dev/scripts/devctl/review_channel/daemon_reducer.py",
+    "name_map": {
+      "AgentInfo": "AgentSnapshot"
+    },
+    "swift_computed_properties": ["id", "isOutput", "isError"]
   },
   "ai_guard_overrides": {
     "ide_provider_isolation": {

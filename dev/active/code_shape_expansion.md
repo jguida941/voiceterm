@@ -135,6 +135,22 @@ and a `practices.py` entry. Audit-validated assignments:
   Enhance `probe_dict_as_struct` with sequential-mutation signal instead of
   creating a duplicate probe.
 
+### Audit-derived follow-ups
+
+Recent repo audits surfaced a set of shape problems that are not yet covered
+by the shipped probes but are worth calibrating as future probe candidates:
+
+- literal contract/config rows embedded as Python data-as-code instead of
+  repo-policy/config artifacts
+- wrapper-only modules that add indirection without architectural value
+- duplicated normalization helpers that should collapse into shared typed
+  adapters
+- governance-completeness blind spots, where the checking stack itself lacks
+  test coverage, CI invocation coverage, or exception-list completeness
+
+These should stay in the research-evidence lane until we can measure false-
+positive rate and usefulness across more than one repo.
+
 ---
 
 ## Execution Checklist
@@ -152,6 +168,11 @@ and a `practices.py` entry. Audit-validated assignments:
 - [ ] Phase 5: Rust-specific structural (type signature, struct cohesion, enum dedup guard, assertion density)
 - [ ] Phase 6: Cross-file and commit-level analysis (CBO, RFC, copy-paste ratio, SLAP) — BLOCKED on MP-377
 - [ ] Phase 7: Language expansion (JS/TS and Go scanners + probe ports) — BLOCKED on MP-377
+- [ ] Keep the metric lane aligned with the portable coherence layer rather
+      than parallel to it: Halstead/identifier/cognitive/cohesion probes
+      should rank and explain convention drift for `MP-267` / `MP-377`, but
+      repo-policy naming/organization rules remain the source of truth for
+      what counts as drift.
 
 ---
 

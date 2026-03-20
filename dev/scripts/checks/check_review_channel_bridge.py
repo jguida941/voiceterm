@@ -20,11 +20,12 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 _review_channel_handoff = importlib.import_module("dev.scripts.devctl.review_channel.handoff")
+_bridge_validation = importlib.import_module("dev.scripts.devctl.review_channel.bridge_validation")
 _peer_liveness = importlib.import_module("dev.scripts.devctl.review_channel.peer_liveness")
 
 DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS = _review_channel_handoff.DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS
 extract_bridge_snapshot = _review_channel_handoff.extract_bridge_snapshot
-validate_live_bridge_contract = _review_channel_handoff.validate_live_bridge_contract
+validate_live_bridge_contract = _bridge_validation.validate_live_bridge_contract
 reviewer_mode_is_active = _peer_liveness.reviewer_mode_is_active
 
 CODE_AUDIT_PATH = REPO_ROOT / "code_audit.md"

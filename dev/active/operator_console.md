@@ -88,6 +88,10 @@ This plan covers:
     diff/review, CI visibility, process hygiene, and optional terminal/shell
     views so the desktop app can evolve into a real dev-environment controller
     without bypassing repo-owned backends.
+23. A main-window decomposition pass that treats the current 12-mixin shell as
+    architecture debt: move duplicated lane builders and shared presentation
+    logic into explicit composition helpers so the window stays inspectable
+    instead of becoming a hidden-indirection pile.
 
 Out of scope for this tranche:
 
@@ -144,6 +148,10 @@ maintainable Python package shape:
 14. Workflow modes must remain repo-state-aware and should point the operator
     back to active-plan scope, changed-path risk class, and required check
     bundles rather than acting like a generic terminal dashboard.
+15. The main window must not accrete mixins faster than it accretes
+    composition boundaries: any duplicated lane builder or repeated panel
+    assembly logic should be extracted into a shared helper before the window
+    gets larger.
 
 ## Locked Decisions
 
@@ -890,6 +898,30 @@ progressive disclosure, and 8px base grid spacing.
 
 ## Progress Log
 
+- 2026-03-19: Closed the next MP-359 workflow-authority correction after the
+  live desktop audit found that `Run Loop` respected the selected workflow
+  preset but `Launch Review` / `Start Swarm` still launched a fixed
+  review-channel bootstrap. The Operator Console now freezes the selected
+  preset into `review-channel --action launch` through both `--scope` and
+  `--promotion-plan`, and the chained Start Swarm preflight/live path carries
+  the same typed launch target instead of silently falling back to the default
+  review plan. Extracted `ReviewLaunchTarget` / review-command completion
+  helpers so the UI mixin stays under code-shape limits, revalidated the
+  focused Operator Console launch tests, reran `check --profile ci`, and
+  confirmed the current follow-up architecture question explicitly: keep
+  subtree-local `AGENTS.md` docs only if they become part of a typed
+  instruction-authority registry; otherwise collapse local placement guidance
+  back into the package README / map docs to avoid doc-authority sprawl.
+- 2026-03-17: Accepted the next MP-359 architecture correction after a shared
+  backend/runtime review pass. The current desktop shell still treats the
+  markdown bridge and compatibility payload rebuilds as primary data sources
+  too often, and it still keeps repo/path/risk/CLI authority locally through
+  `VOICETERM_PATH_CONFIG`, local risk bucketing, and hard-coded review-channel
+  argv builders. The next bounded slice is now explicit: move the session and
+  snapshot builders to `review_state` / typed full projections / registry-
+  first reads, keep `code_audit.md` as fallback-only when structured artifacts
+  are missing, and preserve the remaining path/risk/argv cleanup as follow-up
+  debt instead of mixing it into unrelated UI work.
 - 2026-03-11: Closed the next MP-359 presentation-state cleanup after the
   guard-driven review pass narrowed the remaining Operator Console advisory
   debt to one file. `app/operator_console/state/presentation/presentation_state.py`

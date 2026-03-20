@@ -14,6 +14,7 @@ from ..review_channel.peer_liveness import OverallLivenessState
 from ..review_channel.reviewer_state import reviewer_state_write_to_dict
 from ..review_channel.state import projection_paths_to_dict
 from ..time_utils import utc_timestamp
+from .review_channel.bridge_wait_render import append_wait_state_markdown
 
 
 def render_bridge_md(
@@ -60,6 +61,7 @@ def render_bridge_md(
     _append_handoff_bundle(lines, report.get("handoff_bundle"))
     _append_promotion(lines, report.get("promotion"))
     _append_attention(lines, report.get("attention"))
+    append_wait_state_markdown(lines, report.get("wait_state"))
     _append_service_identity(lines, report.get("service_identity"))
     append_attach_auth_policy_markdown(lines, report.get("attach_auth_policy"))
     _append_bridge_heartbeat_refresh(lines, report.get("bridge_heartbeat_refresh"))
@@ -86,6 +88,7 @@ def build_bridge_success_report(
     handoff_ack_observed: dict[str, bool] | None,
     promotion=None,
     bridge_heartbeat_refresh=None,
+    reviewer_state_write=None,
     execution_mode_override: str | None = None,
 ) -> tuple[dict, int]:
     """Assemble the bridge-action success report dict."""
@@ -140,7 +143,7 @@ def build_bridge_success_report(
         "bridge_heartbeat_refresh": bridge_heartbeat_refresh_to_dict(
             bridge_heartbeat_refresh
         ),
-        "reviewer_state_write": reviewer_state_write_to_dict(None),
+        "reviewer_state_write": reviewer_state_write_to_dict(reviewer_state_write),
     }
     if isinstance(reviewer_worker, dict):
         report["review_needed"] = bool(reviewer_worker.get("review_needed"))
@@ -148,6 +151,11 @@ def build_bridge_success_report(
         report["warnings"].append(
             "Auto-refreshed the markdown-bridge reviewer heartbeat before "
             f"{args.action} so the live launch contract could proceed."
+        )
+    if reviewer_state_write is not None:
+        report["warnings"].append(
+            "Auto-demoted the stale markdown bridge to `paused` because no live "
+            "reviewer runtime owner was detected."
         )
     if handoff_ack_required and handoff_ack_observed is not None:
         missing = [

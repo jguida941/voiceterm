@@ -48,6 +48,7 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_facade_wrappers.py",
     "python3 dev/scripts/checks/check_god_class.py",
     "python3 dev/scripts/checks/check_mobile_relay_protocol.py",
+    "python3 dev/scripts/checks/check_daemon_state_parity.py",
     "python3 dev/scripts/checks/check_nesting_depth.py",
     "python3 dev/scripts/checks/check_parameter_count.py",
     "python3 dev/scripts/checks/check_python_dict_schema.py",
@@ -97,9 +98,12 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_bundle_registry_dry.py",
     "python3 dev/scripts/checks/check_bundle_workflow_parity.py",
     "python3 dev/scripts/checks/check_platform_layer_boundaries.py",
+    "python3 dev/scripts/checks/check_platform_contract_closure.py",
     "python3 dev/scripts/checks/check_platform_contract_sync.py",
     "python3 dev/scripts/checks/check_review_channel_bridge.py",
+    "python3 dev/scripts/checks/check_startup_authority_contract.py",
     "python3 dev/scripts/checks/check_tandem_consistency.py",
+    "python3 dev/scripts/checks/check_governance_closure.py",
 )
 
 # Publication drift only blocks release lanes. Normal tooling/post-push work

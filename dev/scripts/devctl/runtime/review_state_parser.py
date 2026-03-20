@@ -100,6 +100,8 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             overall_state=_string(bridge_liveness.get("overall_state")) or "unknown",
             codex_poll_state=_string(bridge_liveness.get("codex_poll_state"))
             or "unknown",
+            reviewer_freshness=_string(bridge_liveness.get("reviewer_freshness"))
+            or "unknown",
             reviewer_mode=_string(bridge.get("reviewer_mode")) or "active_dual_agent",
             last_codex_poll_utc=_string(bridge.get("last_codex_poll_utc")),
             last_codex_poll_age_seconds=_int(
@@ -110,6 +112,11 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             open_findings=_string(bridge.get("open_findings")),
             claude_status=_string(bridge.get("claude_status")),
             claude_ack=_string(bridge.get("claude_ack")),
+            claude_ack_current=_bool(bridge.get("claude_ack_current")),
+            current_instruction_revision=_string(
+                bridge.get("current_instruction_revision")
+            ),
+            claude_ack_revision=_string(bridge.get("claude_ack_revision")),
             last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
             implementer_completion_stall=bool(bridge.get("implementer_completion_stall")),
             publisher_running=bool(bridge.get("publisher_running")),
@@ -179,6 +186,12 @@ def _packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                 trace_id=_string(mapping.get("trace_id")),
                 latest_event_id=_string(mapping.get("latest_event_id")),
                 confidence=confidence,
+                target_kind=_string(mapping.get("target_kind")),
+                target_ref=_string(mapping.get("target_ref")),
+                target_revision=_string(mapping.get("target_revision")),
+                anchor_refs=_string_rows(mapping.get("anchor_refs")),
+                intake_ref=_string(mapping.get("intake_ref")),
+                mutation_op=_string(mapping.get("mutation_op")),
                 acked_by=_string(mapping.get("acked_by")),
                 acked_at_utc=_string(mapping.get("acked_at_utc")),
                 applied_at_utc=_string(mapping.get("applied_at_utc")),

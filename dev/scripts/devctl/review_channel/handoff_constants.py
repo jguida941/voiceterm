@@ -19,6 +19,9 @@ BRIDGE_METADATA_PATTERNS = {
     "last_non_audit_worktree_hash": re.compile(
         r"^- Last non-audit worktree hash:\s*`(?P<value>.+?)`\s*$"
     ),
+    "current_instruction_revision": re.compile(
+        r"^- Current instruction revision:\s*`(?P<value>.+?)`\s*$"
+    ),
 }
 TRACKED_BRIDGE_SECTIONS = (
     "Poll Status",
@@ -47,6 +50,7 @@ BRIDGE_LIVENESS_KEYS = (
     "overall_state",
     "reviewer_mode",
     "codex_poll_state",
+    "reviewer_freshness",
     "last_codex_poll_utc",
     "last_codex_poll_age_seconds",
     "last_reviewed_scope_present",
@@ -54,6 +58,9 @@ BRIDGE_LIVENESS_KEYS = (
     "open_findings_present",
     "claude_status_present",
     "claude_ack_present",
+    "claude_ack_current",
+    "current_instruction_revision",
+    "claude_ack_revision",
     "implementer_completion_stall",
 )
 DEFAULT_CODEX_POLL_DUE_AFTER_SECONDS = CODEX_POLL_DUE_AFTER_SECONDS
@@ -65,6 +72,13 @@ IDLE_NEXT_ACTION_MARKERS = (
     "none recorded",
     "idle",
     "placeholder",
+)
+GENERIC_NEXT_ACTION_MARKERS = (
+    "next unchecked",
+    "continue checklist",
+    "continue the next",
+    "continue next",
+    "start the next",
 )
 PLACEHOLDER_STATUS_MARKERS = (
     "none",
@@ -92,6 +106,16 @@ _RESOLVED_ECHO_RE = re.compile(
     r"\b(?:accepted|all\s+green|reviewer[- ]accepted|resolved)\b",
     re.IGNORECASE,
 )
+SUSPICIOUS_BRIDGE_LINE_PATTERNS = (
+    re.compile(r"(?i)\bplease run /login\b"),
+    re.compile(r"(?i)\bnot logged in\b"),
+    re.compile(r"(?i)\bcommand not found\b"),
+    re.compile(r"(?i)^usage:\s"),
+    re.compile(r"(?i)^traceback \(most recent call last\):"),
+    re.compile(r"(?i)\binvalid choice:\b"),
+    re.compile(r"(?i)^zsh:\d*:"),
+    re.compile(r"(?i)^bash:\s"),
+)
 
 
 def _is_substantive_text(text: str | None) -> bool:
@@ -104,3 +128,20 @@ def _is_substantive_text(text: str | None) -> bool:
     return not any(
         stripped == marker for marker in PLACEHOLDER_STATUS_MARKERS
     )
+
+
+def find_suspicious_bridge_text_lines(text: str | None) -> tuple[str, ...]:
+    """Return suspicious terminal/status lines that should not become bridge authority."""
+    if not text:
+        return ()
+    hits: list[str] = []
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        match = MARKDOWN_ITEM_RE.match(stripped)
+        candidate = match.group("value").strip() if match is not None else stripped
+        if any(pattern.search(candidate) for pattern in SUSPICIOUS_BRIDGE_LINE_PATTERNS):
+            if candidate not in hits:
+                hits.append(candidate)
+    return tuple(hits)

@@ -8,7 +8,6 @@ from pathlib import Path
 from ...approval_mode import normalize_approval_mode
 from ...review_channel.events import resolve_artifact_paths
 from ...review_channel.follow_stream import validate_follow_json_format
-from ...review_channel.promotion import DEFAULT_PROMOTION_PLAN_REL
 from ..review_channel_bridge_handler import _render_bridge_md
 from ..review_channel_event_handler import _render_event_md
 from .constants import CLI_RUNTIME_PATH_ARGS
@@ -19,7 +18,6 @@ from .constants import FOLLOW_JSON_ACTIONS
 from .constants import LIMITED_QUERY_ACTIONS
 from .constants import PACKET_TRANSITION_ACTIONS
 from .constants import POST_REQUIRED_ARGS
-from .constants import REVIEWER_CHECKPOINT_REQUIRED_ARGS
 from .constants import ReviewChannelAction
 from .models import ReviewChannelErrorReport
 from .models import RuntimePaths
@@ -71,6 +69,51 @@ def _validate_required_args(
     """Validate a tuple of required CLI attributes."""
     for attr, message in requirements:
         _require_present(args, attr, message)
+
+
+def _require_exactly_one(
+    args,
+    *,
+    attrs: tuple[str, str],
+    message: str,
+) -> None:
+    """Require exactly one of the two related CLI attributes."""
+    present = [attr for attr in attrs if getattr(args, attr, None)]
+    if len(present) != 1:
+        raise ValueError(message)
+
+
+def _validate_reviewer_checkpoint_args(args) -> None:
+    """Validate reviewer-checkpoint inline-vs-file body arguments."""
+    _require_exactly_one(
+        args,
+        attrs=("verdict", "verdict_file"),
+        message=(
+            "review-channel reviewer-checkpoint requires exactly one of "
+            "--verdict or --verdict-file."
+        ),
+    )
+    _require_exactly_one(
+        args,
+        attrs=("open_findings", "open_findings_file"),
+        message=(
+            "review-channel reviewer-checkpoint requires exactly one of "
+            "--open-findings or --open-findings-file."
+        ),
+    )
+    _require_exactly_one(
+        args,
+        attrs=("instruction", "instruction_file"),
+        message=(
+            "review-channel reviewer-checkpoint requires exactly one of "
+            "--instruction or --instruction-file."
+        ),
+    )
+    _require_present(
+        args,
+        "reviewed_scope_item",
+        "--reviewed-scope-item is required for review-channel reviewer-checkpoint.",
+    )
 
 
 def _error_report(args, message: str, *, exit_code: int) -> tuple[dict[str, object], int]:
@@ -162,7 +205,7 @@ def _validate_args(
             f"--actor is required for review-channel {normalized_action.value}.",
         )
     elif normalized_action is ReviewChannelAction.REVIEWER_CHECKPOINT:
-        _validate_required_args(args, REVIEWER_CHECKPOINT_REQUIRED_ARGS)
+        _validate_reviewer_checkpoint_args(args)
 
     if (
         getattr(args, "start_publisher_if_missing", False)
@@ -175,6 +218,11 @@ def _validate_args(
         and getattr(args, "follow", False)
     ):
         raise ValueError("review-channel reviewer-checkpoint does not support --follow.")
+    if (
+        normalized_action is ReviewChannelAction.IMPLEMENTER_WAIT
+        and getattr(args, "follow", False)
+    ):
+        raise ValueError("review-channel implementer-wait does not support --follow.")
 
     if normalized_action in FOLLOW_JSON_ACTIONS and getattr(args, "follow", False):
         validate_follow_json_format(
@@ -189,7 +237,7 @@ def _resolve_runtime_paths(args, repo_root: Path) -> RuntimePaths:
         name: (repo_root / getattr(args, name)).resolve()
         for name in CLI_RUNTIME_PATH_ARGS
     }
-    promotion_plan_rel = getattr(args, "promotion_plan", None) or DEFAULT_PROMOTION_PLAN_REL
+    promotion_plan_rel = getattr(args, "promotion_plan", None)
     script_dir = None
     if getattr(args, "script_dir", None):
         script_dir = (repo_root / args.script_dir).resolve()
@@ -202,7 +250,11 @@ def _resolve_runtime_paths(args, repo_root: Path) -> RuntimePaths:
     )
     return RuntimePaths(
         **resolved_paths,
-        promotion_plan_path=(repo_root / promotion_plan_rel).resolve(),
+        promotion_plan_path=(
+            (repo_root / str(promotion_plan_rel)).resolve()
+            if promotion_plan_rel
+            else None
+        ),
         script_dir=script_dir,
         artifact_paths=artifact_paths,
     )

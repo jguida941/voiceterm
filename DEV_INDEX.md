@@ -29,6 +29,7 @@ Key companion docs:
 - [Review Probes Plan](dev/active/review_probes.md)
 - [Portable Code Governance Plan](dev/active/portable_code_governance.md) (engine/adoption companion)
 - [AI Governance Platform Plan](dev/active/ai_governance_platform.md) (only main active platform plan for this product scope)
+- [Platform Authority Loop Plan](dev/active/platform_authority_loop.md) (current highest-priority subordinate `MP-377` execution spec)
 - [Engineering History](dev/history/ENGINEERING_EVOLUTION.md)
 - [ADRs](dev/adr/README.md)
 - [Changelog](dev/CHANGELOG.md)

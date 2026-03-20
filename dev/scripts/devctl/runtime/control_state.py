@@ -38,6 +38,7 @@ class ReviewAgentState:
 class ReviewBridgeState:
     overall_state: str
     codex_poll_state: str
+    reviewer_freshness: str
     last_codex_poll_utc: str
     last_worktree_hash: str
     pending_total: int
@@ -169,6 +170,8 @@ def build_control_state(
     bridge_state = ReviewBridgeState(
         overall_state=_string(review_liveness.get("overall_state")) or "unknown",
         codex_poll_state=_string(review_liveness.get("codex_poll_state")) or "unknown",
+        reviewer_freshness=_string(review_liveness.get("reviewer_freshness"))
+        or "unknown",
         last_codex_poll_utc=_string(review_bridge.get("last_codex_poll_utc")),
         last_worktree_hash=_string(review_bridge.get("last_worktree_hash")),
         pending_total=_int(review_queue.get("pending_total")),
@@ -208,7 +211,10 @@ def build_control_state(
         ),
         active_runs=(active_run,),
         review_bridge=bridge_state,
-        agents=_parse_agents(review_state.get("agents")),
+        agents=_parse_agents(
+            (review_state.get("_compat") or {}).get("agents")
+            or review_state.get("agents")
+        ),
         sources=ControlStateSources(
             phone_input_path=_string(resolved_sources.get("phone_input_path")),
             review_channel_path=_string(resolved_sources.get("review_channel_path")),
@@ -299,6 +305,7 @@ def review_bridge_from_mapping(value: object) -> ReviewBridgeState:
     return ReviewBridgeState(
         overall_state=_string(mapping.get("overall_state")) or "unknown",
         codex_poll_state=_string(mapping.get("codex_poll_state")) or "unknown",
+        reviewer_freshness=_string(mapping.get("reviewer_freshness")) or "unknown",
         last_codex_poll_utc=_string(mapping.get("last_codex_poll_utc")),
         last_worktree_hash=_string(mapping.get("last_worktree_hash")),
         pending_total=_int(mapping.get("pending_total")),

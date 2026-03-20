@@ -127,6 +127,10 @@ Optional advanced tools from the same checkout:
 - [iOS README](app/ios/README.md)
 - [Install Guide: optional source-only tools](guides/INSTALL.md#optional-operator-console-source-checkout)
 
+These companion surfaces are optional source-checkout workflow tools. They read
+repo-visible live review/control state and do not replace the normal VoiceTerm
+overlay path.
+
 </details>
 
 <details>
@@ -292,6 +296,7 @@ Start with the shortest useful doc for your goal:
 | User | [CLI Flags](guides/CLI_FLAGS.md) |
 | User | [Troubleshooting](guides/TROUBLESHOOTING.md) |
 | Advanced | [Operator Console (optional PyQt6 app)](app/operator_console/README.md) |
+| Advanced | [iPhone/iPad companion app](app/ios/README.md) |
 
 ## Contributing
 

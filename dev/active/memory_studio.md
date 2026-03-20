@@ -76,7 +76,9 @@ structured memory substrate that is both human-auditable and machine-queryable.
   query/export surfaces are still missing.
 - The Rust operator cockpit now exposes a dedicated read-only Memory tab with refresh-on-visible-tab wiring plus memory-ingest/review/boot-pack/handoff preview sections, but broader query/export views and dedicated browser navigation are still missing.
 - Memory modes (`off`, `capture_only`, `assist`, `paused`, `incognito`) now restore from persistent config at startup, persist immediately from the dev-panel mode toggle path, and flow through runtime config snapshots, but broader trust/privacy controls and visible controls outside `--dev` remain incomplete.
-- Context-pack struct/output is present, but several required fields are still missing (`retrieval_plan`, `validation_report`, `source_mix`, contradiction metadata).
+- Context-pack struct/output is present and now carries retrieval-plan traces,
+  but several required fields are still missing (`validation_report`,
+  `source_mix`, contradiction metadata).
 - Review/control-plane interop is partially proven through the shared handoff prompt; pack exports plus event-backed attach-by-ref `context_pack_refs` are now wired through the current review/control proof path, but normalized packet-outcome ingestion and wider `controller_state` parity are not wired yet.
 - Action policy logic exists, but action execution/audit is not yet integrated into overlay runtime flows.
 
@@ -1883,6 +1885,24 @@ python3 dev/scripts/checks/check_survival_index_recall.py  # Level 4-5 A/B recal
 
 ## Progress Log
 
+- 2026-03-17: Verified the Memory Studio substrate against the current code
+  before folding it into the broader startup/work-intake plan. The repo does
+  already have a working first-generation memory stack: deterministic retrieval
+  query APIs (`Recent`, `ByTopic`, `ByTask`, `TextSearch`, `Timeline`),
+  signal-routed context strategies, `ContextPack` builders with token budgets,
+  a real `SurvivalIndex`, JSONL persistence, and a staged SQLite schema
+  contract over the in-memory index. Accepted correction: the memory lane is
+  not "missing," but it is also not yet the finished shared startup authority.
+  Cross-plan direction is now explicit: governance/runtime evidence should
+  reach this lane through exported receipts / attach-by-ref contracts, and the
+  future `startup-context` surface should compose cached repo-intelligence,
+  governance evidence, and memory exports instead of forcing AI to reread the
+  full doc stack each session.
+- 2026-03-17 bridge task: add one concrete governance-to-memory bridge that
+  serializes findings, run records, and repo-intelligence snapshots into the
+  Rust memory substrate so `startup-context` and `master-report` can consume a
+  single bounded packet instead of stitching evidence together from separate
+  JSONL readers.
 - 2026-03-14: Corrected a partial MP-233/MP-234 overlay prototype so it
   follows the active Memory Studio proving path instead of creating a parallel
   executor/UI contract. The shared Memory Browser and Action Center overlays

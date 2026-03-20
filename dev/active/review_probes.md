@@ -297,6 +297,12 @@ context-free translation = MEDIUM.
       based on raw hint counts alone.
 - [ ] Extend governance checks so probe registration/reporting drift is
       enforced alongside hard-guard drift instead of relying on memory.
+- [ ] Add a meta-governance probe/guard family for the checking stack itself:
+      detect untested guards and probes, guards that never run in CI, stale or
+      incomplete exception registries, workflows missing timeouts, and large
+      literal-data tables that should be repo-policy/config artifacts instead
+      of embedded Python wrapper code. This should be the default escalation
+      path for "why didn't the tools catch this?" findings.
 - [ ] Document probe authoring + maintainer triage workflow in
       `dev/scripts/README.md`.
 - [x] Add a repo-policy layer so built-in guard/probe capabilities are
@@ -371,6 +377,12 @@ Acceptance:
       `review_lens`, `risk_type`, severity thresholds, and a matching
       `practices.py` teaching entry before implementation starts, so the
       `RiskHint` and renderer surfaces stay as specific as the probe itself.
+- [ ] Standardize probe `ai_instruction` authoring before the next tranche:
+      define one reusable template with required fields (why this pattern is
+      risky, concrete remediation direction, and at least one before/after or
+      contrast example where appropriate), plus one documented keying rule so
+      probe authors stop mixing per-signal and per-severity instruction maps
+      ad hoc.
 - [ ] Land shared prerequisites in order: lightweight identifier/tokenizer
       utilities before identifier/Halstead/entropy work, then cohesion-graph
       helpers before LCOM-style probes.
@@ -454,6 +466,59 @@ Acceptance:
 - 2026-03-10: Signal quality validated — concurrency probe refined from 78%
   false-positive rate to 0%. Design smells probe: 100% true positive (2 hints).
   Per-signal AI instruction dicts added to all probes for targeted remediation.
+- 2026-03-17: Early probe-quality audit found the current `ai_instruction`
+  layer is useful but uneven. `probe_concurrency`, `probe_exception_quality`,
+  and `probe_vague_errors` already read like strong teaching surfaces, while
+  weaker entries such as `probe_unnecessary_intermediates` are too vague and
+  example-poor. Accepted follow-up: add one shared instruction-writing
+  template and a documented keying rule so future probes do not invent their
+  own authoring style or signal map shape.
+- 2026-03-17: Current live signal-quality read from the canonical
+  `devctl probe-report` and `governance-review` surfaces is now explicit. On
+  the present working tree, active probe pressure is dominated by Python
+  readability/organization signals rather than Rust-specific concurrency or
+  ownership smells: `probe_identifier_density` (`51` hints),
+  `probe_blank_line_frequency` (`24`), `probe_side_effect_mixing` (`8`),
+  `probe_dict_as_struct` (`7`), `probe_cognitive_complexity` (`6`), and
+  `probe_fan_out` (`6`) account for most of the active findings, while the
+  current Rust-only probes (`probe_concurrency`, `probe_unwrap_chains`,
+  `probe_clone_density`, `probe_type_conversions`, `probe_vague_errors`,
+  `probe_tuple_return_complexity`, `probe_mutable_parameter_density`,
+  `probe_match_arm_complexity`) are quiet on this slice. Historical
+  adjudication value in `governance-review` is currently strongest for
+  `probe_single_use_helpers`, `probe_compatibility_shims`,
+  `probe_dict_as_struct`, `probe_exception_quality`, and
+  `probe_stringly_typed`. Accepted follow-up: prioritize filtered probe views
+  and startup/work-intake routing so agents see the relevant subset for the
+  current slice instead of the full probe catalog.
+- 2026-03-17: Probe AI-guidance quality is now explicit plan state. The
+  current probe family emits useful `ai_instruction` content, but authoring
+  style is still inconsistent across probes: some use per-signal instruction
+  dicts, some use severity-key dicts, and others emit one inline instruction
+  constant. Accepted follow-up: define one shared instruction template/keying
+  rule so AI remediation quality stops depending on which probe family
+  authored the hint.
+- 2026-03-18: Guard/probe integration slice in progress. `probe_mixed_concerns`
+  is being wired into the standard review-probe `risk_hints` schema so
+  `probe-report` can surface files that split into multiple independent
+  function clusters, and `check_code_shape.py` now ratchets operator-intent
+  override caps so untouched legacy over-cap paths remain visible as warnings
+  while touched, newly introduced, or worsened over-cap overrides fail. The
+  same slice now reuses the mixed-concern cluster engine from the probe inside
+  `check_code_shape.py`, so touched Python files with 3+ independent function
+  clusters fail deterministically instead of remaining review-only debt.
+  Added coverage to keep both registrations visible in default policy
+  resolution and command output.
+- 2026-03-17: A first direct audit of probe remediation guidance made the
+  quality gap concrete instead of generic. `probe_concurrency`,
+  `probe_exception_quality`, and `probe_vague_errors` are now the reference
+  exemplars because they explain why the pattern is risky and give concrete
+  before/after-style remediation direction. `probe_unnecessary_intermediates`
+  is the current weak baseline: it needs better examples plus clearer
+  severity-sensitive guidance instead of one vague instruction string.
+  Accepted follow-up: standardize `ai_instruction` authoring around those
+  higher-quality exemplars and refresh the weak probes first rather than
+  leaving guidance quality to per-file author habit.
 - 2026-03-10: Added review probe enforcement section to `AGENTS.md`
   (post-edit rules, probe catalog, when-to-run guidance, acting on findings).
 - 2026-03-10: Phase 3 research initiated — 3 parallel agents scanning Python

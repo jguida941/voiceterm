@@ -53,15 +53,29 @@ def provider_bootstrap_guard_lines(
         ),
         (
             "- If you are waiting on Codex review or the next instruction, stay in "
-            "the conductor role, keep polling the bridge on the documented cadence, "
-            "and resume as soon as `Current Instruction For Claude` changes."
+            "the conductor role, use the repo-owned `review-channel --action "
+            "implementer-wait` path instead of ad-hoc shell sleep loops, and "
+            "resume as soon as reviewer-owned bridge state or a fresh Claude-"
+            "targeted review packet changes."
         ),
         (
             "- On each repoll, read `Last Codex poll` / `Poll Status` first, then "
             "re-read `Current Verdict`, `Open Findings`, and `Current Instruction "
-            "For Claude` together. If those reviewer-owned sections are unchanged "
-            "after you already finished the current bounded work, that is a live "
-            "wait state; do not hammer one fixed offset or one cached line range."
+            "For Claude` together. On the same cadence, also poll the Claude-"
+            "targeted packet inbox/watch surface (`review-channel --action inbox "
+            "--target claude --status pending --format json` or equivalent) so "
+            "reviewer packets cannot be missed. If those reviewer-owned sections "
+            "and the pending Claude-targeted packet set are unchanged after you "
+            "already finished the current bounded work, that is a live wait "
+            "state; do not hammer one fixed offset or one cached line range."
+        ),
+        (
+            "- If you use `review-channel --action bridge-poll`, treat "
+            "`next_turn_role`, `next_turn_reason`, and `turn_state_token` as the "
+            "authority for whose turn it is and what exact reviewer-owned state "
+            "you observed. `changed_since_last_ack` only tells you whether the "
+            "instruction revision changed; it does not tell you whether the "
+            "reviewer owns the next turn on a changed tree."
         ),
         (
             "- If `Current Instruction For Claude` still contains active work and "
@@ -72,8 +86,9 @@ def provider_bootstrap_guard_lines(
         ),
         (
             "- Posting `Claude Status` or `Claude Ack` is not the end of the loop. "
-            "After each coding summary, re-read the bridge, look for the next live "
-            "instruction, and keep the session alive instead of exiting."
+            "After each coding summary, re-read the bridge, poll fresh Claude-"
+            "targeted review packets, look for the next live instruction, and "
+            "keep the session alive instead of exiting."
         ),
         (
             "- A completed slice, green proof bundle, or accepted reviewer note is "

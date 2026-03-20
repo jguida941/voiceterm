@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from .config import REPO_ROOT
+from .governance.guard_findings import build_guard_findings
+from .quality_policy import resolve_quality_policy
 from .quality_policy_loader import QUALITY_POLICY_ENV_VAR
 
 PYTHON_GUARD_SPECS: dict[str, dict[str, Any]] = {
@@ -239,6 +241,10 @@ def collect_python_guard_report(
     errors: list[str] = []
     guard_reports: dict[str, dict[str, Any]] = {}
     guard_rows: list[dict[str, Any]] = []
+    quality_policy = resolve_quality_policy(
+        repo_root=REPO_ROOT,
+        policy_path=policy_path,
+    )
     for guard_key, spec in PYTHON_GUARD_SPECS.items():
         command = _guard_command(
             script=str(spec["script"]),
@@ -272,6 +278,11 @@ def collect_python_guard_report(
             }
         )
     hotspots, total_findings = _build_hotspots(guard_reports, top_n=max(0, top_n))
+    guard_findings = build_guard_findings(
+        guard_reports,
+        repo_name=quality_policy.repo_name,
+        source_artifact="python-guard-backlog:violations",
+    )
     report = {
         "mode": resolve_python_guard_mode(since_ref),
         "since_ref": since_ref,
@@ -289,6 +300,7 @@ def collect_python_guard_report(
         },
         "guards": guard_rows,
         "guard_reports": guard_reports,
+        "guard_findings": guard_findings,
         "hotspots": hotspots,
     }
     return report

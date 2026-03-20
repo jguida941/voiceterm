@@ -76,6 +76,10 @@ python3 dev/scripts/devctl.py review-channel --action launch --terminal none --d
 # Read the current bridge-backed review status and refresh latest projections
 python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md
 
+# Claude-side bounded wait path after a completed slice; exits on reviewer-owned
+# bridge changes or timeout instead of leaving a raw shell sleep loop behind.
+python3 dev/scripts/devctl.py review-channel --action implementer-wait --terminal none --format json
+
 # Promote the next repo-owned active-plan item into Current Instruction For Claude
 python3 dev/scripts/devctl.py review-channel --action promote --terminal none --format md
 
@@ -171,6 +175,7 @@ only running one local guard bundle:
 - `python3 dev/scripts/devctl.py render-surfaces --format md`
 - `python3 dev/scripts/devctl.py quality-policy --format md`
 - `python3 dev/scripts/devctl.py platform-contracts --format md`
+- `python3 dev/scripts/checks/check_platform_contract_closure.py`
 - `python3 dev/scripts/devctl.py probe-report --format md`
 - `python3 dev/scripts/devctl.py governance-export --format md`
 - `python3 dev/scripts/devctl.py governance-bootstrap --help`
@@ -183,6 +188,10 @@ only running one local guard bundle:
 Use `quality-policy` as the canonical live inventory of the enabled
 guards/probes, and use `render-surfaces` right after policy/template changes
 to confirm the AI/dev instruction surfaces still describe the same system.
+When the shared platform blueprint, runtime contract models, durable
+probe/report schema constants, or startup-surface routing text changes, pair
+`platform-contracts --format md` with
+`python3 dev/scripts/checks/check_platform_contract_closure.py`.
 
 ### Review, runtime, and operator loop surfaces
 

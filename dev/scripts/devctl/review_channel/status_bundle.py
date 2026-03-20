@@ -26,7 +26,7 @@ class StatusProjectionContext:
     bridge_path: Path
     review_channel_path: Path
     output_root: Path
-    promotion_plan_path: Path
+    promotion_plan_path: Path | None
     lanes: list[LaneAssignment]
     bridge_liveness: dict[str, object]
     attention: dict[str, object]
@@ -76,11 +76,13 @@ def _build_status_review_state(
     snapshot,
     timestamp: str,
 ) -> dict[str, object]:
-    promotion_candidate = derive_promotion_candidate(
-        repo_root=context.repo_root,
-        promotion_plan_path=context.promotion_plan_path,
-        require_exists=False,
-    )
+    promotion_candidate = None
+    if context.promotion_plan_path is not None:
+        promotion_candidate = derive_promotion_candidate(
+            repo_root=context.repo_root,
+            promotion_plan_path=context.promotion_plan_path,
+            require_exists=False,
+        )
     return build_bridge_review_state(
         context=ReviewStateContext(
             repo_root=context.repo_root,

@@ -1,11 +1,24 @@
 """Governance command namespace for `devctl`."""
 
-from . import bootstrap, export, import_findings, render_surfaces, review, simple_lanes
+from . import (
+    bootstrap,
+    doc_authority,
+    draft,
+    export,
+    import_findings,
+    quality_feedback,
+    render_surfaces,
+    review,
+    simple_lanes,
+)
 
 __all__ = [
     "bootstrap",
+    "doc_authority",
+    "draft",
     "export",
     "import_findings",
+    "quality_feedback",
     "render_surfaces",
     "review",
     "simple_lanes",

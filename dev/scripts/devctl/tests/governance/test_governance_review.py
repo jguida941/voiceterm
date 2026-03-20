@@ -9,6 +9,8 @@ from pathlib import Path
 
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands.governance import review as governance_review
+from dev.scripts.devctl.governance_review_log import build_governance_review_row
+from dev.scripts.devctl.governance_review_models import GovernanceReviewInput
 
 
 class GovernanceReviewCommandTests(unittest.TestCase):
@@ -179,6 +181,71 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                 (payload.get("recent_findings") or [{}])[0].get("signal_type"),
                 "audit",
             )
+
+    def test_default_finding_id_ignores_absolute_repo_path(self) -> None:
+        row_one = build_governance_review_row(
+            review_input=GovernanceReviewInput(
+                signal_type="audit",
+                check_id="external_audit.command_source",
+                verdict="confirmed_issue",
+                file_path="scripts/python_fallback.py",
+                repo_name="ci-cd-hub",
+                repo_path="/Users/alice/repos/ci-cd-hub",
+                line=479,
+            )
+        )
+        row_two = build_governance_review_row(
+            review_input=GovernanceReviewInput(
+                signal_type="audit",
+                check_id="external_audit.command_source",
+                verdict="confirmed_issue",
+                file_path="scripts/python_fallback.py",
+                repo_name="ci-cd-hub",
+                repo_path="/tmp/portable/ci-cd-hub",
+                line=479,
+            )
+        )
+
+        self.assertEqual(row_one["finding_id"], row_two["finding_id"])
+        self.assertEqual(row_one["repo_path"], "/Users/alice/repos/ci-cd-hub")
+        self.assertEqual(row_two["repo_path"], "/tmp/portable/ci-cd-hub")
+
+    def test_review_row_normalizes_absolute_file_path_for_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as first_tmp, tempfile.TemporaryDirectory() as second_tmp:
+            first_root = Path(first_tmp) / "portable-demo"
+            second_root = Path(second_tmp) / "portable-demo"
+            first_path = first_root / "pkg" / "demo.py"
+            second_path = second_root / "pkg" / "demo.py"
+            first_path.parent.mkdir(parents=True, exist_ok=True)
+            second_path.parent.mkdir(parents=True, exist_ok=True)
+            first_path.write_text("# demo\n", encoding="utf-8")
+            second_path.write_text("# demo\n", encoding="utf-8")
+
+            row_one = build_governance_review_row(
+                review_input=GovernanceReviewInput(
+                    signal_type="audit",
+                    check_id="external_audit.command_source",
+                    verdict="confirmed_issue",
+                    file_path=str(first_path),
+                    repo_name="portable-demo",
+                    line=12,
+                ),
+                repo_root=first_root,
+            )
+            row_two = build_governance_review_row(
+                review_input=GovernanceReviewInput(
+                    signal_type="audit",
+                    check_id="external_audit.command_source",
+                    verdict="confirmed_issue",
+                    file_path=str(second_path),
+                    repo_name="portable-demo",
+                    line=12,
+                ),
+                repo_root=second_root,
+            )
+
+            self.assertEqual(row_one["file_path"], "pkg/demo.py")
+            self.assertEqual(row_one["finding_id"], row_two["finding_id"])
 
 
 if __name__ == "__main__":

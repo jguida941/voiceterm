@@ -5,6 +5,7 @@ from __future__ import annotations
 from .contracts import PlatformBlueprint
 from .definitions import (
     adoption_flow,
+    artifact_schemas,
     caller_authority,
     frontend_surfaces,
     platform_layers,
@@ -29,6 +30,7 @@ def build_platform_blueprint() -> PlatformBlueprint:
         thesis=THESIS,
         layers=platform_layers(),
         shared_contracts=shared_contracts(),
+        artifact_schemas=artifact_schemas(),
         frontend_surfaces=frontend_surfaces(),
         service_lifecycle=service_lifecycle(),
         caller_authority=caller_authority(),

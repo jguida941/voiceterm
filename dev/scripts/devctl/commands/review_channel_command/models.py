@@ -114,8 +114,12 @@ class EnsureBridgeStatus:
 
     reviewer_mode: str
     codex_poll_state: str
+    reviewer_freshness: str
     heartbeat_age_seconds: object
     attention_status: str
+    claude_ack_current: bool
+    review_needed: bool
+    reviewer_supervisor_running: bool
     reviewer_worker: dict[str, object] | None
     reviewer_supervisor: dict[str, object] | None
     service_identity: dict[str, object] | None
@@ -123,7 +127,18 @@ class EnsureBridgeStatus:
 
     @property
     def heartbeat_ok(self) -> bool:
-        return self.codex_poll_state in {"fresh", "poll_due"}
+        freshness = self.reviewer_freshness
+        if freshness in {"", "unknown"}:
+            freshness = self.codex_poll_state
+        return freshness in {"fresh", "poll_due"}
+
+    @property
+    def loop_ok(self) -> bool:
+        return self.heartbeat_ok and self.claude_ack_current
+
+    @property
+    def reviewer_supervisor_ok(self) -> bool:
+        return (not self.review_needed) or self.reviewer_supervisor_running
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +150,7 @@ class EnsureActionReport:
     ok: bool
     reviewer_mode: str
     codex_poll_state: str
+    reviewer_freshness: str
     heartbeat_age_seconds: object
     attention_status: str
     refreshed: bool

@@ -6,7 +6,14 @@ import json
 
 from ..bundle_registry import BUNDLE_AUTHORITY_PATH, get_bundle_commands
 from ..collect import collect_git_status
-from ..common import emit_output, pipe_output, run_cmd, write_output
+from ..common import (
+    emit_output,
+    inject_quality_policy_command,
+    normalize_repo_python_shell_command,
+    pipe_output,
+    run_cmd,
+    write_output,
+)
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from .check_router_constants import resolve_check_router_config
@@ -31,6 +38,12 @@ def _extract_bundle_commands(bundle_name: str) -> tuple[list[str], str | None]:
 
 def _render_md(report: dict) -> str:
     return render_markdown(report)
+
+
+def _normalize_router_command(command: str, policy_path: str | None) -> str:
+    return normalize_repo_python_shell_command(
+        inject_quality_policy_command(command, policy_path)
+    )
 
 
 def run(args) -> int:
@@ -85,11 +98,19 @@ def run(args) -> int:
     risk_addons = _detect_risk_addons(changed_paths, policy_path=policy_path)
 
     planned_rows = [
-        {"source": bundle_name, "command": command} for command in bundle_commands
+        {
+            "source": bundle_name,
+            "command": _normalize_router_command(command, policy_path),
+        }
+        for command in bundle_commands
     ]
     for addon in risk_addons:
         planned_rows.extend(
-            {"source": addon["id"], "command": command} for command in addon["commands"]
+            {
+                "source": addon["id"],
+                "command": _normalize_router_command(command, policy_path),
+            }
+            for command in addon["commands"]
         )
     planned_rows = _dedupe_commands(planned_rows)
 

@@ -282,8 +282,10 @@ paths with explicit diagnostics.
 | `--socket-path <PATH>` | Unix socket path used in daemon mode | `~/.voiceterm/control.sock` |
 
 Daemon mode is for external clients such as the PyQt6 Operator Console, the
-mobile control surface, or other repo-owned integrations. Most users do not
-need these flags.
+repo-backed iPhone/iPad companion, or other repo-owned integrations that read
+the control sockets. Most users do not need these flags; use the normal
+overlay unless you are deliberately running one of those advanced
+source-checkout companion surfaces.
 
 ---
 

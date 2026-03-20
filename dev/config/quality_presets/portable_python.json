@@ -33,7 +33,8 @@
     "probe_identifier_density",
     "probe_cognitive_complexity",
     "probe_fan_out",
-    "probe_side_effect_mixing"
+    "probe_side_effect_mixing",
+    "probe_mixed_concerns"
   ],
   "guard_configs": {
     "python_design_complexity": {

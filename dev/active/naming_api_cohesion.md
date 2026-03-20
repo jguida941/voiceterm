@@ -22,6 +22,12 @@ Out of scope:
 
 1. Large feature work unrelated to cohesion.
 2. Unbounded cosmetic churn without measurable maintainability gain.
+3. Portable convention-engine work (`naming-scan`, `naming-report`,
+   repo-policy schema, reusable naming/organization guard+probe families).
+   That execution lane lives under `dev/active/portable_code_governance.md`.
+4. AI startup/work-intake integration and command-goal taxonomy work for that
+   convention context. That execution lane lives under
+   `dev/active/ai_governance_platform.md`.
 
 ## Execution Checklist
 
@@ -36,16 +42,9 @@ Out of scope:
   tests.
 - [x] Continue prioritized runtime (`theme/event_loop/status_line/memory`)
   rename/consolidation slices with non-regression tests.
-- [ ] Define one portable KISS naming contract for public `devctl` command
-  words, generated AI/dev surfaces, beginner-facing docs copy, and the
-  friendly alias/wrapper layer on top of canonical backend ids, then route it
-  into a repo-policy-backed guard instead of leaving naming consistency as
-  repo-specific reviewer habit.
-- [ ] Add one canonical command-goal taxonomy over the stable backend
-  command/action inventory (`inspect`, `review`, `fix`, `run`, `control`,
-  `adopt`, `publish`, `maintain`) and drive grouped discovery surfaces from
-  it: `devctl list`, startup help, wrappers, skills, and future `map` hints
-  should not each invent their own command grouping.
+- [ ] Remove or narrow any remaining repo-local docs/surfaces that still make
+  it look like the portable convention engine or startup-authority lane lives
+  under `MP-267`.
 - [ ] Record Rust-reference checks and rationale for each non-trivial Rust
   change in progress/evidence.
 - [ ] Close with docs/governance bundle and final `MP-267` status update.
@@ -123,6 +122,43 @@ Out of scope:
   the backend command/action inventory and make grouped help/list/wrapper
   surfaces project from that same taxonomy instead of hand-maintained
   groupings.
+- 2026-03-17: Accepted the next step beyond alias hygiene and command-word
+  cleanup. The repo now explicitly tracks a portable naming/organization
+  coherence layer as future work: extend the existing
+  `check_naming_consistency.py` seed into repo-policy-backed checks for
+  cross-file naming drift, contract-field vocabulary drift, import-pattern
+  drift, and file-template conformance. The rule here is "portable and
+  explainable, not VoiceTerm-hardcoded": start advisory when calibration is
+  unknown, record adjudication evidence, and only promote to blocking guard
+  status after the signal proves accurate.
+- 2026-03-17: Linked that coherence work back to the existing readability/
+  complexity research instead of creating a second isolated metric lane.
+  Halstead-volume, identifier-density, and cognitive-complexity style signals
+  should help rank where naming/organization drift is concentrated and which
+  functions need decomposition, but the naming contract itself remains
+  repo-policy-owned rather than metric-owned.
+- 2026-03-17: Accepted the more concrete portable convention-system shape. The
+  right stack is: repo-policy convention schema -> deterministic
+  naming/directory/import guards plus advisory drift probes -> a discovery
+  surface (`naming-scan` / `naming-report`) that lets a repo learn patterns,
+  declare them, and then enforce them. AI should consume that through startup
+  surfaces and the future repo-neutral work-intake path, not through chat-only
+  instructions.
+- 2026-03-17: Locked the trust model for AI use of that system. `naming-scan`
+  is advisory discovery only; `naming-report` is the consumable AI surface;
+  declared repo policy remains the only blocking authority when inferred habits
+  and explicit conventions disagree.
+- 2026-03-17: Accepted one more AI-bootstrap refinement for the convention
+  system: the existing naming glossary is useful seed context, but it is
+  currently invisible to startup. When `naming-report` / work-intake lands, it
+  should be able to surface glossary-backed terms and the right convention
+  checks automatically instead of expecting an agent to discover that file by
+  accident.
+- 2026-03-17: Re-scoped `MP-267` after the latest architecture/navigation
+  audit. This plan remains the repo-local cohesion lane only. The portable
+  convention engine now lives under `portable_code_governance.md`, and the
+  AI-facing startup/work-intake plus command-goal taxonomy work lives under
+  `ai_governance_platform.md`.
 
 ## Audit Evidence
 

@@ -6,6 +6,10 @@ This package is intentionally thin:
 
 - PyQt6 and mobile share the same backend contract.
 - The app reads the `devctl mobile-status` projection bundle.
+- `ControlState`, `ReviewState`, and later typed daemon/runtime projections are
+  the intended primary backend contract. `full.json`,
+  `controller_payload`, and `review_payload` are still transitional
+  compatibility shapes during the current migration.
 - Multi-agent lane state is rendered from the same review/control payloads the
   desktop console already consumes.
 - `../VoiceTermMobileApp/` is the actual iOS shell that wraps this package for

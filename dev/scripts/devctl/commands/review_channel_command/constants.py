@@ -78,6 +78,7 @@ class ReviewChannelAction(StrEnum):
     LAUNCH = "launch"
     ROLLOVER = "rollover"
     STATUS = "status"
+    IMPLEMENTER_WAIT = "implementer-wait"
     ENSURE = "ensure"
     REVIEWER_HEARTBEAT = "reviewer-heartbeat"
     REVIEWER_CHECKPOINT = "reviewer-checkpoint"
@@ -89,6 +90,7 @@ class ReviewChannelAction(StrEnum):
     DISMISS = "dismiss"
     APPLY = "apply"
     HISTORY = "history"
+    BRIDGE_POLL = "bridge-poll"
 
 
 EVENT_ACTION_SET = frozenset(

@@ -2,43 +2,37 @@
 
 from __future__ import annotations
 
+import os
 import re
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
-from ..common import display_path
+from .core import detect_active_session_conflicts
 from .heartbeat import (
-    LAST_CODEX_POLL_LOCAL_RE,
-    LAST_CODEX_POLL_RE,
-    LAST_WORKTREE_HASH_RE,
     NON_AUDIT_HASH_EXCLUDED_PREFIXES,
-    _format_new_york_timestamp,
-    _replace_or_insert_metadata_line,
-    _rewrite_poll_status,
     compute_non_audit_worktree_hash,
+)
+from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
+from .lifecycle_state import read_publisher_state, read_reviewer_supervisor_state
+from .peer_liveness import CodexPollState
+from .reviewer_state_support import (
+    EnsureHeartbeatResult,
+    ReviewerMetadataUpdate,
+    ReviewerStateWrite,
+    _format_markdown_list,
+    _normalize_open_findings_for_live_state,
+    _replace_section,
+    _rewrite_reviewer_metadata,
+    current_instruction_revision_from_bridge_text,
+    current_reviewed_hash,
+    reviewer_state_write_to_dict,
+    select_instruction_revision,
+    validate_reviewer_checkpoint_sections,
 )
 from .peer_liveness import ReviewerMode, normalize_reviewer_mode
 
 REVIEWER_MODE_RE = re.compile(r"(?m)^- Reviewer mode:\s*`.*?`\s*$")
-MERGED_REVIEWER_MODE_RE = re.compile(
-    r"(?m)^(- Last non-audit worktree hash:\s*`[^`]+`)(- Reviewer mode:\s*`[^`]+`\s*)$"
-)
-_SECTION_RE_TEMPLATE = r"(^## {heading}\s*$\n)(.*?)(?=^##\s+|\Z)"
 _BRIDGE_EXCLUDED_REL_PATHS = ("code_audit.md",)
-
-@dataclass(frozen=True)
-class ReviewerStateWrite:
-    """One repo-owned reviewer state write applied to the bridge."""
-
-    bridge_path: str
-    action: str
-    reviewer_mode: str
-    reason: str
-    last_codex_poll_utc: str
-    last_codex_poll_local: str
-    last_worktree_hash: str
 
 @dataclass(frozen=True)
 class ReviewerCheckpointUpdate:
@@ -48,23 +42,7 @@ class ReviewerCheckpointUpdate:
     open_findings: str
     current_instruction: str
     reviewed_scope_items: tuple[str, ...]
-
-@dataclass(frozen=True)
-class ReviewerMetadataUpdate:
-    """Metadata-only bridge update request."""
-
-    reviewer_mode: ReviewerMode
-    reason: str
-    action: str
-    worktree_hash: str | None
-    poll_note: str
-
-def reviewer_state_write_to_dict(
-    write: ReviewerStateWrite | None,
-) -> dict[str, object] | None:
-    if write is None:
-        return None
-    return asdict(write)
+    rotate_instruction_revision: bool = False
 
 def write_reviewer_heartbeat(
     *,
@@ -75,6 +53,7 @@ def write_reviewer_heartbeat(
 ) -> ReviewerStateWrite:
     """Refresh only reviewer liveness metadata without claiming a new review."""
     bridge_text = bridge_path.read_text(encoding="utf-8")
+    bridge_text = _normalize_open_findings_for_live_state(bridge_text)
     normalized_mode = normalize_reviewer_mode(reviewer_mode)
     existing_hash = current_reviewed_hash(bridge_text)
     updated_text, write = _rewrite_reviewer_metadata(
@@ -86,6 +65,7 @@ def write_reviewer_heartbeat(
             reason=reason,
             action="reviewer-heartbeat",
             worktree_hash=None,
+            current_instruction_revision=None,
             poll_note=(
                 "Reviewer heartbeat refreshed through repo-owned tooling "
                 f"(mode: {normalized_mode}; reason: {reason}; reviewed-tree: {existing_hash[:12]})."
@@ -93,7 +73,54 @@ def write_reviewer_heartbeat(
         ),
     )
     bridge_path.write_text(updated_text, encoding="utf-8")
+    _refresh_projections_after_checkpoint(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+    )
     return write
+
+
+def maybe_auto_demote_stale_active_bridge(
+    *,
+    repo_root: Path,
+    bridge_path: Path,
+    status_dir: Path,
+    reason: str = "auto-demote-stale-bridge",
+) -> ReviewerStateWrite | None:
+    """Demote abandoned active bridge state so stale sessions fail closed cleanly."""
+    if os.getenv("GITHUB_ACTIONS", "").strip().lower() == "true":
+        return None
+    if not bridge_path.exists():
+        return None
+    bridge_text = bridge_path.read_text(encoding="utf-8")
+    if reviewer_mode_from_bridge_text(bridge_text) != ReviewerMode.ACTIVE_DUAL_AGENT:
+        return None
+    liveness = summarize_bridge_liveness(extract_bridge_snapshot(bridge_text))
+    if liveness.codex_poll_state not in {
+        CodexPollState.MISSING,
+        CodexPollState.STALE,
+    }:
+        return None
+    try:
+        publisher_state = read_publisher_state(status_dir)
+    except (OSError, ValueError):
+        return None
+    if bool(publisher_state.get("running")):
+        return None
+    try:
+        reviewer_supervisor_state = read_reviewer_supervisor_state(status_dir)
+    except (OSError, ValueError):
+        return None
+    if bool(reviewer_supervisor_state.get("running")):
+        return None
+    if detect_active_session_conflicts(session_output_root=status_dir):
+        return None
+    return write_reviewer_heartbeat(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        reviewer_mode=ReviewerMode.PAUSED,
+        reason=reason,
+    )
 
 def write_reviewer_checkpoint(
     *,
@@ -111,6 +138,16 @@ def write_reviewer_checkpoint(
         excluded_rel_paths=_BRIDGE_EXCLUDED_REL_PATHS,
         excluded_prefixes=NON_AUDIT_HASH_EXCLUDED_PREFIXES,
     )
+    instruction_revision = select_instruction_revision(
+        bridge_text=bridge_text,
+        current_instruction=checkpoint.current_instruction,
+        rotate_instruction_revision=checkpoint.rotate_instruction_revision,
+    )
+    effective_instruction_revision = (
+        instruction_revision
+        if instruction_revision is not None
+        else current_instruction_revision_from_bridge_text(bridge_text)
+    )
     updated_text, write = _rewrite_reviewer_metadata(
         bridge_text=bridge_text,
         repo_root=repo_root,
@@ -120,9 +157,10 @@ def write_reviewer_checkpoint(
             reason=reason,
             action="reviewer-checkpoint",
             worktree_hash=current_hash,
+            current_instruction_revision=instruction_revision,
             poll_note=(
                 "Reviewer checkpoint updated through repo-owned tooling "
-                f"(mode: {normalized_mode}; reason: {reason}; tree: {current_hash[:12]})."
+                f"(mode: {normalized_mode}; reason: {reason}; tree: {current_hash[:12]}; instruction-rev: {effective_instruction_revision})."
             ),
         ),
     )
@@ -141,96 +179,52 @@ def write_reviewer_checkpoint(
         heading="Current Instruction For Claude",
         body=checkpoint.current_instruction.strip(),
     )
+    reviewed_scope_body = _format_markdown_list(checkpoint.reviewed_scope_items)
+    validate_reviewer_checkpoint_sections(
+        current_verdict=checkpoint.current_verdict.strip(),
+        open_findings=checkpoint.open_findings.strip(),
+        current_instruction=checkpoint.current_instruction.strip(),
+        reviewed_scope_body=reviewed_scope_body,
+    )
     updated_text = _replace_section(
         updated_text,
         heading="Last Reviewed Scope",
-        body=_format_markdown_list(checkpoint.reviewed_scope_items),
+        body=reviewed_scope_body,
     )
     bridge_path.write_text(updated_text, encoding="utf-8")
+    _refresh_projections_after_checkpoint(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+    )
     return write
 
-def _rewrite_reviewer_metadata(
+
+def _refresh_projections_after_checkpoint(
     *,
-    bridge_text: str,
     repo_root: Path,
     bridge_path: Path,
-    update: ReviewerMetadataUpdate,
-) -> tuple[str, ReviewerStateWrite]:
-    now_utc = datetime.now(timezone.utc)
-    last_codex_poll_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-    last_codex_poll_local = _format_new_york_timestamp(now_utc)
-    updated_text = _normalize_metadata_layout(bridge_text)
-    current_bridge_hash = current_reviewed_hash(bridge_text)
-    updated_text = _replace_or_insert_metadata_line(
-        updated_text,
-        pattern=LAST_CODEX_POLL_RE,
-        replacement=f"- Last Codex poll: `{last_codex_poll_utc}`",
-    )
-    updated_text = _replace_or_insert_metadata_line(
-        updated_text,
-        pattern=LAST_CODEX_POLL_LOCAL_RE,
-        replacement=(
-            "- Last Codex poll (Local America/New_York): "
-            f"`{last_codex_poll_local}`"
-        ),
-    )
-    updated_text = _replace_or_insert_metadata_line(
-        updated_text,
-        pattern=REVIEWER_MODE_RE,
-        replacement=f"- Reviewer mode: `{update.reviewer_mode}`",
-    )
-    effective_hash = current_bridge_hash
-    if update.worktree_hash is not None:
-        updated_text = _replace_or_insert_metadata_line(
-            updated_text,
-            pattern=LAST_WORKTREE_HASH_RE,
-            replacement=f"- Last non-audit worktree hash: `{update.worktree_hash}`",
+) -> None:
+    """Best-effort projection refresh so JSON state stays consistent with bridge markdown."""
+    try:
+        from .state import refresh_status_snapshot
+        from ..repo_packs import active_path_config
+
+        config = active_path_config()
+        review_channel_path = repo_root / config.review_channel_rel
+        output_root = repo_root / config.review_projections_dir_rel
+        if not review_channel_path.exists():
+            return
+        output_root.mkdir(parents=True, exist_ok=True)
+        refresh_status_snapshot(
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            review_channel_path=review_channel_path,
+            output_root=output_root,
+            warnings=[],
+            errors=[],
         )
-        effective_hash = update.worktree_hash
-    updated_text = _rewrite_poll_status(updated_text, note=f"- {update.poll_note}")
-    return updated_text, ReviewerStateWrite(
-        bridge_path=display_path(bridge_path, repo_root=repo_root),
-        action=update.action,
-        reviewer_mode=update.reviewer_mode,
-        reason=update.reason,
-        last_codex_poll_utc=last_codex_poll_utc,
-        last_codex_poll_local=last_codex_poll_local,
-        last_worktree_hash=effective_hash,
-    )
-
-def current_reviewed_hash(bridge_text: str) -> str:
-    match = LAST_WORKTREE_HASH_RE.search(bridge_text)
-    if match is None:
-        return ""
-    raw_line = match.group(0)
-    return raw_line.split("`", 2)[1]
-
-def _normalize_metadata_layout(bridge_text: str) -> str:
-    return MERGED_REVIEWER_MODE_RE.sub(r"\1\n\2", bridge_text)
-
-def _replace_section(text: str, *, heading: str, body: str) -> str:
-    pattern = re.compile(
-        _SECTION_RE_TEMPLATE.format(heading=re.escape(heading)),
-        re.MULTILINE | re.DOTALL,
-    )
-
-    def replacement(match: re.Match[str]) -> str:
-        return f"{match.group(1)}\n{body.strip()}\n\n"
-
-    rewritten, count = pattern.subn(replacement, text, count=1)
-    if count != 1:
-        raise ValueError(f"Unable to locate `{heading}` in the markdown bridge.")
-    return rewritten
-
-@dataclass(frozen=True)
-class EnsureHeartbeatResult:
-    """Outcome of one ensure-heartbeat cycle."""
-
-    refreshed: bool
-    reviewer_mode: str
-    reason: str
-    state_write: ReviewerStateWrite | None
-    error: str | None
+    except (ImportError, OSError, ValueError):
+        pass
 
 
 def ensure_reviewer_heartbeat(
@@ -238,6 +232,7 @@ def ensure_reviewer_heartbeat(
     repo_root: Path,
     bridge_path: Path,
     reason: str = "ensure",
+    requested_reviewer_mode: str | None = None,
 ) -> EnsureHeartbeatResult:
     """Check bridge liveness and refresh heartbeat if reviewer mode is active.
 
@@ -255,6 +250,26 @@ def ensure_reviewer_heartbeat(
         )
     bridge_text = bridge_path.read_text(encoding="utf-8")
     current_mode = reviewer_mode_from_bridge_text(bridge_text)
+    requested_mode = normalize_reviewer_mode(
+        requested_reviewer_mode or str(current_mode)
+    )
+    if (
+        current_mode != ReviewerMode.ACTIVE_DUAL_AGENT
+        and requested_mode == ReviewerMode.ACTIVE_DUAL_AGENT
+    ):
+        state_write = write_reviewer_heartbeat(
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            reviewer_mode=str(requested_mode),
+            reason=reason,
+        )
+        return EnsureHeartbeatResult(
+            refreshed=True,
+            reviewer_mode=str(requested_mode),
+            reason=reason,
+            state_write=state_write,
+            error=None,
+        )
     if current_mode != ReviewerMode.ACTIVE_DUAL_AGENT:
         return EnsureHeartbeatResult(
             refreshed=False,
@@ -286,10 +301,3 @@ def reviewer_mode_from_bridge_text(bridge_text: str) -> ReviewerMode:
         if "`" in line:
             raw_mode = line.split("`", 2)[1]
     return normalize_reviewer_mode(raw_mode)
-
-
-def _format_markdown_list(items: Iterable[str]) -> str:
-    rows = [item.strip() for item in items if item.strip()]
-    if not rows:
-        return "- (none)"
-    return "\n".join(f"- {row}" for row in rows)

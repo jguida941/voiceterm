@@ -37,6 +37,11 @@ Key gaps in the current tooling:
 This plan defines a phased path to deliver utility-first reporting without
 breaking existing command behavior.
 
+The UX follow-up for this lane is normalization, not new surface area: keep
+`status`, `report`, `triage`, `dashboard`, `doctor`, and `health` aligned on
+one command-goal vocabulary, one report schema vocabulary, and one help/output
+style so operators do not have to relearn the same action model per command.
+
 ## Personas and User Stories
 
 ### Persona 1: Repo maintainer (first delivery priority)

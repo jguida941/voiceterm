@@ -24,6 +24,11 @@ from ..review_channel.events import (
     refresh_event_bundle,
     transition_packet,
 )
+from ..review_channel.packet_contract import (
+    PacketPostRequest,
+    PacketTargetFields,
+    PacketTransitionRequest,
+)
 from ..review_channel.event_render import render_event_md
 from ..review_channel.follow_stream import (
     build_follow_completion_report,
@@ -79,6 +84,14 @@ def _build_event_report(
         "queue": bundle.review_state.get("queue", {}),
         "packet": packet,
         "packets": packets or [],
+        "pending_packets": [
+            p for p in (packets or [])
+            if isinstance(p, dict) and p.get("status") == "pending"
+        ],
+        "resolved_packets": [
+            p for p in (packets or [])
+            if isinstance(p, dict) and p.get("status") != "pending"
+        ],
         "history": history or [],
         "event": event,
         "target": getattr(args, "target", None),
@@ -113,23 +126,33 @@ def _run_event_action(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
             artifact_paths=artifact_paths,
-            from_agent=args.from_agent,
-            to_agent=args.to_agent,
-            kind=args.kind,
-            summary=args.summary,
-            body=_load_post_body(args),
-            evidence_refs=list(args.evidence_ref or []),
-            confidence=float(args.confidence),
-            requested_action=args.requested_action,
-            policy_hint=args.policy_hint,
-            approval_required=bool(args.approval_required),
-            packet_id=getattr(args, "packet_id", None),
-            trace_id=getattr(args, "trace_id", None),
-            session_id=args.session_id,
-            plan_id=args.plan_id,
-            controller_run_id=getattr(args, "controller_run_id", None),
-            expires_in_minutes=args.expires_in_minutes,
-            context_pack_refs=resolve_context_pack_refs(args, repo_root),
+            request=PacketPostRequest(
+                from_agent=args.from_agent,
+                to_agent=args.to_agent,
+                kind=args.kind,
+                summary=args.summary,
+                body=_load_post_body(args),
+                evidence_refs=tuple(args.evidence_ref or []),
+                context_pack_refs=tuple(resolve_context_pack_refs(args, repo_root)),
+                confidence=float(args.confidence),
+                requested_action=args.requested_action,
+                policy_hint=args.policy_hint,
+                approval_required=bool(args.approval_required),
+                packet_id=getattr(args, "packet_id", None),
+                trace_id=getattr(args, "trace_id", None),
+                session_id=args.session_id,
+                plan_id=args.plan_id,
+                controller_run_id=getattr(args, "controller_run_id", None),
+                expires_in_minutes=args.expires_in_minutes,
+                target=PacketTargetFields.from_values(
+                    target_kind=getattr(args, "target_kind", None),
+                    target_ref=getattr(args, "target_ref", None),
+                    target_revision=getattr(args, "target_revision", None),
+                    anchor_refs=getattr(args, "anchor_ref", []),
+                    intake_ref=getattr(args, "intake_ref", None),
+                    mutation_op=getattr(args, "mutation_op", None),
+                ),
+            ),
         )
         packet = next(
             (
@@ -146,12 +169,14 @@ def _run_event_action(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
             artifact_paths=artifact_paths,
-            action=args.action,
-            packet_id=args.packet_id,
-            actor=args.actor,
-            session_id=args.session_id,
-            plan_id=args.plan_id,
-            controller_run_id=getattr(args, "controller_run_id", None),
+            request=PacketTransitionRequest(
+                action=args.action,
+                packet_id=args.packet_id,
+                actor=args.actor,
+                session_id=args.session_id,
+                plan_id=args.plan_id,
+                controller_run_id=getattr(args, "controller_run_id", None),
+            ),
         )
         packet = next(
             (

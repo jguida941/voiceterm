@@ -311,6 +311,7 @@ class MobileStatusCommandTests(unittest.TestCase):
                 review_channel_path=str(root / "missing_review_channel.md"),
                 bridge_path=str(root / "missing_code_audit.md"),
                 review_status_dir=str(root / "missing-review-status"),
+                repo_root=str(root),
                 output=str(output_json),
             )
             rc = mobile_status.run(args)

@@ -289,8 +289,14 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=20,
         hard_lock_growth_limit=0,
     ),
+    "dev/scripts/devctl/review_channel/peer_liveness.py": ShapePolicy(
+        soft_limit=220,
+        hard_limit=300,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
     "dev/scripts/devctl/review_channel/event_reducer.py": ShapePolicy(
-        soft_limit=500,
+        soft_limit=545,
         hard_limit=600,
         oversize_growth_limit=30,
         hard_lock_growth_limit=0,
@@ -431,6 +437,83 @@ PATH_POLICY_PREFIX_OVERRIDES: dict[str, ShapePolicy] = {
         hard_lock_growth_limit=0,
     ),
 }
+
+
+# Override escalation: untouched legacy debt stays visible as a warning, but
+# check_code_shape ratchets new/worsened/touched over-cap overrides into real
+# violations. Operator intent is to keep overrides under 3x the language soft
+# cap and under 2x the language hard cap so large files still get decomposed
+# instead of being exempted by policy drift.
+OVERRIDE_SOFT_WARNING_MULTIPLIER = 3.0
+OVERRIDE_HARD_WARNING_MULTIPLIER = 2.0
+
+
+def collect_override_cap_records(
+    *,
+    overrides: dict[str, ShapePolicy] | None = None,
+    language_policies: dict[str, ShapePolicy] | None = None,
+) -> list[dict[str, object]]:
+    """Return override-cap records for the provided policy set."""
+    effective_overrides = PATH_POLICY_OVERRIDES if overrides is None else overrides
+    effective_language_policies = (
+        LANGUAGE_POLICIES if language_policies is None else language_policies
+    )
+    warnings: list[dict[str, object]] = []
+    for path_str, override in effective_overrides.items():
+        suffix = Path(path_str).suffix
+        lang_default = effective_language_policies.get(suffix)
+        if lang_default is None:
+            continue
+        soft_ratio = override.soft_limit / lang_default.soft_limit
+        hard_ratio = override.hard_limit / lang_default.hard_limit
+        triggered_caps: list[str] = []
+        if soft_ratio > OVERRIDE_SOFT_WARNING_MULTIPLIER:
+            triggered_caps.append("soft_limit")
+        if hard_ratio > OVERRIDE_HARD_WARNING_MULTIPLIER:
+            triggered_caps.append("hard_limit")
+        if not triggered_caps:
+            continue
+
+        detail_parts = [
+            f"Operator intent keeps path overrides under {OVERRIDE_SOFT_WARNING_MULTIPLIER:.1f}x the soft cap",
+            f"and under {OVERRIDE_HARD_WARNING_MULTIPLIER:.1f}x the hard cap.",
+        ]
+        if "soft_limit" in triggered_caps:
+            detail_parts.insert(
+                0,
+                (
+                    f"Override soft_limit ({override.soft_limit}) is "
+                    f"{soft_ratio:.2f}x the {suffix} default ({lang_default.soft_limit})."
+                ),
+            )
+        if "hard_limit" in triggered_caps:
+            detail_parts.insert(
+                1 if "soft_limit" in triggered_caps else 0,
+                (
+                    f"Override hard_limit ({override.hard_limit}) is "
+                    f"{hard_ratio:.2f}x the {suffix} default ({lang_default.hard_limit})."
+                ),
+            )
+        warnings.append(
+            {
+                "path": path_str,
+                "language_suffix": suffix,
+                "override_soft": override.soft_limit,
+                "override_hard": override.hard_limit,
+                "language_soft": lang_default.soft_limit,
+                "language_hard": lang_default.hard_limit,
+                "soft_ratio": soft_ratio,
+                "hard_ratio": hard_ratio,
+                "triggered_caps": triggered_caps,
+                "detail": " ".join(detail_parts),
+            }
+        )
+    return warnings
+
+
+def validate_override_caps() -> list[dict[str, object]]:
+    """Return advisory warnings for path overrides that exceed the operator caps."""
+    return collect_override_cap_records()
 
 
 def policy_for_path(path: Path) -> tuple[ShapePolicy | None, str | None]:

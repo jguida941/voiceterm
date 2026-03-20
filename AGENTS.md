@@ -55,6 +55,7 @@ Release-governance note:
 | Where is the code-shape expansion research companion (readability, coupling, AI-specific, information-theoretic probes/guards)? | `dev/active/code_shape_expansion.md` (subordinate evidence/calibration companion feeding `dev/active/review_probes.md` Phase 5b+, not a second execution authority) |
 | Where is the portable code-governance engine / multi-repo portability and measurement plan? | `dev/active/portable_code_governance.md` (engine/adoption companion plan) |
 | Where is the full reusable AI governance platform / package-extraction architecture plan? | `dev/active/ai_governance_platform.md` (the only main active architecture plan for this product scope) |
+| Where is the current `MP-377` startup-authority / repo-pack / typed-plan-registry / runtime-evidence-context closure plan? | `dev/active/platform_authority_loop.md` (subordinate `MP-377` execution spec; read after `dev/active/ai_governance_platform.md`) |
 | Where is the durable reusable AI governance platform thesis/architecture guide? | `dev/guides/AI_GOVERNANCE_PLATFORM.md` (durable companion to the active platform plan) |
 | Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
 | Where is the completed Rust workspace path/layout migration record? | `dev/archive/2026-03-07-rust-workspace-layout-migration.md` |
@@ -390,6 +391,11 @@ entrypoints, `script_catalog.py`, `quality_policy_defaults.py`,
 also run `python3 dev/scripts/devctl.py quality-policy --format md` plus
 `python3 dev/scripts/devctl.py render-surfaces --format md`; use `--write`
 when the policy-owned AI/dev instruction surfaces need regeneration.
+When the platform contract surface itself changes (`dev/scripts/devctl/platform/**`,
+shared runtime contract models, probe/report schema constants, or
+`repo_governance.surface_generation` contract-routing text), also run
+`python3 dev/scripts/checks/check_platform_contract_closure.py` plus
+`python3 dev/scripts/devctl.py platform-contracts --format md`.
 For probes only:
 ```bash
 # Canonical aggregated probe packet:
@@ -478,6 +484,10 @@ Portable policy note:
   policy-owned instruction/starter surfaces from
   `repo_governance.surface_generation`, and `--write` to regenerate them after
   template or context changes.
+- Use `python3 dev/scripts/checks/check_platform_contract_closure.py` when the
+  shared platform blueprint, runtime contract models, artifact schema
+  metadata, or startup-surface routing changes so `platform-contracts`,
+  emitted packet metadata, and AI/dev startup surfaces cannot drift apart.
 - Use `python3 dev/scripts/devctl.py governance-export --format md` when the
   whole governance stack, latest reports, and policy/templates need to be
   handed to another repo or model outside this checkout.
@@ -728,6 +738,7 @@ python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 python3 dev/scripts/checks/check_facade_wrappers.py
 python3 dev/scripts/checks/check_god_class.py
 python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
@@ -767,6 +778,7 @@ python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 python3 dev/scripts/checks/check_facade_wrappers.py
 python3 dev/scripts/checks/check_god_class.py
 python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
@@ -796,9 +808,12 @@ python3 dev/scripts/checks/check_instruction_surface_sync.py
 python3 dev/scripts/checks/check_bundle_registry_dry.py
 python3 dev/scripts/checks/check_bundle_workflow_parity.py
 python3 dev/scripts/checks/check_platform_layer_boundaries.py
+python3 dev/scripts/checks/check_platform_contract_closure.py
 python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
+python3 dev/scripts/checks/check_startup_authority_contract.py
 python3 dev/scripts/checks/check_tandem_consistency.py
+python3 dev/scripts/checks/check_governance_closure.py
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
@@ -821,6 +836,7 @@ python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 python3 dev/scripts/checks/check_facade_wrappers.py
 python3 dev/scripts/checks/check_god_class.py
 python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
@@ -854,9 +870,12 @@ python3 dev/scripts/checks/check_instruction_surface_sync.py
 python3 dev/scripts/checks/check_bundle_registry_dry.py
 python3 dev/scripts/checks/check_bundle_workflow_parity.py
 python3 dev/scripts/checks/check_platform_layer_boundaries.py
+python3 dev/scripts/checks/check_platform_contract_closure.py
 python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
+python3 dev/scripts/checks/check_startup_authority_contract.py
 python3 dev/scripts/checks/check_tandem_consistency.py
+python3 dev/scripts/checks/check_governance_closure.py
 python3 dev/scripts/checks/check_publication_sync.py
 CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
 CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
@@ -882,6 +901,7 @@ python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 python3 dev/scripts/checks/check_facade_wrappers.py
 python3 dev/scripts/checks/check_god_class.py
 python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
@@ -928,6 +948,7 @@ python3 dev/scripts/checks/check_rust_runtime_panic_policy.py --since-ref origin
 python3 dev/scripts/checks/check_facade_wrappers.py --since-ref origin/develop
 python3 dev/scripts/checks/check_god_class.py --since-ref origin/develop
 python3 dev/scripts/checks/check_mobile_relay_protocol.py --since-ref origin/develop
+python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py --since-ref origin/develop
 python3 dev/scripts/checks/check_parameter_count.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_dict_schema.py --since-ref origin/develop

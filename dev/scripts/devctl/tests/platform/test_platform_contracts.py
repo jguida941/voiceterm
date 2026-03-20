@@ -32,8 +32,12 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "TypedAction" in contract_ids
     assert "ControlState" in contract_ids
     assert "ReviewState" in contract_ids
+    assert "Finding" in contract_ids
+    assert "DecisionPacket" in contract_ids
+    assert "FailurePacket" in contract_ids
     assert "LocalServiceEndpoint" in contract_ids
     assert "CallerAuthorityPolicy" in contract_ids
+    assert len(blueprint.artifact_schemas) >= 1
 
 
 def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> None:
@@ -44,6 +48,8 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     }
     assert "shutdown_entrypoints" in contract_map["LocalServiceEndpoint"]
     assert "forbidden_actions" in contract_map["CallerAuthorityPolicy"]
+    assert "signals" in contract_map["Finding"]
+    assert "validation_plan" in contract_map["DecisionPacket"]
 
 
 def test_platform_contracts_json_output(capsys) -> None:
@@ -53,11 +59,16 @@ def test_platform_contracts_json_output(capsys) -> None:
     assert payload["command"] == "platform-contracts"
     assert payload["schema_version"] == 1
     contract_ids = [row["contract_id"] for row in payload["shared_contracts"]]
+    artifact_ids = [row["contract_id"] for row in payload["artifact_schemas"]]
     contract_map = {
         row["contract_id"]: {field["name"] for field in row["required_fields"]}
         for row in payload["shared_contracts"]
     }
     assert "WorkflowAdapter" in contract_ids
+    assert "Finding" in contract_ids
+    assert "DecisionPacket" in contract_ids
+    assert "ProbeReport" in artifact_ids
+    assert "ReviewPacket" in artifact_ids
     assert payload["service_lifecycle"][0]["service_id"] == "voiceterm_daemon"
     assert "shutdown_entrypoints" in contract_map["LocalServiceEndpoint"]
     assert "forbidden_actions" in contract_map["CallerAuthorityPolicy"]
@@ -73,6 +84,7 @@ def test_platform_contracts_markdown_output(capsys) -> None:
     output = capsys.readouterr().out
     assert "# devctl platform-contracts" in output
     assert "## Shared Contracts" in output
+    assert "## Artifact Schema Matrix" in output
     assert "## Service Lifecycle" in output
     assert "## Caller Authority" in output
     assert "RepoPack" in output

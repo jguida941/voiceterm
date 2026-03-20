@@ -162,8 +162,12 @@ def read_guarded_coding_episodes(
     rows: list[GuardedCodingEpisode] = []
     try:
         with jsonl_path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                payload = parse_json_line_dict(line)
+            for line_number, line in enumerate(handle, start=1):
+                payload = parse_json_line_dict(
+                    line,
+                    source=str(jsonl_path),
+                    line_number=line_number,
+                )
                 if payload is None:
                     continue
                 rows.append(guarded_coding_episode_from_dict(payload))

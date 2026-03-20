@@ -157,7 +157,12 @@ def _parse_json_rows(raw_text: str, *, input_path: Path) -> list[dict[str, Any]]
 def _parse_jsonl_rows(raw_text: str, *, input_path: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for index, line in enumerate(raw_text.splitlines(), start=1):
-        payload = parse_json_line_dict(line)
+        payload = parse_json_line_dict(
+            line,
+            source=str(input_path),
+            line_number=index,
+            warning_sink=lambda _message: None,
+        )
         if payload is None:
             if line.strip():
                 raise ValueError(
@@ -277,52 +282,11 @@ def _repo_name_from_path(value: str | None) -> str | None:
     return name or None
 
 
-def _override_text(value: object) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _first_text(item: dict[str, Any], *keys: str) -> str | None:
-    for key in keys:
-        value = item.get(key)
-        if value is None:
-            continue
-        text = str(value).strip()
-        if text:
-            return text
-    return None
-
-
-def _first_location_text(item: dict[str, Any], *keys: str) -> str | None:
-    location = item.get("location")
-    if not isinstance(location, dict):
-        return None
-    return _first_text(location, *keys)
-
-
-def _first_int(item: dict[str, Any], *keys: str) -> int | None:
-    for key in keys:
-        value = item.get(key)
-        if value is None or value == "":
-            continue
-        return _parse_int(value, field_name=key)
-    return None
-
-
-def _first_location_int(item: dict[str, Any], *keys: str) -> int | None:
-    location = item.get("location")
-    if not isinstance(location, dict):
-        return None
-    return _first_int(location, *keys)
-
-
-def _parse_int(value: object, *, field_name: str) -> int:
-    try:
-        result = int(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field_name} must be an integer: {value!r}") from exc
-    if result <= 0:
-        raise ValueError(f"{field_name} must be positive: {value!r}")
-    return result
+from .import_findings_support import (
+    first_int as _first_int,
+    first_location_int as _first_location_int,
+    first_location_text as _first_location_text,
+    first_text as _first_text,
+    override_text as _override_text,
+    parse_int as _parse_int,
+)

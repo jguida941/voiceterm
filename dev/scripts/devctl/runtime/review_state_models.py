@@ -34,6 +34,7 @@ class ReviewQueueState:
 class ReviewBridgeState:
     overall_state: str
     codex_poll_state: str
+    reviewer_freshness: str
     reviewer_mode: str
     last_codex_poll_utc: str
     last_codex_poll_age_seconds: int
@@ -42,6 +43,9 @@ class ReviewBridgeState:
     open_findings: str
     claude_status: str
     claude_ack: str
+    claude_ack_current: bool
+    current_instruction_revision: str
+    claude_ack_revision: str
     last_reviewed_scope: str
     implementer_completion_stall: bool = False
     publisher_running: bool = False
@@ -82,6 +86,12 @@ class ReviewPacketState:
     trace_id: str = ""
     latest_event_id: str = ""
     confidence: float = 0.0
+    target_kind: str = ""
+    target_ref: str = ""
+    target_revision: str = ""
+    anchor_refs: tuple[str, ...] = ()
+    intake_ref: str = ""
+    mutation_op: str = ""
     acked_by: str = ""
     acked_at_utc: str = ""
     applied_at_utc: str = ""

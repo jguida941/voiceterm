@@ -33,6 +33,7 @@ Fast first checks:
 | Startup splash behaves oddly | Tune splash env vars | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme colors look muted | Verify truecolor env | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme file edits do not apply | Verify `--theme-file` / `VOICETERM_THEME_FILE` and check logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| Operator Console `Start Swarm` stays disabled or red | Run `Dry Run` first and verify current review state | [Optional Companion Surfaces](#optional-companion-surfaces) |
 | iPhone app import screen does not clear | Re-sync the live bundle and relaunch the app | [Mobile App Issues](#mobile-app-issues) |
 | iPhone install command cannot find device | Verify trust, cable, team ID, and device support | [Mobile App Issues](#mobile-app-issues) |
 
@@ -199,6 +200,24 @@ Note for Cursor terminal:
   You can still operate HUD controls with keyboard focus and `Enter`.
 
 </details>
+
+## Optional Companion Surfaces
+
+### Operator Console `Start Swarm` stays disabled or red
+
+The optional desktop companion will not launch a live swarm until the current
+repo-backed review preflight is green.
+
+1. Launch it from a source checkout with `./scripts/operator_console.sh`.
+2. Run `Dry Run` first and wait for the preflight status to settle.
+3. If it stays red, inspect the app's current review/bridge status or run:
+
+```bash
+python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md
+```
+
+4. Refresh stale live bundles or bridge state before retrying `Start Swarm` or
+   `Launch Live`.
 
 ## Mobile App Issues
 

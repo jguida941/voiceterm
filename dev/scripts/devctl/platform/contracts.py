@@ -31,6 +31,26 @@ class ContractSpec:
     owner_layer: str
     purpose: str
     required_fields: tuple[ContractField, ...]
+    runtime_model: str = ""
+    startup_surface_tokens: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactSchemaSpec:
+    """Schema metadata for one durable machine-readable artifact family."""
+
+    contract_id: str
+    owner_layer: str
+    purpose: str
+    schema_version: int
+    emitter_path: str
+    constants_module: str
+    contract_id_attr: str
+    schema_version_attr: str
+    compatibility_window: str
+    migration_path: str
+    rollback_path: str
+    startup_surface_tokens: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +114,7 @@ class PlatformBlueprint:
     thesis: str
     layers: tuple[PlatformLayerSpec, ...]
     shared_contracts: tuple[ContractSpec, ...]
+    artifact_schemas: tuple[ArtifactSchemaSpec, ...]
     frontend_surfaces: tuple[FrontendSurfaceSpec, ...]
     service_lifecycle: tuple[ServiceLifecycleSpec, ...]
     caller_authority: tuple[CallerAuthoritySpec, ...]

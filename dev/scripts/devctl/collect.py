@@ -3,12 +3,14 @@
 import json
 import shutil
 import subprocess
+from pathlib import Path
 from typing import Any
 
 from .clippy_pedantic import build_snapshot as build_clippy_pedantic_snapshot
 from .collect_dev_logs import collect_dev_log_summary as _collect_dev_log_summary
 from .config import REPO_ROOT, get_repo_root
 from .quality_scan_mode import is_adoption_scan
+from .runtime.failure_packet import collect_failure_packet as _collect_failure_packet
 
 CI_RUN_FIELDS_EXTENDED = (
     "status,conclusion,displayTitle,name,event,headBranch,headSha," "createdAt,updatedAt,url,databaseId"
@@ -20,6 +22,11 @@ CI_RUN_FALLBACK_MARKERS = (
     "invalid value for --json",
 )
 collect_dev_log_summary = _collect_dev_log_summary
+
+
+def collect_failure_packet() -> dict[str, object] | None:
+    """Return the latest structured failure packet when local artifacts exist."""
+    return _collect_failure_packet(Path(REPO_ROOT))
 
 
 def _build_git_status_payload(

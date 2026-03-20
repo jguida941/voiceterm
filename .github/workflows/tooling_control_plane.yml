@@ -82,6 +82,7 @@ jobs:
   devctl-tests:
     name: devctl unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -100,11 +101,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m pytest dev/scripts/devctl/tests/ -q --tb=short \
+            --junitxml=devctl-tests.junit.xml \
             --cov=dev/scripts/devctl \
             --cov=dev/scripts/checks \
             --cov-report=term-missing:skip-covered \
             --cov-report=xml:coverage-devctl.xml \
-            --cov-fail-under=40
+            --cov-fail-under=40 \
+            2>&1 | tee devctl-tests.pytest.log
 
       - name: Print devctl coverage summary
         if: ${{ always() }}
@@ -124,7 +127,10 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: coverage-devctl
-          path: coverage-devctl.xml
+          path: |
+            coverage-devctl.xml
+            devctl-tests.junit.xml
+            devctl-tests.pytest.log
           if-no-files-found: warn
 
   operator-console-tests:
@@ -146,10 +152,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m pytest app/operator_console/tests/ -q --tb=short \
+            --junitxml=operator-console-tests.junit.xml \
             --cov=app/operator_console \
             --cov-report=term-missing:skip-covered \
             --cov-report=xml:coverage-operator-console.xml \
-            --cov-fail-under=40
+            --cov-fail-under=40 \
+            2>&1 | tee operator-console-tests.pytest.log
 
       - name: Print operator console coverage summary
         if: ${{ always() }}
@@ -169,7 +177,10 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: coverage-operator-console
-          path: coverage-operator-console.xml
+          path: |
+            coverage-operator-console.xml
+            operator-console-tests.junit.xml
+            operator-console-tests.pytest.log
           if-no-files-found: warn
 
       - name: Smoke devctl ship/pypi/list commands
@@ -383,14 +394,23 @@ jobs:
       - name: Run platform-layer-boundaries guard
         run: python3 dev/scripts/checks/check_platform_layer_boundaries.py
 
+      - name: Run platform-contract closure guard
+        run: python3 dev/scripts/checks/check_platform_contract_closure.py
+
       - name: Run platform-contract sync guard
         run: python3 dev/scripts/checks/check_platform_contract_sync.py
 
       - name: Run review-channel bridge guard
         run: python3 dev/scripts/checks/check_review_channel_bridge.py
 
+      - name: Run startup-authority contract guard
+        run: python3 dev/scripts/checks/check_startup_authority_contract.py
+
       - name: Run tandem-consistency guard
         run: python3 dev/scripts/checks/check_tandem_consistency.py
+
+      - name: Run governance-closure guard
+        run: python3 dev/scripts/checks/check_governance_closure.py
 
       - name: Run active-plan sync guard
         run: python3 dev/scripts/checks/check_active_plan_sync.py
@@ -512,6 +532,9 @@ jobs:
           python3 dev/scripts/checks/check_mobile_relay_protocol.py \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run daemon-state parity guard
+        run: python3 dev/scripts/checks/check_daemon_state_parity.py
 
       - name: Run nesting-depth non-regression guard
         run: |

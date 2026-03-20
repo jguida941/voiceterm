@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-03-16 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-03-17 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -123,11 +123,73 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       clarity and broader KISS/readability enforcement as advisory probes or
       optional autofix/report surfaces until signal quality is proven across
       multiple repos.
+- [ ] Add a portability-safe "data-as-code" follow-up to that tranche: when a
+      portability surface is effectively a static table of contracts or policy
+      rows, the engine should be able to recommend moving that data into JSON/
+      YAML/config artifacts instead of leaving it embedded as Python tuples and
+      wrapper functions. Keep this advisory until the false-positive rate is
+      proven low across more than one repo.
+- [ ] Keep the portable-engine / repo-governance split explicit: the portable
+      engine owns reusable checks, evidence contracts, cache formats, and
+      startup artifacts, while repo-governance owns per-repo policy, preset
+      selection, adoption routing, and local exception decisions. Do not let
+      the engine accumulate product-specific authority that should live in the
+      repo-governance layer.
+- [ ] Add portable convention-discovery/report surfaces on top of that tranche:
+      a repo should be able to run a one-time `naming-scan` to discover
+      dominant patterns, emit a starter convention policy, then use
+      `naming-report` as the AI/human-readable surface for active convention
+      rules, drift probes, and recommended next checks.
+- [ ] Explicitly align that structural-readability tranche with the existing
+      metric research: identifier density, cognitive complexity, Halstead
+      volume, and later entropy/cohesion probes should provide portable
+      severity/ranking evidence and AI fix hints, but repo-policy-backed
+      naming/organization contracts remain the authority for convention drift.
+- [ ] Extend the portable engine's confidence model to include governance
+      completeness evidence: flag when a guard family has no tests, when a CI
+      workflow never invokes a registered guard, when exception registries are
+      incomplete, when workflow timeouts are missing, or when JSONL/evidence
+      writers can silently skip malformed rows, and route those as first-class
+      repo-portable meta-findings instead of assuming the guard stack
+      validates itself.
 - [ ] Promote repo understanding into a portable evidence contract: define a
       versioned `map` schema that combines topology, complexity, hotspots,
       changed scope, and guard/probe overlays with machine-readable targeted-
       check hints so humans and AI can reuse one public surface instead of
       inventing prompt-local repo walkthroughs.
+- [ ] Add a portable work-intake / startup-authority layer on top of that map
+      and policy stack: another repo should be able to ask "what is active,
+      what changed, what bundle should run, and where should accepted outcomes
+      be recorded?" without copying VoiceTerm-specific docs/layout logic. The
+      answer should come from repo-pack metadata, changed-file inspection,
+      command-goal taxonomy, and generated surfaces rather than from one repo's
+      hardcoded paths or hand-written starter prose.
+- [ ] Make that startup-authority layer convention-aware too: when a repo has
+      declared convention policy or freshly generated convention reports, AI
+      startup surfaces should include the relevant convention summary and the
+      right convention checks instead of expecting agents to infer repo style
+      from arbitrary nearby code.
+- [ ] Keep startup context bounded and task-scoped for adopters: another repo
+      should not need to read tens of thousands of tokens of global docs just
+      to start safely. Add a minimal generated startup surface per task type
+      and a filtered probe/convention view so adoption/bootstrap remains
+      practical outside this repo's full maintainer context.
+- [ ] Add a repo-portable governance-contract draft flow for adopters:
+      `governance-draft` should scan languages, source/test roots, CI shape,
+      import topology, architecture hints, and current quality baselines to
+      emit a reviewed `project.governance.md` starter contract with explicit
+      human-fill fields for priorities, ignored debt, and approved exceptions.
+- [ ] Let that reviewed contract drive onboarding and evolution: approved
+      `project.governance.md` state should feed `governance-bootstrap` and/or
+      a later `governance-init`, and adoption scans should suggest contract
+      updates when repo structure drifts instead of letting starter docs rot
+      silently.
+- [ ] Make that startup-authority layer cache-first instead of re-scan-first:
+      expensive repo-intelligence work should materialize durable artifacts
+      (`plan snapshot`, `command map`, `convention snapshot`, `map snapshot`,
+      targeted-check hints, filtered probe view) under one portable artifact /
+      refresh-ledger contract, then refresh only the slices invalidated by git
+      changes, plan/policy edits, or missing cache state.
 - [ ] Define the portable storage/index contract for that repo-understanding
       surface: canonical JSON snapshot, append-only refresh ledger, optional
       SQLite query cache, stable artifact receipts, and repo-policy retention
@@ -139,6 +201,18 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       repair passes, and store reviewed bad->fixed episodes as machine-readable
       evidence for later retrieval, evaluation, and only then possible
       fine-tuning.
+- [ ] Make the portable engine self-hosting before exporting stronger claims:
+      the governance stack should run its own guards/probes with an
+      explainable clean report, and code-shape/file-layout thresholds must be
+      calibrated against coupling/cohesion/fan-out so the engine is not forced
+      into line-count-compliant but less comprehensible fragmentation.
+- [ ] Extract shared governance-engine primitives where repetition is clearly
+      structural rather than domain-specific: mapping/decoder helpers, guard or
+      probe registration, markdown/report builders, and JSON/JSONL artifact
+      writers should converge on reusable engine surfaces instead of spreading
+      hand-written boilerplate across every checker and report path. Exact
+      mechanics may be decorators, generators, or shared base helpers, but the
+      portable contract should remove copy-paste as the default authoring mode.
 - [ ] Define one portable versioned finding schema for guard/probe output so
       rule families, review packets, suppression flow, autofix metadata, and
       later replay/eval records all project from the same evidence contract
@@ -188,6 +262,49 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-17: Aligned a proposed `governance-quality-feedback` /
+  maintainability-snapshot surface with the portable engine boundary instead of
+  letting it become a repo-local side system. Portable ownership here is the
+  reusable evidence ingestion and evaluation contract: consume adjudicated
+  false-positive/fixed/deferred outcomes, cross-repo pilot evidence, and later
+  quality snapshots through the same engine/reporting path, while reusing the
+  `MP-378` Halstead/Maintainability Index research lane from
+  `dev/active/code_shape_expansion.md` rather than duplicating metric design in
+  another plan doc. Keep operator-console/mobile integration out of the first
+  slice; the portable core is CLI/artifact/reporting first.
+- 2026-03-17: Refined that same portable scoring direction: adopter-facing
+  evaluation should converge on a multi-lens scorecard with explicit evidence
+  coverage rather than one opaque composite. The portable target is now
+  `CodeHealthScore` + `GovernanceQualityScore` + `OperabilityScore`, plus at
+  most one secondary gated overall summary. Median is not the preferred
+  top-level cross-lens aggregator because it can hide a failing lens; if median
+  is used at all, keep it inside one lens across closely related sub-metrics.
+  Portable reports should explain which evidence fed each lens, which
+  dimensions are unmeasured, and why the summary score moved.
+- 2026-03-17: Added separate local-path evidence for `ci-cd-hub` against the
+  pinned `integrations/ci-cd-hub` federated checkout so the corrected
+  2026-03-14 `/tmp/governance-pilots/ci-cd-hub` benchmark is not overwritten.
+  The local rerun used `governance-bootstrap`, the bootstrapped starter
+  policy, `check --profile ci --adoption-scan`, and `probe-report
+  --adoption-scan` against the pinned submodule path; it returned `13/15` red
+  AI guard steps and a richer current review packet with `1828` findings
+  across `266` files. Reviewed signal quality is now durable too: the target
+  repo governance ledger has `7` adjudications (`4 confirmed_issue`,
+  `3 false_positive`) covering real orchestration/exception/cycle debt plus
+  representative false-positive/noise cases. Treat this as a local-path
+  portability proof and reviewed-ledger follow-up, not as a replacement for
+  the March 14 cross-repo aggregate baseline.
+- 2026-03-17: Accepted a more concrete portable onboarding contract. Another
+  repo should not have to start from raw policy JSON and scattered setup prose
+  alone; the engine needs a reviewed repo-local governance doc
+  (`project.governance.md` as the current working name) that AI can draft from
+  deterministic scans and humans can finish with priorities, exclusions, debt,
+  and exception intent. Portable ownership here is the draft/evolution engine:
+  infer identity, languages, roots, CI/test shape, architecture hints, and
+  quality baselines; leave the non-deterministic team-preference fields
+  explicit; then let `governance-bootstrap` or later `governance-init` consume
+  the approved contract instead of forcing first-run policy authoring from
+  scratch.
 - 2026-03-17: Fixed a real self-hosting reporting bug in the portable
   governance packet path. `devctl probe-report` had been rendering markdown
   and terminal packets without passing `repo_root` into the shared render
@@ -201,6 +318,20 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   the filtered result?" gap for the canonical probe surface and leaves the
   current local filtered backlog medium-only (`0` active high, `14` active
   medium, `25` design decisions).
+- 2026-03-17: Clarified ownership after the naming/navigation audit. This plan
+  owns the portable convention engine itself: repo-policy convention schema,
+  discovery/report surfaces (`naming-scan`, `naming-report`), and the reusable
+  naming/organization guard/probe families. It does not own AI-facing startup/
+  work-intake routing or command-goal taxonomy; those remain `MP-377`
+  product-facing work in `ai_governance_platform.md`.
+- 2026-03-17: Accepted the cache-first framing for portable startup. Another
+  repo should not have to pay the full maintainer-doc/bootstrap cost every
+  session; the right architecture is cached repo-intelligence artifacts plus
+  explicit invalidation/refresh, not repeated full rereads. The portable lane
+  now assumes canonical JSON snapshots with an optional SQLite query cache,
+  stable artifact receipts, and repo-policy retention rules so adopters can
+  answer "what changed and what matters?" from stored evidence instead of raw
+  prose bootstrap.
 - 2026-03-11: Created this execution-plan doc after maintainership review
   highlighted a tracking gap. Existing active docs already covered probe
   implementation and portable-guard slices, but not the broader portable
@@ -754,6 +885,17 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Session Resume
 
+- Keep the corrected 2026-03-14 `/tmp/governance-pilots/ci-cd-hub` benchmark
+  distinct from the 2026-03-17 rerun against the pinned
+  `integrations/ci-cd-hub` federated checkout; today's local-path proof uses
+  the current richer packet surface and should not overwrite the March 14
+  cross-repo aggregate baseline.
+- The pinned local rerun produced `13/15` red AI guard steps and `1828`
+  probe findings across `266` files; durable artifacts now live under
+  `integrations/ci-cd-hub/dev/reports/{probes,governance}/latest`.
+- The target-repo governance ledger now has `7` reviewed rows
+  (`4 confirmed_issue`, `3 false_positive`), which is enough to start
+  separating real portable signal from rule-tuning debt on external repos.
 - `devctl probe-report` now applies repo-root allowlist/design-decision
   filtering consistently in artifact, markdown, and terminal modes; the
   current local filtered backlog is `0` active high, `14` active medium, and
@@ -825,6 +967,13 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   `probe-report --adoption-scan --repo-path`; durable summary saved to
   `dev/reports/audits/portable_governance_pilot_2026-03-14.json` and
   `dev/reports/audits/2026-03-14-portable-governance-pilot-rerun.md`
+- 2026-03-17 pinned local rerun over the federated checkout:
+  `python3 dev/scripts/devctl.py governance-bootstrap --target-repo integrations/ci-cd-hub --format md`
+  `python3 dev/scripts/devctl.py quality-policy --quality-policy integrations/ci-cd-hub/dev/config/devctl_repo_policy.json --format md`
+  `python3 dev/scripts/devctl.py check --profile ci --repo-path integrations/ci-cd-hub --adoption-scan --format md --output /tmp/cihub-check.md`
+  `python3 dev/scripts/devctl.py probe-report --repo-path integrations/ci-cd-hub --adoption-scan --format md --output /tmp/cihub-probe.md --json-output /tmp/cihub-probe.json`
+  repeated `python3 dev/scripts/devctl.py governance-review --record ... --log-path integrations/ci-cd-hub/dev/reports/governance/finding_reviews.jsonl --summary-root integrations/ci-cd-hub/dev/reports/governance/latest`
+  `python3 dev/scripts/devctl.py governance-review --log-path integrations/ci-cd-hub/dev/reports/governance/finding_reviews.jsonl --summary-root integrations/ci-cd-hub/dev/reports/governance/latest --format md`
 - Known unrelated hygiene warning:
   `python3 dev/scripts/devctl.py hygiene --strict-warnings` remains red because
   of pre-existing publication drift and because hygiene can observe the cleanup

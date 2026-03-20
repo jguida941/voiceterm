@@ -109,6 +109,25 @@ def classify_issues(project_report: dict) -> list[dict]:
                     }
                 )
     issues.extend(classify_probe_report_issues(project_report.get("probe_report")))
+    failure_packet = project_report.get("failure_packet")
+    if isinstance(failure_packet, dict):
+        failed_tests = int(failure_packet.get("failed_tests") or 0) + int(
+            failure_packet.get("error_tests") or 0
+        )
+        if failed_tests > 0:
+            primary_test = str(failure_packet.get("primary_test_id") or "unknown")
+            primary_message = str(failure_packet.get("primary_message") or "").strip()
+            summary = f"{primary_test}"
+            if primary_message:
+                summary += f": {primary_message}"
+            issues.append(
+                {
+                    "category": "failure_packet",
+                    "severity": "high",
+                    "source": "devctl.status.failure_packet",
+                    "summary": summary,
+                }
+            )
     return issues
 
 
@@ -122,6 +141,10 @@ def build_next_actions(issues: list[dict]) -> list[str]:
     if "ci" in categories or "infra" in categories:
         actions.append(
             "Run `python3 dev/scripts/devctl.py status --ci --require-ci --format md` and inspect failing workflow runs."
+        )
+    if "failure_packet" in categories:
+        actions.append(
+            "Inspect the Failure Packet section in `devctl triage`/`devctl report` and rerun the primary failing test before chasing collateral failures."
         )
     if "quality" in categories:
         actions.append(

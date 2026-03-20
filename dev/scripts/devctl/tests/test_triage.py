@@ -134,7 +134,25 @@ class TriageCommandTests(unittest.TestCase):
                 ],
                 "warnings": ["warning"],
                 "rollup": {"total": 1, "by_severity": {"high": 1}},
-                "project": minimal_project_report(),
+                "project": {
+                    **minimal_project_report(),
+                    "failure_packet": {
+                        "source": "workspace",
+                        "runner": "pytest",
+                        "status": "failed",
+                        "total_tests": 3,
+                        "failed_tests": 1,
+                        "error_tests": 0,
+                        "primary_test_id": "pkg.test_mod::test_fail",
+                        "primary_message": "assert 1 == 2",
+                        "cases": [
+                            {
+                                "test_id": "pkg.test_mod::test_fail",
+                                "message": "assert 1 == 2",
+                            }
+                        ],
+                    },
+                },
                 "next_actions": ["Inspect the failing workflow."],
                 "cihub": {
                     "enabled": True,
@@ -155,11 +173,29 @@ class TriageCommandTests(unittest.TestCase):
         )
 
         self.assertIn("## Project Snapshot", markdown)
+        self.assertIn("## Failure Packet", markdown)
+        self.assertIn("pkg.test_mod::test_fail", markdown)
         self.assertIn("## CIHub", markdown)
         self.assertIn("- triage_json: /tmp/triage.json", markdown)
         self.assertIn("## External Issue Sources", markdown)
         self.assertIn("- jira: /tmp/jira.json (issues=2)", markdown)
         self.assertIn("## Bundle", markdown)
+
+    def test_classify_issues_promotes_failure_packet_primary_failure(self) -> None:
+        issues = triage_support.classify_issues(
+            {
+                **minimal_project_report(),
+                "failure_packet": {
+                    "failed_tests": 1,
+                    "error_tests": 0,
+                    "primary_test_id": "pkg.test_mod::test_fail",
+                    "primary_message": "assert 1 == 2",
+                },
+            }
+        )
+        self.assertTrue(
+            any(issue["source"] == "devctl.status.failure_packet" for issue in issues)
+        )
 
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")

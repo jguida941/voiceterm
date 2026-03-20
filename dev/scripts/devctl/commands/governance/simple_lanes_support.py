@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import re
-import shlex
 import sys
 from dataclasses import dataclass
 
 from ...collect import collect_git_status
+from ...common import inject_quality_policy_command, normalize_repo_python_shell_command
 from ..check_router import _extract_bundle_commands
 from ..check_router_constants import resolve_check_router_config
 from ..check_router_support import (
@@ -16,20 +15,6 @@ from ..check_router_support import (
 )
 
 CURRENT_PYTHON = sys.executable
-_ENV_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$")
-_POLICY_AWARE_SUBCOMMANDS = frozenset(
-    {
-        "check",
-        "check-router",
-        "docs-check",
-        "probe-report",
-        "quality-policy",
-        "render-surfaces",
-        "report",
-        "status",
-        "triage",
-    }
-)
 
 
 @dataclass(frozen=True)
@@ -40,56 +25,6 @@ class TandemValidateExecution:
     quality_policy: str | None
     steps: list[dict[str, object]]
     timestamp: str
-
-
-def split_shell_prefix(command: str) -> tuple[list[str], list[str]] | None:
-    """Split a shell command into env assignments and argv tokens."""
-    try:
-        parts = shlex.split(command)
-    except ValueError:
-        return None
-    env_prefix: list[str] = []
-    while parts and _ENV_ASSIGNMENT_RE.fullmatch(parts[0]):
-        env_prefix.append(parts.pop(0))
-    return env_prefix, parts
-
-
-def inject_quality_policy(command: str, quality_policy_path: str | None) -> str:
-    """Append a quality-policy override to policy-aware repo commands."""
-    if not quality_policy_path:
-        return command
-    split = split_shell_prefix(command)
-    if split is None:
-        return command
-    env_prefix, parts = split
-    if len(parts) < 2 or parts[1] != "dev/scripts/devctl.py":
-        return command
-    command_args = parts[2:]
-    if not command_args or command_args[0] not in _POLICY_AWARE_SUBCOMMANDS:
-        return command
-    if "--quality-policy" in command_args:
-        return command
-    command_args.extend(["--quality-policy", quality_policy_path])
-    rebuilt = shlex.join([parts[0], parts[1], *command_args])
-    return " ".join([*env_prefix, rebuilt]) if env_prefix else rebuilt
-
-
-def normalize_repo_python_command(command: str) -> str:
-    """Force repo-owned Python commands onto the current interpreter."""
-    split = split_shell_prefix(command)
-    if split is None:
-        return command
-    env_prefix, parts = split
-    if len(parts) < 2:
-        return command
-    if parts[0] not in {"python3", "python3.11", CURRENT_PYTHON}:
-        return command
-    target = parts[1]
-    if target != "dev/scripts/devctl.py" and not target.startswith("dev/scripts/checks/"):
-        return command
-    parts[0] = CURRENT_PYTHON
-    rebuilt = shlex.join(parts)
-    return " ".join([*env_prefix, rebuilt]) if env_prefix else rebuilt
 
 
 def dedupe_tandem_validate_rows(command_rows: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -250,8 +185,8 @@ def _build_planned_rows(
     planned_rows.extend(
         _make_command_row(
             source=bundle_name,
-            command=normalize_repo_python_command(
-                inject_quality_policy(command, quality_policy_path)
+            command=normalize_repo_python_shell_command(
+                inject_quality_policy_command(command, quality_policy_path)
             ),
         )
         for command in bundle_commands
@@ -260,8 +195,8 @@ def _build_planned_rows(
         planned_rows.extend(
             _make_command_row(
                 source=str(addon["id"]),
-                command=normalize_repo_python_command(
-                    inject_quality_policy(command, quality_policy_path)
+                command=normalize_repo_python_shell_command(
+                    inject_quality_policy_command(command, quality_policy_path)
                 ),
             )
             for command in addon["commands"]
@@ -276,8 +211,8 @@ def _build_preflight_rows(
     return [
         _make_command_row(
             source="tandem-preflight",
-            command=normalize_repo_python_command(
-                inject_quality_policy(
+            command=normalize_repo_python_shell_command(
+                inject_quality_policy_command(
                     "python3 dev/scripts/devctl.py quality-policy --format md",
                     quality_policy_path,
                 )
@@ -285,7 +220,7 @@ def _build_preflight_rows(
         ),
         _make_command_row(
             source="tandem-preflight",
-            command=normalize_repo_python_command(
+            command=normalize_repo_python_shell_command(
                 "python3 dev/scripts/devctl.py review-channel --action status "
                 "--terminal none --format json"
             ),
@@ -297,14 +232,14 @@ def _build_postflight_rows() -> list[dict[str, object]]:
     return [
         _make_command_row(
             source="tandem-postflight",
-            command=normalize_repo_python_command(
+            command=normalize_repo_python_shell_command(
                 "python3 dev/scripts/checks/check_review_channel_bridge.py --format md"
             ),
             force_rerun=True,
         ),
         _make_command_row(
             source="tandem-postflight",
-            command=normalize_repo_python_command(
+            command=normalize_repo_python_shell_command(
                 "python3 dev/scripts/checks/check_tandem_consistency.py --format md"
             ),
             force_rerun=True,

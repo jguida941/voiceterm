@@ -10,6 +10,7 @@
     "compat_matrix_smoke",
     "naming_consistency",
     "platform_layer_boundaries",
+    "platform_contract_closure",
     "platform_contract_sync",
     "tandem_consistency"
   ],

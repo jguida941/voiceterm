@@ -14,7 +14,9 @@ state.
 This plan covers:
 
 1. One canonical machine-readable review packet/event contract aligned to the
-   broader `controller_state` direction already tracked under MP-340.
+   broader `controller_state` direction already tracked under MP-340 and broad
+   enough to carry code-review, plan-review, and operator-decision packets
+   without forking the transport.
 2. Multiple projections over that contract (`json`, `ndjson`, `md`,
    overlay/terminal-packet views) using the same projection shape already used
    by `phone-status`.
@@ -76,7 +78,10 @@ contract, not the long-term product boundary.
     Claude codes one bounded slice at a time, then returns to wait/poll mode,
     Codex re-reviews that slice and rewrites the bridge, and the pair keeps
     cycling until the scoped plan is exhausted or a real blocker/approval
-    boundary is hit.
+    boundary is hit. When the scoped slice is plan hardening rather than code
+    change, the same loop applies through plan-review packets against typed
+    plan targets, and only the intake-selected canonical-plan writer may patch
+    the reviewed plan markdown.
 9. The same backend must serve developers, solo agents, and dual-agent loops.
    Any future PyQt6/mobile toggle should switch `reviewer_mode` on the shared
    backend (`active_dual_agent`, `single_agent`, `tools_only`, `paused`,
@@ -112,6 +117,24 @@ contract, not the long-term product boundary.
 9. Initial refresh for Rust review surfaces should use local artifact polling
    and existing periodic task hooks rather than a new filesystem-watcher
    dependency.
+10. Planning review must reuse this packet/event transport instead of creating
+    a second authoritative `plan.md` bridge. When packets target mutable plan
+    authority, the canonical plan stays authoritative and packet state is
+    proposal/coordination only.
+11. The long-term human-facing markdown bridge is one backend-fed
+    `CollaborationSession` projection over `WorkIntakePacket`, review packets,
+    reviewer state, and writer leases. It must expose role assignment,
+    current slice, peer findings/responses, disagreement/arbitration,
+    delegated-worker receipts, restart packet, and ready gates without
+    becoming a second authority for plans, queues, or review truth.
+12. The review backend must preserve the startup-authority boundary:
+    `WorkIntakePacket` stays the bounded startup/work-routing contract and
+    `CollaborationSession` stays the live shared-work projection. Do not
+    collapse those contracts inside MP-355 just to simplify bridge prose.
+13. Concurrency controls are additive, not substitutive: intake-backed writer
+    authority decides who may mutate canonical plan/session state, while
+    `expected_revision`, `version_counter`, and `state_hash` style checks
+    decide when a stale reader must re-read before acting.
 
 ## Cross-Plan Dependencies
 
@@ -160,6 +183,11 @@ contract, not the long-term product boundary.
     controller, review, and memory traces once Phase-1/2 artifacts are stable;
     MP-355 must keep timestamps, trace ids, and header fields compatible with
     that later merge view.
+13. `dev/active/platform_authority_loop.md` under `MP-377` owns
+    `PlanRegistry`, `PlanTargetRef`, and `WorkIntakePacket`. Any planning-
+    review packet in MP-355 must resolve target plans through that startup-
+    authority stack instead of hard-coded repo paths, exact line numbers, or
+    whole-block markdown matching.
 
 ## Transitional Markdown Bridge (Current Operating Mode)
 
@@ -194,15 +222,31 @@ Rules for the markdown bridge:
 6.2 Bridge behavior is mode-aware. When `Reviewer mode` is `active_dual_agent`,
     Claude must treat `code_audit.md` as the live reviewer/coder authority and
     keep polling it instead of waiting for the operator to restate the process.
-    When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or
-    `offline`, Claude must not assume a live Codex review loop unless a
-    reviewer-owned bridge section explicitly reactivates it.
+    When the structured review queue is available, Claude must also poll the
+    Claude-targeted `review-channel inbox/watch` surface on the same cadence so
+    direct reviewer packets are consumed through the canonical event/projection
+    path instead of relying on operator chat relay. When `Reviewer mode` is
+    `single_agent`, `tools_only`, `paused`, or `offline`, Claude must not
+    assume a live Codex review loop unless a reviewer-owned bridge section
+    explicitly reactivates it.
 6.2.1 In that active mode, the live cycle is:
-    `bootstrap -> poll -> acknowledge -> code one bounded slice -> update
-    coder state -> wait/poll for re-review -> receive next reviewer write ->
-    repeat`.
+    `bootstrap -> poll bridge + inbox/watch -> acknowledge -> code one bounded
+    slice -> update coder state -> wait/poll for re-review -> receive next
+    reviewer bridge write or direct packet -> repeat`.
     Claude must not treat one landed patch as permission to self-promote the
     next task; Codex must not stop polling just because one slice turned green.
+6.2.2 When the active scoped slice is plan hardening, the same live cycle
+    routes through typed plan targets instead of raw code diffs:
+    `select WorkIntakePacket -> post plan_gap_review against PlanTargetRef +
+    anchor_refs -> designated plan writer patches canonical plan -> re-review
+    updated target_revision -> emit plan_ready_gate or next gap`.
+    Match mutable plan targets by typed target refs and stable
+    heading/checklist/progress anchors, not by raw line numbers or brittle
+    surrounding prose, so adjacent markdown edits do not strand the loop.
+    `plan_gap_review` identifies a missing/wrong plan element,
+    `plan_patch_review` proposes one typed canonical-plan mutation but is not
+    itself the canonical edit, and `plan_ready_gate` records reviewer
+    acceptance that the targeted plan slice is coherent enough to proceed.
 6.3 If reviewer-owned bridge state says `hold steady`, `waiting for reviewer
     promotion`, `Codex committing/pushing`, or equivalent wait-state language,
     Claude must stay in polling mode. It must not mine plan docs for side work
@@ -450,12 +494,42 @@ Retention rule:
   - `latest_event_id: string`
   - `from_agent: string`
   - `to_agent: string`
-  - `kind: finding|question|draft|action_request|approval_request|decision|system_notice`
+  - `kind: finding|question|draft|action_request|approval_request|decision|system_notice|plan_gap_review|plan_patch_review|plan_ready_gate`
+    planning-kind semantics:
+    `plan_gap_review` = reviewer finding against plan authority,
+    `plan_patch_review` = proposed typed plan mutation for the designated
+    writer to apply or reject,
+    `plan_ready_gate` = reviewer acceptance/closure for the targeted plan
+    slice.
+  - `target_kind: string?`
+    optional enum `code|plan|policy|artifact|runbook|runtime`; required as
+    `plan` for planning-review kinds.
+  - `target_ref: string?`
+    optional typed target reference; plan targets should resolve through
+    `PlanTargetRef`. Required for planning-review kinds.
+  - `target_revision: string?`
+    optional expected revision/hash of the referenced authority surface;
+    required for planning-review kinds.
+  - `anchor_refs: array<string>?`
+    ordered stable anchors for plan mutations; required for planning-review
+    kinds. Initial grammar is registry-generated ids only:
+    `checklist:<id>`, `section:<id>`, `session_resume:<id>`, `progress:<id>`,
+    `audit:<id>`. Resolve from most-specific to least-specific; the first
+    resolvable anchor must match `target_ref`, and ambiguity, mismatch, or
+    missing highest-precedence anchors fails closed with no fuzzy fallback.
   - `summary: string`
   - `body: string`
   - `evidence_refs: array<string>`
   - `confidence: number`
   - `requested_action: string`
+  - `mutation_op: string?`
+    optional typed mutation operation for mutable plan targets. Initial
+    allowed values:
+    `rewrite_section_note|set_checklist_state|rewrite_session_resume|append_progress_log|append_audit_evidence`.
+  - `intake_ref: string?`
+    optional `WorkIntakePacket` reference that selected the target, canonical
+    writer, and required write-back sinks. Required for planning-review kinds;
+    missing, expired, or lease-mismatched intake makes the packet invalid.
   - `policy_hint: review_only|stage_draft|operator_approval_required|safe_auto_apply`
   - `approval_required: bool`
   - `status: pending|acked|dismissed|applied|expired`
@@ -508,11 +582,36 @@ Retention rule:
 - `to_agent: string`
 - `kind: string`
   same enum as `review_state.packets[*].kind`.
+  Planning-kind semantics are identical to `review_state.packets[*].kind`.
+- `target_kind: string?`
+  optional enum `code|plan|policy|artifact|runbook|runtime`; required as
+  `plan` for planning-review kinds.
+- `target_ref: string?`
+  optional typed target reference; plan targets should resolve through
+  `PlanTargetRef`. Required for planning-review kinds.
+- `target_revision: string?`
+  optional expected revision/hash of the referenced authority surface;
+  required for planning-review kinds.
+- `anchor_refs: array<string>?`
+  ordered stable anchors for plan mutations; required for planning-review
+  kinds. Initial grammar is registry-generated ids only:
+  `checklist:<id>`, `section:<id>`, `session_resume:<id>`, `progress:<id>`,
+  `audit:<id>`. Resolve from most-specific to least-specific; the first
+  resolvable anchor must match `target_ref`, and ambiguity, mismatch, or
+  missing highest-precedence anchors fails closed with no fuzzy fallback.
 - `summary: string`
 - `body: string`
 - `evidence_refs: array<string>`
 - `confidence: number`
 - `requested_action: string`
+- `mutation_op: string?`
+  optional typed mutation operation for mutable plan targets. Initial allowed
+  values:
+  `rewrite_section_note|set_checklist_state|rewrite_session_resume|append_progress_log|append_audit_evidence`.
+- `intake_ref: string?`
+  optional `WorkIntakePacket` reference that selected the target, canonical
+  writer, and required write-back sinks. Required for planning-review kinds;
+  missing, expired, or lease-mismatched intake makes the event invalid.
 - `policy_hint: string`
   same enum as `review_state.packets[*].policy_hint`.
 - `approval_required: bool`
@@ -898,6 +997,13 @@ Phase-3 voice contract:
    stale in both `status/watch` output and the guard script.
 9. Packet staging is never auto-applied in Phase 1-2, even if a
    `terminal_packet` is present.
+10. Canonical plan/session mutations must carry freshness proof
+    (`expected_revision`, `state_hash`, or an equivalent reducer-visible
+    revision token) and fail closed on mismatch instead of relying on stale
+    local reads.
+11. Freshness checks supplement writer ownership; they do not grant write
+    authority to a caller that is not the intake-selected writer or an
+    explicitly transferred replacement.
 
 ## Execution Checklist
 
@@ -921,6 +1027,13 @@ Phase-3 voice contract:
 - [ ] Freeze the exact `terminal_packet` sub-object contract to the current Rust
       `DevTerminalPacket` fields (`packet_id`, `source_command`, `draft_text`,
       `auto_send`) so Phase 1 does not drift into an unbounded nested blob.
+- [ ] Freeze the planning-review extension on that same packet model:
+      `plan_gap_review`, `plan_patch_review`, and `plan_ready_gate` plus
+      `target_kind`, `target_ref`, `target_revision`, `anchor_refs`,
+      `mutation_op`, and `intake_ref` must be part of the canonical schema
+      rather than a second plan-only side channel. `intake_ref`,
+      `target_ref`, `target_revision`, and `anchor_refs` are mandatory for
+      planning-review packets.
 - [ ] Define end-to-end data flow from agent post -> append-only event ->
       reduced state -> projection bundle -> `devctl`/Rust render.
 - [ ] Define integrity semantics: atomic writes, idempotency, replay window,
@@ -969,15 +1082,30 @@ Acceptance:
       `dev/scripts/devctl/commands/listing.py`.
 - [ ] Implement `post`, `status`, `watch`, `inbox`, `ack`, `dismiss`,
       `apply`, and `history` actions.
+- [ ] Keep planning review on the same reducer/action path: plan-gap, plan-
+      patch, and ready-gate packets must use the same `post|status|watch|
+      inbox|ack|dismiss|apply|history` surface rather than a second plan-only
+      command family.
 - [ ] Expose the operator-facing typed action surface the thin GUI wrappers
       need: `ack|dismiss|apply` for packet decisions plus the typed
       pause/resume/stop/health hooks that future Operator Console buttons will
       call instead of writing desktop-only placeholder artifacts.
+- [ ] When `target_kind=plan`, resolve mutations through `PlanTargetRef` plus
+      `anchor_refs` and fail closed if the canonical target revision no longer
+      matches, the intake lease is missing/expired, or the first resolvable
+      anchor is ambiguous; do not patch plan markdown by approximate line-
+      number or surrounding-block matching.
 - [ ] Add a repo-owned reviewer heartbeat scheduler/write path for inactive
       modes so `single_agent`, `tools_only`, `paused`, and `offline` stay
       visibly current without mutating review truth. The later PyQt6/phone
       controls should call the same typed action, not invent surface-local
       liveness files.
+- [ ] Add repo-owned stale-bridge demotion/recovery so docs/process validation
+      is not blocked by abandoned live markdown state. When the bridge is
+      marked active but the writer lease/session proof is gone or
+      irrecoverably stale, the backend should auto-demote to `paused` /
+      `offline` or emit a typed repair receipt instead of requiring manual
+      `code_audit.md` edits before unrelated validation can go green.
 - [ ] Emit projection files from the same reduced state source:
       `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, and
       `latest.md`.
@@ -1012,6 +1140,12 @@ Acceptance:
       `dev/scripts/README.md`, `dev/guides/DEVCTL_AUTOGUIDE.md`,
       `.github/workflows/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`,
       `devctl list`, audit-event area mapping, and retention-policy updates.
+- [ ] Once the reducer-backed path is authoritative, run a clean-sheet
+      simplification pass on the review-channel implementation itself: collapse
+      follow/projection/attach-auth/command satellites into the smallest
+      readable module set that preserves the typed contract, and remove event /
+      CQRS-style indirection that does not buy present operational value for
+      the current two-agent shared-work problem.
 
 Acceptance:
 
@@ -1341,6 +1475,11 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-20T06:20:00Z` | `CODEX` | Closed the next MP-355 packet-consumption gap in the live dual-agent loop. The event-backed Claude inbox proved real but unconsumed, so the repo-owned implementer wait path now includes the newest pending Claude-targeted packet in its wake token, and the shared Claude prompt contract now requires polling `inbox/watch` alongside bridge state on the same cadence. This keeps reviewer packets in the canonical reducer/projection path instead of relying on bridge-only coordination or operator chat relay. | `partial-pass` | Keep the direct packet lane honest in live use, then decide whether the next bounded follow-up is default-inbox view cleanup or a stricter Claude-side conductor bootstrap that proves packet polling is part of the normal repoll loop. |
+| `2026-03-19T22:15:00Z` | `CODEX` | Final architecture review reconciled the validated runtime slice with the broader proposal set for MP-355. The accepted backend contract keeps `CollaborationSession` as the long-term bridge/state projection over intake + review state, preserves intake-backed writer authority for canonical plan/session mutation, and treats revision/state-hash checks as stale-read protection rather than a substitute for ownership. Startup auto behavior is also now constrained at the plan level: resume one valid session and auto-demote stale abandoned state, but do not auto-guess plan scope or auto-enter dual-agent mode. | `in-progress` | Land the remaining runtime/reducer fields and guards so stale-read rejection, bridge demotion, and projection parity are enforced by backend state rather than operator habit. |
+| `2026-03-19T21:20:00Z` | `CODEX` | Captured the stale-bridge-validation issue as explicit MP-355 architecture work instead of leaving it as session trivia. The plan now requires repo-owned stale-bridge demotion/recovery so abandoned `code_audit.md` heartbeats auto-demote to `paused`/`offline` or emit a typed repair receipt, rather than forcing manual bridge edits before unrelated docs/process validation can go green. | `in-progress` | Land that recovery path through the backend/guard surface so bridge freshness failures become self-healing or cleanly quarantined instead of recurring manual cleanup debt. |
+| `2026-03-19T21:05:00Z` | `CODEX` | Ran the first proof pass against the new planning-review protocol and tightened the spec where it was still underspecified. Planning-review packets now require intake-backed writer authority, `anchor_refs` now use a fail-closed registry-id grammar instead of loose strings, `plan_patch_review` is explicitly a proposed typed mutation rather than the canonical edit itself, and the schema now carries `mutation_op` so cross-repo adopters cannot claim support while mutating plan targets incompatibly. | `in-progress` | Keep the runtime slice honest: the next implementation step must make reducer/validation code reject planning packets with missing leases, ambiguous anchors, or unsupported mutation ops before claiming cross-repo portability. |
+| `2026-03-19T20:35:00Z` | `CODEX` | Extended MP-355 so the same review-channel transport can carry portable plan hardening instead of only code review. The schema/phase/protocol surfaces now reserve `plan_gap_review`, `plan_patch_review`, and `plan_ready_gate`, route plan targets through `PlanTargetRef` plus `WorkIntakePacket`, and state explicitly that mutable plan edits must bind to stable heading/checklist/progress anchors with target-revision checks rather than brittle surrounding-block matching. Canonical plan docs stay single-writer authority; packet/bridge state is proposal and coordination only. | `in-progress` | Prove the same packet path against the active `MP-377` plan loop, then land runtime resolution/guarding so planning review works on another repo without hard-coded VoiceTerm plan paths. |
 | `2026-03-17T03:20:00Z` | `CODEX` | Accepted the bounded daemon-event to runtime-state reducer slice in the Python `devctl/review_channel` seam. `review-channel ensure --follow` and `reviewer-heartbeat --follow` now append `daemon_started` / `daemon_heartbeat` / `daemon_stopped` rows through a dedicated daemon-events helper, bridge-backed `status` now derives both `runtime.daemons.publisher` and `runtime.daemons.reviewer_supervisor` from persisted lifecycle heartbeat truth instead of hard-coding an empty supervisor, `latest.md` renders the same runtime block, and auto event-backed status stays gated on materialized `state.json` so daemon-only event logs do not silently flip authority. Focused proof is green (`145` review-channel tests, `check_code_shape.py`, `check_parameter_count.py`, `check_python_dict_schema.py`, `check_facade_wrappers.py`, `check_function_duplication.py`). | `partial-pass` | Treat daemon-event runtime truth plus markdown runtime visibility as the accepted same-scope baseline, then promote the next bounded follow-up to the VoiceTerm-local action-brokerage retirement / shared-backend attachment path unless a fresh runtime-truth regression appears. |
 | `2026-03-17T02:14:01Z` | `CODEX` | Accepted the bounded post-`M69` service-identity plus attach/auth contract slice in the Python `devctl/review_channel` seam. Bridge-backed `status`, reviewer reports, `review_state.json`, `compact.json`, `full.json`, and `latest.md` now expose both repo/worktree-scoped `service_identity` and machine-readable `attach_auth_policy`, with caller-authority buckets sourced from the platform contract surface and the current backend policy fixed to repo/worktree-local attach over the filesystem markdown bridge (`off_lan_allowed=false`, `token_required=false`, `key_required=false`). Focused proof is green (`135` review-channel tests, `check_code_shape.py`, `check_parameter_count.py`, `check_python_dict_schema.py`, `check_facade_wrappers.py`, `check_review_channel_bridge.py`, `check_active_plan_sync.py`). Full `devctl check --profile ci` still lands only on the unrelated Rust failure `event_loop::tests::dev_panel_overlay::refresh_poll::memory_page_enter_refreshes_memory_cockpit_snapshot`. | `partial-pass` | Treat service identity/discovery and attach/auth semantics as accepted baselines on the current local diff, then promote the next bounded same-scope slice to the daemon-event to runtime-state reducer in the Python control-plane seam before widening into VoiceTerm-local action brokerage retirement or Rust/UI work. |
 | `2026-03-17T01:30:39Z` | `CODEX` | Accepted the bounded detached-heartbeat truth fix inside `M69`. Lifecycle heartbeats now persist both the canonical shared file and a per-PID variant, and lifecycle reads select the freshest live publisher/supervisor writer before falling back to the freshest stopped/dead record so a dead shared-file writer no longer masks an active follow loop. Focused proof is green (`133` review-channel tests, `check_code_shape.py`, `check_parameter_count.py`, `check_facade_wrappers.py`, `check_review_channel_bridge.py`). Full `devctl check --profile ci` is back to the existing unrelated Rust failure `event_loop::tests::dev_panel_overlay::refresh_poll::memory_page_enter_refreshes_memory_cockpit_snapshot`. | `partial-pass` | Treat `M69` as closed on the current local diff and promote the next bounded same-scope slice to repo/worktree-scoped service identity/discovery in the Python control-plane seam before widening into attach/auth semantics, reducer work, or Rust/VoiceTerm ownership. |

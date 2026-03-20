@@ -164,6 +164,14 @@ class PythonGuardReportTests(unittest.TestCase):
         self.assertEqual(summary["active_paths"], 3)
         self.assertEqual(summary["total_active_findings"], 10)
         self.assertEqual(summary["top_risk_score"], 1120)
+        self.assertEqual(len(report["guard_findings"]), 8)
+        first_finding = report["guard_findings"][0]
+        self.assertEqual(first_finding["signal_type"], "guard")
+        self.assertEqual(first_finding["repo_path"], "")
+        self.assertEqual(
+            first_finding["source_artifact"],
+            "python-guard-backlog:violations",
+        )
         hotspots = report["hotspots"]
         self.assertEqual(hotspots[0]["path"], "dev/scripts/devctl/review_channel/state.py")
         self.assertEqual(hotspots[1]["path"], "app/operator_console/views/main_window.py")

@@ -8,6 +8,10 @@ from .phone_status_snapshot import (
     PhoneControlSnapshot as PhoneControlSnapshot,
     load_phone_control_snapshot as load_phone_control_snapshot,
 )
+from .quality_feedback_snapshot import (
+    QualityFeedbackOCSnapshot as QualityFeedbackOCSnapshot,
+    load_quality_feedback_snapshot as load_quality_feedback_snapshot,
+)
 from .quality_snapshot import (
     collect_quality_backlog_snapshot as collect_quality_backlog_snapshot,
 )

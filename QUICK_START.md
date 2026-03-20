@@ -203,6 +203,10 @@ What is real today:
 - it shows controller/review status and typed action previews for the Ralph loop
 - it is still a control/read surface, not a raw terminal executor on the phone
 
+If you want the matching desktop companion for the same repo-backed workflow,
+launch `./scripts/operator_console.sh` from a source checkout. Both companion
+surfaces are optional and do not replace the normal overlay.
+
 If install/import fails, start with
 [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md) and
 `app/ios/VoiceTermMobileApp/README.md`.

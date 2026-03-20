@@ -43,20 +43,18 @@ def render_event_md(report: dict) -> str:
         )
     packets = report.get("packets")
     if isinstance(packets, list) and packets:
-        lines.append("")
-        lines.append("## Packets")
-        for packet_row in packets:
-            if not isinstance(packet_row, dict):
-                continue
-            summary = (
-                f"- {packet_row.get('packet_id')}: {packet_row.get('status')} | "
-                f"{packet_row.get('from_agent')} -> {packet_row.get('to_agent')} | "
-                f"{packet_row.get('summary')}"
-            )
-            context_summary = context_pack_ref_summary(packet_row.get("context_pack_refs"))
-            if context_summary:
-                summary += f" | packs: {context_summary}"
-            lines.append(summary)
+        pending = [p for p in packets if isinstance(p, dict) and p.get("status") == "pending"]
+        non_pending = [p for p in packets if isinstance(p, dict) and p.get("status") != "pending"]
+        if pending:
+            lines.append("")
+            lines.append("## Pending Packets")
+            for packet_row in pending:
+                lines.append(_format_packet_line(packet_row))
+        if non_pending:
+            lines.append("")
+            lines.append("## Resolved Packets")
+            for packet_row in non_pending:
+                lines.append(_format_packet_line(packet_row))
     history = report.get("history")
     if isinstance(history, list) and history:
         lines.append("")
@@ -69,6 +67,19 @@ def render_event_md(report: dict) -> str:
                 f"{event.get('packet_id')} | {event.get('timestamp_utc')}"
             )
     return "\n".join(lines)
+
+
+def _format_packet_line(packet_row: dict) -> str:
+    """Format one packet as a markdown list item."""
+    summary = (
+        f"- {packet_row.get('packet_id')}: {packet_row.get('status')} | "
+        f"{packet_row.get('from_agent')} -> {packet_row.get('to_agent')} | "
+        f"{packet_row.get('summary')}"
+    )
+    ctx = context_pack_ref_summary(packet_row.get("context_pack_refs"))
+    if ctx:
+        summary += f" | packs: {ctx}"
+    return summary
 
 
 def append_context_pack_ref_lines(

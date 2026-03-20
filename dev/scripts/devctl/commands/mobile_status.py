@@ -54,7 +54,7 @@ def run(args) -> int:
     warnings: list[str] = []
     errors: list[str] = []
 
-    repo_root = REPO_ROOT.resolve()
+    repo_root = Path(getattr(args, "repo_root", None) or REPO_ROOT).resolve()
     phone_input_path = _resolve_path(str(args.phone_json))
     review_channel_path = _resolve_path(str(args.review_channel_path))
     bridge_path = _resolve_path(str(args.bridge_path))

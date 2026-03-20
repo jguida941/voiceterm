@@ -55,6 +55,11 @@ Out of scope until the local proof gate is green:
 6. Use the current poll contract as the base behavior:
    Codex reviews the non-audit tree every 2-3 minutes while code is moving and
    emits operator-visible heartbeats every 5 minutes.
+6.1 When the structured review queue is available, Claude-side repolls and
+    bounded wait wakeups must consume both reviewer-owned bridge state and the
+    Claude-targeted `review-channel inbox/watch` surface on the same cadence.
+    The loop is not healthy if direct reviewer packets depend on user chat
+    relay to become visible.
 7. Context rotation triggers when estimated remaining context drops below 50%.
    The current atomic step must finish first, then the handoff write/launch/ack
    sequence runs, then the old terminals exit.
@@ -74,6 +79,16 @@ Out of scope until the local proof gate is green:
     inside the modular/callable platform tracked under `MP-377`, so loop work
     is only valid when it preserves or improves the shared backend/runtime/
     repo-pack boundary instead of deepening VoiceTerm-specific coupling.
+13. Codex is the sole conductor and final reviewer for the live loop. It owns
+    reviewer truth, next-slice promotion, and accept/rework decisions on
+    Claude output.
+14. Claude may fan out many bounded coding workers, but only behind one Claude
+    conductor. Claude workers do not self-promote scope, rewrite
+    reviewer-owned bridge/backend state, or bypass the active plan chain.
+15. Every non-trivial runtime, tooling, or cross-surface slice must keep a
+    separate architecture-fit reviewer lane on the Codex side. Green checks
+    do not waive architecture drift; architecture-fit findings flow back
+    through the Codex conductor before acceptance.
 
 ## Cross-Plan Dependencies
 
@@ -203,6 +218,11 @@ Out of scope until the local proof gate is green:
       reviewed hash, current verdict, open findings, plan alignment, and next
       instruction together instead of advertising a fresh heartbeat on stale
       review state or a completed task.
+      New explicit gap: reviewer-owned markdown findings/instruction rewrites
+      can still land without also advancing the `Last Codex poll` header
+      metadata, which makes Claude treat Codex as offline even while the bridge
+      content changes. Close that by coupling reviewer writes to an automatic
+      heartbeat/header refresh path instead of relying on manual discipline.
       Partial: `reviewed_hash_current` is threaded through all surfaces
       (liveness, attention, status, launch, handoff, review_state.json,
       latest.md). Heartbeat refresh no longer advances the reviewed hash
@@ -211,6 +231,12 @@ Out of scope until the local proof gate is green:
       recovery guidance. Full verdict/findings/instruction synchronization
       (making those fields move atomically with the hash) is still open —
       that requires Codex-owned bridge write behavior, not tool-only changes.
+- [ ] Keep reviewer packet visibility synchronized with the same loop contract:
+      when the structured review queue is available, Claude-side
+      `implementer-wait` / repoll behavior must wake on fresh Claude-targeted
+      packets as well as bridge changes, and the conductor prompt/launcher
+      path must require inbox/watch polling on the same cadence so direct
+      reviewer packets are not lost behind bridge-only polling.
 - [ ] Add a repo-owned reviewer liveness emitter so inactive modes stay
       current without faking review truth. `reviewer-heartbeat` and
       `reviewer-checkpoint` are now separate writes, but the loop still lacks
@@ -291,6 +317,41 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-03-20: Closed the next reviewer-to-Claude visibility gap in the live
+  local loop. `review-channel --action implementer-wait` now folds the newest
+  pending Claude-targeted review packet into its wake token, so the repo-owned
+  bounded wait path wakes on fresh reviewer packets as well as reviewer-owned
+  bridge changes. The Claude prompt surface and bridge/test fixtures now
+  require packet inbox/watch polling alongside bridge polling on the same
+  cadence so the dual-agent loop no longer depends on human chat relay to make
+  reviewer packets visible.
+- 2026-03-19: Replaced the unsafe Claude-side raw bridge poller with a
+  repo-owned bounded wait path. `review-channel --action implementer-wait`
+  now polls on the normal review cadence, wakes only when reviewer-owned
+  bridge content changes, fails closed when the reviewer loop is unhealthy,
+  and times out after one hour by default instead of leaving a background
+  `sleep 300` shell loop behind. Prompt guidance and maintainer docs now
+  point the implementer lane at this command so the live loop can wait
+  safely without relying on later process cleanup.
+- 2026-03-19: Closed the next reviewer-loop honesty gap on the Codex-side
+  `ensure` auto-heal path. Reviewer-supervisor restarts now re-read status
+  after detached-start verification fails, so `ensure` reports the persisted
+  failed-start lifecycle instead of the stale pre-restart snapshot. The same
+  slice also moved that restart logic into
+  `commands/review_channel/_ensure_supervisor.py` to keep `ensure.py` under
+  the Python soft limit while preserving the repo-owned persistent reviewer
+  loop contract. Validation: `python3 -m pytest
+  dev/scripts/devctl/tests/test_review_channel.py -q`, `python3
+  dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy
+  --no-parallel`, and `python3 dev/scripts/devctl.py check --profile ci
+  --skip-fmt --skip-clippy --no-parallel`.
+- 2026-03-17: Clarified the many-agent operating model for `MP-358`. Codex
+  remains the sole conductor and final reviewer, Claude may fan out many
+  bounded coding workers only behind one Claude conductor, and every
+  non-trivial slice now requires a separate Codex-side architecture-fit
+  reviewer before acceptance. The loop direction stays one shared backend plus
+  conductor-owned bridge/state writes, not a second worker-owned control
+  plane.
 - 2026-03-15: Closed the next scope-drift miss on the operator-docs path.
   `DEVCTL_AUTOGUIDE.md` had durable system knowledge in prose but no
   deterministic sync contract, so `docs-check --strict-tooling` could stay

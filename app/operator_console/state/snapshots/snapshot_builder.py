@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..bridge.bridge_sections import (
+    BridgeMetadata,
     DEFAULT_BRIDGE_REL,
     extract_bridge_metadata,
     parse_markdown_sections,
@@ -16,6 +17,7 @@ from ..bridge.lane_builder import (
     build_operator_lane,
 )
 from ..core.models import OperatorConsoleSnapshot
+from .quality_feedback_snapshot import load_quality_feedback_snapshot
 from .quality_snapshot import collect_quality_backlog_snapshot
 from ..review.review_state import (
     find_review_full_path,
@@ -24,6 +26,7 @@ from ..review.review_state import (
     load_pending_approvals,
 )
 from ..sessions.session_builder import (
+    SessionSurfaceText,
     build_claude_session_surface,
     build_codex_session_surface,
     build_cursor_session_surface,
@@ -52,136 +55,57 @@ def build_operator_console_snapshot(
 
     resolved_review_state = review_state_path or find_review_state_path(repo_root)
     resolved_review_full = find_review_full_path(repo_root)
-    review_contract = None
-    if resolved_review_full is not None:
-        try:
-            review_contract = load_review_contract(resolved_review_full)
-        except (OSError, ValueError) as exc:
-            warnings.append(f"Could not load review-channel full projection: {exc}")
-        else:
-            _extend_with_review_contract_notices(warnings, review_contract)
-    if review_contract is None and resolved_review_state is not None:
-        try:
-            review_contract = load_review_contract(resolved_review_state)
-        except (OSError, ValueError) as exc:
-            warnings.append(f"Could not load review contract from review_state.json: {exc}")
-        else:
-            _extend_with_review_contract_notices(warnings, review_contract)
+    review_contract = _load_review_contract_with_fallback(
+        warnings, resolved_review_full, resolved_review_state,
+    )
 
-    pending_approvals = ()
-    if resolved_review_state is not None:
-        try:
-            pending_approvals = load_pending_approvals(resolved_review_state)
-        except (OSError, ValueError) as exc:
-            warnings.append(f"Could not load review_state JSON: {exc}")
-    elif review_contract is not None and resolved_review_full is not None:
-        pending_approvals = load_pending_approvals(resolved_review_full)
+    pending_approvals = _load_pending_approvals_safe(
+        warnings, resolved_review_state, resolved_review_full, review_contract,
+    )
 
-    codex_panel_text = _format_panel(
-        "Codex Lane",
-        [
-            ("Last Codex poll", metadata.last_codex_poll or "(unknown)"),
-            ("Last worktree hash", metadata.last_worktree_hash or "(unknown)"),
-            ("Poll Status", sections.get("Poll Status", "(missing)")),
-            ("Current Verdict", sections.get("Current Verdict", "(missing)")),
-            ("Open Findings", sections.get("Open Findings", "(missing)")),
-        ],
+    panel_texts = _build_panel_texts(
+        sections, metadata, pending_approvals, resolved_review_state,
     )
-    claude_panel_text = _format_panel(
-        "Claude Lane",
-        [
-            ("Claude Status", sections.get("Claude Status", "(missing)")),
-            ("Claude Questions", sections.get("Claude Questions", "(missing)")),
-            ("Claude Ack", sections.get("Claude Ack", "(missing)")),
-        ],
-    )
-    cursor_panel_text = _format_panel(
-        "Cursor Lane",
-        [
-            ("Cursor Status", sections.get("Cursor Status", "(missing)")),
-            ("Cursor Focus", sections.get("Cursor Focus", "(missing)")),
-        ],
-    )
-    operator_panel_text = _format_operator_panel(
-        sections=sections,
-        pending_approvals=pending_approvals,
-        review_state_path=resolved_review_state,
-    )
-    codex_live_trace = load_live_session_trace(
-        repo_root,
-        provider="codex",
-        review_full_path=resolved_review_full,
-    )
-    claude_live_trace = load_live_session_trace(
-        repo_root,
-        provider="claude",
-        review_full_path=resolved_review_full,
-    )
-    cursor_live_trace = load_live_session_trace(
-        repo_root,
-        provider="cursor",
-        review_full_path=resolved_review_full,
-    )
-    attention = review_contract.attention if review_contract is not None else None
-    codex_attention_status = None
-    codex_attention_summary = None
-    operator_attention_status = None
-    operator_attention_summary = None
-    if attention is not None and attention.status != "healthy":
-        operator_attention_status = attention.status
-        operator_attention_summary = attention.summary
-        if attention.owner in {"codex", "system"}:
-            codex_attention_status = attention.status
-            codex_attention_summary = attention.summary
+
+    traces = _load_provider_traces(repo_root, resolved_review_full)
+
+    attn = _resolve_attention_fields(review_contract)
 
     codex_lane = build_codex_lane(
         sections,
         metadata.last_codex_poll,
         metadata.last_worktree_hash,
-        attention_status=codex_attention_status,
-        attention_summary=codex_attention_summary,
-        live_trace=codex_live_trace,
+        attention_status=attn["codex_status"],
+        attention_summary=attn["codex_summary"],
+        live_trace=traces["codex"],
     )
-    claude_lane = build_claude_lane(sections, live_trace=claude_live_trace)
-    cursor_lane = build_cursor_lane(sections, live_trace=cursor_live_trace)
+    claude_lane = build_claude_lane(sections, live_trace=traces["claude"])
+    cursor_lane = build_cursor_lane(sections, live_trace=traces["cursor"])
     operator_lane = build_operator_lane(
         sections,
         pending_approvals,
         resolved_review_state,
-        attention_status=operator_attention_status,
-        attention_summary=operator_attention_summary,
+        attention_status=attn["operator_status"],
+        attention_summary=attn["operator_summary"],
     )
-    codex_session_surface = build_codex_session_surface(
-        live_trace=codex_live_trace,
-        lane=codex_lane,
-        sections=sections,
-        last_codex_poll=metadata.last_codex_poll,
-        last_worktree_hash=metadata.last_worktree_hash,
-        review_contract=review_contract,
+
+    sessions = _build_session_surfaces(
+        traces, sections, metadata, review_contract,
+        {"codex": codex_lane, "claude": claude_lane, "cursor": cursor_lane},
     )
-    claude_session_surface = build_claude_session_surface(
-        live_trace=claude_live_trace,
-        lane=claude_lane,
-        sections=sections,
-        review_contract=review_contract,
-    )
-    cursor_session_surface = build_cursor_session_surface(
-        live_trace=cursor_live_trace,
-        lane=cursor_lane,
-        sections=sections,
-        review_contract=review_contract,
-    )
+
     quality_backlog = collect_quality_backlog_snapshot(repo_root)
+    quality_feedback = load_quality_feedback_snapshot(repo_root)
     watchdog_snapshot = load_watchdog_analytics_snapshot(repo_root)
 
     return OperatorConsoleSnapshot(
-        codex_panel_text=codex_panel_text,
-        claude_panel_text=claude_panel_text,
-        operator_panel_text=operator_panel_text,
-        cursor_panel_text=cursor_panel_text,
-        codex_session_text=codex_session_surface.terminal_text,
-        claude_session_text=claude_session_surface.terminal_text,
-        cursor_session_text=cursor_session_surface.terminal_text,
+        codex_panel_text=panel_texts["codex"],
+        claude_panel_text=panel_texts["claude"],
+        operator_panel_text=panel_texts["operator"],
+        cursor_panel_text=panel_texts["cursor"],
+        codex_session_text=sessions["codex"].terminal_text,
+        claude_session_text=sessions["claude"].terminal_text,
+        cursor_session_text=sessions["cursor"].terminal_text,
         raw_bridge_text=raw_bridge_text,
         review_mode=metadata.review_mode,
         last_codex_poll=metadata.last_codex_poll,
@@ -195,15 +119,162 @@ def build_operator_console_snapshot(
         claude_lane=claude_lane,
         cursor_lane=cursor_lane,
         operator_lane=operator_lane,
-        codex_session_stats_text=codex_session_surface.stats_text,
-        codex_session_registry_text=codex_session_surface.registry_text,
-        claude_session_stats_text=claude_session_surface.stats_text,
-        claude_session_registry_text=claude_session_surface.registry_text,
-        cursor_session_stats_text=cursor_session_surface.stats_text,
-        cursor_session_registry_text=cursor_session_surface.registry_text,
+        codex_session_stats_text=sessions["codex"].stats_text,
+        codex_session_registry_text=sessions["codex"].registry_text,
+        claude_session_stats_text=sessions["claude"].stats_text,
+        claude_session_registry_text=sessions["claude"].registry_text,
+        cursor_session_stats_text=sessions["cursor"].stats_text,
+        cursor_session_registry_text=sessions["cursor"].registry_text,
         quality_backlog=quality_backlog,
+        quality_feedback=quality_feedback,
         watchdog_snapshot=watchdog_snapshot,
     )
+
+
+def _load_review_contract_with_fallback(
+    warnings: list[str],
+    review_full_path: Path | None,
+    review_state_path: Path | None,
+) -> object | None:
+    """Try loading the review contract from the full projection, then state fallback."""
+    review_contract = None
+    if review_full_path is not None:
+        try:
+            review_contract = load_review_contract(review_full_path)
+        except (OSError, ValueError) as exc:
+            warnings.append(f"Could not load review-channel full projection: {exc}")
+        else:
+            _extend_with_review_contract_notices(warnings, review_contract)
+    if review_contract is None and review_state_path is not None:
+        try:
+            review_contract = load_review_contract(review_state_path)
+        except (OSError, ValueError) as exc:
+            warnings.append(
+                f"Could not load review contract from review_state.json: {exc}",
+            )
+        else:
+            _extend_with_review_contract_notices(warnings, review_contract)
+    return review_contract
+
+
+def _load_pending_approvals_safe(
+    warnings: list[str],
+    review_state_path: Path | None,
+    review_full_path: Path | None,
+    review_contract: object | None,
+) -> tuple[object, ...]:
+    """Load pending approvals with graceful error handling."""
+    if review_state_path is not None:
+        try:
+            return load_pending_approvals(review_state_path)
+        except (OSError, ValueError) as exc:
+            warnings.append(f"Could not load review_state JSON: {exc}")
+    elif review_contract is not None and review_full_path is not None:
+        return load_pending_approvals(review_full_path)
+    return ()
+
+
+def _build_panel_texts(
+    sections: dict[str, str],
+    metadata: BridgeMetadata,
+    pending_approvals: tuple[object, ...],
+    resolved_review_state: Path | None,
+) -> dict[str, str]:
+    """Build the four legacy panel text blocks."""
+    codex = _format_panel(
+        "Codex Lane",
+        [
+            ("Last Codex poll", metadata.last_codex_poll or "(unknown)"),
+            ("Last worktree hash", metadata.last_worktree_hash or "(unknown)"),
+            ("Poll Status", sections.get("Poll Status", "(missing)")),
+            ("Current Verdict", sections.get("Current Verdict", "(missing)")),
+            ("Open Findings", sections.get("Open Findings", "(missing)")),
+        ],
+    )
+    claude = _format_panel(
+        "Claude Lane",
+        [
+            ("Claude Status", sections.get("Claude Status", "(missing)")),
+            ("Claude Questions", sections.get("Claude Questions", "(missing)")),
+            ("Claude Ack", sections.get("Claude Ack", "(missing)")),
+        ],
+    )
+    cursor = _format_panel(
+        "Cursor Lane",
+        [
+            ("Cursor Status", sections.get("Cursor Status", "(missing)")),
+            ("Cursor Focus", sections.get("Cursor Focus", "(missing)")),
+        ],
+    )
+    operator = _format_operator_panel(
+        sections=sections,
+        pending_approvals=pending_approvals,
+        review_state_path=resolved_review_state,
+    )
+    return {"codex": codex, "claude": claude, "cursor": cursor, "operator": operator}
+
+
+def _load_provider_traces(
+    repo_root: Path,
+    review_full_path: Path | None,
+) -> dict[str, object]:
+    """Load live session traces for all three providers."""
+    return {
+        provider: load_live_session_trace(
+            repo_root, provider=provider, review_full_path=review_full_path,
+        )
+        for provider in ("codex", "claude", "cursor")
+    }
+
+
+def _resolve_attention_fields(review_contract: object | None) -> dict[str, str | None]:
+    """Extract per-lane attention status and summary from the review contract."""
+    result: dict[str, str | None] = {
+        "codex_status": None,
+        "codex_summary": None,
+        "operator_status": None,
+        "operator_summary": None,
+    }
+    attention = review_contract.attention if review_contract is not None else None
+    if attention is not None and attention.status != "healthy":
+        result["operator_status"] = attention.status
+        result["operator_summary"] = attention.summary
+        if attention.owner in {"codex", "system"}:
+            result["codex_status"] = attention.status
+            result["codex_summary"] = attention.summary
+    return result
+
+
+def _build_session_surfaces(
+    traces: dict[str, object],
+    sections: dict[str, str],
+    metadata: BridgeMetadata,
+    review_contract: object | None,
+    lanes: dict[str, object],
+) -> dict[str, SessionSurfaceText]:
+    """Build session surface text bundles for all three providers."""
+    return {
+        "codex": build_codex_session_surface(
+            live_trace=traces["codex"],
+            lane=lanes.get("codex"),
+            sections=sections,
+            last_codex_poll=metadata.last_codex_poll,
+            last_worktree_hash=metadata.last_worktree_hash,
+            review_contract=review_contract,
+        ),
+        "claude": build_claude_session_surface(
+            live_trace=traces["claude"],
+            lane=lanes.get("claude"),
+            sections=sections,
+            review_contract=review_contract,
+        ),
+        "cursor": build_cursor_session_surface(
+            live_trace=traces["cursor"],
+            lane=lanes.get("cursor"),
+            sections=sections,
+            review_contract=review_contract,
+        ),
+    }
 
 
 def _format_operator_panel(

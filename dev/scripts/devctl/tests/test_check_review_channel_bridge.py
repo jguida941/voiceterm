@@ -38,6 +38,7 @@ def _valid_code_audit_text(script) -> str:
         "Each meaningful review must include an operator-visible chat update.",
         "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
         "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
+        "When the structured review queue is available, Claude must also poll `review-channel --action inbox --target claude --status pending --format json` or the equivalent watch surface on the same cadence so Codex-targeted packets are not missed.",
         "Claude must read `Last Codex poll` / `Poll Status` first on each repoll.",
         "When `Reviewer mode` is `active_dual_agent`, this file is the live reviewer/coder authority.",
         "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`, Claude must not assume a live Codex review loop.",
@@ -424,6 +425,31 @@ class CheckReviewChannelBridgeTests(TestCase):
         self.assertIn("state_errors", report["code_audit"])
         self.assertTrue(
             any("Current Instruction For Claude" in error for error in report["code_audit"]["state_errors"])
+        )
+
+    def test_build_report_flags_suspicious_terminal_text_in_instruction(self) -> None:
+        code_audit = self._temp_path(
+            "code_audit.md",
+            _valid_code_audit_text(self.script).replace(
+                "- continue with the next scoped task",
+                "- Update Not logged in · Please run /login to continue.",
+            ),
+        )
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        with (
+            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
+        ):
+            report = self.script.build_report()
+        self.assertFalse(report["ok"])
+        self.assertIn("state_errors", report["code_audit"])
+        self.assertTrue(
+            any("suspicious terminal/status text" in error for error in report["code_audit"]["state_errors"])
         )
 
     def test_build_report_flags_resolved_bridge_without_promoted_next_task(self) -> None:

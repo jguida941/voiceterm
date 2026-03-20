@@ -109,6 +109,19 @@ Details: [Troubleshooting -> JetBrains + Claude overlay overlap after long paral
 
 If you want the least surprising setup, use Cursor terminal first.
 
+## Optional Companion Surfaces
+
+If you are working from a source checkout, VoiceTerm also has optional
+repo-backed companion surfaces:
+
+- Operator Console: desktop read/control room over repo-visible
+  `review-channel`, `mobile-status`, and related `devctl` workflow outputs.
+- iPhone/iPad companion: reads the same live mobile bundle for status views and
+  typed control actions on-device.
+
+These are advanced workflow tools. They do not replace the overlay or the
+voice-capture flow described in the rest of this guide.
+
 ## How Voice Input Works
 
 VoiceTerm handles voice capture and text injection.

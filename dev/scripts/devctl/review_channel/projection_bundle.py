@@ -142,8 +142,9 @@ def write_projection_bundle(
 def _build_compact_projection(review_state: dict[str, object]) -> dict[str, object]:
     queue = review_state.get("queue", {})
     bridge = review_state.get("bridge", {})
-    service_identity = review_state.get("service_identity")
-    attach_auth_policy = review_state.get("attach_auth_policy")
+    compat = review_state.get("_compat") or {}
+    service_identity = compat.get("service_identity")
+    attach_auth_policy = compat.get("attach_auth_policy")
     current_focus = bridge.get("current_instruction") or _current_focus_line(review_state)
     return {
         "schema_version": 1,
@@ -207,9 +208,10 @@ def _render_latest_markdown(
 ) -> str:
     queue = review_state.get("queue", {})
     bridge = review_state.get("bridge", {})
-    runtime = review_state.get("runtime", {})
-    service_identity = review_state.get("service_identity", {})
-    attach_auth_policy = review_state.get("attach_auth_policy", {})
+    md_compat = review_state.get("_compat") or {}
+    runtime = md_compat.get("runtime", {})
+    service_identity = md_compat.get("service_identity", {})
+    attach_auth_policy = md_compat.get("attach_auth_policy", {})
     agents = agent_registry.get("agents", [])
     packets = review_state.get("packets", [])
     lines = ["# review-channel status", ""]

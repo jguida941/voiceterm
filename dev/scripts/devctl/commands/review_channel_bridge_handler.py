@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-
-from ..review_channel.attention import derive_bridge_attention
+from ..review_channel.bridge_runtime_state import (
+    BridgeStateContext,
+    enforce_bridge_launch_attention,
+)
 from ..review_channel.core import (
     detect_active_session_conflicts,
     summarize_active_session_conflicts,
 )
 from ..review_channel.handoff import BRIDGE_LIVENESS_KEYS
-from ..review_channel.peer_liveness import STALE_PEER_RECOVERY
 from ..review_channel.launch import (
     build_launch_sessions,
     launch_terminal_sessions,
@@ -41,9 +42,11 @@ from .review_channel_bridge_support import (
     build_bridge_guard_report,
     launch_sessions_if_requested,
     prepare_rollover_bundle,
+    resolve_launch_promotion_plan_path,
 )
 
-BRIDGE_ACTIONS = {"launch", "rollover"}
+BRIDGE_ACTIONS = {"launch", "rollover", "promote"}
+LAUNCH_GUARDED_ACTIONS = {"launch", "rollover"}
 
 
 @dataclass(frozen=True)
@@ -54,7 +57,7 @@ class LaunchRefreshContext:
     review_channel_path: Path
     bridge_path: Path
     status_dir: Path
-    promotion_plan_path: Path
+    promotion_plan_path: Path | None
     artifact_paths: object
 
 
@@ -77,6 +80,7 @@ class BridgeReportContext:
     handoff_ack_observed: dict[str, bool] | None
     promotion: object
     bridge_heartbeat_refresh: object
+    reviewer_state_write: object
 
 
 def _refresh_snapshot(
@@ -185,6 +189,7 @@ def _build_bridge_report(
         handoff_ack_observed=context.handoff_ack_observed,
         promotion=context.promotion,
         bridge_heartbeat_refresh=context.bridge_heartbeat_refresh,
+        reviewer_state_write=context.reviewer_state_write,
         execution_mode_override=report_execution_mode,
     )
     _attach_service_identity(
@@ -216,7 +221,12 @@ def _run_bridge_action(
     assert isinstance(bridge_path, Path)
     assert isinstance(rollover_dir, Path)
     assert isinstance(status_dir, Path)
-    assert isinstance(promotion_plan_path, Path)
+    promotion_plan_path = resolve_launch_promotion_plan_path(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        promotion_plan_path=promotion_plan_path,
+        action=args.action,
+    )
 
     validate_live_launch_conflicts(
         args=args,
@@ -229,31 +239,22 @@ def _run_bridge_action(
         repo_root=repo_root,
         bridge_path=bridge_path,
     )
-    (
-        lanes,
-        bridge_liveness,
-        _bridge_liveness_state,
-        codex_lanes,
-        claude_lanes,
-        cursor_lanes,
-        bridge_heartbeat_refresh,
-    ) = bridge_launch_state(
+    bridge_state = bridge_launch_state(
         args=args,
-        repo_root=repo_root,
-        review_channel_path=review_channel_path,
-        bridge_path=bridge_path,
-        bridge_actions=BRIDGE_ACTIONS,
+        context=BridgeStateContext(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            bridge_path=bridge_path,
+            status_dir=status_dir,
+        ),
+        bridge_actions=LAUNCH_GUARDED_ACTIONS,
         build_bridge_guard_report_fn=build_bridge_guard_report,
     )
-    if args.action in BRIDGE_ACTIONS:
-        attention = derive_bridge_attention(bridge_liveness)
-        attention_status = str(attention.get("status", ""))
-        recovery_entry = STALE_PEER_RECOVERY.get(attention_status, {})
-        if str(recovery_entry.get("guard_behavior")) == "block_launch":
-            raise ValueError(
-                f"Peer-liveness guard blocks launch: {attention.get('summary', attention_status)}. "
-                f"Recovery: {attention.get('recommended_action', 'inspect bridge state')}."
-            )
+    enforce_bridge_launch_attention(
+        action=args.action,
+        bridge_actions=LAUNCH_GUARDED_ACTIONS,
+        bridge_liveness=bridge_state.bridge_liveness,
+    )
     promotion, terminal_profile_applied, warnings = resolve_promotion_and_terminal_state(
         args=args,
         context=BridgePromotionContext(
@@ -261,21 +262,25 @@ def _run_bridge_action(
             review_channel_path=review_channel_path,
             bridge_path=bridge_path,
             promotion_plan_path=promotion_plan_path,
-            codex_lanes=codex_lanes,
-            claude_lanes=claude_lanes,
+            codex_lanes=bridge_state.codex_lanes,
+            claude_lanes=bridge_state.claude_lanes,
         ),
         list_terminal_profiles_fn=list_terminal_profiles,
     )
     if promotion is None and scope_promotion is not None:
         promotion = scope_promotion
     warnings = [*list(extra_warnings or []), *warnings]
+    if promotion_plan_path is None:
+        warnings.append(
+            "Scoped promotion plan unresolved; auto-promotion is disabled until bridge/tracker scope is set."
+        )
     handoff_bundle, handoff_warnings = prepare_rollover_bundle(
         args=args,
         repo_root=repo_root,
         bridge_path=bridge_path,
         review_channel_path=review_channel_path,
         rollover_dir=rollover_dir,
-        lanes=lanes,
+        lanes=bridge_state.lanes,
     )
     warnings.extend(handoff_warnings)
     launch_context = LaunchRefreshContext(
@@ -297,10 +302,10 @@ def _run_bridge_action(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
             bridge_path=bridge_path,
-            bridge_liveness=bridge_liveness,
-            codex_lanes=codex_lanes,
-            claude_lanes=claude_lanes,
-            cursor_lanes=cursor_lanes,
+            bridge_liveness=bridge_state.bridge_liveness,
+            codex_lanes=bridge_state.codex_lanes,
+            claude_lanes=bridge_state.claude_lanes,
+            cursor_lanes=bridge_state.cursor_lanes,
             handoff_bundle=handoff_bundle,
             promotion_plan_path=promotion_plan_path,
             script_dir=script_dir if isinstance(script_dir, Path) else None,
@@ -325,8 +330,8 @@ def _run_bridge_action(
             bridge_path=bridge_path,
             status_dir=status_dir,
             status_snapshot=status_snapshot,
-            codex_lanes=codex_lanes,
-            claude_lanes=claude_lanes,
+            codex_lanes=bridge_state.codex_lanes,
+            claude_lanes=bridge_state.claude_lanes,
             terminal_profile_applied=terminal_profile_applied,
             sessions=sessions,
             handoff_bundle=handoff_bundle,
@@ -334,7 +339,8 @@ def _run_bridge_action(
             handoff_ack_required=handoff_ack_required,
             handoff_ack_observed=handoff_ack_observed,
             promotion=promotion,
-            bridge_heartbeat_refresh=bridge_heartbeat_refresh,
+            bridge_heartbeat_refresh=bridge_state.bridge_heartbeat_refresh,
+            reviewer_state_write=bridge_state.reviewer_state_write,
         ),
         report_execution_mode=report_execution_mode,
     )

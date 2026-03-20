@@ -9,6 +9,7 @@ from typing import Callable
 from .follow_loop import (
     FollowActionShape,
     FollowLoopTick,
+    build_claude_progress_token,
     run_configured_follow_action,
 )
 from .lifecycle_state import (
@@ -61,6 +62,10 @@ def _build_ensure_follow_tick(
     bridge_path = paths.get("bridge_path")
     status_dir = paths.get("status_dir")
     assert isinstance(bridge_path, Path)
+    progress_token = build_claude_progress_token(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+    )
     ensure_result = deps.ensure_reviewer_heartbeat_fn(
         repo_root=repo_root,
         bridge_path=bridge_path,
@@ -88,4 +93,5 @@ def _build_ensure_follow_tick(
         report=report,
         exit_code=exit_code,
         reviewer_mode=ensure_result.reviewer_mode,
+        progress_token=progress_token,
     )

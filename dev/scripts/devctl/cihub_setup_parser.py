@@ -37,7 +37,7 @@ def add_cihub_setup_parser(sub) -> None:
         "--yes", action="store_true", help="Skip confirmation prompt when --apply"
     )
     cmd.add_argument("--dry-run", action="store_true")
-    cmd.add_argument("--format", choices=["text", "json", "md"], default="md")
+    cmd.add_argument("--format", choices=["json", "md"], default="md")
     cmd.add_argument("--output")
     cmd.add_argument("--pipe-command", help="Pipe report output to a command")
     cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")

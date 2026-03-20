@@ -31,6 +31,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("code_shape", "check_code_shape.py"),
     ("package_layout", "check_package_layout.py"),
     ("platform_layer_boundaries", "check_platform_layer_boundaries.py"),
+    ("platform_contract_closure", "check_platform_contract_closure.py"),
     ("platform_contract_sync", "check_platform_contract_sync.py"),
     ("coderabbit_gate", "check_coderabbit_gate.py"),
     ("coderabbit_ralph_gate", "check_coderabbit_ralph_gate.py"),
@@ -41,6 +42,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ),
     ("naming_consistency", "check_naming_consistency.py"),
     ("mobile_relay_protocol", "check_mobile_relay_protocol.py"),
+    ("daemon_state_parity", "check_daemon_state_parity.py"),
     ("multi_agent_sync", "check_multi_agent_sync.py"),
     ("markdown_metadata_header", "check_markdown_metadata_header.py"),
     ("mutation_score", "check_mutation_score.py"),
@@ -71,9 +73,11 @@ _CHECK_SCRIPT_ENTRIES = (
     ("rust_test_shape", "check_rust_test_shape.py"),
     ("rustsec_policy", "check_rustsec_policy.py"),
     ("screenshot_integrity", "check_screenshot_integrity.py"),
+    ("startup_authority_contract", "check_startup_authority_contract.py"),
     ("test_coverage_parity", "check_test_coverage_parity.py"),
     ("workflow_action_pinning", "check_workflow_action_pinning.py"),
     ("workflow_shell_hygiene", "check_workflow_shell_hygiene.py"),
+    ("governance_closure", "check_governance_closure.py"),
 )
 
 CHECK_SCRIPT_FILES = dict(_CHECK_SCRIPT_ENTRIES)
@@ -105,6 +109,7 @@ _PROBE_SCRIPT_ENTRIES = (
     ("probe_fan_out", "probe_fan_out.py"),
     ("probe_side_effect_mixing", "probe_side_effect_mixing.py"),
     ("probe_match_arm_complexity", "probe_match_arm_complexity.py"),
+    ("probe_mixed_concerns", "probe_mixed_concerns.py"),
     ("probe_tuple_return_complexity", "probe_tuple_return_complexity.py"),
 )
 

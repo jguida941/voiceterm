@@ -46,6 +46,36 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-19 - MP-377 platform authority-loop lane made explicit
+
+Fact: the repo's current highest-priority standalone-governance work is now
+tracked as one explicit subordinate `MP-377` execution spec instead of being
+split across audit notes and chat synthesis. The new
+`dev/active/platform_authority_loop.md` plan closes the missing portable
+authority spine in a fixed order:
+`ProjectGovernance -> RepoPack -> PlanRegistry -> TypedAction -> ActionResult /
+RunRecord / Finding -> ContextPack`.
+
+The same docs-governance slice also made the missing execution details
+explicit, not implicit: full `active_path_config()` rewrite scope, startup
+authority via `governance-draft` and reviewed `project.governance`,
+structured plan-doc schema, bundle/check extensibility, platform-wide
+contract versioning, evidence provenance closure, proof-pack/evaluation
+schema, and the monorepo-first extraction rule. `MASTER_PLAN`, the active-doc
+index, and maintainer discovery docs now all point at the same lane so fresh
+AI sessions can start from repo-visible authority instead of reconstructing
+the priority from audit transcripts.
+
+Evidence:
+
+- `dev/active/platform_authority_loop.md`
+- `dev/active/INDEX.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `AGENTS.md`
+- `DEV_INDEX.md`
+- `dev/README.md`
+
 ### 2026-03-17 - MP-355 daemon-event runtime truth landed
 
 Fact: the next bounded runtime-truth slice now exists in the repo-owned
@@ -4698,5 +4728,21 @@ The full technical showcase is consolidated above in Appendix G of this document
   `file` + `symbol` + `probe` when a probe id is declared. Maintainer docs and
   the allowlist template were updated in the same slice so the repo-visible
   contract matches the emitted packet/artifact behavior.
+- Landed the next bounded platform contract-closure guard for that same
+  `MP-377` seam. `platform-contracts` now carries runtime-model pointers plus
+  durable artifact-schema rows for the current implemented platform families,
+  and `check_platform_contract_closure.py` reconciles those rows against
+  runtime dataclass fields, emitted schema constants, and startup-surface
+  command tokens. Repo policy, shared governance bundles, and maintainer docs
+  were updated in the same slice so AI/dev operators know to run the guard
+  whenever shared platform/runtime contract surfaces change.
+- The first routed validation pass over that slice also flushed out a real
+  self-hosting bug in the execution path: `check-router` still executed
+  repo-owned bundle commands through literal `python3`, so systems where
+  `python3` pointed at 3.10 failed before the routed lane started. The router
+  now uses the same repo-owned shell-command normalization path as
+  `tandem-validate`, preserves the tandem-facing compatibility export, and the
+  platform catalog/tests were refactored in the same follow-up so code-shape
+  and duplication guards stayed green while the interpreter fix landed.
 
 </details>

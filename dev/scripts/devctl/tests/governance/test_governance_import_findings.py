@@ -11,6 +11,12 @@ from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands import listing
 from dev.scripts.devctl.commands.governance import import_findings
 from dev.scripts.devctl.commands.governance import review as governance_review
+from dev.scripts.devctl.governance.external_findings_log import (
+    build_external_finding_row,
+)
+from dev.scripts.devctl.governance.external_findings_models import (
+    ExternalFindingInput,
+)
 
 
 class GovernanceImportFindingsTests(unittest.TestCase):
@@ -188,6 +194,57 @@ class GovernanceImportFindingsTests(unittest.TestCase):
             rc = import_findings.run(args)
 
             self.assertEqual(rc, 2)
+
+    def test_import_row_ignores_absolute_repo_path_in_identity(self) -> None:
+        row_one = build_external_finding_row(
+            finding_input=ExternalFindingInput(
+                file_path="pkg/demo.py",
+                repo_name="portable-demo",
+                repo_path="/Users/alice/repos/portable-demo",
+                check_id="external_audit",
+                signal_type="audit",
+                title="Unsafe argv forwarding",
+            )
+        )
+        row_two = build_external_finding_row(
+            finding_input=ExternalFindingInput(
+                file_path="pkg/demo.py",
+                repo_name="portable-demo",
+                repo_path="/tmp/portable/portable-demo",
+                check_id="external_audit",
+                signal_type="audit",
+                title="Unsafe argv forwarding",
+            )
+        )
+
+        self.assertEqual(row_one["finding_id"], row_two["finding_id"])
+        self.assertEqual(row_one["repo_path"], "/Users/alice/repos/portable-demo")
+        self.assertEqual(row_two["repo_path"], "/tmp/portable/portable-demo")
+
+    def test_import_row_normalizes_absolute_file_path_against_repo_path(self) -> None:
+        row_one = build_external_finding_row(
+            finding_input=ExternalFindingInput(
+                file_path="/Users/alice/repos/portable-demo/pkg/demo.py",
+                repo_name="portable-demo",
+                repo_path="/Users/alice/repos/portable-demo",
+                check_id="external_audit",
+                signal_type="audit",
+                title="Unsafe argv forwarding",
+            )
+        )
+        row_two = build_external_finding_row(
+            finding_input=ExternalFindingInput(
+                file_path="/tmp/portable/portable-demo/pkg/demo.py",
+                repo_name="portable-demo",
+                repo_path="/tmp/portable/portable-demo",
+                check_id="external_audit",
+                signal_type="audit",
+                title="Unsafe argv forwarding",
+            )
+        )
+
+        self.assertEqual(row_one["file_path"], "pkg/demo.py")
+        self.assertEqual(row_one["finding_id"], row_two["finding_id"])
 
 
 if __name__ == "__main__":

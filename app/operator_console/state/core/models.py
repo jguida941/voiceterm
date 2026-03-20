@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from app.operator_console.state.snapshots.quality_feedback_snapshot import (
+        QualityFeedbackOCSnapshot,
+    )
     from dev.scripts.devctl.watchdog import WatchdogSummaryArtifact
 
 
@@ -118,6 +121,7 @@ class OperatorConsoleSnapshot:
     cursor_session_stats_text: str = ""
     cursor_session_registry_text: str = ""
     quality_backlog: QualityBacklogSnapshot | None = None
+    quality_feedback: QualityFeedbackOCSnapshot | None = None
     watchdog_snapshot: WatchdogSummaryArtifact | None = None
 
 

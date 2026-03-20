@@ -1,0 +1,89 @@
+"""Artifact schema rows for the reusable governance platform blueprint."""
+
+from __future__ import annotations
+
+from .contracts import ArtifactSchemaSpec
+
+
+def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
+    """Return the durable artifact schema matrix for already-real platform families."""
+    return (
+        ArtifactSchemaSpec(
+            contract_id="ProbeReport",
+            owner_layer="governance_core",
+            purpose="Canonical aggregate probe-report payload emitted by `devctl probe-report`.",
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/review_probe_report.py",
+            constants_module="dev.scripts.devctl.runtime.finding_contracts",
+            contract_id_attr="PROBE_REPORT_CONTRACT_ID",
+            schema_version_attr="PROBE_REPORT_SCHEMA_VERSION",
+            compatibility_window="best-effort stable within MP-377 P0/P1; additive changes only",
+            migration_path="Add new fields additively, then update renderers/tests before changing consumers.",
+            rollback_path="Keep previous schema constants and writer behavior until consumers are restored.",
+        ),
+        ArtifactSchemaSpec(
+            contract_id="ReviewPacket",
+            owner_layer="governance_core",
+            purpose="Hotspot-ranked review packet projection for probe-report follow-up.",
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/probe_topology_builder.py",
+            constants_module="dev.scripts.devctl.runtime.finding_contracts",
+            contract_id_attr="REVIEW_PACKET_CONTRACT_ID",
+            schema_version_attr="REVIEW_PACKET_SCHEMA_VERSION",
+            compatibility_window="best-effort stable within MP-377 P0/P1; additive changes only",
+            migration_path="Update packet builders and markdown/JSON renderers together before expanding fields.",
+            rollback_path="Restore prior packet constants and artifact writers before removing consumers.",
+        ),
+        ArtifactSchemaSpec(
+            contract_id="ReviewTargets",
+            owner_layer="governance_core",
+            purpose="Portable review-target handoff artifact carrying summary, findings, and review packet.",
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/probe_report_artifacts.py",
+            constants_module="dev.scripts.devctl.runtime.finding_contracts",
+            contract_id_attr="REVIEW_TARGETS_CONTRACT_ID",
+            schema_version_attr="REVIEW_TARGETS_SCHEMA_VERSION",
+            compatibility_window="best-effort stable within MP-377 P0/P1; additive changes only",
+            migration_path="Keep handoff fields additive and update downstream importers before schema expansion.",
+            rollback_path="Revert writer payload shape and constants together if downstream adoption regresses.",
+        ),
+        ArtifactSchemaSpec(
+            contract_id="FileTopology",
+            owner_layer="governance_core",
+            purpose="Probe-topology artifact for hotspot and focused-graph analysis.",
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/probe_topology_builder.py",
+            constants_module="dev.scripts.devctl.runtime.finding_contracts",
+            contract_id_attr="PROBE_TOPOLOGY_CONTRACT_ID",
+            schema_version_attr="PROBE_TOPOLOGY_SCHEMA_VERSION",
+            compatibility_window="best-effort stable within MP-377 P0/P1; additive changes only",
+            migration_path="Expand topology payloads additively and update topology renderers/tests in the same slice.",
+            rollback_path="Restore prior topology constants and emitters before removing consumer support.",
+        ),
+        ArtifactSchemaSpec(
+            contract_id="ProbeAllowlist",
+            owner_layer="repo_packs",
+            purpose="Repo-root policy artifact for suppressed findings and routed design-decision packets.",
+            schema_version=1,
+            emitter_path="dev/scripts/checks/probe_report/decision_packets.py",
+            constants_module="dev.scripts.devctl.runtime.finding_contracts",
+            contract_id_attr="PROBE_ALLOWLIST_CONTRACT_ID",
+            schema_version_attr="PROBE_ALLOWLIST_SCHEMA_VERSION",
+            compatibility_window="stable for repo-local policy entries; additive entry fields only",
+            migration_path="Add new allowlist fields additively and keep old matching semantics documented until migrated.",
+            rollback_path="Preserve previous root payload shape and entry matching until repo policy is reverted.",
+        ),
+        ArtifactSchemaSpec(
+            contract_id="QualityFeedbackSnapshot",
+            owner_layer="governance_core",
+            purpose="Maintainability scoring, false-positive analysis, and AI governance tuning recommendations.",
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/governance/quality_feedback/report_builder.py",
+            constants_module="dev.scripts.devctl.governance.quality_feedback.models",
+            contract_id_attr="QUALITY_FEEDBACK_CONTRACT_ID",
+            schema_version_attr="QUALITY_FEEDBACK_SCHEMA_VERSION",
+            compatibility_window="best-effort stable within MP-377; additive changes only",
+            migration_path="Add new fields additively, then update renderers/tests before changing consumers.",
+            rollback_path="Restore prior schema constants and report builder behavior before removing consumers.",
+        ),
+    )

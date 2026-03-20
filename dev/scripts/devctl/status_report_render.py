@@ -40,6 +40,7 @@ def render_project_markdown(
     )
     append_dev_log_lines(lines, report.get("dev_logs"))
     append_pedantic_lines(lines, report.get("pedantic"))
+    append_failure_packet_lines(lines, report.get("failure_packet"))
 
     quality_backlog = report.get("quality_backlog")
     if quality_backlog is not None:
@@ -209,6 +210,35 @@ def append_pedantic_lines(lines: list[str], pedantic_info: Any) -> None:
 def append_pedantic_refresh_line(lines: list[str], refresh: Any) -> None:
     if isinstance(refresh, dict):
         lines.append("- Pedantic refresh: " f"exit={refresh.get('returncode')} " f"skipped={refresh.get('skipped')}")
+
+
+def append_failure_packet_lines(lines: list[str], failure_packet: Any) -> None:
+    if failure_packet is None:
+        return
+    if not isinstance(failure_packet, dict):
+        lines.append("- Failure packet: unavailable")
+        return
+    lines.append("")
+    lines.append("## Failure Packet")
+    lines.append(f"- source: {failure_packet.get('source', 'unknown')}")
+    lines.append(f"- runner: {failure_packet.get('runner', 'unknown')}")
+    lines.append(f"- status: {failure_packet.get('status', 'unknown')}")
+    lines.append(f"- total_tests: {failure_packet.get('total_tests', 0)}")
+    lines.append(f"- failed_tests: {failure_packet.get('failed_tests', 0)}")
+    lines.append(f"- error_tests: {failure_packet.get('error_tests', 0)}")
+    lines.append(f"- primary_test: {failure_packet.get('primary_test_id', '') or 'none'}")
+    primary_message = str(failure_packet.get("primary_message") or "").strip()
+    if primary_message:
+        lines.append(f"- primary_message: {primary_message}")
+    cases = failure_packet.get("cases")
+    if isinstance(cases, list) and cases:
+        for case in cases[:3]:
+            if not isinstance(case, dict):
+                continue
+            lines.append(
+                "- failure_case: "
+                + f"{case.get('test_id', 'unknown')} -> {case.get('message', 'no message')}"
+            )
 
 
 def append_probe_report_lines(lines: list[str], probe_report: Any) -> None:

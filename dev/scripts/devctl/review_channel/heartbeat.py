@@ -12,11 +12,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from ..common import display_path
-from .handoff import (
-    extract_bridge_snapshot,
-    summarize_bridge_liveness,
-    validate_launch_bridge_state,
-)
+from .bridge_validation import validate_launch_bridge_state
+from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
 
 LAST_CODEX_POLL_RE = re.compile(r"(?m)^- Last Codex poll:\s*`.*?`\s*$")
 LAST_CODEX_POLL_LOCAL_RE = re.compile(
@@ -24,6 +21,9 @@ LAST_CODEX_POLL_LOCAL_RE = re.compile(
 )
 LAST_WORKTREE_HASH_RE = re.compile(
     r"(?m)^- Last non-audit worktree hash:\s*`.*?`\s*$"
+)
+CURRENT_INSTRUCTION_REVISION_RE = re.compile(
+    r"(?m)^- Current instruction revision:\s*`.*?`\s*$"
 )
 POLL_STATUS_SECTION_RE = re.compile(
     r"(^## Poll Status\s*$\n)(.*?)(?=^##\s+|\Z)",
@@ -93,9 +93,17 @@ def refresh_bridge_heartbeat(
     now_utc = datetime.now(timezone.utc)
     last_codex_poll_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     last_codex_poll_local = _format_new_york_timestamp(now_utc)
-    # Preserve the existing reviewed hash — heartbeat refresh is a timestamp
-    # advance only, not a review. Only a real review pass should update the hash.
-    existing_hash = snapshot.metadata.get("last_non_audit_worktree_hash") or ""
+    # Recompute the worktree hash so the bridge always advertises the current
+    # tree state. This lets the reviewer detect drift even when no semantic
+    # review has occurred — without it, the bridge can look "fresh" while
+    # the reviewed baseline is stale.
+    try:
+        current_hash = compute_non_audit_worktree_hash(
+            repo_root=repo_root,
+            excluded_rel_paths=(bridge_path.relative_to(repo_root).as_posix(),),
+        )
+    except (ValueError, OSError):
+        current_hash = snapshot.metadata.get("last_non_audit_worktree_hash") or ""
 
     updated_text = bridge_text
     updated_text = _replace_or_insert_metadata_line(
@@ -111,11 +119,16 @@ def refresh_bridge_heartbeat(
             f"`{last_codex_poll_local}`"
         ),
     )
+    updated_text = _replace_or_insert_metadata_line(
+        updated_text,
+        pattern=LAST_WORKTREE_HASH_RE,
+        replacement=f"- Last non-audit worktree hash: `{current_hash}`",
+    )
     updated_text = _rewrite_poll_status(
         updated_text,
         note=(
             f"{AUTO_REFRESH_PREFIX} `{last_codex_poll_utc}` "
-            f"(reason: {reason}; tree: {existing_hash[:12]})."
+            f"(reason: {reason}; reviewed-tree: {current_hash[:12]})."
         ),
     )
     bridge_path.write_text(updated_text, encoding="utf-8")
@@ -124,7 +137,7 @@ def refresh_bridge_heartbeat(
         reason=reason,
         last_codex_poll_utc=last_codex_poll_utc,
         last_codex_poll_local=last_codex_poll_local,
-        last_worktree_hash=existing_hash,
+        last_worktree_hash=current_hash,
     )
 
 

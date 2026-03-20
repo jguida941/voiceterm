@@ -51,12 +51,45 @@ def build_bridge_control_arguments(
             help="Reviewer checkpoint replacement body for `Current Verdict`.",
         ),
         arg_builder(
+            "--verdict-file",
+            help=(
+                "Read the reviewer checkpoint replacement body for "
+                "`Current Verdict` from a file. Prefer this when the markdown "
+                "contains backticks or other shell-sensitive content."
+            ),
+        ),
+        arg_builder(
             "--open-findings",
             help="Reviewer checkpoint replacement body for `Open Findings`.",
         ),
         arg_builder(
+            "--open-findings-file",
+            help=(
+                "Read the reviewer checkpoint replacement body for "
+                "`Open Findings` from a file. Prefer this when the markdown "
+                "contains backticks or other shell-sensitive content."
+            ),
+        ),
+        arg_builder(
             "--instruction",
             help="Reviewer checkpoint replacement body for `Current Instruction For Claude`.",
+        ),
+        arg_builder(
+            "--instruction-file",
+            help=(
+                "Read the reviewer checkpoint replacement body for "
+                "`Current Instruction For Claude` from a file. Prefer this "
+                "when the markdown contains backticks or other "
+                "shell-sensitive content."
+            ),
+        ),
+        arg_builder(
+            "--rotate-instruction-revision",
+            action="store_true",
+            help=(
+                "Force a new current instruction revision on the next reviewer "
+                "checkpoint even if the instruction body text is unchanged."
+            ),
         ),
         arg_builder(
             "--reviewed-scope-item",

@@ -32,6 +32,8 @@ class GovernanceReviewBucketStat:
 
     bucket: str
     total_findings: int
+    positive_finding_count: int
+    open_finding_count: int
     false_positive_count: int
     false_positive_rate_pct: float
     fixed_count: int
@@ -47,6 +49,7 @@ class GovernanceReviewStats:
     false_positive_count: int
     false_positive_rate_pct: float
     positive_finding_count: int
+    open_finding_count: int
     positive_finding_rate_pct: float
     fixed_count: int
     cleanup_rate_pct: float

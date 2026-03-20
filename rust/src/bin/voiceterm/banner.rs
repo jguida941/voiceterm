@@ -337,6 +337,19 @@ mod tests {
         )
     }
 
+    fn with_clean_banner_theme_state<T>(f: impl FnOnce() -> T) -> T {
+        let mut keys = TERMINAL_HOST_ENV_KEYS.to_vec();
+        keys.extend_from_slice(STYLE_PACK_ENV_KEYS);
+        with_env_overrides(
+            &keys,
+            &[
+                ("VOICETERM_STYLE_PACK_JSON", None),
+                ("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV", None),
+            ],
+            || with_runtime_overrides(RuntimeStylePackOverrides::default(), f),
+        )
+    }
+
     #[test]
     fn version_defined() {
         assert!(!VERSION.is_empty());
@@ -694,9 +707,11 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn logo_line_color_uses_single_theme_accent() {
-        let colors = Theme::TokyoNight.colors();
-        assert_eq!(logo_line_color(Theme::TokyoNight, 0), colors.border);
-        assert_eq!(logo_line_color(Theme::TokyoNight, 3), colors.border);
+        with_clean_banner_theme_state(|| {
+            let colors = Theme::TokyoNight.colors();
+            assert_eq!(logo_line_color(Theme::TokyoNight, 0), colors.border);
+            assert_eq!(logo_line_color(Theme::TokyoNight, 3), colors.border);
+        });
     }
 
     #[test]

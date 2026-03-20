@@ -17,6 +17,7 @@ from ..review_channel.core import (
 )
 from ..review_channel.event_store import ReviewChannelArtifactPaths, event_state_exists
 from ..review_channel.events import post_packet
+from ..review_channel.bridge_runtime_state import BridgeStateContext
 from ..review_channel.handoff import handoff_bundle_to_dict
 from ..review_channel.launch import (
     build_launch_sessions,
@@ -25,6 +26,10 @@ from ..review_channel.launch import (
     resolve_terminal_profile_name,
 )
 from ..review_channel.promotion import promote_bridge_instruction
+from ..review_channel.bridge_promotion import (
+    maybe_auto_promote_next_task,
+    promotion_plan_rel_for_session,
+)
 from .review_channel_bridge_support import (
     bridge_launch_state,
     build_bridge_guard_report,
@@ -36,7 +41,7 @@ class BridgePromotionContext:
     repo_root: Path
     review_channel_path: Path
     bridge_path: Path
-    promotion_plan_path: Path
+    promotion_plan_path: Path | None
     codex_lanes: list
     claude_lanes: list
 
@@ -51,7 +56,7 @@ class BridgeSessionContext:
     claude_lanes: list
     cursor_lanes: list | None
     handoff_bundle: object | None
-    promotion_plan_path: Path
+    promotion_plan_path: Path | None
     script_dir: Path | None
     status_dir: Path
 
@@ -158,56 +163,20 @@ def resolve_promotion_and_terminal_state(
             claude_lanes=context.claude_lanes,
             list_terminal_profiles_fn=list_terminal_profiles_fn,
         )
-        if getattr(args, "auto_promote", False) and promotion is None:
-            from ..review_channel.handoff import (
-                extract_bridge_snapshot,
-                summarize_bridge_liveness,
-            )
-            from ..review_channel.heartbeat import compute_non_audit_worktree_hash
-            from ..review_channel.promotion import (
-                derive_promotion_candidate,
-                validate_promotion_ready,
-            )
-
-            if context.bridge_path.exists():
-                snapshot = extract_bridge_snapshot(
-                    context.bridge_path.read_text(encoding="utf-8")
-                )
-            else:
-                from ..review_channel.handoff import BridgeSnapshot
-                snapshot = BridgeSnapshot(metadata={}, sections={})
-            readiness_errors = validate_promotion_ready(snapshot)
-            try:
-                current_hash = compute_non_audit_worktree_hash(
-                    repo_root=context.repo_root,
-                    excluded_rel_paths=("code_audit.md",),
-                )
-            except (ValueError, OSError):
-                current_hash = None
-            liveness = summarize_bridge_liveness(
-                snapshot, current_worktree_hash=current_hash
-            )
-            if liveness.reviewed_hash_current is False:
-                readiness_errors.append(
-                    "Review content is stale: the worktree has changed since "
-                    "the last reviewed hash. Re-review before auto-promoting."
-                )
-            candidate = derive_promotion_candidate(
-                repo_root=context.repo_root,
-                promotion_plan_path=context.promotion_plan_path,
-                require_exists=False,
-            )
-            if not readiness_errors and candidate is not None:
-                promotion = promote_bridge_instruction_fn(
-                    repo_root=context.repo_root,
-                    bridge_path=context.bridge_path,
-                    promotion_plan_path=context.promotion_plan_path,
-                )
-                warnings.append(
-                    f"Auto-promoted next task: {candidate.checklist_item}"
-                )
+        promotion, auto_promote_warnings = maybe_auto_promote_next_task(
+            args=args,
+            repo_root=context.repo_root,
+            bridge_path=context.bridge_path,
+            promotion_plan_path=context.promotion_plan_path,
+            promote_bridge_instruction_fn=promote_bridge_instruction_fn,
+        )
+        warnings.extend(auto_promote_warnings)
         return promotion, terminal_profile_applied, warnings
 
+    if context.promotion_plan_path is None:
+        raise ValueError(
+            "scope_missing: promote action requires a resolved scoped plan path."
+        )
     promotion = promote_bridge_instruction_fn(
         repo_root=context.repo_root,
         bridge_path=context.bridge_path,
@@ -215,9 +184,12 @@ def resolve_promotion_and_terminal_state(
     )
     bridge_launch_state_fn(
         args=args,
-        repo_root=context.repo_root,
-        review_channel_path=context.review_channel_path,
-        bridge_path=context.bridge_path,
+        context=BridgeStateContext(
+            repo_root=context.repo_root,
+            review_channel_path=context.review_channel_path,
+            bridge_path=context.bridge_path,
+            status_dir=None,
+        ),
         bridge_actions={"launch", "rollover"},
         build_bridge_guard_report_fn=build_bridge_guard_report,
     )
@@ -266,9 +238,10 @@ def build_bridge_sessions(
         await_ack_seconds=args.await_ack_seconds,
         default_terminal_profile=DEFAULT_TERMINAL_PROFILE,
         retirement_note=REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
-        promotion_plan_rel=display_path(
-            context.promotion_plan_path,
+        promotion_plan_rel=promotion_plan_rel_for_session(
+            promotion_plan_path=context.promotion_plan_path,
             repo_root=context.repo_root,
+            display_path_fn=display_path,
         ),
         bridge_liveness=context.bridge_liveness,
         handoff_bundle=handoff_bundle_to_dict(context.handoff_bundle),

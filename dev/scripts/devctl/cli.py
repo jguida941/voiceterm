@@ -69,8 +69,11 @@ from .commands import (
 )
 from .commands.governance import (
     bootstrap as governance_bootstrap,
+    doc_authority as governance_doc_authority,
+    draft as governance_draft,
     export as governance_export,
     import_findings as governance_import_findings,
+    quality_feedback as governance_quality_feedback,
     render_surfaces,
     review as governance_review,
     simple_lanes,
@@ -85,7 +88,10 @@ from .controller_action_parser import add_controller_action_parser
 from .data_science.metrics import maybe_auto_refresh_data_science
 from .failure_cleanup_parser import add_failure_cleanup_parser
 from .governance.parser import (
+    add_doc_authority_parser,
+    add_governance_draft_parser,
     add_governance_import_findings_parser,
+    add_governance_quality_feedback_parser,
     add_launcher_check_parser,
     add_launcher_policy_parser,
     add_launcher_probes_parser,
@@ -123,6 +129,9 @@ def build_parser() -> argparse.ArgumentParser:
         default_mutation_threshold=DEFAULT_MUTATION_THRESHOLD,
     )
     add_governance_import_findings_parser(sub)
+    add_governance_draft_parser(sub)
+    add_doc_authority_parser(sub)
+    add_governance_quality_feedback_parser(sub)
     add_orchestrate_parsers(sub)
     add_publication_sync_parser(sub)
     add_platform_contracts_parser(sub)
@@ -182,7 +191,10 @@ COMMAND_HANDLERS = {
     "render-surfaces": render_surfaces.run,
     "governance-export": governance_export.run,
     "governance-bootstrap": governance_bootstrap.run,
+    "doc-authority": governance_doc_authority.run,
+    "governance-draft": governance_draft.run,
     "governance-import-findings": governance_import_findings.run,
+    "governance-quality-feedback": governance_quality_feedback.run,
     "governance-review": governance_review.run,
     "triage-loop": triage_loop.run,
     "loop-packet": loop_packet.run,
