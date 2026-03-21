@@ -744,10 +744,19 @@ intended execution order is:
       when stale or missing, and query confidence must stay fail-closed
       instead of promoting substring/import noise to high confidence.
 - [ ] Land one typed `startup-context` / `WorkIntakePacket` repo-owned command
-      before broader graph fan-out. That packet should carry command goal,
-      active target refs, changed scope, suggested graph queries, canonical
-      warm refs, targeted checks, and fallback/confidence fields so the
-      least-effort-first routing contract exists as machine state.
+      before broader graph fan-out. That packet should act as the first
+      deterministic context-router: given command goal/intent, active target
+      refs, changed scope, and a token budget, return a bounded cited read
+      set plus suggested graph queries, canonical warm refs, targeted checks,
+      and fallback/confidence fields so the least-effort-first routing
+      contract exists as machine state instead of prose guidance only. The
+      first proof must be backed by staged filtering plus bounded inference,
+      not just richer edge inventory.
+- [ ] Land the first bounded query engine in that same proof instead of
+      leaving `WorkIntakePacket` as a better substring index: exact/canonical
+      matches first, trigger/concept expansion second, typed-relation walks
+      third, bounded 2-3 hop inference fourth, and fail-closed fallback only
+      after the cheaper filters reject the scope.
 - [ ] Keep `context-graph --mode bootstrap` subordinate to the same startup
       family: it may expose a hot-index/bootstrap helper view over cached
       authority artifacts, but `startup-context` remains the single canonical
@@ -783,9 +792,18 @@ intended execution order is:
       warm-start path for repo-pack adopters until the runtime cache is active
       and proven against the same contracts.
 - [ ] Require one stronger typed edge path for plan/doc/command queries before
-      claiming MP-scoped graph retrieval is ready. Do not treat keyword-only
-      isolated plan matches as sufficient evidence that the navigation layer is
-      truthful.
+      claiming MP-scoped graph retrieval is ready. At minimum, land canonical
+      `guards` / `scoped_by` coverage plus one operation-semantic
+      producer/consumer contract path (`computes` / `exports` / `consumes`,
+      with `transforms` when backed by real repo-owned evidence) before
+      calling the graph a truthful semantic router. Do not treat
+      keyword-only isolated plan matches or raw import adjacency as sufficient
+      evidence.
+- [ ] Pair that first router with a small bidirectional hot-query cache.
+      Repeated lookups should reuse generated results keyed by query plus
+      tree/work-scope state, and touched-path/tree-hash invalidation must keep
+      the cache fast, explainable, and disposable rather than becoming hidden
+      authority.
 - [ ] Add a focused first context-recovery validation bundle: review-channel
       promotion/event views, autonomy checkpoint/swap-in prompts, Ralph fixer
       prompts, and direct `context-graph --query` output must agree on cited
@@ -1171,6 +1189,17 @@ intended execution order is:
   existing probe artifacts and shared hotspot scorer, keep `startup-context`
   as the single startup packet, then widen into the already-tracked work-graph
   coverage for review/governance/autonomy/workflow/config/test/platform data.
+- 2026-03-21: Tightened the Phase-6 acceptance criteria after the larger
+  multi-agent audit. The broad data-richness story still maps to the existing
+  work-graph widening step, but two proof obligations are now explicit before
+  that widening: the first `WorkIntakePacket` must route a bounded cited read
+  set deterministically before ad hoc exploration, and the first richer typed
+  relation families must include canonical `guards` / `scoped_by` plus one
+  operation-semantic producer/consumer contract path. The accepted correction
+  now goes one step further: staged filtering, bounded multi-hop inference,
+  and a small hot-query cache are part of that first routing proof too, not a
+  later embellishment. Example-repo prediction and ROI patterns remain
+  calibration inputs until the simpler routing proof is live.
 - 2026-03-21: Added the missing warm-start/session-delta rule to the same
   authority-loop lane. First startup seeds canonical artifacts, later
   sessions refresh only the invalidated slices by content hash + git diff, and

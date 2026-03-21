@@ -2994,6 +2994,12 @@ Still open before `P0` closes:
       review-channel plan resolution. Registry-shape changes should land once
       and fan out through shared parsing/tests, not through copy/pasted row
       matchers.
+- [ ] Keep collapsing parallel authority readers once typed projections exist:
+      after the shared `INDEX.md` helper lands, bootstrap/context-graph/
+      startup/review surfaces should fan out through shared registry/review/
+      policy readers (`INDEX.md`, `review_state.json`, quality-policy/script
+      inventory) instead of growing new ad hoc parsers around the same
+      canonical sources.
 - [ ] Add a dedicated command-surface parity guard for `COMMAND_HANDLERS`
       versus `devctl list` / `COMMANDS`. Missing parser/handler/list drift is
       currently too silent; CI should fail if the public command inventory and
@@ -3018,6 +3024,21 @@ Still open before `P0` closes:
       matches and bounded word-aware query quality must outrank accidental
       substring/import adjacency, and sample-repo noise or generic neighbor
       expansion must not surface as `high` confidence.
+- [ ] Replace substring-first query resolution with a bounded progressive
+      filter stack in the first routing proof: exact/canonical ref matches
+      first, trigger/concept expansion second, typed-relation walks third,
+      bounded multi-hop inference fourth, and fail-closed fallback only after
+      the cheaper layers reject or exhaust the scope.
+- [ ] Land the first richer typed relation families before promising semantic
+      routing: wire canonical `guards` / `scoped_by` coverage plus one
+      operation-semantic producer/consumer contract family (`computes`,
+      `exports`, `consumes`, and `transforms` where the repo-owned contract
+      evidence is real) so the graph is anchored in repo-owned evidence
+      instead of raw import adjacency alone.
+- [ ] Land one bounded inference engine on top of those typed relations in the
+      same first routing proof: allow 2-3 hop cited chains over canonical
+      refs so `WorkIntakePacket` can route intent to the smallest defensible
+      read set instead of returning flat match buckets.
 - [ ] Replace the ad hoc keyword mapping with a real context-routing trigger
       table: file/path patterns -> required warm refs, plan domains, checks,
       and query hints. `_PLAN_CONCEPT_KEYWORDS` is only the first heuristic.
@@ -3033,12 +3054,23 @@ Still open before `P0` closes:
       `context-graph --mode bootstrap`, `HotIndex`, and later
       `system-picture` views stay generated reducers over the same cached
       authority rather than parallel bootstrap manifests.
+- [ ] Promote the first `startup-context` / `WorkIntakePacket` proof from
+      "another packet" to the deterministic context-router contract: given
+      command intent/goal, changed scope, and a token budget, return a
+      bounded cited read set plus targeted checks and fallback refs before
+      agents widen into ad hoc file exploration. That proof is not complete
+      until the packet is backed by staged filtering plus bounded inference,
+      not just richer graph plumbing.
 - [ ] Add the first typed `startup-context` / `WorkIntakePacket` command after
       those honesty fixes land. The packet should carry repo identity, command
       goal, active target refs, changed paths, changed symbols when available,
       suggested graph queries, canonical refs, targeted checks, writeback
       sinks, confidence, and fallback refs so the least-effort-first workflow
       is operational rather than prose-only.
+- [ ] Pair that same first routing proof with a small bidirectional hot-query
+      cache. Repeated lookups should hit a generated cache keyed by query +
+      tree/work-scope state, and touched-path/tree-hash invalidation must keep
+      the cache disposable and non-authoritative.
 - [ ] Add one composed `devctl system-picture` read surface on top of the same
       authority stack so fresh AI/operator sessions do not have to reconstruct
       repo state from five or more separate commands manually. It should stitch
@@ -4021,6 +4053,19 @@ Execution order for this section:
   governance verdicts, autonomy telemetry, workflow/config/test/platform
   coverage) map to that existing work-graph step rather than to a second plan
   family.
+- 2026-03-21: Tightened the accepted interpretation of the broader multi-agent
+  audit instead of letting the extra detail drift into an unbounded second
+  roadmap. Most of the deeper data richness already belongs to the existing
+  work-graph widening step; the newly explicit near-term commitments are
+  narrower: the first `WorkIntakePacket` proof must act as a deterministic
+  context router rather than another passive packet, the first richer typed
+  relation families must include canonical `guards` / `scoped_by` plus one
+  operation-semantic producer/consumer path, the first routing proof now also
+  explicitly includes staged filtering, bounded multi-hop inference, and a
+  small hot-query cache, and parallel readers should collapse onto shared
+  typed projections where those projections already exist. Example-repo
+  prediction/ROI patterns remain calibration inputs until that simpler proof
+  is live.
 - 2026-03-21: Captured the missing cross-session warm-start rule explicitly.
   The plans already had startup-context, hot/warm/cold retrieval, adoption
   scans, and SQLite activation, but the end-to-end session flow is now named

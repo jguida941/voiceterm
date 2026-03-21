@@ -86,11 +86,14 @@
 - Current graph/intake follow-up inside that same lane: the live
   `context-graph` slice is still a bounded discovery helper, not the full
   least-effort scheduler. Next ladder is explicit: add command->handler/source
-  closure plus honesty guards first, then a typed `startup-context` /
-  `WorkIntakePacket` reducer with command goal + changed scope + targeted
-  checks, then live routing inputs (diff, findings, failed checks, plan
-  scope), then symbol/test/finding/policy/workflow/config graph coverage,
-  including Swift/iOS surfaces used by this repo.
+  closure plus first richer typed relation families, staged query filtering,
+  bounded multi-hop inference, and honesty guards first, then a typed
+  `startup-context` / `WorkIntakePacket` reducer that acts as the
+  deterministic context router for command goal/intent + changed scope +
+  budgeted cited read set + targeted checks, then live routing inputs (diff,
+  findings, failed checks, plan scope), then symbol/test/finding/policy/
+  workflow/config graph coverage, including Swift/iOS surfaces used by this
+  repo.
 - Current graph hygiene quick wins inside that same lane: unify `INDEX.md`
   parsing behind one canonical helper for doc-authority/context-graph/plan-
   resolution consumers, add a hard parity guard for `COMMAND_HANDLERS` versus
@@ -112,6 +115,14 @@
   remains the canonical bounded startup packet; `context-graph --mode
   bootstrap` is a reducer/hot-index helper over the same cached authority,
   not a second peer bootstrap surface.
+- Current deterministic-routing rule inside that same lane: graph work only
+  counts as usable startup/recovery help when one bounded request can return a
+  cited read set before ad hoc file exploration. The first truthful router
+  needs staged exact/canonical/typed-relation filtering, bounded multi-hop
+  inference, and a small hot-query cache with explicit invalidation; keep all
+  of that generated-only, reversible, and anchored in canonical typed
+  relation families (`guards`, `scoped_by`, operation-semantic producer /
+  consumer paths) instead of opaque semantic search.
 - Current `P0` closure focus inside that sequence: canonical `Finding`-based
   packets, `FixPacket` / `DecisionPacket` split, schema/version matrices,
   `CommandGoalTaxonomy` + validation-routing closure, and a contract-closure
@@ -252,14 +263,18 @@
   context-recovery proof, not as permission to pile richer graph work into
   the same mixed tree.
 - Next `MP-377` graph order after that checkpoint: honest typed plan/doc/
-  command edges plus artifact-backed live routing/scoring inputs first
-  (shared scan hygiene, `file_topology.json` / `review_packet.json`
-  ingestion, shared hotspot scoring, and severity-aware ranking), then the
-  remaining backend instruction emitters (review-channel promotion/event
-  projections and fresh `swarm_run` prompts), then a validation matrix
-  across review-channel / autonomy / Ralph, then richer graph capabilities
-  such as transitive blast radius, review/governance/autonomy/workflow/
-  config/test edges, and agent-authored graph queries.
+  command edges plus first richer typed relation families and artifact-backed
+  live routing/scoring inputs first (shared scan hygiene,
+  `file_topology.json` / `review_packet.json` ingestion, shared hotspot
+  scoring, severity-aware ranking, initial `guards` / `scoped_by` /
+  operation-semantic producer-consumer paths, staged query filtering,
+  bounded multi-hop inference, and a small bidirectional hot-query cache),
+  then the remaining backend instruction emitters (review-channel
+  promotion/event projections and fresh `swarm_run` prompts), then a
+  validation matrix across review-channel / autonomy / Ralph, then richer
+  graph capabilities such as transitive blast radius,
+  review/governance/autonomy/workflow/config/test edges, and
+  agent-authored graph queries.
 - Follow-on graph/productization lane after those honesty/intake closures:
   add one portable `architecture-review` command/profile that aggregates the
   same graph, probe, guard, and contract evidence into one system-level health

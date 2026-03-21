@@ -46,6 +46,34 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-21 - MP-377 context-graph plan tightened around deterministic routing
+
+Fact: the `MP-377` plan chain now records a stricter interpretation of the
+larger multi-agent context-graph audit. The broad finding still stands: the
+repo already has much richer review/governance/autonomy/workflow/test/
+platform data than the current graph consumes. But the accepted near-term
+execution scope is now sharper: `WorkIntakePacket` must become the first
+deterministic context-router contract for bounded cited read sets, the first
+richer typed relation families must explicitly include `guards`, `scoped_by`,
+and one operation-semantic producer/consumer path, the first routing proof
+must include staged filtering plus bounded multi-hop inference, a small
+bidirectional hot-query cache is now part of that same proof, and shared
+typed projections should replace parallel parsers where those projections
+already exist.
+
+This matters because it preserves the current architecture and ladder instead
+of spinning up a second "ZGraph roadmap" from research notes. The plan now
+separates what is committed next from what remains calibration material:
+deterministic routing, typed-relation closure, staged filtering, bounded
+inference, and the small hot cache are in scope now; heavier prediction and
+ROI features stay downstream until the simpler routing proof is live.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+
 ### 2026-03-21 - Context-graph plan state synchronized with the deeper ZGraph/runtime audit
 
 Fact: the canonical `MP-377` plan chain now records the immediate
