@@ -144,10 +144,14 @@ def _status_full_extras(
     context: StatusProjectionContext,
     payload: StatusProjectionPayload,
 ) -> dict[str, object]:
-    return {
+    push_enforcement = context.bridge_liveness.get("push_enforcement")
+    extras = {
         "bridge_liveness": context.bridge_liveness,
         "attention": context.attention,
         "reviewer_worker": payload.reviewer_worker,
         "service_identity": payload.service_identity,
         "attach_auth_policy": payload.attach_auth_policy,
     }
+    if isinstance(push_enforcement, dict):
+        extras["push_enforcement"] = push_enforcement
+    return extras

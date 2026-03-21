@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from .daemon_reducer import DaemonSnapshot, build_runtime_state, empty_daemon_state
+from dataclasses import asdict
+from pathlib import Path
+
+from .daemon_reducer import DaemonSnapshot, empty_daemon_state
+from ..governance.push_policy import load_push_policy
+from ..governance.push_state import PushEnforcementSnapshot, detect_push_enforcement_state
 
 
 def build_bridge_runtime(
@@ -30,6 +35,36 @@ def build_bridge_runtime(
         "active_daemons": 1 if publisher_running else 0,
         "last_daemon_event_utc": "",
     }
+
+
+def build_bridge_push_enforcement_state(repo_root: Path) -> dict[str, object]:
+    """Load the repo-governance push/checkpoint state for bridge projections."""
+    try:
+        policy = load_push_policy(repo_root=repo_root)
+        return detect_push_enforcement_state(policy, repo_root=repo_root)
+    except (OSError, ValueError):
+        return asdict(
+            PushEnforcementSnapshot(
+                default_remote="origin",
+                development_branch="main",
+                release_branch="main",
+                pre_push_hook_path="",
+                pre_push_hook_installed=False,
+                raw_git_push_guarded=False,
+                upstream_ref="",
+                ahead_of_upstream_commits=None,
+                dirty_path_count=0,
+                untracked_path_count=0,
+                max_dirty_paths_before_checkpoint=12,
+                max_untracked_paths_before_checkpoint=6,
+                checkpoint_required=False,
+                safe_to_continue_editing=True,
+                checkpoint_reason="clean_worktree",
+                worktree_dirty=False,
+                push_ready=False,
+                recommended_action="use_devctl_push",
+            )
+        )
 
 
 def _running_bridge_publisher(

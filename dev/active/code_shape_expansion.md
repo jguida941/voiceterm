@@ -721,6 +721,17 @@ Total new instruments: **20 probes + 2 hard guards** across 7 phases
   the duplicated signature/path helpers were consolidated into one package
   helper module.
 
+## Session Resume
+
+- Current status: this plan remains active; start from the highest-priority
+  open item in `## Execution Checklist` and the latest dated entry in
+  `## Progress Log`.
+- Next action: keep current-slice decisions and blockers in this file instead
+  of chat-only notes, then update this section when the promoted slice
+  changes.
+- Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
+  load only the local sections needed for the active checklist item.
+
 ## Audit Evidence
 
 - Research sweep: 4 parallel agents (Rust gaps, Python gaps, infrastructure

@@ -55,7 +55,9 @@ def test_parse_metadata_header_missing() -> None:
 
 def test_classify_doc_spec(tmp_path: Path) -> None:
     doc = tmp_path / "plan.md"
-    doc.write_text("# Plan\n## Scope\nStuff\n## Execution Checklist\n- [ ] item\n")
+    doc.write_text(
+        "# Plan\n## Scope\nStuff\n## Execution Checklist\n- [ ] item\n\n## Session Resume\n- resume\n"
+    )
     result = classify_doc(doc, doc.read_text(), in_active=True)
     assert result == "spec"
 
@@ -283,6 +285,7 @@ def test_build_report_with_active_docs(tmp_path: Path) -> None:
         "## Scope\nDo things.\n\n"
         "## Execution Checklist\n- [ ] item\n\n"
         "## Progress Log\nNone yet.\n\n"
+        "## Session Resume\n- resume\n\n"
         "## Audit Evidence\nNone yet.\n"
     )
     report = build_doc_authority_report(tmp_path)
@@ -311,6 +314,7 @@ def test_build_report_uses_index_role_for_runbook(tmp_path: Path) -> None:
         "## Scope\nBridge.\n\n"
         "## Execution Checklist\n- [ ] step\n\n"
         "## Progress Log\n- none\n\n"
+        "## Session Resume\n- resume\n\n"
         "## Audit Evidence\n- none\n"
     )
     report = build_doc_authority_report(tmp_path)
@@ -332,10 +336,10 @@ def test_build_report_registry_counts_only_active_subset(tmp_path: Path) -> None
         "| `dev/active/registered.md` | `spec` | `mirrored` | `MP-377` | when editing platform |\n"
     )
     (active / "registered.md").write_text(
-        "# Registered\n\n## Scope\nText\n\n## Execution Checklist\n- [ ] item\n\n## Progress Log\n- none\n\n## Audit Evidence\n- none\n"
+        "# Registered\n\n## Scope\nText\n\n## Execution Checklist\n- [ ] item\n\n## Progress Log\n- none\n\n## Session Resume\n- resume\n\n## Audit Evidence\n- none\n"
     )
     (active / "missing.md").write_text(
-        "# Missing\n\n## Scope\nText\n\n## Execution Checklist\n- [ ] item\n\n## Progress Log\n- none\n\n## Audit Evidence\n- none\n"
+        "# Missing\n\n## Scope\nText\n\n## Execution Checklist\n- [ ] item\n\n## Progress Log\n- none\n\n## Session Resume\n- resume\n\n## Audit Evidence\n- none\n"
     )
     (guides / "GUIDE.md").write_text("# Guide\n")
     report = build_doc_authority_report(tmp_path)

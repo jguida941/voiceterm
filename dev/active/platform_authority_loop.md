@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-03-20 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-21 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -211,6 +211,42 @@ intended execution order is:
       the content-hash/git-diff-invalidated slices, and the next
       `startup-context` / `WorkIntakePacket` must come from cached artifacts +
       delta instead of full repo recomputation.
+- [ ] Add one repo-pack-owned checkpoint/push packet plus warm-start cache
+      layer that enhances the same startup path without creating a second
+      authority. It must be generated from canonical git/plan/guard/review
+      truth, stored under a managed artifact root, and be safe to delete and
+      recompute at any time. Required first fields: repo/worktree identity,
+      tree hash or commit sha, touched paths + diff stats, routed plan scope,
+      guard/check summary, reviewer verdict summary, checkpoint-budget
+      snapshot, invalidation metadata, and rolling batch-size percentiles
+      (changed files per checkpoint, LOC per push, guard pass rate per bundle)
+      so calibration thresholds become empirical instead of fixed.
+      Performance rule: startup may read the packet as a fast path, but it
+      must fall back to canonical sources when the packet is missing or stale
+      rather than blocking on cache regeneration.
+      Sequencing: this item lands after the Phase 1A guard spine (5 items)
+      and before broader graph/query expansion.
+      Pattern sources: P-18 hash baselines (`astarihope/check_determinism.py`),
+      P-17 region sampling (`astarihope/smart_auto_dispatch.py`),
+      P-03 relation mapper (`zgraph-scientific-package/relation_mapper.py`),
+      P-43 ZRef traces (`ML_Dump_Trace_V2/ARCHITECTURE.md`),
+      P-42 dual dispatch (`June17th.../smart_auto_dispatcher.py`),
+      P-19 density profiling (`astarihope/density_presets.py`),
+      P-02 multi-key cache (`zgraph-scientific-package/cache.py`),
+      P-07 metrics tracker (`zgraph-scientific-package/metrics.py`),
+      P-35 proof packaging (`justin-prime-engine/complete_proof_package.py`),
+      P-15 performance model (`astarihope/create_performance_model.py`).
+      Field mapping for this packet is fixed here: tree hash / commit sha
+      uses P-18, touched paths + diff stats use P-17, routed plan scope /
+      plan refs use P-03, guard/check summary uses P-43, reviewer verdict
+      summary uses P-42, checkpoint-budget snapshot uses P-19,
+      invalidation metadata uses P-02, rolling calibration uses P-07/P-15,
+      and the audit-proof envelope uses P-35.
+      Retrieval rule: `context-graph` / `ConceptIndex` / ZGraph-compatible
+      outputs may compress or explain nearby scope around the same diff, but
+      they do not become checkpoint authority. When graph confidence is low or
+      blast radius is unclear, the system must narrow or stop instead of
+      widening the candidate checkpoint.
 - [ ] Add repo-pack-driven checkpoint-budget fields to that same startup
       receipt/intake contract: dirty-path count, untracked-path count,
       `safe_to_continue_editing`, `checkpoint_required`, checkpoint reason,
@@ -255,6 +291,96 @@ intended execution order is:
       `changed_since_last_ack` flag so agents know whether to act.
       Wire through the existing `review-channel` command surface as a new
       `--action bridge-poll` verb rather than a separate top-level command.
+- [ ] Accept the merged Codex/Claude external-research synthesis as the first
+      explicit least-effort-first guard/intake follow-on inside Phase 1. Keep
+      it sequenced after the blocker tranche and before broader graph widening
+      or any ML/ranking work. The five required closures are: explicit
+      `UNKNOWN/DEFER` outcomes, decision-path metadata, hash-based
+      determinism checking, frozen escalation tiers, and SHA256 proof
+      packaging. Use only repo-owned contracts and guards; imported research
+      code stays out of scope.
+
+#### Phase 1A - Audit-Promoted Least-Effort-First Guard Spine
+
+- Sequencing rule: the blocker tranche still lands first. Once that tranche is
+  green, this five-item batch becomes the first promoted Phase 1 follow-on
+  before wider graph/query expansion. Deterministic rule outputs and canonical
+  refs remain authoritative; traces, hashes, graph aliases, ML confidence, and
+  proof bundles remain generated evidence only. This batch does not replace
+  the existing Phase 1 deliverables (`project.governance.json`,
+  `PlanRegistry`, `startup-context`, `WorkIntakePacket`,
+  `CollaborationSession`); it inserts ahead of them as the first
+  post-blocker closure step.
+- [ ] 1. Freeze explicit `UNKNOWN/DEFER` outcome states for deterministic
+      guard/startup routing.
+      Pattern source: `ML_Dump_Trace_V2`, `June17th`, `justin-prime-engine`.
+      First file targets: `dev/scripts/devctl/runtime/action_contracts.py`,
+      `dev/scripts/devctl/runtime/startup_context.py`,
+      `dev/scripts/devctl/runtime/finding_contracts.py`, and
+      `dev/scripts/devctl/watchdog/models.py`.
+      Guard contract: `platform-contracts` plus
+      `check_platform_contract_closure.py` must enumerate the outcome
+      semantics, and focused tests in
+      `dev/scripts/devctl/tests/runtime/test_action_contracts.py`,
+      `dev/scripts/devctl/tests/runtime/test_startup_context.py`, and
+      `dev/scripts/devctl/tests/runtime/test_finding_contracts.py` must prove
+      fail-closed behavior when cheaper tiers cannot classify.
+- [ ] 2. Carry decision-path metadata from the cheapest winning layer through
+      the typed action/result path.
+      Pattern source: `astarihope` `FilterState`, `justin-prime`
+      `layer_path_viewer`, `PredictionLogger`.
+      First file targets: `dev/scripts/devctl/commands/check_phases.py`
+      (`CheckContext`), `dev/scripts/devctl/commands/check.py`,
+      `dev/scripts/devctl/runtime/action_contracts.py`, and the first
+      `startup-context` / `WorkIntakePacket` projection that consumes the same
+      routing metadata.
+      Guard contract: focused tests in
+      `dev/scripts/devctl/tests/test_check.py` and
+      `dev/scripts/devctl/tests/runtime/test_action_contracts.py` plus
+      `check_platform_contract_closure.py` must prove the path is present,
+      ordered, and stable for the same input.
+- [ ] 3. Add hash-based determinism verification for typed guard/startup
+      artifacts before richer routing widens.
+      Pattern source: `astarihope-main/tools/check_determinism.py`.
+      First file targets: new `dev/scripts/checks/check_determinism.py` (or an
+      equivalent repo-owned determinism guard),
+      `dev/scripts/devctl/runtime/machine_output.py`,
+      `dev/scripts/devctl/commands/check.py`, and the first `ActionResult` /
+      `RunRecord` emitters whose canonical JSON must stay byte-stable for the
+      same input.
+      Guard contract: wire the guard through `script_catalog.py`,
+      `quality_policy_defaults.py`, and the relevant bundle; focused tests in
+      `dev/scripts/devctl/tests/runtime/test_machine_output.py` plus a new
+      determinism test module must prove stable hash output except for
+      explicitly allowlisted volatile fields.
+- [ ] 4. Freeze least-effort escalation tiers as one typed routing taxonomy:
+      `trivial -> quick -> expensive -> ai_fallback`.
+      Pattern source: `astarihope` progressive relaxation,
+      `ML_Dump_Trace` layered state machine, `June17th` dual dispatch.
+      First file targets: `dev/scripts/devctl/commands/check.py`,
+      `dev/scripts/devctl/commands/check_phases.py`,
+      `dev/scripts/devctl/runtime/startup_context.py`, and the first
+      check-router / startup surfaces that need to explain why a task climbed
+      tiers.
+      Guard contract: focused tests in
+      `dev/scripts/devctl/tests/test_check.py`,
+      `dev/scripts/devctl/tests/test_check_router.py`, and
+      `dev/scripts/devctl/tests/runtime/test_startup_context.py` must prove
+      deterministic tier selection and fail-closed escalation when cheaper
+      tiers cannot classify.
+- [ ] 5. Add proof packaging with SHA256 provenance to `RunRecord` and related
+      evidence artifacts.
+      Pattern source: `justin-prime-engine`
+      `complete_proof_package.py`, `Nasa_Export-main`.
+      First file targets: `dev/scripts/devctl/runtime/action_contracts.py`
+      (`RunRecord`), `dev/scripts/devctl/runtime/machine_output.py`,
+      `dev/scripts/artifacts/sha256.py`, and the first report/evidence writers
+      under `dev/reports/**` that materialize typed runtime artifacts.
+      Guard contract: `platform-contracts` rows and
+      `check_platform_contract_closure.py` must enumerate the proof fields;
+      focused tests in `dev/scripts/devctl/tests/runtime/test_action_contracts.py`
+      and `dev/scripts/devctl/tests/test_write_sha256_checksum.py` must prove
+      artifact-hash packaging is present and reproducible.
 - [ ] Treat Phase 1 as done only when this repo can emit reviewed
       `project.governance.md` + generated `project.governance.json`,
       generated `plan_registry.json`, one bounded `startup-context` /
@@ -364,11 +490,26 @@ intended execution order is:
       plan docs too: machine-readable metadata header, standard section order,
       stable anchor generation, and formatter/normalizer compatibility so
       plan markdown stays organized and registry-ready across repos.
-- [ ] Land `check_plan_doc_format.py` under the existing docs-governance path
-      as the first bounded enforcement surface for that schema: header
-      presence, metadata validity, required sections/order, line-budget
+- [ ] Land the first bounded enforcement surface for that schema under the
+      existing docs-governance path. Start by extending
+      `check_active_plan_sync.py` with metadata-header / `Session Resume` /
+      section-order parity so the repo self-hosts the contract without a
+      second parallel checker; split a dedicated `check_plan_doc_format.py`
+      only if that contract outgrows the current active-plan lane. Scope:
+      header presence, metadata validity, required sections/order, line-budget
       policy, orphan files, execution-plan marker presence, INDEX coverage,
       and `MASTER_PLAN` / registry linkage.
+- [ ] Add the first structured plan-content extraction on top of that schema:
+      `PlanRegistry` must expose current phase, unchecked checklist items,
+      `Session Resume`, and bounded recent progress/audit rows as typed fields
+      so startup/review/context-graph consumers stop treating governed plans
+      as opaque file pointers.
+- [ ] Implement runtime handlers for the allowed plan mutation operations over
+      `PlanTargetRef` resolution:
+      `rewrite_section_note`, `set_checklist_state`, `rewrite_session_resume`,
+      `append_progress_log`, and `append_audit_evidence` must become real
+      reducer/apply paths with typed receipts. Schema-level `mutation_op`
+      validation alone is not enough.
 - [ ] Add one guard that fails when plan-registry artifacts or target-anchor
       resolution drift from the reviewed markdown authority they are derived
       from.
@@ -525,6 +666,11 @@ intended execution order is:
       startup-context, `master-report`, packet-outcome ingestion,
       freshness/quarantine behavior, and the bounded topic-keyed knowledge-base
       exports that feed `ContextPack`.
+- [ ] Consume the new structured plan metadata in that same read path:
+      `startup-context`, review-channel promotion/event projections, and
+      `context-graph` / `ContextPack` packets should be able to read current
+      phase, open items, and `Session Resume` / recent progress context
+      without reparsing full plan files on every warm start.
 - [ ] Freeze the first native repo-understanding graph path as a repo-owned
       `devctl` surface, not an external semantic store: canonical pointer rows
       come from plans/docs/repo-map/report artifacts first, typed edges derive
@@ -699,6 +845,10 @@ intended execution order is:
   `governance-draft` have landed on the dirty tree; the bounded Phase 1 guard
   slice is `check_startup_authority_contract.py`, and Codex still owes a
   fresh re-review on the current tree before promoting the next closure item.
+- Current external-research intake status: local comparison repos now live
+  under `dev/repo_example_temp/` (gitignored on purpose) and should be treated
+  as calibration material for the `MP-377` least-effort-first retrieval /
+  authority stack, not as alternate authority or copy-paste source.
 - Session compass for fresh reviewer/coder sessions:
   - Product: VoiceTerm is being extracted into a portable AI governance
     platform that improves AI coding quality through deterministic
@@ -712,9 +862,14 @@ intended execution order is:
   - Blocker tranche scope: daemon attach/auth hardening, autonomy authority
     hardening, JSONL/evidence-integrity closure, and self-governance
     coverage. Finish those before promoting the next startup-authority slice.
-  - After that blocker set closes, the next Phase 1 closure items remain
-    generated `project.governance.json`, `PlanRegistry`, `startup-context`,
-    `WorkIntakePacket`, and `CollaborationSession` projection materialization.
+  - After that blocker set closes, the first promoted Phase 1 follow-on is the
+    least-effort-first guard spine now recorded in this file:
+    `UNKNOWN/DEFER` outcomes, decision-path metadata, determinism checking,
+    escalation tiers, and SHA256 proof packaging.
+  - After that five-item batch closes, the next broader Phase 1 closure items
+    remain generated `project.governance.json`, `PlanRegistry`,
+    `startup-context`, `WorkIntakePacket`, and `CollaborationSession`
+    projection materialization.
   - Do not widen the current slice into anchor-grammar implementation,
     frontend cleanup, or broader review-channel simplification.
   - Context-loading rule: hot = this session compass plus the live bridge
@@ -733,9 +888,127 @@ intended execution order is:
     fresh `swarm_run` prompts), then run the cross-surface validation bundle,
     then evaluate richer graph capabilities such as transitive blast radius,
     test-to-code, and self-service queries.
+  - Checkpoint-boundary rule: graph/context compression may explain candidate
+    scope, but push/checkpoint truth remains canonical git/plan/guard/review
+    evidence and must fail closed by narrowing the batch when graph confidence
+    is weak.
 
 ## Progress Log
 
+- 2026-03-21: Finished retiring `temp_leftoff.md` as execution state for this
+  lane. The remaining packet field mapping and graph/query intake conclusions
+  were verified against the governed plans and kept in canonical plan state
+  here / `MASTER_PLAN` instead of leaving a scratch markdown dependency in the
+  push path. The temporary scratch file is now disposable rather than a hidden
+  source of sequencing truth.
+- 2026-03-21: Audited the fresh plan-format and N-agent follow-up claims
+  against the current repo instead of older scratch notes. The discovery /
+  enforcement part of the plan-doc contract is now genuinely wired: active-plan
+  sync and doc-authority both require metadata headers plus `Session Resume`,
+  and the newer execution-plan docs are already inside the blocking contract.
+  The remaining gaps are narrower but real: only `## Execution Checklist` is
+  consumed as structured plan state today, plan mutation ops are still
+  contract-only without runtime apply handlers, and the future `PlanRegistry`
+  / `ContextPack` read path still needs to ingest `Session Resume`, progress,
+  and audit context without treating governed plans as opaque files.
+- 2026-03-21: Corrected the plan-self-hosting audit against the actual code
+  surface. The repo already has meaningful typed governance/runtime contracts
+  in code (`ProjectGovernance`, `TypedAction`, `ActionResult`, `Finding`,
+  `DecisionPacket`, `ReviewState`, packet target fields, doc-authority
+  scanning, and multiple contract guards), so the main gap is no longer "build
+  plan infrastructure from zero." The active self-hosting gap is narrower and
+  more concrete: freeze one governed plan markdown format, extend the existing
+  active-plan/docs-governance path instead of inventing a parallel checker,
+  migrate `Session Resume` into the execution-plan baseline, and then let the
+  future `PlanRegistry` / `PlanTargetRef` loader consume a repo that already
+  follows its own contract.
+- 2026-03-21: Connected the checkpoint/push packet spec to research repo
+  pattern sources. Added rolling batch-size percentiles field (changed files
+  per checkpoint, LOC per push, guard pass rate per bundle) so calibration
+  becomes empirical — pattern sources: P-07 metrics tracker, P-15 performance
+  model, P-19 density profiling. Added explicit sequencing: Phase 1A guard
+  spine → packet contract → calibration → broader graph work. Added pattern
+  source cross-references plus the field-to-pattern mapping directly to the
+  packet checklist item. The accepted order from Codex's design is now kept
+  in governed plan state: (1) checkpoint current slice, (2) fail-closed
+  checkpoint-budget enforcement, (3) packet + cache layer, (4) calibrate from
+  telemetry instead of fixed 12/6 thresholds.
+- 2026-03-21: Promoted the merged Codex/Claude external-research synthesis
+  from temporary Codex/Claude scratch planning into the canonical Phase 1
+  execution spec. Added the five-item least-effort-first guard spine with
+  concrete file targets and guard contracts: explicit `UNKNOWN/DEFER`
+  outcomes, decision-path metadata, hash-based determinism verification,
+  frozen escalation tiers, and SHA256 proof packaging. Sequencing is now
+  locked as post-blocker / pre-graph-widening, and the
+  authority/generated-only split remains explicit: deterministic rule outputs
+  plus canonical refs stay authoritative, while traces, hashes, graph
+  aliases, ML confidence, and proof bundles stay generated evidence only.
+- 2026-03-21: While the first `UNKNOWN/DEFER` slice was in flight, the live
+  review bridge exposed a real coordination bug: the reviewer-owned current
+  instruction remained authoritative, but `Claude Ack` regressed to an older
+  instruction token. The canonical plan and the in-progress code edits were
+  not lost, but a started slice can be stranded or duplicated if markdown
+  bridge state moves backward during active coding. Preserve the current slice
+  first; then treat the next reviewer-owned structural fix as mandatory:
+  heartbeat/checkpoint/projection paths must stop rewriting live instruction
+  state, and the bridge must converge on one monotonic, lease-owned typed
+  `CollaborationSession` authority path.
+- 2026-03-21: Landed the first bridge-backed checkpoint-budget read path for
+  the authority-loop follow-up. `review-channel --action status` now loads the
+  repo-governance `push_enforcement` snapshot, projects that state into the
+  generated review-channel payloads, and escalates attention to
+  `checkpoint_required` when the worktree is over the continuation budget.
+  `implementer-wait` now treats that status as loop-blocking so the live
+  Codex/Claude bridge stops widening an over-budget dirty tree before a
+  checkpoint is cut. The same docs-governance pass hardened
+  `check_markdown_metadata_header.py` to ignore directories named `*.md`, so
+  local comparison repos under `dev/repo_example_temp/` do not create false
+  markdown-header scan targets.
+- 2026-03-21: Accepted the next startup-acceleration direction for the same
+  authority-loop lane: emit a repo-pack-owned checkpoint/push packet into a
+  managed artifact/cache root, then let `startup-context` and later
+  `ContextPack` consume it as an optional warm-start accelerator. This cache
+  must remain generated-only and disposable: it is invalidated by tree-hash /
+  content-hash drift, never hand-edited, and never authoritative over git
+  state, active plans, repo policy, or guard/review truth. Performance target
+  is "read the packet when fresh, recompute from canonical sources when not"
+  so startup gets faster without adding a second memory authority or a hard
+  dependency on cache regeneration.
+- 2026-03-21: Claude completed full parallel audit of all 11 external research
+  repos using 4 domain-specialized agents (ZGraph, A-star/Dijkstra, prime
+  engines, ML/trace). Catalogued 55 reusable patterns in raw form
+  (`dev/repo_example_temp/CLAUDE_AUDIT_FINDINGS.md`), then merged the
+  synthesis into governed planning state using Codex's 7-question framework
+  and expected output shape. Key convergent finding across both agents:
+  deterministic least-effort-first is the universal
+  pattern in every research repo and maps directly onto the guard/probe/startup
+  escalation stack accepted for `MP-377`. Agreed first local fix: add explicit
+  UNKNOWN/DEFER guard states, decision-path metadata, hash-based determinism
+  checking, formalized escalation tiers, and proof packaging — all from
+  architectural patterns only, no imported code. Strongest portable signals:
+  `astarihope-main` for staged escalation/proof/telemetry contracts,
+  `June17th` + `ML_Dump_Trace_V2` for layered dispatch + ZRef traces +
+  dual deterministic-ML routing, `zgraph-scientific-package` for reversible
+  relation/inference/transformer stacks (generated-only, never authority).
+  `Nasa_Export-main` confirmed as packaged evidence/export only.
+- 2026-03-21: Staged the first external research-intake lane for the
+  authority-loop work under local-only `dev/repo_example_temp/` and verified
+  the intake root is gitignored so imported repos do not leak into product
+  history. The next shared Codex/Claude slice should audit those repos as
+  calibration material for the same deterministic least-effort-first stack
+  already accepted here: canonical evidence/contracts stay authoritative,
+  cheap deterministic guards/probes classify first, generated ConceptIndex /
+  ZGraph layers reduce search space second, bounded `startup-context` /
+  `ContextPack` reconstruction follows third, and expensive AI loops remain
+  fallback/controller layers only. First confirmed signal from the intake:
+  `dev/repo_example_temp/June17th******** 2 copy 2/` contains a real reusable
+  staged dispatcher with explicit decision-path output (`utils.py`,
+  `optimized_primes.py`, `universal_benchmark.py`, `smart_auto_dispatcher.py`);
+  `Nasa_Export-main` looks mostly like packaged evidence/export surfaces rather
+  than reusable bounded-search implementation. Treat the imported repos as a
+  source for minimal typed scheduler/query ideas, proof/eval patterns, and
+  confidence/fallback rules that can strengthen this repo's graph/query stack
+  without turning generated graph artifacts into a second authority store.
 - 2026-03-21: Landed the first repo-pack-owned push-routing slice under the
   authority-loop plan. `repo_governance.push` is now the single policy surface
   for default remote, development/release branches, protected branches,
@@ -932,6 +1205,12 @@ intended execution order is:
 
 ## Audit Evidence
 
+- External-research intake archive (2026-03-21): the raw scratch synthesis
+  that originally lived in `temp_leftoff.md` is now preserved as governed
+  reference evidence in
+  `dev/archive/2026-03-21-external-research-intake.md`; execution-affecting
+  conclusions remain promoted into this plan, `MASTER_PLAN`, and the related
+  review/push portability plans.
 - Push-governance slice verification (2026-03-21): targeted unit coverage now
   includes `dev/scripts/devctl/tests/test_push.py`,
   `dev/scripts/devctl/tests/test_ship_release_steps.py`,

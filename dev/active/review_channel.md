@@ -1081,6 +1081,13 @@ Acceptance:
       and peer ACK state; `latest.md` and other current-status markdown
       projections must render from that typed block instead of reading
       append-only `Claude Ack` / status history prose directly.
+- [ ] Generalize that typed current-session and queue contract beyond the
+      current named reviewer/implementer pair: replace named queue counters
+      (`pending_codex`, `pending_claude`, `pending_cursor`,
+      `pending_operator`) and `claude_*` / `codex_*` bridge-state fields with
+      per-agent or per-lane collections plus compatibility projections during
+      migration so the backend can represent more than one implementer or
+      reviewer without schema forks.
 - [ ] Separate live current status from history in the same slice: keep
       append-only bridge/event history in trace/history projections only, and
       make the markdown-authority demotion gate explicit for MP-355. The live
@@ -1143,6 +1150,16 @@ Acceptance:
 - [ ] Emit a typed `registry/agents.json` view that includes current job,
       job-state, waiting-on, last-packet-seen/applied, and script-profile
       fields for each visible agent.
+- [ ] Replace hardcoded agent-routing tables in the packet/attention/handoff
+      path (`VALID_AGENT_IDS`, rollover ACK prefixes, attention-owner maps,
+      reviewer-only liveness helpers) with agent-registry / `TandemProfile` /
+      repo-policy-derived routing so MP-355 does not claim N-agent support
+      while the middle layer still rejects new agents.
+- [ ] Extend promotion from `first unchecked item -> one bridge instruction`
+      to multi-item extraction and lane assignment once typed current-session
+      / per-agent queue authority is in place. Until that lands, keep
+      multi-agent specialization conductor-coordinated and do not pretend the
+      backend already does parallel work routing.
 - [ ] Extend `dev/scripts/devctl/reports_retention.py` protected paths for
       `dev/reports/review_channel/`.
 - [ ] Wire `check_review_channel.py` into `dev/scripts/devctl/bundle_registry.py`
@@ -1253,6 +1270,12 @@ Expected Phase-2 tests:
 
 - [ ] Add per-target inbox filtering so packets can be routed to `codex`,
       `claude`, or `operator`.
+- [ ] Replace the fixed provider-shaped queue/current-session state with a
+      registry-driven topology: pending counts, heartbeat freshness, ACK
+      state, and lane ownership must derive from `TandemProfile` / the agent
+      registry instead of `pending_codex`, `pending_claude`, `claude_ack`,
+      and `codex_poll_state` remaining first-class runtime fields forever.
+      Keep compatibility projections while current consumers migrate.
 - [ ] Add explicit `acked|dismissed|applied|expired` transitions and
       stale-packet watch behavior.
 - [ ] Add policy-aware action hints so packets can express `review_only`,
@@ -1308,6 +1331,16 @@ Expected Phase-2 tests:
       receiver-shaped pack projection while the canonical JSON pack stays
       unchanged.
 - [ ] Add conflict-resolution UX for competing agent recommendations.
+- [ ] Generalize agent validation and attention ownership from hardcoded
+      provider names to profile/policy-driven ids and roles: `VALID_AGENT_IDS`,
+      `ATTENTION_OWNER_ROLE`, rollover rules, and stale-peer attention should
+      stop assuming only Codex/Claude/Operator lanes once the typed
+      current-session path is ready.
+- [ ] Generalize promotion from one unchecked item -> one `Current Instruction
+      For Claude` rewrite into multi-item typed packet routing. Native N-agent
+      review should be able to promote distinct scoped items to different
+      target agents while bridge markdown becomes a projection over packet /
+      current-session authority rather than the only live routing surface.
 - [ ] Add typed agent-board actions so the operator can retask or tune agents
       from the shared surface without bypassing script/policy ownership:
   - [ ] `assign`
@@ -1490,6 +1523,8 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-21T22:15:00Z` | `CODEX` | Re-ran the "is this already N-agent?" audit against the current MP-355 runtime instead of relying on older scratch conclusions. The answer is mixed: packet routing, `TandemProfile.implementers`, the event lane, and `autonomy-swarm` already support more than two workers, but the middle review-channel layer is still singular in the places that matter most for live authority (`pending_codex` / `pending_claude`, `claude_ack`, `codex_poll_state`, provider-name allowlists, and one `Current Instruction For Claude` promotion path). | `planned` | Keep the current 8+8 run conductor-managed for now, then generalize queue/current-session/attention/promotion to registry-driven N-agent state before claiming the backend itself is natively multi-agent. |
+| `2026-03-21T20:25:00Z` | `CODEX` | Landed the first stale-write containment on the live markdown bridge after the operator-visible regression where an older reviewer checkpoint replaced a newer in-flight instruction. Instruction-mutating bridge writes now carry an expected instruction revision precondition through the reviewer-checkpoint and promotion paths, and the write fails closed under the existing file lock if the live bridge revision no longer matches. Auto-promotion/scope paths now thread the live revision they validated, while active dual-agent reviewer checkpoints require an explicit expected revision instead of silently overwriting newer state. | `partial-pass` | Keep the bounded `UNKNOWN/DEFER` slice in place, then land the typed `current_session` authority cutover so current-status readers stop depending on append-only bridge prose for live instruction/ACK truth. |
 | `2026-03-21T16:35:00Z` | `CODEX` | Promoted the bridge-read authority cleanup into the active MP-355 lane after another operator-visible confusion round. The immediate bounded fix is to make one typed `current_session` block authoritative in `review_state.json`, render `latest.md` from that typed state instead of append-only `Claude Ack` prose, and keep history in trace/event surfaces instead of mixing it into current-status reads. This is the smallest same-repo slice that moves toward `CollaborationSession` authority without colliding with the current `context_graph` work. | `planned` | Land the typed `current_session` projection on both bridge-backed and event-backed review-state paths, switch `latest.md` / compact readers to that block, and keep append-only bridge/event history explicitly out of live current-status rendering before widening into full writer-authority replacement. |
 | `2026-03-21T15:50:00Z` | `CODEX` | Captured the round-duration operating constraint for the live dual-agent loop. Bounded rounds and restartable handoff state are already the architectural direction, but the plan now also treats roughly 30 minutes as the target fresh-session budget for reviewer/coder rounds so the controller prefers explicit rollover/restart over long-lived drifting sessions. | `planned` | Encode a concrete max-round-duration / rollover budget into the controller contract and keep handoff state rich enough that restarting is cheaper than letting one session go stale. |
 | `2026-03-21T21:35:00Z` | `CODEX` | Promoted the missing controller/handoff follow-up from discussion into tracked MP-355 state. The current bridge loop still polls passively even after the `runtime_missing` containment fix; the next reliability slice must switch to bounded rounds with fresh re-prompts, ACK deadlines, explicit no-progress circuit breaking, and rollover/session-restart behavior that uses repo-visible handoff state instead of hoping two long-lived sessions keep polling forever. The same follow-up must also enrich rollover/handoff bundles with the bounded context packet so fresh conductor sessions restart informed instead of blind. | `planned` | Land the round-based controller contract in the backend, keep `bridge.md` generated/truthful, and thread the same generated context packet into handoff bundles and restart prompts before widening into UI-only conveniences. |
@@ -1559,6 +1594,19 @@ Complete this table only after all active swarm lanes are merged.
 | `2026-03-14T12:40:00Z` | `CODEX` | Closed the next Claude/Codex instruction-drift gap for MP-355. The review-channel conductor prompt now reads the same repo-pack post-edit verification intro/steps/done-criteria contract that generates `CLAUDE.md`, so live launcher scripts and local Claude bootstrap instructions share one blocking definition of when checks are required and what counts as done. Added regression coverage for prompt-level policy injection plus dry-run launcher script output. | `in-progress` | Keep the remaining architecture gap explicit: `AGENTS.md` itself is still only partially generated, so the next cross-AI portability step is to move more of the canonical instruction surface under the same repo-pack renderer/guard path instead of leaving only the bundle reference section generated. |
 | `2026-03-13T21:40:00Z` | `CODEX` | Closed the next live-launch honesty gap and the matching desktop read gap. `review-channel --action launch --terminal terminal-app` now waits for `Last Codex poll` to advance after launch and fails closed if a fresh reviewer heartbeat never appears, so opening Terminal windows no longer counts as a successful live reviewer loop by itself. The bridge-backed `review_state` projection now also emits a compact machine-readable `attention` contract (`status`, `owner`, `summary`, `recommended_action`, `recommended_command`) for stale reviewer / poll-due / waiting-on-peer states, and the Operator Console snapshot path now carries those structured warnings forward instead of silently dropping them after JSON load. | `partial-pass` | Keep the launch path fail-closed on real reviewer liveness, then extend the same typed attention contract into any later event-backed/state-store review path so restart/recovery/UI surfaces all read the same stale-peer truth. |
 | `2026-03-13T22:05:00Z` | `CODEX` | Followed that liveness slice through the repo-owned structure and the default desktop view. The bridge-attention policy now lives in `review_channel/attention.py`, bridge-backed payload assembly in `status_projection.py`, and Terminal.app launch behavior in `terminal_app.py`, which brings the review-channel state/launch path back under shape policy instead of leaving the honesty logic in crowded files. The PyQt6 follow-up now promotes non-healthy review attention into Codex/operator lane health plus session stats, so the default session-first layout goes visibly stale instead of burying the problem only in the warning list. | `partial-pass` | Keep future stale-peer recovery and event-backed review state on the same typed attention contract instead of reintroducing lane-specific heuristics or prompt-only reminders. |
+
+## Session Resume
+
+- Current status: this plan remains active; start from the highest-priority
+  open item in `## Execution Checklist` and the latest dated entry in
+  `## Progress Log`.
+- Next action: keep current-slice decisions and blockers in this file instead
+  of chat-only notes, land the typed `current_session` authority cutover
+  first, and keep the registry-driven N-agent queue/attention/promotion
+  follow-up queued behind that cutover instead of widening the live bridge
+  slice ad hoc.
+- Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
+  load only the local sections needed for the active checklist item.
 
 ## Audit Evidence
 

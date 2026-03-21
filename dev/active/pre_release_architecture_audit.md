@@ -891,6 +891,17 @@ Round 4 pushback decision: keep `dev/CHANGELOG.md` at its current path for now; 
 | 2026-03-05 | Gap analysis | Analyzed why devctl guards missed all 17+ issues | 15 guard gaps identified, 7 new guards recommended, 3 root causes documented |
 | 2026-03-05 | Audit round 3 | 6-agent parallel sweep: research, Rust deep, CI/CD, Python, DX+deps, cross-platform+perf | 15 new findings (items 21-35), 6 new execution phases (9-14) |
 
+## Session Resume
+
+- Current status: this plan remains active; start from the highest-priority
+  open item in `## Execution Checklist` and the latest dated entry in
+  `## Progress Log`.
+- Next action: keep current-slice decisions and blockers in this file instead
+  of chat-only notes, then update this section when the promoted slice
+  changes.
+- Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
+  load only the local sections needed for the active checklist item.
+
 ## Audit Evidence
 
 | Check | Date | Result |

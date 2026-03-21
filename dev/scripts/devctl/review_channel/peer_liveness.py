@@ -99,6 +99,7 @@ class AttentionStatus(StrEnum):
     CLAUDE_ACK_STALE = "claude_ack_stale"
     REVIEWER_SUPERVISOR_REQUIRED = "reviewer_supervisor_required"
     WAITING_ON_PEER = "waiting_on_peer"
+    CHECKPOINT_REQUIRED = "checkpoint_required"
     REVIEWED_HASH_STALE = "reviewed_hash_stale"
     IMPLEMENTER_COMPLETION_STALL = "implementer_completion_stall"
     DUAL_AGENT_IDLE = "dual_agent_idle"

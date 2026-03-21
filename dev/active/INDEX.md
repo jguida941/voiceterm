@@ -30,6 +30,7 @@ Agents must read this file first before loading active planning docs.
 | `dev/active/portable_code_governance.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-376` | when extending the portable guard/probe engine, defining repo-policy vs engine boundaries, building measurement/eval corpora, exporting the governance stack for off-repo review, or piloting the system on other repositories; this is a subordinate companion spec, not a second main product plan, so defer full-product architecture authority to `dev/active/ai_governance_platform.md` |
 | `dev/active/ai_governance_platform.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | read first for any standalone governance-product architecture, packaging, repo-pack, runtime-contract, or extraction work; this is the only main active plan for the transition from VoiceTerm-embedded tooling to an installable product |
 | `dev/active/platform_authority_loop.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | after reading `ai_governance_platform.md`, read this when working on startup authority, repo-pack activation, typed plan registry, runtime/evidence/context closure, or the cross-repo proof slice for the current `MP-377` priority lane |
+| `dev/active/PLAN_FORMAT.md` | `reference` | `reference-only` | `MP-377` | when editing governed active-plan markdown, extending active-plan/docs-governance enforcement, or aligning `PlanRegistry` / `PlanTargetRef` design with the repo's own plan-doc contract |
 | `dev/active/code_shape_expansion.md` | `reference` | `supporting` | `MP-378` | when calibrating or sequencing Phase 5b+ probe candidates, thresholds, metadata, and shared infrastructure for future code-shape additions under `dev/active/review_probes.md`; this is a subordinate research/evidence companion, not a second execution authority |
 | `dev/active/phase2.md` | `reference` | `reference-only` | bridge pointer to canonical phase-2 companion-platform research context at `dev/deferred/phase2.md` (not active MP execution state) | only when evaluating long-range terminal companion planning; follow the bridge to deferred research |
 
@@ -47,6 +48,9 @@ Agents must read this file first before loading active planning docs.
     closure, or the first cross-repo proof, read
     `dev/active/platform_authority_loop.md` immediately after
     `dev/active/ai_governance_platform.md`.
+3.2 If that same `MP-377` work changes governed active-plan markdown shape or
+    execution-plan schema expectations, read `dev/active/PLAN_FORMAT.md`
+    before editing plan docs or active-plan guards.
 4. Read only registry docs required by the task class after that.
 5. Do not treat any non-tracker file as execution state authority.
 

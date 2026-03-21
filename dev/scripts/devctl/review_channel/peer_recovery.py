@@ -144,6 +144,17 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         ),
         "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
     }),
+    ("checkpoint_required", {
+        "guard_behavior": "block_loop",
+        "owner": "system",
+        "summary": (
+            "The current worktree has exceeded the checkpoint budget; do not keep editing until a checkpoint is cut."
+        ),
+        "recovery": (
+            "Cut a checkpoint before continuing to edit. Re-check the repo-governance push budget after the checkpoint lands."
+        ),
+        "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
+    }),
     ("reviewed_hash_stale", {
         "guard_behavior": "warn",
         "owner": "codex",

@@ -31,6 +31,7 @@ from .status_bundle import (
     StatusProjectionPayload,
     write_status_projection_bundle,
 )
+from .status_projection_helpers import build_bridge_push_enforcement_state
 from .lifecycle_state import (
     DEFAULT_REVIEW_STATUS_DIR_REL,
     PublisherHeartbeat,
@@ -66,6 +67,9 @@ def refresh_status_snapshot(
     bridge_liveness = _build_status_bridge_liveness(
         bridge_text=bridge_text,
         repo_root=repo_root,
+    )
+    bridge_liveness["push_enforcement"] = build_bridge_push_enforcement_state(
+        repo_root
     )
     merged_warnings = list(warnings or [])
     merged_errors = list(errors or [])

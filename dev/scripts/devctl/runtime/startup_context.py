@@ -23,7 +23,7 @@ class ReviewerGateState:
     bridge_active: bool = False
     reviewer_mode: str = "single_agent"
     review_accepted: bool = False
-    required_checks_green: bool = False
+    required_checks_status: str = "unknown"
     checkpoint_permitted: bool = True
     push_permitted: bool = False
 
@@ -83,7 +83,7 @@ def _detect_reviewer_gate(repo_root: Path) -> ReviewerGateState:
                 bridge_active=False,
                 reviewer_mode=mode,
                 review_accepted=True,
-                required_checks_green=False,
+                required_checks_status="unknown",
                 checkpoint_permitted=True,
                 push_permitted=True,
             )
@@ -92,7 +92,7 @@ def _detect_reviewer_gate(repo_root: Path) -> ReviewerGateState:
             bridge_active=True,
             reviewer_mode=mode,
             review_accepted=review_accepted,
-            required_checks_green=False,
+            required_checks_status="unknown",
             checkpoint_permitted=True,
             push_permitted=review_accepted,
         )

@@ -186,6 +186,9 @@ def _maybe_auto_promote(
         repo_root=repo_root,
         bridge_path=bridge_path,
         promotion_plan_path=promotion_plan_path,
+        expected_instruction_revision=str(
+            snapshot.metadata.get("current_instruction_revision") or ""
+        ),
     )
     return {
         "attempted": True,

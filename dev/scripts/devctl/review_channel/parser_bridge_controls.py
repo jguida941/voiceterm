@@ -92,6 +92,15 @@ def build_bridge_control_arguments(
             ),
         ),
         arg_builder(
+            "--expected-instruction-revision",
+            help=(
+                "Fail-closed precondition for instruction-mutating reviewer "
+                "writes. Use the live `current_instruction_revision` from "
+                "`review-channel --action bridge-poll --format json` or the "
+                "bridge header when replacing the current instruction."
+            ),
+        ),
+        arg_builder(
             "--reviewed-scope-item",
             action="append",
             default=[],

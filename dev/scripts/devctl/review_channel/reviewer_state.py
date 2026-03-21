@@ -25,6 +25,7 @@ from .reviewer_state_support import (
     select_instruction_revision,
     validate_reviewer_checkpoint_sections,
 )
+from .write_preconditions import assert_expected_instruction_revision
 from .peer_liveness import ReviewerMode, normalize_reviewer_mode
 
 REVIEWER_MODE_RE = re.compile(r"(?m)^- Reviewer mode:\s*`.*?`\s*$")
@@ -39,6 +40,7 @@ class ReviewerCheckpointUpdate:
     current_instruction: str
     reviewed_scope_items: tuple[str, ...]
     rotate_instruction_revision: bool = False
+    expected_instruction_revision: str | None = None
 
 def write_reviewer_heartbeat(
     *,
@@ -107,6 +109,11 @@ def write_reviewer_checkpoint(
 
     def transform(bridge_text: str) -> str:
         nonlocal write
+        assert_expected_instruction_revision(
+            bridge_text=bridge_text,
+            expected_instruction_revision=checkpoint.expected_instruction_revision,
+            action="reviewer-checkpoint",
+        )
         instruction_revision = select_instruction_revision(
             bridge_text=bridge_text,
             current_instruction=checkpoint.current_instruction,

@@ -141,6 +141,7 @@ def _reviewer_args() -> SimpleNamespace:
         approval_mode="balanced",
         reviewer_mode="active_dual_agent",
         reason="test-review",
+        expected_instruction_revision="56bcd5d01510",
         verdict=None,
         verdict_file=None,
         open_findings=None,
@@ -177,6 +178,20 @@ def test_validate_args_rejects_inline_and_file_for_same_checkpoint_field() -> No
     with pytest.raises(
         ValueError,
         match="exactly one of --verdict or --verdict-file",
+    ):
+        _validate_args(args)
+
+
+def test_validate_args_rejects_missing_expected_instruction_revision() -> None:
+    args = _reviewer_args()
+    args.expected_instruction_revision = None
+    args.verdict = "- accepted"
+    args.open_findings_file = "findings.md"
+    args.instruction_file = "instruction.md"
+
+    with pytest.raises(
+        ValueError,
+        match="--expected-instruction-revision",
     ):
         _validate_args(args)
 
@@ -234,6 +249,8 @@ def test_run_reviewer_checkpoint_reads_file_backed_markdown_fields(
             str(findings_path.relative_to(root)),
             "--instruction-file",
             str(instruction_path.relative_to(root)),
+            "--expected-instruction-revision",
+            "56bcd5d01510",
             "--reviewed-scope-item",
             "dev/scripts/devctl/commands/review_channel/_reviewer.py",
             "--output",
@@ -294,3 +311,32 @@ def test_write_reviewer_checkpoint_normalizes_leading_blank_padding(
         "## Current Instruction For Claude\n\n- next task\n\n## Claude Status"
         in updated_bridge
     )
+
+
+def test_write_reviewer_checkpoint_rejects_stale_expected_instruction_revision(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    review_channel_path = root / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
+    bridge_path = root / "bridge.md"
+    bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+
+    with (
+        patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot"),
+        pytest.raises(ValueError, match="refused stale bridge write"),
+    ):
+        write_reviewer_checkpoint(
+            repo_root=root,
+            bridge_path=bridge_path,
+            reviewer_mode="active_dual_agent",
+            reason="stale-write",
+            checkpoint=ReviewerCheckpointUpdate(
+                current_verdict="- accepted",
+                open_findings="- none",
+                current_instruction="- next task",
+                reviewed_scope_items=("bridge.md",),
+                expected_instruction_revision="deadbeefcafe",
+            ),
+        )

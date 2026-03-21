@@ -23,8 +23,8 @@ from .handoff import (
     extract_bridge_snapshot,
 )
 from .promotion_support import (
+    InstructionRewriteContext,
     instruction_needs_plan_promotion,
-    rewrite_current_instruction,
     rewrite_instruction_and_metadata,
 )
 
@@ -148,6 +148,7 @@ def promote_bridge_instruction(
     repo_root: Path,
     bridge_path: Path,
     promotion_plan_path: Path,
+    expected_instruction_revision: str | None = None,
 ) -> PromotionCandidate:
     """Promote the next unchecked plan item into the live bridge instruction."""
     candidate = derive_promotion_candidate(
@@ -163,12 +164,15 @@ def promote_bridge_instruction(
         if errors:
             raise ValueError("; ".join(errors))
         return rewrite_instruction_and_metadata(
-            repo_root=repo_root,
-            bridge_path=bridge_path,
             bridge_text=bridge_text,
             instruction=candidate.instruction,
-            reviewer_mode=snapshot.metadata.get("reviewer_mode"),
-            reason="next-plan-item",
+            context=InstructionRewriteContext(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+                reviewer_mode=snapshot.metadata.get("reviewer_mode"),
+                reason="next-plan-item",
+                expected_instruction_revision=expected_instruction_revision,
+            ),
         )
 
     rewrite_bridge_markdown(bridge_path, transform=transform)
@@ -301,6 +305,7 @@ def scope_bridge_instruction(
     repo_root: Path,
     bridge_path: Path,
     scope_plan_path: Path,
+    expected_instruction_revision: str | None = None,
 ) -> PromotionCandidate:
     """Rewrite the bridge instruction from a scoped active-plan doc.
 
@@ -322,12 +327,15 @@ def scope_bridge_instruction(
         def transform(bridge_text: str) -> str:
             snapshot = extract_bridge_snapshot(bridge_text)
             return rewrite_instruction_and_metadata(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
                 bridge_text=bridge_text,
                 instruction=instruction,
-                reviewer_mode=snapshot.metadata.get("reviewer_mode"),
-                reason=f"scope:{source}",
+                context=InstructionRewriteContext(
+                    repo_root=repo_root,
+                    bridge_path=bridge_path,
+                    reviewer_mode=snapshot.metadata.get("reviewer_mode"),
+                    reason=f"scope:{source}",
+                    expected_instruction_revision=expected_instruction_revision,
+                ),
             )
 
         rewrite_bridge_markdown(bridge_path, transform=transform)

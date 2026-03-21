@@ -37,6 +37,9 @@ from ..review_channel.promotion import (
     resolve_scope_plan_path,
     scope_bridge_instruction,
 )
+from ..review_channel.reviewer_state_support import (
+    current_instruction_revision_from_bridge_text,
+)
 
 
 def bridge_launch_state(
@@ -172,10 +175,20 @@ def apply_scope_if_requested(*, args, repo_root: Path, bridge_path: Path) -> obj
         repo_root=repo_root,
         scope_value=scope_value,
     )
+    expected_instruction_revision = getattr(
+        args,
+        "expected_instruction_revision",
+        None,
+    )
+    if not expected_instruction_revision and bridge_path.exists():
+        expected_instruction_revision = current_instruction_revision_from_bridge_text(
+            bridge_path.read_text(encoding="utf-8")
+        )
     return scope_bridge_instruction(
         repo_root=repo_root,
         bridge_path=bridge_path,
         scope_plan_path=scope_plan_path,
+        expected_instruction_revision=expected_instruction_revision,
     )
 
 

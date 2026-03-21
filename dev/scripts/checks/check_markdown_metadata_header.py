@@ -52,6 +52,8 @@ def _collect_markdown_paths(
                     collected.add(target.resolve())
             continue
         for candidate in target.rglob("*.md"):
+            if not candidate.is_file():
+                continue
             relative_path = _relative_posix(candidate)
             if _is_excluded(relative_path, excludes):
                 continue

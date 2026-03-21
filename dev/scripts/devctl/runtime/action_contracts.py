@@ -71,6 +71,21 @@ ACTION_RESULT_CONTRACT_ID = "ActionResult"
 ACTION_RESULT_SCHEMA_VERSION = 1
 
 
+class ActionOutcome:
+    """Explicit outcome states for deterministic guard/startup routing.
+
+    Guards and startup surfaces use these instead of overloading pass/fail
+    so they can escalate honestly when the answer is not yet known.
+    """
+
+    PASS = "pass"
+    FAIL = "fail"
+    UNKNOWN = "unknown"
+    DEFER = "defer"
+
+    ALL = frozenset({PASS, FAIL, UNKNOWN, DEFER})
+
+
 @dataclass(frozen=True, slots=True)
 class ActionResult:
     """Canonical result envelope for any command, service call, or agent action.
@@ -78,13 +93,18 @@ class ActionResult:
     Every devctl command, guard, and automation loop should return one of
     these so CLI, UI, AI agents, and automation consumers all parse the
     same outcome shape.
+
+    ``status`` must be one of ``ActionOutcome.ALL``: pass, fail, unknown,
+    or defer.  ``unknown`` means the check could not run or the evidence
+    is insufficient.  ``defer`` means the check intentionally skipped
+    evaluation and a later stage should decide.
     """
 
     schema_version: int
     contract_id: str
     action_id: str
     ok: bool
-    status: str = "unknown"
+    status: str = ActionOutcome.UNKNOWN
     reason: str = ""
     retryable: bool = False
     partial_progress: bool = False

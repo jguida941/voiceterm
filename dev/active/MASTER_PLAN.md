@@ -136,7 +136,47 @@
   Agents need deterministic `safe_to_continue_editing` /
   `checkpoint_required` state plus dirty-path budget evidence so they can
   stop and checkpoint a bounded slice before context debt grows, not only
-  after the tree has already become arbitrarily messy.
+  after the tree has already become arbitrarily messy. Bridge-backed
+  `review-channel --action status` now projects the same
+  `push_enforcement` snapshot and raises `checkpoint_required` attention so
+  operator/read-only flows see that budget without a separate
+  `startup-context` run. Accepted next closure rule: checkpoint/push events
+  should also emit one generated repo-pack-owned packet into a managed cache
+  root so startup can warm from fresh evidence instead of recomputing the same
+  bounded git/plan/guard/review summary every session. Keep that layer
+  generated-only, hash-invalidated, and disposable; canonical authority stays
+  in git state, active plans, repo policy, and guard/review outputs.
+- Current checkpoint-scope rule inside that same lane: `context-graph` /
+  `ConceptIndex` / ZGraph-compatible outputs may help explain a candidate
+  checkpoint by narrowing related plan/check/doc scope around the real diff,
+  but they do not decide what belongs in a push. Canonical checkpoint truth
+  remains git diff plus routed plan scope plus guard/review evidence; when the
+  graph layer is low-confidence, the system should narrow the slice or stop,
+  not widen the batch.
+- Current self-hosting plan-doc gap inside that same lane: the repo already
+  has meaningful typed governance/runtime contracts in code, but governed
+  active-plan markdown is still less uniform than the contract layer it
+  describes. The next self-hosting closure slice is to freeze one governed
+  plan format, extend the existing active-plan/docs-governance enforcement
+  path, and bring execution-plan docs into parity with the repo's own
+  metadata/header/`Session Resume` expectations before the future
+  `PlanRegistry` / `PlanTargetRef` loader claims markdown-derived authority.
+- Current plan-authority follow-up after that self-hosting slice: discovery
+  and blocking contract enforcement are now in place, but governed plans are
+  still only partially consumed as structured runtime state. Today
+  `review_channel/promotion.py` reads `## Execution Checklist`, while
+  `Session Resume`, `Progress Log`, and `Audit Evidence` remain markdown-only
+  restart/evidence surfaces, and `plan_patch_review` mutation ops are
+  validated in packet contracts without runtime handlers that apply those
+  mutations back to governed plan docs with typed receipts.
+- Current native-N-agent follow-up in the same neighborhood: packet routing,
+  `TandemProfile.implementers`, the append-only event lane, and
+  `autonomy-swarm` already scale past two agents, but the review-channel
+  middle layer still hardcodes provider-shaped queue/bridge/liveness fields
+  (`pending_codex`, `pending_claude`, `claude_ack`, `codex_poll_state`,
+  fixed agent-id allowlists). Treat the current 8+8 loop as
+  conductor-managed multi-agent operation; native N-agent current-session /
+  packet-lane authority stays tracked follow-up work under MP-355 and MP-377.
 - Current blocking follow-up after that closure slice: replace checkout-path-
   based finding identity with stable repo identity + repo-relative path, add
   the first hard-guard-to-`Finding` normalization seam so blocking and

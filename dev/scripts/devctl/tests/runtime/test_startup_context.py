@@ -154,9 +154,9 @@ class TestReviewerGateSemantics(unittest.TestCase):
         gate = ReviewerGateState(bridge_active=False, push_permitted=True)
         self.assertTrue(gate.push_permitted)
 
-    def test_required_checks_green_defaults_false(self) -> None:
+    def test_required_checks_status_defaults_unknown(self) -> None:
         gate = ReviewerGateState()
-        self.assertFalse(gate.required_checks_green)
+        self.assertEqual(gate.required_checks_status, "unknown")
 
     def test_no_bridge_permits_push(self) -> None:
         from pathlib import Path

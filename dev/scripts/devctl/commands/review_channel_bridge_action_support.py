@@ -18,7 +18,7 @@ from ..review_channel.core import (
 from ..review_channel.event_store import ReviewChannelArtifactPaths, event_state_exists
 from ..review_channel.events import post_packet
 from ..review_channel.bridge_runtime_state import BridgeStateContext
-from ..review_channel.handoff import handoff_bundle_to_dict
+from ..review_channel.handoff import extract_bridge_snapshot, handoff_bundle_to_dict
 from ..review_channel.launch import (
     build_launch_sessions,
     list_terminal_profiles,
@@ -177,10 +177,23 @@ def resolve_promotion_and_terminal_state(
         raise ValueError(
             "scope_missing: promote action requires a resolved scoped plan path."
         )
+    expected_instruction_revision = getattr(
+        args,
+        "expected_instruction_revision",
+        None,
+    )
+    if not expected_instruction_revision and context.bridge_path.exists():
+        snapshot = extract_bridge_snapshot(
+            context.bridge_path.read_text(encoding="utf-8")
+        )
+        expected_instruction_revision = str(
+            snapshot.metadata.get("current_instruction_revision") or ""
+        )
     promotion = promote_bridge_instruction_fn(
         repo_root=context.repo_root,
         bridge_path=context.bridge_path,
         promotion_plan_path=context.promotion_plan_path,
+        expected_instruction_revision=expected_instruction_revision,
     )
     bridge_launch_state_fn(
         args=args,

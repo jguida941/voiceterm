@@ -13,6 +13,7 @@ from dev.scripts.devctl.runtime import (
     typed_action_from_mapping,
     workflow_adapter_from_mapping,
 )
+from dev.scripts.devctl.runtime.action_contracts import ActionOutcome
 
 
 def test_typed_action_from_mapping_normalizes_payload() -> None:
@@ -159,3 +160,57 @@ def test_action_result_roundtrip() -> None:
     assert roundtripped.ok == original.ok
     assert roundtripped.findings_count == original.findings_count
     assert roundtripped.artifact_paths == original.artifact_paths
+
+
+def test_action_outcome_constants_are_consistent() -> None:
+    assert ActionOutcome.PASS == "pass"
+    assert ActionOutcome.FAIL == "fail"
+    assert ActionOutcome.UNKNOWN == "unknown"
+    assert ActionOutcome.DEFER == "defer"
+    assert len(ActionOutcome.ALL) == 4
+
+
+def test_action_result_defaults_to_unknown() -> None:
+    result = ActionResult(
+        schema_version=1,
+        contract_id="ActionResult",
+        action_id="test",
+        ok=False,
+    )
+    assert result.status == ActionOutcome.UNKNOWN
+
+
+def test_action_result_accepts_defer() -> None:
+    result = ActionResult(
+        schema_version=1,
+        contract_id="ActionResult",
+        action_id="test",
+        ok=False,
+        status=ActionOutcome.DEFER,
+    )
+    assert result.status == ActionOutcome.DEFER
+    assert result.status in ActionOutcome.ALL
+
+
+def test_action_result_unknown_roundtrips() -> None:
+    result = ActionResult(
+        schema_version=1,
+        contract_id="ActionResult",
+        action_id="test",
+        ok=False,
+        status=ActionOutcome.UNKNOWN,
+    )
+    roundtripped = action_result_from_mapping(result.to_dict())
+    assert roundtripped.status == ActionOutcome.UNKNOWN
+
+
+def test_action_result_defer_roundtrips() -> None:
+    result = ActionResult(
+        schema_version=1,
+        contract_id="ActionResult",
+        action_id="test",
+        ok=False,
+        status=ActionOutcome.DEFER,
+    )
+    roundtripped = action_result_from_mapping(result.to_dict())
+    assert roundtripped.status == ActionOutcome.DEFER

@@ -2123,6 +2123,29 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         attention = derive_bridge_attention(liveness)
         self.assertEqual(attention["status"], "healthy")
 
+    def test_attention_reports_checkpoint_required_when_push_budget_exceeded(self) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "push_enforcement": {
+                "checkpoint_required": True,
+                "safe_to_continue_editing": False,
+                "recommended_action": "checkpoint_before_continue",
+            },
+        }
+        attention = derive_bridge_attention(liveness)
+        self.assertEqual(attention["status"], "checkpoint_required")
+        self.assertIn("checkpoint", attention["summary"].lower())
+
     def test_attention_reports_stale_claude_ack_when_revision_mismatches(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
 
@@ -3556,6 +3579,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
         reviewed_scope_item: list[str],
         promotion_plan: str | None = "dev/active/continuous_swarm.md",
         rotate_instruction_revision: bool = False,
+        expected_instruction_revision: str = "56bcd5d01510",
     ) -> SimpleNamespace:
         return SimpleNamespace(
             action="reviewer-checkpoint",
@@ -3578,6 +3602,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             dry_run=False,
             reviewer_mode="agents",
             reason="review-pass",
+            expected_instruction_revision=expected_instruction_revision,
             verdict=verdict,
             open_findings=open_findings,
             instruction=instruction,
@@ -4490,6 +4515,85 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertIn("- active_daemons: 2", latest_markdown)
         self.assertIn("- reviewer_supervisor: running=True pid=20202", latest_markdown)
 
+    def test_refresh_status_snapshot_projects_push_checkpoint_state(self) -> None:
+        from dev.scripts.devctl.review_channel.state import refresh_status_snapshot
+
+        push_state = {
+            "default_remote": "origin",
+            "development_branch": "main",
+            "release_branch": "main",
+            "pre_push_hook_path": "/tmp/repo/.git/hooks/pre-push",
+            "pre_push_hook_installed": True,
+            "raw_git_push_guarded": True,
+            "upstream_ref": "origin/main",
+            "ahead_of_upstream_commits": 3,
+            "dirty_path_count": 18,
+            "untracked_path_count": 7,
+            "max_dirty_paths_before_checkpoint": 12,
+            "max_untracked_paths_before_checkpoint": 6,
+            "checkpoint_required": True,
+            "safe_to_continue_editing": False,
+            "checkpoint_reason": "dirty_and_untracked_budget_exceeded",
+            "worktree_dirty": True,
+            "push_ready": False,
+            "recommended_action": "checkpoint_before_continue",
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            status_dir = root / "dev/reports/review_channel/latest"
+
+            with patch(
+                "dev.scripts.devctl.review_channel.state.build_bridge_push_enforcement_state",
+                return_value=push_state,
+            ), patch(
+                "dev.scripts.devctl.review_channel.state._load_lifecycle_states",
+                return_value=(
+                    {"running": True, "stop_reason": "", "pid": 10101},
+                    {"running": True, "stop_reason": "", "pid": 20202},
+                ),
+            ):
+                status_snapshot = refresh_status_snapshot(
+                    repo_root=root,
+                    bridge_path=bridge_path,
+                    review_channel_path=review_channel_path,
+                    output_root=status_dir,
+                    promotion_plan_path=root / "dev/active/continuous_swarm.md",
+                    execution_mode="markdown-bridge",
+                    warnings=[],
+                    errors=[],
+                )
+
+            full_payload = json.loads(
+                Path(status_snapshot.projection_paths.full_path).read_text(
+                    encoding="utf-8"
+                )
+            )
+
+        self.assertEqual(status_snapshot.attention["status"], "checkpoint_required")
+        self.assertTrue(status_snapshot.bridge_liveness["push_enforcement"]["checkpoint_required"])
+        self.assertFalse(
+            status_snapshot.bridge_liveness["push_enforcement"]["safe_to_continue_editing"]
+        )
+        self.assertEqual(
+            status_snapshot.bridge_liveness["push_enforcement"]["recommended_action"],
+            "checkpoint_before_continue",
+        )
+        self.assertTrue(full_payload["push_enforcement"]["raw_git_push_guarded"])
+        self.assertTrue(full_payload["push_enforcement"]["pre_push_hook_installed"])
+        self.assertEqual(
+            full_payload["push_enforcement"]["recommended_action"],
+            "checkpoint_before_continue",
+        )
+
     def test_run_status_can_refresh_stale_bridge_heartbeat(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -4871,6 +4975,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 dry_run=False,
                 reviewer_mode="agents",
                 reason="review-pass",
+                expected_instruction_revision="56bcd5d01510",
                 verdict="- reviewer accepted with follow-up",
                 open_findings="- M1 closed\n- M2 deferred",
                 instruction="- continue with the next scoped slice",
@@ -4989,6 +5094,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                         open_findings="- none",
                         current_instruction="- next task",
                         reviewed_scope_items=("test scope",),
+                        expected_instruction_revision="56bcd5d01510",
                     ),
                 )
 
@@ -5045,6 +5151,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 dry_run=False,
                 reviewer_mode="agents",
                 reason="review-pass",
+                expected_instruction_revision="56bcd5d01510",
                 verdict="- reviewer accepted",
                 open_findings="- none",
                 instruction="- next scoped task",
@@ -5115,6 +5222,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 approval_mode="balanced",
                 reviewer_mode="active_dual_agent",
                 reason="test-checkpoint",
+                expected_instruction_revision="56bcd5d01510",
                 verdict="- accepted",
                 open_findings="- none",
                 instruction="- next task",
@@ -5365,6 +5473,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "dev/scripts/devctl/review_channel/reviewer_state.py",
                     "dev/scripts/devctl/commands/review_channel.py",
                 ],
+                expected_instruction_revision=stable_revision,
             )
 
             with patch.object(review_channel_command, "REPO_ROOT", root):
@@ -5435,6 +5544,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "dev/scripts/devctl/review_channel/reviewer_state.py",
                     "dev/scripts/devctl/commands/review_channel.py",
                 ],
+                expected_instruction_revision=stable_revision,
             )
 
             with patch.object(review_channel_command, "REPO_ROOT", root):
@@ -5490,6 +5600,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "dev/scripts/devctl/commands/review_channel.py",
                 ],
                 rotate_instruction_revision=True,
+                expected_instruction_revision=stable_revision,
             )
 
             with patch.object(review_channel_command, "REPO_ROOT", root):
@@ -5928,6 +6039,63 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 snapshot.metadata.get("last_codex_poll_utc", ""),
                 "2026-01-01T00:00:00Z",
             )
+
+    def test_run_promote_rejects_stale_expected_instruction_revision(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            promotion_plan_path = root / "dev/active/continuous_swarm.md"
+            promotion_plan_path.write_text(
+                "# Plan\n\n## Execution Checklist\n\n- [ ] Execute bounded promotion task.\n",
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            original_bridge = _build_bridge_text(
+                current_verdict="- accepted",
+                open_findings="- all clear",
+                current_instruction="- complete",
+            )
+            bridge_path.write_text(original_bridge, encoding="utf-8")
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            args = SimpleNamespace(
+                action="promote",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                promotion_plan=str(promotion_plan_path.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=True,
+                expected_instruction_revision="deadbeefcafe",
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 1)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload["ok"])
+            self.assertIn("refused stale bridge write", payload["errors"][0])
+            self.assertEqual(bridge_path.read_text(encoding="utf-8"), original_bridge)
 
     def test_auto_promote_on_launch_promotes_when_bridge_is_idle(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

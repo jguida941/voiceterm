@@ -2510,6 +2510,13 @@ Still open before `P0` closes:
       lifecycle, placement, budget, and shadow-roadmap rules. Add a dedicated
       `check_doc_authority_contract.py` only if those current surfaces cannot
       model the contract cleanly.
+- [ ] Dogfood that same markdown contract on the repo's own active plans:
+      bring execution-plan docs into parity with the enforced section order,
+      metadata-header parsing, and `Session Resume` restart contract before the
+      future `PlanRegistry` / `PlanTargetRef` loader claims markdown-derived
+      startup authority. Legacy active specs that still sit outside the
+      execution-plan marker path must be migrated explicitly rather than left
+      as silent formatting exceptions.
 - [ ] Land `check_plan_doc_format.py` as the first bounded new docs guard
       under that existing governance stack. Required checks:
       metadata header presence, metadata validity against closed taxonomies,
@@ -3148,6 +3155,20 @@ Still open before `P0` closes:
       hashes, and cache freshness. `startup-context` / work-intake should read
       those artifacts first and only rerun the affected scans when the cache is
       stale or missing.
+- [ ] Extend that same cache-first startup path with a repo-pack-owned
+      checkpoint/push packet, not a second memory authority: on checkpoint or
+      governed push, emit one bounded packet into `ArtifactStore` carrying
+      repo/worktree identity, tree hash or commit sha, touched paths + diff
+      stats, routed plan scope, guard/check summary, reviewer verdict summary,
+      checkpoint-budget snapshot, and invalidation metadata. `startup-context`
+      may read that packet as a warm-start accelerator when fresh, but it must
+      fall back to canonical git/plan/policy/guard sources when the packet is
+      stale or absent. Keep the packet generated-only, hash-invalidated, and
+      safe to delete/recompute so cache speed never becomes hidden authority.
+      `context-graph` / `ConceptIndex` may compress or explain nearby scope for
+      review, but checkpoint/push boundaries still ground in git diff + plan +
+      guard/review truth and must fail closed by narrowing scope when graph
+      confidence is weak.
 - [ ] Keep that cache/query layer explainable and portable: canonical
       human-readable JSON artifacts first, append-only refresh-ledger rows
       second, optional SQLite query cache third. Do not make semantic/vector
@@ -3567,6 +3588,11 @@ working on `MP-377`.
   expected 8 Codex reviewer lanes plus 8 Claude coder lanes. Treat that as
   real execution scaffolding for plan work, not as proof that the
   review-channel / continuous-swarm plans are fully closed.
+- The next self-hosting markdown slice is now explicit: keep extending the
+  existing `check_active_plan_sync` / docs-governance path, add one governed
+  plan-format reference, and bring execution-plan docs into parity with the
+  repo's own metadata-header and `Session Resume` contract before claiming
+  typed markdown-to-registry closure.
 - `Phase 2 - Normalize repo-pack policy and surface generation` now has a
   repo-backed first slice: `repo_governance.surface_generation` owns repo-pack
   metadata/context/surface policy, `devctl render-surfaces` renders or
@@ -3882,6 +3908,17 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-21: Corrected the active-plan self-hosting audit against the repo's
+  actual code surface. The governance/runtime architecture is already more
+  mature than the earlier markdown-only read suggested: typed contracts such
+  as `ProjectGovernance`, `TypedAction`, `ActionResult`, `Finding`,
+  `DecisionPacket`, and `ReviewState` already exist in code with tests, while
+  later authority-loop nodes such as `WorkIntakePacket`,
+  `CollaborationSession`, and the true `PlanRegistry` / `PlanTargetRef`
+  loader remain planned `P0`/`P1` work. The real self-hosting gap is now
+  tracked explicitly as markdown-contract drift: most execution-plan docs
+  already carry the core guarded sections, but plan formatting is still less
+  uniform than the code contract layer and `Session Resume` remains sparse.
 - 2026-03-21: Landed the first repo-pack-owned VCS command-routing slice as a
   concrete `MP-377` proof point. `repo_governance.push` now carries the
   default remote, development/release branch names, protected-branch rules,
@@ -4375,6 +4412,16 @@ Execution order for this section:
   artifacts. Optional SQL/query acceleration is valid after the canonical JSON
   snapshot contract exists; semantic/vector retrieval is an optimization layer,
   not the authority.
+- 2026-03-21: Accepted the next cache-first refinement for that same startup
+  path: checkpoint/push should emit one generated repo-pack-owned packet into
+  the managed cache/artifact root so the next session can warm from fresh
+  repo evidence instead of recomputing the same bounded git/plan/guard/review
+  summary. This packet is an accelerator, not authority: it is keyed by tree
+  hash / commit sha, invalidated by source drift, safe to delete and rebuild,
+  and subordinate to canonical git state, active plans, repo policy, and
+  guard/review outputs. Performance target stays "read the fresh packet when
+  present, recompute from canonical sources when not" so startup gets faster
+  without introducing a shadow memory store.
 - 2026-03-17: Accepted the recursive-convergence framing with one important
   sequencing rule. The repo already has partial loops (`guard-run`,
   `probe-report`, Ralph/reviewer reruns), but the full-platform version still

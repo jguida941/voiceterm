@@ -30,6 +30,7 @@ Key companion docs:
 - [Portable Code Governance Plan](dev/active/portable_code_governance.md) (engine/adoption companion)
 - [AI Governance Platform Plan](dev/active/ai_governance_platform.md) (only main active platform plan for this product scope)
 - [Platform Authority Loop Plan](dev/active/platform_authority_loop.md) (current highest-priority subordinate `MP-377` execution spec)
+- [Governed Plan Format](dev/active/PLAN_FORMAT.md) (reference contract for active-plan markdown self-hosting)
 - [Engineering History](dev/history/ENGINEERING_EVOLUTION.md)
 - [ADRs](dev/adr/README.md)
 - [Changelog](dev/CHANGELOG.md)

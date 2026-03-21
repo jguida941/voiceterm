@@ -153,6 +153,11 @@ def run_reviewer_state_action(
                 rotate_instruction_revision=bool(
                     getattr(args, "rotate_instruction_revision", False)
                 ),
+                expected_instruction_revision=getattr(
+                    args,
+                    "expected_instruction_revision",
+                    None,
+                ),
             ),
         )
 

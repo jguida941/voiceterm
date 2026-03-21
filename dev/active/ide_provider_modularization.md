@@ -2742,6 +2742,17 @@ Revalidation note for Python parser finding `P1`:
 2. Keep `P1` as a conditional cleanup candidate only if a concrete duplication
    diff proves net deletion without reducing parser ownership clarity.
 
+## Session Resume
+
+- Current status: this plan remains active; start from the highest-priority
+  open item in `## Execution Checklist` and the latest dated entry in
+  `## Progress Log`.
+- Next action: keep current-slice decisions and blockers in this file instead
+  of chat-only notes, then update this section when the promoted slice
+  changes.
+- Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
+  load only the local sections needed for the active checklist item.
+
 ## Audit Evidence
 
 | Check | Evidence | Status |

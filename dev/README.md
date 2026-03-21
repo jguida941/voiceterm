@@ -24,6 +24,7 @@ The main starting points are:
 | Understand how the runtime works | [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) |
 | Understand the reusable AI governance platform thesis and architecture | [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) and [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) |
 | Understand the current `MP-377` priority lane for startup authority, repo packs, typed plan routing, and runtime/evidence/context closure | [`dev/active/platform_authority_loop.md`](active/platform_authority_loop.md) after [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) |
+| Edit governed active-plan markdown or active-plan schema enforcement | [`dev/active/PLAN_FORMAT.md`](active/PLAN_FORMAT.md) after [`dev/active/platform_authority_loop.md`](active/platform_authority_loop.md) |
 | Understand how the current Codex/Claude collaboration system works | [`dev/guides/AGENT_COLLABORATION_SYSTEM.md`](guides/AGENT_COLLABORATION_SYSTEM.md) |
 | Export or benchmark the portable governance stack on other repos | [`dev/guides/PORTABLE_CODE_GOVERNANCE.md`](guides/PORTABLE_CODE_GOVERNANCE.md) and [`dev/active/portable_code_governance.md`](active/portable_code_governance.md) |
 | Plan or execute the full reusable AI governance platform extraction | [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) and [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) |
@@ -55,6 +56,7 @@ The main starting points are:
 - Portable code governance engine/adoption companion: [`dev/active/portable_code_governance.md`](active/portable_code_governance.md)
 - AI governance platform extraction only main active plan for this product scope: [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md)
 - Platform authority loop priority lane under `MP-377`: [`dev/active/platform_authority_loop.md`](active/platform_authority_loop.md)
+- Governed active-plan markdown contract: [`dev/active/PLAN_FORMAT.md`](active/PLAN_FORMAT.md)
 - Naming/API cleanup: [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md)
 - IDE/provider modularization: [`dev/active/ide_provider_modularization.md`](active/ide_provider_modularization.md)
 - Pre-release audit follow-up: [`dev/active/pre_release_architecture_audit.md`](active/pre_release_architecture_audit.md)

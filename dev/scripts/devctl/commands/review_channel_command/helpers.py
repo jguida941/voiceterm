@@ -8,6 +8,7 @@ from pathlib import Path
 from ...approval_mode import normalize_approval_mode
 from ...review_channel.events import resolve_artifact_paths
 from ...review_channel.follow_stream import validate_follow_json_format
+from ...review_channel.peer_liveness import reviewer_mode_is_active
 from ..review_channel_bridge_handler import _render_bridge_md
 from ..review_channel_event_handler import _render_event_md
 from .constants import CLI_RUNTIME_PATH_ARGS
@@ -114,6 +115,14 @@ def _validate_reviewer_checkpoint_args(args) -> None:
         "reviewed_scope_item",
         "--reviewed-scope-item is required for review-channel reviewer-checkpoint.",
     )
+    if reviewer_mode_is_active(getattr(args, "reviewer_mode", None)):
+        _require_present(
+            args,
+            "expected_instruction_revision",
+            "review-channel reviewer-checkpoint requires "
+            "--expected-instruction-revision in active_dual_agent mode. "
+            "Use the live `current_instruction_revision` from bridge-poll/status.",
+        )
 
 
 def _error_report(args, message: str, *, exit_code: int) -> tuple[dict[str, object], int]:

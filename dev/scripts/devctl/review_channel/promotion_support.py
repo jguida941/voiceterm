@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import hashlib
 import re
 from pathlib import Path
 
 from .peer_liveness import normalize_reviewer_mode
 from .reviewer_state_support import ReviewerMetadataUpdate, write_reviewer_metadata
+from .write_preconditions import assert_expected_instruction_revision
 
 CURRENT_INSTRUCTION_SECTION = "Current Instruction For Claude"
 CURRENT_INSTRUCTION_SECTION_RE = re.compile(
@@ -21,6 +23,17 @@ _GENERIC_PROGRESS_MARKERS = (
     "continue next",
     "start the next",
 )
+
+
+@dataclass(frozen=True)
+class InstructionRewriteContext:
+    """Shared metadata for one instruction rewrite."""
+
+    repo_root: Path
+    bridge_path: Path
+    reviewer_mode: str | None
+    reason: str
+    expected_instruction_revision: str | None = None
 
 
 def instruction_needs_plan_promotion(instruction: str) -> bool:
@@ -57,33 +70,35 @@ def rewrite_current_instruction(
 
 def rewrite_instruction_and_metadata(
     *,
-    repo_root: Path,
-    bridge_path: Path,
     bridge_text: str,
     instruction: str,
-    reviewer_mode: str | None,
-    reason: str,
+    context: InstructionRewriteContext,
 ) -> str:
     """Rewrite instruction and refresh heartbeat metadata in one atomic text edit."""
+    assert_expected_instruction_revision(
+        bridge_text=bridge_text,
+        expected_instruction_revision=context.expected_instruction_revision,
+        action="instruction-rewrite",
+    )
     updated_text = rewrite_current_instruction(
         bridge_text=bridge_text,
         instruction=instruction,
     )
-    normalized_mode = normalize_reviewer_mode(reviewer_mode)
+    normalized_mode = normalize_reviewer_mode(context.reviewer_mode)
     instruction_revision = _instruction_revision(instruction)
     rewritten, _write = write_reviewer_metadata(
         bridge_text=updated_text,
-        repo_root=repo_root,
-        bridge_path=bridge_path,
+        repo_root=context.repo_root,
+        bridge_path=context.bridge_path,
         update=ReviewerMetadataUpdate(
             reviewer_mode=normalized_mode,
-            reason=reason,
+            reason=context.reason,
             action="instruction-rewrite",
             worktree_hash=None,
             current_instruction_revision=instruction_revision,
             poll_note=(
                 "Reviewer checkpoint updated through repo-owned tooling "
-                f"(mode: {normalized_mode}; reason: {reason}; instruction-rev: {instruction_revision})."
+                f"(mode: {normalized_mode}; reason: {context.reason}; instruction-rev: {instruction_revision})."
             ),
         ),
     )

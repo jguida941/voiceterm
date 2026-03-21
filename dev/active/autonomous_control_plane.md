@@ -1822,6 +1822,17 @@ Acceptance:
 - 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c08`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c08/summary.md`.
 - 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c09`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c09/summary.md`.
 - 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c10`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c10/summary.md`.
+## Session Resume
+
+- Current status: this plan remains active; start from the highest-priority
+  open item in `## Execution Checklist` and the latest dated entry in
+  `## Progress Log`.
+- Next action: keep current-slice decisions and blockers in this file instead
+  of chat-only notes, then update this section when the promoted slice
+  changes.
+- Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
+  load only the local sections needed for the active checklist item.
+
 ## Audit Evidence
 
 | Check | Evidence | Status |

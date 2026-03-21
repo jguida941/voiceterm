@@ -18,7 +18,11 @@ from .peer_liveness import (
 )
 
 
-def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, object]:
+def derive_bridge_attention(
+    bridge_liveness: dict[str, object],
+    *,
+    push_state: dict[str, object] | None = None,
+) -> dict[str, object]:
     """Translate bridge liveness into one compact operator-facing attention state."""
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
     codex_poll_state = str(bridge_liveness.get("codex_poll_state") or "unknown")
@@ -40,6 +44,10 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
     overdue_threshold = bridge_liveness.get(
         "reviewer_overdue_threshold_seconds",
         CODEX_POLL_OVERDUE_AFTER_SECONDS,
+    )
+    checkpoint_required, safe_to_continue_editing = _bridge_push_checkpoint_state(
+        bridge_liveness,
+        push_state=push_state,
     )
     publisher_running = bool(bridge_liveness.get("publisher_running"))
     reviewer_runtime_running = reviewer_supervisor_running or publisher_running
@@ -71,6 +79,8 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
         not reviewer_freshness and codex_poll_state == CodexPollState.POLL_DUE
     ):
         status = AttentionStatus.REVIEWER_POLL_DUE
+    elif checkpoint_required or not safe_to_continue_editing:
+        status = AttentionStatus.CHECKPOINT_REQUIRED
     elif (
         reviewer_mode_is_active(reviewer_mode)
         and codex_poll_state in {CodexPollState.FRESH, CodexPollState.POLL_DUE}
@@ -111,6 +121,24 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
         status = AttentionStatus.HEALTHY
 
     return _attention_from_contract(status)
+
+
+def _bridge_push_checkpoint_state(
+    bridge_liveness: dict[str, object],
+    *,
+    push_state: dict[str, object] | None,
+) -> tuple[bool, bool]:
+    push_payload = push_state
+    if push_payload is None:
+        maybe_push = bridge_liveness.get("push_enforcement")
+        push_payload = maybe_push if isinstance(maybe_push, dict) else None
+    if push_payload is None:
+        push_payload = bridge_liveness
+    checkpoint_required = bool(push_payload.get("checkpoint_required"))
+    safe_to_continue_editing = push_payload.get("safe_to_continue_editing")
+    if safe_to_continue_editing is None:
+        safe_to_continue_editing = not checkpoint_required
+    return checkpoint_required, bool(safe_to_continue_editing)
 
 
 def _attention_from_contract(status: str) -> dict[str, object]:

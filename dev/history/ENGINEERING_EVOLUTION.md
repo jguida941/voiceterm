@@ -46,6 +46,37 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-21 - MP-377 checkpoint budget surfaced in bridge-backed review status
+
+Fact: the bridge-backed `devctl review-channel` status path now carries the
+same repo-governance push/checkpoint budget truth that `startup-context`
+already exposed. `review-channel --action status` and the generated
+`dev/reports/review_channel/latest/full.json` projection now include
+`push_enforcement` fields such as `checkpoint_required`,
+`safe_to_continue_editing`, `recommended_action`, and
+`raw_git_push_guarded`, while the compact attention contract now escalates to
+`checkpoint_required` whenever the current worktree is over the continuation
+budget. The Claude-side `implementer-wait` failure set and stale-peer recovery
+contract now treat that condition as loop-blocking instead of letting a dirty
+slice keep widening silently.
+
+The same maintenance pass hardened `check_markdown_metadata_header.py` so the
+path collector ignores directories whose names end in `.md`. That keeps
+strict-tooling docs governance bounded to real markdown files even when local
+research or temporary comparison repos create placeholder directories such as
+`dev/repo_example_temp/.md`.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/attention.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/review_channel/status_bundle.py`
+- `dev/scripts/devctl/review_channel/status_projection_helpers.py`
+- `dev/scripts/devctl/commands/review_channel/_wait.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `dev/scripts/checks/check_markdown_metadata_header.py`
+- `dev/scripts/devctl/tests/test_check_markdown_metadata_header.py`
+
 ### 2026-03-21 - MP-377 push governance moved from hardcoded helpers into repo policy
 
 The repo now has its first repo-pack-owned VCS command-routing contract
@@ -4830,3 +4861,10 @@ The full technical showcase is consolidated above in Appendix G of this document
   and duplication guards stayed green while the interpreter fix landed.
 
 </details>
+- 2026-03-21: Tightened active-plan self-hosting governance under the `MP-377`
+  authority-loop lane. Added a governed active-plan format reference, recorded
+  that graph/context compression stays advisory for checkpoint boundaries, and
+  extended the active-plan/docs-governance direction so execution-plan docs are
+  expected to carry parseable metadata plus `Session Resume` instead of relying
+  on inconsistent markdown conventions while the platform is designing
+  `PlanRegistry` / `PlanTargetRef`.

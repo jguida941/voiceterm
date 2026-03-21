@@ -56,6 +56,7 @@ Release-governance note:
 | Where is the portable code-governance engine / multi-repo portability and measurement plan? | `dev/active/portable_code_governance.md` (engine/adoption companion plan) |
 | Where is the full reusable AI governance platform / package-extraction architecture plan? | `dev/active/ai_governance_platform.md` (the only main active architecture plan for this product scope) |
 | Where is the current `MP-377` startup-authority / repo-pack / typed-plan-registry / runtime-evidence-context closure plan? | `dev/active/platform_authority_loop.md` (subordinate `MP-377` execution spec; read after `dev/active/ai_governance_platform.md`) |
+| Where is the governed active-plan markdown contract used by docs-governance and future `PlanRegistry` work? | `dev/active/PLAN_FORMAT.md` (reference-only companion for plan-doc schema/self-hosting) |
 | Where is the durable reusable AI governance platform thesis/architecture guide? | `dev/guides/AI_GOVERNANCE_PLATFORM.md` (durable companion to the active platform plan) |
 | Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
 | Where is the completed Rust workspace path/layout migration record? | `dev/archive/2026-03-07-rust-workspace-layout-migration.md` |
@@ -150,7 +151,11 @@ anchored in an active tracked plan doc under `dev/active/`.
    - `## Scope`
    - `## Execution Checklist`
    - `## Progress Log`
+   - `## Session Resume`
    - `## Audit Evidence`
+3.1 Execution-plan docs must expose one parseable metadata header near the top
+    of the file. Follow `dev/active/PLAN_FORMAT.md` when editing or creating
+    governed plan markdown.
 4. The associated MP scope must be present in both `dev/active/INDEX.md` and
    `dev/active/MASTER_PLAN.md`.
 4.1 In multi-agent runs, progress/decisions must be written into the active
@@ -234,6 +239,12 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     plus required platform headers first; tooling/docs workflows cannot assume
     those prerequisites are inherited just because the dedicated Rust CI lane
     already installs them.
+4.4 In live review-channel mode, treat
+    `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+    as the canonical checkpoint-budget read too. If
+    `attention.status=checkpoint_required` or
+    `push_enforcement.safe_to_continue_editing=false`, stop widening the
+    slice and cut a checkpoint before further edits or any raw push attempt.
 5. Keep changes scoped: ignore unrelated diffs unless user asks.
 
 ## Prerequisites
@@ -634,8 +645,10 @@ When adding any new markdown file under `dev/active/`, this sequence is required
 2. If the file carries execution state, reflect that scope in
    `dev/active/MASTER_PLAN.md` (the only tracker authority).
 2.1 If the file is an execution plan, include marker
-    `Execution plan contract: required` and sections `Scope`,
-    `Execution Checklist`, `Progress Log`, and `Audit Evidence`.
+    `Execution plan contract: required`, one parseable metadata header, and
+    sections `Scope`, `Execution Checklist`, `Progress Log`,
+    `Session Resume`, and `Audit Evidence`. Follow
+    `dev/active/PLAN_FORMAT.md`.
 3. Update discovery links in `AGENTS.md`, `DEV_INDEX.md`, and `dev/README.md`
    if navigation/ownership changed.
 3.1 For new active-plan/check-script/devctl-command/app/workflow surfaces, run

@@ -28,6 +28,7 @@ REQUIRED_SECTIONS = [
     "## Scope",
     "## Execution Checklist",
     "## Progress Log",
+    "## Session Resume",
     "## Audit Evidence",
 ]
 
