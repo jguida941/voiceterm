@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-17
+**Last Updated:** 2026-03-20
 
 ## At a Glance
 
@@ -45,6 +45,33 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-20 - MP-377 native context-graph direction and bridge reset
+
+Fact: the repo accepted the next `MP-377` context-retrieval direction as a
+native `devctl` path instead of an external semantic-store first step. The
+plan chain now states one explicit boundary: canonical pointer refs from
+plans, docs, repo-map/report artifacts, and later evidence rows remain the
+authority surface, while `ConceptIndex` and any ZGraph-compatible encoding are
+generated typed-edge layers above those pointers. The first implementation is
+intentionally bounded to a report-only `context-graph` query surface over
+existing artifacts rather than a new memory authority path.
+
+The live reviewer/coder bridge was also reset through the repo-owned
+`review-channel` checkpoint and ensure flows so the markdown contract now
+points Claude at that bounded Phase-6 slice instead of the stale MP-358 lane.
+That reset reactivated `active_dual_agent` mode, rotated the reviewer
+instruction revision, and brought the publisher plus reviewer-supervisor
+processes back up under the current bridge contract.
+
+Evidence:
+
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+- `bridge.md`
+- `dev/scripts/devctl.py review-channel --action reviewer-checkpoint`
+- `dev/scripts/devctl.py review-channel --action ensure`
 
 ### 2026-03-19 - MP-377 platform authority-loop lane made explicit
 

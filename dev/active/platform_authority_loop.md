@@ -485,6 +485,15 @@ intended execution order is:
 
 - [ ] Define one portable `ContextPack` contract with schema version, stable
       ids, repo identity, provenance, and bounded references.
+- [ ] Freeze tiered retrieval semantics for `ContextPack`: every attached ref
+      must declare `temperature` (`hot|warm|cold`), `source_kind`,
+      `provenance_ref`, `canonical_pointer_ref`, `freshness_state`, and
+      `budget_cost`. `hot` = live intake/session authority only
+      (`WorkIntakePacket`, `CollaborationSession`, active instruction/current
+      slice); `warm` = active plan/doc/map/evidence refs plus deterministic
+      `ConceptIndex` expansion; `cold` = broader audit/history/topic-chapter
+      refs. `ConceptIndex` / ZGraph traversal may rank warm/cold candidates,
+      but every returned node must expand back to cited canonical pointers.
 - [ ] Replace path-only attach-by-ref conventions with a real provider/store
       boundary that review/startup/runtime surfaces consume.
 - [ ] Add `check_context_pack_contract.py` so context packs cannot be raw file
@@ -495,6 +504,13 @@ intended execution order is:
       startup-context, `master-report`, packet-outcome ingestion,
       freshness/quarantine behavior, and the bounded topic-keyed knowledge-base
       exports that feed `ContextPack`.
+- [ ] Freeze the first native repo-understanding graph path as a repo-owned
+      `devctl` surface, not an external semantic store: canonical pointer rows
+      come from plans/docs/repo-map/report artifacts first, typed edges derive
+      from those sources into `ConceptIndex` and optional ZGraph-compatible
+      snapshots second, and the first operator/agent implementation stays
+      report-only (`context-graph` / hot-index query over existing artifacts)
+      until the contract is proven.
 - [ ] Treat Phase 6 as done only when at least one named consumer
       (`startup-context`, `master-report`, or packet-outcome ingestion) reads
       `ContextPack` through the contract instead of path-only attachment
@@ -640,11 +656,23 @@ intended execution order is:
     instruction, warm = only the plan/runbook sections for the active slice,
     cold = broad reference docs such as `SYSTEM_AUDIT.md`. Cold docs do not
     override the active plan chain.
-  - ZGraph / `ConceptIndex` is later generated navigation for bounded
-    retrieval; it does not replace the typed startup/authority chain.
+  - ZGraph / `ConceptIndex` is generated navigation for bounded retrieval over
+    canonical pointer refs; it does not replace the typed startup/authority
+    chain or create a second semantic authority store.
+  - Accepted native path for that graph work: first freeze repo-owned pointer
+    rows and typed edges, then add a report-only `devctl` query surface over
+    existing artifacts before any heavier storage/index acceleration.
 
 ## Progress Log
 
+- 2026-03-20: Accepted the native `devctl` context-graph direction as the
+  right `MP-377` Phase-6 shape instead of introducing an external semantic
+  store first. The architecture rule is now explicit here: canonical plans,
+  docs, repo-map/report artifacts, and future evidence rows remain pointer
+  authority; `ConceptIndex` and any ZGraph-compatible encoding are generated
+  navigation/compression layers over those pointers; and every hot/warm/cold
+  retrieval result must expand back to cited canonical refs. The first
+  implementation path should stay report-only and repo-owned.
 - 2026-03-20: Landed the first real `MP-377` Slice-1 `doc-authority`
   correction pass against the repo code, not just the plan text. The command
   now derives governed-doc scan roots from `ProjectGovernance` plus repo

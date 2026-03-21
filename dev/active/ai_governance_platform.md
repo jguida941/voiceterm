@@ -2918,14 +2918,27 @@ Still open before `P0` closes:
 - [ ] Define one deterministic navigation artifact above that repo-understanding
       surface: a `ConceptIndex` / concept-graph snapshot derived from active
       plans, command taxonomy, contract rows, guard/probe registry, and repo-
-      map state. It may later be serialized in a ZGraph-compatible form, but
-      the authority must remain the generated contract/artifact snapshot, not
-      a free-form semantic store.
+      map state plus canonical pointer refs / typed anchors. It may later be
+      serialized in a ZGraph-compatible form, but the authority must remain
+      the generated contract/artifact snapshot, not a free-form semantic
+      store.
+- [ ] Land the first native query surface on top of that backend: extend
+      `devctl map` / repo-map generation with active-plan/doc/command nodes
+      plus typed edges, emit a generated startup `HotIndex`, and expose a
+      read-only `devctl context-graph` query surface whose results always
+      resolve back to canonical pointer refs / typed anchors.
+- [ ] Keep that first context-graph slice read-only and contract-light: no
+      new durable artifact root, no `RepoMapSnapshot` row in
+      `platform-contracts`, and no `ContextPack` emission until the query
+      surface proves the bounded repo-context packet shape.
 - [ ] Freeze the ZGraph boundary before implementation: any ZGraph-compatible
       encoding is generated-only, reversible through a typed symbol table, and
       anchored by provenance refs back to canonical plans/contracts/artifacts.
       It is a navigation/compression layer for `ConceptIndex` and bounded
       context retrieval, never an independent authority or lossy memory store.
+- [ ] Add `check_semantic_links.py` after the graph/pointer contract lands so
+      bidirectional plan/doc/command links, typed edges, and generated
+      `HotIndex` refs cannot drift from canonical pointer/anchor authority.
 - [ ] Activate the SQLite runtime in the Rust memory substrate as a `P0`
       prerequisite for the architectural knowledge base: the schema is already
       fully defined in `memory/schema.rs` (12 tables including `topics`,
@@ -3720,6 +3733,14 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-20: Accepted the native repo-owned context-graph path for the
+  hot/warm/cold startup/session-context work. The combined design is now
+  explicit: canonical pointer refs from plans/docs/repo-map/evidence artifacts
+  remain authority, while `ConceptIndex` and any ZGraph-compatible encoding
+  are generated typed-edge layers above those refs. The first implementation
+  should stay inside `devctl` as a report-only query surface over existing
+  artifacts; optional SQLite/semantic acceleration remains later optimization,
+  not authority.
 - 2026-03-20: Measured the current docs-system baseline before planning the
   fix. The repo currently has `26` markdown files under `dev/active`
   (`27,462` lines), `13` markdown files under `dev/guides` (`6,873` lines),

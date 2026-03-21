@@ -70,6 +70,11 @@
   one runtime slice through `TypedAction -> ActionResult -> RunRecord`,
   evidence/provenance/ledger closure, portable `ContextPack`, and then the
   two-repo proof with no core patches between adoptions.
+- Accepted next Phase-6 direction inside that same lane: keep canonical
+  pointer refs as the authority surface for plans/docs/repo-map/evidence,
+  then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible
+  navigation plus a report-only `devctl` context-graph query surface on top
+  of those pointers. Do not introduce a separate semantic authority store.
 - Current `P0` closure focus inside that sequence: canonical `Finding`-based
   packets, `FixPacket` / `DecisionPacket` split, schema/version matrices,
   `CommandGoalTaxonomy` + validation-routing closure, and a contract-closure
@@ -123,6 +128,13 @@
   bounded `startup-context` / `ContextPack`, hot/warm/cold session context,
   repo-pack/path-authority closure, then follow-on review-channel /
   guard-boilerplate simplification.
+- Accepted semantic-context direction for `MP-377`: keep canonical pointer
+  refs / typed anchors as authority, build the first native `devctl`
+  `context-graph` / generated `HotIndex` surfaces on top of the existing
+  repo-understanding `map` backend, and keep `ConceptIndex` / any
+  ZGraph-compatible encoding generated-only. This stays inside the
+  `ContextPack` / startup-boundary plan, not as a new MP or a second memory
+  authority.
 - Audit-integration rule: if a repo-root audit finding is accepted, rewrite it
   into canonical execution state in `MASTER_PLAN`, the relevant active plan
   doc, and maintainer docs when process policy changes. Do not keep live work

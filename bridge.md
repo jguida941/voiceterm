@@ -98,11 +98,11 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-20T23:46:54Z`
-- Last Codex poll (Local America/New_York): `2026-03-20 19:46:54 EDT`
-- Last non-audit worktree hash: `72ad7c031b2ff403ab4e037ac4c68cb23612fa60007c70472bd5dbbd31321666`
-- Reviewer mode: `paused`
-- Current instruction revision: `f44a03299b02`
+- Last Codex poll: `2026-03-21T00:38:56Z`
+- Last Codex poll (Local America/New_York): `2026-03-20 20:38:56 EDT`
+- Last non-audit worktree hash: `d8a7c5d44daa11362c539e9e2f6e3f70773ea47ef2c6a97a7e5f26f21f7d0bec`
+- Reviewer mode: `active_dual_agent`
+- Current instruction revision: `4b364efafee3`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -1142,20 +1142,29 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: paused; reason: bridge-rename-normalize; reviewed-tree: 72ad7c031b2f).
+
+
+
+
+
+
+
+
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: d8a7c5d44daa).
 - Concurrency rule for Claude and Claude-side worker lanes: if another agent lands overlapping edits on the files you are touching, or bridge status shows `claude_ack_stale`, `reviewed_hash_stale`, or a new reviewer-owned instruction/scope change, hold steady, sleep 2-3 minutes, repoll `bridge.md` plus `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`, and only resume after the reviewer-owned state is current again.
 - Concurrency hold rule: if overlapping reviewer/worker edits touch Claude's active slice or bridge state drifts during coding, Claude should stop mutating, sleep 2-3 minutes, repoll the bridge, and only resume once `Poll Status` plus the live status command agree again.
 
 ## Current Verdict
 
-- Rejected the current MP-358 implementer-stall slice on the current tree.
-- `event_projection.py` now sets `implementer_completion_stall` in event-backed liveness, but the parity contract is still incomplete.
-- The current implementation changed behavior without proving the event-backed path honors the same reviewer-owned wait-state rules as the bridge-backed contract.
+- Previous MP-358 implementer-stall work is no longer the active reviewer lane.
+- Accepted direction: MP-377 Phase 6 uses a native devctl context graph over canonical pointer refs.
+- No blocking findings on the plan and bridge reset itself; the next live slice is the first bounded context-graph implementation.
 
 ## Open Findings
 
-- H1 (blocking): `dev/scripts/devctl/review_channel/event_projection.py` passes `queue.derived_next_instruction` as `poll_status` into `_detect_implementer_stall(...)` instead of a real reviewer-owned Poll Status signal. That means the event-backed path still cannot honor reviewer-owned wait markers from `Poll Status`, so the new stall attention can false-fire in cases the bridge-backed contract explicitly treats as healthy wait states.
-- M1: the requested focused regressions are still missing. `dev/scripts/devctl/tests/test_review_channel.py` has no event-backed test proving `implementer_completion_stall` flips only when reviewer-owned wait markers are absent; the current tests only cover bridge-backed liveness/attention plus the generic attention routing surface.
+- Guardrail: any `ConceptIndex` or ZGraph-compatible output must expand back to canonical pointer refs; no second semantic authority store.
+- Guardrail: the first implementation stays report-only and reuses existing topology/report artifacts before SQLite or external retrieval layers.
+- Guardrail: keep the coding slice bounded to one new devctl query surface plus focused tests/docs, then stop for review.
 
 ## Claude Status
 
@@ -1788,10 +1797,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- Repoll, ACK this reviewer instruction revision, then finish the bounded MP-358 implementer-stall slice.
-- Close the parity gap instead of partially mirroring it: either thread a real reviewer-owned wait-state signal into the event-backed projection path, or narrow the event-backed stall detector so it only uses evidence the event-backed state actually owns and cannot pretend to honor missing `Poll Status` semantics.
-- Add focused event-backed regressions in `dev/scripts/devctl/tests/test_review_channel.py` that prove the stall flag/attention stay clear under reviewer-owned wait states and fire only when the event-backed evidence truly shows a parked implementer.
-- Rerun the focused event-backed review-channel tests, then stop for Codex review.
+- Repoll, ACK this reviewer instruction revision, and work only the first bounded `MP-377` Phase 6 native context-graph slice.
+- Start from existing repo-understanding artifacts and builders: `dev/scripts/devctl/probe_topology_builder.py`, `dev/scripts/devctl/probe_topology_scan.py`, `dev/scripts/devctl/review_probe_report.py`, and the updated Phase 6 plan text. Reuse those surfaces; do not invent a second semantic store.
+- Implement the smallest report-only `devctl` query path that can answer repo-understanding or context requests from canonical pointers plus typed edges. Output must carry `temperature`, `provenance_ref`, `canonical_pointer_ref`, and stable query evidence. `ConceptIndex` or ZGraph-compatible output is generated navigation only.
+- Prefer a thin `context-graph` command surface for this slice. If you need shared repo-understanding helpers that could later back `devctl map`, keep them internal and bounded for now.
+- Add focused tests and command-surface/docs wiring for the new query path, rerun targeted validation, then stop for Codex review.
 
 ## Plan Alignment
 
@@ -1803,9 +1813,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Last Reviewed Scope
 
-- dev/scripts/devctl/review_channel/event_projection.py
-- dev/scripts/devctl/review_channel/attention.py
-- dev/scripts/devctl/tests/test_review_channel.py
+- dev/active/platform_authority_loop.md
+- dev/active/ai_governance_platform.md
+- dev/active/MASTER_PLAN.md
+- dev/history/ENGINEERING_EVOLUTION.md
+- bridge.md
 
 ## Warnings
 - `rust/src/bin/voiceterm/event_loop/tests.rs` (soft_limit, hard_limit): Override soft_limit (6500) is 7.22x the .rs default (900). Override hard_limit (7000) is 5.00x the .rs default (1400). Operator intent keeps path overrides under 3.0x the soft cap and under 2.0x the hard cap.
