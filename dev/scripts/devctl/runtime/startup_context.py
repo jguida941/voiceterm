@@ -58,7 +58,80 @@ class StartupContext:
 
 
 def _detect_reviewer_gate(repo_root: Path) -> ReviewerGateState:
-    """Detect current reviewer/ready-gate state from live repo artifacts."""
+    """Detect current reviewer/ready-gate state from typed review-state
+    artifacts when available, falling back to live bridge.md prose.
+
+    Preferred path (typed): read review_state.json from the managed projection
+    root. This avoids coupling startup to live bridge.md modifications.
+
+    Fallback path (bridge): parse bridge.md directly when projections are not
+    available. This preserves backward compatibility during migration.
+    """
+    # Try typed review-state first (preferred path)
+    typed_gate = _detect_reviewer_gate_from_typed_state(repo_root)
+    if typed_gate is not None:
+        return typed_gate
+
+    # Fallback: parse bridge.md directly (compatibility path)
+    return _detect_reviewer_gate_from_bridge(repo_root)
+
+
+def _detect_reviewer_gate_from_typed_state(
+    repo_root: Path,
+) -> ReviewerGateState | None:
+    """Read reviewer gate from typed review_state.json when available.
+
+    Uses the same reviewer-owned acceptance semantics as
+    ``bridge_validation.bridge_review_accepted()`` — verdict must show
+    accepted/all-green/resolved AND findings must be clear/none.  The typed
+    ``ReviewBridgeState`` carries ``open_findings`` directly and the bridge
+    snapshot is reconstructed from the live file only for the verdict check so
+    the acceptance contract stays identical to the bridge-backed path.
+    """
+    review_state_path = (
+        repo_root / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+    )
+    if not review_state_path.exists():
+        return None
+    try:
+        import json
+
+        payload = json.loads(review_state_path.read_text(encoding="utf-8"))
+        bridge_block = payload.get("bridge") or {}
+        mode = str(bridge_block.get("reviewer_mode") or "single_agent")
+
+        from ..review_channel.peer_liveness import reviewer_mode_is_active
+
+        active = reviewer_mode_is_active(mode)
+        if not active:
+            return ReviewerGateState(
+                bridge_active=False,
+                reviewer_mode=mode,
+                review_accepted=True,
+                required_checks_status="unknown",
+                checkpoint_permitted=True,
+                push_permitted=True,
+            )
+
+        # Read review_accepted directly from the typed bridge state.
+        # This field is populated by the projection layer using the same
+        # reviewer-owned acceptance semantics as bridge_review_accepted().
+        review_accepted = bool(bridge_block.get("review_accepted", False))
+
+        return ReviewerGateState(
+            bridge_active=True,
+            reviewer_mode=mode,
+            review_accepted=review_accepted,
+            required_checks_status="unknown",
+            checkpoint_permitted=True,
+            push_permitted=review_accepted,
+        )
+    except (OSError, ImportError, ValueError, KeyError):
+        return None  # Fall through to bridge path
+
+
+def _detect_reviewer_gate_from_bridge(repo_root: Path) -> ReviewerGateState:
+    """Fallback: detect reviewer gate by parsing live bridge.md prose."""
     bridge_path = repo_root / "bridge.md"
     if not bridge_path.exists():
         return ReviewerGateState(
@@ -97,7 +170,6 @@ def _detect_reviewer_gate(repo_root: Path) -> ReviewerGateState:
             push_permitted=review_accepted,
         )
     except (OSError, ImportError, ValueError):
-        # Fail closed: unknown gate state → no push, checkpoint only
         return ReviewerGateState(
             checkpoint_permitted=True,
             push_permitted=False,

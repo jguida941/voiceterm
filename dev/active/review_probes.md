@@ -279,6 +279,12 @@ context-free translation = MEDIUM.
       top files, top review lenses, and optional owner-map projection.
 - [ ] Add baseline/delta support so maintainers can separate new probe debt
       from historic debt in normal review flows.
+- [ ] Add diff-aware probe scoping on top of the canonical full-scan path:
+      when the changed set is small and graph coverage is fresh, `probe-report`
+      and probe-backed `check` lanes should support changed-files plus bounded
+      blast-radius scope first, while emitting honest scope metadata and
+      falling back to repo-wide scans whenever coverage is weak or the diff is
+      broad.
 - [x] Emit one canonical probe "fix packet" bundle for human or AI
       remediation: ranked findings, rationale, doc links, and suggested
       next-command guidance.
@@ -303,6 +309,12 @@ context-free translation = MEDIUM.
 - [ ] Add audience-aware packet projections over the same review evidence so
       agents, junior developers, senior reviewers, and operators can get
       different detail levels without inventing separate report schemas.
+- [ ] Add optional multi-model consensus verification only as the expensive
+      fallback over the same probe evidence: when a finding remains
+      high-blast-radius or low-confidence after deterministic probes, allow
+      multiple reviewer models to compare verdicts over one shared packet.
+      Keep deterministic guards/probes authoritative and record disagreement as
+      evidence, not truth.
 - [x] Add a composite priority score that combines severity, coupling,
       churn/change recency, and ownership ambiguity so review order is not
       based on raw hint counts alone.
@@ -314,6 +326,11 @@ context-free translation = MEDIUM.
       literal-data tables that should be repo-policy/config artifacts instead
       of embedded Python wrapper code. This should be the default escalation
       path for "why didn't the tools catch this?" findings.
+- [ ] Turn function-shape exceptions into an explicit governed debt surface
+      instead of a static Python list: emit/report the current `58`
+      `FunctionShapeException` entries with owner, expiry, age buckets,
+      follow-up MP, and overdue/stale status so temporary size exceptions are
+      actively burned down instead of silently normalizing.
 - [ ] Document probe authoring + maintainer triage workflow in
       `dev/scripts/README.md`.
 - [x] Add a repo-policy layer so built-in guard/probe capabilities are
@@ -442,6 +459,12 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-21: Reconciled the latest cross-agent backlog audit against the live
+  probe plan. The missing follow-ups are now explicit instead of living only in
+  chat analysis: diff-aware probe scoping for small changed sets, optional
+  multi-model consensus review as an expensive fallback over shared probe
+  packets, and a governed debt surface for the current `58`
+  `FunctionShapeException` entries with expiry-aware reporting.
 - 2026-03-09: Created the execution-plan doc for review probes and captured the
   initial probe catalog, schema, and repo-specific research examples for
   concurrency, architecture, performance, and product-logic drift.

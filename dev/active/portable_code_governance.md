@@ -215,6 +215,12 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       guards, configs, or workflows for the changed scope, post-edit
       verification should prefer that targeted plan over generic broad
       bundles.
+- [ ] Add language-aware guard/probe routing on top of the same repo-policy and
+      changed-scope contract: when a diff clearly touches only Python roots or
+      only Rust roots, skip inapplicable language families with explicit skip
+      receipts, but fail closed back to the broader bundle whenever language
+      detection is mixed, stale, or uncertain. This is a policy-owned
+      optimization over one guard pipeline, not a second scheduler.
 - [ ] Make that startup-authority layer convention-aware too: when a repo has
       declared convention policy or freshly generated convention reports, AI
       startup surfaces should include the relevant convention summary and the
@@ -329,6 +335,12 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-21: Added the missing language-aware execution optimization to the
+  portable-engine backlog. The current policy/preset stack already knows which
+  guard families are language-specific, but the plan had not yet recorded the
+  next step: use changed-scope plus repo-policy language knowledge to skip
+  inapplicable lanes with explicit receipts while failing closed to broader
+  bundles when the diff is mixed or uncertain.
 - 2026-03-17: Aligned a proposed `governance-quality-feedback` /
   maintainability-snapshot surface with the portable engine boundary instead of
   letting it become a repo-local side system. Portable ownership here is the

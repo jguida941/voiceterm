@@ -124,6 +124,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             ),
             claude_ack_revision=_string(bridge.get("claude_ack_revision")),
             last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
+            review_accepted=_bool(bridge.get("review_accepted")),
             implementer_completion_stall=bool(bridge.get("implementer_completion_stall")),
             publisher_running=bool(bridge.get("publisher_running")),
         ),

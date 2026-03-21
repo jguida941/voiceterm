@@ -1074,20 +1074,34 @@ Acceptance:
       Terminal.app sessions, and fail closed once the markdown bridge is
       inactive so this launcher cannot outlive the transitional bridge by
       accident.
-- [ ] Land the first typed current-session authority cutover for the live
+- [x] Land the first typed current-session read-authority cutover for the live
       bridge-backed loop: one `current_session` block in `ReviewState` /
-      `review_state.json` must become the canonical current-status authority
-      for reviewer mode, instruction revision, reviewed hash, live findings,
-      and peer ACK state; `latest.md` and other current-status markdown
-      projections must render from that typed block instead of reading
+      `review_state.json` is now the canonical read-side current-status
+      authority for reviewer mode, instruction revision, reviewed hash, live
+      findings, and peer ACK state; `latest.md` and other current-status
+      markdown projections render from that typed block instead of reading
       append-only `Claude Ack` / status history prose directly.
-- [ ] Generalize that typed current-session and queue contract beyond the
-      current named reviewer/implementer pair: replace named queue counters
-      (`pending_codex`, `pending_claude`, `pending_cursor`,
-      `pending_operator`) and `claude_*` / `codex_*` bridge-state fields with
-      per-agent or per-lane collections plus compatibility projections during
-      migration so the backend can represent more than one implementer or
-      reviewer without schema forks.
+- [ ] Keep the transitional `bridge.md` compatibility projection push-safe
+      once typed `current_session` exists. `startup-context`,
+      `check_tandem_consistency`, and guarded push/checkpoint paths must not
+      block committed validated work merely because tracked bridge prose is
+      dirty; they should consume typed current-session / push-preflight /
+      liveness state, and any temporary bridge exclusion must live in repo
+      policy rather than operator habit or hidden hardcoded filtering.
+      Loop-control rule: once typed `push_enforcement` or other blocking
+      startup/guard state says the slice is over budget or not review-safe,
+      the review-channel controller must stop issuing new implementer work,
+      switch attention to checkpoint/review, and surface that state to the
+      operator without waiting for a human reminder in chat.
+- [ ] Generalize that typed current-session and queue contract just far enough
+      for compatibility beyond the current named reviewer/implementer pair:
+      replace named queue counters (`pending_codex`, `pending_claude`,
+      `pending_cursor`, `pending_operator`) and `claude_*` / `codex_*`
+      bridge-state fields with per-agent or per-lane collections plus
+      compatibility projections during migration so the backend can represent
+      more than one implementer or reviewer without schema forks. Keep this
+      slice limited to compatibility collections/projections; full
+      registry-driven topology and native multi-item routing remain Phase 3.
 - [ ] Separate live current status from history in the same slice: keep
       append-only bridge/event history in trace/history projections only, and
       make the markdown-authority demotion gate explicit for MP-355. The live
@@ -1155,11 +1169,22 @@ Acceptance:
       reviewer-only liveness helpers) with agent-registry / `TandemProfile` /
       repo-policy-derived routing so MP-355 does not claim N-agent support
       while the middle layer still rejects new agents.
+- [ ] Replace ad hoc bridge-section headers/markers with one typed section
+      registry shared by parser, writer, projection, mutation, and guard code.
+      `bridge.md` stays a compatibility projection, but section ids/names must
+      resolve from one canonical mapping instead of 8+ duplicated literals and
+      regex targets spread across the review-channel path.
 - [ ] Extend promotion from `first unchecked item -> one bridge instruction`
       to multi-item extraction and lane assignment once typed current-session
       / per-agent queue authority is in place. Until that lands, keep
       multi-agent specialization conductor-coordinated and do not pretend the
       backend already does parallel work routing.
+- [ ] Keep burning down the remaining review-channel Python hotspots instead of
+      freezing current size debt in place. Current live hotspots include
+      `event_reducer.py` (~497 lines), `handoff.py` (461), `core.py` (356), and
+      the giant `test_review_channel.py` suite; continue splitting by reducer /
+      projection / prompt / fixture responsibility before MP-355 claims
+      maintainability closure.
 - [ ] Extend `dev/scripts/devctl/reports_retention.py` protected paths for
       `dev/reports/review_channel/`.
 - [ ] Wire `check_review_channel.py` into `dev/scripts/devctl/bundle_registry.py`
@@ -1523,6 +1548,9 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-22T00:25:00Z` | `CODEX` | Reconfirmed the live reviewer-service/operator-notification gap against repo-owned runtime truth instead of chat impressions. In the current lane the reviewer supervisor stays alive and updates `review_needed` / `waiting_on_peer`, but publisher state can still sit at `detached_exit`, so bridge/runtime status knows Claude is stale or waiting without auto-surfacing that state to the operator. | `planned` | Treat sticky reviewer ownership plus live publisher/notification delivery as the same MP-355 blocker: the repo-owned reviewer worker/supervisor must poll, write checkpoints, and emit operator-visible updates without waiting for user prompts. |
+| `2026-03-21T23:59:00Z` | `CODEX` | Reconciled the latest cross-agent audit against live MP-355 plan state. The urgent push-safe bridge issue was already tracked, but two real review-channel follow-ups were still missing from the checklist: a typed bridge-section registry to kill magic-string section parsing/writes and an explicit maintainability burn-down item for the remaining review-channel Python hotspots instead of treating the current file sizes as invisible debt. | `planned` | Keep the current-session/push-safe authority work bounded, then land the bridge-section registry and continue shrinking the review-channel hotspots without widening bridge authority again. |
+| `2026-03-21T23:55:00Z` | `CODEX` | Recorded the newly-proved push-coupling bug after the typed `current_session` cutover. The read side is now healthier: current reviewer/implementer truth comes from typed review-state projections, but the guarded push path still blocks on raw tracked-file dirtiness, so live `bridge.md` compatibility writes can strand validated committed work even though push logic never actually consumes bridge prose. | `planned` | Keep `bridge.md` as a compatibility projection only, add the push-safe policy/preflight closure in `MP-377`, and do not let write/push paths keep treating bridge dirtiness as canonical authored state once typed current-session authority exists. |
 | `2026-03-21T23:40:00Z` | `CODEX` | Landed the first typed `current_session` authority cutover for MP-355 without widening into the full bridge replacement. `ReviewState` now carries a dedicated current-session block, both bridge-backed and event-backed projections populate it, `latest.md` / `compact.json` read it for live current-focus rendering, and the legacy bridge fields are still projected for compatibility. This keeps current-status readers off append-only bridge prose while preserving the existing runtime/reporting surfaces. | `partial-pass` | Finish the broader guard bundle for this slice, keep `bridge.md` out of the checkpoint, and then continue the remaining bridge-authority replacement through writer/mutation paths instead of re-expanding current-status reads. |
 | `2026-03-21T22:15:00Z` | `CODEX` | Re-ran the "is this already N-agent?" audit against the current MP-355 runtime instead of relying on older scratch conclusions. The answer is mixed: packet routing, `TandemProfile.implementers`, the event lane, and `autonomy-swarm` already support more than two workers, but the middle review-channel layer is still singular in the places that matter most for live authority (`pending_codex` / `pending_claude`, `claude_ack`, `codex_poll_state`, provider-name allowlists, and one `Current Instruction For Claude` promotion path). | `planned` | Keep the current 8+8 run conductor-managed for now, then generalize queue/current-session/attention/promotion to registry-driven N-agent state before claiming the backend itself is natively multi-agent. |
 | `2026-03-21T20:25:00Z` | `CODEX` | Landed the first stale-write containment on the live markdown bridge after the operator-visible regression where an older reviewer checkpoint replaced a newer in-flight instruction. Instruction-mutating bridge writes now carry an expected instruction revision precondition through the reviewer-checkpoint and promotion paths, and the write fails closed under the existing file lock if the live bridge revision no longer matches. Auto-promotion/scope paths now thread the live revision they validated, while active dual-agent reviewer checkpoints require an explicit expected revision instead of silently overwriting newer state. | `partial-pass` | Keep the bounded `UNKNOWN/DEFER` slice in place, then land the typed `current_session` authority cutover so current-status readers stop depending on append-only bridge prose for live instruction/ACK truth. |
@@ -1601,11 +1629,12 @@ Complete this table only after all active swarm lanes are merged.
 - Current status: this plan remains active; start from the highest-priority
   open item in `## Execution Checklist` and the latest dated entry in
   `## Progress Log`.
-- Next action: finish validation and checkpointing for the typed
-  `current_session` cutover, keep `bridge.md` as a compatibility projection
-  rather than live current-status authority, and queue the registry-driven
-  N-agent queue/attention/promotion follow-up behind the remaining writer /
-  mutation-path migration instead of widening this slice ad hoc.
+- Next action: finish the remaining writer/mutation and guard-consumer side of
+  the typed `current_session` cutover so `startup-context`,
+  `check_tandem_consistency`, and guarded push/preflight stop depending on
+  bridge prose for live freshness, while keeping `bridge.md` as a
+  compatibility projection and leaving full registry-driven N-agent routing in
+  Phase 3.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

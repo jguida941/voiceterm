@@ -200,12 +200,26 @@ intended execution order is:
       routed bundle/check plan, convention/probe subset, bounded doc subset,
       and required write-back sinks without cold-reading the full repo every
       session.
+- [ ] Close the startup/push reviewer-gate seam on that same typed authority:
+      `startup-context`, checkpoint/push receipts, `check_tandem_consistency`,
+      and guarded push/preflight must read one typed
+      `CollaborationSession` / review-state authority for reviewer freshness,
+      acceptance, reviewed scope, and implementer ACK truth instead of
+      reparsing `bridge.md`. During migration `bridge.md` may remain a
+      compatibility projection / repair surface only.
 - [ ] Make that startup path enforceable instead of advisory: the first typed
       `startup-context` / `WorkIntakePacket` flow must emit a startup receipt
       tied to repo/worktree identity, current tree hash, command goal, and
       bootstrap mode (`full` `bundle.bootstrap` vs slim bounded bootstrap).
       Review-channel, Ralph/autonomy loops, and other agent launchers should
       require that receipt and fail closed on ad hoc partial startup.
+      Controller rule: repo-owned launch/review loops must consume one typed
+      continuation decision derived from `push_enforcement`, review freshness /
+      acceptance, and blocking docs-governance or guard failures. When that
+      decision is `checkpoint_required` or `review_required`, implementer
+      coding must pause and the loop must promote review/checkpoint work
+      automatically instead of leaving the model to infer that switch from
+      warnings or prompt text.
 - [ ] Define the session-start refresh contract for that same startup surface:
       first run seeds canonical startup artifacts, later sessions refresh only
       the content-hash/git-diff-invalidated slices, and the next
@@ -247,6 +261,30 @@ intended execution order is:
       they do not become checkpoint authority. When graph confidence is low or
       blast radius is unclear, the system must narrow or stop instead of
       widening the candidate checkpoint.
+- [ ] Freeze the first concrete artifact in that checkpoint/push family as a
+      disposable typed `PushPreflightPacket` keyed by branch + tree hash under
+      `dev/reports/push/`. Minimum first fields:
+      `schema_version`, `contract_id`, `generated_at_utc`, `tree_hash`,
+      `current_branch`, `current_commit_sha`, filtered `dirty_path_count`,
+      `checkpoint_required`, `push_ready`, `blocking_errors`, and `warnings`.
+      `devctl push`, reviewer/coder loops, and later multi-agent controllers
+      should read the same packet instead of each caller re-deriving push
+      readiness from raw `git status` independently.
+- [ ] Extend repo-owned `PushPolicy` with explicit generated-compatibility
+      exclusions for the guarded push/checkpoint path. While `bridge.md`
+      remains a tracked transitional compatibility projection, push/readiness
+      code may exclude it only through policy-declared generated-path rules
+      whose live authority already exists in typed runtime state
+      (`current_session`, push-enforcement snapshot, or the future
+      `PushPreflightPacket`). Do not hide the exclusion in ad hoc hardcoded
+      git-status filtering.
+- [ ] Add focused push/read-write coherence guards once
+      `PushPreflightPacket` and typed `current_session` are live:
+      `check_push_policy_alignment.py`,
+      `check_read_write_authority_parity.py`, and
+      `check_multi_agent_push_parity.py`. These catch the specific anti-pattern
+      where the read side has migrated to typed authority but the write/push
+      side still relies on prose or raw dirty-file accounting.
 - [ ] Add repo-pack-driven checkpoint-budget fields to that same startup
       receipt/intake contract: dirty-path count, untracked-path count,
       `safe_to_continue_editing`, `checkpoint_required`, checkpoint reason,
@@ -861,6 +899,19 @@ intended execution order is:
       across packet/parser/reducer surfaces, or accepted graph/command
       coverage floors regressing. The guard validates system coherence, not
       ordinary code quality.
+- [ ] Add one cross-guard exception-budget / expiry guard after
+      `check_system_coherence.py` is stable. Reuse existing local exception
+      ledgers (`code_shape` waivers, structural-complexity exceptions, later
+      repo-pack migration waivers) and fail when aggregate exception counts
+      exceed the declared budget, any exception passes its expiry, or a new
+      exception family appears without explicit policy ownership.
+- [ ] Add check-runner performance contracts after the first cache-backed
+      startup / `system-picture` path is real: diff-aware and language-aware
+      skip rules, immutable tree-hash guard-result caching, and layered
+      early-exit execution should be measured, typed, and invalidated from
+      canonical tree/work-scope inputs rather than guessed. Keep guard
+      inference/ranking out of scope until telemetry, cache invalidation, and
+      graph-confidence semantics are proven.
 
 ## Session Resume
 
@@ -924,6 +975,39 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-21: Calibrated the large cross-agent audit against live code instead
+  of earlier rough summaries. Confirmed the current runtime-contract inventory
+  is larger than some stale notes (`StartupContext`, `ProjectGovernance`,
+  `TypedAction`, `ActionResult`, `FindingRecord`, and `ReviewState` are real
+  runtime code), but the convergence problem is mixed rather than one-note:
+  `StartupContext` is still mostly unconsumed by major subsystems,
+  `WorkIntakePacket` is still not implemented runtime code, `swarm_run` still
+  parses markdown checklists directly, the governance-review ledger still lacks
+  `schema_version` backfill (`110` current rows), and the remaining
+  path-authority issue is now `33` production `active_path_config()` call sites
+  with `30` import-time freezes rather than the older rough counts. Sequence
+  stays the same: bridge-authority cutover and typed startup/bootstrap
+  consumption first, then evidence/path/provider/config portability burn-down,
+  then broader portability/expansion work.
+- 2026-03-21: Reconciled the broader plan-gap audit against the actual repo
+  state. Most of the large suggested additions were already tracked here or in
+  `MP-355`, so the only new `MP-377` rows promoted from that audit are the
+  explicit startup/push/tandem consumer migration off live `bridge.md`, one
+  later cross-guard exception-budget / expiry guard, and later check-runner
+  performance/cache work. The graph cache/delta path, `system-picture`,
+  warm-start packet, repo-pack migration guards, and
+  `check_system_coherence.py` were already in canonical plan state and keep
+  the same sequence.
+- 2026-03-21: Captured the push-policy/read-write parity bug from the cross-
+  agent audit as tracked `MP-377` work instead of leaving it as operator lore.
+  Root cause: `devctl push` still derives dirty-path blocking from raw
+  `collect_git_status()` while the review side already reads typed
+  `current_session` and push-enforcement state, so tracked compatibility
+  projection churn in `bridge.md` can block an otherwise validated push. The
+  next closure is now explicit here: repo-owned `PushPreflightPacket`,
+  policy-declared generated-path exclusions for transitional bridge state, and
+  focused push/read-write coherence guards layered under the planned
+  `check_system_coherence.py` lane.
 - 2026-03-21: Promoted the missing `system-picture` read surface into the
   canonical `MP-377` graph/intake lane instead of leaving it as chat-only
   design. It now sits immediately after the first `startup-context` /

@@ -172,6 +172,14 @@ Three quality layers matter in practice:
     and `compact.json`; prefer that contract for live instruction /
     implementer ACK reads instead of scraping append-only prose from
     `bridge.md`.
+  - `startup-context` is the typed startup packet for those same sessions.
+    When `review_state.json` is present, it should read reviewer acceptance
+    from typed `bridge.review_accepted` state and only fall back to parsing
+    `bridge.md` when the typed projection is unavailable.
+  - Repo-governance checkpoint policy may declare compatibility projections
+    such as `bridge.md` that are excluded from advisory dirty-path budgeting.
+    That exclusion only affects checkpoint-budget accounting; raw git state
+    and reviewer-owned status remain canonical for real push/review truth.
   - If `tandem-validate` is red only because a release-lane external status
     check cannot reach GitHub or another off-repo dependency, treat that as an
     environment blocker and call it out separately from code-quality failures.

@@ -59,6 +59,11 @@ class ReviewBridgeState:
     current_instruction_revision: str
     claude_ack_revision: str
     last_reviewed_scope: str
+    review_accepted: bool = False
+    """Reviewer-owned acceptance gate: True only when verdict shows
+    accepted/all-green/resolved AND findings are clear/none.  Populated by
+    the projection layer using the same semantics as
+    ``bridge_validation.bridge_review_accepted()``."""
     implementer_completion_stall: bool = False
     publisher_running: bool = False
 

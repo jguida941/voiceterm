@@ -296,11 +296,22 @@ def _build_bridge_state(
         current_instruction_revision=current_session.current_instruction_revision,
         claude_ack_revision=current_session.implementer_ack_revision,
         last_reviewed_scope=current_session.last_reviewed_scope,
+        review_accepted=_compute_review_accepted(snapshot),
         implementer_completion_stall=bool(
             bridge_liveness.get("implementer_completion_stall")
         ),
         publisher_running=bool(bridge_liveness.get("publisher_running")),
     )
+
+
+def _compute_review_accepted(snapshot: BridgeSnapshot) -> bool:
+    """Compute reviewer-owned acceptance using canonical bridge_review_accepted."""
+    try:
+        from .bridge_validation import bridge_review_accepted
+
+        return bridge_review_accepted(snapshot)
+    except (ImportError, ValueError):
+        return False
 
 
 def _build_current_session(

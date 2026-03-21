@@ -272,5 +272,175 @@ class TestAdvisoryAction(unittest.TestCase):
         self.assertEqual(action, "checkpoint_allowed")
 
 
+class TestTypedReviewStateGatePath(unittest.TestCase):
+    """Verify the typed review_state.json path preserves bridge_review_accepted semantics."""
+
+    def _write_bridge_and_typed_state(
+        self,
+        repo_root: Path,
+        verdict: str,
+        findings: str,
+        reviewer_mode: str = "active_dual_agent",
+    ) -> None:
+        """Write both bridge.md and review_state.json for typed-path testing."""
+        bridge_text = "\n".join(
+            (
+                f"- Reviewer mode: `{reviewer_mode}`",
+                "",
+                "## Current Verdict",
+                verdict,
+                "",
+                "## Open Findings",
+                findings,
+                "",
+                "## Current Instruction For Claude",
+                "- Continue the current slice.",
+                "",
+            )
+        )
+        (repo_root / "bridge.md").write_text(bridge_text, encoding="utf-8")
+
+        # Create the typed state projection directory
+        state_dir = repo_root / "dev" / "reports" / "review_channel" / "latest"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        # Compute review_accepted the same way the projection does:
+        # verdict must match accepted patterns AND findings must be clear.
+        import re
+        _ACCEPTED_RE = re.compile(
+            r"^(?:reviewer[- ]accepted|accepted|all\s+green|resolved)\b",
+            re.IGNORECASE,
+        )
+        _CLEAR_RE = re.compile(
+            r"^(?:\(none\)|none|no\s+blockers|all\s+clear|all\s+green|resolved)\b",
+            re.IGNORECASE,
+        )
+        verdict_ok = bool(verdict.strip() and _ACCEPTED_RE.match(verdict.strip().splitlines()[0].lstrip("- ").strip()))
+        finding_lines = [ln.lstrip("- ").strip().lower() for ln in findings.splitlines() if ln.strip()]
+        findings_ok = not finding_lines or all(_CLEAR_RE.match(ln) is not None for ln in finding_lines)
+        review_accepted = verdict_ok and findings_ok
+
+        state_payload = {
+            "bridge": {
+                "reviewer_mode": reviewer_mode,
+                "open_findings": findings,
+                "review_accepted": review_accepted,
+            },
+            "current_session": {
+                "implementer_ack_state": "current",
+                "open_findings": findings,
+            },
+        }
+        (state_dir / "review_state.json").write_text(
+            json.dumps(state_payload), encoding="utf-8"
+        )
+
+    def test_typed_path_uses_bridge_review_accepted_semantics(self) -> None:
+        """Typed path must use verdict-based acceptance, not ack_state."""
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_bridge_and_typed_state(
+                repo_root,
+                "Reviewer-accepted. Clean slice.",
+                "- none",
+            )
+            gate = _detect_reviewer_gate(repo_root)
+            self.assertTrue(gate.review_accepted)
+            self.assertTrue(gate.push_permitted)
+
+    def test_typed_path_rejects_when_verdict_not_accepted(self) -> None:
+        """Typed path must reject when verdict is not accepted even if ack is current."""
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_bridge_and_typed_state(
+                repo_root,
+                "Needs-review. Several findings remain.",
+                "- Bridge dirtiness coupling",
+            )
+            gate = _detect_reviewer_gate(repo_root)
+            self.assertFalse(gate.review_accepted)
+            self.assertFalse(gate.push_permitted)
+
+    def test_typed_path_falls_back_when_state_missing(self) -> None:
+        """When review_state.json is absent, falls back to bridge parsing."""
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            bridge_text = "\n".join(
+                (
+                    "- Reviewer mode: `active_dual_agent`",
+                    "",
+                    "## Current Verdict",
+                    "- Reviewer-accepted. Clean slice.",
+                    "",
+                    "## Open Findings",
+                    "- none",
+                    "",
+                    "## Current Instruction For Claude",
+                    "- Continue.",
+                    "",
+                )
+            )
+            (repo_root / "bridge.md").write_text(bridge_text, encoding="utf-8")
+            gate = _detect_reviewer_gate(repo_root)
+            self.assertTrue(gate.review_accepted)
+            self.assertTrue(gate.push_permitted)
+
+    def test_typed_path_inactive_mode_permits_push(self) -> None:
+        """When reviewer mode is inactive, push is permitted regardless."""
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_bridge_and_typed_state(
+                repo_root,
+                "Needs-review.",
+                "- findings here",
+                reviewer_mode="single_agent",
+            )
+            gate = _detect_reviewer_gate(repo_root)
+            self.assertTrue(gate.push_permitted)
+            self.assertFalse(gate.bridge_active)
+
+
+class TestPushExclusionPaths(unittest.TestCase):
+    """Verify compatibility_projection_paths are excluded from dirty count."""
+
+    def test_worktree_change_counts_excludes_bridge(self) -> None:
+        from dev.scripts.devctl.governance.push_state import _worktree_change_counts
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            # Simulate a git repo with bridge.md dirty
+            import subprocess
+            subprocess.run(["git", "init"], cwd=tmp, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=tmp, capture_output=True)
+            subprocess.run(["git", "config", "user.name", "test"], cwd=tmp, capture_output=True)
+            (repo_root / "bridge.md").write_text("initial")
+            (repo_root / "code.py").write_text("print('hello')")
+            subprocess.run(["git", "add", "."], cwd=tmp, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=tmp, capture_output=True)
+            # Modify both files
+            (repo_root / "bridge.md").write_text("modified bridge")
+            (repo_root / "code.py").write_text("print('modified')")
+
+            # Without exclusion: both files dirty
+            dirty, untracked = _worktree_change_counts(repo_root)
+            self.assertEqual(dirty, 2)
+
+            # With exclusion: bridge excluded
+            dirty, untracked = _worktree_change_counts(
+                repo_root, exclude_paths=("bridge.md",)
+            )
+            self.assertEqual(dirty, 1)
+
+    def test_checkpoint_policy_parses_compat_paths(self) -> None:
+        from dev.scripts.devctl.governance.push_policy import PushCheckpointPolicy
+        policy = PushCheckpointPolicy(
+            compatibility_projection_paths=("bridge.md",),
+        )
+        self.assertEqual(policy.compatibility_projection_paths, ("bridge.md",))
+
+    def test_checkpoint_policy_default_empty(self) -> None:
+        from dev.scripts.devctl.governance.push_policy import PushCheckpointPolicy
+        policy = PushCheckpointPolicy()
+        self.assertEqual(policy.compatibility_projection_paths, ())
+
+
 if __name__ == "__main__":
     unittest.main()

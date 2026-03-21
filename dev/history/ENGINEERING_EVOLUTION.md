@@ -76,6 +76,34 @@ Evidence:
 - `dev/scripts/devctl/tests/test_review_channel.py`
 - `dev/scripts/checks/check_platform_contract_closure.py`
 
+### 2026-03-21 - Plan state synchronized with the remaining bridge-authority seam
+
+Fact: the active governance plans now distinguish between the part of the
+review-channel authority cutover that has landed and the part that is still
+open. `review_channel.md` now marks the typed `current_session` read-side
+authority cutover as complete, narrows Phase 1 queue generalization to
+compatibility-only work, and makes the remaining seam explicit:
+`startup-context`, `check_tandem_consistency`, and guarded push/preflight must
+stop reparsing live bridge prose for freshness/current-status truth.
+`platform_authority_loop.md` and `MASTER_PLAN.md` now mirror that same seam so
+the startup/push side of `MP-377` stays aligned with the review-channel side of
+`MP-355`. The same maintenance pass also promoted two later self-governance
+follow-ups into `MP-377`: one cross-guard exception-budget / expiry guard and
+one typed check-runner performance/cache contract.
+
+This matters because recent audits mixed real gaps with stale ones. The code
+already landed the first typed `current_session` cutover, and the bigger graph
+/ N-agent directions were already in plan; the real remaining gap is the
+consumer migration off live bridge freshness plus a small number of later
+self-governance items. The canonical plans now say that directly instead of
+leaving operators to infer it from chat history.
+
+Evidence:
+
+- `dev/active/review_channel.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/MASTER_PLAN.md`
+
 ### 2026-03-21 - MP-377 checkpoint budget surfaced in bridge-backed review status
 
 Fact: the bridge-backed `devctl review-channel` status path now carries the

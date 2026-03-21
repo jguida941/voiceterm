@@ -36,6 +36,10 @@ class PushCheckpointPolicy:
 
     max_dirty_paths_before_checkpoint: int = 12
     max_untracked_paths_before_checkpoint: int = 6
+    compatibility_projection_paths: tuple[str, ...] = ()
+    """Paths of generated compatibility projections (e.g., bridge.md) that
+    should be excluded from dirty-path counting for push/checkpoint decisions.
+    These files are live-modified by the review loop, not authored code."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,6 +307,12 @@ def _parse_checkpoint_policy(
             "repo_governance.push.checkpoint must be an object; using defaults."
         )
         return PushCheckpointPolicy()
+    raw_compat = payload.get("compatibility_projection_paths")
+    compat_paths: tuple[str, ...] = ()
+    if isinstance(raw_compat, list):
+        compat_paths = tuple(
+            str(p).strip() for p in raw_compat if str(p or "").strip()
+        )
     return PushCheckpointPolicy(
         max_dirty_paths_before_checkpoint=_coerce_positive_int(
             payload.get("max_dirty_paths_before_checkpoint"),
@@ -312,6 +322,7 @@ def _parse_checkpoint_policy(
             payload.get("max_untracked_paths_before_checkpoint"),
             fallback=6,
         ),
+        compatibility_projection_paths=compat_paths,
     )
 
 

@@ -61,7 +61,10 @@ def detect_push_enforcement_state(
         ahead_text = _git_stdout(repo_root, "rev-list", "--count", f"{upstream_ref}..HEAD")
         if ahead_text.isdigit():
             ahead = int(ahead_text)
-    dirty_path_count, untracked_path_count = _worktree_change_counts(repo_root)
+    dirty_path_count, untracked_path_count = _worktree_change_counts(
+        repo_root,
+        exclude_paths=policy.checkpoint.compatibility_projection_paths,
+    )
     worktree_dirty = dirty_path_count > 0
     checkpoint_required = (
         dirty_path_count >= policy.checkpoint.max_dirty_paths_before_checkpoint
@@ -112,7 +115,11 @@ def detect_push_enforcement_state(
 
 
 def _git_stdout(repo_root: Path, *cmd: str) -> str:
-    """Run a git command and return stripped stdout, or empty on failure."""
+    """Run a git command and return rstrip'd stdout, or empty on failure.
+
+    Uses ``rstrip()`` (not ``strip()``) to preserve leading whitespace in
+    git-status XY format lines like ``' M bridge.md'``.
+    """
     try:
         result = subprocess.run(
             ["git", *cmd],
@@ -124,13 +131,18 @@ def _git_stdout(repo_root: Path, *cmd: str) -> str:
         )
     except (OSError, subprocess.TimeoutExpired):
         return ""
-    return result.stdout.strip() if result.returncode == 0 else ""
+    return result.stdout.rstrip() if result.returncode == 0 else ""
 
 
-def _worktree_change_counts(repo_root: Path) -> tuple[int, int]:
+def _worktree_change_counts(
+    repo_root: Path,
+    *,
+    exclude_paths: tuple[str, ...] = (),
+) -> tuple[int, int]:
     status_raw = _git_stdout(repo_root, "status", "--porcelain", "--untracked-files=all")
     if not status_raw:
         return 0, 0
+    exclude_set = set(exclude_paths)
     dirty_paths: set[str] = set()
     untracked_paths: set[str] = set()
     for line in status_raw.splitlines():
@@ -142,6 +154,8 @@ def _worktree_change_counts(repo_root: Path) -> tuple[int, int]:
             path = path.split("->")[-1].strip()
         path = path.strip()
         if not path:
+            continue
+        if path in exclude_set:
             continue
         dirty_paths.add(path)
         if status == "??":

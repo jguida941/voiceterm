@@ -3079,6 +3079,12 @@ Still open before `P0` closes:
       repo-policy-driven layer-violation queries. Reuse existing typed edges
       and canonical refs; do not hide decisions behind opaque ranking-only
       output.
+- [ ] Add generated transformation-rule support on top of that same graph/query
+      layer: model common fix families as advisory "if X changes, likely
+      companion edits/tests/docs/configs are Y" rules so graph-backed packets
+      can predict likely fix fallout before the expensive AI fallback loop
+      runs. Keep the rules generated-only, tree-hash invalidated, and
+      subordinate to guard/runtime truth.
 - [ ] Add a typed `ArchitectureHealthScore` / review payload that aggregates
       coupling, complexity, consistency, layering, and overall health, with
       baseline/trend inputs coming from governance ledgers and portable
@@ -3930,6 +3936,12 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-21: Added the missing transformation-rule backlog item to the graph
+  lane. The current plans already owned bounded blast-radius, architecture
+  queries, and fail-closed graph honesty, but they did not yet record the next
+  generated-only step: advisory fix-effect / companion-edit prediction on top
+  of the same typed graph so context packets can forecast likely fallout
+  without turning graph output into authority.
 - 2026-03-21: Added the missing system-wide read surface to the platform plan.
   The accepted direction is now explicit: a generated `devctl system-picture`
   composes startup state, plan status, contract chain, guard/doc health,

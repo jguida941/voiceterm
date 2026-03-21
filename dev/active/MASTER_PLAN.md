@@ -174,8 +174,10 @@
   instruction revision, implementer status, implementer ACK state, findings,
   and reviewed scope, and `latest.md` current-status rendering now prefers
   that typed state over append-only bridge prose. The remaining work is to
-  migrate writer/mutation paths so `bridge.md` becomes a generated
-  compatibility projection instead of a live current-status authority.
+  migrate writer/mutation paths plus the `startup-context`,
+  `check_tandem_consistency`, and guarded push/preflight consumers so
+  `bridge.md` becomes a generated compatibility projection instead of a live
+  current-status authority or freshness gate.
 - Current native-N-agent follow-up in the same neighborhood: packet routing,
   `TandemProfile.implementers`, the append-only event lane, and
   `autonomy-swarm` already scale past two agents, but the review-channel

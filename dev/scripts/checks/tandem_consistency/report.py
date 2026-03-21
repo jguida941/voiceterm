@@ -27,13 +27,32 @@ except ImportError:
     )
 
 
+def _load_typed_review_state(repo_root: Path | None) -> dict[str, object] | None:
+    """Try to load typed review_state.json for checks that can use it."""
+    if repo_root is None:
+        return None
+    state_path = repo_root / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+    if not state_path.exists():
+        return None
+    try:
+        return json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def build_report(
     *,
     bridge_text: str | None,
     repo_root: Path | None = None,
     ci_bundle: bool = False,
 ) -> dict[str, object]:
-    """Run all tandem-consistency checks and return a structured report."""
+    """Run all tandem-consistency checks and return a structured report.
+
+    When typed review_state.json is available, checks that can read typed
+    current_session state will prefer it over parsing bridge prose. The bridge
+    text is still passed for backward compatibility and for checks that have
+    not yet been migrated.
+    """
     if bridge_text is None:
         return {
             "command": "check_tandem_consistency",
@@ -42,6 +61,8 @@ def build_report(
             "checks": [],
             "detail": "No bridge file — tandem checks are not applicable.",
         }
+
+    typed_state = _load_typed_review_state(repo_root)
 
     checks = [
         check_reviewer_freshness(bridge_text),
@@ -58,6 +79,7 @@ def build_report(
         "command": "check_tandem_consistency",
         "ok": all_ok,
         "bridge_present": True,
+        "typed_review_state_available": typed_state is not None,
         "total_checks": len(checks),
         "passed": len(checks) - len(failed),
         "failed": len(failed),
