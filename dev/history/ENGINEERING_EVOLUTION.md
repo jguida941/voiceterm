@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-20
+**Last Updated:** 2026-03-21
 
 ## At a Glance
 
@@ -45,6 +45,20 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-21 - MP-377 retrieval/control stack made explicit
+
+The active platform plans now spell out the retrieval/control stack instead of
+leaving it implicit in chat or one-off bridge instructions. The accepted
+ordering is: hard guards/probes first as the cheap deterministic classifier
+layer, `ConceptIndex` / ZGraph-compatible graph output second as a reversible
+search-space reducer over canonical refs, `HotIndex` / `startup-context` /
+`ContextPack` third as the minimum cited working slice for the current scope,
+and reviewer/autonomy/Ralph loops last as the expensive fallback/controller
+layer when cheaper paths cannot decide or recover safely. This closes a
+recurring ambiguity where graph packets, startup packets, and long-lived AI
+loops were drifting toward one blended authority blob instead of staying
+layered and fail-closed.
 
 ### 2026-03-20 - MP-377 Phase 6 context-graph implementation
 

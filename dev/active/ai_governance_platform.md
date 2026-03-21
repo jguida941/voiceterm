@@ -2945,11 +2945,39 @@ Still open before `P0` closes:
       anchored by provenance refs back to canonical plans/contracts/artifacts.
       It is a navigation/compression layer for `ConceptIndex` and bounded
       context retrieval, never an independent authority or lossy memory store.
+- [ ] Freeze the full retrieval/control stack too: hard guards/probes are the
+      cheapest deterministic classifier layer, `ConceptIndex` /
+      ZGraph-compatible graph outputs reduce search space over canonical refs,
+      `HotIndex` / `startup-context` / `ContextPack` reconstruct the minimum
+      cited working slice for the current task, and reviewer/autonomy/Ralph
+      AI loops stay the expensive fallback/controller layer only when the
+      cheaper layers cannot decide or fix the issue safely.
 - [ ] Add a graph-capability ladder instead of one flat “wire ZGraph
       everywhere” task: connected typed plan/doc/command edges first, then
       bounded transitive blast-radius queries, then test-to-code /
       test-selection edges, then agent-authored graph queries. Each step must
       stay reversible to canonical refs and pass the same honesty rules.
+- [ ] Upgrade the current repo-local graph from a static discovery helper into
+      a task-aware intake reducer in bounded steps. Start with command-graph
+      closure (public command -> handler/source edges from dispatch
+      authority), explicit honesty states (`low_confidence`, `no_edge`) in
+      query output, and edge-validation that rejects orphaned semantic links or
+      heuristic plan->concept edges whose target concept never materializes.
+- [ ] Add the first typed `startup-context` / `WorkIntakePacket` command after
+      those honesty fixes land. The packet should carry repo identity, command
+      goal, active target refs, changed paths, changed symbols when available,
+      suggested graph queries, canonical refs, targeted checks, writeback
+      sinks, confidence, and fallback refs so the least-effort-first workflow
+      is operational rather than prose-only.
+- [ ] Make graph routing inputs live before calling it a scheduler: feed the
+      current diff, recent findings, last failed checks, recently touched
+      files, and current plan scope into graph temperature/ranking instead of
+      rebuilding the same static discovery graph on every command invocation.
+- [ ] Widen from file graph to work graph in the next ladder step: symbol
+      nodes, test-to-file/test-to-symbol edges, finding identity nodes, plan
+      anchors/checklist rows, repo-pack policy nodes, workflow/config edges,
+      and Swift/iOS coverage after Python/Rust so this repo's mobile surfaces
+      are not invisible to routing.
 - [ ] Extend that same graph contract with workflow and config nodes/edges so
       AI and operator surfaces can answer “which CI workflows, guard paths, or
       config files affect this scope?” without separate prompt-local lookup.
@@ -3056,6 +3084,18 @@ Still open before `P0` closes:
       retrieval the only source of truth; treat it as an optional accelerator
       over the canonical artifacts once the deterministic snapshot contract is
       stable.
+- [ ] Make the cross-repo session-start flow explicit on top of that cache
+      layer: first run should seed canonical artifacts through
+      `governance-bootstrap`, `check --adoption-scan` /
+      `probe-report --adoption-scan`, and one bounded `context-graph` /
+      `startup-context` packet; later sessions should refresh only the
+      invalidated slices via content-hash + git diff, then emit the next warm
+      start from cached artifacts + delta instead of re-deriving the whole
+      repo.
+- [ ] Keep a non-Rust fallback first-class for that same flow: until the
+      SQLite runtime is active, canonical JSON snapshots plus refresh-ledger
+      rows under `dev/reports/**` must remain sufficient for warm-start
+      portability on adopting repos.
 - [ ] Add one cached aggregate evidence surface (`master-report`) over the
       stable artifact families: guard results, probe findings, governance
       ledger stats, repo-map/topology state, targeted-check hints, convention
@@ -3765,6 +3805,31 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-21: Captured the deeper context-graph audit as tracked platform
+  scope instead of leaving it as chat-only analysis. The accepted read is that
+  the current `context-graph` slice is a good bounded bootstrap/query helper
+  but not yet the deterministic effort scheduler: command graph closure is
+  still thin, graph honesty needs machine-readable confidence/no-edge states,
+  live routing inputs are not yet flowing into the build path, and the graph
+  is still file-oriented instead of symbol/test/finding-oriented. The next
+  ladder is now explicit here: honesty + command edges first, then typed
+  `startup-context` / `WorkIntakePacket`, then live routing inputs, then the
+  broader work graph.
+- 2026-03-21: Captured the missing cross-session warm-start rule explicitly.
+  The plans already had startup-context, hot/warm/cold retrieval, adoption
+  scans, and SQLite activation, but the end-to-end session flow is now named
+  too: first run seeds canonical artifacts, later runs refresh only the
+  content-hash/git-diff-invalidated slices, and JSON snapshots remain the
+  portable fallback until the SQLite runtime cache is active.
+- 2026-03-21: Captured the accepted four-layer execution model for the
+  platform plans so context work stops drifting into "load everything and hope
+  the model ignores it." The stack is now explicit: hard guards/probes first
+  as cheap deterministic classifiers, `ConceptIndex` / ZGraph second as the
+  reversible search-space reducer over canonical refs, `HotIndex` /
+  `startup-context` / `ContextPack` third as the bounded reconstructed working
+  slice, and the reviewer/autonomy/Ralph loops last as the expensive
+  fallback/controller layer for unresolved work. That framing now governs
+  context-escalation policy, graph honesty, and future controller design.
 - 2026-03-21: Accepted the next context-graph rollout order after landing the
   first bounded context-escalation slice. The current green CI/docs state
   should be checkpointed as the first stable Phase-6 context-recovery proof

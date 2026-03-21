@@ -196,6 +196,11 @@ intended execution order is:
       routed bundle/check plan, convention/probe subset, bounded doc subset,
       and required write-back sinks without cold-reading the full repo every
       session.
+- [ ] Define the session-start refresh contract for that same startup surface:
+      first run seeds canonical startup artifacts, later sessions refresh only
+      the content-hash/git-diff-invalidated slices, and the next
+      `startup-context` / `WorkIntakePacket` must come from cached artifacts +
+      delta instead of full repo recomputation.
 - [ ] Put one bounded `Why Stack` product thesis at the top of that startup
       surface before SOP/router detail: every fresh session should read the
       mission, proof obligation, and current product priority first so agents
@@ -517,6 +522,32 @@ intended execution order is:
       read-only and generated; packet refs and query hints may guide startup /
       review / fix flows, but they do not become authority over plans,
       findings, or reviewer instructions.
+- [ ] Freeze the retrieval/control stack semantics for the same lane:
+      hard guards/probes classify cheaply first, `ConceptIndex` /
+      ZGraph-compatible outputs only reduce search space over canonical refs,
+      `startup-context` / `ContextPack` reconstruct the minimum cited working
+      slice second, and reviewer/autonomy/Ralph controller loops consume those
+      packets only as the expensive fallback layer when the cheaper paths
+      cannot decide or recover safely.
+- [ ] Treat the current `context-graph` implementation honestly as a bounded
+      discovery helper until the next reducer steps land. Before counting it as
+      task routing, close command->handler/source edges against dispatch
+      authority, reject orphan semantic edges, emit explicit
+      `low_confidence` / `no_edge` states, and keep heuristic plan->concept
+      edges suppressed unless the target concept node actually materializes.
+- [ ] Land one typed `startup-context` / `WorkIntakePacket` repo-owned command
+      before broader graph fan-out. That packet should carry command goal,
+      active target refs, changed scope, suggested graph queries, canonical
+      warm refs, targeted checks, and fallback/confidence fields so the
+      least-effort-first routing contract exists as machine state.
+- [ ] Feed live task state into that reducer in the next slice: changed paths,
+      recent findings, last failed checks, recent touched files, and current
+      plan scope should influence graph ranking instead of every query seeing
+      the same static discovery view.
+- [ ] Keep the storage fallback explicit while SQLite activation is pending:
+      canonical JSON artifacts plus refresh-ledger rows must remain a complete
+      warm-start path for repo-pack adopters until the runtime cache is active
+      and proven against the same contracts.
 - [ ] Require one stronger typed edge path for plan/doc/command queries before
       claiming MP-scoped graph retrieval is ready. Do not treat keyword-only
       isolated plan matches as sufficient evidence that the navigation layer is
@@ -689,6 +720,26 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-21: Folded the deeper context-graph runtime audit into `MP-377`
+  Phase-6 scope. The graph is still intentionally bounded, but the missing
+  runtime gaps are now tracked explicitly: command nodes need closure to real
+  handlers, heuristic/orphan semantic edges need fail-closed honesty rules,
+  the first typed `startup-context` / `WorkIntakePacket` reducer must replace
+  prose-only least-effort guidance, and later graph widening must cover live
+  routing inputs plus symbol/test/finding/workflow/config/iOS surfaces.
+- 2026-03-21: Added the missing warm-start/session-delta rule to the same
+  authority-loop lane. First startup seeds canonical artifacts, later
+  sessions refresh only the invalidated slices by content hash + git diff, and
+  the same startup family must still work from JSON artifacts when the SQLite
+  runtime cache is not active yet.
+- 2026-03-21: Named the accepted retrieval/control stack explicitly for
+  `MP-377` Phase 6 and later controller work. Cheap deterministic
+  guards/probes classify first, `ConceptIndex` / ZGraph reduces the candidate
+  scope second, `startup-context` / `ContextPack` reconstruct the bounded
+  cited working slice third, and the review/autonomy/Ralph loops are the
+  expensive fallback/controller layer on top. This keeps graph/context
+  surfaces generated-only and prevents the live controller path from sliding
+  back into whole-repo bootstrap blobs as implicit authority.
 - 2026-03-21: Accepted the next bounded Phase-6 graph order after landing the
   first repo-owned context-escalation slice. The current green/docs-synced
   packet path should be checkpointed before widening scope again. Immediate

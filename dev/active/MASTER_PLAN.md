@@ -75,6 +75,22 @@
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible
   navigation plus a report-only `devctl` context-graph query surface on top
   of those pointers. Do not introduce a separate semantic authority store.
+- Accepted retrieval/control stack inside that same lane: hard guards/probes
+  stay the cheapest deterministic classifier layer, `ConceptIndex` /
+  ZGraph-compatible graph outputs are the reversible search-space reducer over
+  canonical refs, `startup-context` / `ContextPack` reconstruct the minimum
+  cited working slice for the current scope, and review/autonomy/Ralph AI
+  loops remain the expensive fallback/controller layer for work the cheaper
+  layers cannot resolve. Do not collapse those layers into one prompt-local
+  blob or let generated graph/context surfaces become a second authority.
+- Current graph/intake follow-up inside that same lane: the live
+  `context-graph` slice is still a bounded discovery helper, not the full
+  least-effort scheduler. Next ladder is explicit: add command->handler/source
+  closure plus honesty guards first, then a typed `startup-context` /
+  `WorkIntakePacket` reducer with command goal + changed scope + targeted
+  checks, then live routing inputs (diff, findings, failed checks, plan
+  scope), then symbol/test/finding/policy/workflow/config graph coverage,
+  including Swift/iOS surfaces used by this repo.
 - Current `P0` closure focus inside that sequence: canonical `Finding`-based
   packets, `FixPacket` / `DecisionPacket` split, schema/version matrices,
   `CommandGoalTaxonomy` + validation-routing closure, and a contract-closure

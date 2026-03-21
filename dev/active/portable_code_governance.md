@@ -210,11 +210,22 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       targeted-check hints, filtered probe view) under one portable artifact /
       refresh-ledger contract, then refresh only the slices invalidated by git
       changes, plan/policy edits, or missing cache state.
+- [ ] Make the adopter session-start path explicit in that same portable
+      contract: first run should seed canonical artifacts through
+      `governance-bootstrap`, `check --adoption-scan` /
+      `probe-report --adoption-scan`, and a bounded startup packet; later
+      runs should reuse cached artifacts, refresh only content-hash/git-diff-
+      invalidated slices, and emit the next warm start without re-reading the
+      whole repo.
 - [ ] Define the portable storage/index contract for that repo-understanding
       surface: canonical JSON snapshot, append-only refresh ledger, optional
       SQLite query cache, stable artifact receipts, and repo-policy retention
       rules so another repo can reuse cached focus state without VoiceTerm-
       specific memory paths.
+- [ ] Keep the non-Rust fallback first-class in that same portable path:
+      canonical JSON snapshots plus refresh-ledger rows must be sufficient for
+      warm-start portability even before an adopter activates the optional
+      SQLite runtime/query cache.
 - [ ] Build the short-term anti-pattern feedback loop before any model-training
       push: when guards/probes fire, emit compact repair packets, attach the
       most relevant repo-local good examples and policy hints, rerun targeted
@@ -352,6 +363,11 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   stable artifact receipts, and repo-policy retention rules so adopters can
   answer "what changed and what matters?" from stored evidence instead of raw
   prose bootstrap.
+- 2026-03-21: Tightened that portable startup rule into an explicit first-run
+  versus later-run contract. Adopters should seed canonical artifacts once via
+  bootstrap + adoption-scan, then use content-hash/git-diff refresh to keep
+  the next startup packet warm. JSON artifacts remain the required fallback
+  until optional SQLite caching is activated in the target repo.
 - 2026-03-11: Created this execution-plan doc after maintainership review
   highlighted a tracking gap. Existing active docs already covered probe
   implementation and portable-guard slices, but not the broader portable
