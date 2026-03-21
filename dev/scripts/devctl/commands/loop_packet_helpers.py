@@ -11,9 +11,11 @@ from typing import Any
 
 from ..common import read_json_object, resolve_repo_path
 from ..config import REPO_ROOT
+from ..context_graph.escalation import ContextEscalationPacket
 from ..status_report import build_project_report
 from ..triage.enrich import apply_defaults_to_issues, build_issue_rollup
 from ..triage.support import build_next_actions, classify_issues
+from .packets.loop_packet_context import build_loop_packet_context_packet
 
 
 class LoopPacketSourceCommand(StrEnum):
@@ -198,7 +200,11 @@ def _build_packet_body(
     *,
     source_command: str,
     payload: dict[str, Any],
-) -> tuple[str, str, list[str]]:
+) -> tuple[str, str, list[str], ContextEscalationPacket | None]:
+    context_packet = build_loop_packet_context_packet(
+        source_command=source_command,
+        payload=payload,
+    )
     if source_command == "triage-loop":
         unresolved = int(payload.get("unresolved_count") or 0)
         reason = str(payload.get("reason") or "unknown")
@@ -226,7 +232,9 @@ def _build_packet_body(
                 "Task: propose the next bounded remediation step with guardrails and verification.",
             ]
         )
-        return risk, draft, actions
+        if context_packet is not None:
+            draft += "\n\n" + context_packet.markdown
+        return risk, draft, actions, context_packet
     if source_command == "mutation-loop":
         score = payload.get("last_score")
         threshold = payload.get("threshold")
@@ -266,7 +274,10 @@ def _build_packet_body(
             "",
             "Task: propose the smallest safe test/code change sequence to improve confidence.",
         ]
-        return risk, "\n".join(lines), actions
+        draft = "\n".join(lines)
+        if context_packet is not None:
+            draft += "\n\n" + context_packet.markdown
+        return risk, draft, actions, context_packet
 
     rollup = payload.get("rollup") if isinstance(payload.get("rollup"), dict) else {}
     total = int(rollup.get("total") or 0)
@@ -291,7 +302,10 @@ def _build_packet_body(
         "",
         "Task: convert this triage snapshot into an ordered, guarded execution plan.",
     ]
-    return risk, "\n".join(lines), actions
+    draft = "\n".join(lines)
+    if context_packet is not None:
+        draft += "\n\n" + context_packet.markdown
+    return risk, draft, actions, context_packet
 
 
 def _auto_send_eligible(source_command: str, payload: dict[str, Any], risk: str) -> bool:

@@ -41,9 +41,16 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
         "reviewer_overdue_threshold_seconds",
         CODEX_POLL_OVERDUE_AFTER_SECONDS,
     )
+    publisher_running = bool(bridge_liveness.get("publisher_running"))
+    reviewer_runtime_running = reviewer_supervisor_running or publisher_running
 
     if not reviewer_mode_is_active(reviewer_mode):
         status = AttentionStatus.INACTIVE
+    elif (
+        overall_state == OverallLivenessState.RUNTIME_MISSING
+        or (reviewer_mode_is_active(reviewer_mode) and not reviewer_runtime_running)
+    ):
+        status = AttentionStatus.RUNTIME_MISSING
     elif reviewer_freshness == ReviewerFreshness.MISSING or (
         not reviewer_freshness and codex_poll_state == CodexPollState.MISSING
     ):
@@ -91,7 +98,7 @@ def derive_bridge_attention(bridge_liveness: dict[str, object]) -> dict[str, obj
         status = AttentionStatus.IMPLEMENTER_COMPLETION_STALL
     elif (
         reviewer_mode_is_active(reviewer_mode)
-        and not bool(bridge_liveness.get("publisher_running"))
+        and not publisher_running
     ):
         stop_reason = str(bridge_liveness.get("publisher_stop_reason") or "")
         if stop_reason == "failed_start":

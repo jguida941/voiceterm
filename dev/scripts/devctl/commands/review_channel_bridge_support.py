@@ -37,7 +37,6 @@ from ..review_channel.promotion import (
     resolve_scope_plan_path,
     scope_bridge_instruction,
 )
-from ..review_channel.reviewer_state import maybe_auto_demote_stale_active_bridge
 
 
 def bridge_launch_state(
@@ -59,18 +58,6 @@ def bridge_launch_state(
     reviewer_state_write = None
     refreshable_actions = set(bridge_actions) | {"status"}
     allow_status_refresh = args.action != "status" or not getattr(args, "dry_run", False)
-    if (
-        context.bridge_path.exists()
-        and args.action == "status"
-        and allow_status_refresh
-        and not getattr(args, "refresh_bridge_heartbeat_if_stale", False)
-        and isinstance(context.status_dir, Path)
-    ):
-        reviewer_state_write = maybe_auto_demote_stale_active_bridge(
-            repo_root=context.repo_root,
-            bridge_path=context.bridge_path,
-            status_dir=context.status_dir,
-        )
     if (
         context.bridge_path.exists()
         and args.action in refreshable_actions

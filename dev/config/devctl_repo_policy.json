@@ -371,9 +371,9 @@
         "development_branch": "develop",
         "python_version": "3.11",
         "bootstrap_steps": [
-          "Read `AGENTS.md` (mandatory 12-step SOP, task router, bundle commands).",
-          "Read `dev/active/INDEX.md` (registry of all active plan docs with roles).",
-          "Read `dev/active/MASTER_PLAN.md` (canonical execution state for all MPs).",
+          "Run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for a slim startup context (~1.3K tokens): repo identity, active plans with MP scopes, hotspot files, key commands, and deep links.",
+          "Follow the deep links from step 1 when the task requires full authority: read `AGENTS.md` for SDLC policy, `dev/active/INDEX.md` for plan doc registry, `dev/active/MASTER_PLAN.md` for canonical execution state.",
+          "Use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md` to load targeted subgraphs for specific files, MPs, guards, or subsystems instead of reading full docs when only bounded context is needed.",
           "Only load additional active docs when the task class requires them."
         ],
         "key_commands_block": "# Full CI check\npython3 dev/scripts/devctl.py check --profile ci\n\n# Quick local check\npython3 dev/scripts/devctl.py check --profile quick\n\n# Docs governance\npython3 dev/scripts/devctl.py docs-check --strict-tooling\n\n# Platform contract catalog\npython3 dev/scripts/devctl.py platform-contracts --format md\n\n# Platform contract closure guard\npython3 dev/scripts/checks/check_platform_contract_closure.py\n\n# Render policy-owned instruction surfaces\npython3 dev/scripts/devctl.py render-surfaces --format md\n\n# Hygiene\npython3 dev/scripts/devctl.py hygiene\n\n# Rust tests\ncd rust && cargo test --bin voiceterm\n\n# Python tests\npython3 -m pytest dev/scripts/devctl/tests/ -q",

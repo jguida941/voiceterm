@@ -119,6 +119,10 @@ Use this route to run end-to-end without ambiguity:
 Run this sequence for every task. Do not skip steps.
 
 1. Run session bootstrap checks and load `dev/active/INDEX.md` (`bundle.bootstrap`).
+   Alternatively, run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
+   for a slim startup context with active plans, hotspots, and deep links.
+   Follow the deep links when the task requires full authority from the
+   canonical docs (`AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`).
 2. Decide scope (`develop` work or `master` release work).
 3. Classify task using the task router table.
 4. Load only the required context pack listed for your task class.

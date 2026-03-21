@@ -69,7 +69,6 @@ def refresh_status_snapshot(
     )
     merged_warnings = list(warnings or [])
     merged_errors = list(errors or [])
-    merged_warnings.extend(_bridge_liveness_warnings(bridge_liveness))
     reviewer_worker = _build_reviewer_worker_snapshot(
         repo_root=repo_root,
         bridge_path=bridge_path,
@@ -83,6 +82,7 @@ def refresh_status_snapshot(
         reviewer_supervisor_state=reviewer_supervisor_state,
         reviewer_overdue_threshold_seconds=reviewer_overdue_threshold_seconds,
     )
+    merged_warnings.extend(_bridge_liveness_warnings(bridge_liveness))
     attention = derive_bridge_attention(bridge_liveness)
     service_identity = build_service_identity(
         repo_root=repo_root,
@@ -178,6 +178,10 @@ def _bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
         warnings.append(
             "Bridge reviewer mode is inactive; live heartbeat freshness is not enforced until the reviewer resumes active_dual_agent mode."
         )
+    elif overall_state == OverallLivenessState.RUNTIME_MISSING:
+        warnings.append(
+            "Reviewer runtime is missing while `active_dual_agent` is still declared. The daemon is treated as missing runtime, not as authority to pause the loop."
+        )
     elif reviewer_freshness == ReviewerFreshness.MISSING or codex_poll_state == CodexPollState.MISSING:
         warnings.append(
             "Bridge liveness is missing: the bridge header does not expose a usable `Last Codex poll` timestamp yet."
@@ -231,6 +235,13 @@ def _apply_lifecycle_bridge_liveness(
         bridge_liveness["reviewer_overdue_threshold_seconds"] = (
             reviewer_overdue_threshold_seconds
         )
+    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
+    if (
+        reviewer_mode_is_active(reviewer_mode)
+        and not bridge_liveness["publisher_running"]
+        and not bridge_liveness["reviewer_supervisor_running"]
+    ):
+        bridge_liveness["overall_state"] = OverallLivenessState.RUNTIME_MISSING
 
 
 def _build_reviewer_worker_snapshot(

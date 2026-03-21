@@ -11,6 +11,8 @@ from .autonomy.benchmark_parser import add_autonomy_benchmark_parser
 from .autonomy.loop_parser import add_autonomy_loop_parser
 from .autonomy.run_parser import add_autonomy_run_parser
 from .cihub_setup_parser import add_cihub_setup_parser
+from .context_graph.command import run as context_graph_run
+from .context_graph.parser import add_context_graph_parser
 from .cli_parser.builders import add_standard_parsers
 from .commands import (
     audit_scaffold,
@@ -159,6 +161,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_sync_parser(sub)
     add_integrations_sync_parser(sub)
     add_integrations_import_parser(sub)
+    add_context_graph_parser(sub)
     return parser
 
 
@@ -228,6 +231,7 @@ COMMAND_HANDLERS = {
     "failure-cleanup": failure_cleanup.run,
     "reports-cleanup": reports_cleanup.run,
     "audit-scaffold": audit_scaffold.run,
+    "context-graph": context_graph_run,
 }
 
 

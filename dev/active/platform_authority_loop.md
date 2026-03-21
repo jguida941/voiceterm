@@ -511,6 +511,24 @@ intended execution order is:
       snapshots second, and the first operator/agent implementation stays
       report-only (`context-graph` / hot-index query over existing artifacts)
       until the contract is proven.
+- [ ] Freeze the typed context-escalation policy on top of that graph:
+      injection is allowed only for unread scope, repeated failed attempt,
+      guard-hit scope, or explicit blast-radius uncertainty. Escalation stays
+      read-only and generated; packet refs and query hints may guide startup /
+      review / fix flows, but they do not become authority over plans,
+      findings, or reviewer instructions.
+- [ ] Require one stronger typed edge path for plan/doc/command queries before
+      claiming MP-scoped graph retrieval is ready. Do not treat keyword-only
+      isolated plan matches as sufficient evidence that the navigation layer is
+      truthful.
+- [ ] Add a focused first context-recovery validation bundle: review-channel
+      promotion/event views, autonomy checkpoint/swap-in prompts, Ralph fixer
+      prompts, and direct `context-graph --query` output must agree on cited
+      canonical refs for the same scope.
+- [ ] Checkpoint the current green bounded context-escalation slice before
+      widening graph capability work again. Richer graph features (transitive
+      blast radius, test-to-code edges, self-service graph queries) are later
+      Phase-6/7 work, not part of the first proof.
 - [ ] Treat Phase 6 as done only when at least one named consumer
       (`startup-context`, `master-report`, or packet-outcome ingestion) reads
       `ContextPack` through the contract instead of path-only attachment
@@ -662,9 +680,24 @@ intended execution order is:
   - Accepted native path for that graph work: first freeze repo-owned pointer
     rows and typed edges, then add a report-only `devctl` query surface over
     existing artifacts before any heavier storage/index acceleration.
+  - Accepted next graph rollout order: checkpoint the current bounded
+    context-escalation proof first, then widen the same packet shape through
+    backend instruction emitters (review-channel promotion/event surfaces and
+    fresh `swarm_run` prompts), then run the cross-surface validation bundle,
+    then evaluate richer graph capabilities such as transitive blast radius,
+    test-to-code, and self-service queries.
 
 ## Progress Log
 
+- 2026-03-21: Accepted the next bounded Phase-6 graph order after landing the
+  first repo-owned context-escalation slice. The current green/docs-synced
+  packet path should be checkpointed before widening scope again. Immediate
+  next backend slice: attach the same generated packet to review-channel
+  promotion/event instructions and fresh `swarm_run` prompts, then validate
+  that review-channel, autonomy, Ralph, and direct `context-graph --query`
+  outputs cite the same canonical refs for the same scope. Richer graph
+  capabilities such as transitive blast radius, test-to-code edges, and
+  self-service queries remain explicitly later work.
 - 2026-03-20: Accepted the native `devctl` context-graph direction as the
   right `MP-377` Phase-6 shape instead of introducing an external semantic
   store first. The architecture rule is now explicit here: canonical plans,

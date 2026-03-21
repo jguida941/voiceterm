@@ -197,6 +197,54 @@ class LoopPacketCommandTests(unittest.TestCase):
         self.assertEqual(payload["source_command"], "triage")
         self.assertTrue(any("no artifact source found" in row for row in payload["warnings"]))
 
+    @patch("dev.scripts.devctl.commands.packets.loop_packet_context.build_context_escalation_packet")
+    def test_includes_context_packet_when_escalation_fires(self, escalation_mock) -> None:
+        from dev.scripts.devctl.context_graph.escalation import ContextEscalationPacket
+
+        escalation_mock.return_value = ContextEscalationPacket(
+            trigger="loop-packet:triage-loop",
+            query_terms=("check",),
+            matched_nodes=1,
+            edge_count=0,
+            canonical_refs=("dev/scripts/devctl/cli.py",),
+            evidence=("check: nodes=1, edges=0",),
+            markdown=(
+                "## Context Recovery Packet\n\n"
+                "- Trigger: `loop-packet:triage-loop`\n"
+                "- Query terms: `check`\n"
+                "- Graph matches: nodes=1, edges=0\n"
+                "- Canonical refs:\n"
+                "  - `dev/scripts/devctl/cli.py`"
+            ),
+        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            source_path = Path(tmp_dir) / "coderabbit-ralph-loop.json"
+            output_path = Path(tmp_dir) / "packet.json"
+            source_path.write_text(
+                json.dumps(
+                    {
+                        "command": "triage-loop",
+                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        "branch": "develop",
+                        "reason": "report_only_below_threshold",
+                        "unresolved_count": 1,
+                        "next_actions": [
+                            "Run `python3 dev/scripts/devctl.py check --profile ci`."
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            args = _base_args(source_json=[str(source_path)], output=str(output_path))
+            rc = loop_packet.run(args)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(rc, 0)
+        self.assertIn("context_packet", payload)
+        self.assertEqual(payload["context_packet"]["trigger"], "loop-packet:triage-loop")
+        self.assertIn("Context Recovery Packet", payload["terminal_packet"]["draft_text"])
+        escalation_mock.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

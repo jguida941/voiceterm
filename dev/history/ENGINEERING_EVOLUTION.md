@@ -46,6 +46,21 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-20 - MP-377 Phase 6 context-graph implementation
+
+Landed `devctl context-graph` command (7-file package under
+`dev/scripts/devctl/context_graph/`). The command builds a typed repo graph
+from existing artifacts (probe topology scan, script catalog, INDEX.md) and
+supports four output modes: `--mode bootstrap` (slim AI startup packet,
+~1.3K tokens), `--query '<term>'` (targeted subgraph), `--format mermaid`
+(concept-level subsystem diagram), and `--format dot` (graphviz). ZGraph
+concept layer derives subsystem nodes from directory structure with
+`contains`, `related_to`, and `documented_by` typed edges. All nodes carry
+`canonical_pointer_ref` and `provenance_ref` back to real repo artifacts.
+Startup-authority contract updated through the canonical policy chain
+(`devctl_repo_policy.json` → `render-surfaces` → `CLAUDE.md`, plus
+`AGENTS.md` step 1 and bridge start-of-conversation rule 3).
+
 ### 2026-03-20 - MP-377 native context-graph direction and bridge reset
 
 Fact: the repo accepted the next `MP-377` context-retrieval direction as a

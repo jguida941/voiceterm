@@ -1429,6 +1429,21 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-21: Accepted the next bounded graph-injection follow-up for
+  `swarm_run`/autonomy. The carry-forward checkpoint packet is now real, but
+  fresh autonomy sessions still start from plain checklist text. The next
+  backend slice is to prepend the same bounded `context-graph` packet to the
+  generated `swarm_run` prompt and then measure repeated-failure scenarios
+  with and without the packet (retry count, wrong-file edits, and
+  check-selection accuracy) before widening to operator/mobile rendering.
+- 2026-03-21: Added the first repo-owned context recovery packet to the
+  bounded autonomy loop. `loop-packet` now derives small `context-graph`
+  packets from triage commands, issue summaries, and mutation hotspots, and
+  `build_checkpoint_packet()` carries that structured packet into the durable
+  autonomy inbox/checkpoint artifact instead of leaving recovery context as an
+  operator-only guess. Next: decide whether phone/overlay surfaces should
+  render the packet directly or stay summary-only while the controller loop is
+  still stabilizing.
 - 2026-03-17: Accepted the next mobile/backend architecture correction from a
   focused iPhone/runtime review. The current mobile relay guard is not yet a
   trustworthy live-seam guard: it compares Rust structs against bundle-only

@@ -157,6 +157,16 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       changed scope, and guard/probe overlays with machine-readable targeted-
       check hints so humans and AI can reuse one public surface instead of
       inventing prompt-local repo walkthroughs.
+- [ ] Extend that portable map contract with optional test nodes and
+      test-to-code edges so adopters can derive targeted test plans from
+      changed files instead of guessing at validation scope.
+- [ ] Add a bounded transitive blast-radius query contract on top of that map:
+      start with explainable hop-limited closure over typed relations instead
+      of opaque ranking so portability proofs can show why a file/test/config
+      was pulled into scope.
+- [ ] Add a portable typed-query layer beyond substring search so callers,
+      importers, tests, configs, workflows, and plan/doc relations are
+      queryable as explicit graph questions rather than prompt-local prose.
 - [ ] Add a portable work-intake / startup-authority layer on top of that map
       and policy stack: another repo should be able to ask "what is active,
       what changed, what bundle should run, and where should accepted outcomes
@@ -168,6 +178,11 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       declared convention policy or freshly generated convention reports, AI
       startup surfaces should include the relevant convention summary and the
       right convention checks instead of expecting agents to infer repo style
+      from scattered examples.
+- [ ] Benchmark portable context injection across repos with token cost,
+      right-file selection, right-test selection, retry count, and
+      false-confidence rate so graph-backed startup/context claims are measured
+      rather than assumed.
       from arbitrary nearby code.
 - [ ] Keep startup context bounded and task-scoped for adopters: another repo
       should not need to read tens of thousands of tokens of global docs just

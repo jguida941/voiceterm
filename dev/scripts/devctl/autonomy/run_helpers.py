@@ -7,6 +7,11 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from ..context_graph.escalation import (
+    append_context_packet_markdown,
+    build_context_escalation_packet,
+    collect_query_terms,
+)
 from .swarm_helpers import fallback_repo_from_origin
 from ..common import display_path
 from ..config import REPO_ROOT
@@ -58,7 +63,30 @@ def derive_prompt(
     else:
         for item in next_steps:
             lines.append(f"- {item}")
-    return "\n".join(lines)
+    prompt = "\n".join(lines)
+    context_packet = _build_swarm_prompt_context_packet(
+        plan_doc=plan_doc,
+        mp_scope=mp_scope,
+        next_steps=next_steps,
+    )
+    return append_context_packet_markdown(prompt, context_packet)
+
+
+def _build_swarm_prompt_context_packet(
+    *,
+    plan_doc: str,
+    mp_scope: str,
+    next_steps: list[str],
+) -> object | None:
+    query_terms = collect_query_terms(
+        [plan_doc, mp_scope, *next_steps[:3]],
+        max_terms=4,
+    )
+    return build_context_escalation_packet(
+        trigger="swarm-run",
+        query_terms=query_terms,
+        options={"max_chars": 700},
+    )
 
 
 def run_command(command: list[str], *, timeout_seconds: int = 0) -> dict[str, Any]:

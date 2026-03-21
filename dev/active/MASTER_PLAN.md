@@ -135,6 +135,36 @@
   ZGraph-compatible encoding generated-only. This stays inside the
   `ContextPack` / startup-boundary plan, not as a new MP or a second memory
   authority.
+- `MP-377` Phase 6 context-graph implementation landed (Session 43): 7-file
+  package at `dev/scripts/devctl/context_graph/`, 4 output modes (bootstrap,
+  query, mermaid, dot), ZGraph concept layer with typed edges
+  (`documented_by`, `related_to`, `contains`). Startup-authority contract
+  updated through the canonical policy chain.
+- Accepted next bounded use of that same context-graph slice: policy-driven
+  context escalation for live agents. Conductors now get explicit
+  unread-scope / failed-attempt / blast-radius query rules plus a preloaded
+  lane packet, `loop-packet` / autonomy checkpoints now carry a bounded
+  recovery packet forward, and the Ralph CodeRabbit fixer now injects the
+  same packet into its Claude prompt. Keep this read-only and generated; it
+  is recovery/navigation, not a second authority store.
+- Immediate sequencing rule for that graph work: checkpoint the current green
+  bounded context-escalation slice before widening graph scope again. Treat
+  the passing CI/doc-governance state as the first stable Phase-6
+  context-recovery proof, not as permission to pile richer graph work into
+  the same mixed tree.
+- Next `MP-377` graph order after that checkpoint: honest typed plan/doc/
+  command edges first, then the remaining backend instruction emitters
+  (review-channel promotion/event projections and fresh `swarm_run`
+  prompts), then a validation matrix across review-channel / autonomy /
+  Ralph, then richer graph capabilities such as transitive blast radius,
+  test-to-code/test-selection edges, and agent-authored graph queries.
+- Follow-up: `devctl` organization/readability cleanup — crowded roots
+  (`dev/scripts/devctl/`, `commands/`, `tests/` all over freeze thresholds),
+  naming/module convention consistency, and a portable naming-convention
+  report/guard path. Current `package_layout` guards hold via freeze mode
+  but do not drive cleanup. Keep this as a tracked self-hosting follow-up
+  after the checkpointed graph slice rather than mixing it into the same
+  implementation batch.
 - Audit-integration rule: if a repo-root audit finding is accepted, rewrite it
   into canonical execution state in `MASTER_PLAN`, the relevant active plan
   doc, and maintainer docs when process policy changes. Do not keep live work
@@ -262,8 +292,9 @@
   `expected_revision` / `state_hash` checks as supplemental freshness guards
   rather than replacements for designated writer ownership. Startup may auto:
   inspect repo state, refresh stale authority artifacts, resume exactly one
-  valid session, auto-demote stale abandoned state, and emit one bounded
-  intake/resume packet. Startup must not auto: guess among multiple active
+  valid session, mark stale runtime/session attachment as `runtime_missing`
+  or emit one bounded repair receipt, and emit one bounded intake/resume
+  packet. Startup must not auto: guess among multiple active
   plans, launch conductors, or promote itself into `active_dual_agent`
   without explicit operator/policy choice. Phase 7 proof now also needs a
   replayable single-agent vs multi-agent comparison with adjudicated
@@ -2791,7 +2822,14 @@ become the main product surface.
   transport is necessary, but it is not yet the controller loop: PTY/session
   attach and terminal packet staging do not by themselves satisfy reviewer
   heartbeat, agent lifecycle `ensure/watch`, queue/action routing, or shared
-  review/control-state publishing.
+  review/control-state publishing. Publisher/supervisor daemons are runtime
+  infrastructure and projection health only; they may report
+  `runtime_missing`, but they must not rewrite reviewer/session mode
+  authority. The next controller follow-up should upgrade that daemon role
+  from passive bridge watcher to bounded round supervisor: fresh agent
+  invocation/re-entry, explicit ACK deadlines, and no-progress/error-repeat
+  circuit breakers sourced from typed session state rather than markdown
+  polling alone.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..367):
 

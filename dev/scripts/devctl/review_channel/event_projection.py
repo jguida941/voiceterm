@@ -4,18 +4,22 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 
+from ..runtime.review_state_models import ReviewQueueState
 from .attention import derive_bridge_attention
 from .attach_auth_policy import build_attach_auth_policy
 from .attach_auth_projection import (
     build_attach_auth_policy_state,
     build_service_identity_state,
 )
-from hashlib import sha256
-
-from ..runtime.review_state_models import ReviewQueueState
 from .core import DEFAULT_BRIDGE_REL
+from .event_projection_context import (
+    append_context_packet_markdown,
+    build_event_context_packet,
+    build_instruction_source,
+)
 from .service_identity import build_service_identity
 
 
@@ -26,10 +30,11 @@ def build_event_queue_summary(
     packets: list[dict[str, object]],
 ) -> dict[str, object]:
     """Build the event-backed queue summary plus derived next-step hint."""
+    derived_instruction, derived_source = _derived_next_instruction_bundle(packets)
     summary: dict[str, object] = {
         "pending_total": sum(pending_counts.values()),
-        "derived_next_instruction": _derived_next_instruction(packets),
-        "derived_next_instruction_source": _derived_next_instruction_source(packets),
+        "derived_next_instruction": derived_instruction,
+        "derived_next_instruction_source": derived_source,
     }
     for provider, count in pending_counts.items():
         summary[f"pending_{provider}"] = count
@@ -43,6 +48,7 @@ def build_event_queue_state(
     packet_rows: list[dict[str, object]],
 ) -> ReviewQueueState:
     """Build a typed ReviewQueueState from event reduction outputs."""
+    derived_instruction, derived_source = _derived_next_instruction_bundle(packet_rows)
     return ReviewQueueState(
         pending_total=sum(pending_counts.values()),
         pending_codex=pending_counts.get("codex", 0),
@@ -50,8 +56,8 @@ def build_event_queue_state(
         pending_cursor=pending_counts.get("cursor", 0),
         pending_operator=pending_counts.get("operator", 0),
         stale_packet_count=stale_packet_count,
-        derived_next_instruction=_derived_next_instruction(packet_rows),
-        derived_next_instruction_source=_derived_next_instruction_source(packet_rows),
+        derived_next_instruction=derived_instruction,
+        derived_next_instruction_source=derived_source,
     )
 
 
@@ -239,6 +245,12 @@ def _event_agent_status(review_state: Mapping[str, object], agent_id: str) -> st
 
 
 def _derived_next_instruction(packets: list[dict[str, object]]) -> str:
+    return _derived_next_instruction_bundle(packets)[0]
+
+
+def _derived_next_instruction_bundle(
+    packets: list[dict[str, object]],
+) -> tuple[str, dict[str, object]]:
     now_utc = datetime.now(timezone.utc)
     for packet in packets:
         if packet.get("status") != "pending":
@@ -247,29 +259,16 @@ def _derived_next_instruction(packets: list[dict[str, object]]) -> str:
             continue
         summary = str(packet.get("summary") or "").strip()
         if summary:
-            return summary
-    return ""
+            context_packet = build_event_context_packet(packet)
+            instruction = append_context_packet_markdown(summary, context_packet)
+            return instruction, build_instruction_source(packet, context_packet)
+    return "", {}
 
 
 def _derived_next_instruction_source(
     packets: list[dict[str, object]],
 ) -> dict[str, object]:
-    now_utc = datetime.now(timezone.utc)
-    for packet in packets:
-        if packet.get("status") != "pending":
-            continue
-        if _is_expired(packet, now_utc):
-            continue
-        packet_id = str(packet.get("packet_id") or "").strip()
-        summary = str(packet.get("summary") or "").strip()
-        if packet_id and summary:
-            return {
-                "source_type": "review_packet",
-                "packet_id": packet_id,
-                "from_agent": packet.get("from_agent"),
-                "to_agent": packet.get("to_agent"),
-            }
-    return {}
+    return _derived_next_instruction_bundle(packets)[1]
 
 
 def _is_expired(packet: dict[str, object], now_utc: datetime) -> bool:

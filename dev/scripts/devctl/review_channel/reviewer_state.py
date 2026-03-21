@@ -2,20 +2,15 @@
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from .bridge_file import rewrite_bridge_markdown
-from .core import detect_active_session_conflicts
 from .heartbeat import (
     NON_AUDIT_HASH_EXCLUDED_PREFIXES,
     compute_non_audit_worktree_hash,
 )
-from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
-from .lifecycle_state import read_publisher_state, read_reviewer_supervisor_state
-from .peer_liveness import CodexPollState
 from .reviewer_state_support import (
     EnsureHeartbeatResult,
     ReviewerMetadataUpdate,
@@ -85,49 +80,6 @@ def write_reviewer_heartbeat(
         bridge_path=bridge_path,
     )
     return write
-
-
-def maybe_auto_demote_stale_active_bridge(
-    *,
-    repo_root: Path,
-    bridge_path: Path,
-    status_dir: Path,
-    reason: str = "auto-demote-stale-bridge",
-) -> ReviewerStateWrite | None:
-    """Demote abandoned active bridge state so stale sessions fail closed cleanly."""
-    if os.getenv("GITHUB_ACTIONS", "").strip().lower() == "true":
-        return None
-    if not bridge_path.exists():
-        return None
-    bridge_text = bridge_path.read_text(encoding="utf-8")
-    if reviewer_mode_from_bridge_text(bridge_text) != ReviewerMode.ACTIVE_DUAL_AGENT:
-        return None
-    liveness = summarize_bridge_liveness(extract_bridge_snapshot(bridge_text))
-    if liveness.codex_poll_state not in {
-        CodexPollState.MISSING,
-        CodexPollState.STALE,
-    }:
-        return None
-    try:
-        publisher_state = read_publisher_state(status_dir)
-    except (OSError, ValueError):
-        return None
-    if bool(publisher_state.get("running")):
-        return None
-    try:
-        reviewer_supervisor_state = read_reviewer_supervisor_state(status_dir)
-    except (OSError, ValueError):
-        return None
-    if bool(reviewer_supervisor_state.get("running")):
-        return None
-    if detect_active_session_conflicts(session_output_root=status_dir):
-        return None
-    return write_reviewer_heartbeat(
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-        reviewer_mode=ReviewerMode.PAUSED,
-        reason=reason,
-    )
 
 def write_reviewer_checkpoint(
     *,

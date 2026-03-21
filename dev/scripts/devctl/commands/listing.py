@@ -40,6 +40,7 @@ COMMANDS = [
     "launcher-policy",
     "tandem-validate",
     "render-surfaces",
+    "context-graph",
     "platform-contracts",
     "doc-authority",
     "governance-draft",

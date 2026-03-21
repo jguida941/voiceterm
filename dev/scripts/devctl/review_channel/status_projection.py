@@ -230,7 +230,10 @@ def _claude_agent_status(bridge_liveness: dict[str, object]) -> str:
 def _operator_status(overall_state: str) -> str:
     if overall_state == OverallLivenessState.WAITING_ON_PEER:
         return "waiting"
-    if overall_state == OverallLivenessState.STALE:
+    if overall_state in {
+        OverallLivenessState.STALE,
+        OverallLivenessState.RUNTIME_MISSING,
+    }:
         return "warning"
     if overall_state == OverallLivenessState.INACTIVE:
         return "idle"

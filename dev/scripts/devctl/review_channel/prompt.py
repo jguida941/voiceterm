@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE
 from ..common import display_path
+from ..context_graph.escalation import (
+    build_context_escalation_packet,
+    collect_query_terms,
+    normalize_query_terms,
+)
 from ..runtime.role_profile import role_for_provider
 from .handoff import BRIDGE_LIVENESS_KEYS, expected_rollover_ack_line, expected_rollover_ack_section
 from .prompt_sections import operating_contract_lines
@@ -49,6 +55,7 @@ def build_conductor_prompt(
         )
         for lane in lanes
     ]
+    context_lines = _context_escalation_lines(lanes=lanes)
     return "\n".join(
         [
             _opening_line(provider_name=provider_name, handoff_bundle=handoff_bundle),
@@ -89,6 +96,7 @@ def build_conductor_prompt(
                 provider_name=provider_name,
                 provider_worker_budget=provider_worker_budget,
             ),
+            *context_lines,
             "",
             f"{provider_name} lane assignments:",
             *lane_lines,
@@ -136,9 +144,14 @@ def _bootstrap_files(
     handoff_bundle: dict[str, str] | None,
 ) -> list[str]:
     files: list[str] = [
-        "AGENTS.md",
-        "dev/active/INDEX.md",
-        "dev/active/MASTER_PLAN.md",
+        (
+            "Run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` "
+            "for startup context (repo state, active plans, hotspots, key commands). "
+            "Then follow deep links when task scope requires full authority: "
+            "`AGENTS.md` (SDLC policy), `dev/active/INDEX.md` (plan registry), "
+            "`dev/active/MASTER_PLAN.md` (execution state). "
+            "Use `--query '<term>'` for targeted subgraphs on specific files or MPs."
+        ),
         display_path(review_channel_path, repo_root=repo_root),
         display_path(bridge_path, repo_root=repo_root),
     ]
@@ -218,3 +231,38 @@ def _worker_budget_lines(
             "mode and keep executing the loop yourself."
         ),
     ]
+
+
+def _context_escalation_lines(*, lanes: list["LaneAssignment"]) -> list[str]:
+    lines = [
+        "",
+        "Context escalation policy:",
+        (
+            "- When an instruction mentions an MP, file, guard, or subsystem you "
+            "have not read yet, run `python3 dev/scripts/devctl.py context-graph "
+            "--query '<term>' --format md` before widening scope."
+        ),
+        (
+            "- Trigger the same query before editing unread files, after repeated "
+            "failed attempts, or when blast radius is unclear."
+        ),
+    ]
+    lane_terms = normalize_query_terms(
+        ("review_channel", *collect_query_terms([lane.mp_scope for lane in lanes], max_terms=3)),
+        max_terms=4,
+    )
+    packet = build_context_escalation_packet(
+        trigger="review-channel-bootstrap",
+        query_terms=lane_terms,
+        options={"max_chars": 900},
+    )
+    if packet is None:
+        return lines
+    payload = asdict(packet)
+    lines.extend(
+        [
+            "- Preloaded bounded packet for the active lane scopes:",
+            payload["markdown"],
+        ]
+    )
+    return lines

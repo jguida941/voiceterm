@@ -223,6 +223,9 @@ python3 dev/scripts/devctl.py launcher-policy
 python3 dev/scripts/devctl.py render-surfaces --format md
 python3 dev/scripts/devctl.py render-surfaces --write --format md
 python3 dev/scripts/devctl.py platform-contracts --format md
+python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md
+python3 dev/scripts/devctl.py context-graph --query '<term>' --format md
+python3 dev/scripts/devctl.py context-graph --format mermaid
 python3 dev/scripts/checks/check_platform_contract_closure.py
 python3 dev/scripts/devctl.py doc-authority --format json
 python3 dev/scripts/devctl.py governance-bootstrap --target-repo ../ci-cd-hub-copy --format md

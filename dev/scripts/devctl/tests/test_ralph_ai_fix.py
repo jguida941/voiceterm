@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from dev.scripts.coderabbit.ralph_ai_fix import (
     _FALLBACK_CATEGORY_TO_ARCH,
+    build_backlog_context_packet,
     build_prompt,
     commit_and_push,
     detect_architectures,
@@ -140,6 +141,55 @@ class BuildPromptTests(unittest.TestCase):
         items = _sample_items()
         prompt = build_prompt(items, attempt=1)
         self.assertNotIn("Applicable Standards", prompt)
+
+    def test_prompt_includes_context_recovery_when_packet_present(self) -> None:
+        from dev.scripts.devctl.context_graph.escalation import ContextEscalationPacket
+
+        packet = ContextEscalationPacket(
+            trigger="ralph-backlog",
+            query_terms=("auth.rs",),
+            matched_nodes=1,
+            edge_count=0,
+            canonical_refs=("rust/src/auth.rs",),
+            evidence=("auth.rs: nodes=1, edges=0",),
+            markdown=(
+                "## Context Recovery Packet\n\n"
+                "- Trigger: `ralph-backlog`\n"
+                "- Query terms: `auth.rs`\n"
+                "- Graph matches: nodes=1, edges=0\n"
+                "- Canonical refs:\n"
+                "  - `rust/src/auth.rs`"
+            ),
+        )
+
+        prompt = build_prompt(_sample_items(), attempt=1, context_packet=packet)
+
+        self.assertIn("Preloaded Context Recovery", prompt)
+        self.assertIn("Context Recovery Packet", prompt)
+        self.assertIn("auth.rs", prompt)
+
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.build_context_escalation_packet")
+    def test_build_backlog_context_packet_uses_backlog_terms(self, escalation_mock) -> None:
+        from dev.scripts.devctl.context_graph.escalation import ContextEscalationPacket
+
+        packet = ContextEscalationPacket(
+            trigger="ralph-backlog",
+            query_terms=("auth.rs",),
+            matched_nodes=1,
+            edge_count=0,
+            canonical_refs=("rust/src/auth.rs",),
+            evidence=("auth.rs: nodes=1, edges=0",),
+            markdown="## Context Recovery Packet",
+        )
+        escalation_mock.return_value = packet
+
+        observed = build_backlog_context_packet(_sample_items())
+
+        self.assertIs(observed, packet)
+        self.assertEqual(
+            escalation_mock.call_args.kwargs["query_terms"],
+            ("auth.rs",),
+        )
 
 
 # -- detect_architectures ---------------------------------------------------

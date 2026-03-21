@@ -234,7 +234,10 @@ the concrete minimum inventory after edits:
    startup-surface contract routing), also run:
    - `python3 dev/scripts/checks/check_platform_contract_closure.py`
    - `python3 dev/scripts/devctl.py platform-contracts --format md`
-5. If you created a new module, refactored module/API layout, introduced
+5. For bounded context on specific files, MPs, guards, or subsystems during
+   development, use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`.
+   For a concept-level subsystem diagram, use `--format mermaid` or `--format dot`.
+6. If you created a new module, refactored module/API layout, introduced
    string-based dispatch, added a new 3+ parameter signature, or touched
    concurrent/shared-state code, also run:
    - `python3 dev/scripts/devctl.py probe-report --format md`

@@ -7,6 +7,12 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from ..common import display_path
+from ..context_graph.escalation import (
+    ContextEscalationPacket,
+    append_context_packet_markdown,
+    build_context_escalation_packet,
+    collect_query_terms,
+)
 from ..repo_packs import active_path_config
 from .bridge_file import rewrite_bridge_markdown
 from .handoff import (
@@ -53,6 +59,7 @@ class PromotionCandidate:
     source_path: str
     phase_heading: str | None
     checklist_item: str
+    context_packet: ContextEscalationPacket | None = None
 
 def promotion_candidate_to_dict(
     candidate: PromotionCandidate | None,
@@ -89,11 +96,21 @@ def derive_promotion_candidate(
     phase_heading, checklist_item = candidate_item
     phase_prefix = f"{phase_heading}: " if phase_heading else ""
     source_path = display_path(promotion_plan_path, repo_root=repo_root)
-    return PromotionCandidate(
-        instruction=(f"- Next scoped plan item ({source_path}): " f"{phase_prefix}{checklist_item}"),
+    context_packet = _build_promotion_context_packet(
         source_path=source_path,
         phase_heading=phase_heading,
         checklist_item=checklist_item,
+    )
+    instruction = append_context_packet_markdown(
+        f"- Next scoped plan item ({source_path}): {phase_prefix}{checklist_item}",
+        context_packet,
+    )
+    return PromotionCandidate(
+        instruction=instruction,
+        source_path=source_path,
+        phase_heading=phase_heading,
+        checklist_item=checklist_item,
+        context_packet=context_packet,
     )
 
 
@@ -212,6 +229,23 @@ def _iter_unchecked_checklist_items(
 
 def _normalize_item_text(lines: list[str]) -> str:
     return " ".join(part.strip() for part in lines if part.strip())
+
+
+def _build_promotion_context_packet(
+    *,
+    source_path: str,
+    phase_heading: str | None,
+    checklist_item: str,
+) -> ContextEscalationPacket | None:
+    query_terms = collect_query_terms(
+        [source_path, phase_heading, checklist_item],
+        max_terms=4,
+    )
+    return build_context_escalation_packet(
+        trigger="review-channel-promotion",
+        query_terms=query_terms,
+        options={"max_chars": 700},
+    )
 
 
 def resolve_scope_plan_path(

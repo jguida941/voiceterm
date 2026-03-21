@@ -248,6 +248,41 @@ def _fresh_utc_z(*, seconds_offset: int = 0) -> str:
     return timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _write_live_runtime(
+    status_dir: Path,
+    *,
+    reviewer_mode: str = "active_dual_agent",
+) -> None:
+    from dev.scripts.devctl.review_channel.lifecycle_state import (
+        PublisherHeartbeat,
+        ReviewerSupervisorHeartbeat,
+        write_publisher_heartbeat,
+        write_reviewer_supervisor_heartbeat,
+    )
+
+    live_pid = os.getpid()
+    write_publisher_heartbeat(
+        status_dir,
+        PublisherHeartbeat(
+            pid=live_pid,
+            started_at_utc=_fresh_utc_z(seconds_offset=-60),
+            last_heartbeat_utc=_fresh_utc_z(seconds_offset=-5),
+            snapshots_emitted=1,
+            reviewer_mode=reviewer_mode,
+        ),
+    )
+    write_reviewer_supervisor_heartbeat(
+        status_dir,
+        ReviewerSupervisorHeartbeat(
+            pid=live_pid,
+            started_at_utc=_fresh_utc_z(seconds_offset=-60),
+            last_heartbeat_utc=_fresh_utc_z(seconds_offset=-5),
+            snapshots_emitted=1,
+            reviewer_mode=reviewer_mode,
+        ),
+    )
+
+
 def _build_event_bundle_for_test(packet_ids: list[str]) -> ReviewChannelEventBundle:
     packets = [
         {
@@ -834,21 +869,16 @@ class ReviewChannelHelperTests(unittest.TestCase):
                 "rollover_id": "rollover-test",
             },
         )
-        agents_idx = files.index("AGENTS.md")
-        index_idx = files.index("dev/active/INDEX.md")
+        self.assertIn("AGENTS.md", files[0])
+        self.assertIn("dev/active/INDEX.md", files[0])
         handoff_items = [f for f in files if "handoff" in f]
         self.assertTrue(len(handoff_items) >= 2, "handoff files should be present")
         for hf in handoff_items:
             hf_idx = files.index(hf)
             self.assertGreater(
                 hf_idx,
-                agents_idx,
-                f"handoff file {hf} must come after AGENTS.md",
-            )
-            self.assertGreater(
-                hf_idx,
-                index_idx,
-                f"handoff file {hf} must come after INDEX.md",
+                0,
+                f"handoff file {hf} must come after the repo-authority bootstrap instruction",
             )
 
     def test_rollover_ack_state_requires_provider_owned_sections(self) -> None:
@@ -1082,6 +1112,70 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn("Custom done criteria from repo policy.", prompt)
+
+    @patch(
+        "dev.scripts.devctl.review_channel.prompt.build_context_escalation_packet"
+    )
+    def test_prompt_includes_preloaded_context_packet_for_lane_scope(
+        self,
+        escalation_mock,
+    ) -> None:
+        from dev.scripts.devctl.context_graph.escalation import ContextEscalationPacket
+        from dev.scripts.devctl.review_channel.prompt import build_conductor_prompt
+
+        escalation_mock.return_value = ContextEscalationPacket(
+            trigger="review-channel-bootstrap",
+            query_terms=("review_channel", "MP-355"),
+            matched_nodes=2,
+            edge_count=1,
+            canonical_refs=(
+                "dev/active/review_channel.md",
+                "dev/scripts/devctl/review_channel/prompt.py",
+            ),
+            evidence=("review_channel: nodes=2, edges=1",),
+            markdown=(
+                "## Context Recovery Packet\n\n"
+                "- Trigger: `review-channel-bootstrap`\n"
+                "- Query terms: `review_channel`, `MP-355`\n"
+                "- Graph matches: nodes=2, edges=1\n"
+                "- Canonical refs:\n"
+                "  - `dev/active/review_channel.md`"
+            ),
+        )
+        root = Path("/fake/repo")
+        prompt = build_conductor_prompt(
+            provider="codex",
+            provider_name="Codex",
+            other_name="Claude",
+            repo_root=root,
+            review_channel_path=root / "dev/active/review_channel.md",
+            bridge_path=root / "bridge.md",
+            lanes=[
+                SimpleNamespace(
+                    agent_id="AGENT-1",
+                    lane="review lane",
+                    worktree="../wt-a1",
+                    branch="feature/a1",
+                    mp_scope="MP-355",
+                )
+            ],
+            codex_workers=8,
+            claude_workers=8,
+            dangerous=False,
+            rollover_threshold_pct=50,
+            await_ack_seconds=180,
+            retirement_note=REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+            rollover_command="python3 dev/scripts/devctl.py review-channel --action rollover",
+            promote_command="python3 dev/scripts/devctl.py review-channel --action promote --promotion-plan dev/active/continuous_swarm.md --terminal none --format md",
+            bridge_liveness=None,
+            handoff_bundle=None,
+        )
+
+        self.assertIn("Context escalation policy:", prompt)
+        self.assertIn("Preloaded bounded packet for the active lane scopes:", prompt)
+        self.assertIn("## Context Recovery Packet", prompt)
+        self.assertIn("`review_channel`", prompt)
+        escalation_mock.assert_called_once()
 
 class ReviewChannelWatchFollowTests(unittest.TestCase):
     def _build_follow_args(self, **overrides) -> SimpleNamespace:
@@ -1975,7 +2069,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(report["publisher_log_path"], "/tmp/publisher.log")
         self.assertNotIn("recommended_command", report)
 
-    def test_attention_reports_publisher_missing_when_active_and_no_publisher(self) -> None:
+    def test_attention_reports_runtime_missing_when_active_and_no_runtime(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
 
         liveness = {
@@ -1987,6 +2081,26 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "reviewed_hash_current": True,
             "implementer_completion_stall": False,
             "publisher_running": False,
+        }
+        attention = derive_bridge_attention(liveness)
+        self.assertEqual(attention["status"], "runtime_missing")
+        self.assertIn("--follow", attention.get("recommended_command", ""))
+
+    def test_attention_reports_publisher_missing_when_supervisor_keeps_runtime_alive(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "publisher_running": False,
+            "reviewer_supervisor_running": True,
         }
         attention = derive_bridge_attention(liveness)
         self.assertEqual(attention["status"], "publisher_missing")
@@ -2087,6 +2201,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "last_codex_poll_age_seconds": 1200,
             "reviewer_overdue_threshold_seconds": 900,
             "reviewer_freshness": "overdue",
+            "reviewer_supervisor_running": True,
         }
         attention = derive_bridge_attention(liveness)
         self.assertEqual(attention["status"], "reviewer_overdue")
@@ -2103,6 +2218,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "last_codex_poll_age_seconds": 400,
             "reviewer_overdue_threshold_seconds": 900,
             "reviewer_freshness": "stale",
+            "reviewer_supervisor_running": True,
         }
         attention = derive_bridge_attention(liveness)
         self.assertEqual(attention["status"], "reviewer_heartbeat_stale")
@@ -2133,6 +2249,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "claude_status_present": True,
             "claude_ack_present": True,
             "reviewer_freshness": "poll_due",
+            "reviewer_supervisor_running": True,
         }
         attention = derive_bridge_attention(liveness)
         self.assertEqual(attention["status"], "reviewer_poll_due")
@@ -2169,6 +2286,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "implementer_completion_stall": False,
             "publisher_running": False,
             "publisher_stop_reason": "failed_start",
+            "reviewer_supervisor_running": True,
         }
         attention = derive_bridge_attention(liveness)
         self.assertEqual(attention["status"], "publisher_failed_start")
@@ -2187,6 +2305,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "implementer_completion_stall": False,
             "publisher_running": False,
             "publisher_stop_reason": "detached_exit",
+            "reviewer_supervisor_running": True,
         }
         attention = derive_bridge_attention(liveness)
         self.assertEqual(attention["status"], "publisher_detached_exit")
@@ -3804,6 +3923,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             script_dir = root / "scripts"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="launch",
                 execution_mode="auto",
@@ -3812,7 +3933,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 review_channel_path=str(review_channel_path.relative_to(root)),
                 bridge_path=str(bridge_path.relative_to(root)),
                 rollover_dir="dev/reports/review_channel/rollovers",
-                status_dir="dev/reports/review_channel/latest",
+                status_dir=str(status_dir.relative_to(root)),
                 rollover_threshold_pct=50,
                 rollover_trigger="context-threshold",
                 await_ack_seconds=180,
@@ -4047,6 +4168,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="status",
                 execution_mode="auto",
@@ -4214,11 +4336,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 ["human_operator", "agent_runtime", "automation_loop"],
             )
             self.assertEqual(review_state["queue"]["pending_total"], 0)
-            self.assertEqual(
-                review_state["queue"]["derived_next_instruction"],
-                "- Next scoped plan item (dev/active/continuous_swarm.md): "
-                "Phase 1 - Queue: Implement automatic next-task promotion so "
-                "the conductor keeps moving.",
+            self.assertTrue(
+                review_state["queue"]["derived_next_instruction"].startswith(
+                    "- Next scoped plan item (dev/active/continuous_swarm.md): "
+                    "Phase 1 - Queue: Implement automatic next-task promotion "
+                    "so the conductor keeps moving."
+                )
             )
             rs_compat = review_state.get("_compat", {})
             self.assertEqual(len(rs_compat.get("agents", [])), 4)
@@ -4384,6 +4507,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="status",
                 execution_mode="auto",
@@ -4469,7 +4593,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertIsNone(payload["bridge_heartbeat_refresh"])
             self.assertEqual(bridge_path.read_text(encoding="utf-8"), original_bridge)
 
-    def test_run_status_auto_demotes_stale_active_bridge_without_runtime_owner(
+    def test_run_status_reports_runtime_missing_without_mutating_reviewer_mode(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -4485,6 +4609,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_bridge_text(last_codex_poll="2000-01-01T00:00:00Z"),
                 encoding="utf-8",
             )
+            (root / "notes.txt").write_text("runtime missing drift\n", encoding="utf-8")
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
             args = SimpleNamespace(
@@ -4516,22 +4641,24 @@ class ReviewChannelCommandTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertTrue(payload["ok"])
+            self.assertFalse(payload["ok"])
+            self.assertIsNone(payload["reviewer_state_write"])
             self.assertEqual(
-                payload["reviewer_state_write"]["reason"],
-                "auto-demote-stale-bridge",
+                payload["bridge_liveness"]["reviewer_mode"],
+                "active_dual_agent",
             )
             self.assertEqual(
-                payload["reviewer_state_write"]["reviewer_mode"],
-                "paused",
+                payload["bridge_liveness"]["overall_state"],
+                "runtime_missing",
             )
-            self.assertEqual(payload["bridge_liveness"]["reviewer_mode"], "paused")
-            self.assertEqual(payload["bridge_liveness"]["overall_state"], "inactive")
+            self.assertEqual(payload["attention"]["status"], "runtime_missing")
+            self.assertEqual(payload["reviewer_worker"]["state"], "review_needed")
+            self.assertTrue(payload["reviewer_worker"]["review_needed"])
             self.assertTrue(
-                any("Auto-demoted the stale markdown bridge" in warning for warning in payload["warnings"])
+                any("Reviewer runtime is missing" in warning for warning in payload["warnings"])
             )
             self.assertIn(
-                "- Reviewer mode: `paused`",
+                "- Reviewer mode: `active_dual_agent`",
                 bridge_path.read_text(encoding="utf-8"),
             )
 
@@ -4553,6 +4680,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             session_dir = status_dir / "sessions"
             session_dir.mkdir(parents=True, exist_ok=True)
             log_path = status_dir / "codex-conductor.log"
@@ -5290,6 +5418,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             updated_instruction = (
                 "- continue with the next scoped slice and verify the fresh path"
             )
@@ -5346,6 +5475,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = self._reviewer_checkpoint_args(
                 root=root,
                 review_channel_path=review_channel_path,
@@ -5715,7 +5845,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertIn(
                 payload["attention"]["status"],
-                {"claude_ack_stale", "reviewer_supervisor_required"},
+                {"claude_ack_stale", "runtime_missing"},
             )
             updated_bridge = bridge_path.read_text(encoding="utf-8")
             self.assertIn(
@@ -5831,6 +5961,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="launch",
                 execution_mode="auto",
@@ -5879,7 +6010,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertIn(
                 payload["attention"]["status"],
-                {"claude_ack_stale", "reviewer_supervisor_required"},
+                {"claude_ack_stale", "runtime_missing"},
             )
 
     def test_auto_promote_skipped_when_bridge_has_active_instruction(self) -> None:
@@ -5913,6 +6044,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="launch",
                 execution_mode="auto",
@@ -6132,6 +6264,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 encoding="utf-8",
             )
             output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="launch",
                 execution_mode="auto",
@@ -6140,7 +6274,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 review_channel_path=str(review_channel_path.relative_to(root)),
                 bridge_path=str(bridge_path.relative_to(root)),
                 rollover_dir="dev/reports/review_channel/rollovers",
-                status_dir="dev/reports/review_channel/latest",
+                status_dir=str(status_dir.relative_to(root)),
                 rollover_threshold_pct=50,
                 rollover_trigger="context-threshold",
                 await_ack_seconds=180,
@@ -6178,6 +6312,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             output_path = root / "report.json"
             script_dir = root / "scripts"
             rollover_dir = root / "dev/reports/review_channel/rollovers"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="rollover",
                 execution_mode="auto",
@@ -6186,7 +6322,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 review_channel_path=str(review_channel_path.relative_to(root)),
                 bridge_path=str(bridge_path.relative_to(root)),
                 rollover_dir=str(rollover_dir.relative_to(root)),
-                status_dir="dev/reports/review_channel/latest",
+                status_dir=str(status_dir.relative_to(root)),
                 rollover_threshold_pct=50,
                 rollover_trigger="context-threshold",
                 await_ack_seconds=180,
@@ -6276,6 +6412,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="rollover",
                 execution_mode="auto",
@@ -6284,7 +6422,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 review_channel_path=str(review_channel_path.relative_to(root)),
                 bridge_path=str(bridge_path.relative_to(root)),
                 rollover_dir="dev/reports/review_channel/rollovers",
-                status_dir="dev/reports/review_channel/latest",
+                status_dir=str(status_dir.relative_to(root)),
                 rollover_threshold_pct=50,
                 rollover_trigger="context-threshold",
                 await_ack_seconds=1,
@@ -6438,6 +6576,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 encoding="utf-8",
             )
             output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="launch",
                 execution_mode="auto",
@@ -6446,7 +6586,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 review_channel_path=str(review_channel_path.relative_to(root)),
                 bridge_path=str(bridge_path.relative_to(root)),
                 rollover_dir="dev/reports/review_channel/rollovers",
-                status_dir="dev/reports/review_channel/latest",
+                status_dir=str(status_dir.relative_to(root)),
                 rollover_threshold_pct=50,
                 rollover_trigger="context-threshold",
                 await_ack_seconds=180,
@@ -6484,6 +6624,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 encoding="utf-8",
             )
             output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="launch",
                 execution_mode="auto",
@@ -6492,7 +6634,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 review_channel_path=str(review_channel_path.relative_to(root)),
                 bridge_path=str(bridge_path.relative_to(root)),
                 rollover_dir="dev/reports/review_channel/rollovers",
-                status_dir="dev/reports/review_channel/latest",
+                status_dir=str(status_dir.relative_to(root)),
                 rollover_threshold_pct=50,
                 rollover_trigger="context-threshold",
                 await_ack_seconds=180,
@@ -6827,6 +6969,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 encoding="utf-8",
             )
             output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="launch",
                 execution_mode="auto",
@@ -6835,7 +6979,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 review_channel_path=str(review_channel_path.relative_to(root)),
                 bridge_path=str(bridge_path.relative_to(root)),
                 rollover_dir="dev/reports/review_channel/rollovers",
-                status_dir="dev/reports/review_channel/latest",
+                status_dir=str(status_dir.relative_to(root)),
                 rollover_threshold_pct=50,
                 rollover_trigger="context-threshold",
                 await_ack_seconds=1,
@@ -7065,6 +7209,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 encoding="utf-8",
             )
             output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
             args = SimpleNamespace(
                 action="status",
                 execution_mode="auto",
@@ -7073,7 +7219,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 review_channel_path=str(review_channel_path.relative_to(root)),
                 bridge_path=str(bridge_path.relative_to(root)),
                 rollover_dir="dev/reports/review_channel/rollovers",
-                status_dir="dev/reports/review_channel/latest",
+                status_dir=str(status_dir.relative_to(root)),
                 rollover_threshold_pct=50,
                 rollover_trigger="context-threshold",
                 await_ack_seconds=180,
@@ -7696,13 +7842,15 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
                 bundle.projection_paths.latest_markdown_path
             ).read_text(encoding="utf-8")
 
-            self.assertEqual(
-                review_state["bridge"]["current_instruction"],
-                "review the live tranche",
+            self.assertTrue(
+                review_state["bridge"]["current_instruction"].startswith(
+                    "review the live tranche"
+                )
             )
-            self.assertEqual(
-                review_state["queue"]["derived_next_instruction"],
-                "review the live tranche",
+            self.assertTrue(
+                review_state["queue"]["derived_next_instruction"].startswith(
+                    "review the live tranche"
+                )
             )
             self.assertEqual(
                 review_state["queue"]["derived_next_instruction_source"]["packet_id"],
@@ -8051,9 +8199,10 @@ class TestDaemonEventReducer(unittest.TestCase):
 
         self.assertEqual(review_state["queue"]["pending_total"], 1)
         self.assertEqual(review_state["queue"]["stale_packet_count"], 1)
-        self.assertEqual(
-            review_state["queue"]["derived_next_instruction"],
-            "live follow-up",
+        self.assertTrue(
+            review_state["queue"]["derived_next_instruction"].startswith(
+                "live follow-up"
+            )
         )
         self.assertEqual(
             [packet["packet_id"] for packet in pending_packets],

@@ -27,6 +27,7 @@ class OverallLivenessState(StrEnum):
     """Aggregate loop health derived from both peer signals."""
 
     INACTIVE = "inactive"
+    RUNTIME_MISSING = "runtime_missing"
     STALE = "stale"
     WAITING_ON_PEER = "waiting_on_peer"
     FRESH = "fresh"
@@ -88,6 +89,7 @@ class AttentionStatus(StrEnum):
     """Machine-readable attention signals for operator/console consumers."""
 
     INACTIVE = "inactive"
+    RUNTIME_MISSING = "runtime_missing"
     REVIEWER_HEARTBEAT_MISSING = "reviewer_heartbeat_missing"
     REVIEWER_HEARTBEAT_STALE = "reviewer_heartbeat_stale"
     REVIEWER_OVERDUE = "reviewer_overdue"

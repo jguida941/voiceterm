@@ -157,6 +157,20 @@ operator visibility into what the loop is doing. This plan delivers:
 
 ## Progress Log
 
+- 2026-03-21: Accepted the next Ralph-specific measurement/backlog split for
+  context recovery. The current fixer injection is the first bounded proof,
+  but the next steps are now explicit: record whether a packet was used,
+  matched terms, and whether follow-up query/test selection improved, then
+  reuse the same packet shape for mutation/future fixers only after the shared
+  graph grows honest related-test / related-guard edges.
+- 2026-03-21: Extended the Ralph AI fix path with bounded context recovery
+  instead of one giant cold bootstrap. `ralph_ai_fix.py` now builds a small
+  `context-graph` packet from backlog findings when file/MP/command scope is
+  detectable, injects it into the Claude fix prompt, and explicitly instructs
+  the fixer to query `context-graph --query '<term>'` before editing unread
+  files or subsystems. Next: reuse the same packet shape for mutation/future
+  fixers and measure whether it actually reduces false starts and wrong-file
+  edits.
 - 2026-03-09: Phase 1 scaffolding complete. Created `ralph_ai_fix.py` with
   architecture-specific validation (Rust/PyQt6/devctl/iOS), approval-mode
   support, and Claude Code integration. Updated `control_plane_policy.json`

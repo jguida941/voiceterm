@@ -2931,14 +2931,32 @@ Still open before `P0` closes:
       new durable artifact root, no `RepoMapSnapshot` row in
       `platform-contracts`, and no `ContextPack` emission until the query
       surface proves the bounded repo-context packet shape.
+- [ ] After the first bounded context-escalation slice is checkpointed, widen
+      the same packet shape only through the remaining repo-owned instruction
+      builders (`review-channel` promotion/event projections and fresh
+      `swarm_run` prompts). Do not jump straight to UI/chat/workflow-local
+      injections while backend instruction emitters still start blind.
 - [ ] Freeze the ZGraph boundary before implementation: any ZGraph-compatible
       encoding is generated-only, reversible through a typed symbol table, and
       anchored by provenance refs back to canonical plans/contracts/artifacts.
       It is a navigation/compression layer for `ConceptIndex` and bounded
       context retrieval, never an independent authority or lossy memory store.
+- [ ] Add a graph-capability ladder instead of one flat “wire ZGraph
+      everywhere” task: connected typed plan/doc/command edges first, then
+      bounded transitive blast-radius queries, then test-to-code /
+      test-selection edges, then agent-authored graph queries. Each step must
+      stay reversible to canonical refs and pass the same honesty rules.
 - [ ] Add `check_semantic_links.py` after the graph/pointer contract lands so
       bidirectional plan/doc/command links, typed edges, and generated
       `HotIndex` refs cannot drift from canonical pointer/anchor authority.
+- [ ] Keep richer graph queries fail-closed and explainable: weak coverage must
+      surface explicit `low-confidence` / `no-edge` output and point back to
+      canonical warm refs rather than pretending certainty from sparse graph
+      matches.
+- [ ] Treat generated concept-view / mermaid / dot outputs as first-class
+      navigation/review surfaces for senior developers and AI prompts, but
+      keep them generated-only from the same canonical graph/pointer contract
+      rather than a second viewer-local semantic store.
 - [ ] Activate the SQLite runtime in the Rust memory substrate as a `P0`
       prerequisite for the architectural knowledge base: the schema is already
       fully defined in `memory/schema.rs` (12 tables including `topics`,
@@ -2983,6 +3001,10 @@ Still open before `P0` closes:
       citation-validity, and unsupported-claim rate. Compact mode must fail
       closed to the warm raw chapter path when symbols are stale or expansion
       is ambiguous.
+- [ ] Add a measured context-injection evaluation path on top of that graph
+      work: compare old bootstrap, bounded bootstrap, and bounded bootstrap +
+      graph escalation on token cost, right-file selection, right-test
+      selection, retry count, missed blast radius, and false-confidence rate.
 - [ ] Add one repo-pack-aware startup/intake authority surface for AI and
       human operators: read the active plan registry/tracker, inspect current
       git status/diff, map the slice to command goals + MP scope, emit the
@@ -3733,6 +3755,17 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-21: Accepted the next context-graph rollout order after landing the
+  first bounded context-escalation slice. The current green CI/docs state
+  should be checkpointed as the first stable Phase-6 context-recovery proof
+  before widening graph work again. The next graph ladder is now explicit
+  here: fix honest typed plan/doc/command connectivity first, then inject the
+  same bounded packet into the remaining backend instruction emitters
+  (`review-channel` promotion/event projections and fresh `swarm_run`
+  prompts), then run a cross-surface validation matrix for review-channel /
+  autonomy / Ralph, and only after that widen into richer graph capabilities
+  such as transitive blast radius, test-to-code edges, agent-authored graph
+  queries, and generated concept-view flowcharts.
 - 2026-03-20: Accepted the native repo-owned context-graph path for the
   hot/warm/cold startup/session-context work. The combined design is now
   explicit: canonical pointer refs from plans/docs/repo-map/evidence artifacts

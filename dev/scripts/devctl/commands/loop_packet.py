@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any
 
@@ -45,6 +46,10 @@ def _render_markdown(report: dict[str, Any]) -> str:
     lines.append("")
     for row in report.get("next_actions", []):
         lines.append(f"- {row}")
+    context_packet = report.get("context_packet")
+    if isinstance(context_packet, dict) and context_packet.get("markdown"):
+        lines.append("")
+        lines.append(context_packet["markdown"])
     return "\n".join(lines)
 
 
@@ -114,7 +119,7 @@ def run(args) -> int:
             ),
         )
 
-    risk, raw_draft, next_actions = _build_packet_body(
+    risk, raw_draft, next_actions, context_packet = _build_packet_body(
         source_command=source_command,
         payload=payload,
     )
@@ -150,6 +155,7 @@ def run(args) -> int:
         "next_actions": next_actions,
         "summary": summary,
         "warnings": source_warnings,
+        "context_packet": asdict(context_packet) if context_packet is not None else None,
         "packet": {
             "schema_version": 1,
             "packet_id": packet_id,

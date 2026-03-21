@@ -15,6 +15,11 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from dev.scripts.devctl.approval_mode import DEFAULT_APPROVAL_MODE, normalize_approval_mode
+from dev.scripts.devctl.context_graph.escalation import (
+    ContextEscalationPacket,
+    build_context_escalation_packet,
+    collect_query_terms,
+)
 from dev.scripts.devctl.ralph_guardrail_report import (
     build_guardrail_report,
     load_guardrails_config,
@@ -79,7 +84,38 @@ def _build_standards_context(items: list[dict], guardrails_config: dict) -> str:
     return "## Applicable Standards\n\n" + "\n".join(relevant)
 
 
-def build_prompt(items: list[dict], attempt: int, guardrails_config: dict | None = None) -> str:
+def build_backlog_context_packet(
+    items: list[dict],
+) -> ContextEscalationPacket | None:
+    """Build a bounded context packet from backlog findings."""
+    values: list[object] = []
+    for item in items[:6]:
+        if not isinstance(item, dict):
+            continue
+        values.append(item)
+        values.extend(
+            [
+                item.get("summary"),
+                item.get("path"),
+                item.get("file"),
+                item.get("module"),
+                item.get("target"),
+            ]
+        )
+    query_terms = collect_query_terms(values, max_terms=4)
+    return build_context_escalation_packet(
+        trigger="ralph-backlog",
+        query_terms=query_terms,
+        options={"max_chars": 900},
+    )
+
+
+def build_prompt(
+    items: list[dict],
+    attempt: int,
+    guardrails_config: dict | None = None,
+    context_packet: ContextEscalationPacket | None = None,
+) -> str:
     """Build a Claude Code prompt from backlog items with optional standards context."""
     findings_text = "\n".join(
         f"  {index + 1}. [{item.get('severity', 'unknown')}] "
@@ -91,6 +127,12 @@ def build_prompt(items: list[dict], attempt: int, guardrails_config: dict | None
     if guardrails_config:
         standards_block = _build_standards_context(items, guardrails_config)
     standards_section = f"\n\n{standards_block}" if standards_block else ""
+    context_section = ""
+    if context_packet is not None:
+        context_section = (
+            "\n\n## Preloaded Context Recovery\n\n"
+            f"{context_packet.markdown}"
+        )
 
     return f"""You are fixing CodeRabbit findings in the codex-voice repository.
 This is Ralph loop attempt {attempt}.
@@ -108,6 +150,9 @@ For EACH finding above:
    - If the finding is stylistic and conflicts with project conventions, skip it.
 2. If the finding IS valid, fix it directly in the codebase.
 3. After fixing, verify the fix doesn't break anything by reading surrounding code.
+4. If a finding points at a file, guard, or subsystem you have not read yet,
+   run `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`
+   before widening scope.{context_section}
 
 ## Rules
 - Follow existing code style and conventions (read AGENTS.md for policy).
@@ -228,7 +273,13 @@ def main() -> int:
         print("[ralph-ai-fix] no backlog items - nothing to fix")
         return 0
 
-    prompt = build_prompt(items, attempt, guardrails_config)
+    context_packet = build_backlog_context_packet(items)
+    prompt = build_prompt(
+        items,
+        attempt,
+        guardrails_config,
+        context_packet=context_packet,
+    )
     rc = invoke_claude(prompt)
     if rc != 0:
         print(f"[ralph-ai-fix] Claude Code exited with {rc}", file=sys.stderr)

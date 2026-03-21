@@ -152,7 +152,10 @@ def build_bridge_success_report(
             "Auto-refreshed the markdown-bridge reviewer heartbeat before "
             f"{args.action} so the live launch contract could proceed."
         )
-    if reviewer_state_write is not None:
+    if (
+        reviewer_state_write is not None
+        and getattr(reviewer_state_write, "reason", "") == "auto-demote-stale-bridge"
+    ):
         report["warnings"].append(
             "Auto-demoted the stale markdown bridge to `paused` because no live "
             "reviewer runtime owner was detected."
