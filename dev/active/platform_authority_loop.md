@@ -735,11 +735,24 @@ intended execution order is:
       authority, reject orphan semantic edges, emit explicit
       `low_confidence` / `no_edge` states, and keep heuristic plan->concept
       edges suppressed unless the target concept node actually materializes.
+- [ ] Close the first graph plumbing gaps inside that same bounded lane before
+      wider capability claims: the shared topology scan must exclude
+      calibration/transient roots (`dev/repo_example_temp/**`,
+      `.claude/worktrees/**`), the build path should prefer fresh
+      `dev/reports/probes/latest/file_topology.json` / `review_packet.json`
+      for changed paths plus hint/severity counts with rescan fallback only
+      when stale or missing, and query confidence must stay fail-closed
+      instead of promoting substring/import noise to high confidence.
 - [ ] Land one typed `startup-context` / `WorkIntakePacket` repo-owned command
       before broader graph fan-out. That packet should carry command goal,
       active target refs, changed scope, suggested graph queries, canonical
       warm refs, targeted checks, and fallback/confidence fields so the
       least-effort-first routing contract exists as machine state.
+- [ ] Keep `context-graph --mode bootstrap` subordinate to the same startup
+      family: it may expose a hot-index/bootstrap helper view over cached
+      authority artifacts, but `startup-context` remains the single canonical
+      bounded startup packet and the graph path must not regrow into a second
+      peer bootstrap manifest.
 - [ ] Land one generated `devctl system-picture` read surface immediately
       after that first `startup-context` / `WorkIntakePacket` proof and before
       richer graph capability work. It should compose the already-existing
@@ -762,9 +775,9 @@ intended execution order is:
       delta, while every field remains traceable back to canonical plan refs,
       runtime contracts, or guard/report outputs.
 - [ ] Feed live task state into that reducer in the next slice: changed paths,
-      recent findings, last failed checks, recent touched files, and current
-      plan scope should influence graph ranking instead of every query seeing
-      the same static discovery view.
+      recent findings, per-file severity counts, last failed checks, recent
+      touched files, and current plan scope should influence graph ranking
+      instead of every query seeing the same static discovery view.
 - [ ] Keep the storage fallback explicit while SQLite activation is pending:
       canonical JSON artifacts plus refresh-ledger rows must remain a complete
       warm-start path for repo-pack adopters until the runtime cache is active
@@ -1147,6 +1160,17 @@ intended execution order is:
   the first typed `startup-context` / `WorkIntakePacket` reducer must replace
   prose-only least-effort guidance, and later graph widening must cover live
   routing inputs plus symbol/test/finding/workflow/config/iOS surfaces.
+- 2026-03-21: Reconciled the broader cross-agent context-graph audit against
+  live Phase-6 code and kept the result inside the same authority-loop order.
+  The immediate misses are now explicit here: shared scan hygiene still needs
+  `.claude/worktrees/**` and `dev/repo_example_temp/**` exclusions, the graph
+  path still rebuilds static topology instead of preferring fresh
+  `file_topology.json` / `review_packet.json` changed/hint/severity inputs,
+  and current query confidence still over-rewards substring/import adjacency.
+  Sequence stays bounded: fix scan hygiene, move routing/scoring onto the
+  existing probe artifacts and shared hotspot scorer, keep `startup-context`
+  as the single startup packet, then widen into the already-tracked work-graph
+  coverage for review/governance/autonomy/workflow/config/test/platform data.
 - 2026-03-21: Added the missing warm-start/session-delta rule to the same
   authority-loop lane. First startup seeds canonical artifacts, later
   sessions refresh only the invalidated slices by content hash + git diff, and

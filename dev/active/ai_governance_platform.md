@@ -3003,6 +3003,21 @@ Still open before `P0` closes:
       source-file hotness from the shared hotspot / `priority_score` family so
       probe-report, topology packets, and context-graph are ranking the same
       repo risk through one explainable scoring contract.
+- [ ] Fix topology-scan hygiene before relying on graph confidence: the shared
+      source enumerator must exclude calibration/transient roots such as
+      `dev/repo_example_temp/**` and `.claude/worktrees/**` so sample repos or
+      detached worktrees never materialize as high-confidence live graph
+      neighbors.
+- [ ] Prefer fresh probe/topology artifacts over cold rescans in the next
+      reducer step: `context-graph` / `startup-context` should read
+      `dev/reports/probes/latest/file_topology.json` and `review_packet.json`
+      for changed paths, hint counts, severity counts, connected files, and
+      bounded next-slice guidance, with filesystem rescans only as the
+      stale/missing fallback.
+- [ ] Make query confidence honest before widening capability: direct typed
+      matches and bounded word-aware query quality must outrank accidental
+      substring/import adjacency, and sample-repo noise or generic neighbor
+      expansion must not surface as `high` confidence.
 - [ ] Replace the ad hoc keyword mapping with a real context-routing trigger
       table: file/path patterns -> required warm refs, plan domains, checks,
       and query hints. `_PLAN_CONCEPT_KEYWORDS` is only the first heuristic.
@@ -3013,6 +3028,11 @@ Still open before `P0` closes:
       smarter: the default startup packet should stay slim (roughly <=2K
       tokens) and lean on query-on-demand / warm-context retrieval instead of
       growing into another static doc dump.
+- [ ] Keep the startup family singular during graph rollout too:
+      `startup-context` is the canonical bounded startup packet, while
+      `context-graph --mode bootstrap`, `HotIndex`, and later
+      `system-picture` views stay generated reducers over the same cached
+      authority rather than parallel bootstrap manifests.
 - [ ] Add the first typed `startup-context` / `WorkIntakePacket` command after
       those honesty fixes land. The packet should carry repo identity, command
       goal, active target refs, changed paths, changed symbols when available,
@@ -3038,10 +3058,12 @@ Still open before `P0` closes:
       files, and current plan scope into graph temperature/ranking instead of
       rebuilding the same static discovery graph on every command invocation.
 - [ ] Widen from file graph to work graph in the next ladder step: symbol
-      nodes, test-to-file/test-to-symbol edges, finding identity nodes, plan
-      anchors/checklist rows, repo-pack policy nodes, workflow/config edges,
-      and Swift/iOS coverage after Python/Rust so this repo's mobile surfaces
-      are not invisible to routing.
+      nodes, explicit test nodes plus test-to-file/test-to-symbol edges,
+      finding identity nodes, review-state / governance verdict / autonomy
+      episode nodes, plan anchors/checklist rows, repo-pack policy plus
+      platform-contract/service nodes, workflow/config edges, and Swift/iOS
+      coverage after Python/Rust so this repo's mobile surfaces are not
+      invisible to routing.
 - [ ] Extend that same graph contract with workflow and config nodes/edges so
       AI and operator surfaces can answer “which CI workflows, guard paths, or
       config files affect this scope?” without separate prompt-local lookup.
@@ -3986,6 +4008,19 @@ Execution order for this section:
   ladder is now explicit here: honesty + command edges first, then typed
   `startup-context` / `WorkIntakePacket`, then live routing inputs, then the
   broader work graph.
+- 2026-03-21: Reconciled the larger cross-agent ZGraph/runtime audit with the
+  live platform plan. Confirmed the immediate misses are wiring, not
+  architecture: the shared topology scan still pulls calibration/transient
+  roots (`dev/repo_example_temp/**`, `.claude/worktrees/**`), the current
+  build path ignores fresh `file_topology.json` / `review_packet.json` inputs
+  so changed/hint/severity channels sit idle, and query confidence still
+  over-credits substring/import adjacency. Folded that into the existing
+  ladder: scan hygiene plus artifact-backed routing/scoring next, then the
+  typed startup/work-intake reducer, then the already-planned work-graph
+  expansion. The broader unused data families from that audit (review state,
+  governance verdicts, autonomy telemetry, workflow/config/test/platform
+  coverage) map to that existing work-graph step rather than to a second plan
+  family.
 - 2026-03-21: Captured the missing cross-session warm-start rule explicitly.
   The plans already had startup-context, hot/warm/cold retrieval, adoption
   scans, and SQLite activation, but the end-to-end session flow is now named

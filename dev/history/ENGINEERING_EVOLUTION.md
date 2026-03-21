@@ -46,6 +46,34 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-21 - Context-graph plan state synchronized with the deeper ZGraph/runtime audit
+
+Fact: the canonical `MP-377` plan chain now records the immediate
+context-graph wiring gaps surfaced by the broader runtime audit instead of
+leaving them in chat-only analysis. `MASTER_PLAN.md`,
+`ai_governance_platform.md`, and `platform_authority_loop.md` now explicitly
+track shared scan hygiene for calibration/transient roots
+(`dev/repo_example_temp/**`, `.claude/worktrees/**`), artifact-backed routing
+from `dev/reports/probes/latest/file_topology.json` and `review_packet.json`,
+shared hotspot/severity-aware ranking, honest query confidence, and the rule
+that `startup-context` remains the single bounded startup packet while
+`context-graph --mode bootstrap` stays a reducer over the same cached
+authority.
+
+This matters because the graph architecture was already sound, but the repo's
+live plan state did not yet say which findings were immediate plumbing fixes
+versus later work-graph expansion. The updated plan chain now does that
+explicitly: fix the wiring first, then feed the typed startup/work-intake
+reducer, then widen into the already-planned review/governance/autonomy/
+workflow/config/test/platform graph coverage without regrowing a second
+bootstrap surface.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+
 ### 2026-03-21 - MP-355 current-session authority cutover started in the structured review state
 
 Fact: the review-channel runtime now exposes one typed live current-session

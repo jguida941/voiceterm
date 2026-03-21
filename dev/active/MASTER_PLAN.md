@@ -94,14 +94,24 @@
 - Current graph hygiene quick wins inside that same lane: unify `INDEX.md`
   parsing behind one canonical helper for doc-authority/context-graph/plan-
   resolution consumers, add a hard parity guard for `COMMAND_HANDLERS` versus
-  `devctl list` command inventory, normalize context-graph temperature from
-  the shared hotspot scorer instead of maintaining a parallel algorithm, and
-  formalize file-pattern trigger-table routing so the graph can request the
-  right warm knowledge for a touched subsystem without inflating bootstrap.
+  `devctl list` command inventory, fix shared topology-scan exclusions so
+  calibration/transient roots (`dev/repo_example_temp/**`,
+  `.claude/worktrees/**`) never pollute live graph confidence, prefer fresh
+  `dev/reports/probes/latest/file_topology.json` +
+  `review_packet.json` for changed-path/hint/severity inputs with rescan
+  fallback only when artifacts are stale or missing, normalize
+  context-graph temperature from the shared hotspot scorer instead of
+  maintaining a parallel algorithm, and formalize file-pattern trigger-table
+  routing so the graph can request the right warm knowledge for a touched
+  subsystem without inflating bootstrap.
 - Current context-budget rule inside that same lane: keep the default startup
   packet slim (roughly <=2K tokens) and prefer query-on-demand / warm-context
   retrieval over preloading larger context blobs, because the platform should
   optimize for bounded discovery rather than "load everything just in case."
+- Current startup-family rule inside that same lane: `startup-context`
+  remains the canonical bounded startup packet; `context-graph --mode
+  bootstrap` is a reducer/hot-index helper over the same cached authority,
+  not a second peer bootstrap surface.
 - Current `P0` closure focus inside that sequence: canonical `Finding`-based
   packets, `FixPacket` / `DecisionPacket` split, schema/version matrices,
   `CommandGoalTaxonomy` + validation-routing closure, and a contract-closure
@@ -242,11 +252,14 @@
   context-recovery proof, not as permission to pile richer graph work into
   the same mixed tree.
 - Next `MP-377` graph order after that checkpoint: honest typed plan/doc/
-  command edges first, then the remaining backend instruction emitters
-  (review-channel promotion/event projections and fresh `swarm_run`
-  prompts), then a validation matrix across review-channel / autonomy /
-  Ralph, then richer graph capabilities such as transitive blast radius,
-  test-to-code/test-selection edges, and agent-authored graph queries.
+  command edges plus artifact-backed live routing/scoring inputs first
+  (shared scan hygiene, `file_topology.json` / `review_packet.json`
+  ingestion, shared hotspot scoring, and severity-aware ranking), then the
+  remaining backend instruction emitters (review-channel promotion/event
+  projections and fresh `swarm_run` prompts), then a validation matrix
+  across review-channel / autonomy / Ralph, then richer graph capabilities
+  such as transitive blast radius, review/governance/autonomy/workflow/
+  config/test edges, and agent-authored graph queries.
 - Follow-on graph/productization lane after those honesty/intake closures:
   add one portable `architecture-review` command/profile that aggregates the
   same graph, probe, guard, and contract evidence into one system-level health
