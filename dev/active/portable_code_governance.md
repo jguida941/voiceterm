@@ -174,6 +174,11 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       answer should come from repo-pack metadata, changed-file inspection,
       command-goal taxonomy, and generated surfaces rather than from one repo's
       hardcoded paths or hand-written starter prose.
+- [ ] Add graph-scoped post-edit verification routing on top of that same
+      portable map: when a repo-understanding surface can prove related tests,
+      guards, configs, or workflows for the changed scope, post-edit
+      verification should prefer that targeted plan over generic broad
+      bundles.
 - [ ] Make that startup-authority layer convention-aware too: when a repo has
       declared convention policy or freshly generated convention reports, AI
       startup surfaces should include the relevant convention summary and the

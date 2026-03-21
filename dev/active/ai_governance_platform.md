@@ -2922,6 +2922,10 @@ Still open before `P0` closes:
       serialized in a ZGraph-compatible form, but the authority must remain
       the generated contract/artifact snapshot, not a free-form semantic
       store.
+- [ ] Freeze the terminology for that layer explicitly: in these plans,
+      `ZGraph` means the internal generated concept-navigation/semantic-graph
+      encoding built on canonical pointer refs and typed edges. It is not a
+      product name and not a second authority store.
 - [ ] Land the first native query surface on top of that backend: extend
       `devctl map` / repo-map generation with active-plan/doc/command nodes
       plus typed edges, emit a generated startup `HotIndex`, and expose a
@@ -2946,6 +2950,12 @@ Still open before `P0` closes:
       bounded transitive blast-radius queries, then test-to-code /
       test-selection edges, then agent-authored graph queries. Each step must
       stay reversible to canonical refs and pass the same honesty rules.
+- [ ] Extend that same graph contract with workflow and config nodes/edges so
+      AI and operator surfaces can answer “which CI workflows, guard paths, or
+      config files affect this scope?” without separate prompt-local lookup.
+- [ ] Feed repo temperature with more than static topology: add git churn,
+      complexity, and recency inputs so hotspot ranking favors high-change,
+      high-risk files without turning temperature into an opaque score.
 - [ ] Add `check_semantic_links.py` after the graph/pointer contract lands so
       bidirectional plan/doc/command links, typed edges, and generated
       `HotIndex` refs cannot drift from canonical pointer/anchor authority.

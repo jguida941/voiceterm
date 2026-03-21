@@ -292,6 +292,9 @@ context-free translation = MEDIUM.
       what changed, why it was flagged, what surrounding files/modules connect
       to it, what tests/guards already ran, what prior fix attempts happened,
       and the recommended bounded next slice.
+- [ ] Enrich the recommended bounded next slice when graph coverage exists:
+      include likely callers/importers, related tests, config/workflow refs,
+      and verification hints so AI fix packets do not stop at file-local prose.
 - [x] Add a composite priority score that combines severity, coupling,
       churn/change recency, and ownership ambiguity so review order is not
       based on raw hint counts alone.

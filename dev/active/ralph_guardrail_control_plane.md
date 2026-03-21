@@ -161,8 +161,9 @@ operator visibility into what the loop is doing. This plan delivers:
   context recovery. The current fixer injection is the first bounded proof,
   but the next steps are now explicit: record whether a packet was used,
   matched terms, and whether follow-up query/test selection improved, then
-  reuse the same packet shape for mutation/future fixers only after the shared
-  graph grows honest related-test / related-guard edges.
+  reuse the same packet shape for mutation/future fixers and guarded retry
+  loops only after the shared graph grows honest related-test /
+  related-guard edges.
 - 2026-03-21: Extended the Ralph AI fix path with bounded context recovery
   instead of one giant cold bootstrap. `ralph_ai_fix.py` now builds a small
   `context-graph` packet from backlog findings when file/MP/command scope is

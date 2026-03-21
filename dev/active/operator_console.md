@@ -697,6 +697,10 @@ Checklist:
       `review-channel` for the current 8+8 review swarm when that is the chosen
       lane, or `swarm_run` / `autonomy-swarm` when the broader autonomy path is
       the right fit.
+- [ ] Add a graph-backed scope pane for planner/handoff views: render the same
+      generated context packet / concept-view refs that AI uses so operators
+      can inspect blast radius, related plans/docs, and likely verification
+      scope without cold-reading the full doc stack.
 - [ ] Persist planner outputs into repo-visible logs/artifacts so later AI runs
       and operators can see why a swarm size was selected.
 
