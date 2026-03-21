@@ -167,6 +167,35 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 - [ ] Add a portable typed-query layer beyond substring search so callers,
       importers, tests, configs, workflows, and plan/doc relations are
       queryable as explicit graph questions rather than prompt-local prose.
+- [ ] Add a repo-portable `architecture-review` surface on top of that same
+      map/query/probe/guard stack: another repo should be able to run one
+      command/profile and get cycles, layer violations, god-module risk,
+      blast-radius context, health scoring, and audience projections without
+      copying VoiceTerm-only thresholds or docs.
+- [ ] Keep that architecture-review path repo-pack-driven: layer rules,
+      coupling thresholds, score weights, and audience defaults must resolve
+      from repo policy / repo pack metadata instead of hardcoded VoiceTerm
+      assumptions.
+- [ ] Make push-enforcement state explicit for adopters: distinguish
+      `devctl push`, optional installed pre-push hooks, and raw `git push`;
+      startup/status surfaces should say whether repo-owned push validation is
+      merely available or actually active so operators do not assume a GitHub
+      push is guarded when no hook/install path is in force.
+- [ ] Route all AI-initiated VCS pushes through `devctl push` instead of raw
+      `git push`: Ralph (`ralph_ai_fix.py`), autonomy-loop, and swarm agents
+      currently bypass `repo_governance.push` policy, preflight bundles,
+      `TypedAction(action_id="vcs.push")` receipts, post-push bundles, and
+      governance-ledger recording. The fix is to replace raw `git push` calls
+      in AI agent paths with `devctl push --execute --caller <agent-id>`, add
+      `allowed_callers` with per-caller preflight profiles to push policy, and
+      carry push `ActionResult` forward in loop-packet checkpoint evidence so
+      the operator console and governance ledger see every AI push through the
+      same contract that governs human pushes.
+- [ ] Make checkpoint-budget state portable for adopters too: another repo's
+      startup/status surfaces should expose when the current dirty slice is
+      still safe to keep editing versus when the agent must checkpoint before
+      adding more changes. That decision must come from repo-pack policy
+      thresholds plus current worktree counts, not from model-local judgment.
 - [ ] Add a portable work-intake / startup-authority layer on top of that map
       and policy stack: another repo should be able to ask "what is active,
       what changed, what bundle should run, and where should accepted outcomes
@@ -174,6 +203,13 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       answer should come from repo-pack metadata, changed-file inspection,
       command-goal taxonomy, and generated surfaces rather than from one repo's
       hardcoded paths or hand-written starter prose.
+- [ ] Make the repo-understanding path-resolution seam explicit for that same
+      portable layer: `context-graph`, startup lookup, and concept-routing
+      inputs must resolve active docs, roots, and warm-context hints through
+      `RepoPack` / `RepoPathConfig` / repo-policy trigger tables rather than
+      through VoiceTerm-specific literals like `dev/active/INDEX.md`,
+      fixed directory assumptions, or keyword maps that only make sense in one
+      checkout.
 - [ ] Add graph-scoped post-edit verification routing on top of that same
       portable map: when a repo-understanding surface can prove related tests,
       guards, configs, or workflows for the changed scope, post-edit

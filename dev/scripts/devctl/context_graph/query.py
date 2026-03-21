@@ -6,6 +6,7 @@ import subprocess
 from typing import Any
 
 from ..config import get_repo_root
+from ..governance.push_policy import detect_push_enforcement_state, load_push_policy
 from ..governance.repo_policy import load_repo_policy_payload
 from .models import (
     NODE_KIND_GUARD,
@@ -80,15 +81,27 @@ def query_context_graph(
         key=lambda n: (-n.temperature, n.node_id),
     )
 
+    if not matched_ids:
+        confidence = "no_match"
+    elif not matched_edges:
+        confidence = "low_confidence"
+    else:
+        # If all edges are heuristic documented_by, downgrade to low_confidence
+        from .models import EDGE_KIND_DOCUMENTED_BY
+        non_heuristic = [e for e in matched_edges if e.edge_kind != EDGE_KIND_DOCUMENTED_BY]
+        confidence = "high" if non_heuristic else "low_confidence"
+
     return QueryResult(
         query=query,
         matched_nodes=result_nodes,
         edges=matched_edges,
         hot_index_summary=_hot_index_summary(nodes, edges),
+        confidence=confidence,
         evidence=[
             f"matched {len(matched_ids)} direct node(s)",
             f"expanded to {len(neighbor_ids)} neighbor(s)",
             f"{len(matched_edges)} connecting edge(s)",
+            f"confidence: {confidence}",
         ],
     )
 
@@ -176,6 +189,10 @@ def build_bootstrap_context(
 
     policy_commands, policy_links = _load_policy_context(repo_root)
     policy_links["bridge"] = "bridge.md" if bridge_active else None
+    push_enforcement = detect_push_enforcement_state(
+        load_push_policy(repo_root=repo_root),
+        repo_root=repo_root,
+    )
 
     return BootstrapContext(
         repo=repo_root.name,
@@ -192,6 +209,7 @@ def build_bootstrap_context(
         hotspots=_hotspot_summaries(top_hotspots),
         key_commands=policy_commands,
         bootstrap_links=policy_links,
+        push_enforcement=push_enforcement,
         usage=_USAGE,
     )
 

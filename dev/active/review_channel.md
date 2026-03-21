@@ -1074,6 +1074,19 @@ Acceptance:
       Terminal.app sessions, and fail closed once the markdown bridge is
       inactive so this launcher cannot outlive the transitional bridge by
       accident.
+- [ ] Land the first typed current-session authority cutover for the live
+      bridge-backed loop: one `current_session` block in `ReviewState` /
+      `review_state.json` must become the canonical current-status authority
+      for reviewer mode, instruction revision, reviewed hash, live findings,
+      and peer ACK state; `latest.md` and other current-status markdown
+      projections must render from that typed block instead of reading
+      append-only `Claude Ack` / status history prose directly.
+- [ ] Separate live current status from history in the same slice: keep
+      append-only bridge/event history in trace/history projections only, and
+      make the markdown-authority demotion gate explicit for MP-355. The live
+      bridge is not retired until current-status readers stop depending on
+      mixed prose/history sections and can prove parity from typed current
+      session state alone.
 - [ ] Add `devctl review-channel` command + parser/handler wiring using the
       flat `--action` contract.
 - [ ] Register parser/command wiring in isolated files that do not further grow
@@ -1477,6 +1490,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-21T16:35:00Z` | `CODEX` | Promoted the bridge-read authority cleanup into the active MP-355 lane after another operator-visible confusion round. The immediate bounded fix is to make one typed `current_session` block authoritative in `review_state.json`, render `latest.md` from that typed state instead of append-only `Claude Ack` prose, and keep history in trace/event surfaces instead of mixing it into current-status reads. This is the smallest same-repo slice that moves toward `CollaborationSession` authority without colliding with the current `context_graph` work. | `planned` | Land the typed `current_session` projection on both bridge-backed and event-backed review-state paths, switch `latest.md` / compact readers to that block, and keep append-only bridge/event history explicitly out of live current-status rendering before widening into full writer-authority replacement. |
 | `2026-03-21T15:50:00Z` | `CODEX` | Captured the round-duration operating constraint for the live dual-agent loop. Bounded rounds and restartable handoff state are already the architectural direction, but the plan now also treats roughly 30 minutes as the target fresh-session budget for reviewer/coder rounds so the controller prefers explicit rollover/restart over long-lived drifting sessions. | `planned` | Encode a concrete max-round-duration / rollover budget into the controller contract and keep handoff state rich enough that restarting is cheaper than letting one session go stale. |
 | `2026-03-21T21:35:00Z` | `CODEX` | Promoted the missing controller/handoff follow-up from discussion into tracked MP-355 state. The current bridge loop still polls passively even after the `runtime_missing` containment fix; the next reliability slice must switch to bounded rounds with fresh re-prompts, ACK deadlines, explicit no-progress circuit breaking, and rollover/session-restart behavior that uses repo-visible handoff state instead of hoping two long-lived sessions keep polling forever. The same follow-up must also enrich rollover/handoff bundles with the bounded context packet so fresh conductor sessions restart informed instead of blind. | `planned` | Land the round-based controller contract in the backend, keep `bridge.md` generated/truthful, and thread the same generated context packet into handoff bundles and restart prompts before widening into UI-only conveniences. |
 | `2026-03-21T18:40:00Z` | `CODEX` | Accepted the next bounded context-graph follow-up for MP-355 after the first conductor-path injection landed. The remaining high-value backend gaps are now explicit: repo-owned next-task promotion still emits plain text, event-backed `derived_next_instruction` is still summary-only, and the fresh `swarm_run` prompt path still starts blind. | `planned` | Keep the packet generated from the canonical graph, then widen it through promotion/event/startup prompt emitters with parity tests instead of inventing UI-local or chat-local context side channels. |

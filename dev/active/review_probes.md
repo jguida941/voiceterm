@@ -295,6 +295,14 @@ context-free translation = MEDIUM.
 - [ ] Enrich the recommended bounded next slice when graph coverage exists:
       include likely callers/importers, related tests, config/workflow refs,
       and verification hints so AI fix packets do not stop at file-local prose.
+- [ ] Extend the best-practice library and packet explanations to
+      architecture-level patterns too: dependency inversion, cycle breaking,
+      layer isolation, god modules, and cohesion-vs-coupling tradeoffs should
+      reuse the same before/after teaching style instead of leaving
+      system-level review output as metrics-only.
+- [ ] Add audience-aware packet projections over the same review evidence so
+      agents, junior developers, senior reviewers, and operators can get
+      different detail levels without inventing separate report schemas.
 - [x] Add a composite priority score that combines severity, coupling,
       churn/change recency, and ownership ambiguity so review order is not
       based on raw hint counts alone.

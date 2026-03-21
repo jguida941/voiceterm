@@ -7,6 +7,12 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import sync
+from dev.scripts.devctl.governance.push_policy import (
+    PushCheckpointPolicy,
+    PushPolicy,
+    PushPostPushPolicy,
+    PushPreflightPolicy,
+)
 
 
 def make_args(**overrides) -> SimpleNamespace:
@@ -16,6 +22,7 @@ def make_args(**overrides) -> SimpleNamespace:
         "no_current": False,
         "allow_dirty": False,
         "push": False,
+        "quality_policy": None,
         "format": "json",
         "output": None,
         "pipe_command": None,
@@ -23,6 +30,24 @@ def make_args(**overrides) -> SimpleNamespace:
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
+
+
+def make_policy(**overrides) -> PushPolicy:
+    defaults = {
+        "policy_path": "dev/config/devctl_repo_policy.json",
+        "repo_pack_id": "voiceterm",
+        "warnings": (),
+        "default_remote": "origin",
+        "development_branch": "develop",
+        "release_branch": "master",
+        "protected_branches": ("develop", "master"),
+        "allowed_branch_prefixes": ("feature/", "fix/"),
+        "preflight": PushPreflightPolicy(),
+        "post_push": PushPostPushPolicy(),
+        "checkpoint": PushCheckpointPolicy(),
+    }
+    defaults.update(overrides)
+    return PushPolicy(**defaults)
 
 
 class SyncParserTests(unittest.TestCase):
@@ -55,12 +80,14 @@ class SyncParserTests(unittest.TestCase):
 class SyncCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.sync.write_output")
     @patch("dev.scripts.devctl.commands.sync.run_cmd")
+    @patch("dev.scripts.devctl.commands.sync.load_push_policy")
     @patch("dev.scripts.devctl.commands.sync._remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.sync.collect_git_status")
     def test_sync_fails_when_tree_is_dirty(
         self,
         collect_git_status_mock,
         _remote_exists_mock,
+        load_push_policy_mock,
         run_cmd_mock,
         write_output_mock,
     ) -> None:
@@ -68,6 +95,7 @@ class SyncCommandTests(unittest.TestCase):
             "branch": "develop",
             "changes": [{"status": "M", "path": "README.md"}],
         }
+        load_push_policy_mock.return_value = make_policy()
 
         rc = sync.run(make_args())
 
@@ -82,12 +110,14 @@ class SyncCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.sync._remote_branch_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.sync._branch_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.sync._remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.sync.load_push_policy")
     @patch("dev.scripts.devctl.commands.sync.run_cmd")
     @patch("dev.scripts.devctl.commands.sync.collect_git_status")
     def test_sync_runs_fetch_pull_and_restore_starting_branch(
         self,
         collect_git_status_mock,
         run_cmd_mock,
+        load_push_policy_mock,
         _remote_exists_mock,
         _branch_exists_mock,
         _remote_branch_exists_mock,
@@ -95,6 +125,7 @@ class SyncCommandTests(unittest.TestCase):
         write_output_mock,
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_push_policy_mock.return_value = make_policy()
         branch_divergence_mock.return_value = {"behind": 0, "ahead": 0, "error": None}
 
         def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
@@ -130,12 +161,14 @@ class SyncCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.sync._remote_branch_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.sync._branch_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.sync._remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.sync.load_push_policy")
     @patch("dev.scripts.devctl.commands.sync.run_cmd")
     @patch("dev.scripts.devctl.commands.sync.collect_git_status")
     def test_sync_with_push_clears_local_ahead_state(
         self,
         collect_git_status_mock,
         run_cmd_mock,
+        load_push_policy_mock,
         _remote_exists_mock,
         _branch_exists_mock,
         _remote_branch_exists_mock,
@@ -143,6 +176,7 @@ class SyncCommandTests(unittest.TestCase):
         write_output_mock,
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_push_policy_mock.return_value = make_policy()
         branch_divergence_mock.side_effect = [
             {"behind": 0, "ahead": 2, "error": None},
             {"behind": 0, "ahead": 0, "error": None},
@@ -176,12 +210,14 @@ class SyncCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.sync._remote_branch_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.sync._branch_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.sync._remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.sync.load_push_policy")
     @patch("dev.scripts.devctl.commands.sync.run_cmd")
     @patch("dev.scripts.devctl.commands.sync.collect_git_status")
     def test_sync_without_push_fails_when_branch_is_ahead(
         self,
         collect_git_status_mock,
         run_cmd_mock,
+        load_push_policy_mock,
         _remote_exists_mock,
         _branch_exists_mock,
         _remote_branch_exists_mock,
@@ -189,6 +225,7 @@ class SyncCommandTests(unittest.TestCase):
         write_output_mock,
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_push_policy_mock.return_value = make_policy()
         branch_divergence_mock.return_value = {"behind": 0, "ahead": 1, "error": None}
 
         def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):

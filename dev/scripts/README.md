@@ -161,7 +161,9 @@ Portability note:
 - Repo-owned governance surfaces now live in
   `dev/config/devctl_repo_policy.json` too: `repo_governance.check_router`
   defines lane selection + risk add-ons, `repo_governance.docs_check` defines
-  canonical docs + deprecated-reference policy for `docs-check`, and
+  canonical docs + deprecated-reference policy for `docs-check`,
+  `repo_governance.push` defines deterministic branch/remote/preflight/post-push
+  behavior for the canonical `push` surface, and
   `repo_governance.surface_generation` defines policy-owned instruction/starter
   surfaces for `render-surfaces`.
 - `check-router`, `docs-check`, and `render-surfaces` all accept
@@ -250,6 +252,10 @@ python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 # Optional: path-aware pre-push routing from changed files
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --quality-policy /tmp/pilot-policy.json
+# Canonical guarded branch-push validation path (non-mutating by default)
+python3 dev/scripts/devctl.py push
+# Execute the real short-lived branch push plus the configured post-push bundle
+python3 dev/scripts/devctl.py push --execute
 
 # Docs + governance checks
 python3 dev/scripts/devctl.py docs-check --user-facing
@@ -271,7 +277,7 @@ python3 dev/scripts/devctl.py publication-sync --publication terminal-as-interfa
 python3 dev/scripts/devctl.py path-audit
 python3 dev/scripts/devctl.py path-rewrite --dry-run
 python3 dev/scripts/devctl.py path-rewrite
-# Branch sync guardrail helper (develop/master/current by default)
+# Branch sync helper (repo-policy development/release/current by default)
 python3 dev/scripts/devctl.py sync
 # Also push local-ahead branches after sync
 python3 dev/scripts/devctl.py sync --push
@@ -732,6 +738,7 @@ Machine-first output note:
 - `process-cleanup`: host-side cleanup for orphaned/stale repo-related process trees; expands cleanup roots to full descendant trees so leaked PTY children, repo-cwd background helpers, and orphaned tooling descendants are reaped with their parent wrappers when possible, skips recent active processes by default, and `--verify` reruns strict host audit after cleanup
 - `process-audit`: read-only host-side Activity Monitor equivalent for repo-related process trees; reports matched roots plus descendants, includes repo-cwd runtime/tooling helpers that would otherwise look generic in Activity Monitor, fails fast when `ps` access is unavailable, preserves attached supervised review-channel conductors as visible non-blocking rows, and `--strict` turns leftover runtime/test trees or stale/orphaned repo-related helpers into a blocking failure before handoff
 - `publication-sync`: tracked external publication report/record surface that compares watched repo paths against the last synced source commit for papers/sites and records a new baseline after external publish
+- `push`: policy-driven guarded push wrapper for the current branch; resolves branch/remote rules from `repo_governance.push`, runs the configured preflight path, defaults to non-mutating validation, and uses the configured post-push bundle after `--execute`
 - `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `path-rewrite`: auto-rewrite legacy check-script paths to canonical registry targets (use `--dry-run` first)
 - `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)
@@ -874,6 +881,8 @@ Machine-first output note:
 | `docs-check --user-facing` | you changed user docs or user behavior | keeps docs and behavior aligned |
 | `docs-check --strict-tooling` | you changed tooling, workflows, or process docs | enforces governance, active-plan sync, and durable guide coverage contracts |
 | `docs-check --strict-tooling --quality-policy /tmp/pilot-policy.json` | you want the same docs-governance contract in another repo without patching devctl | resolves canonical doc paths and deprecated-command policy from the supplied repo policy file |
+| `push` | you want the canonical repo-owned short-lived branch push validator without mutating git state yet | resolves `repo_governance.push`, checks branch/remote policy, runs the configured preflight, and exits ready/blocked without doing the actual push |
+| `push --execute` | validation passed and you want the repo-owned push path instead of ad-hoc `git push` | runs the same policy-driven validation, performs the branch push, then executes the configured post-push bundle |
 | `render-surfaces --format md` | you need to inspect repo-pack instruction/starter surfaces or validate drift without writing files | resolves `repo_governance.surface_generation` and reports current sync state for each governed surface |
 | `render-surfaces --write --format md` | you changed a repo-pack template, starter stub, or surface-generation policy context | regenerates the governed outputs in place so `docs-check --strict-tooling` and the standalone guard stay green |
 | `hygiene` | before merge on tooling/process work | catches doc/process drift and leaked runtime test processes |
@@ -1040,8 +1049,20 @@ consistent:
   `security` command so `cli.py` stays smaller and easier to maintain.
 - `dev/scripts/devctl/security/python_scope.py`: shared Python changed/all
   scope resolution and target derivation for core security scanners.
+- `dev/scripts/devctl/governance/push_policy.py`: repo-governance push-policy
+  loader and command builder shared by `push`, `sync`, `ship`, and
+  `governance-draft`.
+- `dev/scripts/devctl/governance/bootstrap_push.py`: starter repo-pack push
+  governance detection used by `governance-bootstrap` to seed default remote,
+  branch, and guard-routing policy.
 - `dev/scripts/devctl/sync_parser.py`: shared CLI parser wiring for the
-  `sync` command so `cli.py` stays within shape budgets.
+  `sync` and `push` commands so `cli.py` stays within shape budgets.
+- `dev/scripts/devctl/runtime/vcs.py`: shared git/vcs helper functions used by
+  `push`, `sync`, and other repo-owned branch/release command surfaces.
+- `dev/scripts/devctl/commands/vcs/push.py`: canonical `devctl push`
+  implementation for policy-driven guarded branch pushes.
+- `dev/scripts/devctl/commands/vcs/push_report.py`: shared report/render
+  helpers for the guarded push surface.
 - `dev/scripts/devctl/cihub_setup_parser.py`: shared CLI parser wiring for the
   `cihub-setup` command.
 - `dev/scripts/devctl/orchestrate_parser.py`: shared CLI parser wiring for

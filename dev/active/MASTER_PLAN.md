@@ -124,6 +124,19 @@
   the active policy-enabled surface currently exposes 32 hard guards and 23
   review probes. Use the enabled counts for active enforcement scope and the
   raw counts for filesystem inventory only.
+- Current VCS-governance proof point inside that same `P0` lane: the repo now
+  has its first repo-pack-owned push-routing contract. `repo_governance.push`
+  owns remote/default-branch/protected-branch rules plus preflight and
+  post-push routing, `devctl push` is the canonical policy-backed branch push
+  surface, and legacy `sync` / release helpers now read the same policy
+  instead of hardcoding GitHub push defaults.
+- Current checkpoint-intake follow-up inside that same lane: startup surfaces
+  must expose not only whether a push is policy-guarded, but whether the
+  current worktree is still within the repo-pack-defined continuation budget.
+  Agents need deterministic `safe_to_continue_editing` /
+  `checkpoint_required` state plus dirty-path budget evidence so they can
+  stop and checkpoint a bounded slice before context debt grows, not only
+  after the tree has already become arbitrarily messy.
 - Current blocking follow-up after that closure slice: replace checkout-path-
   based finding identity with stable repo identity + repo-relative path, add
   the first hard-guard-to-`Finding` normalization seam so blocking and
@@ -185,6 +198,12 @@
   prompts), then a validation matrix across review-channel / autonomy /
   Ralph, then richer graph capabilities such as transitive blast radius,
   test-to-code/test-selection edges, and agent-authored graph queries.
+- Follow-on graph/productization lane after those honesty/intake closures:
+  add one portable `architecture-review` command/profile that aggregates the
+  same graph, probe, guard, and contract evidence into one system-level health
+  report instead of relying on ad hoc grep/manual synthesis. Keep it
+  repo-pack-driven, JSON-canonical, and projected into audience-specific views
+  rather than inventing a second architecture-analysis stack.
 - Follow-up: `devctl` organization/readability cleanup — crowded roots
   (`dev/scripts/devctl/`, `commands/`, `tests/` all over freeze thresholds),
   naming/module convention consistency, and a portable naming-convention
@@ -748,6 +767,15 @@
   rejects deprecated `--codex-args` free-form passthrough, and
   `pypi/src/voiceterm/cli.py` now validates bootstrap repo URL/ref plus
   forwarded argv before invoking `git` or the native binary.
+- MP-377 repo-pack push-governance update (2026-03-21):
+  the first repo-pack-owned VCS command-routing slice is now real. The new
+  `repo_governance.push` policy owns default remote, development/release
+  branch names, protected-branch rules, and the required preflight/post-push
+  flow; `devctl push` is the new canonical branch-push surface with
+  `TypedAction(action_id="vcs.push")` / `ActionResult` output; generated
+  starter surfaces now include a pre-push hook stub; and legacy `sync` /
+  `ship` helpers now consume the same policy instead of embedding branch and
+  remote defaults in Python.
 - MP-376 export/evaluation update (2026-03-11):
   `devctl governance-export` now packages the governance stack into an
   external snapshot/zip with fresh `quality-policy`, `probe-report`, and

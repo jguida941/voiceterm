@@ -7,12 +7,12 @@ canonical_pointer_ref so the graph never becomes a second authority store.
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 from ..config import get_repo_root
+from ..governance.doc_authority_rules import parse_index_registry
 from ..probe_topology_scan import (
     build_python_module_index,
     build_rust_suffix_index,
@@ -40,14 +40,6 @@ from .models import (
     GraphNode,
 )
 
-_INDEX_ROW_RE = re.compile(
-    r"^\|\s*`(?P<path>[^`]+)`\s*\|"
-    r"\s*`(?P<role>[^`]+)`\s*\|"
-    r"\s*`(?P<authority>[^`]+)`\s*\|"
-    r"\s*`?(?P<scope>[^|]+?)`?\s*\|"
-    r"\s*(?P<when>[^|]*)\|",
-)
-
 # Keywords in INDEX.md "when agents read" that map to concept directory keys.
 # Used to generate typed documented_by edges between plans and concepts.
 _PLAN_CONCEPT_KEYWORDS: tuple[tuple[str, str], ...] = (
@@ -65,24 +57,6 @@ _PLAN_CONCEPT_KEYWORDS: tuple[tuple[str, str], ...] = (
 
 # Paths containing these segments are worktree artifacts, not canonical source
 _WORKTREE_MARKERS = (".claude/worktrees/",)
-
-
-def _clean_scope_text(raw: str) -> str:
-    """Strip markdown noise (backticks, leading/trailing punctuation) from scope."""
-    return raw.replace("`", "").strip().strip(",").strip()
-
-
-def _parse_index_rows(repo_root: Path) -> list[dict[str, str]]:
-    """Extract plan doc rows from INDEX.md registry table."""
-    index_path = repo_root / "dev" / "active" / "INDEX.md"
-    if not index_path.exists():
-        return []
-    rows: list[dict[str, str]] = []
-    for line in index_path.read_text(encoding="utf-8").splitlines():
-        match = _INDEX_ROW_RE.match(line)
-        if match:
-            rows.append(match.groupdict())
-    return rows
 
 
 def _parse_guide_files(repo_root: Path) -> list[Path]:
@@ -214,6 +188,7 @@ def build_context_graph(
     repo_root = get_repo_root()
     nodes: list[GraphNode] = []
     edges: list[GraphEdge] = []
+    _deferred_doc_edges: list[tuple[str, str]] = []
 
     src_nodes, src_edges, node_ids = _collect_source_nodes(
         hint_counts or {}, changed_paths or set(),
@@ -221,9 +196,12 @@ def build_context_graph(
     nodes.extend(src_nodes)
     edges.extend(src_edges)
 
+    from ..repo_packs import active_path_config
     _ACTIVE_PLAN_ROLES = {"tracker", "spec"}
-    for row in _parse_index_rows(repo_root):
-        path = row["path"]
+    path_config = active_path_config()
+    index_path = repo_root / path_config.active_index_doc_rel
+    registry = parse_index_registry(index_path)
+    for path, row in registry.items():
         role = row.get("role", "")
         when = row.get("when", "").lower()
         is_active_plan = role in _ACTIVE_PLAN_ROLES
@@ -234,31 +212,27 @@ def build_context_graph(
         else:
             temp = 0.1
         plan_id = f"plan:{path}"
+        scope_raw = row.get("scope", "")
         nodes.append(
             GraphNode(
                 node_id=plan_id,
                 node_kind=NODE_KIND_PLAN,
                 label=path,
                 canonical_pointer_ref=path,
-                provenance_ref="dev/active/INDEX.md",
+                provenance_ref=str(index_path.relative_to(repo_root)),
                 temperature=temp,
                 metadata={
                     "role": role,
                     "authority": row.get("authority", ""),
-                    "scope": _clean_scope_text(row.get("scope", "")),
+                    "scope": scope_raw.replace("`", "").strip().strip(",").strip(),
                     "is_active_plan": is_active_plan,
                 },
             )
         )
         for keyword, concept_dir in _PLAN_CONCEPT_KEYWORDS:
             if keyword in when:
-                concept_id = f"concept:{concept_dir}"
-                edges.append(GraphEdge(
-                    source_id=plan_id,
-                    target_id=concept_id,
-                    edge_kind=EDGE_KIND_DOCUMENTED_BY,
-                ))
-                break  # one concept per plan to keep edges honest
+                _deferred_doc_edges.append((plan_id, f"concept:{concept_dir}"))
+                break
 
     guard_nodes, guard_edges = _collect_registry_nodes(
         CHECK_SCRIPT_RELATIVE_PATHS, NODE_KIND_GUARD,
@@ -287,26 +261,61 @@ def build_context_graph(
             )
         )
 
+    import importlib
     try:
-        from ..commands.listing import COMMANDS
-        for cmd_name in COMMANDS:
-            normalized = cmd_name.replace("-", "_")
-            nodes.append(
-                GraphNode(
-                    node_id=f"cmd:{cmd_name}",
-                    node_kind=NODE_KIND_COMMAND,
-                    label=cmd_name,
-                    canonical_pointer_ref=f"devctl {cmd_name}",
-                    provenance_ref="listing.COMMANDS",
-                    temperature=0.05,
-                    metadata={"aliases": [normalized, cmd_name]},
-                )
+        cli_mod = importlib.import_module("dev.scripts.devctl.cli")
+        handlers = getattr(cli_mod, "COMMAND_HANDLERS", {})
+    except (ImportError, ModuleNotFoundError):
+        handlers = {}
+    for cmd_name, handler in sorted(handlers.items()):
+        normalized = cmd_name.replace("-", "_")
+        handler_module = getattr(handler, "__module__", "") or ""
+        # Handle both namespaces: dev.scripts.devctl.* (module) and devctl.* (script)
+        if handler_module.startswith("dev.scripts.devctl."):
+            suffix = handler_module[len("dev.scripts.devctl."):]
+        elif handler_module.startswith("devctl."):
+            suffix = handler_module[len("devctl."):]
+        else:
+            suffix = handler_module
+        handler_path = "dev/scripts/devctl/" + suffix.replace(".", "/") + ".py"
+        init_path = handler_path.replace(".py", "/__init__.py")
+        if f"src:{init_path}" in node_ids and f"src:{handler_path}" not in node_ids:
+            handler_path = init_path
+        nid = f"cmd:{cmd_name}"
+        nodes.append(
+            GraphNode(
+                node_id=nid,
+                node_kind=NODE_KIND_COMMAND,
+                label=cmd_name,
+                canonical_pointer_ref=f"devctl {cmd_name}",
+                provenance_ref="cli.COMMAND_HANDLERS",
+                temperature=0.05,
+                metadata={
+                    "aliases": [normalized, cmd_name],
+                    "handler_module": handler_module,
+                },
             )
-    except ImportError:
-        pass
+        )
+        src_nid = f"src:{handler_path}"
+        if src_nid in node_ids:
+            edges.append(GraphEdge(
+                source_id=nid,
+                target_id=src_nid,
+                edge_kind=EDGE_KIND_ROUTES_TO,
+            ))
 
     concept_nodes, concept_edges = build_concept_nodes(nodes, edges)
     nodes.extend(concept_nodes)
     edges.extend(concept_edges)
+
+    # Validate deferred documented_by edges — suppress orphans
+    materialized_ids = {n.node_id for n in nodes}
+    for source_id, target_id in _deferred_doc_edges:
+        if target_id in materialized_ids:
+            edges.append(GraphEdge(
+                source_id=source_id,
+                target_id=target_id,
+                edge_kind=EDGE_KIND_DOCUMENTED_BY,
+            ))
 
     return nodes, edges

@@ -34,7 +34,8 @@ plan-scoped swarm pipeline.
 ### Normal push path
 
 ```bash
-python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute
+python3 dev/scripts/devctl.py push
+python3 dev/scripts/devctl.py push --execute
 # Optional local-only sanity lane while iterating
 python3 dev/scripts/devctl.py check --profile fast
 # Run this when hygiene warns about stale report growth
@@ -42,9 +43,12 @@ python3 dev/scripts/devctl.py reports-cleanup --dry-run
 python3 dev/scripts/devctl.py triage --ci --format md
 ```
 
-`check-router` executes lane commands from
-`dev/scripts/devctl/bundle_registry.py` and escalates unknown paths to the
-stricter tooling lane.
+`push` is the canonical branch-push surface: it resolves branch/remote rules
+from `repo_governance.push`, runs the configured preflight path, defaults to
+non-mutating validation, and only performs the real push when `--execute` is
+present. The default preflight still routes through `check-router`, which
+executes lane commands from `dev/scripts/devctl/bundle_registry.py` and
+escalates unknown paths to the stricter tooling lane.
 
 ### Tooling/process/CI path
 

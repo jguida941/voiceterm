@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 
 from ..runtime.machine_output import ArtifactOutputOptions, emit_machine_artifact_output
 from .builder import build_context_graph
@@ -14,6 +14,18 @@ from .render import (
     render_concept_mermaid,
     render_query_result_markdown,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class ContextGraphQueryPayload:
+    """Typed query payload for the machine-readable context-graph packet."""
+
+    query: str
+    confidence: float
+    matched_nodes: list[dict[str, object]]
+    edges: list[dict[str, object]]
+    hot_index_summary: dict[str, object]
+    evidence: list[str]
 
 
 def _run_bootstrap(args, nodes, edges) -> int:
@@ -39,17 +51,19 @@ def _run_query(args, nodes, edges) -> int:
     """Query the graph and emit a targeted subgraph."""
     query = getattr(args, "query", None) or ""
     result = query_context_graph(query, nodes, edges)
-    payload = {
-        "query": result.query,
-        "matched_nodes": [asdict(n) for n in result.matched_nodes],
-        "edges": [asdict(e) for e in result.edges],
-        "hot_index_summary": asdict(result.hot_index_summary),
-        "evidence": result.evidence,
-    }
+    payload = ContextGraphQueryPayload(
+        query=result.query,
+        confidence=result.confidence,
+        matched_nodes=[asdict(n) for n in result.matched_nodes],
+        edges=[asdict(e) for e in result.edges],
+        hot_index_summary=asdict(result.hot_index_summary),
+        evidence=result.evidence,
+    )
+    payload_dict = asdict(payload)
     return emit_machine_artifact_output(
         args,
         command="context-graph",
-        json_payload=payload,
+        json_payload=payload_dict,
         human_output=render_query_result_markdown(result),
         options=ArtifactOutputOptions(
             summary={

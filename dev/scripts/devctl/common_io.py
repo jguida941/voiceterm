@@ -21,6 +21,7 @@ _POLICY_AWARE_SUBCOMMANDS = frozenset(
         "check-router",
         "docs-check",
         "probe-report",
+        "push",
         "quality-policy",
         "render-surfaces",
         "report",

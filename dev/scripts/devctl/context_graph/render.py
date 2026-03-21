@@ -125,6 +125,52 @@ def render_bootstrap_markdown(ctx: dict[str, Any]) -> str:
             lines.append(f"- **{label}**: `{cmd}`")
         lines.append("")
 
+    push_state = ctx.get("push_enforcement", {})
+    if push_state:
+        lines.append("## Push State")
+        lines.append("")
+        lines.append(
+            f"- **raw_git_push_guarded**: "
+            f"{'yes' if push_state.get('raw_git_push_guarded') else 'no'}"
+        )
+        lines.append(
+            f"- **worktree_dirty**: "
+            f"{'yes' if push_state.get('worktree_dirty') else 'no'}"
+        )
+        lines.append(
+            f"- **dirty_path_count**: {push_state.get('dirty_path_count', 0)}"
+        )
+        lines.append(
+            f"- **untracked_path_count**: {push_state.get('untracked_path_count', 0)}"
+        )
+        lines.append(
+            f"- **max_dirty_paths_before_checkpoint**: "
+            f"{push_state.get('max_dirty_paths_before_checkpoint', 0)}"
+        )
+        lines.append(
+            f"- **max_untracked_paths_before_checkpoint**: "
+            f"{push_state.get('max_untracked_paths_before_checkpoint', 0)}"
+        )
+        lines.append(
+            f"- **checkpoint_required**: "
+            f"{'yes' if push_state.get('checkpoint_required') else 'no'}"
+        )
+        lines.append(
+            f"- **safe_to_continue_editing**: "
+            f"{'yes' if push_state.get('safe_to_continue_editing', True) else 'no'}"
+        )
+        lines.append(
+            f"- **checkpoint_reason**: "
+            f"`{push_state.get('checkpoint_reason', 'clean_worktree')}`"
+        )
+        ahead = push_state.get("ahead_of_upstream_commits")
+        ahead_text = str(ahead) if ahead is not None else "unknown"
+        lines.append(f"- **ahead_of_upstream_commits**: {ahead_text}")
+        lines.append(
+            f"- **recommended_action**: `{push_state.get('recommended_action', 'use_devctl_push')}`"
+        )
+        lines.append("")
+
     links = ctx.get("bootstrap_links", {})
     if links:
         lines.append("## Deep Links (load on demand)")

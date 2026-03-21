@@ -36,6 +36,7 @@ class QueryResult:
     edges: list[GraphEdge]
     hot_index_summary: HotIndexSummary
     evidence: list[str]
+    confidence: str = "high"
 
 
 NODE_KIND_SOURCE = "source_file"
@@ -69,6 +70,7 @@ class BootstrapContext:
     hotspots: list[dict[str, object]]
     key_commands: dict[str, str]
     bootstrap_links: dict[str, str | None]
+    push_enforcement: dict[str, object]
     usage: str
 
 

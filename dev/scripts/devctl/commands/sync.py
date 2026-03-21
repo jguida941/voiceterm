@@ -10,15 +10,18 @@ Synchronize selected branches against a remote with explicit safety guards:
 from __future__ import annotations
 
 import json
-import subprocess
 from typing import Dict, List
 
 from ..collect import collect_git_status
 from ..common import emit_output, pipe_output, run_cmd, write_output
-from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
+from ..governance.push_policy import load_push_policy, resolve_sync_branches
+from ..runtime.vcs import branch_divergence as _branch_divergence
+from ..runtime.vcs import branch_exists as _branch_exists
+from ..runtime.vcs import remote_branch_exists as _remote_branch_exists
+from ..runtime.vcs import remote_exists as _remote_exists
+from ..time_utils import utc_timestamp
 
-DEFAULT_SYNC_BRANCHES = ("develop", "master")
 MAX_DIRTY_PATHS = 12
 
 
@@ -32,69 +35,6 @@ def _unique_preserve_order(values: List[str]) -> List[str]:
         seen.add(normalized)
         ordered.append(normalized)
     return ordered
-
-
-def _run_git_capture(args: List[str]) -> tuple[int, str, str]:
-    try:
-        completed = subprocess.run(
-            ["git", *args],
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-    except OSError as exc:
-        return 127, "", str(exc)
-    return (
-        completed.returncode,
-        (completed.stdout or "").strip(),
-        (completed.stderr or "").strip(),
-    )
-
-
-def _remote_exists(remote: str) -> bool:
-    code, _, _ = _run_git_capture(["remote", "get-url", remote])
-    return code == 0
-
-
-def _branch_exists(branch: str) -> bool:
-    code, _, _ = _run_git_capture(["rev-parse", "--verify", "--quiet", branch])
-    return code == 0
-
-
-def _remote_branch_exists(remote: str, branch: str) -> bool:
-    code, _, _ = _run_git_capture(
-        ["show-ref", "--verify", "--quiet", f"refs/remotes/{remote}/{branch}"]
-    )
-    return code == 0
-
-
-def _branch_divergence(remote: str, branch: str) -> Dict:
-    code, output, error = _run_git_capture(
-        ["rev-list", "--left-right", "--count", f"{remote}/{branch}...{branch}"]
-    )
-    if code != 0:
-        message = error or output or f"git rev-list exited with code {code}"
-        return {"behind": None, "ahead": None, "error": message}
-
-    parts = output.split()
-    if len(parts) != 2:
-        return {
-            "behind": None,
-            "ahead": None,
-            "error": f"Unexpected divergence output: {output!r}",
-        }
-
-    try:
-        behind = int(parts[0])
-        ahead = int(parts[1])
-    except ValueError:
-        return {
-            "behind": None,
-            "ahead": None,
-            "error": f"Unable to parse divergence output: {output!r}",
-        }
-    return {"behind": behind, "ahead": ahead, "error": None}
 
 
 def _summarize_dirty_paths(changes: list[dict]) -> list[str]:
@@ -139,10 +79,12 @@ def _render_md(report: Dict) -> str:
 
 def run(args) -> int:
     """Sync selected branches with guardrails and optional push behavior."""
+    policy = load_push_policy(policy_path=getattr(args, "quality_policy", None))
     git = collect_git_status()
     errors: List[str] = []
-    warnings: List[str] = []
+    warnings: List[str] = list(policy.warnings)
     branches_report: List[Dict] = []
+    remote_name = str(args.remote or policy.default_remote).strip() or policy.default_remote
 
     if "error" in git:
         errors.append(git["error"])
@@ -152,7 +94,11 @@ def run(args) -> int:
         start_branch = str(git.get("branch", "")).strip()
         dirty_paths = _summarize_dirty_paths(git.get("changes", []))
 
-    requested = list(args.branches) if args.branches else list(DEFAULT_SYNC_BRANCHES)
+    requested = (
+        list(args.branches)
+        if args.branches
+        else list(resolve_sync_branches(policy))
+    )
     if start_branch and start_branch != "HEAD" and not args.no_current:
         requested.append(start_branch)
     target_branches = _unique_preserve_order(requested)
@@ -167,17 +113,17 @@ def run(args) -> int:
         errors.append(
             "Working tree has uncommitted changes. Commit/stash first or re-run with --allow-dirty."
         )
-    if not _remote_exists(args.remote):
-        errors.append(f"Remote '{args.remote}' is not configured.")
+    if not _remote_exists(remote_name):
+        errors.append(f"Remote '{remote_name}' is not configured.")
 
     fetch_step = None
     restore_step = None
     active_branch = start_branch
 
     if not errors:
-        fetch_step = run_cmd("git-fetch", ["git", "fetch", args.remote], cwd=REPO_ROOT)
+        fetch_step = run_cmd("git-fetch", ["git", "fetch", remote_name], cwd=REPO_ROOT)
         if fetch_step["returncode"] != 0:
-            errors.append(f"git fetch failed for remote '{args.remote}'.")
+            errors.append(f"git fetch failed for remote '{remote_name}'.")
 
     for branch in target_branches:
         branch_row: Dict = {
@@ -203,8 +149,8 @@ def run(args) -> int:
             branches_report.append(branch_row)
             continue
 
-        if not _remote_branch_exists(args.remote, branch):
-            message = f"Remote ref '{args.remote}/{branch}' is missing."
+        if not _remote_branch_exists(remote_name, branch):
+            message = f"Remote ref '{remote_name}/{branch}' is missing."
             branch_row["status"] = "missing-remote"
             branch_row["notes"].append(message)
             errors.append(message)
@@ -229,7 +175,7 @@ def run(args) -> int:
 
         pull = run_cmd(
             f"git-pull-{branch}",
-            ["git", "pull", "--ff-only", args.remote, branch],
+            ["git", "pull", "--ff-only", remote_name, branch],
             cwd=REPO_ROOT,
         )
         branch_row["steps"].append(pull)
@@ -241,7 +187,7 @@ def run(args) -> int:
             branches_report.append(branch_row)
             continue
 
-        divergence = _branch_divergence(args.remote, branch)
+        divergence = _branch_divergence(remote_name, branch)
         if divergence["error"]:
             message = (
                 f"Unable to compute divergence for '{branch}': {divergence['error']}"
@@ -258,7 +204,7 @@ def run(args) -> int:
         if args.push and (branch_row["ahead"] or 0) > 0:
             push = run_cmd(
                 f"git-push-{branch}",
-                ["git", "push", args.remote, branch],
+                ["git", "push", remote_name, branch],
                 cwd=REPO_ROOT,
             )
             branch_row["steps"].append(push)
@@ -269,7 +215,7 @@ def run(args) -> int:
                 errors.append(message)
                 branches_report.append(branch_row)
                 continue
-            divergence = _branch_divergence(args.remote, branch)
+            divergence = _branch_divergence(remote_name, branch)
             if divergence["error"]:
                 message = f"Unable to recompute divergence for '{branch}': {divergence['error']}"
                 branch_row["status"] = "divergence-error"
@@ -285,12 +231,12 @@ def run(args) -> int:
         if behind == 0 and ahead == 0:
             branch_row["status"] = "synced"
         elif behind > 0 and ahead > 0:
-            message = f"Branch '{branch}' diverged from {args.remote}/{branch}."
+            message = f"Branch '{branch}' diverged from {remote_name}/{branch}."
             branch_row["status"] = "diverged"
             branch_row["notes"].append(message)
             errors.append(message)
         elif behind > 0:
-            message = f"Branch '{branch}' is behind {args.remote}/{branch} after pull."
+            message = f"Branch '{branch}' is behind {remote_name}/{branch} after pull."
             branch_row["status"] = "behind"
             branch_row["notes"].append(message)
             errors.append(message)
@@ -302,7 +248,7 @@ def run(args) -> int:
                 errors.append(message)
             else:
                 message = (
-                    f"Branch '{branch}' is ahead of {args.remote}/{branch}; "
+                    f"Branch '{branch}' is ahead of {remote_name}/{branch}; "
                     "re-run with --push to fully sync."
                 )
                 branch_row["notes"].append(message)
@@ -324,7 +270,7 @@ def run(args) -> int:
         "command": "sync",
         "timestamp": utc_timestamp(),
         "ok": len(errors) == 0,
-        "remote": args.remote,
+        "remote": remote_name,
         "start_branch": start_branch,
         "active_branch": active_branch,
         "target_branches": target_branches,

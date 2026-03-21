@@ -595,6 +595,11 @@ Non-release work flow:
 
 Routine helper:
 
+- `python3 dev/scripts/devctl.py push` runs the canonical non-mutating
+  branch-push validation path from repo policy (`repo_governance.push`).
+- `python3 dev/scripts/devctl.py push --execute` runs the same preflight,
+  performs the current short-lived branch push, and then executes the
+  configured post-push bundle.
 - `python3 dev/scripts/devctl.py sync --push` can audit/sync `develop` +
   `master` + current branch with clean-tree and fast-forward guards.
 
@@ -1293,6 +1298,7 @@ Core commands:
 - `process-audit` (host-side Activity Monitor equivalent for repo-related runtime/tooling process trees; reports matched roots plus descendants, includes repo-cwd runtime/tooling helpers that would otherwise look generic in Activity Monitor, fails fast if `ps` is unavailable, and `--strict` turns leftover runtime/test trees or stale/orphaned repo-related helpers into a blocking failure before handoff)
 - `process-watch` (bounded periodic host-process monitor that reruns the same audit logic on a cadence, optionally performs orphan/stale cleanup before each pass, and stops only when zero repo-related host processes remain if `--stop-on-clean` is set)
 - `publication-sync` (tracked external publication report/record surface that compares watched repo paths against the last synced source commit for papers/sites and can record a new baseline after external publish)
+- `push` (policy-driven guarded push surface for the current branch; validates repo-owned branch/remote rules plus configured preflight, defaults to non-mutating validation, and uses the configured post-push bundle after `--execute`)
 - `path-audit` (stale-reference scan for legacy check-script paths; excludes `dev/archive/`)
 - `path-rewrite` (auto-rewrite legacy check-script paths to canonical registry targets; use `--dry-run` first)
 - `sync` (branch-sync automation with clean-tree, remote-ref, and `--ff-only` pull guards; optional `--push` for ahead branches)

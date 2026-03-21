@@ -14,6 +14,8 @@ scaffolds.
   Claude `/voice` skill.
 - `portable_governance_pre_commit_hook.stub.template.sh`: starter hook stub
   rendered into `portable_governance_pre_commit_hook.stub.sh`.
+- `portable_governance_pre_push_hook.stub.template.sh`: starter hook stub
+  rendered into `portable_governance_pre_push_hook.stub.sh`.
 - `portable_governance_tooling_workflow.stub.template.yml`: starter workflow
   stub rendered into `portable_governance_tooling_workflow.stub.yml`.
 - `portable_governance_repo_setup.template.md`: AI-friendly onboarding guide

@@ -41,6 +41,7 @@ AREA_BY_COMMAND = {
     "docs-check": "governance",
     "hygiene": "governance",
     "publication-sync": "governance",
+    "push": "governance",
     "security": "security",
     "ship": "release",
     "release": "release",

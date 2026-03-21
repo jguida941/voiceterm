@@ -141,6 +141,10 @@ intended execution order is:
       doc-class/lifecycle rules, hot/warm/cold context budgets,
       startup-token budget, active-plan count budget, and command-routing
       defaults.
+- [x] Land the first repo-pack-owned VCS command-routing default: a push policy
+      that defines default remote, development/release branches, protected
+      branches, preflight command, and post-push bundle, then consume it from
+      the canonical `devctl push` surface plus legacy release/sync helpers.
 - [ ] Define the repo-pack-owned documentation contract that
       `ProjectGovernance` points at (`DocPolicy`): doc classes
       (`tracker`, `spec`, `runbook`, `guide`, `reference`,
@@ -196,11 +200,23 @@ intended execution order is:
       routed bundle/check plan, convention/probe subset, bounded doc subset,
       and required write-back sinks without cold-reading the full repo every
       session.
+- [ ] Make that startup path enforceable instead of advisory: the first typed
+      `startup-context` / `WorkIntakePacket` flow must emit a startup receipt
+      tied to repo/worktree identity, current tree hash, command goal, and
+      bootstrap mode (`full` `bundle.bootstrap` vs slim bounded bootstrap).
+      Review-channel, Ralph/autonomy loops, and other agent launchers should
+      require that receipt and fail closed on ad hoc partial startup.
 - [ ] Define the session-start refresh contract for that same startup surface:
       first run seeds canonical startup artifacts, later sessions refresh only
       the content-hash/git-diff-invalidated slices, and the next
       `startup-context` / `WorkIntakePacket` must come from cached artifacts +
       delta instead of full repo recomputation.
+- [ ] Add repo-pack-driven checkpoint-budget fields to that same startup
+      receipt/intake contract: dirty-path count, untracked-path count,
+      `safe_to_continue_editing`, `checkpoint_required`, checkpoint reason,
+      and the repo-policy thresholds that produced the decision. Agents should
+      not have to infer "is this slice still bounded enough to keep editing?"
+      from raw git status or prompt-local memory.
 - [ ] Put one bounded `Why Stack` product thesis at the top of that startup
       surface before SOP/router detail: every fresh session should read the
       mission, proof obligation, and current product priority first so agents
@@ -720,6 +736,15 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-21: Landed the first repo-pack-owned push-routing slice under the
+  authority-loop plan. `repo_governance.push` is now the single policy surface
+  for default remote, development/release branches, protected branches,
+  preflight routing, and post-push bundle selection; `devctl push` consumes it
+  as the canonical short-lived branch push surface with `TypedAction(action_id:
+  vcs.push)` plus `ActionResult` output; `sync` and `ship` now read the same
+  policy instead of hardcoding `origin/develop/master`; and starter repo policy
+  generation plus starter hook surfaces now seed the same push contract for
+  adopters.
 - 2026-03-21: Folded the deeper context-graph runtime audit into `MP-377`
   Phase-6 scope. The graph is still intentionally bounded, but the missing
   runtime gaps are now tracked explicitly: command nodes need closure to real
@@ -907,6 +932,14 @@ intended execution order is:
 
 ## Audit Evidence
 
+- Push-governance slice verification (2026-03-21): targeted unit coverage now
+  includes `dev/scripts/devctl/tests/test_push.py`,
+  `dev/scripts/devctl/tests/test_ship_release_steps.py`,
+  `dev/scripts/devctl/tests/governance/test_governance_draft.py`, and
+  `dev/scripts/devctl/tests/governance/test_governance_bootstrap.py`. The
+  implementation also updates the repo policy, CLI inventory, maintainer docs,
+  and starter hook surfaces so the new command is governed by the same
+  policy-driven path as `check-router`, `docs-check`, and `render-surfaces`.
 - Docs-authority slice verification (2026-03-20): `python3 -m pytest
   dev/scripts/devctl/tests/governance/test_doc_authority.py -q --tb=short`
   passed (`30/30`). `python3 dev/scripts/devctl.py doc-authority --format md`

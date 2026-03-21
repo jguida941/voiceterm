@@ -10,6 +10,7 @@ from . import (
     render_surfaces,
     review,
     simple_lanes,
+    startup_context,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "render_surfaces",
     "review",
     "simple_lanes",
+    "startup_context",
 ]

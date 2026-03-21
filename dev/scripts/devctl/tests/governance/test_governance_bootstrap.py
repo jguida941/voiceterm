@@ -121,6 +121,7 @@ class GovernanceBootstrapTests(unittest.TestCase):
             [
                 "claude_instructions",
                 "portable_pre_commit_hook_stub",
+                "portable_pre_push_hook_stub",
                 "portable_tooling_workflow_stub",
             ],
         )
@@ -132,6 +133,10 @@ class GovernanceBootstrapTests(unittest.TestCase):
                 "Done means the required guards/tests passed.",
             ],
         )
+        push_governance = payload["repo_governance"]["push"]
+        self.assertEqual(push_governance["default_remote"], "origin")
+        self.assertEqual(surface_generation["context"]["development_branch"], "main")
+        self.assertEqual(surface_generation["context"]["branch_policy"], "`main` (default branch)")
 
     def test_bootstrap_next_steps_include_render_surfaces(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

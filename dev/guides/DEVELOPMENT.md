@@ -404,12 +404,11 @@ Workflow permissions note:
 ### Normal work (features, fixes, docs)
 
 1. Branch from `develop` (`feature/<topic>` or `fix/<topic>`).
-2. Prefer `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` to auto-select the required lane and risk add-ons from changed paths.
-3. If you are not using `check-router`, run the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`).
-4. If you add or rename a `devctl` command, update the CLI inventory (`devctl list`) and the maintainer command docs in the same change so discovery stays truthful.
-5. Fix any failures, then commit and push.
+2. Prefer `python3 dev/scripts/devctl.py push` for the canonical non-mutating push validation path.
+3. Re-run `python3 dev/scripts/devctl.py push --execute` after validation and explicit review go-ahead when you are ready to push the current short-lived branch.
+4. If you are not using `devctl push`, run `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` or the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`) before `git push`, then run `bundle.post-push`.
+5. If you add or rename a `devctl` command, update the CLI inventory (`devctl list`) and the maintainer command docs in the same change so discovery stays truthful.
 6. Merge to `develop` only after review and green checks.
-7. Run `bundle.post-push`.
 
 ### Release/tag/publish work
 

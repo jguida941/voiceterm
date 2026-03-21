@@ -26,6 +26,8 @@ def build_surface_generation_governance(
     tooling_required_docs: list[str],
     runtime_prefixes: list[str],
     tooling_prefixes: list[str],
+    branch_policy: str,
+    development_branch: str,
 ) -> dict[str, object]:
     """Build starter repo-pack surface-generation policy."""
     surface_generation: dict[str, object] = {}
@@ -35,6 +37,8 @@ def build_surface_generation_governance(
         tooling_required_docs=tooling_required_docs,
         runtime_prefixes=runtime_prefixes,
         tooling_prefixes=tooling_prefixes,
+        branch_policy=branch_policy,
+        development_branch=development_branch,
     )
     surface_generation["surfaces"] = [
         _build_surface_spec(
@@ -62,6 +66,17 @@ def build_surface_generation_governance(
                 tracked=True,
                 local_only=False,
                 description="Starter pre-commit hook stub.",
+            )
+        ),
+        _build_surface_spec(
+            SurfaceSeed(
+                surface_id="portable_pre_push_hook_stub",
+                surface_type="starter_artifact",
+                template_path="dev/config/templates/portable_governance_pre_push_hook.stub.template.sh",
+                output_path="dev/config/templates/portable_governance_pre_push_hook.stub.sh",
+                tracked=True,
+                local_only=False,
+                description="Starter pre-push hook stub.",
             )
         ),
         _build_surface_spec(
@@ -94,6 +109,8 @@ def _build_surface_generation_context(
     tooling_required_docs: list[str],
     runtime_prefixes: list[str],
     tooling_prefixes: list[str],
+    branch_policy: str,
+    development_branch: str,
 ) -> dict[str, object]:
     primary_doc = tooling_required_docs[0]
     context: dict[str, object] = {}
@@ -112,9 +129,9 @@ def _build_surface_generation_context(
     )
     context["guard_scripts"] = "tools/checks/"
     context["msrv"] = "replace-me"
-    context["branch_policy"] = "`main` (default branch)"
+    context["branch_policy"] = branch_policy
     context["voice_command"] = "replace-command --help"
-    context["development_branch"] = "main"
+    context["development_branch"] = development_branch
     context["python_version"] = "3.11"
     context["bootstrap_steps"] = [
         "Read `AGENTS.md`.",

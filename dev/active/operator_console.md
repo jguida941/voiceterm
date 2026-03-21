@@ -701,6 +701,11 @@ Checklist:
       generated context packet / concept-view refs that AI uses so operators
       can inspect blast radius, related plans/docs, and likely verification
       scope without cold-reading the full doc stack.
+- [ ] Add an architecture-health panel sourced from the future
+      `architecture-review` payload: top risks, current health scores,
+      blast-radius links, and audience-mode projections should come from the
+      same canonical report the CLI/AI surfaces use instead of a
+      console-specific analyzer.
 - [ ] Persist planner outputs into repo-visible logs/artifacts so later AI runs
       and operators can see why a swarm size was selected.
 

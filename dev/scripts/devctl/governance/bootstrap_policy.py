@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .bootstrap_surfaces import build_surface_generation_governance
+from .bootstrap_push import build_starter_push_governance
 from ..config import REPO_ROOT
 from ..quality_policy import RepoCapabilities, detect_repo_capabilities
 from ..quality_policy_scopes import resolve_quality_scopes
@@ -268,11 +269,15 @@ def build_starter_repo_policy(repo_root: Path) -> tuple[dict, str | None, tuple[
     repo_governance: dict[str, object] = {}
     repo_governance["check_router"] = _build_check_router_governance(layout)
     repo_governance["docs_check"] = _build_docs_check_governance(layout)
+    push_governance = build_starter_push_governance(repo_root)
+    repo_governance["push"] = push_governance.to_policy_payload()
     repo_governance["surface_generation"] = build_surface_generation_governance(
         repo_root=repo_root,
         tooling_required_docs=layout.tooling_required_docs,
         runtime_prefixes=layout.runtime_prefixes,
         tooling_prefixes=layout.tooling_prefixes,
+        branch_policy=push_governance.surface_branch_policy(),
+        development_branch=push_governance.development_branch,
     )
 
     payload = {

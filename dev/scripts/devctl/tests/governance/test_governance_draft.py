@@ -110,6 +110,17 @@ def test_scan_repo_governance_with_standard_layout(tmp_path: Path) -> None:
 def test_scan_repo_governance_policy_fields(tmp_path: Path) -> None:
     policy = {
         "repo_name": "TestRepo",
+        "repo_governance": {
+        "push": {
+            "default_remote": "upstream",
+            "development_branch": "develop",
+            "release_branch": "release",
+            "checkpoint": {
+                "max_dirty_paths_before_checkpoint": 8,
+                "max_untracked_paths_before_checkpoint": 4,
+            },
+        }
+        },
         "surface_generation": {
             "repo_pack_metadata": {
                 "pack_id": "test-pack",
@@ -127,6 +138,29 @@ def test_scan_repo_governance_policy_fields(tmp_path: Path) -> None:
     assert gov.repo_pack.pack_id == "test-pack"
     assert gov.repo_pack.pack_version == "1.0"
     assert gov.bundle_overrides.overrides == {}
+    assert gov.command_routing_defaults == {
+        "push": {
+            "default_remote": "upstream",
+            "development_branch": "develop",
+            "release_branch": "release",
+            "protected_branches": ["develop", "release"],
+            "allowed_branch_prefixes": ["feature/", "fix/"],
+            "preflight": {
+                "command": "check-router",
+                "since_ref_template": "{remote}/{development_branch}",
+                "execute": True,
+            },
+            "post_push": {"bundle": "bundle.post-push"},
+            "checkpoint": {
+                "max_dirty_paths_before_checkpoint": 8,
+                "max_untracked_paths_before_checkpoint": 4,
+            },
+        }
+    }
+    assert gov.push_enforcement.default_remote == "upstream"
+    assert gov.push_enforcement.worktree_dirty is False
+    assert gov.push_enforcement.safe_to_continue_editing is True
+    assert gov.push_enforcement.recommended_action == "use_devctl_push"
 
 
 @patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
@@ -216,8 +250,11 @@ def test_render_governance_draft_markdown(tmp_path: Path) -> None:
     assert "## Path Roots" in md
     assert "## Plan Registry" in md
     assert "## Bridge Config" in md
+    assert "## Push Enforcement" in md
+    assert "checkpoint_required" in md
     assert "## Enabled Checks" in md
     assert "## Startup Order" in md
+    assert "## Command Routing Defaults" in md
 
 
 @patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)

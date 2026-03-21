@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-03-20 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-21 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -2637,6 +2637,25 @@ Still open before `P0` closes:
       `agents` / `developer` / `refactor` / `audit` wrappers, and
       provider-facing skills/hooks/docs that point at the same commands instead
       of inventing provider-local rules.
+- [x] Land the first repo-pack-owned VCS command-routing slice through the
+      same policy chain: `repo_governance.push` now owns remote/default-branch/
+      protected-branch rules plus preflight/post-push routing, `devctl push`
+      consumes that policy as the canonical branch-push surface, and legacy
+      `sync` / release helpers read the same repo-pack contract instead of
+      hardcoded GitHub defaults.
+- [ ] Converge AI-initiated and human-initiated VCS push paths through one
+      canonical `devctl push` surface: `ralph_ai_fix.py` and autonomy-loop
+      agents currently push with raw `git push`, bypassing
+      `repo_governance.push` policy, preflight/post-push bundles,
+      `TypedAction(action_id="vcs.push")` receipts, and governance-ledger
+      events. Add `--caller` identity to push policy with per-caller
+      preflight profiles, replace raw `git push` in Ralph/autonomy with
+      `devctl push --execute`, carry push `ActionResult` in loop-packet
+      checkpoint evidence, and record AI push events in the governance
+      review ledger. This closes the split-brain where the governed push
+      path (`devctl push`) and the ungoverned AI push path (`ralph_ai_fix`)
+      apply different rulesets to the same VCS operation — violating
+      scope-preservation rule #4.
 - [ ] Make those user-facing wrappers repo-pack/policy configurable: alias
       names, default bundles, visible modes, and generated skills/slash
       surfaces should be editable by developers/adopters without patching the
@@ -3019,6 +3038,33 @@ Still open before `P0` closes:
       navigation/review surfaces for senior developers and AI prompts, but
       keep them generated-only from the same canonical graph/pointer contract
       rather than a second viewer-local semantic store.
+- [ ] Add a first-class portable `architecture-review` command and matching
+      `check --profile architecture` lane after the honesty/intake closure
+      work lands. It should orchestrate graph build/query, aggregated
+      probe-report data, architecture-relevant hard guards, and
+      `platform-contracts` into one JSON-canonical health report with markdown
+      projections rather than forcing manual multi-command synthesis.
+- [ ] Add explainable architecture-query primitives to the graph layer for
+      that review surface: SCC/cycle detection, fan-in/fan-out and god-module
+      queries, dependency depth, transitive blast-radius / impact radius, and
+      repo-policy-driven layer-violation queries. Reuse existing typed edges
+      and canonical refs; do not hide decisions behind opaque ranking-only
+      output.
+- [ ] Add a typed `ArchitectureHealthScore` / review payload that aggregates
+      coupling, complexity, consistency, layering, and overall health, with
+      baseline/trend inputs coming from governance ledgers and portable
+      episode/runtime metrics where available. Keep thresholds and weights
+      repo-pack configurable.
+- [ ] Extend the best-practice / review-packet layer beyond file-local smells
+      so the same evidence can explain system-level issues such as dependency
+      inversion, cycle breaking, god modules, layer isolation, and
+      cohesion-vs-coupling tradeoffs.
+- [ ] Add audience-aware rendering on top of that shared evidence record:
+      agents get compact repair guidance, junior developers get explanatory
+      context and bounded learning paths, senior reviewers get risk ranking +
+      trend data, and operators get the same health view projected into
+      controller/dashboard surfaces. Do this as projection logic over one
+      canonical payload, not as parallel schemas.
 - [ ] Activate the SQLite runtime in the Rust memory substrate as a `P0`
       prerequisite for the architectural knowledge base: the schema is already
       fully defined in `memory/schema.rs` (12 tables including `topics`,
@@ -3116,6 +3162,13 @@ Still open before `P0` closes:
       invalidated slices via content-hash + git diff, then emit the next warm
       start from cached artifacts + delta instead of re-deriving the whole
       repo.
+- [ ] Add a portable continuation/checkpoint budget to that same startup flow:
+      the repo-pack contract should declare when a dirty slice is still safe
+      to keep editing versus when the agent must checkpoint before doing more
+      work. Expose dirty/untracked counts, threshold values,
+      `safe_to_continue_editing`, `checkpoint_required`, and checkpoint reason
+      in the startup/intake packet so agents stop relying on prompt-local
+      judgment about when to commit/push.
 - [ ] Keep a non-Rust fallback first-class for that same flow: until the
       SQLite runtime is active, canonical JSON snapshots plus refresh-ledger
       rows under `dev/reports/**` must remain sufficient for warm-start
@@ -3829,6 +3882,15 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-21: Landed the first repo-pack-owned VCS command-routing slice as a
+  concrete `MP-377` proof point. `repo_governance.push` now carries the
+  default remote, development/release branch names, protected-branch rules,
+  preflight command, and post-push bundle; `devctl push` consumes the same
+  contract as the canonical short-lived branch push path with
+  `TypedAction(action_id="vcs.push")` plus `ActionResult`; generated starter
+  surfaces now include a policy-backed pre-push hook stub; and legacy
+  `sync` / `ship` helpers now read the same repo-pack policy instead of
+  embedding branch/remote defaults in Python.
 - 2026-03-21: Captured the next graph-hygiene quick wins surfaced by the
   latest code audit. The new tracked gaps are: duplicated `INDEX.md` parsers,
   missing handler/list parity enforcement for the public command surface,

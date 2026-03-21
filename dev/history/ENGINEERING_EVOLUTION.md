@@ -46,6 +46,26 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-21 - MP-377 push governance moved from hardcoded helpers into repo policy
+
+The repo now has its first repo-pack-owned VCS command-routing contract
+instead of keeping push behavior split across hardcoded Python helpers.
+`dev/config/devctl_repo_policy.json` gained `repo_governance.push` for default
+remote, development/release branches, protected-branch rules, and the
+required preflight/post-push flow. `devctl push` now consumes that policy as
+the canonical short-lived branch push surface and emits the same typed receipt
+shape as the rest of the governance runtime
+(`TypedAction(action_id="vcs.push")` plus `ActionResult`). The same contract
+now feeds generated starter surfaces through a pre-push hook stub, while
+legacy `sync` and release helpers read the shared policy instead of embedding
+GitHub push defaults in code.
+
+This matters because the repo already treated check routing, docs governance,
+and surface generation as declarative policy. Push was the architectural
+outlier. Moving it behind the repo-pack policy closes that inconsistency and
+gives `MP-377` one real VCS-adapter proof point that matches the rest of the
+platform's policy -> engine -> surface pattern.
+
 ### 2026-03-21 - MP-377 retrieval/control stack made explicit
 
 The active platform plans now spell out the retrieval/control stack instead of

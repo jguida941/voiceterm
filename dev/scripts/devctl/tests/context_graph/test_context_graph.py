@@ -18,6 +18,7 @@ from dev.scripts.devctl.context_graph.models import (
     EDGE_KIND_IMPORTS,
     EDGE_KIND_RELATED_TO,
     EDGE_KIND_ROUTES_TO,
+    NODE_KIND_COMMAND,
     NODE_KIND_CONCEPT,
     NODE_KIND_GUARD,
     NODE_KIND_PLAN,
@@ -316,6 +317,13 @@ class TestGraphHonesty(unittest.TestCase):
         self.assertIn("sdlc_policy", ctx.bootstrap_links)
         self.assertIn("execution_state", ctx.bootstrap_links)
 
+    def test_bootstrap_includes_push_enforcement_state(self) -> None:
+        ctx = build_bootstrap_context(self.nodes, self.edges)
+        self.assertIn("recommended_action", ctx.push_enforcement)
+        self.assertIn("worktree_dirty", ctx.push_enforcement)
+        self.assertIn("checkpoint_required", ctx.push_enforcement)
+        self.assertIn("safe_to_continue_editing", ctx.push_enforcement)
+
     def test_plan_documented_by_edges_exist(self) -> None:
         from dev.scripts.devctl.context_graph.models import EDGE_KIND_DOCUMENTED_BY
         doc_edges = [e for e in self.edges if e.edge_kind == EDGE_KIND_DOCUMENTED_BY]
@@ -345,6 +353,57 @@ class TestModeFormatDispatch(unittest.TestCase):
     def test_context_graph_in_devctl_list(self) -> None:
         from dev.scripts.devctl.commands.listing import COMMANDS
         self.assertIn("context-graph", COMMANDS)
+
+
+class TestCommandOwnership(unittest.TestCase):
+    """Verify command nodes wire to real handler modules."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.nodes, cls.edges = build_context_graph()
+
+    def test_context_graph_command_has_routes_to_edge(self) -> None:
+        cmd_node = next((n for n in self.nodes if n.node_id == "cmd:context-graph"), None)
+        self.assertIsNotNone(cmd_node, "context-graph command node should exist")
+        routes = [e for e in self.edges if e.source_id == "cmd:context-graph" and e.edge_kind == "routes_to"]
+        self.assertGreater(len(routes), 0, "context-graph should have routes_to edge to handler")
+
+    def test_check_command_has_routes_to_edge(self) -> None:
+        routes = [e for e in self.edges if e.source_id == "cmd:check" and e.edge_kind == "routes_to"]
+        self.assertGreater(len(routes), 0, "check command should have routes_to edge to handler")
+
+    def test_command_provenance_is_dispatch(self) -> None:
+        cmd_nodes = [n for n in self.nodes if n.node_kind == NODE_KIND_COMMAND]
+        for n in cmd_nodes[:5]:
+            self.assertEqual(n.provenance_ref, "cli.COMMAND_HANDLERS")
+
+
+class TestGraphHonestyFailClosed(unittest.TestCase):
+    """Verify orphan edges are suppressed and confidence is machine-readable."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.nodes, cls.edges = build_context_graph()
+
+    def test_no_orphan_documented_by_edges(self) -> None:
+        node_ids = {n.node_id for n in self.nodes}
+        from dev.scripts.devctl.context_graph.models import EDGE_KIND_DOCUMENTED_BY
+        for edge in self.edges:
+            if edge.edge_kind == EDGE_KIND_DOCUMENTED_BY:
+                self.assertIn(edge.source_id, node_ids, f"orphan source: {edge.source_id}")
+                self.assertIn(edge.target_id, node_ids, f"orphan target: {edge.target_id}")
+
+    def test_empty_query_has_confidence(self) -> None:
+        result = query_context_graph("", self.nodes, self.edges)
+        self.assertIn(result.confidence, ("high", "low_confidence", "no_match"))
+
+    def test_nonsense_query_returns_no_match(self) -> None:
+        result = query_context_graph("xyzzy_nonexistent_term_12345", self.nodes, self.edges)
+        self.assertEqual(result.confidence, "no_match")
+
+    def test_real_query_has_high_confidence(self) -> None:
+        result = query_context_graph("cli.py", self.nodes, self.edges)
+        self.assertEqual(result.confidence, "high")
 
 
 if __name__ == "__main__":

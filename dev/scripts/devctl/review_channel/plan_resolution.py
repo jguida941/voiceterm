@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..governance.doc_authority_rules import parse_index_registry
 from ..markdown_sections import parse_markdown_sections
 from ..repo_packs import active_path_config
 
@@ -19,9 +20,6 @@ _MASTER_MAIN_SCOPE_RE = re.compile(
 )
 _MASTER_EXEC_SCOPE_RE = re.compile(
     r"(?im)^-\s*Current\s+`(?P<scope>MP-\d+)`\s+execution branch:"
-)
-_INDEX_ROW_RE = re.compile(
-    r"^\|\s*`(?P<path>[^`]+)`\s*\|\s*`(?P<role>[^`]+)`\s*\|\s*`(?P<authority>[^`]+)`\s*\|\s*`(?P<scope>[^`]+)`\s*\|"
 )
 _MP_RANGE_RE = re.compile(r"MP-(?P<start>\d+)\s*\.\.\s*MP-(?P<end>\d+)")
 _MP_TOKEN_RE = re.compile(r"MP-(?P<num>\d+)")
@@ -122,7 +120,6 @@ def _resolve_from_master_tracker(*, repo_root: Path) -> PlanResolution:
         )
     try:
         master_text = master_path.read_text(encoding="utf-8")
-        index_text = index_path.read_text(encoding="utf-8")
     except OSError as exc:
         return PlanResolution(path=None, source="tracker_read_error", detail=str(exc))
     scope = _active_scope_token(master_text)
@@ -132,17 +129,15 @@ def _resolve_from_master_tracker(*, repo_root: Path) -> PlanResolution:
             source="tracker_scope_missing",
             detail="Tracker does not expose a current active MP scope token.",
         )
-    for line in index_text.splitlines():
-        row_match = _INDEX_ROW_RE.match(line.strip())
-        if row_match is None:
-            continue
-        scope_cell = row_match.group("scope")
+    try:
+        registry = parse_index_registry(index_path)
+    except OSError as exc:
+        return PlanResolution(path=None, source="tracker_read_error", detail=str(exc))
+    for path, row in registry.items():
+        scope_cell = row.get("scope", "")
         if not _mp_scope_cell_matches(scope_token=scope, scope_cell=scope_cell):
             continue
-        candidate = _normalize_repo_path(
-            repo_root=repo_root,
-            raw=row_match.group("path"),
-        )
+        candidate = _normalize_repo_path(repo_root=repo_root, raw=path)
         if candidate is not None:
             return PlanResolution(path=candidate, source="tracker_scope")
     return PlanResolution(

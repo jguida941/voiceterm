@@ -12,7 +12,7 @@ This module is Phase 1 / Slice A of MP-377 (platform authority loop).
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 from .value_coercion import (
     coerce_bool,
@@ -21,6 +21,7 @@ from .value_coercion import (
     coerce_string,
     coerce_string_items,
 )
+from .project_governance_push import PushEnforcement, push_enforcement_from_mapping
 
 PROJECT_GOVERNANCE_CONTRACT_ID = "ProjectGovernance"
 PROJECT_GOVERNANCE_SCHEMA_VERSION = 1
@@ -135,6 +136,7 @@ class ProjectGovernance:
     bridge_config: BridgeConfig
     enabled_checks: EnabledChecks
     bundle_overrides: BundleOverrides
+    push_enforcement: PushEnforcement = field(default_factory=PushEnforcement)
     startup_order: tuple[str, ...] = ()
     docs_authority: str = ""
     workflow_profiles: tuple[str, ...] = ()
@@ -310,6 +312,9 @@ def project_governance_from_mapping(
         ),
         bundle_overrides=bundle_overrides_from_mapping(
             coerce_mapping(payload.get("bundle_overrides"))
+        ),
+        push_enforcement=push_enforcement_from_mapping(
+            coerce_mapping(payload.get("push_enforcement"))
         ),
         startup_order=coerce_string_items(payload.get("startup_order")),
         docs_authority=coerce_string(payload.get("docs_authority")),

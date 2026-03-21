@@ -13,6 +13,7 @@ from dev.scripts.devctl.runtime.project_governance import (
     PathRoots,
     PlanRegistryRoots,
     ProjectGovernance,
+    PushEnforcement,
     RepoIdentity,
     RepoPackRef,
     bridge_config_from_mapping,
@@ -75,6 +76,23 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
         "bundle_overrides": {
             "overrides": {"runtime": {"timeout": 30}},
         },
+        "push_enforcement": {
+            "default_remote": "origin",
+            "pre_push_hook_installed": True,
+            "raw_git_push_guarded": True,
+            "upstream_ref": "origin/feature/demo",
+            "ahead_of_upstream_commits": 2,
+            "dirty_path_count": 3,
+            "untracked_path_count": 1,
+            "max_dirty_paths_before_checkpoint": 12,
+            "max_untracked_paths_before_checkpoint": 6,
+            "checkpoint_required": False,
+            "safe_to_continue_editing": True,
+            "checkpoint_reason": "within_dirty_budget",
+            "worktree_dirty": False,
+            "push_ready": True,
+            "recommended_action": "use_devctl_push",
+        },
         "startup_order": ["bootstrap", "guards", "probes"],
         "docs_authority": "AGENTS.md",
         "workflow_profiles": ["ci", "release"],
@@ -119,6 +137,11 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
     assert gov.enabled_checks.probe_ids == ("concurrency", "design_smells")
 
     assert gov.bundle_overrides.overrides == {"runtime": {"timeout": 30}}
+    assert gov.push_enforcement.raw_git_push_guarded is True
+    assert gov.push_enforcement.ahead_of_upstream_commits == 2
+    assert gov.push_enforcement.dirty_path_count == 3
+    assert gov.push_enforcement.safe_to_continue_editing is True
+    assert gov.push_enforcement.push_ready is True
 
     assert gov.startup_order == ("bootstrap", "guards", "probes")
     assert gov.docs_authority == "AGENTS.md"
@@ -175,6 +198,7 @@ def test_project_governance_from_mapping_with_defaults() -> None:
     assert gov.enabled_checks.probe_ids == ()
 
     assert gov.bundle_overrides.overrides == {}
+    assert gov.push_enforcement == PushEnforcement()
 
     assert gov.startup_order == ()
     assert gov.docs_authority == ""
@@ -207,6 +231,14 @@ def test_project_governance_roundtrip() -> None:
             probe_ids=("p1",),
         ),
         bundle_overrides=BundleOverrides(overrides={"docs": {"strict": True}}),
+        push_enforcement=PushEnforcement(
+            default_remote="origin",
+            raw_git_push_guarded=True,
+            ahead_of_upstream_commits=1,
+            dirty_path_count=2,
+            checkpoint_reason="within_dirty_budget",
+            push_ready=True,
+        ),
         startup_order=("step_a", "step_b"),
         docs_authority="AGENTS.md",
         workflow_profiles=("ci", "nightly"),
@@ -227,6 +259,7 @@ def test_project_governance_roundtrip() -> None:
     assert restored.bridge_config == original.bridge_config
     assert restored.enabled_checks == original.enabled_checks
     assert restored.bundle_overrides.overrides == original.bundle_overrides.overrides
+    assert restored.push_enforcement == original.push_enforcement
     assert restored.startup_order == original.startup_order
     assert restored.docs_authority == original.docs_authority
     assert restored.workflow_profiles == original.workflow_profiles
@@ -304,6 +337,14 @@ def test_project_governance_to_dict_converts_tuples_to_lists() -> None:
             probe_ids=("p1", "p2", "p3"),
         ),
         bundle_overrides=BundleOverrides(overrides={}),
+        push_enforcement=PushEnforcement(
+            default_remote="origin",
+            dirty_path_count=14,
+            checkpoint_required=True,
+            safe_to_continue_editing=False,
+            checkpoint_reason="dirty_path_budget_exceeded",
+            recommended_action="use_devctl_push",
+        ),
         startup_order=("alpha", "beta"),
         workflow_profiles=("ci", "release"),
     )
@@ -321,3 +362,7 @@ def test_project_governance_to_dict_converts_tuples_to_lists() -> None:
 
     assert isinstance(d["enabled_checks"]["probe_ids"], list)
     assert d["enabled_checks"]["probe_ids"] == ["p1", "p2", "p3"]
+    assert d["push_enforcement"]["default_remote"] == "origin"
+    assert d["push_enforcement"]["dirty_path_count"] == 14
+    assert d["push_enforcement"]["checkpoint_required"] is True
+    assert d["push_enforcement"]["recommended_action"] == "use_devctl_push"

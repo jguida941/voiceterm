@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from .draft_push import scan_command_routing_defaults, scan_push_enforcement
 from ..runtime.project_governance import (
     PROJECT_GOVERNANCE_CONTRACT_ID,
     PROJECT_GOVERNANCE_SCHEMA_VERSION,
@@ -237,10 +238,19 @@ def scan_repo_governance(
         bridge_config=_scan_bridge_config(repo_root),
         enabled_checks=_scan_enabled_checks(repo_root, resolved_policy_path),
         bundle_overrides=_scan_bundle_overrides(),
+        push_enforcement=scan_push_enforcement(
+            policy,
+            repo_root=repo_root,
+            resolved_policy_path=resolved_policy_path,
+        ),
         startup_order=_scan_startup_order(repo_root),
         docs_authority=docs_authority,
         workflow_profiles=_scan_workflow_profiles(),
-        command_routing_defaults=None,
+        command_routing_defaults=scan_command_routing_defaults(
+            policy,
+            repo_root=repo_root,
+            resolved_policy_path=resolved_policy_path,
+        ),
     )
 
 
@@ -286,6 +296,24 @@ def render_governance_draft_markdown(gov: ProjectGovernance) -> str:
         f"- guards: {len(gov.enabled_checks.guard_ids)}",
         f"- probes: {len(gov.enabled_checks.probe_ids)}",
         "",
+        "## Push Enforcement",
+        "",
+        f"- default_remote: {gov.push_enforcement.default_remote}",
+        f"- raw_git_push_guarded: {gov.push_enforcement.raw_git_push_guarded}",
+        f"- worktree_dirty: {gov.push_enforcement.worktree_dirty}",
+        f"- dirty_path_count: {gov.push_enforcement.dirty_path_count}",
+        f"- untracked_path_count: {gov.push_enforcement.untracked_path_count}",
+        f"- max_dirty_paths_before_checkpoint: "
+        f"{gov.push_enforcement.max_dirty_paths_before_checkpoint}",
+        f"- max_untracked_paths_before_checkpoint: "
+        f"{gov.push_enforcement.max_untracked_paths_before_checkpoint}",
+        f"- checkpoint_required: {gov.push_enforcement.checkpoint_required}",
+        f"- safe_to_continue_editing: {gov.push_enforcement.safe_to_continue_editing}",
+        f"- checkpoint_reason: {gov.push_enforcement.checkpoint_reason}",
+        f"- ahead_of_upstream_commits: "
+        f"{gov.push_enforcement.ahead_of_upstream_commits if gov.push_enforcement.ahead_of_upstream_commits is not None else '(unknown)'}",
+        f"- recommended_action: {gov.push_enforcement.recommended_action}",
+        "",
         "## Startup Order",
         "",
     ]
@@ -298,4 +326,11 @@ def render_governance_draft_markdown(gov: ProjectGovernance) -> str:
         f"- docs_authority: {gov.docs_authority or '(not set)'}",
         f"- workflow_profiles: {len(gov.workflow_profiles)}",
     ]
+    if gov.command_routing_defaults:
+        lines += [
+            "",
+            "## Command Routing Defaults",
+            "",
+            f"- keys: {', '.join(sorted(gov.command_routing_defaults.keys()))}",
+        ]
     return "\n".join(lines)
