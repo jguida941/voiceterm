@@ -3019,6 +3019,20 @@ Still open before `P0` closes:
       suggested graph queries, canonical refs, targeted checks, writeback
       sinks, confidence, and fallback refs so the least-effort-first workflow
       is operational rather than prose-only.
+- [ ] Add one composed `devctl system-picture` read surface on top of the same
+      authority stack so fresh AI/operator sessions do not have to reconstruct
+      repo state from five or more separate commands manually. It should stitch
+      together startup identity/state, active-plan status, runtime contract
+      chain, doc health, guard/probe health, topology coverage, mutation-op
+      coverage, and agent-readiness drift into one bounded generated view whose
+      sections still cite canonical sources.
+- [ ] Make `system-picture` a generated warm-start cache rather than another
+      authority document: persist it under managed artifacts with `tree_hash`
+      plus per-section hashes, recompute only stale sections on warm start, and
+      keep the whole artifact disposable/rebuildable from canonical plans,
+      guards, contracts, and graph outputs. If a section is stale or
+      contradictory, the canonical command/guard wins and the section is
+      recomputed or dropped.
 - [ ] Make graph routing inputs live before calling it a scheduler: feed the
       current diff, recent findings, last failed checks, recently touched
       files, and current plan scope into graph temperature/ranking instead of
@@ -3051,6 +3065,14 @@ Still open before `P0` closes:
       probe-report data, architecture-relevant hard guards, and
       `platform-contracts` into one JSON-canonical health report with markdown
       projections rather than forcing manual multi-command synthesis.
+- [ ] Add `check_system_coherence.py` as the self-governance companion to
+      `system-picture` once the read surface is live. CI should fail when the
+      platform's own composed picture drifts: required sections missing,
+      mutation ops defined without handlers or explicit deferral, agent-id /
+      role surfaces inconsistent across reducers/parsers/contracts, or accepted
+      graph/command coverage baselines falling below the declared floor. This
+      is the dogfooding guard for platform coherence, not a generic code-smell
+      check.
 - [ ] Add explainable architecture-query primitives to the graph layer for
       that review surface: SCC/cycle detection, fan-in/fan-out and god-module
       queries, dependency depth, transitive blast-radius / impact radius, and
@@ -3908,6 +3930,13 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-21: Added the missing system-wide read surface to the platform plan.
+  The accepted direction is now explicit: a generated `devctl system-picture`
+  composes startup state, plan status, contract chain, guard/doc health,
+  topology coverage, mutation-op coverage, and agent-readiness drift into one
+  bounded warm-start artifact, with tree-hash / section-hash invalidation so
+  later sessions and many-agent runs can reuse the picture without promoting it
+  into authority.
 - 2026-03-21: Corrected the active-plan self-hosting audit against the repo's
   actual code surface. The governance/runtime architecture is already more
   mature than the earlier markdown-only read suggested: typed contracts such

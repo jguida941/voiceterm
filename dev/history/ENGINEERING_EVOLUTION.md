@@ -46,6 +46,36 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-21 - MP-355 current-session authority cutover started in the structured review state
+
+Fact: the review-channel runtime now exposes one typed live current-session
+surface instead of forcing current-status readers to reconstruct instruction
+and implementer ACK truth from append-only markdown bridge prose. The
+`ReviewState` runtime contract gained `current_session`, both bridge-backed
+and event-backed status projections now emit that block, `compact.json`
+mirrors it for lightweight readers, and `latest.md` renders its current
+session summary from the typed state. The legacy `bridge` fields still remain
+in the artifact for compatibility, but they are now populated from the same
+derived current-session source instead of acting as the preferred read path.
+
+This matters because the repo’s live review loop had a real dogfooding gap:
+current instruction and ACK state were visible, but the structured runtime
+artifact did not yet have a single typed authority block for them. Adding
+`current_session` is the first bounded cut toward the longer-term plan where
+`bridge.md` becomes a generated projection over typed state rather than a live
+authority surface.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/review_state_models.py`
+- `dev/scripts/devctl/runtime/review_state_parser.py`
+- `dev/scripts/devctl/review_channel/status_projection.py`
+- `dev/scripts/devctl/review_channel/event_projection.py`
+- `dev/scripts/devctl/review_channel/projection_bundle.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `dev/scripts/checks/check_platform_contract_closure.py`
+
 ### 2026-03-21 - MP-377 checkpoint budget surfaced in bridge-backed review status
 
 Fact: the bridge-backed `devctl review-channel` status path now carries the

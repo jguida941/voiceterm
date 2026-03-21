@@ -196,7 +196,10 @@ def test_emitted_artifact_review_state_matches_contract() -> None:
     from dev.scripts.devctl.review_channel.projection_bundle import (
         write_projection_bundle,
     )
-    from dev.scripts.devctl.runtime.review_state_models import ReviewBridgeState
+    from dev.scripts.devctl.runtime.review_state_models import (
+        ReviewBridgeState,
+        ReviewCurrentSessionState,
+    )
 
     synthetic = _build_synthetic_review_state()
     liveness = _build_event_bridge_liveness(synthetic)
@@ -219,6 +222,27 @@ def test_emitted_artifact_review_state_matches_contract() -> None:
         on_disk = json.loads(
             (output_root / "review_state.json").read_text(encoding="utf-8")
         )
+
+    # Validate typed current_session contract fields on the artifact
+    current_session_fields = {f.name for f in dc_fields(ReviewCurrentSessionState)}
+    artifact_current_session = on_disk.get("current_session", {})
+    assert isinstance(
+        artifact_current_session, dict
+    ), "current_session must be a dict on disk"
+    missing_current_session = sorted(
+        current_session_fields - set(artifact_current_session.keys())
+    )
+    extra_current_session = sorted(
+        set(artifact_current_session.keys()) - current_session_fields
+    )
+    assert not missing_current_session, (
+        "Artifact review_state.json current_session missing: "
+        f"{missing_current_session}"
+    )
+    assert not extra_current_session, (
+        "Artifact review_state.json current_session has extra: "
+        f"{extra_current_session}"
+    )
 
     # Validate bridge contract fields on the artifact
     contract_fields = {f.name for f in dc_fields(ReviewBridgeState)}

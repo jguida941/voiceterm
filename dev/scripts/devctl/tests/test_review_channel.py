@@ -4371,6 +4371,14 @@ class ReviewChannelCommandTests(unittest.TestCase):
             rs_compat = review_state.get("_compat", {})
             self.assertEqual(len(rs_compat.get("agents", [])), 4)
             self.assertEqual(
+                review_state["current_session"]["current_instruction"],
+                "- stop at a safe boundary and relaunch before compaction",
+            )
+            self.assertEqual(
+                review_state["current_session"]["implementer_ack_state"],
+                "current",
+            )
+            self.assertEqual(
                 review_state["bridge"]["current_instruction"],
                 "- stop at a safe boundary and relaunch before compaction",
             )
@@ -4381,6 +4389,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rs_compat.get("service_identity"), service_identity)
             self.assertEqual(rs_compat.get("attach_auth_policy"), attach_auth_policy)
             self.assertEqual(compact["queue"]["pending_total"], 0)
+            self.assertEqual(
+                compact["current_session"]["current_instruction"],
+                "- stop at a safe boundary and relaunch before compaction",
+            )
             self.assertEqual(compact["service_identity"], service_identity)
             self.assertEqual(compact["attach_auth_policy"], attach_auth_policy)
             self.assertEqual(full["reviewer_worker"]["state"], "review_needed")
@@ -4394,6 +4406,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(len(agent_registry["agents"]), 16)
             self.assertEqual(agent_registry["agents"][0]["agent_id"], "AGENT-1")
             self.assertEqual(actions["actions"], [])
+            self.assertIn(
+                "## Current Session",
+                latest_markdown_path.read_text(encoding="utf-8"),
+            )
             self.assertIn(
                 "## Current Instruction",
                 latest_markdown_path.read_text(encoding="utf-8"),

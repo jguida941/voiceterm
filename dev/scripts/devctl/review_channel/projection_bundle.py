@@ -12,6 +12,10 @@ from .context_refs import (
     context_pack_ref_summary,
     normalize_context_pack_refs,
 )
+from .current_session_projection import (
+    append_current_session_markdown,
+    current_focus_line,
+)
 
 
 @dataclass(frozen=True)
@@ -142,16 +146,18 @@ def write_projection_bundle(
 def _build_compact_projection(review_state: dict[str, object]) -> dict[str, object]:
     queue = review_state.get("queue", {})
     bridge = review_state.get("bridge", {})
+    current_session = review_state.get("current_session", {})
     compat = review_state.get("_compat") or {}
     service_identity = compat.get("service_identity")
     attach_auth_policy = compat.get("attach_auth_policy")
-    current_focus = bridge.get("current_instruction") or _current_focus_line(review_state)
+    current_focus = current_focus_line(review_state)
     return {
         "schema_version": 1,
         "command": "review-channel",
         "timestamp": review_state.get("timestamp"),
         "ok": review_state.get("ok"),
         "review": review_state.get("review"),
+        "current_session": current_session,
         "service_identity": service_identity,
         "attach_auth_policy": attach_auth_policy,
         "bridge": {
@@ -208,6 +214,7 @@ def _render_latest_markdown(
 ) -> str:
     queue = review_state.get("queue", {})
     bridge = review_state.get("bridge", {})
+    current_session = review_state.get("current_session", {})
     md_compat = review_state.get("_compat") or {}
     runtime = md_compat.get("runtime", {})
     service_identity = md_compat.get("service_identity", {})
@@ -245,9 +252,10 @@ def _render_latest_markdown(
         lines.append(f"- status_root: {service_identity.get('status_root') or 'n/a'}")
     append_attach_auth_policy_markdown(lines, attach_auth_policy)
     _append_runtime_markdown(lines, runtime)
+    append_current_session_markdown(lines, current_session)
     lines.append("")
     lines.append("## Current Instruction")
-    lines.append(_current_focus_line(review_state))
+    lines.append(current_focus_line(review_state))
     derived_next_instruction = queue.get("derived_next_instruction")
     derived_source = queue.get("derived_next_instruction_source")
     if derived_next_instruction:
@@ -312,39 +320,3 @@ def _append_runtime_markdown(lines: list[str], runtime: object) -> None:
             f"last_heartbeat_utc={daemon_state.get('last_heartbeat_utc') or 'n/a'} "
             f"stop_reason={daemon_state.get('stop_reason') or 'n/a'}"
         )
-
-
-def _current_focus_line(review_state: dict[str, object]) -> str:
-    bridge = review_state.get("bridge", {})
-    if isinstance(bridge, dict):
-        current_instruction = str(bridge.get("current_instruction") or "").strip()
-        if current_instruction:
-            return current_instruction
-    queue = review_state.get("queue", {})
-    if isinstance(queue, dict):
-        derived_next_instruction = str(
-            queue.get("derived_next_instruction") or ""
-        ).strip()
-        if derived_next_instruction:
-            return derived_next_instruction
-    packets = review_state.get("packets")
-    if not isinstance(packets, list):
-        return "(missing)"
-    pending_packet = next(
-        (
-            packet
-            for packet in packets
-            if isinstance(packet, dict) and packet.get("status") == "pending"
-        ),
-        None,
-    )
-    if isinstance(pending_packet, dict):
-        summary = str(pending_packet.get("summary") or "").strip()
-        if summary:
-            return summary
-    latest_packet = packets[0] if packets else None
-    if isinstance(latest_packet, dict):
-        summary = str(latest_packet.get("summary") or "").strip()
-        if summary:
-            return summary
-    return "(missing)"

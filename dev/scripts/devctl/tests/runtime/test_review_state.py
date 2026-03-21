@@ -78,6 +78,7 @@ class ReviewStateTests(unittest.TestCase):
         assert state is not None
         self.assertEqual(state.review.session_id, "session-1")
         self.assertEqual(state.queue.pending_total, 1)
+        self.assertEqual(state.current_session.current_instruction, "continue")
         self.assertEqual(state.bridge.overall_state, "fresh")
         self.assertEqual(state.bridge.reviewer_mode, "tools_only")
         self.assertEqual(state.attention.status, "healthy")
@@ -218,6 +219,16 @@ class ReviewStateTests(unittest.TestCase):
                         "pending_total": 1,
                         "derived_next_instruction": "review the live tranche",
                     },
+                    "current_session": {
+                        "current_instruction": "review the live tranche",
+                        "current_instruction_revision": "abc123def456",
+                        "implementer_status": "active",
+                        "implementer_ack": "acknowledged",
+                        "implementer_ack_revision": "abc123def456",
+                        "implementer_ack_state": "current",
+                        "open_findings": "none",
+                        "last_reviewed_scope": "MP-377",
+                    },
                     "bridge": {
                         "reviewer_mode": "active_dual_agent",
                         "last_codex_poll_utc": "2026-03-16T03:00:00Z",
@@ -283,6 +294,16 @@ class ReviewStateTests(unittest.TestCase):
                         "pending_total": 1,
                         "derived_next_instruction": "review the live tranche",
                     },
+                    "current_session": {
+                        "current_instruction": "review the live tranche",
+                        "current_instruction_revision": "abc123def456",
+                        "implementer_status": "waiting",
+                        "implementer_ack": "acknowledged",
+                        "implementer_ack_revision": "",
+                        "implementer_ack_state": "unknown",
+                        "open_findings": "1 pending review packet(s)",
+                        "last_reviewed_scope": "MP-377",
+                    },
                     "bridge": {
                         "reviewer_mode": "tools_only",
                         "last_codex_poll_utc": "2026-03-16T03:00:00Z",
@@ -347,6 +368,15 @@ class ReviewStateTests(unittest.TestCase):
             bridge_state.queue.derived_next_instruction,
             event_state.queue.derived_next_instruction,
         )
+        self.assertEqual(
+            bridge_state.current_session.current_instruction,
+            event_state.current_session.current_instruction,
+        )
+        self.assertEqual(
+            bridge_state.current_session.current_instruction_revision,
+            "abc123def456",
+        )
+        self.assertEqual(event_state.current_session.implementer_ack_state, "unknown")
         self.assertEqual(
             bridge_state.bridge.current_instruction,
             event_state.bridge.current_instruction,

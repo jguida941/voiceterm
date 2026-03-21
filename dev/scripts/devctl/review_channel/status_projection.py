@@ -19,6 +19,7 @@ from ..runtime.review_state_models import (
     AgentRegistryState,
     ReviewAttentionState,
     ReviewBridgeState,
+    ReviewCurrentSessionState,
     ReviewQueueState,
     ReviewSessionState,
     ReviewState,
@@ -28,6 +29,7 @@ from .attach_auth_projection import (
     build_attach_auth_policy_state,
     build_service_identity_state,
 )
+from .current_session_projection import build_bridge_current_session
 from .handoff import BridgeSnapshot
 from .peer_liveness import OverallLivenessState
 from .promotion import PromotionCandidate, promotion_candidate_to_dict
@@ -69,6 +71,7 @@ def build_bridge_review_state(
         ok=_projection_ok(overall_state, context.errors),
         review=_build_review_session(context),
         queue=_build_queue_state(promotion_candidate),
+        current_session=_build_current_session(snapshot, bridge_liveness),
         bridge=_build_bridge_state(snapshot, bridge_liveness, overall_state),
         attention=_build_attention(attention),
         packets=(),
@@ -266,6 +269,7 @@ def _build_bridge_state(
     bridge_liveness: dict[str, object],
     overall_state: str,
 ) -> ReviewBridgeState:
+    current_session = _build_current_session(snapshot, bridge_liveness)
     return ReviewBridgeState(
         overall_state=overall_state,
         codex_poll_state=str(bridge_liveness.get("codex_poll_state") or "unknown"),
@@ -284,23 +288,26 @@ def _build_bridge_state(
         last_worktree_hash=str(
             snapshot.metadata.get("last_non_audit_worktree_hash") or ""
         ),
-        current_instruction=_section_text(
-            snapshot, "Current Instruction For Claude"
-        ),
-        open_findings=_section_text(snapshot, "Open Findings"),
-        claude_status=_section_text(snapshot, "Claude Status"),
-        claude_ack=_section_text(snapshot, "Claude Ack"),
+        current_instruction=current_session.current_instruction,
+        open_findings=current_session.open_findings,
+        claude_status=current_session.implementer_status,
+        claude_ack=current_session.implementer_ack,
         claude_ack_current=bool(bridge_liveness.get("claude_ack_current")),
-        current_instruction_revision=str(
-            bridge_liveness.get("current_instruction_revision") or ""
-        ),
-        claude_ack_revision=str(bridge_liveness.get("claude_ack_revision") or ""),
-        last_reviewed_scope=_section_text(snapshot, "Last Reviewed Scope"),
+        current_instruction_revision=current_session.current_instruction_revision,
+        claude_ack_revision=current_session.implementer_ack_revision,
+        last_reviewed_scope=current_session.last_reviewed_scope,
         implementer_completion_stall=bool(
             bridge_liveness.get("implementer_completion_stall")
         ),
         publisher_running=bool(bridge_liveness.get("publisher_running")),
     )
+
+
+def _build_current_session(
+    snapshot: BridgeSnapshot,
+    bridge_liveness: dict[str, object],
+) -> ReviewCurrentSessionState:
+    return build_bridge_current_session(snapshot, bridge_liveness)
 
 
 def _build_attention(attention: dict[str, object]) -> ReviewAttentionState | None:
@@ -315,10 +322,4 @@ def _build_attention(attention: dict[str, object]) -> ReviewAttentionState | Non
     )
 
 
-def _section_text(snapshot: BridgeSnapshot, section: str) -> str:
-    raw = snapshot.sections.get(section, "")
-    return _clean_section(raw)
-
-
 from .status_projection_helpers import build_bridge_runtime as _build_bridge_runtime
-from .status_projection_helpers import clean_section as _clean_section

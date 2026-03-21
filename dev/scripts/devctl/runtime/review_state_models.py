@@ -31,6 +31,18 @@ class ReviewQueueState:
 
 
 @dataclass(frozen=True, slots=True)
+class ReviewCurrentSessionState:
+    current_instruction: str
+    current_instruction_revision: str
+    implementer_status: str
+    implementer_ack: str
+    implementer_ack_revision: str
+    implementer_ack_state: str
+    open_findings: str = ""
+    last_reviewed_scope: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class ReviewBridgeState:
     overall_state: str
     codex_poll_state: str
@@ -136,6 +148,7 @@ class ReviewState:
     ok: bool
     review: ReviewSessionState
     queue: ReviewQueueState
+    current_session: ReviewCurrentSessionState
     bridge: ReviewBridgeState
     attention: ReviewAttentionState | None
     packets: tuple[ReviewPacketState, ...]

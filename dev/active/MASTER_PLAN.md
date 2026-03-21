@@ -169,6 +169,13 @@
   restart/evidence surfaces, and `plan_patch_review` mutation ops are
   validated in packet contracts without runtime handlers that apply those
   mutations back to governed plan docs with typed receipts.
+- Current review-channel bridge-authority cutover status: `review_state.json`
+  and `compact.json` now carry a typed `current_session` block for live
+  instruction revision, implementer status, implementer ACK state, findings,
+  and reviewed scope, and `latest.md` current-status rendering now prefers
+  that typed state over append-only bridge prose. The remaining work is to
+  migrate writer/mutation paths so `bridge.md` becomes a generated
+  compatibility projection instead of a live current-status authority.
 - Current native-N-agent follow-up in the same neighborhood: packet routing,
   `TandemProfile.implementers`, the append-only event lane, and
   `autonomy-swarm` already scale past two agents, but the review-channel

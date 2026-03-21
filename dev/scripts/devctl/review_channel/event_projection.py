@@ -15,6 +15,15 @@ from .attach_auth_projection import (
     build_service_identity_state,
 )
 from .core import DEFAULT_BRIDGE_REL
+from .current_session_projection import (
+    build_event_current_session,
+    current_session_mapping,
+    current_session_payload,
+    event_agent_status,
+    event_claude_ack,
+    event_current_instruction,
+    event_open_findings,
+)
 from .event_projection_context import (
     append_context_packet_markdown,
     build_event_context_packet,
@@ -80,6 +89,11 @@ def enrich_event_review_state(
         service_identity=raw_service_identity
     )
     bridge_liveness = _build_event_bridge_liveness(review_state)
+    current_session = build_event_current_session(
+        review_state=review_state,
+        bridge_liveness=bridge_liveness,
+    )
+    review_state["current_session"] = current_session_payload(current_session)
     attention = derive_bridge_attention(bridge_liveness)
     review_state["bridge"] = _build_event_bridge_state(
         review_state=review_state,
@@ -107,8 +121,8 @@ def _build_event_bridge_liveness(review_state: Mapping[str, object]) -> dict[str
     daemons = _mapping(runtime.get("daemons"))
     publisher = _mapping(daemons.get("publisher"))
     queue = _mapping(review_state.get("queue"))
-    claude_status = _event_agent_status(review_state, "claude")
-    claude_ack = _event_claude_ack(queue)
+    claude_status = event_agent_status(review_state, "claude")
+    claude_ack = event_claude_ack(queue)
     reviewer_mode = _event_reviewer_mode(runtime)
     bridge_liveness: dict[str, object] = {}
     bridge_liveness["overall_state"] = (
@@ -124,18 +138,18 @@ def _build_event_bridge_liveness(review_state: Mapping[str, object]) -> dict[str
     bridge_liveness["last_codex_poll_age_seconds"] = 0
     bridge_liveness["claude_status_present"] = bool(claude_status)
     bridge_liveness["claude_ack_present"] = bool(claude_ack)
-    bridge_liveness["open_findings_present"] = bool(_event_open_findings(queue))
+    bridge_liveness["open_findings_present"] = bool(event_open_findings(queue))
     bridge_liveness["reviewed_hash_current"] = None
     bridge_liveness["implementer_completion_stall"] = _detect_implementer_stall(
         claude_status=claude_status,
         claude_ack=claude_ack,
-        instruction=_event_current_instruction(review_state),
+        instruction=event_current_instruction(review_state),
         poll_status=str(queue.get("derived_next_instruction") or ""),
         reviewer_mode=reviewer_mode,
     )
     bridge_liveness["publisher_running"] = bool(publisher.get("running"))
     bridge_liveness["publisher_stop_reason"] = str(publisher.get("stop_reason") or "")
-    instruction_text = _event_current_instruction(review_state)
+    instruction_text = event_current_instruction(review_state)
     instruction_rev = (
         sha256(instruction_text.strip().encode("utf-8")).hexdigest()[:12]
         if instruction_text.strip()
@@ -156,7 +170,7 @@ def _build_event_bridge_state(
     review_state: Mapping[str, object],
     bridge_liveness: Mapping[str, object],
 ) -> dict[str, object]:
-    queue = _mapping(review_state.get("queue"))
+    current_session = current_session_mapping(review_state)
     bridge_state: dict[str, object] = {}
     bridge_state["overall_state"] = str(bridge_liveness.get("overall_state") or "unknown")
     bridge_state["codex_poll_state"] = str(bridge_liveness.get("codex_poll_state") or "missing")
@@ -175,46 +189,27 @@ def _build_event_bridge_state(
         bridge_liveness.get("implementer_completion_stall")
     )
     bridge_state["publisher_running"] = bool(bridge_liveness.get("publisher_running"))
-    bridge_state["open_findings"] = _event_open_findings(queue)
-    bridge_state["current_instruction"] = _event_current_instruction(review_state)
-    bridge_state["claude_status"] = _event_agent_status(review_state, "claude")
-    bridge_state["claude_ack"] = _event_claude_ack(queue)
+    bridge_state["open_findings"] = str(current_session.get("open_findings") or "")
+    bridge_state["current_instruction"] = str(
+        current_session.get("current_instruction") or ""
+    )
+    bridge_state["claude_status"] = str(
+        current_session.get("implementer_status") or ""
+    )
+    bridge_state["claude_ack"] = str(current_session.get("implementer_ack") or "")
     bridge_state["claude_ack_current"] = bool(
         bridge_liveness.get("claude_ack_current")
     )
     bridge_state["current_instruction_revision"] = str(
-        bridge_liveness.get("current_instruction_revision") or ""
+        current_session.get("current_instruction_revision") or ""
     )
     bridge_state["claude_ack_revision"] = str(
-        bridge_liveness.get("claude_ack_revision") or ""
+        current_session.get("implementer_ack_revision") or ""
     )
     bridge_state["last_reviewed_scope"] = str(
-        _mapping(review_state.get("review")).get("plan_id") or ""
+        current_session.get("last_reviewed_scope") or ""
     )
     return bridge_state
-
-
-def _event_current_instruction(review_state: Mapping[str, object]) -> str:
-    queue = _mapping(review_state.get("queue"))
-    derived = str(queue.get("derived_next_instruction") or "").strip()
-    if derived:
-        return derived
-    packets = review_state.get("packets")
-    if isinstance(packets, list):
-        for packet in packets:
-            if not isinstance(packet, dict) or packet.get("status") != "pending":
-                continue
-            summary = str(packet.get("summary") or "").strip()
-            if summary:
-                return summary
-    return ""
-
-
-def _event_open_findings(queue: Mapping[str, object]) -> str:
-    pending_total = int(queue.get("pending_total") or 0)
-    if pending_total <= 0:
-        return "none"
-    return f"{pending_total} pending review packet(s)"
 
 
 def _event_reviewer_mode(runtime: Mapping[str, object]) -> str:
@@ -225,23 +220,6 @@ def _event_reviewer_mode(runtime: Mapping[str, object]) -> str:
         if reviewer_mode:
             return reviewer_mode
     return "tools_only"
-
-
-def _event_claude_ack(queue: Mapping[str, object]) -> str:
-    pending_claude = int(queue.get("pending_claude") or 0)
-    return "pending" if pending_claude else "acknowledged"
-
-
-def _event_agent_status(review_state: Mapping[str, object], agent_id: str) -> str:
-    compat = review_state.get("_compat")
-    agents = (compat.get("agents") if isinstance(compat, dict) else None) or review_state.get("agents")
-    if not isinstance(agents, list):
-        return ""
-    for agent in agents:
-        if not isinstance(agent, dict) or agent.get("agent_id") != agent_id:
-            continue
-        return str(agent.get("job_status") or agent.get("status") or "")
-    return ""
 
 
 def _derived_next_instruction(packets: list[dict[str, object]]) -> str:

@@ -702,6 +702,27 @@ intended execution order is:
       active target refs, changed scope, suggested graph queries, canonical
       warm refs, targeted checks, and fallback/confidence fields so the
       least-effort-first routing contract exists as machine state.
+- [ ] Land one generated `devctl system-picture` read surface immediately
+      after that first `startup-context` / `WorkIntakePacket` proof and before
+      richer graph capability work. It should compose the already-existing
+      authority slices into one bounded startup-orientation artifact:
+      identity/state, contract chain, active-plan status, guard/probe health,
+      graph/topology coverage, cross-plan dependencies, mutation-op coverage,
+      and agent-readiness drift. This is a reducer over canonical commands and
+      artifacts, not a new authority layer.
+- [ ] Keep `system-picture` cached and fail-closed. The first artifact lives
+      under managed `dev/reports/**` outputs, carries `tree_hash`,
+      `commit_sha`, `generated_at`, and per-section `section_hashes`, and may
+      refresh only the stale sections on warm start. Tree/hash mismatch,
+      missing sections, or contradictions with canonical commands/guards must
+      invalidate the stale section and point back to the canonical source
+      instead of treating the cache as truth.
+- [ ] Make that `system-picture` cache the shared warm-start layer for later
+      multi-agent work rather than a second startup packet. `startup-context`,
+      `ContextPack`, and later SCC / blast-radius / ZGraph-compatible
+      enrichments should be able to consume the same generated snapshot plus
+      delta, while every field remains traceable back to canonical plan refs,
+      runtime contracts, or guard/report outputs.
 - [ ] Feed live task state into that reducer in the next slice: changed paths,
       recent findings, last failed checks, recent touched files, and current
       plan scope should influence graph ranking instead of every query seeing
@@ -832,6 +853,14 @@ intended execution order is:
 - [ ] Use the proof-pack/evaluation schema to measure governed AI coding
       quality deltas: finding count change, severity distribution,
       false-positive rate, repair-loop count, and context cost.
+- [ ] Add `check_system_coherence.py` after the first generated
+      `system-picture` surface is stable. This meta-guard should fail when the
+      governance system's own composed view drifts from canonical truth:
+      required sections missing or stale, declared mutation operations lacking
+      runtime handlers or explicit deferral, agent/role inventories diverging
+      across packet/parser/reducer surfaces, or accepted graph/command
+      coverage floors regressing. The guard validates system coherence, not
+      ordinary code quality.
 
 ## Session Resume
 
@@ -895,6 +924,15 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-21: Promoted the missing `system-picture` read surface into the
+  canonical `MP-377` graph/intake lane instead of leaving it as chat-only
+  design. It now sits immediately after the first `startup-context` /
+  `WorkIntakePacket` proof: one generated `devctl system-picture` snapshot
+  composes identity, contracts, plan state, guard health, graph coverage,
+  mutation-op coverage, and agent-readiness drift into a bounded warm-start
+  artifact. The cache is explicitly tree-hash-sealed and per-section
+  invalidated, so it stays disposable/generated rather than a second
+  authority store.
 - 2026-03-21: Finished retiring `temp_leftoff.md` as execution state for this
   lane. The remaining packet field mapping and graph/query intake conclusions
   were verified against the governed plans and kept in canonical plan state

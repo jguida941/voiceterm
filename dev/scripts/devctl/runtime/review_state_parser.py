@@ -11,6 +11,7 @@ from .review_state_models import (
     ContextPackRefState,
     ReviewAttentionState,
     ReviewBridgeState,
+    ReviewCurrentSessionState,
     ReviewPacketState,
     ReviewQueueState,
     ReviewSessionState,
@@ -55,6 +56,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
     review = _mapping(review_payload.get("review"))
     queue = _mapping(review_payload.get("queue"))
     bridge = _mapping(review_payload.get("bridge"))
+    current_session = _mapping(review_payload.get("current_session"))
 
     return ReviewState(
         schema_version=_int(payload.get("schema_version"))
@@ -96,6 +98,10 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
                 _mapping(queue.get("derived_next_instruction_source"))
             ),
         ),
+        current_session=_current_session_state_from_payload(
+            current_session=current_session,
+            bridge=bridge,
+        ),
         bridge=ReviewBridgeState(
             overall_state=_string(bridge_liveness.get("overall_state")) or "unknown",
             codex_poll_state=_string(bridge_liveness.get("codex_poll_state"))
@@ -131,6 +137,51 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         warnings=warnings,
         errors=errors,
     )
+
+
+def _current_session_state_from_payload(
+    *,
+    current_session: Mapping[str, object],
+    bridge: Mapping[str, object],
+) -> ReviewCurrentSessionState:
+    if current_session:
+        return ReviewCurrentSessionState(
+            current_instruction=_string(current_session.get("current_instruction")),
+            current_instruction_revision=_string(
+                current_session.get("current_instruction_revision")
+            ),
+            implementer_status=_string(current_session.get("implementer_status")),
+            implementer_ack=_string(current_session.get("implementer_ack")),
+            implementer_ack_revision=_string(
+                current_session.get("implementer_ack_revision")
+            ),
+            implementer_ack_state=_string(
+                current_session.get("implementer_ack_state")
+            )
+            or "unknown",
+            open_findings=_string(current_session.get("open_findings")),
+            last_reviewed_scope=_string(current_session.get("last_reviewed_scope")),
+        )
+
+    implementer_ack = _string(bridge.get("claude_ack"))
+    return ReviewCurrentSessionState(
+        current_instruction=_string(bridge.get("current_instruction")),
+        current_instruction_revision=_string(bridge.get("current_instruction_revision")),
+        implementer_status=_string(bridge.get("claude_status")),
+        implementer_ack=implementer_ack,
+        implementer_ack_revision=_string(bridge.get("claude_ack_revision")),
+        implementer_ack_state=_bridge_ack_state(bridge, implementer_ack),
+        open_findings=_string(bridge.get("open_findings")),
+        last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
+    )
+
+
+def _bridge_ack_state(bridge: Mapping[str, object], implementer_ack: str) -> str:
+    if not implementer_ack:
+        return "missing"
+    if _bool(bridge.get("claude_ack_current")):
+        return "current"
+    return "stale"
 
 
 def _attention_state_from_mapping(

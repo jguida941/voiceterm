@@ -1523,6 +1523,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-21T23:40:00Z` | `CODEX` | Landed the first typed `current_session` authority cutover for MP-355 without widening into the full bridge replacement. `ReviewState` now carries a dedicated current-session block, both bridge-backed and event-backed projections populate it, `latest.md` / `compact.json` read it for live current-focus rendering, and the legacy bridge fields are still projected for compatibility. This keeps current-status readers off append-only bridge prose while preserving the existing runtime/reporting surfaces. | `partial-pass` | Finish the broader guard bundle for this slice, keep `bridge.md` out of the checkpoint, and then continue the remaining bridge-authority replacement through writer/mutation paths instead of re-expanding current-status reads. |
 | `2026-03-21T22:15:00Z` | `CODEX` | Re-ran the "is this already N-agent?" audit against the current MP-355 runtime instead of relying on older scratch conclusions. The answer is mixed: packet routing, `TandemProfile.implementers`, the event lane, and `autonomy-swarm` already support more than two workers, but the middle review-channel layer is still singular in the places that matter most for live authority (`pending_codex` / `pending_claude`, `claude_ack`, `codex_poll_state`, provider-name allowlists, and one `Current Instruction For Claude` promotion path). | `planned` | Keep the current 8+8 run conductor-managed for now, then generalize queue/current-session/attention/promotion to registry-driven N-agent state before claiming the backend itself is natively multi-agent. |
 | `2026-03-21T20:25:00Z` | `CODEX` | Landed the first stale-write containment on the live markdown bridge after the operator-visible regression where an older reviewer checkpoint replaced a newer in-flight instruction. Instruction-mutating bridge writes now carry an expected instruction revision precondition through the reviewer-checkpoint and promotion paths, and the write fails closed under the existing file lock if the live bridge revision no longer matches. Auto-promotion/scope paths now thread the live revision they validated, while active dual-agent reviewer checkpoints require an explicit expected revision instead of silently overwriting newer state. | `partial-pass` | Keep the bounded `UNKNOWN/DEFER` slice in place, then land the typed `current_session` authority cutover so current-status readers stop depending on append-only bridge prose for live instruction/ACK truth. |
 | `2026-03-21T16:35:00Z` | `CODEX` | Promoted the bridge-read authority cleanup into the active MP-355 lane after another operator-visible confusion round. The immediate bounded fix is to make one typed `current_session` block authoritative in `review_state.json`, render `latest.md` from that typed state instead of append-only `Claude Ack` prose, and keep history in trace/event surfaces instead of mixing it into current-status reads. This is the smallest same-repo slice that moves toward `CollaborationSession` authority without colliding with the current `context_graph` work. | `planned` | Land the typed `current_session` projection on both bridge-backed and event-backed review-state paths, switch `latest.md` / compact readers to that block, and keep append-only bridge/event history explicitly out of live current-status rendering before widening into full writer-authority replacement. |
@@ -1600,11 +1601,11 @@ Complete this table only after all active swarm lanes are merged.
 - Current status: this plan remains active; start from the highest-priority
   open item in `## Execution Checklist` and the latest dated entry in
   `## Progress Log`.
-- Next action: keep current-slice decisions and blockers in this file instead
-  of chat-only notes, land the typed `current_session` authority cutover
-  first, and keep the registry-driven N-agent queue/attention/promotion
-  follow-up queued behind that cutover instead of widening the live bridge
-  slice ad hoc.
+- Next action: finish validation and checkpointing for the typed
+  `current_session` cutover, keep `bridge.md` as a compatibility projection
+  rather than live current-status authority, and queue the registry-driven
+  N-agent queue/attention/promotion follow-up behind the remaining writer /
+  mutation-path migration instead of widening this slice ad hoc.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

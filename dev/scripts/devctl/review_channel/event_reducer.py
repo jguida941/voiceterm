@@ -10,6 +10,7 @@ from dataclasses import asdict
 from ..common import display_path
 from ..runtime.review_state_models import (
     ReviewBridgeState,
+    ReviewCurrentSessionState,
     ReviewSessionState,
     ReviewState,
 )
@@ -58,6 +59,17 @@ _PLACEHOLDER_BRIDGE = ReviewBridgeState(
     current_instruction="", open_findings="", claude_status="",
     claude_ack="", claude_ack_current=False,
     current_instruction_revision="", claude_ack_revision="",
+    last_reviewed_scope="",
+)
+
+_PLACEHOLDER_CURRENT_SESSION = ReviewCurrentSessionState(
+    current_instruction="",
+    current_instruction_revision="",
+    implementer_status="",
+    implementer_ack="",
+    implementer_ack_revision="",
+    implementer_ack_state="unknown",
+    open_findings="",
     last_reviewed_scope="",
 )
 
@@ -270,6 +282,7 @@ def reduce_events(
             review_channel_path=display_path(review_channel_path, repo_root=repo_root),
         ),
         queue=build_event_queue_state(pending_counts, stale_packet_count, packet_rows),
+        current_session=_PLACEHOLDER_CURRENT_SESSION,
         bridge=_PLACEHOLDER_BRIDGE,
         attention=None,
         packets=(),

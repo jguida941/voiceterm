@@ -79,6 +79,11 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Pending packet counts and derived next-instruction state.",
             ),
             ContractField(
+                "current_session",
+                "ReviewCurrentSessionState",
+                "Typed current instruction and implementer ACK state used by current-status readers.",
+            ),
+            ContractField(
                 "bridge",
                 "ReviewBridgeState",
                 "Review bridge lifecycle and freshness state.",

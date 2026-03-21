@@ -245,6 +245,13 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     `attention.status=checkpoint_required` or
     `push_enforcement.safe_to_continue_editing=false`, stop widening the
     slice and cut a checkpoint before further edits or any raw push attempt.
+4.5 In that same live review-channel mode, treat
+    `dev/reports/review_channel/latest/review_state.json` (and the mirrored
+    `compact.json` projection) `current_session` block as the canonical typed
+    current-status read for live instruction / implementer ACK state. While
+    the bridge migration remains in progress, `bridge.md` is a compatibility
+    projection and handoff surface, not the preferred source for current-
+    status reads.
 5. Keep changes scoped: ignore unrelated diffs unless user asks.
 
 ## Prerequisites
@@ -1345,7 +1352,7 @@ Core commands:
 - `autonomy-report` (builds a human-readable autonomy digest bundle from loop/watch artifacts under `dev/reports/autonomy/library/<label>` with summary markdown/json, copied sources, and optional matplotlib charts)
 - `phone-status` (renders iPhone/SSH-safe autonomy status projections from `dev/reports/autonomy/queue/phone/latest.json` with selectable views `full|compact|trace|actions` and optional projection bundle emission: `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`)
 - `controller-action` (policy-gated operator action surface for `refresh-status`, `dispatch-report-only`, `pause-loop`, and `resume-loop`; dispatch and mode writes are bounded by workflow/branch allowlists and autonomy mode gates, with optional dry-run and mode-state artifact output)
-- `review-channel` (current bridge-gated review-swarm bootstrap surface; `--action launch` reads `dev/active/review_channel.md` + `bridge.md`, emits Codex/Claude conductor launch scripts, defaults live macOS launches to an `auto-dark` Terminal profile when available, and fails closed when the markdown bridge is inactive; `--action status`, `--action ensure`, `--action reviewer-heartbeat`, and `--action reviewer-checkpoint` now also emit machine-readable `reviewer_worker` state so the first repo-owned reviewer-worker seam stays visible outside chat, while `ensure --follow` frames carry `review_needed` without claiming semantic review completion; `--action rollover` writes a repo-visible handoff bundle, relaunches fresh conductors before compaction, and can wait for visible ACK lines in `bridge.md`)
+- `review-channel` (current bridge-gated review-swarm bootstrap surface; `--action launch` reads `dev/active/review_channel.md` + `bridge.md`, emits Codex/Claude conductor launch scripts, defaults live macOS launches to an `auto-dark` Terminal profile when available, and fails closed when the markdown bridge is inactive; `--action status`, `--action ensure`, `--action reviewer-heartbeat`, and `--action reviewer-checkpoint` now also emit machine-readable `reviewer_worker` state plus the typed `current_session` live-status block so current instruction / ACK reads no longer depend on append-only bridge prose, while `ensure --follow` frames carry `review_needed` without claiming semantic review completion; `--action rollover` writes a repo-visible handoff bundle, relaunches fresh conductors before compaction, and can wait for visible ACK lines in `bridge.md`)
 - `autonomy-swarm` (adaptive multi-agent orchestration wrapper with metadata-driven worker sizing, optional `--plan-only` allocation mode, bounded per-agent autonomy-loop fanout, default reserved `AGENT-REVIEW` lane for post-audit review when execution runs with more than one lane, per-run swarm summary bundles under `dev/reports/autonomy/swarms/<label>/`, and default post-audit digest bundles under `dev/reports/autonomy/library/<label>-digest/`; disable with `--no-post-audit` and/or `--no-reviewer-lane`; non-report modes require `--fix-command`)
 - `mutation-loop` (bounded mutation remediation loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json/playbook bundles and supports policy-gated fix execution)
 - `failure-cleanup` (guarded cleanup for local failure triage bundles under `dev/reports/failures`; default path-root guard, optional `--allow-outside-failure-root` constrained to `dev/reports/**`, CI-green gating with optional `--ci-branch`/`--ci-workflow`/`--ci-event`/`--ci-sha` filters, plus `--dry-run` and confirmation)

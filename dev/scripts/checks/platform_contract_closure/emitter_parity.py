@@ -36,6 +36,16 @@ def _build_synthetic_review_state() -> dict[str, object]:
         "ok": True,
         "review": {"plan_id": "test"},
         "queue": {"pending_total": 0, "pending_claude": 0},
+        "current_session": {
+            "current_instruction": "keep the slice bounded",
+            "current_instruction_revision": "abc123def456",
+            "implementer_status": "active",
+            "implementer_ack": "acknowledged",
+            "implementer_ack_revision": "abc123def456",
+            "implementer_ack_state": "current",
+            "open_findings": "none",
+            "last_reviewed_scope": "MP-355",
+        },
         "packets": [],
         "errors": [],
         "_compat": {

@@ -167,6 +167,11 @@ Three quality layers matter in practice:
     `safe_to_continue_editing`, `raw_git_push_guarded`,
     `recommended_action`) and escalates attention to
     `checkpoint_required` when the worktree is over the continuation budget.
+  - The same `review-channel --action status` path now emits a typed
+    `current_session` block in `dev/reports/review_channel/latest/review_state.json`
+    and `compact.json`; prefer that contract for live instruction /
+    implementer ACK reads instead of scraping append-only prose from
+    `bridge.md`.
   - If `tandem-validate` is red only because a release-lane external status
     check cannot reach GitHub or another off-repo dependency, treat that as an
     environment blocker and call it out separately from code-quality failures.
