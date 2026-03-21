@@ -2963,6 +2963,30 @@ Still open before `P0` closes:
       authority), explicit honesty states (`low_confidence`, `no_edge`) in
       query output, and edge-validation that rejects orphaned semantic links or
       heuristic plan->concept edges whose target concept never materializes.
+- [ ] Unify `INDEX.md` registry parsing behind one canonical helper instead of
+      carrying three regex variants across doc-authority, context-graph, and
+      review-channel plan resolution. Registry-shape changes should land once
+      and fan out through shared parsing/tests, not through copy/pasted row
+      matchers.
+- [ ] Add a dedicated command-surface parity guard for `COMMAND_HANDLERS`
+      versus `devctl list` / `COMMANDS`. Missing parser/handler/list drift is
+      currently too silent; CI should fail if the public command inventory and
+      dispatch authority diverge.
+- [ ] Stop maintaining a separate context-graph "temperature" algorithm once
+      the graph moves beyond the current bootstrap proof. Normalize the graph's
+      source-file hotness from the shared hotspot / `priority_score` family so
+      probe-report, topology packets, and context-graph are ranking the same
+      repo risk through one explainable scoring contract.
+- [ ] Replace the ad hoc keyword mapping with a real context-routing trigger
+      table: file/path patterns -> required warm refs, plan domains, checks,
+      and query hints. `_PLAN_CONCEPT_KEYWORDS` is only the first heuristic.
+      The scheduler path should eventually route `dev/scripts/checks/**`,
+      `review_channel/**`, `memory/**`, `app/ios/**`, etc. through explicit
+      trigger rules instead of relying on substring matches alone.
+- [ ] Keep bounded bootstrap as a hard design constraint even as startup gets
+      smarter: the default startup packet should stay slim (roughly <=2K
+      tokens) and lean on query-on-demand / warm-context retrieval instead of
+      growing into another static doc dump.
 - [ ] Add the first typed `startup-context` / `WorkIntakePacket` command after
       those honesty fixes land. The packet should carry repo identity, command
       goal, active target refs, changed paths, changed symbols when available,
@@ -3805,6 +3829,13 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-21: Captured the next graph-hygiene quick wins surfaced by the
+  latest code audit. The new tracked gaps are: duplicated `INDEX.md` parsers,
+  missing handler/list parity enforcement for the public command surface,
+  context-graph temperature drift away from the shared hotspot scorer, the
+  need for a real file-pattern trigger table for context routing, and an
+  explicit slim-bootstrap budget so the graph layer stays a reducer rather
+  than growing back into a preload blob.
 - 2026-03-21: Captured the deeper context-graph audit as tracked platform
   scope instead of leaving it as chat-only analysis. The accepted read is that
   the current `context-graph` slice is a good bounded bootstrap/query helper

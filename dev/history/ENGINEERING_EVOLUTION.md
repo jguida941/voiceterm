@@ -60,6 +60,14 @@ recurring ambiguity where graph packets, startup packets, and long-lived AI
 loops were drifting toward one blended authority blob instead of staying
 layered and fail-closed.
 
+The same 2026-03-21 planning pass also captured the next graph-hygiene follow-
+ups explicitly: one canonical `INDEX.md` parser for doc-authority/context-
+graph/review-channel consumers, a dedicated parity guard for
+`COMMAND_HANDLERS` versus the public `devctl list` inventory, temperature
+normalization against the shared hotspot scorer, a real file-pattern trigger
+table for context routing, a slim default bootstrap budget, and an explicit
+fresh-session round budget for the live dual-agent loop.
+
 ### 2026-03-20 - MP-377 Phase 6 context-graph implementation
 
 Landed `devctl context-graph` command (7-file package under

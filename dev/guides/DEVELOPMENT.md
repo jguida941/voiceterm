@@ -237,6 +237,8 @@ the concrete minimum inventory after edits:
 5. For bounded context on specific files, MPs, guards, or subsystems during
    development, use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`.
    For a concept-level subsystem diagram, use `--format mermaid` or `--format dot`.
+   Use `--mode bootstrap` only for the slim warm start; use `--query` for
+   on-demand expansion instead of widening the default startup packet.
 6. If you created a new module, refactored module/API layout, introduced
    string-based dispatch, added a new 3+ parameter signature, or touched
    concurrent/shared-state code, also run:

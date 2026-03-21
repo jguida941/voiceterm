@@ -579,6 +579,10 @@ python3 dev/scripts/devctl.py pypi --upload --yes
 python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 ```
 
+`context-graph --mode bootstrap` is the slim warm-start packet. Keep it
+bounded by default and use `context-graph --query '<term>'` when the task
+needs more repo context.
+
 ## Scripts Inventory
 
 | Script | Role | Notes |

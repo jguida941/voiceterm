@@ -91,6 +91,17 @@
   checks, then live routing inputs (diff, findings, failed checks, plan
   scope), then symbol/test/finding/policy/workflow/config graph coverage,
   including Swift/iOS surfaces used by this repo.
+- Current graph hygiene quick wins inside that same lane: unify `INDEX.md`
+  parsing behind one canonical helper for doc-authority/context-graph/plan-
+  resolution consumers, add a hard parity guard for `COMMAND_HANDLERS` versus
+  `devctl list` command inventory, normalize context-graph temperature from
+  the shared hotspot scorer instead of maintaining a parallel algorithm, and
+  formalize file-pattern trigger-table routing so the graph can request the
+  right warm knowledge for a touched subsystem without inflating bootstrap.
+- Current context-budget rule inside that same lane: keep the default startup
+  packet slim (roughly <=2K tokens) and prefer query-on-demand / warm-context
+  retrieval over preloading larger context blobs, because the platform should
+  optimize for bounded discovery rather than "load everything just in case."
 - Current `P0` closure focus inside that sequence: canonical `Finding`-based
   packets, `FixPacket` / `DecisionPacket` split, schema/version matrices,
   `CommandGoalTaxonomy` + validation-routing closure, and a contract-closure
