@@ -22,6 +22,7 @@ Family map:
 - Active-plan/state helpers: `active_plan/`
 - Package-layout helpers: `package_layout/`
 - Code-shape policy helpers: `code_shape_*`
+- Term-consistency helpers: `term_consistency/`
 - Python-analysis helpers: `python_analysis/`, `yaml_json_loader.py`
 - Probe-report helpers: `probe_report/`, `probe_path_filters.py`
 - Workflow/loop helpers: `coderabbit_*`, `mutation_ralph_loop_core.py`,

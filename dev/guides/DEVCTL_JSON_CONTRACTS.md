@@ -365,7 +365,7 @@ Current agent-facing machine surfaces are:
 - `dev/reports/audits/devctl_events.jsonl`
 - `dev/reports/governance/finding_reviews.jsonl`
 
-The markdown bridge `code_audit.md` is still a live coordination surface for
+The markdown bridge `bridge.md` is still a live coordination surface for
 the transitional loop, but it is not part of the JSON contract set.
 
 ## Current Versioning Pressure Points

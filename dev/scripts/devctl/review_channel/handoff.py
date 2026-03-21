@@ -9,7 +9,7 @@ Governing docs for this slice:
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/review_channel.md`
 - `dev/active/continuous_swarm.md`
-- `code_audit.md`
+- `bridge.md`
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ _CLAUDE_ACK_REVISION_RE = re.compile(
 
 
 def extract_bridge_snapshot(bridge_text: str) -> BridgeSnapshot:
-    """Parse tracked metadata and live sections from `code_audit.md`."""
+    """Parse tracked metadata and live sections from `bridge.md`."""
     metadata: dict[str, str] = {}
     for raw_line in bridge_text.splitlines():
         stripped = raw_line.strip()
@@ -243,8 +243,9 @@ def _extract_claude_ack_revision(text: str) -> str:
     """Extract the latest Claude ACK revision from the Claude Ack section.
 
     Contract: the FIRST instruction-rev match is the current/latest ACK.
-    Claude must prepend new ACKs at the top of the section so the first
-    regex match is always the most recent revision.
+    Claude should rewrite the current ACK at the top of the section and keep
+    stale historical instruction-rev lines out of the live bridge so the first
+    regex match stays equal to the true current revision.
     """
     match = _CLAUDE_ACK_REVISION_RE.search(text or "")
     if match is None:

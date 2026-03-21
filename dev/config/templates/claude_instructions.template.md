@@ -18,11 +18,11 @@ gitignored).
 
 ## Mode-aware review-channel bootstrap
 
-- If repo-root `code_audit.md` is absent, or `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+- If repo-root `bridge.md` is absent, or `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
   reports `reviewer_mode` as `single_agent`, `tools_only`, `paused`, or `offline`,
   do not assume a live Codex review loop. Use the normal `AGENTS.md` + active-plan
   flow unless the operator explicitly reactivates dual-agent mode.
-- If repo-root `code_audit.md` is present and `reviewer_mode` is
+- If repo-root `bridge.md` is present and `reviewer_mode` is
   `active_dual_agent`, treat the bridge as the live reviewer/coder authority:
   read `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`,
   and `Last Reviewed Scope` before acting, then keep polling the bridge instead of

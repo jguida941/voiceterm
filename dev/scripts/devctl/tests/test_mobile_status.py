@@ -17,7 +17,7 @@ def make_args(**overrides) -> SimpleNamespace:
     defaults = {
         "phone_json": "dev/reports/autonomy/queue/phone/latest.json",
         "review_channel_path": "dev/active/review_channel.md",
-        "bridge_path": "code_audit.md",
+        "bridge_path": "bridge.md",
         "review_status_dir": "dev/reports/review_channel/latest",
         "approval_mode": "balanced",
         "view": "compact",
@@ -50,7 +50,7 @@ def _build_review_channel_text() -> str:
 def _build_bridge_text() -> str:
     return "\n".join(
         [
-            "# Code Audit Channel",
+            "# Review Bridge",
             "",
             "- Last Codex poll: `2026-03-09T04:12:49Z`",
             "- Last non-audit worktree hash: `fdc8bee2b634384ac5e1affbe030881c838b4a187267c04772494dce5161cca3`",
@@ -85,7 +85,7 @@ def _build_bridge_text() -> str:
             "",
             "## Last Reviewed Scope",
             "",
-            "- code_audit.md",
+            "- bridge.md",
             "",
         ]
     )
@@ -102,7 +102,7 @@ class MobileStatusParserTests(unittest.TestCase):
                 "--review-channel-path",
                 "/tmp/review_channel.md",
                 "--bridge-path",
-                "/tmp/code_audit.md",
+                "/tmp/bridge.md",
                 "--review-status-dir",
                 "/tmp/review-status",
                 "--view",
@@ -119,7 +119,7 @@ class MobileStatusParserTests(unittest.TestCase):
         self.assertEqual(args.command, "mobile-status")
         self.assertEqual(args.phone_json, "/tmp/phone.json")
         self.assertEqual(args.review_channel_path, "/tmp/review_channel.md")
-        self.assertEqual(args.bridge_path, "/tmp/code_audit.md")
+        self.assertEqual(args.bridge_path, "/tmp/bridge.md")
         self.assertEqual(args.review_status_dir, "/tmp/review-status")
         self.assertEqual(args.approval_mode, "trusted")
         self.assertEqual(args.view, "alert")
@@ -136,7 +136,7 @@ class MobileStatusCommandTests(unittest.TestCase):
             root = Path(tmp_dir)
             phone_json = root / "phone.json"
             review_channel_path = root / "review_channel.md"
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             review_status_dir = root / "review-status"
             projection_dir = root / "mobile"
             output_json = root / "report.json"
@@ -231,7 +231,7 @@ class MobileStatusCommandTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             review_channel_path = root / "review_channel.md"
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             review_status_dir = root / "review-status"
             projection_dir = root / "mobile"
             output_json = root / "report.json"
@@ -271,7 +271,7 @@ class MobileStatusCommandTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             review_channel_path = root / "review_channel.md"
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             review_status_dir = root / "review-status"
             output_json = root / "report.json"
 
@@ -309,7 +309,7 @@ class MobileStatusCommandTests(unittest.TestCase):
             args = make_args(
                 phone_json=str(root / "missing.json"),
                 review_channel_path=str(root / "missing_review_channel.md"),
-                bridge_path=str(root / "missing_code_audit.md"),
+                bridge_path=str(root / "missing_bridge.md"),
                 review_status_dir=str(root / "missing-review-status"),
                 repo_root=str(root),
                 output=str(output_json),

@@ -249,6 +249,49 @@
         "dev/reports"
       ]
     },
+    "probe_term_consistency": {
+      "include_globs": [
+        "dev/scripts/devctl/**/*.py",
+        "dev/scripts/README.md",
+        "dev/guides/AGENT_COLLABORATION_SYSTEM.md",
+        "dev/guides/DEVCTL_ARCHITECTURE.md"
+      ],
+      "exclude_globs": [
+        "dev/scripts/devctl/tests/**",
+        "dev/reports/**",
+        "dev/archive/**"
+      ],
+      "rules": [
+        {
+          "id": "bridge_name",
+          "canonical": "bridge",
+          "aliases": [
+            "code_audit",
+            "code audit",
+            "Code Audit Channel"
+          ],
+          "severity": "medium",
+          "match_mode": "prefer_canonical",
+          "ai_instruction": "Use `bridge` / `Review Bridge` as the canonical transport name. Retire legacy `code_audit` wording from code, docs, and generated surfaces so the bridge contract stays easy to follow."
+        },
+        {
+          "id": "review_implementer",
+          "canonical": "implementer",
+          "aliases": [
+            "coder"
+          ],
+          "severity": "medium",
+          "match_mode": "prefer_canonical",
+          "include_globs": [
+            "dev/scripts/devctl/review_channel/**/*.py",
+            "dev/scripts/devctl/commands/review_channel/**/*.py",
+            "dev/scripts/README.md",
+            "dev/guides/AGENT_COLLABORATION_SYSTEM.md"
+          ],
+          "ai_instruction": "Use `implementer` for the Claude-side role. Retire `coder` from review-channel code and maintainer docs so one role keeps one name."
+        }
+      ]
+    },
     "python_cyclic_imports": {
       "ignored_cycles": [
         [

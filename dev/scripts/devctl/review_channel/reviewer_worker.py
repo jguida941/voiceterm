@@ -19,7 +19,7 @@ from .reviewer_state import (
     current_reviewed_hash,
     reviewer_mode_from_bridge_text,
 )
-_BRIDGE_EXCLUDED_REL_PATHS = ("code_audit.md",)
+_BRIDGE_EXCLUDED_REL_PATHS = ("bridge.md",)
 
 
 @dataclass(frozen=True)

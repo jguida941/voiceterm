@@ -22,7 +22,7 @@ parse_markdown_sections = parse_markdown_sections
 
 @dataclass(frozen=True)
 class BridgeMetadata:
-    """Top-level metadata parsed from `code_audit.md`."""
+    """Top-level metadata parsed from `bridge.md`."""
 
     review_mode: str | None
     last_codex_poll: str | None

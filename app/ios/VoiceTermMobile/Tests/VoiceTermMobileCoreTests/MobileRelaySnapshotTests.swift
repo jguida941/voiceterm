@@ -218,7 +218,7 @@ private let sampleFullPayload = """
   "sources": {
     "phone_input_path": "dev/reports/autonomy/queue/phone/latest.json",
     "review_channel_path": "dev/active/review_channel.md",
-    "bridge_path": "code_audit.md",
+    "bridge_path": "bridge.md",
     "review_status_dir": "dev/reports/review_channel/latest"
   },
   "controller_payload": {

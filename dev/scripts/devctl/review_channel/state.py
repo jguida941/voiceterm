@@ -162,7 +162,7 @@ def _current_worktree_hash(repo_root: Path) -> str | None:
     try:
         return compute_non_audit_worktree_hash(
             repo_root=repo_root,
-            excluded_rel_paths=("code_audit.md",),
+            excluded_rel_paths=("bridge.md",),
         )
     except (ValueError, OSError):
         return None

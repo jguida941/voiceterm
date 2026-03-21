@@ -28,10 +28,10 @@ extract_bridge_snapshot = _review_channel_handoff.extract_bridge_snapshot
 validate_live_bridge_contract = _bridge_validation.validate_live_bridge_contract
 reviewer_mode_is_active = _peer_liveness.reviewer_mode_is_active
 
-CODE_AUDIT_PATH = REPO_ROOT / "code_audit.md"
+BRIDGE_PATH = REPO_ROOT / "bridge.md"
 REVIEW_CHANNEL_PATH = REPO_ROOT / "dev/active/review_channel.md"
 
-REQUIRED_CODE_AUDIT_H2 = [
+REQUIRED_BRIDGE_H2 = [
     "Start-Of-Conversation Rules",
     "Protocol",
     "Poll Status",
@@ -44,14 +44,14 @@ REQUIRED_CODE_AUDIT_H2 = [
     "Last Reviewed Scope",
 ]
 
-REQUIRED_CODE_AUDIT_MARKERS = [
+REQUIRED_BRIDGE_MARKERS = [
     "Codex is the reviewer. Claude is the coder.",
     "`AGENTS.md`",
     "`dev/active/INDEX.md`",
     "`dev/active/MASTER_PLAN.md`",
     "`dev/active/review_channel.md`",
-    "Codex must poll non-`code_audit.md` worktree changes every 2-3 minutes",
-    "Codex must exclude `code_audit.md` itself when computing the reviewed",
+    "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes",
+    "Codex must exclude `bridge.md` itself when computing the reviewed",
     "operator-visible chat update",
     "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
     "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`",
@@ -72,8 +72,8 @@ REQUIRED_CODE_AUDIT_MARKERS = [
 
 REQUIRED_REVIEW_CHANNEL_MARKERS = [
     "## Transitional Markdown Bridge (Current Operating Mode)",
-    "`code_audit.md`",
-    "each meaningful Codex reviewer write to\n   `code_audit.md` must also emit a concise operator-visible chat update",
+    "`bridge.md`",
+    "each meaningful Codex reviewer write to\n   `bridge.md` must also emit a concise operator-visible chat update",
     "`MASTER_PLAN.md` remains the canonical tracker and\n   `INDEX.md` remains the router",
     "`last_poll_local`",
     "`check_review_channel_bridge.py`",
@@ -108,7 +108,7 @@ def _strip_backticks(text: str) -> str:
     return text.strip().strip("`").strip()
 
 
-def _extract_code_audit_metadata(text: str) -> dict[str, str]:
+def _extract_bridge_metadata(text: str) -> dict[str, str]:
     metadata: dict[str, str] = {}
     for line in text.splitlines():
         trimmed = line.strip().lstrip("-").strip()
@@ -132,8 +132,8 @@ def _enforce_live_poll_freshness() -> bool:
     return os.getenv("GITHUB_ACTIONS", "").strip().lower() != "true"
 
 
-def _validate_code_audit_metadata(text: str) -> list[str]:
-    metadata = _extract_code_audit_metadata(text)
+def _validate_bridge_metadata(text: str) -> list[str]:
+    metadata = _extract_bridge_metadata(text)
     errors: list[str] = []
     reviewer_mode = metadata.get("reviewer_mode", "")
     valid_reviewer_modes = {
@@ -186,7 +186,7 @@ def _validate_code_audit_metadata(text: str) -> list[str]:
     return errors
 
 
-def _validate_code_audit_live_state(text: str) -> list[str]:
+def _validate_bridge_live_state(text: str) -> list[str]:
     return validate_live_bridge_contract(extract_bridge_snapshot(text))
 
 
@@ -257,23 +257,23 @@ def _build_path_report(
 def build_report() -> dict:
     review_channel_text = REVIEW_CHANNEL_PATH.read_text(encoding="utf-8") if REVIEW_CHANNEL_PATH.exists() else ""
     review_bridge_active = _review_bridge_is_active(review_channel_text)
-    code_audit = _build_path_report(
-        path=CODE_AUDIT_PATH,
-        required_h2=REQUIRED_CODE_AUDIT_H2,
-        required_markers=REQUIRED_CODE_AUDIT_MARKERS,
+    bridge = _build_path_report(
+        path=BRIDGE_PATH,
+        required_h2=REQUIRED_BRIDGE_H2,
+        required_markers=REQUIRED_BRIDGE_MARKERS,
         optional=not review_bridge_active,
         require_tracked=review_bridge_active,
     )
-    if review_bridge_active and code_audit.get("ok", False):
-        code_audit_text = CODE_AUDIT_PATH.read_text(encoding="utf-8")
-        metadata_errors = _validate_code_audit_metadata(code_audit_text)
+    if review_bridge_active and bridge.get("ok", False):
+        bridge_text = BRIDGE_PATH.read_text(encoding="utf-8")
+        metadata_errors = _validate_bridge_metadata(bridge_text)
         if metadata_errors:
-            code_audit["ok"] = False
-            code_audit["metadata_errors"] = metadata_errors
-        state_errors = _validate_code_audit_live_state(code_audit_text)
+            bridge["ok"] = False
+            bridge["metadata_errors"] = metadata_errors
+        state_errors = _validate_bridge_live_state(bridge_text)
         if state_errors:
-            code_audit["ok"] = False
-            code_audit["state_errors"] = state_errors
+            bridge["ok"] = False
+            bridge["state_errors"] = state_errors
     review_channel = _build_path_report(
         path=REVIEW_CHANNEL_PATH,
         required_markers=(REQUIRED_REVIEW_CHANNEL_MARKERS if review_bridge_active else []),
@@ -282,8 +282,8 @@ def build_report() -> dict:
     return {
         "command": "check_review_channel_bridge",
         "review_bridge_active": review_bridge_active,
-        "ok": code_audit["ok"] and review_channel["ok"],
-        "code_audit": code_audit,
+        "ok": bridge["ok"] and review_channel["ok"],
+        "bridge": bridge,
         "review_channel": review_channel,
     }
 
@@ -292,11 +292,11 @@ def render_md(report: dict) -> str:
     lines = ["# check_review_channel_bridge", ""]
     lines.append(f"- ok: {report.get('ok', False)}")
     lines.append(f"- review_bridge_active: {report.get('review_bridge_active', False)}")
-    for key in ("code_audit", "review_channel"):
+    for key in ("bridge", "review_channel"):
         section = report[key]
         lines.append(f"- {key}_path: {section['path']}")
         lines.append(f"- {key}_ok: {section.get('ok', False)}")
-        if key == "code_audit":
+        if key == "bridge":
             lines.append(f"- {key}_active: {section.get('active', False)}")
         if section.get("untracked"):
             lines.append(f"- {key}_untracked: True")

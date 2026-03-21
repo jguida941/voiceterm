@@ -312,11 +312,11 @@ def _append_wait_message(report: dict[str, object], *, stop_reason: str) -> None
         return
     if stop_reason == "reviewer_update_observed":
         warnings.append(
-            "Reviewer-owned bridge content or a fresh Claude-targeted review packet changed. Re-read `code_audit.md`, poll the review-channel inbox, and resume from the new reviewer state."
+            "Reviewer-owned bridge content or a fresh Claude-targeted review packet changed. Re-read `bridge.md`, poll the review-channel inbox, and resume from the new reviewer state."
         )
     elif stop_reason == "reviewer_update_ready":
         warnings.append(
-            "Reviewer state is already ahead of the current Claude ACK. Re-read `code_audit.md` and poll the review-channel inbox instead of waiting."
+            "Reviewer state is already ahead of the current Claude ACK. Re-read `bridge.md` and poll the review-channel inbox instead of waiting."
         )
     elif stop_reason == "not_waiting":
         errors.append(

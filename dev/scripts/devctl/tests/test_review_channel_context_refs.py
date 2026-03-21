@@ -107,7 +107,7 @@ class ReviewChannelContextRefTests(unittest.TestCase):
                     kind="approval_request",
                     summary="Attach reviewed memory packs",
                     body="Use the exported task pack for approval context.",
-                    evidence_refs=("code_audit.md#L1",),
+                    evidence_refs=("bridge.md#L1",),
                     context_pack_refs=tuple(context_pack_refs),
                     confidence=1.0,
                     requested_action="approve_memory_context",

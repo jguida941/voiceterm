@@ -12,9 +12,9 @@ Use this when you want a plain-language description of the system:
 
 > VoiceTerm uses a Python orchestration layer to run a plan-driven
 > Codex/Claude agent collaboration system. The live bootstrap path
-> (`review-channel`) launches a Codex reviewer conductor and a Claude coder
+> (`review-channel`) launches a Codex reviewer conductor and a Claude implementer
 > conductor from the active plan, keeps them synchronized through the
-> repo-visible `code_audit.md` bridge, and lets them iterate until the scoped
+> repo-visible `bridge.md` bridge, and lets them iterate until the scoped
 > checklist is exhausted or a real blocker appears. The more automated path
 > (`swarm_run`) reads the next unchecked plan items, fans out bounded worker
 > lanes through `autonomy-swarm` and `autonomy-loop`, runs governance checks,
@@ -22,7 +22,7 @@ Use this when you want a plain-language description of the system:
 
 Short version:
 
-> A Python control plane launches Codex to review, Claude to code, keeps them
+> A Python control plane launches Codex to review, Claude to implement, keeps them
 > in sync through a tracked bridge file, and can also run the same work through
 > guarded swarm-style execution modes with automatic checks and evidence
 > capture.
@@ -31,7 +31,7 @@ Current-state note:
 
 1. The live coordination path today is the markdown bridge in
    [`../active/review_channel.md`](../active/review_channel.md) plus
-   [`../../code_audit.md`](../../code_audit.md).
+   [`../../bridge.md`](../../bridge.md).
 2. The structured `review_event` / `review_state` channel is planned, but it
    is not yet the live authority.
 3. `autonomy-swarm` and `swarm_run` are execution features inside this system,
@@ -45,9 +45,9 @@ If you want to inspect the system directly, open these in order:
 2. [`../active/INDEX.md`](../active/INDEX.md)
 3. [`../active/MASTER_PLAN.md`](../active/MASTER_PLAN.md)
 4. [`../active/review_channel.md`](../active/review_channel.md)
-5. [`../../code_audit.md`](../../code_audit.md)
+5. [`../../bridge.md`](../../bridge.md)
 6. [`../active/continuous_swarm.md`](../active/continuous_swarm.md)
-7. [`../scripts/devctl/commands/review_channel.py`](../scripts/devctl/commands/review_channel.py)
+7. [`../scripts/devctl/commands/review_channel/__init__.py`](../scripts/devctl/commands/review_channel/__init__.py)
 8. [`../scripts/devctl/commands/autonomy_run.py`](../scripts/devctl/commands/autonomy_run.py)
 9. [`../scripts/devctl/commands/autonomy_swarm.py`](../scripts/devctl/commands/autonomy_swarm.py)
 10. [`../scripts/devctl/commands/autonomy_loop.py`](../scripts/devctl/commands/autonomy_loop.py)
@@ -61,7 +61,7 @@ If you want to inspect the system directly, open these in order:
 |---|---|---|
 | Scope and policy | [`../../AGENTS.md`](../../AGENTS.md), [`../active/INDEX.md`](../active/INDEX.md), [`../active/MASTER_PLAN.md`](../active/MASTER_PLAN.md) | Decide what the collaboration system is allowed to do and what work is next. |
 | Human-visible bootstrap | `python3 dev/scripts/devctl.py review-channel --action launch` | Starts the current Codex and Claude conductor sessions. |
-| Live coordination bridge | [`../../code_audit.md`](../../code_audit.md) | Holds the current reviewer verdict, open findings, next instruction, and Claude ack. |
+| Live coordination bridge | [`../../bridge.md`](../../bridge.md) | Holds the current reviewer verdict, open findings, next instruction, and Claude ack. |
 | Bridge contract guard | `python3 dev/scripts/checks/check_review_channel_bridge.py` | Fails if the live bridge is missing required sections, markers, hash/poll metadata, or ownership rules. |
 | Planned rollover handoff | `python3 dev/scripts/devctl.py review-channel --action rollover` | Writes a repo-visible handoff bundle before fresh conductor sessions take over. |
 | VoiceTerm Operator Console | `./scripts/operator_console.sh --dev-log` | Opens the thin PyQt6 VoiceTerm Operator Console over the bridge and `review-channel` commands, auto-installs PyQt6 when missing, and can persist diagnostics under the repo-visible report tree. |
@@ -77,14 +77,14 @@ flowchart TD
   B --> C{Execution mode}
 
   C -->|Human-visible Codex/Claude loop| D[review-channel --action launch]
-  D --> E[Validate review_channel.md and code_audit.md]
+  D --> E[Validate review_channel.md and bridge.md]
   E --> F[Parse merged lane table in review_channel.md]
   F --> G[Generate Codex and Claude conductor prompts and scripts]
   G --> H[Optional Terminal.app launch]
   H --> I[Codex conductor reviews code, architecture, patterns, tests]
   H --> J[Claude conductor implements, fixes, reruns checks]
-  I --> K[Write verdict, findings, and next instruction into code_audit.md]
-  J --> L[Write status, questions, and ack into code_audit.md]
+  I --> K[Write verdict, findings, and next instruction into bridge.md]
+  J --> L[Write status, questions, and ack into bridge.md]
   K --> M{Scope exhausted or blocked?}
   L --> M
   M -->|No| I
@@ -128,8 +128,8 @@ Current bridge rules:
 
 1. Codex is the reviewer conductor.
 2. Claude is the coding conductor.
-3. The conductors coordinate through `code_audit.md`, not hidden memory.
-4. Codex must keep polling the non-`code_audit.md` worktree while code is
+3. The conductors coordinate through `bridge.md`, not hidden memory.
+4. Codex must keep polling the non-`bridge.md` worktree while code is
    moving.
 5. When one slice is accepted and scoped plan work still remains, Codex must
    promote the next unchecked scoped plan item instead of idling.
@@ -143,7 +143,7 @@ Current implementation:
 1. Reads the active review plan at
    [`../active/review_channel.md`](../active/review_channel.md).
 2. Verifies the transitional markdown bridge is still active.
-3. Verifies [`../../code_audit.md`](../../code_audit.md) exists.
+3. Verifies [`../../bridge.md`](../../bridge.md) exists.
 4. Parses the 8+8 merged lane table for Codex and Claude.
 5. Generates one conductor launch script per provider.
 6. Seeds each conductor with the repo bootstrap chain and lane ownership rules.
@@ -151,9 +151,9 @@ Current implementation:
 
 The implementation lives in:
 
-1. [`../scripts/devctl/commands/review_channel.py`](../scripts/devctl/commands/review_channel.py)
-2. [`../scripts/devctl/review_channel.py`](../scripts/devctl/review_channel.py)
-3. [`../scripts/devctl/review_channel_handoff.py`](../scripts/devctl/review_channel_handoff.py)
+1. [`../scripts/devctl/commands/review_channel/__init__.py`](../scripts/devctl/commands/review_channel/__init__.py)
+2. [`../scripts/devctl/review_channel/core.py`](../scripts/devctl/review_channel/core.py)
+3. [`../scripts/devctl/review_channel/handoff.py`](../scripts/devctl/review_channel/handoff.py)
 
 ### `autonomy-swarm`
 
@@ -220,7 +220,7 @@ files and directories:
 | [`../active/review_channel.md`](../active/review_channel.md) | The lane map, bridge rules, and future review-channel design. |
 | [`../active/continuous_swarm.md`](../active/continuous_swarm.md) | The current hardening plan for the continuous Codex/Claude loop. |
 | [`../active/operator_console.md`](../active/operator_console.md) | The execution-plan doc for the optional VoiceTerm Operator Console lane. |
-| [`../../code_audit.md`](../../code_audit.md) | The live current-state bridge between Codex and Claude today. |
+| [`../../bridge.md`](../../bridge.md) | The live current-state bridge between Codex and Claude today. |
 | [`../reports/review_channel/rollovers/`](../reports/review_channel/rollovers/) | Planned handoff bundles for session rollover. |
 | [`../../app/operator_console/`](../../app/operator_console/) | The optional PyQt6 thin-wrapper app over the current review-channel workflow. |
 | [`../reports/review_channel/operator_console/`](../reports/review_channel/operator_console/) | Repo-visible Operator Console diagnostics artifacts when `--dev-log` is enabled. |
@@ -234,7 +234,7 @@ The VoiceTerm Operator Console is intentionally non-canonical and thin. It is
 a PyQt6 desktop wrapper over repo-visible artifacts and existing repo
 commands, not a second runtime.
 
-1. It reads [`../../code_audit.md`](../../code_audit.md) and optional
+1. It reads [`../../bridge.md`](../../bridge.md) and optional
    structured `review_state` JSON when present.
 2. It wraps `devctl review-channel --action launch` and `--action rollover`
    instead of cloning launcher logic.
@@ -249,7 +249,7 @@ commands, not a second runtime.
 ```mermaid
 flowchart TD
   A[Operator opens VoiceTerm Operator Console] --> B[app/operator_console/ui.py]
-  B --> C[Read code_audit.md]
+  B --> C[Read bridge.md]
   B --> D[Read optional review_state.json]
   B --> E[Wrap review-channel launch/rollover]
   B --> F[Write operator decision artifacts]
@@ -268,14 +268,14 @@ evidence move through the system.
 
 ```mermaid
 flowchart TD
-  A[AGENTS.md -> INDEX.md -> MASTER_PLAN.md -> active plan doc] --> B[review_channel.py]
+  A[AGENTS.md -> INDEX.md -> MASTER_PLAN.md -> active plan doc] --> B[commands/review_channel/__init__.py]
   A --> C[autonomy_run.py / swarm_run]
 
   B --> D[review_channel.md lane map]
   B --> E[generated conductor scripts]
   E --> F[Codex conductor]
   E --> G[Claude conductor]
-  F --> H[code_audit.md]
+  F --> H[bridge.md]
   G --> H
   H --> I[check_review_channel_bridge.py]
 
@@ -314,8 +314,8 @@ without hunting across the repo.
 | Active-doc registry | [`../active/INDEX.md`](../active/INDEX.md) | Which active docs exist, their role, and when agents should read them. |
 | Global execution tracker | [`../active/MASTER_PLAN.md`](../active/MASTER_PLAN.md) | The authoritative MP scope queue and multi-agent coordination board. |
 | Live review-channel contract | [`../active/review_channel.md`](../active/review_channel.md) | The merged Codex/Claude lane table, bridge rules, and planned future channel design. |
-| Live reviewer/coder bridge | [`../../code_audit.md`](../../code_audit.md) | The current reviewer findings, Claude acknowledgements, and poll/hash metadata. |
-| Live launcher | [`../scripts/devctl/commands/review_channel.py`](../scripts/devctl/commands/review_channel.py) | Launches or rolls over the current markdown-bridge reviewer/coder sessions. |
+| Live reviewer/implementer bridge | [`../../bridge.md`](../../bridge.md) | The current reviewer findings, Claude acknowledgements, and poll/hash metadata. |
+| Live launcher | [`../scripts/devctl/commands/review_channel/__init__.py`](../scripts/devctl/commands/review_channel/__init__.py) | Launches or rolls over the current markdown-bridge reviewer/implementer sessions. |
 | Operator Console UI | [`../../app/operator_console/ui.py`](../../app/operator_console/ui.py) | Renders the themed read-first shared-screen wrapper and diagnostics pane over bridge state plus `review-channel` commands. |
 | Operator Console diagnostics | [`../../app/operator_console/logging_support.py`](../../app/operator_console/logging_support.py) | Persists high-level event logs, structured NDJSON events, and raw command output when `--dev-log` is enabled. |
 | Guarded plan runner | [`../scripts/devctl/commands/autonomy_run.py`](../scripts/devctl/commands/autonomy_run.py) | Runs `swarm_run`, validates scope, executes the swarm, and appends plan evidence. |
@@ -355,7 +355,7 @@ runtime with explicit authority, state, bounds, and verification.
    [`../active/MASTER_PLAN.md`](../active/MASTER_PLAN.md).
 2. Codex and Claude have separate roles. Codex reviews and Claude implements.
 3. Live coordination is stored in tracked repo-visible state, primarily
-   [`../../code_audit.md`](../../code_audit.md), not hidden chat memory.
+   [`../../bridge.md`](../../bridge.md), not hidden chat memory.
 4. The launch path fails closed when the markdown bridge is inactive.
 5. Automated execution is bounded by explicit round, hour, and task caps.
 6. Non-report execution modes are policy-gated instead of always-on.
@@ -370,7 +370,7 @@ generic:
 
 1. [`../scripts/checks/check_review_channel_bridge.py`](../scripts/checks/check_review_channel_bridge.py)
    validates the live markdown bridge contract. It checks required headings in
-   [`../../code_audit.md`](../../code_audit.md), required bootstrap markers,
+   [`../../bridge.md`](../../bridge.md), required bootstrap markers,
    tracked-file safety, `Last Codex poll` freshness, local poll formatting, and
    the 64-character non-audit worktree hash.
 2. [`../scripts/checks/check_multi_agent_sync.py`](../scripts/checks/check_multi_agent_sync.py)
@@ -411,7 +411,7 @@ generic:
 
 These are the main command surfaces and what they enforce:
 
-1. [`../scripts/devctl/commands/review_channel.py`](../scripts/devctl/commands/review_channel.py)
+1. [`../scripts/devctl/commands/review_channel/__init__.py`](../scripts/devctl/commands/review_channel/__init__.py)
    handles the live conductor bootstrap. `--action launch` verifies the bridge,
    parses the merged Codex/Claude lane table, generates one conductor script per
    provider, and can open local Terminal.app sessions. `--action rollover`
@@ -453,18 +453,18 @@ current implementation.
    [`../active/MASTER_PLAN.md`](../active/MASTER_PLAN.md), and the active
    review spec at [`../active/review_channel.md`](../active/review_channel.md).
 2. Run `python3 dev/scripts/devctl.py review-channel --action launch`.
-3. [`../scripts/devctl/commands/review_channel.py`](../scripts/devctl/commands/review_channel.py)
+3. [`../scripts/devctl/commands/review_channel/__init__.py`](../scripts/devctl/commands/review_channel/__init__.py)
    calls launcher prerequisites, which refuse to continue if the markdown
    bridge is inactive or required files are missing.
 4. The launcher parses the merged lane table, filters Codex vs Claude lanes,
    resolves terminal profile settings, and generates one launch script per
    provider session.
-5. The Codex reviewer and Claude coder sessions start, usually in Terminal.app
+5. The Codex reviewer and Claude implementer sessions start, usually in Terminal.app
    unless `--terminal none` is used for dry-run or inspection mode.
 6. Codex reviews the non-audit worktree state and writes findings, verdicts,
-   and the next instruction into [`../../code_audit.md`](../../code_audit.md).
+   and the next instruction into [`../../bridge.md`](../../bridge.md).
 7. Claude implements, reruns checks, and writes status plus acknowledgement
-   back into [`../../code_audit.md`](../../code_audit.md).
+   back into [`../../bridge.md`](../../bridge.md).
 8. The loop repeats until the current scoped work is accepted, blocked, or the
    operator triggers a repo-visible rollover handoff.
 
@@ -500,7 +500,7 @@ operators.
 | When | Command or workflow | What happens |
 |---|---|---|
 | Session bootstrap | `bundle.bootstrap` from [`../../AGENTS.md`](../../AGENTS.md) | Confirms branch/worktree context, reads the active-doc chain, and verifies `devctl` is installed. |
-| Starting the live reviewer/coder loop | `python3 dev/scripts/devctl.py review-channel --action launch --format md` | Validates the bridge, parses lane ownership, generates launch scripts, and starts Codex/Claude conductor sessions. |
+| Starting the live reviewer/implementer loop | `python3 dev/scripts/devctl.py review-channel --action launch --format md` | Validates the bridge, parses lane ownership, generates launch scripts, and starts Codex/Claude conductor sessions. |
 | Handing live sessions to fresh conductors | `python3 dev/scripts/devctl.py review-channel --action rollover --format md` | Writes a repo-visible handoff bundle under [`../reports/review_channel/rollovers/`](../reports/review_channel/rollovers/) before the old sessions exit. |
 | Running one guarded plan slice locally | `python3 dev/scripts/devctl.py swarm_run --plan-doc ... --mp-scope ... --mode report-only --format md` | Validates scope, runs `autonomy-swarm`, executes the governance pack, and appends plan evidence. |
 | Running multiple guarded plan slices locally | `python3 dev/scripts/devctl.py swarm_run --continuous ...` | Repeats the same cycle until scope is exhausted, a guard fails, or the continuous-cycle cap is reached. |
@@ -572,7 +572,7 @@ These are the main ways the system intentionally stops instead of guessing.
    rollover arguments are invalid. The failure is intentional so stale or
    malformed bridge state does not bootstrap live sessions.
 2. [`../scripts/checks/check_review_channel_bridge.py`](../scripts/checks/check_review_channel_bridge.py)
-   fails when `code_audit.md` loses required headings or bootstrap markers, the
+   fails when `bridge.md` loses required headings or bootstrap markers, the
    `Last Codex poll` value goes stale, the local-poll timestamp format drifts,
    the non-audit worktree hash is malformed, or the bridge looks unsafe to
    treat as tracked state.
@@ -610,7 +610,7 @@ Use this order so you debug the authority chain before you debug symptoms.
    [`../active/INDEX.md`](../active/INDEX.md),
    [`../active/MASTER_PLAN.md`](../active/MASTER_PLAN.md), and the specific
    active plan doc or [`../active/review_channel.md`](../active/review_channel.md).
-2. If the live reviewer/coder path is broken, inspect the launcher without
+2. If the live reviewer/implementer path is broken, inspect the launcher without
    opening terminals:
 
    ```bash
@@ -653,8 +653,8 @@ Use this when you need the non-generic technical description:
 > It runs a governed Codex/Claude agent collaboration system.
 >
 > `review-channel` launches Codex as the reviewer conductor and Claude as the
-> coder conductor from the active plan, keeps them synchronized through the
-> tracked `code_audit.md` bridge, and fails closed if that bridge is not the
+> implementer conductor from the active plan, keeps them synchronized through the
+> tracked `bridge.md` bridge, and fails closed if that bridge is not the
 > active operating mode.
 >
 > `swarm_run` is the guarded execution mode on top of that collaboration model.
@@ -674,10 +674,10 @@ runtime than to a prompt -> code -> retry loop.
 If you want the blunt engineering read, it is this:
 
 1. The strongest part of the current design is repo-visible coordination state.
-   `code_audit.md`, the active plan chain, and generated report artifacts make
+   `bridge.md`, the active plan chain, and generated report artifacts make
    coordination inspectable, diffable, auditable, and recoverable instead of
    hiding execution state inside one model's context window.
-2. Reviewer/coder role separation is real architecture, not prompt styling.
+2. Reviewer/implementer role separation is real architecture, not prompt styling.
    Codex and Claude do not self-approve the same work by default; the system
    explicitly separates implementation from review.
 3. Plan-driven execution is the second big strength. The loop is supposed to
@@ -706,7 +706,7 @@ Current limits are also clear:
    substrate. It works as a bootstrap surface, but it is not the end-state
    control-plane process model.
 4. State is still split across `MASTER_PLAN.md`, `review_channel.md`,
-   `code_audit.md`, and `dev/reports/`, so the final authority model needs to
+   `bridge.md`, and `dev/reports/`, so the final authority model needs to
    keep shrinking toward one append-only event log plus one reduced state
    snapshot with markdown as a projection.
 
@@ -720,7 +720,7 @@ markdown retained only as an operator-friendly projection.
 | Today | Planned next |
 |---|---|
 | `review-channel` supports `launch` and `rollover` | richer `post`, `status`, `watch`, `inbox`, `ack`, and `history` actions |
-| `code_audit.md` is the live cross-agent bridge | structured `review_event` / `review_state` artifacts under `dev/reports/review_channel/` |
+| `bridge.md` is the live cross-agent bridge | structured `review_event` / `review_state` artifacts under `dev/reports/review_channel/` |
 | terminal-based conductors are the active review surface | overlay-native shared review screen |
 | `swarm_run --continuous` is the repo-native hands-off fallback | tighter peer-liveness, context-rotation, and proof-gated template extraction |
 

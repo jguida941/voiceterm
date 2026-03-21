@@ -12,7 +12,7 @@ from .script_catalog import LEGACY_SCRIPT_PATH_REWRITES
 
 PATH_AUDIT_EXCLUDED_PREFIXES = ("dev/archive/",)
 PATH_AUDIT_EXCLUDED_FILES = (
-    "code_audit.md",
+    "bridge.md",
     "dev/scripts/devctl/script_catalog.py",
 )
 WORKSPACE_CONTRACT_SCAN_PREFIXES = (".github/workflows/",)

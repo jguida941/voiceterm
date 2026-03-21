@@ -52,7 +52,7 @@ class ReviewChannelIdentityTests(TestCase):
         ):
             identity = build_service_identity(
                 repo_root=Path("/tmp/codex-voice-a"),
-                bridge_path=Path("/tmp/codex-voice-a/code_audit.md"),
+                bridge_path=Path("/tmp/codex-voice-a/bridge.md"),
                 review_channel_path=Path("/tmp/codex-voice-a/dev/active/review_channel.md"),
                 output_root=Path("/tmp/codex-voice-a/dev/reports/review_channel/latest"),
             )

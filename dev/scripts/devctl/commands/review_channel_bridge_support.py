@@ -101,7 +101,7 @@ def bridge_launch_state(
         bridge_snapshot = BridgeSnapshot(metadata={}, sections={})
     try:
         current_hash = compute_non_audit_worktree_hash(
-            repo_root=context.repo_root, excluded_rel_paths=("code_audit.md",)
+            repo_root=context.repo_root, excluded_rel_paths=("bridge.md",)
         )
     except (ValueError, OSError):
         current_hash = None
@@ -207,15 +207,15 @@ def stale_bridge_launch_errors(
         review_channel_path=review_channel_path,
         bridge_path=bridge_path,
     )
-    code_audit = bridge_guard_report.get("code_audit")
+    bridge = bridge_guard_report.get("bridge")
     review_channel = bridge_guard_report.get("review_channel")
-    if not isinstance(code_audit, dict) or not isinstance(review_channel, dict):
+    if not isinstance(bridge, dict) or not isinstance(review_channel, dict):
         return []
     if review_channel.get("error") or review_channel.get("missing_markers"):
         return []
-    if code_audit.get("error") or code_audit.get("missing_h2") or code_audit.get("missing_markers"):
+    if bridge.get("error") or bridge.get("missing_h2") or bridge.get("missing_markers"):
         return []
-    state_errors = code_audit.get("state_errors")
+    state_errors = bridge.get("state_errors")
     if isinstance(state_errors, list) and state_errors:
         return []
     bridge_snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
@@ -240,7 +240,7 @@ def prepare_rollover_bundle(
         return None, []
     try:
         rollover_hash = compute_non_audit_worktree_hash(
-            repo_root=repo_root, excluded_rel_paths=("code_audit.md",)
+            repo_root=repo_root, excluded_rel_paths=("bridge.md",)
         )
     except (ValueError, OSError):
         rollover_hash = None

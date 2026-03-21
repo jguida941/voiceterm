@@ -50,10 +50,10 @@ Do not start here if you only want the normal VoiceTerm overlay.
 
 Current prototype scope:
 
-- bridge-derived Codex, Claude, and Operator status panes (parsed from `code_audit.md`)
+- bridge-derived Codex, Claude, and Operator status panes (parsed from `bridge.md`)
 - `review-channel` launch and rollover buttons (launcher wrapper, not live terminal)
 - repo-visible operator approve/deny artifacts
-- raw `code_audit.md` view, launcher output, and diagnostics pane
+- raw `bridge.md` view, launcher output, and diagnostics pane
 - optional persisted dev logs under `dev/reports/review_channel/operator_console/`
 - dark operator-console theme for bridge/launcher monitoring sessions
 
@@ -67,7 +67,7 @@ The script launches `app/operator_console/run.py` and installs `PyQt6` for the
 current Python interpreter when it is missing.
 
 All status indicators derive from periodic parsing of the markdown bridge
-(`code_audit.md`). Optional `review_state.json` adds structured approval
+(`bridge.md`). Optional `review_state.json` adds structured approval
 packets only — it does not upgrade the console to live terminal telemetry.
 When structured review state is absent, the status bar shows
 `markdown bridge only; live terminal telemetry unavailable`. The console does

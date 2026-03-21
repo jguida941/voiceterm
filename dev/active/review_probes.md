@@ -993,7 +993,7 @@ already reads probe and guard artifacts:
 
 ```
 snapshot_builder.py reads:
-  ├── dev/reports/code_audit.md          (bridge + lane state)
+  ├── dev/reports/bridge.md          (bridge + lane state)
   ├── dev/reports/review_state.json      (review channel state)
   ├── dev/reports/probes/review_targets.json  (probe findings)
   ├── dev/reports/mobile/latest/full.json     (mobile relay)
@@ -1245,7 +1245,7 @@ Template README at `dev/scripts/checks/PROBE_TEMPLATE_README.md`.
     `probe_report_render.py`, `check_phases.py`, `guard_run.py`,
     `review_channel_bridge_handler.py`).
   - `python3 dev/scripts/checks/check_review_channel_bridge.py` -> fail
-    (`code_audit.md` `Last Codex poll` stale for active bridge mode).
+    (`bridge.md` `Last Codex poll` stale for active bridge mode).
   - `python3 dev/scripts/checks/check_rust_compiler_warnings.py` -> fail
     (`rust/src/bin/voiceterm/daemon/agent_driver.rs:84` dead-code warning for
     `opened`).

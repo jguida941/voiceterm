@@ -1251,7 +1251,7 @@ These patterns are explicitly not acceptable at repo-split time:
 
 - portable packages deriving identity from `Path(__file__).resolve().parents[3]`
 - frontends importing `dev.scripts.devctl.*` orchestration internals directly
-- hard-coded `dev/active/*`, `dev/reports/*`, `code_audit.md`, or VoiceTerm MP
+- hard-coded `dev/active/*`, `dev/reports/*`, `bridge.md`, or VoiceTerm MP
   identifiers inside portable layers
 - blueprint-only contracts with no executable runtime owner
 - loops that require repo-specific shell commands in core logic rather than
@@ -1333,7 +1333,7 @@ blockers are now explicit.
    `app/operator_console/state/review/artifact_locator.py`, and
    `rust/.../review_artifact/artifact.rs`.
    Required exit: `review_state.json`, `controller_state`, and registry/event
-   projections become authoritative; `code_audit.md` remains a generated or
+   projections become authoritative; `bridge.md` remains a generated or
    temporary bootstrap surface only.
 4. VoiceTerm integration details still leak through shared tooling defaults.
    Current hotspots:
@@ -2783,13 +2783,13 @@ Still open before `P0` closes:
 - [ ] Stop frontend clients from importing repo-internal `dev.scripts.devctl`
       modules or VoiceTerm path config directly; consume shared runtime/API
       contracts and emitted projections instead.
-- [ ] Remove `code_audit.md` as a required live runtime assumption in code
+- [ ] Remove `bridge.md` as a required live runtime assumption in code
       paths that should already be reading typed `review_state` /
       `controller_state` authority, while keeping markdown available as an
       optional projection/bootstrap/debug mode where still useful.
 - [ ] Define the markdown-authority demotion gate explicitly: list the typed
       `review_state` / `controller_state` / registry projections and client
-      migrations that must exist before `code_audit.md` becomes a
+      migrations that must exist before `bridge.md` becomes a
       backend-fed projection/bootstrap artifact instead of live authority.
 - [ ] Define one simple backend-owned agent lifecycle command/action surface
       (for example `ensure/start/resume/stop` plus mode selection) that CLI,
@@ -2849,7 +2849,7 @@ Still open before `P0` closes:
 - [ ] Migrate phone/mobile and Operator Console surfaces to typed-state-first
       reads: `ControlState`, `ReviewState`, registry/runtime projections, and
       typed daemon state should become the primary contract, while
-      `code_audit.md`, `full.json`, `controller_payload`, and `review_payload`
+      `bridge.md`, `full.json`, `controller_payload`, and `review_payload`
       remain compatibility/debug fallbacks only.
 - [ ] Add a repo-pack-aware maintenance/cleanup workflow surface for the whole
       system: managed plan/index/archive/generated-surface cleanup, stale
@@ -3233,7 +3233,7 @@ Still open before `P0` closes:
       shared/core/runtime modules must not import `repo_packs.voiceterm`
       directly or cache repo-pack-derived defaults at import time; portable
       code should resolve an active repo-pack/context explicitly.
-- [ ] Freeze the bridge-retirement contract: allow no new `code_audit.md`
+- [ ] Freeze the bridge-retirement contract: allow no new `bridge.md`
       runtime consumers, migrate existing Python/Rust/frontend readers onto
       typed projections, and keep markdown as generated debug/bootstrap output
       only once those projections are in place.
@@ -4166,7 +4166,7 @@ Execution order for this section:
   plan state: the contract spine is no longer missing from zero, but the main
   shared-state gap is still real. `ReviewState` is emitted in multiple
   producer-specific shapes and normalized by parser compatibility glue; the
-  live review loop still treats `code_audit.md` as temporary authority; the
+  live review loop still treats `bridge.md` as temporary authority; the
   review-channel `project_id` still derives from absolute checkout paths; the
   current mobile relay guard can report green with `matched_pairs: 0`; and
   both Operator Console and iPhone still prefer compatibility payloads or
@@ -4442,7 +4442,7 @@ Execution order for this section:
   coupling is now explicit: 1) portable/runtime/tooling modules still import
   `repo_packs.voiceterm` directly for default policy/report/review paths, 2)
   PyQt6/iOS/Rust consumers still read repo-internal `devctl` modules and
-  VoiceTerm path config directly, 3) `code_audit.md` is still embedded in live
+  VoiceTerm path config directly, 3) `bridge.md` is still embedded in live
   runtime/client code instead of being only a temporary projection, and 4)
   VoiceTerm-only env/log/process defaults still leak through shared tooling.
   The execution queue is now separation-first: active repo-pack resolution,
@@ -4817,7 +4817,7 @@ Execution order for this section:
 - 2026-03-13: Validated the current multi-agent execution path before starting
   Phase 2 work. The bridge-gated dry-run command
   `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md --refresh-bridge-heartbeat-if-stale`
-  passed on the active tree, refreshed `code_audit.md`, and confirmed that the
+  passed on the active tree, refreshed `bridge.md`, and confirmed that the
   repo can still launch the planned 8 Codex reviewer lanes plus 8 Claude coder
   lanes from repo-owned state. That means `MP-377` implementation can use the
   existing reviewer/coder system now, while still treating peer-liveness,

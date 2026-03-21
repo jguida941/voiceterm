@@ -77,7 +77,7 @@
                  │                    │
                  │                    ▼
                  │          ┌─────────────────────┐
-                 │          │ Read code_audit.md   │
+                 │          │ Read bridge.md   │
                  │          │ (live bridge)        │
                  │          │ Poll Status          │
                  │          │ Current Verdict      │
@@ -227,7 +227,7 @@
 │                     dev/scripts/devctl/review_channel/                     │
 │                                                                           │
 │  ┌────────────────────────────────────────────────────────────────────┐   │
-│  │ BRIDGE (code_audit.md)                                             │   │
+│  │ BRIDGE (bridge.md)                                             │   │
 │  │ Human-readable markdown at repo root                               │   │
 │  │ Sections: Poll Status | Current Verdict | Open Findings |          │   │
 │  │           Current Instruction | Last Reviewed Scope                 │   │
@@ -372,7 +372,7 @@
 │  │ Operator Console      │  │ Mobile App        │  │ CLI (devctl)       │  │
 │  │ PyQt6 desktop         │  │ SwiftUI iOS       │  │ 65 commands        │  │
 │  │ 161 Python files      │  │ JSON decode only  │  │ --format md|json   │  │
-│  │ Reads: code_audit.md, │  │ Reads: full.json  │  │ Terminal output    │  │
+│  │ Reads: bridge.md, │  │ Reads: full.json  │  │ Terminal output    │  │
 │  │  review_state.json,   │  │  (mobile bundle)  │  │                    │  │
 │  │  quality snapshots    │  │                    │  │ Key commands:      │  │
 │  │ Executes: devctl cmds │  │ Same artifact     │  │  check --profile   │  │

@@ -122,7 +122,7 @@ project.governance.json
    `section:<id>|checklist:<id>|session_resume:<id>|progress:<id>|audit:<id>`,
    with collision-free ids and fail-closed resolution.
 
-4. **Bridge (`code_audit.md`) is a projection**, not a second authority. The
+4. **Bridge (`bridge.md`) is a projection**, not a second authority. The
    write authority remains the intake/session/runtime path; the markdown bridge
    is a human-readable projection over that state.
 
@@ -245,7 +245,7 @@ CollaborationSession:
 
 ### Bridge projection
 
-The markdown bridge (`code_audit.md`) is rendered from `CollaborationSession`
+The markdown bridge (`bridge.md`) is rendered from `CollaborationSession`
 state. It
 exposes a human-readable view of:
 
@@ -926,7 +926,7 @@ not done either.
 | Term | Definition |
 |---|---|
 | **Authority loop** | The full chain from `project.governance.json` through `ContextPack` that makes governance portable |
-| **Bridge** | `code_audit.md` -- a markdown projection of `CollaborationSession` state, never the write authority |
+| **Bridge** | `bridge.md` -- a markdown projection of `CollaborationSession` state, never the write authority |
 | **CQRS** | Command Query Responsibility Segregation -- the intake/session/runtime path is the write model, bridge is the read model |
 | **Finding** | Canonical evidence record shared by all governance surfaces |
 | **Guard** | Hard enforcement script (Layer 1) -- blocks merge on violation |

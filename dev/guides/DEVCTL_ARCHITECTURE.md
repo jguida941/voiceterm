@@ -306,8 +306,11 @@ Use two levels:
 
 ### Current seed
 
-`check_naming_consistency.py` is already the first version of this idea.
-Right now it is too narrow: it mainly protects host/provider token alignment.
+`check_naming_consistency.py` is already the first hard-guard seed for this
+idea, and `probe_term_consistency.py` is now the first advisory layer for
+legacy or mixed public terminology in repo-owned `devctl` code/docs.
+Right now the hard guard is still too narrow: it mainly protects
+host/provider token alignment.
 
 The portable next step is:
 

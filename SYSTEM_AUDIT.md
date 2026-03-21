@@ -138,7 +138,7 @@ The system has built impressive evidence capture infrastructure:
 | `MASTER_PLAN.md` | 318 KB | ~95K | Step 3 of every bootstrap |
 | `AGENTS.md` | 114 KB | ~33K | Step 1 (mandatory) |
 | `DEVELOPMENT.md` | 82 KB | ~25K | Before any non-trivial work |
-| `code_audit.md` | 63 KB | ~19K | In dual-agent mode |
+| `bridge.md` | 63 KB | ~19K | In dual-agent mode |
 | Other (INDEX.md, README.md, etc.) | ~30 KB | ~9K | Various steps |
 | **Total** | **~607 KB** | **~150K** | |
 
@@ -307,7 +307,7 @@ Adding a new AI agent (beyond Codex/Claude/Cursor) requires touching 5+ files be
 - 78 files where ~15 would suffice (17x minimum)
 - 7+ parallel state representations (markdown bridge, JSON state, compact/full/actions/trace/agents projections, legacy mirror, heartbeat files)
 - CQRS/event-sourcing pattern not earning its complexity for current use case
-- The markdown bridge (`code_audit.md`) is fragile — regex-based section parsing, no file locking, concurrent writer risk
+- The markdown bridge (`bridge.md`) is fragile — regex-based section parsing, no file locking, concurrent writer risk
 - Code explicitly labels the bridge as "transitional" but it remains the primary authority
 
 **Robustness strengths:** Good crash recovery (PID liveness checks, heartbeat staleness, auto-demotion of stale bridges). 3-tier freshness model.
@@ -580,7 +580,7 @@ Adding a new AI agent (beyond Codex/Claude/Cursor) requires touching 5+ files be
 | `dev/scripts/README.md` | 133,215 | ~33,300 | ~1,700 | 94.9% |
 | `AGENTS.md` | 114,332 | ~28,500 | ~5,000 | 82.5% |
 | `DEVELOPMENT.md` | 82,536 | ~20,600 | ~4,400 | 78.6% |
-| `code_audit.md` | 63,270 | ~15,800 | ~2,000 | 87.3% |
+| `bridge.md` | 63,270 | ~15,800 | ~2,000 | 87.3% |
 | `INDEX.md` | 8,431 | ~2,100 | ~800 | 61.9% |
 | `CLAUDE.md` | 7,965 | ~2,000 | ~800 | 60.0% |
 | **TOTAL** | **728,158** | **~181,900** | **~16,700** | **90.8%** |
@@ -735,7 +735,7 @@ The MASTER_PLAN already accepts this direction:
 | **Quality Feedback Snapshot** | `dev/reports/governance/quality_feedback_latest/` | Operational, 120s cache | Operator Console only |
 | **JSONL Telemetry** | `dev/reports/devctl_events.jsonl` | 12,238 rows | Never consumed |
 | **Finding Contracts** | `runtime/finding_contracts.py` | Typed but ephemeral | Probe-only path |
-| **Live Bridge** | `code_audit.md` | Current-state only, no history | Both agents, no persistence |
+| **Live Bridge** | `bridge.md` | Current-state only, no history | Both agents, no persistence |
 
 **Critical gap: Cross-agent memory does not exist.** Claude and Codex cannot share session knowledge. The Rust Memory Studio (the most sophisticated system — FTS5 search, context packs, token budgeting, query planning) is completely unwired to Python governance.
 
@@ -1419,7 +1419,7 @@ In `python_guard_report.py`, after guard results, call `append_jsonl_row(governa
 
 ### 24.4 Handoff Protocol
 
-Use the existing review-channel bridge (`code_audit.md`):
+Use the existing review-channel bridge (`bridge.md`):
 1. Claude implements bounded slice, runs full CI
 2. Claude posts diff scope in bridge as "ready for review"
 3. Codex reviews via `git diff` and guard output

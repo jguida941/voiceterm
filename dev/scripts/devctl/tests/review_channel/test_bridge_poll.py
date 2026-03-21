@@ -25,7 +25,7 @@ def _build_review_channel_text() -> str:
             "",
             "## Transitional Markdown Bridge (Current Operating Mode)",
             "",
-            "`code_audit.md` is the temporary bridge.",
+            "`bridge.md` is the temporary bridge.",
             "In autonomous mode `MASTER_PLAN.md` remains the canonical tracker and",
             "   `INDEX.md` remains the router for the minimal active docs set.",
             "Bridge behavior is mode-aware. Claude must stay in polling mode.",
@@ -54,14 +54,14 @@ def _build_bridge_text(
         last_codex_poll = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     return "\n".join(
         [
-            "# Code Audit Channel",
+            "# Review Bridge",
             "",
             "## Start-Of-Conversation Rules",
             "",
             "Codex is the reviewer. Claude is the coder.",
             "At conversation start, both agents must bootstrap repo authority in this order before acting: `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/review_channel.md`.",
-            "Codex must poll non-`code_audit.md` worktree changes every 2-3 minutes while code is moving.",
-            "Codex must exclude `code_audit.md` itself when computing the reviewed worktree hash.",
+            "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
+            "Codex must exclude `bridge.md` itself when computing the reviewed worktree hash.",
             "Each meaningful review must include an operator-visible chat update.",
             "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
             "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
@@ -116,7 +116,7 @@ def _build_bridge_text(
             "",
             "## Last Reviewed Scope",
             "",
-            "- code_audit.md",
+            "- bridge.md",
             "",
         ]
     )
@@ -127,7 +127,7 @@ def _run_bridge_poll(tmp_path: Path, bridge_text: str) -> tuple[int, dict[str, o
     review_channel_path = root / "dev/active/review_channel.md"
     review_channel_path.parent.mkdir(parents=True, exist_ok=True)
     review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
-    bridge_path = root / "code_audit.md"
+    bridge_path = root / "bridge.md"
     bridge_path.write_text(bridge_text, encoding="utf-8")
     output_path = root / "report.json"
     parser = build_parser()
@@ -349,7 +349,7 @@ def test_implementer_wait_snapshot_uses_bridge_poll_fields() -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
-        bridge_path = root / "code_audit.md"
+        bridge_path = root / "bridge.md"
         bridge_path.write_text(bridge_text, encoding="utf-8")
 
         status_report = {
@@ -409,7 +409,7 @@ def test_wait_snapshot_tracks_latest_pending_claude_packet() -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
-        bridge_path = root / "code_audit.md"
+        bridge_path = root / "bridge.md"
         bridge_path.write_text(bridge_text, encoding="utf-8")
 
         status_report = {
@@ -473,7 +473,7 @@ def test_malformed_bridge_fails_closed_in_wait_snapshot() -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
-        bridge_path = root / "code_audit.md"
+        bridge_path = root / "bridge.md"
         bridge_path.write_text(malformed_bridge, encoding="utf-8")
 
         status_report = {
@@ -597,7 +597,7 @@ def test_missing_revision_fails_closed_in_wait_snapshot() -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
-        bridge_path = root / "code_audit.md"
+        bridge_path = root / "bridge.md"
         bridge_path.write_text(bridge_no_rev, encoding="utf-8")
 
         status_report = {

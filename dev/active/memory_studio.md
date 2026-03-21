@@ -1534,7 +1534,7 @@ Integration requirement:
 - every `devctl` JSON output should map to canonical memory event types (`command_run`, `summary`, `decision`, `handoff`)
 - release-note artifacts must be stored as immutable artifact refs and linked to tasks/releases
 - change digests should emit both `*.json` (machine) and `*.md` (human) in `.voiceterm/memory/exports/`
-- temporary review/control-plane coordination must ingest cleanly too: today's `code_audit.md` bridge, and later `review_state` / `controller_state`, should compile into `session_handoff` and compaction-survival inputs so active blockers, decisions, and next action survive context compaction or agent handoff
+- temporary review/control-plane coordination must ingest cleanly too: today's `bridge.md` bridge, and later `review_state` / `controller_state`, should compile into `session_handoff` and compaction-survival inputs so active blockers, decisions, and next action survive context compaction or agent handoff
 
 ### Git History Compilers (New Memory Outputs)
 

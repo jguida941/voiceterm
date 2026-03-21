@@ -22,7 +22,7 @@ fn make_temp_dir(prefix: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
 #[test]
 fn parse_review_artifact_extracts_sections() {
     let content = "\
-# Code Audit Channel
+# Review Bridge
 
 ## Current Verdict
 
@@ -105,7 +105,7 @@ fn find_review_artifact_path_uses_working_dir_fallback() -> Result<(), Box<dyn s
     let repo_root = make_temp_dir("working-dir-fallback")?;
     let nested = repo_root.join("nested").join("shell");
     fs::create_dir_all(&nested)?;
-    let expected = repo_root.join("code_audit.md");
+    let expected = repo_root.join("bridge.md");
     fs::write(&expected, "# temp review artifact\n")?;
 
     let resolved = find_review_artifact_path(None, Some(&nested));
@@ -130,7 +130,7 @@ fn find_review_artifact_path_prefers_markdown_bridge_when_present(
         &event_projection,
         r#"{"command":"review-channel","review_state":{"command":"review-channel","timestamp":"2026-03-09T13:20:00Z","review":{"review_channel_path":"dev/active/review_channel.md"},"queue":{"pending_total":0,"stale_packet_count":0},"agents":[],"packets":[],"warnings":[],"errors":[]}}"#,
     )?;
-    let expected = repo_root.join("code_audit.md");
+    let expected = repo_root.join("bridge.md");
     fs::write(&expected, "# live markdown bridge\n")?;
 
     let resolved = find_review_artifact_path(None, Some(&nested));
@@ -174,7 +174,7 @@ fn find_review_artifact_path_ignores_corrupt_event_projection_when_bridge_exists
     fs::create_dir_all(event_root.join("projections/latest"))?;
     fs::write(event_root.join("events/trace.ndjson"), "{}\n")?;
     fs::write(event_root.join("projections/latest/full.json"), "{not-json")?;
-    let expected = repo_root.join("code_audit.md");
+    let expected = repo_root.join("bridge.md");
     fs::write(&expected, "# live markdown bridge\n")?;
 
     let resolved = find_review_artifact_path(None, Some(&nested));
@@ -213,7 +213,7 @@ fn load_review_artifact_document_parses_bridge_projection_json(
       "claude_status": "- implementing",
       "claude_ack": "- acknowledged",
       "claude_questions": "- none",
-      "last_reviewed_scope": "- code_audit.md"
+      "last_reviewed_scope": "- bridge.md"
     }
   }
 }"#,
@@ -240,10 +240,7 @@ fn load_review_artifact_document_parses_bridge_projection_json(
     assert!(document.artifact.claude_status.contains("implementing"));
     assert!(document.artifact.claude_ack.contains("acknowledged"));
     assert!(document.artifact.claude_questions.contains("none"));
-    assert!(document
-        .artifact
-        .last_reviewed_scope
-        .contains("code_audit.md"));
+    assert!(document.artifact.last_reviewed_scope.contains("bridge.md"));
 
     let _ = fs::remove_dir_all(repo_root);
     Ok(())
@@ -429,7 +426,7 @@ fn load_shorter_content_resets_scroll_offset() {
 #[test]
 fn parse_review_artifact_extracts_header_metadata() {
     let content = "\
-# Code Audit Channel
+# Review Bridge
 
 - Started: `2026-03-07T22:17:12Z`
 - Mode: active review
@@ -615,7 +612,7 @@ fn parse_review_artifact_extracts_last_reviewed_scope_and_claude_questions() {
 
 ## Last Reviewed Scope
 
-- `code_audit.md`
+- `bridge.md`
 - `AGENTS.md`
 - `rust/src/bin/voiceterm/event_loop/tests.rs`
 
@@ -630,7 +627,7 @@ fn parse_review_artifact_extracts_last_reviewed_scope_and_claude_questions() {
     let mut state = ReviewArtifactState::default();
     state.load_from_content(content);
     let artifact = state.artifact().expect("artifact should parse");
-    assert!(artifact.last_reviewed_scope.contains("code_audit.md"));
+    assert!(artifact.last_reviewed_scope.contains("bridge.md"));
     assert!(artifact.last_reviewed_scope.contains("event_loop/tests.rs"));
     assert!(artifact.claude_questions.contains("None recorded"));
     assert!(artifact.findings.contains("No blocker"));
@@ -646,10 +643,10 @@ fn first_meaningful_line_extracts_content() {
 
 #[test]
 fn parse_scope_list_extracts_bullet_items() {
-    let text = "- `code_audit.md`\n- `AGENTS.md`\n\n- `rust/src/event_loop.rs`\n";
+    let text = "- `bridge.md`\n- `AGENTS.md`\n\n- `rust/src/event_loop.rs`\n";
     let items = parse_scope_list(text);
     assert_eq!(items.len(), 3);
-    assert_eq!(items[0], "`code_audit.md`");
+    assert_eq!(items[0], "`bridge.md`");
     assert_eq!(items[1], "`AGENTS.md`");
     assert_eq!(items[2], "`rust/src/event_loop.rs`");
 }

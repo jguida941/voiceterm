@@ -26,7 +26,7 @@ def main() -> int:
     parser.add_argument("--ci-bundle", action="store_true", help="Relax hash enforcement for bundled CI runs")
     args = parser.parse_args()
 
-    bridge_path = REPO_ROOT / "code_audit.md"
+    bridge_path = REPO_ROOT / "bridge.md"
     bridge_text = bridge_path.read_text(encoding="utf-8") if bridge_path.exists() else None
     report = build_report(bridge_text=bridge_text, repo_root=REPO_ROOT, ci_bundle=args.ci_bundle)
     output = json.dumps(report, indent=2) if args.format == "json" else render_md(report)

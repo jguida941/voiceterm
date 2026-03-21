@@ -26,14 +26,14 @@ def _build_review_channel_text() -> str:
             "",
             "## Transitional Markdown Bridge (Current Operating Mode)",
             "",
-            "`code_audit.md` is the temporary bridge.",
+            "`bridge.md` is the temporary bridge.",
             "In autonomous mode `MASTER_PLAN.md` remains the canonical tracker and",
             "   `INDEX.md` remains the router for the minimal active docs set.",
             "For the current operator-facing loop, each meaningful Codex reviewer write to",
-            "   `code_audit.md` must also emit a concise operator-visible chat update.",
+            "   `bridge.md` must also emit a concise operator-visible chat update.",
             "Bridge writes stay conductor-owned: only one Codex conductor updates the Codex-owned bridge",
             "sections while specialist workers report back instead of editing the bridge directly.",
-            "Bridge behavior is mode-aware. When `Reviewer mode` is `active_dual_agent`, Claude must treat `code_audit.md` as the live reviewer/coder authority and keep polling it instead of waiting for the operator to restate the process.",
+            "Bridge behavior is mode-aware. When `Reviewer mode` is `active_dual_agent`, Claude must treat `bridge.md` as the live reviewer/coder authority and keep polling it instead of waiting for the operator to restate the process.",
             "If reviewer-owned bridge state says `hold steady`, `waiting for reviewer promotion`, `Codex committing/pushing`, or equivalent wait-state language, Claude must stay in polling mode. It must not mine plan docs for side work or self-promote the next slice until a reviewer-owned section changes.",
             "The reviewer should emit an operator-visible",
             "heartbeat every five minutes even when the blocker set is unchanged.",
@@ -57,14 +57,14 @@ def _build_bridge_text() -> str:
     last_codex_poll = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     return "\n".join(
         [
-            "# Code Audit Channel",
+            "# Review Bridge",
             "",
             "## Start-Of-Conversation Rules",
             "",
             "Codex is the reviewer. Claude is the coder.",
             "At conversation start, both agents must bootstrap repo authority in this order before acting: `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/review_channel.md`.",
-            "Codex must poll non-`code_audit.md` worktree changes every 2-3 minutes while code is moving.",
-            "Codex must exclude `code_audit.md` itself when computing the reviewed worktree hash.",
+            "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
+            "Codex must exclude `bridge.md` itself when computing the reviewed worktree hash.",
             "Each meaningful review must include an operator-visible chat update.",
             "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
             "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
@@ -120,7 +120,7 @@ def _build_bridge_text() -> str:
             "",
             "## Last Reviewed Scope",
             "",
-            "- code_audit.md",
+            "- bridge.md",
             "",
         ]
     )
@@ -147,7 +147,7 @@ def _reviewer_args() -> SimpleNamespace:
         open_findings_file=None,
         instruction=None,
         instruction_file=None,
-        reviewed_scope_item=["code_audit.md"],
+        reviewed_scope_item=["bridge.md"],
         rotate_instruction_revision=False,
         follow=False,
         start_publisher_if_missing=False,
@@ -188,7 +188,7 @@ def test_run_reviewer_checkpoint_reads_file_backed_markdown_fields(
     review_channel_path = root / "dev/active/review_channel.md"
     review_channel_path.parent.mkdir(parents=True, exist_ok=True)
     review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
-    bridge_path = root / "code_audit.md"
+    bridge_path = root / "bridge.md"
     bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
     status_dir = root / "dev/reports/review_channel/latest"
     status_dir.mkdir(parents=True, exist_ok=True)
@@ -268,7 +268,7 @@ def test_write_reviewer_checkpoint_normalizes_leading_blank_padding(
     review_channel_path = root / "dev/active/review_channel.md"
     review_channel_path.parent.mkdir(parents=True, exist_ok=True)
     review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
-    bridge_path = root / "code_audit.md"
+    bridge_path = root / "bridge.md"
     padded_bridge = _build_bridge_text().replace(
         "## Current Instruction For Claude\n\n- hold steady",
         "## Current Instruction For Claude\n\n\n\n\n- hold steady",
@@ -285,7 +285,7 @@ def test_write_reviewer_checkpoint_normalizes_leading_blank_padding(
                 current_verdict="- accepted",
                 open_findings="- none",
                 current_instruction="- next task",
-                reviewed_scope_items=("code_audit.md",),
+                reviewed_scope_items=("bridge.md",),
             ),
         )
 

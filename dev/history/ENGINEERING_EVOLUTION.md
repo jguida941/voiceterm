@@ -230,7 +230,7 @@ Evidence:
 Fact: `repo_packs.voiceterm` now owns a `RepoPathConfig` frozen dataclass (13
 artifact-path fields) plus 5 read-only collector helpers. Eight Operator
 Console modules consume `VOICETERM_PATH_CONFIG` instead of defining their own
-`dev/reports/*`, `dev/active/*`, and `code_audit.md` path literals.
+`dev/reports/*`, `dev/active/*`, and `bridge.md` path literals.
 `analytics_snapshot.py` and `quality_snapshot.py` no longer import forbidden
 `dev.scripts.devctl.collect` or `dev.scripts.devctl.config` modules — they
 call repo-pack-owned helpers instead. Platform-layer-boundary guard confirms 0

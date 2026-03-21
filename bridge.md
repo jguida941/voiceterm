@@ -1,4 +1,4 @@
-# Code Audit Channel
+# Review Bridge
 
 Live shared review channel for Codex <-> Claude coordination during active work.
 
@@ -24,10 +24,10 @@ treat these rules as active workflow instructions immediately.
    - Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.
    - Claude must read `Last Codex poll` / `Poll Status` first on each repoll. If the reviewer-owned timestamp and the reviewer-owned sections are unchanged after Claude already finished the current bounded work, treat that as a live wait state, wait on cadence, and reread the full reviewer-owned block instead of hammering one fixed offset/line.
    - In `active_dual_agent` mode, Claude must enter polling mode immediately on bootstrap and stay in the closed loop `poll -> acknowledge current instruction -> code one bounded slice -> update Claude Status/Ack -> wait/poll for Codex re-review -> repeat` until the scoped plan is exhausted or a reviewer-owned section marks a real blocker/approval boundary.
-6. Codex must poll non-`code_audit.md` worktree changes every 2-3 minutes while
+6. Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while
    code is moving, or sooner after a meaningful code chunk / explicit user
    request.
-7. Codex must exclude `code_audit.md` itself when computing the reviewed
+7. Codex must exclude `bridge.md` itself when computing the reviewed
    worktree hash.
 8. After each meaningful review pass, Codex must:
    - update the Codex-owned sections in this file
@@ -98,8 +98,8 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-20T23:04:06Z`
-- Last Codex poll (Local America/New_York): `2026-03-20 19:04:06 EDT`
+- Last Codex poll: `2026-03-20T23:46:54Z`
+- Last Codex poll (Local America/New_York): `2026-03-20 19:46:54 EDT`
 - Last non-audit worktree hash: `72ad7c031b2ff403ab4e037ac4c68cb23612fa60007c70472bd5dbbd31321666`
 - Reviewer mode: `paused`
 - Current instruction revision: `f44a03299b02`
@@ -108,16 +108,16 @@ treat these rules as active workflow instructions immediately.
 1. Claude should poll this file periodically while coding.
 1.1 In `active_dual_agent`, Claude should start that polling immediately after
      bootstrap, not after a second operator prompt.
-2. Codex will poll non-`code_audit.md` worktree changes, review meaningful deltas, and replace stale findings instead of appending endless snapshot history.
+2. Codex will poll non-`bridge.md` worktree changes, review meaningful deltas, and replace stale findings instead of appending endless snapshot history.
 2.1 Claude must treat `Current Instruction For Claude` as the live reviewer-owned execution authority for the current slice. `Current Verdict` and `Open Findings` may intentionally describe the last completed or last fully reviewed slice until Codex rewrites them; they do not override the current instruction block.
-3. `code_audit.md` itself is coordination state; do not treat its mtime as code drift worth reviewing.
+3. `bridge.md` itself is coordination state; do not treat its mtime as code drift worth reviewing.
 4. Section ownership is strict:
    - Claude owns `Claude Status`, `Claude Questions`, and `Claude Ack`.
    - Codex owns `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Poll Status`.
 5. If Claude finishes or rebases a finding, it should update `Claude Ack` with a short note like `acknowledged`, `fixed`, `needs-clarification`, or `blocked`, and in active bridge mode that ACK must also include the current reviewer instruction token in the form `instruction-rev: \`<revision>\``.
 6. Only unresolved findings, current verdicts, current ack state, and next instructions should stay live here.
 7. Resolved items should be compressed into the short resolved summary below.
-8. After each meaningful Codex reviewer write here, Codex should also post a short operator-visible chat update that summarizes the reviewed non-`code_audit.md` hash, whether findings changed, and what Claude needs to do next.
+8. After each meaningful Codex reviewer write here, Codex should also post a short operator-visible chat update that summarizes the reviewed non-`bridge.md` hash, whether findings changed, and what Claude needs to do next.
 9. If the current slice is reviewer-accepted and scoped plan work remains,
    Codex must promote the next scoped plan item into `Current Instruction For Claude`
    in the same or next review pass; do not leave the loop parked on a completed slice.
@@ -156,7 +156,7 @@ treat these rules as active workflow instructions immediately.
 - `dev/active/review_channel.md` now contains the merged static swarm plan
   (lane map, worktrees, signoff template, governance); this file is the only
   live cross-team coordination surface during execution.
-- Codex reviewer lanes poll non-`code_audit.md` changes every 5 minutes while
+- Codex reviewer lanes poll non-`bridge.md` changes every 5 minutes while
   Claude lanes are coding. If no new diff is ready, they wait, poll again, and
   resume review instead of idling.
 - Claude lanes should treat `Open Findings` plus `Current Instruction For
@@ -1141,15 +1141,9 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: paused; reason: auto-demote-stale-bridge; reviewed-tree: 72ad7c031b2f).
-- `2026-03-20T00:30:31Z` / `2026-03-19 20:30:31 EDT`: reviewer repoll confirms Claude ACK is current for instruction revision `02d4a121f492`. The current red state is reviewer-side `reviewed_hash_stale` on tree `3e15b773598b`, not a Claude compliance miss.
-- `2026-03-20T00:30:31Z`: bounded MP-359 side validation is green on the local tree. Operator Console `Launch Review` / `Start Swarm` now freeze the selected workflow preset into review-channel `--scope` + `--promotion-plan`; focused launch tests, `check --profile ci`, and the instruction-surface sync all passed on this tree.
-- `2026-03-20T00:03:06Z`: re-review complete on Session 41 / MP-377 Phase 1 / Slice B. Slice B is accepted on tree `76d765551dde`; Claude should move to the next bounded Phase 1 guard slice below.
-- Concurrency rule for Claude and Claude-side worker lanes: if another agent lands overlapping edits on the files you are touching, or bridge status shows `claude_ack_stale`, `reviewed_hash_stale`, or a new reviewer-owned instruction/scope change, hold steady, sleep 2-3 minutes, repoll `code_audit.md` plus `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`, and only resume after the reviewer-owned state is current again.
-- 2026-03-19T21:56:39Z / 2026-03-19 17:56:39 EDT: Codex restarted the live bridge for MP-377 startup authority and refreshed reviewer state through `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --terminal none --format json`.
-- Structural authority docs are green on the current tree: `check_active_plan_sync`, `check_agents_contract`, and `check_review_channel_bridge` all passed before the bridge reset.
-- Live bridge status now matches the reviewed tree hash from this pass; reviewer mode is `active_dual_agent`, and the reviewer supervisor remains healthy.
-- Bridge attention no longer reflects an ACK wait. Claude already ACKed reviewer instruction revision `02d4a121f492`; the remaining live gate is Codex re-review on the changed tree before any promotion beyond Slice C.
+
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: paused; reason: bridge-rename-normalize; reviewed-tree: 72ad7c031b2f).
+- Concurrency rule for Claude and Claude-side worker lanes: if another agent lands overlapping edits on the files you are touching, or bridge status shows `claude_ack_stale`, `reviewed_hash_stale`, or a new reviewer-owned instruction/scope change, hold steady, sleep 2-3 minutes, repoll `bridge.md` plus `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`, and only resume after the reviewer-owned state is current again.
 - Concurrency hold rule: if overlapping reviewer/worker edits touch Claude's active slice or bridge state drifts during coding, Claude should stop mutating, sleep 2-3 minutes, repoll the bridge, and only resume once `Poll Status` plus the live status command agree again.
 
 ## Current Verdict
@@ -1479,7 +1473,7 @@ treat these rules as active workflow instructions immediately.
   threshold with typed context wrappers.
 - Live proof: `python3.11 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
   now returns `service_identity.service_id=review-channel:sha256:...`,
-  `bridge_path=/Users/jguida941/testing_upgrade/codex-voice/code_audit.md`,
+  `bridge_path=/Users/jguida941/testing_upgrade/codex-voice/bridge.md`,
   and `status_root=/Users/jguida941/testing_upgrade/codex-voice/dev/reports/review_channel/latest`.
 - Proof: `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short` -> `135 passed`; `python3.11 dev/scripts/checks/check_code_shape.py` -> green; `python3.11 dev/scripts/checks/check_parameter_count.py` -> green; `python3.11 dev/scripts/checks/check_facade_wrappers.py` -> green; `python3.11 dev/scripts/checks/check_review_channel_bridge.py --format md` -> green; `python3.11 dev/scripts/checks/check_active_plan_sync.py` -> green. `python3.11 dev/scripts/devctl.py check --profile ci` is blocked only by the unrelated Rust test `event_loop::tests::dev_panel_overlay::refresh_poll::memory_page_enter_refreshes_memory_cockpit_snapshot`.
 - Validators: all per Codex instruction.

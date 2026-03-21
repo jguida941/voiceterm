@@ -95,7 +95,7 @@ def build_conductor_prompt(
             "",
             "Execution reminders:",
             (
-                "- Keep `code_audit.md` current-state only; do not turn it into a "
+                "- Keep `bridge.md` current-state only; do not turn it into a "
                 "transcript dump."
             ),
             (
@@ -105,7 +105,7 @@ def build_conductor_prompt(
             retirement_note,
             "",
             (
-                f"Coordinate with {other_name} only through `code_audit.md` plus the "
+                f"Coordinate with {other_name} only through `bridge.md` plus the "
                 "required operator-visible progress updates."
             ),
         ]
@@ -193,7 +193,7 @@ def _rollover_ack_lines(
     return [
         (
             "- First action after bootstrap: write this exact rollover "
-            f"ACK line into `{rollover_ack_section}` in `code_audit.md`: "
+            f"ACK line into `{rollover_ack_section}` in `bridge.md`: "
             f"`{rollover_ack_line}`"
         ),
         (

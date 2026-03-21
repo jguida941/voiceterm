@@ -7,7 +7,7 @@ by:
 - `dev/active/INDEX.md`
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/review_channel.md`
-- `code_audit.md`
+- `bridge.md`
 
 Developers changing this file should keep the generated prompts aligned with
 the repo-owned `devctl` guidance in `dev/scripts/README.md` and
@@ -276,7 +276,7 @@ def ensure_launcher_prereqs(
     When ``execution_mode`` is ``"auto"`` and the markdown bridge is inactive
     or missing, the function still succeeds if ``review_channel.md`` exists
     and contains lane assignments. This allows the launcher to operate from
-    event-backed state without a live ``code_audit.md`` bridge.
+    event-backed state without a live ``bridge.md`` bridge.
     """
     if execution_mode == "overlay":
         raise ValueError(
@@ -323,7 +323,7 @@ def build_bridge_guard_report(
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.REPO_ROOT = repo_root
-    module.CODE_AUDIT_PATH = bridge_path
+    module.BRIDGE_PATH = bridge_path
     module.REVIEW_CHANNEL_PATH = review_channel_path
     if not (repo_root / ".git").exists():
         module._is_tracked_by_git = lambda _path: True
@@ -333,7 +333,7 @@ def build_bridge_guard_report(
 def summarize_bridge_guard_failures(report: dict[str, object]) -> str:
     """Reduce a bridge-guard report into a compact human-readable error string."""
     issues: list[str] = []
-    for key in ("code_audit", "review_channel"):
+    for key in ("bridge", "review_channel"):
         section = report.get(key)
         if not isinstance(section, dict):
             continue

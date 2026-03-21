@@ -25,7 +25,7 @@ from .support import (
     skip_live_freshness,
 )
 
-_BRIDGE_EXCLUDED_REL_PATHS = ("code_audit.md",)
+_BRIDGE_EXCLUDED_REL_PATHS = ("bridge.md",)
 _TANDEM_GUARD_STALE_THRESHOLD = CODEX_POLL_STALE_AFTER_SECONDS + 300
 
 

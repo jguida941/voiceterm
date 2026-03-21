@@ -20,7 +20,7 @@ from ...runtime.role_profile import TandemRole
 from ...time_utils import utc_timestamp
 from ..review_channel_command import RuntimePaths, _coerce_runtime_paths
 
-_BRIDGE_HASH_EXCLUDED_PATHS = ("code_audit.md",)
+_BRIDGE_HASH_EXCLUDED_PATHS = ("bridge.md",)
 _ACK_ONLY_ERROR_PREFIXES = (
     "Live `Claude Ack` must include `instruction-rev:",
     "Live `Claude Ack` revision does not match the current reviewer instruction revision.",

@@ -263,6 +263,11 @@ DEFAULT_REVIEW_PROBE_SPECS = (
         languages=("python", "rust"),
     ),
     QualityStepSpec(
+        "probe-term-consistency",
+        "probe_term_consistency",
+        languages=("python",),
+    ),
+    QualityStepSpec(
         "probe-cognitive-complexity",
         "probe_cognitive_complexity",
         languages=("python", "rust"),

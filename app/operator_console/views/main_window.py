@@ -290,7 +290,7 @@ class OperatorConsoleWindow(
             command_preview="No Start Swarm command has run yet.",
         )
         self.raw_bridge_text = self._make_readonly_panel(
-            "Raw code_audit.md content appears here.",
+            "Raw bridge.md content appears here.",
             wrap_lines=True,
             tooltip=(
                 "Wrapped bridge snapshot from repo-visible markdown. This is the "

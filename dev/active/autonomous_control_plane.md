@@ -709,7 +709,7 @@ Unified data contract backlog:
       semantics, and shared-screen layout. Shared fields must stay name- and
       meaning-compatible across both plans.
 - [ ] Keep control-plane and review artifacts memory-compatible: the temporary
-      `code_audit.md` bridge today, and `review_state` / `controller_state`
+      `bridge.md` bridge today, and `review_state` / `controller_state`
       later, must compile into Memory `session_handoff` / compaction-survival
       inputs so current blockers, next action, and audit refs survive agent
       restart or context loss without hidden memory-only coordination.
@@ -760,7 +760,7 @@ Operator experience backlog:
         `phone-status` (`phase`, `reason`, unresolved count, next actions,
         branch/run URL, pause/resume state, latest action result).
   - [ ] Review page reads the sanctioned live review artifact for the current
-        phase: `code_audit.md` in the temporary bridge era, then
+        phase: `bridge.md` in the temporary bridge era, then
         `review_state`/`review_event` projections once MP-355 Phase 1 lands.
   - [x] Actions page exposes the existing safe operator verbs first
         (`refresh-status`, `pause-loop`, `resume-loop`, `dispatch-report-only`)
@@ -779,7 +779,7 @@ Operator experience backlog:
 - [ ] Add developer-facing visibility on top of the operator cockpit so `--dev`
       becomes a practical live-debug surface rather than only a command menu:
   - [ ] raw artifact inspector for current `controller_state`, `phone-status`,
-        `code_audit.md`, and later `review_state` payloads
+        `bridge.md`, and later `review_state` payloads
   - [ ] change badges/toasts when review or controller artifacts update
   - [ ] command/audit tail showing recent `devctl` actions, policy denials, and
         packet/apply outcomes
@@ -942,7 +942,7 @@ Implementation scope:
       state, and who is waiting on whom without leaving the shared surface.
 - [ ] Render both parsed and raw review artifacts:
   - [ ] parsed view for current verdict/findings/instruction/ack/poll status
-  - [ ] raw markdown view for the literal `code_audit.md` bridge while it
+  - [ ] raw markdown view for the literal `bridge.md` bridge while it
         remains the sanctioned temporary authority projection
 - [ ] Add controlled overlay editing only for bounded fields/actions:
   - [ ] rewrite `Current Instruction For Claude`
@@ -1188,7 +1188,7 @@ Execution model:
   - [ ] run sync guards and post-run digest (`autonomy-report`).
   - [ ] enforce policy denials/stop conditions before any promote actions.
 - [ ] Require every worker instruction/ack/progress to land in the merged
-      `dev/active/review_channel.md` swarm tables and the live `code_audit.md`
+      `dev/active/review_channel.md` swarm tables and the live `bridge.md`
       bridge.
 - [ ] Treat any lane with missing ACK, stale updates, or failed required bundle
       as blocked until resolved.

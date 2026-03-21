@@ -93,7 +93,7 @@ class BridgeConfig:
     """Bridge/reviewer-mode configuration."""
 
     bridge_mode: str = "single_agent"
-    bridge_path: str = "code_audit.md"
+    bridge_path: str = "bridge.md"
     review_channel_path: str = "dev/active/review_channel.md"
     bridge_active: bool = False
 
@@ -243,7 +243,7 @@ def bridge_config_from_mapping(
     return BridgeConfig(
         bridge_mode=mode,
         bridge_path=coerce_string(payload.get("bridge_path"))
-        or "code_audit.md",
+        or "bridge.md",
         review_channel_path=coerce_string(
             payload.get("review_channel_path")
         )

@@ -375,7 +375,7 @@
 - Current cross-surface convergence gap: the typed runtime direction is real,
   but the repo still emits multiple review/control shapes across backend and
   clients. `ReviewState` is still produced in different bridge-backed and
-  event-backed forms, the live review loop still depends on `code_audit.md`
+  event-backed forms, the live review loop still depends on `bridge.md`
   as temporary authority, the review-channel `project_id` is still derived
   from absolute checkout paths, the current mobile relay guard can return
   green with zero matched Rust↔Swift pairs, and PyQt6/iPhone still consume
@@ -1114,7 +1114,7 @@
 
 This board remains the execution tracker for lane ownership/status.
 `dev/active/review_channel.md` now holds the merged markdown-swarm lane plan,
-instruction log, shared ledger, and signoff template. `code_audit.md` is the
+instruction log, shared ledger, and signoff template. `bridge.md` is the
 only live cross-team reviewer/coder coordination surface during active swarm
 execution.
 
@@ -1822,7 +1822,7 @@ become the main product surface.
   bridge polling when the structured queue is available, add the structured
   `check_review_channel.py` guard plus retention/audit integration in the same
   tranche, and keep `check_review_channel_bridge.py` as the temporary
-  markdown-bridge guard while `code_audit.md` remains the active projection.
+  markdown-bridge guard while `bridge.md` remains the active projection.
   Defer true concurrent shared-target-session writing until lock/lease,
   ack/apply, and audit guardrails are proven. Phase-0 design closure requires
   explicit reconciliation with MP-340 plus `ADR-0027`/
@@ -1834,12 +1834,12 @@ become the main product surface.
   ingest path when capture is active and keep provider-specific attachment
   shaping routed through Memory adapter profiles instead of a review-only pack
   format. Current
-  transitional operating mode uses repo-root `code_audit.md` as a sanctioned
+  transitional operating mode uses repo-root `bridge.md` as a sanctioned
   temporary projection for the current Codex/Claude swarm, but MP-355 itself
   remains a reusable review/runtime contract slice over the shared backend
   rather than the product boundary.
   Current
-  transitional operating mode uses repo-root `code_audit.md` as a sanctioned
+  transitional operating mode uses repo-root `bridge.md` as a sanctioned
   coordination-log projection with explicit ownership, poll cadence, current-
   state fields, and `check_review_channel_bridge.py` governance until the
   structured artifact path lands, and the final artifact model must remain
@@ -1881,7 +1881,7 @@ become the main product surface.
   `test_review_channel` coverage passed (`31` tests), `devctl review-channel
   --action status --terminal none --format md` wrote the latest projection
   bundle successfully, and `launch` / `rollover` dry-runs remain expected-red
-  while `code_audit.md` and `dev/active/review_channel.md` stay untracked
+  while `bridge.md` and `dev/active/review_channel.md` stay untracked
   bridge files in this checkout. A later 2026-03-09 fail-closed follow-up also
   closed the missing-`Claude Status` / missing-`Claude Ack` launch gap and
   stopped degraded `waiting_on_peer` bridge states from reporting `ok: true`
@@ -1910,7 +1910,7 @@ become the main product surface.
   (`projections/latest/full.json`, `state/latest.json`, or legacy
   `latest/*.json` outputs) whenever review-channel event sentinels exist,
   parses those JSON projections into the same `ReviewArtifact` view model used
-  by the existing markdown bridge, and falls back to `code_audit.md` only when
+  by the existing markdown bridge, and falls back to `bridge.md` only when
   structured state is absent. That proves the overlay can move onto canonical
   review state without changing default startup mode. A later same-day
   launcher hardening fix now refuses a second live `review-channel --action
@@ -2139,7 +2139,7 @@ become the main product surface.
   detail dialogs now use live engine colors. The same bounded fix also
   repaired an accidental Operator Console import break in `views/widgets.py`
   and the local proof path is green aside from the known bridge-guard
-  expected-red on untracked `code_audit.md` / `dev/active/review_channel.md`.
+  expected-red on untracked `bridge.md` / `dev/active/review_channel.md`.
   A later 2026-03-09 saved-theme compatibility fix hydrated legacy partial
   `_last_theme.json` and custom preset payloads onto the current semantic
   palette before apply, closing the PyQt6 startup crash on missing keys such
@@ -2479,7 +2479,13 @@ become the main product surface.
   completed and returned `13` failing guard families, and six representative
   `ci-cd-hub` probe findings were recorded into the governance-review ledger
   as `confirmed_issue` evidence. Remaining external coverage gap:
-  non-Python/Rust repos still need JS/TS/Java guard/probe packs.
+  non-Python/Rust repos still need JS/TS/Java guard/probe packs. Latest
+  structural-readability follow-up (2026-03-20): the first repo-policy-backed
+  naming advisory probe now exists. `probe_term_consistency.py` is wired into
+  the shared script catalog and quality-policy registry, VoiceTerm policy now
+  seeds canonical-vs-legacy review-channel vocabulary rules, and the portable
+  readability tranche can start collecting reviewed signal quality for public
+  wording drift instead of relying only on shape/complexity heuristics.
   Latest external-review adjudication follow-up (2026-03-17): reran the
   portable stack against the pinned `integrations/ci-cd-hub` federated
   checkout so the repo-local federation path has distinct evidence from the
@@ -2664,7 +2670,7 @@ become the main product surface.
   boundary, not alternate product architectures. Immediate separation-first
   queue: remove direct `repo_packs.voiceterm` imports from portable/runtime
   layers, stop frontend imports of repo-internal `devctl` modules and bridge
-  files, move typed JSON/runtime state to live authority over `code_audit.md`
+  files, move typed JSON/runtime state to live authority over `bridge.md`
   while keeping markdown as an optional backend-fed mode/projection, freeze
   the VoiceTerm operator-shell boundary over the same backend used by
   CLI/PyQt6/phone, add one simple backend-owned agent lifecycle

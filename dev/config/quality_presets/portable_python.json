@@ -31,6 +31,7 @@
     "probe_compatibility_shims",
     "probe_blank_line_frequency",
     "probe_identifier_density",
+    "probe_term_consistency",
     "probe_cognitive_complexity",
     "probe_fan_out",
     "probe_side_effect_mixing",

@@ -128,7 +128,7 @@ class PhoneStatusSnapshotTests(unittest.TestCase):
             bridge_path.write_text(
                 "\n".join(
                     [
-                        "# Code Audit Channel",
+                        "# Review Bridge",
                         "",
                         "- Last Codex poll: `2026-03-09T04:12:49Z`",
                         "- Last non-audit worktree hash: `fdc8bee2b634384ac5e1affbe030881c838b4a187267c04772494dce5161cca3`",
@@ -163,7 +163,7 @@ class PhoneStatusSnapshotTests(unittest.TestCase):
                         "",
                         "## Last Reviewed Scope",
                         "",
-                        "- code_audit.md",
+                        "- bridge.md",
                         "",
                     ]
                 ),

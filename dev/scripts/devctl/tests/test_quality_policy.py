@@ -161,6 +161,10 @@ class QualityPolicyTests(unittest.TestCase):
             "probe_mixed_concerns",
             {spec.script_id for spec in resolved.review_probe_checks},
         )
+        self.assertIn(
+            "probe_term_consistency",
+            {spec.script_id for spec in resolved.review_probe_checks},
+        )
         self.assertNotIn(
             "ide_provider_isolation",
             {spec.script_id for spec in resolved.ai_guard_checks},

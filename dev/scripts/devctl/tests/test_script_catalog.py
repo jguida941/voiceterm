@@ -39,6 +39,17 @@ class ScriptCatalogTests(unittest.TestCase):
             "dev/scripts/checks/probe_mixed_concerns.py",
         )
 
+    def test_probe_term_consistency_is_registered(self) -> None:
+        self.assertIn("probe_term_consistency", script_catalog.PROBE_SCRIPT_FILES)
+        self.assertEqual(
+            script_catalog.PROBE_SCRIPT_FILES["probe_term_consistency"],
+            "probe_term_consistency.py",
+        )
+        self.assertEqual(
+            script_catalog.probe_script_cmd("probe_term_consistency")[-1],
+            "dev/scripts/checks/probe_term_consistency.py",
+        )
+
     def test_legacy_check_rewrite_targets_match_relative_paths(self) -> None:
         expected_targets = set(script_catalog.CHECK_SCRIPT_RELATIVE_PATHS.values())
         rewrite_targets = set(script_catalog.LEGACY_CHECK_SCRIPT_REWRITES.values())

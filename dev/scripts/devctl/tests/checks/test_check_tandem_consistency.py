@@ -48,7 +48,7 @@ def _bridge(
     if poll_utc is None:
         poll_utc = _utc_stamp(-60)
     return textwrap.dedent(f"""\
-        # Code Audit Channel
+        # Review Bridge
 
         - Last Codex poll: `{poll_utc}`
         - Last Codex poll (Local America/New_York): `{poll_local}`

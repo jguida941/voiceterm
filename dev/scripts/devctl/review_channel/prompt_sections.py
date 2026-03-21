@@ -26,7 +26,7 @@ def operating_contract_lines(
     )
     return [
         "- `dev/active/review_channel.md` is the static swarm plan.",
-        "- `code_audit.md` is the only live cross-team coordination surface.",
+        "- `bridge.md` is the only live cross-team coordination surface.",
         (
             "- Do not rely on automatic context compaction or recovery summaries "
             "to preserve the conductor role. Relaunch before compaction instead."
@@ -45,20 +45,20 @@ def operating_contract_lines(
             f"`{approval_mode}`. Destructive/publish-class actions still require "
             "explicit approval even when provider CLI prompts are relaxed."
         ),
-        f"- Only the {provider_name} conductor updates {owned_sections} in `code_audit.md`.",
+        f"- Only the {provider_name} conductor updates {owned_sections} in `bridge.md`.",
         (
             f"- Specialist {provider_name} workers must report back to the "
-            f"{provider_name} conductor instead of editing `code_audit.md` directly."
+            f"{provider_name} conductor instead of editing `bridge.md` directly."
         ),
         (
-            "- Read the active queue from `code_audit.md`, keep the 8+8 swarm "
+            "- Read the active queue from `bridge.md`, keep the 8+8 swarm "
             "moving, and continue until the scoped plan work is exhausted or a "
             "real blocker/approval boundary is hit."
         ),
         (
             "- A bridge summary, `waiting_on_peer` note, or \"all green so far\" "
             "update is never terminal by itself. After every owned-section write, "
-            "re-read `code_audit.md` and continue the loop instead of ending the "
+            "re-read `bridge.md` and continue the loop instead of ending the "
             "conductor session."
         ),
         (

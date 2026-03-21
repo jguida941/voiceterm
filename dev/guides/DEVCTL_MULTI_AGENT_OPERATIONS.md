@@ -23,7 +23,7 @@ This guide covers:
 - role ownership for reviewer, coder, watcher, validator, and conductor lanes
 - JSON-vs-markdown authority
 - heartbeat and freshness expectations
-- the current live-loop contract while `code_audit.md` remains active
+- the current live-loop contract while `bridge.md` remains active
 - the bounded path from today's markdown bridge to typed runtime artifacts
 
 ## Core Rules
@@ -37,7 +37,7 @@ This guide covers:
 5. Freshness is mandatory. A stale reviewer heartbeat or stale coder ack blocks
    new work promotion until the bridge/runtime state is refreshed or relaunched.
 6. All meaningful work must be reflected in repo-visible state: active-plan
-   markdown, `code_audit.md` when the bridge is active, and `devctl`-emitted
+   markdown, `bridge.md` when the bridge is active, and `devctl`-emitted
    JSON/JSONL artifacts for machine consumers.
 
 ## Roles
@@ -117,7 +117,7 @@ Use this split consistently.
 | `MASTER_PLAN.md` | Canonical repo-wide tracker |
 | Matching active plan doc | Scoped execution authority and restart state |
 | `devctl` JSON/JSONL artifacts | Canonical machine-readable automation state |
-| `code_audit.md` | Transitional current-state bridge while active |
+| `bridge.md` | Transitional current-state bridge while active |
 | Chat updates | Operator observability only, not execution authority |
 
 ### JSON vs Markdown
@@ -140,7 +140,7 @@ Examples:
 - active-plan checklist progress
 - `Session Resume`
 - `Progress Log`
-- the live bridge in `code_audit.md` while the markdown bridge is active
+- the live bridge in `bridge.md` while the markdown bridge is active
 
 Rule of thumb:
 
@@ -151,7 +151,7 @@ Rule of thumb:
 
 ## Live Bridge Contract
 
-While `code_audit.md` is active, it is the sanctioned live coordination bridge.
+While `bridge.md` is active, it is the sanctioned live coordination bridge.
 It is not a scratchpad and not a second tracker.
 
 Required bridge behavior:

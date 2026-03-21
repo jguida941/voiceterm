@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from .bridge_file import rewrite_bridge_markdown
 from .core import detect_active_session_conflicts
 from .heartbeat import (
     NON_AUDIT_HASH_EXCLUDED_PREFIXES,
@@ -32,7 +33,7 @@ from .reviewer_state_support import (
 from .peer_liveness import ReviewerMode, normalize_reviewer_mode
 
 REVIEWER_MODE_RE = re.compile(r"(?m)^- Reviewer mode:\s*`.*?`\s*$")
-_BRIDGE_EXCLUDED_REL_PATHS = ("code_audit.md",)
+_BRIDGE_EXCLUDED_REL_PATHS = ("bridge.md",)
 
 @dataclass(frozen=True)
 class ReviewerCheckpointUpdate:
@@ -52,27 +53,33 @@ def write_reviewer_heartbeat(
     reason: str,
 ) -> ReviewerStateWrite:
     """Refresh only reviewer liveness metadata without claiming a new review."""
-    bridge_text = bridge_path.read_text(encoding="utf-8")
-    bridge_text = _normalize_open_findings_for_live_state(bridge_text)
     normalized_mode = normalize_reviewer_mode(reviewer_mode)
-    existing_hash = current_reviewed_hash(bridge_text)
-    updated_text, write = _rewrite_reviewer_metadata(
-        bridge_text=bridge_text,
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-        update=ReviewerMetadataUpdate(
-            reviewer_mode=normalized_mode,
-            reason=reason,
-            action="reviewer-heartbeat",
-            worktree_hash=None,
-            current_instruction_revision=None,
-            poll_note=(
-                "Reviewer heartbeat refreshed through repo-owned tooling "
-                f"(mode: {normalized_mode}; reason: {reason}; reviewed-tree: {existing_hash[:12]})."
+    write: ReviewerStateWrite | None = None
+
+    def transform(bridge_text: str) -> str:
+        nonlocal write
+        normalized_text = _normalize_open_findings_for_live_state(bridge_text)
+        existing_hash = current_reviewed_hash(normalized_text)
+        updated_text, write = _rewrite_reviewer_metadata(
+            bridge_text=normalized_text,
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            update=ReviewerMetadataUpdate(
+                reviewer_mode=normalized_mode,
+                reason=reason,
+                action="reviewer-heartbeat",
+                worktree_hash=None,
+                current_instruction_revision=None,
+                poll_note=(
+                    "Reviewer heartbeat refreshed through repo-owned tooling "
+                    f"(mode: {normalized_mode}; reason: {reason}; reviewed-tree: {existing_hash[:12]})."
+                ),
             ),
-        ),
-    )
-    bridge_path.write_text(updated_text, encoding="utf-8")
+        )
+        return updated_text
+
+    rewrite_bridge_markdown(bridge_path, transform=transform)
+    assert write is not None
     _refresh_projections_after_checkpoint(
         repo_root=repo_root,
         bridge_path=bridge_path,
@@ -131,53 +138,11 @@ def write_reviewer_checkpoint(
     checkpoint: ReviewerCheckpointUpdate,
 ) -> ReviewerStateWrite:
     """Atomically advance reviewer truth and heartbeat for a real review pass."""
-    bridge_text = bridge_path.read_text(encoding="utf-8")
     normalized_mode = normalize_reviewer_mode(reviewer_mode)
     current_hash = compute_non_audit_worktree_hash(
         repo_root=repo_root,
         excluded_rel_paths=_BRIDGE_EXCLUDED_REL_PATHS,
         excluded_prefixes=NON_AUDIT_HASH_EXCLUDED_PREFIXES,
-    )
-    instruction_revision = select_instruction_revision(
-        bridge_text=bridge_text,
-        current_instruction=checkpoint.current_instruction,
-        rotate_instruction_revision=checkpoint.rotate_instruction_revision,
-    )
-    effective_instruction_revision = (
-        instruction_revision
-        if instruction_revision is not None
-        else current_instruction_revision_from_bridge_text(bridge_text)
-    )
-    updated_text, write = _rewrite_reviewer_metadata(
-        bridge_text=bridge_text,
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-        update=ReviewerMetadataUpdate(
-            reviewer_mode=normalized_mode,
-            reason=reason,
-            action="reviewer-checkpoint",
-            worktree_hash=current_hash,
-            current_instruction_revision=instruction_revision,
-            poll_note=(
-                "Reviewer checkpoint updated through repo-owned tooling "
-                f"(mode: {normalized_mode}; reason: {reason}; tree: {current_hash[:12]}; instruction-rev: {effective_instruction_revision})."
-            ),
-        ),
-    )
-    updated_text = _replace_section(
-        updated_text,
-        heading="Current Verdict",
-        body=checkpoint.current_verdict.strip(),
-    )
-    updated_text = _replace_section(
-        updated_text,
-        heading="Open Findings",
-        body=checkpoint.open_findings.strip(),
-    )
-    updated_text = _replace_section(
-        updated_text,
-        heading="Current Instruction For Claude",
-        body=checkpoint.current_instruction.strip(),
     )
     reviewed_scope_body = _format_markdown_list(checkpoint.reviewed_scope_items)
     validate_reviewer_checkpoint_sections(
@@ -186,12 +151,59 @@ def write_reviewer_checkpoint(
         current_instruction=checkpoint.current_instruction.strip(),
         reviewed_scope_body=reviewed_scope_body,
     )
-    updated_text = _replace_section(
-        updated_text,
-        heading="Last Reviewed Scope",
-        body=reviewed_scope_body,
-    )
-    bridge_path.write_text(updated_text, encoding="utf-8")
+    write: ReviewerStateWrite | None = None
+
+    def transform(bridge_text: str) -> str:
+        nonlocal write
+        instruction_revision = select_instruction_revision(
+            bridge_text=bridge_text,
+            current_instruction=checkpoint.current_instruction,
+            rotate_instruction_revision=checkpoint.rotate_instruction_revision,
+        )
+        effective_instruction_revision = (
+            instruction_revision
+            if instruction_revision is not None
+            else current_instruction_revision_from_bridge_text(bridge_text)
+        )
+        updated_text, write = _rewrite_reviewer_metadata(
+            bridge_text=bridge_text,
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            update=ReviewerMetadataUpdate(
+                reviewer_mode=normalized_mode,
+                reason=reason,
+                action="reviewer-checkpoint",
+                worktree_hash=current_hash,
+                current_instruction_revision=instruction_revision,
+                poll_note=(
+                    "Reviewer checkpoint updated through repo-owned tooling "
+                    f"(mode: {normalized_mode}; reason: {reason}; tree: {current_hash[:12]}; instruction-rev: {effective_instruction_revision})."
+                ),
+            ),
+        )
+        updated_text = _replace_section(
+            updated_text,
+            heading="Current Verdict",
+            body=checkpoint.current_verdict.strip(),
+        )
+        updated_text = _replace_section(
+            updated_text,
+            heading="Open Findings",
+            body=checkpoint.open_findings.strip(),
+        )
+        updated_text = _replace_section(
+            updated_text,
+            heading="Current Instruction For Claude",
+            body=checkpoint.current_instruction.strip(),
+        )
+        return _replace_section(
+            updated_text,
+            heading="Last Reviewed Scope",
+            body=reviewed_scope_body,
+        )
+
+    rewrite_bridge_markdown(bridge_path, transform=transform)
+    assert write is not None
     _refresh_projections_after_checkpoint(
         repo_root=repo_root,
         bridge_path=bridge_path,

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_REVIEW_CHANNEL_REL = "dev/active/review_channel.md"
-DEFAULT_BRIDGE_REL = "code_audit.md"
+DEFAULT_BRIDGE_REL = "bridge.md"
 DEFAULT_REVIEW_STATUS_DIR_REL = "dev/reports/review_channel/latest"
 DEFAULT_MOBILE_STATUS_REL = "dev/reports/mobile/latest/full.json"
 DEFAULT_PHONE_STATUS_REL = "dev/reports/autonomy/queue/phone/latest.json"
@@ -30,7 +30,7 @@ class RepoPathConfig:
     # Review channel plan doc
     review_channel_rel: str = DEFAULT_REVIEW_CHANNEL_REL
 
-    # Bridge (code-audit) file
+    # Bridge markdown file
     bridge_rel: str = DEFAULT_BRIDGE_REL
 
     # Review status directory

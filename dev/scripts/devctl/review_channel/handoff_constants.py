@@ -35,7 +35,7 @@ TRACKED_BRIDGE_SECTIONS = (
 )
 # Rollover ACK contract: only providers that own bridge sections participate.
 # Cursor is intentionally excluded because it does not own a dedicated bridge
-# section (no "Cursor Status" / "Cursor Ack" in code_audit.md). Cursor lanes
+# section (no "Cursor Status" / "Cursor Ack" in bridge.md). Cursor lanes
 # are present in the event-backed queue, projection roster, and runtime state,
 # but rollover ACK is a bridge-section-ownership protocol.
 ROLLOVER_ACK_PREFIX = {

@@ -16,7 +16,7 @@ def provider_bootstrap_guard_lines(
             (
                 "- First action after bootstrap on every fresh launch: refresh "
                 "`Last Codex poll`, `Last non-audit worktree hash`, and `Poll Status` "
-                "in `code_audit.md` before worker fan-out or long-running analysis."
+                "in `bridge.md` before worker fan-out or long-running analysis."
             ),
             (
                 "- Do not spawn workers, start side investigations, or wait on "
@@ -40,7 +40,7 @@ def provider_bootstrap_guard_lines(
         ]
     return [
         (
-            "- `code_audit.md` is the first thing to re-read whenever you need "
+            "- `bridge.md` is the first thing to re-read whenever you need "
             "to know what to do next in dual-agent mode. Do not wait for the "
             "operator to restate the reviewer process in chat."
         ),

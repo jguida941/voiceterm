@@ -104,6 +104,7 @@ _PROBE_SCRIPT_ENTRIES = (
     ("probe_compatibility_shims", "probe_compatibility_shims.py"),
     ("probe_blank_line_frequency", "probe_blank_line_frequency.py"),
     ("probe_identifier_density", "probe_identifier_density.py"),
+    ("probe_term_consistency", "probe_term_consistency.py"),
     ("probe_cognitive_complexity", "probe_cognitive_complexity.py"),
     ("probe_mutable_parameter_density", "probe_mutable_parameter_density.py"),
     ("probe_fan_out", "probe_fan_out.py"),

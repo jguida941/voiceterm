@@ -14,6 +14,10 @@ Helper logic for `check_package_layout.py`.
   `dev/scripts/checks/code_shape_probes/` while the public
   `probe_{cognitive_complexity,identifier_density,fan_out,side_effect_mixing,match_arm_complexity,tuple_return_complexity,...}.py`
   entrypoints stay as thin wrappers in the root.
+- Keep the term-consistency probe implementation under
+  `dev/scripts/checks/term_consistency/` while
+  `dev/scripts/checks/probe_term_consistency.py` stays a thin wrapper in the
+  root.
 - Keep the generated-surface sync entrypoint at
   `dev/scripts/checks/package_layout/check_instruction_surface_sync.py`, with
   implementation under

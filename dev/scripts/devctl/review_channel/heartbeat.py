@@ -12,7 +12,11 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from ..common import display_path
-from .bridge_validation import validate_launch_bridge_state
+from .bridge_file import rewrite_bridge_markdown
+from .bridge_validation import (
+    extract_poll_status_reviewer_modes,
+    validate_launch_bridge_state,
+)
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
 
 LAST_CODEX_POLL_RE = re.compile(r"(?m)^- Last Codex poll:\s*`.*?`\s*$")
@@ -44,6 +48,14 @@ REFRESHABLE_LAUNCH_ERRORS = (
     "`Last Codex poll` is stale;",
     "`Last Codex poll` is stale",
 )
+_TIMESTAMPED_POLL_STATUS_RE = re.compile(
+    r"^-\s+`?\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z`?(?:\b|[/:])"
+)
+_HISTORICAL_POLL_STATUS_PHRASES = (
+    "bridge attention no longer reflects an ack wait",
+    "live bridge status now matches the reviewed tree hash",
+    "structural authority docs are green on the current tree",
+)
 NON_AUDIT_HASH_EXCLUDED_PREFIXES = (
     "dev/reports/",
     ".voiceterm/memory/",
@@ -52,7 +64,7 @@ NON_AUDIT_HASH_EXCLUDED_PREFIXES = (
 
 @dataclass(frozen=True)
 class BridgeHeartbeatRefresh:
-    """One repo-owned heartbeat refresh applied to `code_audit.md`."""
+    """One repo-owned heartbeat refresh applied to `bridge.md`."""
 
     bridge_path: str
     reason: str
@@ -77,68 +89,75 @@ def refresh_bridge_heartbeat(
     reason: str,
 ) -> BridgeHeartbeatRefresh:
     """Refresh the reviewer heartbeat metadata when launch is otherwise valid."""
-    bridge_text = bridge_path.read_text(encoding="utf-8")
-    snapshot = extract_bridge_snapshot(bridge_text)
-    liveness = summarize_bridge_liveness(snapshot)
-    launch_errors = validate_launch_bridge_state(snapshot, liveness=liveness)
-    non_refreshable = [
-        error for error in launch_errors if not _is_refreshable_launch_error(error)
-    ]
-    if non_refreshable:
-        raise ValueError(
-            "Bridge heartbeat refresh refused because the launch contract has "
-            "other blockers: " + "; ".join(non_refreshable)
-        )
+    refresh: BridgeHeartbeatRefresh | None = None
 
-    now_utc = datetime.now(timezone.utc)
-    last_codex_poll_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-    last_codex_poll_local = _format_new_york_timestamp(now_utc)
-    # Recompute the worktree hash so the bridge always advertises the current
-    # tree state. This lets the reviewer detect drift even when no semantic
-    # review has occurred — without it, the bridge can look "fresh" while
-    # the reviewed baseline is stale.
-    try:
-        current_hash = compute_non_audit_worktree_hash(
-            repo_root=repo_root,
-            excluded_rel_paths=(bridge_path.relative_to(repo_root).as_posix(),),
-        )
-    except (ValueError, OSError):
-        current_hash = snapshot.metadata.get("last_non_audit_worktree_hash") or ""
+    def transform(bridge_text: str) -> str:
+        nonlocal refresh
+        snapshot = extract_bridge_snapshot(bridge_text)
+        liveness = summarize_bridge_liveness(snapshot)
+        launch_errors = validate_launch_bridge_state(snapshot, liveness=liveness)
+        non_refreshable = [
+            error for error in launch_errors if not _is_refreshable_launch_error(error)
+        ]
+        if non_refreshable:
+            raise ValueError(
+                "Bridge heartbeat refresh refused because the launch contract has "
+                "other blockers: " + "; ".join(non_refreshable)
+            )
 
-    updated_text = bridge_text
-    updated_text = _replace_or_insert_metadata_line(
-        updated_text,
-        pattern=LAST_CODEX_POLL_RE,
-        replacement=f"- Last Codex poll: `{last_codex_poll_utc}`",
-    )
-    updated_text = _replace_or_insert_metadata_line(
-        updated_text,
-        pattern=LAST_CODEX_POLL_LOCAL_RE,
-        replacement=(
-            "- Last Codex poll (Local America/New_York): "
-            f"`{last_codex_poll_local}`"
-        ),
-    )
-    updated_text = _replace_or_insert_metadata_line(
-        updated_text,
-        pattern=LAST_WORKTREE_HASH_RE,
-        replacement=f"- Last non-audit worktree hash: `{current_hash}`",
-    )
-    updated_text = _rewrite_poll_status(
-        updated_text,
-        note=(
-            f"{AUTO_REFRESH_PREFIX} `{last_codex_poll_utc}` "
-            f"(reason: {reason}; reviewed-tree: {current_hash[:12]})."
-        ),
-    )
-    bridge_path.write_text(updated_text, encoding="utf-8")
-    return BridgeHeartbeatRefresh(
-        bridge_path=display_path(bridge_path, repo_root=repo_root),
-        reason=reason,
-        last_codex_poll_utc=last_codex_poll_utc,
-        last_codex_poll_local=last_codex_poll_local,
-        last_worktree_hash=current_hash,
-    )
+        now_utc = datetime.now(timezone.utc)
+        last_codex_poll_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        last_codex_poll_local = _format_new_york_timestamp(now_utc)
+        # Recompute the worktree hash so the bridge always advertises the current
+        # tree state. This lets the reviewer detect drift even when no semantic
+        # review has occurred — without it, the bridge can look "fresh" while
+        # the reviewed baseline is stale.
+        try:
+            current_hash = compute_non_audit_worktree_hash(
+                repo_root=repo_root,
+                excluded_rel_paths=(bridge_path.relative_to(repo_root).as_posix(),),
+            )
+        except (ValueError, OSError):
+            current_hash = snapshot.metadata.get("last_non_audit_worktree_hash") or ""
+
+        updated_text = bridge_text
+        updated_text = _replace_or_insert_metadata_line(
+            updated_text,
+            pattern=LAST_CODEX_POLL_RE,
+            replacement=f"- Last Codex poll: `{last_codex_poll_utc}`",
+        )
+        updated_text = _replace_or_insert_metadata_line(
+            updated_text,
+            pattern=LAST_CODEX_POLL_LOCAL_RE,
+            replacement=(
+                "- Last Codex poll (Local America/New_York): "
+                f"`{last_codex_poll_local}`"
+            ),
+        )
+        updated_text = _replace_or_insert_metadata_line(
+            updated_text,
+            pattern=LAST_WORKTREE_HASH_RE,
+            replacement=f"- Last non-audit worktree hash: `{current_hash}`",
+        )
+        updated_text = _rewrite_poll_status(
+            updated_text,
+            note=(
+                f"{AUTO_REFRESH_PREFIX} `{last_codex_poll_utc}` "
+                f"(reason: {reason}; reviewed-tree: {current_hash[:12]})."
+            ),
+        )
+        refresh = BridgeHeartbeatRefresh(
+            bridge_path=display_path(bridge_path, repo_root=repo_root),
+            reason=reason,
+            last_codex_poll_utc=last_codex_poll_utc,
+            last_codex_poll_local=last_codex_poll_local,
+            last_worktree_hash=current_hash,
+        )
+        return updated_text
+
+    rewrite_bridge_markdown(bridge_path, transform=transform)
+    assert refresh is not None
+    return refresh
 
 
 def _is_refreshable_launch_error(error: str) -> bool:
@@ -167,7 +186,7 @@ def _rewrite_poll_status(text: str, *, note: str) -> str:
         filtered_lines = [
             line
             for line in body_lines
-            if line.strip() and not _is_repo_owned_poll_status_line(line)
+            if line.strip() and not _should_strip_poll_status_line(line)
         ]
         new_body_lines = [note, *filtered_lines]
         body = "\n".join(new_body_lines).strip()
@@ -179,11 +198,18 @@ def _rewrite_poll_status(text: str, *, note: str) -> str:
     return rewritten
 
 
-def _is_repo_owned_poll_status_line(line: str) -> bool:
+def _should_strip_poll_status_line(line: str) -> bool:
     stripped = line.strip()
-    return any(
+    if any(
         stripped.startswith(prefix) for prefix in _REPO_OWNED_POLL_STATUS_PREFIXES
-    )
+    ):
+        return True
+    if extract_poll_status_reviewer_modes(stripped):
+        return True
+    if _TIMESTAMPED_POLL_STATUS_RE.match(stripped):
+        return True
+    lowered = stripped.lower()
+    return any(phrase in lowered for phrase in _HISTORICAL_POLL_STATUS_PHRASES)
 
 
 def _format_new_york_timestamp(timestamp_utc: datetime) -> str:

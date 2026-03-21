@@ -358,7 +358,7 @@ Execution order is fixed:
 Coordination model for this sprint:
 
 1. Use the merged markdown-swarm plan in `dev/active/review_channel.md` plus
-   the live `code_audit.md` bridge as the only instruction, ACK, progress, and
+   the live `bridge.md` bridge as the only instruction, ACK, progress, and
    handoff surfaces.
 2. Keep `dev/active/MASTER_PLAN.md` as the execution tracker.
 3. Run orchestrator loop every 30 minutes:

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..common import display_path
 from ..repo_packs import active_path_config
+from .bridge_file import rewrite_bridge_markdown
 from .handoff import (
     IDLE_FINDING_MARKERS,
     IDLE_NEXT_ACTION_MARKERS,
@@ -132,27 +133,28 @@ def promote_bridge_instruction(
     promotion_plan_path: Path,
 ) -> PromotionCandidate:
     """Promote the next unchecked plan item into the live bridge instruction."""
-    bridge_text = bridge_path.read_text(encoding="utf-8")
-    snapshot = extract_bridge_snapshot(bridge_text)
-    errors = validate_promotion_ready(snapshot)
-    if errors:
-        raise ValueError("; ".join(errors))
-
     candidate = derive_promotion_candidate(
         repo_root=repo_root,
         promotion_plan_path=promotion_plan_path,
         require_exists=True,
     )
     assert candidate is not None
-    updated_text = rewrite_instruction_and_metadata(
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-        bridge_text=bridge_text,
-        instruction=candidate.instruction,
-        reviewer_mode=snapshot.metadata.get("reviewer_mode"),
-        reason="next-plan-item",
-    )
-    bridge_path.write_text(updated_text, encoding="utf-8")
+
+    def transform(bridge_text: str) -> str:
+        snapshot = extract_bridge_snapshot(bridge_text)
+        errors = validate_promotion_ready(snapshot)
+        if errors:
+            raise ValueError("; ".join(errors))
+        return rewrite_instruction_and_metadata(
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            bridge_text=bridge_text,
+            instruction=candidate.instruction,
+            reviewer_mode=snapshot.metadata.get("reviewer_mode"),
+            reason="next-plan-item",
+        )
+
+    rewrite_bridge_markdown(bridge_path, transform=transform)
     return candidate
 
 
@@ -280,19 +282,21 @@ def scope_bridge_instruction(
     )
     assert candidate is not None
     if bridge_path.exists():
-        bridge_text = bridge_path.read_text(encoding="utf-8")
-        snapshot = extract_bridge_snapshot(bridge_text)
         source = display_path(scope_plan_path, repo_root=repo_root)
         instruction = f"Scoped from `{source}` via `--scope`.\n\n" f"{candidate.instruction}"
-        updated = rewrite_instruction_and_metadata(
-            repo_root=repo_root,
-            bridge_path=bridge_path,
-            bridge_text=bridge_text,
-            instruction=instruction,
-            reviewer_mode=snapshot.metadata.get("reviewer_mode"),
-            reason=f"scope:{source}",
-        )
-        bridge_path.write_text(updated, encoding="utf-8")
+
+        def transform(bridge_text: str) -> str:
+            snapshot = extract_bridge_snapshot(bridge_text)
+            return rewrite_instruction_and_metadata(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+                bridge_text=bridge_text,
+                instruction=instruction,
+                reviewer_mode=snapshot.metadata.get("reviewer_mode"),
+                reason=f"scope:{source}",
+            )
+
+        rewrite_bridge_markdown(bridge_path, transform=transform)
     return candidate
 
 

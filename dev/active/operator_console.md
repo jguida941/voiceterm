@@ -240,7 +240,7 @@ maintainable Python package shape:
 - [x] Show three visible panes:
       Codex Bridge Monitor, Claude Bridge Monitor, and Operator Bridge State.
 - [x] Read current state from repo-visible files first:
-      `code_audit.md`, `dev/active/review_channel.md`, and optional future
+      `bridge.md`, `dev/active/review_channel.md`, and optional future
       `review_state` JSON if present.
 - [x] Add refresh polling that does not mutate the repo by default.
 - [x] Provide launch/rollover command buttons that wrap existing `devctl`
@@ -269,7 +269,7 @@ maintainable Python package shape:
       widgets that show key-value pairs at a glance with a "View Raw" toggle.
 - [x] Add toolbar status dots for Codex, Claude, and Operator with
       bridge-derived status hints (active/warning/stale/idle) and structured
-      `KeyValuePanel` lane cards showing parsed `code_audit.md` sections.
+      `KeyValuePanel` lane cards showing parsed `bridge.md` sections.
 - [x] Extend `theme.py` with QSS for all new widget types: status dots,
       KV rows, section headers, summary cards, role badges.
 - [x] Add 19 new tests covering all widget classes and structured lane builders.
@@ -919,7 +919,7 @@ progressive disclosure, and 8px base grid spacing.
   `VOICETERM_PATH_CONFIG`, local risk bucketing, and hard-coded review-channel
   argv builders. The next bounded slice is now explicit: move the session and
   snapshot builders to `review_state` / typed full projections / registry-
-  first reads, keep `code_audit.md` as fallback-only when structured artifacts
+  first reads, keep `bridge.md` as fallback-only when structured artifacts
   are missing, and preserve the remaining path/risk/argv cleanup as follow-up
   debt instead of mixing it into unrelated UI work.
 - 2026-03-11: Closed the next MP-359 presentation-state cleanup after the
@@ -1221,7 +1221,7 @@ progressive disclosure, and 8px base grid spacing.
   `check_multi_agent_sync`, `docs-check --strict-tooling`,
   `process-cleanup --verify --format md`) is green alongside it.
 - 2026-03-09: Fixed the live-launch dead-end that made the desktop app feel
-  broken when `code_audit.md` aged past the five-minute reviewer heartbeat
+  broken when `bridge.md` aged past the five-minute reviewer heartbeat
   contract. The Operator Console now routes `Dry Run`, `Launch Live`,
   `Start Swarm`, and `Rollover` through the typed
   `--refresh-bridge-heartbeat-if-stale` backend path, so stale/missing
@@ -1450,7 +1450,7 @@ progressive disclosure, and 8px base grid spacing.
   existing Rust runtime and `devctl` launcher, not a replacement for them.
 - 2026-03-08: Landed the first scaffold under `app/operator_console/`:
   pure bridge/approval helpers with unit coverage, a PyQt6 main window that
-  reads `code_audit.md`, wraps existing `review-channel` launch/rollover
+  reads `bridge.md`, wraps existing `review-channel` launch/rollover
   commands, shows Codex/Claude/Review-Operator panes side by side, and records
   repo-visible operator `approve` / `deny` artifacts under
   `dev/reports/review_channel/operator_decisions/`. This first slice remains
@@ -1809,7 +1809,7 @@ progressive disclosure, and 8px base grid spacing.
 - `python3 dev/scripts/checks/check_bundle_workflow_parity.py`
   - 2026-03-09 local run: pass after MP-359 theme-authority cleanup
 - `python3 dev/scripts/checks/check_review_channel_bridge.py`
-  - 2026-03-09 local run: expected red (`code_audit.md` and
+  - 2026-03-09 local run: expected red (`bridge.md` and
     `dev/active/review_channel.md` remain untracked in the active dirty tree)
 - `python3 dev/scripts/devctl.py review-channel --action launch --dry-run --format json`
   - 2026-03-09 local run: pass after MP-359 theme-authority cleanup

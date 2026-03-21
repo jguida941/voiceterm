@@ -25,16 +25,16 @@ def _load_script_module():
     return module
 
 
-def _valid_code_audit_text(script) -> str:
+def _valid_bridge_text(script) -> str:
     lines = [
-        "# Code Audit Channel",
+        "# Review Bridge",
         "",
         "## Start-Of-Conversation Rules",
         "",
         "Codex is the reviewer. Claude is the coder.",
         "At conversation start, both agents must bootstrap repo authority in this order before acting: `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/review_channel.md`.",
-        "Codex must poll non-`code_audit.md` worktree changes every 2-3 minutes while code is moving.",
-        "Codex must exclude `code_audit.md` itself when computing the reviewed worktree hash.",
+        "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
+        "Codex must exclude `bridge.md` itself when computing the reviewed worktree hash.",
         "Each meaningful review must include an operator-visible chat update.",
         "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
         "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
@@ -55,7 +55,7 @@ def _valid_code_audit_text(script) -> str:
         f"- Last non-audit worktree hash: `{'a' * 64}`",
         "",
     ]
-    for heading in script.REQUIRED_CODE_AUDIT_H2[1:]:
+    for heading in script.REQUIRED_BRIDGE_H2[1:]:
         lines.append(f"## {heading}")
         lines.append("")
         if heading == "Current Instruction For Claude":
@@ -75,14 +75,14 @@ def _valid_review_channel_text(script) -> str:
             "",
             "## Transitional Markdown Bridge (Current Operating Mode)",
             "",
-            "`code_audit.md` is the temporary bridge.",
+            "`bridge.md` is the temporary bridge.",
             "In autonomous mode `MASTER_PLAN.md` remains the canonical tracker and",
             "   `INDEX.md` remains the router for the minimal active docs set.",
             "For the current operator-facing loop, each meaningful Codex reviewer write to",
-            "   `code_audit.md` must also emit a concise operator-visible chat update.",
+            "   `bridge.md` must also emit a concise operator-visible chat update.",
             "Bridge writes stay conductor-owned: only one Codex conductor updates the Codex-owned bridge",
             "sections while specialist workers report back instead of editing the bridge directly.",
-            "Bridge behavior is mode-aware. When `Reviewer mode` is `active_dual_agent`, Claude must treat `code_audit.md` as the live reviewer/coder authority and",
+            "Bridge behavior is mode-aware. When `Reviewer mode` is `active_dual_agent`, Claude must treat `bridge.md` as the live reviewer/coder authority and",
             "Claude must stay in polling mode. It must not mine plan docs for side work",
             "The reviewer should emit an operator-visible",
             "heartbeat every five minutes even when the blocker set is unchanged.",
@@ -122,16 +122,16 @@ class CheckReviewChannelBridgeTests(TestCase):
         return path
 
     def test_build_report_ok_for_complete_bridge_contract(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script),
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script),
         )
         review_channel = self._temp_path(
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
@@ -139,37 +139,37 @@ class CheckReviewChannelBridgeTests(TestCase):
             report = self.script.build_report()
         self.assertTrue(report["ok"])
         self.assertTrue(report["review_bridge_active"])
-        self.assertEqual(report["code_audit"]["missing_h2"], [])
-        self.assertEqual(report["code_audit"]["missing_markers"], [])
+        self.assertEqual(report["bridge"]["missing_h2"], [])
+        self.assertEqual(report["bridge"]["missing_markers"], [])
         self.assertEqual(report["review_channel"]["missing_markers"], [])
 
-    def test_build_report_allows_missing_code_audit_when_bridge_is_inactive(self) -> None:
-        missing_code_audit = REPO_ROOT / "code_audit-does-not-exist.md"
+    def test_build_report_allows_missing_bridge_when_bridge_is_inactive(self) -> None:
+        missing_bridge = REPO_ROOT / "bridge-does-not-exist.md"
         review_channel = self._temp_path(
             "dev/active/review_channel.md",
             _inactive_review_channel_text(),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", missing_code_audit),
+            patch.object(self.script, "BRIDGE_PATH", missing_bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
         ):
             report = self.script.build_report()
         self.assertTrue(report["ok"])
         self.assertFalse(report["review_bridge_active"])
-        self.assertFalse(report["code_audit"]["active"])
-        self.assertNotIn("error", report["code_audit"])
+        self.assertFalse(report["bridge"]["active"])
+        self.assertNotIn("error", report["bridge"])
 
-    def test_build_report_fails_for_untracked_code_audit_when_bridge_is_active(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script),
+    def test_build_report_fails_for_untracked_bridge_when_bridge_is_active(self) -> None:
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script),
         )
         review_channel = self._temp_path(
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=False),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
@@ -177,20 +177,20 @@ class CheckReviewChannelBridgeTests(TestCase):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
         self.assertTrue(report["review_bridge_active"])
-        self.assertTrue(report["code_audit"].get("untracked", False))
-        self.assertIn("untracked", report["code_audit"].get("error", ""))
+        self.assertTrue(report["bridge"].get("untracked", False))
+        self.assertIn("untracked", report["bridge"].get("error", ""))
 
     def test_build_report_ok_for_tracked_files_when_bridge_is_active(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script),
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script),
         )
         review_channel = self._temp_path(
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
@@ -198,17 +198,17 @@ class CheckReviewChannelBridgeTests(TestCase):
             report = self.script.build_report()
         self.assertTrue(report["ok"])
         self.assertTrue(report["review_bridge_active"])
-        self.assertNotIn("untracked", report["code_audit"])
+        self.assertNotIn("untracked", report["bridge"])
         self.assertNotIn("untracked", report["review_channel"])
 
     def test_build_report_skips_tracking_check_when_bridge_is_inactive(self) -> None:
-        missing_code_audit = REPO_ROOT / "code_audit-does-not-exist.md"
+        missing_bridge = REPO_ROOT / "bridge-does-not-exist.md"
         review_channel = self._temp_path(
             "dev/active/review_channel.md",
             _inactive_review_channel_text(),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", missing_code_audit),
+            patch.object(self.script, "BRIDGE_PATH", missing_bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=False) as mock_tracked,
         ):
@@ -216,10 +216,10 @@ class CheckReviewChannelBridgeTests(TestCase):
         self.assertTrue(report["ok"])
         mock_tracked.assert_not_called()
 
-    def test_build_report_flags_missing_code_audit_start_rule(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script).replace(
+    def test_build_report_flags_missing_bridge_start_rule(self) -> None:
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script).replace(
                 "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.\n",
                 "",
             ),
@@ -229,7 +229,7 @@ class CheckReviewChannelBridgeTests(TestCase):
             _valid_review_channel_text(self.script),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
@@ -238,13 +238,13 @@ class CheckReviewChannelBridgeTests(TestCase):
         self.assertFalse(report["ok"])
         self.assertIn(
             "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
-            report["code_audit"]["missing_markers"],
+            report["bridge"]["missing_markers"],
         )
 
     def test_build_report_flags_missing_review_channel_bridge_guard_marker(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script),
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script),
         )
         review_channel = self._temp_path(
             "dev/active/review_channel.md",
@@ -254,7 +254,7 @@ class CheckReviewChannelBridgeTests(TestCase):
             ),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
@@ -267,9 +267,9 @@ class CheckReviewChannelBridgeTests(TestCase):
         )
 
     def test_build_report_flags_poll_status_mode_conflict(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script).replace(
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script).replace(
                 "## Current Verdict",
                 "- Reviewer mode is back to `single_agent`\n\n## Current Verdict",
             ),
@@ -279,7 +279,7 @@ class CheckReviewChannelBridgeTests(TestCase):
             _valid_review_channel_text(self.script),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
@@ -288,13 +288,13 @@ class CheckReviewChannelBridgeTests(TestCase):
         self.assertFalse(report["ok"])
         self.assertIn(
             "Poll Status contradicts `Reviewer mode` metadata",
-            "\n".join(report["code_audit"].get("state_errors", [])),
+            "\n".join(report["bridge"].get("state_errors", [])),
         )
 
     def test_build_report_flags_invalid_reviewer_mode(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script).replace(
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script).replace(
                 "- Reviewer mode: `active_dual_agent`\n",
                 "- Reviewer mode: `developer`\n",
             ),
@@ -304,7 +304,7 @@ class CheckReviewChannelBridgeTests(TestCase):
             _valid_review_channel_text(self.script),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
@@ -313,13 +313,13 @@ class CheckReviewChannelBridgeTests(TestCase):
         self.assertFalse(report["ok"])
         self.assertIn(
             "Invalid `Reviewer mode`",
-            "\n".join(report["code_audit"].get("metadata_errors", [])),
+            "\n".join(report["bridge"].get("metadata_errors", [])),
         )
 
     def test_build_report_flags_stale_last_codex_poll(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script),
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script),
         )
         review_channel = self._temp_path(
             "dev/active/review_channel.md",
@@ -327,7 +327,7 @@ class CheckReviewChannelBridgeTests(TestCase):
         )
         stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=UTC)
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=stale_now),
@@ -335,13 +335,13 @@ class CheckReviewChannelBridgeTests(TestCase):
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
-        self.assertIn("metadata_errors", report["code_audit"])
-        self.assertTrue(any("stale" in error for error in report["code_audit"]["metadata_errors"]))
+        self.assertIn("metadata_errors", report["bridge"])
+        self.assertTrue(any("stale" in error for error in report["bridge"]["metadata_errors"]))
 
     def test_build_report_allows_stale_last_codex_poll_in_github_actions(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script),
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script),
         )
         review_channel = self._temp_path(
             "dev/active/review_channel.md",
@@ -349,7 +349,7 @@ class CheckReviewChannelBridgeTests(TestCase):
         )
         stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=UTC)
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=stale_now),
@@ -357,32 +357,32 @@ class CheckReviewChannelBridgeTests(TestCase):
         ):
             report = self.script.build_report()
         self.assertTrue(report["ok"])
-        self.assertNotIn("metadata_errors", report["code_audit"])
+        self.assertNotIn("metadata_errors", report["bridge"])
 
     def test_build_report_flags_invalid_worktree_hash(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script).replace("a" * 64, "abc123"),
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script).replace("a" * 64, "abc123"),
         )
         review_channel = self._temp_path(
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
-        self.assertIn("metadata_errors", report["code_audit"])
-        self.assertTrue(any("worktree hash" in error.lower() for error in report["code_audit"]["metadata_errors"]))
+        self.assertIn("metadata_errors", report["bridge"])
+        self.assertTrue(any("worktree hash" in error.lower() for error in report["bridge"]["metadata_errors"]))
 
     def test_build_report_flags_missing_last_reviewed_scope_state(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script).replace(
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script).replace(
                 "- app/operator_console/theme/theme_engine.py",
                 "",
             ),
@@ -392,20 +392,20 @@ class CheckReviewChannelBridgeTests(TestCase):
             _valid_review_channel_text(self.script),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
-        self.assertIn("state_errors", report["code_audit"])
-        self.assertTrue(any("Last Reviewed Scope" in error for error in report["code_audit"]["state_errors"]))
+        self.assertIn("state_errors", report["bridge"])
+        self.assertTrue(any("Last Reviewed Scope" in error for error in report["bridge"]["state_errors"]))
 
     def test_build_report_flags_idle_current_instruction_state(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script).replace(
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script).replace(
                 "- continue with the next scoped task",
                 "placeholder",
             ),
@@ -415,22 +415,22 @@ class CheckReviewChannelBridgeTests(TestCase):
             _valid_review_channel_text(self.script),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
-        self.assertIn("state_errors", report["code_audit"])
+        self.assertIn("state_errors", report["bridge"])
         self.assertTrue(
-            any("Current Instruction For Claude" in error for error in report["code_audit"]["state_errors"])
+            any("Current Instruction For Claude" in error for error in report["bridge"]["state_errors"])
         )
 
     def test_build_report_flags_suspicious_terminal_text_in_instruction(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script).replace(
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script).replace(
                 "- continue with the next scoped task",
                 "- Update Not logged in · Please run /login to continue.",
             ),
@@ -440,22 +440,22 @@ class CheckReviewChannelBridgeTests(TestCase):
             _valid_review_channel_text(self.script),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
-        self.assertIn("state_errors", report["code_audit"])
+        self.assertIn("state_errors", report["bridge"])
         self.assertTrue(
-            any("suspicious terminal/status text" in error for error in report["code_audit"]["state_errors"])
+            any("suspicious terminal/status text" in error for error in report["bridge"]["state_errors"])
         )
 
     def test_build_report_flags_resolved_bridge_without_promoted_next_task(self) -> None:
-        code_audit = self._temp_path(
-            "code_audit.md",
-            _valid_code_audit_text(self.script)
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script)
             .replace("## Current Verdict\n\nplaceholder", "## Current Verdict\n\n- resolved")
             .replace("## Open Findings\n\nplaceholder", "## Open Findings\n\n- (none)")
             .replace("- continue with the next scoped task", "- all green so far"),
@@ -465,12 +465,12 @@ class CheckReviewChannelBridgeTests(TestCase):
             _valid_review_channel_text(self.script),
         )
         with (
-            patch.object(self.script, "CODE_AUDIT_PATH", code_audit),
+            patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
-        self.assertIn("state_errors", report["code_audit"])
-        self.assertTrue(any("promote the next scoped task" in error for error in report["code_audit"]["state_errors"]))
+        self.assertIn("state_errors", report["bridge"])
+        self.assertTrue(any("promote the next scoped task" in error for error in report["bridge"]["state_errors"]))

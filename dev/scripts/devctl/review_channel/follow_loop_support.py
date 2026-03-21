@@ -110,7 +110,7 @@ def build_claude_progress_token(
     try:
         current_worktree_hash = compute_non_audit_worktree_hash(
             repo_root=repo_root,
-            excluded_rel_paths=("code_audit.md",),
+            excluded_rel_paths=("bridge.md",),
         )
     except (OSError, ValueError):
         current_worktree_hash = ""

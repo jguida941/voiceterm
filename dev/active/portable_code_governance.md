@@ -882,6 +882,14 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   `ci-cd-hub` probe findings were recorded into `governance-review` as
   `confirmed_issue` rows so the proof path includes adjudicated external
   evidence, not only raw packets.
+- 2026-03-20: Started the portable structural-readability tranche with the
+  first repo-policy-backed term probe. `probe_term_consistency.py` now reads
+  repo-configured canonical-vs-legacy wording rules, surfaces legacy names
+  such as `code_audit` and mixed review-channel term families as advisory
+  `naming_contract` hints, and is registered through the shared script catalog
+  plus quality-policy registry instead of living as another one-off repo
+  script. VoiceTerm policy now seeds the first review-channel vocabulary rules
+  while maintainer docs point at the current `review_channel` package paths.
 
 ## Session Resume
 
@@ -947,7 +955,7 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   `python3 dev/scripts/devctl.py governance-review --record --finding-id devctl-autonomy-root-shims --signal-type probe --check-id probe_compatibility_shims --verdict fixed --path dev/scripts/devctl --symbol 'autonomy_*' --severity medium --risk-type compatibility_shim_family_budget --source-command "python3 dev/scripts/devctl.py probe-report --format md" --scan-mode working-tree --notes "...deleted 18 temporary root autonomy shims..." --format md`
   `python3 dev/scripts/devctl.py docs-check --strict-tooling`
   `python3 dev/scripts/checks/check_active_plan_sync.py`
-  `python3 dev/scripts/checks/check_review_channel_bridge.py` (`code_audit.md` failed only because `Last Codex poll` was stale in the live bridge state)
+  `python3 dev/scripts/checks/check_review_channel_bridge.py` (`bridge.md` failed only because `Last Codex poll` was stale in the live bridge state)
   `python3 dev/scripts/devctl.py process-cleanup --verify --format md`
   `python3 dev/scripts/devctl.py process-cleanup --verify --format md`
 - Export path:

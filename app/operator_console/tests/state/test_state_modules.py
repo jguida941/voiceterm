@@ -98,7 +98,7 @@ from app.operator_console.workflows.workflow_surface_state import (
 def _bridge_text() -> str:
     return "\n".join(
         [
-            "# Code Audit Channel",
+            "# Review Bridge",
             "",
             "- Last Codex poll: `2026-03-08T20:00:00Z`",
             "- Last non-audit worktree hash: `abc123`",
@@ -148,7 +148,7 @@ def _review_state_json() -> dict[str, object]:
                 "requested_action": "git_push",
                 "approval_required": True,
                 "status": "pending",
-                "evidence_refs": ["code_audit.md#L1"],
+                "evidence_refs": ["bridge.md#L1"],
                 "context_pack_refs": [
                     {
                         "pack_kind": "task_pack",
@@ -253,7 +253,7 @@ class StateModuleTests(unittest.TestCase):
     def test_timeline_builder_includes_lane_and_operator_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
             events = build_timeline_from_snapshot(snapshot)
 
@@ -265,7 +265,7 @@ class StateModuleTests(unittest.TestCase):
     def test_timeline_builder_reads_rollover_handoff_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             handoff_root = (
                 root / "dev/reports/review_channel/rollovers/20260309T120000Z"
             )
@@ -294,7 +294,7 @@ class StateModuleTests(unittest.TestCase):
     def test_workflow_surface_state_tracks_slice_and_footer_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -386,7 +386,7 @@ class StateModuleTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -464,7 +464,7 @@ class StateModuleTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             full_path = root / "dev/reports/review_channel/latest/full.json"
             full_path.parent.mkdir(parents=True, exist_ok=True)
             full_path.write_text(
@@ -527,7 +527,7 @@ class StateModuleTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -598,7 +598,7 @@ class StateModuleTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             full_path = root / "dev/reports/review_channel/latest/full.json"
             full_path.parent.mkdir(parents=True, exist_ok=True)
             full_path.write_text(
@@ -657,7 +657,7 @@ class StateModuleTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -777,7 +777,7 @@ class StateModuleTests(unittest.TestCase):
                 "Script started on 2026-03-09 12:24:29 +0000\n"
                 "\x1b[>7u"
                 "\x1b[2J"
-                "\x1b[1;1H⏺ Update(code_audit.md)"
+                "\x1b[1;1H⏺ Update(bridge.md)"
                 "\x1b[2;1HGood - the test file exists!"
                 "\x1b[3;1HContext left until auto-compact: 9%"
                 "\x1b[4;1H✢ thinking with high effort"
@@ -847,7 +847,7 @@ class StateModuleTests(unittest.TestCase):
                 policy_hint="operator_approval_required",
                 requested_action="git_push",
                 status="pending",
-                evidence_refs=("code_audit.md#L1",),
+                evidence_refs=("bridge.md#L1",),
                 context_pack_refs=(
                     ContextPackRef(
                         pack_kind="task_pack",
@@ -1000,7 +1000,7 @@ class StructuredLaneTests(unittest.TestCase):
     def test_snapshot_includes_structured_lanes(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         self.assertIsNotNone(snapshot.codex_lane)
@@ -1126,7 +1126,7 @@ class CommandBuilderTests(unittest.TestCase):
             policy_hint="operator_approval_required",
             requested_action="git_push",
             status="pending",
-            evidence_refs=("code_audit.md#L1",),
+            evidence_refs=("bridge.md#L1",),
             context_pack_refs=(
                 ContextPackRef(
                     pack_kind="task_pack",
@@ -1149,7 +1149,7 @@ class CommandBuilderTests(unittest.TestCase):
         approval_json = command[command.index("--approval-json") + 1]
         payload = json.loads(approval_json)
         self.assertEqual(payload["packet_id"], "pkt-1")
-        self.assertEqual(payload["evidence_refs"], ["code_audit.md#L1"])
+        self.assertEqual(payload["evidence_refs"], ["bridge.md#L1"])
         self.assertEqual(payload["context_pack_refs"][0]["pack_kind"], "task_pack")
 
     def test_render_command_returns_shell_string(self) -> None:
@@ -1319,7 +1319,7 @@ class WorkflowPresetTests(unittest.TestCase):
             policy_hint="operator_approval_required",
             requested_action="git_push",
             status="pending",
-            evidence_refs=("code_audit.md#L1",),
+            evidence_refs=("bridge.md#L1",),
             context_pack_refs=(
                 ContextPackRef(
                     pack_kind="task_pack",
@@ -1417,7 +1417,7 @@ class ActivityAssistTests(unittest.TestCase):
     def test_build_audit_draft_includes_observed_snapshot_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -1437,7 +1437,7 @@ class ActivityAssistTests(unittest.TestCase):
     def test_build_help_draft_mentions_operator_next_step(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         draft = build_assist_draft(snapshot, mode="help")
@@ -1448,7 +1448,7 @@ class ActivityAssistTests(unittest.TestCase):
     def test_build_assist_draft_rejects_unknown_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         with self.assertRaises(ValueError):
@@ -1457,7 +1457,7 @@ class ActivityAssistTests(unittest.TestCase):
     def test_build_summary_draft_targets_selected_provider_and_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         draft = build_summary_draft(
@@ -1475,7 +1475,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_overview_summarizes_next_step(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(snapshot, report_id="overview")
@@ -1486,7 +1486,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_technical_mode_keeps_signal_section(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(
@@ -1501,7 +1501,7 @@ class ActivityReportTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(
@@ -1515,7 +1515,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_approvals_mentions_queue(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -1533,7 +1533,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_summary_draft_respects_selected_audience_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         draft = build_summary_draft(
@@ -1547,7 +1547,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_quality_clean_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(snapshot, report_id="quality")
@@ -1559,7 +1559,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_quality_technical_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(
@@ -1574,7 +1574,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_quality_simple_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(
@@ -1635,7 +1635,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_quality_with_warnings(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -1653,7 +1653,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_watchdog_uses_shared_summary_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             _write_watchdog_summary(root)
             snapshot = build_operator_console_snapshot(root)
 

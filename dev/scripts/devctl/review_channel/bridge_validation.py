@@ -33,7 +33,7 @@ _REVIEWER_OWNED_VALIDATION_SECTIONS = (
 )
 
 
-def _extract_poll_status_reviewer_modes(poll_status: str) -> tuple[str, ...]:
+def extract_poll_status_reviewer_modes(poll_status: str) -> tuple[str, ...]:
     """Return normalized reviewer modes explicitly asserted inside Poll Status."""
     seen: list[str] = []
     valid_modes = {mode.value for mode in ReviewerMode}
@@ -115,7 +115,7 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
 
     conflicting_poll_status_modes = [
         mode
-        for mode in _extract_poll_status_reviewer_modes(
+        for mode in extract_poll_status_reviewer_modes(
             snapshot.sections.get("Poll Status", "")
         )
         if mode != reviewer_mode

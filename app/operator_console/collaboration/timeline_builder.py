@@ -123,7 +123,7 @@ def _append_bridge_marker_events(
                 status_level="active",
                 title="Reviewer heartbeat observed",
                 detail=f"Last Codex poll: {last_codex_poll}",
-                source="code_audit metadata",
+                source="bridge metadata",
             )
         )
     if last_worktree_hash:
@@ -133,7 +133,7 @@ def _append_bridge_marker_events(
                 status_level="idle",
                 title="Reviewed worktree anchor",
                 detail=f"Last non-audit worktree hash: {last_worktree_hash}",
-                source="code_audit metadata",
+                source="bridge metadata",
             )
         )
 

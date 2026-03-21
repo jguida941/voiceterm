@@ -733,7 +733,7 @@ class LaneStructureTests(unittest.TestCase):
             policy_hint="operator_approval_required",
             requested_action="git_push",
             status="pending",
-            evidence_refs=("code_audit.md#L1",),
+            evidence_refs=("bridge.md#L1",),
         )
 
         with patch.object(window, "_start_command", return_value=True) as mock_start:

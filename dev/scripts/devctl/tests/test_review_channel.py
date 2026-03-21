@@ -1,7 +1,7 @@
 """Tests for the transitional review-channel launcher.
 
 Fixtures in this file model the same markdown authorities the launcher reads:
-`dev/active/review_channel.md` and `code_audit.md`.
+`dev/active/review_channel.md` and `bridge.md`.
 """
 
 from __future__ import annotations
@@ -134,14 +134,14 @@ def _build_review_channel_text(*, include_bridge: bool = True) -> str:
             "",
             bridge_heading,
             "",
-            "`code_audit.md` is the temporary bridge.",
+            "`bridge.md` is the temporary bridge.",
             "In autonomous mode `MASTER_PLAN.md` remains the canonical tracker and",
             "   `INDEX.md` remains the router for the minimal active docs set.",
             "For the current operator-facing loop, each meaningful Codex reviewer write to",
-            "   `code_audit.md` must also emit a concise operator-visible chat update.",
+            "   `bridge.md` must also emit a concise operator-visible chat update.",
             "Bridge writes stay conductor-owned: only one Codex conductor updates the Codex-owned bridge",
             "sections while specialist workers report back instead of editing the bridge directly.",
-            "Bridge behavior is mode-aware. When `Reviewer mode` is `active_dual_agent`, Claude must treat `code_audit.md` as the live reviewer/coder authority and keep polling it instead of waiting for the operator to restate the process.",
+            "Bridge behavior is mode-aware. When `Reviewer mode` is `active_dual_agent`, Claude must treat `bridge.md` as the live reviewer/coder authority and keep polling it instead of waiting for the operator to restate the process.",
             "If reviewer-owned bridge state says `hold steady`, `waiting for reviewer promotion`, `Codex committing/pushing`, or equivalent wait-state language, Claude must stay in polling mode. It must not mine plan docs for side work or self-promote the next slice until a reviewer-owned section changes.",
             "The reviewer should emit an operator-visible",
             "heartbeat every five minutes even when the blocker set is unchanged.",
@@ -173,14 +173,14 @@ def _build_bridge_text(
         last_codex_poll = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     return "\n".join(
         [
-            "# Code Audit Channel",
+            "# Review Bridge",
             "",
             "## Start-Of-Conversation Rules",
             "",
             "Codex is the reviewer. Claude is the coder.",
             "At conversation start, both agents must bootstrap repo authority in this order before acting: `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/review_channel.md`.",
-            "Codex must poll non-`code_audit.md` worktree changes every 2-3 minutes while code is moving.",
-            "Codex must exclude `code_audit.md` itself when computing the reviewed worktree hash.",
+            "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
+            "Codex must exclude `bridge.md` itself when computing the reviewed worktree hash.",
             "Each meaningful review must include an operator-visible chat update.",
             "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
             "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
@@ -236,7 +236,7 @@ def _build_bridge_text(
             "",
             "## Last Reviewed Scope",
             "",
-            "- code_audit.md",
+            "- bridge.md",
             "- dev/scripts/devctl/review_channel/handoff.py",
             "",
         ]
@@ -523,7 +523,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
                 "# AI Governance Platform\n\n## Execution Checklist\n\n- [ ] Close the next tracker-selected item.\n",
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
 
             resolution = resolve_promotion_plan_path(
@@ -827,7 +827,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
         files = _bootstrap_files(
             repo_root=root,
             review_channel_path=root / "dev/active/review_channel.md",
-            bridge_path=root / "code_audit.md",
+            bridge_path=root / "bridge.md",
             handoff_bundle={
                 "markdown_path": str(root / "dev/reports/handoff.md"),
                 "json_path": str(root / "dev/reports/handoff.json"),
@@ -896,7 +896,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             other_name="Claude",
             repo_root=root,
             review_channel_path=root / "dev/active/review_channel.md",
-            bridge_path=root / "code_audit.md",
+            bridge_path=root / "bridge.md",
             lanes=[],
             codex_workers=8,
             claude_workers=8,
@@ -964,7 +964,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             other_name="Codex",
             repo_root=root,
             review_channel_path=root / "dev/active/review_channel.md",
-            bridge_path=root / "code_audit.md",
+            bridge_path=root / "bridge.md",
             lanes=[],
             codex_workers=8,
             claude_workers=8,
@@ -985,7 +985,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "`code_audit.md` is the first thing to re-read whenever you need "
+            "`bridge.md` is the first thing to re-read whenever you need "
             "to know what to do next in dual-agent mode.",
             prompt,
         )
@@ -1061,7 +1061,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             other_name="Codex",
             repo_root=root,
             review_channel_path=root / "dev/active/review_channel.md",
-            bridge_path=root / "code_audit.md",
+            bridge_path=root / "bridge.md",
             lanes=[],
             codex_workers=8,
             claude_workers=8,
@@ -1346,7 +1346,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         args = self._build_ensure_follow_args(max_follow_snapshots=2)
         frames: list[dict[str, object]] = []
         write = ReviewerStateWrite(
-            bridge_path="code_audit.md",
+            bridge_path="bridge.md",
             action="reviewer-heartbeat",
             reviewer_mode="active_dual_agent",
             reason="ensure-follow",
@@ -1398,7 +1398,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 args=args,
                 repo_root=Path("/tmp/repo"),
                 paths={
-                    "bridge_path": Path("/tmp/repo/code_audit.md"),
+                    "bridge_path": Path("/tmp/repo/bridge.md"),
                     "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
                 },
             )
@@ -1461,7 +1461,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 args=args,
                 repo_root=Path("/tmp/repo"),
                 paths={
-                    "bridge_path": Path("/tmp/repo/code_audit.md"),
+                    "bridge_path": Path("/tmp/repo/bridge.md"),
                     "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
                 },
             )
@@ -1511,7 +1511,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                     args=args,
                     repo_root=root,
                     paths={
-                        "bridge_path": root / "code_audit.md",
+                        "bridge_path": root / "bridge.md",
                         "status_dir": status_dir,
                         "artifact_paths": artifact_paths,
                     },
@@ -1539,7 +1539,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         args = self._build_reviewer_follow_args(max_follow_snapshots=2)
         frames: list[dict[str, object]] = []
         write = ReviewerStateWrite(
-            bridge_path="code_audit.md",
+            bridge_path="bridge.md",
             action="reviewer-heartbeat",
             reviewer_mode="active_dual_agent",
             reason="reviewer-follow",
@@ -1584,7 +1584,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             report, rc = review_channel_command._run_reviewer_follow_action(
                 args=args,
                 repo_root=Path("/tmp/repo"),
-                paths={"bridge_path": Path("/tmp/repo/code_audit.md")},
+                paths={"bridge_path": Path("/tmp/repo/bridge.md")},
             )
 
         self.assertEqual(rc, 0)
@@ -1625,7 +1625,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     reviewer_mode="paused",
@@ -1711,7 +1711,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     current_verdict="- accepted",
@@ -1813,7 +1813,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                     args=args,
                     repo_root=root,
                     paths={
-                        "bridge_path": root / "code_audit.md",
+                        "bridge_path": root / "bridge.md",
                         "status_dir": root / "dev/reports/review_channel/latest",
                         "artifact_paths": artifact_paths,
                     },
@@ -2235,7 +2235,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 args=args,
                 repo_root=Path("/tmp/repo"),
                 paths={
-                    "bridge_path": Path("/tmp/repo/code_audit.md"),
+                    "bridge_path": Path("/tmp/repo/bridge.md"),
                     "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
                 },
             )
@@ -2276,7 +2276,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 args=args,
                 repo_root=Path("/tmp/repo"),
                 paths={
-                    "bridge_path": Path("/tmp/repo/code_audit.md"),
+                    "bridge_path": Path("/tmp/repo/bridge.md"),
                     "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
                 },
             )
@@ -2332,7 +2332,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                     args=args,
                     repo_root=Path("/tmp/repo"),
                     paths={
-                        "bridge_path": Path("/tmp/repo/code_audit.md"),
+                        "bridge_path": Path("/tmp/repo/bridge.md"),
                         "status_dir": status_dir,
                     },
                 )
@@ -2512,7 +2512,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         from dev.scripts.devctl.review_channel.reviewer_worker import check_review_needed
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            bridge_path = Path(tmpdir) / "code_audit.md"
+            bridge_path = Path(tmpdir) / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(),
                 encoding="utf-8",
@@ -2535,7 +2535,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
 
         expected_hash = "a" * 64
         with tempfile.TemporaryDirectory() as tmpdir:
-            bridge_path = Path(tmpdir) / "code_audit.md"
+            bridge_path = Path(tmpdir) / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(),
                 encoding="utf-8",
@@ -2557,7 +2557,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         from dev.scripts.devctl.review_channel.reviewer_worker import check_review_needed
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            bridge_path = Path(tmpdir) / "code_audit.md"
+            bridge_path = Path(tmpdir) / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(reviewer_mode="single_agent"),
                 encoding="utf-8",
@@ -2825,7 +2825,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                     args=args,
                     repo_root=Path("/tmp/repo"),
                     paths={
-                        "bridge_path": Path("/tmp/repo/code_audit.md"),
+                        "bridge_path": Path("/tmp/repo/bridge.md"),
                         "status_dir": status_dir,
                     },
                 )
@@ -2843,7 +2843,7 @@ class ReviewChannelFollowLoopTests(unittest.TestCase):
     def test_build_claude_progress_token_ignores_codex_poll_noise(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             scratch_path = root / "notes.txt"
             scratch_path.write_text("alpha", encoding="utf-8")
             bridge_path.write_text(
@@ -3253,7 +3253,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             timeout_minutes=0,
         )
         paths = {
-            "bridge_path": Path("/tmp/code_audit.md"),
+            "bridge_path": Path("/tmp/bridge.md"),
             "review_channel_path": Path("/tmp/dev/active/review_channel.md"),
             "status_dir": Path("/tmp/dev/reports/review_channel/latest"),
         }
@@ -3302,7 +3302,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             timeout_minutes=0,
         )
         paths = {
-            "bridge_path": Path("/tmp/code_audit.md"),
+            "bridge_path": Path("/tmp/bridge.md"),
             "review_channel_path": Path("/tmp/dev/active/review_channel.md"),
             "status_dir": Path("/tmp/dev/reports/review_channel/latest"),
         }
@@ -3357,7 +3357,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             timeout_minutes=0,
         )
         paths = {
-            "bridge_path": Path("/tmp/code_audit.md"),
+            "bridge_path": Path("/tmp/bridge.md"),
             "review_channel_path": Path("/tmp/dev/active/review_channel.md"),
             "status_dir": Path("/tmp/dev/reports/review_channel/latest"),
         }
@@ -3406,7 +3406,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             timeout_minutes=0,
         )
         paths = {
-            "bridge_path": Path("/tmp/code_audit.md"),
+            "bridge_path": Path("/tmp/bridge.md"),
             "review_channel_path": Path("/tmp/dev/active/review_channel.md"),
             "status_dir": Path("/tmp/dev/reports/review_channel/latest"),
         }
@@ -3521,7 +3521,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 args=args,
                 repo_root=Path("/tmp/repo"),
                 paths={
-                    "bridge_path": Path("/tmp/repo/code_audit.md"),
+                    "bridge_path": Path("/tmp/repo/bridge.md"),
                     "review_channel_path": Path("/tmp/repo/dev/active/review_channel.md"),
                     "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
                     "promotion_plan_path": Path("/tmp/repo/dev/active/continuous_swarm.md"),
@@ -3568,7 +3568,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 repo_root=Path("/tmp/repo"),
                 paths={
                     "artifact_paths": object(),
-                    "bridge_path": Path("/tmp/repo/code_audit.md"),
+                    "bridge_path": Path("/tmp/repo/bridge.md"),
                 },
             )
 
@@ -3800,7 +3800,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             script_dir = root / "scripts"
@@ -3972,7 +3972,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             script_dir = root / "scripts"
@@ -4043,7 +4043,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
@@ -4078,19 +4078,21 @@ class ReviewChannelCommandTests(unittest.TestCase):
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertTrue(payload["ok"])
             updated_bridge = bridge_path.read_text(encoding="utf-8")
-            self.assertIn("- reviewer accepted with follow-up", updated_bridge)
-            self.assertIn("- M1 closed", updated_bridge)
-            self.assertIn("- continue with the next scoped slice", updated_bridge)
-            self.assertIn("\n- Reviewer mode: `active_dual_agent`\n", updated_bridge)
+            self.assertIn("- still in progress", updated_bridge)
+            self.assertIn("- bridge needs rollover-safe handoff", updated_bridge)
             self.assertIn(
-                "- dev/scripts/devctl/review_channel/reviewer_state.py",
+                "- stop at a safe boundary and relaunch before compaction",
                 updated_bridge,
             )
-            reported_hash = payload["reviewer_state_write"]["last_worktree_hash"]
-            self.assertEqual(len(reported_hash), 64)
-            self.assertNotEqual(reported_hash, "a" * 64)
+            self.assertIn("\n- Reviewer mode: `active_dual_agent`\n", updated_bridge)
             self.assertIn(
-                f"- Last non-audit worktree hash: `{reported_hash}`",
+                "- dev/scripts/devctl/review_channel/handoff.py",
+                updated_bridge,
+            )
+            self.assertIsNone(payload["reviewer_state_write"])
+            self.assertIn(
+                "- Last non-audit worktree hash: "
+                f"`{'a' * 64}`",
                 updated_bridge,
             )
             self.assertEqual(payload["action"], "status")
@@ -4288,7 +4290,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             status_dir = root / "dev/reports/review_channel/latest"
             now = datetime.now(UTC)
@@ -4374,7 +4376,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             original_bridge = _build_bridge_text(last_codex_poll="2000-01-01T00:00:00Z")
             bridge_path.write_text(
                 original_bridge,
@@ -4426,7 +4428,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             original_bridge = _build_bridge_text(last_codex_poll="2000-01-01T00:00:00Z")
             bridge_path.write_text(
                 original_bridge,
@@ -4478,7 +4480,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(last_codex_poll="2000-01-01T00:00:00Z"),
                 encoding="utf-8",
@@ -4544,7 +4546,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(last_codex_poll="2000-01-01T00:00:00Z"),
                 encoding="utf-8",
@@ -4614,11 +4616,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             original_hash = compute_non_audit_worktree_hash(
                 repo_root=root,
-                excluded_rel_paths=("code_audit.md",),
+                excluded_rel_paths=("bridge.md",),
             )
             (root / "notes.txt").write_text("tree moved after review\n", encoding="utf-8")
             output_path = root / "report.json"
@@ -4708,7 +4710,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     current_verdict="- stale verdict",
@@ -4770,7 +4772,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             original_bridge = _build_bridge_text(
                 current_verdict="- stale verdict",
                 open_findings="- stale finding",
@@ -4827,7 +4829,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             review_channel_path.write_text(
                 _build_review_channel_text(), encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     current_verdict="- old verdict",
@@ -4882,7 +4884,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             (root / "fresh.py").write_text("print('reviewer follow')\n", encoding="utf-8")
             output_path = root / "report.json"
@@ -4960,7 +4962,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             review_channel_path.write_text(
                 _build_review_channel_text(), encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(current_verdict="- stale"), encoding="utf-8",
             )
@@ -5044,7 +5046,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     current_verdict="- accepted",
@@ -5119,7 +5121,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 "# AI Governance Platform\n\n## Execution Checklist\n\n- [ ] Tracker-selected platform work item.\n",
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     current_verdict="- accepted",
@@ -5165,7 +5167,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     current_verdict="- accepted",
@@ -5208,7 +5210,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             instruction = "- continue with the next scoped slice"
             stable_revision = "feedfacecafe"
             bridge_path.write_text(
@@ -5274,7 +5276,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             initial_instruction = "- continue with the next scoped slice"
             stable_revision = "feedfacecafe"
             bridge_path.write_text(
@@ -5330,7 +5332,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             instruction = "- continue with the next scoped slice"
             stable_revision = "feedfacecafe"
             bridge_path.write_text(
@@ -5386,7 +5388,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             malformed_bridge = _build_bridge_text().replace(
                 f"- Last non-audit worktree hash: `{'a' * 64}`\n",
                 f"- Last non-audit worktree hash: `{'a' * 64}`- Reviewer mode: `active_dual_agent`\n",
@@ -5445,7 +5447,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     open_findings=(
@@ -5505,7 +5507,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             stale_finding = (
                 "- H1 (blocking): `Claude Ack` is stale against current instruction "
                 "revision."
@@ -5560,7 +5562,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 snapshot.sections.get("Open Findings", ""),
             )
 
-    def test_run_reviewer_heartbeat_strips_stale_poll_status_mode_lines(self) -> None:
+    def test_run_reviewer_heartbeat_strips_stale_poll_status_mode_history_lines(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             review_channel_path = root / "dev/active/review_channel.md"
@@ -5569,11 +5573,18 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(reviewer_mode="single_agent").replace(
-                    "## Current Verdict",
-                    "- Reviewer mode is back to `active_dual_agent`\n\n## Current Verdict",
+                    "- active reviewer loop",
+                    "\n".join(
+                        [
+                            "- active reviewer loop",
+                            "- `2026-03-20T00:30:31Z`: reviewer repoll confirms the tree is current.",
+                            "- Live bridge status now matches the reviewed tree hash from this pass; reviewer mode is `active_dual_agent`, and the reviewer supervisor remains healthy.",
+                            "- Reviewer mode is back to `active_dual_agent`",
+                        ]
+                    ),
                 ),
                 encoding="utf-8",
             )
@@ -5617,6 +5628,14 @@ class ReviewChannelCommandTests(unittest.TestCase):
             updated_bridge = bridge_path.read_text(encoding="utf-8")
             self.assertIn("\n- Reviewer mode: `single_agent`\n", updated_bridge)
             self.assertNotIn(
+                "- `2026-03-20T00:30:31Z`: reviewer repoll confirms the tree is current.",
+                updated_bridge,
+            )
+            self.assertNotIn(
+                "Live bridge status now matches the reviewed tree hash from this pass;",
+                updated_bridge,
+            )
+            self.assertNotIn(
                 "- Reviewer mode is back to `active_dual_agent`",
                 updated_bridge,
             )
@@ -5647,7 +5666,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     current_verdict="- accepted",
@@ -5729,7 +5748,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     current_verdict="- accepted",
@@ -5801,7 +5820,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 ]),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     current_verdict="- accepted",
@@ -5883,7 +5902,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 ]),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     current_verdict="- still in progress",
@@ -5956,7 +5975,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     current_verdict="- accepted",
@@ -6007,7 +6026,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             args = SimpleNamespace(
@@ -6056,7 +6075,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(include_bridge=False),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             args = SimpleNamespace(
@@ -6104,10 +6123,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text().replace(
-                    "- code_audit.md\n- dev/scripts/devctl/review_channel/handoff.py",
+                    "- bridge.md\n- dev/scripts/devctl/review_channel/handoff.py",
                     "",
                 ),
                 encoding="utf-8",
@@ -6154,7 +6173,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             script_dir = root / "scripts"
@@ -6254,7 +6273,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             args = SimpleNamespace(
@@ -6334,7 +6353,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             args = SimpleNamespace(
@@ -6413,7 +6432,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(last_codex_poll="2026-03-08T18:50:00Z"),
                 encoding="utf-8",
@@ -6459,7 +6478,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(last_codex_poll="2026-03-08T18:50:00Z"),
                 encoding="utf-8",
@@ -6513,7 +6532,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             refresh = payload["bridge_heartbeat_refresh"]
             self.assertIsInstance(refresh, dict)
-            self.assertEqual(refresh["bridge_path"], "code_audit.md")
+            self.assertEqual(refresh["bridge_path"], "bridge.md")
             updated_text = bridge_path.read_text(encoding="utf-8")
             self.assertIn(refresh["last_codex_poll_utc"], updated_text)
             self.assertIn(refresh["last_worktree_hash"], updated_text)
@@ -6528,7 +6547,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(
                     last_codex_poll="2026-03-08T18:50:00Z",
@@ -6579,7 +6598,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(current_instruction="- all green so far"),
                 encoding="utf-8",
@@ -6625,10 +6644,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text().replace(
-                    "- code_audit.md\n- dev/scripts/devctl/review_channel/handoff.py",
+                    "- bridge.md\n- dev/scripts/devctl/review_channel/handoff.py",
                     "",
                 ),
                 encoding="utf-8",
@@ -6674,7 +6693,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             args = SimpleNamespace(
@@ -6707,9 +6726,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "build_bridge_guard_report",
                     return_value={
                         "ok": False,
-                        "code_audit": {
-                            "path": "code_audit.md",
-                            "error": "Bridge-active file is untracked by git: code_audit.md",
+                        "bridge": {
+                            "path": "bridge.md",
+                            "error": "Bridge-active file is untracked by git: bridge.md",
                         },
                         "review_channel": {
                             "path": "dev/active/review_channel.md",
@@ -6723,7 +6742,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(payload["ok"])
-            self.assertIn("code_audit.md", payload["errors"][0])
+            self.assertIn("bridge.md", payload["errors"][0])
             self.assertIn("dev/active/review_channel.md", payload["errors"][0])
 
     def test_run_launch_fails_closed_when_live_session_artifacts_are_active(self) -> None:
@@ -6735,7 +6754,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             args = SimpleNamespace(
@@ -6802,7 +6821,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(last_codex_poll=initial_poll),
                 encoding="utf-8",
@@ -6872,7 +6891,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(last_codex_poll=initial_poll),
                 encoding="utf-8",
@@ -6933,7 +6952,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             args = SimpleNamespace(
@@ -6979,7 +6998,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             args = SimpleNamespace(
@@ -7040,7 +7059,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(claude_status=""),
                 encoding="utf-8",
@@ -7096,7 +7115,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(
                 _build_bridge_text(claude_ack=""),
                 encoding="utf-8",
@@ -7142,7 +7161,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             args = SimpleNamespace(
@@ -7196,7 +7215,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
@@ -7251,7 +7270,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 _build_review_channel_text(),
                 encoding="utf-8",
             )
-            bridge_path = root / "code_audit.md"
+            bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
@@ -7314,7 +7333,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 terminal="none",
                 terminal_profile="auto-dark",
                 review_channel_path=str(review_channel_path.relative_to(root)),
-                bridge_path="code_audit.md",
+                bridge_path="bridge.md",
                 rollover_dir="dev/reports/review_channel/rollovers",
                 status_dir=str(status_dir.relative_to(root)),
                 rollover_threshold_pct=50,
@@ -7451,7 +7470,7 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
     ) -> "BridgeSnapshot":
         return extract_bridge_snapshot(
             "\n".join([
-                "# Code Audit Channel",
+                "# Review Bridge",
                 "",
                 f"- Last Codex poll: `{utc_timestamp()}`",
                 "",
@@ -7477,7 +7496,7 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
                 "",
                 "## Last Reviewed Scope",
                 "",
-                "- code_audit.md",
+                "- bridge.md",
             ])
         )
 

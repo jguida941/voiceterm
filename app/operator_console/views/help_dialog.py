@@ -164,7 +164,7 @@ This tab is the technical version of how the app runs.
 
 ## Read Paths
 
-- `code_audit.md`
+- `bridge.md`
 - `review_state.json` when present
 - `dev/reports/autonomy/queue/phone/latest.json` for iPhone-safe controller state
 - repo-visible operator decision artifacts

@@ -63,7 +63,7 @@ def _approval(packet_id: str = "pkt-1") -> ApprovalRequest:
         policy_hint="operator_approval_required",
         requested_action="git_push",
         status="pending",
-        evidence_refs=("code_audit.md#L1",),
+        evidence_refs=("bridge.md#L1",),
     )
 
 
@@ -85,7 +85,7 @@ def _snapshot(
         operator_panel_text="operator panel",
         codex_session_text="codex session",
         claude_session_text="claude session",
-        raw_bridge_text="# Code Audit Channel",
+        raw_bridge_text="# Review Bridge",
         review_mode="review",
         last_codex_poll=last_codex_poll,
         last_worktree_hash=last_worktree_hash,

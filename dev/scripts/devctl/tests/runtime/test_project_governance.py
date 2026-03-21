@@ -64,7 +64,7 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
         },
         "bridge_config": {
             "bridge_mode": "active_dual_agent",
-            "bridge_path": "code_audit.md",
+            "bridge_path": "bridge.md",
             "review_channel_path": "dev/active/review_channel.md",
             "bridge_active": True,
         },
@@ -167,7 +167,7 @@ def test_project_governance_from_mapping_with_defaults() -> None:
     assert gov.memory_roots.context_store_root == ""
 
     assert gov.bridge_config.bridge_mode == "single_agent"
-    assert gov.bridge_config.bridge_path == "code_audit.md"
+    assert gov.bridge_config.bridge_path == "bridge.md"
     assert gov.bridge_config.review_channel_path == "dev/active/review_channel.md"
     assert gov.bridge_config.bridge_active is False
 
@@ -263,7 +263,7 @@ def test_bridge_config_from_mapping_coerces_bool() -> None:
     config = bridge_config_from_mapping(
         {
             "bridge_mode": "active_dual_agent",
-            "bridge_path": "code_audit.md",
+            "bridge_path": "bridge.md",
             "review_channel_path": "dev/active/review_channel.md",
             "bridge_active": "true",
         }

@@ -24,7 +24,7 @@ public enum MobileRelayPreviewData {
             sources: Sources(
                 phoneInputPath: "dev/reports/autonomy/queue/phone/latest.json",
                 reviewChannelPath: "dev/active/review_channel.md",
-                bridgePath: "code_audit.md",
+                bridgePath: "bridge.md",
                 reviewStatusDir: "dev/reports/review_channel/latest"
             ),
             controllerPayload: ControllerPayload(

@@ -38,7 +38,7 @@ def rewrite_current_instruction(
     bridge_text: str,
     instruction: str,
 ) -> str:
-    """Rewrite only the live Claude-instruction section in `code_audit.md`."""
+    """Rewrite only the live Claude-instruction section in `bridge.md`."""
 
     def replacement(match: re.Match[str]) -> str:
         return f"{match.group(1)}\n{instruction.strip()}\n\n"

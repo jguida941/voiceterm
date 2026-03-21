@@ -36,7 +36,7 @@ def maybe_auto_promote_next_task(
 
         current_hash = heartbeat_module.compute_non_audit_worktree_hash(
             repo_root=repo_root,
-            excluded_rel_paths=("code_audit.md",),
+            excluded_rel_paths=("bridge.md",),
         )
     except (ValueError, OSError):
         current_hash = None

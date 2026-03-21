@@ -92,7 +92,7 @@ def test_classify_doc_master_plan(tmp_path: Path) -> None:
         index_path="dev/active/INDEX.md",
         tracker_path="MASTER_PLAN.md",
         docs_authority_path="AGENTS.md",
-        bridge_path="code_audit.md",
+        bridge_path="bridge.md",
         root_files=(),
     )
     result = classify_doc(
@@ -115,7 +115,7 @@ def test_classify_doc_root_index_is_guide(tmp_path: Path) -> None:
         index_path="dev/active/INDEX.md",
         tracker_path="dev/active/MASTER_PLAN.md",
         docs_authority_path="AGENTS.md",
-        bridge_path="code_audit.md",
+        bridge_path="bridge.md",
         root_files=("DEV_INDEX.md",),
     )
     result = classify_doc(
@@ -356,9 +356,9 @@ def test_build_report_classifies_agents_as_guide(tmp_path: Path) -> None:
 
 
 def test_build_report_classifies_code_audit_as_generated_report(tmp_path: Path) -> None:
-    (tmp_path / "code_audit.md").write_text("# Audit\n")
+    (tmp_path / "bridge.md").write_text("# Audit\n")
     report = build_doc_authority_report(tmp_path)
-    record = next(entry for entry in report.records if entry.path == "code_audit.md")
+    record = next(entry for entry in report.records if entry.path == "bridge.md")
     assert record.doc_class == "generated_report"
 
 

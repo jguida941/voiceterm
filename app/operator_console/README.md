@@ -138,7 +138,7 @@ Phase-1 behavior:
 - `Mobile Relay` summaries on Home and Analytics that prefer the emitted
   `devctl mobile-status` bundle, with honest fallback to rebuilt merged
   control + review state and then raw controller `phone-status`
-- side-by-side bridge-derived Codex, Claude, and Operator panes (parsed from `code_audit.md`)
+- side-by-side bridge-derived Codex, Claude, and Operator panes (parsed from `bridge.md`)
 - explicit `Codex Session` and `Claude Session` monitor panes backed by the
   review-channel full projection's agent registry plus current bridge state,
   so the app shows what each side is working on even before live PTY traces
@@ -161,7 +161,7 @@ Phase-1 behavior:
   `status --ci`, `triage --ci`, and `process-audit --strict`
 - staged Codex/Claude summary drafts derived from the selected report, with
   explicit provenance text copied from the current snapshot
-- raw `code_audit.md` view
+- raw `bridge.md` view
 - `Launch Dry-Run`, `Launch Live`, and `Rollover` buttons, with live controls
   explicitly gated to the macOS Terminal.app path
 - selectable desktop themes matching the overlay ids
@@ -289,10 +289,10 @@ blocks early on broken plan/sync state instead of pretending the loop started.
    python3 dev/scripts/devctl.py review-channel --action launch --format md --refresh-bridge-heartbeat-if-stale
    ```
 
-5. Watch the Operator Console plus `code_audit.md`. A healthy run should show:
-   - bridge-derived Codex and Claude panes refreshing from parsed `code_audit.md` sections
+5. Watch the Operator Console plus `bridge.md`. A healthy run should show:
+   - bridge-derived Codex and Claude panes refreshing from parsed `bridge.md` sections
    - diagnostics entries for launcher activity and bridge refreshes
-   - `code_audit.md` heartbeat fields changing instead of staying static
+   - `bridge.md` heartbeat fields changing instead of staying static
    - `markdown bridge only; live terminal telemetry unavailable` when `review_state.json` is absent
 
 ## Analytics Mode
@@ -348,7 +348,7 @@ window, but it stays memory-only for that run.
       +---------------------+---------------------+------------------+
       |                                           |                  |
       v                                           v                  v
- code_audit.md / review_state.json   devctl review-channel launch   dev-log artifacts
+ bridge.md / review_state.json   devctl review-channel launch   dev-log artifacts
       |                                           |                  |
       +---------------------+---------------------+------------------+
                             |

@@ -45,7 +45,7 @@ def test_scan_repo_governance_with_empty_policy(tmp_path: Path) -> None:
     assert gov.path_roots.guides == ""
     assert gov.path_roots.config == ""
 
-    # bridge is inactive when code_audit.md does not exist
+    # bridge is inactive when bridge.md does not exist
     assert gov.bridge_config.bridge_active is False
 
     # startup_order is empty when bootstrap files are absent
@@ -72,7 +72,7 @@ def test_scan_repo_governance_with_standard_layout(tmp_path: Path) -> None:
     )
 
     # Create bridge file with active_dual_agent mode
-    (tmp_path / "code_audit.md").write_text(
+    (tmp_path / "bridge.md").write_text(
         "# Code Audit\n- Reviewer mode: `active_dual_agent`\n",
         encoding="utf-8",
     )
@@ -93,7 +93,7 @@ def test_scan_repo_governance_with_standard_layout(tmp_path: Path) -> None:
     assert gov.plan_registry.tracker_path == "dev/active/MASTER_PLAN.md"
     assert gov.plan_registry.index_path == "dev/active/INDEX.md"
 
-    # bridge is active and mode parsed from code_audit.md
+    # bridge is active and mode parsed from bridge.md
     assert gov.bridge_config.bridge_active is True
     assert gov.bridge_config.bridge_mode == "active_dual_agent"
 

@@ -96,13 +96,13 @@ python3 dev/scripts/devctl.py tandem-validate --format md
 python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md
 
 # Reviewer-owned truth update after a real accepted review pass
-python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --verdict "- reviewer accepted" --open-findings "- none" --instruction "- continue" --reviewed-scope-item code_audit.md --terminal none --format md
+python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --verdict "- reviewer accepted" --open-findings "- none" --instruction "- continue" --reviewed-scope-item bridge.md --terminal none --format md
 ```
 
 Use this only for the current markdown-bridge cycle:
 
 1. It reads `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`,
-   `dev/active/review_channel.md`, and `code_audit.md`.
+   `dev/active/review_channel.md`, and `bridge.md`.
 2. Codex is the reviewer conductor for `AGENT-1..AGENT-8`.
 3. Claude is the coding conductor for `AGENT-9..AGENT-16`.
 4. Terminal.app launch defaults to `--terminal-profile auto-dark`, which picks
@@ -120,7 +120,7 @@ Use this only for the current markdown-bridge cycle:
 8. `--action rollover` writes a handoff bundle under
    `dev/reports/review_channel/rollovers/`, relaunches fresh conductors, and
    waits up to the configured `--await-ack-seconds` window for visible rollover
-   ACK lines in `code_audit.md`.
+   ACK lines in `bridge.md`.
 9. The launcher fails closed if `review_channel.md` no longer marks the
    markdown bridge as the active operating mode.
 10. Live `--action launch` sessions now auto-relaunch on clean provider exits so
@@ -202,7 +202,7 @@ phone/mobile clients, and agent-only or developer-only flows:
 - `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
 - `python3 dev/scripts/devctl.py tandem-validate --format md`
 - `python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md`
-- `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --verdict "- reviewer accepted" --open-findings "- none" --instruction "- continue" --reviewed-scope-item code_audit.md --terminal none --format md`
+- `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --verdict "- reviewer accepted" --open-findings "- none" --instruction "- continue" --reviewed-scope-item bridge.md --terminal none --format md`
 - `python3 dev/scripts/devctl.py swarm_run --help`
 - `python3 dev/scripts/devctl.py phone-status --help`
 - `python3 dev/scripts/devctl.py mobile-status --help`

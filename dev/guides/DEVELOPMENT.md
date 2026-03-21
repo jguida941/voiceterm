@@ -153,6 +153,11 @@ Three quality layers matter in practice:
   - After a real review pass, advance review truth with
     `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint ...`
     rather than hand-editing heartbeat/hash/verdict lines separately.
+  - The repo-root live bridge file is `bridge.md`. Repo-owned
+    `reviewer-heartbeat`, `reviewer-checkpoint`, and instruction-promotion
+    writes now serialize the bridge file under a lock and scrub stale
+    mode/history lines from `Poll Status` so the markdown surface stays a
+    current-state bridge instead of an append-only session dump.
   - `review-channel --action status|ensure|reviewer-heartbeat|reviewer-checkpoint`
     now emit machine-readable `reviewer_worker` state, and
     `review-channel --action ensure --follow` cadence frames carry the same

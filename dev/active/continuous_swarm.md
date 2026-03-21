@@ -41,7 +41,7 @@ Out of scope until the local proof gate is green:
 1. Local proof comes first. Do not template the current loop before it works
    here with minimal operator babysitting.
 2. `dev/active/MASTER_PLAN.md` remains the canonical task tracker and
-   `code_audit.md` remains the current-state bridge while the markdown path is
+   `bridge.md` remains the current-state bridge while the markdown path is
    active.
 3. The continuous loop must keep going while scoped work remains:
    current blockers first, then the next unchecked scoped plan item, then the
@@ -214,7 +214,7 @@ Out of scope until the local proof gate is green:
       the next unchecked plan item is promoted into the bridge instruction
       automatically. End-to-end proven with 2 focused tests (`5239d88`).
 - [ ] Keep bridge truth synchronized when the reviewer heartbeat advances:
-      `code_audit.md`, `latest.md`, and `review_state.json` must move the
+      `bridge.md`, `latest.md`, and `review_state.json` must move the
       reviewed hash, current verdict, open findings, plan alignment, and next
       instruction together instead of advertising a fresh heartbeat on stale
       review state or a completed task.
@@ -270,7 +270,7 @@ Out of scope until the local proof gate is green:
       repo-owned runtime truth rather than only prompt text plus an on-demand
       validator.
 - [x] Ensure the loop uses one master document chain:
-      `MASTER_PLAN` -> relevant active-plan checklist -> `code_audit.md`
+      `MASTER_PLAN` -> relevant active-plan checklist -> `bridge.md`
       current-state bridge.
 - [ ] Keep tracker/runbook truth aligned when launcher blockers change state:
       `MASTER_PLAN`, `review_channel.md`, and `continuous_swarm.md` may not
@@ -458,7 +458,7 @@ Out of scope until the local proof gate is green:
      current worktree. Recovery contract recommends Codex re-review. (`4ae9830`)
 - 2026-03-13: Validated the next bridge-truth drift after the Phase 0
   classification write. The bridge header heartbeat/hash advanced to
-  `2026-03-14T02:17:03Z` / `95a196f52cce...`, but `code_audit.md` still clears
+  `2026-03-14T02:17:03Z` / `95a196f52cce...`, but `bridge.md` still clears
   reviewed hash `6d277...`, still points `Plan Alignment` at
   `review_probes.md`, and still instructs Claude to rerun the already-complete
   Phase 0 classification while `dev/reports/review_channel/latest/latest.md`
@@ -590,7 +590,7 @@ Out of scope until the local proof gate is green:
 - 2026-03-08: Added `dev/guides/AGENT_COLLABORATION_SYSTEM.md` as a
   plain-language explainer for the live Codex/Claude collaboration model. The
   guide maps the current bridge-gated `review-channel` bootstrap, the
-  `code_audit.md` conductor loop, `swarm_run`/`autonomy-swarm`/
+  `bridge.md` conductor loop, `swarm_run`/`autonomy-swarm`/
   `autonomy-loop` layering, artifact roots, and the current-versus-planned
   boundary so operators can inspect the whole system from one doc instead of
   stitching it together from plan files and command references. It also makes
@@ -614,7 +614,7 @@ Out of scope until the local proof gate is green:
   `--action rollover` command in their bootstrap prompt, the enforced
   threshold is now 50% remaining context, rollover writes a repo-visible
   handoff bundle under `dev/reports/review_channel/rollovers/`, fresh
-  conductors receive exact ACK lines they must write into `code_audit.md`, and
+  conductors receive exact ACK lines they must write into `bridge.md`, and
   the command can wait for those visible ACKs before the retiring session exits.
 
 ## Audit Evidence
