@@ -155,6 +155,17 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         ),
         "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
     }),
+    ("review_follow_up_required", {
+        "guard_behavior": "warn",
+        "owner": "codex",
+        "summary": (
+            "Implementer-owned state changed; reviewer follow-up is required before the verdict and current instruction can advance."
+        ),
+        "recovery": (
+            "Codex should inspect the current diff, refresh bridge verdict/findings/hash, and then let the reviewer follow loop resume."
+        ),
+        "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
+    }),
     ("reviewed_hash_stale", {
         "guard_behavior": "warn",
         "owner": "codex",

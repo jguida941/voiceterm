@@ -753,6 +753,12 @@ intended execution order is:
       for changed paths plus hint/severity counts with rescan fallback only
       when stale or missing, and query confidence must stay fail-closed
       instead of promoting substring/import noise to high confidence.
+      Partial: the exclusion/fresh-artifact/severity lane is now closed with
+      focused end-to-end proof that contract-accurate `review_packet.json`
+      severity data reaches built source-node metadata and temperature through
+      `build_context_graph()`. The remaining same-bounded follow-up is the
+      confidence contract/parity cleanup (`QueryResult.confidence` /
+      machine-output alignment), not another widening of artifact semantics.
 - [ ] Land one typed `startup-context` / `WorkIntakePacket` repo-owned command
       before broader graph fan-out. That packet should act as the first
       deterministic context-router: given command goal/intent, active target
@@ -1028,6 +1034,15 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-22: Accepted the bounded MP-377 context-graph severity-plumbing
+  closure after the final end-to-end regression landed. The graph now proves
+  the real contract path: fresh probe-run timestamp from sibling
+  `summary.json`, changed/hint inputs from `file_topology.json`, severity from
+  `review_packet.json` hotspots, and one built source node carrying both the
+  severity metadata and the exact boost delta through `build_context_graph()`.
+  Focused proof is green (`60` tests), so the next bounded graph-hygiene item
+  is no longer artifact severity plumbing; it is the still-open confidence
+  contract mismatch between the runtime query model and machine-output payload.
 - 2026-03-21: Promoted the guard-audit conclusions into tracked `MP-377`
   intake so execution state stays in this plan and `MASTER_PLAN`. Re-verified
   the highest-risk claims against live code before recording them here:

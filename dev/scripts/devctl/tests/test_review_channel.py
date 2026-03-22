@@ -2212,6 +2212,26 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(attention["status"], "reviewer_supervisor_required")
         self.assertIn("reviewer-heartbeat --follow", attention["recommended_command"])
 
+    def test_attention_reports_review_follow_up_required_when_review_is_pending_and_supervisor_is_running(self) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "review_needed": True,
+            "reviewer_supervisor_running": True,
+            "reviewed_hash_current": False,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+        }
+        attention = derive_bridge_attention(liveness)
+        self.assertEqual(attention["status"], "review_follow_up_required")
+        self.assertIn("refresh bridge verdict", attention["recommended_action"])
+
     def test_attention_escalates_to_reviewer_overdue_when_age_exceeds_threshold(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
 
@@ -5972,7 +5992,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertIn(
                 payload["attention"]["status"],
-                {"claude_ack_stale", "runtime_missing"},
+                {"claude_ack_stale", "runtime_missing", "review_follow_up_required"},
             )
             updated_bridge = bridge_path.read_text(encoding="utf-8")
             self.assertIn(
@@ -6194,7 +6214,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertIn(
                 payload["attention"]["status"],
-                {"claude_ack_stale", "runtime_missing"},
+                {
+                    "claude_ack_stale",
+                    "runtime_missing",
+                    "review_follow_up_required",
+                },
             )
 
     def test_auto_promote_skipped_when_bridge_has_active_instruction(self) -> None:

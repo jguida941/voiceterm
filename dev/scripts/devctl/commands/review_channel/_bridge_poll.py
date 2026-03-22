@@ -199,7 +199,7 @@ def _derive_next_turn(liveness: BridgeLiveness) -> tuple[bool, str, str]:
     if not liveness.claude_ack_current:
         return True, TandemRole.IMPLEMENTER.value, "implementer_ack_stale"
     if liveness.reviewed_hash_current is False:
-        return True, TandemRole.REVIEWER.value, "reviewed_hash_stale"
+        return True, TandemRole.REVIEWER.value, "review_follow_up_required"
     return False, "", "up_to_date"
 
 

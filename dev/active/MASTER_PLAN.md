@@ -2083,7 +2083,14 @@ become the main product surface.
   `safe_to_continue_editing=false`; keep MP-355 open until checkpoint-gate
   pauses become a first-class typed wait reason across status/projection/
   bridge surfaces so Codex and Claude can stay synchronized while edits are
-  intentionally paused.
+  intentionally paused. A later same-lane bounded follow-up also closed the
+  adjacent reviewer-side stale-state ambiguity: active-dual-agent attention
+  and bridge-poll routing now emit `review_follow_up_required` when Claude has
+  changed the live tree under an active reviewer supervisor and
+  `reviewed_hash_current=false`, so reviewer follow-up no longer looks like a
+  generic done/stale state while Codex still owes a re-review pass. Focused
+  review-channel tests (`231`) and `devctl check --profile ci` are green on
+  that slice, but the checkpoint-gate pause projection remains open.
   Keep MP-355 open until those launch/freshness/ACK/coverage gaps are closed.
   2026-03-09 operator
   validation follow-up confirmed the current dirty-tree behavior: focused

@@ -189,7 +189,7 @@ def test_bridge_poll_reports_unchanged_ack_state(tmp_path: Path) -> None:
     assert payload["review_needed"] is True
     assert payload["next_turn_required"] is True
     assert payload["next_turn_role"] == "reviewer"
-    assert payload["next_turn_reason"] == "reviewed_hash_stale"
+    assert payload["next_turn_reason"] == "review_follow_up_required"
     assert payload["turn_state_token"]
 
 
@@ -302,7 +302,7 @@ def test_turn_state_token_changes_when_reviewer_turn_flips_without_new_revision(
     assert stale_tree.changed_since_last_ack is False
     assert reviewed_tree.changed_since_last_ack is False
     assert stale_tree.next_turn_role == "reviewer"
-    assert stale_tree.next_turn_reason == "reviewed_hash_stale"
+    assert stale_tree.next_turn_reason == "review_follow_up_required"
     assert reviewed_tree.next_turn_role == ""
     assert reviewed_tree.next_turn_reason == "up_to_date"
     assert stale_tree.turn_state_token != reviewed_tree.turn_state_token

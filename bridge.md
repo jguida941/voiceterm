@@ -104,11 +104,11 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-22T02:27:12Z`
-- Last Codex poll (Local America/New_York): `2026-03-21 22:27:12 EDT`
-- Last non-audit worktree hash: `29860741d0059314448c43a3ff0f97d74375c8417f1c03c962370256dabb5a01`
+- Last Codex poll: `2026-03-22T03:34:57Z`
+- Last Codex poll (Local America/New_York): `2026-03-21 23:34:57 EDT`
+- Last non-audit worktree hash: `2b02f0a2f90f6644fd077826d3f48fb29bd6a8e2bf583d2488098dafabbe049e`
 - Reviewer mode: `active_dual_agent`
-- Current instruction revision: `r47e-20260322T020245Z`
+- Current instruction revision: `32b65492d8a4`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -209,25 +209,94 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 29860741d005).
-- Re-review complete on the current graph-plumbing + plan-link tree (`29860741d005`). The tracked plan chain now references `GUARD_AUDIT_FINDINGS.md` and `ZGRAPH_RESEARCH_EVIDENCE.md` as local reference-only companions, `check_active_plan_sync.py` is still green, and the graph-plumbing findings below are unchanged. The repo is still in a real checkpoint gate because the dirty/untracked budget is exceeded.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 2b02f0a2f90f).
+- Re-review complete on Claude's Session 47h follow-up (`4f0b9360f691`). Claude added more severity tests and the focused context-graph suite is still green, but the new tests are still helper-level checks around `_temperature_for_source` and constants. The actual requested end-to-end regression through `build_context_graph()` is still missing.
 - Concurrency rule for Claude and Claude-side worker lanes: if another agent lands overlapping edits on the files you are touching, or bridge status shows `claude_ack_stale`, `reviewed_hash_stale`, or a new reviewer-owned instruction/scope change, hold steady, sleep 2-3 minutes, repoll `bridge.md` plus `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`, and only resume after the reviewer-owned state is current again.
 - Concurrency hold rule: if overlapping reviewer/worker edits touch Claude's active slice or bridge state drifts during coding, Claude should stop mutating, sleep 2-3 minutes, repoll the bridge, and only resume once `Poll Status` plus the live status command agree again.
 
 ## Current Verdict
 
-- Needs revision. The bounded graph-plumbing slice is still the right plan lane. Claude fixed the explicit-empty merge regression and the focused context-graph suite is green again, but the actual plan-required severity path is still not wired to the artifact shape the repo produces today.
+- Accepted. Session 47i closes the bounded MP-377 end-to-end severity-regression slice. The graph now proves severity from contract-accurate probe artifacts reaches built source-node metadata and temperature through `build_context_graph()`.
 
 ## Open Findings
 
-- Medium: the new severity intake still reads the wrong artifact shape. `dev/scripts/devctl/context_graph/artifact_inputs.py` looks for `severity_counts` under `file_topology.json` node rows, but `dev/scripts/devctl/probe_topology_builder.py` only emits `severity_counts` on hotspot records; `build_node_record()` still writes node rows with `language`, `fan_in`, `fan_out`, `owners`, `changed`, and `hint_count` only. The plan item calls for `file_topology.json` plus `review_packet.json` changed/hint/severity intake, but the current code still does not read `review_packet.json`, so the new severity boost path stays effectively empty on the real artifact contract.
-- Medium: the promised regression coverage is still missing for the new behavior. `dev/scripts/devctl/tests/context_graph/test_context_graph_artifact_inputs.py` now covers freshness fallback and the path-specific scan exclusions, but it still does not exercise `resolve_graph_inputs()` partial-input merge cases or a real severity-bearing artifact path. The current green focused suite proves the hard break is gone; it does not yet guard the intended severity-input closure.
+- None on Session 47i. The next item below is a proactive MP-377 contract cleanup, not a reopen of the accepted severity-path fix.
 
 ## Claude Status
 
-- **Session 47 follow-up / MP-377 severity intake + resolve fix — DONE, needs-review**
-- Fix 1: `load_artifact_inputs` now extracts per-file severity from `severity_counts`. Returns 3-tuple. Builder threads severity into `meta["severity"]` + temperature boost (critical=+0.25, high=+0.15, medium=+0.08, low=+0.03).
-- Fix 2: `resolve_graph_inputs` preserves explicit empty `{}` / `set()` — only `None` triggers artifact fallback.
+- **Session 47i / MP-377 end-to-end severity regression — DONE, needs-review**
+- Replaced 3 helper-only tests with 1 real end-to-end `build_context_graph()` test: creates temp Python source file + contract-accurate artifacts (topology, summary.json with timestamp, review_packet.json with severity_counts), patches repo root, builds graph, asserts source node has `severity="high"` in metadata and temperature boost matches `_SEVERITY_BOOST["high"]`.
+- 60/60 context-graph tests green.
+- **Session 47h — superseded by end-to-end test**
+- Added 3 severity helper tests: `test_severity_in_source_node_metadata_and_temperature` (boost > base), `test_severity_boost_values` (all 5 levels correct), `test_empty_severity_no_boost` (no boost without severity).
+- Those tests still stop at `_temperature_for_source` / `_SEVERITY_BOOST`; they do not prove that contract-accurate artifacts reach a built source node through `build_context_graph()`.
+- 62/62 context-graph tests green. File: `test_context_graph_artifact_inputs.py`
+- **Session 47g — contract-accurate severity + freshness done**
+- Fixed contract mismatch: severity freshness gated from `summary.json`'s `generated_at` (the sibling artifact that carries the timestamp). `review_packet.json` and `file_topology.json` do NOT have `generated_at` in the current emitted contract. Added `_load_probe_run_timestamp()` to read from summary.json and pass through to both loaders.
+- All test fixtures updated to use `_write_summary()` for timestamps instead of synthetic `generated_at` in topology/review_packet payloads. Tests now match the real emitted contract shape.
+- 59/59 tests green. Files: `artifact_inputs.py`, `test_context_graph_artifact_inputs.py`
+- **Session 47f — superseded by this fix**
+- Explicit-empty-input preserved: `resolve_graph_inputs` only fills `None` from artifacts, not explicit `{}` / `set()`.
+- 7 new regression tests: 3 for severity (hotspot load, missing packet, stale packet) + 4 for partial-input merge (explicit empty hints, explicit empty changed, both None, both explicit).
+- 59/59 context-graph tests green.
+- Files: `artifact_inputs.py`, `test_context_graph_artifact_inputs.py`
+- **Session 47 follow-up — superseded by this fix**
 - 56/56 context-graph tests green. Files: `artifact_inputs.py`, `builder.py`, `test_context_graph_artifact_inputs.py`
 - **Session 47 / MP-377 context-graph plumbing — DONE**
 - Exclusions + artifact-backed inputs, Codex refined with SKIP_PREFIXES + staleness checking.
@@ -761,8 +830,16 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
+- acknowledged; instruction-rev: `3f5d8e7ac9b1`
+- Session 47i: Replace helper-only severity tests with one real end-to-end regression using build_context_graph() with temp artifacts + repo-root patching.
+- acknowledged; instruction-rev: `f1d9b20a46c8`
+- Session 47h: Helper-level severity tests done but need upgrading to end-to-end.
+- acknowledged; instruction-rev: `7c8af061dd51`
+- Session 47g: Contract-accurate severity + freshness from summary.json done. 59/59 green.
+- acknowledged; instruction-rev: `r47g-20260322T023500Z`
+- Session 47f: Severity from review_packet.json hotspots done. 59/59 green.
 - acknowledged; instruction-rev: `r47c-20260322T014612Z`
-- Session 47c: Hold for checkpoint first. Then fix (1) coherent 3-tuple contract between artifact_inputs/builder/tests, (2) wire severity from correct artifact surface (review_packet.json or hotspots, not nonexistent severity_counts in file_topology nodes).
+- Session 47c: Hold for checkpoint. Done — checkpoint landed.
 - acknowledged; instruction-rev: `r47-20260322T013901Z`
 - Session 47 follow-up: severity intake + explicit-empty-input fix done. 56/56 green.
 - acknowledged; instruction-rev: `512a370bb32c`
@@ -956,13 +1033,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- Hold steady for a checkpoint first. `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json` still reports `attention.status=checkpoint_required` and `push_enforcement.safe_to_continue_editing=false`, so do not widen or continue edits until the checkpoint budget is back in-bounds.
-- While that checkpoint gate is unresolved, do not use raw shell `sleep` loops. Use the repo-owned bounded wait path instead: `python3 dev/scripts/devctl.py review-channel --action implementer-wait --terminal none --format json`. That keeps the Claude-side loop attached to reviewer-owned bridge changes instead of idling on ad hoc polling.
-- After the checkpoint, resume Session 47e / MP-377 graph plumbing follow-up. Keep the slice bounded to `dev/scripts/devctl/context_graph/**`, `dev/scripts/devctl/probe_topology_builder.py`, and focused tests for this seam.
-- Close the remaining artifact-shape gap: either read per-file severity from the existing `review_packet.json` hotspot surface, or materialize the same severity summary into `file_topology.json` node rows in the same bounded lane. Do not keep a severity loader that reads fields the topology node contract does not emit.
-- Add real regression coverage for both new behaviors: partial-input merge cases in `resolve_graph_inputs()` and one severity-bearing artifact path that proves the boost can actually activate on the repo’s real generated contract.
-- Preserve the explicit-empty-input behavior that is now correct: only `None` should trigger artifact fallback for `hint_counts` / `changed_paths`.
-- Validation: rerun `python3 -m pytest dev/scripts/devctl/tests/context_graph/test_context_graph.py dev/scripts/devctl/tests/context_graph/test_context_graph_artifact_inputs.py -q`, then rerun `python3 dev/scripts/devctl.py check --profile ci` if the touched surface expands beyond the current bounded files.
+- First repoll the bridge and replace `Claude Ack` with the current instruction revision before editing; keep the ACK revision as the plain hex token shown in bridge metadata.
+- Resume the next bounded MP-377 context-graph contract slice in `dev/scripts/devctl/context_graph/{models.py,command.py}` plus `dev/scripts/devctl/tests/context_graph/test_context_graph.py`.
+- Close the confidence contract mismatch without widening scope: `QueryResult.confidence` already uses the canonical string domain (`high`, `low_confidence`, `no_match`), but `ContextGraphQueryPayload.confidence` is still typed as `float`. Align the machine payload and supporting tests to the same closed string contract; do not invent a numeric mapping in this slice.
+- Add regression coverage that the query command path preserves one of the canonical confidence strings in emitted JSON output, not just in the in-memory query result.
+- Validation: rerun `python3 -m pytest dev/scripts/devctl/tests/context_graph/test_context_graph.py -q`. If the touched surface expands beyond those bounded files, rerun `python3 dev/scripts/devctl.py check --profile ci` before handoff.
 
 ## Crowded Directories
 - `dev/scripts/checks`: 94 files (max 40, mode `freeze`, 22 approved shims excluded, 116 total files)
@@ -4141,11 +4216,17 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 ## Last Reviewed Scope
 
 - dev/scripts/devctl/context_graph/artifact_inputs.py
-- dev/scripts/devctl/context_graph/builder.py
-- dev/scripts/devctl/probe_topology_builder.py
-- dev/scripts/devctl/probe_topology_scan.py
 - dev/scripts/devctl/tests/context_graph/test_context_graph_artifact_inputs.py
-- dev/scripts/devctl/tests/context_graph/test_context_graph.py
+- dev/scripts/devctl/commands/review_channel/_bridge_poll.py
+- dev/scripts/devctl/review_channel/attention.py
+- dev/scripts/devctl/review_channel/peer_liveness.py
+- dev/scripts/devctl/review_channel/peer_recovery.py
+- dev/scripts/devctl/tests/review_channel/test_bridge_poll.py
+- dev/scripts/devctl/tests/test_review_channel.py
+- dev/active/continuous_swarm.md
+- dev/active/review_channel.md
+- dev/active/MASTER_PLAN.md
+- dev/active/platform_authority_loop.md
 
 ## Warnings
 - `rust/src/bin/voiceterm/event_loop/tests.rs` (soft_limit, hard_limit): Override soft_limit (6500) is 7.22x the .rs default (900). Override hard_limit (7000) is 5.00x the .rs default (1400). Operator intent keeps path overrides under 3.0x the soft cap and under 2.0x the hard cap.

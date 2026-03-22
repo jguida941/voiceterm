@@ -13,24 +13,54 @@ def load_artifact_inputs(
     repo_root: Path,
 ) -> tuple[dict[str, int], set[str], dict[str, str]]:
     """Load hint counts, changed paths, and per-file severity from fresh
-    file_topology.json when available.
+    probe artifacts when available.
 
     Returns (hint_counts, changed_paths, severity_by_file).
-    severity_by_file maps file path → highest severity string found in that
-    file's probe hints (e.g., "high", "medium", "low").
+
+    hint_counts and changed_paths come from ``file_topology.json`` (node rows).
+    severity_by_file comes from ``review_packet.json`` (hotspot rows), which
+    is the only artifact that carries ``severity_counts`` per file.
     """
+    probe_ts = _load_probe_run_timestamp(repo_root)
+    hints, changed = _load_topology_inputs(repo_root, probe_timestamp=probe_ts)
+    severity = _load_severity_from_review_packet(repo_root, probe_timestamp=probe_ts)
+    return hints, changed, severity
+
+
+def _load_probe_run_timestamp(repo_root: Path) -> datetime | None:
+    """Load the probe-run timestamp from summary.json (the sibling artifact
+    that carries ``generated_at``). Both ``file_topology.json`` and
+    ``review_packet.json`` are emitted in the same run but do not carry
+    their own ``generated_at`` in the current contract.
+    """
+    summary_path = repo_root / "dev" / "reports" / "probes" / "latest" / "summary.json"
+    if not summary_path.exists():
+        return None
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+        return _parse_generated_at(payload.get("generated_at"))
+    except (OSError, ValueError):
+        return None
+
+
+def _load_topology_inputs(
+    repo_root: Path,
+    probe_timestamp: datetime | None = None,
+) -> tuple[dict[str, int], set[str]]:
+    """Load hint counts and changed paths from file_topology.json."""
     topology_path = repo_root / "dev" / "reports" / "probes" / "latest" / "file_topology.json"
     if not topology_path.exists():
-        return {}, set(), {}
+        return {}, set()
     try:
         payload = json.loads(topology_path.read_text(encoding="utf-8"))
-        generated_at = _parse_generated_at(payload.get("generated_at"))
+        # Use probe-run timestamp from summary.json for freshness,
+        # falling back to in-payload generated_at if present
+        generated_at = probe_timestamp or _parse_generated_at(payload.get("generated_at"))
         if generated_at is None or _artifact_is_stale(generated_at):
-            return {}, set(), {}
+            return {}, set()
         nodes_payload = payload.get("nodes") or {}
         hint_counts: dict[str, int] = {}
         changed_paths: set[str] = set()
-        severity_by_file: dict[str, str] = {}
         for file_path, file_data in nodes_payload.items():
             if not isinstance(file_data, dict):
                 continue
@@ -39,15 +69,50 @@ def load_artifact_inputs(
                 hint_counts[file_path] = hint_count
             if file_data.get("changed"):
                 changed_paths.add(file_path)
-            # Extract highest severity from severity_counts if present
-            severity_counts = file_data.get("severity_counts")
+        return hint_counts, changed_paths
+    except (OSError, ValueError, KeyError):
+        return {}, set()
+
+
+def _load_severity_from_review_packet(
+    repo_root: Path,
+    probe_timestamp: datetime | None = None,
+) -> dict[str, str]:
+    """Load per-file severity from review_packet.json hotspots.
+
+    The review_packet.json hotspot rows carry ``severity_counts`` (e.g.,
+    ``{"high": 5, "medium": 6}``). File_topology.json node rows do NOT
+    carry this field.
+
+    Freshness is gated from the sibling ``summary.json`` timestamp (passed
+    as ``probe_timestamp``), not from an in-payload ``generated_at`` field
+    that the current ``ReviewPacket`` contract does not emit.
+    """
+    packet_path = repo_root / "dev" / "reports" / "probes" / "latest" / "review_packet.json"
+    if not packet_path.exists():
+        return {}
+    try:
+        payload = json.loads(packet_path.read_text(encoding="utf-8"))
+        # Use probe-run timestamp from summary.json for freshness
+        generated_at = probe_timestamp or _parse_generated_at(payload.get("generated_at"))
+        if generated_at is None or _artifact_is_stale(generated_at):
+            return {}
+        hotspots = payload.get("hotspots") or []
+        severity_by_file: dict[str, str] = {}
+        for hotspot in hotspots:
+            if not isinstance(hotspot, dict):
+                continue
+            file_path = hotspot.get("file")
+            if not file_path:
+                continue
+            severity_counts = hotspot.get("severity_counts")
             if isinstance(severity_counts, dict) and severity_counts:
                 highest = _highest_severity(severity_counts)
                 if highest:
-                    severity_by_file[file_path] = highest
-        return hint_counts, changed_paths, severity_by_file
+                    severity_by_file[str(file_path)] = highest
+        return severity_by_file
     except (OSError, ValueError, KeyError):
-        return {}, set(), {}
+        return {}
 
 
 _SEVERITY_ORDER = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}

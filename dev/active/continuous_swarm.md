@@ -228,9 +228,14 @@ Out of scope until the local proof gate is green:
       latest.md). Heartbeat refresh no longer advances the reviewed hash
       (`8b72f30`) — only real reviews do. Auto-promote blocks on stale
       hash (`6cfb670`). `REVIEWED_HASH_STALE` attention fires with
-      recovery guidance. Full verdict/findings/instruction synchronization
-      (making those fields move atomically with the hash) is still open —
-      that requires Codex-owned bridge write behavior, not tool-only changes.
+      recovery guidance. 2026-03-22 bounded loop follow-up landed:
+      active-dual-agent attention/bridge-poll now emit
+      `review_follow_up_required` when implementer-owned tree changes make
+      reviewer state stale under a live reviewer supervisor, so the loop stops
+      looking generically "done" while Codex still owes a re-review pass.
+      Full verdict/findings/instruction synchronization (making those fields
+      move atomically with the hash) is still open — that requires Codex-owned
+      bridge write behavior, not tool-only changes.
 - [ ] Keep reviewer packet visibility synchronized with the same loop contract:
       when the structured review queue is available, Claude-side
       `implementer-wait` / repoll behavior must wake on fresh Claude-targeted
