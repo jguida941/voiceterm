@@ -1426,3 +1426,15 @@ intended execution order is:
   `active_path_config()` import-time freezes, VoiceTerm-default repo packs,
   markdown/prose plan scraping, split finding identities, and path-based
   context refs.
+- Runtime-behind-docs baseline audit (2026-03-21): confirmed the next explicit
+  Phase 1 blockers are still runtime closure, not missing architecture. The
+  highest-risk gaps now called out here are: implicit VoiceTerm-default path
+  authority, bridge/projection fallback still acting like live startup/review
+  truth, provider-shaped review fields plus `active_dual_agent` defaults still
+  embedded in the middle layer, `plan_patch_review` / `apply` remaining
+  reducer-state only without mutation handlers, and `TypedAction` /
+  `ActionResult` slices such as `vcs.push` still carrying business-state drift
+  before `RunRecord` closure. Sequencing stays bounded: portability/path
+  authority first, startup/`CollaborationSession` closure second, executable
+  plan mutation third, `ActionResult` / `RunRecord` cleanup fourth, and
+  agent-registry review topology after that.

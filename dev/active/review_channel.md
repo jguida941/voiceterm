@@ -1169,11 +1169,20 @@ Acceptance:
       reviewer-only liveness helpers) with agent-registry / `TandemProfile` /
       repo-policy-derived routing so MP-355 does not claim N-agent support
       while the middle layer still rejects new agents.
+- [ ] Make the current compatibility-only middle layer explicit in the runtime
+      contract too: provider-shaped fields such as `pending_codex`,
+      `pending_claude`, `claude_ack`, and `codex_poll_state` may remain as
+      adapters during migration, but they must not widen into the canonical
+      agent-registry/multi-agent state surface.
 - [ ] Replace ad hoc bridge-section headers/markers with one typed section
       registry shared by parser, writer, projection, mutation, and guard code.
       `bridge.md` stays a compatibility projection, but section ids/names must
       resolve from one canonical mapping instead of 8+ duplicated literals and
       regex targets spread across the review-channel path.
+- [ ] Keep packet state honest until writeback exists: `packet_applied` /
+      `apply` is currently a queue/event transition, not proof that a plan
+      mutation executed. Do not treat review-channel `apply` as real plan
+      authority until repo-owned mutation handlers land with typed receipts.
 - [ ] Extend promotion from `first unchecked item -> one bridge instruction`
       to multi-item extraction and lane assignment once typed current-session
       / per-agent queue authority is in place. Until that lands, keep

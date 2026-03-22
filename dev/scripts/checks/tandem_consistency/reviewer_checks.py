@@ -29,12 +29,32 @@ _BRIDGE_EXCLUDED_REL_PATHS = ("bridge.md",)
 _TANDEM_GUARD_STALE_THRESHOLD = CODEX_POLL_STALE_AFTER_SECONDS + 300
 
 
-def check_reviewer_freshness(bridge_text: str) -> dict[str, object]:
-    """Verify the reviewer heartbeat is within the freshness window."""
+def check_reviewer_freshness(
+    bridge_text: str,
+    *,
+    typed_state: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Verify the reviewer heartbeat is within the freshness window.
+
+    When typed review_state.json is available, reads reviewer_mode,
+    reviewer_freshness, and last_codex_poll_age_seconds from the typed
+    bridge block instead of parsing bridge prose.
+    """
     _CK, _R = "reviewer_freshness", TandemRole.REVIEWER
-    reviewer_mode = normalize_reviewer_mode(
-        extract_metadata_value(bridge_text, "Reviewer mode:")
-    )
+
+    bridge_block = (typed_state or {}).get("bridge") or {}
+    typed_mode = str(bridge_block.get("reviewer_mode") or "").strip()
+    typed_age = bridge_block.get("last_codex_poll_age_seconds")
+    typed_freshness = str(bridge_block.get("reviewer_freshness") or "").strip()
+
+    # Prefer typed reviewer_mode; fall back to bridge prose
+    if typed_mode:
+        reviewer_mode = normalize_reviewer_mode(typed_mode)
+    else:
+        reviewer_mode = normalize_reviewer_mode(
+            extract_metadata_value(bridge_text, "Reviewer mode:")
+        )
+
     if not reviewer_mode_is_active(reviewer_mode):
         return make_result(
             _CK,
@@ -44,14 +64,20 @@ def check_reviewer_freshness(bridge_text: str) -> dict[str, object]:
             reviewer_mode=reviewer_mode,
             status="inactive",
         )
-    last_poll = extract_metadata_value(bridge_text, "Last Codex poll:")
-    if not last_poll:
-        return make_result(_CK, _R, False, "No reviewer heartbeat timestamp found in bridge.")
-    try:
-        poll_time = datetime.strptime(last_poll, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
-    except ValueError:
-        return make_result(_CK, _R, False, f"Invalid reviewer heartbeat timestamp: {last_poll}")
-    age = int((current_utc() - poll_time).total_seconds())
+
+    # Prefer typed age; fall back to bridge prose timestamp parsing
+    if typed_age is not None and isinstance(typed_age, (int, float)):
+        age = int(typed_age)
+    else:
+        last_poll = extract_metadata_value(bridge_text, "Last Codex poll:")
+        if not last_poll:
+            return make_result(_CK, _R, False, "No reviewer heartbeat timestamp found in bridge.")
+        try:
+            poll_time = datetime.strptime(last_poll, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+        except ValueError:
+            return make_result(_CK, _R, False, f"Invalid reviewer heartbeat timestamp: {last_poll}")
+        age = int((current_utc() - poll_time).total_seconds())
+
     if age < 0:
         return make_result(_CK, _R, False, "Reviewer heartbeat is in the future.")
     if age > _TANDEM_GUARD_STALE_THRESHOLD and not skip_live_freshness():
@@ -62,7 +88,9 @@ def check_reviewer_freshness(bridge_text: str) -> dict[str, object]:
             f"Reviewer heartbeat is stale ({age}s, threshold {_TANDEM_GUARD_STALE_THRESHOLD}s).",
             age_seconds=age,
         )
-    status = "poll_due" if age > CODEX_POLL_DUE_AFTER_SECONDS else "fresh"
+    status = typed_freshness if typed_freshness in ("fresh", "poll_due", "stale", "overdue") else (
+        "poll_due" if age > CODEX_POLL_DUE_AFTER_SECONDS else "fresh"
+    )
     return make_result(
         _CK,
         _R,

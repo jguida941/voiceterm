@@ -46,6 +46,33 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-21 - MP-377 runtime-behind-docs baseline made explicit
+
+Fact: the active plan chain now records the first honest runtime-behind-docs
+baseline from the large architecture audit instead of leaving that gap in
+chat-only analysis. The accepted near-term closure order is now explicit:
+kill implicit VoiceTerm-default path/runtime authority first, then close
+fail-closed startup/review truth, then land executable plan-mutation handlers,
+then clean `ActionResult` back to contract-level outcomes plus real
+`RunRecord` receipts, then collapse provider-shaped review fields into the
+future agent-registry middle layer. The plans also now state the concrete
+false assumptions that remain open: `active_dual_agent` is not a safe runtime
+default, bridge/projection fallback is still not allowed to count as final
+authority, and packet `apply` is still a state transition rather than
+executed plan mutation.
+
+This matters because the repo already had the right architecture, but not an
+equally explicit statement of which runtime gaps were still blocking parity.
+The updated plan chain now treats those gaps as named closure items instead of
+background drift.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_channel.md`
+
 ### 2026-03-21 - MP-377 context-graph plan tightened around deterministic routing
 
 Fact: the `MP-377` plan chain now records a stricter interpretation of the
@@ -73,6 +100,20 @@ Evidence:
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/ai_governance_platform.md`
 - `dev/active/platform_authority_loop.md`
+
+### 2026-03-21 - Tandem-consistency guard migrated to typed review-state authority
+
+Fact: `check_tandem_consistency` now prefers typed `review_state.json`
+authority for 4 of 7 tandem checks (reviewer freshness, implementer ACK
+freshness, implementer completion stall, promotion state). The typed path
+reads `bridge.last_codex_poll_age_seconds`, `bridge.reviewer_freshness`,
+`bridge.claude_ack_current`, `bridge.implementer_completion_stall`,
+`bridge.review_accepted`, and `current_session.*` fields instead of parsing
+bridge prose with regex/marker heuristics. Bridge-text fallback is preserved
+for `reviewed_hash_honesty`, `plan_alignment`, and `launch_truth` where no
+typed equivalent exists yet. `startup-context` also reads the typed
+`review_accepted` field from the projection. 15 focused typed-path regression
+tests added.
 
 ### 2026-03-21 - Context-graph plan state synchronized with the deeper ZGraph/runtime audit
 

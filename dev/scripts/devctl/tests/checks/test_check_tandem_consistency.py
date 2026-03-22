@@ -362,3 +362,174 @@ class TestRenderMd:
             report = build_report(bridge_text=text)
         parsed = json.loads(json.dumps(report))
         assert parsed["ok"] is True
+
+
+# ─── Typed review_state.json path tests ────────────────────────────────
+
+
+def _typed_state(
+    *,
+    reviewer_mode: str = "active_dual_agent",
+    reviewer_freshness: str = "fresh",
+    last_codex_poll_age_seconds: int = 60,
+    claude_ack_current: bool = True,
+    implementer_completion_stall: bool = False,
+    review_accepted: bool = False,
+    current_instruction: str = "Fix the tandem guard.",
+    implementer_ack: str = "Session 45 ack: fixing tandem guard.",
+    implementer_status: str = "Working on tandem guard.",
+    implementer_ack_state: str = "current",
+    open_findings: str = "- H1: open.",
+    last_reviewed_scope: str = "- file.py",
+) -> dict[str, object]:
+    """Build a minimal typed review_state.json payload for testing."""
+    return {
+        "bridge": {
+            "reviewer_mode": reviewer_mode,
+            "reviewer_freshness": reviewer_freshness,
+            "last_codex_poll_age_seconds": last_codex_poll_age_seconds,
+            "claude_ack_current": claude_ack_current,
+            "implementer_completion_stall": implementer_completion_stall,
+            "review_accepted": review_accepted,
+            "current_instruction": current_instruction,
+            "open_findings": open_findings,
+        },
+        "current_session": {
+            "current_instruction": current_instruction,
+            "implementer_ack": implementer_ack,
+            "implementer_status": implementer_status,
+            "implementer_ack_state": implementer_ack_state,
+            "open_findings": open_findings,
+            "last_reviewed_scope": last_reviewed_scope,
+        },
+    }
+
+
+class TestTypedPathReviewerFreshness:
+    """Verify check_reviewer_freshness prefers typed state when available."""
+
+    def test_typed_fresh_passes(self):
+        text = _bridge()
+        result = check_reviewer_freshness(
+            text, typed_state=_typed_state(reviewer_freshness="fresh", last_codex_poll_age_seconds=30)
+        )
+        assert result["ok"] is True
+        assert result["status"] == "fresh"
+
+    def test_typed_stale_fails(self):
+        text = _bridge()
+        result = check_reviewer_freshness(
+            text, typed_state=_typed_state(last_codex_poll_age_seconds=700)
+        )
+        assert result["ok"] is False
+        assert "stale" in result["detail"].lower()
+
+    def test_typed_inactive_mode_passes(self):
+        text = _bridge()
+        result = check_reviewer_freshness(
+            text, typed_state=_typed_state(reviewer_mode="single_agent")
+        )
+        assert result["ok"] is True
+        assert result["status"] == "inactive"
+
+    def test_falls_back_to_bridge_when_typed_missing(self):
+        text = _bridge(poll_utc=_utc_stamp(-60))
+        result = check_reviewer_freshness(text, typed_state=None)
+        assert result["ok"] is True
+
+
+class TestTypedPathImplementerAck:
+    """Verify check_implementer_ack_freshness prefers typed state."""
+
+    def test_typed_ack_current_passes(self):
+        text = _bridge()
+        result = check_implementer_ack_freshness(
+            text, typed_state=_typed_state(claude_ack_current=True)
+        )
+        assert result["ok"] is True
+        assert result["tranche_aligned"] is True
+
+    def test_typed_ack_stale_fails(self):
+        text = _bridge()
+        result = check_implementer_ack_freshness(
+            text, typed_state=_typed_state(claude_ack_current=False)
+        )
+        assert result["ok"] is False
+        assert result["tranche_aligned"] is False
+
+    def test_falls_back_to_bridge_when_typed_missing(self):
+        text = _bridge()
+        result = check_implementer_ack_freshness(text, typed_state=None)
+        assert result["ok"] is True  # bridge fixture has matching ack
+
+
+class TestTypedPathCompletionStall:
+    """Verify check_implementer_completion_stall uses typed pre-computed flag."""
+
+    def test_typed_not_stalled_passes(self):
+        text = _bridge()
+        result = check_implementer_completion_stall(
+            text, typed_state=_typed_state(implementer_completion_stall=False)
+        )
+        assert result["ok"] is True
+        assert result["stalled"] is False
+
+    def test_typed_stalled_fails(self):
+        text = _bridge()
+        result = check_implementer_completion_stall(
+            text, typed_state=_typed_state(implementer_completion_stall=True)
+        )
+        assert result["ok"] is False
+        assert result["stalled"] is True
+
+    def test_falls_back_to_bridge_when_typed_missing(self):
+        text = _bridge()
+        result = check_implementer_completion_stall(text, typed_state=None)
+        assert result["ok"] is True
+
+
+class TestTypedPathPromotionState:
+    """Verify check_promotion_state uses typed review_accepted."""
+
+    def test_typed_accepted_no_findings_ready(self):
+        text = _bridge()
+        result = check_promotion_state(
+            text,
+            typed_state=_typed_state(review_accepted=True, open_findings="(none)"),
+        )
+        assert result["ok"] is True
+        assert result["status"] == "ready_for_promotion"
+
+    def test_typed_not_accepted_active(self):
+        text = _bridge()
+        result = check_promotion_state(
+            text, typed_state=_typed_state(review_accepted=False)
+        )
+        assert result["ok"] is True
+        assert result["status"] == "active"
+
+    def test_falls_back_to_bridge_when_typed_missing(self):
+        text = _bridge()
+        result = check_promotion_state(text, typed_state=None)
+        assert result["ok"] is True
+
+
+class TestTypedPathBuildReport:
+    """Verify build_report annotates typed_review_state_available."""
+
+    def test_report_with_typed_state(self, tmp_path):
+        text = _bridge()
+        state_dir = tmp_path / "dev" / "reports" / "review_channel" / "latest"
+        state_dir.mkdir(parents=True)
+        (state_dir / "review_state.json").write_text(
+            json.dumps(_typed_state()), encoding="utf-8"
+        )
+        with _mock_hash_matching():
+            report = build_report(bridge_text=text, repo_root=tmp_path)
+        assert report["typed_review_state_available"] is True
+
+    def test_report_without_typed_state(self):
+        text = _bridge()
+        with _mock_hash_matching():
+            report = build_report(bridge_text=text, repo_root=None)
+        assert report["typed_review_state_available"] is False

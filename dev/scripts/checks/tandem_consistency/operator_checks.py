@@ -80,11 +80,28 @@ def check_plan_alignment(
     }
 
 
-def check_promotion_state(bridge_text: str) -> dict[str, object]:
-    """Verify the bridge is not stuck in a stale promotion state."""
-    reviewer_mode = normalize_reviewer_mode(
-        extract_metadata_value(bridge_text, "Reviewer mode:")
-    )
+def check_promotion_state(
+    bridge_text: str,
+    *,
+    typed_state: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Verify the bridge is not stuck in a stale promotion state.
+
+    When typed review_state.json is available, reads ``bridge.review_accepted``
+    and ``current_session`` fields instead of parsing bridge prose verdict/findings.
+    """
+    bridge_block = (typed_state or {}).get("bridge") or {}
+    cs = (typed_state or {}).get("current_session") or {}
+    typed_mode = str(bridge_block.get("reviewer_mode") or "").strip()
+
+    # Prefer typed reviewer_mode
+    if typed_mode:
+        reviewer_mode = normalize_reviewer_mode(typed_mode)
+    else:
+        reviewer_mode = normalize_reviewer_mode(
+            extract_metadata_value(bridge_text, "Reviewer mode:")
+        )
+
     if not reviewer_mode_is_active(reviewer_mode):
         return {
             "check": "promotion_state",
@@ -94,9 +111,8 @@ def check_promotion_state(bridge_text: str) -> dict[str, object]:
             "detail": f"Reviewer mode is `{reviewer_mode}`; promotion state is inactive.",
         }
 
-    verdict = extract_section(bridge_text, "Current Verdict")
-    instruction = extract_section(bridge_text, "Current Instruction For Claude")
-    findings = extract_section(bridge_text, "Open Findings")
+    # Prefer typed current_instruction
+    instruction = str(cs.get("current_instruction") or "").strip() or extract_section(bridge_text, "Current Instruction For Claude")
 
     if not instruction.strip():
         return {
@@ -106,10 +122,21 @@ def check_promotion_state(bridge_text: str) -> dict[str, object]:
             "detail": "No current instruction — bridge may be idle or stale.",
         }
 
-    verdict_lower = verdict.lower()
-    accepted_signals = ("accepted", "complete", "all green", "reviewer-accepted")
-    is_accepted = any(signal in verdict_lower for signal in accepted_signals)
-    has_findings = bool(findings.strip()) and findings.strip() != "(missing)"
+    # Prefer typed review_accepted; fall back to prose verdict parsing
+    typed_accepted = bridge_block.get("review_accepted")
+    if typed_accepted is not None:
+        is_accepted = bool(typed_accepted)
+        typed_findings = str(cs.get("open_findings") or "").strip()
+        has_findings = bool(typed_findings) and typed_findings.lower() not in (
+            "(none)", "none", "no blockers", "all clear", "all green", "resolved", "(missing)",
+        )
+    else:
+        verdict = extract_section(bridge_text, "Current Verdict")
+        findings = extract_section(bridge_text, "Open Findings")
+        verdict_lower = verdict.lower()
+        accepted_signals = ("accepted", "complete", "all green", "reviewer-accepted")
+        is_accepted = any(signal in verdict_lower for signal in accepted_signals)
+        has_findings = bool(findings.strip()) and findings.strip() != "(missing)"
 
     if is_accepted and not has_findings:
         return {

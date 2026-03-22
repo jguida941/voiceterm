@@ -195,10 +195,24 @@
   instruction revision, implementer status, implementer ACK state, findings,
   and reviewed scope, and `latest.md` current-status rendering now prefers
   that typed state over append-only bridge prose. The remaining work is to
-  migrate writer/mutation paths plus the `startup-context`,
-  `check_tandem_consistency`, and guarded push/preflight consumers so
+  migrate writer/mutation paths plus the remaining push/preflight consumers so
   `bridge.md` becomes a generated compatibility projection instead of a live
-  current-status authority or freshness gate.
+  current-status authority or freshness gate. `check_tandem_consistency` now
+  prefers typed `review_state.json` authority for 4 of 7 checks (reviewer
+  freshness, implementer ACK, completion stall, promotion state); the
+  remaining 3 checks still use bridge-text fallback where no typed equivalent
+  exists. `startup-context` reads typed `review_accepted` from the projection.
+- Current runtime-baseline correction after the 2026-03-21 architecture audit:
+  Phase 1 closure must keep five runtime-behind-docs gaps explicit instead of
+  treating them as background drift. Portability is still blocked first by
+  VoiceTerm-default path/runtime authority, startup/review recovery still
+  leaks bridge/projection fallback into the control path, provider-shaped
+  review fields plus `active_dual_agent` defaults remain compatibility state
+  rather than the final middle layer, `plan_patch_review` / `apply` still
+  stops at event-state transition without executable plan mutation, and
+  concrete slices such as `vcs.push` still need `ActionResult` business-state
+  cleanup plus real `RunRecord` closure before the authority loop can claim
+  runtime parity with the docs.
 - Current native-N-agent follow-up in the same neighborhood: packet routing,
   `TandemProfile.implementers`, the append-only event lane, and
   `autonomy-swarm` already scale past two agents, but the review-channel

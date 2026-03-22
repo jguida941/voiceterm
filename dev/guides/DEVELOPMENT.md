@@ -162,6 +162,11 @@ Three quality layers matter in practice:
     now emit machine-readable `reviewer_worker` state, and
     `review-channel --action ensure --follow` cadence frames carry the same
     `review_needed` signal without pretending semantic review completion.
+  - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:
+    `review-channel --action implementer-wait` is the Claude-side bounded
+    wait path, and `review-channel --action reviewer-wait` is the symmetric
+    Codex-side bounded wait path over reviewer-worker + typed current-session
+    truth.
   - `review-channel --action status` also projects repo-governance
     `push_enforcement` state (`checkpoint_required`,
     `safe_to_continue_editing`, `raw_git_push_guarded`,
@@ -245,7 +250,7 @@ the concrete minimum inventory after edits:
    - `python3 dev/scripts/checks/check_rust_compiler_warnings.py`
    - `python3 dev/scripts/checks/check_serde_compatibility.py`
    - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py`
-   - `python3 dev/scripts/checks/check_tandem_consistency.py`
+   - `python3 dev/scripts/checks/check_tandem_consistency.py` (prefers typed `review_state.json` when available; bridge-text fallback for checks without a typed equivalent)
    - `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`
 4. If you changed shared platform/runtime contract surfaces (`dev/scripts/devctl/platform/**`,
    shared runtime contract models, durable probe/report schema constants, or

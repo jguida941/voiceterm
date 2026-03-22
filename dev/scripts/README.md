@@ -184,6 +184,11 @@ Portability note:
   meaningful reviewer-owned bridge changes, fails closed when the reviewer
   loop is unhealthy, and times out after one hour by default instead of
   lingering as a raw shell `sleep` loop.
+- `review-channel --action reviewer-wait` is the symmetric Codex-side wait
+  path. It sleeps on cadence too, but wakes on meaningful implementer-side
+  changes (`reviewer_worker` hash drift plus typed current-session / ACK
+  updates) instead of treating passive supervisor freshness as equivalent to
+  new review work.
 - `review-channel --action status|ensure|reviewer-heartbeat|reviewer-checkpoint`
   now emit machine-readable `reviewer_worker` state, and
   `review-channel --action ensure --follow` cadence frames also surface a
@@ -199,6 +204,10 @@ Portability note:
   and `compact.json`; prefer it for live current instruction / implementer ACK
   reads while the bridge migration remains in progress. `latest.md` renders
   its current-session section from that typed state.
+- For reviewer-owned automation, treat the `status` report shape honestly:
+  live read APIs expose `bridge_liveness` plus projection paths, and typed
+  `current_session` comes from the generated `review_state.json` projection
+  rather than from an invented top-level status payload block.
 - `startup-context` is the typed startup packet for AI sessions. It composes
   repo governance, reviewer gate, and push/checkpoint advice; when
   `dev/reports/review_channel/latest/review_state.json` is available it
@@ -649,7 +658,7 @@ needs more repo context.
 | `dev/scripts/checks/check_platform_layer_boundaries.py` | Platform-layer boundary guard | Stable shim entrypoint for the architecture-boundary guard that blocks forbidden imports across reusable-backend, surface, and mobile/frontend layers while the implementation lives under `dev/scripts/checks/architecture_boundary/`. |
 | `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` board parity with the merged markdown-swarm tables in `dev/active/review_channel.md` for dynamic `AGENT-<N>` lanes (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
 | `dev/scripts/checks/check_review_channel_bridge.py` | Markdown-bridge contract gate | Verifies the active `bridge.md` bridge exposes the required bootstrap sections/markers, tracked-file safety, and current poll/hash heartbeat metadata while `dev/active/review_channel.md` still declares the transitional markdown bridge active. |
-| `dev/scripts/checks/check_tandem_consistency.py` | Tandem role-profile consistency gate | Verifies that the tandem review/code loop role-profile seam is consistent across peer-liveness, event-reducer, status-projection, launch, prompt, and handoff modules. |
+| `dev/scripts/checks/check_tandem_consistency.py` | Tandem role-profile consistency gate | Verifies tandem review/code loop consistency across peer-liveness, event-reducer, status-projection, launch, prompt, and handoff modules. Checks prefer typed `review_state.json` authority (`current_session`, `bridge` block) when available; bridge-text fallback is used only for `reviewed_hash_honesty`, `plan_alignment`, and `launch_truth` where no typed equivalent exists yet. |
 | `dev/scripts/checks/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
 | `dev/scripts/checks/check_coderabbit_gate.py` | Workflow release gate helper | Verifies the latest run for a target workflow/branch+commit SHA is successful before release/publish steps proceed (`--workflow` override + optional `--wait-seconds`/`--poll-seconds` for asynchronous gate arrival). |
 | `dev/scripts/checks/check_coderabbit_ralph_gate.py` | CodeRabbit Ralph release gate | Verifies the latest `CodeRabbit Ralph Loop` run is successful for a target branch+commit SHA before release/publish steps proceed. |

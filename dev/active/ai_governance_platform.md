@@ -3071,6 +3071,21 @@ Still open before `P0` closes:
       cache. Repeated lookups should hit a generated cache keyed by query +
       tree/work-scope state, and touched-path/tree-hash invalidation must keep
       the cache disposable and non-authoritative.
+- [ ] Make the runtime-behind-docs baseline explicit in the same near-term
+      order: kill implicit VoiceTerm-default runtime/path authority first,
+      then close fail-closed startup/review truth, then land executable
+      plan-mutation handlers behind `plan_patch_review` / `apply`, then clean
+      `ActionResult` back to contract-level outcomes plus real `RunRecord`
+      receipts, then collapse provider-shaped review fields into the future
+      agent-registry middle layer. Do not count portability or control-plane
+      closure as done while those five blockers remain open.
+- [ ] Track the concrete false assumptions from that same audit as first-class
+      closure items, not just commentary: `active_dual_agent` cannot stay a
+      safe runtime default, bridge/projection fallback cannot stay a live
+      authority path in startup/review recovery, `ActionResult` cannot keep
+      business-state strings such as push lifecycle labels, and packet
+      `apply` cannot imply executed plan mutation until repo-owned handlers
+      write back typed receipts.
 - [ ] Add one composed `devctl system-picture` read surface on top of the same
       authority stack so fresh AI/operator sessions do not have to reconstruct
       repo state from five or more separate commands manually. It should stitch
