@@ -1404,6 +1404,115 @@ Session N+1 starts → reads bridge NOW
 
 ---
 
+---
+
+## Part 49: MCP Server Is the Agent-Agnostic Integration Layer
+
+### Claude memory can integrate with ZGraph WITHOUT locking into Claude-only.
+
+**Claude Code memory architecture (2 parts):**
+- CLAUDE.md: operator-written instructions loaded at session start
+- MEMORY.md: auto-saved observations (~every 5K tokens), first 200 lines
+  injected into next session. Located at .claude/projects/<path>/memory/
+
+**Integration surfaces (3 options, ordered by strategic value):**
+
+1. **SessionStart Hook (Claude-only, simplest):**
+   Run `devctl context-graph --mode bootstrap` automatically on session
+   start via .claude/hooks.json. Replaces manual "step 1 in CLAUDE.md."
+   Zero effort. But Claude-only — doesn't help Codex/Cursor/Gemini.
+
+2. **MCP Server (agent-agnostic, strategic):**
+   Build devctl-mcp server exposing ZGraph tools:
+   - zgraph_query(term) — returns relevant subgraph nodes
+   - governance_state() — returns StartupContext packet
+   - plan_status(mp_id) — returns MP execution state
+   - guard_results(profile) — returns latest check results
+   - memory_sync(observations) — accepts session learnings back
+
+   Works with: Claude Code, Cursor, Codex, Gemini CLI, Copilot, and any
+   future MCP-capable agent. The existing context_graph/ module (builder,
+   query, render, models) is 80% of what an MCP server needs internally.
+   Gap is purely the MCP transport adapter.
+
+   MCP Tool Search enables lazy loading — full ZGraph toolset costs
+   near-zero tokens until actually invoked.
+
+3. **Bidirectional Memory Bridge (most powerful):**
+   ZGraph feeds INTO Claude's memory (SessionStart hook injects governance
+   state). Claude's memory feeds BACK into ZGraph (SessionEnd hook exports
+   learnings as observations). Creates learning loop: governance teaches
+   agents → agents discover patterns → discoveries flow back.
+
+**Agent-agnostic comparison:**
+
+| Integration | Claude | Codex | Cursor | Gemini |
+|-------------|--------|-------|--------|--------|
+| SessionStart hooks | YES | NO | NO | NO |
+| .claude/rules/ | YES | NO | NO | NO |
+| AGENTS.md | YES | YES | YES | YES |
+| MCP server | YES | YES | YES | YES |
+
+**Recommendation:** MCP as primary (agent-agnostic), with thin Claude
+adapters (hooks, rules) for Claude-optimized startup speed. AGENTS.md
+remains cross-agent instruction surface. This doesn't lock into Claude.
+
+**Existing infrastructure:** Engram (agent-agnostic memory, Go binary +
+SQLite + FTS5) already works as MCP server for Claude/Cursor/Codex/Gemini.
+92% accuracy on DMR benchmark using 96.6% fewer tokens than full context.
+
+---
+
+## Part 50: Implementation Paths for First 3 Fixes
+
+### Exact files, functions, and line counts for each fix.
+
+**Fix 1: Wire ai_instruction into ralph prompts (~100 lines)**
+- Modify: ralph_ai_fix.py (add load_probe_findings(), modify build_prompt())
+- Read from: dev/reports/probes/latest/review_packet.json → hotspots →
+  representative_hints → ai_instruction
+- Blocker: need CodeRabbit→probe finding mapper (file+symbol match)
+- Tests: 2 new methods in test_ralph_ai_fix.py
+
+**Fix 2: Create EDGE_KIND_GUARDS edges (~80 lines)**
+- Modify: builder.py (add _collect_guard_governance_edges())
+- Data: quality_policy scopes (python_guard_roots, rust_guard_roots)
+- Blocker: guard→file mapping is implicit (language-based), needs
+  optional guard_scope_overrides in repo policy
+- Circular import risk: builder → quality_policy (use local import)
+
+**Fix 3: Add guard-explain command (~500 lines, 4 new files)**
+- Create: guard_explain.py, guard_explain_support.py,
+  guard_explain_registry.py, guard_explain_parser.py
+- Modify: cli.py (3 lines), quality_policy.py (optional 15 lines)
+- Data: scattered across docstrings + code_shape_policy + guard configs
+- Pattern: follow platform-contracts command structure
+- Tests: 4 methods in new test_guard_explain.py
+
+**Recommended order:** #3 first (lowest risk, no deps), then #2 (needs
+scope formalization), then #1 (needs guard ai_instruction field decision).
+
+**Total: 7 files, ~680 lines, 7-8 test methods, 3 design decisions.**
+
+---
+
+## Part 51: Parts 42-48 Integration Verified
+
+All 7 parts confirmed integrated into plan docs:
+- Part 42: ai_governance_platform.md:3340 (operational data routing)
+- Part 43: ai_governance_platform.md:3056 (graph edges/nodes)
+- Part 44: portable_code_governance.md:280 (dev experience)
+- Part 45: ai_governance_platform.md:3335 (write-only artifacts)
+- Part 46: platform_authority_loop.md:221 (unified startup)
+- Part 47: ai_governance_platform.md:3049 (missing node types)
+- Part 48: platform_authority_loop.md:757 (session continuity)
+
+Parts 25-41 spot-checked — all intact.
+4 evidence files intact at root.
+No new plan docs created.
+
+---
+
 ## Authority Rule (Repeated)
 
 This file is reference-only. Canonical execution authority remains:
