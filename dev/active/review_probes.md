@@ -291,13 +291,16 @@ context-free translation = MEDIUM.
 - [ ] Finish closing the probe-to-AI remediation wire on top of that
       fix-packet surface: Ralph now consumes exact file-matched canonical
       probe `Finding.ai_instruction` guidance from `review_targets.json`
-      and injects it into the live
-      remediation prompt, and the first deterministic closure guard now
-      proves that route through `check_platform_contract_closure.py`.
-      Autonomy retry packets and review-channel remediation prompts still
-      need the same contract, and the runtime should emit explicit telemetry
-      when a probe finding reaches AI without attached guidance. (evidence:
-      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27)
+      and injects it into the live remediation prompt, and the first
+      deterministic closure guard now proves that route through
+      `check_platform_contract_closure.py`. Autonomy retry packets and
+      review-channel remediation prompts still need the same contract, the
+      runtime should emit explicit telemetry when a probe finding reaches AI
+      without attached guidance, and the next probe/guard follow-up must
+      catch the detector gap external review exposed here: dual-authority AI
+      consumers and prose-parsed contract matching should not slip through as
+      "clean" tranche code once structured fields and one canonical artifact
+      already exist. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27)
 - [ ] Add the next missing probe tranche explicitly under the same portable
       evidence contract: start with test-quality, None-safety, and
       over-abstraction signals as advisory probes only, back them with
@@ -346,7 +349,12 @@ context-free translation = MEDIUM.
       incomplete exception registries, workflows missing timeouts, and large
       literal-data tables that should be repo-policy/config artifacts instead
       of embedded Python wrapper code. This should be the default escalation
-      path for "why didn't the tools catch this?" findings.
+      path for "why didn't the tools catch this?" findings. Start with the
+      recent Ralph calibration case: close deterministic detection for
+      dual-authority artifact consumers, widen string-contract coverage from
+      string-dispatch only to prose-parsed structured-contract seams, and keep
+      mixed-concern / responsibility-count signals honest by rerunning them on
+      the cleaned files so stale complaints are not logged as active misses.
 - [ ] Turn function-shape exceptions into an explicit governed debt surface
       instead of a static Python list: emit/report the current `58`
       `FunctionShapeException` entries with owner, expiry, age buckets,
@@ -506,12 +514,31 @@ Acceptance:
   severity, and the CodeRabbit backlog path now carries structured `path` /
   `line` fields so the matcher uses summary-string parsing only as a legacy
   fallback for older backlog payloads.
+- 2026-03-22: External review on the Ralph slice became the first live
+  calibration case for probe-governance follow-up. Re-running the local probe
+  stack showed the cleaned branch no longer has the original dual-authority
+  fallback or the worst junk-drawer module seam, but the checker layer still
+  has real blind spots: no deterministic rule exists for dual-authority
+  artifact consumers, and `probe_stringly_typed` remains too narrow to catch
+  prose-parsed structured-contract matching.
 - 2026-03-22: Landed the first deterministic produced-but-unconsumed closure
   guard for this lane instead of leaving the Ralph proof as a one-off test.
   `check_platform_contract_closure.py` now runs a synthetic route proof for
   `Finding.ai_instruction` through the real Ralph consumer path and fails if
   probe artifacts still produce the field but the remediation prompt stops
   carrying it.
+- 2026-03-22: External review of the tranche-2 Ralph guidance slice found one
+  stale smell claim and one real detector gap. The mixed-concern "junk
+  drawer" complaint is stale on the current branch because the guidance logic
+  is already split across `probe_guidance.py`,
+  `probe_guidance_artifacts.py`, and `probe_guidance_matching.py`, and the
+  old Ralph dual-artifact fallback is gone because `review_targets.json` is
+  now the only guidance authority. The real miss is narrower: the remaining
+  legacy summary-string fallback is not flagged by `probe_stringly_typed`,
+  and there is still no dedicated single-authority guard for AI consumers.
+  Accepted follow-up: widen the next probe/meta-guard tranche to catch
+  prose-parsed contract fallbacks and authority-source drift before another
+  AI consumer copies the pattern.
 - 2026-03-21: Reconciled the latest cross-agent backlog audit against the live
   probe plan. The missing follow-ups are now explicit instead of living only in
   chat analysis: diff-aware probe scoping for small changed sets, optional
@@ -1302,9 +1329,13 @@ Template README at `dev/scripts/checks/PROBE_TEMPLATE_README.md`.
 - The same lane now owns the missing follow-ons too: next-probe expansion stays
   bounded to test-quality / None-safety / over-abstraction, and probe packets
   need governance-ledger history instead of file-local prose only.
-- Next action: extend the same canonical probe-guidance contract and
-  route-closure pattern to autonomy retry packets and review-channel
-  remediation without inventing a second packet shape.
+- Next action: close the checker-stack miss exposed by the Ralph slice before
+  widening the next consumer path. Add deterministic coverage for
+  dual-authority artifact consumers, decide whether prose-parsed contract
+  matching belongs in `probe_stringly_typed` or a sibling rule family, then
+  extend the same canonical probe-guidance contract and route-closure pattern
+  to autonomy retry packets and review-channel remediation without inventing a
+  second packet shape.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

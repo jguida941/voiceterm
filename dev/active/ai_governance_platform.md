@@ -3394,7 +3394,10 @@ Still open before `P0` closes:
       for each externally found issue or audit finding, record the enforcement
       miss, decide whether it belongs to an existing guard/probe/runtime
       contract or a new rule family, and keep that follow-up in repo-visible
-      plan state before closure.
+      plan state before closure. Require one explicit closure read on the
+      touched slice too: rerun the relevant direct probes / `probe-report`,
+      then classify the miss as no-rule, too-narrow detection, or advisory-
+      only severity before the issue can be called closed.
 - [ ] Add the self-hosting enforcement tranche for platform-boundary blind
       spots: layer boundaries, portable path construction, provider/workflow
       adapter routing, contract completion, schema/platform compatibility, and
@@ -3404,9 +3407,14 @@ Still open before `P0` closes:
       exception registries are complete, timeouts/coverage gaps are surfaced as
       evidence instead of being assumed away, and the next missing hard-guard
       tranche (unused imports, hardcoded secrets, dead code, dual-authority
-      artifact consumers, prose-parsed structured contracts, and similar
+      artifact consumers, prose-parsed structured contracts, responsibility-
+      count / mixed-concern calibration for tactical AI modules, and similar
       deterministic wins) lands through reusable rule families instead of
-      audit-only prose. (audit mapping: `SYSTEM_AUDIT.md` A27)
+      audit-only prose. The recent Ralph guidance slice is the calibration
+      case: the dual-authority fallback was fixed in code, but the checker
+      stack still lacks deterministic coverage for dual-authority consumers
+      and the current string-contract probes stay quiet on prose-parsed
+      structured matching seams. (audit mapping: `SYSTEM_AUDIT.md` A27)
 - [ ] Expand the watchdog and audit evidence beyond today's narrow slices:
       run repeated full-worktree `--adoption-scan` cycles, widen guarded-coding
       episode coverage, and baseline more guard/probe families so platform
@@ -3550,7 +3558,10 @@ Still open before `P0` closes:
       instead of rendering them only for humans. The first deterministic
       route-closure guard now proves the Ralph path inside
       `check_platform_contract_closure.py`; widen that same enforcement
-      pattern before claiming the rest of the contract is live. (evidence:
+      pattern before claiming the rest of the contract is live, and fail
+      the same tranche if an AI consumer negotiates between multiple artifact
+      authorities or keeps deriving routing keys from prose once the
+      structured contract fields exist. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38)
 - [ ] Split the default fix packet from the typed decision packet: the
       everyday AI/dev surface should carry deterministic fixes, scoped
@@ -3601,7 +3612,10 @@ Still open before `P0` closes:
       workflow structure cannot silently drift. First bounded implementation is
       now live as `check_platform_contract_closure.py` for the already-real
       runtime/artifact/startup-surface families; expand it as the remaining
-      `P0` contracts land.
+      `P0` contracts land, starting with authority-source integrity and
+      structured-routing enforcement for the new AI consumer paths so dual
+      authority seams and prose-derived contract parsing fail deterministically
+      instead of surfacing only in external review.
 - [ ] Add the first platform test-hardening matrix behind those contracts:
       cover platform contract registration, failure-mode handling
       (JSONL/subprocess/concurrent access), and boundary integration from
@@ -3722,6 +3736,27 @@ working on `MP-377`.
   live remediation prompt. The next closure is not another generic audit; it
   is extending the same route-closure pattern to the remaining autonomy,
   review-channel, and `guard-run` AI guidance consumers.
+- 2026-03-22 checker-gap follow-up: an external architecture review surfaced
+  the next governance miss after the Ralph cleanup. The live branch had
+  already removed the dual-authority Ralph fallback and split the worst
+  tactical module seam, so those specific complaints were stale against the
+  current code, but the review still exposed two real blind spots the checker
+  stack must own: no deterministic rule yet flags dual-authority artifact
+  consumers, and `probe_stringly_typed` stays quiet on prose-parsed
+  structured-contract matching. Accepted follow-up: keep this in the `A27`
+  hard-guard tranche and require targeted post-fix probe reads so the repo
+  can distinguish "stale complaint" from "real silent miss" before closure.
+- 2026-03-22 governance follow-up: an external design review did surface a
+  real detector gap, but it was narrower than the first report claimed. The
+  current branch no longer has Ralph negotiating between `review_targets.json`
+  and `review_packet.json`, and the guidance code is already split instead of
+  living in one junk-drawer module. The real miss is that the remaining
+  summary-string compatibility fallback is still invisible to
+  `probe_stringly_typed`, and there is no dedicated authority-source-integrity
+  check yet for AI consumers. Accepted follow-up: extend the tranche-3/4
+  closure stack so single-authority consumer contracts and prose-derived
+  routing fallbacks fail inside the platform lane before external review has to
+  point them out.
 - 2026-03-22 evidence follow-up: Parts 42-43 from
   `UNIVERSAL_SYSTEM_EVIDENCE.md` are now explicit here instead of living only
   in reference prose. The next `MP-377` implementation slice should route the
@@ -4249,6 +4284,14 @@ Execution order for this section:
   `Finding.ai_instruction` route through the real Ralph consumer path and
   fails if probe artifacts still emit the field but the prompt stops
   carrying it.
+- 2026-03-22: Verified the first external-review follow-up against the live
+  branch instead of assuming every smell claim stayed true after cleanup. The
+  checker stack still misses two real cases in this lane: there is no
+  deterministic rule for dual-authority artifact consumers yet, and
+  `probe_stringly_typed` does not currently flag prose-parsed structured
+  matching seams. The stronger "junk-drawer module" complaint was stale
+  against the cleaned Ralph path by the time this verification ran, so the
+  remaining follow-up is guard/probe calibration, not another module split.
 - 2026-03-22: Tightened the `MP-377` platform checklist with the next evidence
   intake instead of creating parallel backlog. Part 45 widened the existing
   operational-artifact routing item from prompt-builder-only to broader

@@ -2934,7 +2934,11 @@ become the main product surface.
     probe `ai_instruction` from canonical `review_targets.json` artifacts, and
     the first deterministic route-closure guard now proves that Ralph path
     inside `check_platform_contract_closure.py`; remaining repair, review,
-    startup, and `guard-run` consumers still need the same contract. (evidence:
+    startup, and `guard-run` consumers still need the same contract. The next
+    closure in that same tranche is single-authority + structured-routing
+    enforcement so AI consumers cannot silently negotiate between multiple
+    artifact authorities or keep deriving routing keys from prose when typed
+    fields already exist. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38)
   - [ ] Route fresh `dev/reports/**` operational evidence into the live prompt
     builders and adjacent decision surfaces so bootstrap, conductor, swarm,
@@ -2969,7 +2973,10 @@ become the main product surface.
   - [ ] Make architectural absorption a required finding-disposition rule: no
     important finding closes until it is classified for recurrence risk,
     mapped to an approved prevention surface or explicit waiver, and verified
-    at both the local-fix and systemic-prevention layers.
+    at both the local-fix and systemic-prevention layers. For externally found
+    architecture smells, the closure step must also prove whether the current
+    checker stack fired on the touched files and classify any miss as no-rule,
+    too-narrow detection, or advisory-only severity before moving on.
   - [ ] Evaluate additive `devctl-mcp` transport over the existing
     context-graph / startup / plan-status read surfaces after authority-loop
     closure; keep it read-only first and route any writeback through the same
