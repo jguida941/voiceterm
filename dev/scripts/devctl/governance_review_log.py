@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -23,9 +24,18 @@ from .governance.ledger_helpers import (
 )
 from .jsonl_support import parse_json_line_dict
 from .governance_review_models import (
+    FINDING_REVIEW_CONTRACT_ID,
+    FINDING_REVIEW_SCHEMA_VERSION,
     GovernanceReviewBucketStat,
     GovernanceReviewInput,
     GovernanceReviewStats,
+    VALID_FINDING_CLASSES,
+    VALID_PREVENTION_SURFACES,
+    VALID_RECURRENCE_RISKS,
+)
+from .governance.review_validation import (
+    governance_review_row_disposition_errors,
+    require_choice,
 )
 from .repo_packs import active_path_config
 from .repo_packs.voiceterm import voiceterm_repo_root
@@ -90,12 +100,12 @@ def build_governance_review_row(
     """Build one canonical review-log row."""
     effective_root = repo_root or voiceterm_repo_root() or Path(".")
     raw_repo_path = optional_text(review_input.repo_path)
-    normalized_signal_type = _require_choice(
+    normalized_signal_type = require_choice(
         review_input.signal_type,
         VALID_SIGNAL_TYPES,
         field_name="signal_type",
     )
-    normalized_verdict = _require_choice(
+    normalized_verdict = require_choice(
         review_input.verdict,
         VALID_VERDICTS,
         field_name="verdict",
@@ -108,6 +118,21 @@ def build_governance_review_row(
     normalized_check_id = required_text(review_input.check_id, field_name="check_id")
     normalized_symbol = optional_text(review_input.symbol)
     normalized_line = optional_line_number(review_input.line)
+    normalized_finding_class = require_choice(
+        review_input.finding_class,
+        frozenset(VALID_FINDING_CLASSES),
+        field_name="finding_class",
+    )
+    normalized_recurrence_risk = require_choice(
+        review_input.recurrence_risk,
+        frozenset(VALID_RECURRENCE_RISKS),
+        field_name="recurrence_risk",
+    )
+    normalized_prevention_surface = require_choice(
+        review_input.prevention_surface,
+        frozenset(VALID_PREVENTION_SURFACES),
+        field_name="prevention_surface",
+    )
     review_finding_id = review_input.finding_id or _default_finding_id(
         repo_name=optional_text(review_input.repo_name),
         repo_path=normalize_identity_repo_path(
@@ -123,12 +148,17 @@ def build_governance_review_row(
     row: dict[str, Any] = {}
     row["finding_id"] = review_finding_id
     row["timestamp_utc"] = utc_timestamp()
+    row["schema_version"] = FINDING_REVIEW_SCHEMA_VERSION
+    row["contract_id"] = FINDING_REVIEW_CONTRACT_ID
     row["repo_name"] = optional_text(review_input.repo_name) or effective_root.name
     row["repo_path"] = raw_repo_path or str(effective_root)
     row["signal_type"] = normalized_signal_type
     row["check_id"] = normalized_check_id
     row["verdict"] = normalized_verdict
     row["file_path"] = normalized_path
+    row["finding_class"] = normalized_finding_class
+    row["recurrence_risk"] = normalized_recurrence_risk
+    row["prevention_surface"] = normalized_prevention_surface
     if normalized_symbol:
         row["symbol"] = normalized_symbol
     if normalized_line is not None:
@@ -143,6 +173,11 @@ def build_governance_review_row(
         row["scan_mode"] = mode_text
     if notes_text := optional_text(review_input.notes):
         row["notes"] = notes_text
+    if waiver_reason := optional_text(review_input.waiver_reason):
+        row["waiver_reason"] = waiver_reason
+    disposition_errors = governance_review_row_disposition_errors(row)
+    if disposition_errors:
+        raise ValueError("; ".join(disposition_errors))
     return row
 
 
@@ -275,11 +310,3 @@ def _default_finding_id(
         symbol or "",
         str(line or ""),
     )
-
-
-def _require_choice(value: str, allowed: frozenset[str], *, field_name: str) -> str:
-    text = required_text(value, field_name=field_name).lower()
-    if text not in allowed:
-        joined = ", ".join(sorted(allowed))
-        raise ValueError(f"{field_name} must be one of: {joined}")
-    return text

@@ -10,8 +10,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from dev.scripts.coderabbit.probe_guidance import load_probe_guidance
 from dev.scripts.coderabbit.ralph_ai_fix import (
     _FALLBACK_CATEGORY_TO_ARCH,
+    attach_probe_guidance,
     build_backlog_context_packet,
     build_prompt,
     commit_and_push,
@@ -32,6 +34,21 @@ def _sample_items() -> list[dict]:
     return [
         {"severity": "high", "category": "rust", "summary": "Unused import in auth.rs"},
         {"severity": "medium", "category": "python", "summary": "Broad except clause"},
+    ]
+
+
+def _coderabbit_path_items() -> list[dict]:
+    return [
+        {
+            "severity": "high",
+            "category": "rust",
+            "summary": "rust/src/auth.rs:12 - Unused import in auth.rs",
+        },
+        {
+            "severity": "medium",
+            "category": "python",
+            "summary": "dev/scripts/tool.py:4 - Broad except clause",
+        },
     ]
 
 
@@ -168,6 +185,30 @@ class BuildPromptTests(unittest.TestCase):
         self.assertIn("Context Recovery Packet", prompt)
         self.assertIn("auth.rs", prompt)
 
+    def test_prompt_includes_probe_guidance_when_present(self) -> None:
+        prompt = build_prompt(
+            [
+                {
+                    "severity": "high",
+                    "category": "rust",
+                    "summary": "rust/src/auth.rs:12 - Unused import in auth.rs",
+                    "probe_guidance": [
+                        {
+                            "severity": "high",
+                            "probe": "probe_design_smells",
+                            "file_path": "rust/src/auth.rs",
+                            "ai_instruction": "Extract the auth validation helper before editing the caller.",
+                        }
+                    ],
+                }
+            ],
+            attempt=1,
+        )
+
+        self.assertIn("Probe guidance:", prompt)
+        self.assertIn("Extract the auth validation helper", prompt)
+        self.assertIn("probe_design_smells", prompt)
+
     @patch("dev.scripts.coderabbit.ralph_ai_fix.build_context_escalation_packet")
     def test_build_backlog_context_packet_uses_backlog_terms(self, escalation_mock) -> None:
         from dev.scripts.devctl.context_graph.escalation import ContextEscalationPacket
@@ -190,6 +231,130 @@ class BuildPromptTests(unittest.TestCase):
             escalation_mock.call_args.kwargs["query_terms"],
             ("auth.rs",),
         )
+
+
+class LoadProbeGuidanceTests(unittest.TestCase):
+    def test_prefers_review_targets_findings_with_ai_instruction(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "review_targets.json").write_text(
+                json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "file_path": "rust/src/auth.rs",
+                                "symbol": "validate_auth",
+                                "check_id": "probe_design_smells",
+                                "severity": "high",
+                                "line": 10,
+                                "end_line": 14,
+                                "ai_instruction": "Extract the auth validator helper.",
+                            },
+                            {
+                                "file_path": "docs/README.md",
+                                "symbol": "",
+                                "check_id": "probe_stringly_typed",
+                                "severity": "medium",
+                                "ai_instruction": "Ignore me after relevant match fills the slice.",
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            guidance = load_probe_guidance(_coderabbit_path_items(), report_root=root)
+
+            self.assertEqual(len(guidance), 1)
+            self.assertEqual(guidance[0]["file_path"], "rust/src/auth.rs")
+            self.assertIn("Extract the auth validator helper", guidance[0]["ai_instruction"])
+
+    def test_falls_back_to_review_packet_when_review_targets_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            latest = root / "latest"
+            latest.mkdir(parents=True)
+            (latest / "review_packet.json").write_text(
+                json.dumps(
+                    {
+                        "hotspots": [
+                            {
+                                "file": "rust/src/auth.rs",
+                                "representative_hints": [
+                                    {
+                                        "probe": "probe_design_smells",
+                                        "severity": "high",
+                                        "ai_instruction": "Use the shared auth helper instead of duplicating the branch.",
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            guidance = load_probe_guidance(_coderabbit_path_items(), report_root=root)
+
+            self.assertEqual(len(guidance), 1)
+            self.assertEqual(guidance[0]["file_path"], "rust/src/auth.rs")
+            self.assertIn("shared auth helper", guidance[0]["ai_instruction"])
+
+    def test_exact_path_matching_skips_unrelated_findings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "review_targets.json").write_text(
+                json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "file_path": "docs/README.md",
+                                "check_id": "probe_design_smells",
+                                "severity": "high",
+                                "ai_instruction": "This should not match.",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            guidance = load_probe_guidance(_coderabbit_path_items(), report_root=root)
+
+            self.assertEqual(guidance, [])
+
+    def test_attach_probe_guidance_dedupes_same_instruction_per_item(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "review_targets.json").write_text(
+                json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "file_path": "rust/src/auth.rs",
+                                "check_id": "probe_design_smells",
+                                "severity": "high",
+                                "line": 10,
+                                "end_line": 14,
+                                "ai_instruction": "Extract the auth validator helper.",
+                            },
+                            {
+                                "file_path": "rust/src/auth.rs",
+                                "check_id": "probe_design_smells",
+                                "severity": "medium",
+                                "line": 11,
+                                "end_line": 12,
+                                "ai_instruction": "Extract the auth validator helper.",
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            enriched = attach_probe_guidance(_coderabbit_path_items(), report_root=root)
+
+            self.assertEqual(len(enriched[0]["probe_guidance"]), 1)
 
 
 # -- detect_architectures ---------------------------------------------------
@@ -442,6 +607,41 @@ class MainTests(unittest.TestCase):
         with patch.dict(os.environ, self._env(), clear=True):
             rc = main()
         self.assertEqual(rc, 0)
+
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_guardrails_config", return_value={})
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=False)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_coderabbit_path_items())
+    def test_main_routes_probe_ai_instruction_into_prompt(
+        self, _load, invoke_mock, _changes, _guardrails
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_root = Path(tmp)
+            (report_root / "review_targets.json").write_text(
+                json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "file_path": "rust/src/auth.rs",
+                                "check_id": "probe_design_smells",
+                                "severity": "high",
+                                "line": 10,
+                                "end_line": 14,
+                                "ai_instruction": "Extract the auth validator helper before editing the caller.",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            env = self._env(RALPH_PROBE_REPORT_ROOT=str(report_root))
+            with patch.dict(os.environ, env, clear=True):
+                rc = main()
+
+        self.assertEqual(rc, 0)
+        prompt = invoke_mock.call_args.args[0]
+        self.assertIn("Probe guidance:", prompt)
+        self.assertIn("Extract the auth validator helper", prompt)
 
     @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     @patch("dev.scripts.coderabbit.ralph_ai_fix.run_arch_checks", return_value=False)

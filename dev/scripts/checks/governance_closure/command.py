@@ -31,6 +31,16 @@ CHECK_SCRIPT_RELATIVE_PATHS = _script_catalog.CHECK_SCRIPT_RELATIVE_PATHS
 PROBE_SCRIPT_FILES = _script_catalog.PROBE_SCRIPT_FILES
 PROBE_SCRIPT_RELATIVE_PATHS = _script_catalog.PROBE_SCRIPT_RELATIVE_PATHS
 
+_review_log = importlib.import_module("dev.scripts.devctl.governance_review_log")
+DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS = _review_log.DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS
+governance_review_row_disposition_errors = (
+    _review_log.governance_review_row_disposition_errors
+)
+read_governance_review_rows = _review_log.read_governance_review_rows
+resolve_governance_review_log_path = _review_log.resolve_governance_review_log_path
+_ledger_helpers = importlib.import_module("dev.scripts.devctl.governance.ledger_helpers")
+latest_rows_by_finding = _ledger_helpers.latest_rows_by_finding
+
 CHECKS_DIR = REPO_ROOT / "dev" / "scripts" / "checks"
 TESTS_DIR = REPO_ROOT / "dev" / "scripts" / "devctl" / "tests"
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
@@ -152,6 +162,30 @@ def _find_workflow_timeout_gaps(violations: list[dict[str, str]]) -> int:
     return found
 
 
+def _find_review_disposition_gaps(violations: list[dict[str, str]]) -> int:
+    """Check latest governance-review rows for required disposition fields."""
+    log_path = resolve_governance_review_log_path(repo_root=REPO_ROOT)
+    rows = read_governance_review_rows(
+        log_path,
+        max_rows=DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS,
+    )
+    found = 0
+    for row in latest_rows_by_finding(rows):
+        disposition_errors = governance_review_row_disposition_errors(row)
+        if not disposition_errors:
+            continue
+        detail = "; ".join(disposition_errors)
+        violations.append(
+            {
+                "check": "review_disposition_schema",
+                "finding_id": str(row.get("finding_id") or "unknown"),
+                "detail": detail,
+            }
+        )
+        found += 1
+    return found
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", choices=["json", "md", "terminal"], default="md")
@@ -164,6 +198,7 @@ def main() -> int:
         _find_probe_test_gaps(violations)
         _find_ci_coverage_gaps(violations)
         _find_workflow_timeout_gaps(violations)
+        _find_review_disposition_gaps(violations)
 
         ok = len(violations) == 0
 
@@ -181,6 +216,7 @@ def main() -> int:
                 "probe_test_coverage",
                 "ci_guard_coverage",
                 "workflow_timeout",
+                "review_disposition_schema",
             ],
         }
 

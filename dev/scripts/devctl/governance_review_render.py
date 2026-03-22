@@ -40,7 +40,14 @@ def render_governance_review_markdown(report: dict[str, Any]) -> str:
             location = f"{location}:{row['line']}"
         verdict = row.get("verdict") or "unknown"
         check_id = row.get("check_id") or "unknown"
-        lines.append(f"- `{check_id}` {verdict}: `{location}`")
+        finding_class = row.get("finding_class")
+        prevention_surface = row.get("prevention_surface")
+        disposition = ""
+        if finding_class or prevention_surface:
+            left = finding_class or "unknown"
+            right = prevention_surface or "unknown"
+            disposition = f" [{left} -> {right}]"
+        lines.append(f"- `{check_id}` {verdict}{disposition}: `{location}`")
     if not report.get("recent_findings"):
         lines.append("- none")
     return "\n".join(lines)

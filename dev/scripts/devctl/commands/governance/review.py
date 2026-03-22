@@ -41,6 +41,10 @@ def run(args) -> int:
                     repo_name=getattr(args, "repo_name", None),
                     repo_path=getattr(args, "repo_path", None),
                     notes=getattr(args, "notes", None),
+                    finding_class=getattr(args, "finding_class", None),
+                    recurrence_risk=getattr(args, "recurrence_risk", None),
+                    prevention_surface=getattr(args, "prevention_surface", None),
+                    waiver_reason=getattr(args, "waiver_reason", None),
                 ),
             )
             append_governance_review_row(row, log_path=log_path)

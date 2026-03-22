@@ -195,6 +195,15 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     low-noise modular enforcement path. Prefer fixing the detection gap over
     landing a one-off patch without a corresponding enforcement follow-up, and
     keep that decision in repo-visible plan state before closure.
+2.3 No important issue is complete until it has been evaluated for
+    architectural absorption. For any non-trivial bug, review finding,
+    runtime failure, audit issue, or docs/process miss, classify whether it is
+    a local defect, contract mismatch, missing guard, missing probe, authority
+    boundary failure, workflow/process gap, or documentation/plan drift. Then
+    either encode the prevention path in an approved surface (guard, probe,
+    contract, authority rule, parity check, regression test, docs update) or
+    record an explicit waiver with reason. Do not silently close meaningful
+    findings as patch-only work.
 3. "Cannot automate yet" is acceptable only with a documented reason and a
    guard path (checklist/runbook entry that prevents unsafe execution).
 4. When automation lands, update command/docs surfaces in the same change
@@ -259,6 +268,17 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     checkpoint-budget accounting may exclude policy-declared compatibility
     projections such as `bridge.md`, but canonical git/review truth still
     comes from the real worktree plus reviewer-owned state.
+4.7 Treat governed-markdown authority the same way: prefer typed
+    `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
+    parsed `plan_registry` entries when those projections are available, but
+    keep the reviewed markdown `## Session Resume` content as the canonical
+    restart surface until startup/runtime explicitly consume typed resume
+    state instead of only a boolean presence marker.
+4.8 After fixing a meaningful issue, verify both levels before handoff: the
+    local defect must be fixed, and the chosen prevention/absorption path must
+    either be landed and validated or explicitly deferred/waived with the
+    reason recorded in repo-visible state. Passing tests alone is not
+    sufficient closure when the issue exposed a reusable architecture gap.
 5. Keep changes scoped: ignore unrelated diffs unless user asks.
 
 ## Prerequisites
@@ -667,7 +687,7 @@ When adding any new markdown file under `dev/active/`, this sequence is required
     sections `Scope`, `Execution Checklist`, `Progress Log`,
     `Session Resume`, and `Audit Evidence`. Follow
     `dev/active/PLAN_FORMAT.md`.
-3. Update discovery links in `AGENTS.md`, `DEV_INDEX.md`, and `dev/README.md`
+3. Update discovery links in `AGENTS.md` and `dev/README.md`
    if navigation/ownership changed.
 3.1 For new active-plan/check-script/devctl-command/app/workflow surfaces, run
     `python3 dev/scripts/checks/check_architecture_surface_sync.py` before
@@ -791,7 +811,7 @@ python3 dev/scripts/checks/check_python_design_complexity.py
 python3 dev/scripts/checks/check_python_cyclic_imports.py
 python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
 
@@ -831,7 +851,7 @@ python3 dev/scripts/checks/check_python_design_complexity.py
 python3 dev/scripts/checks/check_python_cyclic_imports.py
 python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
 
@@ -889,7 +909,7 @@ python3 dev/scripts/checks/check_python_design_complexity.py
 python3 dev/scripts/checks/check_python_cyclic_imports.py
 python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 python3 -m pytest app/operator_console/tests/ -q --tb=short
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
@@ -954,7 +974,7 @@ python3 dev/scripts/checks/check_python_design_complexity.py
 python3 dev/scripts/checks/check_python_cyclic_imports.py
 python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
 ```
@@ -1001,7 +1021,7 @@ python3 dev/scripts/checks/check_python_design_complexity.py --since-ref origin/
 python3 dev/scripts/checks/check_python_cyclic_imports.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_suppression_debt.py --since-ref origin/develop
 python3 dev/scripts/checks/check_structural_similarity.py --since-ref origin/develop
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
 ```

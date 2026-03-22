@@ -38,7 +38,7 @@ def test_governance_closure_json_shape() -> None:
     assert "checks_run" in payload
     assert isinstance(payload["violations"], list)
     assert isinstance(payload["checks_run"], list)
-    assert len(payload["checks_run"]) == 4
+    assert len(payload["checks_run"]) == 5
 
 
 def test_governance_closure_md_format() -> None:
@@ -62,6 +62,7 @@ def test_governance_closure_violation_shape() -> None:
             "probe_test_coverage",
             "ci_guard_coverage",
             "workflow_timeout",
+            "review_disposition_schema",
         )
 
 
@@ -127,6 +128,7 @@ def test_governance_closure_clean_summary_forced() -> None:
          patch.object(cmd, "_find_probe_test_gaps", return_value=0), \
          patch.object(cmd, "_find_ci_coverage_gaps", return_value=0), \
          patch.object(cmd, "_find_workflow_timeout_gaps", return_value=0), \
+         patch.object(cmd, "_find_review_disposition_gaps", return_value=0), \
          patch("sys.argv", ["check_governance_closure", "--format", "json"]), \
          patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
         rc = cmd.main()
@@ -137,3 +139,36 @@ def test_governance_closure_clean_summary_forced() -> None:
     assert payload["ok"] is True
     assert payload["violations"] == []
     assert payload["violation_count"] == 0
+
+
+def test_governance_closure_flags_invalid_review_disposition_rows() -> None:
+    """Latest v2 review rows must carry the finding-disposition contract."""
+    import importlib
+    from unittest.mock import patch
+    import io
+
+    cmd = importlib.import_module("governance_closure.command")
+    invalid_row = {
+        "finding_id": "finding-1",
+        "schema_version": 2,
+        "contract_id": "FindingReview",
+        "verdict": "fixed",
+    }
+
+    with patch.object(cmd, "_find_guard_test_gaps", return_value=0), \
+         patch.object(cmd, "_find_probe_test_gaps", return_value=0), \
+         patch.object(cmd, "_find_ci_coverage_gaps", return_value=0), \
+         patch.object(cmd, "_find_workflow_timeout_gaps", return_value=0), \
+         patch.object(cmd, "resolve_governance_review_log_path", return_value=Path("/tmp/reviews.jsonl")), \
+         patch.object(cmd, "read_governance_review_rows", return_value=[invalid_row]), \
+         patch("sys.argv", ["check_governance_closure", "--format", "json"]), \
+         patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+        rc = cmd.main()
+
+    assert rc == 1
+    payload = json.loads(mock_stdout.getvalue())
+    assert payload["ok"] is False
+    assert any(
+        violation["check"] == "review_disposition_schema"
+        for violation in payload["violations"]
+    )

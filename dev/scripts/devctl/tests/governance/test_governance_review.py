@@ -10,10 +10,49 @@ from pathlib import Path
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands.governance import review as governance_review
 from dev.scripts.devctl.governance_review_log import build_governance_review_row
-from dev.scripts.devctl.governance_review_models import GovernanceReviewInput
+from dev.scripts.devctl.governance_review_models import (
+    FINDING_REVIEW_CONTRACT_ID,
+    FINDING_REVIEW_SCHEMA_VERSION,
+    GovernanceReviewInput,
+    VALID_FINDING_CLASSES,
+    VALID_PREVENTION_SURFACES,
+    VALID_RECURRENCE_RISKS,
+)
 
 
 class GovernanceReviewCommandTests(unittest.TestCase):
+    def test_schema_template_matches_finding_review_v2_contract(self) -> None:
+        schema_path = (
+            Path(__file__).resolve().parents[4]
+            / "config"
+            / "templates"
+            / "portable_governance_finding_review.schema.json"
+        )
+        payload = json.loads(schema_path.read_text(encoding="utf-8"))
+        properties = payload["properties"]
+
+        self.assertEqual(properties["schema_version"]["const"], FINDING_REVIEW_SCHEMA_VERSION)
+        self.assertEqual(properties["contract_id"]["const"], FINDING_REVIEW_CONTRACT_ID)
+        self.assertEqual(
+            tuple(properties["finding_class"]["enum"]),
+            VALID_FINDING_CLASSES,
+        )
+        self.assertEqual(
+            tuple(properties["recurrence_risk"]["enum"]),
+            VALID_RECURRENCE_RISKS,
+        )
+        self.assertEqual(
+            tuple(properties["prevention_surface"]["enum"]),
+            VALID_PREVENTION_SURFACES,
+        )
+        self.assertIn("schema_version", payload["required"])
+        self.assertIn("contract_id", payload["required"])
+        self.assertIn("finding_class", payload["required"])
+        self.assertIn("recurrence_risk", payload["required"])
+        self.assertIn("prevention_surface", payload["required"])
+        self.assertIn("audit", properties["signal_type"]["enum"])
+        self.assertIn("external", properties["scan_mode"]["enum"])
+
     def test_cli_parser_accepts_governance_review_command(self) -> None:
         parser = cli.build_parser()
         args = parser.parse_args(
@@ -36,6 +75,12 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                 "demo.py",
                 "--line",
                 "14",
+                "--finding-class",
+                "rule_quality",
+                "--recurrence-risk",
+                "recurring",
+                "--prevention-surface",
+                "probe",
                 "--format",
                 "json",
             ]
@@ -51,6 +96,9 @@ class GovernanceReviewCommandTests(unittest.TestCase):
         self.assertEqual(args.verdict, "false_positive")
         self.assertEqual(args.path, "demo.py")
         self.assertEqual(args.line, 14)
+        self.assertEqual(args.finding_class, "rule_quality")
+        self.assertEqual(args.recurrence_risk, "recurring")
+        self.assertEqual(args.prevention_surface, "probe")
         self.assertIs(cli.COMMAND_HANDLERS["governance-review"], governance_review.run)
 
     def test_record_updates_latest_finding_summary(self) -> None:
@@ -79,6 +127,12 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                     "demo.py",
                     "--line",
                     "7",
+                    "--finding-class",
+                    "rule_quality",
+                    "--recurrence-risk",
+                    "recurring",
+                    "--prevention-surface",
+                    "probe",
                     "--format",
                     "json",
                 ]
@@ -103,6 +157,12 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                     "demo.py",
                     "--line",
                     "7",
+                    "--finding-class",
+                    "rule_quality",
+                    "--recurrence-risk",
+                    "recurring",
+                    "--prevention-surface",
+                    "probe",
                     "--format",
                     "json",
                 ]
@@ -141,6 +201,60 @@ class GovernanceReviewCommandTests(unittest.TestCase):
 
         self.assertEqual(rc, 2)
 
+    def test_record_requires_disposition_fields_even_when_core_fields_exist(self) -> None:
+        args = cli.build_parser().parse_args(
+            [
+                "governance-review",
+                "--record",
+                "--signal-type",
+                "probe",
+                "--check-id",
+                "probe_exception_quality",
+                "--verdict",
+                "false_positive",
+                "--path",
+                "demo.py",
+                "--line",
+                "7",
+                "--format",
+                "json",
+            ]
+        )
+
+        rc = governance_review.run(args)
+
+        self.assertEqual(rc, 2)
+
+    def test_record_requires_waiver_reason_for_none_surface(self) -> None:
+        args = cli.build_parser().parse_args(
+            [
+                "governance-review",
+                "--record",
+                "--signal-type",
+                "probe",
+                "--check-id",
+                "probe_exception_quality",
+                "--verdict",
+                "deferred",
+                "--path",
+                "demo.py",
+                "--line",
+                "7",
+                "--finding-class",
+                "rule_quality",
+                "--recurrence-risk",
+                "recurring",
+                "--prevention-surface",
+                "none",
+                "--format",
+                "json",
+            ]
+        )
+
+        rc = governance_review.run(args)
+
+        self.assertEqual(rc, 2)
+
     def test_record_accepts_audit_signal_type(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -167,6 +281,12 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                     "ci-cd-hub",
                     "--line",
                     "479",
+                    "--finding-class",
+                    "local_defect",
+                    "--recurrence-risk",
+                    "recurring",
+                    "--prevention-surface",
+                    "parity_check",
                     "--format",
                     "json",
                 ]
@@ -176,11 +296,35 @@ class GovernanceReviewCommandTests(unittest.TestCase):
             payload = json.loads(
                 (summary_root / "review_summary.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(payload["stats"]["total_findings"], 1)
-            self.assertEqual(
-                (payload.get("recent_findings") or [{}])[0].get("signal_type"),
-                "audit",
+        self.assertEqual(payload["stats"]["total_findings"], 1)
+        self.assertEqual(
+            (payload.get("recent_findings") or [{}])[0].get("signal_type"),
+            "audit",
+        )
+        self.assertEqual(
+            (payload.get("recent_findings") or [{}])[0].get("prevention_surface"),
+            "parity_check",
+        )
+
+    def test_review_row_includes_disposition_contract_fields(self) -> None:
+        row = build_governance_review_row(
+            review_input=GovernanceReviewInput(
+                signal_type="probe",
+                check_id="probe_exception_quality",
+                verdict="fixed",
+                file_path="demo.py",
+                line=7,
+                finding_class="rule_quality",
+                recurrence_risk="recurring",
+                prevention_surface="probe",
             )
+        )
+
+        self.assertEqual(row["schema_version"], FINDING_REVIEW_SCHEMA_VERSION)
+        self.assertEqual(row["contract_id"], FINDING_REVIEW_CONTRACT_ID)
+        self.assertEqual(row["finding_class"], "rule_quality")
+        self.assertEqual(row["recurrence_risk"], "recurring")
+        self.assertEqual(row["prevention_surface"], "probe")
 
     def test_default_finding_id_ignores_absolute_repo_path(self) -> None:
         row_one = build_governance_review_row(
@@ -192,6 +336,9 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                 repo_name="ci-cd-hub",
                 repo_path="/Users/alice/repos/ci-cd-hub",
                 line=479,
+                finding_class="local_defect",
+                recurrence_risk="recurring",
+                prevention_surface="regression_test",
             )
         )
         row_two = build_governance_review_row(
@@ -203,6 +350,9 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                 repo_name="ci-cd-hub",
                 repo_path="/tmp/portable/ci-cd-hub",
                 line=479,
+                finding_class="local_defect",
+                recurrence_risk="recurring",
+                prevention_surface="regression_test",
             )
         )
 
@@ -229,6 +379,9 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                     file_path=str(first_path),
                     repo_name="portable-demo",
                     line=12,
+                    finding_class="local_defect",
+                    recurrence_risk="recurring",
+                    prevention_surface="regression_test",
                 ),
                 repo_root=first_root,
             )
@@ -240,6 +393,9 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                     file_path=str(second_path),
                     repo_name="portable-demo",
                     line=12,
+                    finding_class="local_defect",
+                    recurrence_risk="recurring",
+                    prevention_surface="regression_test",
                 ),
                 repo_root=second_root,
             )

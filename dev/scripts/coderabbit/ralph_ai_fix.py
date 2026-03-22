@@ -25,6 +25,7 @@ from dev.scripts.devctl.ralph_guardrail_report import (
     load_guardrails_config,
     render_report_json,
 )
+from dev.scripts.coderabbit.probe_guidance import attach_probe_guidance
 
 ARCH_CHECKS: dict[str, list[list[str]]] = {
     "rust": [
@@ -117,11 +118,25 @@ def build_prompt(
     context_packet: ContextEscalationPacket | None = None,
 ) -> str:
     """Build a Claude Code prompt from backlog items with optional standards context."""
-    findings_text = "\n".join(
-        f"  {index + 1}. [{item.get('severity', 'unknown')}] "
-        f"({item.get('category', 'unknown')}) {item.get('summary', 'no summary')}"
-        for index, item in enumerate(items)
-    )
+    finding_lines: list[str] = []
+    for index, item in enumerate(items):
+        line = (
+            f"  {index + 1}. [{item.get('severity', 'unknown')}] "
+            f"({item.get('category', 'unknown')}) {item.get('summary', 'no summary')}"
+        )
+        item_guidance = item.get("probe_guidance")
+        if isinstance(item_guidance, list):
+            for entry in item_guidance[:2]:
+                if not isinstance(entry, dict):
+                    continue
+                line += (
+                    "\n     Probe guidance: "
+                    f"{entry.get('ai_instruction') or ''} "
+                    f"({entry.get('probe') or 'probe'} on "
+                    f"{entry.get('file_path') or entry.get('symbol') or 'matched file'})"
+                )
+        finding_lines.append(line)
+    findings_text = "\n".join(finding_lines)
 
     standards_block = ""
     if guardrails_config:
@@ -274,6 +289,14 @@ def main() -> int:
         return 0
 
     context_packet = build_backlog_context_packet(items)
+    items = attach_probe_guidance(items)
+    probe_guidance_count = sum(
+        len(item.get("probe_guidance", []))
+        for item in items
+        if isinstance(item.get("probe_guidance"), list)
+    )
+    if probe_guidance_count:
+        print(f"[ralph-ai-fix] loaded {probe_guidance_count} probe guidance entries")
     prompt = build_prompt(
         items,
         attempt,

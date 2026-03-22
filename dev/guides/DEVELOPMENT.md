@@ -43,7 +43,8 @@ Use docs like this:
 - **`dev/active/INDEX.md`** -- active plan docs and when to read each one.
 - **`dev/active/MASTER_PLAN.md`** -- source of truth for current work.
 - **`dev/active/pre_release_architecture_audit.md`** -- canonical findings + execution checklist for pre-release architecture/tooling remediation (`MP-347`, `MP-349`).
-- Repo-root whole-system audits (for example `SYSTEM_AUDIT.md`) are temporary
+- Whole-system audit references (for example
+  `dev/guides/SYSTEM_AUDIT.md`) are temporary
   reference evidence only. Accepted findings must be copied into canonical
   active plans and maintainer docs; once integrated, retire the repo-root
   audit copy instead of maintaining a second roadmap.
@@ -188,7 +189,12 @@ Three quality layers matter in practice:
   - `startup-context` is the typed startup packet for those same sessions.
     When `review_state.json` is present, it should read reviewer acceptance
     from typed `bridge.review_accepted` state and only fall back to parsing
-    `bridge.md` when the typed projection is unavailable.
+    `bridge.md` when the typed projection is unavailable. The same startup
+    path now has a typed governed-markdown baseline too:
+    `ProjectGovernance` carries `DocPolicy`, `DocRegistry`, and parsed
+    `PlanRegistry` entries built from governed docs plus `INDEX.md`, while
+    `## Session Resume` content still remains the canonical restart surface
+    until runtime consumes typed resume state instead of only a presence flag.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.
     That exclusion only affects checkpoint-budget accounting; raw git state
@@ -259,7 +265,7 @@ the concrete minimum inventory after edits:
    - `python3 dev/scripts/checks/check_serde_compatibility.py`
    - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py`
    - `python3 dev/scripts/checks/check_tandem_consistency.py` (prefers typed `review_state.json` when available; bridge-text fallback for checks without a typed equivalent)
-   - `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`
+   - `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`
 4. If you changed shared platform/runtime contract surfaces (`dev/scripts/devctl/platform/**`,
    shared runtime contract models, durable probe/report schema constants, or
    startup-surface contract routing), also run:
@@ -957,6 +963,10 @@ Structured audit/event ledgers are separate from that handoff surface:
   - use `devctl` commands whenever the work should land in command telemetry;
   - before handoff, append `governance-review --record` rows for any findings
     you confirmed, fixed, deferred, waived, or judged false-positive;
+  - before closing any non-trivial issue, decide whether it should be absorbed
+    into a guard, probe, contract, authority rule, parity check, regression
+    test, docs update, or explicit waiver; record that systemic disposition in
+    plan/handoff state instead of shipping patch-only closure silently;
   - if you record a `false_positive`, add the root-cause analysis and the
     planned rule/policy fix to the handoff instead of stopping at the verdict;
   - if part of the session happened outside `devctl` and was not captured by
@@ -1134,7 +1144,7 @@ cd rust && cargo test pty_session::tests::prop_find_osc_terminator_respects_boun
 cd rust && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
 
 # Markdown style/readability checks for key docs
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 ```
 
 **Manual equivalents (if you prefer direct cargo commands):**

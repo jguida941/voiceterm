@@ -133,6 +133,12 @@ class GovernanceImportFindingsTests(unittest.TestCase):
                     str(imported_rows[0]["file_path"]),
                     "--repo-name",
                     str(imported_rows[0]["repo_name"]),
+                    "--finding-class",
+                    "local_defect",
+                    "--recurrence-risk",
+                    "recurring",
+                    "--prevention-surface",
+                    "regression_test",
                     "--format",
                     "json",
                 ]

@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-03-21 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-22 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -2534,9 +2534,11 @@ Still open before `P0` closes:
       and keep only live delta execution state under `dev/active`.
 - [ ] Run the first measured documentation-consolidation tranche with explicit
       baselines and targets. Current measured baseline:
-      `26` active markdown docs / `27,462` lines, `13` guide docs /
-      `6,873` lines, and `1,706` lines of root governance docs
-      (`AGENTS.md` + `DEV_INDEX.md`). Initial target: reduce active-doc count
+      `26` active markdown docs / `27,462` lines, `15` guide/reference docs /
+      `9,874` lines after moving the whole-system audit references under
+      `dev/guides/`, and
+      `1,858` lines across maintainer entry docs (`AGENTS.md` +
+      `dev/README.md`). Initial target: reduce active-doc count
       toward `~20`, cut active-line volume materially, and stop carrying
       multiple giant active specs that mix architecture, migration history,
       and competitive/reference material in one file.
@@ -2548,7 +2550,7 @@ Still open before `P0` closes:
       execution delta is near zero; and trim oversized active docs by moving
       completed phases, comparative analysis, and long reference sections into
       guides/reference/archive surfaces.
-- [ ] Absorb the full `SYSTEM_AUDIT.md` action plan into the canonical
+- [ ] Absorb the full `dev/guides/SYSTEM_AUDIT.md` action plan into the canonical
       `MP-377` checklist instead of leaving it in a parallel document.
       Required mapping:
       blocker-tranche security items (`D*`, `S*`) -> authority-loop blocker
@@ -2593,10 +2595,11 @@ Still open before `P0` closes:
       locations, duplicate authority families, and new audit/spec documents
       that try to behave like shadow roadmaps outside the canonical plan
       chain.
-- [ ] Freeze the audit-integration retirement rule: repo-root audit docs such
-      as `SYSTEM_AUDIT.md` are temporary reference evidence. Accepted findings
-      must be absorbed into canonical plans and maintainer docs, and the
-      repo-root copy should be retired once those findings are fully
+- [ ] Freeze the audit-integration retirement rule: whole-system audit docs
+      such as `dev/guides/SYSTEM_AUDIT.md` are temporary reference evidence.
+      Accepted findings must be absorbed into canonical plans and maintainer
+      docs, and the moved reference copy should be retired once those
+      findings are fully
       integrated or explicitly rejected.
 - [ ] Add one reviewed repo-local governance contract surface
       (`project.governance.md` as the current working name): human-readable,
@@ -2912,10 +2915,15 @@ Still open before `P0` closes:
       stay bounded across bootstrap, full-scan, focused-fix, review, and
       remediation modes.
 - [ ] Promote the recurring-defect closure rule into the platform contract:
-      when review/audit/manual use finds a deterministic low-noise issue, the
-      default follow-up is a reusable guard/probe/policy path; if the issue is
-      repo-local only, record why it remains in repo-pack policy instead of
-      promoting it into the portable engine.
+      no important finding is complete until it is evaluated for architectural
+      absorption. Every non-trivial issue should classify recurrence risk,
+      choose an approved prevention surface (`guard`, `probe`, `contract`,
+      `authority_rule`, `parity_check`, `regression_test`, `docs_only`, or
+      explicit waiver/`none`), and verify both the local fix and the systemic
+      prevention path. When review/audit/manual use finds a deterministic
+      low-noise issue, the default follow-up is a reusable guard/probe/policy
+      path; if the issue is repo-local only, record why it remains in
+      repo-pack policy instead of promoting it into the portable engine.
 - [ ] Freeze the evidence-to-memory bridge contract: findings, run records,
       repo-map snapshots, and other machine artifacts should be attachable by
       ref into context packs and later memory/query flows instead of copied
@@ -3043,6 +3051,18 @@ Still open before `P0` closes:
       `exports`, `consumes`, and `transforms` where the repo-owned contract
       evidence is real) so the graph is anchored in repo-owned evidence
       instead of raw import adjacency alone.
+- [ ] Promote the graph from escalation-only helper to the first bounded
+      decision-routing input after those relation families land: make the
+      builder emit real `EDGE_KIND_GUARDS` and `EDGE_KIND_SCOPED_BY` edges,
+      land `EDGE_KIND_GUARDS` as the first quick win, and add the missing
+      node families incrementally (`test`, `workflow`, `config`, `finding`,
+      and `contract`) so the graph can widen beyond escalation packets into
+      startup, autonomy, Ralph/remediation, guards/probes, and operator
+      surfaces. The target is graph-backed answers to "what guards protect
+      this file?", "what tests or workflows fire?", "what findings block
+      this plan?", and "what contracts or scopes apply here?" through cited
+      canonical refs instead of flat substring discovery alone. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 43, Part 47)
 - [ ] Land one bounded inference engine on top of those typed relations in the
       same first routing proof: allow 2-3 hop cited chains over canonical
       refs so `WorkIntakePacket` can route intent to the smallest defensible
@@ -3309,6 +3329,27 @@ Still open before `P0` closes:
       coverage, CI invocation coverage, exception-list completeness, workflow
       timeout coverage, JSONL/evidence-integrity gaps, and config-vs-code drift
       when the governance layer is itself incomplete.
+- [ ] Close the first feedback-loop tranche on top of those same canonical
+      evidence surfaces: auto-persist adjudicable guard/probe outcomes into the
+      governance ledgers, unify finding identity generation across guard /
+      probe / import paths, feed `code_shape`, duplication, and
+      `time_to_green` into one measured quality surface, and project that
+      quality summary into bounded startup/operator views instead of chat-only
+      bridge prose. Owner/phase: `MP-377` evidence/feedback closure before
+      wider `P1` UX. (audit mapping: `SYSTEM_AUDIT.md` A1, A2, A3, A4)
+- [ ] Route the fresh operational evidence already produced under
+      `dev/reports/**` and adjacent governance/runtime artifacts into the
+      first live decision surfaces on top of that same feedback-loop tranche:
+      `review_packet.json`, governance summaries / `finding_reviews.jsonl`,
+      watchdog episodes, data-science summaries, orchestrate state,
+      `DecisionPacket` metadata, quality-feedback recommendations, research
+      benchmark bundles, audit-event history, review-channel traces, and
+      Ralph guardrail reports should influence bootstrap, conductor, swarm,
+      Ralph, loop-packet, escalation, and other runtime decision points
+      instead of remaining write-only or display-only data. Sequence this
+      behind the authority spine by consuming the existing versioned artifacts
+      rather than inventing new side channels. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 42, Part 45)
 - [ ] Version the remaining artifact families before promoting that aggregate
       surface as canonical: governance-ledger summaries, autonomy episodes,
       `devctl` event history, data-science summaries, and any new convention /
@@ -3360,8 +3401,11 @@ Still open before `P0` closes:
       the first repeatable command-source/shell-execution checks. Include a
       meta-governance guard path that can prove whether the rule engine itself
       is complete: guard/probe tests exist, CI runs the registered guards,
-      exception registries are complete, and timeouts/coverage gaps are
-      surfaced as evidence instead of being assumed away.
+      exception registries are complete, timeouts/coverage gaps are surfaced as
+      evidence instead of being assumed away, and the next missing hard-guard
+      tranche (unused imports, hardcoded secrets, dead code, and similar
+      deterministic wins) lands through reusable rule families instead of
+      audit-only prose. (audit mapping: `SYSTEM_AUDIT.md` A27)
 - [ ] Expand the watchdog and audit evidence beyond today's narrow slices:
       run repeated full-worktree `--adoption-scan` cycles, widen guarded-coding
       episode coverage, and baseline more guard/probe families so platform
@@ -3449,17 +3493,45 @@ Still open before `P0` closes:
       review/fix/decision packet should emit from raw hints once this closes:
       every packet must carry stable finding identity, rule version, span, and
       evidence/artifact provenance through that shared record.
+- [ ] Finish the typed-runtime structural-debt tranche before widening `P1`:
+      remove duplicate authority-state models such as the parallel
+      `ReviewBridgeState`, replace ad hoc `*_from_dict` loaders with one
+      governed deserialization seam, and delete surviving `globals()` / dead-
+      code / stringly routing shortcuts that bypass the platform contracts the
+      runtime already claims to own. Owner/phase: `MP-377` `P0`
+      runtime-contract cleanup before broader adopter-facing packaging. (audit
+      mapping: `SYSTEM_AUDIT.md` A13, A16, A17)
 - [ ] Define one typed `ActionResult` and error contract for the whole app:
       command handlers, service endpoints, wrappers, and clients should return
       the same success/failure envelope with reason codes, retryability,
-      partial-progress semantics, operator guidance, and artifact refs.
+      partial-progress semantics, operator guidance, and artifact refs. This
+      is the canonical replacement for ad hoc `OutputEnvelope` proposals, not
+      a second output-contract family. (audit mapping: `SYSTEM_AUDIT.md` A19)
+- [ ] Land a first shared crash/error envelope on top of that contract:
+      `devctl` CLI dispatch, `check`, and `autonomy-loop` must translate
+      uncaught exceptions into structured machine-output / `ActionResult`
+      failures with consistent exit codes instead of raw Python tracebacks.
+      First concrete closure sites are the top-level `cli.py` `main()` path
+      and the outer `autonomy_loop.py` execution wrapper; after that, fan the
+      same helper out across the remaining command families.
+      (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 36)
 - [ ] Define one `CommandGoalTaxonomy` over the canonical action inventory and
       drive grouped discovery from it: `devctl list`, startup surfaces,
       wrappers, skills, future `map` hints, and validation-routing surfaces
       should all group by the same user goals instead of maintaining separate
       hand-curated command sets. `surface_generation` must derive workflow
       semantics from this structured action metadata rather than from freeform
-      repo-policy prose blocks alone.
+      repo-policy prose blocks alone. The same contract should collapse the
+      public/adopter-facing command surface toward a small goal-aligned `gov`
+      family instead of another ever-growing flat command list. (audit
+      mapping: `SYSTEM_AUDIT.md` A18)
+- [ ] Turn the current report-only governance-routing fields into live runtime
+      inputs: `ProjectGovernance.startup_order`,
+      `command_routing_defaults`, and `workflow_profiles` must drive startup /
+      command / workflow routing instead of stopping at draft/render output,
+      and docs-governance should keep `DocRegistry` consumer/managed metadata
+      aligned with the runtime filters that claim to use them. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 38)
 - [ ] Define one typed AI decision-routing contract over findings and design
       debt: the platform should distinguish at least `repairable`,
       `decision_candidate`, `approval_required`, and `informational`, with
@@ -3467,6 +3539,15 @@ Still open before `P0` closes:
       users do not have to infer architecture choices from raw probe output.
       Stable routing must support multiple findings on the same symbol without
       collapsing them into one implicit decision state.
+- [ ] Finish closing the AI-guidance routing gap instead of inventing more
+      packet shapes: Ralph now consumes exact file-matched
+      `Finding.ai_instruction` from canonical probe artifacts, but autonomy
+      retry/repair paths, review-channel remediation flows, and `guard-run`
+      follow-up packets still need the same contract plus carried decision
+      semantics (`decision_mode`, `invariants`, `validation_plan`,
+      `precedent`, `research_instruction`, `signals`) instead of rendering
+      them only for humans. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38)
 - [ ] Split the default fix packet from the typed decision packet: the
       everyday AI/dev surface should carry deterministic fixes, scoped
       evidence, the next routed checks, and the preferred validator in a
@@ -3475,6 +3556,19 @@ Still open before `P0` closes:
       validation plan needed for either AI or human decision-makers in a
       `DecisionPacket`. `governance-review` should become the canonical
       close-out sink for both packet families.
+- [ ] Make `governance-review` a runtime close-out sink, not a manual-only
+      CLI: guard-run, autonomy-loop, review-channel closeout, and later
+      packet apply/result handlers must auto-record
+      `fixed|deferred|waived|false_positive` outcomes with stable finding ids,
+      while `governance-review --record` remains the manual override path.
+      (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 39)
+- [ ] Add one governance-closeout/self-governance guard over that same sink:
+      fail when adjudicable guard/probe/runtime paths bypass
+      `governance-review`, when `governance_closure` or adjacent parity checks
+      are registered without bundle/CI ownership or typed exemption, or when
+      the checking stack can emit findings without durable ledger linkage.
+      Owner/phase: `MP-377` `P0` self-governance closure alongside the blocker
+      tranche. (audit mapping: `SYSTEM_AUDIT.md` A29, G1)
 - [ ] Add schema-version coverage for every durable machine artifact family:
       command receipts, event ledgers, findings, review packets, watchdog
       episodes, analytics snapshots, and other JSON/JSONL outputs should carry
@@ -3504,6 +3598,16 @@ Still open before `P0` closes:
       now live as `check_platform_contract_closure.py` for the already-real
       runtime/artifact/startup-surface families; expand it as the remaining
       `P0` contracts land.
+- [ ] Add the first platform test-hardening matrix behind those contracts:
+      cover platform contract registration, failure-mode handling
+      (JSONL/subprocess/concurrent access), and boundary integration from
+      guard/probe finding through ledger/adjudication/feedback routing so
+      `MP-377` proves the wiring, not just the schema prose. The first cut
+      must also produce a developer-runnable local integration suite for these
+      flows instead of leaving end-to-end coverage CI-only or audit-only.
+      Owner/phase:
+      `MP-377` `P1` validation tranche after the core routing paths are live.
+      (audit mapping: `SYSTEM_AUDIT.md` T3, T4, T5)
 - [ ] Promote `devctl map` from narrative target to checklist deliverable:
       freeze `RepoMapSnapshot`, `MapFocusQuery`, and `TargetedCheckPlan` plus
       cache/store identity, then require topology/hotspot/review outputs and
@@ -3579,6 +3683,41 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-03-22 implementation follow-up: `governance-review --record` now emits
+  a typed `FindingReview` v2 row for new adjudications and requires bounded
+  architectural-disposition fields (`finding_class`, `recurrence_risk`,
+  `prevention_surface`, `waiver_reason` when applicable). The adjacent
+  `check_governance_closure` guard now validates the latest v2 review rows
+  while keeping legacy rows readable during the migration window. The next
+  closure here is automatic runtime recording from guard/review/autonomy
+  flows, not more schema invention.
+- 2026-03-22 protocol follow-up: the plan now makes architectural absorption a
+  required completion rule, not just a review habit. The next enforcement work
+  is to encode that as a bounded finding-disposition contract so important
+  issues cannot close as patch-only without an approved prevention surface or
+  explicit waiver.
+- 2026-03-22 evidence follow-up: Parts 45 and 47 from
+  `UNIVERSAL_SYSTEM_EVIDENCE.md` are now explicit in the platform plan. The
+  next runtime closure here is not new reporting architecture; it is wiring
+  already-written operational artifacts into real decision surfaces and
+  landing the first missing graph edges/node families so the graph answers
+  runtime questions instead of staying escalation-only.
+- 2026-03-22 tranche-2 follow-up: the first live `ai_instruction` wire is now
+  real in Ralph. The runtime reads canonical probe findings from
+  `review_targets.json` (fallback `review_packet.json`), matches them to the
+  current CodeRabbit file slice, and injects the resulting guidance into the
+  live remediation prompt with deterministic tests. Keep the closure sequence
+  explicit: tranches 2-4 stay on direct contract wires, meta-guards, and
+  startup/session authority; ZGraph remains optional context help there and
+  becomes a required execution substrate only once
+  `EDGE_KIND_GUARDS` / `EDGE_KIND_SCOPED_BY` plus wider graph consumers land.
+- 2026-03-22 evidence follow-up: Parts 42-43 from
+  `UNIVERSAL_SYSTEM_EVIDENCE.md` are now explicit here instead of living only
+  in reference prose. The next `MP-377` implementation slice should route the
+  fresh `dev/reports/**` operational artifacts into live prompt builders and
+  promote the graph from escalation-only context help into bounded
+  decision-routing by landing real `EDGE_KIND_GUARDS` /
+  `EDGE_KIND_SCOPED_BY` edges plus non-escalation consumers.
 - `dev/active/ai_governance_platform.md` is the only main active plan for this
   product scope; companion docs now route back here instead of acting like peer
   execution authority.
@@ -3603,6 +3742,35 @@ working on `MP-377`.
   `governance-review --record` owns adjudicated finding outcomes, and handoff
   notes must say when meaningful work happened outside those ledgers so
   coverage is not overstated.
+- Coordination note for tandem review: do not create another per-slice
+  `audit.md`. Narrative execution state belongs here (`Session Resume` +
+  `Progress Log`), adjudicated evidence belongs in `governance-review`, and
+  live Codex/Claude current-state handoff belongs in `review_state.json` with
+  `bridge.md` as the compatibility projection.
+- 2026-03-22 intake sharpened the `P0` rule further: the next missing work is
+  wiring existing contracts into live consumers, not inventing more
+  architecture. The remaining high-value gaps are AI guidance routing,
+  automated `governance-review` closeout, typed `Session Resume` consumption,
+  live use of `ProjectGovernance` routing fields, and shared command-crash
+  handling.
+- 2026-03-22 mapping follow-up: the remaining accepted `SYSTEM_AUDIT.md`
+  structural/surface/test tranche is now fully absorbed into the canonical
+  plan chain. `A13`/`A16`/`A17` stay in the `P0` runtime-contract cleanup
+  lane, `A18`/`A19` stay attached to the shared command/output contract work,
+  and `T3`/`T4`/`T5` now sit in the first platform validation matrix. The next
+  move is implementation, not more audit transcription.
+- 2026-03-22 full-audit follow-up: the earlier "all actionable items" claim is
+  now true only after making the previously implicit tiers explicit. This plan
+  now owns the feedback-loop closure (`A1-A4`), the next deterministic
+  hard-guard tranche (`A27`), and governance-closeout/self-governance
+  enforcement (`A29`, `G1`), while blocker-tranche authority and startup/
+  memory tiers stay spelled out in `platform_authority_loop.md`.
+- 2026-03-22 ambiguity follow-up: tightened the last two planning ambiguities
+  before implementation. Part 39 was already explicit here (`governance-review`
+  auto-record closeout remains a real checklist item), while Part 36 now names
+  `cli.py` + `autonomy_loop.py` as the first crash-envelope closure sites and
+  the platform validation matrix now requires a developer-runnable local
+  integration suite instead of relying only on unit tests or CI wiring.
 - Architecture review on 2026-03-16 closed a planning gap: the current
   topology/hotspot outputs are useful but still too thin to count as the
   public repo-understanding surface. The next public contract must be a real
@@ -3628,7 +3796,7 @@ working on `MP-377`.
   JSONL/evidence integrity, self-governance closure), then startup authority,
   repo-pack activation, typed plan registry, one real runtime slice,
   evidence/provenance closure, `ContextPack`, and the first two-repo proof.
-- Repo-root `SYSTEM_AUDIT.md` is broad reference evidence, not execution
+- `dev/guides/SYSTEM_AUDIT.md` is broad reference evidence, not execution
   authority. Only the code-backed blocker tranche reprioritizes active work;
   the rest of the 2026-03-19 audit remains corroborating evidence until its
   stale counts and internal contradictions are cleaned up. Do not treat the
@@ -3638,7 +3806,7 @@ working on `MP-377`.
   current `MP-377` slice, authority spine, and live bridge instruction. Warm:
   the exact active plan/runbook sections for the current slice. Cold:
   whole-system audits, history, and broad reference docs such as
-  `SYSTEM_AUDIT.md`.
+  `dev/guides/SYSTEM_AUDIT.md`.
 - Startup/session packets must stay on one canonical family:
   `startup-context` / `WorkIntakePacket` / `CollaborationSession` /
   `ContextPack`. Do not introduce a parallel `bootstrap-context` or
@@ -4025,6 +4193,74 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-22: Landed the first enforcement slice for the new
+  architectural-absorption rule without creating another shadow audit surface.
+  `governance-review --record` now requires typed finding disposition fields,
+  emits `FindingReview` schema v2 rows, and renders the disposition back into
+  recent findings. `check_governance_closure` now checks the latest v2 review
+  rows for that contract while leaving legacy JSONL rows readable. Focused
+  tests passed for `governance-review`, `governance-import-findings`,
+  governance CLI dispatch, and `check_governance_closure`. The live
+  `check_governance_closure` guard is still red, but only for pre-existing
+  repo-wide guard/probe test-coverage and CI-coverage backlog unrelated to
+  the new review-disposition check.
+- 2026-03-22: Closed the two remaining tranche-1 polish gaps immediately after
+  review. The portable finding-review JSON schema template now matches the
+  live `FindingReview` v2 contract (schema version, contract id, signal/scan
+  enums, disposition fields, and waiver conditional), a deterministic test now
+  guards that template against future drift, and one explicit temp-ledger CLI
+  proof confirmed the end-to-end path (`governance-review --record` -> JSONL
+  v2 row -> summary artifact -> disposition validator returns no errors)
+  outside the unit-test helper path.
+- 2026-03-22: Tightened the recurring-defect rule into an explicit platform
+  completion contract. The plan no longer says only "prefer a reusable
+  guard/probe path"; it now requires important findings to be evaluated for
+  architectural absorption through approved prevention surfaces or an explicit
+  waiver before closure.
+- 2026-03-22: Landed the first live `ai_instruction` routing proof in the
+  runtime instead of only in audit/plan prose. Ralph now reads canonical probe
+  findings from `review_targets.json` (fallback `review_packet.json`),
+  matches them deterministically to CodeRabbit backlog file slices, and
+  renders the matched guidance into the live remediation prompt. Focused tests
+  cover prompt rendering, exact-path matching, dedupe behavior, and the
+  `main()` path that passes the guidance through to `invoke_claude()`.
+- 2026-03-22: Tightened the `MP-377` platform checklist with the next evidence
+  intake instead of creating parallel backlog. Part 45 widened the existing
+  operational-artifact routing item from prompt-builder-only to broader
+  decision-surface consumption, and Part 47 widened the existing graph-routing
+  item from dead-edge closure alone to the first quick-win `EDGE_KIND_GUARDS`
+  seam plus the missing node-family rollout.
+- 2026-03-22: Integrated `UNIVERSAL_SYSTEM_EVIDENCE.md` Parts 42-43 into the
+  canonical `MP-377` plan chain. The feedback-loop tranche now explicitly owns
+  routing fresh `dev/reports/**` operational artifacts into live prompt
+  builders, and the graph lane now explicitly owns landing real
+  `EDGE_KIND_GUARDS` / `EDGE_KIND_SCOPED_BY` edges plus widening graph
+  consumers beyond escalation-only packets.
+- 2026-03-22: Completed the remaining whole-audit mapping into the canonical
+  platform chain instead of leaving `A1-A12`, `A22-A30`, and `D/S/E/G`
+  partially implied. `platform_authority_loop.md` now carries the blocker +
+  startup/memory/path-portability tiers explicitly, while this plan now owns
+  the feedback-loop closure (`A1-A4`), the next deterministic hard-guard
+  tranche (`A27`), and governance-closeout/self-governance enforcement
+  (`A29`, `G1`) in checklist form.
+- 2026-03-22: Finished the remaining `SYSTEM_AUDIT.md` mapping into the main
+  platform plan instead of leaving `A13-A21` / `T1-T5` partly stranded in
+  reference prose. The current canonical split is now explicit: `A13`/`A16`/
+  `A17` as `MP-377` `P0` typed-runtime cleanup, `A18`/`A19` as command/output
+  contract convergence, and `T3`/`T4`/`T5` as the first platform
+  test-hardening matrix. `dev/guides/SYSTEM_AUDIT.md` is now integration-
+  complete reference evidence pending retirement after the current Phase 7
+  proof/cleanup gate, not a shadow roadmap.
+- 2026-03-22: Integrated the root evidence intake into the main `MP-377`
+  product plan and corrected the stale subclaims before mirroring them into
+  tracker state. The live problem is routing, not missing architecture:
+  probe/decision guidance fields still do not reach the AI fix loops,
+  `governance-review` is still effectively manual closeout, and
+  `ProjectGovernance` routing fields remain mostly report-only. Corrected
+  while recording this slice: `decision_packet_from_finding()` already has
+  live callers in `dev/scripts/checks/probe_report/decision_packets.py`, and
+  some doc-authority metadata is already consumed by `doc_authority.py`; the
+  unresolved gap is runtime/control-path consumption.
 - 2026-03-21: Captured the supporting guard-audit conclusions into the live
   `MP-377` plan chain instead of leaving them as off-plan analysis. Execution
   state stays here and in `MASTER_PLAN`. Verified against code that the branch
@@ -4150,8 +4386,9 @@ Execution order for this section:
   not authority.
 - 2026-03-20: Measured the current docs-system baseline before planning the
   fix. The repo currently has `26` markdown files under `dev/active`
-  (`27,462` lines), `13` markdown files under `dev/guides` (`6,873` lines),
-  and `1,706` lines of root governance docs (`AGENTS.md` + `DEV_INDEX.md`).
+  (`27,462` lines), `15` markdown files under `dev/guides` (`9,874` lines),
+  and `1,858` lines across maintainer entry docs (`AGENTS.md` +
+  `dev/README.md`).
   The largest active docs are now `ai_governance_platform.md` (`4,969`
   lines), `ide_provider_modularization.md` (`2,935`), `MASTER_PLAN.md`
   (`2,838`), and `memory_studio.md` (`2,075`), with `operator_console.md`
@@ -4169,7 +4406,7 @@ Execution order for this section:
   see authority drift before write-mode remediation exists.
 - 2026-03-20: Elevated the unified documentation-authority system from
   implicit concern to explicit `MP-377` major priority after re-reviewing the
-  full `SYSTEM_AUDIT.md` and the existing repo architecture. The accepted
+  full `dev/guides/SYSTEM_AUDIT.md` and the existing repo architecture. The accepted
   shape is not ad hoc doc cleanup: it is one repo-pack-owned docs contract
   (`DocPolicy`), one broader `DocRegistry` over governed markdown surfaces,
   canonical markdown metadata/schema + anchor/formatter rules, hot/warm/cold
@@ -4177,7 +4414,7 @@ Execution order for this section:
   operational surfaces out of `dev/active`, and docs-governance enforcement
   built on `docs-check`, `check_active_plan_sync`, `hygiene`, and
   `check_architecture_surface_sync`.
-- 2026-03-20: Accepted the full tiered `SYSTEM_AUDIT.md` action plan as
+- 2026-03-20: Accepted the full tiered `dev/guides/SYSTEM_AUDIT.md` action plan as
   canonical intake that must be mapped into the existing `MP-377` phases
   rather than left in a parallel document. The mapping is now explicit here:
   blocker-tranche security, evidence/feedback loop, bootstrap compression,
@@ -4185,7 +4422,7 @@ Execution order for this section:
   simplification, portability, black-box guard/probe strengthening, and
   test-hardening all stay visible as tracked work inside the canonical plan
   chain instead of living only in the repo-root audit.
-- 2026-03-20: Reviewed the repo-root `SYSTEM_AUDIT.md` intake as architecture,
+- 2026-03-20: Reviewed `dev/guides/SYSTEM_AUDIT.md` intake as architecture,
   not as bulk transcription, and accepted the anti-sprawl/self-hosting pieces
   only where they strengthen the existing platform direction. The chosen path
   is to extend the current package-layout / compatibility-shim governance into
@@ -4193,9 +4430,9 @@ Execution order for this section:
   placement, subsystem file-count budgets, source-of-truth ownership,
   active-doc lifecycle, and shim expiry rather than inventing a second
   unrelated topology system. Also froze the audit-integration retirement rule:
-  repo-root audits remain temporary reference evidence, and once accepted
-  findings are integrated into canonical plans/docs, the repo-root copy should
-  be retired instead of living on as a shadow roadmap.
+  whole-system audits remain temporary reference evidence, and once accepted
+  findings are integrated into canonical plans/docs, the moved audit copy
+  should be retired instead of living on as a shadow roadmap.
 - 2026-03-20: Accepted the stronger self-hosting critique as plan state. The
   governance engine has to become proof that the governance approach works on
   itself, not just something imposed on downstream repos. Added explicit
@@ -4205,8 +4442,8 @@ Execution order for this section:
   simplification/compaction, and a later clean-sheet review-channel
   simplification pass once typed runtime authority is stable.
 - 2026-03-20: Re-ran the architecture/plan review with code-backed validation
-  against `SYSTEM_AUDIT.md` and corrected the tracked order without creating a
-  parallel plan. Accepted reprioritization: clear the blocker tranche first
+  against `dev/guides/SYSTEM_AUDIT.md` and corrected the tracked order without
+  creating a parallel plan. Accepted reprioritization: clear the blocker tranche first
   (daemon attach/auth security, autonomy authority hardening,
   JSONL/evidence-integrity closure, self-governance coverage), then resume the
   authority-loop spine through `startup-context`, `WorkIntakePacket`,
@@ -4217,7 +4454,7 @@ Execution order for this section:
   compression/navigation only and must be evaluated against the plain path on
   tokens, latency, task success, citation validity, and unsupported-claim
   rate before it counts as product architecture.
-- 2026-03-20: Integrated the new repo-root `SYSTEM_AUDIT.md` intake into the
+- 2026-03-20: Integrated `dev/guides/SYSTEM_AUDIT.md` into the
   main `MP-377` plan chain without creating a parallel roadmap. The audit
   confirms rather than replaces the active execution order: the highest-
   leverage missing product behavior is still automatic feedback of governed

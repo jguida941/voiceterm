@@ -5,6 +5,40 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+FINDING_REVIEW_CONTRACT_ID, FINDING_REVIEW_SCHEMA_VERSION = "FindingReview", 2
+
+VALID_FINDING_CLASSES: tuple[str, ...] = (
+    "local_defect",
+    "contract_mismatch",
+    "missing_guard",
+    "missing_probe",
+    "rule_quality",
+    "authority_boundary",
+    "workflow_gap",
+    "docs_drift",
+    "unknown",
+)
+
+VALID_RECURRENCE_RISKS: tuple[str, ...] = (
+    "one_off",
+    "localized",
+    "recurring",
+    "systemic",
+    "unknown",
+)
+
+VALID_PREVENTION_SURFACES: tuple[str, ...] = (
+    "guard",
+    "probe",
+    "contract",
+    "authority_rule",
+    "parity_check",
+    "regression_test",
+    "docs_only",
+    "repo_policy",
+    "none",
+)
+
 
 @dataclass(frozen=True)
 class GovernanceReviewInput:
@@ -24,6 +58,10 @@ class GovernanceReviewInput:
     repo_path: str | None = None
     notes: str | None = None
     finding_id: str | None = None
+    finding_class: str | None = None
+    recurrence_risk: str | None = None
+    prevention_surface: str | None = None
+    waiver_reason: str | None = None
 
 
 @dataclass(frozen=True)

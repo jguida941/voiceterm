@@ -1,6 +1,6 @@
 # Review Probes Plan
 
-**Status**: active  |  **Last updated**: 2026-03-16 | **Owner:** Tooling/quality intelligence
+**Status**: active  |  **Last updated**: 2026-03-22 | **Owner:** Tooling/quality intelligence
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under `MP-368..MP-375`.
 
@@ -288,6 +288,21 @@ context-free translation = MEDIUM.
 - [x] Emit one canonical probe "fix packet" bundle for human or AI
       remediation: ranked findings, rationale, doc links, and suggested
       next-command guidance.
+- [ ] Finish closing the probe-to-AI remediation wire on top of that
+      fix-packet surface: Ralph now consumes exact file-matched canonical
+      probe `Finding.ai_instruction` guidance from `review_targets.json`
+      (fallback `review_packet.json`) and injects it into the live
+      remediation prompt, but autonomy retry packets and review-channel
+      remediation prompts still need the same contract, and the runtime
+      should emit explicit telemetry when a probe finding reaches AI without
+      attached guidance. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27)
+- [ ] Add the next missing probe tranche explicitly under the same portable
+      evidence contract: start with test-quality, None-safety, and
+      over-abstraction signals as advisory probes only, back them with
+      `ai_instruction` and review-packet support, and do not promote them
+      without reviewed false-positive evidence. (audit mapping:
+      `SYSTEM_AUDIT.md` A28)
 - [x] Add structural-connectivity context to probe output:
       per-file fan-in/fan-out, import/use neighbors, and changed-subgraph
       extraction so findings can be ranked by coupling and blast radius.
@@ -301,6 +316,11 @@ context-free translation = MEDIUM.
 - [ ] Enrich the recommended bounded next slice when graph coverage exists:
       include likely callers/importers, related tests, config/workflow refs,
       and verification hints so AI fix packets do not stop at file-local prose.
+- [ ] Attach governance-ledger history to probe packets and remediation
+      surfaces: each finding should be able to surface prior
+      `governance-review` dispositions, last reviewed verdict, repeated-failure
+      context, and similar precedent so AI or human reviewers do not fix in a
+      vacuum. (audit mapping: `SYSTEM_AUDIT.md` A30)
 - [ ] Extend the best-practice library and packet explanations to
       architecture-level patterns too: dependency inversion, cycle breaking,
       layer isolation, god modules, and cohesion-vs-coupling tradeoffs should
@@ -459,6 +479,25 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-22: Completed the previously partial audit mapping for the probe
+  lane. The open probe backlog is no longer only the `ai_instruction` wire:
+  the missing advisory-probe tranche (`A28`) and governance-ledger-history
+  packet wiring (`A30`) are now explicit checklist ownership here too.
+- 2026-03-22: Integrated the root evidence intake into the tracked probe plan.
+  The live gap is still probe guidance not reaching AI remediation, but one
+  stale subclaim was corrected before promoting it into plan state:
+  `decision_packet_from_finding()` is already called by the probe-report
+  decision-packet path in `dev/scripts/checks/probe_report/decision_packets.py`;
+  the unresolved problem is that those typed packets and their
+  `ai_instruction` guidance still stop at human-facing renderers instead of
+  shaping Ralph/autonomy/review remediation prompts.
+- 2026-03-22: Landed the first live probe-to-AI routing proof instead of
+  leaving Part 27 as audit prose. `dev/scripts/coderabbit/ralph_ai_fix.py`
+  now reads canonical probe findings from `review_targets.json` (with
+  `review_packet.json` fallback), matches them deterministically to CodeRabbit
+  backlog file slices, and renders `Probe guidance:` lines into the live Ralph
+  prompt. Focused tests now prove the end-to-end route and fail if matched
+  `ai_instruction` guidance is dropped.
 - 2026-03-21: Reconciled the latest cross-agent backlog audit against the live
   probe plan. The missing follow-ups are now explicit instead of living only in
   chat analysis: diff-aware probe scoping for small changed sets, optional
@@ -1236,12 +1275,20 @@ Template README at `dev/scripts/checks/PROBE_TEMPLATE_README.md`.
 
 ## Session Resume
 
-- Current status: this plan remains active; start from the highest-priority
-  open item in `## Execution Checklist` and the latest dated entry in
-  `## Progress Log`.
-- Next action: keep current-slice decisions and blockers in this file instead
-  of chat-only notes, then update this section when the promoted slice
-  changes.
+- Current status: the first live probe-to-AI proof slice has landed. Ralph now
+  reads exact file-matched canonical probe guidance from
+  `dev/reports/probes/review_targets.json` (fallback
+  `dev/reports/probes/latest/review_packet.json`) and renders `Probe guidance:`
+  lines into the remediation prompt. The remaining gap is widening that same
+  contract to autonomy/review-channel plus adding runtime telemetry/closure
+  checks so produced guidance cannot silently stop at artifacts again.
+- The same lane now owns the missing follow-ons too: next-probe expansion stays
+  bounded to test-quality / None-safety / over-abstraction, and probe packets
+  need governance-ledger history instead of file-local prose only.
+- Next action: add the first deterministic produced-but-unconsumed closure
+  check for the `ai_instruction` route, then extend the same canonical probe
+  guidance contract to autonomy retry packets and review-channel remediation
+  without inventing a second packet shape.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 
