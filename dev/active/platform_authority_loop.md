@@ -256,7 +256,14 @@ intended execution order is:
       decision is `checkpoint_required` or `review_required`, implementer
       coding must pause and the loop must promote review/checkpoint work
       automatically instead of leaving the model to infer that switch from
-      warnings or prompt text.
+      warnings or prompt text. Fail-closed checkpoint rule: when that typed
+      decision says the dirty/untracked slice is over budget
+      (`safe_to_continue_editing=false` / `checkpoint_required=true`), the
+      next implementation slice must not start until a fresh post-checkpoint
+      startup receipt exists; repo-owned launchers may only offer
+      checkpoint/review actions until the receipt is refreshed after commit /
+      push. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28, Part 36,
+      Part 41)
 - [ ] Define the session-start refresh contract for that same startup surface:
       first run seeds canonical startup artifacts, later sessions refresh only
       the content-hash/git-diff-invalidated slices, and the next
@@ -327,7 +334,9 @@ intended execution order is:
       `safe_to_continue_editing`, `checkpoint_required`, checkpoint reason,
       and the repo-policy thresholds that produced the decision. Agents should
       not have to infer "is this slice still bounded enough to keep editing?"
-      from raw git status or prompt-local memory.
+      from raw git status or prompt-local memory. These fields are execution
+      authority, not advisory telemetry only: repo-owned launch/review loops
+      must consume them as blocking inputs before widening a slice.
 - [ ] Put one bounded `Why Stack` product thesis at the top of that startup
       surface before SOP/router detail: every fresh session should read the
       mission, proof obligation, and current product priority first so agents
@@ -1035,6 +1044,14 @@ intended execution order is:
 
 ## Session Resume
 
+- 2026-03-22 checkpoint-enforcement follow-up: the next tranche-4/startup
+  authority closure now explicitly treats checkpoint budget as fail-closed
+  execution authority, not advisory status. The branch hit this gap in live
+  use: `review-channel --action status` correctly raised
+  `checkpoint_required=true`, but the shared worktree had already accumulated
+  more than fifty uncommitted paths before the checkpoint was cut. The next
+  startup receipt / `WorkIntakePacket` contract must refuse new implementation
+  work until a fresh post-commit/push receipt clears the budget.
 - 2026-03-22 MCP follow-up: the optional MCP path is now explicit as an
   additive `devctl-mcp` transport over existing read surfaces, not a second
   control plane. If this lands later, read-only graph/startup/status tools go
@@ -1125,6 +1142,14 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-22: Promoted the checkpoint-budget miss into explicit `MP-377`
+  startup-authority scope after the live tranche work proved the current
+  weakness: `review-channel status` can already derive the right
+  `checkpoint_required` / `safe_to_continue_editing` decision, but that truth
+  is still advisory and arrives too late to prevent debt accumulation. The
+  owning checklist now requires the startup receipt / `WorkIntakePacket` path
+  to fail closed on over-budget dirty/untracked slices and refuse the next
+  implementation tranche until a fresh post-checkpoint receipt exists.
 - 2026-03-22: Tightened the optional MCP plan seam so the new agent-agnostic
   integration idea is tracked without violating the authority model. The
   planned first slice is now a `devctl-mcp` transport adapter over existing

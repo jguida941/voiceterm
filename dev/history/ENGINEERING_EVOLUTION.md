@@ -126,6 +126,28 @@ Evidence:
 - `AGENTS.md`
 - `dev/guides/DEVELOPMENT.md`
 - `dev/guides/DEVCTL_AUTOGUIDE.md`
+
+### 2026-03-22 - Checkpoint budget became an explicit fail-closed startup rule
+
+Fact: the authority-loop plan no longer treats checkpoint budget as advisory
+status only. After the live governance branch accumulated more than fifty
+dirty/untracked paths before the checkpoint was cut, the owning `MP-377`
+startup-authority checklist now explicitly requires the typed
+`startup-context` / `WorkIntakePacket` receipt to block the next
+implementation slice whenever `safe_to_continue_editing=false` or
+`checkpoint_required=true`, and `MASTER_PLAN` now mirrors that requirement as
+tracked execution scope.
+
+This matters because the repo already had the signal, but not the closing
+contract: `review-channel --action status` could derive the checkpoint budget
+correctly, yet the system still relied on the model to obey a warning. Moving
+that budget into fail-closed startup authority is the difference between
+"detected too late" and "cannot widen the slice until the checkpoint is cut."
+
+Evidence:
+
+- `dev/active/platform_authority_loop.md`
+- `dev/active/MASTER_PLAN.md`
 - `dev/scripts/README.md`
 - `dev/active/review_channel.md`
 

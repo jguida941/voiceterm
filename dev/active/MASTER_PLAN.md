@@ -2962,6 +2962,13 @@ become the main product surface.
     governed-plan `Session Resume`, repo memory, and recent episode evidence
     feed one bounded startup packet instead of four disconnected sources.
     (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 46)
+  - [ ] Promote checkpoint budget from advisory status to fail-closed startup
+    authority: when the typed startup / collaboration receipt reports
+    `safe_to_continue_editing=false` or `checkpoint_required=true`, repo-owned
+    launchers must refuse to start the next implementation slice and only
+    promote checkpoint/review work until a fresh post-commit/push receipt
+    clears the budget. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28,
+    Part 36, Part 41)
   - [ ] Auto-record `governance-review` close-out and converge top-level
     failures on structured `ActionResult` crash envelopes. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 36, Part 39)
