@@ -104,11 +104,11 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-22T03:34:57Z`
-- Last Codex poll (Local America/New_York): `2026-03-21 23:34:57 EDT`
-- Last non-audit worktree hash: `2b02f0a2f90f6644fd077826d3f48fb29bd6a8e2bf583d2488098dafabbe049e`
+- Last Codex poll: `2026-03-22T05:56:40Z`
+- Last Codex poll (Local America/New_York): `2026-03-22 01:56:40 EDT`
+- Last non-audit worktree hash: `4bbd953e7bc7e41c25c4c81b1a1c34d466c57d3d758124b4e2bc3dea606aa1d9`
 - Reviewer mode: `active_dual_agent`
-- Current instruction revision: `32b65492d8a4`
+- Current instruction revision: `de0c101fd250`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -265,22 +265,153 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 2b02f0a2f90f).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 4bbd953e7bc7).
 - Re-review complete on Claude's Session 47h follow-up (`4f0b9360f691`). Claude added more severity tests and the focused context-graph suite is still green, but the new tests are still helper-level checks around `_temperature_for_source` and constants. The actual requested end-to-end regression through `build_context_graph()` is still missing.
 - Concurrency rule for Claude and Claude-side worker lanes: if another agent lands overlapping edits on the files you are touching, or bridge status shows `claude_ack_stale`, `reviewed_hash_stale`, or a new reviewer-owned instruction/scope change, hold steady, sleep 2-3 minutes, repoll `bridge.md` plus `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`, and only resume after the reviewer-owned state is current again.
 - Concurrency hold rule: if overlapping reviewer/worker edits touch Claude's active slice or bridge state drifts during coding, Claude should stop mutating, sleep 2-3 minutes, repoll the bridge, and only resume once `Poll Status` plus the live status command agree again.
 
 ## Current Verdict
 
-- Accepted. Session 47i closes the bounded MP-377 end-to-end severity-regression slice. The graph now proves severity from contract-accurate probe artifacts reaches built source-node metadata and temperature through `build_context_graph()`.
+- Accepted. Claude's bounded context-graph confidence fixes are correct: `ContextGraphQueryPayload.confidence` now stays on the canonical string domain already emitted by `QueryResult`, and the heuristic-only `documented_by` regression keeps weak-evidence neighborhoods at `low_confidence`.
+- Accepted. The live-loop wait-surface follow-up is correct: `review-channel --action implementer-wait` now exports typed attention context and state-specific wake/timeout messaging instead of generic `Holding for Codex review` output.
+- Accepted. The reviewer-side parity/status-sync slice is correct: `review-channel --action reviewer-wait` now exports typed wait attention context, and bridge-backed `review-channel --action status` refreshes the on-disk projection bundle so `review_state.json` stays aligned with the live bridge state used by tandem-consistency and other typed readers.
 
 ## Open Findings
 
-- None on Session 47i. The next item below is a proactive MP-377 contract cleanup, not a reopen of the accepted severity-path fix.
+- None on the accepted confidence, wait-surface, and projection-sync slices. The checkpoint-gate pause projection and the broader repo-owned semantic reviewer-worker/service path remain tracked in MP-355, but they are not reopens on this accepted tree.
 
 ## Claude Status
 
-- **Session 47i / MP-377 end-to-end severity regression — DONE, needs-review**
+- **MP-377 confidence honesty regression — DONE, needs-review**
+- Added `test_heuristic_only_edges_stay_low_confidence`: builds minimal graph with plan node + concept node connected only by `documented_by` edge, queries it, asserts `low_confidence` (not `high`). Proves fail-closed honesty for heuristic-only neighborhoods.
+- 51/51 context-graph tests green. File: `test_context_graph.py`
+- **MP-377 confidence contract alignment — DONE**
+- Fixed `ContextGraphQueryPayload.confidence` from `float` to `str` in `command.py:24` — aligns with `QueryResult.confidence` canonical string domain (`high`, `low_confidence`, `no_match`).
+- Added 2 regression tests in `test_context_graph.py`: `test_query_payload_confidence_is_canonical_string` (high query) + `test_no_match_query_payload_confidence_string` (no_match query). Both verify `isinstance(str)` + value in canonical set.
+- 50/50 context-graph tests green. Files: `command.py`, `test_context_graph.py`
+- **Session 47i / end-to-end severity — DONE**
 - Replaced 3 helper-only tests with 1 real end-to-end `build_context_graph()` test: creates temp Python source file + contract-accurate artifacts (topology, summary.json with timestamp, review_packet.json with severity_counts), patches repo root, builds graph, asserts source node has `severity="high"` in metadata and temperature boost matches `_SEVERITY_BOOST["high"]`.
 - 60/60 context-graph tests green.
 - **Session 47h — superseded by end-to-end test**
@@ -830,8 +961,12 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
+- acknowledged; instruction-rev: `de0c101fd250`
+- Honesty slice: Add regression proving heuristic-only documented_by edges stay low_confidence, not high. Fix if needed.
+- acknowledged; instruction-rev: `32b65492d8a4`
+- Confidence contract alignment done. float→str. 50/50 green.
 - acknowledged; instruction-rev: `3f5d8e7ac9b1`
-- Session 47i: Replace helper-only severity tests with one real end-to-end regression using build_context_graph() with temp artifacts + repo-root patching.
+- Session 47i: End-to-end severity test done. 60/60 green.
 - acknowledged; instruction-rev: `f1d9b20a46c8`
 - Session 47h: Helper-level severity tests done but need upgrading to end-to-end.
 - acknowledged; instruction-rev: `7c8af061dd51`
@@ -1034,9 +1169,9 @@ treat these rules as active workflow instructions immediately.
 ## Current Instruction For Claude
 
 - First repoll the bridge and replace `Claude Ack` with the current instruction revision before editing; keep the ACK revision as the plain hex token shown in bridge metadata.
-- Resume the next bounded MP-377 context-graph contract slice in `dev/scripts/devctl/context_graph/{models.py,command.py}` plus `dev/scripts/devctl/tests/context_graph/test_context_graph.py`.
-- Close the confidence contract mismatch without widening scope: `QueryResult.confidence` already uses the canonical string domain (`high`, `low_confidence`, `no_match`), but `ContextGraphQueryPayload.confidence` is still typed as `float`. Align the machine payload and supporting tests to the same closed string contract; do not invent a numeric mapping in this slice.
-- Add regression coverage that the query command path preserves one of the canonical confidence strings in emitted JSON output, not just in the in-memory query result.
+- Resume the next bounded MP-377 context-graph honesty slice in `dev/scripts/devctl/context_graph/query.py` plus `dev/scripts/devctl/tests/context_graph/test_context_graph.py`.
+- Keep the scope tight: add one explicit regression proving that a query whose neighborhood expands only through heuristic `documented_by` edges stays `low_confidence` instead of surfacing as `high`. If that test exposes a real bug, fix only the confidence logic needed for this fail-closed case.
+- Do not widen into broader graph semantics, new edge families, or startup-context work in this slice.
 - Validation: rerun `python3 -m pytest dev/scripts/devctl/tests/context_graph/test_context_graph.py -q`. If the touched surface expands beyond those bounded files, rerun `python3 dev/scripts/devctl.py check --profile ci` before handoff.
 
 ## Crowded Directories
@@ -4215,18 +4350,17 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ## Last Reviewed Scope
 
-- dev/scripts/devctl/context_graph/artifact_inputs.py
-- dev/scripts/devctl/tests/context_graph/test_context_graph_artifact_inputs.py
-- dev/scripts/devctl/commands/review_channel/_bridge_poll.py
-- dev/scripts/devctl/review_channel/attention.py
-- dev/scripts/devctl/review_channel/peer_liveness.py
-- dev/scripts/devctl/review_channel/peer_recovery.py
-- dev/scripts/devctl/tests/review_channel/test_bridge_poll.py
+- bridge.md
+- dev/scripts/devctl/commands/review_channel/_reviewer_wait.py
+- dev/scripts/devctl/commands/review_channel/_reviewer_wait_report.py
+- dev/scripts/devctl/commands/review_channel/bridge_wait_render.py
+- dev/scripts/devctl/commands/review_channel/status.py
+- dev/scripts/devctl/review_channel/prompt_guards.py
+- dev/scripts/devctl/tests/review_channel/test_reviewer_wait.py
 - dev/scripts/devctl/tests/test_review_channel.py
-- dev/active/continuous_swarm.md
 - dev/active/review_channel.md
+- dev/active/continuous_swarm.md
 - dev/active/MASTER_PLAN.md
-- dev/active/platform_authority_loop.md
 
 ## Warnings
 - `rust/src/bin/voiceterm/event_loop/tests.rs` (soft_limit, hard_limit): Override soft_limit (6500) is 7.22x the .rs default (900). Override hard_limit (7000) is 5.00x the .rs default (1400). Operator intent keeps path overrides under 3.0x the soft cap and under 2.0x the hard cap.

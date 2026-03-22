@@ -322,6 +322,21 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-03-22: Closed the next reviewer-to-Claude wait-surface gap in the live
+  local loop. `review-channel --action implementer-wait` now exposes typed
+  attention context directly in the stable wait report (`wait_attention_*`)
+  and specializes reviewer-update/timeout messages for
+  `review_follow_up_required` and `claude_ack_stale` instead of collapsing
+  everything into generic "Holding for Codex review" text. The markdown wait
+  projection renders the same typed context so `tail -5`, `latest.md`, and
+  other operator/implementer surfaces can see why the loop is paused without
+  guessing from stale prose.
+- 2026-03-22: Landed the reviewer-side parity step from the same loop-hardening
+  lane. `review-channel --action reviewer-wait` now exports the same typed
+  wait-attention surface and state-specific wake/timeout/unhealthy messages,
+  markdown wait rendering covers reviewer-wait payloads, and the reviewer
+  prompt contract now explicitly routes Codex onto `reviewer-wait` instead of
+  ad-hoc sleep loops when parked on Claude progress.
 - 2026-03-20: Closed the next reviewer-to-Claude visibility gap in the live
   local loop. `review-channel --action implementer-wait` now folds the newest
   pending Claude-targeted review packet into its wake token, so the repo-owned

@@ -32,6 +32,12 @@ def provider_bootstrap_guard_lines(
                 "the reviewer heartbeat current instead of waiting silently."
             ),
             (
+                "- If you are waiting on Claude-owned progress, ACK changes, or a "
+                "fresh diff to review, use the repo-owned `review-channel --action "
+                "reviewer-wait` path instead of ad-hoc shell sleep loops, and "
+                "resume the review pass as soon as implementer-owned state changes."
+            ),
+            (
                 "- If Claude reports a slice complete and scoped work still remains, "
                 f"run `{promote_command}` to derive the next highest-priority "
                 "unchecked plan item and rewrite `Current Instruction For Claude` "

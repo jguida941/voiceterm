@@ -11,12 +11,13 @@ equivalent to a meaningful review-needed state change.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import json
 from pathlib import Path
 
 from ...review_channel.peer_liveness import AttentionStatus, reviewer_mode_is_active
 from ..review_channel_command import RuntimePaths, _coerce_runtime_paths
+from ._reviewer_wait_report import build_reviewer_wait_report
 from ._wait_shared import WaitDeps, WaitOutcome, resolve_wait_interval, resolve_wait_timeout
 
 DEFAULT_REVIEWER_WAIT_TIMEOUT_SECONDS = 1800
@@ -45,28 +46,9 @@ class ReviewerWaitSnapshot:
     implementer_ack_state: str
     implementer_status_excerpt: str
     attention_status: str
+    attention_summary: str
+    attention_recommended_action: str
     reviewer_mode: str
-
-
-@dataclass(frozen=True, slots=True)
-class ReviewerWaitState:
-    """Rendered reviewer wait-state payload."""
-
-    mode: str
-    stop_reason: str
-    polls_observed: int
-    wait_interval_seconds: int
-    wait_timeout_seconds: int
-    baseline_worktree_hash: str
-    current_worktree_hash: str
-    baseline_reviewed_hash: str
-    baseline_implementer_ack_revision: str
-    current_implementer_ack_revision: str
-    implementer_update_observed: bool
-
-    def to_report(self) -> dict[str, object]:
-        return asdict(self)
-
 
 def run_reviewer_wait_action(
     *,
@@ -207,6 +189,10 @@ def _capture_reviewer_snapshot(
             current_session.get("implementer_status") or ""
         )[:200],
         attention_status=str(attention.get("status") or ""),
+        attention_summary=str(attention.get("summary") or ""),
+        attention_recommended_action=str(
+            attention.get("recommended_action") or ""
+        ),
         reviewer_mode=str(
             bridge_liveness.get("reviewer_mode")
             or reviewer_worker.get("reviewer_mode")
@@ -288,56 +274,10 @@ def _finalize_reviewer_report(
     args,
     outcome: WaitOutcome,
 ) -> tuple[dict[str, object], int]:
-    report = dict(current.report)
-    report["action"] = getattr(args, "action", "reviewer-wait")
-    report["ok"] = outcome.exit_code == 0
-    report["exit_ok"] = outcome.exit_code == 0
-    report["exit_code"] = outcome.exit_code
-    report["wait_state"] = ReviewerWaitState(
-        mode="reviewer_wait",
-        stop_reason=outcome.stop_reason,
-        polls_observed=outcome.polls_observed,
-        wait_interval_seconds=outcome.wait_interval_seconds,
-        wait_timeout_seconds=outcome.wait_timeout_seconds,
-        baseline_worktree_hash=baseline.worktree_hash,
-        current_worktree_hash=current.worktree_hash,
-        baseline_reviewed_hash=baseline.reviewed_hash,
-        baseline_implementer_ack_revision=baseline.implementer_ack_revision,
-        current_implementer_ack_revision=current.implementer_ack_revision,
-        implementer_update_observed=outcome.stop_reason in {
-            "implementer_update_observed",
-            "implementer_update_ready",
-        },
-    ).to_report()
-    _append_reviewer_wait_message(report, stop_reason=outcome.stop_reason)
+    report = build_reviewer_wait_report(
+        baseline=baseline,
+        current=current,
+        args=args,
+        outcome=outcome,
+    )
     return report, outcome.exit_code
-
-
-def _append_reviewer_wait_message(
-    report: dict[str, object],
-    *,
-    stop_reason: str,
-) -> None:
-    warnings = report.setdefault("warnings", [])
-    errors = report.setdefault("errors", [])
-    if not isinstance(warnings, list) or not isinstance(errors, list):
-        return
-    if stop_reason == "implementer_update_observed":
-        warnings.append(
-            "Implementer-owned state changed (worktree hash or typed ACK/status state). "
-            "Re-read the worktree diff and review the new work."
-        )
-    elif stop_reason == "implementer_update_ready":
-        warnings.append(
-            "Implementer has already changed the worktree since last review. "
-            "Review the current diff instead of waiting."
-        )
-    elif stop_reason == "reviewer_loop_unhealthy":
-        errors.append(
-            "Reviewer wait stopped because the review loop is unhealthy. "
-            "Check reviewer mode and runtime state."
-        )
-    elif stop_reason == "timed_out":
-        errors.append(
-            "Timed out waiting for implementer-owned state change."
-        )

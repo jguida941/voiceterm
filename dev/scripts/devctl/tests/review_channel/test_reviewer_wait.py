@@ -36,6 +36,8 @@ def _snapshot(
     implementer_ack_state: str = "current",
     implementer_status_excerpt: str = "Working.",
     attention_status: str = "reviewed_hash_stale",
+    attention_summary: str = "",
+    attention_recommended_action: str = "",
     reviewer_mode: str = "active_dual_agent",
     report: dict | None = None,
 ) -> ReviewerWaitSnapshot:
@@ -48,6 +50,8 @@ def _snapshot(
         implementer_ack_state=implementer_ack_state,
         implementer_status_excerpt=implementer_status_excerpt,
         attention_status=attention_status,
+        attention_summary=attention_summary,
+        attention_recommended_action=attention_recommended_action,
         reviewer_mode=reviewer_mode,
     )
 
@@ -295,6 +299,8 @@ class TestReviewerWaitLoop(unittest.TestCase):
                 "implementer_update_ready",
             )
             self.assertTrue(result["wait_state"]["implementer_update_observed"])
+            self.assertEqual(result["wait_attention_status"], "reviewed_hash_stale")
+            self.assertIn("Review the current diff", result["warnings"][0])
 
     def test_exits_on_unhealthy_reviewer(self):
         """If reviewer mode is inactive, exit with error."""
@@ -320,6 +326,8 @@ class TestReviewerWaitLoop(unittest.TestCase):
                 result["wait_state"]["stop_reason"],
                 "reviewer_loop_unhealthy",
             )
+            self.assertEqual(result["wait_attention_status"], "inactive")
+            self.assertIn("review loop is unhealthy", result["errors"][0])
 
     def test_exits_when_typed_ack_revision_changes(self):
         with TemporaryDirectory() as tmp:
@@ -365,6 +373,8 @@ class TestReviewerWaitLoop(unittest.TestCase):
                 result["wait_state"]["current_implementer_ack_revision"],
                 "rev2",
             )
+            self.assertEqual(result["wait_attention_status"], "healthy")
+            self.assertIn("Re-read the worktree diff", result["warnings"][0])
 
     def test_times_out_when_no_change(self):
         """If nothing changes, should time out."""
@@ -392,6 +402,45 @@ class TestReviewerWaitLoop(unittest.TestCase):
             self.assertEqual(exit_code, 1)
             self.assertEqual(result["wait_state"]["stop_reason"], "timed_out")
             self.assertGreater(result["wait_state"]["polls_observed"], 0)
+            self.assertEqual(result["wait_attention_status"], "healthy")
+            self.assertIn("Timed out waiting", result["errors"][0])
+
+    def test_timeout_surfaces_stale_ack_reason(self):
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            args = self._make_args(timeout_minutes=0)
+            args.follow_interval_seconds = 1
+            paths = self._make_paths(tmp_path)
+            report = _status_report(
+                tmp_path,
+                attention_status="claude_ack_stale",
+                current_session={
+                    "implementer_ack_revision": "rev2",
+                    "implementer_ack_state": "stale",
+                    "implementer_status": "Waiting.",
+                },
+                claude_ack_revision="rev1",
+                claude_ack_current=False,
+            )
+            deps = self._make_deps([(report, 0)] * 5)
+
+            import dev.scripts.devctl.commands.review_channel._reviewer_wait as rw
+
+            original_timeout = rw.DEFAULT_REVIEWER_WAIT_TIMEOUT_SECONDS
+            rw.DEFAULT_REVIEWER_WAIT_TIMEOUT_SECONDS = 3
+            try:
+                result, exit_code = run_reviewer_wait_action(
+                    args=args,
+                    repo_root=tmp_path,
+                    paths=paths,
+                    deps=deps,
+                )
+            finally:
+                rw.DEFAULT_REVIEWER_WAIT_TIMEOUT_SECONDS = original_timeout
+
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(result["wait_attention_status"], "claude_ack_stale")
+            self.assertIn("Claude ACK remained stale", result["errors"][0])
 
 
 if __name__ == "__main__":

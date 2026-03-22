@@ -3432,6 +3432,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertEqual(report["wait_state"]["stop_reason"], "reviewer_update_observed")
         self.assertEqual(report["wait_state"]["polls_observed"], 1)
         self.assertTrue(report["wait_state"]["reviewer_update_observed"])
+        self.assertEqual(report["wait_attention_status"], "claude_ack_stale")
+        self.assertIn("Claude ACK is now stale", report["warnings"][0])
 
     def test_implementer_wait_times_out_when_bridge_state_does_not_change(self) -> None:
         report = {
@@ -3479,7 +3481,64 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertEqual(wait_report["wait_state"]["stop_reason"], "timed_out")
         self.assertEqual(wait_report["wait_state"]["polls_observed"], 1)
+        self.assertEqual(wait_report["wait_attention_status"], "reviewed_hash_stale")
         self.assertIn("Timed out waiting", wait_report["errors"][0])
+
+    def test_implementer_wait_timeout_surfaces_review_follow_up_required_reason(self) -> None:
+        report = {
+            "command": "review-channel",
+            "action": "status",
+            "ok": True,
+            "warnings": [],
+            "errors": [],
+            "bridge_liveness": {
+                "reviewer_mode": "active_dual_agent",
+                "claude_ack_current": True,
+                "current_instruction_revision": "aaaaaaaaaaaa",
+            },
+            "attention": {
+                "status": "review_follow_up_required",
+                "summary": "Implementer-owned state changed; reviewer follow-up is required before the verdict and current instruction can advance.",
+                "recommended_action": "Codex should inspect the current diff and refresh bridge verdict/findings/hash.",
+            },
+            "review_needed": True,
+        }
+        monotonic_values = iter((0.0, 0.0, 3600.0))
+        deps = review_channel_wait_mod.ImplementerWaitDeps(
+            run_status_action_fn=lambda **_: (dict(report), 0),
+            read_bridge_text_fn=lambda path: _build_bridge_text(
+                current_instruction="- keep waiting",
+                claude_ack="- acknowledged; instruction-rev: `aaaaaaaaaaaa`",
+            ).replace("56bcd5d01510", "aaaaaaaaaaaa"),
+            monotonic_fn=lambda: next(monotonic_values),
+            sleep_fn=lambda seconds: None,
+        )
+        args = SimpleNamespace(
+            action="implementer-wait",
+            follow_interval_seconds=150,
+            timeout_minutes=0,
+        )
+        paths = {
+            "bridge_path": Path("/tmp/bridge.md"),
+            "review_channel_path": Path("/tmp/dev/active/review_channel.md"),
+            "status_dir": Path("/tmp/dev/reports/review_channel/latest"),
+        }
+
+        wait_report, rc = review_channel_wait_mod.run_implementer_wait_action(
+            args=args,
+            repo_root=Path("/tmp/repo"),
+            paths=paths,
+            deps=deps,
+        )
+
+        self.assertEqual(rc, 1)
+        self.assertEqual(wait_report["wait_state"]["stop_reason"], "timed_out")
+        self.assertEqual(wait_report["wait_attention_status"], "review_follow_up_required")
+        self.assertEqual(
+            wait_report["wait_attention_summary"],
+            "Implementer-owned state changed; reviewer follow-up is required before the verdict and current instruction can advance.",
+        )
+        self.assertIn("reviewer follow-up", wait_report["errors"][0])
 
     def test_implementer_wait_wakes_when_claude_packet_queue_changes(self) -> None:
         report = {
@@ -3703,6 +3762,25 @@ class ReviewChannelCommandTests(unittest.TestCase):
             "review_needed": True,
             "semantic_review_claimed": False,
         }
+        projection_paths = ReviewChannelProjectionPaths(
+            root_dir="/tmp/review",
+            review_state_path="/tmp/review/review_state.json",
+            compact_path="/tmp/review/compact.json",
+            full_path="/tmp/review/full.json",
+            actions_path="/tmp/review/actions.json",
+            trace_path="/tmp/review/trace.ndjson",
+            latest_markdown_path="/tmp/review/latest.md",
+            agent_registry_path="/tmp/review/registry/agents.json",
+        )
+        status_snapshot = ReviewChannelStatusSnapshot(
+            lanes=[],
+            bridge_liveness={"overall_state": "fresh"},
+            attention={"status": "healthy"},
+            warnings=[],
+            errors=[],
+            projection_paths=projection_paths,
+            reviewer_worker=reviewer_worker,
+        )
 
         with (
             patch.object(
@@ -3711,6 +3789,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 return_value=({"ok": True, "reviewer_worker": reviewer_worker}, 0),
             ),
             patch.object(review_channel_status_mod, "event_state_exists", return_value=False),
+            patch.object(
+                review_channel_status_mod,
+                "refresh_status_snapshot",
+                return_value=status_snapshot,
+            ) as refresh_status_snapshot,
             patch.object(
                 review_channel_status_mod,
                 "_read_publisher_state_safe",
@@ -3737,7 +3820,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
+        refresh_status_snapshot.assert_called_once()
         self.assertEqual(report["reviewer_worker"], reviewer_worker)
+        self.assertEqual(
+            report["projection_paths"]["review_state_path"],
+            "/tmp/review/review_state.json",
+        )
         self.assertEqual(report["publisher"], {"running": False})
         self.assertEqual(report["reviewer_supervisor"], {"running": False})
 

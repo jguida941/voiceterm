@@ -23,8 +23,11 @@ from ...review_channel.reviewer_worker import (
     check_review_needed,
     reviewer_worker_tick_to_dict,
 )
+from ...repo_packs import active_path_config
 from ...review_channel.state import (
     build_attach_auth_policy,
+    projection_paths_to_dict,
+    refresh_status_snapshot,
     build_service_identity,
 )
 from ..review_channel_bridge_handler import _run_bridge_action
@@ -174,9 +177,93 @@ def _run_bridge_status(
         extra_warnings=extra_warnings,
         report_execution_mode=report_execution_mode,
     )
+    _refresh_bridge_status_report(
+        report,
+        args=args,
+        repo_root=repo_root,
+        paths=runtime_paths,
+    )
 
     _attach_status_context(report, repo_root=repo_root, paths=runtime_paths)
     return report, exit_code
+
+
+def _refresh_bridge_status_report(
+    report: dict[str, object],
+    *,
+    args,
+    repo_root: Path,
+    paths: RuntimePaths,
+) -> None:
+    """Refresh the on-disk bridge-backed projection bundle for status reads."""
+    bridge_path = paths.bridge_path if isinstance(paths.bridge_path, Path) else None
+    review_channel_path, status_dir = _resolve_bridge_refresh_paths(
+        repo_root=repo_root,
+        paths=paths,
+    )
+    if bridge_path is None:
+        return
+    if review_channel_path is None or status_dir is None:
+        return
+
+    snapshot = refresh_status_snapshot(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        output_root=status_dir,
+        promotion_plan_path=paths.promotion_plan_path,
+        execution_mode=getattr(args, "execution_mode", "markdown-bridge"),
+        warnings=[],
+        errors=[],
+        reviewer_overdue_threshold_seconds=getattr(
+            args,
+            "reviewer_overdue_seconds",
+            None,
+        ),
+    )
+    report["bridge_liveness"] = snapshot.bridge_liveness
+    report["attention"] = snapshot.attention
+    report["reviewer_worker"] = snapshot.reviewer_worker
+    report["projection_paths"] = projection_paths_to_dict(snapshot.projection_paths)
+    report["warnings"] = _merge_status_messages(
+        report.get("warnings"),
+        snapshot.warnings,
+    )
+    report["errors"] = _merge_status_messages(
+        report.get("errors"),
+        snapshot.errors,
+    )
+    if isinstance(snapshot.reviewer_worker, dict):
+        report["review_needed"] = bool(snapshot.reviewer_worker.get("review_needed"))
+
+
+def _resolve_bridge_refresh_paths(
+    *,
+    repo_root: Path,
+    paths: RuntimePaths,
+) -> tuple[Path | None, Path | None]:
+    """Resolve canonical refresh paths when callers pass partial runtime-path bundles."""
+    config = active_path_config()
+    review_channel_path = paths.review_channel_path
+    if not isinstance(review_channel_path, Path):
+        review_channel_path = repo_root / config.review_channel_rel
+    status_dir = paths.status_dir
+    if not isinstance(status_dir, Path):
+        status_dir = repo_root / config.review_status_dir_rel
+    return review_channel_path, status_dir
+
+
+def _merge_status_messages(
+    base_messages: object,
+    refreshed_messages: list[str],
+) -> list[str]:
+    merged: list[str] = []
+    if isinstance(base_messages, list):
+        merged.extend(str(message) for message in base_messages)
+    for message in refreshed_messages:
+        if message not in merged:
+            merged.append(message)
+    return merged
 
 
 def _auto_mode_prefers_markdown_bridge(paths: RuntimePaths) -> bool:

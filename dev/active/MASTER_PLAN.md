@@ -2090,7 +2090,18 @@ become the main product surface.
   `reviewed_hash_current=false`, so reviewer follow-up no longer looks like a
   generic done/stale state while Codex still owes a re-review pass. Focused
   review-channel tests (`231`) and `devctl check --profile ci` are green on
-  that slice, but the checkpoint-gate pause projection remains open.
+  that slice. The next bounded same-lane follow-up is now also in: the
+  implementer wait/reporting surface exports typed attention status/summary/
+  recommended-action fields and state-specific timeout/wake messages, so the
+  loop no longer relies on generic "Holding for Codex review" text when the
+  backend already knows it is paused on `review_follow_up_required` or
+  `claude_ack_stale`. A later same-lane parity step now does the same on the
+  reviewer side: `review-channel --action reviewer-wait` exports typed wait
+  attention fields and state-specific wake/timeout/unhealthy messages, and the
+  reviewer bootstrap contract now explicitly routes Codex onto that repo-owned
+  wait path when parked on Claude progress instead of ad-hoc sleep loops. The
+  checkpoint-gate pause projection and the broader repo-owned semantic
+  reviewer-worker/service path still remain open.
   Keep MP-355 open until those launch/freshness/ACK/coverage gaps are closed.
   2026-03-09 operator
   validation follow-up confirmed the current dirty-tree behavior: focused

@@ -405,6 +405,93 @@ class TestGraphHonestyFailClosed(unittest.TestCase):
         result = query_context_graph("cli.py", self.nodes, self.edges)
         self.assertEqual(result.confidence, "high")
 
+    def test_heuristic_only_edges_stay_low_confidence(self) -> None:
+        """A query whose neighborhood expands only through heuristic
+        documented_by edges must stay low_confidence, not surface as high.
+
+        Plan nodes typically connect to concept nodes only via documented_by
+        edges. A query that matches a plan node but no source/guard/probe
+        node with typed import/routes_to edges should be honest about the
+        weak evidence.
+        """
+        from dev.scripts.devctl.context_graph.models import EDGE_KIND_DOCUMENTED_BY, GraphNode, GraphEdge, NODE_KIND_PLAN
+
+        # Build a minimal graph: one plan node connected only via documented_by
+        plan_node = GraphNode(
+            node_id="plan:dev/active/test_plan.md",
+            node_kind=NODE_KIND_PLAN,
+            label="dev/active/test_plan.md",
+            canonical_pointer_ref="dev/active/test_plan.md",
+            provenance_ref="test",
+            temperature=0.3,
+            metadata={"role": "spec", "scope": "MP-999", "is_active_plan": True},
+        )
+        concept_node = GraphNode(
+            node_id="concept:dev/scripts/devctl/governance",
+            node_kind="concept",
+            label="dev/scripts/devctl/governance",
+            canonical_pointer_ref="dev/scripts/devctl/governance",
+            provenance_ref="test",
+            temperature=0.1,
+        )
+        heuristic_edge = GraphEdge(
+            source_id=plan_node.node_id,
+            target_id=concept_node.node_id,
+            edge_kind=EDGE_KIND_DOCUMENTED_BY,
+        )
+
+        nodes = [plan_node, concept_node]
+        edges = [heuristic_edge]
+        result = query_context_graph("test_plan", nodes, edges)
+
+        # Must be low_confidence because only documented_by edges exist
+        self.assertIn(result.confidence, ("low_confidence",))
+        self.assertGreater(len(result.matched_nodes), 0)
+
+
+class TestContextGraphQueryPayloadConfidence(unittest.TestCase):
+    """Verify the machine-emitted query payload carries a canonical confidence
+    string, not a float."""
+
+    def test_query_payload_confidence_is_canonical_string(self) -> None:
+        from dataclasses import asdict
+        from dev.scripts.devctl.context_graph.command import ContextGraphQueryPayload
+
+        nodes, edges = build_context_graph()
+        result = query_context_graph("cli.py", nodes, edges)
+        payload = ContextGraphQueryPayload(
+            query=result.query,
+            confidence=result.confidence,
+            matched_nodes=[asdict(n) for n in result.matched_nodes],
+            edges=[asdict(e) for e in result.edges],
+            hot_index_summary=asdict(result.hot_index_summary),
+            evidence=result.evidence,
+        )
+        payload_dict = asdict(payload)
+        self.assertIsInstance(payload_dict["confidence"], str)
+        self.assertIn(
+            payload_dict["confidence"],
+            ("high", "low_confidence", "no_match"),
+        )
+
+    def test_no_match_query_payload_confidence_string(self) -> None:
+        from dataclasses import asdict
+        from dev.scripts.devctl.context_graph.command import ContextGraphQueryPayload
+
+        nodes, edges = build_context_graph()
+        result = query_context_graph("xyzzy_nonexistent_12345", nodes, edges)
+        payload = ContextGraphQueryPayload(
+            query=result.query,
+            confidence=result.confidence,
+            matched_nodes=[asdict(n) for n in result.matched_nodes],
+            edges=[asdict(e) for e in result.edges],
+            hot_index_summary=asdict(result.hot_index_summary),
+            evidence=result.evidence,
+        )
+        payload_dict = asdict(payload)
+        self.assertEqual(payload_dict["confidence"], "no_match")
+        self.assertIsInstance(payload_dict["confidence"], str)
+
 
 if __name__ == "__main__":
     unittest.main()
