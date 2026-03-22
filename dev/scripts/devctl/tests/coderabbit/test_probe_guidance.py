@@ -216,3 +216,91 @@ class LoadProbeGuidanceTests(unittest.TestCase):
             enriched = attach_probe_guidance(_structured_items(), report_root=root)
 
             self.assertEqual(len(enriched[0]["probe_guidance"]), 1)
+
+    def test_symbol_mismatch_skips_same_file_guidance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "review_targets.json").write_text(
+                json.dumps(
+                    {
+                        "contract_id": "ReviewTargets",
+                        "findings": [
+                            {
+                                "file_path": "rust/src/auth.rs",
+                                "symbol": "validate_auth",
+                                "check_id": "probe_design_smells",
+                                "severity": "high",
+                                "line": 10,
+                                "end_line": 14,
+                                "ai_instruction": "Extract the auth validator helper.",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            guidance = load_probe_guidance(
+                [
+                    {
+                        "severity": "high",
+                        "category": "rust",
+                        "path": "rust/src/auth.rs",
+                        "symbol": "call_auth",
+                        "line": 12,
+                        "summary": "Unused import in auth.rs",
+                    }
+                ],
+                report_root=root,
+            )
+
+        self.assertEqual(guidance, [])
+
+    def test_symbol_match_beats_same_file_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "review_targets.json").write_text(
+                json.dumps(
+                    {
+                        "contract_id": "ReviewTargets",
+                        "findings": [
+                            {
+                                "file_path": "rust/src/auth.rs",
+                                "symbol": "validate_auth",
+                                "check_id": "probe_design_smells",
+                                "severity": "medium",
+                                "line": 10,
+                                "end_line": 40,
+                                "ai_instruction": "Wrong symbol guidance.",
+                            },
+                            {
+                                "file_path": "rust/src/auth.rs",
+                                "symbol": "call_auth",
+                                "check_id": "probe_side_effect_mixing",
+                                "severity": "high",
+                                "line": 12,
+                                "end_line": 12,
+                                "ai_instruction": "Extract the caller orchestration.",
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            guidance = load_probe_guidance(
+                [
+                    {
+                        "severity": "high",
+                        "category": "rust",
+                        "path": "rust/src/auth.rs",
+                        "symbol": "call_auth",
+                        "line": 12,
+                        "summary": "Unused import in auth.rs",
+                    }
+                ],
+                report_root=root,
+            )
+
+        self.assertEqual(len(guidance), 1)
+        self.assertEqual(guidance[0]["probe"], "probe_side_effect_mixing")

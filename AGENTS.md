@@ -498,6 +498,11 @@ Default AI operating rule:
 When a probe emits risk hints, agents MUST:
 1. Read the `ai_instruction` field — it contains targeted remediation guidance.
 2. Fix `high` severity hints before handoff (these are unambiguous smells).
+2.1 When a live AI consumer attaches probe guidance (for example Ralph or an
+    autonomy `loop-packet` draft), treat that guidance as the default repair
+    plan unless you can justify waiving it with a concrete reason. Keep the
+    resulting guidance disposition visible in the route's report/packet
+    surface so adoption is measurable.
 3. Document `medium` severity hints in handoff notes if not fixed immediately.
 4. Record adjudicated probe/guard outcomes with
    `python3 dev/scripts/devctl.py governance-review --record ...` when a hint
@@ -1392,7 +1397,7 @@ Core commands:
   a durable false-positive / cleanup-rate ledger)
 - `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing; report timestamps are UTC)
 - `triage-loop` (bounded CodeRabbit medium/high loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; fix execution is policy-gated via `AUTONOMY_MODE`, branch allowlist, and command-prefix allowlist; emits md/json bundles plus a bounded structured backlog slice for downstream autonomy consumers, optional MASTER_PLAN proposal artifacts, and review-escalation comment upserts when attempts exhaust unresolved backlog)
-- `loop-packet` (builds a guarded terminal feedback packet from triage/loop JSON sources for dev-mode draft injection with freshness/risk/auto-send-eligibility gates; `triage-loop` sources now also carry a bounded structured backlog slice so autonomy drafts can inject canonical `review_targets.json` probe guidance)
+- `loop-packet` (builds a guarded terminal feedback packet from triage/loop JSON sources for dev-mode draft injection with freshness/risk/auto-send-eligibility gates; `triage-loop` sources now also carry a bounded structured backlog slice so autonomy drafts can inject canonical `review_targets.json` probe guidance, mark when guidance adoption is required, and keep that contract in packet JSON instead of hidden prompt-only text)
 - `autonomy-loop` (bounded controller loop that orchestrates triage-loop + loop-packet rounds, emits checkpoint packets/queue artifacts, writes phone-ready status snapshots under `dev/reports/autonomy/queue/phone/`, and enforces policy-driven stop reasons; non-dry-run write modes require `AUTONOMY_MODE=operate`)
 - `autonomy-benchmark` (active-plan-scoped swarm matrix runner for tactic/swarm-size tradeoff analysis; executes `autonomy-swarm` batches across configurable count/tactic grids, emits per-swarm and per-scenario productivity metrics, and writes benchmark bundles under `dev/reports/autonomy/benchmarks/<label>/`; non-report modes require `--fix-command`)
 - `swarm_run` (guarded plan-scoped autonomy pipeline that derives next unchecked plan steps, runs `autonomy-swarm` with reviewer + post-audit defaults, executes governance checks (`check_active_plan_sync`, `check_multi_agent_sync`, `docs-check --strict-tooling`, `orchestrate-status/watch`), and appends run evidence to plan-doc `Progress Log` + `Audit Evidence`; supports optional multi-cycle execution (`--continuous --continuous-max-cycles`) to keep processing plan checklist scope until failure/limit; non-report modes require `--fix-command`)

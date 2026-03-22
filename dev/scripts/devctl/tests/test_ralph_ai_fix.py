@@ -12,6 +12,8 @@ from unittest.mock import patch
 
 from dev.scripts.coderabbit.ralph_ai_fix import (
     _FALLBACK_CATEGORY_TO_ARCH,
+    _build_fix_results,
+    _extract_guidance_summary,
     build_backlog_context_packet,
     build_prompt,
     commit_and_push,
@@ -210,6 +212,12 @@ class BuildPromptTests(unittest.TestCase):
         self.assertIn("Probe guidance:", prompt)
         self.assertIn("Extract the auth validation helper", prompt)
         self.assertIn("probe_design_smells", prompt)
+
+    def test_prompt_mandates_using_probe_guidance_and_output_contract(self) -> None:
+        prompt = build_prompt(_sample_items(), attempt=1)
+        self.assertIn("default repair plan", prompt)
+        self.assertIn("RALPH_GUIDANCE_SUMMARY_START", prompt)
+        self.assertIn("guidance_disposition", prompt)
 
     @patch("dev.scripts.coderabbit.ralph_ai_fix.build_context_escalation_packet")
     def test_build_backlog_context_packet_uses_backlog_terms(self, escalation_mock) -> None:
@@ -414,18 +422,68 @@ class InvokeClaudeTests(unittest.TestCase):
 
     @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_returns_subprocess_exit_code(self, run_mock) -> None:
-        run_mock.return_value = subprocess.CompletedProcess([], returncode=42)
+        run_mock.return_value = subprocess.CompletedProcess([], returncode=42, stdout="")
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "balanced"}):
-            rc = invoke_claude("fix stuff")
-        self.assertEqual(rc, 42)
+            result = invoke_claude("fix stuff")
+        self.assertEqual(result.returncode, 42)
 
     @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_prompt_is_appended_to_command(self, run_mock) -> None:
-        run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
+        run_mock.return_value = subprocess.CompletedProcess([], returncode=0, stdout="")
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "balanced"}):
             invoke_claude("please fix these findings")
         cmd = run_mock.call_args[0][0]
         self.assertEqual(cmd[-1], "please fix these findings")
+
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
+    def test_returns_output_text(self, run_mock) -> None:
+        run_mock.return_value = subprocess.CompletedProcess(
+            [],
+            returncode=0,
+            stdout="hello from claude\n",
+            stderr="",
+        )
+        with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "balanced"}):
+            result = invoke_claude("fix stuff")
+        self.assertEqual(result.output_text, "hello from claude\n")
+
+
+class GuidanceTelemetryTests(unittest.TestCase):
+    def test_extract_guidance_summary_reads_marked_json(self) -> None:
+        output = """
+normal output
+RALPH_GUIDANCE_SUMMARY_START
+[{"summary":"Issue A","guidance_disposition":"used","waiver_reason":""}]
+RALPH_GUIDANCE_SUMMARY_END
+"""
+        parsed = _extract_guidance_summary(output)
+        self.assertEqual(parsed["Issue A"]["guidance_disposition"], "used")
+
+    def test_build_fix_results_records_guidance_disposition(self) -> None:
+        items = [
+            {
+                "summary": "Issue A",
+                "probe_guidance": [{"ai_instruction": "Extract helper."}],
+            },
+            {"summary": "Issue B"},
+        ]
+        results = _build_fix_results(
+            items,
+            True,
+            True,
+            guidance_summary={
+                "Issue A": {
+                    "guidance_disposition": "waived",
+                    "waiver_reason": "Helper already exists.",
+                }
+            },
+        )
+
+        self.assertTrue(results[0]["probe_guidance_attached"])
+        self.assertEqual(results[0]["guidance_disposition"], "waived")
+        self.assertEqual(results[0]["guidance_waiver_reason"], "Helper already exists.")
+        self.assertTrue(results[0]["fix_accepted"])
+        self.assertEqual(results[1]["guidance_disposition"], "not_applicable")
 
 
 # -- main --------------------------------------------------------------------
@@ -520,6 +578,7 @@ class MainTests(unittest.TestCase):
         prompt = invoke_mock.call_args.args[0]
         self.assertIn("Probe guidance:", prompt)
         self.assertIn("Extract the auth validator helper", prompt)
+        self.assertIn("default repair plan", prompt)
 
     @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     @patch("dev.scripts.coderabbit.ralph_ai_fix.run_arch_checks", return_value=False)

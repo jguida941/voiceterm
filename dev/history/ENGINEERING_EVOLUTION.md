@@ -178,6 +178,32 @@ Evidence:
 - `dev/scripts/devctl/tests/test_loop_packet.py`
 - `dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`
 
+### 2026-03-22 - Guidance transport tightened into an explicit adoption contract
+
+Fact: the `MP-377` feedback-loop tracker now distinguishes "guidance reached
+the prompt" from "AI is required to use it and the repo can measure whether it
+helped." The owning plan items now explicitly require three follow-ups inside
+the existing probe-routing tranche: prompts must tell AI to treat attached
+probe guidance as the default repair plan unless waived, matching must prefer
+structured file/symbol/span identity with prose parsing kept only as a
+compatibility fallback, and runtime telemetry must record whether guidance was
+attached, followed/waived, and whether the fix held. The same plan tightening
+also calls out the still-zero-consumer operational artifacts
+(`finding_reviews.jsonl`, watchdog episodes, quality-feedback outputs,
+data-science summaries, and decision/adoption metadata) so the next closure
+slice measures impact instead of only proving transport.
+
+This matters because the first two live routes proved infrastructure, not yet
+effect. Without an explicit adoption contract and outcome telemetry, the repo
+can say probe guidance reaches Ralph/autonomy but still cannot prove that the
+guidance changed the fix plan or reduced post-fix guard failures.
+
+Evidence:
+
+- `dev/active/review_probes.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
 ### 2026-03-21 - Reviewer-wait wired to real review-channel status truth
 
 Fact: the symmetric Codex-side `review-channel --action reviewer-wait` path is

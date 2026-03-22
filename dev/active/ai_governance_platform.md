@@ -3348,7 +3348,11 @@ Still open before `P0` closes:
       Ralph, loop-packet, escalation, and other runtime decision points
       instead of remaining write-only or display-only data. Sequence this
       behind the authority spine by consuming the existing versioned artifacts
-      rather than inventing new side channels. (evidence:
+      rather than inventing new side channels. Immediate zero-consumer
+      backlog to close here: `finding_reviews.jsonl`, watchdog episodes,
+      quality-feedback snapshots/recommendations, data-science summaries, and
+      decision/adoption metadata are still largely absent from live prompt
+      builders even after the first `ai_instruction` routes landed. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 42, Part 45)
 - [ ] Version the remaining artifact families before promoting that aggregate
       surface as canonical: governance-ledger summaries, autonomy episodes,
@@ -3553,8 +3557,9 @@ Still open before `P0` closes:
       `Finding.ai_instruction` from canonical `review_targets.json` probe
       artifacts, and autonomy `triage-loop` / `loop-packet` now consumes the
       same canonical guidance from a bounded structured backlog slice, but
-      review-channel remediation flows and `guard-run` follow-up packets still
-      need the same contract plus carried decision semantics
+      review-channel remediation flows, swarm `derive_prompt`, escalation
+      packets, and `guard-run` follow-up packets still need the same contract
+      plus carried decision semantics
       (`decision_mode`, `invariants`, `validation_plan`, `precedent`,
       `research_instruction`, `signals`) instead of rendering them only for
       humans. The deterministic route-closure guard now proves both the Ralph
@@ -3562,7 +3567,15 @@ Still open before `P0` closes:
       that same enforcement pattern before claiming the rest of the contract
       is live, and fail the same tranche if an AI consumer negotiates between
       multiple artifact authorities or keeps deriving routing keys from prose
-      once the structured contract fields exist. (evidence:
+      once the structured contract fields exist. The current branch proves
+      transport, not adoption, so this same tranche now also owns three
+      explicit follow-ups: prompts must tell AI to treat attached probe
+      guidance as the default repair plan unless waived with reason, matching
+      must prefer structured file/symbol/span identity with prose parsing
+      kept only as a compatibility fallback, and the runtime must log
+      guidance-attached / guidance-followed-or-waived / fix outcome so the
+      repo can measure whether guidance improves post-fix guard results
+      instead of assuming impact from transport alone. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38)
 - [ ] Split the default fix packet from the typed decision packet: the
       everyday AI/dev surface should carry deterministic fixes, scoped
@@ -3744,6 +3757,15 @@ working on `MP-377`.
   instead of generic unresolved-count prose only. The route-closure guard was
   widened in the same change, so the platform-contract lane now proves both
   Ralph and autonomy before the broader meta-guard/general-consumer tranche.
+- 2026-03-22 adoption follow-up: external review after tranches 1-4 showed
+  that the current branch proves guidance transport but not yet guidance use.
+  The real remaining gap is not another architecture layer: prompts still do
+  not require AI to prefer attached probe guidance, the matcher still lacks
+  strict symbol/span identity when only compatibility fields are present, and
+  the runtime does not yet emit adoption/effect telemetry proving whether the
+  guidance improved fix quality. Accepted follow-up: keep those as explicit
+  closure criteria inside the existing feedback-loop / AI-guidance routing
+  items before widening into the broader produced-but-never-consumed tranche.
 - 2026-03-22 checker-gap follow-up: an external architecture review surfaced
   the next governance miss after the Ralph cleanup. The live branch had
   already removed the dual-authority Ralph fallback and split the worst

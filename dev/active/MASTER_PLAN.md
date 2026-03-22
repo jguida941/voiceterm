@@ -2940,14 +2940,20 @@ become the main product surface.
     that same tranche is broader single-authority + structured-routing
     enforcement so AI consumers cannot silently negotiate between multiple
     artifact authorities or keep deriving routing keys from prose when typed
-    fields already exist. (evidence:
+    fields already exist, plus explicit adoption proof: prompts must tell AI
+    to prefer attached probe guidance, matching must prefer structured
+    identity, and runtime telemetry must record whether guidance was
+    attached/followed/waived and whether the fix held. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38)
   - [ ] Route fresh `dev/reports/**` operational evidence into the live prompt
     builders and adjacent decision surfaces so bootstrap, conductor, swarm,
     Ralph, loop-packet, escalation, and other runtime controllers consume
     hotspot, verdict-history, watchdog, reliability, queue-state, quality-
     feedback, decision metadata, research-benchmark, and event-history data
-    instead of leaving those artifacts write-only or display-only. (evidence:
+    instead of leaving those artifacts write-only or display-only. Immediate
+    zero-consumer backlog still called out by audit: `finding_reviews.jsonl`,
+    watchdog episodes, quality-feedback outputs, data-science summaries, and
+    decision/adoption metadata need live consumers. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 42, Part 45)
   - [ ] Finish the first graph-routing expansion by emitting live
     `EDGE_KIND_GUARDS` / `EDGE_KIND_SCOPED_BY` edges, land the guard-edge

@@ -404,7 +404,12 @@ Why this model is safe:
    `triage-loop` should persist only a bounded structured backlog slice, and
    `loop-packet` should read probe guidance from `review_targets.json` against
    that slice instead of inventing a second AI-guidance artifact.
-9. If a live AI consumer still needs that fallback, record the seam in the
+9. When a live AI consumer receives attached probe guidance, it should treat
+   that guidance as the default repair plan unless the route can record a
+   concrete waiver reason. Packet/report surfaces should preserve
+   guidance-attached vs used/waived telemetry so the repo can measure whether
+   the wiring improves fix outcomes.
+10. If a live AI consumer still needs that fallback, record the seam in the
    active plan and add the matching detection follow-up (`check_platform_contract_closure.py`
    expansion, a review probe widening, or both) before copying the same
    pattern into more routes.

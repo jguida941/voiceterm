@@ -251,6 +251,7 @@ def _build_packet_body(
                 *guidance_lines,
                 "",
                 "Task: propose the next bounded remediation step with guardrails and verification.",
+                "If probe guidance is attached above, treat it as the default repair plan unless you can justify waiving it.",
             ]
         )
         if context_packet is not None:

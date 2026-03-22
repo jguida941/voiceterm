@@ -171,6 +171,12 @@ class LoopPacketCommandTests(unittest.TestCase):
             payload["terminal_packet"]["draft_text"],
         )
         self.assertEqual(payload["terminal_packet"]["probe_guidance_count"], 1)
+        self.assertTrue(payload["terminal_packet"]["guidance_adoption_required"])
+        self.assertTrue(payload["guidance_contract"]["guidance_adoption_required"])
+        self.assertIn(
+            "default repair plan unless you can justify waiving it",
+            payload["terminal_packet"]["draft_text"],
+        )
 
     def test_allow_auto_send_only_when_low_risk_source_is_eligible(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

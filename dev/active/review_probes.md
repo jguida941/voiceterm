@@ -295,13 +295,19 @@ context-free translation = MEDIUM.
       / `loop-packet` now carries a bounded structured backlog slice and
       renders the same exact file-matched canonical guidance into the loop
       draft, and `check_platform_contract_closure.py` now proves both live
-      routes. Review-channel remediation prompts still need the same
-      contract, the runtime should emit explicit telemetry when a probe
-      finding reaches AI without attached guidance, and the next
-      probe/guard follow-up must catch the detector gap external review
-      exposed here: dual-authority AI consumers and prose-parsed contract
-      matching should not slip through as "clean" tranche code once
-      structured fields and one canonical artifact already exist. (evidence:
+      routes. The next closure here is adoption, not only transport:
+      attached guidance must become the default repair plan instead of a
+      passive annotation, matching must prefer structured file/symbol/span
+      identity with summary parsing only as a compatibility fallback, and the
+      runtime must log whether guidance was attached, followed/waived, and
+      accepted so the repo can measure whether probe coaching actually
+      improves outcomes. Review-channel remediation prompts, swarm
+      `derive_prompt`, and escalation / `guard-run` follow-up packets still
+      need the same contract, and the next probe/guard follow-up must catch
+      the detector gap external review exposed here: dual-authority AI
+      consumers and prose-parsed contract matching should not slip through as
+      "clean" tranche code once structured fields and one canonical artifact
+      already exist. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27)
 - [ ] Add the next missing probe tranche explicitly under the same portable
       evidence contract: start with test-quality, None-safety, and
@@ -490,6 +496,14 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-22: External closure review after tranches 1-4 confirmed the next
+  gap is adoption, not raw transport. Ralph and autonomy both receive exact
+  probe guidance now, but the current prompt contract still treats that
+  guidance as advisory text, the matcher still falls back to summary-string
+  parsing when symbol/span identity is absent, and there is no runtime
+  telemetry yet proving whether attached guidance changed the fix outcome.
+  Accepted follow-up: keep this inside the existing probe-to-AI closure item
+  instead of spinning up another plan lane.
 - 2026-03-22: Closed the next live probe-to-AI consumer after Ralph instead of
   leaving autonomy as plan prose. `triage-loop` now persists one bounded
   structured backlog slice into its report, `loop-packet` reads canonical

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -19,6 +19,26 @@ from .loop_packet_helpers import (
     _freshness_hours,
     _truncate_chars,
 )
+
+
+@dataclass(frozen=True)
+class _LoopPacketContext:
+    now_iso: str
+    source_command: str
+    source_path: str
+    source_timestamp: str
+    freshness_hours: float
+    max_age_hours: float
+    checked_paths: list[str]
+    risk: str
+    confidence: float
+    next_actions: list[str]
+    probe_guidance: list[dict[str, Any]]
+    summary: str
+    source_warnings: list[str]
+    packet_id: str
+    draft_text: str
+    auto_send: bool
 
 
 def _render_markdown(report: dict[str, Any]) -> str:
@@ -51,6 +71,83 @@ def _render_markdown(report: dict[str, Any]) -> str:
         lines.append("")
         lines.append(context_packet["markdown"])
     return "\n".join(lines)
+
+
+def _build_guidance_contract(probe_guidance: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "guidance_attached_count": len(probe_guidance),
+        "guidance_adoption_required": bool(probe_guidance),
+    }
+
+
+def _build_packet_payload(context: _LoopPacketContext) -> dict[str, Any]:
+    packet = {
+        "schema_version": 1,
+        "packet_id": context.packet_id,
+        "created_at": context.now_iso,
+        "channel": "terminal-draft",
+        "source": {
+            "command": context.source_command,
+            "path": context.source_path,
+            "timestamp": context.source_timestamp,
+        },
+        "guard": {
+            "risk": context.risk,
+            "confidence": context.confidence,
+            "draft_only": not context.auto_send,
+            "auto_send_permitted": context.auto_send,
+        },
+    }
+    packet["next_actions"] = context.next_actions
+    packet["probe_guidance"] = context.probe_guidance
+    packet["guidance_contract"] = _build_guidance_contract(context.probe_guidance)
+    packet["evidence"] = [
+        f"source_command={context.source_command}",
+        f"source_path={context.source_path}",
+        f"freshness_hours={round(context.freshness_hours, 3)}",
+    ]
+    return packet
+
+
+def _build_terminal_packet(context: _LoopPacketContext) -> dict[str, Any]:
+    return {
+        "packet_id": context.packet_id,
+        "source_command": context.source_command,
+        "draft_text": context.draft_text,
+        "auto_send": context.auto_send,
+        "probe_guidance_count": len(context.probe_guidance),
+        "guidance_adoption_required": bool(context.probe_guidance),
+    }
+
+
+def _build_ready_report(
+    context: _LoopPacketContext,
+    *,
+    context_packet: Any,
+) -> dict[str, Any]:
+    report: dict[str, Any] = {
+        "command": "loop-packet",
+        "timestamp": context.now_iso,
+        "ok": True,
+        "reason": "packet_ready",
+        "source_command": context.source_command,
+    }
+    report["source_path"] = context.source_path
+    report["source_timestamp"] = context.source_timestamp
+    report["freshness_hours"] = round(context.freshness_hours, 3)
+    report["max_age_hours"] = context.max_age_hours
+    report["checked_paths"] = context.checked_paths
+    report["risk"] = context.risk
+    report["confidence"] = context.confidence
+    report["next_actions"] = context.next_actions
+    report["probe_guidance"] = context.probe_guidance
+    report["guidance_contract"] = _build_guidance_contract(context.probe_guidance)
+    report["summary"] = context.summary
+    report["warnings"] = context.source_warnings
+    report["context_packet"] = asdict(context_packet) if context_packet is not None else None
+    report["packet"] = _build_packet_payload(context)
+    report["terminal_packet"] = _build_terminal_packet(context)
+    return report
 
 
 def run(args) -> int:
@@ -138,57 +235,28 @@ def run(args) -> int:
     summary = (
         f"packet {packet_id} ready from {source_command} " f"(risk={risk}, auto_send={'yes' if auto_send else 'no'})"
     )
-
-    report = {
-        "command": "loop-packet",
-        "timestamp": now_utc.isoformat().replace("+00:00", "Z"),
-        "ok": True,
-        "reason": "packet_ready",
-        "source_command": source_command,
-        "source_path": source_path,
-        "source_timestamp": timestamp.isoformat().replace("+00:00", "Z"),
-        "freshness_hours": round(freshness_hours, 3),
-        "max_age_hours": float(args.max_age_hours),
-        "checked_paths": checked_paths,
-        "risk": risk,
-        "confidence": confidence,
-        "next_actions": next_actions,
-        "probe_guidance": probe_guidance,
-        "summary": summary,
-        "warnings": source_warnings,
-        "context_packet": asdict(context_packet) if context_packet is not None else None,
-        "packet": {
-            "schema_version": 1,
-            "packet_id": packet_id,
-            "created_at": now_utc.isoformat().replace("+00:00", "Z"),
-            "channel": "terminal-draft",
-            "source": {
-                "command": source_command,
-                "path": source_path,
-                "timestamp": timestamp.isoformat().replace("+00:00", "Z"),
-            },
-            "guard": {
-                "risk": risk,
-                "confidence": confidence,
-                "draft_only": not auto_send,
-                "auto_send_permitted": auto_send,
-            },
-            "next_actions": next_actions,
-            "probe_guidance": probe_guidance,
-            "evidence": [
-                f"source_command={source_command}",
-                f"source_path={source_path}",
-                f"freshness_hours={round(freshness_hours, 3)}",
-            ],
-        },
-        "terminal_packet": {
-            "packet_id": packet_id,
-            "source_command": source_command,
-            "draft_text": draft_text,
-            "auto_send": auto_send,
-            "probe_guidance_count": len(probe_guidance),
-        },
-    }
+    route_context = _LoopPacketContext(
+        now_iso=now_utc.isoformat().replace("+00:00", "Z"),
+        source_command=source_command,
+        source_path=source_path,
+        source_timestamp=timestamp.isoformat().replace("+00:00", "Z"),
+        freshness_hours=freshness_hours,
+        max_age_hours=float(args.max_age_hours),
+        checked_paths=checked_paths,
+        risk=risk,
+        confidence=confidence,
+        next_actions=next_actions,
+        probe_guidance=probe_guidance,
+        summary=summary,
+        source_warnings=source_warnings,
+        packet_id=packet_id,
+        draft_text=draft_text,
+        auto_send=auto_send,
+    )
+    report = _build_ready_report(
+        route_context,
+        context_packet=context_packet,
+    )
 
     return emit_machine_artifact_output(
         args,
