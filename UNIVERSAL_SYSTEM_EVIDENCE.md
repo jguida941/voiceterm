@@ -1513,6 +1513,93 @@ No new plan docs created.
 
 ---
 
+---
+
+## Part 52: Probe Guidance Is Passive — AI Has No Mandate to Follow It
+
+### Ralph prompt shows guidance but doesn't say "USE IT."
+
+Ralph's instructions (ralph_ai_fix.py:150-179) say: "evaluate, fix, verify."
+They do NOT say: "if probe guidance is attached, follow it as your fix plan."
+Guidance appears as inline annotation after findings — AI can ignore it.
+
+**Missing from prompt:** "If probe guidance is attached, use the probe's
+recommended approach. Do not invent a different fix unless the guidance is
+clearly wrong for this context."
+
+**Matching has false-match risk:** File-path matching is string-based with
+no symbol validation. A probe finding for function A can match a CodeRabbit
+finding about function B in the same file if lines overlap.
+
+**Zero measurement:** No tracking of whether AI followed guidance, whether
+guidance-following fixes pass guards more often, or whether probe guidance
+actually improves outcomes. No before/after metric.
+
+**4 consumers still don't get guidance at all:** conductor prompt,
+swarm derive_prompt, escalation packets, guard-run. Each is ~5-20 lines
+to wire since modules exist.
+
+---
+
+## Part 53: ZGraph Temporal Snapshots — 70% Infrastructure Exists
+
+### Architecture comparison over time is feasible NOW.
+
+**What already exists:**
+- Context-graph builder is deterministic (same inputs = same graph)
+- Data-science system already saves 5,918 timestamped snapshots to JSONL
+- Quality feedback improvement_tracker already computes snapshot deltas
+- Probe artifacts have generated_at timestamps and schema versions
+- Machine output framework supports arbitrary JSON output
+
+**What's missing (~5-7 hours to build):**
+1. Save graph snapshot to dev/reports/graph_snapshots/{hash}_{timestamp}.json
+   (~20 lines in command.py)
+2. Graph diff: compare two snapshots → added/removed/changed nodes+edges
+   (~100 lines in query.py, new GraphDelta dataclass)
+3. History navigation: list available snapshots with metrics
+   (~30 lines in command.py)
+4. Trend detection: rolling window of N snapshots → temperature trends,
+   fan-out trends, cycle count changes (~80 lines)
+
+**What this enables:**
+- "This commit added 3 new cross-module dependencies" (drift detection)
+- "Module X fan-out increased 5% per month" (debt tracking)
+- "This refactoring reduced average fan-out by 12%" (improvement verification)
+- "ADR-042 prohibited cross-domain imports; 3 violations since last release"
+- Predict where next guard violation will occur via temperature trends
+
+**Industry validation:**
+- Structure101: production graph snapshot comparison between builds
+- NDepend: 30-day baseline comparison with trend charts
+- UTG (ICML 2025): snapshot-based models are 10x faster than event-based
+- GNN research (2025): 92% accuracy on refactoring detection via graph analysis
+
+**No other tool combines temporal graph snapshots + deterministic guard
+enforcement + AI autonomy loop. This would be the first.**
+
+---
+
+## Part 54: Remaining Consumer Wiring — Quick Wins
+
+### 6 items, each 5-30 minutes, all using existing modules.
+
+1. **Ralph prompt mandate** (5 min): Add "Follow probe guidance as your fix
+   plan" to prompt instructions above findings
+2. **Conductor prompt** (5 min): Add probe-guidance policy to operating
+   contract section in review_channel/prompt.py
+3. **Swarm derive_prompt** (10 min): Call load_loop_packet_probe_guidance()
+   in autonomy/run_helpers.py, append guidance to context
+4. **ReviewState guidance_refs** (5 min): Add guidance_refs field to
+   ReviewPacketState dataclass
+5. **Event projection** (5 min): Thread guidance_refs into instruction_source
+6. **Guidance adoption telemetry** (30 min): Add guidance_id +
+   guidance_followed fields to governance review log schema
+
+**Total: ~1 hour for items 1-5, 30 min for telemetry.**
+
+---
+
 ## Authority Rule (Repeated)
 
 This file is reference-only. Canonical execution authority remains:
