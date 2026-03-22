@@ -152,7 +152,14 @@ Three quality layers matter in practice:
     `active_dual_agent`, and `developer` normalizes to `single_agent`.
   - After a real review pass, advance review truth with
     `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint ...`
-    rather than hand-editing heartbeat/hash/verdict lines separately.
+    rather than hand-editing heartbeat/hash/verdict lines separately. Prefer
+    `--checkpoint-payload-file` for AI-generated or shell-sensitive markdown,
+    use the per-section `--verdict-file` / `--open-findings-file` /
+    `--instruction-file` flags when you intentionally keep bodies split, and
+    reserve inline body flags for short plain strings only. In
+    `active_dual_agent`, always pass the live
+    `--expected-instruction-revision` from `review-channel --action status` or
+    `bridge-poll`.
   - The repo-root live bridge file is `bridge.md`. Repo-owned
     `reviewer-heartbeat`, `reviewer-checkpoint`, and instruction-promotion
     writes now serialize the bridge file under a lock and scrub stale

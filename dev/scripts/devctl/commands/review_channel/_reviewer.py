@@ -23,6 +23,7 @@ from ..review_channel_command import (
 )
 from ..review_channel_command.reviewer_support import resolve_checkpoint_instruction
 from ..review_channel_command.reviewer_support import resolve_checkpoint_body
+from ..review_channel_command.reviewer_support import resolve_checkpoint_payload_file
 from .status import _attach_backend_contract
 
 
@@ -111,27 +112,39 @@ def run_reviewer_state_action(
             reason=args.reason,
         )
     else:
-        verdict_body = resolve_checkpoint_body(
-            repo_root=repo_root,
-            inline_value=getattr(args, "verdict", None),
-            file_value=getattr(args, "verdict_file", None),
-            inline_flag="--verdict",
-            file_flag="--verdict-file",
-        )
-        open_findings_body = resolve_checkpoint_body(
-            repo_root=repo_root,
-            inline_value=getattr(args, "open_findings", None),
-            file_value=getattr(args, "open_findings_file", None),
-            inline_flag="--open-findings",
-            file_flag="--open-findings-file",
-        )
-        instruction_body = resolve_checkpoint_body(
-            repo_root=repo_root,
-            inline_value=getattr(args, "instruction", None),
-            file_value=getattr(args, "instruction_file", None),
-            inline_flag="--instruction",
-            file_flag="--instruction-file",
-        )
+        checkpoint_payload_file = getattr(args, "checkpoint_payload_file", None)
+        if checkpoint_payload_file:
+            payload = resolve_checkpoint_payload_file(
+                repo_root=repo_root,
+                file_value=checkpoint_payload_file,
+            )
+            verdict_body = payload.verdict
+            open_findings_body = payload.open_findings
+            instruction_body = payload.instruction
+            reviewed_scope_items = payload.reviewed_scope_items
+        else:
+            verdict_body = resolve_checkpoint_body(
+                repo_root=repo_root,
+                inline_value=getattr(args, "verdict", None),
+                file_value=getattr(args, "verdict_file", None),
+                inline_flag="--verdict",
+                file_flag="--verdict-file",
+            )
+            open_findings_body = resolve_checkpoint_body(
+                repo_root=repo_root,
+                inline_value=getattr(args, "open_findings", None),
+                file_value=getattr(args, "open_findings_file", None),
+                inline_flag="--open-findings",
+                file_flag="--open-findings-file",
+            )
+            instruction_body = resolve_checkpoint_body(
+                repo_root=repo_root,
+                inline_value=getattr(args, "instruction", None),
+                file_value=getattr(args, "instruction_file", None),
+                inline_flag="--instruction",
+                file_flag="--instruction-file",
+            )
+            reviewed_scope_items = tuple(args.reviewed_scope_item)
         checkpoint_instruction, auto_instruction_candidate = (
             resolve_checkpoint_instruction(
                 repo_root=repo_root,
@@ -149,7 +162,7 @@ def run_reviewer_state_action(
                 current_verdict=verdict_body,
                 open_findings=open_findings_body,
                 current_instruction=checkpoint_instruction,
-                reviewed_scope_items=tuple(args.reviewed_scope_item),
+                reviewed_scope_items=reviewed_scope_items,
                 rotate_instruction_revision=bool(
                     getattr(args, "rotate_instruction_revision", False)
                 ),

@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-21
+**Last Updated:** 2026-03-22
 
 ## At a Glance
 
@@ -45,6 +45,38 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-22 - Reviewer checkpoints gained a typed shell-safe payload path
+
+Fact: the repo-owned reviewer write path no longer depends on inline shell
+markdown for the common AI-generated checkpoint case. `review-channel --action
+reviewer-checkpoint` now accepts one typed `--checkpoint-payload-file`
+containing `verdict`, `open_findings`, `instruction`, and
+`reviewed_scope_items`, while the maintainer/runbook docs now prefer that
+single file-backed path (or the existing per-section `--*-file` flags) over
+inline body flags for shell-sensitive content. The same docs cleanup also made
+the active-dual-agent stale-write precondition explicit in examples: reviewer
+checkpoints that mutate the live instruction must carry the current
+`--expected-instruction-revision`.
+
+This matters because the old failure was architectural, not just operator
+error: AI-produced reviewer markdown regularly contains backticks and other
+shell metacharacters, so inline `--instruction` / `--verdict` bodies were a
+predictable control-path hazard. The new typed payload keeps reviewer writes
+repo-owned, machine-readable, and aligned with the broader move from bridge
+prose handling toward typed current-session authority.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/parser_bridge_controls.py`
+- `dev/scripts/devctl/commands/review_channel/_reviewer.py`
+- `dev/scripts/devctl/commands/review_channel_command/reviewer_support.py`
+- `dev/scripts/devctl/tests/review_channel/test_reviewer_checkpoint_inputs.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/guides/DEVCTL_AUTOGUIDE.md`
+- `dev/scripts/README.md`
+- `dev/active/review_channel.md`
 
 ### 2026-03-21 - Reviewer-wait wired to real review-channel status truth
 

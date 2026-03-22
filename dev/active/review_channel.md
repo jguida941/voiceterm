@@ -301,8 +301,11 @@ Rules for the markdown bridge:
     `review-channel --action reviewer-heartbeat` updates liveness only, while
     `review-channel --action reviewer-checkpoint` is the only sanctioned path
     for advancing reviewed hash, verdict, findings, instruction, and reviewed
-    scope together. Guards validate these fields but must not auto-write
-    reviewer truth.
+    scope together. For AI-generated markdown or other shell-sensitive bodies,
+    reviewer checkpoints should prefer one typed
+    `--checkpoint-payload-file` (or the existing per-section `--*-file` flags
+    when bodies intentionally stay split) instead of inline shell text.
+    Guards validate these fields but must not auto-write reviewer truth.
 16. Human-facing controls may offer simple aliases such as `agents` and
     `developer`, but review artifacts and projections must normalize those
     inputs to the canonical reviewer-mode values (`active_dual_agent`,
@@ -1557,6 +1560,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-22T01:20:00Z` | `CODEX` | Closed the repeated shell-mangling failure mode on reviewer checkpoints by adding one typed file-backed payload path to the repo-owned writer. `review-channel --action reviewer-checkpoint` now accepts `--checkpoint-payload-file` with `verdict`, `open_findings`, `instruction`, and `reviewed_scope_items`, the CLI/docs now prefer that path (or the existing per-section `--*-file` flags) over inline shell bodies for AI-generated markdown, and the maintained examples now also carry the live `--expected-instruction-revision` required for active dual-agent stale-write safety. | `partial-pass` | Keep future reviewer/controller writes on typed/file-backed payloads, then continue the broader writer/mutation cutover so bridge compatibility text stops sitting in the middle of machine authority. |
 | `2026-03-22T00:25:00Z` | `CODEX` | Reconfirmed the live reviewer-service/operator-notification gap against repo-owned runtime truth instead of chat impressions. In the current lane the reviewer supervisor stays alive and updates `review_needed` / `waiting_on_peer`, but publisher state can still sit at `detached_exit`, so bridge/runtime status knows Claude is stale or waiting without auto-surfacing that state to the operator. | `planned` | Treat sticky reviewer ownership plus live publisher/notification delivery as the same MP-355 blocker: the repo-owned reviewer worker/supervisor must poll, write checkpoints, and emit operator-visible updates without waiting for user prompts. |
 | `2026-03-21T23:59:00Z` | `CODEX` | Reconciled the latest cross-agent audit against live MP-355 plan state. The urgent push-safe bridge issue was already tracked, but two real review-channel follow-ups were still missing from the checklist: a typed bridge-section registry to kill magic-string section parsing/writes and an explicit maintainability burn-down item for the remaining review-channel Python hotspots instead of treating the current file sizes as invisible debt. | `planned` | Keep the current-session/push-safe authority work bounded, then land the bridge-section registry and continue shrinking the review-channel hotspots without widening bridge authority again. |
 | `2026-03-21T23:55:00Z` | `CODEX` | Recorded the newly-proved push-coupling bug after the typed `current_session` cutover. The read side is now healthier: current reviewer/implementer truth comes from typed review-state projections, but the guarded push path still blocks on raw tracked-file dirtiness, so live `bridge.md` compatibility writes can strand validated committed work even though push logic never actually consumes bridge prose. | `planned` | Keep `bridge.md` as a compatibility projection only, add the push-safe policy/preflight closure in `MP-377`, and do not let write/push paths keep treating bridge dirtiness as canonical authored state once typed current-session authority exists. |

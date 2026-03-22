@@ -84,6 +84,15 @@ def build_bridge_control_arguments(
             ),
         ),
         arg_builder(
+            "--checkpoint-payload-file",
+            help=(
+                "Read reviewer-checkpoint bodies from one JSON payload file. "
+                "Preferred for AI-generated markdown or any shell-sensitive "
+                "content. The payload must define `verdict`, "
+                "`open_findings`, `instruction`, and `reviewed_scope_items`."
+            ),
+        ),
+        arg_builder(
             "--rotate-instruction-revision",
             action="store_true",
             help=(

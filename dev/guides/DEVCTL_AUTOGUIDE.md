@@ -100,8 +100,12 @@ python3 dev/scripts/devctl.py tandem-validate --format md
 python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md
 
 # Reviewer-owned truth update after a real accepted review pass
-python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --verdict "- reviewer accepted" --open-findings "- none" --instruction "- continue" --reviewed-scope-item bridge.md --terminal none --format md
+python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --terminal none --format md
 ```
+
+Use a JSON payload file for reviewer checkpoints when AI-generated markdown or
+backticks are involved. The payload must define `verdict`, `open_findings`,
+`instruction`, and `reviewed_scope_items`.
 
 Use this only for the current markdown-bridge cycle:
 
@@ -140,7 +144,10 @@ Use this only for the current markdown-bridge cycle:
     is stale just because a second live agent is absent.
 13. After a real reviewer acceptance pass, use `reviewer-checkpoint` to move
     reviewed hash, verdict, findings, and instruction together instead of
-    hand-editing partial reviewer state.
+    hand-editing partial reviewer state. Prefer one typed
+    `--checkpoint-payload-file` for AI-generated or shell-sensitive markdown,
+    or the per-section `--*-file` flags when the bodies intentionally stay
+    split; reserve inline body flags for short plain strings.
 14. Implementer polling is full-section, not fixed-offset: read `Last Codex poll`
     / `Poll Status` first, then reread `Current Verdict`, `Open Findings`, and
     `Current Instruction For Claude` together. If those reviewer-owned sections
@@ -206,7 +213,7 @@ phone/mobile clients, and agent-only or developer-only flows:
 - `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
 - `python3 dev/scripts/devctl.py tandem-validate --format md`
 - `python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md`
-- `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --verdict "- reviewer accepted" --open-findings "- none" --instruction "- continue" --reviewed-scope-item bridge.md --terminal none --format md`
+- `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --terminal none --format md`
 - `python3 dev/scripts/devctl.py swarm_run --help`
 - `python3 dev/scripts/devctl.py phone-status --help`
 - `python3 dev/scripts/devctl.py mobile-status --help`

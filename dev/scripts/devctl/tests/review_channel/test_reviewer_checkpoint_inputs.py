@@ -148,6 +148,7 @@ def _reviewer_args() -> SimpleNamespace:
         open_findings_file=None,
         instruction=None,
         instruction_file=None,
+        checkpoint_payload_file=None,
         reviewed_scope_item=["bridge.md"],
         rotate_instruction_revision=False,
         follow=False,
@@ -192,6 +193,26 @@ def test_validate_args_rejects_missing_expected_instruction_revision() -> None:
     with pytest.raises(
         ValueError,
         match="--expected-instruction-revision",
+    ):
+        _validate_args(args)
+
+
+def test_validate_args_accepts_checkpoint_payload_file() -> None:
+    args = _reviewer_args()
+    args.checkpoint_payload_file = "checkpoint.json"
+    args.reviewed_scope_item = []
+
+    _validate_args(args)
+
+
+def test_validate_args_rejects_mixed_checkpoint_payload_modes() -> None:
+    args = _reviewer_args()
+    args.checkpoint_payload_file = "checkpoint.json"
+    args.instruction_file = "instruction.md"
+
+    with pytest.raises(
+        ValueError,
+        match="does not allow --checkpoint-payload-file",
     ):
         _validate_args(args)
 
@@ -276,6 +297,94 @@ def test_run_reviewer_checkpoint_reads_file_backed_markdown_fields(
     assert findings_text in updated_bridge
     assert instruction_text in updated_bridge
     assert "Please run /login" not in updated_bridge
+
+
+def test_run_reviewer_checkpoint_reads_typed_payload_file(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    review_channel_path = root / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
+    bridge_path = root / "bridge.md"
+    bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+    status_dir = root / "dev/reports/review_channel/latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    output_path = root / "report.json"
+    payload_path = root / "checkpoint.json"
+    verdict_text = (
+        "- Accepted `check_startup_authority_contract.py`.\n"
+        "- Promote the next bounded Phase 1 slice."
+    )
+    findings_text = (
+        "- Raw markdown polling is still brittle.\n"
+        "- Keep unrelated drift outside this slice."
+    )
+    instruction_text = (
+        "- Implement `python3 dev/scripts/devctl.py review-channel --action bridge-poll --terminal none --format json`.\n"
+        "- Preserve `current_instruction_revision` and `changed_since_last_ack`."
+    )
+    payload_path.write_text(
+        json.dumps(
+            {
+                "verdict": verdict_text,
+                "open_findings": findings_text,
+                "instruction": instruction_text,
+                "reviewed_scope_items": [
+                    "dev/scripts/devctl/commands/review_channel/_reviewer.py",
+                    "dev/scripts/devctl/review_channel/parser_bridge_controls.py",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "review-channel",
+            "--action",
+            "reviewer-checkpoint",
+            "--terminal",
+            "none",
+            "--format",
+            "json",
+            "--review-channel-path",
+            str(review_channel_path.relative_to(root)),
+            "--bridge-path",
+            str(bridge_path.relative_to(root)),
+            "--status-dir",
+            str(status_dir.relative_to(root)),
+            "--checkpoint-payload-file",
+            str(payload_path.relative_to(root)),
+            "--expected-instruction-revision",
+            "56bcd5d01510",
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    with (
+        patch.object(review_channel_command, "REPO_ROOT", root),
+        patch.object(
+            review_channel_command,
+            "_ensure_reviewer_supervisor_running",
+            return_value={"attempted": False, "started": False, "reason": "already_running"},
+        ),
+    ):
+        rc = review_channel_command.run(args)
+
+    assert rc == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["ok"] is True
+    updated_bridge = bridge_path.read_text(encoding="utf-8")
+    assert verdict_text in updated_bridge
+    assert findings_text in updated_bridge
+    assert instruction_text in updated_bridge
+    assert (
+        "dev/scripts/devctl/review_channel/parser_bridge_controls.py"
+        in updated_bridge
+    )
 
 
 def test_write_reviewer_checkpoint_normalizes_leading_blank_padding(

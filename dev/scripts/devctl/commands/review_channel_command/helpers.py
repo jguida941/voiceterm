@@ -86,6 +86,36 @@ def _require_exactly_one(
 
 def _validate_reviewer_checkpoint_args(args) -> None:
     """Validate reviewer-checkpoint inline-vs-file body arguments."""
+    checkpoint_payload_file = getattr(args, "checkpoint_payload_file", None)
+    if checkpoint_payload_file:
+        conflicting_attrs = (
+            "verdict",
+            "verdict_file",
+            "open_findings",
+            "open_findings_file",
+            "instruction",
+            "instruction_file",
+            "reviewed_scope_item",
+        )
+        present_conflicts = [
+            attr for attr in conflicting_attrs if getattr(args, attr, None)
+        ]
+        if present_conflicts:
+            raise ValueError(
+                "review-channel reviewer-checkpoint does not allow "
+                "--checkpoint-payload-file together with inline/file body flags "
+                "or --reviewed-scope-item."
+            )
+        if reviewer_mode_is_active(getattr(args, "reviewer_mode", None)):
+            _require_present(
+                args,
+                "expected_instruction_revision",
+                "review-channel reviewer-checkpoint requires "
+                "--expected-instruction-revision in active_dual_agent mode. "
+                "Use the live `current_instruction_revision` from bridge-poll/status.",
+            )
+        return
+
     _require_exactly_one(
         args,
         attrs=("verdict", "verdict_file"),
