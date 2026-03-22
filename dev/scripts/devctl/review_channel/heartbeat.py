@@ -59,6 +59,11 @@ _HISTORICAL_POLL_STATUS_PHRASES = (
 NON_AUDIT_HASH_EXCLUDED_PREFIXES = (
     "dev/reports/",
     ".voiceterm/memory/",
+    "rust/target/",
+)
+NON_AUDIT_HASH_EXCLUDED_DIR_NAMES = (
+    ".pytest_cache",
+    "__pycache__",
 )
 
 
@@ -251,9 +256,11 @@ def compute_non_audit_worktree_hash(
         entries = sorted(_walk_repo_paths(repo_root))
     digest = hashlib.sha256()
     for relative_path in entries:
-        if relative_path in excluded:
-            continue
-        if excluded_prefixes and any(relative_path.startswith(p) for p in excluded_prefixes):
+        if _is_non_audit_hash_excluded(
+            relative_path,
+            excluded=excluded,
+            excluded_prefixes=excluded_prefixes,
+        ):
             continue
         target = repo_root / relative_path
         digest.update(relative_path.encode("utf-8", errors="surrogateescape"))
@@ -272,6 +279,22 @@ def compute_non_audit_worktree_hash(
         else:
             digest.update(b"missing\0")
     return digest.hexdigest()
+
+
+def _is_non_audit_hash_excluded(
+    relative_path: str,
+    *,
+    excluded: set[str],
+    excluded_prefixes: tuple[str, ...],
+) -> bool:
+    if relative_path in excluded:
+        return True
+    if excluded_prefixes and any(relative_path.startswith(p) for p in excluded_prefixes):
+        return True
+    return any(
+        part in NON_AUDIT_HASH_EXCLUDED_DIR_NAMES
+        for part in Path(relative_path).parts[:-1]
+    )
 
 
 def _walk_repo_paths(repo_root: Path) -> list[str]:

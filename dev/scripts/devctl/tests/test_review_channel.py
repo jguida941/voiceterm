@@ -7936,6 +7936,15 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
             memory_path = root / ".voiceterm/memory/events.jsonl"
             memory_path.parent.mkdir(parents=True)
             memory_path.write_text("{\"event\": 1}\n", encoding="utf-8")
+            pytest_cache_path = root / "dev/scripts/.pytest_cache/v/cache/nodeids"
+            pytest_cache_path.parent.mkdir(parents=True, exist_ok=True)
+            pytest_cache_path.write_text("[\"test_one\"]\n", encoding="utf-8")
+            pycache_path = root / "dev/scripts/__pycache__/helper.cpython-311.pyc"
+            pycache_path.parent.mkdir(parents=True, exist_ok=True)
+            pycache_path.write_bytes(b"compiled-v1")
+            rust_target_path = root / "rust/target/.rustc_info.json"
+            rust_target_path.parent.mkdir(parents=True, exist_ok=True)
+            rust_target_path.write_text("{\"rustc\": \"1.88.0\"}\n", encoding="utf-8")
             subprocess.run(
                 ["git", "add", ".gitignore", "src/tracked.py"],
                 cwd=root,
@@ -7955,6 +7964,9 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
             )
             report_path.write_text("{\"lints\": 2}\n", encoding="utf-8")
             memory_path.write_text("{\"event\": 2}\n", encoding="utf-8")
+            pytest_cache_path.write_text("[\"test_two\"]\n", encoding="utf-8")
+            pycache_path.write_bytes(b"compiled-v2")
+            rust_target_path.write_text("{\"rustc\": \"1.88.1\"}\n", encoding="utf-8")
             artifact_only_hash = compute_non_audit_worktree_hash(
                 repo_root=root,
                 excluded_rel_paths=(),
