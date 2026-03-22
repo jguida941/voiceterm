@@ -1259,6 +1259,151 @@ The information EXISTS. It's just not DISCOVERABLE.
 
 ---
 
+---
+
+## Part 45: Complete Data-Produced-Never-Consumed Inventory
+
+### 7 artifact categories written but never consumed for decisions.
+
+1. **DecisionPacket metadata** (research_instruction, precedent, invariants,
+   validation_plan) — written to JSON, never read back after serialization
+2. **QualityFeedback recommendations** — recommendation_engine builds 100+
+   lines of prioritized recommendations. quality_feedback command just counts
+   them (len(snapshot.recommendations)). NEVER RENDERED or acted upon.
+3. **Research benchmark bundles** (dev/reports/research/) — 500+ JSON/MD files
+   from swarm_vs_placebo experiments. No non-test code opens them.
+4. **Data science / watchdog snapshots** — consumed only by operator console
+   presentation layer. NEVER used for control decisions.
+5. **Ralph guardrail reports** — displayed in operator console. NEVER
+   re-analyzed or used to trigger automations.
+6. **Audit event log** (devctl_events.jsonl, 13K+ events) — only consumed
+   by test suite. NEVER queried for operational patterns.
+7. **Review channel event trace** (NDJSON) — used for projections only.
+   NEVER analyzed for session patterns or decision quality.
+
+**Pattern:** Every reporting subsystem WRITES rich data and then only
+the presentation layer (operator console, markdown render) ever READS it.
+No decision system, no AI prompt builder, no guard, no autonomy loop
+ever consumes this data for actual choices.
+
+---
+
+## Part 46: Four Separate Startup Systems (Should Be One)
+
+### AI gets context from 4 uncoordinated systems that don't know about each other.
+
+**System 1: startup-context** (10K tokens, undocumented in CLAUDE.md)
+- Loads: ProjectGovernance, ReviewerGateState, PushEnforcement, advisory action
+- Hidden from AI: CLAUDE.md bootstrap NEVER mentions this command
+
+**System 2: context-graph bootstrap** (1.3K tokens, documented in CLAUDE.md)
+- Loads: repo identity, active plans, hotspots, commands, push state, bridge liveness
+- This is the ONLY system CLAUDE.md tells AI to use
+
+**System 3: Claude memory** (.claude/projects/memory/, 12 files)
+- Contains: repo facts, architecture, lessons, preferences, active execution notes
+- Integration: ZERO — devctl never reads .claude/memory/. Not one import.
+
+**System 4: Plan doc Session Resume** (manual markdown in dev/active/*.md)
+- Contains: current status, next action, context for session restart
+- Integration: boolean detection only (has_session_resume flag). Content NEVER parsed.
+
+**Overlap:** startup-context and bootstrap both carry push_enforcement (different fields).
+**Gaps:** Neither reads memory. Neither parses Session Resume content. Neither loads
+prior episode history. Neither knows about the other.
+
+**Result:** AI gets 1.3K tokens from bootstrap. 10K more tokens from startup-context
+are available but invisible. Memory is decoupled by design. Session Resume is prose.
+An AI session starts with ~1.3K when ~15K of context exists across the 4 systems.
+
+**What a unified startup would look like (~3-5K tokens):**
+- repo_identity (from startup)
+- governance + push_enforcement (from startup, more detailed)
+- active_plans + hotspots (from bootstrap)
+- key_commands (from bootstrap)
+- recent_changes (NEW: git diff + plan edits since last session)
+- memory_state (NEW: load from .claude/projects/)
+- session_resume (NEW: parse from plan docs)
+- prior_episode_digest (NEW: load from watchdog episodes)
+- advisory_action (from startup)
+
+---
+
+## Part 47: ZGraph Missing 5 Node Types + 2 Dead Edge Types
+
+### Complete inventory of what the graph schema SHOULD have.
+
+**Dead edges (defined in models.py, never created by builder.py):**
+- EDGE_KIND_GUARDS — would map guard → files it validates. Data exists
+  (quality_scopes in repo_policy, PATH_POLICY_OVERRIDES in code_shape_policy).
+  Builder change: ~80 lines. HIGHEST priority — unlocks "what guards protect
+  this file?"
+- EDGE_KIND_SCOPED_BY — would map task/finding → plan scope. Data exists
+  (INDEX.md scope column already parsed into metadata). Builder change: ~60
+  lines. Unlocks plan-scope task routing.
+
+**Missing node types (data exists, nodes don't):**
+- Test nodes (~120 test files) — would enable "which tests cover this file?"
+  Builder change: ~200 lines.
+- Workflow nodes (30 CI workflows) — would enable "what CI checks fire for
+  this change?" Builder change: ~200 lines.
+- Config nodes (10+ policy files) — would enable "what happens if I change
+  this policy?" Builder change: ~150 lines.
+- Finding nodes (81 live findings) — would enable "which findings are blocking
+  this plan?" Builder change: ~180 lines.
+- Contract nodes (35+ platform contracts) — would enable "which contracts does
+  this file implement?" Builder change: ~200 lines. CRITICAL for MP-377
+  extraction.
+
+**Quick wins (Tier 1, ~160 lines total):**
+1. Parse plan scope metadata via regex (20 lines)
+2. Add guard applicability helper function (60 lines)
+3. Create EDGE_KIND_GUARDS edges in builder (80 lines)
+
+**Total to build ALL missing types: ~1400-1600 lines of Python.**
+
+---
+
+## Part 48: Memory + Session Resume + Execution Traces Are Three Disconnected Silos
+
+### Every session starts cold. Prior learning is invisible. Continuation is manual.
+
+**The broken continuity loop:**
+```
+Session N starts → reads bridge NOW → makes decision NOW
+  (does NOT query episodes from N-1..N-5)
+  (does NOT read Session Resume from plan)
+  (does NOT read MEMORY.md)
+
+Session N runs → emits episodes to watchdog
+  → updates bridge prose
+  → agent manually writes Session Resume
+  → user manually updates memory
+
+Session N+1 starts → reads bridge NOW
+  → makes SAME decision (no learning)
+  → no access to episode(N) data
+  → no typed Session Resume
+```
+
+**Key disconnections:**
+- devctl NEVER reads .claude/memory/ (0 imports found)
+- startup_context is stateless across sessions (reads NOW only)
+- Episodes archived but never queried for bootstrap
+- 3 separate session_id systems with no unified registry
+- Handoff carries bridge state only, not episode data or learned patterns
+- Session Resume never auto-populated, never auto-read
+
+**What would fix it (6 incremental additions):**
+1. Typed Session Resume — parse markdown into struct at startup
+2. Episode aggregator — query JSONL by plan_id, return digest
+3. Continuity packet — combine resume + digest + bridge liveness
+4. Handoff enrichment — include episode digest in rollover bundles
+5. Memory integration — auto-populate from episode digest
+6. Guard confidence scoring — track FP rates, carry into next session
+
+---
+
 ## Authority Rule (Repeated)
 
 This file is reference-only. Canonical execution authority remains:
