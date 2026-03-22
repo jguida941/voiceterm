@@ -1043,6 +1043,110 @@ Nothing connects production to consumption.
 
 ---
 
+---
+
+## Part 39: Governance Review Pipeline — Open Loop
+
+### governance-review --record has ZERO automated callers.
+
+110 entries in finding_reviews.jsonl were ALL manually recorded. No guard,
+no autonomy loop, no guard-run, no triage command EVER invokes
+governance-review --record. The governance review pipeline is:
+
+**Current:** Finding → Detection → Fix → Verification → STOP
+**Missing:** → Auto-record verdict ("fixed"/"waived"/"deferred") → Log
+
+When guard-run wraps an AI fix and post-checks pass, NOTHING records
+"this finding was fixed." When autonomy-loop completes a round, NOTHING
+records verdicts. quality-feedback reads the review log to compute
+cleanup_rate but can't trigger recording.
+
+AGENTS.md lines 168-172 acknowledge governance-review exists for "manual
+adjudication" but provide no guidance on auto-triggering.
+
+**Impact:** cleanup_rate metrics are frozen at whatever was manually
+adjudicated. System cannot track resolution rates automatically.
+
+---
+
+## Part 40: Code Organization Debt — 79 Root Files Need Grouping
+
+### devctl/ has 79 files at root (should be ~20-25).
+
+**9 feature domains have orphaned root files:**
+- 8 governance_* files → should be in governance/
+- 7 mobile/phone files → need new mobile/ subdir
+- 5 status/ralph files → need new status/ subdir
+- 3 loop files → should be in loops/
+- 2 mutation_loop files → should be in mutation_loop/
+- 2 publication files → should be in publication/
+- 2 probe_report files → should be in probe_report/
+
+**checks/ has 8 backward-compat shim probes** that duplicate
+code_shape_probes/ implementations. Shims expire 2026-06-30.
+
+**65 guard scripts at checks/ root** with no semantic grouping. Should
+split into: architecture/, platform_contract/, code_shape/,
+python/, rust/, data_sync/, compatibility/, foundational/.
+
+**Cleanup effort:** ~7.5 hours total (3.5h safe migrations + 4h guard reorg).
+
+---
+
+## Part 41: First-User Adoption — tandem-consistency Is the Blocker
+
+### A developer at another company trying to adopt this system will fail
+### on Day 2 because tandem-consistency-guard ALWAYS runs and requires
+### bridge.md + review-channel infrastructure.
+
+**What works on day 1:**
+- governance-bootstrap generates correct starter policy
+- Portable presets (Python/Rust) have 15 guards + 17 probes that work
+- docs-check, probe-report, quality-policy, platform-contracts all work
+- Code-quality guards run fine on any Python/Rust codebase
+
+**What fails on day 2:**
+```
+$ devctl check --profile quick
+[FAIL] tandem-consistency-guard: Overall bridge state is stale.
+```
+
+tandem-consistency-guard is marked ALWAYS ON in quality policy. It checks:
+- bridge.md presence and freshness
+- Reviewer/implementer heartbeat
+- Plan alignment with MASTER_PLAN.md
+- Promotion state
+
+**A Go project or any repo without bridge.md cannot pass check --profile
+quick.** The adopter must either:
+- (a) Create bridge.md + adopt full dual-agent review (1-3 days)
+- (b) Edit policy to disable tandem-consistency (15 min, tech debt)
+- (c) Fork the check command (not recommended)
+
+**This is not documented in the setup guide.** The guide says "run check
+--profile quick" as a next step but doesn't mention it will fail without
+review infrastructure.
+
+**Error message is confusing:**
+```
+[FAIL] launch_truth (role=system): Overall bridge state is stale.
+```
+A new adopter doesn't know what "launch truth" or "bridge state" means.
+
+**Time to check --profile quick passing:**
+- 1 day if adopter disables tandem-consistency
+- 3-5 days if adopter commits to full review-channel setup
+- tandem-consistency-guard is THE portability blocker
+
+**Other adoption friction:**
+- Docs layout assumes AGENTS.md + dev/guides/DEVELOPMENT.md at specific
+  paths (fallbacks exist but not documented)
+- Plan format is rigid (PLAN_FORMAT.md contract enforced, no alternatives)
+- VoiceTerm jargon in error messages (bridge, launch_truth, tandem)
+- No Go/TypeScript/Java language guards (honest but limiting)
+
+---
+
 ## Authority Rule (Repeated)
 
 This file is reference-only. Canonical execution authority remains:
