@@ -151,6 +151,33 @@ Evidence:
 - `dev/scripts/README.md`
 - `dev/active/review_channel.md`
 
+### 2026-03-22 - Autonomy loop packets started consuming canonical probe guidance
+
+Fact: the first probe-guidance route is no longer Ralph-only. `triage-loop`
+now carries a bounded structured backlog slice, `loop-packet` reads canonical
+`review_targets.json` guidance against that slice, and the autonomy terminal
+draft now renders matched `Finding.ai_instruction` text instead of generic
+unresolved-count prose alone. The same change widened
+`check_platform_contract_closure.py` so the repo now proves both the Ralph and
+autonomy field routes.
+
+This matters because it closes the next real produced-but-never-consumed gap
+without inventing another packet family. The probe contract already existed;
+the autonomy controller simply was not reading it. The route proof also keeps
+the closure honest: if future refactors drop matched guidance from the
+autonomy draft while probe artifacts still emit it, the platform contract
+guard now fails.
+
+Evidence:
+
+- `dev/scripts/checks/coderabbit_ralph_loop_core.py`
+- `dev/scripts/devctl/commands/loop_packet.py`
+- `dev/scripts/devctl/commands/loop_packet_helpers.py`
+- `dev/scripts/devctl/commands/packets/loop_packet_probe_guidance.py`
+- `dev/scripts/checks/platform_contract_closure/field_routes.py`
+- `dev/scripts/devctl/tests/test_loop_packet.py`
+- `dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`
+
 ### 2026-03-21 - Reviewer-wait wired to real review-channel status truth
 
 Fact: the symmetric Codex-side `review-channel --action reviewer-wait` path is

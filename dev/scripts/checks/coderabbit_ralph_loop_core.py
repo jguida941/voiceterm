@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import os
 import shlex
 import subprocess
 import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -37,28 +35,24 @@ except ModuleNotFoundError:
         wait_for_new_completed_run,
         wait_for_run_completed_by_id,
     )
-
-
-def normalize_sha(value: str | None) -> str:
-    return str(value or "").strip().lower()
-
-
-def load_backlog_payload(root: Path) -> tuple[dict, str | None]:
-    candidates = sorted(root.rglob("backlog-medium.json"))
-    if not candidates:
-        return {}, "missing backlog-medium.json in downloaded artifacts"
-    path = candidates[0]
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        return {}, str(exc)
-    except json.JSONDecodeError as exc:
-        return {}, f"invalid json ({exc})"
-    if not isinstance(payload, dict):
-        return {}, "backlog payload is not an object"
-    return payload, None
-
-
+try:
+    from dev.scripts.checks.coderabbit.backlog_projection import project_backlog_items
+except ModuleNotFoundError:
+    from checks.coderabbit.backlog_projection import project_backlog_items
+try:
+    from dev.scripts.checks.coderabbit.loop_support import (
+        LoopReportRequest,
+        build_report,
+        load_backlog_payload,
+        normalize_sha,
+    )
+except ModuleNotFoundError:
+    from checks.coderabbit.loop_support import (
+        LoopReportRequest,
+        build_report,
+        load_backlog_payload,
+        normalize_sha,
+    )
 def run_fix_command(
     command: str,
     *,
@@ -96,43 +90,6 @@ def run_fix_command(
     return completed.returncode, None
 
 
-def build_report(
-    *,
-    repo: str,
-    branch: str,
-    workflow: str,
-    max_attempts: int,
-    fix_command: str | None,
-    fix_block_reason: str | None = None,
-    source_run_id: int | None = None,
-    source_run_sha: str | None = None,
-    source_event: str | None = None,
-) -> dict:
-    normalized_source_sha = normalize_sha(source_run_sha)
-    return {
-        "command": "run_coderabbit_ralph_loop",
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "ok": False,
-        "repo": repo,
-        "branch": branch,
-        "workflow": workflow,
-        "max_attempts": max_attempts,
-        "completed_attempts": 0,
-        "attempts": [],
-        "unresolved_count": 0,
-        "reason": "",
-        "fix_command_configured": bool(fix_command),
-        "fix_block_reason": fix_block_reason,
-        "escalation_needed": False,
-        "source_run_id": source_run_id if source_run_id and source_run_id > 0 else None,
-        "source_run_sha": normalized_source_sha or None,
-        "source_event": str(source_event or "workflow_dispatch"),
-        "source_correlation": "pending" if source_run_id else "branch_latest_fallback",
-        "backlog_pr_number": None,
-        "backlog_head_sha": None,
-    }
-
-
 def execute_loop(
     *,
     repo: str,
@@ -149,15 +106,17 @@ def execute_loop(
     source_event: str | None = None,
 ) -> dict:
     report = build_report(
-        repo=repo,
-        branch=branch,
-        workflow=workflow,
-        max_attempts=max_attempts,
-        fix_command=fix_command,
-        fix_block_reason=fix_block_reason,
-        source_run_id=source_run_id,
-        source_run_sha=source_run_sha,
-        source_event=source_event,
+        LoopReportRequest(
+            repo=repo,
+            branch=branch,
+            workflow=workflow,
+            max_attempts=max_attempts,
+            fix_command=fix_command,
+            fix_block_reason=fix_block_reason,
+            source_run_id=source_run_id,
+            source_run_sha=source_run_sha,
+            source_event=source_event,
+        )
     )
     normalized_source_sha = normalize_sha(source_run_sha)
     if source_run_id is not None and source_run_id <= 0:
@@ -282,6 +241,10 @@ def execute_loop(
 
             backlog_count = len(backlog_items)
             attempt_row["backlog_count"] = backlog_count
+            backlog_preview = project_backlog_items(backlog_items)
+            if backlog_preview:
+                attempt_row["backlog_items"] = backlog_preview
+                report["backlog_items"] = backlog_preview
             report["unresolved_count"] = backlog_count
             if backlog_count == 0:
                 attempt_row["status"] = "resolved"

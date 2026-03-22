@@ -53,7 +53,7 @@ def _surface_policy_with_tokens(*tokens: str) -> SurfacePolicy:
 def test_platform_contract_closure_passes_on_current_blueprint() -> None:
     report = build_report()
     assert report["ok"] is True
-    assert report["checked_field_routes"] == 1
+    assert report["checked_field_routes"] == 2
     assert report["violations"] == []
 
 
@@ -119,6 +119,31 @@ def test_platform_contract_closure_flags_missing_ai_instruction_prompt_route() -
     assert len(route_violations) == 1
     assert route_violations[0]["field_name"] == "ai_instruction"
     assert route_violations[0]["route_id"] == "ralph_prompt"
+
+
+def test_platform_contract_closure_flags_missing_ai_instruction_autonomy_route() -> None:
+    blueprint = build_platform_blueprint()
+    with patch(
+        "dev.scripts.devctl.commands.loop_packet_helpers.load_loop_packet_probe_guidance",
+        return_value=[],
+    ):
+        _coverage, violations = evaluate_platform_contract_closure(
+            blueprint,
+            _surface_policy_with_tokens(
+                "platform-contracts",
+                "render-surfaces",
+                "check_platform_contract_closure.py",
+            ),
+        )
+
+    route_violations = [
+        v
+        for v in violations
+        if v.get("rule") == "unconsumed-field-route"
+        and v.get("route_id") == "autonomy_loop_packet"
+    ]
+    assert len(route_violations) == 1
+    assert route_violations[0]["field_name"] == "ai_instruction"
 
 
 def test_emitter_parity_catches_missing_bridge_state_key() -> None:
@@ -316,4 +341,4 @@ def test_platform_contract_closure_markdown_lists_violations() -> None:
 def test_platform_contract_closure_markdown_lists_field_route_count() -> None:
     report = build_report()
     output = render_md(report)
-    assert "checked_field_routes: 1" in output
+    assert "checked_field_routes: 2" in output

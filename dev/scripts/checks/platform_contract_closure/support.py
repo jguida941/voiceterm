@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-import json
-import tempfile
 from dataclasses import fields, is_dataclass
 from importlib import import_module
-from pathlib import Path
 
 from dev.scripts.devctl.governance.surfaces import SurfacePolicy
 from dev.scripts.devctl.platform.contracts import (
     ArtifactSchemaSpec,
     ContractSpec,
     PlatformBlueprint,
+)
+from .field_routes import (
+    check_finding_ai_instruction_autonomy_route,
+    check_finding_ai_instruction_ralph_route,
 )
 
 _METADATA_FIELDS = frozenset({"schema_version", "contract_id", "command"})
@@ -183,91 +184,6 @@ def _check_startup_surfaces(policy: SurfacePolicy) -> tuple[dict[str, object], t
             "detail": "Policy-owned startup surfaces must expose the platform contract commands/guards.",
         },
     )
-
-
-def _check_finding_ai_instruction_route() -> tuple[dict[str, object], dict[str, object] | None]:
-    """Verify a populated Finding.ai_instruction reaches the Ralph prompt."""
-    from dev.scripts.coderabbit.probe_guidance import attach_probe_guidance
-    from dev.scripts.coderabbit.ralph_ai_fix import build_prompt
-
-    expected_instruction = "Extract the auth validator helper before editing the caller."
-    backlog_items = [
-        {
-            "severity": "high",
-            "category": "rust",
-            "summary": "rust/src/auth.rs:12 - Unused import in auth.rs",
-        }
-    ]
-    review_targets_payload = {
-        "findings": [
-            {
-                "file_path": "rust/src/auth.rs",
-                "check_id": "probe_design_smells",
-                "severity": "high",
-                "line": 10,
-                "end_line": 14,
-                "ai_instruction": expected_instruction,
-            }
-        ]
-    }
-    coverage: dict[str, object] = {
-        "kind": "field_route",
-        "contract_id": "Finding",
-        "field_name": "ai_instruction",
-        "route_id": "ralph_prompt",
-        "consumer": "dev.scripts.coderabbit.ralph_ai_fix:build_prompt",
-        "ok": True,
-    }
-
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        report_root = Path(tmp_dir)
-        (report_root / "review_targets.json").write_text(
-            json.dumps(review_targets_payload),
-            encoding="utf-8",
-        )
-        enriched = attach_probe_guidance(backlog_items, report_root=report_root)
-
-    guidance = enriched[0].get("probe_guidance") if enriched else None
-    if not isinstance(guidance, list) or not guidance:
-        detail = (
-            "Finding.ai_instruction is produced by probe artifacts but is not "
-            "attached to the Ralph remediation item before prompt assembly."
-        )
-        coverage["ok"] = False
-        coverage["detail"] = detail
-        return coverage, {
-            "kind": "field_route",
-            "contract_id": "Finding",
-            "field_name": "ai_instruction",
-            "route_id": "ralph_prompt",
-            "rule": "unconsumed-field-route",
-            "detail": detail,
-        }
-
-    prompt = build_prompt(enriched, attempt=1)
-    if expected_instruction in prompt:
-        coverage["detail"] = (
-            "Finding.ai_instruction survives the canonical Ralph route from "
-            "probe artifact to live remediation prompt."
-        )
-        return coverage, None
-
-    detail = (
-        "Finding.ai_instruction is attached to the Ralph remediation item but "
-        "does not reach the live prompt output."
-    )
-    coverage["ok"] = False
-    coverage["detail"] = detail
-    return coverage, {
-        "kind": "field_route",
-        "contract_id": "Finding",
-        "field_name": "ai_instruction",
-        "route_id": "ralph_prompt",
-        "rule": "unconsumed-field-route",
-        "detail": detail,
-    }
-
-
 def evaluate_platform_contract_closure(
     blueprint: PlatformBlueprint,
     surface_policy: SurfacePolicy,
@@ -301,9 +217,13 @@ def evaluate_platform_contract_closure(
         if parity_violation is not None:
             violations.append(parity_violation)
 
-    route_coverage, route_violation = _check_finding_ai_instruction_route()
-    coverage_rows.append(route_coverage)
-    if route_violation is not None:
-        violations.append(route_violation)
+    for route_check in (
+        check_finding_ai_instruction_ralph_route,
+        check_finding_ai_instruction_autonomy_route,
+    ):
+        route_coverage, route_violation = route_check()
+        coverage_rows.append(route_coverage)
+        if route_violation is not None:
+            violations.append(route_violation)
 
     return tuple(coverage_rows), tuple(violations)

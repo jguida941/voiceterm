@@ -163,6 +163,63 @@ class CodeRabbitRalphLoopCoreTests(TestCase):
         self.assertEqual(report["source_correlation"], "source_artifact_sha_validated")
         self.assertEqual(report["backlog_pr_number"], 19)
 
+    def test_execute_loop_emits_bounded_structured_backlog_items(self) -> None:
+        with (
+            patch.object(
+                self.script,
+                "wait_for_latest_completed",
+                return_value=(
+                    {
+                        "databaseId": 123,
+                        "status": "completed",
+                        "conclusion": "success",
+                        "headSha": "a" * 40,
+                        "url": "https://example.invalid/runs/123",
+                    },
+                    None,
+                ),
+            ),
+            patch.object(self.script, "download_run_artifacts", return_value=None),
+            patch.object(
+                self.script,
+                "load_backlog_payload",
+                return_value=(
+                    {
+                        "items": [
+                            {
+                                "severity": "high",
+                                "category": "python",
+                                "summary": "dev/scripts/devctl/auth.py:12 - Auth flow and retry loop are coupled.",
+                                "file_path": "dev/scripts/devctl/auth.py",
+                                "line": 12,
+                                "internal_only": "ignore-me",
+                            }
+                        ]
+                    },
+                    None,
+                ),
+            ),
+        ):
+            report = self.script.execute_loop(
+                repo="owner/repo",
+                branch="develop",
+                workflow="CodeRabbit Triage Bridge",
+                max_attempts=1,
+                run_list_limit=10,
+                poll_seconds=5,
+                timeout_seconds=60,
+                fix_command=None,
+            )
+
+        self.assertEqual(report["reason"], "no fix command configured")
+        self.assertEqual(report["backlog_items"][0]["file_path"], "dev/scripts/devctl/auth.py")
+        self.assertEqual(report["backlog_items"][0]["line"], 12)
+        self.assertNotIn("internal_only", report["backlog_items"][0])
+        self.assertEqual(
+            report["attempts"][0]["backlog_items"][0]["summary"],
+            "dev/scripts/devctl/auth.py:12 - Auth flow and retry loop are coupled.",
+        )
+
     def test_execute_loop_policy_block_sets_reason(self) -> None:
         with (
             patch.object(

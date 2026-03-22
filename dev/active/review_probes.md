@@ -291,16 +291,18 @@ context-free translation = MEDIUM.
 - [ ] Finish closing the probe-to-AI remediation wire on top of that
       fix-packet surface: Ralph now consumes exact file-matched canonical
       probe `Finding.ai_instruction` guidance from `review_targets.json`
-      and injects it into the live remediation prompt, and the first
-      deterministic closure guard now proves that route through
-      `check_platform_contract_closure.py`. Autonomy retry packets and
-      review-channel remediation prompts still need the same contract, the
-      runtime should emit explicit telemetry when a probe finding reaches AI
-      without attached guidance, and the next probe/guard follow-up must
-      catch the detector gap external review exposed here: dual-authority AI
-      consumers and prose-parsed contract matching should not slip through as
-      "clean" tranche code once structured fields and one canonical artifact
-      already exist. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27)
+      and injects it into the live remediation prompt, autonomy `triage-loop`
+      / `loop-packet` now carries a bounded structured backlog slice and
+      renders the same exact file-matched canonical guidance into the loop
+      draft, and `check_platform_contract_closure.py` now proves both live
+      routes. Review-channel remediation prompts still need the same
+      contract, the runtime should emit explicit telemetry when a probe
+      finding reaches AI without attached guidance, and the next
+      probe/guard follow-up must catch the detector gap external review
+      exposed here: dual-authority AI consumers and prose-parsed contract
+      matching should not slip through as "clean" tranche code once
+      structured fields and one canonical artifact already exist. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27)
 - [ ] Add the next missing probe tranche explicitly under the same portable
       evidence contract: start with test-quality, None-safety, and
       over-abstraction signals as advisory probes only, back them with
@@ -488,6 +490,14 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-22: Closed the next live probe-to-AI consumer after Ralph instead of
+  leaving autonomy as plan prose. `triage-loop` now persists one bounded
+  structured backlog slice into its report, `loop-packet` reads canonical
+  probe guidance from `review_targets.json` against that slice, and the
+  generated loop draft now carries the matched `ai_instruction` text for the
+  autonomy retry path. The deterministic closure guard was widened at the same
+  time, so `check_platform_contract_closure.py` now proves both the Ralph and
+  autonomy routes instead of only one consumer.
 - 2026-03-22: Completed the previously partial audit mapping for the probe
   lane. The open probe backlog is no longer only the `ai_instruction` wire:
   the missing advisory-probe tranche (`A28`) and governance-ledger-history
@@ -1316,26 +1326,28 @@ Template README at `dev/scripts/checks/PROBE_TEMPLATE_README.md`.
 
 ## Session Resume
 
-- Current status: the first live probe-to-AI proof slice has landed. Ralph now
-  reads exact file-matched canonical probe guidance from
+- Current status: the first two live probe-to-AI proof slices have landed.
+  Ralph reads exact file-matched canonical probe guidance from
   `dev/reports/probes/review_targets.json` and renders `Probe guidance:` lines
-  into the remediation prompt, and the first deterministic closure check now
-  proves that route in `check_platform_contract_closure.py`. CodeRabbit backlog
-  items now carry structured `path` / `line` fields so normal matching no
-  longer depends on summary parsing, though summary parsing remains as a legacy
-  fallback for older backlog payloads. The remaining gap is widening that same
-  contract to autonomy/review-channel plus adding runtime telemetry so
-  produced guidance cannot silently stop at artifacts again.
+  into the remediation prompt, and autonomy `triage-loop` / `loop-packet` now
+  persists a bounded structured backlog slice and renders the same matched
+  guidance into the loop draft. `check_platform_contract_closure.py` now
+  proves both routes. CodeRabbit backlog items now carry structured `path` /
+  `line` fields so normal matching no longer depends on summary parsing,
+  though summary parsing remains as a legacy fallback for older backlog
+  payloads. The remaining gap is review-channel plus broader telemetry /
+  meta-guard coverage so produced guidance cannot silently stop at artifacts
+  again.
 - The same lane now owns the missing follow-ons too: next-probe expansion stays
   bounded to test-quality / None-safety / over-abstraction, and probe packets
   need governance-ledger history instead of file-local prose only.
-- Next action: close the checker-stack miss exposed by the Ralph slice before
-  widening the next consumer path. Add deterministic coverage for
-  dual-authority artifact consumers, decide whether prose-parsed contract
-  matching belongs in `probe_stringly_typed` or a sibling rule family, then
-  extend the same canonical probe-guidance contract and route-closure pattern
-  to autonomy retry packets and review-channel remediation without inventing a
-  second packet shape.
+- Next action: turn the current consumer-specific route proofs into the next
+  broader produced-but-never-consumed / single-authority meta-guard, then
+  carry the same canonical probe-guidance contract into review-channel
+  remediation without inventing a second packet shape. Keep the checker-stack
+  follow-up explicit too: add deterministic coverage for dual-authority
+  artifact consumers and decide whether prose-parsed contract matching belongs
+  in `probe_stringly_typed` or a sibling rule family.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

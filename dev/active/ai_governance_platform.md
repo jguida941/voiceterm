@@ -3551,17 +3551,18 @@ Still open before `P0` closes:
 - [ ] Finish closing the AI-guidance routing gap instead of inventing more
       packet shapes: Ralph now consumes exact file-matched
       `Finding.ai_instruction` from canonical `review_targets.json` probe
-      artifacts, but autonomy retry/repair paths, review-channel remediation
-      flows, and `guard-run` follow-up packets still need the same contract
-      plus carried decision semantics (`decision_mode`, `invariants`,
-      `validation_plan`, `precedent`, `research_instruction`, `signals`)
-      instead of rendering them only for humans. The first deterministic
-      route-closure guard now proves the Ralph path inside
-      `check_platform_contract_closure.py`; widen that same enforcement
-      pattern before claiming the rest of the contract is live, and fail
-      the same tranche if an AI consumer negotiates between multiple artifact
-      authorities or keeps deriving routing keys from prose once the
-      structured contract fields exist. (evidence:
+      artifacts, and autonomy `triage-loop` / `loop-packet` now consumes the
+      same canonical guidance from a bounded structured backlog slice, but
+      review-channel remediation flows and `guard-run` follow-up packets still
+      need the same contract plus carried decision semantics
+      (`decision_mode`, `invariants`, `validation_plan`, `precedent`,
+      `research_instruction`, `signals`) instead of rendering them only for
+      humans. The deterministic route-closure guard now proves both the Ralph
+      and autonomy paths inside `check_platform_contract_closure.py`; widen
+      that same enforcement pattern before claiming the rest of the contract
+      is live, and fail the same tranche if an AI consumer negotiates between
+      multiple artifact authorities or keeps deriving routing keys from prose
+      once the structured contract fields exist. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38)
 - [ ] Split the default fix packet from the typed decision packet: the
       everyday AI/dev surface should carry deterministic fixes, scoped
@@ -3736,6 +3737,13 @@ working on `MP-377`.
   live remediation prompt. The next closure is not another generic audit; it
   is extending the same route-closure pattern to the remaining autonomy,
   review-channel, and `guard-run` AI guidance consumers.
+- 2026-03-22 tranche-4 follow-up: the next AI consumer is now live too.
+  `triage-loop` persists one bounded structured backlog slice, `loop-packet`
+  reads canonical `review_targets.json` guidance against that slice, and the
+  autonomy loop draft now carries the matched `Finding.ai_instruction` text
+  instead of generic unresolved-count prose only. The route-closure guard was
+  widened in the same change, so the platform-contract lane now proves both
+  Ralph and autonomy before the broader meta-guard/general-consumer tranche.
 - 2026-03-22 checker-gap follow-up: an external architecture review surfaced
   the next governance miss after the Ralph cleanup. The live branch had
   already removed the dual-authority Ralph fallback and split the worst
@@ -4284,6 +4292,13 @@ Execution order for this section:
   `Finding.ai_instruction` route through the real Ralph consumer path and
   fails if probe artifacts still emit the field but the prompt stops
   carrying it.
+- 2026-03-22: Extended that same route proof to the autonomy controller lane
+  instead of letting the second consumer depend on unit tests alone.
+  `triage-loop` now carries a bounded structured backlog slice, `loop-packet`
+  matches it against canonical probe guidance, and
+  `platform_contract_closure` now fails if the autonomy terminal draft stops
+  carrying matched `ai_instruction` text even though the artifact still
+  produces it.
 - 2026-03-22: Verified the first external-review follow-up against the live
   branch instead of assuming every smell claim stayed true after cleanup. The
   checker stack still misses two real cases in this lane: there is no

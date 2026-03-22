@@ -16,6 +16,7 @@ from ..status_report import build_project_report
 from ..triage.enrich import apply_defaults_to_issues, build_issue_rollup
 from ..triage.support import build_next_actions, classify_issues
 from .packets.loop_packet_context import build_loop_packet_context_packet
+from .packets.loop_packet_probe_guidance import load_loop_packet_probe_guidance
 
 
 class LoopPacketSourceCommand(StrEnum):
@@ -200,7 +201,7 @@ def _build_packet_body(
     *,
     source_command: str,
     payload: dict[str, Any],
-) -> tuple[str, str, list[str], ContextEscalationPacket | None]:
+) -> tuple[str, str, list[str], ContextEscalationPacket | None, list[dict[str, object]]]:
     context_packet = build_loop_packet_context_packet(
         source_command=source_command,
         payload=payload,
@@ -219,22 +220,42 @@ def _build_packet_body(
             context.append(f"Source run id: `{source_run}`.")
         risk = "low" if unresolved == 0 else ("high" if unresolved > 8 else "medium")
         actions = []
+        probe_guidance = load_loop_packet_probe_guidance(payload)
         if unresolved == 0:
             actions.append("No medium/high backlog remains. Continue with normal CI verification.")
         else:
             actions.append("Review unresolved findings and apply bounded fixes with the same source run correlation.")
             actions.append("Re-run report-only loop and verify unresolved count trends downward.")
+        if probe_guidance:
+            actions.insert(
+                0,
+                "Apply the matched probe guidance in the next bounded remediation step before broadening scope.",
+            )
+        guidance_lines: list[str] = []
+        if probe_guidance:
+            guidance_lines.extend(["", "Probe guidance for the unresolved slice:"])
+            for entry in probe_guidance:
+                probe = str(entry.get("probe") or "probe").strip()
+                file_path = str(entry.get("file_path") or entry.get("symbol") or "matched file").strip()
+                line_value = entry.get("line")
+                location = file_path
+                if isinstance(line_value, int) and line_value > 0:
+                    location = f"{file_path}:{line_value}"
+                guidance_lines.append(
+                    f"- {entry.get('ai_instruction') or ''} ({probe} on {location})"
+                )
         draft = "\n".join(
             [
                 "Loop feedback packet:",
                 *context,
+                *guidance_lines,
                 "",
                 "Task: propose the next bounded remediation step with guardrails and verification.",
             ]
         )
         if context_packet is not None:
             draft += "\n\n" + context_packet.markdown
-        return risk, draft, actions, context_packet
+        return risk, draft, actions, context_packet, probe_guidance
     if source_command == "mutation-loop":
         score = payload.get("last_score")
         threshold = payload.get("threshold")
@@ -277,7 +298,7 @@ def _build_packet_body(
         draft = "\n".join(lines)
         if context_packet is not None:
             draft += "\n\n" + context_packet.markdown
-        return risk, draft, actions, context_packet
+        return risk, draft, actions, context_packet, []
 
     rollup = payload.get("rollup") if isinstance(payload.get("rollup"), dict) else {}
     total = int(rollup.get("total") or 0)
@@ -305,7 +326,7 @@ def _build_packet_body(
     draft = "\n".join(lines)
     if context_packet is not None:
         draft += "\n\n" + context_packet.markdown
-    return risk, draft, actions, context_packet
+    return risk, draft, actions, context_packet, []
 
 
 def _auto_send_eligible(source_command: str, payload: dict[str, Any], risk: str) -> bool:

@@ -2930,12 +2930,14 @@ become the main product surface.
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28)
   - [ ] Turn report-only governance-routing and AI-guidance fields into live
     runtime inputs across startup, repair, review, and `guard-run` flows.
-    First proof slice landed: Ralph now consumes exact file-matched canonical
-    probe `ai_instruction` from canonical `review_targets.json` artifacts, and
-    the first deterministic route-closure guard now proves that Ralph path
-    inside `check_platform_contract_closure.py`; remaining repair, review,
-    startup, and `guard-run` consumers still need the same contract. The next
-    closure in that same tranche is single-authority + structured-routing
+    First proof slices landed: Ralph now consumes exact file-matched
+    canonical probe `ai_instruction` from canonical `review_targets.json`
+    artifacts, autonomy `triage-loop` / `loop-packet` now consumes the same
+    guidance from a bounded structured backlog slice, and the deterministic
+    route-closure guard now proves both routes inside
+    `check_platform_contract_closure.py`; remaining review, startup, and
+    `guard-run` consumers still need the same contract. The next closure in
+    that same tranche is broader single-authority + structured-routing
     enforcement so AI consumers cannot silently negotiate between multiple
     artifact authorities or keep deriving routing keys from prose when typed
     fields already exist. (evidence:

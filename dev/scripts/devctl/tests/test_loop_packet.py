@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -111,6 +112,65 @@ class LoopPacketCommandTests(unittest.TestCase):
         self.assertEqual(payload["risk"], "medium")
         self.assertFalse(payload["terminal_packet"]["auto_send"])
         self.assertIn("Loop feedback packet", payload["terminal_packet"]["draft_text"])
+
+    def test_triage_loop_routes_probe_guidance_into_draft(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            source_path = tmp_root / "coderabbit-ralph-loop.json"
+            output_path = tmp_root / "packet.json"
+            report_root = tmp_root / "probes"
+            report_root.mkdir(parents=True, exist_ok=True)
+            source_path.write_text(
+                json.dumps(
+                    {
+                        "command": "triage-loop",
+                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        "branch": "develop",
+                        "reason": "no fix command configured",
+                        "unresolved_count": 2,
+                        "backlog_items": [
+                            {
+                                "severity": "high",
+                                "category": "python",
+                                "summary": "dev/scripts/devctl/auth.py:12 - Auth flow and retry loop are coupled.",
+                                "file_path": "dev/scripts/devctl/auth.py",
+                                "line": 12,
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (report_root / "review_targets.json").write_text(
+                json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "file_path": "dev/scripts/devctl/auth.py",
+                                "check_id": "probe_side_effect_mixing",
+                                "severity": "high",
+                                "line": 10,
+                                "end_line": 14,
+                                "ai_instruction": "Split the auth validator from the retry orchestration before editing the caller.",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            args = _base_args(source_json=[str(source_path)], output=str(output_path))
+            with patch.dict(os.environ, {"DEVCTL_PROBE_REPORT_ROOT": str(report_root)}, clear=False):
+                rc = loop_packet.run(args)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(payload["source_command"], "triage-loop")
+        self.assertEqual(len(payload["probe_guidance"]), 1)
+        self.assertIn(
+            "Split the auth validator from the retry orchestration before editing the caller.",
+            payload["terminal_packet"]["draft_text"],
+        )
+        self.assertEqual(payload["terminal_packet"]["probe_guidance_count"], 1)
 
     def test_allow_auto_send_only_when_low_risk_source_is_eligible(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

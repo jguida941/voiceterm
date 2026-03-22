@@ -119,7 +119,7 @@ def run(args) -> int:
             ),
         )
 
-    risk, raw_draft, next_actions, context_packet = _build_packet_body(
+    risk, raw_draft, next_actions, context_packet, probe_guidance = _build_packet_body(
         source_command=source_command,
         payload=payload,
     )
@@ -153,6 +153,7 @@ def run(args) -> int:
         "risk": risk,
         "confidence": confidence,
         "next_actions": next_actions,
+        "probe_guidance": probe_guidance,
         "summary": summary,
         "warnings": source_warnings,
         "context_packet": asdict(context_packet) if context_packet is not None else None,
@@ -173,6 +174,7 @@ def run(args) -> int:
                 "auto_send_permitted": auto_send,
             },
             "next_actions": next_actions,
+            "probe_guidance": probe_guidance,
             "evidence": [
                 f"source_command={source_command}",
                 f"source_path={source_path}",
@@ -184,6 +186,7 @@ def run(args) -> int:
             "source_command": source_command,
             "draft_text": draft_text,
             "auto_send": auto_send,
+            "probe_guidance_count": len(probe_guidance),
         },
     }
 

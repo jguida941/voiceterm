@@ -1,4 +1,4 @@
-"""Probe artifact readers for Ralph remediation guidance."""
+"""Probe artifact readers for remediation guidance."""
 
 from __future__ import annotations
 
@@ -20,6 +20,9 @@ DEFAULT_PROBE_REPORT_ROOT = Path(active_path_config().probe_report_output_root_r
 def resolve_probe_report_root(report_root: str | Path | None = None) -> Path:
     if report_root is not None:
         return Path(report_root)
+    env_root = os.environ.get("DEVCTL_PROBE_REPORT_ROOT", "").strip()
+    if env_root:
+        return Path(env_root)
     env_root = os.environ.get("RALPH_PROBE_REPORT_ROOT", "").strip()
     if env_root:
         return Path(env_root)
