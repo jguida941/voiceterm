@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from dev.scripts.devctl.repo_packs import active_path_config
+from dev.scripts.devctl.runtime.finding_contracts import REVIEW_TARGETS_CONTRACT_ID
 
 DEFAULT_PROBE_REPORT_ROOT = Path(active_path_config().probe_report_output_root_rel)
 
@@ -73,32 +74,16 @@ def _load_review_target_entries(root: Path) -> list[dict[str, object]]:
     review_targets = _read_probe_json(root / "review_targets.json")
     if not isinstance(review_targets, dict):
         return []
-    return _entries_from_rows(review_targets.get("findings"))
-
-
-def _load_review_packet_entries(root: Path) -> list[dict[str, object]]:
-    review_packet = _read_probe_json(root / "latest" / "review_packet.json")
-    if not isinstance(review_packet, dict):
-        return []
-    hotspots = review_packet.get("hotspots")
-    if not isinstance(hotspots, list):
-        return []
-    entries: list[dict[str, object]] = []
-    for hotspot in hotspots:
-        if not isinstance(hotspot, dict):
-            continue
-        entries.extend(
-            _entries_from_rows(
-                hotspot.get("representative_hints"),
-                file_path=str(hotspot.get("file") or "").strip(),
-            )
+    contract_id = str(review_targets.get("contract_id") or "").strip()
+    if contract_id and contract_id != REVIEW_TARGETS_CONTRACT_ID:
+        print(
+            f"[ralph-ai-fix] ignoring non-ReviewTargets artifact at {root / 'review_targets.json'}",
+            file=sys.stderr,
         )
-    return entries
+        return []
+    return _entries_from_rows(review_targets.get("findings"))
 
 
 def load_probe_entries(report_root: str | Path | None = None) -> list[dict[str, object]]:
     root = resolve_probe_report_root(report_root)
-    entries = _load_review_target_entries(root)
-    if entries:
-        return entries
-    return _load_review_packet_entries(root)
+    return _load_review_target_entries(root)

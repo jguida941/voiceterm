@@ -3403,7 +3403,8 @@ Still open before `P0` closes:
       is complete: guard/probe tests exist, CI runs the registered guards,
       exception registries are complete, timeouts/coverage gaps are surfaced as
       evidence instead of being assumed away, and the next missing hard-guard
-      tranche (unused imports, hardcoded secrets, dead code, and similar
+      tranche (unused imports, hardcoded secrets, dead code, dual-authority
+      artifact consumers, prose-parsed structured contracts, and similar
       deterministic wins) lands through reusable rule families instead of
       audit-only prose. (audit mapping: `SYSTEM_AUDIT.md` A27)
 - [ ] Expand the watchdog and audit evidence beyond today's narrow slices:
@@ -3541,12 +3542,15 @@ Still open before `P0` closes:
       collapsing them into one implicit decision state.
 - [ ] Finish closing the AI-guidance routing gap instead of inventing more
       packet shapes: Ralph now consumes exact file-matched
-      `Finding.ai_instruction` from canonical probe artifacts, but autonomy
-      retry/repair paths, review-channel remediation flows, and `guard-run`
-      follow-up packets still need the same contract plus carried decision
-      semantics (`decision_mode`, `invariants`, `validation_plan`,
-      `precedent`, `research_instruction`, `signals`) instead of rendering
-      them only for humans. (evidence:
+      `Finding.ai_instruction` from canonical `review_targets.json` probe
+      artifacts, but autonomy retry/repair paths, review-channel remediation
+      flows, and `guard-run` follow-up packets still need the same contract
+      plus carried decision semantics (`decision_mode`, `invariants`,
+      `validation_plan`, `precedent`, `research_instruction`, `signals`)
+      instead of rendering them only for humans. The first deterministic
+      route-closure guard now proves the Ralph path inside
+      `check_platform_contract_closure.py`; widen that same enforcement
+      pattern before claiming the rest of the contract is live. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38)
 - [ ] Split the default fix packet from the typed decision packet: the
       everyday AI/dev surface should carry deterministic fixes, scoped
@@ -3704,13 +3708,20 @@ working on `MP-377`.
   runtime questions instead of staying escalation-only.
 - 2026-03-22 tranche-2 follow-up: the first live `ai_instruction` wire is now
   real in Ralph. The runtime reads canonical probe findings from
-  `review_targets.json` (fallback `review_packet.json`), matches them to the
-  current CodeRabbit file slice, and injects the resulting guidance into the
-  live remediation prompt with deterministic tests. Keep the closure sequence
-  explicit: tranches 2-4 stay on direct contract wires, meta-guards, and
-  startup/session authority; ZGraph remains optional context help there and
-  becomes a required execution substrate only once
-  `EDGE_KIND_GUARDS` / `EDGE_KIND_SCOPED_BY` plus wider graph consumers land.
+  `review_targets.json`, matches them to the current CodeRabbit file slice,
+  and injects the resulting guidance into the live remediation prompt with
+  deterministic tests. Keep the closure sequence explicit: tranches 2-4 stay
+  on direct contract wires, meta-guards, and startup/session authority;
+  ZGraph remains optional context help there and becomes a required execution
+  substrate only once `EDGE_KIND_GUARDS` / `EDGE_KIND_SCOPED_BY` plus wider
+  graph consumers land.
+- 2026-03-22 tranche-3 follow-up: the first produced-but-never-consumed
+  meta-guard is now real in the platform-contract lane. The closure guard runs
+  a synthetic `Finding.ai_instruction` route proof through the real Ralph
+  consumer path and fails if a populated probe artifact no longer reaches the
+  live remediation prompt. The next closure is not another generic audit; it
+  is extending the same route-closure pattern to the remaining autonomy,
+  review-channel, and `guard-run` AI guidance consumers.
 - 2026-03-22 evidence follow-up: Parts 42-43 from
   `UNIVERSAL_SYSTEM_EVIDENCE.md` are now explicit here instead of living only
   in reference prose. The next `MP-377` implementation slice should route the
@@ -4219,11 +4230,25 @@ Execution order for this section:
   waiver before closure.
 - 2026-03-22: Landed the first live `ai_instruction` routing proof in the
   runtime instead of only in audit/plan prose. Ralph now reads canonical probe
-  findings from `review_targets.json` (fallback `review_packet.json`),
-  matches them deterministically to CodeRabbit backlog file slices, and
-  renders the matched guidance into the live remediation prompt. Focused tests
-  cover prompt rendering, exact-path matching, dedupe behavior, and the
-  `main()` path that passes the guidance through to `invoke_claude()`.
+  findings from `review_targets.json`, matches them deterministically to
+  CodeRabbit backlog file slices, and renders the matched guidance into the
+  live remediation prompt. Focused tests cover prompt rendering, exact-path
+  matching, dedupe behavior, and the `main()` path that passes the guidance
+  through to `invoke_claude()`.
+- 2026-03-22: Tightened the tranche-2 route after an architectural smell
+  review. Ralph no longer negotiates between `review_targets.json` and
+  `review_packet.json`; `review_targets.json` is its only guidance authority.
+  The separate `review_packet.json` artifact remains live elsewhere in the repo
+  for non-Ralph consumers such as context-graph severity inputs, and the
+  CodeRabbit backlog path now carries structured `path` / `line` fields so the
+  Ralph matcher only falls back to summary-string parsing for older backlog
+  payloads.
+- 2026-03-22: Landed the first deterministic produced-but-never-consumed
+  meta-guard instead of stopping at the Ralph proof test. The
+  `platform_contract_closure` guard now executes a synthetic
+  `Finding.ai_instruction` route through the real Ralph consumer path and
+  fails if probe artifacts still emit the field but the prompt stops
+  carrying it.
 - 2026-03-22: Tightened the `MP-377` platform checklist with the next evidence
   intake instead of creating parallel backlog. Part 45 widened the existing
   operational-artifact routing item from prompt-builder-only to broader

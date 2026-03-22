@@ -16,7 +16,7 @@ def parse_backlog_location(summary: object) -> tuple[str, int | None]:
 
 def item_candidate_paths(item: dict) -> set[str]:
     candidates: set[str] = set()
-    for key in ("path", "file"):
+    for key in ("path", "file", "file_path"):
         value = str(item.get(key) or "").strip()
         if value:
             candidates.add(value)
@@ -27,6 +27,11 @@ def item_candidate_paths(item: dict) -> set[str]:
 
 
 def item_candidate_line(item: dict) -> int | None:
+    raw_line = item.get("line")
+    if isinstance(raw_line, int) and raw_line > 0:
+        return raw_line
+    if isinstance(raw_line, str) and raw_line.isdigit():
+        return int(raw_line)
     _summary_path, summary_line = parse_backlog_location(item.get("summary"))
     return summary_line
 

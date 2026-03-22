@@ -221,7 +221,12 @@ Portability note:
   repo governance, reviewer gate, and push/checkpoint advice; when
   `dev/reports/review_channel/latest/review_state.json` is available it
   prefers typed `bridge.review_accepted` state, and it falls back to parsing
-  `bridge.md` only while the bridge-backed migration is still incomplete.
+  `bridge.md` only while the bridge-backed migration is still incomplete. The
+  underlying `ProjectGovernance` payload now also carries a typed
+  governed-markdown baseline (`DocPolicy`, `DocRegistry`, parsed
+  `PlanRegistry` entries) so startup no longer depends only on hard-coded
+  path roots, but `## Session Resume` content is still markdown-only restart
+  state until typed resume ingestion lands.
 - Repo-governance checkpoint policy may exclude compatibility projections such
   as `bridge.md` from advisory dirty-path budgeting so live review-channel
   compatibility writes do not force false `checkpoint_required` states. Raw
@@ -387,7 +392,7 @@ python3 dev/scripts/rust_tools/collect_clippy_warnings.py --working-directory ru
 python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md
 rg -n "^\\s*-?\\s*uses:\\s*[^@\\s]+@" .github/workflows/*.yml | rg -v "@[0-9a-fA-F]{40}$"
 for f in .github/workflows/*.yml; do rg -q '^permissions:' \"$f\" || echo \"missing permissions: $f\"; rg -q '^concurrency:' \"$f\" || echo \"missing concurrency: $f\"; done
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 # `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts and runs active-plan + multi-agent sync gates, markdown metadata-header style checks, workflow-shell hygiene checks, bundle/workflow parity checks, plus stale-path audit (using `dev/scripts/devctl/script_catalog.py` as canonical check-script path registry). Use `path-rewrite` to auto-fix stale path references.
 # For UI behavior changes, refresh screenshot coverage in the same pass:
@@ -512,9 +517,9 @@ python3 dev/scripts/devctl.py check --profile ci
 # and `Progress Log`.
 # Data-science snapshot (command telemetry + swarm/benchmark agent sizing stats)
 python3 dev/scripts/devctl.py data-science --format md --output /tmp/data-science-summary.md
-# Governance review ledger (adjudicated guard/probe findings -> FP / cleanup rates)
+# Governance review ledger (adjudicated findings -> FP / cleanup rates + systemic disposition)
 python3 dev/scripts/devctl.py governance-review --format md
-python3 dev/scripts/devctl.py governance-review --record --signal-type probe --check-id probe_exception_quality --verdict false_positive --path cihub/example.py --line 41 --format md
+python3 dev/scripts/devctl.py governance-review --record --signal-type probe --check-id probe_exception_quality --verdict false_positive --path cihub/example.py --line 41 --finding-class rule_quality --recurrence-risk recurring --prevention-surface probe --format md
 # Aggregated review-probe packet (AI slop report + stable review_targets artifact)
 python3 dev/scripts/devctl.py probe-report --format md --output /tmp/probe-report.md --json-output /tmp/probe-report.json
 # Compatibility matrix governance bundle (schema + runtime smoke parity)
@@ -799,7 +804,7 @@ Machine-first output note:
   - `--quality-policy <path>` lets the probe-backed status/report views resolve
     another repo policy without changing shared orchestration code.
 - `data-science`: rolling telemetry snapshot builder that summarizes devctl event metrics plus swarm/benchmark agent-size productivity history, watchdog guarded-coding episodes, and governance-review false-positive/cleanup metrics; writes `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/` and supports local source/output overrides for experiments
-- `governance-review`: adjudicated finding ledger for hard-guard/probe outcomes; records reviewed findings into `dev/reports/governance/finding_reviews.jsonl`, writes refreshed `review_summary.{md,json}` artifacts under `dev/reports/governance/latest/`, and gives the repo a durable scoreboard for false-positive rate, fixed findings, and deferred debt
+- `governance-review`: adjudicated finding ledger for hard-guard/probe outcomes; records reviewed findings plus their systemic disposition into `dev/reports/governance/finding_reviews.jsonl`, writes refreshed `review_summary.{md,json}` artifacts under `dev/reports/governance/latest/`, and gives the repo a durable scoreboard for false-positive rate, fixed findings, deferred debt, and architectural absorption choices
 - `probe-report`: aggregated review-probe surface that runs every registered `probe_*.py` script, renders markdown/terminal/json summaries, writes stable `dev/reports/probes/review_targets.json`, and refreshes `dev/reports/probes/latest/summary.{md,json}` plus `file_topology.json`, `review_packet.{json,md}`, and hotspot `hotspots.{mmd,dot}` artifacts for agent coaching, AI/human design review, and audit. The probe catalog now includes cohesion-heavy mixed-concern detection via `probe_mixed_concerns` and naming cleanup hints via `probe_term_consistency`, so both split-brain structure and legacy public vocabulary show up in the same packet.
   - Use `--adoption-scan` for first-run/full-surface repo onboarding when there
     is no trustworthy baseline ref yet.

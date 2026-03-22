@@ -10,10 +10,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from dev.scripts.coderabbit.probe_guidance import load_probe_guidance
 from dev.scripts.coderabbit.ralph_ai_fix import (
     _FALLBACK_CATEGORY_TO_ARCH,
-    attach_probe_guidance,
     build_backlog_context_packet,
     build_prompt,
     commit_and_push,
@@ -42,11 +40,15 @@ def _coderabbit_path_items() -> list[dict]:
         {
             "severity": "high",
             "category": "rust",
+            "path": "rust/src/auth.rs",
+            "line": 12,
             "summary": "rust/src/auth.rs:12 - Unused import in auth.rs",
         },
         {
             "severity": "medium",
             "category": "python",
+            "path": "dev/scripts/tool.py",
+            "line": 4,
             "summary": "dev/scripts/tool.py:4 - Broad except clause",
         },
     ]
@@ -231,130 +233,6 @@ class BuildPromptTests(unittest.TestCase):
             escalation_mock.call_args.kwargs["query_terms"],
             ("auth.rs",),
         )
-
-
-class LoadProbeGuidanceTests(unittest.TestCase):
-    def test_prefers_review_targets_findings_with_ai_instruction(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "review_targets.json").write_text(
-                json.dumps(
-                    {
-                        "findings": [
-                            {
-                                "file_path": "rust/src/auth.rs",
-                                "symbol": "validate_auth",
-                                "check_id": "probe_design_smells",
-                                "severity": "high",
-                                "line": 10,
-                                "end_line": 14,
-                                "ai_instruction": "Extract the auth validator helper.",
-                            },
-                            {
-                                "file_path": "docs/README.md",
-                                "symbol": "",
-                                "check_id": "probe_stringly_typed",
-                                "severity": "medium",
-                                "ai_instruction": "Ignore me after relevant match fills the slice.",
-                            },
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-            guidance = load_probe_guidance(_coderabbit_path_items(), report_root=root)
-
-            self.assertEqual(len(guidance), 1)
-            self.assertEqual(guidance[0]["file_path"], "rust/src/auth.rs")
-            self.assertIn("Extract the auth validator helper", guidance[0]["ai_instruction"])
-
-    def test_falls_back_to_review_packet_when_review_targets_missing(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            latest = root / "latest"
-            latest.mkdir(parents=True)
-            (latest / "review_packet.json").write_text(
-                json.dumps(
-                    {
-                        "hotspots": [
-                            {
-                                "file": "rust/src/auth.rs",
-                                "representative_hints": [
-                                    {
-                                        "probe": "probe_design_smells",
-                                        "severity": "high",
-                                        "ai_instruction": "Use the shared auth helper instead of duplicating the branch.",
-                                    }
-                                ],
-                            }
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-            guidance = load_probe_guidance(_coderabbit_path_items(), report_root=root)
-
-            self.assertEqual(len(guidance), 1)
-            self.assertEqual(guidance[0]["file_path"], "rust/src/auth.rs")
-            self.assertIn("shared auth helper", guidance[0]["ai_instruction"])
-
-    def test_exact_path_matching_skips_unrelated_findings(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "review_targets.json").write_text(
-                json.dumps(
-                    {
-                        "findings": [
-                            {
-                                "file_path": "docs/README.md",
-                                "check_id": "probe_design_smells",
-                                "severity": "high",
-                                "ai_instruction": "This should not match.",
-                            }
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-            guidance = load_probe_guidance(_coderabbit_path_items(), report_root=root)
-
-            self.assertEqual(guidance, [])
-
-    def test_attach_probe_guidance_dedupes_same_instruction_per_item(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "review_targets.json").write_text(
-                json.dumps(
-                    {
-                        "findings": [
-                            {
-                                "file_path": "rust/src/auth.rs",
-                                "check_id": "probe_design_smells",
-                                "severity": "high",
-                                "line": 10,
-                                "end_line": 14,
-                                "ai_instruction": "Extract the auth validator helper.",
-                            },
-                            {
-                                "file_path": "rust/src/auth.rs",
-                                "check_id": "probe_design_smells",
-                                "severity": "medium",
-                                "line": 11,
-                                "end_line": 12,
-                                "ai_instruction": "Extract the auth validator helper.",
-                            },
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-            enriched = attach_probe_guidance(_coderabbit_path_items(), report_root=root)
-
-            self.assertEqual(len(enriched[0]["probe_guidance"]), 1)
 
 
 # -- detect_architectures ---------------------------------------------------

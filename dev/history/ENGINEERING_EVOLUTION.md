@@ -46,6 +46,57 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-22 - Architectural absorption became a required completion rule
+
+Fact: the maintainer process no longer treats "fix the bug" as sufficient
+closure for important findings. `AGENTS.md` now requires every non-trivial
+issue to be evaluated for architectural absorption, classified by failure
+type, and either routed into an approved prevention surface (guard, probe,
+contract, authority rule, parity check, regression test, docs update) or
+explicitly waived with recorded rationale. `DEVELOPMENT.md` now mirrors that
+operator rule so the handoff/process docs say the same thing.
+
+Inference: this pushes the repo closer to what the governance system claims to
+be: not just AI patching code, but AI and maintainers turning repeated failure
+classes into deterministic reusable controls instead of rediscovering them in
+later audits.
+
+### 2026-03-22 - Governed-markdown authority became a typed runtime baseline
+
+Fact: the startup-authority path no longer stops at repo-root/path literals
+when it discovers governed docs. `ProjectGovernance` now carries a typed
+`DocPolicy`, a typed `DocRegistry`, and parsed `PlanRegistry` entries built
+from governed markdown plus `INDEX.md`, and the repo scan / doc-authority /
+startup-authority helpers now prefer repo-policy `surface_generation.context`
+plus markdown-root policy for process doc, tracker, registry, bootstrap-link,
+and governed-doc discovery. Focused regressions now prove that baseline on a
+non-VoiceTerm layout instead of only on the legacy `AGENTS.md` +
+`dev/active/*` assumptions.
+
+This matters because it converts governed markdown from "files the runtime
+knows by path" into the first real typed startup-authority family the platform
+can reuse across repos. It also narrows the next missing slice honestly:
+`ProjectGovernance`, `DocPolicy`, `DocRegistry`, and parsed `PlanRegistry`
+are real runtime code now, but `PlanTargetRef`, `WorkIntakePacket`, and
+`CollaborationSession` are still not runtime implementations, and
+`## Session Resume` is still only detected as present/absent instead of being
+deserialized into typed continuity state.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/project_governance_contract.py`
+- `dev/scripts/devctl/governance/draft_governed_docs.py`
+- `dev/scripts/devctl/governance/doc_authority_layout.py`
+- `dev/scripts/checks/startup_authority_contract/command.py`
+- `dev/scripts/devctl/context_graph/query.py`
+- `dev/scripts/devctl/tests/governance/test_governance_draft.py`
+- `dev/scripts/devctl/tests/governance/test_doc_authority.py`
+- `dev/scripts/devctl/tests/runtime/test_project_governance.py`
+- `dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
 ### 2026-03-22 - Reviewer checkpoints gained a typed shell-safe payload path
 
 Fact: the repo-owned reviewer write path no longer depends on inline shell

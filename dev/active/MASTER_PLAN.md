@@ -2931,9 +2931,11 @@ become the main product surface.
   - [ ] Turn report-only governance-routing and AI-guidance fields into live
     runtime inputs across startup, repair, review, and `guard-run` flows.
     First proof slice landed: Ralph now consumes exact file-matched canonical
-    probe `ai_instruction` from existing probe artifacts; remaining repair,
-    review, startup, and `guard-run` consumers still need the same contract.
-    (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38)
+    probe `ai_instruction` from canonical `review_targets.json` artifacts, and
+    the first deterministic route-closure guard now proves that Ralph path
+    inside `check_platform_contract_closure.py`; remaining repair, review,
+    startup, and `guard-run` consumers still need the same contract. (evidence:
+    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38)
   - [ ] Route fresh `dev/reports/**` operational evidence into the live prompt
     builders and adjacent decision surfaces so bootstrap, conductor, swarm,
     Ralph, loop-packet, escalation, and other runtime controllers consume

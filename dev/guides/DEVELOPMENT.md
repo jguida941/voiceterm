@@ -223,7 +223,9 @@ Three quality layers matter in practice:
   families. Pair it with `python3 dev/scripts/devctl.py platform-contracts --format md`
   after changing `dev/scripts/devctl/platform/**`, shared runtime contract
   models, durable probe/report schema constants, or startup-surface contract
-  routing in repo policy.
+  routing in repo policy. When a critical field starts flowing into a live
+  consumer, add a deterministic field-route proof there so "produced but never
+  consumed" regressions fail as contract drift instead of surviving as prose.
 - If you changed `script_catalog.py`, `quality_policy_defaults.py`,
   `dev/config/quality_presets/*.json`, `dev/config/devctl_repo_policy.json`,
   or added/retired a `check_*.py` or `probe_*.py` entrypoint, run both
@@ -392,6 +394,12 @@ Why this model is safe:
 3. It only allows policy-approved fix paths.
 4. It emits structured artifacts for phone/controller/report views.
 5. `gh api` helpers are handled safely without incorrect `--repo` usage.
+6. Ralph probe guidance is single-authority: use
+   `dev/reports/probes/review_targets.json` for AI remediation guidance and
+   keep `review_packet.json` as a separate artifact for other consumers.
+7. CodeRabbit backlog items should carry structured `path` / `line` fields
+   whenever the source review data has them; summary-string parsing is only a
+   compatibility fallback for older backlog payloads.
 
 ### Release and quality drift checks
 

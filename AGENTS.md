@@ -541,6 +541,10 @@ Portable policy note:
   shared platform blueprint, runtime contract models, artifact schema
   metadata, or startup-surface routing changes so `platform-contracts`,
   emitted packet metadata, and AI/dev startup surfaces cannot drift apart.
+- When a critical contract field gains a live consumer route (for example
+  `Finding.ai_instruction` flowing from probe artifacts into the Ralph prompt),
+  extend `check_platform_contract_closure.py` with a deterministic field-route
+  proof so produced-but-unconsumed regressions fail before handoff.
 - Use `python3 dev/scripts/devctl.py governance-export --format md` when the
   whole governance stack, latest reports, and policy/templates need to be
   handed to another repo or model outside this checkout.
@@ -603,9 +607,15 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
 
 **AI fix wrapper** (`dev/scripts/coderabbit/ralph_ai_fix.py`):
 - Reads `RALPH_BACKLOG_DIR/backlog-medium.json`
+- Reads canonical probe guidance from `dev/reports/probes/review_targets.json`
+  when probe artifacts are available; `review_packet.json` remains a separate
+  artifact for other consumers, not a second Ralph guidance authority
 - Maps finding categories to architectures (Rust, PyQt6, devctl, iOS)
 - Invokes Claude Code with structured prompt including false-positive filtering
 - Runs architecture-specific checks before committing
+- Prefer structured backlog `path` / `line` fields for matching probe
+  guidance to CodeRabbit items; summary-string parsing is compatibility-only
+  for older backlog payloads
 - Policy-gated via `control_plane_policy.json` allowlist
 
 **Cross-architecture guard alignment rules:**

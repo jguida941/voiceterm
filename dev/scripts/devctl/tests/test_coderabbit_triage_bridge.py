@@ -101,7 +101,13 @@ class CodeRabbitTriageBridgeTests(unittest.TestCase):
             output_dir = tmp_root / "out"
             event_path.write_text("{}", encoding="utf-8")
             findings = [
-                {"category": "quality", "severity": "medium", "summary": "needs fix"},
+                {
+                    "category": "quality",
+                    "severity": "medium",
+                    "path": "rust/src/auth.rs",
+                    "line": 12,
+                    "summary": "needs fix",
+                },
                 {"category": "docs", "severity": "info", "summary": "nit"},
             ]
             args = argparse.Namespace(
@@ -135,8 +141,11 @@ class CodeRabbitTriageBridgeTests(unittest.TestCase):
             self.assertEqual(len(priority["items"]), 2)
             self.assertEqual(len(backlog["items"]), 1)
             self.assertEqual(backlog["items"][0]["severity"], "medium")
+            self.assertEqual(backlog["items"][0]["path"], "rust/src/auth.rs")
+            self.assertEqual(backlog["items"][0]["line"], 12)
             self.assertTrue((output_dir / "triage.md").exists())
             self.assertTrue((output_dir / "backlog-medium.md").exists())
+
 
 
 if __name__ == "__main__":

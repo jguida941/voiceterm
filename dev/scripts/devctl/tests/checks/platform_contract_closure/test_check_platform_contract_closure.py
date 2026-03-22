@@ -53,6 +53,7 @@ def _surface_policy_with_tokens(*tokens: str) -> SurfacePolicy:
 def test_platform_contract_closure_passes_on_current_blueprint() -> None:
     report = build_report()
     assert report["ok"] is True
+    assert report["checked_field_routes"] == 1
     assert report["violations"] == []
 
 
@@ -97,6 +98,27 @@ def test_platform_contract_closure_flags_missing_startup_surface_token() -> None
     surface_violations = [v for v in violations if v.get("rule") == "missing-startup-surface-token"]
     assert len(surface_violations) == 1
     assert "check_platform_contract_closure.py" in surface_violations[0]["missing_tokens"]
+
+
+def test_platform_contract_closure_flags_missing_ai_instruction_prompt_route() -> None:
+    blueprint = build_platform_blueprint()
+    with patch(
+        "dev.scripts.coderabbit.ralph_ai_fix.build_prompt",
+        return_value="Prompt without routed probe guidance.",
+    ):
+        _coverage, violations = evaluate_platform_contract_closure(
+            blueprint,
+            _surface_policy_with_tokens(
+                "platform-contracts",
+                "render-surfaces",
+                "check_platform_contract_closure.py",
+            ),
+        )
+
+    route_violations = [v for v in violations if v.get("rule") == "unconsumed-field-route"]
+    assert len(route_violations) == 1
+    assert route_violations[0]["field_name"] == "ai_instruction"
+    assert route_violations[0]["route_id"] == "ralph_prompt"
 
 
 def test_emitter_parity_catches_missing_bridge_state_key() -> None:
@@ -289,3 +311,9 @@ def test_platform_contract_closure_markdown_lists_violations() -> None:
     assert "# check_platform_contract_closure" in output
     assert "runtime-field-drift" in output
     assert "dry_run" in output
+
+
+def test_platform_contract_closure_markdown_lists_field_route_count() -> None:
+    report = build_report()
+    output = render_md(report)
+    assert "checked_field_routes: 1" in output

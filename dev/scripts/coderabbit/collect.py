@@ -102,6 +102,8 @@ def collect_findings(
                 {
                     "category": classify_category(body),
                     "severity": classify_severity(body, default="low"),
+                    "path": path,
+                    "line": line,
                     "summary": summary,
                 }
             )
