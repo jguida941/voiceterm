@@ -71,7 +71,10 @@ from ..review_channel_command import (
 from ..review_channel_event_handler import _run_event_action
 from . import ensure as _ensure_mod
 from ._bridge_poll import run_bridge_poll_action as _run_bridge_poll_action_impl
-from ._wait import ImplementerWaitDeps, run_implementer_wait_action as _run_implementer_wait_action_impl
+from ._wait_actions import (
+    run_implementer_wait_action as _run_implementer_wait_action,
+    run_reviewer_wait_action as _run_reviewer_wait_action,
+)
 from .status import (
     _attach_backend_contract,
     _attach_reviewer_worker,
@@ -174,22 +177,6 @@ def _run_reviewer_follow_action(
     )
 
 
-def _run_implementer_wait_action(
-    *,
-    args,
-    repo_root: Path,
-    paths: RuntimePaths | Mapping[str, object],
-) -> tuple[dict, int]:
-    """Wait on bounded cadence until reviewer-owned bridge state changes."""
-    runtime_paths = _coerce_runtime_paths(paths)
-    return _run_implementer_wait_action_impl(
-        args=args,
-        repo_root=repo_root,
-        paths=runtime_paths,
-        deps=IMPLEMENTER_WAIT_DEPS,
-    )
-
-
 from ._reviewer import run_reviewer_state_action as _run_reviewer_state_action_impl
 
 
@@ -242,12 +229,6 @@ REVIEWER_FOLLOW_DEPS = ReviewerFollowDeps(
     utc_timestamp_fn=lambda: utc_timestamp(),
     sleep_fn=lambda seconds: time.sleep(seconds),
 )
-IMPLEMENTER_WAIT_DEPS = ImplementerWaitDeps(
-    run_status_action_fn=lambda *a, **kw: _run_status_action(*a, **kw),
-    read_bridge_text_fn=lambda path: path.read_text(encoding="utf-8"),
-    monotonic_fn=lambda: time.monotonic(),
-    sleep_fn=lambda seconds: time.sleep(seconds),
-)
 
 
 def _dispatch_action(
@@ -273,6 +254,15 @@ def _dispatch_action(
             args=args,
             repo_root=repo_root,
             paths=paths,
+            run_status_action_fn=_run_status_action,
+        )
+
+    if action is ReviewChannelAction.REVIEWER_WAIT:
+        return _run_reviewer_wait_action(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+            run_status_action_fn=_run_status_action,
         )
 
     if action in REVIEWER_STATE_ACTION_SET:

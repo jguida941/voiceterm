@@ -46,6 +46,35 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-21 - Reviewer-wait wired to real review-channel status truth
+
+Fact: the symmetric Codex-side `review-channel --action reviewer-wait` path is
+now live and routed through the real review-channel status contract instead of
+through a test-only payload shape. The command surface accepts
+`reviewer-wait`, dispatches it through the review-channel namespace, and the
+wait loop now reads top-level `reviewer_worker` / `bridge_liveness` status
+truth plus projected typed `current_session` data from
+`dev/reports/review_channel/latest/review_state.json` (with `compact.json`
+fallback) rather than inventing top-level `bridge` / `current_session` blocks
+inside the status report. Focused tests now prove the CLI surface, the real
+status-shape reader, and the typed ACK/status wake path.
+
+This matters because the earlier slice only documented reviewer-wait. The live
+runtime now actually provides the bounded sleep/poll behavior the docs were
+claiming, while preserving the rule that passive freshness alone is not new
+review work.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/_reviewer_wait.py`
+- `dev/scripts/devctl/commands/review_channel/_wait_actions.py`
+- `dev/scripts/devctl/commands/review_channel/__init__.py`
+- `dev/scripts/devctl/tests/review_channel/test_reviewer_wait.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
 ### 2026-03-21 - MP-377 runtime-behind-docs baseline made explicit
 
 Fact: the active plan chain now records the first honest runtime-behind-docs

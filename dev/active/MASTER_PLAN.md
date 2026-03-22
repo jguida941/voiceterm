@@ -201,7 +201,11 @@
   prefers typed `review_state.json` authority for 4 of 7 checks (reviewer
   freshness, implementer ACK, completion stall, promotion state); the
   remaining 3 checks still use bridge-text fallback where no typed equivalent
-  exists. `startup-context` reads typed `review_accepted` from the projection.
+  exists. `startup-context` reads typed `review_accepted` from the projection,
+  and the symmetric repo-owned `reviewer-wait` path now wakes from
+  `reviewer_worker` hash drift plus projected `current_session`
+  implementer ACK/status updates instead of one-shot status reads or ad hoc
+  shell sleep loops.
 - Current runtime-baseline correction after the 2026-03-21 architecture audit:
   Phase 1 closure must keep five runtime-behind-docs gaps explicit instead of
   treating them as background drift. Portability is still blocked first by

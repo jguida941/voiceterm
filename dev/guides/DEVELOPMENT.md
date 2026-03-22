@@ -165,8 +165,9 @@ Three quality layers matter in practice:
   - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:
     `review-channel --action implementer-wait` is the Claude-side bounded
     wait path, and `review-channel --action reviewer-wait` is the symmetric
-    Codex-side bounded wait path over reviewer-worker + typed current-session
-    truth.
+    Codex-side bounded wait path over `reviewer_worker` hash truth plus the
+    projected typed `current_session` ACK/status fields from
+    `review_state.json`.
   - `review-channel --action status` also projects repo-governance
     `push_enforcement` state (`checkpoint_required`,
     `safe_to_continue_editing`, `raw_git_push_guarded`,

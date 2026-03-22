@@ -46,6 +46,7 @@ REVIEW_ACTION_CHOICES = (
     "rollover",
     "status",
     "implementer-wait",
+    "reviewer-wait",
     "ensure",
     "reviewer-heartbeat",
     "reviewer-checkpoint",

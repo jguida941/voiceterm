@@ -232,6 +232,11 @@ def _validate_args(
         and getattr(args, "follow", False)
     ):
         raise ValueError("review-channel implementer-wait does not support --follow.")
+    if (
+        normalized_action is ReviewChannelAction.REVIEWER_WAIT
+        and getattr(args, "follow", False)
+    ):
+        raise ValueError("review-channel reviewer-wait does not support --follow.")
 
     if normalized_action in FOLLOW_JSON_ACTIONS and getattr(args, "follow", False):
         validate_follow_json_format(

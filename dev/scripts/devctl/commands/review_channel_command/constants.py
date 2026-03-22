@@ -79,6 +79,7 @@ class ReviewChannelAction(StrEnum):
     ROLLOVER = "rollover"
     STATUS = "status"
     IMPLEMENTER_WAIT = "implementer-wait"
+    REVIEWER_WAIT = "reviewer-wait"
     ENSURE = "ensure"
     REVIEWER_HEARTBEAT = "reviewer-heartbeat"
     REVIEWER_CHECKPOINT = "reviewer-checkpoint"
