@@ -28,7 +28,7 @@ _SKIP_CONCEPTS = frozenset((
 ))
 
 # Paths containing these segments are worktree artifacts, not real concepts
-_WORKTREE_MARKERS = (".claude/worktrees/",)
+_WORKTREE_MARKERS = (".claude/worktrees/", "dev/repo_example_temp/")
 
 # Minimum files required to form a concept (avoids noise)
 _MIN_MEMBERS = 3

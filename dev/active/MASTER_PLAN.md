@@ -217,6 +217,15 @@
   concrete slices such as `vcs.push` still need `ActionResult` business-state
   cleanup plus real `RunRecord` closure before the authority loop can claim
   runtime parity with the docs.
+- Current deterministic self-governance closure rule after the 2026-03-21
+  guard audit: do not treat more guard count or richer graph semantics as
+  progress while typed/runtime authority still lies. First close the cheap
+  truth gaps (`ActionResult.status` business-state drift in `vcs.push`,
+  `context-graph` confidence type mismatch, and advisory-only mypy on the
+  `dev/scripts/devctl` lane), then add narrow deterministic enforcement for
+  contract-value domains, plan/runtime parity, authority-source integrity, and
+  dead authority seams. Keep ZGraph / `context-graph` generated-only until
+  those fixes plus the startup/path/review authority cutover are green.
 - Current native-N-agent follow-up in the same neighborhood: packet routing,
   `TandemProfile.implementers`, the append-only event lane, and
   `autonomy-swarm` already scale past two agents, but the review-channel
@@ -2068,6 +2077,13 @@ become the main product surface.
   threshold, generated rollover prompts still hardcode the default ACK
   timeout instead of threading the selected value end-to-end, and one
   duplicate `test_review_channel.py` name still shadows intended coverage.
+  2026-03-22 live-loop follow-up: the current bridge/runtime path still
+  collapses continuation-budget pauses into generic `waiting_on_peer` even
+  when typed status already reports `attention.status=checkpoint_required` and
+  `safe_to_continue_editing=false`; keep MP-355 open until checkpoint-gate
+  pauses become a first-class typed wait reason across status/projection/
+  bridge surfaces so Codex and Claude can stay synchronized while edits are
+  intentionally paused.
   Keep MP-355 open until those launch/freshness/ACK/coverage gaps are closed.
   2026-03-09 operator
   validation follow-up confirmed the current dirty-tree behavior: focused
@@ -2766,7 +2782,14 @@ become the main product surface.
   carries the consolidated repo-grounded assessment, separation roadmap,
   documentation consolidation plan, phase-by-phase implementation order, the
   explicit platform completion gates, and the standing Python/Rust-first
-  pattern-mining plus future-language-extension strategy. Do not treat this
+  pattern-mining plus future-language-extension strategy. When present in the
+  current shared worktree, `GUARD_AUDIT_FINDINGS.md` and
+  `ZGRAPH_RESEARCH_EVIDENCE.md` may be consulted as local reference-only
+  companions for supporting evidence and idea inventory, but they are not
+  canonical execution authority and all accepted conclusions must be mirrored
+  into tracked plan state here plus the `MP-377` spec chain before
+  implementation or review.
+  Do not treat this
   scope as complete when the repo is merely split or packaged; closure requires
   architecture boundary proof, pipeline parity, telemetry trust, replayable
   evidence quality, and cross-repo adoption evidence together. Current explicit

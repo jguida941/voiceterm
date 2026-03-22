@@ -349,6 +349,16 @@ intended execution order is:
   `PlanRegistry`, `startup-context`, `WorkIntakePacket`,
   `CollaborationSession`); it inserts ahead of them as the first
   post-blocker closure step.
+- [ ] 0. Close the deterministic self-governance blind spots confirmed by
+      branch review before wider graph / coherence work. Immediate cheap truth
+      fixes: close the
+      `ActionResult.status` domain drift exposed by `vcs.push`, align
+      `context-graph` confidence typing end-to-end, and make mypy blocking for
+      the `dev/scripts/devctl` lane. Then add narrow deterministic
+      enforcement for contract-value domains, plan/runtime parity,
+      authority-source integrity, and dead authority seams by reusing the
+      existing `platform-contracts`, docs-governance, repo-pack, and typed
+      review-state surfaces instead of building one monolithic audit script.
 - [ ] 1. Freeze explicit `UNKNOWN/DEFER` outcome states for deterministic
       guard/startup routing.
       Pattern source: `ML_Dump_Trace_V2`, `June17th`, `justin-prime-engine`.
@@ -812,6 +822,15 @@ intended execution order is:
       widening graph capability work again. Richer graph features (transitive
       blast radius, test-to-code edges, self-service graph queries) are later
       Phase-6/7 work, not part of the first proof.
+- [ ] Preserve the broader post-proof graph backlog explicitly so the
+      research intake does not get lost while `P0` stays narrow: workflow/CI
+      DAG edges, git-history/change-intent edges, test-suite / fixture /
+      coverage topology for smart test selection, governed-doc
+      constraint/compliance views (`AGENTS.md`, doc policy, workflow policy),
+      AI observability / guard-challenge corpus generation, and memory
+      decision / execution-trace nodes. These remain generated-only reducers
+      over the same canonical refs and should widen only after the first real
+      startup / intake / system-picture path is green.
 - [ ] Treat Phase 6 as done only when at least one named consumer
       (`startup-context`, `master-report`, or packet-outcome ingestion) reads
       `ContextPack` through the contract instead of path-only attachment
@@ -985,8 +1004,11 @@ intended execution order is:
     frontend cleanup, or broader review-channel simplification.
   - Context-loading rule: hot = this session compass plus the live bridge
     instruction, warm = only the plan/runbook sections for the active slice,
-    cold = broad reference docs such as `SYSTEM_AUDIT.md`. Cold docs do not
-    override the active plan chain.
+    cold = broad reference docs such as `SYSTEM_AUDIT.md`. When present in
+    the shared worktree, `GUARD_AUDIT_FINDINGS.md` and
+    `ZGRAPH_RESEARCH_EVIDENCE.md` also live in this cold/reference tier:
+    useful for deeper evidence and ZGraph idea recall, but never overriding
+    the active tracked plan chain.
   - ZGraph / `ConceptIndex` is generated navigation for bounded retrieval over
     canonical pointer refs; it does not replace the typed startup/authority
     chain or create a second semantic authority store.
@@ -1006,6 +1028,22 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-21: Promoted the guard-audit conclusions into tracked `MP-377`
+  intake so execution state stays in this plan and `MASTER_PLAN`. Re-verified
+  the highest-risk claims against live code before recording them here:
+  `startup_context.py` still declares itself advisory and still falls back to
+  `bridge.md`, `active_path_config()` still falls back to
+  `VOICETERM_PATH_CONFIG`, `review_state_parser.py` still defaults missing
+  reviewer mode to `active_dual_agent`, `vcs.push` still violates the
+  documented `ActionResult.status` domain, the inspected `plan_patch_review`
+  apply path is still reducer-state transition rather than proven canonical
+  plan mutation, `context-graph` confidence types still drift, and
+  `set_active_path_config()` still has no non-self callers. Locked sequencing
+  from that audit is now explicit here: cheap typed-boundary truth fixes
+  first, then startup/path/review authority closure, then executable plan
+  mutation plus first intake/session authority, then narrow deterministic
+  guard closure, and only then later `system-picture` / coherence / graph
+  widening.
 - 2026-03-21: Calibrated the large cross-agent audit against live code instead
   of earlier rough summaries. Confirmed the current runtime-contract inventory
   is larger than some stale notes (`StartupContext`, `ProjectGovernance`,
@@ -1380,6 +1418,23 @@ intended execution order is:
 
 ## Audit Evidence
 
+- Guard-governance closure audit (2026-03-21): supporting research may exist
+  outside tracked execution state, but the execution-affecting conclusions
+  promoted from that audit are kept here and in `MASTER_PLAN`: cheap
+  typed-boundary truth fixes first (`ActionResult.status`,
+  `context-graph` confidence, blocking mypy on the devctl lane), runtime
+  authority closure second (repo-pack activation, bridge/projection cutover,
+  provider-neutral review state), executable plan
+  mutation plus first intake/session authority third, and only then the later
+  self-governance guard expansion plus `system-picture` / coherence / graph
+  widening follow-ons.
+- Local shared-worktree research companions (reference-only, non-authoritative,
+  when present): `GUARD_AUDIT_FINDINGS.md` is the focused guard-audit /
+  sequencing synthesis, and `ZGRAPH_RESEARCH_EVIDENCE.md` is the expanded
+  supporting evidence set for ZGraph/system-wide integration ideas. Use them
+  as optional implementation/review companions in this workspace, but keep
+  accepted conclusions promoted into this tracked plan plus `MASTER_PLAN`
+  rather than treating the local files as canonical branch state.
 - External-research intake archive (2026-03-21): the raw scratch synthesis
   that originally lived in `temp_leftoff.md` is now preserved as governed
   reference evidence in

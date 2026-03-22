@@ -1096,6 +1096,16 @@ Acceptance:
       the review-channel controller must stop issuing new implementer work,
       switch attention to checkpoint/review, and surface that state to the
       operator without waiting for a human reminder in chat.
+- [ ] Promote continuation-budget / checkpoint gating to a first-class live
+      wait reason in the same typed attention/liveness contract. When
+      `push_enforcement.checkpoint_required` or
+      `push_enforcement.safe_to_continue_editing=false`, the bridge/runtime
+      surfaces should not collapse implementer state to generic
+      `waiting_on_peer`; they should emit an explicit checkpoint-gate pause
+      reason, keep reviewer/implementer ACK synchronization live, and carry
+      the same typed summary/recommended action through `review-channel
+      status`, `latest.md`, `review_state.json`, and bridge projections so
+      Claude can keep polling/ACKing without looking stalled or offline.
 - [ ] Generalize that typed current-session and queue contract just far enough
       for compatibility beyond the current named reviewer/implementer pair:
       replace named queue counters (`pending_codex`, `pending_claude`,
@@ -1560,6 +1570,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-22T01:57:00Z` | `CODEX` | Promoted the live reviewer/implementer communication stall into tracked MP-355 state after the current dual-agent loop kept presenting a continuation-budget pause as generic `waiting_on_peer`. Runtime truth already raises `attention.status=checkpoint_required` with `safe_to_continue_editing=false`, but the bridge/liveness layer still makes Claude look like it is merely waiting on the peer instead of paused on a typed checkpoint gate. | `planned` | Land one bounded MP-355 follow-up that elevates checkpoint-gate/continuation-budget pause to a first-class typed wait reason across `review-channel status`, `latest.md`, `review_state.json`, and bridge projections so Codex/Claude can keep synchronized communication while edits are intentionally paused. |
 | `2026-03-22T01:20:00Z` | `CODEX` | Closed the repeated shell-mangling failure mode on reviewer checkpoints by adding one typed file-backed payload path to the repo-owned writer. `review-channel --action reviewer-checkpoint` now accepts `--checkpoint-payload-file` with `verdict`, `open_findings`, `instruction`, and `reviewed_scope_items`, the CLI/docs now prefer that path (or the existing per-section `--*-file` flags) over inline shell bodies for AI-generated markdown, and the maintained examples now also carry the live `--expected-instruction-revision` required for active dual-agent stale-write safety. | `partial-pass` | Keep future reviewer/controller writes on typed/file-backed payloads, then continue the broader writer/mutation cutover so bridge compatibility text stops sitting in the middle of machine authority. |
 | `2026-03-22T00:25:00Z` | `CODEX` | Reconfirmed the live reviewer-service/operator-notification gap against repo-owned runtime truth instead of chat impressions. In the current lane the reviewer supervisor stays alive and updates `review_needed` / `waiting_on_peer`, but publisher state can still sit at `detached_exit`, so bridge/runtime status knows Claude is stale or waiting without auto-surfacing that state to the operator. | `planned` | Treat sticky reviewer ownership plus live publisher/notification delivery as the same MP-355 blocker: the repo-owned reviewer worker/supervisor must poll, write checkpoints, and emit operator-visible updates without waiting for user prompts. |
 | `2026-03-21T23:59:00Z` | `CODEX` | Reconciled the latest cross-agent audit against live MP-355 plan state. The urgent push-safe bridge issue was already tracked, but two real review-channel follow-ups were still missing from the checklist: a typed bridge-section registry to kill magic-string section parsing/writes and an explicit maintainability burn-down item for the remaining review-channel Python hotspots instead of treating the current file sizes as invisible debt. | `planned` | Keep the current-session/push-safe authority work bounded, then land the bridge-section registry and continue shrinking the review-channel hotspots without widening bridge authority again. |

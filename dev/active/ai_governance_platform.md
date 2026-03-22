@@ -2983,6 +2983,14 @@ Still open before `P0` closes:
       bounded transitive blast-radius queries, then test-to-code /
       test-selection edges, then agent-authored graph queries. Each step must
       stay reversible to canonical refs and pass the same honesty rules.
+- [ ] Preserve the broader cross-domain graph backlog explicitly as later
+      generated reducer work instead of letting it disappear behind the `P0`
+      authority slice: workflow/CI DAG edges, git-history/change-intent edges,
+      test-suite / fixture / coverage topology for smart test selection,
+      compliance/drift audit views over governed docs such as `AGENTS.md`, AI
+      observability / guard-challenge corpus generation, and memory decision /
+      execution-trace nodes. Keep all of these generated-only and subordinate
+      to the same canonical refs / typed contracts.
 - [ ] Upgrade the current repo-local graph from a static discovery helper into
       a task-aware intake reducer in bounded steps. Start with command-graph
       closure (public command -> handler/source edges from dispatch
@@ -3832,8 +3840,13 @@ Execution order for this section:
 
 1. Continue turning the remaining audit intake into self-hosting enforcement
    work: the first layer-boundary guard is live, and the next backlog should
-   cover portable path construction, adapter routing, contract completion,
-   schema compatibility, and repeatable command-source/shell-execution misses.
+   cover the four deterministic blind spots now confirmed by branch review:
+   contract-value enforcement, plan-to-runtime parity, authority-source
+   validation, and dead authority/API seams. The immediate cheap truth fixes
+   inside that tranche are
+   `ActionResult.status` domain closure, `context-graph` confidence type
+   alignment, and making mypy blocking for the `dev/scripts/devctl` lane
+   before broader graph/system-picture expansion.
 2. Freeze the repo-understanding and naming surfaces before more wrappers
    proliferate: define `RepoMapSnapshot` / `MapFocusQuery` /
    `TargetedCheckPlan`, define the JSON-plus-SQLite cache contract, and define
@@ -3997,6 +4010,13 @@ Execution order for this section:
    governance product scope.
 3. Read this `Session Resume` section and the latest `Progress Log` entries
    before making recommendations or edits.
+3.1 If the current shared worktree contains `GUARD_AUDIT_FINDINGS.md` and/or
+    `ZGRAPH_RESEARCH_EVIDENCE.md`, consult them as local reference-only
+    companions for expanded evidence, ZGraph integration ideas, and proof
+    chains. They do not override tracked plan authority; any accepted
+    conclusion must be written back into this file, the subordinate
+    `platform_authority_loop.md` spec when relevant, and/or `MASTER_PLAN`
+    before implementation or review.
 4. Continue from the listed `Next actions` unless the user explicitly
    reprioritizes.
 5. Before ending the session, update both this `Session Resume` section and the
@@ -4005,6 +4025,19 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-21: Captured the supporting guard-audit conclusions into the live
+  `MP-377` plan chain instead of leaving them as off-plan analysis. Execution
+  state stays here and in `MASTER_PLAN`. Verified against code that the branch
+  still leaks VoiceTerm-default repo-pack
+  authority, bridge/projection fallback, provider-shaped review-state
+  compatibility fields, and typed boundary drift (`ActionResult.status` in
+  `vcs.push`, `context-graph` confidence typing) into runtime behavior.
+  Accepted sequencing stays deterministic and bounded: cheap typed-boundary
+  truth fixes first, startup/path/review authority closure second, executable
+  plan-mutation plus first intake/session authority slice third, narrow
+  self-governance guards for contract-value domains / plan-runtime parity /
+  authority-source integrity / dead authority seams fourth, and only then the
+  later `system-picture` / coherence / graph-widening follow-ons.
 - 2026-03-21: Added the missing transformation-rule backlog item to the graph
   lane. The current plans already owned bounded blast-radius, architecture
   queries, and fail-closed graph honesty, but they did not yet record the next
@@ -5385,6 +5418,14 @@ Execution order for this section:
 
 ## Audit Evidence
 
+- Local shared-worktree research companions (reference-only, non-authoritative,
+  when present): `GUARD_AUDIT_FINDINGS.md` is the focused guard-audit /
+  sequencing synthesis, and `ZGRAPH_RESEARCH_EVIDENCE.md` is the expanded
+  supporting evidence set covering ZGraph applications, AI context-injection
+  gaps, operator-console ideas, Rust/product surfaces, CI/test/config
+  integrations, AGENTS/memory conversion ideas, and related proof chains.
+  They are useful implementation/review companions in this workspace, but the
+  tracked plan chain remains the canonical execution authority.
 - `dev/scripts/devctl/platform/contracts.py`
 - `dev/scripts/devctl/platform/blueprint.py`
 - `dev/scripts/devctl/platform/parser.py`

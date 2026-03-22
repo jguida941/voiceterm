@@ -62,6 +62,7 @@ def _topology_payload() -> dict:
     return {
         "schema_version": 1,
         "contract_id": "FileTopology",
+        "generated_at": "2026-03-10T04:00:00Z",
         "summary": {
             "source_files": 8,
             "edge_count": 12,

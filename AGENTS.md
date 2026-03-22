@@ -68,7 +68,6 @@ Release-governance note:
 | Where are federated internal repo links/import rules (`code-link-ide`, `ci-cd-hub`)? | `dev/integrations/EXTERNAL_REPOS.md` |
 | Where do we track repeated manual friction and automation debt? | `dev/audits/AUTOMATION_DEBT_REGISTER.md` |
 | Where is the baseline full-surface audit runbook/checklist? | `dev/audits/2026-02-24-autonomy-baseline-audit.md` |
-| Where is the 2026-03-21 guard-governance closure audit and deterministic blind-spot intake? | `GUARD_AUDIT_FINDINGS.md` (reference evidence for `MP-377` self-governance / authority-loop closure) |
 | Where are audit metrics definitions (AI vs script share, automation coverage, charts)? | `dev/audits/METRICS_SCHEMA.md` |
 | How do we run the current parallel Codex/Claude markdown swarm cycle? | `dev/active/review_channel.md` |
 | Where is the local-first continuous swarm execution contract (next-task promotion, peer liveness, context rotation)? | `dev/active/continuous_swarm.md` |

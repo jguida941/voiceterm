@@ -42,6 +42,7 @@ from .probe_topology_scan import (
     parse_codeowners_rules,
     repo_relative,
 )
+from .time_utils import utc_timestamp
 
 
 @dataclass(frozen=True)
@@ -232,6 +233,7 @@ def build_probe_topology_artifact(
     payload: dict[str, Any] = {}
     payload["schema_version"] = PROBE_TOPOLOGY_SCHEMA_VERSION
     payload["contract_id"] = PROBE_TOPOLOGY_CONTRACT_ID
+    payload["generated_at"] = utc_timestamp()
     payload["summary"] = summary
     payload["changed_files"] = sorted(changed_paths)
     payload["focused_files"] = sorted(hints_by_file)
