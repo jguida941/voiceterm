@@ -9,6 +9,17 @@ def coerce_mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
 
 
+def coerce_mapping_items(value: object) -> tuple[Mapping[str, object], ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return ()
+    items: list[Mapping[str, object]] = []
+    for row in value:
+        mapping = coerce_mapping(row)
+        if mapping:
+            items.append(mapping)
+    return tuple(items)
+
+
 def coerce_string(value: object) -> str:
     return str(value).strip() if value is not None else ""
 

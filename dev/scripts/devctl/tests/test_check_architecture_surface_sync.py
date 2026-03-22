@@ -33,7 +33,6 @@ class CheckArchitectureSurfaceSyncTests(unittest.TestCase):
         self._write("dev/active/INDEX.md", "# index\n")
         self._write("dev/active/MASTER_PLAN.md", "# master plan\n")
         self._write("AGENTS.md", "# agents\n")
-        self._write("DEV_INDEX.md", "# dev index\n")
         self._write("dev/README.md", "# dev readme\n")
         self._write(
             "dev/scripts/devctl/script_catalog.py",

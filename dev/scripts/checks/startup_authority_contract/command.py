@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Validate startup-authority invariants from the live ProjectGovernance payload.
 
-Ensures that the three bootstrap authority files exist, required path roots
-are populated, and repo identity / plan registry fields are non-empty.
+Ensures that the repo-configured bootstrap authority files exist, required
+path roots resolve, and repo identity / plan registry fields are populated.
 """
 
 from __future__ import annotations
@@ -20,11 +20,6 @@ except ModuleNotFoundError:
 _COMMAND = "check_startup_authority_contract"
 
 # Canonical startup authority files (relative to repo root).
-_STARTUP_AUTHORITY = "AGENTS.md"
-_PLAN_REGISTRY = "dev/active/INDEX.md"
-_PLAN_TRACKER = "dev/active/MASTER_PLAN.md"
-
-
 def _build_report(repo_root: Path | None = None) -> dict:
     root = repo_root or REPO_ROOT
     draft_mod = import_repo_module(
@@ -32,46 +27,64 @@ def _build_report(repo_root: Path | None = None) -> dict:
     )
     scan_repo_governance = draft_mod.scan_repo_governance
 
-    gov = scan_repo_governance(root, policy={})
+    gov = scan_repo_governance(root)
 
     errors: list[str] = []
     warnings: list[str] = []
     checks_run = 0
     checks_passed = 0
 
+    startup_authority = gov.docs_authority
+    plan_registry = gov.plan_registry.registry_path
+    plan_tracker = gov.plan_registry.tracker_path
+
     # --- 1. Startup authority file exists ---
     checks_run += 1
-    if (root / _STARTUP_AUTHORITY).is_file():
+    if startup_authority and (root / startup_authority).is_file():
         checks_passed += 1
     else:
-        errors.append(f"Missing startup authority file: {_STARTUP_AUTHORITY}")
+        errors.append(
+            "Missing startup authority file: "
+            f"{startup_authority or '(unconfigured)'}"
+        )
 
     # --- 2. Active-plan registry file exists ---
     checks_run += 1
-    if (root / _PLAN_REGISTRY).is_file():
+    if plan_registry and (root / plan_registry).is_file():
         checks_passed += 1
     else:
-        errors.append(f"Missing active-plan registry: {_PLAN_REGISTRY}")
+        errors.append(
+            "Missing active-plan registry: "
+            f"{plan_registry or '(unconfigured)'}"
+        )
 
     # --- 3. Plan tracker file exists ---
     checks_run += 1
-    if (root / _PLAN_TRACKER).is_file():
+    if plan_tracker and (root / plan_tracker).is_file():
         checks_passed += 1
     else:
-        errors.append(f"Missing plan tracker: {_PLAN_TRACKER}")
+        errors.append(
+            f"Missing plan tracker: {plan_tracker or '(unconfigured)'}"
+        )
 
-    # --- 4. Path roots: active_docs and scripts must be non-empty ---
+    # --- 4. Path roots: active_docs and scripts must resolve to directories ---
     checks_run += 1
-    if gov.path_roots.active_docs:
+    if gov.path_roots.active_docs and (root / gov.path_roots.active_docs).is_dir():
         checks_passed += 1
     else:
-        errors.append("path_roots.active_docs is empty (directory missing)")
+        errors.append(
+            "path_roots.active_docs is missing or not a directory "
+            f"({gov.path_roots.active_docs or '(unconfigured)'})"
+        )
 
     checks_run += 1
-    if gov.path_roots.scripts:
+    if gov.path_roots.scripts and (root / gov.path_roots.scripts).is_dir():
         checks_passed += 1
     else:
-        errors.append("path_roots.scripts is empty (directory missing)")
+        errors.append(
+            "path_roots.scripts is missing or not a directory "
+            f"({gov.path_roots.scripts or '(unconfigured)'})"
+        )
 
     # --- 5. repo_identity.repo_name is non-empty ---
     checks_run += 1
@@ -80,14 +93,14 @@ def _build_report(repo_root: Path | None = None) -> dict:
     else:
         errors.append("repo_identity.repo_name is empty")
 
-    # --- 6. plan_registry.registry_path is non-empty ---
+    # --- 6. plan_registry.registry_path is configured ---
     checks_run += 1
     if gov.plan_registry.registry_path:
         checks_passed += 1
     else:
         errors.append("plan_registry.registry_path is empty (INDEX.md not found)")
 
-    # --- 7. plan_registry.tracker_path is non-empty ---
+    # --- 7. plan_registry.tracker_path is configured ---
     checks_run += 1
     if gov.plan_registry.tracker_path:
         checks_passed += 1

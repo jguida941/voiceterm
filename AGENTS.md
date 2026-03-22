@@ -545,6 +545,12 @@ Portable policy note:
   `Finding.ai_instruction` flowing from probe artifacts into the Ralph prompt),
   extend `check_platform_contract_closure.py` with a deterministic field-route
   proof so produced-but-unconsumed regressions fail before handoff.
+- When that new route still needs a compatibility seam, keep one canonical
+  artifact authority and structured routing keys. Do not let AI consumers
+  silently negotiate between multiple artifacts or depend on prose-derived
+  matching once typed fields exist; track any temporary fallback in the active
+  plan and extend the relevant guard/probe so the seam cannot become
+  permanent by accident.
 - Use `python3 dev/scripts/devctl.py governance-export --format md` when the
   whole governance stack, latest reports, and policy/templates need to be
   handed to another repo or model outside this checkout.

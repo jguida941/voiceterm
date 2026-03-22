@@ -1,9 +1,4 @@
-"""Deterministic repo-scan helper that emits a ProjectGovernance payload.
-
-Inspects the current repo for local facts (git state, policy file, filesystem
-paths, enabled guards/probes) and builds a ProjectGovernance contract without
-network calls or AI inference. This is Phase 1 / Slice B of MP-377.
-"""
+"""Deterministic repo-scan helper that emits a ProjectGovernance payload."""
 
 from __future__ import annotations
 
@@ -11,20 +6,22 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from .draft_governed_docs import (
+    GovernedMarkdownScanInputs,
+    scan_governed_markdown_contracts,
+)
+from .draft_policy_surface import scan_repo_pack_ref
+from .draft_policy_scan import scan_governed_doc_discovery
 from .draft_push import scan_command_routing_defaults, scan_push_enforcement
 from ..runtime.project_governance import (
     PROJECT_GOVERNANCE_CONTRACT_ID,
     PROJECT_GOVERNANCE_SCHEMA_VERSION,
     ArtifactRoots,
-    BridgeConfig,
     BundleOverrides,
     EnabledChecks,
     MemoryRoots,
-    PathRoots,
-    PlanRegistryRoots,
     ProjectGovernance,
     RepoIdentity,
-    RepoPackRef,
 )
 
 
@@ -44,12 +41,18 @@ def _git_output(repo_root: Path, *cmd: str) -> str:
         return ""
 
 
-def _scan_repo_identity(repo_root: Path, policy: dict[str, Any]) -> RepoIdentity:
+def _scan_repo_identity(
+    repo_root: Path,
+    policy: dict[str, Any],
+) -> RepoIdentity:
     """Build RepoIdentity from git config and repo policy."""
     name = str(policy.get("repo_name", "")) or repo_root.name
     remote = _git_output(repo_root, "config", "--get", "remote.origin.url")
     default_branch = _git_output(
-        repo_root, "symbolic-ref", "refs/remotes/origin/HEAD", "--short",
+        repo_root,
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        "--short",
     )
     if default_branch.startswith("origin/"):
         default_branch = default_branch[len("origin/"):]
@@ -62,93 +65,25 @@ def _scan_repo_identity(repo_root: Path, policy: dict[str, Any]) -> RepoIdentity
     )
 
 
-def _scan_repo_pack(policy: dict[str, Any]) -> RepoPackRef:
-    """Build RepoPackRef from policy surface_generation metadata."""
-    surface_gen = policy.get("surface_generation") or {}
-    meta = surface_gen.get("repo_pack_metadata") or {}
-    pack_id = str(meta.get("pack_id", "")) or str(policy.get("repo_name", "")).lower().replace(" ", "_")
-    pack_version = str(meta.get("pack_version", ""))
-    description = str(meta.get("description", ""))
-    return RepoPackRef(
-        pack_id=pack_id,
-        pack_version=pack_version,
-        description=description,
-    )
-
-
-def _scan_path_roots(repo_root: Path) -> PathRoots:
-    """Build PathRoots by checking standard directory existence."""
-    defaults = PathRoots()
-    return PathRoots(
-        active_docs=defaults.active_docs if (repo_root / defaults.active_docs).is_dir() else "",
-        reports=defaults.reports if (repo_root / defaults.reports).is_dir() else "",
-        scripts=defaults.scripts if (repo_root / defaults.scripts).is_dir() else "",
-        checks=defaults.checks if (repo_root / defaults.checks).is_dir() else "",
-        workflows=defaults.workflows if (repo_root / defaults.workflows).is_dir() else "",
-        guides=defaults.guides if (repo_root / defaults.guides).is_dir() else "",
-        config=defaults.config if (repo_root / defaults.config).is_dir() else "",
-    )
-
-
-def _scan_plan_registry(repo_root: Path) -> PlanRegistryRoots:
-    """Build PlanRegistryRoots by checking authority file existence."""
-    defaults = PlanRegistryRoots()
-    registry = defaults.registry_path if (repo_root / defaults.registry_path).is_file() else ""
-    tracker = defaults.tracker_path if (repo_root / defaults.tracker_path).is_file() else ""
-    index = defaults.index_path if (repo_root / defaults.index_path).is_file() else ""
-    return PlanRegistryRoots(
-        registry_path=registry,
-        tracker_path=tracker,
-        index_path=index,
-    )
-
-
 def _scan_artifact_roots(repo_root: Path) -> ArtifactRoots:
     """Build ArtifactRoots by checking standard artifact directories."""
     defaults = ArtifactRoots()
     return ArtifactRoots(
-        audit_root=defaults.audit_root if (repo_root / defaults.audit_root).is_dir() else "",
-        review_root=defaults.review_root if (repo_root / defaults.review_root).is_dir() else "",
-        governance_log_root=defaults.governance_log_root
-        if (repo_root / defaults.governance_log_root).is_dir()
-        else "",
-        probe_report_root=defaults.probe_report_root
-        if (repo_root / defaults.probe_report_root).is_dir()
-        else "",
+        audit_root=_existing_dir(repo_root, defaults.audit_root),
+        review_root=_existing_dir(repo_root, defaults.review_root),
+        governance_log_root=_existing_dir(
+            repo_root,
+            defaults.governance_log_root,
+        ),
+        probe_report_root=_existing_dir(
+            repo_root,
+            defaults.probe_report_root,
+        ),
     )
 
 
-def _parse_bridge_mode(bridge_text: str) -> str:
-    """Extract reviewer mode from bridge markdown, or return single_agent."""
-    for line in bridge_text.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("- Reviewer mode:"):
-            continue
-        parts = stripped.split("`")
-        if len(parts) >= 2:
-            return parts[1]
-        break
-    return "single_agent"
-
-
-def _scan_bridge_config(repo_root: Path) -> BridgeConfig:
-    """Build BridgeConfig from bridge file existence and review-channel status."""
-    defaults = BridgeConfig()
-    bridge_exists = (repo_root / defaults.bridge_path).is_file()
-    rc_exists = (repo_root / defaults.review_channel_path).is_file()
-    mode = "single_agent"
-    if bridge_exists:
-        try:
-            text = (repo_root / defaults.bridge_path).read_text(encoding="utf-8", errors="replace")
-            mode = _parse_bridge_mode(text)
-        except OSError:
-            pass
-    return BridgeConfig(
-        bridge_mode=mode,
-        bridge_path=defaults.bridge_path,
-        review_channel_path=defaults.review_channel_path if rc_exists else "",
-        bridge_active=bridge_exists,
-    )
+def _existing_dir(repo_root: Path, relative_path: str) -> str:
+    return relative_path if relative_path and (repo_root / relative_path).is_dir() else ""
 
 
 def _scan_enabled_checks(
@@ -171,18 +106,8 @@ def _scan_enabled_checks(
 
 
 def _scan_bundle_overrides() -> BundleOverrides:
-    """Return empty bundle overrides until a real bundle-level policy surface exists."""
+    """Return empty bundle overrides until a real bundle-level policy exists."""
     return BundleOverrides(overrides={})
-
-
-def _scan_startup_order(repo_root: Path) -> tuple[str, ...]:
-    """Derive startup file list from standard bootstrap order."""
-    candidates = [
-        "AGENTS.md",
-        "dev/active/INDEX.md",
-        "dev/active/MASTER_PLAN.md",
-    ]
-    return tuple(c for c in candidates if (repo_root / c).is_file())
 
 
 def _scan_workflow_profiles() -> tuple[str, ...]:
@@ -195,59 +120,89 @@ def _scan_workflow_profiles() -> tuple[str, ...]:
         return ()
 
 
+def _load_policy(
+    repo_root: Path,
+    *,
+    policy: dict[str, Any] | None,
+    policy_path: str | Path | None,
+) -> tuple[dict[str, Any], str | Path | None]:
+    if policy is not None:
+        return policy, policy_path
+    default_path = repo_root / "dev" / "config" / "devctl_repo_policy.json"
+    load_path = Path(policy_path) if policy_path else default_path
+    if not load_path.is_file():
+        return {}, policy_path
+    try:
+        from .repo_policy import load_repo_policy_payload
+
+        payload, _warnings, resolved = load_repo_policy_payload(
+            repo_root=repo_root,
+            policy_path=load_path,
+        )
+        return payload, str(resolved)
+    except (ImportError, OSError, ValueError):
+        return {}, policy_path
+
+
+def _governed_markdown_inputs(
+    discovery,
+) -> GovernedMarkdownScanInputs:
+    return GovernedMarkdownScanInputs(
+        path_roots=discovery.path_roots,
+        bridge_config=discovery.bridge_config,
+        docs_authority=discovery.docs_authority,
+        index_path=discovery.index_path,
+        tracker_path=discovery.tracker_path,
+        governed_doc_roots=discovery.governed_doc_roots,
+        startup_order=discovery.startup_order,
+    )
+
+
 def scan_repo_governance(
     repo_root: Path,
     *,
     policy: dict[str, Any] | None = None,
     policy_path: str | Path | None = None,
 ) -> ProjectGovernance:
-    """Scan a repo and build a ProjectGovernance contract from local facts.
-
-    If *policy* is None, attempts to load the repo policy from *policy_path*
-    (or the standard ``devctl_repo_policy.json`` under *repo_root*).
-    """
-    resolved_policy_path = policy_path
-    if policy is None:
-        default_path = repo_root / "dev" / "config" / "devctl_repo_policy.json"
-        load_path = Path(policy_path) if policy_path else default_path
-        if load_path.is_file():
-            try:
-                from .repo_policy import load_repo_policy_payload
-
-                policy, _warnings, _resolved = load_repo_policy_payload(
-                    repo_root=repo_root,
-                    policy_path=load_path,
-                )
-                resolved_policy_path = str(_resolved)
-            except (ImportError, OSError, ValueError):
-                policy = {}
-        else:
-            policy = {}
-
-    docs_authority = "AGENTS.md" if (repo_root / "AGENTS.md").is_file() else ""
-
+    """Scan a repo and build a ProjectGovernance contract from local facts."""
+    resolved_policy, resolved_policy_path = _load_policy(
+        repo_root,
+        policy=policy,
+        policy_path=policy_path,
+    )
+    discovery = scan_governed_doc_discovery(
+        repo_root,
+        policy=resolved_policy,
+        resolved_policy_path=resolved_policy_path,
+    )
+    plan_registry, doc_policy, doc_registry = scan_governed_markdown_contracts(
+        repo_root,
+        _governed_markdown_inputs(discovery),
+    )
     return ProjectGovernance(
         schema_version=PROJECT_GOVERNANCE_SCHEMA_VERSION,
         contract_id=PROJECT_GOVERNANCE_CONTRACT_ID,
-        repo_identity=_scan_repo_identity(repo_root, policy),
-        repo_pack=_scan_repo_pack(policy),
-        path_roots=_scan_path_roots(repo_root),
-        plan_registry=_scan_plan_registry(repo_root),
+        repo_identity=_scan_repo_identity(repo_root, resolved_policy),
+        repo_pack=scan_repo_pack_ref(resolved_policy),
+        path_roots=discovery.path_roots,
+        plan_registry=plan_registry,
         artifact_roots=_scan_artifact_roots(repo_root),
         memory_roots=MemoryRoots(),
-        bridge_config=_scan_bridge_config(repo_root),
+        bridge_config=discovery.bridge_config,
         enabled_checks=_scan_enabled_checks(repo_root, resolved_policy_path),
         bundle_overrides=_scan_bundle_overrides(),
+        doc_policy=doc_policy,
+        doc_registry=doc_registry,
         push_enforcement=scan_push_enforcement(
-            policy,
+            resolved_policy,
             repo_root=repo_root,
             resolved_policy_path=resolved_policy_path,
         ),
-        startup_order=_scan_startup_order(repo_root),
-        docs_authority=docs_authority,
+        startup_order=discovery.startup_order,
+        docs_authority=discovery.docs_authority,
         workflow_profiles=_scan_workflow_profiles(),
         command_routing_defaults=scan_command_routing_defaults(
-            policy,
+            resolved_policy,
             repo_root=repo_root,
             resolved_policy_path=resolved_policy_path,
         ),
@@ -275,15 +230,35 @@ def render_governance_draft_markdown(gov: ProjectGovernance) -> str:
         "## Path Roots",
         "",
     ]
-    for field in ("active_docs", "reports", "scripts", "checks", "workflows", "guides", "config"):
-        val = getattr(gov.path_roots, field)
-        lines.append(f"- {field}: {val or '(not found)'}")
+    for field in (
+        "active_docs",
+        "reports",
+        "scripts",
+        "checks",
+        "workflows",
+        "guides",
+        "config",
+    ):
+        lines.append(f"- {field}: {getattr(gov.path_roots, field) or '(not found)'}")
     lines += [
         "",
         "## Plan Registry",
         "",
         f"- registry_path: {gov.plan_registry.registry_path or '(not found)'}",
         f"- tracker_path: {gov.plan_registry.tracker_path or '(not found)'}",
+        f"- entries: {len(gov.plan_registry.entries)}",
+        "",
+        "## Doc Policy",
+        "",
+        f"- docs_authority_path: {gov.doc_policy.docs_authority_path or '(not found)'}",
+        f"- active_docs_root: {gov.doc_policy.active_docs_root or '(not found)'}",
+        f"- guides_root: {gov.doc_policy.guides_root or '(not found)'}",
+        f"- required_plan_sections: {len(gov.doc_policy.required_plan_sections)}",
+        f"- budget_classes: {len(gov.doc_policy.budget_limits)}",
+        "",
+        "## Doc Registry",
+        "",
+        f"- entries: {len(gov.doc_registry.entries)}",
         "",
         "## Bridge Config",
         "",

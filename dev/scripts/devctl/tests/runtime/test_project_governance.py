@@ -8,9 +8,15 @@ from dev.scripts.devctl.runtime.project_governance import (
     ArtifactRoots,
     BridgeConfig,
     BundleOverrides,
+    DocBudget,
+    DocPolicy,
+    DocRegistry,
+    DocRegistryEntry,
     EnabledChecks,
     MemoryRoots,
     PathRoots,
+    PlanRegistry,
+    PlanRegistryEntry,
     PlanRegistryRoots,
     ProjectGovernance,
     PushEnforcement,
@@ -52,6 +58,58 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
             "registry_path": "dev/active/INDEX.md",
             "tracker_path": "dev/active/MASTER_PLAN.md",
             "index_path": "dev/active/INDEX.md",
+            "entries": [
+                {
+                    "path": "dev/active/MASTER_PLAN.md",
+                    "role": "tracker",
+                    "authority": "canonical",
+                    "scope": "all active MP execution state",
+                    "when_agents_read": "always",
+                    "title": "Master Plan",
+                    "owner": "tooling/control plane",
+                    "lifecycle": "active",
+                    "has_execution_plan_contract": True,
+                    "has_session_resume": True,
+                }
+            ],
+        },
+        "doc_policy": {
+            "docs_authority_path": "AGENTS.md",
+            "active_docs_root": "dev/active",
+            "guides_root": "dev/guides",
+            "governed_doc_roots": ["dev/active", "dev/guides"],
+            "tracker_path": "dev/active/MASTER_PLAN.md",
+            "index_path": "dev/active/INDEX.md",
+            "bridge_path": "bridge.md",
+            "allowed_doc_classes": ["tracker", "spec", "runbook", "guide"],
+            "allowed_authorities": ["canonical", "mirrored in MASTER_PLAN"],
+            "allowed_lifecycles": ["active", "complete", "draft"],
+            "required_plan_sections": ["## Scope", "## Session Resume"],
+            "budget_limits": [
+                {"doc_class": "spec", "soft_limit": 1200, "hard_limit": 2000}
+            ],
+        },
+        "doc_registry": {
+            "docs_authority_path": "AGENTS.md",
+            "index_path": "dev/active/INDEX.md",
+            "tracker_path": "dev/active/MASTER_PLAN.md",
+            "entries": [
+                {
+                    "path": "dev/active/MASTER_PLAN.md",
+                    "doc_class": "tracker",
+                    "authority": "canonical",
+                    "lifecycle": "active",
+                    "scope": "all active MP execution state",
+                    "owner": "tooling/control plane",
+                    "canonical_consumer": "all sessions",
+                    "line_count": 4000,
+                    "budget_status": "ok",
+                    "budget_limit": 0,
+                    "registry_managed": True,
+                    "in_index": True,
+                    "issues": [],
+                }
+            ],
         },
         "artifact_roots": {
             "audit_root": "dev/reports/audits",
@@ -119,6 +177,28 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
 
     assert gov.plan_registry.registry_path == "dev/active/INDEX.md"
     assert gov.plan_registry.tracker_path == "dev/active/MASTER_PLAN.md"
+    assert len(gov.plan_registry.entries) == 1
+    assert gov.plan_registry.entries[0].title == "Master Plan"
+    assert gov.plan_registry.entries[0].has_execution_plan_contract is True
+
+    assert gov.doc_policy.docs_authority_path == "AGENTS.md"
+    assert gov.doc_policy.governed_doc_roots == ("dev/active", "dev/guides")
+    assert gov.doc_policy.allowed_doc_classes == (
+        "tracker",
+        "spec",
+        "runbook",
+        "guide",
+    )
+    assert gov.doc_policy.required_plan_sections == (
+        "## Scope",
+        "## Session Resume",
+    )
+    assert gov.doc_policy.budget_limits[0].hard_limit == 2000
+
+    assert gov.doc_registry.docs_authority_path == "AGENTS.md"
+    assert len(gov.doc_registry.entries) == 1
+    assert gov.doc_registry.entries[0].doc_class == "tracker"
+    assert gov.doc_registry.entries[0].registry_managed is True
 
     assert gov.artifact_roots.audit_root == "dev/reports/audits"
     assert gov.artifact_roots.probe_report_root == "dev/reports/probes/latest"
@@ -180,6 +260,11 @@ def test_project_governance_from_mapping_with_defaults() -> None:
     assert gov.plan_registry.registry_path == "dev/active/INDEX.md"
     assert gov.plan_registry.tracker_path == "dev/active/MASTER_PLAN.md"
     assert gov.plan_registry.index_path == "dev/active/INDEX.md"
+    assert gov.plan_registry.entries == ()
+
+    assert gov.doc_policy.docs_authority_path == "AGENTS.md"
+    assert gov.doc_policy.allowed_doc_classes == ()
+    assert gov.doc_registry.entries == ()
 
     assert gov.artifact_roots.audit_root == "dev/reports/audits"
     assert gov.artifact_roots.review_root == "dev/reports/review_channel/latest"
@@ -222,7 +307,20 @@ def test_project_governance_roundtrip() -> None:
             description="roundtrip test pack",
         ),
         path_roots=PathRoots(),
-        plan_registry=PlanRegistryRoots(),
+        plan_registry=PlanRegistry(
+            entries=(
+                PlanRegistryEntry(
+                    path="dev/active/MASTER_PLAN.md",
+                    role="tracker",
+                    authority="canonical",
+                    scope="all active MP execution state",
+                    when_agents_read="always",
+                    title="Master Plan",
+                    has_execution_plan_contract=True,
+                    has_session_resume=True,
+                ),
+            )
+        ),
         artifact_roots=ArtifactRoots(),
         memory_roots=MemoryRoots(memory_root=".mem", context_store_root=".ctx"),
         bridge_config=BridgeConfig(bridge_active=True, bridge_mode="active_dual_agent"),
@@ -231,6 +329,26 @@ def test_project_governance_roundtrip() -> None:
             probe_ids=("p1",),
         ),
         bundle_overrides=BundleOverrides(overrides={"docs": {"strict": True}}),
+        doc_policy=DocPolicy(
+            allowed_doc_classes=("tracker", "spec"),
+            allowed_authorities=("canonical",),
+            allowed_lifecycles=("active",),
+            required_plan_sections=("## Scope", "## Session Resume"),
+            budget_limits=(DocBudget(doc_class="spec", soft_limit=1200, hard_limit=2000),),
+        ),
+        doc_registry=DocRegistry(
+            entries=(
+                DocRegistryEntry(
+                    path="dev/active/MASTER_PLAN.md",
+                    doc_class="tracker",
+                    authority="canonical",
+                    lifecycle="active",
+                    scope="all active MP execution state",
+                    registry_managed=True,
+                    in_index=True,
+                ),
+            )
+        ),
         push_enforcement=PushEnforcement(
             default_remote="origin",
             raw_git_push_guarded=True,
@@ -254,6 +372,8 @@ def test_project_governance_roundtrip() -> None:
     assert restored.repo_pack == original.repo_pack
     assert restored.path_roots == original.path_roots
     assert restored.plan_registry == original.plan_registry
+    assert restored.doc_policy == original.doc_policy
+    assert restored.doc_registry == original.doc_registry
     assert restored.artifact_roots == original.artifact_roots
     assert restored.memory_roots == original.memory_roots
     assert restored.bridge_config == original.bridge_config
@@ -328,7 +448,18 @@ def test_project_governance_to_dict_converts_tuples_to_lists() -> None:
         repo_identity=RepoIdentity(repo_name="list-test"),
         repo_pack=RepoPackRef(pack_id="lp"),
         path_roots=PathRoots(),
-        plan_registry=PlanRegistryRoots(),
+        plan_registry=PlanRegistry(
+            entries=(
+                PlanRegistryEntry(
+                    path="dev/active/MASTER_PLAN.md",
+                    role="tracker",
+                    authority="canonical",
+                    scope="all active MP execution state",
+                    when_agents_read="always",
+                    title="Master Plan",
+                ),
+            )
+        ),
         artifact_roots=ArtifactRoots(),
         memory_roots=MemoryRoots(),
         bridge_config=BridgeConfig(),
@@ -337,6 +468,26 @@ def test_project_governance_to_dict_converts_tuples_to_lists() -> None:
             probe_ids=("p1", "p2", "p3"),
         ),
         bundle_overrides=BundleOverrides(overrides={}),
+        doc_policy=DocPolicy(
+            allowed_doc_classes=("tracker", "spec"),
+            allowed_authorities=("canonical", "mirrored in MASTER_PLAN"),
+            allowed_lifecycles=("active", "complete"),
+            required_plan_sections=("## Scope", "## Session Resume"),
+            budget_limits=(DocBudget(doc_class="spec", soft_limit=1200, hard_limit=2000),),
+        ),
+        doc_registry=DocRegistry(
+            entries=(
+                DocRegistryEntry(
+                    path="dev/active/MASTER_PLAN.md",
+                    doc_class="tracker",
+                    authority="canonical",
+                    lifecycle="active",
+                    scope="all active MP execution state",
+                    registry_managed=True,
+                    in_index=True,
+                ),
+            )
+        ),
         push_enforcement=PushEnforcement(
             default_remote="origin",
             dirty_path_count=14,
@@ -362,6 +513,12 @@ def test_project_governance_to_dict_converts_tuples_to_lists() -> None:
 
     assert isinstance(d["enabled_checks"]["probe_ids"], list)
     assert d["enabled_checks"]["probe_ids"] == ["p1", "p2", "p3"]
+    assert isinstance(d["plan_registry"]["entries"], list)
+    assert d["plan_registry"]["entries"][0]["title"] == "Master Plan"
+    assert isinstance(d["doc_policy"]["allowed_doc_classes"], list)
+    assert d["doc_policy"]["budget_limits"][0]["hard_limit"] == 2000
+    assert isinstance(d["doc_registry"]["entries"], list)
+    assert d["doc_registry"]["entries"][0]["doc_class"] == "tracker"
     assert d["push_enforcement"]["default_remote"] == "origin"
     assert d["push_enforcement"]["dirty_path_count"] == 14
     assert d["push_enforcement"]["checkpoint_required"] is True

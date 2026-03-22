@@ -960,8 +960,8 @@ progressive disclosure, and 8px base grid spacing.
   code instead of only the repo-wide policy. Updated the main Operator Console
   README plus the `views/`, `theme/`, `state/`, and `tests/` package-map docs
   to explain the new responsibility-first layout in simpler language, and
-  linked those docs from `DEV_INDEX.md`, `dev/README.md`, and the in-app help
-  resource list so the cleanup is actually discoverable.
+  linked those docs from `dev/README.md` and the in-app help resource list so
+  the cleanup is actually discoverable.
 
 - 2026-03-09: Continued the visible tree cleanup for MP-359 by moving the
   workflow and layout view files out of the flat `views/` directory. Workflow

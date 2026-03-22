@@ -76,7 +76,6 @@ DOCS_PREFIXES = (
 DOCS_EXACT_PATHS = {
     "README.md",
     "QUICK_START.md",
-    "DEV_INDEX.md",
     "dev/README.md",
     "scripts/README.md",
     "pypi/README.md",

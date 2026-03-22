@@ -80,7 +80,7 @@ Use `governance-review` to keep the adjudication layer honest:
 
 ```bash
 python3 dev/scripts/devctl.py governance-review --format md
-python3 dev/scripts/devctl.py governance-review --record --signal-type probe --check-id probe_exception_quality --verdict false_positive --path some/file.py --line 41 --format md
+python3 dev/scripts/devctl.py governance-review --record --signal-type probe --check-id probe_exception_quality --verdict false_positive --path some/file.py --line 41 --finding-class rule_quality --recurrence-risk recurring --prevention-surface probe --format md
 python3 dev/scripts/devctl.py data-science --format md
 ```
 

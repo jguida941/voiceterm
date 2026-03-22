@@ -1207,11 +1207,15 @@ Acceptance:
       multi-agent specialization conductor-coordinated and do not pretend the
       backend already does parallel work routing.
 - [ ] Keep burning down the remaining review-channel Python hotspots instead of
-      freezing current size debt in place. Current live hotspots include
-      `event_reducer.py` (~497 lines), `handoff.py` (461), `core.py` (356), and
-      the giant `test_review_channel.py` suite; continue splitting by reducer /
-      projection / prompt / fixture responsibility before MP-355 claims
-      maintainability closure.
+      freezing current size debt in place. Owner/phase: `MP-355` Phase 1
+      maintainability closure. Current live hotspots include
+      `event_reducer.py` (~497 lines), `handoff.py` (461), `core.py` (356),
+      and the giant `test_review_channel.py` suite; continue splitting by
+      reducer / projection / prompt / fixture responsibility, drive the
+      module family down toward a smaller stable review-channel core, and
+      split `test_review_channel.py` into feature-scoped suites before
+      MP-355 claims maintainability closure. (audit mapping:
+      `SYSTEM_AUDIT.md` A15, T1)
 - [ ] Extend `dev/scripts/devctl/reports_retention.py` protected paths for
       `dev/reports/review_channel/`.
 - [ ] Wire `check_review_channel.py` into `dev/scripts/devctl/bundle_registry.py`
@@ -1575,6 +1579,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-22T18:10:00Z` | `CODEX` | Finished the remaining `SYSTEM_AUDIT` mapping for the MP-355 lane. The previously unmapped structural-debt/test tranche is now explicit in canonical plan state: the review-channel family must keep collapsing toward a smaller stable core and `test_review_channel.py` must split into feature-scoped suites before MP-355 can claim maintainability closure. | `planned` | Keep the current-session/push-safe authority work bounded, then land the maintainability tranche in the same Phase-1 closure path instead of deferring it to another audit note. |
 | `2026-03-22T04:45:00Z` | `CODEX` | Landed the reviewer-side parity slice for the planned repo-owned wait path. `review-channel --action reviewer-wait` now exports typed wait attention fields plus state-specific timeout/unhealthy/update messages, markdown wait rendering handles reviewer-wait payloads instead of only implementer-wait, and the reviewer launch prompt now explicitly tells Codex to use `reviewer-wait` instead of ad-hoc sleep loops when parking on Claude-owned progress. This closes the immediate "stay watching Claude through repo-owned wait semantics" step without pretending semantic review is fully automated yet. | `partial-pass` | Keep the broader reviewer-worker/service blocker open: the next loop-hardening slice still needs repo-owned semantic re-review/checkpoint behavior instead of chat-prompted polling. |
 | `2026-03-22T04:15:00Z` | `CODEX` | Closed the next live-loop messaging gap after typed attention was already correct but the implementer-facing wait surface still printed generic "Holding for Codex review" text. `review-channel --action implementer-wait` now carries typed attention status/summary/recommended-action fields in its stable report, timeout/reviewer-update messages specialize for `review_follow_up_required` and `claude_ack_stale`, and the markdown wait projection renders the same attention context instead of a bare stop reason. Focused review-channel proof is green (`232` tests); full `devctl check --profile ci` is only waiting on the normal reviewer checkpoint hash refresh for the current tree. | `partial-pass` | Keep the checkpoint-gate pause projection follow-up open, then continue parity so every live wait surface exposes the same typed reason without making operators infer state from generic hold text. |
 | `2026-03-22T03:35:00Z` | `CODEX` | Closed the next bounded live-loop clarity gap after the reviewer bridge kept looking "done" whenever Claude changed the tree between polls. Active-dual-agent attention and implementer bridge-poll state now emit `review_follow_up_required` when `review_needed=true`, the reviewer supervisor is alive, and `reviewed_hash_current=false`; bridge-poll next-turn routing now points back to the reviewer explicitly instead of collapsing that state into generic stale/done-looking output. Focused review-channel proof is green (`231` tests) and `devctl check --profile ci` is green on the current local diff. | `partial-pass` | Keep the broader checkpoint-gate pause work open, then continue the remaining projection parity so the same typed wait/follow-up reasons stay aligned across `status`, `latest.md`, `review_state.json`, and bridge compatibility text. |
@@ -1666,7 +1671,10 @@ Complete this table only after all active swarm lanes are merged.
   `check_tandem_consistency`, and guarded push/preflight stop depending on
   bridge prose for live freshness, while keeping `bridge.md` as a
   compatibility projection and leaving full registry-driven N-agent routing in
-  Phase 3.
+  Phase 3. Keep the newly mapped maintainability tranche explicit while doing
+  that work: the phase is not done until the review-channel module family is
+  materially smaller and `test_review_channel.py` has been split into
+  feature-scoped suites.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

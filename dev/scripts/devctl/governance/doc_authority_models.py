@@ -40,6 +40,7 @@ class GovernedDocLayout:
     repo_root: Path
     active_docs_root: str
     guides_root: str
+    governed_doc_roots: tuple[str, ...]
     index_path: str
     tracker_path: str
     docs_authority_path: str

@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-03-21 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-22 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -195,11 +195,48 @@ intended execution order is:
       identity and target authority; otherwise runtime must emit a typed
       `ambiguous_scope` / `stale_session` intake result and wait for explicit
       operator or policy routing instead of guessing among plans.
+- [ ] Close the blocking pre-spine hardening tranche as explicit checklist
+      scope before widening startup authority: daemon attach/auth hardening
+      must cover loopback-by-default attach, provider allowlists, auth token
+      validation, restrictive local socket permissions, and origin checks;
+      autonomy authority hardening must enforce fix-policy, hard caps, path
+      restrictions, and immutable control-file boundaries on `swarm_run` /
+      `autonomy-swarm`; canonical JSONL evidence writers must use single-write
+      append semantics; and self-governance must ensure
+      `governance_closure` plus adjacent parity checks actually run in bundle /
+      CI paths or carry typed exemptions. Owner/phase: `MP-377` blocker
+      tranche before any wider Phase 1 routing. (audit mapping:
+      `SYSTEM_AUDIT.md` D1, D2, D3, D4, D5, S1, S2, S3, S4, E1, G1)
+- [ ] Replace `PlanRegistryEntry.has_session_resume` boolean-only detection
+      with typed continuity state: parse governed-plan `## Session Resume`
+      into a canonical `SessionResumeState`, attach it to `startup-context` /
+      `WorkIntakePacket`, and reconcile it with handoff/current-session
+      artifacts before any auto-resume or warm-start decision. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28)
 - [ ] Add one bounded `startup-context` command/surface over that same intake
       path so AI agents and humans can read the active target, changed scope,
       routed bundle/check plan, convention/probe subset, bounded doc subset,
       and required write-back sinks without cold-reading the full repo every
       session.
+- [ ] Unify the repo's startup systems behind that same canonical
+      `startup-context` / `WorkIntakePacket` surface: the current
+      context-graph bootstrap packet, hidden richer `startup-context` fields,
+      governed-plan `Session Resume`, repo memory roots, and recent
+      episode/execution evidence should collapse into one bounded startup
+      packet with typed sections instead of four uncoordinated sources.
+      Generated bootstrap instruction surfaces such as `CLAUDE.md` must point
+      agents at that canonical startup path rather than only the older
+      graph-only bootstrap helper. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 46)
+- [ ] Absorb the audit's bootstrap-compression tranche through the canonical
+      startup family instead of a second `bootstrap-context` command: the
+      first `startup-context` / `WorkIntakePacket` proof must deliver the
+      bounded hot/warm/cold startup packet, replace bulky bootstrap prose
+      with pointer-style startup receipts, and only then add generated
+      `ConceptIndex` / ZGraph-compatible navigation as a reducer over the same
+      canonical refs. Owner/phase: `MP-377` Phase 1 startup-compression
+      closure after the blocker tranche. (audit mapping:
+      `SYSTEM_AUDIT.md` A5, A6, A7, A8)
 - [ ] Close the startup/push reviewer-gate seam on that same typed authority:
       `startup-context`, checkpoint/push receipts, `check_tandem_consistency`,
       and guarded push/preflight must read one typed
@@ -465,6 +502,13 @@ intended execution order is:
       explicit migration, not only the review-channel subset.
 - [ ] Replace the `voiceterm_repo_root()` singleton/fallback behavior with a
       repo-pack/provider boundary that callers receive explicitly.
+- [ ] Close the remaining path-authority portability blockers before
+      packaging/extraction claims: replace checkout-root literals and
+      VoiceTerm fallbacks (`REPO_ROOT`, `voiceterm_repo_root()`, frozen
+      `active_path_config()` state) with lazy repo-pack/path resolution so
+      runtime activation, bootstrap, and later install surfaces work outside
+      this repo. Owner/phase: `MP-377` Phase 2 runtime-activation portability
+      closure. (audit mapping: `SYSTEM_AUDIT.md` A22, A23)
 - [ ] Migrate hardcoded `.voiceterm` / `~/.voiceterm` path families onto
       repo-pack-declared artifact and memory roots as part of the same path-
       authority rewrite. Current audit baseline: roughly `15` direct path
@@ -710,6 +754,19 @@ intended execution order is:
       conventions without schema/id/version coverage.
 - [ ] Bridge governance evidence into the existing memory substrate through the
       new contract instead of rebuilding a second memory stack.
+- [ ] Land the first memory/session closure on top of that same authority
+      family: `session-context` and `session-end` should become typed intake /
+      closeout projections over `WorkIntakePacket`, `CollaborationSession`,
+      and the existing memory substrate; cross-agent memory must stay shared
+      and repo-visible; episode history must be queryable as a bounded digest
+      for startup continuity; one typed continuity packet should combine
+      parsed `Session Resume`, recent episode/execution digest, bridge/review
+      liveness, and shared memory hints; and any Python port of
+      `ContextPack` behavior must reuse the same contract instead of a second
+      session-memory lane.
+      Owner/phase: `MP-377` Phase 6 memory/session closure after the first
+      `startup-context` proof. (audit mapping: `SYSTEM_AUDIT.md` A9, A10,
+      A11, A12; evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 48)
 - [ ] Define the read path back out of that bridge too:
       startup-context, `master-report`, packet-outcome ingestion,
       freshness/quarantine behavior, and the bounded topic-keyed knowledge-base
@@ -859,7 +916,7 @@ intended execution order is:
       docs/plan contracts.
 - [ ] Define the minimum viable pilot-repo shape for Phase 7 proof so success
       does not depend on VoiceTerm-specific files such as `AGENTS.md`,
-      `dev/active/MASTER_PLAN.md`, `QUICK_START.md`, or `DEV_INDEX.md`. The
+      `dev/active/MASTER_PLAN.md`, `QUICK_START.md`, or `dev/README.md`. The
       minimum bootstrap set must be: one reviewed governance contract, one
       active-plan registry export, at least one canonical plan authority doc,
       exported `PlanTargetRef` targets, and one `WorkIntakePacket` /
@@ -912,10 +969,11 @@ intended execution order is:
       file-count budgets, source-of-truth ownership, active-doc lifecycle,
       and shim expiry.
 - [ ] Freeze the audit-integration retirement rule in that tranche too:
-      repo-root audit docs such as `SYSTEM_AUDIT.md` are temporary reference
+      whole-system audit docs such as `dev/guides/SYSTEM_AUDIT.md` are
+      temporary reference
       evidence, accepted findings must be absorbed into canonical plans/docs,
-      and the repo-root copy should be retired once those findings are fully
-      integrated or explicitly rejected.
+      and the moved reference copy should be retired once those findings are
+      fully integrated or explicitly rejected.
 - [ ] Extend docs-governance into the full documentation-authority contract in
       the same tranche: `docs-check`, `check_active_plan_sync`, `hygiene`,
       and `check_architecture_surface_sync` should enforce doc-class
@@ -930,10 +988,16 @@ intended execution order is:
 - [ ] Add plugin/entrypoint-based extension discovery for guard/probe/bundle
       families once the core runtime and repo-pack activation contract is
       stable.
-- [ ] Evaluate optional MCP server exposure for portable guard/probe/report
-      surfaces after authority-loop closure, but keep MCP additive to the
-      `devctl` / repo-pack authority path rather than promoting it into the
-      primary control plane.
+- [ ] Evaluate optional `devctl-mcp` server exposure for portable
+      guard/probe/report/startup surfaces after authority-loop closure: the
+      first slice should be a transport adapter over the existing
+      `context_graph` / startup / plan-status read surfaces (`zgraph_query`,
+      `governance_state`, `plan_status`, `guard_results`) so agents can
+      lazy-load the same authority through MCP without creating a second
+      control plane. Keep MCP additive to the `devctl` / repo-pack authority
+      path; any writeback such as future `memory_sync` flows must still route
+      through the same typed action/approval contracts as CLI writes.
+      (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 49)
 - [ ] Define extension/adopter conformance packs so every new provider/client/
       hook/wrapper/plugin declares supported actions, modes, projections,
       approvals, and parity tests before it counts as supported.
@@ -971,6 +1035,17 @@ intended execution order is:
 
 ## Session Resume
 
+- 2026-03-22 MCP follow-up: the optional MCP path is now explicit as an
+  additive `devctl-mcp` transport over existing read surfaces, not a second
+  control plane. If this lands later, read-only graph/startup/status tools go
+  first; any writeback still has to route through typed action/approval
+  contracts.
+- 2026-03-22 evidence follow-up: Parts 46 and 48 from
+  `UNIVERSAL_SYSTEM_EVIDENCE.md` are now explicit here. The next authority
+  closure is no longer just "typed Session Resume exists"; it is one
+  canonical startup path that merges bootstrap, `startup-context`, plan
+  resume, memory roots, and recent episode evidence, plus one typed
+  continuity packet that reuses those same sources for warm starts.
 - Current goal: clear the blocker tranche that protects the authority loop,
   then finish making the authority loop the top `MP-377` priority before
   broader platform growth continues.
@@ -985,6 +1060,22 @@ intended execution order is:
   under `dev/repo_example_temp/` (gitignored on purpose) and should be treated
   as calibration material for the `MP-377` least-effort-first retrieval /
   authority stack, not as alternate authority or copy-paste source.
+- Current typed-markdown authority status: the first runtime-groundwork slice
+  is no longer path-only. `ProjectGovernance` now carries a repo-scanned
+  `DocPolicy`, a typed `DocRegistry`, and parsed `PlanRegistry` entries so the
+  next startup/intake work can consume governed markdown through one typed
+  contract family instead of rediscovering file paths or re-reading the full
+  plan chain ad hoc.
+- Current session-continuity gap: `PlanRegistry` currently only records
+  whether a plan has a `## Session Resume` section. No runtime path
+  deserializes that content yet, so startup still behaves like a cold start
+  even when governed plans carry real resume state.
+- 2026-03-22 audit-mapping follow-up: the previously implicit blocker,
+  bootstrap-compression, memory/session, and path-portability slices are now
+  explicit checklist ownership here instead of only prose sequencing. The
+  accepted narrowing is preserved in-plan: `A5-A7` land through the canonical
+  `startup-context` / `WorkIntakePacket` family rather than a second
+  `bootstrap-context` surface.
 - Session compass for fresh reviewer/coder sessions:
   - Product: VoiceTerm is being extracted into a portable AI governance
     platform that improves AI coding quality through deterministic
@@ -1010,8 +1101,8 @@ intended execution order is:
     frontend cleanup, or broader review-channel simplification.
   - Context-loading rule: hot = this session compass plus the live bridge
     instruction, warm = only the plan/runbook sections for the active slice,
-    cold = broad reference docs such as `SYSTEM_AUDIT.md`. When present in
-    the shared worktree, `GUARD_AUDIT_FINDINGS.md` and
+    cold = broad reference docs such as `dev/guides/SYSTEM_AUDIT.md`. When
+    present in the shared worktree, `GUARD_AUDIT_FINDINGS.md` and
     `ZGRAPH_RESEARCH_EVIDENCE.md` also live in this cold/reference tier:
     useful for deeper evidence and ZGraph idea recall, but never overriding
     the active tracked plan chain.
@@ -1034,6 +1125,40 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-22: Tightened the optional MCP plan seam so the new agent-agnostic
+  integration idea is tracked without violating the authority model. The
+  planned first slice is now a `devctl-mcp` transport adapter over existing
+  read surfaces after authority-loop closure, with any future writeback held
+  behind the same typed action/approval contracts as CLI writes.
+- 2026-03-22: Tightened the authority-loop lane with the next evidence intake
+  instead of leaving startup/continuity coupling implied. Part 46 now
+  explicitly requires one canonical `startup-context` /
+  `WorkIntakePacket` surface that bootstrap instructions also point to, and
+  Part 48 now explicitly requires episode-digest continuity plus a typed
+  startup continuity packet instead of separate memory / resume / trace silos.
+- 2026-03-22: Finished the previously implicit `SYSTEM_AUDIT.md` mapping for
+  the authority-loop lane. The canonical owner split is now explicit in
+  checklist form: blocker tranche `D1-D5` / `S1-S4` / `E1` / `G1`, bootstrap
+  compression `A5-A8`, memory/session closure `A9-A12`, and path-authority
+  portability `A22-A23` all live here instead of only in audit prose.
+- 2026-03-22: Integrated the root evidence intake into the authority-loop
+  tracker and corrected the stale shorthand before promoting it. The current
+  runtime baseline is stronger than the older `60%` phrasing implied:
+  `ProjectGovernance`, `DocPolicy`, `DocRegistry`, and parsed `PlanRegistry`
+  are real code now. The live missing routing contracts are narrower but still
+  blocking: `PlanTargetRef`, `WorkIntakePacket`, and `CollaborationSession`
+  still have no runtime implementation, and `has_session_resume` is still only
+  a boolean presence check instead of typed continuity state.
+- 2026-03-22: Tightened the typed markdown-authority groundwork so it no
+  longer discovers governed docs through VoiceTerm-only path assumptions.
+  `scan_repo_governance`, doc-authority layout scanning, the
+  startup-authority guard, and context-graph bootstrap links now prefer
+  repo-policy `surface_generation.context` plus markdown-root policy for
+  process doc, tracker, registry, bridge compatibility path, and governed
+  doc roots, while keeping current repo defaults as compatibility fallback.
+  Added focused regressions for a non-VoiceTerm layout (`CONTRIBUTING.md` +
+  `docs/plans/*` + `tools/`) so this slice now proves one policy-owned path
+  instead of assuming `AGENTS.md` + `dev/active/*`.
 - 2026-03-22: Accepted the bounded MP-377 context-graph severity-plumbing
   closure after the final end-to-end regression landed. The graph now proves
   the real contract path: fresh probe-run timestamp from sibling
@@ -1043,6 +1168,15 @@ intended execution order is:
   Focused proof is green (`60` tests), so the next bounded graph-hygiene item
   is no longer artifact severity plumbing; it is the still-open confidence
   contract mismatch between the runtime query model and machine-output payload.
+- 2026-03-22: Landed the first typed governed-markdown authority groundwork in
+  runtime code. `ProjectGovernance` no longer stops at
+  `PlanRegistryRoots`-style path placeholders: the repo scan now emits a typed
+  `DocPolicy`, a typed `DocRegistry`, and parsed `PlanRegistry` entries built
+  from governed markdown plus `INDEX.md`, while preserving the existing path
+  fields for compatibility during migration. Focused proof is green (`51`
+  governance/runtime tests). This does not close `startup-context`,
+  `WorkIntakePacket`, or `PlanTargetRef`; it gives those next slices one real
+  contract family to consume instead of re-scanning markdown independently.
 - 2026-03-21: Promoted the guard-audit conclusions into tracked `MP-377`
   intake so execution state stays in this plan and `MASTER_PLAN`. Re-verified
   the highest-risk claims against live code before recording them here:
@@ -1318,15 +1452,16 @@ intended execution order is:
   schema/formatter expectations so governed docs can become structured,
   consistent, and guardable across repos.
 - 2026-03-20: Accepted one more architecture-governance follow-up from the
-  repo-root `SYSTEM_AUDIT.md` intake. The audit should not remain a second
+  `dev/guides/SYSTEM_AUDIT.md` intake. The audit should not remain a second
   living roadmap after review. Once blocker-tranche findings are integrated
   into canonical plan/docs, later self-hosting cleanup should extend the
   existing package-layout / compatibility-shim direction into a broader
-  structure-policy layer and retire the repo-root audit copy after its
-  accepted items are fully absorbed or explicitly rejected.
+  structure-policy layer and retire the moved audit copy after its accepted
+  items are fully absorbed or explicitly rejected.
 - 2026-03-20: Corrected the authority-loop order after the code-backed
-  multi-agent audit review. `SYSTEM_AUDIT.md` remains reference evidence, but
-  its confirmed blocker tranche now precedes the remaining Phase 1 spine:
+  multi-agent audit review. `dev/guides/SYSTEM_AUDIT.md` remains reference
+  evidence, but its confirmed blocker tranche now precedes the remaining
+  Phase 1 spine:
   daemon attach/auth hardening, autonomy authority boundaries,
   JSONL/evidence-integrity closure, and self-governance coverage land before
   the next startup-authority closure slice. The same review also froze the
@@ -1334,7 +1469,7 @@ intended execution order is:
   `CollaborationSession`, and later `ContextPack` are the only startup/session
   packet family; `ConceptIndex` / ZGraph remains a later generated navigation
   layer above canonical artifacts, not a replacement authority surface.
-- 2026-03-20: Reconciled the repo-root `SYSTEM_AUDIT.md` against the current
+- 2026-03-20: Reconciled `dev/guides/SYSTEM_AUDIT.md` against the current
   authority-loop lane instead of treating it as a new execution plan. Accepted
   its four headline gaps as corroboration, not redirect: (1) the closed AI
   feedback loop remains the highest-leverage missing behavior and must land

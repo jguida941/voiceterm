@@ -35,7 +35,6 @@ class GovernanceExportSupportTests(unittest.TestCase):
             export_root = Path(tmp_dir) / "exports"
             (repo_root / "AGENTS.md").parent.mkdir(parents=True, exist_ok=True)
             (repo_root / "AGENTS.md").write_text("agents\n", encoding="utf-8")
-            (repo_root / "DEV_INDEX.md").write_text("index\n", encoding="utf-8")
             (repo_root / "dev" / "README.md").parent.mkdir(parents=True, exist_ok=True)
             (repo_root / "dev" / "README.md").write_text("dev\n", encoding="utf-8")
             (repo_root / "dev" / "active").mkdir(parents=True, exist_ok=True)

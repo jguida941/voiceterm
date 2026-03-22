@@ -54,8 +54,9 @@ This plan covers six outcomes:
       tree so repo-tooling detection does not self-report the shell, python
       runner, or `lsof` children launched by `process-audit` /
       `process-cleanup`.
-- [x] Update `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
-      `DEV_INDEX.md`, and `dev/README.md` with the new host-audit workflow.
+- [x] Update `AGENTS.md`, `dev/guides/DEVELOPMENT.md`,
+      `dev/scripts/README.md`, and `dev/README.md` with the new host-audit
+      workflow.
 - [x] Add `process-cleanup --verify --format md` to the routed
       runtime/tooling/release/post-push bundle authority so the AI/dev default
       lane runs host cleanup without relying only on handoff memory.

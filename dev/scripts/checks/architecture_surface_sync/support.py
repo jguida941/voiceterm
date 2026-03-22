@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import ast
 import re
+import subprocess
 from collections import defaultdict
+from fnmatch import fnmatch
 from pathlib import Path
 
 
@@ -13,6 +15,74 @@ def workflow_files(repo_root: Path) -> list[Path]:
     for pattern in (".github/workflows/*.yml", ".github/workflows/*.yaml"):
         paths.update(repo_root.glob(pattern))
     return sorted(paths)
+
+
+def run_git(repo_root: Path, cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        cmd,
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def normalize_path(repo_root: Path, raw_path: str | Path) -> Path:
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path.relative_to(repo_root)
+    return path
+
+
+def discover_new_paths(
+    repo_root: Path,
+    *,
+    since_ref: str | None,
+    head_ref: str,
+) -> tuple[list[Path], list[str]]:
+    errors: list[str] = []
+    candidates: set[Path] = set()
+
+    diff_cmd = ["git", "diff", "--name-only", "--diff-filter=A"]
+    if since_ref:
+        diff_cmd.extend([since_ref, head_ref])
+    else:
+        diff_cmd.append("HEAD")
+    diff_result = run_git(repo_root, diff_cmd)
+    if diff_result.returncode != 0:
+        errors.append(diff_result.stderr.strip() or "git diff failed")
+    else:
+        for line in diff_result.stdout.splitlines():
+            stripped = line.strip()
+            if stripped:
+                candidates.add(Path(stripped))
+
+    untracked_result = run_git(
+        repo_root,
+        ["git", "ls-files", "--others", "--exclude-standard"],
+    )
+    if untracked_result.returncode != 0:
+        errors.append(untracked_result.stderr.strip() or "git ls-files failed")
+    else:
+        for line in untracked_result.stdout.splitlines():
+            stripped = line.strip()
+            if stripped:
+                candidates.add(Path(stripped))
+
+    return sorted(candidates), errors
+
+
+def path_matches(path: Path, patterns: tuple[str, ...]) -> bool:
+    path_text = path.as_posix()
+    return any(fnmatch(path_text, pattern) for pattern in patterns)
+
+
+def is_allowlisted(
+    path: Path,
+    zone_id: str,
+    allowlist: dict[str, tuple[str, ...]],
+) -> bool:
+    return path_matches(path, allowlist.get(zone_id, ()))
 
 
 def reference_tokens(path: Path) -> tuple[str, ...]:

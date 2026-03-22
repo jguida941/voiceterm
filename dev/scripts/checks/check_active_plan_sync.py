@@ -123,7 +123,6 @@ REQUIRED_REGISTRY_ROWS = {
 
 REQUIRED_DISCOVERY_REFERENCES = [
     {"path": "AGENTS.md", "tokens": ["dev/active/INDEX.md"]},
-    {"path": "DEV_INDEX.md", "tokens": ["dev/active/INDEX.md"]},
     {"path": "dev/README.md", "tokens": ["active/INDEX.md", "dev/active/INDEX.md"]},
 ]
 

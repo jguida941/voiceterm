@@ -5135,3 +5135,11 @@ The full technical showcase is consolidated above in Appendix G of this document
   expected to carry parseable metadata plus `Session Resume` instead of relying
   on inconsistent markdown conventions while the platform is designing
   `PlanRegistry` / `PlanTargetRef`.
+- 2026-03-22: Tightened the `MP-377` closure contract after the first live
+  Ralph `ai_instruction` route landed. The canonical plan chain now records
+  that the remaining governance miss is not the old Ralph dual-authority bug
+  or a still-live junk-drawer module; those were already cleaned up. The real
+  follow-up is stronger detector coverage: the platform/meta-guard tranche and
+  probe lane now explicitly own single-authority AI-consumer enforcement and
+  prose-derived routing fallback detection so external review is not the first
+  place that architectural seam shows up.

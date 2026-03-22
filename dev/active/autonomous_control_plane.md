@@ -1426,9 +1426,22 @@ Acceptance:
 - [x] Governance docs updated (`AGENTS`, `DEV_INDEX`, `dev/README`).
 - [x] Guard checks updated and passing.
 - [ ] Handoff includes evidence and unresolved risks.
+- [ ] Add the watchdog coverage-hardening tranche on top of the current typed
+      episode/metrics contract. Owner/phase: `MP-340` watchdog validation
+      before wider product claims. Raise coverage for
+      `dev/scripts/devctl/watchdog/**` and adjacent autonomy consumers with
+      reducer, emitter, and failure-path cases so the repo can prove watchdog
+      behavior from tests instead of analytics happy paths only. (audit
+      mapping: `SYSTEM_AUDIT.md` T2)
 
 ## Progress Log
 
+- 2026-03-22: Finished the remaining `SYSTEM_AUDIT` mapping for the watchdog
+  lane. The audit's test-hardening ask is now explicit here instead of living
+  only in reference prose: before the repo makes stronger "watchdog improves
+  coding" claims, the typed watchdog emitter/reducer path needs materially
+  stronger regression coverage beyond today's analytics-oriented happy-path
+  cases.
 - 2026-03-21: Accepted the next bounded graph-injection follow-up for
   `swarm_run`/autonomy. The carry-forward checkpoint packet is now real, but
   fresh autonomy sessions still start from plain checklist text. The next
@@ -1829,7 +1842,9 @@ Acceptance:
   `## Progress Log`.
 - Next action: keep current-slice decisions and blockers in this file instead
   of chat-only notes, then update this section when the promoted slice
-  changes.
+  changes. The current mapped test-hardening slice is the watchdog coverage
+  tranche; keep it visible until emitter/reducer/failure-path coverage is
+  materially stronger.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

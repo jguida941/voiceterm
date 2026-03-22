@@ -91,6 +91,7 @@ def test_classify_doc_master_plan(tmp_path: Path) -> None:
         repo_root=tmp_path,
         active_docs_root="dev/active",
         guides_root="dev/guides",
+        governed_doc_roots=("dev/active", "dev/guides"),
         index_path="dev/active/INDEX.md",
         tracker_path="MASTER_PLAN.md",
         docs_authority_path="AGENTS.md",
@@ -107,24 +108,25 @@ def test_classify_doc_master_plan(tmp_path: Path) -> None:
     assert result == "tracker"
 
 
-def test_classify_doc_root_index_is_guide(tmp_path: Path) -> None:
-    doc = tmp_path / "DEV_INDEX.md"
-    doc.write_text("# Developer Index\n")
+def test_classify_doc_root_guide_is_guide(tmp_path: Path) -> None:
+    doc = tmp_path / "ROOT_GUIDE.md"
+    doc.write_text("# Root Guide\n")
     layout = GovernedDocLayout(
         repo_root=tmp_path,
         active_docs_root="dev/active",
         guides_root="dev/guides",
+        governed_doc_roots=("dev/active", "dev/guides"),
         index_path="dev/active/INDEX.md",
         tracker_path="dev/active/MASTER_PLAN.md",
         docs_authority_path="AGENTS.md",
         bridge_path="bridge.md",
-        root_files=("DEV_INDEX.md",),
+        root_files=("ROOT_GUIDE.md",),
     )
     result = classify_doc(
         doc,
         doc.read_text(),
         in_active=False,
-        rel="DEV_INDEX.md",
+        rel="ROOT_GUIDE.md",
         layout=layout,
     )
     assert result == "guide"

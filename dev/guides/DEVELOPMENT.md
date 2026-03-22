@@ -400,6 +400,10 @@ Why this model is safe:
 7. CodeRabbit backlog items should carry structured `path` / `line` fields
    whenever the source review data has them; summary-string parsing is only a
    compatibility fallback for older backlog payloads.
+8. If a live AI consumer still needs that fallback, record the seam in the
+   active plan and add the matching detection follow-up (`check_platform_contract_closure.py`
+   expansion, a review probe widening, or both) before copying the same
+   pattern into more routes.
 
 ### Release and quality drift checks
 

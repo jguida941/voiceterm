@@ -41,16 +41,41 @@ Use this rule set:
    progress-log, and audit-evidence state in the canonical plan chain.
 2. If a finding is rejected, deferred, or narrowed, record that decision in
    the canonical plan chain instead of leaving ambiguity here.
-3. Do not point future execution work at `SYSTEM_AUDIT.md` as a shadow
-   roadmap once the canonical docs have been updated.
+3. Do not point future execution work at `dev/guides/SYSTEM_AUDIT.md` as a
+   shadow roadmap once the canonical docs have been updated.
 4. When every accepted actionable item has been integrated or explicitly
-   rejected in canonical docs, retire the repo-root copy of this audit
-   instead of keeping it as a parallel planning surface. The retirement path
-   may archive it or delete the repo-root copy once the canonical docs fully
-   preserve the decisions and required evidence.
+   rejected in canonical docs, retire this audit guide instead of keeping it
+   as a parallel planning surface. The retirement path may archive or delete
+   the guide once the canonical docs fully preserve the decisions and
+   required evidence.
 
 Any stale counts, routing suggestions, or temporary MP mappings inside this
 file are historical once superseded by the canonical plan/docs chain.
+
+### Status Update
+
+Integration status update (2026-03-22): all accepted actionable items from
+this audit are now absorbed into the canonical active-plan chain with
+explicit owner docs instead of only partial prose mapping. This document
+remains reference evidence only and is now integration-complete, pending
+retirement after the current Phase 7 proof/cleanup gate.
+
+| Canonical plan doc | Owner/phase | Audit items absorbed |
+|---|---|---|
+| `dev/active/platform_authority_loop.md` | `MP-377` blocker + startup/memory/runtime-activation closure | `D1-D5`, `S1-S4`, `E1`, `G1`, `A5-A12`, `A22`, `A23` |
+| `dev/active/ai_governance_platform.md` | `MP-377` evidence/feedback + runtime/output/self-governance closure | `A1-A4`, `A13`, `A16-A19`, `A27`, `A29`, `T3`, `T4`, `T5` |
+| `dev/active/portable_code_governance.md` | `MP-376` self-hosting portability/adoption proof before Phase 7 | `A14`, `A20-A26` |
+| `dev/active/review_channel.md` | `MP-355` Phase 1 maintainability closure | `A15`, `T1` |
+| `dev/active/review_probes.md` | `MP-375..MP-376` probe backlog + probe-packet governance history | `A28`, `A30` |
+| `dev/active/autonomous_control_plane.md` | `MP-340` watchdog validation tranche | `T2` |
+
+Narrowed canonical interpretations that preserve the active architecture:
+
+- `A5-A7` land through the canonical `startup-context` / `WorkIntakePacket`
+  family and hot/warm/cold startup receipts rather than a second
+  `bootstrap-context` authority surface.
+- `A12` lands as reuse of the shared `ContextPack` contract plus evidence /
+  memory bridge, not as a parallel session-memory subsystem.
 
 ---
 
@@ -1338,6 +1363,10 @@ In `python_guard_report.py`, after guard results, call `append_jsonl_row(governa
 ---
 
 ## 23. MASTER_PLAN Integration Design
+
+Historical note (2026-03-22): the draft `MP-379..MP-383` split below was not
+adopted. Canonical integration now uses the existing active-plan chain listed
+in `Canonical Integration Status`.
 
 ### 23.1 New MP Items (5)
 

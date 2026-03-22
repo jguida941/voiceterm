@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
 from dev.scripts.devctl.context_graph.builder import build_context_graph
@@ -316,6 +317,33 @@ class TestGraphHonesty(unittest.TestCase):
         ctx = build_bootstrap_context(self.nodes, self.edges)
         self.assertIn("sdlc_policy", ctx.bootstrap_links)
         self.assertIn("execution_state", ctx.bootstrap_links)
+
+    def test_bootstrap_links_follow_policy_context_paths(self) -> None:
+        payload = {
+            "repo_governance": {
+                "surface_generation": {
+                    "context": {
+                        "process_doc": "CONTRIBUTING.md",
+                        "execution_tracker_doc": "docs/plans/MASTER_PLAN.md",
+                        "active_registry_doc": "docs/plans/INDEX.md",
+                    }
+                }
+            }
+        }
+        with patch(
+            "dev.scripts.devctl.context_graph.query.load_repo_policy_payload",
+            return_value=(payload, (), None),
+        ):
+            ctx = build_bootstrap_context(self.nodes, self.edges)
+        self.assertEqual(ctx.bootstrap_links["sdlc_policy"], "CONTRIBUTING.md")
+        self.assertEqual(
+            ctx.bootstrap_links["execution_state"],
+            "docs/plans/MASTER_PLAN.md",
+        )
+        self.assertEqual(
+            ctx.bootstrap_links["plan_registry"],
+            "docs/plans/INDEX.md",
+        )
 
     def test_bootstrap_includes_push_enforcement_state(self) -> None:
         ctx = build_bootstrap_context(self.nodes, self.edges)

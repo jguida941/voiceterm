@@ -17,7 +17,6 @@ except ModuleNotFoundError:
 DEFAULT_DOC_GLOBS = (
     "README.md",
     "QUICK_START.md",
-    "DEV_INDEX.md",
     "guides/*.md",
     "dev/README.md",
     "scripts/README.md",

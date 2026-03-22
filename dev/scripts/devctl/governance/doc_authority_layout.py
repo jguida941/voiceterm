@@ -4,20 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .doc_authority_paths import (
+    is_root_markdown_path,
+    path_in_root,
+    registry_managed as registry_managed_path,
+)
 from .doc_authority_models import GovernedDocLayout
 from .draft import scan_repo_governance
 from .repo_policy import load_repo_governance_section
-
-
-def is_root_markdown_path(relative_path: str) -> bool:
-    return "/" not in relative_path and relative_path.lower().endswith(".md")
-
-
-def path_in_root(relative_path: str, root_path: str) -> bool:
-    if not root_path:
-        return False
-    return relative_path == root_path or relative_path.startswith(f"{root_path}/")
-
 
 def load_governed_doc_layout(
     repo_root: Path,
@@ -40,6 +34,7 @@ def load_governed_doc_layout(
         repo_root=repo_root,
         active_docs_root=governance.path_roots.active_docs,
         guides_root=governance.path_roots.guides,
+        governed_doc_roots=governance.doc_policy.governed_doc_roots,
         index_path=governance.plan_registry.index_path,
         tracker_path=governance.plan_registry.tracker_path,
         docs_authority_path=governance.docs_authority,
@@ -50,18 +45,19 @@ def load_governed_doc_layout(
         repo_root=layout.repo_root,
         active_docs_root=layout.active_docs_root,
         guides_root=layout.guides_root,
+        governed_doc_roots=layout.governed_doc_roots,
         index_path=layout.index_path,
         tracker_path=layout.tracker_path,
         docs_authority_path=layout.docs_authority_path,
         bridge_path=layout.bridge_path,
         root_files=_collect_root_governed_docs(repo_root, layout, policy_path),
     )
-
-
 def registry_managed(relative_path: str, layout: GovernedDocLayout) -> bool:
-    if relative_path == layout.index_path:
-        return False
-    return path_in_root(relative_path, layout.active_docs_root)
+    return registry_managed_path(
+        relative_path,
+        layout.active_docs_root,
+        layout.index_path,
+    )
 
 
 def _collect_root_governed_docs(

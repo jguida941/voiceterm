@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .doc_authority_layout import path_in_root
+from .doc_authority_paths import path_in_root
 from .doc_authority_metadata import parse_metadata_header
 from .doc_authority_models import BUDGET_LIMITS, ROLE_TO_DOC_CLASS, GovernedDocLayout
 
@@ -37,7 +37,7 @@ def classify_doc(
         root_class = _doc_class_from_layout(path, relative, layout)
         if root_class:
             return root_class
-    if "dev/guides/" in path.as_posix():
+    if "guides" in path.parts:
         return "guide"
     if in_active:
         return _active_doc_class(path, text)

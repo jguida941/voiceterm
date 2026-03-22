@@ -92,6 +92,11 @@ def test_scan_repo_governance_with_standard_layout(tmp_path: Path) -> None:
     assert gov.plan_registry.registry_path == "dev/active/INDEX.md"
     assert gov.plan_registry.tracker_path == "dev/active/MASTER_PLAN.md"
     assert gov.plan_registry.index_path == "dev/active/INDEX.md"
+    assert len(gov.plan_registry.entries) == 1
+    assert any(
+        entry.path == "dev/active/MASTER_PLAN.md" and entry.role == "tracker"
+        for entry in gov.plan_registry.entries
+    )
 
     # bridge is active and mode parsed from bridge.md
     assert gov.bridge_config.bridge_active is True
@@ -104,6 +109,20 @@ def test_scan_repo_governance_with_standard_layout(tmp_path: Path) -> None:
 
     # docs_authority is AGENTS.md when file exists
     assert gov.docs_authority == "AGENTS.md"
+    assert gov.doc_policy.docs_authority_path == "AGENTS.md"
+    assert gov.doc_policy.index_path == "dev/active/INDEX.md"
+    assert gov.doc_policy.governed_doc_roots == ("dev/active", "dev/guides")
+    assert "tracker" in gov.doc_policy.allowed_doc_classes
+    assert "## Session Resume" in gov.doc_policy.required_plan_sections
+    assert len(gov.doc_registry.entries) >= 3
+    assert any(
+        entry.path == "AGENTS.md" and entry.doc_class == "guide"
+        for entry in gov.doc_registry.entries
+    )
+    assert any(
+        entry.path == "dev/active/MASTER_PLAN.md" and entry.doc_class == "tracker"
+        for entry in gov.doc_registry.entries
+    )
 
 
 @patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
@@ -111,20 +130,20 @@ def test_scan_repo_governance_policy_fields(tmp_path: Path) -> None:
     policy = {
         "repo_name": "TestRepo",
         "repo_governance": {
-        "push": {
-            "default_remote": "upstream",
-            "development_branch": "develop",
-            "release_branch": "release",
-            "checkpoint": {
-                "max_dirty_paths_before_checkpoint": 8,
-                "max_untracked_paths_before_checkpoint": 4,
+            "push": {
+                "default_remote": "upstream",
+                "development_branch": "develop",
+                "release_branch": "release",
+                "checkpoint": {
+                    "max_dirty_paths_before_checkpoint": 8,
+                    "max_untracked_paths_before_checkpoint": 4,
+                },
             },
-        }
-        },
-        "surface_generation": {
-            "repo_pack_metadata": {
-                "pack_id": "test-pack",
-                "pack_version": "1.0",
+            "surface_generation": {
+                "repo_pack_metadata": {
+                    "pack_id": "test-pack",
+                    "pack_version": "1.0",
+                },
             },
         },
         "ai_guard_overrides": {
@@ -164,6 +183,99 @@ def test_scan_repo_governance_policy_fields(tmp_path: Path) -> None:
 
 
 @patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
+def test_scan_repo_governance_uses_policy_owned_doc_layout(tmp_path: Path) -> None:
+    (tmp_path / "docs" / "plans").mkdir(parents=True)
+    (tmp_path / "docs" / "engineering").mkdir(parents=True)
+    (tmp_path / "tools" / "checks").mkdir(parents=True)
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+
+    (tmp_path / "CONTRIBUTING.md").write_text("# Process\n", encoding="utf-8")
+    (tmp_path / "docs" / "plans" / "INDEX.md").write_text(
+        "# Plan Index\n"
+        "| `docs/plans/MASTER_PLAN.md` | `tracker` | `canonical` | all active execution | always |\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "plans" / "MASTER_PLAN.md").write_text(
+        "# Master Plan\n"
+        "**Status**: active  |  **Last updated**: 2026-03-22 | **Owner:** Team\n"
+        "Execution plan contract: required\n"
+        "## Scope\ntext\n"
+        "## Execution Checklist\n- [ ] item\n"
+        "## Progress Log\n- 2026-03-22: started\n"
+        "## Session Resume\n- next\n"
+        "## Audit Evidence\n- proof\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "engineering" / "DEVELOPMENT.md").write_text(
+        "# Development\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "engineering" / "ARCHITECTURE.md").write_text(
+        "# Architecture\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".github" / "workflows" / "README.md").write_text(
+        "# Workflows\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "live_bridge.md").write_text(
+        "# Bridge\n- Reviewer mode: `active_dual_agent`\n",
+        encoding="utf-8",
+    )
+
+    policy = {
+        "repo_name": "PortableRepo",
+        "repo_governance": {
+            "check_router": {
+                "tooling_markdown_prefixes": ["docs/plans/", "docs/engineering/"],
+            },
+            "push": {
+                "checkpoint": {
+                    "compatibility_projection_paths": ["docs/live_bridge.md"],
+                },
+            },
+            "surface_generation": {
+                "repo_pack_metadata": {
+                    "pack_id": "portable-pack",
+                    "pack_version": "0.2.0",
+                },
+                "context": {
+                    "process_doc": "CONTRIBUTING.md",
+                    "execution_tracker_doc": "docs/plans/MASTER_PLAN.md",
+                    "active_registry_doc": "docs/plans/INDEX.md",
+                    "architecture_doc": "docs/engineering/ARCHITECTURE.md",
+                    "development_doc": "docs/engineering/DEVELOPMENT.md",
+                    "ci_workflows_doc": ".github/workflows/README.md",
+                    "python_tooling": "tools/",
+                    "guard_scripts": "tools/checks/",
+                },
+            },
+        },
+    }
+
+    gov = scan_repo_governance(tmp_path, policy=policy)
+
+    assert gov.docs_authority == "CONTRIBUTING.md"
+    assert gov.plan_registry.index_path == "docs/plans/INDEX.md"
+    assert gov.plan_registry.tracker_path == "docs/plans/MASTER_PLAN.md"
+    assert gov.path_roots.active_docs == "docs/plans"
+    assert gov.path_roots.guides == "docs/engineering"
+    assert gov.path_roots.scripts == "tools"
+    assert gov.path_roots.checks == "tools/checks"
+    assert gov.path_roots.workflows == ".github/workflows"
+    assert gov.bridge_config.bridge_path == "docs/live_bridge.md"
+    assert gov.bridge_config.bridge_mode == "active_dual_agent"
+    assert gov.doc_policy.governed_doc_roots == (
+        "docs/plans",
+        "docs/engineering",
+    )
+    assert any(
+        entry.path == "docs/plans/MASTER_PLAN.md" and entry.doc_class == "tracker"
+        for entry in gov.doc_registry.entries
+    )
+
+
+@patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
 def test_governance_draft_command_quality_policy_passthrough(tmp_path: Path) -> None:
     """M1 regression: --quality-policy must change emitted payload through the real command path."""
     import argparse
@@ -174,10 +286,12 @@ def test_governance_draft_command_quality_policy_passthrough(tmp_path: Path) -> 
         json.dumps({
             "schema_version": 1,
             "repo_name": "CommandOverride",
-            "surface_generation": {
-                "repo_pack_metadata": {
-                    "pack_id": "cmd-override-pack",
-                    "pack_version": "3.3.3",
+            "repo_governance": {
+                "surface_generation": {
+                    "repo_pack_metadata": {
+                        "pack_id": "cmd-override-pack",
+                        "pack_version": "3.3.3",
+                    },
                 },
             },
         }),
@@ -249,6 +363,8 @@ def test_render_governance_draft_markdown(tmp_path: Path) -> None:
     assert "## Repo Pack" in md
     assert "## Path Roots" in md
     assert "## Plan Registry" in md
+    assert "## Doc Policy" in md
+    assert "## Doc Registry" in md
     assert "## Bridge Config" in md
     assert "## Push Enforcement" in md
     assert "checkpoint_required" in md

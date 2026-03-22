@@ -14,14 +14,10 @@ submodules, which is acceptable because this repo currently has no submodules.
 from __future__ import annotations
 
 import argparse
-import ast
 import json
-import re
-import subprocess
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
-from fnmatch import fnmatch
 from pathlib import Path
 from typing import Final
 
@@ -35,6 +31,15 @@ if str(REPO_ROOT) not in sys.path:
 from dev.scripts.checks.architecture_surface_sync.support import (
     extract_cli_command_bindings as _extract_cli_command_bindings,
     app_reference_tokens as _app_reference_tokens,
+    command_module_key as _command_module_key,
+    contains_any_token as _contains_any_token,
+    discover_new_paths as _discover_new_paths,
+    has_run_entrypoint as _has_run_entrypoint,
+    is_allowlisted as _is_allowlisted,
+    normalize_path as _normalize_path,
+    path_matches as _path_matches,
+    reference_tokens as _reference_tokens,
+    workflow_files as _workflow_files,
 )
 
 INDEX_REL: Final[str] = "dev/active/INDEX.md"
@@ -48,7 +53,6 @@ WORKFLOW_README_REL: Final[str] = ".github/workflows/README.md"
 
 DISCOVERY_DOCS: Final[tuple[str, ...]] = (
     "AGENTS.md",
-    "DEV_INDEX.md",
     "dev/README.md",
 )
 CHECK_SCRIPT_SUPPORT_SUFFIXES: Final[tuple[str, ...]] = (
@@ -113,71 +117,6 @@ SURFACE_ZONES: Final[tuple[dict[str, object], ...]] = (
     },
 )
 
-
-def _run_git(repo_root: Path, cmd: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        cmd,
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-
-def _normalize_path(repo_root: Path, raw_path: str | Path) -> Path:
-    path = Path(raw_path)
-    if path.is_absolute():
-        return path.relative_to(repo_root)
-    return path
-
-
-def _discover_new_paths(
-    repo_root: Path,
-    *,
-    since_ref: str | None,
-    head_ref: str,
-) -> tuple[list[Path], list[str]]:
-    errors: list[str] = []
-    candidates: set[Path] = set()
-
-    diff_cmd = ["git", "diff", "--name-only", "--diff-filter=A"]
-    if since_ref:
-        diff_cmd.extend([since_ref, head_ref])
-    else:
-        diff_cmd.append("HEAD")
-    diff_result = _run_git(repo_root, diff_cmd)
-    if diff_result.returncode != 0:
-        errors.append(diff_result.stderr.strip() or "git diff failed")
-    else:
-        for line in diff_result.stdout.splitlines():
-            stripped = line.strip()
-            if stripped:
-                candidates.add(Path(stripped))
-
-    untracked_result = _run_git(
-        repo_root,
-        ["git", "ls-files", "--others", "--exclude-standard"],
-    )
-    if untracked_result.returncode != 0:
-        errors.append(untracked_result.stderr.strip() or "git ls-files failed")
-    else:
-        for line in untracked_result.stdout.splitlines():
-            stripped = line.strip()
-            if stripped:
-                candidates.add(Path(stripped))
-
-    return sorted(candidates), errors
-
-
-def _path_matches(path: Path, patterns: tuple[str, ...]) -> bool:
-    path_text = path.as_posix()
-    return any(fnmatch(path_text, pattern) for pattern in patterns)
-
-
-def _is_allowlisted(path: Path, zone_id: str) -> bool:
-    return _path_matches(path, SURFACE_SYNC_ALLOWLIST.get(zone_id, ()))
-
-
 def _read_text(repo_root: Path, relative_path: str, cache: dict[str, str]) -> str:
     cached = cache.get(relative_path)
     if cached is not None:
@@ -187,14 +126,6 @@ def _read_text(repo_root: Path, relative_path: str, cache: dict[str, str]) -> st
     except OSError:
         cache[relative_path] = ""
     return cache[relative_path]
-
-
-def _workflow_files(repo_root: Path) -> list[Path]:
-    paths: set[Path] = set()
-    for pattern in (".github/workflows/*.yml", ".github/workflows/*.yaml"):
-        paths.update(repo_root.glob(pattern))
-    return sorted(paths)
-
 
 def _violation(
     *,
@@ -211,16 +142,6 @@ def _violation(
         "severity": severity,
         "hint": hint,
     }
-
-
-def _reference_tokens(path: Path) -> tuple[str, ...]:
-    filename = path.name
-    return (path.as_posix(), f"active/{filename}", filename)
-
-
-def _contains_any_token(text: str, tokens: tuple[str, ...]) -> bool:
-    return any(token in text for token in tokens)
-
 
 def _validate_active_plan(
     repo_root: Path,
@@ -268,8 +189,8 @@ def _validate_active_plan(
                 zone="active-plan",
                 rule="missing-discovery-reference",
                 hint=(
-                    f"Link `{path.as_posix()}` from `AGENTS.md`, `DEV_INDEX.md`, "
-                    "or `dev/README.md` so discovery does not rely on chat memory."
+                    f"Link `{path.as_posix()}` from `AGENTS.md` or "
+                    "`dev/README.md` so discovery does not rely on chat memory."
                 ),
             )
         )
@@ -336,16 +257,6 @@ def _validate_check_script(
         )
 
     return violations
-
-
-def _command_module_key(path: Path) -> str:
-    module_path = path.relative_to("dev/scripts/devctl").with_suffix("")
-    return ".".join(module_path.parts)
-
-
-def _has_run_entrypoint(source_text: str) -> bool:
-    return re.search(r"^def\s+run\s*\(", source_text, re.MULTILINE) is not None
-
 
 def _validate_devctl_command(repo_root: Path, path: Path, cache: dict[str, str]) -> list[dict[str, str]]:
     source_text = _read_text(repo_root, path.as_posix(), cache)
@@ -496,7 +407,7 @@ def build_report(
                 continue
             if _path_matches(path, exclude_globs):
                 continue
-            if _is_allowlisted(path, zone_id):
+            if _is_allowlisted(path, zone_id, SURFACE_SYNC_ALLOWLIST):
                 continue
             zone_counts[zone_id] += 1
             checked_paths.add(path.as_posix())

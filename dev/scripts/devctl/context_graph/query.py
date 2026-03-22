@@ -157,10 +157,16 @@ def _load_policy_context(repo_root) -> tuple[dict[str, str], dict[str, str | Non
             label = ""
 
     process_doc = str(surface_ctx.get("process_doc", "AGENTS.md"))
+    execution_tracker = str(
+        surface_ctx.get("execution_tracker_doc", "dev/active/MASTER_PLAN.md")
+    )
+    active_registry = str(
+        surface_ctx.get("active_registry_doc", "dev/active/INDEX.md")
+    )
     links: dict[str, str | None] = {
         "sdlc_policy": process_doc,
-        "execution_state": "dev/active/MASTER_PLAN.md",
-        "plan_registry": "dev/active/INDEX.md",
+        "execution_state": execution_tracker,
+        "plan_registry": active_registry,
     }
     return commands, links
 

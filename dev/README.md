@@ -3,7 +3,6 @@
 Start here when working in the repo.
 This page points you to the right doc based on your task.
 This is the canonical developer index.
-Root shortcut: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 
 ## What This Folder Is For
 

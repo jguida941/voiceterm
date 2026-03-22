@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-03-17 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-03-22 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -149,9 +149,38 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       completeness evidence: flag when a guard family has no tests, when a CI
       workflow never invokes a registered guard, when exception registries are
       incomplete, when workflow timeouts are missing, or when JSONL/evidence
-      writers can silently skip malformed rows, and route those as first-class
-      repo-portable meta-findings instead of assuming the guard stack
-      validates itself.
+      writers can silently skip malformed rows. Start from the current
+      self-hosting baseline explicitly: low direct coverage across
+      command/autonomy subsystems plus most guard/probe families must show up
+      as measured meta-findings, not just audit prose. Route those as
+      first-class repo-portable findings instead of assuming the guard stack
+      validates itself. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 34)
+- [ ] Extract the first shared guard-family base where the current
+      implementation has already converged on one pattern: `GrowthGuard`
+      variants should inherit the same bounded core instead of maintaining
+      parallel near-duplicate implementations, and the extraction should stay
+      repo-pack-neutral so self-hosting proves the portability claim before
+      Phase 7 adoption expands. Owner/phase: `MP-376` self-hosting engine
+      cleanup tranche before broader Phase 7 proof. (audit mapping:
+      `SYSTEM_AUDIT.md` A14)
+- [ ] Add a repo-organization governance/report surface on top of
+      `package_layout` + `doc-authority`: root markdown/file-count budgets,
+      governed-doc metadata/registry coverage, zero-byte/orphan file
+      detection, and wrong-hierarchy placement should be portable
+      policy-backed checks instead of repo-local cleanup lore. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 29)
+- [ ] Use that same organization contract to keep burning down the crowded
+      `dev/scripts/devctl` flat root (currently ~80 top-level files) into real
+      feature namespaces and freeze further flat-family growth so self-hosting
+      proves the adoption contract before more external rollouts. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 40)
+- [ ] Finish the workflow-portability cleanup tranche behind that same
+      adoption contract: split the overloaded tooling-control-plane workflow
+      into smaller policy-owned lanes and extract one shared Rust/ALSA setup
+      composite action so portable repos do not inherit VoiceTerm-specific CI
+      sprawl as the default. Owner/phase: `MP-376` workflow-portability
+      cleanup before Phase 7 cross-repo proof. (audit mapping:
+      `SYSTEM_AUDIT.md` A20, A21)
 - [ ] Promote repo understanding into a portable evidence contract: define a
       versioned `map` schema that combines topology, complexity, hotspots,
       changed scope, and guard/probe overlays with machine-readable targeted-
@@ -196,6 +225,12 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       still safe to keep editing versus when the agent must checkpoint before
       adding more changes. That decision must come from repo-pack policy
       thresholds plus current worktree counts, not from model-local judgment.
+- [ ] Make tandem/review infrastructure opt-in and explicit for adopters:
+      portable presets and starter policies should keep `check --profile quick`
+      green without `bridge.md` until a repo explicitly enables tandem /
+      review-channel enforcement, and bootstrap/setup surfaces must say when
+      that infrastructure becomes required. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 41)
 - [ ] Add a portable work-intake / startup-authority layer on top of that map
       and policy stack: another repo should be able to ask "what is active,
       what changed, what bundle should run, and where should accepted outcomes
@@ -230,12 +265,19 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       right-file selection, right-test selection, retry count, and
       false-confidence rate so graph-backed startup/context claims are measured
       rather than assumed.
-      from arbitrary nearby code.
 - [ ] Keep startup context bounded and task-scoped for adopters: another repo
       should not need to read tens of thousands of tokens of global docs just
       to start safely. Add a minimal generated startup surface per task type
       and a filtered probe/convention view so adoption/bootstrap remains
       practical outside this repo's full maintainer context.
+- [ ] Add a portable developer-discovery and delta-check surface on top of
+      that same startup/routing contract: ship `devctl guard-explain <name>`,
+      `devctl which-tests <path>`, descriptions in `devctl list`, per-check
+      status/timing in `devctl check` output, and a user-facing incremental
+      check surface (`check-delta` or equivalent routed dry-run/apply path) so
+      maintainers can discover the right guard, the right tests, and the exact
+      impacted verification slice without reading source or running the full
+      repo bundle blind. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 44)
 - [ ] Add a repo-portable governance-contract draft flow for adopters:
       `governance-draft` should scan languages, source/test roots, CI shape,
       import topology, architecture hints, and current quality baselines to
@@ -246,6 +288,13 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       a later `governance-init`, and adoption scans should suggest contract
       updates when repo structure drifts instead of letting starter docs rot
       silently.
+- [ ] Close the remaining adopter-productization proof before broader Phase 7
+      claims: ship the installable governance entrypoint plus the reviewed
+      `governance-init` bootstrap path, then require a second-repo /
+      no-core-engine-patches proof as the portability bar instead of treating
+      export/bootstrap-only use as sufficient. Owner/phase: `MP-376`
+      adoption/productization tranche before broader rollout. (audit mapping:
+      `SYSTEM_AUDIT.md` A24, A25, A26)
 - [ ] Make that startup-authority layer cache-first instead of re-scan-first:
       expensive repo-intelligence work should materialize durable artifacts
       (`plan snapshot`, `command map`, `convention snapshot`, `map snapshot`,
@@ -335,6 +384,33 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-22: Integrated `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 44 into the
+  portable-engine lane. The portable startup/discoverability contract now
+  explicitly owns `guard-explain`, `which-tests`, described `devctl list`
+  output, per-check status/timing, and an incremental check surface instead of
+  leaving those operator-facing gaps in reference-only evidence.
+- 2026-03-22: Filled the remaining audit-owned adoption/productization gap in
+  the portable plan. Beyond self-hosting engine cleanup, the canonical
+  portability proof now explicitly includes installable-entrypoint /
+  `governance-init` work plus the same second-repo/no-core-patches adoption
+  bar the audit called out as `A24-A26`.
+- 2026-03-22: Finished the remaining `SYSTEM_AUDIT.md` mapping for the
+  portable-engine lane instead of leaving structural/workflow cleanup in the
+  audit guide. Canonical portable ownership is now explicit: `A14` is the
+  self-hosting guard-family extraction tranche, while `A20`/`A21` stay in the
+  workflow-portability lane that must land before broader Phase 7 adoption
+  proof.
+- 2026-03-22: Integrated the root evidence intake into the portable-engine
+  lane and corrected the stale parts before promoting them into tracked work.
+  The adoption/layout problem is real, but the precise 2026-03-22 self-hosting
+  read is narrower: portable presets do not currently force tandem validation,
+  `package_layout` and docs-governance already enforce part of the
+  organization contract, and the live `dev/scripts/devctl` flat root is now
+  roughly eighty files rather than the older `79` shorthand. The promoted
+  follow-up is therefore explicit portable coverage/meta-governance,
+  portable repo-organization checks beyond today's partial coverage, tandem
+  opt-in/setup clarity for adopters, and continued flat-root burn-down behind
+  the same policy-backed organization contract.
 - 2026-03-21: Added the missing language-aware execution optimization to the
   portable-engine backlog. The current policy/preset stack already knows which
   guard families are language-specific, but the plan had not yet recorded the
@@ -977,6 +1053,23 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Session Resume
 
+- 2026-03-22 evidence follow-up: Part 44 is now explicitly tracked here.
+  The next portable implementation slice should improve operator discovery and
+  delta-aware validation with `guard-explain`, `which-tests`, described
+  `devctl list` output, per-check status/timing, and an incremental check
+  command/path instead of requiring source-diving for common guard/test
+  questions.
+- 2026-03-22 follow-up: the remaining `SYSTEM_AUDIT.md` portable-engine items
+  are now mapped here. Next implementation under this doc is not another audit
+  pass; it is the actual `GrowthGuard` extraction plus workflow-lane/composite-
+  action cleanup behind the current Phase 7 adoption gate.
+- The same mapping pass now makes the adopter-productization bar explicit too:
+  installable entrypoint + reviewed `governance-init` + second-repo proof are
+  tracked here, not left as audit-only portability advice.
+- 2026-03-22 intake narrowed the next self-hosting/adoption slice to four
+  concrete gaps: governance-completeness evidence, portable repo-organization
+  enforcement, tandem/review opt-in clarity, and continued
+  `dev/scripts/devctl` flat-root grouping under the same contract.
 - Keep the corrected 2026-03-14 `/tmp/governance-pilots/ci-cd-hub` benchmark
   distinct from the 2026-03-17 rerun against the pinned
   `integrations/ci-cd-hub` federated checkout; today's local-path proof uses

@@ -17,7 +17,6 @@ DEFAULT_HEAD_REF = "HEAD"
 EXPORT_SOURCE_PATHS = (
     ".github/workflows",
     "AGENTS.md",
-    "DEV_INDEX.md",
     "dev/README.md",
     "dev/active",
     "dev/config",

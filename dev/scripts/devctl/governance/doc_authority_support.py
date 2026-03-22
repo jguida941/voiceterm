@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .doc_authority_layout import load_governed_doc_layout, path_in_root, registry_managed
+from .doc_authority_paths import path_in_root, registry_managed as registry_managed_path
 from .doc_authority_metadata import lifecycle_from_meta, parse_metadata_header
 from .doc_authority_models import PLAN_DOC_CLASSES, REQUIRED_SECTIONS, DocRecord, GovernedDocLayout
 from .doc_authority_rules import (
@@ -24,34 +24,41 @@ def scan_governed_docs(
     policy_path: str | Path | None = None,
 ) -> list[DocRecord]:
     """Scan governed markdown files and build DocRecord instances."""
+    from .doc_authority_layout import load_governed_doc_layout
+
     layout = load_governed_doc_layout(repo_root, policy_path=policy_path)
+    return scan_governed_docs_for_layout(repo_root, layout)
+
+
+def scan_governed_docs_for_layout(
+    repo_root: Path,
+    layout: GovernedDocLayout,
+) -> list[DocRecord]:
+    """Scan governed markdown files using an already-resolved layout."""
     index_path = repo_root / layout.index_path
     registry = parse_index_registry(index_path)
     records: list[DocRecord] = []
     seen: set[str] = set()
 
-    for relative_root, is_active in (
-        (layout.active_docs_root, True),
-        (layout.guides_root, False),
-    ):
+    for relative_root in _scan_roots(layout):
         if not relative_root:
             continue
         scan_dir = repo_root / relative_root
         if not scan_dir.is_dir():
             continue
-        for md_file in sorted(scan_dir.glob("*.md")):
+        for md_file in sorted(scan_dir.rglob("*.md")):
             rel = md_file.relative_to(repo_root).as_posix()
             if rel in seen:
                 continue
             seen.add(rel)
-            records.append(_build_record(md_file, rel, registry, layout, is_active))
+            records.append(_build_record(md_file, rel, registry, layout))
 
     for root_file in layout.root_files:
         full_path = repo_root / root_file
         if not full_path.is_file() or root_file in seen:
             continue
         seen.add(root_file)
-        records.append(_build_record(full_path, root_file, registry, layout, False))
+        records.append(_build_record(full_path, root_file, registry, layout))
 
     return records
 
@@ -61,7 +68,6 @@ def _build_record(
     rel: str,
     registry: dict[str, dict[str, str]],
     layout: GovernedDocLayout,
-    is_active: bool,
 ) -> DocRecord:
     text = md_file.read_text(encoding="utf-8", errors="replace")
     line_count = text.count("\n") + 1
@@ -70,7 +76,7 @@ def _build_record(
     doc_class = classify_doc(
         md_file,
         text,
-        is_active,
+        path_in_root(rel, layout.active_docs_root),
         rel=rel,
         reg_entry=reg_entry,
         layout=layout,
@@ -82,7 +88,7 @@ def _build_record(
         else ()
     )
     lifecycle = lifecycle_from_meta(meta)
-    managed = registry_managed(rel, layout)
+    managed = registry_managed_path(rel, layout.active_docs_root, layout.index_path)
     in_index = reg_entry is not None
     return DocRecord(
         path=rel,
@@ -116,6 +122,20 @@ def _build_record(
             layout=layout,
         ),
     )
+
+
+def _scan_roots(layout: GovernedDocLayout) -> tuple[str, ...]:
+    roots: list[str] = []
+    for candidate in (
+        *layout.governed_doc_roots,
+        layout.active_docs_root,
+        layout.guides_root,
+    ):
+        normalized = candidate.strip().rstrip("/")
+        if not normalized or normalized in roots:
+            continue
+        roots.append(normalized)
+    return tuple(roots)
 
 
 def _collect_record_issues(
