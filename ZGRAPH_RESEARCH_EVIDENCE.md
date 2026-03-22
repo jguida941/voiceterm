@@ -1210,3 +1210,219 @@ enforcement. CI blocker.
 | **Final sweep patterns** | **12 new patterns** | **CQRS/bridge/shim** | **Architectural seams** |
 | **Cross-platform flow** | **iOS + console** | **Artifact provenance** | **Unified data graph** |
 | **Total** | **150+ points** | **100+ Z-ref types** | **Complete system coverage** |
+
+---
+
+## AF. Repo Organization Audit — Critical Cleanup Needed
+
+### Root Directory Overcrowding
+
+- **10 markdown files at root** (industry standard: 2-4)
+- **5 empty cvelist files** (0 bytes each, orphaned)
+- **DEV_INDEX.md** is a pointless shim ("see dev/README.md instead")
+- **1,151 total .md files** across the entire repo
+- **260 MB** in dev/repo_example_temp/ (research dump, gitignored but present)
+
+### Files That Should Move
+
+| File | Current | Should Be | Reason |
+|------|---------|-----------|--------|
+| SYSTEM_AUDIT.md (97KB) | root | dev/guides/ or docs/reference/ | Not user-facing |
+| SYSTEM_FLOWCHART.md (86KB) | root | dev/guides/ or docs/reference/ | Not user-facing |
+| ZGRAPH_RESEARCH_EVIDENCE.md (50KB) | root | dev/guides/ or docs/reference/ | Research artifact |
+| GUARD_AUDIT_FINDINGS.md (10KB) | root | dev/guides/ or docs/reference/ | Audit artifact |
+| DEV_INDEX.md (2KB) | root | DELETE | Shim redirect |
+| cvelist* (5 files, 0 bytes) | root | DELETE | Empty orphans |
+
+### What Should Stay at Root
+
+- README.md, QUICK_START.md (user entry points)
+- AGENTS.md (AI agent standard — industry convention)
+- CLAUDE.md (AI bootstrap — generated, gitignored option)
+- bridge.md (live review state — operational necessity)
+- Makefile, config files (.gitignore, mypy.ini, etc.)
+
+### Industry Standard Root Structure
+
+Best-organized open source projects (tokio, pytest, ruff) keep root to:
+README, CONTRIBUTING, LICENSE, CHANGELOG, SECURITY, CODE_OF_CONDUCT,
+AGENTS.md. All other docs go in docs/ or dev/guides/.
+
+---
+
+## AG. Portability Audit — Score: 3-4/10
+
+### The system is architecturally portable but NOT actually portable.
+
+**What Works**:
+- RepoPathConfig abstraction exists (set_active_path_config() defined)
+- Bootstrap policy generator exists (governance-bootstrap command)
+- Quality presets exist for Python-only and Rust-only repos
+- Guards are configurable via repo policy JSON
+
+**What Breaks**:
+
+1. **Module-level path freezing** (CRITICAL): 53 references to
+   active_path_config() called at import time, freezing VoiceTerm defaults
+   before custom config can load. Late-binding impossible.
+
+2. **set_active_path_config() never called** (CRITICAL): The portability
+   escape hatch exists but has zero callers. Dead API.
+
+3. **425 references to "voiceterm"** across 111 Python files. Core subsystems
+   assume operator console, autonomy system, iOS relay, daemon contracts exist.
+
+4. **Bootstrap is incomplete**: governance-bootstrap generates minimal starter
+   policy — no review-channel, no governance, no platform-contracts sections.
+
+5. **Check router hardcoded**: RELEASE_EXACT_PATHS references Cargo.toml,
+   VoiceTerm.app plist. RISK_ADDONS reference overlay/hud, wake-word.
+
+6. **Workflow presets hardcoded**: voiceterm.py lines 210-261 have 5
+   VoiceTerm-specific presets with hardcoded MP scopes (MP-338, MP-355, etc.)
+
+7. **Portable presets too minimal**: portable_python.json is 1.4K vs
+   voiceterm.json at 11.3K. Missing governance/autonomy/platform sections.
+
+### To Achieve True Portability (6-7 weeks estimated)
+
+**Tier 1**: Defer path freezing from module-import to first-use (lazy eval);
+expand bootstrap to generate complete policies; add `devctl init` with
+interactive setup; document onboarding flow.
+
+**Tier 2**: Make review-channel optional; stub operator-console; make autonomy
+opt-in; move VoiceTerm workflows to voiceterm.json only; create portable
+presets for governance-only, ci-only, release-only.
+
+**Tier 3**: Test bootstrap on 3 real repos (Django, Go, Node); create
+reference portings; document per-language lessons.
+
+---
+
+## AH. Markdown Format Consistency Audit
+
+### Good news: execution-plan format is well-enforced.
+
+**PLAN_FORMAT.md** defines canonical format:
+- Metadata: `**Status**: X | **Last updated**: YYYY-MM-DD | **Owner:** Y`
+- Marker: `Execution plan contract: required`
+- Required sections: Scope, Execution Checklist, Progress Log, Session Resume,
+  Audit Evidence
+
+**17/17 execution-plan docs** in dev/active/ are COMPLIANT.
+**Guards enforce this**: check_markdown_metadata_header.py +
+check_active_plan_sync.py both active in CI.
+
+### Bad news: everything else is inconsistent.
+
+| Category | Total | With Metadata | Issue |
+|----------|-------|--------------|-------|
+| dev/active/ execution-plans | 17 | 17 | COMPLIANT |
+| dev/active/ reference docs | 10 | 5 | 5 missing metadata |
+| dev/guides/ | 13 | 1 | 12 missing metadata |
+| Root non-user-facing | 6 | 0 | All missing metadata |
+| dev/history/ | 2 | 1 | 1 non-canonical format |
+
+**Guide docs are the worst**: 12 of 13 files in dev/guides/ have NO metadata
+headers (no Status, no Last Updated, no Owner). These are substantial
+architecture documents (DEVELOPMENT.md, ARCHITECTURE.md, etc.) that should
+have maintenance metadata.
+
+### For Universal System
+
+The guard + registry system is already portable:
+- check_markdown_metadata_header.py works on any directory
+- INDEX.md format is language-agnostic
+- PLAN_FORMAT.md template is repo-agnostic
+
+What's missing:
+- dev/config/markdown_format_policy.json (configurable status enums, required
+  fields, excluded paths)
+- Guide docs need metadata headers added
+- Root architectural docs need metadata headers added
+
+---
+
+## AI. Industry Standards for Universal Repo Systems
+
+### Key Standards Identified
+
+**Documentation as Code**:
+- Antora (AsciiDoc) and MkDocs Material (Markdown) are leading multi-repo
+  doc platforms
+- YAML frontmatter is the standard for machine-readable markdown (30-40%
+  higher LLM extraction accuracy vs buried prose)
+- MarkdownDB turns markdown into queryable SQLite
+
+**ADR Format**:
+- MADR (Markdown Architectural Decision Records) is the dominant standard
+- Decision Reasoning Format (DRF) adds YAML/JSON for automated validation
+- Decision Guardian auto-surfaces ADRs on relevant PRs
+
+**Markdown Linting**:
+- markdownlint (53 rules, structural)
+- Vale (custom YAML rules, prose quality — used by Grafana, Datadog, Elastic)
+- Combined in CI for full quality enforcement
+
+**AI Agent Standard**:
+- AGENTS.md is the 2025-2026 universal standard (Linux Foundation backed)
+- Supported by Claude Code, Codex, Cursor, Copilot, Jules, Gemini CLI
+- Nested AGENTS.md in subdirectories for package-specific rules
+
+**Repo Health Scoring**:
+- CHAOSS (Linux Foundation): 80+ metrics for community health
+- OpenSSF Scorecard: 18 automated security checks, 0-10 scores
+- Both integrate into CI
+
+### What This Means for Our System
+
+The codex-voice governance system has STRONGER enforcement than most of these
+standards (64 guards > markdownlint's 53 rules). But it lacks:
+
+1. **YAML frontmatter on all docs** (standard for machine consumption)
+2. **ADR format for decisions** (decisions are in plan docs, not standalone ADRs)
+3. **Markdown lint integration** (no markdownlint or Vale in CI)
+4. **Health scoring** (no OpenSSF Scorecard integration)
+5. **Interactive onboarding** (no `devctl init` for new repos)
+6. **Template repo skeleton** (no minimal example for new repos)
+
+---
+
+## AJ. Organizational Debt Inventory
+
+### Actual debt is LOW (2-3/10) — the repo is cleaner than it feels.
+
+**Properly governed**:
+- Shims tracked with expiry dates (2026-06-30) and CI-enforced
+- Legacy code documented (legacy_ui.rs serves test harness)
+- Test files properly exempt from size limits
+- .gitignore comprehensive (3,394 .pyc files excluded, 334MB venv excluded)
+- No try/except ImportError shims in production code
+
+**Actual cleanup items**:
+
+| Priority | Item | Action | Effort |
+|----------|------|--------|--------|
+| P1 | 5 empty cvelist files at root | Delete | 1 min |
+| P1 | DEV_INDEX.md shim | Delete | 1 min |
+| P2 | Root architectural docs | Move to dev/guides/ | 30 min |
+| P2 | Guide docs missing metadata | Add headers to 12 files | 1 hour |
+| P3 | Monitor shim expiry 2026-06-30 | Calendar reminder | 5 min |
+| P3 | Verify repo_example_temp usefulness | Annual review | 30 min |
+
+### The Real Problem Isn't Debt — It's Perception
+
+The repo FEELS disorganized because:
+1. 10 .md files at root (should be 4-5)
+2. Docs split across root/, guides/, dev/guides/, dev/active/ (4 places)
+3. No root-level docs/index.md navigation page
+4. Massive files (bridge.md 319KB, AGENTS.md 116KB) dominate root
+
+But the CODE is well-organized:
+- Guards enforce function length, duplication, nesting, imports
+- Platform contracts enforce schema consistency
+- Shims have expiry dates
+- Tests are comprehensive (1,867 tests, 191 files)
+
+**The fix is surface-level**: move files, add metadata, create navigation.
+Not architectural — cosmetic.
