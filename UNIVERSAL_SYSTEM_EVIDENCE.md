@@ -1147,6 +1147,118 @@ A new adopter doesn't know what "launch truth" or "bridge state" means.
 
 ---
 
+---
+
+## Part 42: AI Gets ZERO Data From 6 Major Report Sources
+
+### Every prompt builder uses only static graph data or backlog items.
+### NONE read dynamic quality/failure/governance data.
+
+| Data Source | Written By | AI Sees It? | Contains |
+|-------------|-----------|-------------|----------|
+| review_packet.json | probe-report | **NEVER** | Hotspots, severity, priority scores, ai_instruction, connected files |
+| review_summary.json | governance-review | **NEVER** | Cleanup rates, FP rates, verdict stats |
+| finding_reviews.jsonl | governance-review | **NEVER** | 110 verdicts with notes, cleanup history |
+| watchdog episodes | guard-run | **NEVER** | Retry counts, escaped findings, time-to-green |
+| data_science summary | data-science | **NEVER** | Command success rates, execution stats |
+| orchestrate-watch-end | orchestrate | **NEVER** | Queue status, agent states |
+
+**All 6 prompt builders** (bootstrap, conductor, swarm, Ralph, loop packet,
+escalation) use ONLY the context-graph escalation module, which returns a
+bounded ~1200 char packet of matched node labels. None read the rich
+operational data in dev/reports/.
+
+**Impact:** AI makes fix decisions without knowing: which files are hottest
+(review_packet), which guards have high FP rates (finding_reviews), what
+failed in prior rounds (episodes), or which commands are reliable
+(data_science). All this data EXISTS and is FRESH — just not routed.
+
+---
+
+## Part 43: ZGraph Is 13% Connected (20 of 150+ Planned Features)
+
+### The graph infrastructure exists but is used ONLY for discovery, not decisions.
+
+**What's built (7 node types, 5 edge types):**
+- Source files, plans, guards, probes, commands, guides, concepts
+- Imports, routes_to, documented_by, contains, related_to
+
+**What's defined but DEAD CODE (2 edge types):**
+- EDGE_KIND_GUARDS — would represent "this guard checks this file" — NEVER CREATED
+- EDGE_KIND_SCOPED_BY — would represent "scoped by this plan" — NEVER CREATED
+
+**What's MISSING entirely:**
+- Test nodes (1098 tests not in graph)
+- Workflow nodes (30 CI workflows not in graph)
+- Config nodes (policy files not in graph)
+- Contract/schema nodes (platform contracts not in graph)
+- Finding/evidence nodes (probe output not in graph)
+
+**Who USES the graph (6 consumers, all escalation-only):**
+- review_channel/event_projection_context.py → escalation only
+- review_channel/promotion.py → escalation only
+- autonomy/run_helpers.py → escalation only
+- commands/packets/loop_packet_context.py → escalation only
+- commands/loop_packet_helpers.py → escalation only
+- coderabbit/ralph_ai_fix.py → escalation only
+
+**Who SHOULD use the graph but DOESN'T:**
+- Autonomy system (0 graph usage — doesn't ask "what's related?")
+- Startup context (0 graph usage — reads git diff, not graph)
+- Guards (0 graph usage — 64 independent checkers, no shared context)
+- Probes (0 graph usage — flat output, not prioritized by temperature)
+- Operator console (0 graph usage — reads flat JSON reports)
+- Review-channel core (escalation only, no routing decisions)
+
+**Plans describe:** "typed relation families, staged query filtering,
+bounded multi-hop inference, deterministic context router for
+command goal + changed scope"
+
+**Reality:** 1-hop substring matching, escalation packets only, no
+decision routing, no guard skip logic, no temperature-driven prioritization.
+
+**Connectivity score: ~13%** (20 of 150+ planned integration points)
+
+---
+
+## Part 44: Developer Experience — Information Exists But Isn't Accessible
+
+### 5 critical developer-facing gaps.
+
+**1. No `devctl guard-explain <name>` command**
+When check fails, developer must read Python source + policy config to
+understand why. No quick reference for "what does this guard enforce and
+how do I fix my violation?" Slows first violation by 30-60 minutes.
+
+**2. No `devctl which-tests <file>` command**
+Developer can't answer "what tests should I run after editing foo.py?"
+Must manually grep test directories. Context-graph has import edges but
+doesn't surface test→source mapping.
+
+**3. `devctl list` shows 81 commands with ZERO descriptions**
+Most powerful commands (context-graph, platform-contracts, governance-draft)
+are invisible. No categorization, no "recommended for common tasks" section.
+
+**4. Check output shows "passed: 6, failed: 1" but NOT which checks passed**
+No per-check status line, no timing per guard. Developer can't identify
+slow guards or see incremental progress.
+
+**5. No incremental check command**
+No `devctl check-delta` that runs only guards affected by changed files.
+check-router does this internally but doesn't expose "what would be checked"
+as user-facing output.
+
+### What developers DON'T know exists (but should)
+- `context-graph --query <file>` — shows all plans, guards, imports for a file
+- `probe-report --format md` — has the BEST remediation guidance in the system
+- `quality-policy --format md` — reveals all active guards and probes
+- `platform-contracts --format md` — shows the shared platform blueprint
+- `check-router --dry-run` — shows exactly what will run before it runs
+
+The information EXISTS. It's just not DISCOVERABLE.
+
+---
+
 ## Authority Rule (Repeated)
 
 This file is reference-only. Canonical execution authority remains:
