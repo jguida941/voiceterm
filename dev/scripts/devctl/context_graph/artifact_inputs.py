@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ARTIFACT_INPUT_MAX_AGE = timedelta(hours=6)
@@ -166,9 +166,9 @@ def _parse_generated_at(value: object) -> datetime | None:
     except ValueError:
         return None
     if generated_at.tzinfo is None:
-        return generated_at.replace(tzinfo=UTC)
-    return generated_at.astimezone(UTC)
+        return generated_at.replace(tzinfo=timezone.utc)
+    return generated_at.astimezone(timezone.utc)
 
 
 def _artifact_is_stale(generated_at: datetime) -> bool:
-    return datetime.now(UTC) - generated_at > ARTIFACT_INPUT_MAX_AGE
+    return datetime.now(timezone.utc) - generated_at > ARTIFACT_INPUT_MAX_AGE

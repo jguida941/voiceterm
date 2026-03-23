@@ -23,17 +23,31 @@ gitignored).
 - `decision_mode` gates action: `auto_apply` means fix directly,
   `approval_required` means explain and wait, and `recommend_only` means
   suggest without mutating.
-- Record adjudicated outcomes with `python3 dev/scripts/devctl.py governance-review --record ...`; add `--guidance-id ... --guidance-followed true|false` when guided remediation was involved.
-- `startup-context` and other shared context packets may already include
-  recent finding verdicts, quality recommendations, watchdog digests, and
-  command-reliability summaries. Prefer those packet fields over ad hoc raw-
-  ledger reads when they are present.
+- Record adjudicated outcomes with `python3 dev/scripts/devctl.py governance-review --record --signal-type probe|guard|audit --check-id <id> --verdict <verdict> --path <repo-path> --finding-class <class> --recurrence-risk <risk> --prevention-surface <surface> --format md`; add `--guidance-id ... --guidance-followed true|false` when guided remediation was involved.
+- `startup-context` currently carries governance, reviewer gate, and advisory
+  action/reason. `context-graph --mode bootstrap` and escalation packets may
+  additionally carry recent probe/governance/watchdog/reliability summaries
+  when those artifacts exist. Prefer actual packet fields over assumptions.
 - `context-graph --mode bootstrap` auto-saves a `ContextGraphSnapshot` under
   `dev/reports/graph_snapshots/`; use `--save-snapshot` on other
-  `context-graph` modes when a slice needs a durable baseline.
+  `context-graph` modes when a slice needs a durable baseline, and use
+  `python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md`
+  when the slice needs a typed delta over saved snapshots.
 - For "which tool should I run now?", use `{{development_doc}}` (`What checks
   protect us`, `After file edits`) and the command table in
   `{{scripts_readme_doc}}` before inventing a narrower workflow.
+
+## Task Router Quick Map
+
+Canonical task-router authority lives in
+`dev/scripts/devctl/governance/task_router_contract.py`. This quick map is
+rendered from that typed router.
+
+{{task_router_block}}
+
+- If the touched scope is mixed or unclear, run
+  `python3 dev/scripts/devctl.py check-router --format md` before narrowing
+  the lane yourself.
 
 ## Mode-aware review-channel bootstrap
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..common import build_env
@@ -47,7 +47,7 @@ def build_report_and_emit(ctx: CheckContext) -> int:
     success = all(step["returncode"] == 0 for step in ctx.steps)
     report = {
         "command": "check",
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "success": success,
         "steps": ctx.steps,
     }

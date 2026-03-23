@@ -216,7 +216,7 @@ repo-backed review preflight is green.
 python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md
 ```
 
-4. Refresh stale live bundles or bridge state before retrying `Start Swarm` or
+1. Refresh stale live bundles or bridge state before retrying `Start Swarm` or
    `Launch Live`.
 
 ## Mobile App Issues

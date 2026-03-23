@@ -73,6 +73,10 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add `check_bootstrap.py` guard verifying `CLAUDE.md` bootstrap instructions
   stay current.
 - Consolidate `time_utils.py` with canonical `utc_timestamp()` helper.
+- Render the bootstrap task-router quick map from typed governance authority,
+  derive `CLAUDE.md` guard-limit guidance from live code-shape policy, fix
+  Python 3.10 failure-packet timezone compatibility, and refresh the
+  troubleshooting guidance for stale bridge/live-bundle recovery.
 
 ### Operator Console
 

@@ -3763,6 +3763,14 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-03-23 Part-53 hardening follow-up: the live `ContextGraphDelta`
+  path is no longer relying on unstable host metadata. Snapshot selection now
+  orders `latest` / `previous` by embedded capture time instead of filesystem
+  `mtime`, direct-path trend scans ignore non-snapshot sibling JSON instead of
+  crashing on mixed directories, and delta/trend anchors normalize snapshot
+  refs to portable store-relative paths when the artifacts live under the
+  canonical snapshot root. The next graph work should widen capture/consumer
+  coverage, not reopen this correctness seam.
 - 2026-03-22 implementation follow-up: `governance-review --record` now emits
   a typed `FindingReview` v2 row for new adjudications and requires bounded
   architectural-disposition fields (`finding_class`, `recurrence_risk`,
@@ -4491,6 +4499,29 @@ Execution order for this section:
   and reports a rolling trend summary over recent snapshots. That turns the
   saved graph baselines into live drift answers without creating a parallel
   temporal-analysis tool.
+- 2026-03-23: Hardened that same Part-53 diff/trend slice after live review
+  found two correctness gaps and one portability gap. Snapshot resolution now
+  orders artifacts by capture-time metadata rather than filesystem `mtime`,
+  direct-path trend scans skip sibling JSON files that are not real
+  `ContextGraphSnapshot` artifacts, and `ContextGraphDelta` anchor/trend paths
+  now normalize to portable snapshot-store-relative refs instead of leaking
+  machine-local absolute paths. Focused regression coverage now proves the
+  mtime-skew case, mixed-directory direct-path case, and normalized path
+  output.
+- 2026-03-23: Closed the next `MP-377` startup-surface intake gap after a
+  focused review found that the platform was generating governance data
+  faster than session-start surfaces could consume it. Repo-pack surface
+  generation now derives the AI bootstrap steps, key command block, and
+  blocking post-edit checklist from typed router/guard authority instead of
+  stale policy strings, the generated `CLAUDE.md` surface now names concrete
+  `probe-report`, `governance-review --record`, `context-graph --mode diff`,
+  and `review-channel` wait/checkpoint/ensure syntax, and the slim
+  `context-graph --mode bootstrap` packet now folds bounded probe summary,
+  governance-review stats, hotspot guidance, watchdog metrics, and command
+  reliability into one startup read. Remaining closure is still to promote
+  the same richer evidence family into canonical `startup-context` /
+  `WorkIntakePacket` authority so bootstrap helper surfaces stop carrying
+  information that the intake packet does not.
 - 2026-03-22: Completed the remaining whole-audit mapping into the canonical
   platform chain instead of leaving `A1-A12`, `A22-A30`, and `D/S/E/G`
   partially implied. `platform_authority_loop.md` now carries the blocker +

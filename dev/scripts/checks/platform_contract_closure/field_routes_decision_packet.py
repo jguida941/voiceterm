@@ -98,13 +98,13 @@ def check_decision_packet_mode_ralph_route() -> tuple[dict[str, object], dict[st
 
 def check_decision_packet_mode_autonomy_route() -> tuple[dict[str, object], dict[str, object] | None]:
     """Verify DecisionPacket.decision_mode reaches the autonomy loop packet."""
-    from datetime import UTC, datetime
+    from datetime import datetime, timezone
 
     from dev.scripts.devctl.commands import loop_packet
 
     source_payload = {
         "command": "triage-loop",
-        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "branch": "develop",
         "reason": "resolved",
         "unresolved_count": 0,

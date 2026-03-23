@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from dataclasses import asdict
@@ -18,6 +19,10 @@ from dev.scripts.devctl.context_graph.snapshot import (
     ContextGraphSnapshotCapture,
     ContextGraphSnapshotReceipt,
     write_context_graph_snapshot,
+)
+from dev.scripts.devctl.context_graph.snapshot_store import (
+    list_context_graph_snapshots,
+    resolve_context_graph_snapshot_ref,
 )
 
 
@@ -91,6 +96,53 @@ class TestContextGraphSnapshotWriter(unittest.TestCase):
             self.assertEqual(
                 payload["temperature_distribution"]["buckets"]["0.75-1.00"],
                 1,
+            )
+
+    def test_snapshot_resolution_uses_capture_time_not_filesystem_mtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            first_receipt = write_context_graph_snapshot(
+                _sample_nodes(),
+                _sample_edges(),
+                capture=ContextGraphSnapshotCapture(
+                    source_mode="bootstrap",
+                    repo_root=repo_root,
+                    branch="feature/test",
+                    commit_hash="111111111111",
+                    generated_at_utc="2026-03-22T16:00:00Z",
+                    timestamp_slug="20260322T160000Z",
+                ),
+            )
+            second_receipt = write_context_graph_snapshot(
+                _sample_nodes(),
+                _sample_edges(),
+                capture=ContextGraphSnapshotCapture(
+                    source_mode="bootstrap",
+                    repo_root=repo_root,
+                    branch="feature/test",
+                    commit_hash="222222222222",
+                    generated_at_utc="2026-03-22T16:05:00Z",
+                    timestamp_slug="20260322T160500Z",
+                ),
+            )
+            first_path = repo_root / first_receipt.path
+            second_path = repo_root / second_receipt.path
+            second_stats = second_path.stat()
+            os.utime(
+                first_path,
+                (second_stats.st_atime_ns / 1_000_000_000, second_stats.st_mtime_ns / 1_000_000_000 + 10),
+            )
+
+            ordered_paths = list_context_graph_snapshots(repo_root=repo_root)
+
+            self.assertEqual([path.name for path in ordered_paths], [first_path.name, second_path.name])
+            self.assertEqual(
+                resolve_context_graph_snapshot_ref("latest", repo_root=repo_root),
+                second_path.resolve(),
+            )
+            self.assertEqual(
+                resolve_context_graph_snapshot_ref("previous", repo_root=repo_root),
+                first_path.resolve(),
             )
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any
 
@@ -200,7 +200,7 @@ def build_report_and_emit_support(
     success = all(step["returncode"] == 0 for step in ctx.steps)
     report = {
         "command": "check",
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "success": success,
         "steps": ctx.steps,
     }

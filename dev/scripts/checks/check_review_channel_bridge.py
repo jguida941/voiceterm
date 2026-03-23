@@ -9,7 +9,7 @@ import json
 import os
 import re
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 try:
@@ -124,7 +124,7 @@ def _extract_bridge_metadata(text: str) -> dict[str, str]:
 
 
 def _current_utc() -> datetime:
-    return datetime.now(UTC)
+    return datetime.now(timezone.utc)
 
 
 def _enforce_live_poll_freshness() -> bool:
@@ -157,7 +157,10 @@ def _validate_bridge_metadata(text: str) -> list[str]:
     if not UTC_TIMESTAMP_PATTERN.fullmatch(last_codex_poll):
         errors.append("Invalid `Last Codex poll` timestamp; expected ISO-8601 UTC like " "`2026-03-08T19:08:45Z`.")
     else:
-        poll_time = datetime.strptime(last_codex_poll, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+        poll_time = datetime.strptime(
+            last_codex_poll,
+            "%Y-%m-%dT%H:%M:%SZ",
+        ).replace(tzinfo=timezone.utc)
         max_age = timedelta(minutes=MAX_POLL_AGE_MINUTES)
         poll_age = _current_utc() - poll_time
         if poll_age < timedelta(0):

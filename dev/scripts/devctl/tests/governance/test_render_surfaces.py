@@ -84,11 +84,24 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         for required_snippet in claude_surface.required_contains:
             self.assertIn(required_snippet, rendered_text)
         self.assertIn(
-            "`bundle.runtime`, `bundle.docs`, `bundle.tooling`, or `bundle.release`",
+            "Run the task-class bundle from `AGENTS.md` after every file create/edit:",
             rendered_text,
         )
         self.assertIn(
             "## Governance capabilities (available during work)",
+            rendered_text,
+        )
+        self.assertIn("## Task Router Quick Map", rendered_text)
+        self.assertIn(
+            "Canonical task-router authority lives in",
+            rendered_text,
+        )
+        self.assertIn(
+            "| Changed tooling/process/CI/governance surfaces | Tooling/process/CI | `bundle.tooling` |",
+            rendered_text,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py check-router --format md",
             rendered_text,
         )
         self.assertIn(
@@ -96,7 +109,23 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
-            "governance-review --record ...`; add `--guidance-id ... --guidance-followed true|false`",
+            "governance-review --record --signal-type probe|guard|audit --check-id <id>",
+            rendered_text,
+        )
+        self.assertIn(
+            "`startup-context` currently carries governance, reviewer gate, and advisory",
+            rendered_text,
+        )
+        self.assertIn(
+            "context-graph --mode diff --from previous --to latest --format md",
+            rendered_text,
+        )
+        self.assertIn(
+            "This block is rendered from `dev/scripts/checks/code_shape_function_exceptions.py`",
+            rendered_text,
+        )
+        self.assertIn(
+            "Function exceptions/overrides live in `dev/scripts/checks/code_shape_function_exceptions.py`",
             rendered_text,
         )
         self.assertIn(
@@ -105,6 +134,18 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         )
         self.assertIn(
             "python3 dev/scripts/devctl.py check --profile ci",
+            rendered_text,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py probe-report --format md",
+            rendered_text,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py governance-review --format md",
+            rendered_text,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py review-channel --action reviewer-wait --reason awaiting-implementer --seconds 60 --terminal none --format json",
             rendered_text,
         )
         self.assertIn(

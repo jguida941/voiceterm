@@ -4,13 +4,17 @@ from __future__ import annotations
 
 try:
     from code_shape_shared import FunctionShapeException, FunctionShapePolicy
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.code_shape_shared import (
-        FunctionShapeException,
-        FunctionShapePolicy,
-    )
+except ModuleNotFoundError:  # pragma: no cover - script/package fallback
+    try:
+        from checks.code_shape_shared import (
+            FunctionShapeException,
+            FunctionShapePolicy,
+        )
+    except ModuleNotFoundError:  # pragma: no cover - repo-package fallback
+        from dev.scripts.checks.code_shape_shared import (
+            FunctionShapeException,
+            FunctionShapePolicy,
+        )
 
 
 FUNCTION_LANGUAGE_DEFAULTS: dict[str, FunctionShapePolicy] = {

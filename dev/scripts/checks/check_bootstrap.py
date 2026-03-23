@@ -6,7 +6,7 @@ import argparse
 import importlib
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -115,7 +115,7 @@ def resolve_guard_config(
 
 def utc_timestamp() -> str:
     """Return a stable UTC ISO-8601 timestamp for JSON/markdown reports."""
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def build_since_ref_format_parser(description: str) -> argparse.ArgumentParser:

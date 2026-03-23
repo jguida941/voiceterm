@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from ..repo_policy import load_repo_governance_section
-
+from ..governance.task_router_contract import (
+    TASK_ROUTER_AUTHORITY_PATH,
+    TASK_ROUTER_ROWS,
+    TaskRouterRow,
+    render_task_router_table_markdown,
+    task_router_markdown_rows,
+)
 BUNDLE_BY_LANE = {
     "docs": "bundle.docs",
     "runtime": "bundle.runtime",
@@ -190,8 +197,6 @@ RISK_ADDONS = (
         "commands": ("python3 dev/scripts/devctl.py security",),
     },
 )
-
-
 @dataclass(frozen=True, slots=True)
 class CheckRouterConfig:
     """Resolved repo-governance policy used by check-router."""
@@ -293,8 +298,6 @@ def _coerce_risk_addons(raw_value: Any) -> tuple[RiskAddonSpec, ...]:
                 )
             )
     return tuple(resolved) or _default_risk_addons()
-
-
 def resolve_check_router_config(
     policy_path: str | None = None,
 ) -> CheckRouterConfig:

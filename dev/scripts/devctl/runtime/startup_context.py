@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from .project_governance import ProjectGovernance
+from .startup_signals import load_startup_quality_signals
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,15 +44,16 @@ class StartupContext:
     reviewer_gate: ReviewerGateState = field(default_factory=ReviewerGateState)
     advisory_action: str = "continue_editing"
     advisory_reason: str = ""
+    quality_signals: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        d: dict[str, Any] = {
-            "schema_version": self.schema_version,
-            "contract_id": self.contract_id,
-            "advisory_action": self.advisory_action,
-            "advisory_reason": self.advisory_reason,
-            "reviewer_gate": asdict(self.reviewer_gate),
-        }
+        d: dict[str, Any] = {}
+        d["schema_version"] = self.schema_version
+        d["contract_id"] = self.contract_id
+        d["advisory_action"] = self.advisory_action
+        d["advisory_reason"] = self.advisory_reason
+        d["reviewer_gate"] = asdict(self.reviewer_gate)
+        d["quality_signals"] = dict(self.quality_signals)
         if self.governance is not None:
             d["governance"] = self.governance.to_dict()
         return d
@@ -218,10 +220,12 @@ def build_startup_context(
     governance = scan_repo_governance(repo_root)
     gate = _detect_reviewer_gate(repo_root)
     action, reason = _derive_advisory_action(governance, gate)
+    quality_signals = load_startup_quality_signals(repo_root)
 
     return StartupContext(
         governance=governance,
         reviewer_gate=gate,
         advisory_action=action,
         advisory_reason=reason,
+        quality_signals=quality_signals,
     )

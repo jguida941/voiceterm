@@ -5,9 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from .models import EDGE_KIND_IMPORTS
-from .snapshot import (
-    ContextGraphSnapshot,
-    SnapshotResolutionError,
+from .snapshot_payload import ContextGraphSnapshot, SnapshotResolutionError
+from .snapshot_store import (
+    format_context_graph_snapshot_path,
+    list_context_graph_snapshots,
     load_context_graph_snapshot,
     resolve_context_graph_snapshot_ref,
 )
@@ -132,19 +133,20 @@ def build_snapshot_trend(*, to_path: Path, window_size: int) -> SnapshotTrendSum
 
 
 def _sorted_snapshot_paths_before_or_equal(target_path: Path) -> list[Path]:
-    target_dir = target_path.resolve().parent
-    all_paths = sorted(
-        target_dir.glob("*.json"),
-        key=lambda path: (path.stat().st_mtime_ns, path.name),
-    )
     resolved_target = target_path.resolve()
-    return [path for path in all_paths if path.stat().st_mtime_ns <= resolved_target.stat().st_mtime_ns]
+    all_paths = list_context_graph_snapshots(snapshot_dir=resolved_target.parent)
+    for index, path in enumerate(all_paths):
+        if path.resolve() == resolved_target:
+            return all_paths[: index + 1]
+    raise SnapshotResolutionError(
+        f"trend target {resolved_target.name!r} is not a valid ContextGraphSnapshot artifact"
+    )
 
 
 def _build_snapshot_anchor(path: Path, snapshot: ContextGraphSnapshot) -> SnapshotAnchor:
     cycle_count, largest_cycle_size = _import_cycle_stats(snapshot)
     return SnapshotAnchor(
-        path=path.as_posix(),
+        path=format_context_graph_snapshot_path(path),
         commit_hash=snapshot.commit_hash,
         branch=snapshot.branch,
         generated_at_utc=snapshot.generated_at_utc,
@@ -237,7 +239,7 @@ def _edge_key(edge: dict[str, object]) -> tuple[str, str, str] | None:
 def _trend_point(path: Path, snapshot: ContextGraphSnapshot) -> SnapshotTrendPoint:
     cycle_count, _largest_cycle_size = _import_cycle_stats(snapshot)
     return SnapshotTrendPoint(
-        path=path.as_posix(),
+        path=format_context_graph_snapshot_path(path),
         commit_hash=snapshot.commit_hash,
         generated_at_utc=snapshot.generated_at_utc,
         average_temperature=round(snapshot.temperature_distribution.average, 4),

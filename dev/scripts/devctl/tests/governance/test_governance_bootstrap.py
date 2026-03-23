@@ -113,8 +113,20 @@ class GovernanceBootstrapTests(unittest.TestCase):
             surface_generation["context"]["key_commands_block"],
         )
         self.assertIn(
+            "probe-report",
+            surface_generation["context"]["key_commands_block"],
+        )
+        self.assertIn(
+            "context-graph --mode diff --from previous --to latest --format md",
+            surface_generation["context"]["key_commands_block"],
+        )
+        self.assertIn(
             "Run the task-class bundle",
-            surface_generation["context"]["post_edit_verification_steps"][0],
+            surface_generation["context"]["post_edit_verification_steps"],
+        )
+        self.assertIn(
+            "quality-policy --format md",
+            surface_generation["context"]["post_edit_verification_steps"],
         )
         self.assertEqual(
             [entry["id"] for entry in surface_generation["surfaces"]],
@@ -129,6 +141,7 @@ class GovernanceBootstrapTests(unittest.TestCase):
             surface_generation["surfaces"][0]["required_contains"],
             [
                 "## Governance capabilities (available during work)",
+                "## Task Router Quick Map",
                 "`decision_mode` gates action: `auto_apply` means fix directly,",
                 "`python3 dev/scripts/devctl.py governance-review --record ...`",
                 "## Mandatory post-edit verification (blocking)",

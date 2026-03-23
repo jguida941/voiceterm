@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
-
+from ...runtime.enum_compat import StrEnum
 PUBLISHER_FOLLOW_OUTPUT_FILENAME = "publisher_follow.ndjson"
 PUBLISHER_FOLLOW_LOG_FILENAME = "publisher_follow.log"
 PUBLISHER_FOLLOW_COMMAND = (

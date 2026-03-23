@@ -6,8 +6,8 @@ import subprocess
 from typing import Any
 
 from ..config import get_repo_root
+from ..governance.surfaces import load_surface_policy
 from ..governance.push_policy import detect_push_enforcement_state, load_push_policy
-from ..governance.repo_policy import load_repo_policy_payload
 from .models import (
     NODE_KIND_GUARD,
     NODE_KIND_PLAN,
@@ -20,6 +20,7 @@ from .models import (
     HotIndexSummary,
     QueryResult,
 )
+from .startup_signals import load_bootstrap_quality_signals
 
 _USAGE = (
     "Start from this packet for repo-level orientation. "
@@ -139,9 +140,7 @@ def _detect_bridge_liveness(repo_root) -> bool:
 def _load_policy_context(repo_root) -> tuple[dict[str, str], dict[str, str | None]]:
     """Load key commands and bootstrap links from governance repo policy."""
     try:
-        payload, _warnings, _path = load_repo_policy_payload(repo_root=repo_root)
-        gov = payload.get("repo_governance", {})
-        surface_ctx = gov.get("surface_generation", {}).get("context", {})
+        surface_ctx = load_surface_policy(repo_root=repo_root).context
     except (OSError, ValueError):
         surface_ctx = {}
 
@@ -199,6 +198,7 @@ def build_bootstrap_context(
         load_push_policy(repo_root=repo_root),
         repo_root=repo_root,
     )
+    quality_signals = load_bootstrap_quality_signals(repo_root)
 
     return BootstrapContext(
         repo=repo_root.name,
@@ -217,6 +217,7 @@ def build_bootstrap_context(
         bootstrap_links=policy_links,
         push_enforcement=push_enforcement,
         usage=_USAGE,
+        quality_signals=quality_signals,
     )
 
 

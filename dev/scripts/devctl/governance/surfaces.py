@@ -9,6 +9,7 @@ from typing import Any
 from ..common_io import display_path
 from ..config import REPO_ROOT
 from .repo_policy import load_repo_governance_section
+from .surface_context import derive_surface_context
 from .surface_runtime import evaluate_surface, render_surface_report_markdown
 
 
@@ -68,6 +69,7 @@ def load_surface_policy(
         raw_context=section.get("context"),
         metadata=metadata,
         warnings=parsed_warnings,
+        policy_path=resolved_policy_path,
     )
     surfaces = _parse_surface_specs(
         section.get("surfaces"),
@@ -142,6 +144,7 @@ def _build_context(
     raw_context: object,
     metadata: RepoPackMetadata,
     warnings: list[str],
+    policy_path: str | Path | None,
 ) -> dict[str, str]:
     context = {
         "repo_pack_id": metadata.pack_id,
@@ -149,14 +152,22 @@ def _build_context(
         "product_name": metadata.product_name,
         "repo_name": metadata.repo_name,
     }
-    if not isinstance(raw_context, dict):
-        return context
-    for key, value in raw_context.items():
-        key_text = str(key).strip()
-        if not key_text:
-            warnings.append("surface_generation.context contained an empty key; skipped.")
-            continue
-        context[key_text] = _stringify_context_value(value)
+    if isinstance(raw_context, dict):
+        for key, value in raw_context.items():
+            key_text = str(key).strip()
+            if not key_text:
+                warnings.append(
+                    "surface_generation.context contained an empty key; skipped."
+                )
+                continue
+            context[key_text] = _stringify_context_value(value)
+    context.update(
+        derive_surface_context(
+            policy_path=policy_path,
+            warnings=warnings,
+            seed_context=context,
+        )
+    )
     return context
 
 

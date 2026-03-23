@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ...context_graph.render import append_quality_signal_lines
 from ...common import add_standard_output_arguments
 from ...runtime.machine_output import (
     ArtifactOutputOptions,
@@ -55,6 +56,8 @@ def _render_markdown(ctx_dict: dict) -> str:
         if str(memory_roots.get("context_store_root") or "").strip():
             lines.append(f"- context_store_root: `{memory_roots.get('context_store_root')}`")
         lines.append("")
+
+    append_quality_signal_lines(lines, ctx_dict.get("quality_signals"))
 
     return "\n".join(lines)
 

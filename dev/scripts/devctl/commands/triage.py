@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from ..common import emit_output, pipe_output, run_cmd, write_output
@@ -62,7 +62,7 @@ def run(args) -> int:
         pedantic_info["refresh"] = pedantic_refresh
     triage_report: dict[str, Any] = {
         "command": "triage",
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "project": project_report,
         "issues": apply_defaults_to_issues(classify_issues(project_report), owner_map),
         "owner_map": owner_map,

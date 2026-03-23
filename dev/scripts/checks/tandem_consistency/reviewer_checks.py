@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dev.scripts.devctl.review_channel.heartbeat import (
@@ -73,7 +73,10 @@ def check_reviewer_freshness(
         if not last_poll:
             return make_result(_CK, _R, False, "No reviewer heartbeat timestamp found in bridge.")
         try:
-            poll_time = datetime.strptime(last_poll, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+            poll_time = datetime.strptime(
+                last_poll,
+                "%Y-%m-%dT%H:%M:%SZ",
+            ).replace(tzinfo=timezone.utc)
         except ValueError:
             return make_result(_CK, _R, False, f"Invalid reviewer heartbeat timestamp: {last_poll}")
         age = int((current_utc() - poll_time).total_seconds())

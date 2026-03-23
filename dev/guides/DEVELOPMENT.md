@@ -232,10 +232,23 @@ Three quality layers matter in practice:
   active policy, scopes, and warnings; use `--quality-policy <path>` or
   `DEVCTL_QUALITY_POLICY` when validating another repo or preset file. The same
   override now flows through probe-backed `status`, `report`, and `triage`.
+- The six-row AGENTS router table and the generated `CLAUDE.md` task-router
+  quick map both render from the typed router authority in
+  `dev/scripts/devctl/governance/task_router_contract.py`. When the touched
+  scope is mixed or unclear, run
+  `python3 dev/scripts/devctl.py check-router --format md` instead of relying
+  on memory or a stale prose copy.
 - `python3 dev/scripts/devctl.py render-surfaces --format md` previews the
   policy-owned instruction/starter surfaces defined in
   `repo_governance.surface_generation`; use `--write` after updating those
   templates, context values, or generated starter outputs.
+- The rendered `CLAUDE.md` guard-limit block now derives its numbers from the
+  live code-shape policy modules
+  (`dev/scripts/checks/code_shape_function_exceptions.py`,
+  `dev/scripts/checks/code_shape_policy.py`) instead of from duplicated prose
+  in repo policy JSON. Treat `quality-policy --format md` as the enabled
+  inventory view and `render-surfaces --write --format md` as the path that
+  refreshes the generated bootstrap surface after policy changes.
 - `python3 dev/scripts/checks/check_platform_contract_closure.py` is the
   bounded platform contract-closure guard for the current runtime/artifact
   families. Pair it with `python3 dev/scripts/devctl.py platform-contracts --format md`

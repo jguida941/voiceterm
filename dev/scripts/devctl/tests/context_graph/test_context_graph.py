@@ -33,6 +33,7 @@ from dev.scripts.devctl.context_graph.models import (
     QueryResult,
 )
 from dev.scripts.devctl.context_graph.render import render_query_result_markdown
+from dev.scripts.devctl.context_graph.render import render_bootstrap_markdown
 
 
 def _make_args(**overrides) -> SimpleNamespace:
@@ -242,6 +243,7 @@ class TestBootstrapContext(unittest.TestCase):
         self.assertIsNotNone(ctx.graph_size)
         self.assertIsNotNone(ctx.key_commands)
         self.assertIsNotNone(ctx.bootstrap_links)
+        self.assertIsNotNone(ctx.quality_signals)
         self.assertTrue(ctx.usage)
 
     def test_bootstrap_has_plans(self) -> None:
@@ -267,6 +269,95 @@ class TestBootstrapContext(unittest.TestCase):
         parser = build_parser()
         args = parser.parse_args(["context-graph", "--mode", "bootstrap"])
         self.assertEqual(args.mode, "bootstrap")
+
+    @patch(
+        "dev.scripts.devctl.context_graph.query.load_bootstrap_quality_signals",
+        return_value={"probe_report": {"risk_hints": 3, "files_with_hints": 1}},
+    )
+    def test_bootstrap_includes_quality_signals(self, _signals_mock) -> None:
+        ctx = build_bootstrap_context(self.nodes, self.edges)
+        self.assertEqual(
+            (ctx.quality_signals.get("probe_report") or {}).get("risk_hints"),
+            3,
+        )
+
+    def test_render_bootstrap_markdown_includes_quality_signals(self) -> None:
+        md = render_bootstrap_markdown(
+            {
+                "repo": "codex-voice",
+                "branch": "develop",
+                "bridge_active": False,
+                "graph_size": {
+                    "source_files": 1,
+                    "guards": 2,
+                    "probes": 3,
+                    "active_plans": 4,
+                    "edges": 5,
+                },
+                "active_plans": [],
+                "hotspots": [],
+                "key_commands": {},
+                "bootstrap_links": {},
+                "push_enforcement": {},
+                "quality_signals": {
+                    "probe_report": {
+                        "generated_at": "2026-03-23T00:00:00Z",
+                        "risk_hints": 81,
+                        "files_with_hints": 14,
+                        "top_files": [
+                            {"file": "dev/scripts/devctl/context_graph/query.py", "hint_count": 10}
+                        ],
+                    },
+                    "governance_review": {
+                        "generated_at_utc": "2026-03-23T00:00:00Z",
+                        "total_findings": 95,
+                        "open_finding_count": 19,
+                        "fixed_count": 62,
+                        "cleanup_rate_pct": 65.26,
+                    },
+                    "guidance_hotspots": [
+                        {
+                            "file": "dev/scripts/devctl/context_graph/query.py",
+                            "hint_count": 10,
+                            "bounded_next_slice": "Extract the bootstrap quality-signal reader.",
+                            "guidance": [
+                                {
+                                    "probe": "probe_fan_out",
+                                    "symbol": "build_bootstrap_context",
+                                    "severity": "high",
+                                    "ai_instruction": "Split signal loading from packet assembly.",
+                                }
+                            ],
+                        }
+                    ],
+                    "watchdog": {
+                        "generated_at": "2026-03-23T00:00:00Z",
+                        "total_episodes": 27,
+                        "success_rate_pct": 11.11,
+                        "false_positive_rate_pct": 3.7,
+                        "top_guard_family": "tooling",
+                    },
+                    "command_reliability": {
+                        "generated_at": "2026-03-23T00:00:00Z",
+                        "total_events": 14525,
+                        "success_rate_pct": 85.14,
+                        "p95_duration_seconds": 22.6,
+                        "commands": [
+                            {
+                                "command": "probe-report",
+                                "success_rate_pct": 97.83,
+                                "avg_duration_seconds": 8.879,
+                            }
+                        ],
+                    },
+                },
+                "usage": "Use this packet first.",
+            }
+        )
+        self.assertIn("## Quality Signals", md)
+        self.assertIn("**probe-report**", md)
+        self.assertIn("guidance hotspot", md)
+        self.assertIn("command slice: `probe-report` 97.83%/8.879s", md)
 
 
 class TestConceptLayer(unittest.TestCase):
@@ -359,20 +450,16 @@ class TestGraphHonesty(unittest.TestCase):
         self.assertIn("execution_state", ctx.bootstrap_links)
 
     def test_bootstrap_links_follow_policy_context_paths(self) -> None:
-        payload = {
-            "repo_governance": {
-                "surface_generation": {
-                    "context": {
-                        "process_doc": "CONTRIBUTING.md",
-                        "execution_tracker_doc": "docs/plans/MASTER_PLAN.md",
-                        "active_registry_doc": "docs/plans/INDEX.md",
-                    }
-                }
+        policy = SimpleNamespace(
+            context={
+                "process_doc": "CONTRIBUTING.md",
+                "execution_tracker_doc": "docs/plans/MASTER_PLAN.md",
+                "active_registry_doc": "docs/plans/INDEX.md",
             }
-        }
+        )
         with patch(
-            "dev.scripts.devctl.context_graph.query.load_repo_policy_payload",
-            return_value=(payload, (), None),
+            "dev.scripts.devctl.context_graph.query.load_surface_policy",
+            return_value=policy,
         ):
             ctx = build_bootstrap_context(self.nodes, self.edges)
         self.assertEqual(ctx.bootstrap_links["sdlc_policy"], "CONTRIBUTING.md")

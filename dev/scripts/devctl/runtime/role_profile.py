@@ -14,9 +14,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from enum import StrEnum
 from typing import Any
 
+from .enum_compat import StrEnum
 from .value_coercion import coerce_string
 
 

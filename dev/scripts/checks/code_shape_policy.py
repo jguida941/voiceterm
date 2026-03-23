@@ -11,16 +11,24 @@ try:
         FUNCTION_POLICY_OVERRIDES,
     )
     from code_shape_shared import FunctionShapePolicy, ShapePolicy
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.code_shape_function_exceptions import (
-        FUNCTION_LANGUAGE_DEFAULTS,
-        FUNCTION_POLICY_EXCEPTIONS,
-        FUNCTION_POLICY_OVERRIDES,
-    )
-    from dev.scripts.checks.code_shape_shared import (
-        FunctionShapePolicy,
-        ShapePolicy,
-    )
+except ModuleNotFoundError:  # pragma: no cover - script/package fallback
+    try:
+        from checks.code_shape_function_exceptions import (
+            FUNCTION_LANGUAGE_DEFAULTS,
+            FUNCTION_POLICY_EXCEPTIONS,
+            FUNCTION_POLICY_OVERRIDES,
+        )
+        from checks.code_shape_shared import FunctionShapePolicy, ShapePolicy
+    except ModuleNotFoundError:  # pragma: no cover - repo-package fallback
+        from dev.scripts.checks.code_shape_function_exceptions import (
+            FUNCTION_LANGUAGE_DEFAULTS,
+            FUNCTION_POLICY_EXCEPTIONS,
+            FUNCTION_POLICY_OVERRIDES,
+        )
+        from dev.scripts.checks.code_shape_shared import (
+            FunctionShapePolicy,
+            ShapePolicy,
+        )
 
 
 LANGUAGE_POLICIES: dict[str, ShapePolicy] = {

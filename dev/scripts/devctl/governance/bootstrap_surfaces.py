@@ -5,6 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .surface_context import (
+    render_bootstrap_steps,
+    render_guard_limits_block,
+    render_key_commands_block,
+    render_post_edit_verification_steps,
+)
+
 
 @dataclass(frozen=True)
 class SurfaceSeed:
@@ -52,6 +59,7 @@ def build_surface_generation_governance(
                 description="Local-only Claude instructions surface.",
                 required_contains=(
                     "## Governance capabilities (available during work)",
+                    "## Task Router Quick Map",
                     "`decision_mode` gates action: `auto_apply` means fix directly,",
                     "`python3 dev/scripts/devctl.py governance-review --record ...`",
                     "## Mandatory post-edit verification (blocking)",
@@ -136,33 +144,36 @@ def _build_surface_generation_context(
     context["voice_command"] = "replace-command --help"
     context["development_branch"] = development_branch
     context["python_version"] = "3.11"
-    context["bootstrap_steps"] = [
-        "Read `AGENTS.md`.",
-        "Read the repo execution tracker.",
-        "Read the active-doc registry if one exists.",
-        "Only load additional docs when the task class requires them.",
-    ]
-    context["key_commands_block"] = (
-        "python3 dev/scripts/devctl.py check --profile ci\n"
-        "python3 dev/scripts/devctl.py docs-check --strict-tooling\n"
-        "python3 dev/scripts/devctl.py render-surfaces --write --format md"
+    bundle_by_lane = {
+        "docs": "bundle.docs",
+        "runtime": "bundle.runtime",
+        "tooling": "bundle.tooling",
+        "release": "bundle.release",
+    }
+    context["bootstrap_steps"] = render_bootstrap_steps(
+        process_doc=primary_doc,
+        execution_tracker_doc=primary_doc,
+        active_registry_doc=primary_doc,
     )
+    context["key_commands_block"] = render_key_commands_block()
     context["post_edit_verification_intro"] = (
         "After EVERY file create/edit, you MUST run the repo-required "
         "verification before reporting the task as done."
     )
-    context["post_edit_verification_steps"] = [
-        "Run the task-class bundle from the repo process doc after every file create/edit.",
-        "Run any additional path or risk checks required by the repo's after-edit checklist.",
-        "Before handoff, make sure the required guards/tests pass.",
-        "If you changed generated instruction surfaces, regenerate them before handoff.",
-    ]
+    context["post_edit_verification_steps"] = render_post_edit_verification_steps(
+        bundle_by_lane=bundle_by_lane,
+        process_doc=primary_doc,
+        development_doc=primary_doc,
+    )
     context["post_edit_verification_done_criteria"] = (
         "Done means the required guards/tests passed. Do not report completion "
         "after only writing code or running a partial subset of checks. If a "
         "required guard fails, fix it or report the blocker explicitly."
     )
-    context["guard_limits_block"] = "- Replace with repo-specific guard limits."
+    context["task_router_block"] = (
+        "- Rendered at surface-build time from the repo's typed task router."
+    )
+    context["guard_limits_block"] = render_guard_limits_block()
     context["user_preferences_block"] = "- Replace with operator preferences."
     return context
 

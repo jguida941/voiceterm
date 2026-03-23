@@ -39,6 +39,8 @@ def _valid_agents_text(script) -> str:
     lines.append("")
     lines.extend(script.REQUIRED_ROUTER_SNIPPETS)
     lines.append("")
+    lines.extend(script.REQUIRED_COMMANDS)
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -63,6 +65,7 @@ class CheckAgentsContractTests(TestCase):
         self.assertEqual(report["missing_bundles"], [])
         self.assertEqual(report["missing_markers"], [])
         self.assertEqual(report["missing_router_rows"], [])
+        self.assertEqual(report["missing_commands"], [])
 
     def test_build_report_flags_missing_router_row(self) -> None:
         text = _valid_agents_text(self.script).replace(
@@ -74,6 +77,21 @@ class CheckAgentsContractTests(TestCase):
         self.assertFalse(report["ok"])
         self.assertEqual(
             report["missing_router_rows"], [self.script.REQUIRED_ROUTER_SNIPPETS[0]]
+        )
+
+    def test_build_report_flags_missing_command(self) -> None:
+        missing_command = "governance-bootstrap"
+        text = _valid_agents_text(self.script).replace(missing_command, "")
+        agents_path = self._with_temp_agents(text)
+        with patch.object(self.script, "AGENTS_PATH", agents_path):
+            report = self.script._build_report()
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["missing_commands"], [missing_command])
+
+    def test_router_markers_include_typed_authority_path(self) -> None:
+        self.assertIn(
+            "dev/scripts/devctl/governance/task_router_contract.py",
+            self.script.REQUIRED_MARKERS,
         )
 
     def test_build_report_missing_file_returns_error(self) -> None:

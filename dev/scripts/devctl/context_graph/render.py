@@ -9,14 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from .models import (
-    EDGE_KIND_DOCUMENTED_BY,
-    EDGE_KIND_RELATED_TO,
-    NODE_KIND_CONCEPT,
-    GraphEdge,
-    GraphNode,
-    QueryResult,
-)
+from .concept_render import render_concept_dot, render_concept_mermaid
+from .models import QueryResult
 
 
 def render_query_result_markdown(result: QueryResult) -> str:
@@ -184,6 +178,8 @@ def render_bootstrap_markdown(ctx: dict[str, Any]) -> str:
         )
         lines.append("")
 
+    append_quality_signal_lines(lines, ctx.get("quality_signals"))
+
     links = ctx.get("bootstrap_links", {})
     if links:
         lines.append("## Deep Links (load on demand)")
@@ -201,88 +197,133 @@ def render_bootstrap_markdown(ctx: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def render_concept_mermaid(
-    nodes: list[GraphNode],
-    edges: list[GraphEdge],
-) -> str:
-    """Render concept nodes and related_to/documented_by edges as mermaid."""
-    concepts = [n for n in nodes if n.node_kind == NODE_KIND_CONCEPT]
-    if not concepts:
-        return "graph LR\n  empty[No concept nodes]\n"
-
-    node_ids: dict[str, str] = {}
-    lines = ["graph LR"]
-
-    for i, c in enumerate(sorted(concepts, key=lambda n: -n.temperature)):
-        nid = f"c{i}"
-        node_ids[c.node_id] = nid
-        members = c.metadata.get("member_count", 0)
-        label = f"{c.label}\\n{members} files, temp {c.temperature:.2f}"
-        lines.append(f'  {nid}["{label}"]')
-
-    for plan in [n for n in nodes if n.node_kind != NODE_KIND_CONCEPT]:
-        if any(e.source_id == plan.node_id and e.edge_kind == EDGE_KIND_DOCUMENTED_BY for e in edges):
-            pid = f"p{len(node_ids)}"
-            node_ids[plan.node_id] = pid
-            lines.append(f'  {pid}["{plan.label}"]')
-
-    for edge in edges:
-        src = node_ids.get(edge.source_id)
-        dst = node_ids.get(edge.target_id)
-        if not src or not dst:
-            continue
-        if edge.edge_kind == EDGE_KIND_RELATED_TO:
-            lines.append(f"  {src} --- {dst}")
-        elif edge.edge_kind == EDGE_KIND_DOCUMENTED_BY:
-            lines.append(f"  {src} -.-> {dst}")
-
-    lines.append('  classDef hot fill:#f8d7da,stroke:#842029;')
-    lines.append('  classDef warm fill:#fff3cd,stroke:#664d03;')
-    lines.append('  classDef plan fill:#d1e7dd,stroke:#0f5132;')
-    for c in concepts:
-        nid = node_ids.get(c.node_id)
-        if nid and c.temperature >= 0.2:
-            lines.append(f"  class {nid} hot;")
-        elif nid and c.temperature >= 0.1:
-            lines.append(f"  class {nid} warm;")
-    for n in nodes:
-        pid = node_ids.get(n.node_id)
-        if pid and n.node_kind != NODE_KIND_CONCEPT:
-            lines.append(f"  class {pid} plan;")
-
-    return "\n".join(lines) + "\n"
+def append_quality_signal_lines(
+    lines: list[str],
+    quality_signals: object,
+) -> None:
+    """Append one bounded quality-signal section when startup data is present."""
+    if not isinstance(quality_signals, dict) or not quality_signals:
+        return
+    lines.append("## Quality Signals")
+    lines.append("")
+    _append_probe_report_summary(lines, quality_signals.get("probe_report"))
+    _append_governance_review_summary(
+        lines,
+        quality_signals.get("governance_review"),
+    )
+    _append_guidance_hotspots(lines, quality_signals.get("guidance_hotspots"))
+    _append_watchdog_summary(lines, quality_signals.get("watchdog"))
+    _append_command_reliability_summary(
+        lines,
+        quality_signals.get("command_reliability"),
+    )
+    lines.append("")
 
 
-def render_concept_dot(
-    nodes: list[GraphNode],
-    edges: list[GraphEdge],
-) -> str:
-    """Render concept nodes and edges as graphviz DOT."""
-    concepts = [n for n in nodes if n.node_kind == NODE_KIND_CONCEPT]
-    lines = ["digraph ConceptGraph {", '  graph [rankdir="LR"];']
+def _append_probe_report_summary(lines: list[str], payload: Any) -> None:
+    if not isinstance(payload, dict):
+        return
+    lines.append(
+        "- **probe-report** ({generated_at}): {risk_hints} hints across {files_with_hints} files".format(
+            generated_at=payload.get("generated_at", "unknown"),
+            risk_hints=payload.get("risk_hints", 0),
+            files_with_hints=payload.get("files_with_hints", 0),
+        )
+    )
+    top_files = payload.get("top_files")
+    if isinstance(top_files, list) and top_files:
+        rendered = ", ".join(
+            "`{file}` ({hint_count})".format(
+                file=row.get("file", "unknown"),
+                hint_count=row.get("hint_count", 0),
+            )
+            for row in top_files
+            if isinstance(row, dict)
+        )
+        if rendered:
+            lines.append(f"- top hinted files: {rendered}")
 
-    for c in sorted(concepts, key=lambda n: -n.temperature):
-        members = c.metadata.get("member_count", 0)
-        label = f"{c.label}\\n{members} files"
-        attrs = ['shape="box"']
-        if c.temperature >= 0.2:
-            attrs.extend(['style="filled"', 'fillcolor="#f8d7da"'])
-        elif c.temperature >= 0.1:
-            attrs.extend(['style="filled"', 'fillcolor="#fff3cd"'])
-        lines.append(f'  "{c.node_id}" [label="{label}", {", ".join(attrs)}];')
 
-    for n in nodes:
-        if n.node_kind == NODE_KIND_CONCEPT:
-            continue
-        if any(e.source_id == n.node_id and e.edge_kind == EDGE_KIND_DOCUMENTED_BY for e in edges):
-            lines.append(f'  "{n.node_id}" [label="{n.label}", shape="ellipse", '
-                         f'style="filled", fillcolor="#d1e7dd"];')
+def _append_governance_review_summary(lines: list[str], payload: Any) -> None:
+    if not isinstance(payload, dict):
+        return
+    lines.append(
+        "- **governance-review** ({generated_at}): {total_findings} findings, {open_findings} open, {fixed_count} fixed, cleanup {cleanup_rate}%".format(
+            generated_at=payload.get("generated_at_utc", "unknown"),
+            total_findings=payload.get("total_findings", 0),
+            open_findings=payload.get("open_finding_count", 0),
+            fixed_count=payload.get("fixed_count", 0),
+            cleanup_rate=payload.get("cleanup_rate_pct", 0),
+        )
+    )
 
-    for edge in edges:
-        if edge.edge_kind == EDGE_KIND_RELATED_TO:
-            lines.append(f'  "{edge.source_id}" -> "{edge.target_id}" [dir="none", style="dashed"];')
-        elif edge.edge_kind == EDGE_KIND_DOCUMENTED_BY:
-            lines.append(f'  "{edge.source_id}" -> "{edge.target_id}" [style="dotted"];')
 
-    lines.append("}")
-    return "\n".join(lines) + "\n"
+def _append_guidance_hotspots(lines: list[str], payload: Any) -> None:
+    if not isinstance(payload, list) or not payload:
+        return
+    hotspot = payload[0]
+    if not isinstance(hotspot, dict):
+        return
+    lines.append(
+        "- **guidance hotspot**: `{file}` ({hint_count} hints)".format(
+            file=hotspot.get("file", "unknown"),
+            hint_count=hotspot.get("hint_count", 0),
+        )
+    )
+    bounded_next_slice = str(hotspot.get("bounded_next_slice") or "").strip()
+    if bounded_next_slice:
+        lines.append(f"- next slice: {bounded_next_slice}")
+    guidance = hotspot.get("guidance")
+    if isinstance(guidance, list):
+        for row in guidance[:2]:
+            if not isinstance(row, dict):
+                continue
+            lines.append(
+                "- guidance: `{probe}` on `{symbol}` [{severity}] -> {instruction}".format(
+                    probe=row.get("probe", "unknown"),
+                    symbol=row.get("symbol", "(file-level)"),
+                    severity=row.get("severity", "unknown"),
+                    instruction=row.get("ai_instruction", ""),
+                )
+            )
+
+
+def _append_watchdog_summary(lines: list[str], payload: Any) -> None:
+    if not isinstance(payload, dict):
+        return
+    lines.append(
+        "- **watchdog** ({generated_at}): {episodes} episodes, success {success_rate}%, false positives {false_positive_rate}%, top family `{top_family}`".format(
+            generated_at=payload.get("generated_at", "unknown"),
+            episodes=payload.get("total_episodes", 0),
+            success_rate=payload.get("success_rate_pct", 0),
+            false_positive_rate=payload.get("false_positive_rate_pct", 0),
+            top_family=payload.get("top_guard_family", "unknown"),
+        )
+    )
+
+
+def _append_command_reliability_summary(lines: list[str], payload: Any) -> None:
+    if not isinstance(payload, dict):
+        return
+    lines.append(
+        "- **command reliability** ({generated_at}): {events} events, success {success_rate}%, p95 runtime {p95}s".format(
+            generated_at=payload.get("generated_at", "unknown"),
+            events=payload.get("total_events", 0),
+            success_rate=payload.get("success_rate_pct", 0),
+            p95=payload.get("p95_duration_seconds", 0),
+        )
+    )
+    commands = payload.get("commands")
+    if not isinstance(commands, list):
+        return
+    rendered = ", ".join(
+        "`{command}` {success_rate}%/{duration}s".format(
+            command=row.get("command", "unknown"),
+            success_rate=row.get("success_rate_pct", 0),
+            duration=row.get("avg_duration_seconds", 0),
+        )
+        for row in commands
+        if isinstance(row, dict)
+    )
+    if rendered:
+        lines.append(f"- command slice: {rendered}")

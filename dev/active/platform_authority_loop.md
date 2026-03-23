@@ -1048,6 +1048,14 @@ intended execution order is:
 
 ## Session Resume
 
+- 2026-03-23 Part-53 hardening follow-up: the saved-snapshot diff path now
+  has its first post-review correctness closure. `latest` / `previous`
+  selection no longer depends on filesystem `mtime`, direct-path trend scans
+  ignore non-snapshot sibling JSON instead of failing on mixed directories,
+  and diff/trend anchor paths now normalize to portable snapshot-store-
+  relative refs when the artifacts live under the canonical graph-snapshot
+  root. The next graph step should widen capture/consumer coverage, not revisit
+  snapshot ordering again.
 - 2026-03-22 checkpoint-enforcement follow-up: the next tranche-4/startup
   authority closure now explicitly treats checkpoint budget as fail-closed
   execution authority, not advisory status. The branch hit this gap in live
@@ -1074,6 +1082,13 @@ intended execution order is:
   continuity. This is only a guidance closure, not the runtime one: the item
   stays open until `startup-context` becomes the actual canonical startup
   authority rather than an optional richer side path.
+- 2026-03-23 bootstrap-authority follow-up: the first-hop `CLAUDE.md`
+  surface now also carries a rendered task-router quick map sourced from
+  `governance/task_router_contract.py`, and its guard-limit block is derived
+  from the
+  live code-shape policy code instead of a duplicated prose blob in repo
+  policy JSON. This keeps bootstrap tool awareness tied to typed authority
+  while the larger `WorkIntakePacket` unification is still in progress.
 - Current goal: clear the blocker tranche that protects the authority loop,
   then finish making the authority loop the top `MP-377` priority before
   broader platform growth continues.
@@ -1153,6 +1168,14 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-23: Closed the first post-review hardening pass for the Part-53
+  temporal graph lane instead of leaving the slice green only on happy-path
+  tests. Snapshot resolution now derives `latest` / `previous` from capture-
+  time metadata rather than host `mtime`, direct-path trend scans ignore
+  sibling JSON that is not a real `ContextGraphSnapshot`, and delta/trend
+  anchor paths normalize to portable snapshot-store-relative refs instead of
+  machine-local absolute paths. Focused regressions now prove the mtime-skew
+  and mixed-directory direct-path cases that the live review surfaced.
 - 2026-03-23: Closed the next generated-bootstrap discoverability gap for the
   authority-loop lane. The `claude_instructions.template.md` source and its
   rendered `CLAUDE.md` surface now advertise the live governance capability
@@ -1163,6 +1186,27 @@ intended execution order is:
   routing. This keeps first-hop startup awareness aligned with the real
   governance stack until `startup-context` / `WorkIntakePacket` fully replaces
   bootstrap prose as the canonical intake.
+- 2026-03-23: Reduced another bootstrap drift seam in the same `MP-377`
+  authority slice. The six-row task router now has typed markdown render
+  helpers in `governance/task_router_contract.py`, `check_agents_contract.py`
+  validates AGENTS against those rows instead of hardcoded prose, and
+  generated `CLAUDE.md` now renders that quick map plus code-derived guard
+  limits from the live code-shape policy. This keeps first-hop bootstrap
+  aware of the actual routed bundles and current guard budgets without
+  depending on a second manually maintained prose copy.
+- 2026-03-23: Closed the next "write-only governance" seam in the same
+  startup-authority lane. Repo-pack surface generation no longer hardcodes
+  the AI bootstrap steps, key command block, or blocking post-edit checklist
+  in policy JSON; those sections now render from typed router/guard
+  authority, and the generated `CLAUDE.md` surface advertises concrete
+  `probe-report`, `governance-review --record`, `context-graph --mode diff`,
+  and `review-channel --action ensure|reviewer-checkpoint|implementer-wait|reviewer-wait`
+  syntax instead of vague prose. The slim
+  `context-graph --mode bootstrap` packet also now consumes existing
+  `probe-report`, governance-review, watchdog, and command-reliability
+  artifacts into one bounded startup read so session-start context uses the
+  governance data the system already produces instead of leaving it display-
+  only.
 - 2026-03-22: Promoted the checkpoint-budget miss into explicit `MP-377`
   startup-authority scope after the live tranche work proved the current
   weakness: `review-channel status` can already derive the right

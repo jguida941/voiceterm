@@ -96,12 +96,12 @@ def check_finding_ai_instruction_ralph_route() -> tuple[dict[str, object], dict[
 def check_finding_ai_instruction_autonomy_route() -> tuple[dict[str, object], dict[str, object] | None]:
     """Verify a populated Finding.ai_instruction reaches the autonomy loop packet."""
     from dev.scripts.devctl.commands import loop_packet
-    from datetime import UTC, datetime
+    from datetime import datetime, timezone
 
     expected_instruction = "Split the auth validator from the retry orchestration before editing the caller."
     source_payload = {
         "command": "triage-loop",
-        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "branch": "develop",
         "reason": "no fix command configured",
         "unresolved_count": 1,

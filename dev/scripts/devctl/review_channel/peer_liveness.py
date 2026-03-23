@@ -9,7 +9,7 @@ plan item.
 
 from __future__ import annotations
 
-from enum import StrEnum
+from ..runtime.enum_compat import StrEnum
 
 # ---------------------------------------------------------------------------
 # Peer-heartbeat state enums

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 
 def current_utc() -> datetime:
     """Return the current UTC timestamp."""
-    return datetime.now(UTC)
+    return datetime.now(timezone.utc)
 
 
 def skip_live_freshness() -> bool:

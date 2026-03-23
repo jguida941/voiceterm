@@ -15,7 +15,6 @@ from dev.scripts.devctl.context_graph.models import GraphEdge, GraphNode
 from dev.scripts.devctl.context_graph.snapshot import (
     ContextGraphSnapshotCapture,
     SnapshotResolutionError,
-    load_context_graph_snapshot,
     write_context_graph_snapshot,
 )
 from dev.scripts.devctl.context_graph.snapshot_diff import (
@@ -24,6 +23,7 @@ from dev.scripts.devctl.context_graph.snapshot_diff import (
     load_graph_delta,
 )
 from dev.scripts.devctl.context_graph.snapshot_diff_render import render_snapshot_delta_markdown
+from dev.scripts.devctl.context_graph.snapshot_store import load_context_graph_snapshot
 
 
 def _write_snapshot(
@@ -209,7 +209,7 @@ class TestContextGraphSnapshotDelta(unittest.TestCase):
                 edges=second_edges,
             )
             with patch(
-                "dev.scripts.devctl.context_graph.snapshot.list_context_graph_snapshots",
+                "dev.scripts.devctl.context_graph.snapshot_store.list_context_graph_snapshots",
                 return_value=[first_path, second_path],
             ):
                 trend = build_snapshot_trend(to_path=second_path, window_size=5)
@@ -272,6 +272,44 @@ class TestContextGraphSnapshotDelta(unittest.TestCase):
                         trend_window=5,
                     )
 
+    def test_load_graph_delta_ignores_non_snapshot_json_neighbors_for_direct_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            mixed_dir = repo_root / "mixed"
+            mixed_dir.mkdir()
+            before_path = _write_snapshot(
+                repo_root,
+                commit_hash="111111111111",
+                timestamp_slug="20260323T040000Z",
+                generated_at_utc="2026-03-23T04:00:00Z",
+                nodes=_base_nodes(),
+                edges=_base_edges(),
+            )
+            after_path = _write_snapshot(
+                repo_root,
+                commit_hash="222222222222",
+                timestamp_slug="20260323T041000Z",
+                generated_at_utc="2026-03-23T04:10:00Z",
+                nodes=_base_nodes(),
+                edges=_base_edges(),
+            )
+            moved_before = mixed_dir / before_path.name
+            moved_after = mixed_dir / after_path.name
+            before_path.replace(moved_before)
+            after_path.replace(moved_after)
+            (mixed_dir / "junk.json").write_text('{"hello": "world"}\n', encoding="utf-8")
+
+            delta = load_graph_delta(
+                from_ref=str(moved_before),
+                to_ref=str(moved_after),
+                trend_window=5,
+            )
+
+            self.assertIsNotNone(delta.trend)
+            assert delta.trend is not None
+            self.assertEqual(delta.trend.window_size, 2)
+            self.assertEqual(delta.to_snapshot.path, moved_after.name)
+
 
 class TestContextGraphDiffCommand(unittest.TestCase):
     """Verify diff mode emits the typed delta payload through the command path."""
@@ -317,7 +355,7 @@ class TestContextGraphDiffCommand(unittest.TestCase):
             )
             with (
                 patch(
-                    "dev.scripts.devctl.context_graph.snapshot.list_context_graph_snapshots",
+                    "dev.scripts.devctl.context_graph.snapshot_store.list_context_graph_snapshots",
                     return_value=[before_path, after_path],
                 ),
                 patch("dev.scripts.devctl.context_graph.command.emit_machine_artifact_output", return_value=0) as emit_output,
@@ -329,3 +367,11 @@ class TestContextGraphDiffCommand(unittest.TestCase):
             self.assertEqual(payload["from_snapshot"]["commit_hash"], "111111111111")
             self.assertEqual(payload["to_snapshot"]["commit_hash"], "222222222222")
             self.assertEqual(payload["changed_nodes_count"], 1)
+            self.assertEqual(
+                payload["from_snapshot"]["path"],
+                "dev/reports/graph_snapshots/111111111111_20260323T040000Z.json",
+            )
+            self.assertEqual(
+                payload["to_snapshot"]["path"],
+                "dev/reports/graph_snapshots/222222222222_20260323T041000Z.json",
+            )

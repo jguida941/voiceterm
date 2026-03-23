@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 from xml.etree import ElementTree
@@ -167,7 +167,7 @@ def build_failure_packet(
         contract_id=FAILURE_PACKET_CONTRACT_ID,
         source=source,
         runner="pytest",
-        generated_at=datetime.now(UTC).isoformat(),
+        generated_at=datetime.now(timezone.utc).isoformat(),
         status=status,
         total_tests=total_tests,
         failed_tests=failed_tests,

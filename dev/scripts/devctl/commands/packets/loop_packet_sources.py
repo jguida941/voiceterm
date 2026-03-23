@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from enum import StrEnum
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import gettempdir
 from typing import Any
 
 from ...common import read_json_object, resolve_repo_path
 from ...config import REPO_ROOT
+from ...runtime.enum_compat import StrEnum
 from ...status_report import build_project_report
 from ...triage.enrich import apply_defaults_to_issues, build_issue_rollup
 from ...triage.support import build_next_actions, classify_issues
@@ -75,8 +75,8 @@ def _parse_iso_timestamp(raw_value: Any) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _freshness_hours(timestamp: datetime, now_utc: datetime) -> float:
@@ -170,7 +170,7 @@ def _build_live_triage_source() -> ArtifactSourceRow:
     issues = apply_defaults_to_issues(classify_issues(project_report), {})
     payload = {
         "command": LoopPacketSourceCommand.TRIAGE.value,
-        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
     payload["project"] = project_report
     payload["issues"] = issues
@@ -181,5 +181,5 @@ def _build_live_triage_source() -> ArtifactSourceRow:
         command=LoopPacketSourceCommand.TRIAGE.value,
         payload=payload,
         timestamp=_parse_iso_timestamp(payload.get("timestamp")),
-        mtime=datetime.now(UTC).timestamp(),
+        mtime=datetime.now(timezone.utc).timestamp(),
     )

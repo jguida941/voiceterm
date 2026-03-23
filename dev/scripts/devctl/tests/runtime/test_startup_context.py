@@ -82,12 +82,17 @@ class TestStartupContextBuild(unittest.TestCase):
         ))
         self.assertTrue(ctx.advisory_reason)
 
+    def test_has_quality_signals_dict(self) -> None:
+        ctx = build_startup_context()
+        self.assertIsInstance(ctx.quality_signals, dict)
+
     def test_to_dict_serializes(self) -> None:
         ctx = build_startup_context()
         d = ctx.to_dict()
         self.assertIn("advisory_action", d)
         self.assertIn("reviewer_gate", d)
         self.assertIn("governance", d)
+        self.assertIn("quality_signals", d)
 
     def test_slim_token_budget(self) -> None:
         ctx = build_startup_context()
@@ -129,6 +134,36 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("## Continuity Roots", rendered)
         self.assertIn("`.claude/memory`", rendered)
         self.assertIn("`dev/context`", rendered)
+
+    def test_markdown_renders_quality_signals(self) -> None:
+        rendered = _render_markdown(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "clean_worktree",
+                "reviewer_gate": {},
+                "governance": {
+                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                },
+                "quality_signals": {
+                    "probe_report": {
+                        "generated_at": "2026-03-23T00:00:00Z",
+                        "risk_hints": 81,
+                        "files_with_hints": 14,
+                    },
+                    "governance_review": {
+                        "generated_at_utc": "2026-03-23T00:00:00Z",
+                        "total_findings": 95,
+                        "open_finding_count": 19,
+                        "fixed_count": 62,
+                        "cleanup_rate_pct": 65.26,
+                    },
+                },
+            }
+        )
+
+        self.assertIn("## Quality Signals", rendered)
+        self.assertIn("**probe-report**", rendered)
+        self.assertIn("**governance-review**", rendered)
 
 
 class TestReviewerGateSemantics(unittest.TestCase):

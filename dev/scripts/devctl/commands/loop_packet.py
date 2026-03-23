@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from ..runtime.machine_output import ArtifactOutputOptions, emit_machine_artifact_output
@@ -178,7 +178,7 @@ def run(args) -> int:
     source_path = source_row.path or "<unknown>"
 
     timestamp = source_row.timestamp
-    now_utc = datetime.now(UTC)
+    now_utc = datetime.now(timezone.utc)
     if not isinstance(timestamp, datetime):
         report = {
             "command": "loop-packet",

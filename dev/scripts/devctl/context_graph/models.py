@@ -72,6 +72,7 @@ class BootstrapContext:
     bootstrap_links: dict[str, str | None]
     push_enforcement: dict[str, object]
     usage: str
+    quality_signals: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

@@ -123,6 +123,14 @@
   `dev/guides/DEVELOPMENT.md` plus `dev/scripts/README.md` for the canonical
   "which tool do I run when?" routing. This is awareness guidance only;
   runtime authority still stays with `startup-context` / `WorkIntakePacket`.
+- Current startup-surface closure inside that same lane: the repo-pack
+  bootstrap steps, key command block, and post-edit checklist are now
+  code-derived instead of manually curated policy prose, and
+  `context-graph --mode bootstrap` now surfaces bounded probe/governance/
+  watchdog/reliability summaries plus hotspot guidance from existing
+  artifacts. Remaining closure is to move the same richer evidence family
+  into canonical `startup-context` / `WorkIntakePacket` authority so the
+  intake packet stays ahead of the helper surfaces.
 - Current deterministic-routing rule inside that same lane: graph work only
   counts as usable startup/recovery help when one bounded request can return a
   cited read set before ad hoc file exploration. The first truthful router
@@ -2999,9 +3007,13 @@ become the main product surface.
     Second slice now live too: `context-graph --mode diff --from ... --to ...`
     resolves saved snapshots back into a typed `ContextGraphDelta`, reports
     added/removed/changed nodes and edges plus edge-kind/temperature deltas,
-    and adds a rolling trend summary over recent snapshots. Remaining work is
-    wider capture automation and richer drift interpretation, not basic
-    diff/trend plumbing. (evidence:
+    and adds a rolling trend summary over recent snapshots. Follow-up
+    hardening now landed too: `latest` / `previous` ordering comes from
+    snapshot capture time instead of filesystem `mtime`, direct-path trend
+    scans ignore non-snapshot sibling JSON, and delta/trend anchors now emit
+    portable snapshot-store-relative paths instead of machine-local absolute
+    paths. Remaining work is wider capture automation and richer drift
+    interpretation, not basic diff/trend plumbing. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 53)
   - [ ] Unify the current startup systems behind one canonical
     `startup-context` / `WorkIntakePacket` path so bootstrap instructions,

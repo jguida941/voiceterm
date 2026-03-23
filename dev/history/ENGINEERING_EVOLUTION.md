@@ -46,6 +46,29 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-23 - Temporal context-graph diff stopped trusting filesystem mtime
+
+Fact: the Part-53 temporal graph lane no longer picks `latest` / `previous`
+snapshots by filesystem `mtime`. `ContextGraphSnapshot` resolution now orders
+artifacts by embedded capture metadata, direct-path trend scans ignore sibling
+JSON that is not a real snapshot artifact, and `ContextGraphDelta` anchor /
+trend paths now normalize to portable snapshot-store-relative refs instead of
+machine-local absolute paths.
+
+This matters because the original happy-path slice worked on a clean local
+store, but a copied/touched snapshot file or a mixed directory with unrelated
+JSON could silently return the wrong baseline or crash trend building. The
+follow-up turns the temporal graph surface into a deterministic artifact
+contract instead of leaving it dependent on host filesystem behavior.
+
+Evidence:
+
+- `dev/scripts/devctl/context_graph/snapshot.py`
+- `dev/scripts/devctl/context_graph/snapshot_diff.py`
+- `dev/scripts/devctl/tests/context_graph/test_snapshot.py`
+- `dev/scripts/devctl/tests/context_graph/test_snapshot_diff.py`
+- `dev/active/platform_authority_loop.md`
+
 ### 2026-03-23 - Generated bootstrap instructions started advertising governance capabilities
 
 Fact: the generated `CLAUDE.md` bootstrap surface no longer jumps from startup
@@ -70,6 +93,33 @@ Evidence:
 - `dev/scripts/devctl/governance/bootstrap_surfaces.py`
 - `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
 - `dev/active/platform_authority_loop.md`
+
+### 2026-03-23 - Bootstrap surfaces stopped being write-only governance
+
+Fact: the AI-facing bootstrap blocks are no longer a stale hand-maintained
+copy of the governance system. Repo-pack surface generation now derives the
+bootstrap steps, key command block, and mandatory post-edit checklist from
+typed router/guard authority, and the slim `context-graph --mode bootstrap`
+packet now reads bounded probe summary, governance-review stats, hotspot
+guidance, watchdog metrics, and command-reliability data from the existing
+artifacts.
+
+This matters because the platform was already producing governance evidence,
+but session-start surfaces were not consuming it. The result was a
+"write-only governance" failure mode: agents could be told to trust startup
+packets that did not actually carry the data, while concrete command syntax
+and live quality signals stayed buried in deeper docs or JSON reports.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/surface_context.py`
+- `dev/scripts/devctl/governance/surfaces.py`
+- `dev/scripts/devctl/context_graph/startup_signals.py`
+- `dev/scripts/devctl/context_graph/query.py`
+- `dev/scripts/devctl/context_graph/render.py`
+- `dev/config/templates/claude_instructions.template.md`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+- `dev/scripts/devctl/tests/context_graph/test_context_graph.py`
 
 ### 2026-03-22 - Architectural absorption became a required completion rule
 

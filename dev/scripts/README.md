@@ -790,6 +790,9 @@ Machine-first output note:
   - Lane rules and add-ons resolve from `repo_governance.check_router` in the
     active repo policy; use `--quality-policy <path>` to reuse the same router
     in another repo without changing code.
+  - The six-row `AGENTS.md` router table and the generated `CLAUDE.md`
+    task-router quick map render from the same typed authority in
+    `dev/scripts/devctl/governance/task_router_contract.py`.
   - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; unknown paths escalate to the stricter tooling lane.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold/freshness checker for outcomes (strict by default; use `--report-only` for non-blocking reminders)
@@ -849,6 +852,10 @@ Machine-first output note:
   - Active probes also resolve from `dev/config/devctl_repo_policy.json`, so a
     different repo can reuse the same engine by changing policy instead of
     editing the command implementation.
+  - Treat this as the live enabled-inventory view. Numeric code-shape limits
+    still come from the code-owned policy modules under `dev/scripts/checks/`,
+    and `render-surfaces` is what projects those limits into generated
+    bootstrap surfaces such as `CLAUDE.md`.
 - `render-surfaces`: policy-owned repo-pack surface generator and drift checker
   for instruction files and starter artifacts such as local `CLAUDE.md`,
   slash/skill templates, and portable governance stubs
@@ -861,6 +868,10 @@ Machine-first output note:
     `governance-review --record`, packet-level operational feedback, saved
     graph snapshots, and points agents back to `dev/guides/DEVELOPMENT.md`
     plus this command guide for "which tool should I run now?" routing.
+  - The same render pass now derives `CLAUDE.md`'s task-router quick map from
+    `governance/task_router_contract.py` and derives the guard-limit block from the
+    live code-shape policy modules, so repo policy JSON no longer needs to
+    carry a second hardcoded copy of those limits.
 - `platform-contracts`: read-only reusable-platform blueprint that renders the
   shared layer model, backend contracts, frontend/client expectations,
   repo-local boundaries, adoption flow, and current portability status in one
