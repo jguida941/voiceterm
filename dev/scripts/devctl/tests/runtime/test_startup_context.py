@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
 from dev.scripts.devctl.commands.listing import COMMANDS
+from dev.scripts.devctl.commands.governance.startup_context import _render_markdown
 from dev.scripts.devctl.runtime.startup_context import (
     ReviewerGateState,
     StartupContext,
@@ -108,6 +109,26 @@ class TestCLIRegistration(unittest.TestCase):
 
     def test_in_listing(self) -> None:
         self.assertIn("startup-context", COMMANDS)
+
+    def test_markdown_renders_configured_memory_roots(self) -> None:
+        rendered = _render_markdown(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "clean_worktree",
+                "reviewer_gate": {},
+                "governance": {
+                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "memory_roots": {
+                        "memory_root": ".claude/memory",
+                        "context_store_root": "dev/context",
+                    },
+                },
+            }
+        )
+
+        self.assertIn("## Continuity Roots", rendered)
+        self.assertIn("`.claude/memory`", rendered)
+        self.assertIn("`dev/context`", rendered)
 
 
 class TestReviewerGateSemantics(unittest.TestCase):

@@ -11,7 +11,12 @@ try:
 except ModuleNotFoundError:  # broad-except: allow reason=devctl CLI runs from dev/scripts
     from coderabbit.probe_guidance_artifacts import guidance_ref, load_probe_entries
 
-from .operational_feedback import quality_feedback_lines, recent_fix_history_lines
+from .operational_feedback import (
+    data_science_reliability_lines,
+    quality_feedback_lines,
+    recent_fix_history_lines,
+    watchdog_digest_lines,
+)
 from .escalation_render import PacketRenderPayload, render_packet_markdown
 from .builder import build_context_graph
 from .models import GraphEdge, GraphNode
@@ -47,7 +52,7 @@ class ContextEscalationOptions:
 
     max_terms: int = 4
     max_refs: int = 6
-    max_chars: int = 1200
+    max_chars: int = 1600
 
 
 def append_context_packet_markdown(
@@ -193,6 +198,32 @@ def _select_probe_guidance(
     return tuple(matched)
 
 
+def _decision_constraint_lines(
+    guidance_entries: tuple[dict[str, object], ...],
+) -> tuple[str, ...]:
+    lines: list[str] = []
+    seen: set[str] = set()
+    for entry in guidance_entries:
+        decision_mode = str(entry.get("decision_mode") or "").strip()
+        if not decision_mode or decision_mode == "recommend_only":
+            continue
+        ref = guidance_ref(entry)
+        if ref in seen:
+            continue
+        seen.add(ref)
+        rationale = str(entry.get("decision_rationale") or "").strip()
+        if decision_mode == "approval_required":
+            line = f"`{ref}` requires approval before mutation."
+        elif decision_mode == "auto_apply":
+            line = f"`{ref}` may auto-apply after verification."
+        else:
+            line = f"`{ref}` uses decision mode `{decision_mode}`."
+        if rationale:
+            line += f" Rationale: {rationale}"
+        lines.append(line)
+    return tuple(lines)
+
+
 def build_context_escalation_packet(
     *,
     trigger: str,
@@ -251,6 +282,14 @@ def build_context_escalation_packet(
         trigger=trigger,
         query_terms=normalized_terms,
     )
+    watchdog_lines = watchdog_digest_lines(
+        trigger=trigger,
+        query_terms=normalized_terms,
+    )
+    reliability_lines = data_science_reliability_lines(
+        trigger=trigger,
+        query_terms=normalized_terms,
+    )
     guidance_lines = tuple(
         (
             str(entry.get("ai_instruction") or "").strip()
@@ -258,6 +297,7 @@ def build_context_escalation_packet(
         )
         for entry in guidance_entries
     )
+    decision_lines = _decision_constraint_lines(guidance_entries)
     markdown = render_packet_markdown(
         PacketRenderPayload(
             trigger=trigger,
@@ -266,7 +306,10 @@ def build_context_escalation_packet(
             matched_nodes=len(ordered_nodes),
             edge_count=len(matched_edges),
             guidance_lines=guidance_lines,
+            decision_lines=decision_lines,
             history_lines=history_lines,
+            watchdog_lines=watchdog_lines,
+            reliability_lines=reliability_lines,
             quality_lines=quality_lines,
         )
     )

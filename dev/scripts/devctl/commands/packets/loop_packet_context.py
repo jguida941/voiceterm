@@ -28,7 +28,7 @@ def build_loop_packet_context_packet(
     return build_context_escalation_packet(
         trigger="loop-packet",
         query_terms=query_terms,
-        options={"max_chars": 900},
+        options={"max_chars": 1200},
     )
 
 

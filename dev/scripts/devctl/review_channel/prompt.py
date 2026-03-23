@@ -256,7 +256,7 @@ def _context_escalation_lines(*, lanes: list["LaneAssignment"]) -> list[str]:
     packet = build_context_escalation_packet(
         trigger="review-channel-bootstrap",
         query_terms=lane_terms,
-        options={"max_chars": 900},
+        options={"max_chars": 1200},
     )
     if packet is None:
         return lines

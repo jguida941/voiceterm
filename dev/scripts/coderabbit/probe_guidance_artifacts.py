@@ -16,6 +16,7 @@ from dev.scripts.devctl.repo_packs import active_path_config
 from dev.scripts.devctl.runtime.finding_contracts import REVIEW_TARGETS_CONTRACT_ID
 
 DEFAULT_PROBE_REPORT_ROOT = Path(active_path_config().probe_report_output_root_rel)
+_SUMMARY_PATH = Path("latest") / "summary.json"
 
 
 def resolve_probe_report_root(report_root: str | Path | None = None) -> Path:
@@ -41,12 +42,42 @@ def _read_probe_json(path: Path) -> dict | None:
     return payload if isinstance(payload, dict) else None
 
 
-def _guidance_entry_from_finding(finding: dict, *, file_path: str = "") -> dict[str, object] | None:
+def _decision_packet_key(entry: Mapping[str, object]) -> tuple[str, str, str, str]:
+    return (
+        str(entry.get("finding_id") or "").strip(),
+        str(entry.get("file_path") or entry.get("file") or "").strip(),
+        str(entry.get("symbol") or "").strip(),
+        str(entry.get("check_id") or entry.get("probe") or "").strip(),
+    )
+
+
+def _load_decision_packets(root: Path) -> dict[tuple[str, str, str, str], dict[str, object]]:
+    summary = _read_probe_json(root / _SUMMARY_PATH)
+    if not isinstance(summary, dict):
+        return {}
+    rows = summary.get("decision_packets")
+    if not isinstance(rows, list):
+        return {}
+    packets: dict[tuple[str, str, str, str], dict[str, object]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        packets[_decision_packet_key(row)] = row
+    return packets
+
+
+def _guidance_entry_from_finding(
+    finding: dict,
+    *,
+    file_path: str = "",
+    decision_packets: Mapping[tuple[str, str, str, str], dict[str, object]] | None = None,
+) -> dict[str, object] | None:
     ai_instruction = str(finding.get("ai_instruction") or "").strip()
     if not ai_instruction:
         return None
     resolved_path = str(finding.get("file_path") or finding.get("file") or file_path or "").strip()
-    return {
+    entry: dict[str, object] = {
+        "finding_id": str(finding.get("finding_id") or "").strip(),
         "file_path": resolved_path,
         "symbol": str(finding.get("symbol") or "").strip(),
         "probe": str(finding.get("check_id") or finding.get("probe") or "").strip(),
@@ -55,6 +86,27 @@ def _guidance_entry_from_finding(finding: dict, *, file_path: str = "") -> dict[
         "line": finding.get("line"),
         "end_line": finding.get("end_line"),
     }
+    if decision_packets:
+        decision_packet = decision_packets.get(_decision_packet_key(entry))
+        if isinstance(decision_packet, dict):
+            decision_mode = str(decision_packet.get("decision_mode") or "").strip()
+            if decision_mode:
+                entry["decision_mode"] = decision_mode
+            rationale = str(decision_packet.get("rationale") or "").strip()
+            if rationale:
+                entry["decision_rationale"] = rationale
+            precedent = str(decision_packet.get("precedent") or "").strip()
+            if precedent:
+                entry["precedent"] = precedent
+            invariants = decision_packet.get("invariants")
+            if isinstance(invariants, list) and invariants:
+                entry["invariants"] = [str(item).strip() for item in invariants if str(item).strip()]
+            validation_plan = decision_packet.get("validation_plan")
+            if isinstance(validation_plan, list) and validation_plan:
+                entry["validation_plan"] = [
+                    str(item).strip() for item in validation_plan if str(item).strip()
+                ]
+    return entry
 
 
 def guidance_ref(entry: Mapping[str, object]) -> str:
@@ -73,6 +125,7 @@ def _entries_from_rows(
     rows: object,
     *,
     file_path: str = "",
+    decision_packets: Mapping[tuple[str, str, str, str], dict[str, object]] | None = None,
 ) -> list[dict[str, object]]:
     if not isinstance(rows, list):
         return []
@@ -80,7 +133,11 @@ def _entries_from_rows(
     for row in rows:
         if not isinstance(row, dict):
             continue
-        entry = _guidance_entry_from_finding(row, file_path=file_path)
+        entry = _guidance_entry_from_finding(
+            row,
+            file_path=file_path,
+            decision_packets=decision_packets,
+        )
         if entry is not None:
             entries.append(entry)
     return entries
@@ -97,7 +154,10 @@ def _load_review_target_entries(root: Path) -> list[dict[str, object]]:
             file=sys.stderr,
         )
         return []
-    return _entries_from_rows(review_targets.get("findings"))
+    return _entries_from_rows(
+        review_targets.get("findings"),
+        decision_packets=_load_decision_packets(root),
+    )
 
 
 def load_probe_entries(report_root: str | Path | None = None) -> list[dict[str, object]]:

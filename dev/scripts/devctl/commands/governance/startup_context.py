@@ -47,6 +47,15 @@ def _render_markdown(ctx_dict: dict) -> str:
         lines.append(f"- recommended_action: `{pe.get('recommended_action', '?')}`")
         lines.append("")
 
+    memory_roots = gov.get("memory_roots", {})
+    if isinstance(memory_roots, dict) and any(str(memory_roots.get(key) or "").strip() for key in ("memory_root", "context_store_root")):
+        lines.append("## Continuity Roots")
+        if str(memory_roots.get("memory_root") or "").strip():
+            lines.append(f"- memory_root: `{memory_roots.get('memory_root')}`")
+        if str(memory_roots.get("context_store_root") or "").strip():
+            lines.append(f"- context_store_root: `{memory_roots.get('context_store_root')}`")
+        lines.append("")
+
     return "\n".join(lines)
 
 

@@ -224,6 +224,10 @@ intended execution order is:
       governed-plan `Session Resume`, repo memory roots, and recent
       episode/execution evidence should collapse into one bounded startup
       packet with typed sections instead of four uncoordinated sources.
+      Immediate cleanup on the same lane is now real: governance draft
+      discovery populates configured memory roots when the canonical repo
+      directories exist, and empty `memory_roots` placeholders no longer
+      serialize into startup payloads when no real roots are configured.
       Generated bootstrap instruction surfaces such as `CLAUDE.md` must point
       agents at that canonical startup path rather than only the older
       graph-only bootstrap helper. (evidence:
@@ -1168,6 +1172,14 @@ intended execution order is:
   `WorkIntakePacket` surface that bootstrap instructions also point to, and
   Part 48 now explicitly requires episode-digest continuity plus a typed
   startup continuity packet instead of separate memory / resume / trace silos.
+- 2026-03-22: Closed the first dead-placeholder cleanup in the startup lane
+  instead of leaving `MemoryRoots` as permanent type noise. Governance draft
+  discovery now populates memory roots only when the canonical repo-relative
+  directories actually exist, `ProjectGovernance` no longer serializes an
+  empty `memory_roots` block into startup payloads, and `startup-context`
+  renders configured continuity roots when they are present. The broader
+  authority item stays open until those roots participate in the full warm-
+  start / continuity packet instead of only discovery/render cleanup.
 - 2026-03-22: Tightened the startup-authority guidance seam before landing the
   full runtime merge. Generated/bootstrap-facing instructions now point at
   `startup-context` for typed reviewer/checkpoint truth and richer

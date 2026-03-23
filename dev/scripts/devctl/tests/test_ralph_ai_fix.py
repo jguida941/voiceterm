@@ -213,6 +213,31 @@ class BuildPromptTests(unittest.TestCase):
         self.assertIn("Extract the auth validation helper", prompt)
         self.assertIn("probe_design_smells", prompt)
 
+    def test_prompt_surfaces_approval_required_decision_mode(self) -> None:
+        prompt = build_prompt(
+            [
+                {
+                    "severity": "high",
+                    "category": "rust",
+                    "summary": "rust/src/auth.rs:12 - Auth contract is too broad.",
+                    "probe_guidance": [
+                        {
+                            "severity": "high",
+                            "probe": "probe_design_smells",
+                            "file_path": "rust/src/auth.rs",
+                            "ai_instruction": "Extract the auth validation helper before editing the caller.",
+                            "decision_mode": "approval_required",
+                        }
+                    ],
+                }
+            ],
+            attempt=1,
+        )
+
+        self.assertIn("decision_mode=approval_required", prompt)
+        self.assertIn("do not", prompt.lower())
+        self.assertIn("request approval", prompt.lower())
+
     def test_prompt_mandates_using_probe_guidance_and_output_contract(self) -> None:
         prompt = build_prompt(_sample_items(), attempt=1)
         self.assertIn("default repair plan", prompt)

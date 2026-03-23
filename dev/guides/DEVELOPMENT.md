@@ -428,6 +428,18 @@ Why this model is safe:
    active plan and add the matching detection follow-up (`check_platform_contract_closure.py`
    expansion, a review probe widening, or both) before copying the same
    pattern into more routes.
+13. Carried `DecisionPacket.decision_mode` values are now part of the live
+    route contract too. When matched guidance says
+    `decision_mode=approval_required`, Ralph, autonomy, and `guard-run`
+    surfaces must show that approval gate explicitly and avoid silent
+    auto-apply behavior.
+14. Shared escalation/context packets now carry bounded watchdog episode
+    digests plus command-reliability lines from the latest data-science
+    summary. Prefer those packet fields over ad hoc raw-ledger reads when a
+    prompt or review packet needs recent operational history.
+15. `startup-context` / `ProjectGovernance` no longer serialize empty
+    `memory_roots` placeholders. Continuity roots should render only when the
+    canonical directories actually exist.
 13. Once the same typed field feeds multiple live consumers, treat it as a
     declared route family instead of unrelated point fixes. The closure guard
     should fail if any declared consumer in that family drops out, even if one

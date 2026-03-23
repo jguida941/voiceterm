@@ -17,6 +17,8 @@ from .loop_packet_helpers import (
     _choose_source,
     _discover_artifact_sources,
     _freshness_hours,
+    _guidance_decision_modes,
+    _guidance_requires_approval,
     _truncate_chars,
 )
 
@@ -74,9 +76,12 @@ def _render_markdown(report: dict[str, Any]) -> str:
 
 
 def _build_guidance_contract(probe_guidance: list[dict[str, Any]]) -> dict[str, Any]:
+    decision_modes = _guidance_decision_modes(probe_guidance)
     return {
         "guidance_attached_count": len(probe_guidance),
         "guidance_adoption_required": bool(probe_guidance),
+        "decision_modes": list(decision_modes),
+        "approval_required": _guidance_requires_approval(probe_guidance),
     }
 
 
@@ -117,6 +122,8 @@ def _build_terminal_packet(context: _LoopPacketContext) -> dict[str, Any]:
         "auto_send": context.auto_send,
         "probe_guidance_count": len(context.probe_guidance),
         "guidance_adoption_required": bool(context.probe_guidance),
+        "guidance_decision_modes": list(_guidance_decision_modes(context.probe_guidance)),
+        "guidance_requires_approval": _guidance_requires_approval(context.probe_guidance),
     }
 
 
@@ -221,7 +228,12 @@ def run(args) -> int:
         payload=payload,
     )
     confidence = RISK_CONFIDENCE.get(risk, RISK_CONFIDENCE["medium"])
-    auto_send = bool(args.allow_auto_send) and _auto_send_eligible(source_command, payload, risk)
+    auto_send = bool(args.allow_auto_send) and _auto_send_eligible(
+        source_command,
+        payload,
+        risk,
+        probe_guidance=probe_guidance,
+    )
     draft_text = _truncate_chars(raw_draft, int(args.max_draft_chars))
     packet_seed = "|".join(
         [

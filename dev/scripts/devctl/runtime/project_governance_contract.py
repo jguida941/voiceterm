@@ -179,6 +179,12 @@ class MemoryRoots:
     memory_root: str = ""
     context_store_root: str = ""
 
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+    def configured(self) -> bool:
+        return bool(self.memory_root or self.context_store_root)
+
 
 @dataclass(frozen=True, slots=True)
 class BridgeConfig:
@@ -231,6 +237,10 @@ class ProjectGovernance:
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["plan_registry"] = self.plan_registry.to_dict()
+        if self.memory_roots.configured():
+            payload["memory_roots"] = self.memory_roots.to_dict()
+        else:
+            payload.pop("memory_roots", None)
         payload["doc_policy"] = self.doc_policy.to_dict()
         payload["doc_registry"] = self.doc_registry.to_dict()
         payload["startup_order"] = list(self.startup_order)

@@ -64,10 +64,10 @@ class LoopPacketParserTests(unittest.TestCase):
 
 
 class LoopPacketCommandTests(unittest.TestCase):
-    @patch("dev.scripts.devctl.commands.loop_packet_helpers.build_next_actions")
-    @patch("dev.scripts.devctl.commands.loop_packet_helpers.build_issue_rollup")
-    @patch("dev.scripts.devctl.commands.loop_packet_helpers.classify_issues")
-    @patch("dev.scripts.devctl.commands.loop_packet_helpers.build_project_report")
+    @patch("dev.scripts.devctl.commands.packets.loop_packet_sources.build_next_actions")
+    @patch("dev.scripts.devctl.commands.packets.loop_packet_sources.build_issue_rollup")
+    @patch("dev.scripts.devctl.commands.packets.loop_packet_sources.classify_issues")
+    @patch("dev.scripts.devctl.commands.packets.loop_packet_sources.build_project_report")
     def test_live_triage_source_includes_probe_report(
         self,
         build_report_mock,
@@ -205,6 +205,90 @@ class LoopPacketCommandTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertTrue(payload["ok"])
         self.assertTrue(payload["terminal_packet"]["auto_send"])
+
+    def test_decision_mode_blocks_auto_send_and_surfaces_constraints(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            source_path = tmp_root / "coderabbit-ralph-loop.json"
+            output_path = tmp_root / "packet.json"
+            report_root = tmp_root / "probes"
+            latest = report_root / "latest"
+            latest.mkdir(parents=True, exist_ok=True)
+            source_path.write_text(
+                json.dumps(
+                    {
+                        "command": "triage-loop",
+                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        "branch": "develop",
+                        "reason": "resolved",
+                        "unresolved_count": 0,
+                        "backlog_items": [
+                            {
+                                "severity": "high",
+                                "category": "python",
+                                "summary": "dev/scripts/devctl/auth.py:12 - Auth flow needs approval.",
+                                "file_path": "dev/scripts/devctl/auth.py",
+                                "line": 12,
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (report_root / "review_targets.json").write_text(
+                json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "finding_id": "finding-approval",
+                                "file_path": "dev/scripts/devctl/auth.py",
+                                "symbol": "validate_auth",
+                                "check_id": "probe_side_effect_mixing",
+                                "severity": "high",
+                                "line": 10,
+                                "end_line": 14,
+                                "ai_instruction": "Split the auth validator from the retry orchestration before editing the caller.",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (latest / "summary.json").write_text(
+                json.dumps(
+                    {
+                        "decision_packets": [
+                            {
+                                "finding_id": "finding-approval",
+                                "file_path": "dev/scripts/devctl/auth.py",
+                                "symbol": "validate_auth",
+                                "check_id": "probe_side_effect_mixing",
+                                "decision_mode": "approval_required",
+                                "rationale": "Auth contract changes require approval.",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            args = _base_args(
+                source_json=[str(source_path)],
+                allow_auto_send=True,
+                output=str(output_path),
+            )
+            with patch.dict(os.environ, {"DEVCTL_PROBE_REPORT_ROOT": str(report_root)}, clear=False):
+                rc = loop_packet.run(args)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(rc, 0)
+        self.assertFalse(payload["terminal_packet"]["auto_send"])
+        self.assertTrue(payload["guidance_contract"]["approval_required"])
+        self.assertEqual(
+            payload["guidance_contract"]["decision_modes"],
+            ["approval_required"],
+        )
+        self.assertIn("decision_mode=approval_required", payload["terminal_packet"]["draft_text"])
+        self.assertIn("request approval first", payload["terminal_packet"]["draft_text"])
 
     def test_stale_source_fails_guard(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

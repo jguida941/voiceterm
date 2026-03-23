@@ -54,7 +54,7 @@ def build_backlog_context_packet(
     return build_context_packet_fn(
         trigger="ralph-backlog",
         query_terms=query_terms,
-        options={"max_chars": 900},
+        options={"max_chars": 1200},
     )
 
 
@@ -76,11 +76,18 @@ def build_prompt(
             for entry in item_guidance[:2]:
                 if not isinstance(entry, dict):
                     continue
+                decision_mode = str(entry.get("decision_mode") or "").strip()
+                decision_suffix = (
+                    f" [decision_mode={decision_mode}]"
+                    if decision_mode and decision_mode != "recommend_only"
+                    else ""
+                )
                 line += (
                     "\n     Probe guidance: "
                     f"{entry.get('ai_instruction') or ''} "
                     f"({entry.get('probe') or 'probe'} on "
                     f"{entry.get('file_path') or entry.get('symbol') or 'matched file'})"
+                    f"{decision_suffix}"
                 )
         finding_lines.append(line)
     findings_text = "\n".join(finding_lines)
@@ -121,6 +128,13 @@ If a finding carries `Probe guidance:`, use the probe's recommended approach
 as your default fix plan. Do not invent a different repair strategy unless the
 guidance is clearly wrong for the current code, and explain any waiver in the
 required output contract below.
+
+If attached probe guidance carries `decision_mode=approval_required`, do not
+apply that code change yet. Explain the recommended fix, why it is gated, and
+request approval before mutation. If attached guidance carries
+`decision_mode=auto_apply`, you may apply it directly after verification. When
+no explicit decision mode is attached, treat the guidance as
+`recommend_only`.
 
 ## Findings to evaluate
 

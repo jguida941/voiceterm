@@ -54,8 +54,8 @@ def _surface_policy_with_tokens(*tokens: str) -> SurfacePolicy:
 def test_platform_contract_closure_passes_on_current_blueprint() -> None:
     report = build_report()
     assert report["ok"] is True
-    assert report["checked_field_routes"] == 3
-    assert report["checked_field_route_families"] == 1
+    assert report["checked_field_routes"] == 6
+    assert report["checked_field_route_families"] == 2
     assert report["violations"] == []
 
 
@@ -118,8 +118,12 @@ def test_platform_contract_closure_flags_missing_ai_instruction_prompt_route() -
         )
 
     route_violations = [v for v in violations if v.get("rule") == "unconsumed-field-route"]
+    route_violations = [
+        v
+        for v in route_violations
+        if v.get("contract_id") == "Finding" and v.get("field_name") == "ai_instruction"
+    ]
     assert len(route_violations) == 1
-    assert route_violations[0]["field_name"] == "ai_instruction"
     assert route_violations[0]["route_id"] == "ralph_prompt"
 
 
@@ -143,6 +147,7 @@ def test_platform_contract_closure_flags_missing_ai_instruction_autonomy_route()
         for v in violations
         if v.get("rule") == "unconsumed-field-route"
         and v.get("route_id") == "autonomy_loop_packet"
+        and v.get("contract_id") == "Finding"
     ]
     assert len(route_violations) == 1
     assert route_violations[0]["field_name"] == "ai_instruction"
@@ -168,12 +173,70 @@ def test_platform_contract_closure_flags_missing_ai_instruction_guard_run_route(
         for v in violations
         if v.get("rule") == "unconsumed-field-route"
         and v.get("route_id") == "guard_run_report"
+        and v.get("contract_id") == "Finding"
     ]
     assert len(route_violations) == 1
     assert route_violations[0]["field_name"] == "ai_instruction"
 
 
 def test_platform_contract_closure_flags_incomplete_ai_instruction_route_family() -> None:
+    blueprint = build_platform_blueprint()
+    reduced_checks = tuple(
+        check
+        for check in field_routes.FIELD_ROUTE_CHECKS
+        if getattr(check, "__name__", "") != "check_finding_ai_instruction_guard_run_route"
+    )
+    with patch(
+        "dev.scripts.checks.platform_contract_closure.support.field_routes.FIELD_ROUTE_CHECKS",
+        new=reduced_checks,
+    ):
+        _coverage, violations = evaluate_platform_contract_closure(
+            blueprint,
+            _surface_policy_with_tokens(
+                "platform-contracts",
+                "render-surfaces",
+                "check_platform_contract_closure.py",
+            ),
+        )
+
+    family_violations = [
+        v
+        for v in violations
+        if v.get("rule") == "field-route-family-incomplete"
+        and v.get("contract_id") == "Finding"
+    ]
+    assert len(family_violations) == 1
+    assert family_violations[0]["field_name"] == "ai_instruction"
+    assert family_violations[0]["missing_route_ids"] == ("guard_run_report",)
+
+
+def test_platform_contract_closure_flags_missing_decision_mode_ralph_route() -> None:
+    blueprint = build_platform_blueprint()
+    with patch(
+        "dev.scripts.coderabbit.ralph_ai_fix.build_prompt",
+        return_value="Prompt without decision-mode routing.",
+    ):
+        _coverage, violations = evaluate_platform_contract_closure(
+            blueprint,
+            _surface_policy_with_tokens(
+                "platform-contracts",
+                "render-surfaces",
+                "check_platform_contract_closure.py",
+            ),
+        )
+
+    route_violations = [
+        v
+        for v in violations
+        if v.get("rule") == "unconsumed-field-route"
+        and v.get("contract_id") == "DecisionPacket"
+        and v.get("route_id") == "ralph_prompt"
+    ]
+    assert len(route_violations) == 1
+    assert route_violations[0]["field_name"] == "decision_mode"
+
+
+def test_platform_contract_closure_flags_incomplete_decision_mode_route_family() -> None:
     blueprint = build_platform_blueprint()
     with patch(
         "dev.scripts.checks.platform_contract_closure.support.field_routes.FIELD_ROUTE_CHECKS",
@@ -189,11 +252,13 @@ def test_platform_contract_closure_flags_incomplete_ai_instruction_route_family(
         )
 
     family_violations = [
-        v for v in violations if v.get("rule") == "field-route-family-incomplete"
+        v
+        for v in violations
+        if v.get("rule") == "field-route-family-incomplete"
+        and v.get("contract_id") == "DecisionPacket"
     ]
     assert len(family_violations) == 1
-    assert family_violations[0]["contract_id"] == "Finding"
-    assert family_violations[0]["field_name"] == "ai_instruction"
+    assert family_violations[0]["field_name"] == "decision_mode"
     assert family_violations[0]["missing_route_ids"] == ("guard_run_report",)
 
 
@@ -392,5 +457,5 @@ def test_platform_contract_closure_markdown_lists_violations() -> None:
 def test_platform_contract_closure_markdown_lists_field_route_count() -> None:
     report = build_report()
     output = render_md(report)
-    assert "checked_field_routes: 3" in output
-    assert "checked_field_route_families: 1" in output
+    assert "checked_field_routes: 6" in output
+    assert "checked_field_route_families: 2" in output

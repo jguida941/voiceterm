@@ -74,6 +74,7 @@ def build_guard_run_report(
     diff_snapshot_after: GuardGitSnapshot | None = None
     probe_guidance: list[dict[str, object]] = []
     guidance_refs: list[str] = []
+    guidance_requires_approval = False
 
     if request.requested_post_action not in POST_ACTIONS:
         errors.append(
@@ -144,6 +145,8 @@ def build_guard_run_report(
             probe_guidance = load_probe_guidance(probe_targets)
             for entry in probe_guidance:
                 entry["guidance_id"] = guidance_ref(entry)
+                if str(entry.get("decision_mode") or "").strip() == "approval_required":
+                    guidance_requires_approval = True
             guidance_refs = [
                 str(entry.get("guidance_id") or "").strip()
                 for entry in probe_guidance
@@ -186,6 +189,7 @@ def build_guard_run_report(
     report["probe_guidance"] = probe_guidance
     report["guidance_refs"] = guidance_refs
     report["guidance_adoption_required"] = bool(probe_guidance)
+    report["guidance_requires_approval"] = guidance_requires_approval
     report["watchdog_context"] = watchdog_context.to_dict() if watchdog_context else {}
     report["probe_scan"] = probe_scan_result
     report["warnings"] = warnings

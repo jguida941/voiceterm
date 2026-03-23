@@ -92,7 +92,7 @@ def _build_swarm_prompt_context_packet(
     return build_context_escalation_packet(
         trigger="swarm-run",
         query_terms=query_terms,
-        options={"max_chars": 900},
+        options={"max_chars": 1200},
     )
 
 

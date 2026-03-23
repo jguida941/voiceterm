@@ -308,11 +308,15 @@ context-free translation = MEDIUM.
       and `check_platform_contract_closure.py` now fails both route-specific
       and family-completeness checks if the declared Ralph / autonomy /
       `guard-run` consumer family drops `Finding.ai_instruction`. The
-      remaining detector widening is broader: dual-authority AI consumers,
-      prose-parsed structured-contract matching, and the carried decision
-      semantics that still stop at human-facing renderers should all fail the
-      same closure lane once structured fields and one canonical artifact
-      already exist. (evidence:
+      first carried decision semantic is now live too: matched guidance
+      merges `DecisionPacket.decision_mode`, Ralph/autonomy/`guard-run`
+      treat `approval_required` as a real behavior gate, and the same route
+      guard now proves that family as well. The remaining detector widening
+      is broader: dual-authority AI consumers, prose-parsed structured-
+      contract matching, and the rest of the carried decision semantics that
+      still stop at human-facing renderers should all fail the same closure
+      lane once structured fields and one canonical artifact already exist.
+      (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 52, Part 54)
 - [ ] Add the next missing probe tranche explicitly under the same portable
       evidence contract: start with test-quality, None-safety, and

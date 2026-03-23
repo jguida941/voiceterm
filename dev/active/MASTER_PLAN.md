@@ -2939,15 +2939,18 @@ become the main product surface.
     deterministic route-closure guard now proves the Ralph / autonomy /
     `guard-run` family inside `check_platform_contract_closure.py`, including
     a family-completeness failure if any declared consumer disappears. The
-    remaining closure in this same tranche is broader single-authority +
-    structured-routing enforcement so AI consumers cannot silently negotiate
-    between multiple artifact authorities or keep deriving routing keys from
-    prose when typed fields already exist, together with explicit adoption
-    proof: prompts must keep telling AI to prefer attached probe guidance,
-    matching must prefer structured identity, and runtime telemetry must
-    record stable `guidance_id` / `guidance_followed` plus fix outcome.
-    (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38, Part 52,
-    Part 54)
+    first carried decision semantic is now live too: matched probe guidance
+    merges `DecisionPacket.decision_mode`, Ralph/autonomy/`guard-run` treat
+    `approval_required` as a real behavior gate, and the same closure guard
+    now proves that family as well. The remaining closure in this same
+    tranche is broader single-authority + structured-routing enforcement so
+    AI consumers cannot silently negotiate between multiple artifact
+    authorities or keep deriving routing keys from prose when typed fields
+    already exist, together with explicit adoption proof: prompts must keep
+    telling AI to prefer attached probe guidance, matching must prefer
+    structured identity, and runtime telemetry must record stable
+    `guidance_id` / `guidance_followed` plus fix outcome. (evidence:
+    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38, Part 52, Part 54)
   - [ ] Route fresh `dev/reports/**` operational evidence into the live prompt
     builders and adjacent decision surfaces so bootstrap, conductor, swarm,
     Ralph, loop-packet, escalation, and other runtime controllers consume
@@ -2956,9 +2959,12 @@ become the main product surface.
     instead of leaving those artifacts write-only or display-only. Immediate
     zero-consumer backlog still called out by audit is now narrower:
     `finding_reviews.jsonl` history plus quality-feedback recommendations are
-    flowing through shared context packets, but watchdog episodes,
-    data-science summaries, and decision/adoption metadata still need live
-    consumers. (evidence:
+    flowing through shared context packets, watchdog episode digests plus
+    data-science command-reliability lines now flow through the same shared
+    packet family, and the first `DecisionPacket` behavior gate
+    (`decision_mode`) now reaches live prompt/runtime consumers. Remaining
+    backlog is broader decision/adoption metadata and impact measurement, not
+    the original transport gap. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 42, Part 45, Part 54)
   - [ ] Finish the first graph-routing expansion by emitting live
     `EDGE_KIND_GUARDS` / `EDGE_KIND_SCOPED_BY` edges, land the guard-edge
@@ -2986,7 +2992,9 @@ become the main product surface.
     feed one bounded startup packet instead of four disconnected sources.
     Current partial proof: generated bootstrap surfaces and review-channel
     bootstrap prompts now explicitly tell agents when to escalate from the
-    slim bootstrap helper to typed `startup-context`. (evidence:
+    slim bootstrap helper to typed `startup-context`, and governance draft
+    discovery now only serializes `memory_roots` when real canonical repo
+    roots exist instead of emitting an always-empty placeholder. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 46)
   - [ ] Promote checkpoint budget from advisory status to fail-closed startup
     authority: when the typed startup / collaboration receipt reports

@@ -274,7 +274,11 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     while the bridge-backed migration remains incomplete. Advisory
     checkpoint-budget accounting may exclude policy-declared compatibility
     projections such as `bridge.md`, but canonical git/review truth still
-    comes from the real worktree plus reviewer-owned state.
+    comes from the real worktree plus reviewer-owned state. Shared startup /
+    escalation packets now also carry bounded decision constraints plus
+    watchdog and command-reliability summaries; use those typed packet fields
+    before reaching back to raw ledgers. Empty `memory_roots` placeholders are
+    not authority and should not be resurrected in downstream JSON/rendering.
 4.7 Treat governed-markdown authority the same way: prefer typed
     `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
     parsed `plan_registry` entries when those projections are available, but
@@ -512,7 +516,9 @@ When a probe emits risk hints, agents MUST:
     surface so adoption is measurable, and use
     `governance-review --record --guidance-id ... --guidance-followed ...`
     when the finding is adjudicated so the adoption signal survives outside
-    the prompt text.
+    the prompt text. If the matched carried decision packet sets
+    `decision_mode=approval_required`, do not mutate through that route until
+    the approval step is explicit in the packet/report surface.
 3. Document `medium` severity hints in handoff notes if not fixed immediately.
 4. Record adjudicated probe/guard outcomes with
    `python3 dev/scripts/devctl.py governance-review --record ...` when a hint

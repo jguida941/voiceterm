@@ -120,6 +120,16 @@ def _scan_workflow_profiles() -> tuple[str, ...]:
         return ()
 
 
+def _scan_memory_roots(repo_root: Path) -> MemoryRoots:
+    """Discover repo-relative memory roots when they actually exist."""
+    memory_root = ".claude/memory" if (repo_root / ".claude" / "memory").is_dir() else ""
+    context_store_root = "dev/context" if (repo_root / "dev" / "context").is_dir() else ""
+    return MemoryRoots(
+        memory_root=memory_root,
+        context_store_root=context_store_root,
+    )
+
+
 def _load_policy(
     repo_root: Path,
     *,
@@ -187,7 +197,7 @@ def scan_repo_governance(
         path_roots=discovery.path_roots,
         plan_registry=plan_registry,
         artifact_roots=_scan_artifact_roots(repo_root),
-        memory_roots=MemoryRoots(),
+        memory_roots=_scan_memory_roots(repo_root),
         bridge_config=discovery.bridge_config,
         enabled_checks=_scan_enabled_checks(repo_root, resolved_policy_path),
         bundle_overrides=_scan_bundle_overrides(),

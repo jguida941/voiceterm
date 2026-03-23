@@ -339,11 +339,14 @@ class GuardRunCommandTests(TestCase):
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             report_root = Path(tmp_dir)
+            latest = report_root / "latest"
+            latest.mkdir(parents=True, exist_ok=True)
             (report_root / "review_targets.json").write_text(
                 json.dumps(
                     {
                         "findings": [
                             {
+                                "finding_id": "guard-run-finding",
                                 "file_path": "dev/scripts/devctl/commands/guard_run.py",
                                 "check_id": "probe_side_effect_mixing",
                                 "severity": "high",
@@ -353,6 +356,22 @@ class GuardRunCommandTests(TestCase):
                                     "Split the guard-run follow-up repair plan from "
                                     "the shell wrapper logic."
                                 ),
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (latest / "summary.json").write_text(
+                json.dumps(
+                    {
+                        "decision_packets": [
+                            {
+                                "finding_id": "guard-run-finding",
+                                "file_path": "dev/scripts/devctl/commands/guard_run.py",
+                                "check_id": "probe_side_effect_mixing",
+                                "decision_mode": "approval_required",
+                                "rationale": "Guard-run flow changes require approval.",
                             }
                         ]
                     }
@@ -380,6 +399,11 @@ class GuardRunCommandTests(TestCase):
             payload["probe_guidance"][0]["guidance_id"],
             "probe_side_effect_mixing@dev/scripts/devctl/commands/guard_run.py:42",
         )
+        self.assertEqual(
+            payload["probe_guidance"][0]["decision_mode"],
+            "approval_required",
+        )
+        self.assertTrue(payload["guidance_requires_approval"])
         self.assertIn(
             "Split the guard-run follow-up repair plan",
             payload["probe_guidance"][0]["ai_instruction"],

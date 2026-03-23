@@ -15,7 +15,10 @@ class PacketRenderPayload:
     matched_nodes: int
     edge_count: int
     guidance_lines: tuple[str, ...] = ()
+    decision_lines: tuple[str, ...] = ()
     history_lines: tuple[str, ...] = ()
+    watchdog_lines: tuple[str, ...] = ()
+    reliability_lines: tuple[str, ...] = ()
     quality_lines: tuple[str, ...] = ()
 
 
@@ -42,12 +45,33 @@ def render_packet_markdown(payload: PacketRenderPayload) -> str:
     )
     _append_section(
         lines,
+        title="## Decision Constraints",
+        intro=(
+            "These decision-mode constraints gate how much of the proposed fix "
+            "may be auto-applied versus escalated for approval."
+        ),
+        entries=payload.decision_lines,
+    )
+    _append_section(
+        lines,
         title="## Recent Fix History",
         intro=(
             "Use these adjudicated recent outcomes to reuse proven fixes and "
             "avoid repeating recently waived or deferred patterns."
         ),
         entries=payload.history_lines,
+    )
+    _append_section(
+        lines,
+        title="## Watchdog Episode Digest",
+        intro="Recent guarded-coding trends relevant to this scope:",
+        entries=payload.watchdog_lines,
+    )
+    _append_section(
+        lines,
+        title="## Command Reliability Signals",
+        intro="Recent command/runtime reliability metrics relevant to this scope:",
+        entries=payload.reliability_lines,
     )
     _append_section(
         lines,

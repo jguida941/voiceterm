@@ -523,3 +523,23 @@ def test_project_governance_to_dict_converts_tuples_to_lists() -> None:
     assert d["push_enforcement"]["dirty_path_count"] == 14
     assert d["push_enforcement"]["checkpoint_required"] is True
     assert d["push_enforcement"]["recommended_action"] == "use_devctl_push"
+
+
+def test_project_governance_to_dict_omits_empty_memory_roots() -> None:
+    gov = ProjectGovernance(
+        schema_version=PROJECT_GOVERNANCE_SCHEMA_VERSION,
+        contract_id=PROJECT_GOVERNANCE_CONTRACT_ID,
+        repo_identity=RepoIdentity(repo_name="memory-test"),
+        repo_pack=RepoPackRef(pack_id="lp"),
+        path_roots=PathRoots(),
+        plan_registry=PlanRegistry(),
+        artifact_roots=ArtifactRoots(),
+        memory_roots=MemoryRoots(),
+        bridge_config=BridgeConfig(),
+        enabled_checks=EnabledChecks(),
+        bundle_overrides=BundleOverrides(overrides={}),
+    )
+
+    payload = gov.to_dict()
+
+    assert "memory_roots" not in payload

@@ -232,6 +232,37 @@ Evidence:
 - `dev/scripts/devctl/tests/test_review_channel.py`
 - `dev/scripts/devctl/tests/runtime/test_review_state.py`
 
+### 2026-03-22 - Operational digests and first decision-mode gates are now live
+
+Fact: the next closure tranche stopped treating the remaining metadata as
+abstract backlog. Shared escalation/context packets now inject bounded
+watchdog episode digests and command-reliability lines from the existing
+data-science summary artifact, and matched probe guidance now merges the
+first live `DecisionPacket` behavior gate (`decision_mode`) from the
+existing probe-summary artifact. Ralph, autonomy, and `guard-run` now treat
+`approval_required` as real runtime behavior instead of report-only prose, and
+`platform_contract_closure` now proves that first
+`DecisionPacket.decision_mode` route family alongside the earlier
+`Finding.ai_instruction` family. In the startup lane, governance draft also
+stopped serializing empty `memory_roots` placeholders and now only emits
+configured roots when canonical repo directories actually exist.
+
+This matters because the system is no longer only transporting guidance text.
+It is starting to transport bounded operational history and typed decision
+authority into live consumers, while trimming a dead startup placeholder that
+was adding contract noise without providing continuity value.
+
+Evidence:
+
+- `dev/scripts/devctl/context_graph/operational_feedback.py`
+- `dev/scripts/devctl/context_graph/escalation.py`
+- `dev/scripts/coderabbit/probe_guidance_artifacts.py`
+- `dev/scripts/coderabbit/ralph_prompt.py`
+- `dev/scripts/devctl/commands/loop_packet.py`
+- `dev/scripts/checks/platform_contract_closure/field_routes.py`
+- `dev/scripts/devctl/governance/draft.py`
+- `dev/scripts/devctl/runtime/project_governance_contract.py`
+
 ### 2026-03-22 - Platform contract closure now enforces the first full route family
 
 Fact: `check_platform_contract_closure.py` no longer stops at isolated

@@ -304,3 +304,66 @@ class LoadProbeGuidanceTests(unittest.TestCase):
 
         self.assertEqual(len(guidance), 1)
         self.assertEqual(guidance[0]["probe"], "probe_side_effect_mixing")
+
+    def test_merges_decision_packet_metadata_from_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            latest = root / "latest"
+            latest.mkdir(parents=True)
+            (root / "review_targets.json").write_text(
+                json.dumps(
+                    {
+                        "contract_id": "ReviewTargets",
+                        "findings": [
+                            {
+                                "finding_id": "finding-123",
+                                "file_path": "rust/src/auth.rs",
+                                "symbol": "validate_auth",
+                                "check_id": "probe_design_smells",
+                                "severity": "high",
+                                "line": 10,
+                                "end_line": 14,
+                                "ai_instruction": "Extract the auth validator helper.",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (latest / "summary.json").write_text(
+                json.dumps(
+                    {
+                        "decision_packets": [
+                            {
+                                "finding_id": "finding-123",
+                                "file_path": "rust/src/auth.rs",
+                                "symbol": "validate_auth",
+                                "check_id": "probe_design_smells",
+                                "decision_mode": "approval_required",
+                                "rationale": "Auth contract changes require explicit approval.",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            guidance = load_probe_guidance(
+                [
+                    {
+                        "severity": "high",
+                        "category": "rust",
+                        "path": "rust/src/auth.rs",
+                        "symbol": "validate_auth",
+                        "line": 12,
+                    }
+                ],
+                report_root=root,
+            )
+
+        self.assertEqual(len(guidance), 1)
+        self.assertEqual(guidance[0]["decision_mode"], "approval_required")
+        self.assertEqual(
+            guidance[0]["decision_rationale"],
+            "Auth contract changes require explicit approval.",
+        )

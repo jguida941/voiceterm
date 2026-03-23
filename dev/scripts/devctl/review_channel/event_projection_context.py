@@ -29,7 +29,7 @@ def build_event_context_packet(
     return build_context_escalation_packet(
         trigger="review-channel-event",
         query_terms=query_terms,
-        options={"max_chars": 900},
+        options={"max_chars": 1200},
     )
 
 

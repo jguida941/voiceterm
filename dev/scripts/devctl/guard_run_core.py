@@ -213,12 +213,22 @@ def build_guard_run_markdown(report: dict[str, Any]) -> str:
                 continue
             instruction = str(entry.get("ai_instruction") or "").strip()
             guidance_id = str(entry.get("guidance_id") or "").strip()
+            decision_mode = str(entry.get("decision_mode") or "").strip()
             if not instruction:
                 continue
+            decision_suffix = (
+                f", decision_mode={decision_mode}"
+                if decision_mode and decision_mode != "recommend_only"
+                else ""
+            )
             if guidance_id:
-                lines.append(f"- {instruction} ({guidance_id})")
+                lines.append(f"- {instruction} ({guidance_id}{decision_suffix})")
             else:
-                lines.append(f"- {instruction}")
+                lines.append(f"- {instruction}{decision_suffix}")
+        if report.get("guidance_requires_approval") is True:
+            lines.append(
+                "- One or more attached guidance rows require approval before mutation; use this packet as an explanation/request-for-approval surface, not an auto-apply instruction."
+            )
     if report["warnings"]:
         lines.append("")
         lines.append("## Warnings")

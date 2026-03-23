@@ -3364,11 +3364,17 @@ Still open before `P0` closes:
       closure is now real: shared context packets inject bounded recent
       `finding_reviews` fix history plus latest quality-feedback
       recommendations into Ralph/autonomy/review-channel/conductor/swarm
-      prompt families, and bootstrap surfaces now explicitly tell agents to
-      escalate from the slim bootstrap packet to typed `startup-context` when
-      reviewer/checkpoint truth or richer continuity is needed. The next
-      closure here is impact measurement plus the remaining write-only
-      operational artifacts rather than another prompt-only wire. (evidence:
+      prompt families; shared escalation/context packets now also carry
+      bounded watchdog episode digests plus command-reliability lines from
+      the existing data-science summary artifact; matched probe guidance now
+      carries the first live `DecisionPacket` behavior gate
+      (`decision_mode`) into Ralph, autonomy, `guard-run`, and the shared
+      escalation packet instead of leaving it display-only; and bootstrap
+      surfaces now explicitly tell agents to escalate from the slim bootstrap
+      packet to typed `startup-context` when reviewer/checkpoint truth or
+      richer continuity is needed. The next closure here is impact
+      measurement plus the remaining broader operational artifacts rather
+      than another prompt-only wire. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 42, Part 45, Part 54)
 - [ ] Version the remaining artifact families before promoting that aggregate
       surface as canonical: governance-ledger summaries, autonomy episodes,
@@ -3580,16 +3586,20 @@ Still open before `P0` closes:
       `check_platform_contract_closure.py` now proves the first declared
       `Finding.ai_instruction` consumer family (Ralph, autonomy, and
       `guard-run`) plus a family-completeness failure if any declared route
-      drops out. The remaining gap is the rest of carried decision semantics
-      (`decision_mode`, `invariants`, `validation_plan`, `precedent`,
-      `research_instruction`, `signals`) instead of rendering them only for
-      humans. The deterministic route-closure guard now proves both the Ralph
-      and autonomy paths inside `check_platform_contract_closure.py`; widen
-      that same enforcement pattern beyond this first family before claiming
-      the rest of the contract is live, and fail the same tranche if an AI
-      consumer negotiates between multiple artifact authorities or keeps
-      deriving routing keys from prose once the structured contract fields
-      exist. The current branch now proves transport plus basic
+      drops out. The first carried decision semantic is now live too:
+      matched probe guidance merges `DecisionPacket.decision_mode` from the
+      existing probe-summary artifact, Ralph/autonomy/`guard-run` treat
+      `approval_required` as a real behavior gate instead of report-only
+      text, and the deterministic route-closure guard now proves that first
+      `DecisionPacket.decision_mode` family as well. The remaining gap is the
+      rest of carried decision semantics (`invariants`, `validation_plan`,
+      `precedent`, `research_instruction`, `signals`) instead of rendering
+      them only for humans. Widen that same enforcement pattern beyond these
+      first two families before claiming the rest of the contract is live,
+      and fail the same tranche if an AI consumer negotiates between
+      multiple artifact authorities or keeps deriving routing keys from prose
+      once the structured contract fields exist. The current branch now
+      proves transport plus basic
       mandate/telemetry scaffolding and one family-level meta-guard, not full
       impact, so this same tranche still owns three explicit follow-ups:
       prompts and packets must keep telling AI to treat attached probe
@@ -4404,6 +4414,19 @@ Execution order for this section:
   typed `startup-context` for reviewer/checkpoint truth or richer
   continuity. Remaining write-only backlog here is still watchdog episodes,
   broader decision/adoption metadata, and impact measurement.
+- 2026-03-22: Closed the next runtime-consumption seam in the same lane
+  instead of leaving the remaining metadata as abstract backlog. Shared
+  escalation/context packets now inject bounded watchdog episode digests and
+  command-reliability lines from the existing data-science summary artifact,
+  matched probe guidance now merges the first live `DecisionPacket`
+  behavior gate (`decision_mode`) from the existing probe-summary artifact,
+  Ralph/autonomy/`guard-run` consume that gate as approval/auto-apply policy
+  instead of report-only text, and `platform_contract_closure` now proves the
+  first `DecisionPacket.decision_mode` route family alongside the earlier
+  `Finding.ai_instruction` family. The remaining carried-decision backlog is
+  now the rest of the typed semantics (`invariants`, `validation_plan`,
+  `precedent`, `research_instruction`, `signals`) plus impact measurement
+  over the already-routed operational evidence.
 - 2026-03-22: Tightened the `MP-377` platform checklist with the next evidence
   intake instead of creating parallel backlog. Part 45 widened the existing
   operational-artifact routing item from prompt-builder-only to broader

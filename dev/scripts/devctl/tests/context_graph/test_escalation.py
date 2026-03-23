@@ -92,6 +92,8 @@ class ContextEscalationPacketTests(unittest.TestCase):
         )
         self.assertIsNone(packet)
 
+    @patch("dev.scripts.devctl.context_graph.escalation.data_science_reliability_lines")
+    @patch("dev.scripts.devctl.context_graph.escalation.watchdog_digest_lines")
     @patch("dev.scripts.devctl.context_graph.escalation.quality_feedback_lines")
     @patch("dev.scripts.devctl.context_graph.escalation.recent_fix_history_lines")
     @patch("dev.scripts.devctl.context_graph.escalation.load_probe_entries")
@@ -100,6 +102,8 @@ class ContextEscalationPacketTests(unittest.TestCase):
         load_entries_mock,
         recent_history_mock,
         quality_feedback_mock,
+        watchdog_digest_mock,
+        data_science_mock,
     ) -> None:
         load_entries_mock.return_value = [
             {
@@ -108,10 +112,18 @@ class ContextEscalationPacketTests(unittest.TestCase):
                 "severity": "high",
                 "line": 12,
                 "ai_instruction": "Split the parser setup from execution wiring.",
+                "decision_mode": "approval_required",
+                "decision_rationale": "Do not auto-apply parser contract changes without review.",
             }
         ]
         recent_history_mock.return_value = (
             "`check_code_shape` fixed at `dev/scripts/devctl/cli.py:14`",
+        )
+        watchdog_digest_mock.return_value = (
+            "`watchdog`: 5 episodes, success 80.0%, false positives 0.0%",
+        )
+        data_science_mock.return_value = (
+            "`check`: success 45.0%, avg runtime 12.0s over 20 runs",
         )
         quality_feedback_mock.return_value = (
             "`check_code_shape`: Break up oversize files first (high impact)",
@@ -136,9 +148,14 @@ class ContextEscalationPacketTests(unittest.TestCase):
 
         assert packet is not None
         self.assertIn("## Probe Guidance", packet.markdown)
+        self.assertIn("## Decision Constraints", packet.markdown)
         self.assertIn("## Recent Fix History", packet.markdown)
+        self.assertIn("## Watchdog Episode Digest", packet.markdown)
+        self.assertIn("## Command Reliability Signals", packet.markdown)
         self.assertIn("## Repo Quality Feedback", packet.markdown)
         self.assertIn("Split the parser setup", packet.markdown)
+        self.assertIn("requires approval before mutation", packet.markdown)
+        self.assertIn("success 45.0%", packet.markdown)
         self.assertIn("check_code_shape", packet.markdown)
         self.assertEqual(
             packet.guidance_refs,

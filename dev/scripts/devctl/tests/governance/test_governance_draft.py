@@ -126,6 +126,17 @@ def test_scan_repo_governance_with_standard_layout(tmp_path: Path) -> None:
 
 
 @patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
+def test_scan_repo_governance_discovers_memory_roots_when_present(tmp_path: Path) -> None:
+    (tmp_path / ".claude" / "memory").mkdir(parents=True)
+    (tmp_path / "dev" / "context").mkdir(parents=True)
+
+    gov = scan_repo_governance(tmp_path, policy={})
+
+    assert gov.memory_roots.memory_root == ".claude/memory"
+    assert gov.memory_roots.context_store_root == "dev/context"
+
+
+@patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
 def test_scan_repo_governance_policy_fields(tmp_path: Path) -> None:
     policy = {
         "repo_name": "TestRepo",
