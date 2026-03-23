@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-22
+**Last Updated:** 2026-03-23
 
 ## At a Glance
 
@@ -45,6 +45,31 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-23 - Generated bootstrap instructions started advertising governance capabilities
+
+Fact: the generated `CLAUDE.md` bootstrap surface no longer jumps from startup
+steps straight into mode-specific review flow. The repo-pack template now adds
+an explicit "Governance capabilities" section that tells the agent about
+`ai_instruction`, `decision_mode`, `governance-review --record`
+(`guidance_id` / `guidance_followed`), operational feedback carried by
+startup/context packets, saved `ContextGraphSnapshot` baselines, and the
+canonical `DEVELOPMENT.md` / `dev/scripts/README.md` places to answer "which
+tool should I run now?"
+
+This matters because the governance stack already existed, but the first-hop
+bootstrap surface did not advertise it. The detailed policy lived in
+`AGENTS.md`, `DEVELOPMENT.md`, and `README.md`, which made the capability set
+discoverable only after the agent already knew what to search for. Making the
+generated startup surface name those features closes the awareness gap without
+duplicating the full policy.
+
+Evidence:
+
+- `dev/config/templates/claude_instructions.template.md`
+- `dev/scripts/devctl/governance/bootstrap_surfaces.py`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+- `dev/active/platform_authority_loop.md`
 
 ### 2026-03-22 - Architectural absorption became a required completion rule
 
@@ -5346,3 +5371,11 @@ The full technical showcase is consolidated above in Appendix G of this document
   metadata, full node/edge payloads, kind counts, and a bounded temperature
   distribution summary. This leaves the next Part-53 steps focused on
   snapshot diff/trend logic rather than basic capture plumbing.
+- 2026-03-23: Completed the next Part-53 slice on the same canonical graph
+  contract instead of creating a parallel temporal-analysis tool.
+  `devctl context-graph --mode diff --from ... --to ...` now reloads saved
+  `ContextGraphSnapshot` artifacts into typed state, emits a versioned
+  `ContextGraphDelta` payload with added/removed/changed node and edge
+  samples plus edge-kind/temperature changes, and reports a rolling trend
+  summary over recent snapshots. That turns saved graph baselines into live
+  drift answers without leaving the `context-graph` surface.

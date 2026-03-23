@@ -99,4 +99,17 @@ def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
             migration_path="Add snapshot fields additively and update diff/trend readers before changing writers.",
             rollback_path="Restore prior snapshot constants and writer shape before removing consumers.",
         ),
+        ArtifactSchemaSpec(
+            contract_id="ContextGraphDelta",
+            owner_layer="governance_core",
+            purpose="Typed diff/trend payload between two saved `ContextGraphSnapshot` artifacts.",
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/context_graph/snapshot_diff.py",
+            constants_module="dev.scripts.devctl.context_graph.snapshot_diff_models",
+            contract_id_attr="CONTEXT_GRAPH_DELTA_CONTRACT_ID",
+            schema_version_attr="CONTEXT_GRAPH_DELTA_SCHEMA_VERSION",
+            compatibility_window="best-effort stable within MP-377 temporal-graph rollout; additive changes only",
+            migration_path="Keep delta fields additive and update markdown/JSON renderers plus CLI tests before schema expansion.",
+            rollback_path="Restore prior delta constants and renderer/CLI shape before removing snapshot consumers.",
+        ),
     )

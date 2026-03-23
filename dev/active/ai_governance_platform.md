@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-03-22 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-23 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -117,7 +117,13 @@ contract set:
 
 - `RepoPack`: declares repo policy, default workflows, docs templates,
   adoption checks, path roots via `RepoPathConfig`, and platform compatibility
-  requirements for one codebase family.
+  requirements for one codebase family. Repo-pack-owned bootstrap surfaces
+  such as local `CLAUDE.md` must also advertise the live governance
+  capability set (`ai_instruction`, `decision_mode`,
+  `governance-review --record`, operational feedback, and saved snapshot
+  baselines) and point agents at the canonical "which tool do I run when?"
+  docs until `startup-context` / `WorkIntakePacket` fully absorbs that
+  bootstrap role.
 - `RepoPathConfig`: repo-pack-owned mapping for active docs, report roots,
   bridge files, generated surfaces, and workflow/artifact paths that portable
   layers must resolve through instead of hard-coded `dev/...` literals or
@@ -3072,9 +3078,13 @@ Still open before `P0` closes:
       than starting a parallel temporal-graph architecture. First slice now
       live: `context-graph --mode bootstrap` persists a typed versioned
       `ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/`,
-      and `--save-snapshot` widens the same writer to other graph modes so
-      diff/trend work can build on a stable saved contract instead of
-      ephemeral in-memory graph state. (evidence:
+      and `--save-snapshot` widens the same writer to other graph modes.
+      Second slice now live too: `context-graph --mode diff --from ... --to
+      ...` reloads saved snapshots into a typed `ContextGraphDelta`, reports
+      added/removed/changed nodes and edges plus edge-kind/temperature
+      changes, and summarizes rolling trend drift over the selected snapshot
+      window. Remaining work is wider capture automation and richer drift
+      interpretation, not basic diff/trend plumbing. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 53)
 - [ ] Land one bounded inference engine on top of those typed relations in the
       same first routing proof: allow 2-3 hop cited chains over canonical
@@ -3862,6 +3872,14 @@ working on `MP-377`.
   kind counts, and a bounded temperature-distribution summary. That keeps the
   next diff/trend tranche on the same canonical graph contract instead of a
   separate temporal-analysis stack.
+- 2026-03-23 Part-53 slice-2 follow-up: saved snapshots are no longer
+  write-only. `context-graph --mode diff --from ... --to ...` now resolves
+  saved artifacts back into typed `ContextGraphSnapshot` state, emits a typed
+  `ContextGraphDelta` with added/removed/changed nodes and edges plus
+  temperature/edge-kind deltas, and reports a rolling trend window so the
+  graph lane can answer "hotter/cooler/stable" and cycle-count drift without
+  inventing another analysis stack. Next Part-53 work is checkpoint/CI
+  capture widening and richer drift heuristics, not base diff/trend wiring.
 - `dev/active/ai_governance_platform.md` is the only main active plan for this
   product scope; companion docs now route back here instead of acting like peer
   execution authority.
@@ -4466,6 +4484,13 @@ Execution order for this section:
   `dev/reports/graph_snapshots/`, and focused tests prove both the artifact
   payload and the bootstrap auto-save path. Remaining Part-53 work is snapshot
   diff + trend/drift analysis, not basic artifact capture.
+- 2026-03-23: Closed the next Part-53 slice on that same graph lane.
+  `context-graph --mode diff --from ... --to ...` now reloads saved
+  `ContextGraphSnapshot` artifacts, emits a typed `ContextGraphDelta` with
+  added/removed/changed node/edge samples plus temperature/edge-kind deltas,
+  and reports a rolling trend summary over recent snapshots. That turns the
+  saved graph baselines into live drift answers without creating a parallel
+  temporal-analysis tool.
 - 2026-03-22: Completed the remaining whole-audit mapping into the canonical
   platform chain instead of leaving `A1-A12`, `A22-A30`, and `D/S/E/G`
   partially implied. `platform_authority_loop.md` now carries the blocker +

@@ -203,8 +203,15 @@ Three quality layers matter in practice:
     and scope questions before the workflow widens into deeper startup reads.
     Bootstrap mode also persists a typed `ContextGraphSnapshot` artifact under
     `dev/reports/graph_snapshots/`, and `--save-snapshot` applies that same
-    versioned snapshot writer to other context-graph modes when a slice needs
-    a saved baseline before diff/trend analysis lands.
+    versioned snapshot writer to other context-graph modes. `context-graph
+    --mode diff --from previous --to latest` now consumes those saved
+    baselines directly, emitting a typed delta plus rolling trend summary
+    instead of forcing manual graph comparisons. The generated
+    `CLAUDE.md` bootstrap surface should also advertise the live governance
+    capability set (`ai_instruction`, `decision_mode`,
+    `governance-review --record`, packet-level operational feedback, and
+    snapshot baselines) and point agents back to this guide plus
+    `dev/scripts/README.md` for the "which tool runs when?" decision table.
     until runtime consumes typed resume state instead of only a presence flag.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.

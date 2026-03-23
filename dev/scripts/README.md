@@ -275,6 +275,7 @@ python3 dev/scripts/devctl.py platform-contracts --format md
 python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md
 python3 dev/scripts/devctl.py context-graph --query '<term>' --format md
 python3 dev/scripts/devctl.py context-graph --query '<term>' --save-snapshot --format md
+python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md
 python3 dev/scripts/devctl.py context-graph --format mermaid
 python3 dev/scripts/checks/check_platform_contract_closure.py
 python3 dev/scripts/devctl.py doc-authority --format json
@@ -647,7 +648,10 @@ plan-scope ownership from the generated graph before escalating to fuller
 startup-context reads. Bootstrap mode also now writes a typed
 `ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/`; use
 `--save-snapshot` on other `context-graph` modes when you need the same
-versioned graph baseline before diff/trend analysis.
+versioned graph baseline. `context-graph --mode diff --from ... --to ...`
+now reads those saved artifacts back into a typed `ContextGraphDelta`,
+rendering added/removed/changed node/edge samples plus a rolling trend
+summary over the selected snapshot window.
 
 ## Scripts Inventory
 
@@ -852,6 +856,11 @@ Machine-first output note:
     safe check surface for local validation and `docs-check --strict-tooling`.
   - `--quality-policy <path>` lets another repo reuse the same generator
     against its own `repo_governance.surface_generation` contract.
+  - The local `CLAUDE.md` output is the first-hop AI awareness surface. Keep
+    it in sync so it advertises `ai_instruction`, `decision_mode`,
+    `governance-review --record`, packet-level operational feedback, saved
+    graph snapshots, and points agents back to `dev/guides/DEVELOPMENT.md`
+    plus this command guide for "which tool should I run now?" routing.
 - `platform-contracts`: read-only reusable-platform blueprint that renders the
   shared layer model, backend contracts, frontend/client expectations,
   repo-local boundaries, adoption flow, and current portability status in one

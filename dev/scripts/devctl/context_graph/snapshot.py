@@ -1,4 +1,4 @@
-"""Deterministic snapshot writer for the context-graph surface."""
+"""Deterministic snapshot persistence for the context-graph surface."""
 
 from __future__ import annotations
 
@@ -75,6 +75,10 @@ class ContextGraphSnapshotCapture:
     timestamp_slug: str | None = None
 
 
+class SnapshotResolutionError(ValueError):
+    """Raised when a requested snapshot ref cannot be resolved safely."""
+
+
 def write_context_graph_snapshot(
     nodes: list[GraphNode],
     edges: list[GraphEdge],
@@ -134,6 +138,100 @@ def write_context_graph_snapshot(
     )
 
 
+def load_context_graph_snapshot(path: str | Path) -> ContextGraphSnapshot:
+    """Load a saved snapshot back into the typed snapshot contract."""
+    snapshot_path = Path(path)
+    payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    if payload.get("contract_id") != CONTEXT_GRAPH_SNAPSHOT_CONTRACT_ID:
+        raise SnapshotResolutionError(
+            f"expected {CONTEXT_GRAPH_SNAPSHOT_CONTRACT_ID}, found {payload.get('contract_id')!r}"
+        )
+    if payload.get("schema_version") != CONTEXT_GRAPH_SNAPSHOT_SCHEMA_VERSION:
+        raise SnapshotResolutionError(
+            "unexpected ContextGraphSnapshot schema_version "
+            f"{payload.get('schema_version')!r}"
+        )
+    return ContextGraphSnapshot(
+        schema_version=CONTEXT_GRAPH_SNAPSHOT_SCHEMA_VERSION,
+        contract_id=CONTEXT_GRAPH_SNAPSHOT_CONTRACT_ID,
+        repo=str(payload.get("repo") or ""),
+        branch=str(payload.get("branch") or "unknown"),
+        commit_hash=str(payload.get("commit_hash") or "unknown"),
+        generated_at_utc=str(payload.get("generated_at_utc") or ""),
+        source_mode=str(payload.get("source_mode") or "unknown"),
+        node_count=int(payload.get("node_count") or 0),
+        edge_count=int(payload.get("edge_count") or 0),
+        nodes_by_kind=_coerce_int_map(payload.get("nodes_by_kind")),
+        edges_by_kind=_coerce_int_map(payload.get("edges_by_kind")),
+        temperature_distribution=_load_temperature_distribution(
+            payload.get("temperature_distribution")
+        ),
+        nodes=_coerce_object_list(payload.get("nodes")),
+        edges=_coerce_object_list(payload.get("edges")),
+    )
+
+
+def resolve_context_graph_snapshot_ref(
+    ref: str | None,
+    *,
+    repo_root: Path | None = None,
+    exclude: Path | None = None,
+) -> Path:
+    """Resolve a snapshot ref/path against the canonical graph-snapshot store."""
+    effective_repo_root = (repo_root or get_repo_root()).resolve()
+    excluded = exclude.resolve() if exclude is not None else None
+    available = list_context_graph_snapshots(repo_root=effective_repo_root)
+    if excluded is not None:
+        available = [path for path in available if path.resolve() != excluded]
+    if not available:
+        raise SnapshotResolutionError("no ContextGraphSnapshot artifacts available")
+    token = (ref or "").strip()
+    if not token:
+        return available[-1]
+    if token == "latest":
+        return available[-1]
+    if token == "previous":
+        if len(available) < 2:
+            raise SnapshotResolutionError("previous snapshot requested but only one snapshot exists")
+        return available[-2]
+    direct = Path(token).expanduser()
+    if direct.exists():
+        resolved = direct.resolve()
+        _validate_snapshot_resolution_exclusion(resolved, excluded)
+        return resolved
+    candidate = effective_repo_root / token
+    if candidate.exists():
+        resolved = candidate.resolve()
+        _validate_snapshot_resolution_exclusion(resolved, excluded)
+        return resolved
+    for path in available:
+        if token in {path.name, path.stem}:
+            return path
+    matches = [path for path in available if path.name.startswith(token)]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise SnapshotResolutionError(f"snapshot ref {token!r} is ambiguous")
+    raise SnapshotResolutionError(f"snapshot ref {token!r} not found")
+
+
+def _validate_snapshot_resolution_exclusion(path: Path, excluded: Path | None) -> None:
+    if excluded is not None and path == excluded:
+        raise SnapshotResolutionError("snapshot diff requires distinct --from and --to refs")
+
+
+def list_context_graph_snapshots(*, repo_root: Path | None = None) -> list[Path]:
+    """Return saved snapshot paths sorted by capture time."""
+    effective_repo_root = (repo_root or get_repo_root()).resolve()
+    snapshot_dir = effective_repo_root / _SNAPSHOT_DIR
+    if not snapshot_dir.exists():
+        return []
+    return sorted(
+        snapshot_dir.glob("*.json"),
+        key=lambda path: (path.stat().st_mtime_ns, path.name),
+    )
+
+
 def _temperature_distribution(nodes: list[GraphNode]) -> TemperatureDistributionSummary:
     temperatures = [node.temperature for node in nodes]
     if not temperatures:
@@ -171,6 +269,49 @@ def _temperature_bucket_label(temperature: float) -> str:
     if temperature < 0.75:
         return "0.50-0.74"
     return "0.75-1.00"
+
+
+def _coerce_int_map(value: object) -> dict[str, int]:
+    if not isinstance(value, dict):
+        return {}
+    result: dict[str, int] = {}
+    for key, raw in value.items():
+        if raw is None:
+            continue
+        result[str(key)] = int(raw)
+    return result
+
+
+def _coerce_object_list(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    result: list[dict[str, object]] = []
+    for item in value:
+        if isinstance(item, dict):
+            result.append(dict(item))
+    return result
+
+
+def _load_temperature_distribution(value: object) -> TemperatureDistributionSummary:
+    if not isinstance(value, dict):
+        return TemperatureDistributionSummary(
+            minimum=0.0,
+            maximum=0.0,
+            average=0.0,
+            buckets=_empty_temperature_buckets(),
+        )
+    buckets = _empty_temperature_buckets()
+    raw_buckets = value.get("buckets")
+    if isinstance(raw_buckets, dict):
+        for key, raw in raw_buckets.items():
+            if key in buckets and raw is not None:
+                buckets[key] = int(raw)
+    return TemperatureDistributionSummary(
+        minimum=float(value.get("minimum") or 0.0),
+        maximum=float(value.get("maximum") or 0.0),
+        average=float(value.get("average") or 0.0),
+        buckets=buckets,
+    )
 
 
 def _snapshot_artifact_path(path: Path, repo_root: Path) -> str:

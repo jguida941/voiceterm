@@ -128,14 +128,23 @@ Run this sequence for every task. Do not skip steps.
    session escalates to fuller authority reads. That bootstrap command now
    also persists a typed `ContextGraphSnapshot` artifact under
    `dev/reports/graph_snapshots/`; use `--save-snapshot` to capture the same
-   versioned graph artifact from other `context-graph` modes too.
+   versioned graph artifact from other `context-graph` modes too, and use
+   `python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md`
+   when the slice needs a typed delta/trend read over saved graph baselines.
    When the task needs typed reviewer/checkpoint truth, richer continuity, or
    `Session Resume` context beyond that slim packet, also run
    `python3 dev/scripts/devctl.py startup-context --format md`.
    Follow the deep links when the task requires full authority from the
    canonical docs (`AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`).
    Keep that bootstrap packet small by default and expand with
-   `context-graph --query '<term>'` when the task needs more context.
+   `context-graph --query '<term>'` when the task needs more context. The
+   generated `CLAUDE.md` bootstrap surface is the first-hop AI awareness
+   layer: keep it synchronized via `render-surfaces` so it advertises live
+   governance capabilities (`ai_instruction`, `decision_mode`,
+   `governance-review --record`, packet-level operational feedback, and saved
+   `ContextGraphSnapshot` baselines) and points agents at
+   `dev/guides/DEVELOPMENT.md` plus `dev/scripts/README.md` for the canonical
+   "which tool do I run when?" guidance.
 2. Decide scope (`develop` work or `master` release work).
 3. Classify task using the task router table.
 4. Load only the required context pack listed for your task class.

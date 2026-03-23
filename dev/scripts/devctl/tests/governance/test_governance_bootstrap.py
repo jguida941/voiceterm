@@ -128,6 +128,9 @@ class GovernanceBootstrapTests(unittest.TestCase):
         self.assertEqual(
             surface_generation["surfaces"][0]["required_contains"],
             [
+                "## Governance capabilities (available during work)",
+                "`decision_mode` gates action: `auto_apply` means fix directly,",
+                "`python3 dev/scripts/devctl.py governance-review --record ...`",
                 "## Mandatory post-edit verification (blocking)",
                 "After EVERY file create/edit, you MUST run the repo-required verification before",
                 "Done means the required guards/tests passed.",

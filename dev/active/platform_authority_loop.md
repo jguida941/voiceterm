@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-03-22 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-23 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1153,6 +1153,16 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-23: Closed the next generated-bootstrap discoverability gap for the
+  authority-loop lane. The `claude_instructions.template.md` source and its
+  rendered `CLAUDE.md` surface now advertise the live governance capability
+  set that had previously been buried in deeper docs: `ai_instruction`,
+  `decision_mode`, `governance-review --record`, startup operational
+  feedback, saved `ContextGraphSnapshot` baselines, and the canonical
+  `DEVELOPMENT.md` / `dev/scripts/README.md` "run it when" docs for tool
+  routing. This keeps first-hop startup awareness aligned with the real
+  governance stack until `startup-context` / `WorkIntakePacket` fully replaces
+  bootstrap prose as the canonical intake.
 - 2026-03-22: Promoted the checkpoint-budget miss into explicit `MP-377`
   startup-authority scope after the live tranche work proved the current
   weakness: `review-channel status` can already derive the right

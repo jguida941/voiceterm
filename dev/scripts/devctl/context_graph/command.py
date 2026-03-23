@@ -8,6 +8,9 @@ from typing import Any
 from ..runtime.machine_output import ArtifactOutputOptions, emit_machine_artifact_output
 from .builder import build_context_graph
 from .query import build_bootstrap_context, query_context_graph
+from .snapshot_diff import load_graph_delta
+from .snapshot_diff_render import render_snapshot_delta_markdown
+from .snapshot import SnapshotResolutionError
 from .snapshot import ContextGraphSnapshotCapture, write_context_graph_snapshot
 from ..common_io import emit_output, pipe_output, write_output
 from .render import (
@@ -28,6 +31,21 @@ class ContextGraphQueryPayload:
     edges: list[dict[str, object]]
     hot_index_summary: dict[str, object]
     evidence: list[str]
+
+
+@dataclass(frozen=True, slots=True)
+class ContextGraphDiffSummary:
+    """Compact typed summary for snapshot-diff machine output."""
+
+    mode: str
+    from_commit: str
+    to_commit: str
+    added_nodes: int
+    removed_nodes: int
+    changed_nodes: int
+    added_edges: int
+    removed_edges: int
+    trend_direction: str
 
 
 def _run_bootstrap(args, nodes, edges, snapshot: dict[str, object] | None) -> int:
@@ -92,10 +110,62 @@ def _run_concept_view(args, nodes, edges) -> int:
     )
 
 
+def _run_diff(args) -> int:
+    """Load two saved graph snapshots and emit a typed delta."""
+    try:
+        delta = load_graph_delta(
+            from_ref=getattr(args, "from_snapshot", "") or None,
+            to_ref=getattr(args, "to_snapshot", "") or None,
+            trend_window=max(0, int(getattr(args, "trend_window", 5) or 0)),
+        )
+    except SnapshotResolutionError as exc:
+        return emit_machine_artifact_output(
+            args,
+            command="context-graph",
+            json_payload={
+                "schema_version": 1,
+                "contract_id": "ContextGraphDeltaError",
+                "ok": False,
+                "error": str(exc),
+                "mode": "diff",
+            },
+            human_output=f"# Context Graph Snapshot Delta\n\n- error: {exc}\n",
+            options=ArtifactOutputOptions(
+                ok=False,
+                summary={"mode": "diff", "error": str(exc)},
+            ),
+        )
+
+    payload = asdict(delta)
+    summary = asdict(
+        ContextGraphDiffSummary(
+            mode="diff",
+            from_commit=delta.from_snapshot.commit_hash,
+            to_commit=delta.to_snapshot.commit_hash,
+            added_nodes=delta.added_nodes_count,
+            removed_nodes=delta.removed_nodes_count,
+            changed_nodes=delta.changed_nodes_count,
+            added_edges=delta.added_edges_count,
+            removed_edges=delta.removed_edges_count,
+            trend_direction=delta.trend.temperature_direction if delta.trend else "unknown",
+        )
+    )
+    return emit_machine_artifact_output(
+        args,
+        command="context-graph",
+        json_payload=payload,
+        human_output=render_snapshot_delta_markdown(delta),
+        options=ArtifactOutputOptions(summary=summary),
+    )
+
+
 def run(args) -> int:
     """Build the context graph and dispatch to the requested mode."""
-    nodes, edges = build_context_graph()
     mode = getattr(args, "mode", "query")
+    if mode == "diff":
+        return _run_diff(args)
+
+    nodes, edges = build_context_graph()
     snapshot = _maybe_write_snapshot(args, nodes, edges, mode)
 
     if mode == "concept-view":

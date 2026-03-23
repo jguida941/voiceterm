@@ -16,6 +16,25 @@ gitignored).
   before acting so the live review-channel/tandem workflow matches the
   repo-owned command surface instead of chat memory.
 
+## Governance capabilities (available during work)
+
+- Probe findings may carry `ai_instruction` with targeted fix guidance. Treat
+  it as the default repair plan unless the current slice proves it wrong.
+- `decision_mode` gates action: `auto_apply` means fix directly,
+  `approval_required` means explain and wait, and `recommend_only` means
+  suggest without mutating.
+- Record adjudicated outcomes with `python3 dev/scripts/devctl.py governance-review --record ...`; add `--guidance-id ... --guidance-followed true|false` when guided remediation was involved.
+- `startup-context` and other shared context packets may already include
+  recent finding verdicts, quality recommendations, watchdog digests, and
+  command-reliability summaries. Prefer those packet fields over ad hoc raw-
+  ledger reads when they are present.
+- `context-graph --mode bootstrap` auto-saves a `ContextGraphSnapshot` under
+  `dev/reports/graph_snapshots/`; use `--save-snapshot` on other
+  `context-graph` modes when a slice needs a durable baseline.
+- For "which tool should I run now?", use `{{development_doc}}` (`What checks
+  protect us`, `After file edits`) and the command table in
+  `{{scripts_readme_doc}}` before inventing a narrower workflow.
+
 ## Mode-aware review-channel bootstrap
 
 - If repo-root `bridge.md` is absent, or `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`

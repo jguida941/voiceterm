@@ -53,7 +53,7 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         report = surfaces.build_surface_report(allow_missing_local_only=True)
 
         self.assertTrue(report["ok"])
-        self.assertEqual(report["surface_count"], 6)
+        self.assertEqual(report["surface_count"], 7)
         self.assertIn(
             "agents_bundle_reference",
             {entry["surface_id"] for entry in report["surfaces"]},
@@ -63,7 +63,7 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         report = instruction_surface_sync.build_report()
 
         self.assertTrue(report["ok"])
-        self.assertEqual(report["surface_count"], 5)
+        self.assertEqual(report["surface_count"], 6)
         self.assertNotIn(
             "agents_bundle_reference",
             {entry["surface_id"] for entry in report["surfaces"]},
@@ -85,6 +85,22 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             self.assertIn(required_snippet, rendered_text)
         self.assertIn(
             "`bundle.runtime`, `bundle.docs`, `bundle.tooling`, or `bundle.release`",
+            rendered_text,
+        )
+        self.assertIn(
+            "## Governance capabilities (available during work)",
+            rendered_text,
+        )
+        self.assertIn(
+            "`decision_mode` gates action: `auto_apply` means fix directly,",
+            rendered_text,
+        )
+        self.assertIn(
+            "governance-review --record ...`; add `--guidance-id ... --guidance-followed true|false`",
+            rendered_text,
+        )
+        self.assertIn(
+            'For "which tool should I run now?", use `dev/guides/DEVELOPMENT.md` (`What checks',
             rendered_text,
         )
         self.assertIn(

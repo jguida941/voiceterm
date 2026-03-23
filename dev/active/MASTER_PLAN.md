@@ -115,6 +115,14 @@
   remains the canonical bounded startup packet; `context-graph --mode
   bootstrap` is a reducer/hot-index helper over the same cached authority,
   not a second peer bootstrap surface.
+- Current bootstrap discoverability rule inside that same lane: generated
+  `CLAUDE.md` and other repo-pack bootstrap surfaces must advertise the live
+  governance capability set (`ai_instruction`, `decision_mode`,
+  `governance-review --record`, packet-level operational feedback, and saved
+  graph-snapshot baselines) and point agents back to
+  `dev/guides/DEVELOPMENT.md` plus `dev/scripts/README.md` for the canonical
+  "which tool do I run when?" routing. This is awareness guidance only;
+  runtime authority still stays with `startup-context` / `WorkIntakePacket`.
 - Current deterministic-routing rule inside that same lane: graph work only
   counts as usable startup/recovery help when one bounded request can return a
   cited read set before ad hoc file exploration. The first truthful router
@@ -2987,8 +2995,13 @@ become the main product surface.
     feedback instead of creating a second graph-analysis stack. First slice
     now live: `context-graph --mode bootstrap` persists a typed
     `ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/`, and
-    `--save-snapshot` widens that same writer to the other graph modes so the
-    next diff/trend work can consume a stable saved contract. (evidence:
+    `--save-snapshot` widens that same writer to the other graph modes.
+    Second slice now live too: `context-graph --mode diff --from ... --to ...`
+    resolves saved snapshots back into a typed `ContextGraphDelta`, reports
+    added/removed/changed nodes and edges plus edge-kind/temperature deltas,
+    and adds a rolling trend summary over recent snapshots. Remaining work is
+    wider capture automation and richer drift interpretation, not basic
+    diff/trend plumbing. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 53)
   - [ ] Unify the current startup systems behind one canonical
     `startup-context` / `WorkIntakePacket` path so bootstrap instructions,
