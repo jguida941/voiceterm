@@ -122,6 +122,9 @@ Run this sequence for every task. Do not skip steps.
 1. Run session bootstrap checks and load `dev/active/INDEX.md` (`bundle.bootstrap`).
    Alternatively, run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
    for a slim startup context with active plans, hotspots, and deep links.
+   When the task needs typed reviewer/checkpoint truth, richer continuity, or
+   `Session Resume` context beyond that slim packet, also run
+   `python3 dev/scripts/devctl.py startup-context --format md`.
    Follow the deep links when the task requires full authority from the
    canonical docs (`AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`).
    Keep that bootstrap packet small by default and expand with

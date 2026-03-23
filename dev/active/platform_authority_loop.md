@@ -1063,6 +1063,13 @@ intended execution order is:
   canonical startup path that merges bootstrap, `startup-context`, plan
   resume, memory roots, and recent episode evidence, plus one typed
   continuity packet that reuses those same sources for warm starts.
+- 2026-03-22 bootstrap-surface follow-up: generated `CLAUDE.md` bootstrap
+  steps and live review-channel conductor bootstrap text now explicitly tell
+  agents to escalate from the slim `context-graph --mode bootstrap` helper to
+  `startup-context` when they need typed reviewer/checkpoint truth or richer
+  continuity. This is only a guidance closure, not the runtime one: the item
+  stays open until `startup-context` becomes the actual canonical startup
+  authority rather than an optional richer side path.
 - Current goal: clear the blocker tranche that protects the authority loop,
   then finish making the authority loop the top `MP-377` priority before
   broader platform growth continues.
@@ -1161,6 +1168,12 @@ intended execution order is:
   `WorkIntakePacket` surface that bootstrap instructions also point to, and
   Part 48 now explicitly requires episode-digest continuity plus a typed
   startup continuity packet instead of separate memory / resume / trace silos.
+- 2026-03-22: Tightened the startup-authority guidance seam before landing the
+  full runtime merge. Generated/bootstrap-facing instructions now point at
+  `startup-context` for typed reviewer/checkpoint truth and richer
+  continuity, so the hidden richer startup surface is no longer absent from
+  the repo's main AI bootstrap path even while the full
+  `WorkIntakePacket` closure stays open.
 - 2026-03-22: Finished the previously implicit `SYSTEM_AUDIT.md` mapping for
   the authority-loop lane. The canonical owner split is now explicit in
   checklist form: blocker tranche `D1-D5` / `S1-S4` / `E1` / `G1`, bootstrap

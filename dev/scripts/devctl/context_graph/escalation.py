@@ -11,6 +11,8 @@ try:
 except ModuleNotFoundError:  # broad-except: allow reason=devctl CLI runs from dev/scripts
     from coderabbit.probe_guidance_artifacts import guidance_ref, load_probe_entries
 
+from .operational_feedback import quality_feedback_lines, recent_fix_history_lines
+from .escalation_render import PacketRenderPayload, render_packet_markdown
 from .builder import build_context_graph
 from .models import GraphEdge, GraphNode
 from .query import query_context_graph
@@ -135,55 +137,6 @@ def collect_query_terms(
     return normalize_query_terms(collected, max_terms=max_terms)
 
 
-def _render_packet_markdown(
-    *,
-    trigger: str,
-    query_terms: tuple[str, ...],
-    canonical_refs: tuple[str, ...],
-    matched_nodes: int,
-    edge_count: int,
-    guidance_entries: tuple[dict[str, object], ...] = (),
-) -> str:
-    lines = [
-        "## Context Recovery Packet",
-        "",
-        f"- Trigger: `{trigger}`",
-        "- Query terms: " + ", ".join(f"`{term}`" for term in query_terms),
-        f"- Graph matches: nodes={matched_nodes}, edges={edge_count}",
-        "- Canonical refs:",
-    ]
-    for ref in canonical_refs:
-        lines.append(f"  - `{ref}`")
-    if guidance_entries:
-        lines.extend(
-            [
-                "",
-                "## Probe Guidance",
-                "",
-                (
-                    "Treat these probe-backed remediation hints as the default "
-                    "repair plan unless you can justify waiving them."
-                ),
-            ]
-        )
-        for entry in guidance_entries:
-            lines.append(
-                "- "
-                + str(entry.get("ai_instruction") or "").strip()
-                + f" ({guidance_ref(entry)})"
-            )
-    lines.extend(
-        [
-            "",
-            (
-                "Read these refs before editing outside the current read set or "
-                "when blast radius is unclear."
-            ),
-        ]
-    )
-    return "\n".join(lines)
-
-
 def _guidance_match_score(
     entry: dict[str, object],
     *,
@@ -289,13 +242,33 @@ def build_context_escalation_packet(
         query_terms=normalized_terms,
         canonical_refs=canonical_refs,
     )
-    markdown = _render_packet_markdown(
+    history_lines = recent_fix_history_lines(
         trigger=trigger,
         query_terms=normalized_terms,
         canonical_refs=canonical_refs,
-        matched_nodes=len(ordered_nodes),
-        edge_count=len(matched_edges),
-        guidance_entries=guidance_entries,
+    )
+    quality_lines = quality_feedback_lines(
+        trigger=trigger,
+        query_terms=normalized_terms,
+    )
+    guidance_lines = tuple(
+        (
+            str(entry.get("ai_instruction") or "").strip()
+            + f" ({guidance_ref(entry)})"
+        )
+        for entry in guidance_entries
+    )
+    markdown = render_packet_markdown(
+        PacketRenderPayload(
+            trigger=trigger,
+            query_terms=normalized_terms,
+            canonical_refs=canonical_refs,
+            matched_nodes=len(ordered_nodes),
+            edge_count=len(matched_edges),
+            guidance_lines=guidance_lines,
+            history_lines=history_lines,
+            quality_lines=quality_lines,
+        )
     )
     if len(markdown) > resolved_options.max_chars:
         markdown = (

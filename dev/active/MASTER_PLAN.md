@@ -2954,9 +2954,11 @@ become the main product surface.
     hotspot, verdict-history, watchdog, reliability, queue-state, quality-
     feedback, decision metadata, research-benchmark, and event-history data
     instead of leaving those artifacts write-only or display-only. Immediate
-    zero-consumer backlog still called out by audit: `finding_reviews.jsonl`,
-    watchdog episodes, quality-feedback outputs, data-science summaries, and
-    decision/adoption metadata need live consumers. (evidence:
+    zero-consumer backlog still called out by audit is now narrower:
+    `finding_reviews.jsonl` history plus quality-feedback recommendations are
+    flowing through shared context packets, but watchdog episodes,
+    data-science summaries, and decision/adoption metadata still need live
+    consumers. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 42, Part 45, Part 54)
   - [ ] Finish the first graph-routing expansion by emitting live
     `EDGE_KIND_GUARDS` / `EDGE_KIND_SCOPED_BY` edges, land the guard-edge
@@ -2978,7 +2980,10 @@ become the main product surface.
     `startup-context` / `WorkIntakePacket` path so bootstrap instructions,
     governed-plan `Session Resume`, repo memory, and recent episode evidence
     feed one bounded startup packet instead of four disconnected sources.
-    (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 46)
+    Current partial proof: generated bootstrap surfaces and review-channel
+    bootstrap prompts now explicitly tell agents when to escalate from the
+    slim bootstrap helper to typed `startup-context`. (evidence:
+    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 46)
   - [ ] Promote checkpoint budget from advisory status to fail-closed startup
     authority: when the typed startup / collaboration receipt reports
     `safe_to_continue_editing=false` or `checkpoint_required=true`, repo-owned

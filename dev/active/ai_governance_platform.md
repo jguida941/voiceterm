@@ -3360,8 +3360,14 @@ Still open before `P0` closes:
       backlog to close here: `finding_reviews.jsonl`, watchdog episodes,
       quality-feedback snapshots/recommendations, data-science summaries, and
       decision/adoption metadata are still largely absent from live prompt
-      builders even after the first `ai_instruction` routes landed, so the
-      next closure here is impact measurement plus the remaining write-only
+      builders even after the first `ai_instruction` routes landed. Partial
+      closure is now real: shared context packets inject bounded recent
+      `finding_reviews` fix history plus latest quality-feedback
+      recommendations into Ralph/autonomy/review-channel/conductor/swarm
+      prompt families, and bootstrap surfaces now explicitly tell agents to
+      escalate from the slim bootstrap packet to typed `startup-context` when
+      reviewer/checkpoint truth or richer continuity is needed. The next
+      closure here is impact measurement plus the remaining write-only
       operational artifacts rather than another prompt-only wire. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 42, Part 45, Part 54)
 - [ ] Version the remaining artifact families before promoting that aggregate
@@ -4380,6 +4386,17 @@ Execution order for this section:
   failing. The next closure work is no longer "wire guard-run"; it is
   widening the same meta-guard pattern to the remaining carried decision
   fields and zero-consumer operational artifacts.
+- 2026-03-22: Closed the next quick operational-evidence intake without
+  inventing a new packet family. Shared context-escalation packets now load
+  bounded recent `finding_reviews` history and latest quality-feedback
+  recommendations from the existing governance artifacts, so Ralph/autonomy /
+  review-channel / conductor / swarm inherit those two data families through
+  the same packet path instead of leaving them display-only. The generated
+  bootstrap surfaces and review-channel bootstrap text now also tell agents
+  when to escalate from the slim `context-graph --mode bootstrap` helper to
+  typed `startup-context` for reviewer/checkpoint truth or richer
+  continuity. Remaining write-only backlog here is still watchdog episodes,
+  broader decision/adoption metadata, and impact measurement.
 - 2026-03-22: Tightened the `MP-377` platform checklist with the next evidence
   intake instead of creating parallel backlog. Part 45 widened the existing
   operational-artifact routing item from prompt-builder-only to broader

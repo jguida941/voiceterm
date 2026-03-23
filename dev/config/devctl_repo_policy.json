@@ -397,6 +397,7 @@
         "python_version": "3.11",
         "bootstrap_steps": [
           "Run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for a slim startup context (~1.3K tokens): repo identity, active plans with MP scopes, hotspot files, key commands, and deep links.",
+          "If the task needs typed reviewer/checkpoint truth, `Session Resume`, or richer startup continuity than the slim packet carries, also run `python3 dev/scripts/devctl.py startup-context --format md` before planning edits.",
           "Follow the deep links from step 1 when the task requires full authority: read `AGENTS.md` for SDLC policy, `dev/active/INDEX.md` for plan doc registry, `dev/active/MASTER_PLAN.md` for canonical execution state.",
           "Use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md` to load targeted subgraphs for specific files, MPs, guards, or subsystems instead of reading full docs when only bounded context is needed.",
           "Only load additional active docs when the task class requires them."

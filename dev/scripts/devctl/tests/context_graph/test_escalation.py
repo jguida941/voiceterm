@@ -92,8 +92,15 @@ class ContextEscalationPacketTests(unittest.TestCase):
         )
         self.assertIsNone(packet)
 
+    @patch("dev.scripts.devctl.context_graph.escalation.quality_feedback_lines")
+    @patch("dev.scripts.devctl.context_graph.escalation.recent_fix_history_lines")
     @patch("dev.scripts.devctl.context_graph.escalation.load_probe_entries")
-    def test_packet_includes_matching_probe_guidance(self, load_entries_mock) -> None:
+    def test_packet_includes_matching_probe_guidance(
+        self,
+        load_entries_mock,
+        recent_history_mock,
+        quality_feedback_mock,
+    ) -> None:
         load_entries_mock.return_value = [
             {
                 "file_path": "dev/scripts/devctl/cli.py",
@@ -103,6 +110,12 @@ class ContextEscalationPacketTests(unittest.TestCase):
                 "ai_instruction": "Split the parser setup from execution wiring.",
             }
         ]
+        recent_history_mock.return_value = (
+            "`check_code_shape` fixed at `dev/scripts/devctl/cli.py:14`",
+        )
+        quality_feedback_mock.return_value = (
+            "`check_code_shape`: Break up oversize files first (high impact)",
+        )
         nodes = [
             GraphNode(
                 node_id="src:cli",
@@ -123,7 +136,10 @@ class ContextEscalationPacketTests(unittest.TestCase):
 
         assert packet is not None
         self.assertIn("## Probe Guidance", packet.markdown)
+        self.assertIn("## Recent Fix History", packet.markdown)
+        self.assertIn("## Repo Quality Feedback", packet.markdown)
         self.assertIn("Split the parser setup", packet.markdown)
+        self.assertIn("check_code_shape", packet.markdown)
         self.assertEqual(
             packet.guidance_refs,
             ("probe_design_smells@dev/scripts/devctl/cli.py:12",),

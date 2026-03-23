@@ -261,6 +261,30 @@ Evidence:
 - `dev/active/ai_governance_platform.md`
 - `dev/active/MASTER_PLAN.md`
 
+### 2026-03-22 - Shared context packets started consuming governance history and quality feedback
+
+The next quick closure pass reused the existing context-escalation packet
+instead of adding another artifact path. Shared prompt/context consumers now
+read bounded recent `finding_reviews` history and latest quality-feedback
+recommendations from the existing governance artifacts, so those two data
+families are no longer display-only.
+
+The same slice also tightened the startup guidance seam: generated bootstrap
+surfaces and review-channel conductor bootstrap text now tell agents when to
+escalate from the slim `context-graph --mode bootstrap` helper to typed
+`startup-context` for reviewer/checkpoint truth or richer continuity.
+
+Files:
+
+- `AGENTS.md`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/context_graph/operational_feedback.py`
+- `dev/scripts/devctl/context_graph/escalation.py`
+- `dev/scripts/devctl/autonomy/run_helpers.py`
+- `dev/scripts/devctl/commands/packets/loop_packet_context.py`
+- `dev/scripts/devctl/review_channel/event_projection_context.py`
+- `dev/scripts/devctl/review_channel/prompt.py`
+
 ### 2026-03-21 - Reviewer-wait wired to real review-channel status truth
 
 Fact: the symmetric Codex-side `review-channel --action reviewer-wait` path is

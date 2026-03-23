@@ -193,7 +193,11 @@ Three quality layers matter in practice:
     path now has a typed governed-markdown baseline too:
     `ProjectGovernance` carries `DocPolicy`, `DocRegistry`, and parsed
     `PlanRegistry` entries built from governed docs plus `INDEX.md`, while
-    `## Session Resume` content still remains the canonical restart surface
+    `## Session Resume` content still remains the canonical restart surface.
+    Generated bootstrap surfaces now explicitly tell agents to escalate from
+    the slim `context-graph --mode bootstrap` helper to
+    `startup-context --format md` when the slice needs typed
+    reviewer/checkpoint truth or richer continuity.
     until runtime consumes typed resume state instead of only a presence flag.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.

@@ -226,6 +226,9 @@ Portability note:
   governed-markdown baseline (`DocPolicy`, `DocRegistry`, parsed
   `PlanRegistry` entries) so startup no longer depends only on hard-coded
   path roots, but `## Session Resume` content is still markdown-only restart
+  state. Generated bootstrap surfaces now point agents at
+  `startup-context --format md` whenever the slim bootstrap packet is not
+  enough for typed reviewer/checkpoint truth or richer continuity.
   state until typed resume ingestion lands.
 - Repo-governance checkpoint policy may exclude compatibility projections such
   as `bridge.md` from advisory dirty-path budgeting so live review-channel
@@ -634,7 +637,9 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 
 `context-graph --mode bootstrap` is the slim warm-start packet. Keep it
 bounded by default and use `context-graph --query '<term>'` when the task
-needs more repo context.
+needs more repo context. When the slice needs typed reviewer/checkpoint
+truth, `Session Resume`, or richer continuity than that slim packet carries,
+escalate to `python3 dev/scripts/devctl.py startup-context --format md`.
 
 ## Scripts Inventory
 
@@ -806,6 +811,11 @@ Machine-first output note:
     another repo policy without changing shared orchestration code.
 - `data-science`: rolling telemetry snapshot builder that summarizes devctl event metrics plus swarm/benchmark agent-size productivity history, watchdog guarded-coding episodes, and governance-review false-positive/cleanup metrics; writes `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/` and supports local source/output overrides for experiments
 - `governance-review`: adjudicated finding ledger for hard-guard/probe outcomes; records reviewed findings plus their systemic disposition into `dev/reports/governance/finding_reviews.jsonl`, writes refreshed `review_summary.{md,json}` artifacts under `dev/reports/governance/latest/`, and gives the repo a durable scoreboard for false-positive rate, fixed findings, deferred debt, architectural absorption choices, and optional probe-guidance adoption (`guidance_id` / `guidance_followed`)
+- Shared context-escalation packets now also consume bounded recent
+  `review_summary.json` history plus the latest quality-feedback
+  recommendations so Ralph/autonomy/review-channel prompt families can read
+  fix history and repo-quality tuning hints without loading those artifacts
+  separately.
 - `probe-report`: aggregated review-probe surface that runs every registered `probe_*.py` script, renders markdown/terminal/json summaries, writes stable `dev/reports/probes/review_targets.json`, and refreshes `dev/reports/probes/latest/summary.{md,json}` plus `file_topology.json`, `review_packet.{json,md}`, and hotspot `hotspots.{mmd,dot}` artifacts for agent coaching, AI/human design review, and audit. The probe catalog now includes cohesion-heavy mixed-concern detection via `probe_mixed_concerns` and naming cleanup hints via `probe_term_consistency`, so both split-brain structure and legacy public vocabulary show up in the same packet.
   - Use `--adoption-scan` for first-run/full-surface repo onboarding when there
     is no trustworthy baseline ref yet.
