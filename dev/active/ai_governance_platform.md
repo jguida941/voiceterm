@@ -3832,6 +3832,13 @@ working on `MP-377`.
   promote the graph from escalation-only context help into bounded
   decision-routing by landing real `EDGE_KIND_GUARDS` /
   `EDGE_KIND_SCOPED_BY` edges plus non-escalation consumers.
+- 2026-03-22 graph-edge follow-up: the first typed relation-family slice is
+  now real in code. `context-graph` emits `EDGE_KIND_GUARDS` edges from the
+  active quality-policy guard registry plus repo scope roots, and it emits the
+  first policy-backed `EDGE_KIND_SCOPED_BY` edges from docs-policy tooling
+  prefixes tied to canonical plan docs. This keeps the graph generated-only while
+  letting file/path queries answer guard-coverage and plan-ownership questions
+  from canonical policy/plan inputs instead of raw import adjacency alone.
 - `dev/active/ai_governance_platform.md` is the only main active plan for this
   product scope; companion docs now route back here instead of acting like peer
   execution authority.
@@ -4409,6 +4416,13 @@ Execution order for this section:
   builders, and the graph lane now explicitly owns landing real
   `EDGE_KIND_GUARDS` / `EDGE_KIND_SCOPED_BY` edges plus widening graph
   consumers beyond escalation-only packets.
+- 2026-03-22: Closed the first graph-edge tranche under that same lane without
+  inventing a second routing scheme. The live builder now derives `guards`
+  coverage from the active quality policy and its scoped roots, while
+  `scoped_by` derives only from docs-policy tooling prefixes already used
+  elsewhere in governance. The graph
+  still needs the missing node families and broader consumers, but the dead
+  edge constants are no longer dead code.
 - 2026-03-22: Completed the remaining whole-audit mapping into the canonical
   platform chain instead of leaving `A1-A12`, `A22-A30`, and `D/S/E/G`
   partially implied. `platform_authority_loop.md` now carries the blocker +

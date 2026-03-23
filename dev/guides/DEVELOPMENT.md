@@ -197,7 +197,10 @@ Three quality layers matter in practice:
     Generated bootstrap surfaces now explicitly tell agents to escalate from
     the slim `context-graph --mode bootstrap` helper to
     `startup-context --format md` when the slice needs typed
-    reviewer/checkpoint truth or richer continuity.
+    reviewer/checkpoint truth or richer continuity. That same graph now emits
+    first-pass `guards` / `scoped_by` relation families, so targeted
+    `context-graph --query '<term>'` calls can answer file-level protection
+    and scope questions before the workflow widens into deeper startup reads.
     until runtime consumes typed resume state instead of only a presence flag.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.

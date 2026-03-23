@@ -5299,3 +5299,11 @@ The full technical showcase is consolidated above in Appendix G of this document
   probe lane now explicitly own single-authority AI-consumer enforcement and
   prose-derived routing fallback detection so external review is not the first
   place that architectural seam shows up.
+- 2026-03-22: Landed the first live `context-graph` relation-family slice
+  behind the `MP-377` graph-routing lane. `builder.py` now emits
+  `EDGE_KIND_GUARDS` from the active quality-policy guard registry plus
+  resolved scope roots, and it emits the first `EDGE_KIND_SCOPED_BY` edges
+  from docs-policy tooling prefixes bound to canonical plan docs. Targeted
+  `context-graph` tests now prove those edges exist in the live repo graph, so
+  file/path queries can answer guard-coverage and plan-ownership questions
+  from canonical policy/plan inputs instead of import adjacency alone.

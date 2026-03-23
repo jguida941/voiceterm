@@ -30,6 +30,24 @@ _PLAN_CONCEPT_KEYWORDS: tuple[tuple[str, str], ...] = (
 _ACTIVE_PLAN_ROLES = {"tracker", "spec"}
 
 
+def _plan_metadata(
+    *,
+    role: str,
+    authority: str,
+    scope_raw: str,
+    when_text: str,
+    is_active_plan: bool,
+) -> dict[str, object]:
+    """Build plan-node metadata without a large inline dict literal."""
+    metadata: dict[str, object] = {}
+    metadata["role"] = role
+    metadata["authority"] = authority
+    metadata["scope"] = scope_raw.replace("`", "").strip().strip(",").strip()
+    metadata["when"] = when_text.strip()
+    metadata["is_active_plan"] = is_active_plan
+    return metadata
+
+
 def collect_plan_nodes(repo_root: Path) -> tuple[list[GraphNode], list[tuple[str, str]]]:
     from ..repo_packs import active_path_config
 
@@ -58,12 +76,13 @@ def collect_plan_nodes(repo_root: Path) -> tuple[list[GraphNode], list[tuple[str
                 canonical_pointer_ref=path,
                 provenance_ref=str(index_path.relative_to(repo_root)),
                 temperature=temperature,
-                metadata={
-                    "role": role,
-                    "authority": row.get("authority", ""),
-                    "scope": scope_raw.replace("`", "").strip().strip(",").strip(),
-                    "is_active_plan": is_active_plan,
-                },
+                metadata=_plan_metadata(
+                    role=role,
+                    authority=row.get("authority", ""),
+                    scope_raw=scope_raw,
+                    when_text=when,
+                    is_active_plan=is_active_plan,
+                ),
             )
         )
         for keyword, concept_dir in _PLAN_CONCEPT_KEYWORDS:

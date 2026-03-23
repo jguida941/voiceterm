@@ -640,6 +640,10 @@ bounded by default and use `context-graph --query '<term>'` when the task
 needs more repo context. When the slice needs typed reviewer/checkpoint
 truth, `Session Resume`, or richer continuity than that slim packet carries,
 escalate to `python3 dev/scripts/devctl.py startup-context --format md`.
+Current graph routing now includes first-pass `guards` and `scoped_by`
+edges, so targeted file/path queries can surface active guard coverage and
+plan-scope ownership from the generated graph before escalating to fuller
+startup-context reads.
 
 ## Scripts Inventory
 

@@ -2968,7 +2968,11 @@ become the main product surface.
     operator routing. Keep this behind the direct closure tranches:
     `ai_instruction` wiring, the produced-but-never-consumed meta-guard, and
     startup/session unification should not block on ZGraph; it becomes the
-    query engine once these edges and consumers land. (evidence:
+    query engine once these edges and consumers land. First closure slice is
+    now live: the builder emits guard-coverage edges from active quality
+    policy + scope roots and initial policy-backed plan-ownership edges from
+    docs-policy tooling prefixes. Remaining work is the
+    node-family rollout and wider non-escalation consumers. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 43, Part 47)
   - [ ] Add deterministic temporal ZGraph snapshots on top of that graph lane:
     save graph snapshots at CI/check boundaries, diff successive snapshots,

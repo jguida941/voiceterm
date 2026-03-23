@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from ..commands.docs.policy_runtime import resolve_docs_check_policy
 from ..config import get_repo_root
 from ..probe_topology_scan import (
     build_python_module_index,
@@ -19,6 +20,7 @@ from ..probe_topology_scan import (
     iter_source_files,
     repo_relative,
 )
+from ..quality_policy import resolve_quality_policy
 from ..script_catalog import (
     CHECK_SCRIPT_RELATIVE_PATHS,
     PROBE_SCRIPT_RELATIVE_PATHS,
@@ -32,8 +34,10 @@ from .catalog_nodes import (
 from .concepts import build_concept_nodes
 from .models import (
     EDGE_KIND_DOCUMENTED_BY,
+    EDGE_KIND_GUARDS,
     EDGE_KIND_IMPORTS,
     EDGE_KIND_ROUTES_TO,
+    EDGE_KIND_SCOPED_BY,
     NODE_KIND_GUARD,
     NODE_KIND_PROBE,
     NODE_KIND_SOURCE,
@@ -164,6 +168,102 @@ def _collect_registry_nodes(
             edges.append(GraphEdge(source_id=nid, target_id=src_nid, edge_kind=EDGE_KIND_ROUTES_TO))
     return nodes, edges
 
+
+def _matches_repo_prefix(rel_path: str, prefix: str) -> bool:
+    """Return True when one repo-relative file path falls under a repo prefix."""
+    normalized = prefix.strip().strip("/")
+    if not normalized or normalized == ".":
+        return True
+    return rel_path == normalized or rel_path.startswith(f"{normalized}/")
+
+
+def _guard_scope_prefixes(policy, languages: tuple[str, ...]) -> tuple[str, ...]:
+    """Resolve repo-relative guard roots from the live quality policy."""
+    prefixes: list[str] = []
+
+    def add_prefixes(raw_prefixes: tuple[Any, ...]) -> None:
+        for raw in raw_prefixes:
+            prefix = str(raw).replace("\\", "/").strip().strip("/")
+            if prefix in prefixes:
+                continue
+            prefixes.append(prefix)
+
+    if not languages or "python" in languages:
+        add_prefixes(policy.scopes.python_guard_roots)
+    if not languages or "rust" in languages:
+        add_prefixes(policy.scopes.rust_guard_roots)
+    return tuple(prefixes)
+
+
+def _collect_guard_scope_edges(
+    repo_root,
+    source_nodes: list[GraphNode],
+    guard_nodes: list[GraphNode],
+) -> list[GraphEdge]:
+    """Emit guard->source applicability edges from the active quality policy."""
+    policy = resolve_quality_policy(repo_root=repo_root)
+    source_by_language: dict[str, list[GraphNode]] = defaultdict(list)
+    for node in source_nodes:
+        source_by_language[str(node.metadata.get("language", "")).strip().lower()].append(node)
+
+    known_guard_ids = {node.node_id for node in guard_nodes}
+    edge_keys: set[tuple[str, str]] = set()
+    for spec in policy.ai_guard_checks:
+        guard_id = f"{NODE_KIND_GUARD}:{spec.script_id}"
+        if guard_id not in known_guard_ids:
+            continue
+        candidate_languages = tuple(spec.languages) or tuple(source_by_language)
+        prefixes = _guard_scope_prefixes(policy, tuple(spec.languages))
+        for language in candidate_languages:
+            for source_node in source_by_language.get(language, ()):
+                ref = source_node.canonical_pointer_ref
+                if prefixes and not any(_matches_repo_prefix(ref, prefix) for prefix in prefixes):
+                    continue
+                edge_keys.add((guard_id, source_node.node_id))
+
+    return [
+        GraphEdge(source_id=source_id, target_id=target_id, edge_kind=EDGE_KIND_GUARDS)
+        for source_id, target_id in sorted(edge_keys)
+    ]
+
+
+def _plan_scope_rule_prefixes() -> dict[str, tuple[str, ...]]:
+    """Return docs-policy trigger prefixes keyed by required active-plan doc."""
+    policy = resolve_docs_check_policy()
+    prefixes_by_doc: dict[str, list[str]] = defaultdict(list)
+    for rule in policy.tooling_doc_requirement_rules:
+        candidate_prefixes = (*rule.trigger_prefixes, *sorted(rule.trigger_exact_paths))
+        for required_doc in rule.required_docs:
+            bucket = prefixes_by_doc[required_doc]
+            for raw_prefix in candidate_prefixes:
+                prefix = str(raw_prefix).replace("\\", "/").strip().strip("/")
+                if not prefix or prefix in bucket:
+                    continue
+                bucket.append(prefix)
+    return {doc: tuple(prefixes) for doc, prefixes in prefixes_by_doc.items()}
+
+
+def _collect_plan_scope_edges(
+    source_nodes: list[GraphNode],
+    plan_nodes: list[GraphNode],
+) -> list[GraphEdge]:
+    """Emit policy-backed active-plan->source scoped_by edges."""
+    policy_prefixes = _plan_scope_rule_prefixes()
+    edge_keys: set[tuple[str, str]] = set()
+    for plan_node in plan_nodes:
+        prefixes = list(policy_prefixes.get(plan_node.canonical_pointer_ref, ()))
+        if not prefixes:
+            continue
+        for source_node in source_nodes:
+            ref = source_node.canonical_pointer_ref
+            if any(_matches_repo_prefix(ref, prefix) for prefix in prefixes):
+                edge_keys.add((plan_node.node_id, source_node.node_id))
+
+    return [
+        GraphEdge(source_id=source_id, target_id=target_id, edge_kind=EDGE_KIND_SCOPED_BY)
+        for source_id, target_id in sorted(edge_keys)
+    ]
+
 def build_context_graph(
     *,
     hint_counts: dict[str, int] | None = None,
@@ -205,6 +305,7 @@ def build_context_graph(
     )
     nodes.extend(guard_nodes)
     edges.extend(guard_edges)
+    edges.extend(_collect_guard_scope_edges(repo_root, src_nodes, guard_nodes))
 
     probe_nodes, probe_edges = _collect_registry_nodes(
         PROBE_SCRIPT_RELATIVE_PATHS, NODE_KIND_PROBE,
@@ -212,6 +313,7 @@ def build_context_graph(
     )
     nodes.extend(probe_nodes)
     edges.extend(probe_edges)
+    edges.extend(_collect_plan_scope_edges(src_nodes, plan_nodes))
 
     nodes.extend(collect_guide_nodes(repo_root))
 

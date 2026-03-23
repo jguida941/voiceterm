@@ -16,9 +16,11 @@ from dev.scripts.devctl.context_graph.query import (
 from dev.scripts.devctl.context_graph.concepts import build_concept_nodes
 from dev.scripts.devctl.context_graph.models import (
     EDGE_KIND_CONTAINS,
+    EDGE_KIND_GUARDS,
     EDGE_KIND_IMPORTS,
     EDGE_KIND_RELATED_TO,
     EDGE_KIND_ROUTES_TO,
+    EDGE_KIND_SCOPED_BY,
     NODE_KIND_COMMAND,
     NODE_KIND_CONCEPT,
     NODE_KIND_GUARD,
@@ -118,6 +120,25 @@ class TestContextGraphBuild(unittest.TestCase):
         routes = [e for e in edges if e.edge_kind == EDGE_KIND_ROUTES_TO and e.source_id in guard_ids]
         self.assertGreater(len(routes), 0, "guard nodes should have routes_to edges to source files")
 
+    def test_active_guard_nodes_have_guard_scope_edges(self) -> None:
+        nodes, edges = build_context_graph()
+        guard_ids = {n.node_id for n in nodes if n.node_kind == NODE_KIND_GUARD}
+        guard_edges = [e for e in edges if e.edge_kind == EDGE_KIND_GUARDS and e.source_id in guard_ids]
+        self.assertGreater(len(guard_edges), 0, "active guard nodes should have guards edges to covered files")
+        self.assertTrue(
+            any(e.source_id == "guard:code_shape" for e in guard_edges),
+            "code_shape should have at least one guard coverage edge",
+        )
+
+    def test_plan_nodes_have_scoped_by_edges(self) -> None:
+        nodes, edges = build_context_graph()
+        plan_edges = [e for e in edges if e.edge_kind == EDGE_KIND_SCOPED_BY]
+        self.assertGreater(len(plan_edges), 0, "plan nodes should have scoped_by edges to relevant files")
+        self.assertTrue(
+            any(e.source_id == "plan:dev/active/ai_governance_platform.md" for e in plan_edges),
+            "ai_governance_platform plan should scope at least one source file",
+        )
+
 
 class TestContextGraphQuery(unittest.TestCase):
     """Verify query returns targeted subgraphs with evidence."""
@@ -149,6 +170,20 @@ class TestContextGraphQuery(unittest.TestCase):
         result = query_context_graph("code_shape", self.nodes, self.edges)
         kinds = {n.node_kind for n in result.matched_nodes}
         self.assertIn(NODE_KIND_GUARD, kinds, "code_shape query should find guard nodes")
+
+    def test_guard_query_returns_guard_coverage_edges(self) -> None:
+        result = query_context_graph("code_shape", self.nodes, self.edges)
+        self.assertTrue(
+            any(edge.edge_kind == EDGE_KIND_GUARDS for edge in result.edges),
+            "code_shape query should return at least one guards coverage edge",
+        )
+
+    def test_plan_query_returns_scoped_by_edges(self) -> None:
+        result = query_context_graph("ai_governance_platform", self.nodes, self.edges)
+        self.assertTrue(
+            any(edge.edge_kind == EDGE_KIND_SCOPED_BY for edge in result.edges),
+            "plan query should return scoped_by edges once plan->file coverage exists",
+        )
 
     def test_result_evidence_is_populated(self) -> None:
         result = query_context_graph("topology", self.nodes, self.edges)

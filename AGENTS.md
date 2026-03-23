@@ -122,6 +122,10 @@ Run this sequence for every task. Do not skip steps.
 1. Run session bootstrap checks and load `dev/active/INDEX.md` (`bundle.bootstrap`).
    Alternatively, run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
    for a slim startup context with active plans, hotspots, and deep links.
+   The live graph now also carries first-pass `guards` / `scoped_by`
+   relations, so file/path queries can answer "what guards protect this?" and
+   "what plan scope owns this?" from the same generated surface before the
+   session escalates to fuller authority reads.
    When the task needs typed reviewer/checkpoint truth, richer continuity, or
    `Session Resume` context beyond that slim packet, also run
    `python3 dev/scripts/devctl.py startup-context --format md`.
