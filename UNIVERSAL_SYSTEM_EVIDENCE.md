@@ -1600,6 +1600,74 @@ enforcement + AI autonomy loop. This would be the first.**
 
 ---
 
+---
+
+## Part 55: Repo-Wide Dead Code — 17 Orphaned Functions Found
+
+### 10 modules checked, 17 functions with zero external callers.
+
+**Truly dead (recommend removal, ~15 functions):**
+
+context_graph/query.py — 6 private functions never called:
+_current_branch(), _detect_bridge_liveness(), _hot_index_summary(),
+_hotspot_summaries(), _load_policy_context(), _plan_summaries()
+(Scaffolding for features never completed)
+
+probe_topology_builder.py — 3 public functions only called internally:
+build_node_record(), build_hint_excerpt(), build_hotspot_record()
+(Entry points build_probe_topology_artifact/build_review_packet are used;
+these helpers are internal-only but exported)
+
+quality_policy.py — 3 public functions never called:
+resolve_ai_guard_checks(), resolve_review_probe_checks(),
+resolve_quality_scope_roots() (Secondary API layer; only
+resolve_quality_policy() is used everywhere)
+
+escalation.py — 1 unused class:
+ContextEscalationOptions (never used; code passes dict/None instead)
+
+finding_contracts.py — 2 unused TypedDicts:
+FindingPayload, DecisionPacketPayload (defined, never imported)
+
+**Internal-only (keep):**
+startup_context.py — _detect_reviewer_gate_from_bridge() and
+_detect_reviewer_gate_from_typed_state() are correctly used as
+internal helpers within their wrapper function.
+
+---
+
+## Part 56: Write-Only Report Artifacts — 8 Categories Never Read
+
+### 567 files in dev/reports/. ~80% consumed, ~20% write-only.
+
+**CONSUMED (6 categories):**
+- probes/ → escalation, triage, probe_report_parser
+- governance/ → operational_feedback, data_science, operator_console
+- autonomy/ → operational_feedback, data_science, status_parsers
+- data_science/ → operational_feedback
+- review_channel/ → state engine, governance parse, operator_console
+- audits/ → data_science parser
+
+**WRITE-ONLY (8 categories, never read for decisions):**
+
+1. check/ (clippy-lints.json, clippy-pedantic-summary.json) — written by
+   Rust build, never read by any code
+2. clippy/ (latest.json, latest-lints.json) — written by
+   collect_clippy_warnings.py, never read
+3. duplication/ (jscpd-report.json) — written by check_duplication_audit,
+   never read for decisions
+4. mp346/ (baseline matrices) — written by autonomy benchmarks, research
+   artifact only
+5. research/ (swarm_vs_placebo/) — legacy research experiment, never read
+6. integration_import_audit.jsonl — written by import commands, never read
+7. mobile/ — configured in repo_packs but DIRECTORY DOESN'T EXIST
+8. ralph/ — configured in repo_packs but DIRECTORY DOESN'T EXIST
+
+**Two ghost directories** (mobile/, ralph/) are referenced in voiceterm.py
+config paths but never created on disk. No consumer code reads from them.
+
+---
+
 ## Authority Rule (Repeated)
 
 This file is reference-only. Canonical execution authority remains:
