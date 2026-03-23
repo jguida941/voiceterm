@@ -86,4 +86,17 @@ def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
             migration_path="Add new fields additively, then update renderers/tests before changing consumers.",
             rollback_path="Restore prior schema constants and report builder behavior before removing consumers.",
         ),
+        ArtifactSchemaSpec(
+            contract_id="ContextGraphSnapshot",
+            owner_layer="governance_core",
+            purpose="Versioned full-graph snapshot emitted by `devctl context-graph` for temporal diff/trend analysis.",
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/context_graph/snapshot.py",
+            constants_module="dev.scripts.devctl.context_graph.snapshot",
+            contract_id_attr="CONTEXT_GRAPH_SNAPSHOT_CONTRACT_ID",
+            schema_version_attr="CONTEXT_GRAPH_SNAPSHOT_SCHEMA_VERSION",
+            compatibility_window="best-effort stable within MP-377 graph-routing rollout; additive changes only",
+            migration_path="Add snapshot fields additively and update diff/trend readers before changing writers.",
+            rollback_path="Restore prior snapshot constants and writer shape before removing consumers.",
+        ),
     )

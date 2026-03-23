@@ -274,6 +274,7 @@ python3 dev/scripts/devctl.py render-surfaces --write --format md
 python3 dev/scripts/devctl.py platform-contracts --format md
 python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md
 python3 dev/scripts/devctl.py context-graph --query '<term>' --format md
+python3 dev/scripts/devctl.py context-graph --query '<term>' --save-snapshot --format md
 python3 dev/scripts/devctl.py context-graph --format mermaid
 python3 dev/scripts/checks/check_platform_contract_closure.py
 python3 dev/scripts/devctl.py doc-authority --format json
@@ -643,7 +644,10 @@ escalate to `python3 dev/scripts/devctl.py startup-context --format md`.
 Current graph routing now includes first-pass `guards` and `scoped_by`
 edges, so targeted file/path queries can surface active guard coverage and
 plan-scope ownership from the generated graph before escalating to fuller
-startup-context reads.
+startup-context reads. Bootstrap mode also now writes a typed
+`ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/`; use
+`--save-snapshot` on other `context-graph` modes when you need the same
+versioned graph baseline before diff/trend analysis.
 
 ## Scripts Inventory
 

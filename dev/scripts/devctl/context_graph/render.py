@@ -97,6 +97,19 @@ def render_bootstrap_markdown(ctx: dict[str, Any]) -> str:
                  f"{gs.get('active_plans', 0)} plans, {gs.get('edges', 0)} edges")
     lines.append("")
 
+    snapshot = ctx.get("snapshot", {})
+    if snapshot:
+        temperature = snapshot.get("temperature_distribution", {})
+        lines.append("## Snapshot")
+        lines.append("")
+        lines.append(f"- **path**: `{snapshot.get('path', 'unknown')}`")
+        lines.append(f"- **commit_hash**: `{snapshot.get('commit_hash', 'unknown')}`")
+        lines.append(f"- **generated_at_utc**: `{snapshot.get('generated_at_utc', 'unknown')}`")
+        lines.append(
+            f"- **temperature_average**: {float(temperature.get('average', 0.0)):.3f}"
+        )
+        lines.append("")
+
     plans = ctx.get("active_plans", [])
     if plans:
         lines.append("## Active Plans")

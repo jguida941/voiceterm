@@ -5338,3 +5338,11 @@ The full technical showcase is consolidated above in Appendix G of this document
   `context-graph` tests now prove those edges exist in the live repo graph, so
   file/path queries can answer guard-coverage and plan-ownership questions
   from canonical policy/plan inputs instead of import adjacency alone.
+- 2026-03-22: Started the Part-53 temporal-graph tranche with the first saved
+  artifact slice instead of inventing a second graph-analysis path.
+  `devctl context-graph` now writes a typed `ContextGraphSnapshot` artifact
+  under `dev/reports/graph_snapshots/` at the end of bootstrap runs and when
+  `--save-snapshot` is requested on other modes, carrying commit/branch/time
+  metadata, full node/edge payloads, kind counts, and a bounded temperature
+  distribution summary. This leaves the next Part-53 steps focused on
+  snapshot diff/trend logic rather than basic capture plumbing.

@@ -201,6 +201,10 @@ Three quality layers matter in practice:
     first-pass `guards` / `scoped_by` relation families, so targeted
     `context-graph --query '<term>'` calls can answer file-level protection
     and scope questions before the workflow widens into deeper startup reads.
+    Bootstrap mode also persists a typed `ContextGraphSnapshot` artifact under
+    `dev/reports/graph_snapshots/`, and `--save-snapshot` applies that same
+    versioned snapshot writer to other context-graph modes when a slice needs
+    a saved baseline before diff/trend analysis lands.
     until runtime consumes typed resume state instead of only a presence flag.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.

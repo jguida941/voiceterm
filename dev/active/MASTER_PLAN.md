@@ -2984,7 +2984,11 @@ become the main product surface.
     save graph snapshots at CI/check boundaries, diff successive snapshots,
     and surface architecture-drift/trend answers by reusing the existing
     snapshot/delta patterns already present in data-science and quality-
-    feedback instead of creating a second graph-analysis stack. (evidence:
+    feedback instead of creating a second graph-analysis stack. First slice
+    now live: `context-graph --mode bootstrap` persists a typed
+    `ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/`, and
+    `--save-snapshot` widens that same writer to the other graph modes so the
+    next diff/trend work can consume a stable saved contract. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 53)
   - [ ] Unify the current startup systems behind one canonical
     `startup-context` / `WorkIntakePacket` path so bootstrap instructions,

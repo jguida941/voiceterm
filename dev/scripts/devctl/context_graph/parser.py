@@ -35,4 +35,13 @@ def add_context_graph_parser(sub: argparse._SubParsersAction) -> None:
             "Only used in query mode."
         ),
     )
+    cmd.add_argument(
+        "--save-snapshot",
+        action="store_true",
+        help=(
+            "Write a versioned ContextGraphSnapshot artifact under "
+            "dev/reports/graph_snapshots/. Bootstrap mode saves one by "
+            "default; this flag extends that behavior to other modes."
+        ),
+    )
     add_standard_output_arguments(cmd, format_choices=("json", "md", "mermaid", "dot"))

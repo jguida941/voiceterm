@@ -3069,7 +3069,12 @@ Still open before `P0` closes:
       snapshots, and surface trend/drift answers such as "is this subsystem
       getting more connected or cleaner over time?" by reusing the existing
       snapshot/delta patterns from data-science and quality-feedback rather
-      than starting a parallel temporal-graph architecture. (evidence:
+      than starting a parallel temporal-graph architecture. First slice now
+      live: `context-graph --mode bootstrap` persists a typed versioned
+      `ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/`,
+      and `--save-snapshot` widens the same writer to other graph modes so
+      diff/trend work can build on a stable saved contract instead of
+      ephemeral in-memory graph state. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 53)
 - [ ] Land one bounded inference engine on top of those typed relations in the
       same first routing proof: allow 2-3 hop cited chains over canonical
@@ -3849,6 +3854,14 @@ working on `MP-377`.
   prefixes tied to canonical plan docs. This keeps the graph generated-only while
   letting file/path queries answer guard-coverage and plan-ownership questions
   from canonical policy/plan inputs instead of raw import adjacency alone.
+- 2026-03-22 Part-53 slice-1 follow-up: the first temporal graph-snapshot
+  capture path is live too. `devctl context-graph` now writes a typed
+  `ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/` at the
+  end of bootstrap runs and when `--save-snapshot` is requested on other
+  modes, carrying commit/branch/time metadata, full node/edge payloads,
+  kind counts, and a bounded temperature-distribution summary. That keeps the
+  next diff/trend tranche on the same canonical graph contract instead of a
+  separate temporal-analysis stack.
 - `dev/active/ai_governance_platform.md` is the only main active plan for this
   product scope; companion docs now route back here instead of acting like peer
   execution authority.
@@ -4446,6 +4459,13 @@ Execution order for this section:
   elsewhere in governance. The graph
   still needs the missing node families and broader consumers, but the dead
   edge constants are no longer dead code.
+- 2026-03-22: Started Part 53 on the same graph lane instead of creating a
+  parallel snapshot system. `context-graph` now has a typed
+  `ContextGraphSnapshot` writer plus `--save-snapshot`, bootstrap mode
+  automatically persists a versioned snapshot under
+  `dev/reports/graph_snapshots/`, and focused tests prove both the artifact
+  payload and the bootstrap auto-save path. Remaining Part-53 work is snapshot
+  diff + trend/drift analysis, not basic artifact capture.
 - 2026-03-22: Completed the remaining whole-audit mapping into the canonical
   platform chain instead of leaving `A1-A12`, `A22-A30`, and `D/S/E/G`
   partially implied. `platform_authority_loop.md` now carries the blocker +

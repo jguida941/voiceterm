@@ -61,6 +61,11 @@ class TestContextGraphRegistration(unittest.TestCase):
         args = parser.parse_args(["context-graph", "--query", "code_shape"])
         self.assertEqual(args.query, "code_shape")
 
+    def test_parser_accepts_save_snapshot_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["context-graph", "--save-snapshot"])
+        self.assertTrue(args.save_snapshot)
+
     def test_handler_registered(self) -> None:
         self.assertIn("context-graph", COMMAND_HANDLERS)
 
