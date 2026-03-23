@@ -52,6 +52,8 @@ class GovernanceReviewCommandTests(unittest.TestCase):
         self.assertIn("prevention_surface", payload["required"])
         self.assertIn("audit", properties["signal_type"]["enum"])
         self.assertIn("external", properties["scan_mode"]["enum"])
+        self.assertIn("guidance_id", properties)
+        self.assertIn("guidance_followed", properties)
 
     def test_cli_parser_accepts_governance_review_command(self) -> None:
         parser = cli.build_parser()
@@ -81,6 +83,10 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                 "recurring",
                 "--prevention-surface",
                 "probe",
+                "--guidance-id",
+                "probe_single_use_helpers@demo.py:14",
+                "--guidance-followed",
+                "true",
                 "--format",
                 "json",
             ]
@@ -99,6 +105,8 @@ class GovernanceReviewCommandTests(unittest.TestCase):
         self.assertEqual(args.finding_class, "rule_quality")
         self.assertEqual(args.recurrence_risk, "recurring")
         self.assertEqual(args.prevention_surface, "probe")
+        self.assertEqual(args.guidance_id, "probe_single_use_helpers@demo.py:14")
+        self.assertEqual(args.guidance_followed, "true")
         self.assertIs(cli.COMMAND_HANDLERS["governance-review"], governance_review.run)
 
     def test_record_updates_latest_finding_summary(self) -> None:
@@ -325,6 +333,41 @@ class GovernanceReviewCommandTests(unittest.TestCase):
         self.assertEqual(row["finding_class"], "rule_quality")
         self.assertEqual(row["recurrence_risk"], "recurring")
         self.assertEqual(row["prevention_surface"], "probe")
+
+    def test_review_row_includes_guidance_measurement_fields(self) -> None:
+        row = build_governance_review_row(
+            review_input=GovernanceReviewInput(
+                signal_type="probe",
+                check_id="probe_exception_quality",
+                verdict="fixed",
+                file_path="demo.py",
+                line=7,
+                finding_class="rule_quality",
+                recurrence_risk="recurring",
+                prevention_surface="probe",
+                guidance_id="probe_exception_quality@demo.py:7",
+                guidance_followed=True,
+            )
+        )
+
+        self.assertEqual(row["guidance_id"], "probe_exception_quality@demo.py:7")
+        self.assertTrue(row["guidance_followed"])
+
+    def test_review_row_rejects_partial_guidance_measurement(self) -> None:
+        with self.assertRaisesRegex(ValueError, "guidance_id is required"):
+            build_governance_review_row(
+                review_input=GovernanceReviewInput(
+                    signal_type="probe",
+                    check_id="probe_exception_quality",
+                    verdict="fixed",
+                    file_path="demo.py",
+                    line=7,
+                    finding_class="rule_quality",
+                    recurrence_risk="recurring",
+                    prevention_surface="probe",
+                    guidance_followed=True,
+                )
+            )
 
     def test_default_finding_id_ignores_absolute_repo_path(self) -> None:
         row_one = build_governance_review_row(

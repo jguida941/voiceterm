@@ -87,6 +87,7 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
                 "## Context Recovery Packet\n\n"
                 "- Trigger: `review-channel-event`"
             ),
+            guidance_refs=("probe_design_smells@dev/active/review_channel.md:12",),
         )
 
         summary = build_event_queue_summary(
@@ -120,4 +121,8 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
         self.assertIn(
             "context_packet",
             summary["derived_next_instruction_source"],
+        )
+        self.assertEqual(
+            summary["derived_next_instruction_source"]["guidance_refs"],
+            ["probe_design_smells@dev/active/review_channel.md:12"],
         )

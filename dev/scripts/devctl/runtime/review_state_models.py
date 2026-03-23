@@ -103,6 +103,7 @@ class ReviewPacketState:
     trace_id: str = ""
     latest_event_id: str = ""
     confidence: float = 0.0
+    guidance_refs: tuple[str, ...] = ()
     target_kind: str = ""
     target_ref: str = ""
     target_revision: str = ""

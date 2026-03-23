@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from dev.scripts.devctl.context_graph.escalation import (
     build_context_escalation_packet,
@@ -90,6 +91,43 @@ class ContextEscalationPacketTests(unittest.TestCase):
             graph=([], []),
         )
         self.assertIsNone(packet)
+
+    @patch("dev.scripts.devctl.context_graph.escalation.load_probe_entries")
+    def test_packet_includes_matching_probe_guidance(self, load_entries_mock) -> None:
+        load_entries_mock.return_value = [
+            {
+                "file_path": "dev/scripts/devctl/cli.py",
+                "probe": "probe_design_smells",
+                "severity": "high",
+                "line": 12,
+                "ai_instruction": "Split the parser setup from execution wiring.",
+            }
+        ]
+        nodes = [
+            GraphNode(
+                node_id="src:cli",
+                node_kind="source_file",
+                label="dev/scripts/devctl/cli.py",
+                canonical_pointer_ref="dev/scripts/devctl/cli.py",
+                provenance_ref="test",
+                temperature=0.8,
+                metadata={},
+            )
+        ]
+
+        packet = build_context_escalation_packet(
+            trigger="unit-test",
+            query_terms=("cli.py",),
+            graph=(nodes, []),
+        )
+
+        assert packet is not None
+        self.assertIn("## Probe Guidance", packet.markdown)
+        self.assertIn("Split the parser setup", packet.markdown)
+        self.assertEqual(
+            packet.guidance_refs,
+            ("probe_design_smells@dev/scripts/devctl/cli.py:12",),
+        )
 
 
 if __name__ == "__main__":

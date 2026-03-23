@@ -294,21 +294,22 @@ context-free translation = MEDIUM.
       and injects it into the live remediation prompt, autonomy `triage-loop`
       / `loop-packet` now carries a bounded structured backlog slice and
       renders the same exact file-matched canonical guidance into the loop
-      draft, and `check_platform_contract_closure.py` now proves both live
-      routes. The next closure here is adoption, not only transport:
-      attached guidance must become the default repair plan instead of a
-      passive annotation, matching must prefer structured file/symbol/span
-      identity with summary parsing only as a compatibility fallback, and the
-      runtime must log whether guidance was attached, followed/waived, and
-      accepted so the repo can measure whether probe coaching actually
-      improves outcomes. Review-channel remediation prompts, swarm
-      `derive_prompt`, and escalation / `guard-run` follow-up packets still
-      need the same contract, and the next probe/guard follow-up must catch
-      the detector gap external review exposed here: dual-authority AI
-      consumers and prose-parsed contract matching should not slip through as
-      "clean" tranche code once structured fields and one canonical artifact
-      already exist. (evidence:
-      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27)
+      draft, review-channel / conductor and swarm prompt surfaces now inherit
+      the same contract through shared context packets plus projected
+      `guidance_refs`, and escalation packets now carry a bounded `## Probe
+      Guidance` section instead of leaving the artifact out-of-band. The next
+      closure here is adoption, not only transport: attached guidance must
+      stay the default repair plan instead of drifting back to passive
+      annotation, matching must prefer structured file/symbol/span identity
+      with summary parsing only as a compatibility fallback, and the runtime
+      must log stable `guidance_id` / `guidance_followed` evidence so the repo
+      can measure whether probe coaching actually improves outcomes. The
+      remaining route backlog is the same canonical contract in `guard-run`
+      follow-up packets plus the next deterministic detector widening so
+      dual-authority AI consumers and prose-parsed contract matching cannot
+      slip through as "clean" tranche code once structured fields and one
+      canonical artifact already exist. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 52, Part 54)
 - [ ] Add the next missing probe tranche explicitly under the same portable
       evidence contract: start with test-quality, None-safety, and
       over-abstraction signals as advisory probes only, back them with
@@ -496,6 +497,16 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-22: Closed the next adoption/coverage slice on top of the first
+  Ralph/autonomy wires instead of leaving the remaining consumers as plan
+  prose. Ralph now states the probe-guidance rule before the findings list,
+  autonomy prompt generation does the same, escalation packets carry a
+  bounded `## Probe Guidance` section plus stable `guidance_refs`,
+  review-channel instruction-source projections now preserve those refs, and
+  `governance-review --record` can measure `guidance_id` /
+  `guidance_followed` for adjudicated fixes. The remaining closure here is the
+  broader produced-but-never-consumed meta-guard plus the last `guard-run`
+  consumer path.
 - 2026-03-22: External closure review after tranches 1-4 confirmed the next
   gap is adoption, not raw transport. Ralph and autonomy both receive exact
   probe guidance now, but the current prompt contract still treats that
@@ -1343,25 +1354,29 @@ Template README at `dev/scripts/checks/PROBE_TEMPLATE_README.md`.
 - Current status: the first two live probe-to-AI proof slices have landed.
   Ralph reads exact file-matched canonical probe guidance from
   `dev/reports/probes/review_targets.json` and renders `Probe guidance:` lines
-  into the remediation prompt, and autonomy `triage-loop` / `loop-packet` now
+  into the remediation prompt, autonomy `triage-loop` / `loop-packet` now
   persists a bounded structured backlog slice and renders the same matched
-  guidance into the loop draft. `check_platform_contract_closure.py` now
-  proves both routes. CodeRabbit backlog items now carry structured `path` /
-  `line` fields so normal matching no longer depends on summary parsing,
-  though summary parsing remains as a legacy fallback for older backlog
-  payloads. The remaining gap is review-channel plus broader telemetry /
-  meta-guard coverage so produced guidance cannot silently stop at artifacts
-  again.
+  guidance into the loop draft, and the shared context-packet /
+  instruction-source path now carries the same guidance into escalation,
+  review-channel, conductor, and swarm prompt surfaces. `governance-review`
+  now has explicit `guidance_id` / `guidance_followed` fields for adoption
+  measurement, and `check_platform_contract_closure.py` still proves the
+  first two live routes. CodeRabbit backlog items now carry structured
+  `path` / `line` fields so normal matching no longer depends on summary
+  parsing, though summary parsing remains as a legacy fallback for older
+  backlog payloads. The remaining gap is the broader meta-guard plus the last
+  `guard-run` follow-up route so produced guidance cannot silently stop at
+  artifacts again.
 - The same lane now owns the missing follow-ons too: next-probe expansion stays
   bounded to test-quality / None-safety / over-abstraction, and probe packets
   need governance-ledger history instead of file-local prose only.
 - Next action: turn the current consumer-specific route proofs into the next
   broader produced-but-never-consumed / single-authority meta-guard, then
-  carry the same canonical probe-guidance contract into review-channel
-  remediation without inventing a second packet shape. Keep the checker-stack
-  follow-up explicit too: add deterministic coverage for dual-authority
-  artifact consumers and decide whether prose-parsed contract matching belongs
-  in `probe_stringly_typed` or a sibling rule family.
+  finish the last `guard-run` follow-up route on the same canonical
+  probe-guidance contract instead of inventing a second packet shape. Keep
+  the checker-stack follow-up explicit too: add deterministic coverage for
+  dual-authority artifact consumers and decide whether prose-parsed contract
+  matching belongs in `probe_stringly_typed` or a sibling rule family.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

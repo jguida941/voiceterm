@@ -118,6 +118,9 @@ class ReviewStateTests(unittest.TestCase):
                                 "progress:proof_pass",
                                 "checklist:phase_1",
                             ],
+                            "guidance_refs": [
+                                "probe_design_smells@dev/active/platform_authority_loop.md:12"
+                            ],
                             "intake_ref": "intake://session-2026-03-19",
                             "mutation_op": "append_progress_log",
                         }
@@ -136,6 +139,10 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(
             packet.anchor_refs,
             ("progress:proof_pass", "checklist:phase_1"),
+        )
+        self.assertEqual(
+            packet.guidance_refs,
+            ("probe_design_smells@dev/active/platform_authority_loop.md:12",),
         )
         self.assertEqual(packet.intake_ref, "intake://session-2026-03-19")
         self.assertEqual(packet.mutation_op, "append_progress_log")

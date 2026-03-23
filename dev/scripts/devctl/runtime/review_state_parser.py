@@ -238,6 +238,7 @@ def _packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                 trace_id=_string(mapping.get("trace_id")),
                 latest_event_id=_string(mapping.get("latest_event_id")),
                 confidence=confidence,
+                guidance_refs=_string_rows(mapping.get("guidance_refs")),
                 target_kind=_string(mapping.get("target_kind")),
                 target_ref=_string(mapping.get("target_ref")),
                 target_revision=_string(mapping.get("target_revision")),

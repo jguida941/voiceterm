@@ -1112,6 +1112,10 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn("Custom done criteria from repo policy.", prompt)
+        self.assertIn(
+            "default repair/delegation plan unless you can record a concrete waiver reason",
+            prompt,
+        )
 
     @patch(
         "dev.scripts.devctl.review_channel.prompt.build_context_escalation_packet"

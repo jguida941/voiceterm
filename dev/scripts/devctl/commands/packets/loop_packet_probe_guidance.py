@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from dev.scripts.coderabbit.probe_guidance import load_probe_guidance
+try:
+    from dev.scripts.coderabbit.probe_guidance import load_probe_guidance
+except ModuleNotFoundError:  # broad-except: allow reason=devctl CLI runs from dev/scripts
+    from coderabbit.probe_guidance import load_probe_guidance
 
 
 def _backlog_items(payload: dict[str, Any]) -> list[dict]:

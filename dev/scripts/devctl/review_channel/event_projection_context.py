@@ -50,4 +50,6 @@ def build_instruction_source(
     }
     if context_packet is not None:
         source["context_packet"] = asdict(context_packet)
+        if context_packet.guidance_refs:
+            source["guidance_refs"] = list(context_packet.guidance_refs)
     return source

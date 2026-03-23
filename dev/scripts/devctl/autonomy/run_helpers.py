@@ -54,6 +54,13 @@ def derive_prompt(
     lines = [
         f"Execute the next tracked checklist items for `{plan_doc}` under `{mp_scope}`.",
         "",
+        "Probe guidance policy:",
+        (
+            "- If the appended context packet includes `## Probe Guidance`, treat "
+            "those hints as the default repair plan unless you can justify "
+            "waiving them."
+        ),
+        "",
         "Target steps:",
     ]
     if not next_steps:

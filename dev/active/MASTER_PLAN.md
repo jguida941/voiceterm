@@ -2931,20 +2931,22 @@ become the main product surface.
   - [ ] Turn report-only governance-routing and AI-guidance fields into live
     runtime inputs across startup, repair, review, and `guard-run` flows.
     First proof slices landed: Ralph now consumes exact file-matched
-    canonical probe `ai_instruction` from canonical `review_targets.json`
-    artifacts, autonomy `triage-loop` / `loop-packet` now consumes the same
-    guidance from a bounded structured backlog slice, and the deterministic
-    route-closure guard now proves both routes inside
-    `check_platform_contract_closure.py`; remaining review, startup, and
-    `guard-run` consumers still need the same contract. The next closure in
-    that same tranche is broader single-authority + structured-routing
-    enforcement so AI consumers cannot silently negotiate between multiple
-    artifact authorities or keep deriving routing keys from prose when typed
-    fields already exist, plus explicit adoption proof: prompts must tell AI
-    to prefer attached probe guidance, matching must prefer structured
-    identity, and runtime telemetry must record whether guidance was
-    attached/followed/waived and whether the fix held. (evidence:
-    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38)
+    canonical probe `ai_instruction` from `review_targets.json`, autonomy
+    `triage-loop` / `loop-packet` now consumes the same guidance from a
+    bounded structured backlog slice, review-channel/conductor plus swarm
+    inherit that contract through shared context packets, escalation packets
+    now carry `## Probe Guidance` plus stable `guidance_refs`, and the
+    deterministic route-closure guard now proves the Ralph/autonomy routes
+    inside `check_platform_contract_closure.py`. The remaining closure in
+    this same tranche is the last `guard-run` consumer path plus broader
+    single-authority + structured-routing enforcement so AI consumers cannot
+    silently negotiate between multiple artifact authorities or keep deriving
+    routing keys from prose when typed fields already exist, together with
+    explicit adoption proof: prompts must keep telling AI to prefer attached
+    probe guidance, matching must prefer structured identity, and runtime
+    telemetry must record stable `guidance_id` / `guidance_followed` plus fix
+    outcome. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38,
+    Part 52, Part 54)
   - [ ] Route fresh `dev/reports/**` operational evidence into the live prompt
     builders and adjacent decision surfaces so bootstrap, conductor, swarm,
     Ralph, loop-packet, escalation, and other runtime controllers consume
@@ -2954,7 +2956,7 @@ become the main product surface.
     zero-consumer backlog still called out by audit: `finding_reviews.jsonl`,
     watchdog episodes, quality-feedback outputs, data-science summaries, and
     decision/adoption metadata need live consumers. (evidence:
-    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 42, Part 45)
+    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 42, Part 45, Part 54)
   - [ ] Finish the first graph-routing expansion by emitting live
     `EDGE_KIND_GUARDS` / `EDGE_KIND_SCOPED_BY` edges, land the guard-edge
     quick win first, add the missing node families (`test`, `workflow`,
@@ -2965,6 +2967,12 @@ become the main product surface.
     startup/session unification should not block on ZGraph; it becomes the
     query engine once these edges and consumers land. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 43, Part 47)
+  - [ ] Add deterministic temporal ZGraph snapshots on top of that graph lane:
+    save graph snapshots at CI/check boundaries, diff successive snapshots,
+    and surface architecture-drift/trend answers by reusing the existing
+    snapshot/delta patterns already present in data-science and quality-
+    feedback instead of creating a second graph-analysis stack. (evidence:
+    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 53)
   - [ ] Unify the current startup systems behind one canonical
     `startup-context` / `WorkIntakePacket` path so bootstrap instructions,
     governed-plan `Session Resume`, repo memory, and recent episode evidence

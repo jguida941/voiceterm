@@ -58,6 +58,8 @@ def governance_review_row_disposition_errors(
     recurrence_risk = optional_text(row.get("recurrence_risk"))
     prevention_surface = optional_text(row.get("prevention_surface"))
     waiver_reason = optional_text(row.get("waiver_reason"))
+    guidance_id = optional_text(row.get("guidance_id"))
+    guidance_followed = row.get("guidance_followed")
 
     if finding_class not in VALID_FINDING_CLASS_SET:
         errors.append("finding_class must be one of: " + ", ".join(VALID_FINDING_CLASSES))
@@ -71,4 +73,8 @@ def governance_review_row_disposition_errors(
         errors.append("waiver_reason is required when prevention_surface is 'none'")
     if verdict in {"waived", "deferred"} and not waiver_reason:
         errors.append("waiver_reason is required for waived or deferred verdicts")
+    if guidance_id and not isinstance(guidance_followed, bool):
+        errors.append("guidance_followed must be set when guidance_id is present")
+    if guidance_followed is not None and not guidance_id:
+        errors.append("guidance_id must be set when guidance_followed is present")
     return tuple(errors)

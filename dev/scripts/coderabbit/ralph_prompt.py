@@ -115,6 +115,13 @@ Each array row must use the exact finding summary text and this shape:
     return f"""You are fixing CodeRabbit findings in the codex-voice repository.
 This is Ralph loop attempt {attempt}.
 
+## Probe Guidance Policy
+
+If a finding carries `Probe guidance:`, use the probe's recommended approach
+as your default fix plan. Do not invent a different repair strategy unless the
+guidance is clearly wrong for the current code, and explain any waiver in the
+required output contract below.
+
 ## Findings to evaluate
 
 {findings_text}{standards_section}
@@ -131,8 +138,6 @@ For EACH finding above:
 4. If a finding points at a file, guard, or subsystem you have not read yet,
    run `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`
    before widening scope.{context_section}
-5. When `Probe guidance:` is attached to a finding, use that guidance as the
-   default repair plan unless you can justify waiving it with a concrete reason.
 
 ## Rules
 - Follow existing code style and conventions (read AGENTS.md for policy).

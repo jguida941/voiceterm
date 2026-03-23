@@ -218,6 +218,10 @@ class BuildPromptTests(unittest.TestCase):
         self.assertIn("default repair plan", prompt)
         self.assertIn("RALPH_GUIDANCE_SUMMARY_START", prompt)
         self.assertIn("guidance_disposition", prompt)
+        self.assertLess(
+            prompt.index("## Probe Guidance Policy"),
+            prompt.index("## Findings to evaluate"),
+        )
 
     @patch("dev.scripts.coderabbit.ralph_ai_fix.build_context_escalation_packet")
     def test_build_backlog_context_packet_uses_backlog_terms(self, escalation_mock) -> None:

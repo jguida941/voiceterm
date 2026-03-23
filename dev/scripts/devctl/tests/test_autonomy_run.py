@@ -164,6 +164,7 @@ class AutonomyRunHelperTests(unittest.TestCase):
             "Execute the next tracked checklist items for `dev/active/autonomous_control_plane.md` under `MP-338`.",
             prompt,
         )
+        self.assertIn("Probe guidance policy:", prompt)
         self.assertIn("## Context Recovery Packet", prompt)
 
     def test_derive_prompt_keeps_explicit_question_unmodified(self) -> None:

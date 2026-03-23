@@ -409,7 +409,15 @@ Why this model is safe:
    concrete waiver reason. Packet/report surfaces should preserve
    guidance-attached vs used/waived telemetry so the repo can measure whether
    the wiring improves fix outcomes.
-10. If a live AI consumer still needs that fallback, record the seam in the
+10. Shared context packets are now the preferred multi-consumer guidance
+    surface: escalation, review-channel/conductor, and swarm prompt routes
+    should preserve `guidance_refs` from the same packet instead of inventing
+    route-specific probe-guidance side channels.
+11. When a finding is adjudicated after guided remediation, record the probe
+    guidance measurement in the same governance ledger with
+    `governance-review --record --guidance-id ... --guidance-followed ...`
+    so adoption/effect telemetry survives outside the prompt text.
+12. If a live AI consumer still needs that fallback, record the seam in the
    active plan and add the matching detection follow-up (`check_platform_contract_closure.py`
    expansion, a review probe widening, or both) before copying the same
    pattern into more routes.

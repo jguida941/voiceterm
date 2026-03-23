@@ -204,6 +204,34 @@ Evidence:
 - `dev/active/ai_governance_platform.md`
 - `dev/active/MASTER_PLAN.md`
 
+### 2026-03-22 - Shared guidance packets now cover the remaining prompt surfaces
+
+Fact: the first probe-guidance route is no longer limited to Ralph and the
+autonomy loop. Escalation packets now render matched `## Probe Guidance`
+entries plus stable `guidance_refs`, review-channel instruction sources
+preserve those refs, conductor/swarm prompt surfaces inherit the same
+context-packet contract, and governance-review can record `guidance_id` /
+`guidance_followed` so adoption is measured in the same durable ledger as fix
+outcomes. Part 53 is also now explicitly mapped into the main graph tranche:
+once the direct closure slices settle, the same deterministic graph builder
+must support save/diff/trend temporal snapshots instead of a parallel audit
+stack.
+
+This matters because the system can now widen one canonical probe-guidance
+contract across more than two AI consumers without inventing route-local
+artifacts, and the governing plans now explicitly reserve the next graph
+tranche for time-series drift evidence instead of more one-off audit prose.
+
+Evidence:
+
+- `dev/scripts/coderabbit/ralph_prompt.py`
+- `dev/scripts/devctl/autonomy/run_helpers.py`
+- `dev/scripts/devctl/context_graph/escalation.py`
+- `dev/scripts/devctl/runtime/review_state_models.py`
+- `dev/scripts/devctl/governance_review_models.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state.py`
+
 ### 2026-03-21 - Reviewer-wait wired to real review-channel status truth
 
 Fact: the symmetric Codex-side `review-channel --action reviewer-wait` path is

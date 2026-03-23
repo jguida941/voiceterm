@@ -102,6 +102,15 @@ def add_governance_review_parser(sub: argparse._SubParsersAction) -> None:
             "waived/deferred"
         ),
     )
+    review_cmd.add_argument(
+        "--guidance-id",
+        help="Optional stable probe-guidance ref used during remediation/adoption review",
+    )
+    review_cmd.add_argument(
+        "--guidance-followed",
+        choices=["true", "false"],
+        help="Whether the referenced probe guidance was followed (requires --guidance-id)",
+    )
     add_standard_output_arguments(
         review_cmd,
         format_choices=("json", "md"),

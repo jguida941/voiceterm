@@ -6,6 +6,11 @@ import re
 from dataclasses import dataclass
 from typing import Any, Iterable
 
+try:
+    from dev.scripts.coderabbit.probe_guidance_artifacts import load_probe_entries
+except ModuleNotFoundError:  # broad-except: allow reason=devctl CLI runs from dev/scripts
+    from coderabbit.probe_guidance_artifacts import load_probe_entries
+
 from .builder import build_context_graph
 from .models import GraphEdge, GraphNode
 from .query import query_context_graph
@@ -31,6 +36,7 @@ class ContextEscalationPacket:
     canonical_refs: tuple[str, ...]
     evidence: tuple[str, ...]
     markdown: str
+    guidance_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -136,6 +142,7 @@ def _render_packet_markdown(
     canonical_refs: tuple[str, ...],
     matched_nodes: int,
     edge_count: int,
+    guidance_entries: tuple[dict[str, object], ...] = (),
 ) -> str:
     lines = [
         "## Context Recovery Packet",
@@ -147,6 +154,24 @@ def _render_packet_markdown(
     ]
     for ref in canonical_refs:
         lines.append(f"  - `{ref}`")
+    if guidance_entries:
+        lines.extend(
+            [
+                "",
+                "## Probe Guidance",
+                "",
+                (
+                    "Treat these probe-backed remediation hints as the default "
+                    "repair plan unless you can justify waiving them."
+                ),
+            ]
+        )
+        for entry in guidance_entries:
+            lines.append(
+                "- "
+                + str(entry.get("ai_instruction") or "").strip()
+                + f" ({_guidance_ref(entry)})"
+            )
     lines.extend(
         [
             "",
@@ -157,6 +182,73 @@ def _render_packet_markdown(
         ]
     )
     return "\n".join(lines)
+
+
+def _guidance_ref(entry: dict[str, object]) -> str:
+    file_path = str(entry.get("file_path") or "").strip()
+    symbol = str(entry.get("symbol") or "").strip()
+    probe = str(entry.get("probe") or "").strip()
+    line = entry.get("line")
+    location = file_path or symbol or "unknown"
+    if isinstance(line, int) and line > 0:
+        location = f"{location}:{line}"
+    return f"{probe}@{location}" if probe else location
+
+
+def _guidance_match_score(
+    entry: dict[str, object],
+    *,
+    query_terms: tuple[str, ...],
+    canonical_refs: tuple[str, ...],
+) -> tuple[int, int, str]:
+    file_path = str(entry.get("file_path") or "").strip()
+    symbol = str(entry.get("symbol") or "").strip()
+    probe = str(entry.get("probe") or "").strip()
+    haystack = " ".join((file_path, symbol, probe)).lower()
+    exact_ref_rank = 0 if file_path and file_path in canonical_refs else 1
+    lowered_terms = tuple(term.lower() for term in query_terms)
+    term_rank = 0 if any(term in haystack for term in lowered_terms) else 1
+    severity_rank = {"high": 0, "medium": 1, "low": 2}.get(
+        str(entry.get("severity") or "medium"),
+        3,
+    )
+    return (exact_ref_rank, term_rank, f"{severity_rank}:{file_path}:{probe}:{symbol}")
+
+
+def _select_probe_guidance(
+    *,
+    query_terms: tuple[str, ...],
+    canonical_refs: tuple[str, ...],
+) -> tuple[dict[str, object], ...]:
+    matched: list[dict[str, object]] = []
+    seen: set[str] = set()
+    ordered = sorted(
+        load_probe_entries(),
+        key=lambda entry: _guidance_match_score(
+            entry,
+            query_terms=query_terms,
+            canonical_refs=canonical_refs,
+        ),
+    )
+    for entry in ordered:
+        instruction = str(entry.get("ai_instruction") or "").strip()
+        if not instruction:
+            continue
+        exact_ref_rank, term_rank, _sort_tail = _guidance_match_score(
+            entry,
+            query_terms=query_terms,
+            canonical_refs=canonical_refs,
+        )
+        if exact_ref_rank != 0 and term_rank != 0:
+            continue
+        ref = _guidance_ref(entry)
+        if ref in seen:
+            continue
+        seen.add(ref)
+        matched.append(entry)
+        if len(matched) >= 3:
+            break
+    return tuple(matched)
 
 
 def build_context_escalation_packet(
@@ -204,12 +296,17 @@ def build_context_escalation_packet(
         node.canonical_pointer_ref
         for node in ordered_nodes[: resolved_options.max_refs]
     )
+    guidance_entries = _select_probe_guidance(
+        query_terms=normalized_terms,
+        canonical_refs=canonical_refs,
+    )
     markdown = _render_packet_markdown(
         trigger=trigger,
         query_terms=normalized_terms,
         canonical_refs=canonical_refs,
         matched_nodes=len(ordered_nodes),
         edge_count=len(matched_edges),
+        guidance_entries=guidance_entries,
     )
     if len(markdown) > resolved_options.max_chars:
         markdown = (
@@ -224,6 +321,7 @@ def build_context_escalation_packet(
         canonical_refs=canonical_refs,
         evidence=tuple(evidence),
         markdown=markdown,
+        guidance_refs=tuple(_guidance_ref(entry) for entry in guidance_entries),
     )
 
 

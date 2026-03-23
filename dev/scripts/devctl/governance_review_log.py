@@ -175,6 +175,15 @@ def build_governance_review_row(
         row["notes"] = notes_text
     if waiver_reason := optional_text(review_input.waiver_reason):
         row["waiver_reason"] = waiver_reason
+    guidance_id = optional_text(review_input.guidance_id)
+    guidance_followed = review_input.guidance_followed
+    if guidance_id and guidance_followed is None:
+        raise ValueError("guidance_followed is required when guidance_id is set")
+    if guidance_followed is not None and not guidance_id:
+        raise ValueError("guidance_id is required when guidance_followed is set")
+    if guidance_id:
+        row["guidance_id"] = guidance_id
+        row["guidance_followed"] = bool(guidance_followed)
     disposition_errors = governance_review_row_disposition_errors(row)
     if disposition_errors:
         raise ValueError("; ".join(disposition_errors))

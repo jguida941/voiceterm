@@ -62,6 +62,8 @@ class GovernanceReviewInput:
     recurrence_risk: str | None = None
     prevention_surface: str | None = None
     waiver_reason: str | None = None
+    guidance_id: str | None = None
+    guidance_followed: bool | None = None
 
 
 @dataclass(frozen=True)

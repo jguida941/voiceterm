@@ -56,6 +56,11 @@ def operating_contract_lines(
             "real blocker/approval boundary is hit."
         ),
         (
+            "- If a context packet or downstream packet carries `## Probe "
+            "Guidance`, treat it as the default repair/delegation plan unless "
+            "you can record a concrete waiver reason."
+        ),
+        (
             "- A bridge summary, `waiting_on_peer` note, or \"all green so far\" "
             "update is never terminal by itself. After every owned-section write, "
             "re-read `bridge.md` and continue the loop instead of ending the "

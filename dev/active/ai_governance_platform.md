@@ -3063,6 +3063,14 @@ Still open before `P0` closes:
       this plan?", and "what contracts or scopes apply here?" through cited
       canonical refs instead of flat substring discovery alone. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 43, Part 47)
+- [ ] Add deterministic temporal graph snapshots on top of that same graph
+      tranche instead of inventing a second analysis stack: save versioned
+      context-graph snapshots at CI/check boundaries, diff successive
+      snapshots, and surface trend/drift answers such as "is this subsystem
+      getting more connected or cleaner over time?" by reusing the existing
+      snapshot/delta patterns from data-science and quality-feedback rather
+      than starting a parallel temporal-graph architecture. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 53)
 - [ ] Land one bounded inference engine on top of those typed relations in the
       same first routing proof: allow 2-3 hop cited chains over canonical
       refs so `WorkIntakePacket` can route intent to the smallest defensible
@@ -3352,8 +3360,10 @@ Still open before `P0` closes:
       backlog to close here: `finding_reviews.jsonl`, watchdog episodes,
       quality-feedback snapshots/recommendations, data-science summaries, and
       decision/adoption metadata are still largely absent from live prompt
-      builders even after the first `ai_instruction` routes landed. (evidence:
-      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 42, Part 45)
+      builders even after the first `ai_instruction` routes landed, so the
+      next closure here is impact measurement plus the remaining write-only
+      operational artifacts rather than another prompt-only wire. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 42, Part 45, Part 54)
 - [ ] Version the remaining artifact families before promoting that aggregate
       surface as canonical: governance-ledger summaries, autonomy episodes,
       `devctl` event history, data-science summaries, and any new convention /
@@ -3556,10 +3566,12 @@ Still open before `P0` closes:
       packet shapes: Ralph now consumes exact file-matched
       `Finding.ai_instruction` from canonical `review_targets.json` probe
       artifacts, and autonomy `triage-loop` / `loop-packet` now consumes the
-      same canonical guidance from a bounded structured backlog slice, but
-      review-channel remediation flows, swarm `derive_prompt`, escalation
-      packets, and `guard-run` follow-up packets still need the same contract
-      plus carried decision semantics
+      same canonical guidance from a bounded structured backlog slice, while
+      review-channel / conductor prompt surfaces, swarm `derive_prompt`, and
+      escalation packets now inherit the same contract through shared
+      context-packet rendering plus projected `guidance_refs`; `guard-run`
+      follow-up packets still need that same contract plus carried decision
+      semantics
       (`decision_mode`, `invariants`, `validation_plan`, `precedent`,
       `research_instruction`, `signals`) instead of rendering them only for
       humans. The deterministic route-closure guard now proves both the Ralph
@@ -3567,16 +3579,17 @@ Still open before `P0` closes:
       that same enforcement pattern before claiming the rest of the contract
       is live, and fail the same tranche if an AI consumer negotiates between
       multiple artifact authorities or keeps deriving routing keys from prose
-      once the structured contract fields exist. The current branch proves
-      transport, not adoption, so this same tranche now also owns three
-      explicit follow-ups: prompts must tell AI to treat attached probe
+      once the structured contract fields exist. The current branch now
+      proves transport plus basic mandate/telemetry scaffolding, not full
+      impact, so this same tranche still owns three explicit follow-ups:
+      prompts and packets must keep telling AI to treat attached probe
       guidance as the default repair plan unless waived with reason, matching
       must prefer structured file/symbol/span identity with prose parsing
-      kept only as a compatibility fallback, and the runtime must log
-      guidance-attached / guidance-followed-or-waived / fix outcome so the
-      repo can measure whether guidance improves post-fix guard results
-      instead of assuming impact from transport alone. (evidence:
-      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38)
+      kept only as a compatibility fallback, and the runtime must log stable
+      `guidance_id` / `guidance_followed` plus fix outcome so the repo can
+      measure whether guidance improves post-fix guard results instead of
+      assuming impact from transport alone. (evidence:
+      `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38, Part 52, Part 54)
 - [ ] Split the default fix packet from the typed decision packet: the
       everyday AI/dev surface should carry deterministic fixes, scoped
       evidence, the next routed checks, and the preferred validator in a
@@ -3758,14 +3771,14 @@ working on `MP-377`.
   widened in the same change, so the platform-contract lane now proves both
   Ralph and autonomy before the broader meta-guard/general-consumer tranche.
 - 2026-03-22 adoption follow-up: external review after tranches 1-4 showed
-  that the current branch proves guidance transport but not yet guidance use.
-  The real remaining gap is not another architecture layer: prompts still do
-  not require AI to prefer attached probe guidance, the matcher still lacks
-  strict symbol/span identity when only compatibility fields are present, and
-  the runtime does not yet emit adoption/effect telemetry proving whether the
-  guidance improved fix quality. Accepted follow-up: keep those as explicit
-  closure criteria inside the existing feedback-loop / AI-guidance routing
-  items before widening into the broader produced-but-never-consumed tranche.
+  that the current branch proved guidance transport before guidance use. That
+  follow-up is now partially closed: Ralph states the probe-guidance rule
+  before the findings list, autonomy prompts do the same, escalation packets
+  now render `## Probe Guidance` plus stable `guidance_refs`, review-channel /
+  conductor and swarm prompt surfaces inherit the same packet contract, and
+  `governance-review --record` can now capture `guidance_id` /
+  `guidance_followed`. The remaining gap is impact measurement and the last
+  `guard-run` consumer path, not another architecture layer.
 - 2026-03-22 checker-gap follow-up: an external architecture review surfaced
   the next governance miss after the Ralph cleanup. The live branch had
   already removed the dual-authority Ralph fallback and split the worst
@@ -3776,6 +3789,12 @@ working on `MP-377`.
   structured-contract matching. Accepted follow-up: keep this in the `A27`
   hard-guard tranche and require targeted post-fix probe reads so the repo
   can distinguish "stale complaint" from "real silent miss" before closure.
+- 2026-03-22 evidence follow-up: Part 53 is now explicitly mapped into the
+  graph lane too. The current graph tranche is no longer only missing
+  edges/node families; once the direct closure tranches are stable it also
+  owns deterministic save/diff/trend graph snapshots so the platform can
+  answer architecture-drift questions over time with the same cited graph
+  surface instead of a parallel audit stack.
 - 2026-03-22 governance follow-up: an external design review did surface a
   real detector gap, but it was narrower than the first report claimed. The
   current branch no longer has Ralph negotiating between `review_targets.json`
@@ -4329,6 +4348,16 @@ Execution order for this section:
   matching seams. The stronger "junk-drawer module" complaint was stale
   against the cleaned Ralph path by the time this verification ran, so the
   remaining follow-up is guard/probe calibration, not another module split.
+- 2026-03-22: Closed the next adoption/coverage follow-up instead of leaving
+  Parts 52-54 as new audit prose. Ralph now states the probe-guidance policy
+  before the findings list, autonomy prompt generation does the same,
+  escalation packets render matched `## Probe Guidance` entries plus stable
+  `guidance_refs`, review-channel instruction-source projections preserve
+  those refs, and `governance-review --record` now accepts `guidance_id` /
+  `guidance_followed` so adoption can be measured in the same ledger as fix
+  outcomes. The remaining gap in this tranche is the last `guard-run`
+  consumer path plus impact measurement over the still-zero-consumer
+  operational artifacts.
 - 2026-03-22: Tightened the `MP-377` platform checklist with the next evidence
   intake instead of creating parallel backlog. Part 45 widened the existing
   operational-artifact routing item from prompt-builder-only to broader

@@ -108,6 +108,8 @@
         "none"
       ]
     },
+    "guidance_id": { "type": "string", "minLength": 1 },
+    "guidance_followed": { "type": "boolean" },
     "waiver_reason": { "type": "string", "minLength": 1 },
     "risk_type": { "type": "string" },
     "source_command": { "type": "string" },

@@ -24,6 +24,12 @@ def run(args) -> int:
         summary_root = resolve_governance_review_summary_root(
             getattr(args, "summary_root", None)
         )
+        guidance_followed_raw = getattr(args, "guidance_followed", None)
+        guidance_followed = (
+            None
+            if guidance_followed_raw is None
+            else guidance_followed_raw == "true"
+        )
         if bool(getattr(args, "record", False)):
             row = build_governance_review_row(
                 review_input=GovernanceReviewInput(
@@ -45,6 +51,8 @@ def run(args) -> int:
                     recurrence_risk=getattr(args, "recurrence_risk", None),
                     prevention_surface=getattr(args, "prevention_surface", None),
                     waiver_reason=getattr(args, "waiver_reason", None),
+                    guidance_id=getattr(args, "guidance_id", None),
+                    guidance_followed=guidance_followed,
                 ),
             )
             append_governance_review_row(row, log_path=log_path)
