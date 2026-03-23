@@ -65,6 +65,31 @@ class GuardRunRequest:
     run_probe_scan: bool = False
 
 
+def build_guard_run_probe_targets(
+    before: GuardGitSnapshot | None,
+    after: GuardGitSnapshot | None,
+) -> list[dict[str, str]]:
+    """Build canonical file targets for attaching probe guidance to guard-run output."""
+    targets: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for snapshot in (after, before):
+        if snapshot is None:
+            continue
+        for path in snapshot.files_changed:
+            normalized = str(path).strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            targets.append(
+                {
+                    "file_path": normalized,
+                    "path": normalized,
+                    "file": normalized,
+                }
+            )
+    return targets
+
+
 def resolve_guard_cwd(raw_cwd: str | None) -> Path:
     """Resolve `--cwd` relative to the repository root."""
     if not raw_cwd:
@@ -174,6 +199,26 @@ def build_guard_run_markdown(report: dict[str, Any]) -> str:
         lines.append("## Post-Run Hygiene")
         lines.append(f"- cmd: {report['post_result_display']}")
         lines.append(f"- returncode: {report['post_result']['returncode']}")
+    probe_guidance = report.get("probe_guidance")
+    if isinstance(probe_guidance, list) and probe_guidance:
+        lines.extend(
+            [
+                "",
+                "## Probe Guidance",
+                "- Treat attached probe guidance as the default follow-up repair plan unless you can justify waiving it.",
+            ]
+        )
+        for entry in probe_guidance:
+            if not isinstance(entry, dict):
+                continue
+            instruction = str(entry.get("ai_instruction") or "").strip()
+            guidance_id = str(entry.get("guidance_id") or "").strip()
+            if not instruction:
+                continue
+            if guidance_id:
+                lines.append(f"- {instruction} ({guidance_id})")
+            else:
+                lines.append(f"- {instruction}")
     if report["warnings"]:
         lines.append("")
         lines.append("## Warnings")

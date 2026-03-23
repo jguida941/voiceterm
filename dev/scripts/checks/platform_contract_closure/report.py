@@ -30,6 +30,9 @@ def build_report() -> dict[str, object]:
         "checked_field_routes": len(
             [row for row in coverage_rows if row.get("kind") == "field_route"]
         ),
+        "checked_field_route_families": len(
+            [row for row in coverage_rows if row.get("kind") == "field_route_family"]
+        ),
         "violations": list(violations),
         "coverage": list(coverage_rows),
     }
@@ -45,6 +48,9 @@ def render_md(report: dict[str, object]) -> str:
         f"- checked_artifact_schemas: {report.get('checked_artifact_schemas', 0)}"
     )
     lines.append(f"- checked_field_routes: {report.get('checked_field_routes', 0)}")
+    lines.append(
+        f"- checked_field_route_families: {report.get('checked_field_route_families', 0)}"
+    )
     lines.append(f"- violations: {len(report.get('violations', []))}")
     lines.extend(("", "## Coverage", ""))
     for row in report.get("coverage", []):

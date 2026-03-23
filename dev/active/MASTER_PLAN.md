@@ -2936,17 +2936,18 @@ become the main product surface.
     bounded structured backlog slice, review-channel/conductor plus swarm
     inherit that contract through shared context packets, escalation packets
     now carry `## Probe Guidance` plus stable `guidance_refs`, and the
-    deterministic route-closure guard now proves the Ralph/autonomy routes
-    inside `check_platform_contract_closure.py`. The remaining closure in
-    this same tranche is the last `guard-run` consumer path plus broader
-    single-authority + structured-routing enforcement so AI consumers cannot
-    silently negotiate between multiple artifact authorities or keep deriving
-    routing keys from prose when typed fields already exist, together with
-    explicit adoption proof: prompts must keep telling AI to prefer attached
-    probe guidance, matching must prefer structured identity, and runtime
-    telemetry must record stable `guidance_id` / `guidance_followed` plus fix
-    outcome. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38,
-    Part 52, Part 54)
+    deterministic route-closure guard now proves the Ralph / autonomy /
+    `guard-run` family inside `check_platform_contract_closure.py`, including
+    a family-completeness failure if any declared consumer disappears. The
+    remaining closure in this same tranche is broader single-authority +
+    structured-routing enforcement so AI consumers cannot silently negotiate
+    between multiple artifact authorities or keep deriving routing keys from
+    prose when typed fields already exist, together with explicit adoption
+    proof: prompts must keep telling AI to prefer attached probe guidance,
+    matching must prefer structured identity, and runtime telemetry must
+    record stable `guidance_id` / `guidance_followed` plus fix outcome.
+    (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 38, Part 52,
+    Part 54)
   - [ ] Route fresh `dev/reports/**` operational evidence into the live prompt
     builders and adjacent decision surfaces so bootstrap, conductor, swarm,
     Ralph, loop-packet, escalation, and other runtime controllers consume

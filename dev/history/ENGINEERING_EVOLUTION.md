@@ -232,6 +232,35 @@ Evidence:
 - `dev/scripts/devctl/tests/test_review_channel.py`
 - `dev/scripts/devctl/tests/runtime/test_review_state.py`
 
+### 2026-03-22 - Platform contract closure now enforces the first full route family
+
+Fact: `check_platform_contract_closure.py` no longer stops at isolated
+point-route proofs for `Finding.ai_instruction`. The guard now proves the
+Ralph prompt, autonomy loop-packet, and `guard-run` follow-up packet routes
+individually, then checks the declared route family as a whole and fails with
+`field-route-family-incomplete` if any declared consumer disappears. The same
+slice added focused `guard-run` guidance tests and updated the active plan
+chain so the remaining backlog is widening this meta-guard to dual-authority
+consumers, prose-parsed routing seams, and the carried decision-semantic
+fields that still stop at human-facing packets.
+
+This matters because the repo now catches the next class of closure drift
+automatically: "one route still works" is no longer enough once the same typed
+field is supposed to reach multiple runtime consumers. That turns the first
+produced-but-never-consumed fix into a reusable family-level enforcement path
+instead of another route-local proof.
+
+Evidence:
+
+- `dev/scripts/checks/platform_contract_closure/field_routes.py`
+- `dev/scripts/checks/platform_contract_closure/support.py`
+- `dev/scripts/checks/platform_contract_closure/report.py`
+- `dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`
+- `dev/scripts/devctl/tests/test_guard_run.py`
+- `dev/active/review_probes.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
 ### 2026-03-21 - Reviewer-wait wired to real review-channel status truth
 
 Fact: the symmetric Codex-side `review-channel --action reviewer-wait` path is

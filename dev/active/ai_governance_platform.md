@@ -3570,17 +3570,21 @@ Still open before `P0` closes:
       review-channel / conductor prompt surfaces, swarm `derive_prompt`, and
       escalation packets now inherit the same contract through shared
       context-packet rendering plus projected `guidance_refs`; `guard-run`
-      follow-up packets still need that same contract plus carried decision
-      semantics
+      follow-up packets now carry that same probe-guidance contract too, and
+      `check_platform_contract_closure.py` now proves the first declared
+      `Finding.ai_instruction` consumer family (Ralph, autonomy, and
+      `guard-run`) plus a family-completeness failure if any declared route
+      drops out. The remaining gap is the rest of carried decision semantics
       (`decision_mode`, `invariants`, `validation_plan`, `precedent`,
       `research_instruction`, `signals`) instead of rendering them only for
       humans. The deterministic route-closure guard now proves both the Ralph
       and autonomy paths inside `check_platform_contract_closure.py`; widen
-      that same enforcement pattern before claiming the rest of the contract
-      is live, and fail the same tranche if an AI consumer negotiates between
-      multiple artifact authorities or keeps deriving routing keys from prose
-      once the structured contract fields exist. The current branch now
-      proves transport plus basic mandate/telemetry scaffolding, not full
+      that same enforcement pattern beyond this first family before claiming
+      the rest of the contract is live, and fail the same tranche if an AI
+      consumer negotiates between multiple artifact authorities or keeps
+      deriving routing keys from prose once the structured contract fields
+      exist. The current branch now proves transport plus basic
+      mandate/telemetry scaffolding and one family-level meta-guard, not full
       impact, so this same tranche still owns three explicit follow-ups:
       prompts and packets must keep telling AI to treat attached probe
       guidance as the default repair plan unless waived with reason, matching
@@ -3779,6 +3783,15 @@ working on `MP-377`.
   `governance-review --record` can now capture `guidance_id` /
   `guidance_followed`. The remaining gap is impact measurement and the last
   `guard-run` consumer path, not another architecture layer.
+- 2026-03-22 tranche-5 follow-up: closed the first full declared
+  `Finding.ai_instruction` consumer family instead of leaving `guard-run` as
+  an unchecked tail. `guard-run` already carried canonical probe guidance on
+  the live branch, and this slice made the contract lane prove it: the
+  platform-contract guard now runs route proofs for Ralph, autonomy, and
+  `guard-run`, then fails again at the family level if any declared consumer
+  disappears. The remaining closure here is widening that meta-guard to
+  dual-authority consumers, prose-parsed structured routing, and the carried
+  decision-semantics fields that still stop at human-facing packets.
 - 2026-03-22 checker-gap follow-up: an external architecture review surfaced
   the next governance miss after the Ralph cleanup. The live branch had
   already removed the dual-authority Ralph fallback and split the worst
@@ -4358,6 +4371,15 @@ Execution order for this section:
   outcomes. The remaining gap in this tranche is the last `guard-run`
   consumer path plus impact measurement over the still-zero-consumer
   operational artifacts.
+- 2026-03-22: Closed that last current `guard-run` closure gap in the same
+  lane instead of opening a new guard family. `platform_contract_closure`
+  now counts three live `field_route` proofs plus one
+  `field_route_family` coverage row, and it fails with
+  `field-route-family-incomplete` if the declared Ralph / autonomy /
+  `guard-run` consumer set for `Finding.ai_instruction` is missing or
+  failing. The next closure work is no longer "wire guard-run"; it is
+  widening the same meta-guard pattern to the remaining carried decision
+  fields and zero-consumer operational artifacts.
 - 2026-03-22: Tightened the `MP-377` platform checklist with the next evidence
   intake instead of creating parallel backlog. Part 45 widened the existing
   operational-artifact routing item from prompt-builder-only to broader

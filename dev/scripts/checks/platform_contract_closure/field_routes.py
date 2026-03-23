@@ -5,9 +5,13 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
+
+FieldRouteCheck = Callable[[], tuple[dict[str, object], dict[str, object] | None]]
 
 
 def check_finding_ai_instruction_ralph_route() -> tuple[dict[str, object], dict[str, object] | None]:
@@ -207,3 +211,127 @@ def check_finding_ai_instruction_autonomy_route() -> tuple[dict[str, object], di
         "rule": "unconsumed-field-route",
         "detail": detail,
     }
+
+
+def check_finding_ai_instruction_guard_run_route() -> tuple[dict[str, object], dict[str, object] | None]:
+    """Verify a populated Finding.ai_instruction reaches the guard-run follow-up packet."""
+    from dev.scripts.devctl.commands.guard_run import build_guard_run_report
+    from dev.scripts.devctl.guard_run_core import (
+        GuardGitSnapshot,
+        GuardRunRequest,
+        build_guard_run_markdown,
+    )
+
+    expected_instruction = "Split the guard-run follow-up repair plan from the shell wrapper logic."
+    review_targets_payload = {
+        "findings": [
+            {
+                "file_path": "dev/scripts/devctl/commands/guard_run.py",
+                "check_id": "probe_side_effect_mixing",
+                "severity": "high",
+                "line": 42,
+                "end_line": 58,
+                "ai_instruction": expected_instruction,
+            }
+        ]
+    }
+    coverage: dict[str, object] = {
+        "kind": "field_route",
+        "contract_id": "Finding",
+        "field_name": "ai_instruction",
+        "route_id": "guard_run_report",
+        "consumer": "dev.scripts.devctl.commands.guard_run:build_guard_run_report",
+        "ok": True,
+    }
+    guarded_command = [
+        "python3",
+        "dev/scripts/devctl.py",
+        "docs-check",
+        "--strict-tooling",
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        report_root = Path(tmp_dir)
+        (report_root / "review_targets.json").write_text(
+            json.dumps(review_targets_payload),
+            encoding="utf-8",
+        )
+        before = GuardGitSnapshot(
+            reviewed_worktree_hash="abc123",
+            files_changed=("dev/scripts/devctl/commands/guard_run.py",),
+            file_count=1,
+        )
+        after = GuardGitSnapshot(
+            reviewed_worktree_hash="abc123",
+            files_changed=("dev/scripts/devctl/commands/guard_run.py",),
+            file_count=1,
+            lines_added=4,
+            lines_removed=1,
+            diff_churn=5,
+        )
+        with (
+            patch.dict("os.environ", {"DEVCTL_PROBE_REPORT_ROOT": str(report_root)}, clear=False),
+            patch(
+                "dev.scripts.devctl.commands.guard_run.capture_guard_git_snapshot",
+                side_effect=[before, after],
+            ),
+            patch(
+                "dev.scripts.devctl.commands.guard_run.run_cmd",
+                side_effect=[{"returncode": 0}, {"returncode": 0}],
+            ),
+        ):
+            report = build_guard_run_report(
+                GuardRunRequest(
+                    command_args=guarded_command,
+                    cwd=None,
+                    requested_post_action="cleanup",
+                    label="contract-closure-guard-run",
+                    dry_run=False,
+                )
+            )
+
+    probe_guidance = report.get("probe_guidance")
+    guidance_refs = report.get("guidance_refs")
+    markdown = build_guard_run_markdown(report)
+    if (
+        isinstance(probe_guidance, list)
+        and probe_guidance
+        and isinstance(guidance_refs, list)
+        and guidance_refs
+        and expected_instruction in markdown
+    ):
+        coverage["detail"] = (
+            "Finding.ai_instruction survives the canonical guard-run route from "
+            "probe artifact to follow-up packet guidance section."
+        )
+        return coverage, None
+
+    detail = (
+        "Finding.ai_instruction is available for guard-run follow-up scope but "
+        "does not reach the live report guidance packet."
+    )
+    coverage["ok"] = False
+    coverage["detail"] = detail
+    return coverage, {
+        "kind": "field_route",
+        "contract_id": "Finding",
+        "field_name": "ai_instruction",
+        "route_id": "guard_run_report",
+        "rule": "unconsumed-field-route",
+        "detail": detail,
+    }
+
+
+FIELD_ROUTE_CHECKS: tuple[FieldRouteCheck, ...] = (
+    check_finding_ai_instruction_ralph_route,
+    check_finding_ai_instruction_autonomy_route,
+    check_finding_ai_instruction_guard_run_route,
+)
+
+FIELD_ROUTE_FAMILY_REGISTRY: dict[tuple[str, str], tuple[str, ...]] = {
+    ("Finding", "ai_instruction"): (
+        "ralph_prompt",
+        "autonomy_loop_packet",
+        "guard_run_report",
+    ),
+}

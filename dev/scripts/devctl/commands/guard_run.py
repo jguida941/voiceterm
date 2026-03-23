@@ -13,6 +13,7 @@ from ..guard_run_core import (
     GuardRunRequest,
     WatchdogContext,
     build_guard_run_markdown,
+    build_guard_run_probe_targets,
     capture_guard_git_snapshot,
     command_uses_shell_wrapper,
     resolve_guard_cwd,
@@ -22,6 +23,13 @@ from ..guard_run_core import (
 from ..process_sweep.core import path_is_under_repo
 from ..time_utils import utc_timestamp
 from ..watchdog.episode import emit_guarded_coding_episode
+
+try:
+    from dev.scripts.coderabbit.probe_guidance import load_probe_guidance
+    from dev.scripts.coderabbit.probe_guidance_artifacts import guidance_ref
+except ModuleNotFoundError:  # broad-except: allow reason=devctl CLI runs from dev/scripts
+    from coderabbit.probe_guidance import load_probe_guidance
+    from coderabbit.probe_guidance_artifacts import guidance_ref
 
 POST_ACTIONS = {"auto", "quick", "cleanup", "none"}
 DEVCTL_PYTHON_EXECUTABLE = sys.executable or "python3"
@@ -64,6 +72,8 @@ def build_guard_run_report(
     post_result_display: str | None = None
     diff_snapshot_before: GuardGitSnapshot | None = None
     diff_snapshot_after: GuardGitSnapshot | None = None
+    probe_guidance: list[dict[str, object]] = []
+    guidance_refs: list[str] = []
 
     if request.requested_post_action not in POST_ACTIONS:
         errors.append(
@@ -126,6 +136,19 @@ def build_guard_run_report(
                 "runtime/tooling processes."
             )
         diff_snapshot_after = capture_guard_git_snapshot(resolved_cwd)
+        probe_targets = build_guard_run_probe_targets(
+            diff_snapshot_before,
+            diff_snapshot_after,
+        )
+        if probe_targets:
+            probe_guidance = load_probe_guidance(probe_targets)
+            for entry in probe_guidance:
+                entry["guidance_id"] = guidance_ref(entry)
+            guidance_refs = [
+                str(entry.get("guidance_id") or "").strip()
+                for entry in probe_guidance
+                if str(entry.get("guidance_id") or "").strip()
+            ]
 
     # Run probe quality scan when enabled (autonomy loops turn this on).
     probe_scan_result: dict[str, object] | None = None
@@ -160,6 +183,9 @@ def build_guard_run_report(
     report["post_result_display"] = post_result_display
     report["diff_snapshot_before"] = diff_snapshot_before.to_dict() if diff_snapshot_before else None
     report["diff_snapshot_after"] = diff_snapshot_after.to_dict() if diff_snapshot_after else None
+    report["probe_guidance"] = probe_guidance
+    report["guidance_refs"] = guidance_refs
+    report["guidance_adoption_required"] = bool(probe_guidance)
     report["watchdog_context"] = watchdog_context.to_dict() if watchdog_context else {}
     report["probe_scan"] = probe_scan_result
     report["warnings"] = warnings

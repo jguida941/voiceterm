@@ -840,6 +840,10 @@ Machine-first output note:
     after changing shared runtime contract models, durable packet-schema
     metadata, or startup-surface contract routing so the executable platform
     spine stays aligned in code and docs.
+  - The closure guard now also enforces declared field-route families. Current
+    bounded scope: `Finding.ai_instruction` must survive the Ralph,
+    autonomy-loop, and `guard-run` consumers together, so one surviving route
+    no longer masks a dropped sibling.
 - `doc-authority`: read-only governed-markdown authority scan that derives the
   current doc-registry surface from the repo-pack/governance contract, reports
   active-doc registry coverage, class budgets, overlapping authority, and

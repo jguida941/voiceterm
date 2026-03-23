@@ -11,10 +11,7 @@ from dev.scripts.devctl.platform.contracts import (
     ContractSpec,
     PlatformBlueprint,
 )
-from .field_routes import (
-    check_finding_ai_instruction_autonomy_route,
-    check_finding_ai_instruction_ralph_route,
-)
+from . import field_routes
 
 _METADATA_FIELDS = frozenset({"schema_version", "contract_id", "command"})
 _STARTUP_SURFACE_TOKENS = (
@@ -184,6 +181,74 @@ def _check_startup_surfaces(policy: SurfacePolicy) -> tuple[dict[str, object], t
             "detail": "Policy-owned startup surfaces must expose the platform contract commands/guards.",
         },
     )
+
+
+def _check_field_route_families(
+    route_rows: tuple[dict[str, object], ...],
+) -> tuple[tuple[dict[str, object], ...], tuple[dict[str, object], ...]]:
+    coverage_rows: list[dict[str, object]] = []
+    violations: list[dict[str, object]] = []
+    observed_route_ids: dict[tuple[str, str], set[str]] = {}
+    passing_route_ids: dict[tuple[str, str], set[str]] = {}
+
+    for row in route_rows:
+        contract_id = str(row.get("contract_id") or "").strip()
+        field_name = str(row.get("field_name") or "").strip()
+        route_id = str(row.get("route_id") or "").strip()
+        if not contract_id or not field_name or not route_id:
+            continue
+        key = (contract_id, field_name)
+        observed_route_ids.setdefault(key, set()).add(route_id)
+        if row.get("ok"):
+            passing_route_ids.setdefault(key, set()).add(route_id)
+
+    for key, expected_ids in field_routes.FIELD_ROUTE_FAMILY_REGISTRY.items():
+        observed = tuple(sorted(observed_route_ids.get(key, set())))
+        passing = tuple(sorted(passing_route_ids.get(key, set())))
+        observed_set = set(observed)
+        passing_set = set(passing)
+        missing_route_ids = tuple(route_id for route_id in expected_ids if route_id not in observed_set)
+        failing_route_ids = tuple(
+            route_id for route_id in expected_ids if route_id in observed_set and route_id not in passing_set
+        )
+        ok = not missing_route_ids and not failing_route_ids
+        coverage_rows.append(
+            {
+                "kind": "field_route_family",
+                "contract_id": key[0],
+                "field_name": key[1],
+                "expected_route_ids": expected_ids,
+                "observed_route_ids": observed,
+                "passing_route_ids": passing,
+                "ok": ok,
+                "detail": (
+                    "All declared consumers for the field route family are wired and verified."
+                    if ok
+                    else "Declared consumers for the field route family are missing or failing."
+                ),
+            }
+        )
+        if ok:
+            continue
+        violations.append(
+            {
+                "kind": "field_route_family",
+                "contract_id": key[0],
+                "field_name": key[1],
+                "rule": "field-route-family-incomplete",
+                "missing_route_ids": missing_route_ids,
+                "failing_route_ids": failing_route_ids,
+                "detail": (
+                    f"Field route family {key[0]}.{key[1]} is incomplete."
+                    f" missing={missing_route_ids or 'none'}"
+                    f" failing={failing_route_ids or 'none'}"
+                ),
+            }
+        )
+
+    return tuple(coverage_rows), tuple(violations)
+
+
 def evaluate_platform_contract_closure(
     blueprint: PlatformBlueprint,
     surface_policy: SurfacePolicy,
@@ -217,13 +282,16 @@ def evaluate_platform_contract_closure(
         if parity_violation is not None:
             violations.append(parity_violation)
 
-    for route_check in (
-        check_finding_ai_instruction_ralph_route,
-        check_finding_ai_instruction_autonomy_route,
-    ):
+    route_rows: list[dict[str, object]] = []
+    for route_check in field_routes.FIELD_ROUTE_CHECKS:
         route_coverage, route_violation = route_check()
-        coverage_rows.append(route_coverage)
+        route_rows.append(route_coverage)
         if route_violation is not None:
             violations.append(route_violation)
+    coverage_rows.extend(route_rows)
+
+    family_coverage, family_violations = _check_field_route_families(tuple(route_rows))
+    coverage_rows.extend(family_coverage)
+    violations.extend(family_violations)
 
     return tuple(coverage_rows), tuple(violations)

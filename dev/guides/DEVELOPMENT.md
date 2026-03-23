@@ -421,6 +421,10 @@ Why this model is safe:
    active plan and add the matching detection follow-up (`check_platform_contract_closure.py`
    expansion, a review probe widening, or both) before copying the same
    pattern into more routes.
+13. Once the same typed field feeds multiple live consumers, treat it as a
+    declared route family instead of unrelated point fixes. The closure guard
+    should fail if any declared consumer in that family drops out, even if one
+    other consumer still passes.
 
 ### Release and quality drift checks
 

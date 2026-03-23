@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from typing import Any, Iterable
 
 try:
-    from dev.scripts.coderabbit.probe_guidance_artifacts import load_probe_entries
+    from dev.scripts.coderabbit.probe_guidance_artifacts import guidance_ref, load_probe_entries
 except ModuleNotFoundError:  # broad-except: allow reason=devctl CLI runs from dev/scripts
-    from coderabbit.probe_guidance_artifacts import load_probe_entries
+    from coderabbit.probe_guidance_artifacts import guidance_ref, load_probe_entries
 
 from .builder import build_context_graph
 from .models import GraphEdge, GraphNode
@@ -170,7 +170,7 @@ def _render_packet_markdown(
             lines.append(
                 "- "
                 + str(entry.get("ai_instruction") or "").strip()
-                + f" ({_guidance_ref(entry)})"
+                + f" ({guidance_ref(entry)})"
             )
     lines.extend(
         [
@@ -182,17 +182,6 @@ def _render_packet_markdown(
         ]
     )
     return "\n".join(lines)
-
-
-def _guidance_ref(entry: dict[str, object]) -> str:
-    file_path = str(entry.get("file_path") or "").strip()
-    symbol = str(entry.get("symbol") or "").strip()
-    probe = str(entry.get("probe") or "").strip()
-    line = entry.get("line")
-    location = file_path or symbol or "unknown"
-    if isinstance(line, int) and line > 0:
-        location = f"{location}:{line}"
-    return f"{probe}@{location}" if probe else location
 
 
 def _guidance_match_score(
@@ -241,7 +230,7 @@ def _select_probe_guidance(
         )
         if exact_ref_rank != 0 and term_rank != 0:
             continue
-        ref = _guidance_ref(entry)
+        ref = guidance_ref(entry)
         if ref in seen:
             continue
         seen.add(ref)
@@ -321,7 +310,7 @@ def build_context_escalation_packet(
         canonical_refs=canonical_refs,
         evidence=tuple(evidence),
         markdown=markdown,
-        guidance_refs=tuple(_guidance_ref(entry) for entry in guidance_entries),
+        guidance_refs=tuple(guidance_ref(entry) for entry in guidance_entries),
     )
 
 

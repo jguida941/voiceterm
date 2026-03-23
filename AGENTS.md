@@ -553,6 +553,10 @@ Portable policy note:
   `Finding.ai_instruction` flowing from probe artifacts into the Ralph prompt),
   extend `check_platform_contract_closure.py` with a deterministic field-route
   proof so produced-but-unconsumed regressions fail before handoff.
+- Once a field has more than one declared live consumer, keep that same guard
+  honest at the family level too: record the expected route family and fail if
+  any declared consumer disappears, not only when the first surviving route
+  still passes.
 - When that new route still needs a compatibility seam, keep one canonical
   artifact authority and structured routing keys. Do not let AI consumers
   silently negotiate between multiple artifacts or depend on prose-derived

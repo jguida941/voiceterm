@@ -303,12 +303,16 @@ context-free translation = MEDIUM.
       annotation, matching must prefer structured file/symbol/span identity
       with summary parsing only as a compatibility fallback, and the runtime
       must log stable `guidance_id` / `guidance_followed` evidence so the repo
-      can measure whether probe coaching actually improves outcomes. The
-      remaining route backlog is the same canonical contract in `guard-run`
-      follow-up packets plus the next deterministic detector widening so
-      dual-authority AI consumers and prose-parsed contract matching cannot
-      slip through as "clean" tranche code once structured fields and one
-      canonical artifact already exist. (evidence:
+      can measure whether probe coaching actually improves outcomes.
+      `guard-run` follow-up packets now consume the same canonical contract,
+      and `check_platform_contract_closure.py` now fails both route-specific
+      and family-completeness checks if the declared Ralph / autonomy /
+      `guard-run` consumer family drops `Finding.ai_instruction`. The
+      remaining detector widening is broader: dual-authority AI consumers,
+      prose-parsed structured-contract matching, and the carried decision
+      semantics that still stop at human-facing renderers should all fail the
+      same closure lane once structured fields and one canonical artifact
+      already exist. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 52, Part 54)
 - [ ] Add the next missing probe tranche explicitly under the same portable
       evidence contract: start with test-quality, None-safety, and
@@ -523,6 +527,13 @@ Acceptance:
   autonomy retry path. The deterministic closure guard was widened at the same
   time, so `check_platform_contract_closure.py` now proves both the Ralph and
   autonomy routes instead of only one consumer.
+- 2026-03-22: Closed the first full probe-guidance consumer family instead of
+  leaving `guard-run` as the unverified tail. `guard-run` follow-up packets
+  already carried canonical probe guidance on this branch, so this slice made
+  the closure lane catch it too: the platform-contract guard now proves the
+  Ralph, autonomy, and `guard-run` routes individually and emits a
+  family-level failure if the declared `Finding.ai_instruction` consumer set
+  becomes incomplete.
 - 2026-03-22: Completed the previously partial audit mapping for the probe
   lane. The open probe backlog is no longer only the `ai_instruction` wire:
   the missing advisory-probe tranche (`A28`) and governance-ledger-history
@@ -1361,22 +1372,24 @@ Template README at `dev/scripts/checks/PROBE_TEMPLATE_README.md`.
   review-channel, conductor, and swarm prompt surfaces. `governance-review`
   now has explicit `guidance_id` / `guidance_followed` fields for adoption
   measurement, and `check_platform_contract_closure.py` still proves the
-  first two live routes. CodeRabbit backlog items now carry structured
+  first declared three-route family. CodeRabbit backlog items now carry structured
   `path` / `line` fields so normal matching no longer depends on summary
   parsing, though summary parsing remains as a legacy fallback for older
-  backlog payloads. The remaining gap is the broader meta-guard plus the last
-  `guard-run` follow-up route so produced guidance cannot silently stop at
-  artifacts again.
+  backlog payloads. The remaining gap is widening that meta-guard beyond the
+  first declared family so dual-authority consumers, prose-parsed structured
+  matching, and carried decision semantics cannot silently stop at artifacts
+  again.
 - The same lane now owns the missing follow-ons too: next-probe expansion stays
   bounded to test-quality / None-safety / over-abstraction, and probe packets
   need governance-ledger history instead of file-local prose only.
 - Next action: turn the current consumer-specific route proofs into the next
-  broader produced-but-never-consumed / single-authority meta-guard, then
-  finish the last `guard-run` follow-up route on the same canonical
-  probe-guidance contract instead of inventing a second packet shape. Keep
-  the checker-stack follow-up explicit too: add deterministic coverage for
-  dual-authority artifact consumers and decide whether prose-parsed contract
-  matching belongs in `probe_stringly_typed` or a sibling rule family.
+  broader produced-but-never-consumed / single-authority meta-guard beyond
+  the first declared `Finding.ai_instruction` family. Keep the checker-stack
+  follow-up explicit too: add deterministic coverage for dual-authority
+  artifact consumers, decide whether prose-parsed contract matching belongs
+  in `probe_stringly_typed` or a sibling rule family, and start proving the
+  carried decision-semantics fields that still stop at human-facing packet
+  renderers.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

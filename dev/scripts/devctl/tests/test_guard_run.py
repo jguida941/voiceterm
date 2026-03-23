@@ -10,6 +10,7 @@ from unittest import TestCase, mock
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import guard_run
 from dev.scripts.devctl.config import REPO_ROOT
+from dev.scripts.devctl.guard_run_core import GuardGitSnapshot
 from dev.scripts.devctl.watchdog.episode import build_guarded_coding_episode
 
 
@@ -294,6 +295,95 @@ class GuardRunCommandTests(TestCase):
         self.assertEqual(rc, 0)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertIn("Watchdog episode emit skipped", payload["warnings"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.guard_run.emit_guarded_coding_episode")
+    @mock.patch("dev.scripts.devctl.commands.guard_run.write_output")
+    @mock.patch("dev.scripts.devctl.commands.guard_run.capture_guard_git_snapshot")
+    @mock.patch("dev.scripts.devctl.commands.guard_run.run_cmd")
+    def test_guard_run_attaches_probe_guidance_to_report(
+        self,
+        run_cmd_mock,
+        capture_snapshot_mock,
+        write_output_mock,
+        emit_episode_mock,
+    ) -> None:
+        run_cmd_mock.side_effect = [{"returncode": 0}, {"returncode": 0}]
+        capture_snapshot_mock.side_effect = [
+            GuardGitSnapshot(
+                reviewed_worktree_hash="abc123",
+                files_changed=("dev/scripts/devctl/commands/guard_run.py",),
+                file_count=1,
+            ),
+            GuardGitSnapshot(
+                reviewed_worktree_hash="abc123",
+                files_changed=("dev/scripts/devctl/commands/guard_run.py",),
+                file_count=1,
+                lines_added=4,
+                lines_removed=1,
+                diff_churn=5,
+            ),
+        ]
+        emit_episode_mock.return_value = None
+        args = build_parser().parse_args(
+            [
+                "guard-run",
+                "--format",
+                "json",
+                "--",
+                "python3",
+                "dev/scripts/devctl.py",
+                "docs-check",
+                "--strict-tooling",
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            report_root = Path(tmp_dir)
+            (report_root / "review_targets.json").write_text(
+                json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "file_path": "dev/scripts/devctl/commands/guard_run.py",
+                                "check_id": "probe_side_effect_mixing",
+                                "severity": "high",
+                                "line": 42,
+                                "end_line": 58,
+                                "ai_instruction": (
+                                    "Split the guard-run follow-up repair plan from "
+                                    "the shell wrapper logic."
+                                ),
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with mock.patch.dict(
+                "os.environ",
+                {"DEVCTL_PROBE_REPORT_ROOT": str(report_root)},
+                clear=False,
+            ):
+                rc = guard_run.run(args)
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["guidance_adoption_required"])
+        self.assertEqual(
+            payload["guidance_refs"],
+            [
+                "probe_side_effect_mixing@dev/scripts/devctl/commands/guard_run.py:42",
+            ],
+        )
+        self.assertEqual(len(payload["probe_guidance"]), 1)
+        self.assertEqual(
+            payload["probe_guidance"][0]["guidance_id"],
+            "probe_side_effect_mixing@dev/scripts/devctl/commands/guard_run.py:42",
+        )
+        self.assertIn(
+            "Split the guard-run follow-up repair plan",
+            payload["probe_guidance"][0]["ai_instruction"],
+        )
 
 
 class WatchdogEpisodeTests(TestCase):

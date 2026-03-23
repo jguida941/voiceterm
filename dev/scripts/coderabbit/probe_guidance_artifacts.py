@@ -6,6 +6,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Mapping
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
@@ -54,6 +55,18 @@ def _guidance_entry_from_finding(finding: dict, *, file_path: str = "") -> dict[
         "line": finding.get("line"),
         "end_line": finding.get("end_line"),
     }
+
+
+def guidance_ref(entry: Mapping[str, object]) -> str:
+    """Build the canonical stable guidance reference used across consumers."""
+    file_path = str(entry.get("file_path") or "").strip()
+    symbol = str(entry.get("symbol") or "").strip()
+    probe = str(entry.get("probe") or "").strip()
+    line = entry.get("line")
+    location = file_path or symbol or "unknown"
+    if isinstance(line, int) and line > 0:
+        location = f"{location}:{line}"
+    return f"{probe}@{location}" if probe else location
 
 
 def _entries_from_rows(
