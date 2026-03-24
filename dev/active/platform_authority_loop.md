@@ -1168,6 +1168,13 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-23: Starting the next `MP-377` enforcement closure pass for the
+  already-documented checkpoint-budget miss. This tranche is scoped to make
+  repo-owned implementation launch paths fail closed when
+  `push_enforcement.checkpoint_required` / `safe_to_continue_editing` says the
+  worktree is over budget, and to extend the startup-authority contract with a
+  Python import/index atomicity proof so module-split imports cannot appear
+  green only because the missing modules exist on one local disk.
 - 2026-03-23: Closed the first post-review hardening pass for the Part-53
   temporal graph lane instead of leaving the slice green only on happy-path
   tests. Snapshot resolution now derives `latest` / `previous` from capture-

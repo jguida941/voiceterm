@@ -12,6 +12,11 @@ import json
 import sys
 from pathlib import Path
 
+from .runtime_checks import (
+    collect_checkpoint_budget_errors,
+    collect_import_index_atomicity_findings,
+)
+
 try:
     from check_bootstrap import REPO_ROOT, import_repo_module
 except ModuleNotFoundError:
@@ -107,6 +112,25 @@ def _build_report(repo_root: Path | None = None) -> dict:
     else:
         errors.append("plan_registry.tracker_path is empty (MASTER_PLAN.md not found)")
 
+    # --- 8. checkpoint budget is fail-closed for startup authority ---
+    checks_run += 1
+    checkpoint_errors = collect_checkpoint_budget_errors(gov)
+    if checkpoint_errors:
+        errors.extend(checkpoint_errors)
+    else:
+        checks_passed += 1
+
+    # --- 9. repo-local Python imports resolve in the git index, not only on disk ---
+    checks_run += 1
+    import_atomicity_errors, import_atomicity_warnings = (
+        collect_import_index_atomicity_findings(root)
+    )
+    warnings.extend(import_atomicity_warnings)
+    if import_atomicity_errors:
+        errors.extend(import_atomicity_errors)
+    else:
+        checks_passed += 1
+
     ok = len(errors) == 0
     return {
         "command": _COMMAND,
@@ -117,6 +141,10 @@ def _build_report(repo_root: Path | None = None) -> dict:
         "checks_passed": checks_passed,
         "repo_name": gov.repo_identity.repo_name,
         "startup_order": list(gov.startup_order),
+        "checkpoint_required": gov.push_enforcement.checkpoint_required,
+        "safe_to_continue_editing": gov.push_enforcement.safe_to_continue_editing,
+        "checkpoint_reason": gov.push_enforcement.checkpoint_reason,
+        "import_index_atomicity_violations": len(import_atomicity_errors),
     }
 
 
@@ -126,6 +154,15 @@ def _render_md(report: dict) -> str:
     lines.append(f"- checks: {report['checks_passed']}/{report['checks_run']}")
     lines.append(f"- repo_name: {report['repo_name']}")
     lines.append(f"- startup_order: {', '.join(report['startup_order']) or '(none)'}")
+    lines.append(f"- checkpoint_required: {report['checkpoint_required']}")
+    lines.append(
+        f"- safe_to_continue_editing: {report['safe_to_continue_editing']}"
+    )
+    lines.append(f"- checkpoint_reason: {report['checkpoint_reason']}")
+    lines.append(
+        "- import_index_atomicity_violations: "
+        f"{report['import_index_atomicity_violations']}"
+    )
     if report["errors"]:
         lines.append("")
         lines.append("## Errors")

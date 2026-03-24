@@ -273,6 +273,9 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     `attention.status=checkpoint_required` or
     `push_enforcement.safe_to_continue_editing=false`, stop widening the
     slice and cut a checkpoint before further edits or any raw push attempt.
+    Fresh repo-owned `review-channel --action launch|rollover` starts must
+    treat that same checkpoint state as a hard launch blocker, not as
+    advisory status to be ignored while starting another implementation loop.
 4.5 In that same live review-channel mode, treat
     `dev/reports/review_channel/latest/review_state.json` (and the mirrored
     `compact.json` projection) `current_session` block as the canonical typed
@@ -291,6 +294,10 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     watchdog and command-reliability summaries; use those typed packet fields
     before reaching back to raw ledgers. Empty `memory_roots` placeholders are
     not authority and should not be resurrected in downstream JSON/rendering.
+    `check_startup_authority_contract.py` is the fail-closed proof for this
+    path: it must reject startup-authority states that are already over the
+    checkpoint budget and Python module splits whose imports only resolve from
+    worktree-on-disk files instead of the git index.
 4.7 Treat governed-markdown authority the same way: prefer typed
     `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
     parsed `plan_registry` entries when those projections are available, but
@@ -1500,7 +1507,7 @@ Core commands:
 | `python3 dev/scripts/devctl.py mobile-app --action simulator-demo --format md` | you want the real iPhone app built, installed into the simulator, and launched against the live repo bundle | runs the guided simulator flow over the first-party mobile app and prints the real bundle/app paths instead of sample-only data |
 | `python3 dev/scripts/devctl.py controller-action --action dispatch-report-only --repo <owner/repo> --branch develop --dry-run --format md` | you want one guarded remote-control action surface without ad-hoc shell steps | validates policy allowlists/mode gates, then executes or previews bounded dispatch/pause/resume/status actions with auditable output |
 | `python3 dev/scripts/devctl.py ralph-status --report-dir dev/reports/ralph --format md` | you want one current view of Ralph guardrail progress before wiring phone or PyQt surfaces on top | aggregates Ralph report artifacts into fix/open counts, architecture breakdowns, and guidance-adoption state for downstream consumers |
-| `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md` | you want to bootstrap the current Codex-reviewer / Claude-coder 8+8 markdown swarm from a fresh conversation | validates that the markdown bridge is still active, reads the merged lane table from `dev/active/review_channel.md`, generates conductor launch scripts, and shows the exact bootstrap before opening any terminals |
+| `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md` | you want to bootstrap the current Codex-reviewer / Claude-coder 8+8 markdown swarm from a fresh conversation | validates that the markdown bridge is still active, refuses launch when typed checkpoint budget says another implementation slice would exceed the continuation budget, reads the merged lane table from `dev/active/review_channel.md`, generates conductor launch scripts, and shows the exact bootstrap before opening any terminals |
 | `python3 dev/scripts/devctl.py review-channel --action rollover --rollover-threshold-pct 50 --await-ack-seconds 180 --format md` | the active conductor is nearing compaction and needs a clean relaunch instead of relying on recovery summaries | writes a repo-visible handoff bundle, relaunches fresh Codex/Claude conductors, and waits for visible rollover ACK lines in `bridge.md` before the retiring session exits |
 | `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --dry-run --format md` | you want measurable swarm tradeoff data before scaling live worker runs | validates active-plan scope, runs tactic/swarm-size matrix batches, and emits one benchmark report with per-scenario productivity metrics/charts |
 | `python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --run-label <label> --format md` | you want one fully-guarded plan-scoped swarm run without manual glue steps | loads active-plan scope, executes swarm with reviewer+post-audit defaults, runs governance checks, and appends progress/audit evidence to the plan doc |

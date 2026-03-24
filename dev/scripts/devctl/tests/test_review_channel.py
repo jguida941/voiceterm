@@ -2150,6 +2150,32 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(attention["status"], "checkpoint_required")
         self.assertIn("checkpoint", attention["summary"].lower())
 
+    def test_launch_attention_blocks_checkpoint_required(self) -> None:
+        from dev.scripts.devctl.review_channel.bridge_runtime_state import (
+            enforce_bridge_launch_attention,
+        )
+
+        with self.assertRaisesRegex(ValueError, "checkpoint budget"):
+            enforce_bridge_launch_attention(
+                action="launch",
+                bridge_actions={"launch", "rollover"},
+                bridge_liveness={
+                    "overall_state": "fresh",
+                    "codex_poll_state": "fresh",
+                    "reviewer_mode": "active_dual_agent",
+                    "claude_status_present": True,
+                    "claude_ack_present": True,
+                    "claude_ack_current": True,
+                    "reviewed_hash_current": True,
+                    "implementer_completion_stall": False,
+                    "publisher_running": True,
+                    "push_enforcement": {
+                        "checkpoint_required": True,
+                        "safe_to_continue_editing": False,
+                    }
+                },
+            )
+
     def test_attention_reports_stale_claude_ack_when_revision_mismatches(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
 

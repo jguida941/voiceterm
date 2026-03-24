@@ -226,6 +226,35 @@ Evidence:
 - `dev/scripts/README.md`
 - `dev/active/review_channel.md`
 
+### 2026-03-23 - Startup authority started rejecting over-budget slices and worktree-only module splits
+
+Fact: the startup-authority contract stopped acting like a schema-only
+inventory check. `check_startup_authority_contract.py` now fails when the
+typed `ProjectGovernance` packet is already over the checkpoint budget, and
+it also fails when repo-local Python imports only resolve because a newly
+split module exists on disk but not in the git index. In the same slice,
+`review-channel --action launch|rollover` started treating
+`checkpoint_required` / `safe_to_continue_editing=false` as a hard launch
+blocker instead of advisory status.
+
+This matters because the repo had already documented the problem in `MP-377`:
+checkpoint budget detection existed, but launch paths still let another slice
+start, and module splits could validate locally while depending on files that
+only existed in one developer's worktree. The new contract turns both seams
+into fail-closed startup proof instead of relying on operator memory.
+
+Evidence:
+
+- `dev/scripts/checks/startup_authority_contract/command.py`
+- `dev/scripts/checks/startup_authority_contract/runtime_checks.py`
+- `dev/scripts/devctl/review_channel/peer_recovery.py`
+- `dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
 ### 2026-03-22 - Autonomy loop packets started consuming canonical probe guidance
 
 Fact: the first probe-guidance route is no longer Ralph-only. `triage-loop`

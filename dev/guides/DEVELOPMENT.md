@@ -181,6 +181,9 @@ Three quality layers matter in practice:
     `safe_to_continue_editing`, `raw_git_push_guarded`,
     `recommended_action`) and escalates attention to
     `checkpoint_required` when the worktree is over the continuation budget.
+    Fresh repo-owned `review-channel --action launch|rollover` starts now
+    treat that checkpoint state as a hard launch blocker instead of advisory
+    status.
   - The same `review-channel --action status` path now emits a typed
     `current_session` block in `dev/reports/review_channel/latest/review_state.json`
     and `compact.json`; prefer that contract for live instruction /
@@ -213,6 +216,12 @@ Three quality layers matter in practice:
     snapshot baselines) and point agents back to this guide plus
     `dev/scripts/README.md` for the "which tool runs when?" decision table.
     until runtime consumes typed resume state instead of only a presence flag.
+  - `python3 dev/scripts/checks/check_startup_authority_contract.py` is now a
+    fail-closed startup proof, not a schema-only inventory check. It rejects
+    startup-authority states that are already over the checkpoint budget and
+    Python imports that only resolve because a new module exists on disk but
+    not in the git index, so staged module splits can be proven atomic before
+    handoff or push.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.
     That exclusion only affects checkpoint-budget accounting; raw git state

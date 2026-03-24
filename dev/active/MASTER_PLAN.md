@@ -3030,8 +3030,14 @@ become the main product surface.
     `safe_to_continue_editing=false` or `checkpoint_required=true`, repo-owned
     launchers must refuse to start the next implementation slice and only
     promote checkpoint/review work until a fresh post-commit/push receipt
-    clears the budget. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28,
-    Part 36, Part 41)
+    clears the budget. Current partial proof: `review-channel --action
+    launch|rollover` now treat the typed checkpoint budget as a hard launch
+    blocker, and `check_startup_authority_contract.py` now fails when the
+    startup authority packet is already over budget or when repo-local Python
+    imports only resolve from worktree-only modules instead of the git index.
+    Remaining closure: promote the same fail-closed rule across the rest of
+    the repo-owned startup/work-intake launch surfaces. (evidence:
+    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28, Part 36, Part 41)
   - [ ] Auto-record `governance-review` close-out and converge top-level
     failures on structured `ActionResult` crash envelopes. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 36, Part 39)

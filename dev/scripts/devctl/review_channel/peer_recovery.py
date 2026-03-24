@@ -145,7 +145,7 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
     }),
     ("checkpoint_required", {
-        "guard_behavior": "block_loop",
+        "guard_behavior": "block_launch",
         "owner": "system",
         "summary": (
             "The current worktree has exceeded the checkpoint budget; do not keep editing until a checkpoint is cut."
