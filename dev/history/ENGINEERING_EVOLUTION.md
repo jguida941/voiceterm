@@ -232,7 +232,11 @@ Fact: the startup-authority contract stopped acting like a schema-only
 inventory check. `check_startup_authority_contract.py` now fails when the
 typed `ProjectGovernance` packet is already over the checkpoint budget, and
 it also fails when repo-local Python imports only resolve because a newly
-split module exists on disk but not in the git index. In the same slice,
+split module exists on disk but not in the git index. The follow-up correction
+kept that working-tree-to-index proof but moved the committed-tree layer onto
+real `HEAD` importer content instead of re-reading staged files, so legitimate
+atomic staged refactors no longer false-positive while fresh repos still skip
+the committed-tree layer until the first commit exists. In the same slice,
 `review-channel --action launch|rollover` started treating
 `checkpoint_required` / `safe_to_continue_editing=false` as a hard launch
 blocker instead of advisory status.

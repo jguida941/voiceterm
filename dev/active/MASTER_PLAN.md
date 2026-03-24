@@ -3034,7 +3034,9 @@ become the main product surface.
     launch|rollover` now treat the typed checkpoint budget as a hard launch
     blocker, and `check_startup_authority_contract.py` now fails when the
     startup authority packet is already over budget or when repo-local Python
-    imports only resolve from worktree-only modules instead of the git index.
+    imports only resolve from worktree-only modules instead of the git index,
+    while separately validating committed importer content against `HEAD`
+    without treating a legitimate staged atomic split as broken.
     Remaining closure: promote the same fail-closed rule across the rest of
     the repo-owned startup/work-intake launch surfaces. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28, Part 36, Part 41)

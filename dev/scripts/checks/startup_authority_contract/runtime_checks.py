@@ -31,44 +31,92 @@ def collect_checkpoint_budget_errors(gov) -> list[str]:
 def collect_import_index_atomicity_findings(
     repo_root: Path,
 ) -> tuple[list[str], list[str]]:
-    """Return repo-local import/index atomicity errors plus non-fatal warnings."""
-    index_python_paths, git_warning = _list_index_python_paths(repo_root)
-    warnings = [git_warning] if git_warning else []
-    if not index_python_paths:
-        return [], warnings
+    """Return repo-local import atomicity errors plus non-fatal warnings.
+
+    Two layers of validation at their correct boundaries:
+
+    - **Staged layer**: scan working-tree content of indexed/tracked files, check
+      imports resolve in the staging area. Catches "exists on disk but
+      never git-added."
+    - **Committed layer**: scan HEAD content of committed files, check
+      imports resolve in HEAD. Proves the committed tree itself is internally
+      coherent.
+
+    Each layer is self-contained: staged checks staged, committed checks
+    committed. A legitimate atomic stage (importer + target both staged
+    but not yet committed) passes the staged layer and the committed layer
+    only checks what HEAD already contains.
+    """
+    staged_paths, staged_warning = _list_staged_python_paths(repo_root)
+    committed_paths, committed_warning = _list_committed_python_paths(repo_root)
+    warnings: list[str] = []
+    if staged_warning:
+        warnings.append(staged_warning)
+    if committed_warning:
+        warnings.append(committed_warning)
 
     target_roots = resolve_quality_scope_roots("python_guard", repo_root=repo_root)
-    top_level_packages = {
-        Path(path).parts[0] for path in index_python_paths if Path(path).parts
-    }
     errors: list[str] = []
 
-    for relative in sorted(index_python_paths):
-        importer = Path(relative)
-        if not is_under_target_roots(
-            importer,
-            repo_root=repo_root,
-            target_roots=target_roots,
-        ):
-            continue
-        importer_path = repo_root / importer
-        if not importer_path.is_file():
-            continue
-        try:
-            text = importer_path.read_text(encoding="utf-8")
-            tree = ast.parse(text, filename=relative)
-        except (OSError, SyntaxError) as exc:
-            warnings.append(f"{relative}: skipped import/index atomicity scan ({exc})")
-            continue
-        errors.extend(
-            _collect_file_atomicity_errors(
-                tree=tree,
-                importer=importer,
-                repo_root=repo_root,
-                index_python_paths=index_python_paths,
-                top_level_packages=top_level_packages,
+    # --- Staged layer: working-tree content vs index ---
+    if staged_paths:
+        staged_top_packages = {
+            Path(p).parts[0] for p in staged_paths if Path(p).parts
+        }
+        for relative in sorted(staged_paths):
+            importer = Path(relative)
+            if not is_under_target_roots(importer, repo_root=repo_root, target_roots=target_roots):
+                continue
+            importer_path = repo_root / importer
+            if not importer_path.is_file():
+                continue
+            try:
+                text = importer_path.read_text(encoding="utf-8")
+                tree = ast.parse(text, filename=relative)
+            except (OSError, SyntaxError) as exc:
+                warnings.append(f"{relative}: skipped staged import scan ({exc})")
+                continue
+            errors.extend(
+                _collect_file_atomicity_errors(
+                    tree=tree,
+                    importer=importer,
+                    repo_root=repo_root,
+                    index_python_paths=staged_paths,
+                    top_level_packages=staged_top_packages,
+                    layer="staged",
+                )
             )
-        )
+
+    # --- Committed layer: HEAD content vs HEAD paths ---
+    if committed_paths:
+        committed_top_packages = {
+            Path(p).parts[0] for p in committed_paths if Path(p).parts
+        }
+        for relative in sorted(committed_paths):
+            importer = Path(relative)
+            if not is_under_target_roots(importer, repo_root=repo_root, target_roots=target_roots):
+                continue
+            text, warning = _read_committed_file(repo_root, importer)
+            if warning:
+                warnings.append(warning)
+                continue
+            if text is None:
+                continue
+            try:
+                tree = ast.parse(text, filename=f"HEAD:{relative}")
+            except SyntaxError as exc:
+                warnings.append(f"{relative}: skipped committed import scan ({exc})")
+                continue
+            errors.extend(
+                _collect_file_atomicity_errors(
+                    tree=tree,
+                    importer=importer,
+                    repo_root=repo_root,
+                    index_python_paths=committed_paths,
+                    top_level_packages=committed_top_packages,
+                    layer="committed",
+                )
+            )
 
     return sorted(set(errors)), warnings
 
@@ -80,6 +128,7 @@ def _collect_file_atomicity_errors(
     repo_root: Path,
     index_python_paths: set[str],
     top_level_packages: set[str],
+    layer: str = "staged",
 ) -> list[str]:
     errors: list[str] = []
     for node in ast.walk(tree):
@@ -91,6 +140,7 @@ def _collect_file_atomicity_errors(
                     repo_root=repo_root,
                     index_python_paths=index_python_paths,
                     top_level_packages=top_level_packages,
+                    layer=layer,
                 )
             )
             continue
@@ -106,6 +156,7 @@ def _collect_file_atomicity_errors(
                             import_ref=f"import {module_name}",
                             module_base=Path(*module_name.split(".")),
                             index_python_paths=index_python_paths,
+                            layer=layer,
                         )
                     )
     return errors
@@ -118,6 +169,7 @@ def _import_from_errors(
     repo_root: Path,
     index_python_paths: set[str],
     top_level_packages: set[str],
+    layer: str = "staged",
 ) -> list[str]:
     names = [
         str(alias.name or "").strip()
@@ -132,6 +184,7 @@ def _import_from_errors(
             level=node.level,
             repo_root=repo_root,
             index_python_paths=index_python_paths,
+            layer=layer,
         )
 
     module_name = str(node.module or "").strip()
@@ -144,6 +197,7 @@ def _import_from_errors(
         imported_names=names,
         repo_root=repo_root,
         index_python_paths=index_python_paths,
+        layer=layer,
     )
 
 
@@ -155,6 +209,7 @@ def _relative_import_errors(
     level: int,
     repo_root: Path,
     index_python_paths: set[str],
+    layer: str = "staged",
 ) -> list[str]:
     base_dir = importer.parent
     for _ in range(max(level - 1, 0)):
@@ -169,6 +224,7 @@ def _relative_import_errors(
         imported_names=imported_names,
         repo_root=repo_root,
         index_python_paths=index_python_paths,
+        layer=layer,
     )
 
 
@@ -180,6 +236,7 @@ def _module_and_alias_errors(
     imported_names: list[str],
     repo_root: Path,
     index_python_paths: set[str],
+    layer: str = "staged",
 ) -> list[str]:
     errors: list[str] = []
     alias_checked = False
@@ -198,6 +255,7 @@ def _module_and_alias_errors(
                     import_ref=import_ref,
                     module_base=alias_base,
                     index_python_paths=index_python_paths,
+                    layer=layer,
                 )
             )
     if alias_checked or module_base == Path():
@@ -207,6 +265,7 @@ def _module_and_alias_errors(
         import_ref=import_ref,
         module_base=module_base,
         index_python_paths=index_python_paths,
+        layer=layer,
     )
 
 
@@ -216,15 +275,43 @@ def _require_module_in_index(
     import_ref: str,
     module_base: Path,
     index_python_paths: set[str],
+    layer: str = "staged",
 ) -> list[str]:
     candidates = _module_candidates(module_base)
     if any(candidate in index_python_paths for candidate in candidates):
         return []
+    layer_label = "committed tree (HEAD)" if layer == "committed" else "git index (staged)"
     return [
-        f"{importer.as_posix()}: `{import_ref}` resolves to worktree-only module "
+        f"{importer.as_posix()}: `{import_ref}` resolves to module "
         f"candidates {', '.join(f'`{candidate}`' for candidate in candidates)} "
-        "that are missing from the git index."
+        f"missing from {layer_label}."
     ]
+
+
+def _read_committed_file(
+    repo_root: Path,
+    relative: Path,
+) -> tuple[str | None, str | None]:
+    """Read a file's content from HEAD (the committed tree), not the working tree."""
+    try:
+        result = subprocess.run(
+            ["git", "show", f"HEAD:{relative.as_posix()}"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, (
+            f"{relative.as_posix()}: unable to read committed importer source ({exc})"
+        )
+    if result.returncode != 0:
+        stderr = str(getattr(result, "stderr", "") or "").strip() or "git show HEAD:<path> failed"
+        return None, (
+            f"{relative.as_posix()}: unable to read committed importer source ({stderr})"
+        )
+    return result.stdout, None
 
 
 def _absolute_module_in_repo(module_name: str, top_level_packages: set[str]) -> bool:
@@ -253,7 +340,11 @@ def _module_candidates(module_base: Path) -> tuple[str, str]:
     return file_candidate, package_candidate
 
 
-def _list_index_python_paths(repo_root: Path) -> tuple[set[str], str | None]:
+def _list_staged_python_paths(repo_root: Path) -> tuple[set[str], str | None]:
+    """Return Python paths present in the git index.
+
+    Catches modules that exist on disk but were never git-added.
+    """
     try:
         result = subprocess.run(
             ["git", "ls-files", "--", "*.py"],
@@ -264,15 +355,52 @@ def _list_index_python_paths(repo_root: Path) -> tuple[set[str], str | None]:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return set(), f"git index unavailable for import/index atomicity check ({exc})"
+        return set(), f"git index unavailable for import atomicity check ({exc})"
     if result.returncode != 0:
         stderr = str(getattr(result, "stderr", "") or "").strip() or "git ls-files failed"
-        return set(), f"git index unavailable for import/index atomicity check ({stderr})"
+        return set(), f"git index unavailable for import atomicity check ({stderr})"
     return {
         line.strip()
         for line in result.stdout.splitlines()
         if line.strip().endswith(".py")
     }, None
+
+
+def _list_committed_python_paths(repo_root: Path) -> tuple[set[str], str | None]:
+    """Return Python paths in the committed tree (HEAD), not the staging area.
+
+    Fresh repos without a first commit should silently skip this layer.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "ls-tree", "-r", "--name-only", "HEAD"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return set(), f"git HEAD tree unavailable for import/index atomicity check ({exc})"
+    if result.returncode != 0:
+        stderr = str(getattr(result, "stderr", "") or "").strip() or "git ls-tree HEAD failed"
+        if _head_missing(stderr):
+            return set(), None
+        return set(), f"git HEAD tree unavailable for import/index atomicity check ({stderr})"
+    return {
+        line.strip()
+        for line in result.stdout.splitlines()
+        if line.strip().endswith(".py")
+    }, None
+
+
+def _head_missing(stderr: str) -> bool:
+    text = stderr.lower()
+    return (
+        "not a valid object name head" in text
+        or "ambiguous argument 'head'" in text
+        or "bad revision 'head'" in text
+    )
 
 
 def _render_import_from(module_name: str, imported_names: list[str]) -> str:

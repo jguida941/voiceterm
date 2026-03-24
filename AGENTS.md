@@ -297,7 +297,9 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     `check_startup_authority_contract.py` is the fail-closed proof for this
     path: it must reject startup-authority states that are already over the
     checkpoint budget and Python module splits whose imports only resolve from
-    worktree-on-disk files instead of the git index.
+    worktree-on-disk files instead of the git index, while also proving the
+    committed `HEAD` tree stays internally coherent. Fresh repos without a
+    first commit skip that committed-tree layer until `HEAD` exists.
 4.7 Treat governed-markdown authority the same way: prefer typed
     `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
     parsed `plan_registry` entries when those projections are available, but

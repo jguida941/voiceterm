@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -198,22 +199,34 @@ def test_startup_authority_fails_when_checkpoint_budget_is_exceeded(
     assert any("over budget" in error for error in report["errors"])
 
 
+def _git_commit(tmp_path: Path, message: str = "test") -> None:
+    """Create a commit in the test repo so HEAD exists for ls-tree checks."""
+    subprocess.run(
+        ["git", "commit", "-m", message, "--allow-empty-message"],
+        cwd=tmp_path, check=True, capture_output=True,
+        env={**os.environ, "GIT_AUTHOR_NAME": "test",
+             "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "test",
+             "GIT_COMMITTER_EMAIL": "t@t"},
+    )
+
+
 def test_import_index_atomicity_flags_repo_local_worktree_only_module(
     tmp_path: Path,
 ) -> None:
+    """Importer is committed, target module only exists on disk -> error."""
     subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
     importer = tmp_path / "dev" / "testpkg" / "importer.py"
     importer.parent.mkdir(parents=True)
     importer.write_text("from . import startup_signals\n", encoding="utf-8")
-    (tmp_path / "dev" / "testpkg" / "startup_signals.py").write_text(
-        "VALUE = 1\n",
-        encoding="utf-8",
-    )
+    # Commit only the importer — target module stays on disk only
     subprocess.run(
         ["git", "add", "dev/testpkg/importer.py"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
+        cwd=tmp_path, check=True, capture_output=True,
+    )
+    _git_commit(tmp_path, "add importer without target")
+    # Now create the target on disk (not committed)
+    (tmp_path / "dev" / "testpkg" / "startup_signals.py").write_text(
+        "VALUE = 1\n", encoding="utf-8",
     )
 
     with patch(
@@ -226,21 +239,123 @@ def test_import_index_atomicity_flags_repo_local_worktree_only_module(
     assert any("startup_signals.py" in error for error in errors)
 
 
-def test_import_index_atomicity_accepts_indexed_module_split(tmp_path: Path) -> None:
+def test_import_index_atomicity_flags_committed_importer_with_broken_import(
+    tmp_path: Path,
+) -> None:
+    """Committed importer with a missing target fails on the HEAD layer."""
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    importer = tmp_path / "dev" / "testpkg" / "importer.py"
+    importer.parent.mkdir(parents=True)
+    # Commit the importer WITH the import but WITHOUT the target
+    importer.write_text("from . import startup_signals\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "dev/testpkg/importer.py"],
+        cwd=tmp_path, check=True, capture_output=True,
+    )
+    _git_commit(tmp_path, "commit importer referencing missing module")
+    # Target exists on disk but not in HEAD
+    (tmp_path / "dev" / "testpkg" / "startup_signals.py").write_text(
+        "VALUE = 1\n", encoding="utf-8",
+    )
+
+    with patch(
+        "dev.scripts.checks.startup_authority_contract.runtime_checks.resolve_quality_scope_roots",
+        return_value=(Path("dev"),),
+    ):
+        errors, warnings = collect_import_index_atomicity_findings(tmp_path)
+
+    assert warnings == []
+    assert any("startup_signals.py" in e and "committed" in e for e in errors)
+
+
+def test_import_index_atomicity_allows_staged_atomic_split_with_existing_head(
+    tmp_path: Path,
+) -> None:
+    """Existing committed importer modified + new target both staged -> no error.
+
+    This is the false-positive Codex caught: if the committed layer scanned
+    working-tree content against HEAD, a legitimate atomic stage would fail.
+    With HEAD-content-vs-HEAD-paths, the committed layer only sees the old
+    HEAD version (which doesn't have the new import), so no false positive.
+    """
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    importer = tmp_path / "dev" / "testpkg" / "importer.py"
+    importer.parent.mkdir(parents=True)
+    # First commit: importer exists but does NOT import startup_signals
+    importer.write_text("import os\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "dev/testpkg/importer.py"],
+        cwd=tmp_path, check=True, capture_output=True,
+    )
+    _git_commit(tmp_path, "initial importer without target import")
+    # Now modify importer to add the import, create target, stage both
+    importer.write_text("import os\nfrom . import startup_signals\n", encoding="utf-8")
+    (tmp_path / "dev" / "testpkg" / "startup_signals.py").write_text(
+        "VALUE = 1\n", encoding="utf-8",
+    )
+    subprocess.run(
+        ["git", "add", "dev/testpkg/importer.py", "dev/testpkg/startup_signals.py"],
+        cwd=tmp_path, check=True, capture_output=True,
+    )
+
+    with patch(
+        "dev.scripts.checks.startup_authority_contract.runtime_checks.resolve_quality_scope_roots",
+        return_value=(Path("dev"),),
+    ):
+        errors, warnings = collect_import_index_atomicity_findings(tmp_path)
+
+    # Staged layer: both in index -> passes
+    # Committed layer: HEAD content has "import os" only, no startup_signals ref -> passes
+    assert errors == []
+    assert warnings == []
+
+
+def test_import_index_atomicity_accepts_atomic_staged_split(
+    tmp_path: Path,
+) -> None:
+    """Both importer and target staged atomically on a fresh repo (no HEAD yet).
+
+    Before the first commit, ls-tree HEAD returns nothing, so the committed
+    layer is skipped. The staged layer sees both files -> no error. This is
+    the normal "stage everything then commit" workflow.
+    """
     subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
     importer = tmp_path / "dev" / "testpkg" / "importer.py"
     importer.parent.mkdir(parents=True)
     importer.write_text("from . import startup_signals\n", encoding="utf-8")
     (tmp_path / "dev" / "testpkg" / "startup_signals.py").write_text(
-        "VALUE = 1\n",
-        encoding="utf-8",
+        "VALUE = 1\n", encoding="utf-8",
     )
     subprocess.run(
         ["git", "add", "dev/testpkg/importer.py", "dev/testpkg/startup_signals.py"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
+        cwd=tmp_path, check=True, capture_output=True,
     )
+    # No commit yet — fresh repo, HEAD doesn't exist
+
+    with patch(
+        "dev.scripts.checks.startup_authority_contract.runtime_checks.resolve_quality_scope_roots",
+        return_value=(Path("dev"),),
+    ):
+        errors, warnings = collect_import_index_atomicity_findings(tmp_path)
+
+    assert errors == []
+    assert warnings == []
+
+
+def test_import_index_atomicity_accepts_committed_module_split(tmp_path: Path) -> None:
+    """Both importer and target are committed -> no error."""
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    importer = tmp_path / "dev" / "testpkg" / "importer.py"
+    importer.parent.mkdir(parents=True)
+    importer.write_text("from . import startup_signals\n", encoding="utf-8")
+    (tmp_path / "dev" / "testpkg" / "startup_signals.py").write_text(
+        "VALUE = 1\n", encoding="utf-8",
+    )
+    subprocess.run(
+        ["git", "add", "dev/testpkg/importer.py", "dev/testpkg/startup_signals.py"],
+        cwd=tmp_path, check=True, capture_output=True,
+    )
+    _git_commit(tmp_path, "add both files atomically")
 
     with patch(
         "dev.scripts.checks.startup_authority_contract.runtime_checks.resolve_quality_scope_roots",

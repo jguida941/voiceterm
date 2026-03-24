@@ -220,8 +220,10 @@ Three quality layers matter in practice:
     fail-closed startup proof, not a schema-only inventory check. It rejects
     startup-authority states that are already over the checkpoint budget and
     Python imports that only resolve because a new module exists on disk but
-    not in the git index, so staged module splits can be proven atomic before
-    handoff or push.
+    not in the git index, and it separately proves committed importer content
+    still resolves inside `HEAD` without reusing working-tree edits as proof.
+    Fresh repos without a first commit skip that committed-tree layer until
+    `HEAD` exists, so the normal stage-then-first-commit workflow stays clean.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.
     That exclusion only affects checkpoint-budget accounting; raw git state
