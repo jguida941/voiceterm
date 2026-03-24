@@ -11,9 +11,11 @@ from unittest.mock import patch
 from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
 from dev.scripts.devctl.commands.listing import COMMANDS
 from dev.scripts.devctl.commands.governance.startup_context import _render_markdown
+from dev.scripts.devctl.commands.governance import startup_context as startup_context_command
 from dev.scripts.devctl.runtime.startup_context import (
     ReviewerGateState,
     StartupContext,
+    blocks_new_implementation,
     _derive_advisory_action,
     _detect_reviewer_gate,
     build_startup_context,
@@ -164,6 +166,67 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("## Quality Signals", rendered)
         self.assertIn("**probe-report**", rendered)
         self.assertIn("**governance-review**", rendered)
+
+    def test_command_fails_closed_when_checkpoint_required(self) -> None:
+        ctx = StartupContext(
+            governance=_minimal_governance(
+                checkpoint_required=True,
+                safe_to_continue_editing=False,
+                checkpoint_reason="budget",
+            ),
+            reviewer_gate=ReviewerGateState(),
+            advisory_action="checkpoint_before_continue",
+            advisory_reason="budget",
+        )
+        args = build_parser().parse_args(["startup-context", "--format", "json"])
+
+        def _fake_emit(*_args, **kwargs):
+            options = kwargs["options"]
+            self.assertFalse(options.ok)
+            return 1
+
+        with patch.object(
+            startup_context_command,
+            "build_startup_context",
+            return_value=ctx,
+        ), patch.object(
+            startup_context_command,
+            "emit_machine_artifact_output",
+            side_effect=_fake_emit,
+        ):
+            rc = startup_context_command.run(args)
+
+        self.assertEqual(rc, 1)
+
+    def test_command_stays_green_within_budget(self) -> None:
+        ctx = StartupContext(
+            governance=_minimal_governance(
+                checkpoint_required=False,
+                safe_to_continue_editing=True,
+            ),
+            reviewer_gate=ReviewerGateState(),
+            advisory_action="continue_editing",
+            advisory_reason="clean_worktree",
+        )
+        args = build_parser().parse_args(["startup-context", "--format", "json"])
+
+        def _fake_emit(*_args, **kwargs):
+            options = kwargs["options"]
+            self.assertTrue(options.ok)
+            return 0
+
+        with patch.object(
+            startup_context_command,
+            "build_startup_context",
+            return_value=ctx,
+        ), patch.object(
+            startup_context_command,
+            "emit_machine_artifact_output",
+            side_effect=_fake_emit,
+        ):
+            rc = startup_context_command.run(args)
+
+        self.assertEqual(rc, 0)
 
 
 class TestReviewerGateSemantics(unittest.TestCase):
@@ -326,6 +389,19 @@ class TestAdvisoryAction(unittest.TestCase):
         gate = ReviewerGateState(checkpoint_permitted=True, push_permitted=False)
         action, _ = _derive_advisory_action(gov, gate)
         self.assertEqual(action, "checkpoint_allowed")
+
+    def test_blocks_new_implementation_when_checkpoint_required(self) -> None:
+        ctx = StartupContext(
+            governance=_minimal_governance(
+                checkpoint_required=True,
+                safe_to_continue_editing=False,
+            ),
+        )
+        self.assertTrue(blocks_new_implementation(ctx))
+
+    def test_blocks_new_implementation_allows_clean_context(self) -> None:
+        ctx = StartupContext(governance=_minimal_governance())
+        self.assertFalse(blocks_new_implementation(ctx))
 
 
 class TestTypedReviewStateGatePath(unittest.TestCase):

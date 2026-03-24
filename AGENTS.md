@@ -134,6 +134,9 @@ Run this sequence for every task. Do not skip steps.
    When the task needs typed reviewer/checkpoint truth, richer continuity, or
    `Session Resume` context beyond that slim packet, also run
    `python3 dev/scripts/devctl.py startup-context --format md`.
+   That typed receipt now exits non-zero when checkpoint budget says another
+   implementation slice is not allowed yet, so repo-owned startup launchers
+   can fail closed on the same packet they render.
    Follow the deep links when the task requires full authority from the
    canonical docs (`AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`).
    Keep that bootstrap packet small by default and expand with
@@ -300,6 +303,9 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     worktree-on-disk files instead of the git index, while also proving the
     committed `HEAD` tree stays internally coherent. Fresh repos without a
     first commit skip that committed-tree layer until `HEAD` exists.
+    The `startup-context` command itself now uses that same typed checkpoint
+    truth as a fail-closed receipt: it still emits the packet, but returns
+    non-zero when another implementation slice should not start yet.
 4.7 Treat governed-markdown authority the same way: prefer typed
     `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
     parsed `plan_registry` entries when those projections are available, but

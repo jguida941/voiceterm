@@ -224,6 +224,12 @@ Three quality layers matter in practice:
     still resolves inside `HEAD` without reusing working-tree edits as proof.
     Fresh repos without a first commit skip that committed-tree layer until
     `HEAD` exists, so the normal stage-then-first-commit workflow stays clean.
+  - `python3 dev/scripts/devctl.py startup-context --format md|json` now uses
+    that same typed checkpoint truth as a fail-closed receipt. The packet is
+    still emitted for inspection, but the command exits non-zero when
+    `checkpoint_required=true` or `safe_to_continue_editing=false`, so
+    repo-owned startup launchers can block the next implementation slice on
+    the canonical startup receipt instead of on prose-only conventions.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.
     That exclusion only affects checkpoint-budget accounting; raw git state

@@ -3032,7 +3032,8 @@ become the main product surface.
     promote checkpoint/review work until a fresh post-commit/push receipt
     clears the budget. Current partial proof: `review-channel --action
     launch|rollover` now treat the typed checkpoint budget as a hard launch
-    blocker, and `check_startup_authority_contract.py` now fails when the
+    blocker, `startup-context` itself now returns non-zero on that same typed
+    checkpoint receipt, and `check_startup_authority_contract.py` now fails when the
     startup authority packet is already over budget or when repo-local Python
     imports only resolve from worktree-only modules instead of the git index,
     while separately validating committed importer content against `HEAD`

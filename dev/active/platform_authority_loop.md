@@ -1175,6 +1175,14 @@ intended execution order is:
   worktree is over budget, and to extend the startup-authority contract with a
   Python import/index atomicity proof so module-split imports cannot appear
   green only because the missing modules exist on one local disk.
+- 2026-03-23: Closed the next bounded checkpoint-budget enforcement seam in
+  the same `MP-377` lane. `startup-context` no longer acts like a read-only
+  advisory wrapper around the right decision; it now emits the same typed
+  startup packet but returns non-zero when the checkpoint receipt says the
+  next implementation slice is blocked. The startup-authority contract and
+  focused runtime tests now prove both boundaries together: worktree-to-index
+  module-split atomicity for staged edits, committed-tree importer coherence
+  for `HEAD`, and fail-closed startup receipt behavior on over-budget trees.
 - 2026-03-23: Closed the first post-review hardening pass for the Part-53
   temporal graph lane instead of leaving the slice green only on happy-path
   tests. Snapshot resolution now derives `latest` / `previous` from capture-

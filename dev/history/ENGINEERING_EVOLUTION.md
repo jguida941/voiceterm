@@ -236,7 +236,10 @@ split module exists on disk but not in the git index. The follow-up correction
 kept that working-tree-to-index proof but moved the committed-tree layer onto
 real `HEAD` importer content instead of re-reading staged files, so legitimate
 atomic staged refactors no longer false-positive while fresh repos still skip
-the committed-tree layer until the first commit exists. In the same slice,
+the committed-tree layer until the first commit exists. The next closure pass
+also made `startup-context` itself fail closed on that same typed checkpoint
+receipt: the packet is still emitted, but the command now exits non-zero when
+another implementation slice should not start yet. In the same slice,
 `review-channel --action launch|rollover` started treating
 `checkpoint_required` / `safe_to_continue_editing=false` as a hard launch
 blocker instead of advisory status.

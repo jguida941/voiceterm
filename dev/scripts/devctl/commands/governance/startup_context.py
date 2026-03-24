@@ -8,7 +8,7 @@ from ...runtime.machine_output import (
     ArtifactOutputOptions,
     emit_machine_artifact_output,
 )
-from ...runtime.startup_context import build_startup_context
+from ...runtime.startup_context import build_startup_context, blocks_new_implementation
 
 
 def _render_markdown(ctx_dict: dict) -> str:
@@ -75,16 +75,26 @@ def run(args) -> int:
     """Emit the typed startup-context packet."""
     ctx = build_startup_context()
     payload = ctx.to_dict()
+    blocked = blocks_new_implementation(ctx)
+    governance = ctx.governance
+    push = governance.push_enforcement if governance is not None else None
     return emit_machine_artifact_output(
         args,
         command="startup-context",
         json_payload=payload,
         human_output=_render_markdown(payload),
         options=ArtifactOutputOptions(
+            ok=not blocked,
             summary={
                 "advisory_action": ctx.advisory_action,
                 "advisory_reason": ctx.advisory_reason,
                 "bridge_active": ctx.reviewer_gate.bridge_active,
+                "checkpoint_required": (
+                    bool(push.checkpoint_required) if push is not None else False
+                ),
+                "safe_to_continue_editing": (
+                    bool(push.safe_to_continue_editing) if push is not None else True
+                ),
             }
         ),
     )

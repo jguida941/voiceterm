@@ -4,7 +4,9 @@ Combines ProjectGovernance, push/checkpoint state, and reviewer/ready-gate
 inputs into one machine-readable packet that an agent inspects at session
 start to decide: continue editing, checkpoint first, or push now.
 
-This is advisory policy, not forced execution.
+This packet is the typed startup receipt. Read-only helpers may render it
+without enforcing the decision, but repo-owned startup launchers should treat
+checkpoint-required states as fail-closed.
 """
 
 from __future__ import annotations
@@ -228,4 +230,15 @@ def build_startup_context(
         advisory_action=action,
         advisory_reason=reason,
         quality_signals=quality_signals,
+    )
+
+
+def blocks_new_implementation(ctx: StartupContext) -> bool:
+    """Return whether the typed startup receipt blocks another edit slice."""
+    governance = ctx.governance
+    if governance is None:
+        return False
+    push = governance.push_enforcement
+    return bool(
+        push.checkpoint_required or not push.safe_to_continue_editing
     )

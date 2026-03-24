@@ -179,7 +179,11 @@ contract set:
   automation loops. Bootstrap must materialize at least one reviewed
   governance contract, one active-plan registry, one exported `PlanTargetRef`
   set, and one intake projection even in repos that do not begin with
-  VoiceTerm-style plan files.
+  VoiceTerm-style plan files. During the current authority-loop transition,
+  `startup-context` is the bounded typed receipt feeding that future intake
+  family; it now emits the packet while returning non-zero when checkpoint
+  budget says another implementation slice must stop and cut a checkpoint
+  first.
 - `CollaborationSession`: typed shared-work contract derived from
   `WorkIntakePacket`, review state, and writer-lease state so Codex, Claude,
   operators, and future clients can share one live view of
