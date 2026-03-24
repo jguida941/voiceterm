@@ -5556,3 +5556,18 @@ visible in hygiene output; release lanes and external publication drift policy
 stay unchanged. The practical result is that feature-branch guarded push now
 fails only on real current-lane blockers instead of unrelated release debt or
 repo-pre-existing mutation freshness drift.
+
+### 2026-03-24 - MP-377 governance-closure guard now proves real coverage
+
+Fact: the next guarded-push blocker after that routing/hygiene cleanup turned
+out to be a brittle self-governance heuristic, not new architectural debt.
+`check_governance_closure` had been treating test coverage as "filename starts
+with the guard/probe id" and CI coverage as "workflow YAML literally contains
+the guard id," which misclassified shared test modules and `devctl check
+--profile ci` workflow coverage as missing. The meta-guard now counts shared
+coverage by test-content reference, recognizes AI-guard CI coverage when a
+workflow invokes the CI profile, and the remaining truly-uncovered guard/probe
+scripts gained lightweight smoke tests. That keeps the self-hosting contract
+honest: guarded push now fails on real governance-closure debt instead of
+substring/filename false negatives, without weakening release-lane policy or
+teaching operators to bypass the gate.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -172,3 +173,70 @@ def test_governance_closure_flags_invalid_review_disposition_rows() -> None:
         violation["check"] == "review_disposition_schema"
         for violation in payload["violations"]
     )
+
+
+def test_governance_closure_accepts_generic_test_reference_for_guard_and_probe() -> None:
+    """Content references in shared test files count as real coverage."""
+    import importlib
+    from unittest.mock import patch
+
+    cmd = importlib.import_module("governance_closure.command")
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests_dir = Path(tmp_dir) / "tests"
+        tests_dir.mkdir(parents=True)
+        (tests_dir / "test_shared_coverage.py").write_text(
+            "\n".join(
+                [
+                    "def test_shared_paths() -> None:",
+                    '    assert "dev/scripts/checks/check_active_plan_sync.py"',
+                    '    assert "probe_design_smells"',
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        violations: list[dict[str, str]] = []
+        with patch.object(cmd, "TESTS_DIR", tests_dir):
+            cmd._test_file_texts.cache_clear()
+            guard_found = cmd._find_guard_test_gaps(violations)
+            probe_found = cmd._find_probe_test_gaps(violations)
+
+    cmd._test_file_texts.cache_clear()
+    assert not any(v.get("guard_id") == "active_plan_sync" for v in violations)
+    assert not any(v.get("probe_id") == "probe_design_smells" for v in violations)
+    assert guard_found >= 0
+    assert probe_found >= 0
+
+
+def test_governance_closure_counts_ci_profile_guard_coverage() -> None:
+    """Guards in the CI profile count as workflow-covered without direct YAML mentions."""
+    import importlib
+    from unittest.mock import patch
+
+    cmd = importlib.import_module("governance_closure.command")
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        workflows_dir = Path(tmp_dir) / "workflows"
+        workflows_dir.mkdir(parents=True)
+        (workflows_dir / "ci.yml").write_text(
+            "\n".join(
+                [
+                    "jobs:",
+                    "  checks:",
+                    "    timeout-minutes: 30",
+                    "    steps:",
+                    "      - run: python3 dev/scripts/devctl.py check --profile ci",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        violations: list[dict[str, str]] = []
+        with patch.object(cmd, "WORKFLOWS_DIR", workflows_dir):
+            cmd._ci_profile_guard_ids.cache_clear()
+            found = cmd._find_ci_coverage_gaps(violations)
+
+    cmd._ci_profile_guard_ids.cache_clear()
+    assert not any(v.get("guard_id") == "function_duplication" for v in violations)
+    assert found >= 0

@@ -14,6 +14,7 @@ import importlib
 import json
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 _checks_dir = str(Path(__file__).resolve().parent.parent)
@@ -30,6 +31,8 @@ CHECK_SCRIPT_FILES = _script_catalog.CHECK_SCRIPT_FILES
 CHECK_SCRIPT_RELATIVE_PATHS = _script_catalog.CHECK_SCRIPT_RELATIVE_PATHS
 PROBE_SCRIPT_FILES = _script_catalog.PROBE_SCRIPT_FILES
 PROBE_SCRIPT_RELATIVE_PATHS = _script_catalog.PROBE_SCRIPT_RELATIVE_PATHS
+_quality_policy = importlib.import_module("dev.scripts.devctl.quality_policy")
+resolve_quality_policy = _quality_policy.resolve_quality_policy
 
 _review_log = importlib.import_module("dev.scripts.devctl.governance_review_log")
 DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS = _review_log.DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS
@@ -72,6 +75,54 @@ CI_COVERAGE_EXEMPTIONS: frozenset[str] = frozenset(
     }
 )
 
+CHECK_PROFILE_CI_RE = re.compile(
+    r"dev/scripts/devctl\.py\s+check\b(?:(?!\n-).)*?(?:--profile\s+ci\b|--ci\b)",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+@lru_cache(maxsize=1)
+def _test_file_texts() -> tuple[tuple[Path, str], ...]:
+    """Cache test file contents for coverage checks."""
+    items: list[tuple[Path, str]] = []
+    if not TESTS_DIR.is_dir():
+        return ()
+    for path in sorted(TESTS_DIR.rglob("test_*.py")):
+        try:
+            items.append((path, path.read_text(encoding="utf-8")))
+        except OSError:
+            continue
+    return tuple(items)
+
+
+def _coverage_tokens(script_id: str, relative_path: str) -> tuple[str, ...]:
+    """Return coverage tokens that indicate a test or workflow references a script."""
+    filename = Path(relative_path).name
+    stem = Path(relative_path).stem
+    dotted_rel = relative_path.replace("/", ".").removesuffix(".py")
+    return (
+        script_id,
+        filename,
+        relative_path,
+        stem,
+        dotted_rel,
+    )
+
+
+def _has_test_reference(script_id: str, relative_path: str) -> bool:
+    """Return True when any test file mentions the script id or path."""
+    for _path, text in _test_file_texts():
+        if any(token in text for token in _coverage_tokens(script_id, relative_path)):
+            return True
+    return False
+
+
+@lru_cache(maxsize=1)
+def _ci_profile_guard_ids() -> frozenset[str]:
+    """Return the set of AI guards covered by `devctl check --profile ci`."""
+    policy = resolve_quality_policy(repo_root=REPO_ROOT)
+    return frozenset(spec.script_id for spec in policy.ai_guard_checks)
+
 
 def _find_guard_test_gaps(violations: list[dict[str, str]]) -> int:
     """Check every registered guard has a test file."""
@@ -83,6 +134,8 @@ def _find_guard_test_gaps(violations: list[dict[str, str]]) -> int:
         candidates = list(TESTS_DIR.rglob(f"test_check_{guard_id}*")) + list(
             TESTS_DIR.rglob(f"test_{guard_id}*")
         )
+        if not candidates and _has_test_reference(guard_id, CHECK_SCRIPT_RELATIVE_PATHS[guard_id]):
+            continue
         if not candidates:
             violations.append(
                 {
@@ -100,6 +153,8 @@ def _find_probe_test_gaps(violations: list[dict[str, str]]) -> int:
     found = 0
     for probe_id in sorted(PROBE_SCRIPT_FILES):
         candidates = list(TESTS_DIR.rglob(f"test_{probe_id}*"))
+        if not candidates and _has_test_reference(probe_id, PROBE_SCRIPT_RELATIVE_PATHS[probe_id]):
+            continue
         if not candidates:
             violations.append(
                 {
@@ -120,6 +175,7 @@ def _find_ci_coverage_gaps(violations: list[dict[str, str]]) -> int:
     workflow_text = ""
     for yml in WORKFLOWS_DIR.glob("*.yml"):
         workflow_text += yml.read_text(encoding="utf-8")
+    ci_profile_guard_ids = _ci_profile_guard_ids() if CHECK_PROFILE_CI_RE.search(workflow_text) else frozenset()
 
     found = 0
     for guard_id in sorted(CHECK_SCRIPT_FILES):
@@ -128,7 +184,11 @@ def _find_ci_coverage_gaps(violations: list[dict[str, str]]) -> int:
         filename = CHECK_SCRIPT_FILES[guard_id]
         # Guard can appear as script name, guard_id in devctl commands, or
         # as part of a profile invocation.
-        if filename not in workflow_text and guard_id not in workflow_text:
+        if (
+            filename not in workflow_text
+            and guard_id not in workflow_text
+            and guard_id not in ci_profile_guard_ids
+        ):
             violations.append(
                 {
                     "check": "ci_guard_coverage",

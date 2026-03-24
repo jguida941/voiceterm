@@ -1245,6 +1245,15 @@ intended execution order is:
   alternate candidate locations and repo-pack overrides. Remaining closure is
   still the raw git/pre-commit bypass plus the wider review-state/event
   consumer migration, not the already-fixed startup receipt gate itself.
+- 2026-03-24: Closed the next guarded-push false blocker in the same `MP-377`
+  lane by fixing the `check_governance_closure` meta-guard instead of
+  bypassing it. The guard now counts real shared test coverage by content
+  reference, recognizes AI-guard CI coverage when workflows invoke
+  `devctl check --profile ci`, and the remaining previously-uncovered guard/
+  probe scripts now have lightweight smoke coverage. `bundle.tooling` can
+  therefore fail on actual governance-closure debt instead of brittle file-
+  name/YAML substring heuristics while the raw git/pre-commit bypass remains
+  the separate enforcement gap.
 - 2026-03-23: Closed the first post-review hardening pass for the Part-53
   temporal graph lane instead of leaving the slice green only on happy-path
   tests. Snapshot resolution now derives `latest` / `previous` from capture-

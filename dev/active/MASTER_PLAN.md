@@ -3077,7 +3077,12 @@ become the main product surface.
   `origin/develop`, which removed the false `bundle.release` / CodeRabbit
   feature-branch block, and the tooling lane now treats stale
   mutation-badge freshness as visible non-blocking debt instead of a local
-  push blocker while leaving release lanes unchanged. (evidence:
+  push blocker while leaving release lanes unchanged. Latest follow-up
+  (2026-03-24): `check_governance_closure` now recognizes shared test
+  coverage by content reference and AI-guard CI coverage via
+  `devctl check --profile ci`, while the previously-uncovered guard/probe
+  scripts gained smoke coverage, so guarded push now fails on real
+  meta-governance debt instead of filename/YAML false negatives. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28, Part 36, Part 41)
   - [ ] Auto-record `governance-review` close-out and converge top-level
     failures on structured `ActionResult` crash envelopes. (evidence:
