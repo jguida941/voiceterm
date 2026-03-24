@@ -17,6 +17,7 @@ from dev.scripts.devctl.runtime.project_governance import (
     PlanRegistry,
     PlanRegistryEntry,
     ProjectGovernance,
+    PushEnforcement,
     RepoIdentity,
     RepoPackRef,
     SessionResumeEntry,
@@ -71,7 +72,10 @@ def _governance() -> ProjectGovernance:
     return ProjectGovernance(
         schema_version=PROJECT_GOVERNANCE_SCHEMA_VERSION,
         contract_id=PROJECT_GOVERNANCE_CONTRACT_ID,
-        repo_identity=RepoIdentity(repo_name="codex-voice"),
+        repo_identity=RepoIdentity(
+            repo_name="codex-voice",
+            current_branch="feature/demo",
+        ),
         repo_pack=RepoPackRef(pack_id="voiceterm"),
         path_roots=PathRoots(),
         plan_registry=PlanRegistry(
@@ -88,6 +92,7 @@ def _governance() -> ProjectGovernance:
         ),
         enabled_checks=EnabledChecks(),
         bundle_overrides=BundleOverrides(overrides={}),
+        push_enforcement=PushEnforcement(upstream_ref="origin/feature/demo"),
         startup_order=("AGENTS.md", "dev/active/INDEX.md", "dev/active/MASTER_PLAN.md"),
         docs_authority="AGENTS.md",
         workflow_profiles=("bundle.bootstrap", "bundle.tooling", "bundle.post-push"),
@@ -145,7 +150,7 @@ def test_build_work_intake_packet_prefers_mp_scoped_spec_and_reconciles_review_s
     assert packet.routing.selected_workflow_profile == "bundle.tooling"
     assert (
         packet.routing.preflight_command
-        == "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute"
+        == "python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute"
     )
     assert packet.writeback_sinks == (
         "dev/active/platform_authority_loop.md",

@@ -14,6 +14,7 @@ from ...governance.push_policy import (
     build_preflight_shell_command,
     load_push_policy,
 )
+from ...governance.push_state import current_upstream_ref
 from ...runtime import ActionResult, TypedAction
 from ...runtime.vcs import branch_divergence, remote_branch_exists, remote_exists
 from .push_report import PushReportInputs, build_push_report, render_push_report
@@ -117,6 +118,9 @@ def _run_fetch_and_preflight(state: PushRunState, policy, args) -> None:
     preflight_command = build_preflight_shell_command(
         policy,
         remote=state.remote,
+        current_branch=state.branch,
+        upstream_ref=current_upstream_ref(),
+        branch_has_remote=state.branch_has_remote,
         quality_policy_path=getattr(args, "quality_policy", None),
     )
     state.preflight_step = run_cmd(

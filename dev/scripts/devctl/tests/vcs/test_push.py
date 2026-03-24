@@ -162,8 +162,12 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
     @patch(
+        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        return_value="origin/feature/demo",
+    )
+    @patch(
         "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
-        return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
+        return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute",
     )
     @patch(
         "dev.scripts.devctl.commands.vcs.push.branch_divergence",
@@ -180,6 +184,7 @@ class PushCommandTests(unittest.TestCase):
         _remote_exists_mock,
         _remote_branch_exists_mock,
         _branch_divergence_mock,
+        _current_upstream_ref_mock,
         _preflight_command_mock,
         run_cmd_mock,
         write_output_mock,
@@ -200,7 +205,7 @@ class PushCommandTests(unittest.TestCase):
                 "cmd": [
                     "bash",
                     "-lc",
-                    "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
+                    "python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute",
                 ],
                 "cwd": ".",
                 "returncode": 0,
@@ -220,7 +225,7 @@ class PushCommandTests(unittest.TestCase):
                 [
                     "bash",
                     "-lc",
-                    "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
+                    "python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute",
                 ],
             ],
         )
@@ -232,6 +237,10 @@ class PushCommandTests(unittest.TestCase):
     @patch(
         "dev.scripts.devctl.commands.vcs.push.build_post_push_commands",
         return_value=["git status", "git log --oneline --decorate -n 10"],
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        return_value="",
     )
     @patch(
         "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
@@ -249,6 +258,7 @@ class PushCommandTests(unittest.TestCase):
         load_policy_mock,
         _remote_exists_mock,
         _remote_branch_exists_mock,
+        _current_upstream_ref_mock,
         _preflight_command_mock,
         _post_push_commands_mock,
         write_output_mock,
@@ -309,6 +319,19 @@ class PushCommandTests(unittest.TestCase):
         self.assertIn(["git", "push", "--set-upstream", "origin", "feature/demo"], executed)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "pushed")
+
+    def test_build_preflight_shell_command_prefers_remote_branch_when_it_exists(self) -> None:
+        policy = make_policy()
+
+        command = push.build_preflight_shell_command(
+            policy,
+            remote="origin",
+            current_branch="feature/demo",
+            upstream_ref="origin/feature/demo",
+            branch_has_remote=True,
+        )
+
+        self.assertIn("--since-ref origin/feature/demo", command)
 
 
 if __name__ == "__main__":

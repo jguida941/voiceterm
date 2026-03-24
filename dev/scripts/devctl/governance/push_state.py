@@ -49,13 +49,7 @@ def detect_push_enforcement_state(
     )
     hook_installed = hook_path.is_file()
     raw_guarded = hook_installed and os.access(hook_path, os.X_OK)
-    upstream_ref = _git_stdout(
-        repo_root,
-        "rev-parse",
-        "--abbrev-ref",
-        "--symbolic-full-name",
-        "@{u}",
-    )
+    upstream_ref = current_upstream_ref(repo_root=repo_root)
     ahead: int | None = None
     if upstream_ref:
         ahead_text = _git_stdout(repo_root, "rev-list", "--count", f"{upstream_ref}..HEAD")
@@ -112,6 +106,17 @@ def detect_push_enforcement_state(
         recommended_action=recommended_action,
     )
     return asdict(snapshot)
+
+
+def current_upstream_ref(*, repo_root: Path = REPO_ROOT) -> str:
+    """Return the current branch's tracked upstream ref, or empty when unset."""
+    return _git_stdout(
+        repo_root,
+        "rev-parse",
+        "--abbrev-ref",
+        "--symbolic-full-name",
+        "@{u}",
+    )
 
 
 def _git_stdout(repo_root: Path, *cmd: str) -> str:

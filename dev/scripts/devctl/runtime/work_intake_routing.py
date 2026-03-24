@@ -5,10 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ..governance.push_policy import resolve_preflight_since_ref
 from .project_governance import PlanRegistryEntry, ProjectGovernance
 from .review_state_locator import resolved_review_state_relative_path
 from .review_state_models import ReviewState
 from .work_intake_models import IntakeRoutingState
+
 
 def build_routing(
     repo_root: Path,
@@ -24,6 +26,10 @@ def build_routing(
         profile for profile in governance.workflow_profiles if profile
     )
     push_defaults = _push_defaults(governance.command_routing_defaults)
+    if "current_branch" not in push_defaults:
+        push_defaults["current_branch"] = governance.repo_identity.current_branch
+    if "upstream_ref" not in push_defaults:
+        push_defaults["upstream_ref"] = governance.push_enforcement.upstream_ref
     post_push_bundle = _mapping_text(_mapping(push_defaults.get("post_push")).get("bundle"))
     return IntakeRoutingState(
         startup_reads=startup_reads,
@@ -126,10 +132,16 @@ def _preflight_command(push_defaults: dict[str, object]) -> str:
     remote = _mapping_text(push_defaults.get("default_remote")) or "origin"
     development_branch = _mapping_text(push_defaults.get("development_branch")) or "main"
     template = _mapping_text(preflight.get("since_ref_template"))
-    since_ref = (template or "{remote}/{development_branch}").format(
+    since_ref = resolve_preflight_since_ref(
         remote=remote,
         development_branch=development_branch,
-        release_branch=_mapping_text(push_defaults.get("release_branch")) or development_branch,
+        release_branch=(
+            _mapping_text(push_defaults.get("release_branch"))
+            or development_branch
+        ),
+        since_ref_template=template,
+        current_branch=_mapping_text(push_defaults.get("current_branch")),
+        upstream_ref=_mapping_text(push_defaults.get("upstream_ref")),
     )
     command_parts = [
         "python3",
