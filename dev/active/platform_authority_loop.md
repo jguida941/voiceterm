@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-03-23 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-24 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1109,6 +1109,15 @@ intended execution order is:
   live code-shape policy code instead of a duplicated prose blob in repo
   policy JSON. This keeps bootstrap tool awareness tied to typed authority
   while the larger `WorkIntakePacket` unification is still in progress.
+- 2026-03-24 review-state locator follow-up: the next repo-pack activation
+  seam is now smaller. `startup-context`, startup `WorkIntakePacket`
+  selection/warm refs, and `check_tandem_consistency` no longer each hardcode
+  `dev/reports/review_channel/latest/review_state.json`; they share one
+  repo-pack-aware review-state resolver that honors the candidate ordering
+  from active path config and still prefers the governed review artifact root
+  when it exists. Remaining closure is to keep migrating other review-state
+  readers and parity helpers onto the same seam instead of letting new path
+  literals regrow elsewhere.
 - Current goal: clear the blocker tranche that protects the authority loop,
   then finish making the authority loop the top `MP-377` priority before
   broader platform growth continues.
@@ -1228,6 +1237,14 @@ intended execution order is:
   longer "agents may never hit startup-context"; it is the separate raw
   git/pre-commit bypass plus broader repo-pack activation and any still-
   ungated mutating paths.
+- 2026-03-24: Closed the next repo-pack activation seam behind that same
+  startup-authority lane. The remaining typed review-state consumers no
+  longer each fan out on one VoiceTerm-default report path: a shared
+  repo-pack-aware resolver now drives `startup-context`, `WorkIntakePacket`
+  routing, and the tandem-consistency guard, with focused regressions proving
+  alternate candidate locations and repo-pack overrides. Remaining closure is
+  still the raw git/pre-commit bypass plus the wider review-state/event
+  consumer migration, not the already-fixed startup receipt gate itself.
 - 2026-03-23: Closed the first post-review hardening pass for the Part-53
   temporal graph lane instead of leaving the slice green only on happy-path
   tests. Snapshot resolution now derives `latest` / `previous` from capture-

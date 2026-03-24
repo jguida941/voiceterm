@@ -6,11 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from .project_governance import PlanRegistryEntry, ProjectGovernance
+from .review_state_locator import resolved_review_state_relative_path
 from .review_state_models import ReviewState
 from .work_intake_models import IntakeRoutingState
-
-_REVIEW_STATE_PATH = "dev/reports/review_channel/latest/review_state.json"
-
 
 def build_routing(
     repo_root: Path,
@@ -75,7 +73,14 @@ def warm_refs(
     _append_existing_ref(refs, repo_root, governance.plan_registry.tracker_path)
     _append_existing_ref(refs, repo_root, governance.plan_registry.index_path)
     _append_existing_ref(refs, repo_root, governance.docs_authority)
-    _append_existing_ref(refs, repo_root, _REVIEW_STATE_PATH)
+    _append_existing_ref(
+        refs,
+        repo_root,
+        resolved_review_state_relative_path(
+            repo_root,
+            governance=governance,
+        ),
+    )
     _append_existing_ref(refs, repo_root, governance.bridge_config.bridge_path.strip())
     return tuple(refs)
 

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from .project_governance import ProjectGovernance
+from .review_state_locator import load_review_state_payload
 from .startup_signals import load_startup_quality_signals
 from .work_intake import WorkIntakePacket, build_work_intake_packet
 
@@ -65,7 +66,10 @@ class StartupContext:
         return d
 
 
-def _detect_reviewer_gate(repo_root: Path) -> ReviewerGateState:
+def _detect_reviewer_gate(
+    repo_root: Path,
+    governance: ProjectGovernance | None = None,
+) -> ReviewerGateState:
     """Detect current reviewer/ready-gate state from typed review-state
     artifacts when available, falling back to live bridge.md prose.
 
@@ -76,7 +80,10 @@ def _detect_reviewer_gate(repo_root: Path) -> ReviewerGateState:
     available. This preserves backward compatibility during migration.
     """
     # Try typed review-state first (preferred path)
-    typed_gate = _detect_reviewer_gate_from_typed_state(repo_root)
+    typed_gate = _detect_reviewer_gate_from_typed_state(
+        repo_root,
+        governance=governance,
+    )
     if typed_gate is not None:
         return typed_gate
 
@@ -86,6 +93,8 @@ def _detect_reviewer_gate(repo_root: Path) -> ReviewerGateState:
 
 def _detect_reviewer_gate_from_typed_state(
     repo_root: Path,
+    *,
+    governance: ProjectGovernance | None = None,
 ) -> ReviewerGateState | None:
     """Read reviewer gate from typed review_state.json when available.
 
@@ -96,15 +105,10 @@ def _detect_reviewer_gate_from_typed_state(
     snapshot is reconstructed from the live file only for the verdict check so
     the acceptance contract stays identical to the bridge-backed path.
     """
-    review_state_path = (
-        repo_root / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
-    )
-    if not review_state_path.exists():
+    payload = load_review_state_payload(repo_root, governance=governance)
+    if payload is None:
         return None
     try:
-        import json
-
-        payload = json.loads(review_state_path.read_text(encoding="utf-8"))
         bridge_block = payload.get("bridge") or {}
         mode = str(bridge_block.get("reviewer_mode") or "single_agent")
 
@@ -134,7 +138,7 @@ def _detect_reviewer_gate_from_typed_state(
             checkpoint_permitted=True,
             push_permitted=review_accepted,
         )
-    except (OSError, ImportError, ValueError, KeyError):
+    except (ImportError, KeyError):
         return None  # Fall through to bridge path
 
 
@@ -224,7 +228,7 @@ def build_startup_context(
 
     from ..governance.draft import scan_repo_governance
     governance = scan_repo_governance(repo_root)
-    gate = _detect_reviewer_gate(repo_root)
+    gate = _detect_reviewer_gate(repo_root, governance=governance)
     action, reason = _derive_advisory_action(governance, gate)
     work_intake = build_work_intake_packet(
         repo_root=repo_root,

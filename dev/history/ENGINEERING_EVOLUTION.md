@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-23
+**Last Updated:** 2026-03-24
 
 ## At a Glance
 
@@ -45,6 +45,36 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-24 - Startup and tandem consumers stopped hardcoding one review-state path
+
+Fact: the remaining typed startup/tandem consumers no longer each assume
+`dev/reports/review_channel/latest/review_state.json`. A shared
+repo-pack-aware review-state resolver now drives `startup-context`, startup
+`WorkIntakePacket` selection/warm refs, and `check_tandem_consistency`, while
+still preferring the governed review artifact root when it is declared.
+
+This matters because the previous cutover had already moved those flows onto
+typed `review_state.json` semantics, but the path lookup itself still leaked a
+VoiceTerm-default report location into multiple runtime/check consumers. The
+new resolver closes another portability seam without pretending the whole
+migration is done: raw git/pre-commit bypass and broader review-state/event
+consumer migration remain open work.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/review_state_locator.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/runtime/work_intake.py`
+- `dev/scripts/devctl/runtime/work_intake_selection.py`
+- `dev/scripts/devctl/runtime/work_intake_routing.py`
+- `dev/scripts/checks/tandem_consistency/report.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/devctl/tests/runtime/test_work_intake.py`
+- `dev/scripts/devctl/tests/checks/test_check_tandem_consistency.py`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
 
 ### 2026-03-23 - Startup context stopped treating plan continuity as a boolean
 

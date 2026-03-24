@@ -3059,13 +3059,20 @@ become the main product surface.
     itself is now the documented Step 0 gate, it persists a managed
     `StartupReceipt` under the repo-owned reports root derived from live
     governance/path-root authority, and scoped repo-owned launcher/mutation
-    `devctl` commands (`push`, `sync`, `guard-run`, `autonomy-loop`,
-    `autonomy-swarm`, `swarm_run`, `review-channel --action launch|rollover`,
-    and selected controller actions) now require a fresh receipt and still
-    fail closed on live startup-authority errors. Remaining closure is the
-    separate raw git/pre-commit bypass plus any additional mutating commands
-    that should graduate into the same gate, not the original instruction-
-    surface loophole. (evidence:
+  `devctl` commands (`push`, `sync`, `guard-run`, `autonomy-loop`,
+  `autonomy-swarm`, `swarm_run`, `review-channel --action launch|rollover`,
+  and selected controller actions) now require a fresh receipt and still
+  fail closed on live startup-authority errors. Remaining closure is the
+  separate raw git/pre-commit bypass plus any additional mutating commands
+  that should graduate into the same gate, not the original instruction-
+  surface loophole. Latest follow-up (2026-03-24): the typed review-state
+  consumers behind that same startup/tandem path now share one repo-pack-
+  aware resolver instead of hardcoding
+  `dev/reports/review_channel/latest/review_state.json`, so
+  `startup-context`, startup `WorkIntakePacket` routing, and
+  `check_tandem_consistency` stay aligned with review-state candidate-path
+  authority while the remaining raw git/pre-commit bypass work stays
+  explicit. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28, Part 36, Part 41)
   - [ ] Auto-record `governance-review` close-out and converge top-level
     failures on structured `ActionResult` crash envelopes. (evidence:

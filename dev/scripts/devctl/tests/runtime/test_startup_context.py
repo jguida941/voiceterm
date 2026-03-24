@@ -6,6 +6,7 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
@@ -611,6 +612,50 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             gate = _detect_reviewer_gate(repo_root)
             self.assertFalse(gate.review_accepted)
             self.assertFalse(gate.push_permitted)
+
+    @patch(
+        "dev.scripts.devctl.runtime.review_state_locator.active_path_config",
+        return_value=SimpleNamespace(
+            review_state_candidates=("portable/review_state.json",)
+        ),
+    )
+    def test_typed_path_uses_active_path_config_candidate(
+        self,
+        _active_path_config,
+    ) -> None:
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_bridge_and_typed_state(
+                repo_root,
+                "Reviewer-accepted. Clean slice.",
+                "- none",
+            )
+            portable_state = repo_root / "portable" / "review_state.json"
+            portable_state.parent.mkdir(parents=True, exist_ok=True)
+            portable_state.write_text(
+                (
+                    repo_root
+                    / "dev"
+                    / "reports"
+                    / "review_channel"
+                    / "latest"
+                    / "review_state.json"
+                ).read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            (
+                repo_root
+                / "dev"
+                / "reports"
+                / "review_channel"
+                / "latest"
+                / "review_state.json"
+            ).unlink()
+
+            gate = _detect_reviewer_gate(repo_root)
+
+        self.assertTrue(gate.review_accepted)
+        self.assertTrue(gate.push_permitted)
 
     def test_typed_path_falls_back_when_state_missing(self) -> None:
         """When review_state.json is absent, falls back to bridge parsing."""

@@ -175,3 +175,41 @@ def test_build_work_intake_packet_falls_back_to_tracker_without_review_state(
     assert packet.continuity.alignment_status == "plan_only"
     assert packet.confidence == "medium"
     assert packet.fallback_reason == "no_review_state"
+
+
+def test_build_work_intake_packet_uses_resolved_review_state_candidate_for_warm_refs(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path / "AGENTS.md", "# Agents\n")
+    _write(tmp_path / "bridge.md", "# Bridge\n")
+    _write(tmp_path / "dev/active/INDEX.md", "# Index\n")
+    _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
+    _write(tmp_path / "dev/active/platform_authority_loop.md", "# Authority Loop\n")
+    _write(
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json",
+        json.dumps(
+            {
+                "bridge": {"reviewer_mode": "active_dual_agent"},
+                "review": {"plan_id": "MP-377"},
+                "current_session": {
+                    "last_reviewed_scope": "MP-377",
+                    "current_instruction": "Run bundle.tooling and inspect failures.",
+                    "open_findings": "none",
+                    "implementer_status": "coding",
+                    "implementer_ack_state": "current",
+                },
+            }
+        ),
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert (
+        "dev/reports/review_channel/projections/latest/review_state.json"
+        in packet.warm_refs
+    )

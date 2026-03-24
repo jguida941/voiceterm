@@ -533,3 +533,21 @@ class TestTypedPathBuildReport:
         with _mock_hash_matching():
             report = build_report(bridge_text=text, repo_root=None)
         assert report["typed_review_state_available"] is False
+
+    def test_report_uses_review_state_candidate_path(self, tmp_path):
+        text = _bridge()
+        state_dir = (
+            tmp_path
+            / "dev"
+            / "reports"
+            / "review_channel"
+            / "projections"
+            / "latest"
+        )
+        state_dir.mkdir(parents=True)
+        (state_dir / "review_state.json").write_text(
+            json.dumps(_typed_state()), encoding="utf-8"
+        )
+        with _mock_hash_matching():
+            report = build_report(bridge_text=text, repo_root=tmp_path)
+        assert report["typed_review_state_available"] is True

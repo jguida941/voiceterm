@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
+
+from dev.scripts.devctl.runtime.review_state_locator import load_review_state_payload
 
 try:
     from .checks import (
@@ -31,13 +32,10 @@ def _load_typed_review_state(repo_root: Path | None) -> dict[str, object] | None
     """Try to load typed review_state.json for checks that can use it."""
     if repo_root is None:
         return None
-    state_path = repo_root / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
-    if not state_path.exists():
+    payload = load_review_state_payload(repo_root)
+    if payload is None:
         return None
-    try:
-        return json.loads(state_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+    return dict(payload)
 
 
 def build_report(
@@ -126,4 +124,3 @@ def render_md(report: dict[str, object]) -> str:
             detail = check.get("detail", "")
             lines.append(f"- [{marker}] {name} (role={role}): {detail}")
     return "\n".join(lines)
-

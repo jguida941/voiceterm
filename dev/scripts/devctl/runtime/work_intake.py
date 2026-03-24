@@ -24,7 +24,7 @@ def build_work_intake_packet(
     advisory_reason: str,
 ) -> WorkIntakePacket:
     """Build the first typed startup intake packet from live repo state."""
-    review_state = load_review_state(repo_root)
+    review_state = load_review_state(repo_root, governance=governance)
     active_entry = select_active_plan_entry(governance, review_state)
     routing = build_routing(
         repo_root,

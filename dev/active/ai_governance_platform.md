@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-03-23 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-24 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -3787,6 +3787,14 @@ working on `MP-377`.
   startup-authority pass before starting another implementation or launcher
   slice. The remaining gap here is the separate raw git/pre-commit bypass
   plus wider repo-pack activation, not the old optional-escalation loophole.
+- 2026-03-24 review-state locator follow-up: another repo-pack activation
+  leak is now closed on the same startup-authority lane. The remaining typed
+  review-state consumers behind startup/tandem continuity no longer each
+  hardcode one VoiceTerm report path; `startup-context`, startup
+  `WorkIntakePacket` routing, and `check_tandem_consistency` now share a
+  repo-pack-aware review-state resolver that honors candidate-path authority
+  instead. The remaining gap is broader migration of review-state/event
+  consumers plus the still-separate raw git/pre-commit bypass.
 - 2026-03-23 Part-53 hardening follow-up: the live `ContextGraphDelta`
   path is no longer relying on unstable host metadata. Snapshot selection now
   orders `latest` / `previous` by embedded capture time instead of filesystem

@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from hashlib import sha256
-import json
 from pathlib import Path
 
 from .project_governance import PlanRegistryEntry, ProjectGovernance
+from .review_state_locator import load_review_state as load_typed_review_state
 from .review_state_models import ReviewState
-from .review_state_parser import review_state_from_payload
 from .work_intake_models import PlanTargetRef
 
 _SESSION_RESUME_TARGET_KIND = "session_resume"
@@ -17,18 +16,12 @@ _PLAN_DOC_TARGET_KIND = "plan_doc"
 _PLAN_DOC_ANCHOR = "section:root"
 
 
-def load_review_state(repo_root: Path) -> ReviewState | None:
+def load_review_state(
+    repo_root: Path,
+    governance: ProjectGovernance | None = None,
+) -> ReviewState | None:
     """Load the typed review-state projection when it exists."""
-    review_state_path = (
-        repo_root / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
-    )
-    if not review_state_path.is_file():
-        return None
-    try:
-        payload = json.loads(review_state_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return review_state_from_payload(payload)
+    return load_typed_review_state(repo_root, governance=governance)
 
 
 def select_active_plan_entry(

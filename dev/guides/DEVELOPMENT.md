@@ -237,7 +237,9 @@ Three quality layers matter in practice:
     same command now persists a managed startup receipt under the repo-owned
     reports root, and scoped launcher/mutation `devctl` entrypoints require a
     fresh receipt instead of silently starting new work from ad hoc session
-    state.
+    state. The adjacent typed review-state reads in startup/tandem consumers
+    now resolve through repo-pack/governance candidate paths rather than one
+    fixed `dev/reports/review_channel/latest/review_state.json` literal.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.
     That exclusion only affects checkpoint-budget accounting; raw git state

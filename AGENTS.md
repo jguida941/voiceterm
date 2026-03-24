@@ -128,7 +128,10 @@ Run this sequence for every task. Do not skip steps.
    (selected `PlanTargetRef`, typed continuity, and routing hints), writes a
    managed startup receipt under the repo-owned reports root, and exits
    non-zero when checkpoint budget or startup-authority truth says another
-   implementation slice is not allowed yet. After that, run
+   implementation slice is not allowed yet. The same startup/tandem path now
+   resolves typed `review_state.json` through repo-pack/governance candidate
+   authority instead of assuming one fixed `dev/reports/.../latest` path.
+   After that, run
    `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
    for a slim startup context with active plans, hotspots, and deep links.
    The live graph now also carries first-pass `guards` / `scoped_by`
