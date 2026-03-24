@@ -173,7 +173,7 @@ class PhoneStatusSnapshotTests(unittest.TestCase):
             snapshot = load_phone_control_snapshot(repo_root)
 
         self.assertTrue(snapshot.available)
-        self.assertEqual(snapshot.review_bridge_state, "stale")
+        self.assertEqual(snapshot.review_bridge_state, "runtime_missing")
         self.assertEqual(snapshot.current_instruction, "- keep the next slice bounded")
         self.assertEqual(
             snapshot.last_worktree_hash,
