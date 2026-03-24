@@ -48,6 +48,48 @@ def _render_markdown(ctx_dict: dict) -> str:
         lines.append(f"- recommended_action: `{pe.get('recommended_action', '?')}`")
         lines.append("")
 
+    intake = ctx_dict.get("work_intake", {})
+    if isinstance(intake, dict) and intake:
+        target = intake.get("active_target", {})
+        continuity = intake.get("continuity", {})
+        routing = intake.get("routing", {})
+        lines.append("## Work Intake")
+        if isinstance(target, dict) and target:
+            lines.append(
+                f"- active_target: `{target.get('plan_path', '?')}` "
+                f"[{target.get('target_kind', '?')}]"
+            )
+        lines.append(
+            f"- confidence: `{intake.get('confidence', 'low')}`"
+            + (
+                f" ({intake.get('fallback_reason')})"
+                if intake.get("fallback_reason")
+                else ""
+            )
+        )
+        if isinstance(continuity, dict) and continuity:
+            lines.append(
+                f"- continuity: `{continuity.get('alignment_status', 'missing')}` "
+                f"({continuity.get('alignment_reason', '')})"
+            )
+            summary = str(continuity.get("summary") or "").strip()
+            if summary:
+                lines.append(f"- continuity_summary: {summary}")
+        if isinstance(routing, dict) and routing:
+            profile = str(routing.get("selected_workflow_profile") or "").strip()
+            if profile:
+                lines.append(f"- selected_workflow_profile: `{profile}`")
+            preflight = str(routing.get("preflight_command") or "").strip()
+            if preflight:
+                lines.append(f"- preflight_command: `{preflight}`")
+        warm_refs = intake.get("warm_refs")
+        if isinstance(warm_refs, list) and warm_refs:
+            lines.append(f"- warm_refs: {_join_paths(warm_refs)}")
+        writeback_sinks = intake.get("writeback_sinks")
+        if isinstance(writeback_sinks, list) and writeback_sinks:
+            lines.append(f"- writeback_sinks: {_join_paths(writeback_sinks)}")
+        lines.append("")
+
     memory_roots = gov.get("memory_roots", {})
     if isinstance(memory_roots, dict) and any(str(memory_roots.get(key) or "").strip() for key in ("memory_root", "context_store_root")):
         lines.append("## Continuity Roots")
@@ -60,6 +102,14 @@ def _render_markdown(ctx_dict: dict) -> str:
     append_quality_signal_lines(lines, ctx_dict.get("quality_signals"))
 
     return "\n".join(lines)
+
+
+def _join_paths(paths: list[object], *, limit: int = 4) -> str:
+    cleaned = [str(path).strip() for path in paths if str(path).strip()]
+    if len(cleaned) <= limit:
+        return ", ".join(f"`{path}`" for path in cleaned)
+    head = ", ".join(f"`{path}`" for path in cleaned[:limit])
+    return f"{head}, +{len(cleaned) - limit} more"
 
 
 def add_parser(subparsers) -> None:

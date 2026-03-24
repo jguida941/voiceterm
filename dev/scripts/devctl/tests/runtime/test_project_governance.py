@@ -22,6 +22,8 @@ from dev.scripts.devctl.runtime.project_governance import (
     PushEnforcement,
     RepoIdentity,
     RepoPackRef,
+    SessionResumeEntry,
+    SessionResumeState,
     bridge_config_from_mapping,
     bundle_overrides_from_mapping,
     enabled_checks_from_mapping,
@@ -69,7 +71,19 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
                     "owner": "tooling/control plane",
                     "lifecycle": "active",
                     "has_execution_plan_contract": True,
-                    "has_session_resume": True,
+                    "session_resume": {
+                        "section_hash": "resume1234",
+                        "summary": "Continue the authority loop slice.",
+                        "current_goal": "Land the first startup intake packet.",
+                        "next_action": "Run bundle.tooling and inspect failures.",
+                        "entries": [
+                            {
+                                "text": "Land the first startup intake packet.",
+                                "item_kind": "bullet",
+                                "label": "Current goal",
+                            }
+                        ],
+                    },
                 }
             ],
         },
@@ -180,6 +194,11 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
     assert len(gov.plan_registry.entries) == 1
     assert gov.plan_registry.entries[0].title == "Master Plan"
     assert gov.plan_registry.entries[0].has_execution_plan_contract is True
+    assert gov.plan_registry.entries[0].session_resume is not None
+    assert (
+        gov.plan_registry.entries[0].session_resume.current_goal
+        == "Land the first startup intake packet."
+    )
 
     assert gov.doc_policy.docs_authority_path == "AGENTS.md"
     assert gov.doc_policy.governed_doc_roots == ("dev/active", "dev/guides")
@@ -317,7 +336,18 @@ def test_project_governance_roundtrip() -> None:
                     when_agents_read="always",
                     title="Master Plan",
                     has_execution_plan_contract=True,
-                    has_session_resume=True,
+                    session_resume=SessionResumeState(
+                        section_hash="resume1234",
+                        summary="Continue the authority loop slice.",
+                        current_goal="Land the first startup intake packet.",
+                        next_action="Run bundle.tooling and inspect failures.",
+                        entries=(
+                            SessionResumeEntry(
+                                text="Land the first startup intake packet.",
+                                label="Current goal",
+                            ),
+                        ),
+                    ),
                 ),
             )
         ),

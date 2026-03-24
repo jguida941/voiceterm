@@ -113,7 +113,7 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
-            "`startup-context` currently carries governance, reviewer gate, and advisory",
+            "`startup-context` now carries compact governance, reviewer gate, advisory",
             rendered_text,
         )
         self.assertIn(

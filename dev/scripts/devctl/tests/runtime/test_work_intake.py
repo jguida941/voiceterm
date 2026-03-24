@@ -1,0 +1,177 @@
+"""Focused tests for startup work-intake routing."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from dev.scripts.devctl.runtime.project_governance import (
+    PROJECT_GOVERNANCE_CONTRACT_ID,
+    PROJECT_GOVERNANCE_SCHEMA_VERSION,
+    ArtifactRoots,
+    BridgeConfig,
+    BundleOverrides,
+    EnabledChecks,
+    MemoryRoots,
+    PathRoots,
+    PlanRegistry,
+    PlanRegistryEntry,
+    ProjectGovernance,
+    RepoIdentity,
+    RepoPackRef,
+    SessionResumeEntry,
+    SessionResumeState,
+)
+from dev.scripts.devctl.runtime.work_intake import build_work_intake_packet
+
+
+def _write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def _governance() -> ProjectGovernance:
+    tracker_entry = PlanRegistryEntry(
+        path="dev/active/MASTER_PLAN.md",
+        role="tracker",
+        authority="canonical",
+        scope="all active MP execution state",
+        when_agents_read="always",
+        title="Master Plan",
+        session_resume=SessionResumeState(
+            section_hash="tracker1234",
+            summary="Tracker fallback summary.",
+            entries=(SessionResumeEntry(text="Tracker fallback summary."),),
+        ),
+    )
+    authority_entry = PlanRegistryEntry(
+        path="dev/active/platform_authority_loop.md",
+        role="spec",
+        authority="MP-377",
+        scope="MP-377",
+        when_agents_read="matching MP scope is in play",
+        title="Platform Authority Loop",
+        session_resume=SessionResumeState(
+            section_hash="resume1234",
+            summary="Land the first startup intake packet.",
+            current_goal="Land the first startup intake packet.",
+            next_action="Run bundle.tooling and inspect failures.",
+            entries=(
+                SessionResumeEntry(
+                    text="Land the first startup intake packet.",
+                    label="Current goal",
+                ),
+                SessionResumeEntry(
+                    text="Run bundle.tooling and inspect failures.",
+                    label="Next action",
+                ),
+            ),
+        ),
+    )
+    return ProjectGovernance(
+        schema_version=PROJECT_GOVERNANCE_SCHEMA_VERSION,
+        contract_id=PROJECT_GOVERNANCE_CONTRACT_ID,
+        repo_identity=RepoIdentity(repo_name="codex-voice"),
+        repo_pack=RepoPackRef(pack_id="voiceterm"),
+        path_roots=PathRoots(),
+        plan_registry=PlanRegistry(
+            tracker_path="dev/active/MASTER_PLAN.md",
+            index_path="dev/active/INDEX.md",
+            entries=(tracker_entry, authority_entry),
+        ),
+        artifact_roots=ArtifactRoots(),
+        memory_roots=MemoryRoots(),
+        bridge_config=BridgeConfig(
+            bridge_mode="active_dual_agent",
+            bridge_path="bridge.md",
+            bridge_active=True,
+        ),
+        enabled_checks=EnabledChecks(),
+        bundle_overrides=BundleOverrides(overrides={}),
+        startup_order=("AGENTS.md", "dev/active/INDEX.md", "dev/active/MASTER_PLAN.md"),
+        docs_authority="AGENTS.md",
+        workflow_profiles=("bundle.bootstrap", "bundle.tooling", "bundle.post-push"),
+        command_routing_defaults={
+            "push": {
+                "default_remote": "origin",
+                "development_branch": "develop",
+                "release_branch": "master",
+                "preflight": {
+                    "command": "check-router",
+                    "since_ref_template": "{remote}/{development_branch}",
+                    "execute": True,
+                },
+                "post_push": {"bundle": "bundle.post-push"},
+            }
+        },
+    )
+
+
+def test_build_work_intake_packet_prefers_mp_scoped_spec_and_reconciles_review_state(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path / "AGENTS.md", "# Agents\n")
+    _write(tmp_path / "bridge.md", "# Bridge\n")
+    _write(tmp_path / "dev/active/INDEX.md", "# Index\n")
+    _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
+    _write(tmp_path / "dev/active/platform_authority_loop.md", "# Authority Loop\n")
+    _write(
+        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        json.dumps(
+            {
+                "bridge": {"reviewer_mode": "active_dual_agent"},
+                "review": {"plan_id": "MP-377"},
+                "current_session": {
+                    "last_reviewed_scope": "MP-377",
+                    "current_instruction": "Run bundle.tooling and inspect failures.",
+                    "open_findings": "none",
+                    "implementer_status": "coding",
+                    "implementer_ack_state": "current",
+                },
+            }
+        ),
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.active_target is not None
+    assert packet.active_target.plan_path == "dev/active/platform_authority_loop.md"
+    assert packet.continuity.alignment_status == "aligned"
+    assert packet.routing.selected_workflow_profile == "bundle.tooling"
+    assert (
+        packet.routing.preflight_command
+        == "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute"
+    )
+    assert packet.writeback_sinks == (
+        "dev/active/platform_authority_loop.md",
+        "dev/active/MASTER_PLAN.md",
+    )
+    assert "AGENTS.md" in packet.warm_refs
+    assert "dev/reports/review_channel/latest/review_state.json" in packet.warm_refs
+
+
+def test_build_work_intake_packet_falls_back_to_tracker_without_review_state(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path / "AGENTS.md", "# Agents\n")
+    _write(tmp_path / "dev/active/INDEX.md", "# Index\n")
+    _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
+
+    governance = _governance()
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=governance,
+        advisory_action="checkpoint_allowed",
+        advisory_reason="worktree_dirty_within_budget",
+    )
+
+    assert packet.active_target is not None
+    assert packet.active_target.plan_path == "dev/active/MASTER_PLAN.md"
+    assert packet.continuity.alignment_status == "plan_only"
+    assert packet.confidence == "medium"
+    assert packet.fallback_reason == "no_review_state"

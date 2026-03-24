@@ -5,7 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from .project_governance_contract import PlanRegistry, PlanRegistryEntry
-from .value_coercion import coerce_bool, coerce_mapping_items, coerce_string
+from .session_resume import session_resume_from_mapping
+from .value_coercion import (
+    coerce_bool,
+    coerce_mapping,
+    coerce_mapping_items,
+    coerce_string,
+)
 
 
 def plan_registry_entry_from_mapping(
@@ -23,7 +29,9 @@ def plan_registry_entry_from_mapping(
         has_execution_plan_contract=coerce_bool(
             payload.get("has_execution_plan_contract")
         ),
-        has_session_resume=coerce_bool(payload.get("has_session_resume")),
+        session_resume=session_resume_from_mapping(
+            dict(coerce_mapping(payload.get("session_resume")))
+        ),
     )
     return entry
 

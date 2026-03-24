@@ -22,6 +22,7 @@ from ..runtime.project_governance import (
     PlanRegistry,
     PlanRegistryEntry,
 )
+from ..runtime.session_resume import extract_session_resume_state
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,7 +145,7 @@ def _scan_plan_registry(
                 owner=str(getattr(record, "owner", "")),
                 lifecycle=str(getattr(record, "lifecycle", "unknown")),
                 has_execution_plan_contract="Execution plan contract: required" in text,
-                has_session_resume="## Session Resume" in text,
+                session_resume=extract_session_resume_state(text),
             )
         )
     return PlanRegistry(

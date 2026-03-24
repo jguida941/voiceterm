@@ -84,6 +84,11 @@ class TestStartupContextBuild(unittest.TestCase):
         ))
         self.assertTrue(ctx.advisory_reason)
 
+    def test_has_work_intake(self) -> None:
+        ctx = build_startup_context()
+        self.assertIsNotNone(ctx.work_intake)
+        self.assertTrue(ctx.work_intake.contract_id)
+
     def test_has_quality_signals_dict(self) -> None:
         ctx = build_startup_context()
         self.assertIsInstance(ctx.quality_signals, dict)
@@ -94,6 +99,7 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIn("advisory_action", d)
         self.assertIn("reviewer_gate", d)
         self.assertIn("governance", d)
+        self.assertIn("work_intake", d)
         self.assertIn("quality_signals", d)
 
     def test_slim_token_budget(self) -> None:
@@ -166,6 +172,48 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("## Quality Signals", rendered)
         self.assertIn("**probe-report**", rendered)
         self.assertIn("**governance-review**", rendered)
+
+    def test_markdown_renders_work_intake(self) -> None:
+        rendered = _render_markdown(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "clean_worktree",
+                "reviewer_gate": {},
+                "governance": {
+                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                },
+                "work_intake": {
+                    "confidence": "high",
+                    "active_target": {
+                        "plan_path": "dev/active/platform_authority_loop.md",
+                        "target_kind": "session_resume",
+                    },
+                    "continuity": {
+                        "alignment_status": "aligned",
+                        "alignment_reason": "scope_and_instruction_match",
+                        "summary": "Land the first startup intake packet.",
+                    },
+                    "routing": {
+                        "selected_workflow_profile": "bundle.tooling",
+                        "preflight_command": "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
+                    },
+                    "warm_refs": [
+                        "AGENTS.md",
+                        "dev/active/INDEX.md",
+                        "dev/active/platform_authority_loop.md",
+                    ],
+                    "writeback_sinks": [
+                        "dev/active/platform_authority_loop.md",
+                        "dev/active/MASTER_PLAN.md",
+                    ],
+                },
+            }
+        )
+
+        self.assertIn("## Work Intake", rendered)
+        self.assertIn("dev/active/platform_authority_loop.md", rendered)
+        self.assertIn("continuity_summary: Land the first startup intake packet.", rendered)
+        self.assertIn("selected_workflow_profile: `bundle.tooling`", rendered)
 
     def test_command_fails_closed_when_checkpoint_required(self) -> None:
         ctx = StartupContext(

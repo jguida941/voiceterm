@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 from .project_governance_push import PushEnforcement
+from .session_resume import SessionResumeEntry, SessionResumeState
 
 PROJECT_GOVERNANCE_CONTRACT_ID = "ProjectGovernance"
 PROJECT_GOVERNANCE_SCHEMA_VERSION = 1
@@ -137,10 +138,12 @@ class PlanRegistryEntry:
     owner: str = ""
     lifecycle: str = "unknown"
     has_execution_plan_contract: bool = False
-    has_session_resume: bool = False
+    session_resume: SessionResumeState | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
+        if self.session_resume is None:
+            payload.pop("session_resume", None)
         return payload
 
 
@@ -273,4 +276,6 @@ __all__ = [
     "ProjectGovernance",
     "RepoIdentity",
     "RepoPackRef",
+    "SessionResumeEntry",
+    "SessionResumeState",
 ]

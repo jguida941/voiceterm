@@ -195,11 +195,15 @@ Three quality layers matter in practice:
     `bridge.md` when the typed projection is unavailable. The same startup
     path now has a typed governed-markdown baseline too:
     `ProjectGovernance` carries `DocPolicy`, `DocRegistry`, and parsed
-    `PlanRegistry` entries built from governed docs plus `INDEX.md`, while
-    `## Session Resume` content still remains the canonical restart surface.
-    Generated bootstrap surfaces now explicitly tell agents to escalate from
-    the slim `context-graph --mode bootstrap` helper to
-    `startup-context --format md` when the slice needs typed
+    `PlanRegistry` entries built from governed docs plus `INDEX.md`, and
+    `startup-context` now emits a bounded `WorkIntakePacket` carrying the
+    selected `PlanTargetRef`, typed continuity reconciliation, startup-order
+    warm refs, and live routing defaults. The reviewed markdown
+    `## Session Resume` section still remains the canonical restart surface;
+    the typed continuity state is a startup projection over that markdown, not
+    a second authority store. Generated bootstrap surfaces now explicitly tell
+    agents to escalate from the slim `context-graph --mode bootstrap` helper
+    to `startup-context --format md` when the slice needs typed
     reviewer/checkpoint truth or richer continuity. That same graph now emits
     first-pass `guards` / `scoped_by` relation families, so targeted
     `context-graph --query '<term>'` calls can answer file-level protection
@@ -215,7 +219,6 @@ Three quality layers matter in practice:
     `governance-review --record`, packet-level operational feedback, and
     snapshot baselines) and point agents back to this guide plus
     `dev/scripts/README.md` for the "which tool runs when?" decision table.
-    until runtime consumes typed resume state instead of only a presence flag.
   - `python3 dev/scripts/checks/check_startup_authority_contract.py` is now a
     fail-closed startup proof, not a schema-only inventory check. It rejects
     startup-authority states that are already over the checkpoint budget and

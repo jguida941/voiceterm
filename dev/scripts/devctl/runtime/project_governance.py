@@ -25,6 +25,8 @@ from .project_governance_contract import (
     ProjectGovernance,
     RepoIdentity,
     RepoPackRef,
+    SessionResumeEntry,
+    SessionResumeState,
 )
 from .project_governance_push import PushEnforcement
 from .project_governance_parse import (
@@ -66,6 +68,8 @@ __all__ = [
     "PushEnforcement",
     "RepoIdentity",
     "RepoPackRef",
+    "SessionResumeEntry",
+    "SessionResumeState",
     "artifact_roots_from_mapping",
     "bridge_config_from_mapping",
     "bundle_overrides_from_mapping",

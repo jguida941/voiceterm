@@ -3767,6 +3767,16 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-03-23 startup-intake follow-up: the first live startup-family proof is
+  now real instead of remaining plan-only architecture. `PlanRegistry`
+  entries carry parsed `SessionResumeState`, `startup-context` now emits a
+  bounded `WorkIntakePacket` with the selected `PlanTargetRef`, typed
+  continuity reconciliation, warm refs, and routing hints, and startup now
+  consumes live `startup_order`, `workflow_profiles`, and
+  `command_routing_defaults` instead of leaving those governance fields
+  report-only. The next closure here is wider adoption/hardening:
+  `CollaborationSession`, more runtime consumers, and the validation-
+  freshness / raw-push policy gaps already called out in the active plan.
 - 2026-03-23 Part-53 hardening follow-up: the live `ContextGraphDelta`
   path is no longer relying on unstable host metadata. Snapshot selection now
   orders `latest` / `previous` by embedded capture time instead of filesystem

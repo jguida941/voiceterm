@@ -2,21 +2,10 @@
 
 from __future__ import annotations
 
+from ..text_utils import normalize_inline_markdown
 from .handoff_constants import MARKDOWN_ITEM_RE, ROLLOVER_ACK_PREFIX
 
-
-def _normalize_inline_markdown(value: str) -> str:
-    normalized = value.strip()
-    wrappers = ("**", "__", "`")
-    changed = True
-    while normalized and changed:
-        changed = False
-        for wrapper in wrappers:
-            if normalized.startswith(wrapper) and normalized.endswith(wrapper):
-                normalized = normalized[len(wrapper) : -len(wrapper)].strip()
-                changed = True
-                break
-    return normalized
+_normalize_inline_markdown = normalize_inline_markdown
 
 
 def _extract_markdown_items(raw_text: str) -> list[str]:

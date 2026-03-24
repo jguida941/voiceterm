@@ -2936,7 +2936,15 @@ become the main product surface.
   `DecisionPacket` guidance fields, guard-run/autonomy/review close-out must
   auto-record `governance-review` outcomes, and top-level command crash
   handling must converge on structured `ActionResult` failures instead of raw
-  tracebacks.
+  tracebacks. Latest startup-intake follow-up (2026-03-23): the first runtime
+  proof for that startup-family closure is now live. `PlanRegistry` entries
+  carry parsed `SessionResumeState`, `startup-context` emits a bounded
+  `WorkIntakePacket` with `PlanTargetRef` + continuity reconciliation +
+  routing hints, and the same path now consumes live `startup_order`,
+  `workflow_profiles`, and `command_routing_defaults`. The open remainder in
+  this exact lane is broader adoption/hardening, not more contract sketching:
+  `CollaborationSession`, more runtime consumers, and the separate
+  validation-freshness / raw-push enforcement gaps.
   - [ ] Land the missing authority-spine runtime nodes
     (`PlanTargetRef`, `WorkIntakePacket`, `CollaborationSession`) before
     widening `P1`/`P2` routing and adoption work. (evidence:

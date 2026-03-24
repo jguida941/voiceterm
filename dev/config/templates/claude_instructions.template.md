@@ -24,8 +24,9 @@ gitignored).
   `approval_required` means explain and wait, and `recommend_only` means
   suggest without mutating.
 - Record adjudicated outcomes with `python3 dev/scripts/devctl.py governance-review --record --signal-type probe|guard|audit --check-id <id> --verdict <verdict> --path <repo-path> --finding-class <class> --recurrence-risk <risk> --prevention-surface <surface> --format md`; add `--guidance-id ... --guidance-followed true|false` when guided remediation was involved.
-- `startup-context` currently carries governance, reviewer gate, and advisory
-  action/reason. `context-graph --mode bootstrap` and escalation packets may
+- `startup-context` now carries compact governance, reviewer gate, advisory
+  action/reason, and a bounded `WorkIntakePacket` with typed continuity and
+  routing hints. `context-graph --mode bootstrap` and escalation packets may
   additionally carry recent probe/governance/watchdog/reliability summaries
   when those artifacts exist. Prefer actual packet fields over assumptions.
 - `context-graph --mode bootstrap` auto-saves a `ContextGraphSnapshot` under

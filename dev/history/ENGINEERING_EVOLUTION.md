@@ -46,6 +46,38 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-23 - Startup context stopped treating plan continuity as a boolean
+
+Fact: the startup-authority path no longer reduces governed plan continuity to
+"this file has a `## Session Resume` section." `PlanRegistry` entries now
+carry parsed `SessionResumeState`, and `startup-context` now emits a bounded
+`WorkIntakePacket` that selects one `PlanTargetRef`, reconciles that plan
+resume against typed `review_state.json` when available, and carries startup
+warm refs plus live routing defaults derived from `startup_order`,
+`workflow_profiles`, and `command_routing_defaults`.
+
+This matters because the old startup packet had the right authority inputs but
+not the runtime closure: continuity stayed trapped in markdown prose, routing
+defaults stayed report-only, and the startup path still behaved like a cold
+start unless an agent manually reread the plan. The new intake packet makes
+the first typed startup continuity/routing proof real while keeping reviewed
+markdown as the canonical source and leaving the remaining closure honest:
+`CollaborationSession`, broader consumer adoption, and validation-freshness /
+raw-push enforcement are still open work.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_resume.py`
+- `dev/scripts/devctl/runtime/work_intake.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/governance/draft_governed_docs.py`
+- `dev/scripts/devctl/tests/runtime/test_session_resume.py`
+- `dev/scripts/devctl/tests/runtime/test_work_intake.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
 ### 2026-03-23 - Temporal context-graph diff stopped trusting filesystem mtime
 
 Fact: the Part-53 temporal graph lane no longer picks `latest` / `previous`

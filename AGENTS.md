@@ -134,9 +134,11 @@ Run this sequence for every task. Do not skip steps.
    When the task needs typed reviewer/checkpoint truth, richer continuity, or
    `Session Resume` context beyond that slim packet, also run
    `python3 dev/scripts/devctl.py startup-context --format md`.
-   That typed receipt now exits non-zero when checkpoint budget says another
-   implementation slice is not allowed yet, so repo-owned startup launchers
-   can fail closed on the same packet they render.
+   That typed receipt now emits a bounded `WorkIntakePacket` (selected
+   `PlanTargetRef`, typed continuity, and routing hints) and exits non-zero
+   when checkpoint budget says another implementation slice is not allowed
+   yet, so repo-owned startup launchers can fail closed on the same packet
+   they render.
    Follow the deep links when the task requires full authority from the
    canonical docs (`AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`).
    Keep that bootstrap packet small by default and expand with
@@ -305,13 +307,18 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     first commit skip that committed-tree layer until `HEAD` exists.
     The `startup-context` command itself now uses that same typed checkpoint
     truth as a fail-closed receipt: it still emits the packet, but returns
-    non-zero when another implementation slice should not start yet.
+    non-zero when another implementation slice should not start yet. That same
+    packet now carries the bounded `WorkIntakePacket` startup projection, so
+    `startup_order`, typed plan continuity, and routing defaults travel
+    through one startup-family surface instead of staying report-only.
 4.7 Treat governed-markdown authority the same way: prefer typed
     `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
     parsed `plan_registry` entries when those projections are available, but
     keep the reviewed markdown `## Session Resume` content as the canonical
-    restart surface until startup/runtime explicitly consume typed resume
-    state instead of only a boolean presence marker.
+    restart surface. `startup-context` / `WorkIntakePacket` may consume typed
+    `SessionResumeState` for one selected plan target, but that projection is
+    a bounded startup read, not a replacement for the reviewed markdown
+    authority itself.
 4.8 After fixing a meaningful issue, verify both levels before handoff: the
     local defect must be fixed, and the chosen prevention/absorption path must
     either be landed and validated or explicitly deferred/waived with the

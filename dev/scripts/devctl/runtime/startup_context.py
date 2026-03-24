@@ -17,6 +17,7 @@ from typing import Any
 
 from .project_governance import ProjectGovernance
 from .startup_signals import load_startup_quality_signals
+from .work_intake import WorkIntakePacket, build_work_intake_packet
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +47,7 @@ class StartupContext:
     reviewer_gate: ReviewerGateState = field(default_factory=ReviewerGateState)
     advisory_action: str = "continue_editing"
     advisory_reason: str = ""
+    work_intake: WorkIntakePacket | None = None
     quality_signals: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -57,7 +59,9 @@ class StartupContext:
         d["reviewer_gate"] = asdict(self.reviewer_gate)
         d["quality_signals"] = dict(self.quality_signals)
         if self.governance is not None:
-            d["governance"] = self.governance.to_dict()
+            d["governance"] = _startup_governance_dict(self.governance)
+        if self.work_intake is not None:
+            d["work_intake"] = self.work_intake.to_dict()
         return d
 
 
@@ -222,6 +226,12 @@ def build_startup_context(
     governance = scan_repo_governance(repo_root)
     gate = _detect_reviewer_gate(repo_root)
     action, reason = _derive_advisory_action(governance, gate)
+    work_intake = build_work_intake_packet(
+        repo_root=repo_root,
+        governance=governance,
+        advisory_action=action,
+        advisory_reason=reason,
+    )
     quality_signals = load_startup_quality_signals(repo_root)
 
     return StartupContext(
@@ -229,6 +239,7 @@ def build_startup_context(
         reviewer_gate=gate,
         advisory_action=action,
         advisory_reason=reason,
+        work_intake=work_intake,
         quality_signals=quality_signals,
     )
 
@@ -242,3 +253,56 @@ def blocks_new_implementation(ctx: StartupContext) -> bool:
     return bool(
         push.checkpoint_required or not push.safe_to_continue_editing
     )
+
+
+def _startup_governance_dict(governance: ProjectGovernance) -> dict[str, Any]:
+    """Return a bounded governance projection suitable for startup packets."""
+    payload: dict[str, Any] = {}
+    payload["schema_version"] = governance.schema_version
+    payload["contract_id"] = governance.contract_id
+    payload["repo_identity"] = asdict(governance.repo_identity)
+    payload["repo_pack"] = asdict(governance.repo_pack)
+    payload["path_roots"] = asdict(governance.path_roots)
+    payload["plan_registry"] = {
+        "registry_path": governance.plan_registry.registry_path,
+        "tracker_path": governance.plan_registry.tracker_path,
+        "index_path": governance.plan_registry.index_path,
+        "entries": [
+            _startup_plan_entry_dict(entry)
+            for entry in governance.plan_registry.entries
+        ],
+    }
+    payload["bridge_config"] = asdict(governance.bridge_config)
+    payload["push_enforcement"] = asdict(governance.push_enforcement)
+    payload["startup_order"] = list(governance.startup_order)
+    payload["docs_authority"] = governance.docs_authority
+    payload["workflow_profiles"] = list(governance.workflow_profiles)
+    payload["command_routing_defaults"] = dict(governance.command_routing_defaults or {})
+    payload["enabled_checks_summary"] = dict(
+        guard_count=len(governance.enabled_checks.guard_ids),
+        probe_count=len(governance.enabled_checks.probe_ids),
+    )
+    payload["doc_registry_summary"] = dict(
+        entry_count=len(governance.doc_registry.entries),
+        managed_count=sum(
+            1 for entry in governance.doc_registry.entries if entry.registry_managed
+        ),
+    )
+    if governance.memory_roots.configured():
+        payload["memory_roots"] = governance.memory_roots.to_dict()
+    return payload
+
+
+def _startup_plan_entry_dict(entry) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    payload["path"] = entry.path
+    payload["role"] = entry.role
+    payload["authority"] = entry.authority
+    payload["scope"] = entry.scope
+    payload["when_agents_read"] = entry.when_agents_read
+    payload["title"] = entry.title
+    payload["lifecycle"] = entry.lifecycle
+    payload["has_execution_plan_contract"] = entry.has_execution_plan_contract
+    if entry.session_resume is not None and entry.session_resume.summary:
+        payload["session_resume_summary"] = entry.session_resume.summary
+    return payload

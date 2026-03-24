@@ -1048,6 +1048,16 @@ intended execution order is:
 
 ## Session Resume
 
+- 2026-03-23 startup-intake follow-up: the first typed continuity/runtime
+  proof is now real on the live branch. `PlanRegistry` entries carry parsed
+  `SessionResumeState` instead of a boolean marker, `startup-context`
+  emits a bounded `WorkIntakePacket` with the selected `PlanTargetRef`,
+  continuity reconciliation, warm refs, and writeback sinks, and startup now
+  consumes live `startup_order` / `workflow_profiles` /
+  `command_routing_defaults` rather than leaving those governance fields
+  report-only. The remaining same-lane closure is broader adoption and
+  hardening: `CollaborationSession`, more consumers of the routing packet,
+  and the validation-freshness / push-bypass gaps that the last audit surfaced.
 - 2026-03-23 Part-53 hardening follow-up: the saved-snapshot diff path now
   has its first post-review correctness closure. `latest` / `previous`
   selection no longer depends on filesystem `mtime`, direct-path trend scans
@@ -1110,9 +1120,12 @@ intended execution order is:
   contract family instead of rediscovering file paths or re-reading the full
   plan chain ad hoc.
 - Current session-continuity gap: `PlanRegistry` currently only records
-  whether a plan has a `## Session Resume` section. No runtime path
-  deserializes that content yet, so startup still behaves like a cold start
-  even when governed plans carry real resume state.
+  typed `Session Resume` content and `startup-context` now reconciles one
+  selected plan resume against live review-state input, but the broader
+  authority loop is still incomplete: `CollaborationSession` is not runtime
+  code yet, and startup/routing consumers beyond `WorkIntakePacket` still
+  need to converge on that same continuity packet instead of reading ad hoc
+  fallback surfaces.
 - 2026-03-22 audit-mapping follow-up: the previously implicit blocker,
   bootstrap-compression, memory/session, and path-portability slices are now
   explicit checklist ownership here instead of only prose sequencing. The
@@ -1168,6 +1181,17 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-23: Landed the first typed `WorkIntakePacket` / continuity runtime
+  slice for `MP-377` instead of leaving startup authority at the "report-only
+  governance draft" stage. `PlanRegistry` now stores parsed
+  `SessionResumeState`, `startup-context` compacts the top-level governance
+  projection to stay within token budget, and the new intake packet selects
+  one `PlanTargetRef`, reconciles plan resume state with live
+  `review_state.json` when present, and turns `startup_order`,
+  `workflow_profiles`, and `command_routing_defaults` into real startup
+  routing hints. Focused runtime tests are green on the slice; remaining open
+  work in this lane is `CollaborationSession`, broader consumer adoption,
+  and the separate validation-freshness / raw-push hardening gaps.
 - 2026-03-23: Starting the next `MP-377` enforcement closure pass for the
   already-documented checkpoint-budget miss. This tranche is scoped to make
   repo-owned implementation launch paths fail closed when
