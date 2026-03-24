@@ -1,0 +1,80 @@
+"""Tests for the portable startup receipt helpers."""
+
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from dev.scripts.devctl.runtime.startup_receipt import (
+    StartupReceipt,
+    startup_receipt_path,
+    startup_receipt_problems,
+    startup_receipt_relative_path,
+)
+
+
+class StartupReceiptPathTests(unittest.TestCase):
+    def test_receipt_path_uses_governance_reports_root(self) -> None:
+        governance = SimpleNamespace(
+            path_roots=SimpleNamespace(reports="reports-out")
+        )
+
+        relative = startup_receipt_relative_path(governance=governance)
+
+        self.assertEqual(
+            relative,
+            Path("reports-out") / "startup" / "latest" / "receipt.json",
+        )
+
+    def test_receipt_path_falls_back_to_default_reports_root(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            path = startup_receipt_path(repo_root=Path(tmp_dir))
+
+        self.assertEqual(
+            path,
+            Path(tmp_dir) / "dev" / "reports" / "startup" / "latest" / "receipt.json",
+        )
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_receipt.active_path_config",
+        return_value=SimpleNamespace(reports_root_rel="portable-reports"),
+    )
+    def test_receipt_path_falls_back_to_active_path_config(
+        self,
+        _active_path_config,
+    ) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            path = startup_receipt_path(repo_root=Path(tmp_dir))
+
+        self.assertEqual(
+            path,
+            Path(tmp_dir)
+            / "portable-reports"
+            / "startup"
+            / "latest"
+            / "receipt.json",
+        )
+
+
+class StartupReceiptProblemTests(unittest.TestCase):
+    def test_problem_list_flags_checkpoint_required_receipts(self) -> None:
+        receipt = StartupReceipt(
+            checkpoint_required=True,
+            safe_to_continue_editing=False,
+            startup_authority_ok=True,
+        )
+
+        with TemporaryDirectory() as tmp_dir:
+            problems = startup_receipt_problems(receipt, repo_root=Path(tmp_dir))
+
+        self.assertIn(
+            "Latest startup receipt still requires a checkpoint before another implementation or launcher step.",
+            problems,
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

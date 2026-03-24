@@ -116,6 +116,7 @@ from .review_channel.parser import add_review_channel_parser
 from .security.parser import add_security_parser
 from .sync_parser import add_push_parser, add_sync_parser
 from .runtime.machine_output import clear_machine_output_metrics, consume_machine_output_metrics
+from .runtime.startup_gate import enforce_startup_gate
 from .triage.loop_parser import add_triage_loop_parser
 from .triage.parser import add_triage_parser
 
@@ -260,6 +261,11 @@ def main() -> int:
     started = time.monotonic()
     return_code = 1
     try:
+        gate_failure = enforce_startup_gate(args)
+        if gate_failure is not None:
+            print(gate_failure, file=sys.stderr)
+            return_code = 1
+            return return_code
         return_code = handler(args)
         return return_code
     finally:

@@ -239,6 +239,20 @@ class TestCLIRegistration(unittest.TestCase):
             return_value=ctx,
         ), patch.object(
             startup_context_command,
+            "build_startup_authority_report",
+            return_value={
+                "ok": True,
+                "checks_run": 10,
+                "checks_passed": 10,
+                "errors": [],
+                "warnings": [],
+            },
+        ), patch.object(
+            startup_context_command,
+            "write_startup_receipt",
+            return_value=Path("/tmp/startup-receipt.json"),
+        ), patch.object(
+            startup_context_command,
             "emit_machine_artifact_output",
             side_effect=_fake_emit,
         ):
@@ -269,12 +283,70 @@ class TestCLIRegistration(unittest.TestCase):
             return_value=ctx,
         ), patch.object(
             startup_context_command,
+            "build_startup_authority_report",
+            return_value={
+                "ok": True,
+                "checks_run": 10,
+                "checks_passed": 10,
+                "errors": [],
+                "warnings": [],
+            },
+        ), patch.object(
+            startup_context_command,
+            "write_startup_receipt",
+            return_value=Path("/tmp/startup-receipt.json"),
+        ), patch.object(
+            startup_context_command,
             "emit_machine_artifact_output",
             side_effect=_fake_emit,
         ):
             rc = startup_context_command.run(args)
 
         self.assertEqual(rc, 0)
+
+    def test_command_fails_closed_when_startup_authority_is_red(self) -> None:
+        ctx = StartupContext(
+            governance=_minimal_governance(
+                checkpoint_required=False,
+                safe_to_continue_editing=True,
+            ),
+            reviewer_gate=ReviewerGateState(),
+            advisory_action="continue_editing",
+            advisory_reason="clean_worktree",
+        )
+        args = build_parser().parse_args(["startup-context", "--format", "json"])
+
+        def _fake_emit(*_args, **kwargs):
+            options = kwargs["options"]
+            self.assertFalse(options.ok)
+            return 1
+
+        with patch.object(
+            startup_context_command,
+            "build_startup_context",
+            return_value=ctx,
+        ), patch.object(
+            startup_context_command,
+            "build_startup_authority_report",
+            return_value={
+                "ok": False,
+                "checks_run": 10,
+                "checks_passed": 8,
+                "errors": ["over budget"],
+                "warnings": [],
+            },
+        ), patch.object(
+            startup_context_command,
+            "write_startup_receipt",
+            return_value=Path("/tmp/startup-receipt.json"),
+        ), patch.object(
+            startup_context_command,
+            "emit_machine_artifact_output",
+            side_effect=_fake_emit,
+        ):
+            rc = startup_context_command.run(args)
+
+        self.assertEqual(rc, 1)
 
 
 class TestReviewerGateSemantics(unittest.TestCase):

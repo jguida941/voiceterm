@@ -145,10 +145,11 @@ def _bootstrap_files(
 ) -> list[str]:
     files: list[str] = [
         (
-            "Run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` "
-            "for startup context (repo state, active plans, hotspots, key commands). "
-            "If the slice needs typed reviewer/checkpoint truth or richer continuity, "
-            "also run `python3 dev/scripts/devctl.py startup-context --format md`. "
+            "Run `python3 dev/scripts/devctl.py startup-context --format md` first. "
+            "If it exits non-zero, checkpoint or repair the repo state before coding "
+            "or relaunching conductor work. Then run "
+            "`python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` "
+            "for slim startup context (repo state, active plans, hotspots, key commands). "
             "Then follow deep links when task scope requires full authority: "
             "`AGENTS.md` (SDLC policy), `dev/active/INDEX.md` (plan registry), "
             "`dev/active/MASTER_PLAN.md` (execution state). "

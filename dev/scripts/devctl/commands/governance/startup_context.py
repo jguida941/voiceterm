@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+from ...common_io import display_path
 from ...context_graph.render import append_quality_signal_lines
 from ...common import add_standard_output_arguments
 from ...runtime.machine_output import (
     ArtifactOutputOptions,
     emit_machine_artifact_output,
 )
+from ...runtime.startup_receipt import (
+    build_startup_receipt,
+    write_startup_receipt,
+)
+from ...runtime.startup_authority import build_startup_authority_report
 from ...runtime.startup_context import build_startup_context, blocks_new_implementation
 
 
@@ -46,6 +52,23 @@ def _render_markdown(ctx_dict: dict) -> str:
             f"{pe.get('safe_to_continue_editing', True)}"
         )
         lines.append(f"- recommended_action: `{pe.get('recommended_action', '?')}`")
+        lines.append("")
+
+    authority = ctx_dict.get("startup_authority", {})
+    receipt = ctx_dict.get("startup_receipt", {})
+    if isinstance(authority, dict) and authority:
+        lines.append("## Startup Gate")
+        lines.append(f"- startup_authority_ok: {authority.get('ok', False)}")
+        lines.append(
+            f"- startup_authority_checks: "
+            f"{authority.get('checks_passed', 0)}/{authority.get('checks_run', 0)}"
+        )
+        lines.append(
+            f"- startup_authority_errors: {authority.get('error_count', 0)}"
+        )
+        receipt_path = str(receipt.get("path") or "").strip()
+        if receipt_path:
+            lines.append(f"- startup_receipt: `{receipt_path}`")
         lines.append("")
 
     intake = ctx_dict.get("work_intake", {})
@@ -121,12 +144,63 @@ def add_parser(subparsers) -> None:
     add_standard_output_arguments(sc_cmd, format_choices=("json", "md"))
 
 
+def _startup_authority_payload(authority_report: dict[str, object]) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    payload["ok"] = bool(authority_report.get("ok", False))
+    payload["checks_run"] = int(authority_report.get("checks_run", 0) or 0)
+    payload["checks_passed"] = int(authority_report.get("checks_passed", 0) or 0)
+    payload["error_count"] = len(authority_report.get("errors", ()) or ())
+    payload["warning_count"] = len(authority_report.get("warnings", ()) or ())
+    return payload
+
+
+def _startup_receipt_payload(receipt_path: str, head_commit_sha: str) -> dict[str, object]:
+    return {
+        "path": receipt_path,
+        "head_commit_sha": head_commit_sha,
+    }
+
+
+def _machine_summary(
+    *,
+    ctx,
+    push,
+    authority_report: dict[str, object],
+    startup_receipt_path: str,
+) -> dict[str, object]:
+    summary: dict[str, object] = {}
+    summary["advisory_action"] = ctx.advisory_action
+    summary["advisory_reason"] = ctx.advisory_reason
+    summary["bridge_active"] = ctx.reviewer_gate.bridge_active
+    summary["checkpoint_required"] = (
+        bool(push.checkpoint_required) if push is not None else False
+    )
+    summary["safe_to_continue_editing"] = (
+        bool(push.safe_to_continue_editing) if push is not None else True
+    )
+    summary["startup_authority_ok"] = bool(authority_report.get("ok", False))
+    summary["startup_receipt_path"] = startup_receipt_path
+    return summary
+
+
 def run(args) -> int:
     """Emit the typed startup-context packet."""
     ctx = build_startup_context()
-    payload = ctx.to_dict()
-    blocked = blocks_new_implementation(ctx)
     governance = ctx.governance
+    authority_report = build_startup_authority_report()
+    receipt = build_startup_receipt(
+        ctx,
+        authority_report=authority_report,
+    )
+    receipt_path = write_startup_receipt(receipt, governance=governance)
+    receipt_display_path = display_path(receipt_path)
+    payload = ctx.to_dict()
+    payload["startup_authority"] = _startup_authority_payload(authority_report)
+    payload["startup_receipt"] = _startup_receipt_payload(
+        receipt_display_path,
+        receipt.head_commit_sha,
+    )
+    blocked = blocks_new_implementation(ctx) or not bool(authority_report.get("ok", False))
     push = governance.push_enforcement if governance is not None else None
     return emit_machine_artifact_output(
         args,
@@ -135,16 +209,11 @@ def run(args) -> int:
         human_output=_render_markdown(payload),
         options=ArtifactOutputOptions(
             ok=not blocked,
-            summary={
-                "advisory_action": ctx.advisory_action,
-                "advisory_reason": ctx.advisory_reason,
-                "bridge_active": ctx.reviewer_gate.bridge_active,
-                "checkpoint_required": (
-                    bool(push.checkpoint_required) if push is not None else False
-                ),
-                "safe_to_continue_editing": (
-                    bool(push.safe_to_continue_editing) if push is not None else True
-                ),
-            }
+            summary=_machine_summary(
+                ctx=ctx,
+                push=push,
+                authority_report=authority_report,
+                startup_receipt_path=receipt_display_path,
+            ),
         ),
     )

@@ -73,12 +73,12 @@ def render_bootstrap_steps(
 ) -> str:
     """Render the AI session-start bootstrap checklist."""
     steps = (
+        "Step 0 for any edit, validation, or repo-owned launcher session: run `python3 dev/scripts/devctl.py startup-context --format md`. If it exits non-zero, checkpoint or repair the state before editing or launching more work.",
         "Run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for a slim startup packet: repo identity, active plans, hotspots, key commands, and recent quality signals when artifacts exist.",
-        "If the slice needs typed push/reviewer-gate state or richer startup authority than the slim packet carries, also run `python3 dev/scripts/devctl.py startup-context --format md`.",
-        f"Follow the deep links from step 1 when full authority is needed: read `{process_doc}`, `{active_registry_doc}`, and `{execution_tracker_doc}`.",
+        f"Follow the deep links from steps 1-2 when full authority is needed: read `{process_doc}`, `{active_registry_doc}`, and `{execution_tracker_doc}`.",
         "Use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md` for bounded subgraphs instead of opening whole docs when only one file, guard, command, or MP scope is relevant.",
         "Use `python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md` when the slice needs proof over saved graph baselines.",
-        "Only load additional active docs when the task class requires them.",
+        "Only load additional active docs when the task class requires them, but do not treat `startup-context` as optional escalation once you intend to mutate the repo.",
     )
     return _render_numbered_lines(steps)
 

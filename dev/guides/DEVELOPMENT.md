@@ -201,11 +201,12 @@ Three quality layers matter in practice:
     warm refs, and live routing defaults. The reviewed markdown
     `## Session Resume` section still remains the canonical restart surface;
     the typed continuity state is a startup projection over that markdown, not
-    a second authority store. Generated bootstrap surfaces now explicitly tell
-    agents to escalate from the slim `context-graph --mode bootstrap` helper
-    to `startup-context --format md` when the slice needs typed
-    reviewer/checkpoint truth or richer continuity. That same graph now emits
-    first-pass `guards` / `scoped_by` relation families, so targeted
+    a second authority store. Generated bootstrap surfaces now make
+    `startup-context --format md` the mandatory Step 0 gate before edits,
+    validation, or repo-owned launcher work, with the slim
+    `context-graph --mode bootstrap` helper following as the bounded graph
+    companion. That same graph now emits first-pass `guards` / `scoped_by`
+    relation families, so targeted
     `context-graph --query '<term>'` calls can answer file-level protection
     and scope questions before the workflow widens into deeper startup reads.
     Bootstrap mode also persists a typed `ContextGraphSnapshot` artifact under
@@ -232,7 +233,11 @@ Three quality layers matter in practice:
     still emitted for inspection, but the command exits non-zero when
     `checkpoint_required=true` or `safe_to_continue_editing=false`, so
     repo-owned startup launchers can block the next implementation slice on
-    the canonical startup receipt instead of on prose-only conventions.
+    the canonical startup receipt instead of on prose-only conventions. The
+    same command now persists a managed startup receipt under the repo-owned
+    reports root, and scoped launcher/mutation `devctl` entrypoints require a
+    fresh receipt instead of silently starting new work from ad hoc session
+    state.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.
     That exclusion only affects checkpoint-budget accounting; raw git state

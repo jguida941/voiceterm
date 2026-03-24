@@ -1086,12 +1086,22 @@ intended execution order is:
   resume, memory roots, and recent episode evidence, plus one typed
   continuity packet that reuses those same sources for warm starts.
 - 2026-03-22 bootstrap-surface follow-up: generated `CLAUDE.md` bootstrap
-  steps and live review-channel conductor bootstrap text now explicitly tell
-  agents to escalate from the slim `context-graph --mode bootstrap` helper to
-  `startup-context` when they need typed reviewer/checkpoint truth or richer
-  continuity. This is only a guidance closure, not the runtime one: the item
-  stays open until `startup-context` becomes the actual canonical startup
-  authority rather than an optional richer side path.
+  steps and live review-channel conductor bootstrap text no longer describe
+  `startup-context` as an optional richer side path. They now make it the
+  mandatory Step 0 gate before edits, validation, or repo-owned launcher
+  work, with `context-graph --mode bootstrap` demoted to the slim discovery
+  companion after startup authority is refreshed.
+- 2026-03-23 startup-receipt enforcement follow-up: the same startup lane now
+  has its first managed receipt + scoped launcher gate. `startup-context`
+  persists `StartupReceipt` under the repo-owned reports root derived from
+  live governance/path-root authority instead of a hardcoded VoiceTerm path,
+  and repo-owned launcher/mutation `devctl` entries (`push`, `sync`,
+  `guard-run`, `autonomy-loop`, `autonomy-swarm`, `swarm_run`,
+  `review-channel --action launch|rollover`, and selected controller actions)
+  now fail closed when that receipt is missing/stale or when the live
+  startup-authority report is still red. Remaining closure is broader than
+  this slice: raw git/pre-commit bypass, wider repo-pack activation, and any
+  additional mutating commands that should graduate into the same gate.
 - 2026-03-23 bootstrap-authority follow-up: the first-hop `CLAUDE.md`
   surface now also carries a rendered task-router quick map sourced from
   `governance/task_router_contract.py`, and its guard-limit block is derived
@@ -1207,6 +1217,17 @@ intended execution order is:
   focused runtime tests now prove both boundaries together: worktree-to-index
   module-split atomicity for staged edits, committed-tree importer coherence
   for `HEAD`, and fail-closed startup receipt behavior on over-budget trees.
+- 2026-03-23: Closed the next startup-authority bypass in the same `MP-377`
+  lane instead of leaving the new guard on an honor system. The portable
+  `StartupReceipt` now writes under the repo-owned reports root derived from
+  live governance/path roots, `startup-context` is now the explicit Step 0
+  bootstrap gate in `AGENTS.md`, generated bootstrap surfaces, and the
+  review-channel conductor prompt, and scoped repo-owned launcher/mutation
+  `devctl` commands now refuse to run when that receipt is missing/stale or
+  when live startup-authority truth is already red. The remaining gap is no
+  longer "agents may never hit startup-context"; it is the separate raw
+  git/pre-commit bypass plus broader repo-pack activation and any still-
+  ungated mutating paths.
 - 2026-03-23: Closed the first post-review hardening pass for the Part-53
   temporal graph lane instead of leaving the slice green only on happy-path
   tests. Snapshot resolution now derives `latest` / `previous` from capture-

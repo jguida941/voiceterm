@@ -120,25 +120,26 @@ Use this route to run end-to-end without ambiguity:
 Run this sequence for every task. Do not skip steps.
 
 1. Run session bootstrap checks and load `dev/active/INDEX.md` (`bundle.bootstrap`).
-   Alternatively, run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
+   For any implementation, validation, or repo-owned launcher session, treat
+   `python3 dev/scripts/devctl.py startup-context --format md` as Step 0, not
+   optional escalation. If it exits non-zero, checkpoint or repair the repo
+   state before editing files or starting guarded launcher/mutation commands.
+   That typed startup receipt now emits a bounded `WorkIntakePacket`
+   (selected `PlanTargetRef`, typed continuity, and routing hints), writes a
+   managed startup receipt under the repo-owned reports root, and exits
+   non-zero when checkpoint budget or startup-authority truth says another
+   implementation slice is not allowed yet. After that, run
+   `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
    for a slim startup context with active plans, hotspots, and deep links.
    The live graph now also carries first-pass `guards` / `scoped_by`
    relations, so file/path queries can answer "what guards protect this?" and
    "what plan scope owns this?" from the same generated surface before the
-   session escalates to fuller authority reads. That bootstrap command now
-   also persists a typed `ContextGraphSnapshot` artifact under
+   workflow expands into deeper reads. That bootstrap command now also
+   persists a typed `ContextGraphSnapshot` artifact under
    `dev/reports/graph_snapshots/`; use `--save-snapshot` to capture the same
    versioned graph artifact from other `context-graph` modes too, and use
    `python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md`
    when the slice needs a typed delta/trend read over saved graph baselines.
-   When the task needs typed reviewer/checkpoint truth, richer continuity, or
-   `Session Resume` context beyond that slim packet, also run
-   `python3 dev/scripts/devctl.py startup-context --format md`.
-   That typed receipt now emits a bounded `WorkIntakePacket` (selected
-   `PlanTargetRef`, typed continuity, and routing hints) and exits non-zero
-   when checkpoint budget says another implementation slice is not allowed
-   yet, so repo-owned startup launchers can fail closed on the same packet
-   they render.
    Follow the deep links when the task requires full authority from the
    canonical docs (`AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`).
    Keep that bootstrap packet small by default and expand with

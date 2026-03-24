@@ -3777,6 +3777,16 @@ working on `MP-377`.
   report-only. The next closure here is wider adoption/hardening:
   `CollaborationSession`, more runtime consumers, and the validation-
   freshness / raw-push policy gaps already called out in the active plan.
+- 2026-03-23 startup-authority enforcement follow-up: the platform no longer
+  leaves that new startup packet on an instruction-only honor system.
+  `startup-context` is now the explicit Step 0 gate in repo process docs,
+  generated bootstrap surfaces, and review-channel conductor bootstrap text;
+  it persists a managed `StartupReceipt` under the repo-owned reports root
+  derived from live governance/path-root authority; and scoped repo-owned
+  launcher/mutation `devctl` paths now require a fresh receipt plus a live
+  startup-authority pass before starting another implementation or launcher
+  slice. The remaining gap here is the separate raw git/pre-commit bypass
+  plus wider repo-pack activation, not the old optional-escalation loophole.
 - 2026-03-23 Part-53 hardening follow-up: the live `ContextGraphDelta`
   path is no longer relying on unstable host metadata. Snapshot selection now
   orders `latest` / `previous` by embedded capture time instead of filesystem
@@ -4377,6 +4387,16 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-23: Closed the next startup-authority bypass in the `MP-377`
+  product lane instead of treating the new guard as operator lore. The
+  startup family now owns a portable managed `StartupReceipt` rooted in live
+  governance/path-root authority rather than a hardcoded VoiceTerm report
+  path, `startup-context` is the documented Step 0 gate across the repo's
+  bootstrap surfaces, and scoped repo-owned launcher/mutation `devctl`
+  commands now fail closed when that receipt is missing/stale or when live
+  startup-authority truth is already red. This narrows the remaining closure
+  to raw git/pre-commit bypass and broader repo-pack activation work instead
+  of the older "the packet exists but nothing requires it" gap.
 - 2026-03-22: Landed the first enforcement slice for the new
   architectural-absorption rule without creating another shadow audit surface.
   `governance-review --record` now requires typed finding disposition fields,

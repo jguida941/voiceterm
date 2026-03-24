@@ -2944,7 +2944,16 @@ become the main product surface.
   `workflow_profiles`, and `command_routing_defaults`. The open remainder in
   this exact lane is broader adoption/hardening, not more contract sketching:
   `CollaborationSession`, more runtime consumers, and the separate
-  validation-freshness / raw-push enforcement gaps.
+  validation-freshness / raw-push enforcement gaps. Latest enforcement
+  follow-up (2026-03-23): `startup-context` is now the explicit Step 0
+  bootstrap gate in `AGENTS.md`, generated bootstrap surfaces, and the
+  review-channel conductor prompt; it persists a managed `StartupReceipt`
+  under the repo-owned reports root derived from live governance/path-root
+  authority; and scoped repo-owned launcher/mutation `devctl` paths now
+  require that receipt and re-check live startup authority before starting
+  another implementation or launcher slice. The remaining gap is the
+  separate raw git/pre-commit bypass plus broader repo-pack activation, not
+  the old "startup-context exists but nothing requires it" hole.
   - [ ] Land the missing authority-spine runtime nodes
     (`PlanTargetRef`, `WorkIntakePacket`, `CollaborationSession`) before
     widening `P1`/`P2` routing and adoption work. (evidence:
@@ -3046,8 +3055,17 @@ become the main product surface.
     imports only resolve from worktree-only modules instead of the git index,
     while separately validating committed importer content against `HEAD`
     without treating a legitimate staged atomic split as broken.
-    Remaining closure: promote the same fail-closed rule across the rest of
-    the repo-owned startup/work-intake launch surfaces. (evidence:
+    Current follow-up after the 2026-03-23 closure pass: `startup-context`
+    itself is now the documented Step 0 gate, it persists a managed
+    `StartupReceipt` under the repo-owned reports root derived from live
+    governance/path-root authority, and scoped repo-owned launcher/mutation
+    `devctl` commands (`push`, `sync`, `guard-run`, `autonomy-loop`,
+    `autonomy-swarm`, `swarm_run`, `review-channel --action launch|rollover`,
+    and selected controller actions) now require a fresh receipt and still
+    fail closed on live startup-authority errors. Remaining closure is the
+    separate raw git/pre-commit bypass plus any additional mutating commands
+    that should graduate into the same gate, not the original instruction-
+    surface loophole. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28, Part 36, Part 41)
   - [ ] Auto-record `governance-review` close-out and converge top-level
     failures on structured `ActionResult` crash envelopes. (evidence:

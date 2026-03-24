@@ -113,6 +113,14 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
+            "Step 0 for any edit, validation, or repo-owned launcher session:",
+            rendered_text,
+        )
+        self.assertIn(
+            "If it exits non-zero, checkpoint or repair the state before editing or launching more work.",
+            rendered_text,
+        )
+        self.assertIn(
             "`startup-context` now carries compact governance, reviewer gate, advisory",
             rendered_text,
         )

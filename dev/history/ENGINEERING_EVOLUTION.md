@@ -5497,3 +5497,16 @@ The full technical showcase is consolidated above in Appendix G of this document
   samples plus edge-kind/temperature changes, and reports a rolling trend
   summary over recent snapshots. That turns saved graph baselines into live
   drift answers without leaving the `context-graph` surface.
+- 2026-03-23: Closed the next startup-authority enforcement seam in the
+  `MP-377` authority loop after the live guard proved the problem but the
+  bootstrap path still treated it as optional. `startup-context` is now the
+  explicit Step 0 gate in `AGENTS.md`, generated bootstrap surfaces, and the
+  review-channel conductor prompt; it persists a managed `StartupReceipt`
+  under the repo-owned reports root derived from live governance/path-root
+  authority instead of a hardcoded `dev/reports/...` path; and scoped
+  repo-owned launcher/mutation `devctl` commands now fail closed when that
+  receipt is missing/stale or when live startup-authority truth is red.
+  Focused runtime/governance tests, active-plan sync, instruction-surface
+  sync, and platform-contract closure are green after the slice. The
+  remaining gap is now the separate raw git/pre-commit bypass plus broader
+  repo-pack activation, not the old optional-escalation loophole.
