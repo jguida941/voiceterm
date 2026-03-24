@@ -1780,6 +1780,19 @@ intended execution order is:
   implementation also updates the repo policy, CLI inventory, maintainer docs,
   and starter hook surfaces so the new command is governed by the same
   policy-driven path as `check-router`, `docs-check`, and `render-surfaces`.
+- Guarded-push follow-up verification (2026-03-24): the feature-branch push
+  path no longer widens its diff base to `origin/develop` when the current
+  branch already has a tracked upstream, so `devctl push` no longer escalates
+  unrelated historical release-workflow edits into a false `bundle.release`
+  / CodeRabbit block. The same follow-up kept stale mutation-badge freshness
+  visible in `hygiene --strict-warnings` but stopped letting that one
+  repo-pre-existing warning fail non-release tooling preflight; release lanes
+  and publication drift policy remain unchanged. Focused regression coverage
+  (`test_push.py`, `test_work_intake.py`, `test_startup_context.py`,
+  `test_hygiene.py`, `test_bundle_registry.py`,
+  `test_check_agents_bundle_render.py`, and
+  `test_check_bundle_workflow_parity.py`) plus direct
+  `check_bundle_workflow_parity.py` proof are green after the slice.
 - Docs-authority slice verification (2026-03-20): `python3 -m pytest
   dev/scripts/devctl/tests/governance/test_doc_authority.py -q --tb=short`
   passed (`30/30`). `python3 dev/scripts/devctl.py doc-authority --format md`

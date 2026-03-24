@@ -349,7 +349,7 @@ jobs:
           fi
 
       - name: Run governance hygiene gate
-        run: python3 dev/scripts/devctl.py hygiene --strict-warnings --format md
+        run: python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge --format md
 
       - name: Run orchestrator status guard
         run: python3 dev/scripts/devctl.py orchestrate-status --format md

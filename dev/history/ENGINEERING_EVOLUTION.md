@@ -5540,3 +5540,19 @@ The full technical showcase is consolidated above in Appendix G of this document
   sync, and platform-contract closure are green after the slice. The
   remaining gap is now the separate raw git/pre-commit bypass plus broader
   repo-pack activation, not the old optional-escalation loophole.
+### 2026-03-24 - MP-377 guarded push preflight now respects branch-local truth
+
+Fact: the next `MP-377` startup/push follow-up closed two governance-policy
+drifts that were still blocking normal feature-branch publication for the
+wrong reasons. `devctl push` had still been building `check-router` preflight
+against `origin/develop`, so a feature branch with older workflow history was
+misclassified as `bundle.release` and tripped master-only CodeRabbit gates.
+That diff base now resolves to the tracked upstream branch when it exists, and
+the same resolver is reused by startup work-intake routing so
+`startup-context` advertises the exact preflight command `devctl push` will
+run. Separately, the tooling lane no longer treats stale mutation-badge
+freshness as a blocking strict-warning failure even though the warning remains
+visible in hygiene output; release lanes and external publication drift policy
+stay unchanged. The practical result is that feature-branch guarded push now
+fails only on real current-lane blockers instead of unrelated release debt or
+repo-pre-existing mutation freshness drift.

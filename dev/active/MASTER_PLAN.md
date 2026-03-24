@@ -3072,7 +3072,12 @@ become the main product surface.
   `startup-context`, startup `WorkIntakePacket` routing, and
   `check_tandem_consistency` stay aligned with review-state candidate-path
   authority while the remaining raw git/pre-commit bypass work stays
-  explicit. (evidence:
+  explicit. Latest follow-up (2026-03-24): guarded feature-branch push
+  preflight now diffs against the tracked upstream ref instead of always
+  `origin/develop`, which removed the false `bundle.release` / CodeRabbit
+  feature-branch block, and the tooling lane now treats stale
+  mutation-badge freshness as visible non-blocking debt instead of a local
+  push blocker while leaving release lanes unchanged. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28, Part 36, Part 41)
   - [ ] Auto-record `governance-review` close-out and converge top-level
     failures on structured `ActionResult` crash envelopes. (evidence:
