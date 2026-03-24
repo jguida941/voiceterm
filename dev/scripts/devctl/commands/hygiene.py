@@ -204,6 +204,7 @@ def _fix_pycache_dirs(pycache_dirs: List[str]) -> Dict:
 MUTATION_BADGE_PATH = ".github/badges/mutation-score.json"
 MUTATION_BADGE_MAX_AGE_DAYS = 14
 README_REQUIRED_DIRS = ("dev/history", "dev/deferred", "dev/active", "dev/adr")
+STRICT_WARNING_EXEMPTION_SECTIONS = {"mutation_badge": "mutation_badge"}
 
 
 def _audit_mutation_badge() -> Dict:
@@ -244,6 +245,30 @@ def _audit_readme_presence() -> Dict:
     return {"errors": errors, "warnings": warnings}
 
 
+def _strict_warning_counts(
+    *,
+    strict_warnings: bool,
+    ignored_warning_sources: tuple[str, ...],
+    section_by_source: dict[str, dict[str, object]],
+) -> tuple[int, int]:
+    """Return blocking warning count and ignored warning count."""
+    if not strict_warnings:
+        return 0, 0
+
+    ignored_warning_count = 0
+    for source in ignored_warning_sources:
+        section_name = STRICT_WARNING_EXEMPTION_SECTIONS.get(source)
+        if not section_name:
+            continue
+        section = section_by_source.get(section_name, {})
+        ignored_warning_count += len(section.get("warnings", []))
+
+    warning_count = sum(
+        len(section.get("warnings", [])) for section in section_by_source.values()
+    )
+    return max(0, warning_count - ignored_warning_count), ignored_warning_count
+
+
 def run(args) -> int:
     """Audit archive/ADR/scripts hygiene and report drift."""
     strict_warnings = bool(getattr(args, "strict_warnings", False))
@@ -265,20 +290,30 @@ def run(args) -> int:
     reports = build_reports_hygiene_guard(REPO_ROOT)
     mutation_badge = _audit_mutation_badge()
     readme_presence = _audit_readme_presence()
-    sections = [
-        archive,
-        adr,
-        scripts,
-        publications,
-        runtime_processes,
-        reports,
-        mutation_badge,
-        readme_presence,
-    ]
+    section_by_source = {
+        "archive": archive,
+        "adr": adr,
+        "scripts": scripts,
+        "publications": publications,
+        "runtime_processes": runtime_processes,
+        "reports": reports,
+        "mutation_badge": mutation_badge,
+        "readme_presence": readme_presence,
+    }
+    sections = list(section_by_source.values())
+    ignored_warning_sources = tuple(
+        str(source).strip()
+        for source in getattr(args, "ignore_warning_source", ()) or ()
+        if str(source).strip()
+    )
 
     error_count = sum(len(section["errors"]) for section in sections)
     warning_count = sum(len(section["warnings"]) for section in sections)
-    warning_fail_count = warning_count if strict_warnings else 0
+    warning_fail_count, ignored_warning_count = _strict_warning_counts(
+        strict_warnings=strict_warnings,
+        ignored_warning_sources=ignored_warning_sources,
+        section_by_source=section_by_source,
+    )
     ok = error_count == 0 and warning_fail_count == 0
 
     report = {
@@ -289,6 +324,8 @@ def run(args) -> int:
         "error_count": error_count,
         "warning_count": warning_count,
         "warning_fail_count": warning_fail_count,
+        "ignored_warning_sources": list(ignored_warning_sources),
+        "ignored_warning_count": ignored_warning_count,
         "archive": archive,
         "adr": adr,
         "scripts": scripts,

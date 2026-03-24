@@ -388,6 +388,13 @@ class HygieneAuditTests(unittest.TestCase):
         args = parser.parse_args(["hygiene", "--strict-warnings"])
         self.assertTrue(args.strict_warnings)
 
+    def test_hygiene_parser_accepts_ignored_warning_sources(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            ["hygiene", "--ignore-warning-source", "mutation_badge"]
+        )
+        self.assertEqual(args.ignore_warning_source, ["mutation_badge"])
+
     def test_fix_pycache_dirs_removes_detected_directories(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -760,6 +767,80 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertTrue(payload["strict_warnings"])
         self.assertGreaterEqual(payload["warning_count"], 1)
         self.assertEqual(payload["warning_fail_count"], payload["warning_count"])
+
+    @mock.patch("dev.scripts.devctl.commands.hygiene.write_output")
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene.build_reports_hygiene_guard",
+        return_value={
+            "reports_root": "dev/reports",
+            "reports_root_exists": True,
+            "managed_run_dirs": 0,
+            "candidate_count": 0,
+            "candidate_reclaim_bytes": 0,
+            "candidate_reclaim_human": "0 B",
+            "warnings": [],
+            "errors": [],
+            "subroots": [],
+        },
+    )
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes",
+        return_value=([], []),
+    )
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene._audit_mutation_badge",
+        return_value={
+            "warnings": ["Mutation badge is 18 days old (threshold: 14 days)."],
+            "errors": [],
+        },
+    )
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene._audit_scripts",
+        return_value={
+            "top_level_scripts": [],
+            "check_scripts": [],
+            "pycache_dirs": [],
+            "warnings": [],
+            "errors": [],
+        },
+    )
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene._audit_adrs",
+        return_value={"total_adrs": 0, "warnings": [], "errors": []},
+    )
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene._audit_archive",
+        return_value={"total_entries": 0, "warnings": [], "errors": []},
+    )
+    def test_hygiene_strict_warnings_can_ignore_mutation_badge(
+        self,
+        _archive_mock: mock.Mock,
+        _adr_mock: mock.Mock,
+        _scripts_mock: mock.Mock,
+        _mutation_badge_mock: mock.Mock,
+        _scan_mock: mock.Mock,
+        _reports_mock: mock.Mock,
+        write_output_mock: mock.Mock,
+    ) -> None:
+        args = SimpleNamespace(
+            fix=False,
+            strict_warnings=True,
+            ignore_warning_source=["mutation_badge"],
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+        )
+
+        rc = hygiene.run(args)
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["warning_count"], 1)
+        self.assertEqual(payload["warning_fail_count"], 0)
+        self.assertEqual(payload["ignored_warning_sources"], ["mutation_badge"])
+        self.assertEqual(payload["ignored_warning_count"], 1)
 
     @mock.patch("dev.scripts.devctl.commands.hygiene.write_output")
     @mock.patch(

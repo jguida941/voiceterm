@@ -20,6 +20,12 @@ def render_md(report: dict) -> str:
     lines.append(f"- warnings: {report['warning_count']}")
     if report["strict_warnings"]:
         lines.append(f"- warning_fail_count: {report['warning_fail_count']}")
+    if report.get("ignored_warning_sources"):
+        lines.append(
+            "- ignored_warning_sources: "
+            + ", ".join(report["ignored_warning_sources"])
+        )
+        lines.append(f"- ignored_warning_count: {report['ignored_warning_count']}")
     lines.append("")
     lines.append("## Archive")
     lines.append(f"- entries: {archive['total_entries']}")

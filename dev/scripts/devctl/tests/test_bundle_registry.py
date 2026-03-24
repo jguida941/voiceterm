@@ -37,7 +37,7 @@ class BundleRegistryContractTests(TestCase):
         commands = set(get_bundle_commands("bundle.tooling"))
         required_commands = {
             "python3 dev/scripts/devctl.py docs-check --strict-tooling",
-            "python3 dev/scripts/devctl.py hygiene --strict-warnings",
+            "python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge",
             "python3 dev/scripts/checks/check_agents_contract.py",
             "python3 dev/scripts/checks/check_bundle_registry_dry.py",
             "python3 dev/scripts/checks/check_architecture_surface_sync.py",

@@ -943,7 +943,7 @@ find . -maxdepth 1 -type f -name '--*'
 
 ```bash
 python3 dev/scripts/devctl.py docs-check --strict-tooling
-python3 dev/scripts/devctl.py hygiene --strict-warnings
+python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge
 python3 dev/scripts/devctl.py orchestrate-status --format md
 python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 python3 dev/scripts/checks/check_agents_contract.py

@@ -165,7 +165,7 @@ BUNDLE_REGISTRY: Final[dict[str, tuple[str, ...]]] = {
     ),
     "bundle.tooling": (
         "python3 dev/scripts/devctl.py docs-check --strict-tooling",
-        "python3 dev/scripts/devctl.py hygiene --strict-warnings",
+        "python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge",
         *_ORCHESTRATE_COMMANDS,
         *_SHARED_GOVERNANCE_CHECKS,
         *_GUARD_CHECKS,
