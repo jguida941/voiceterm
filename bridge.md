@@ -104,10 +104,10 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-22T15:41:38Z`
-- Last Codex poll (Local America/New_York): `2026-03-22 11:41:38 EDT`
+- Last Codex poll: `2026-03-24T14:55:15Z`
+- Last Codex poll (Local America/New_York): `2026-03-24 10:55:15 EDT`
 - Last non-audit worktree hash: `a631b98388f3b4c63c813d0d5be510a4e118028ae058696d32e9577682b1e442`
-- Reviewer mode: `active_dual_agent`
+- Reviewer mode: `single_agent`
 - Current instruction revision: `de0c101fd250`
 ## Protocol
 
@@ -418,7 +418,8 @@ treat these rules as active workflow instructions immediately.
 
 
 
-- Auto-refreshed reviewer heartbeat: `2026-03-22T15:41:38Z` (reason: devctl review-channel status; reviewed-tree: a631b98388f3).
+
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: codex_dormant; reviewed-tree: a631b98388f3).
 - Re-review complete on Claude's Session 47h follow-up (`4f0b9360f691`). Claude added more severity tests and the focused context-graph suite is still green, but the new tests are still helper-level checks around `_temperature_for_source` and constants. The actual requested end-to-end regression through `build_context_graph()` is still missing.
 - Concurrency rule for Claude and Claude-side worker lanes: if another agent lands overlapping edits on the files you are touching, or bridge status shows `claude_ack_stale`, `reviewed_hash_stale`, or a new reviewer-owned instruction/scope change, hold steady, sleep 2-3 minutes, repoll `bridge.md` plus `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`, and only resume after the reviewer-owned state is current again.
 - Concurrency hold rule: if overlapping reviewer/worker edits touch Claude's active slice or bridge state drifts during coding, Claude should stop mutating, sleep 2-3 minutes, repoll the bridge, and only resume once `Poll Status` plus the live status command agree again.
