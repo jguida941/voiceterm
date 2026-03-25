@@ -2149,7 +2149,14 @@ become the main product surface.
   reviewer bootstrap contract now explicitly routes Codex onto that repo-owned
   wait path when parked on Claude progress instead of ad-hoc sleep loops. The
   checkpoint-gate pause projection and the broader repo-owned semantic
-  reviewer-worker/service path still remain open.
+  reviewer-worker/service path still remain open. A 2026-03-25 stale-
+  implementer recovery follow-up also landed the narrower recovery primitive:
+  attention now emits `implementer_relaunch_required`, the new
+  `review-channel --action recover --recover-provider claude` path replaces
+  only the stale Claude conductor, reviewer-follow escalates repeated
+  unchanged stale-implementer state through that repo-owned recovery path, and
+  `launch|rollover` no longer fail solely because the reviewer loop is stale
+  on the implementer side.
   The next narrowed runtime-consumer splice is also explicit: queue and
   attention already drive current-focus and wait projections, but startup/
   work-intake routing and reviewer/implementer scheduling still ignore
@@ -2300,7 +2307,7 @@ become the main product surface.
   `Last Codex poll` guard failure when the rest of the bridge contract is
   still valid.
   The remaining open gaps are end-to-end auto-promotion proof, the 2-3 minute
-  poll / five-minute heartbeat contract, and stale-peer recovery. A
+  poll / five-minute heartbeat contract, and generalized stale-peer recovery. A
   2026-03-13 follow-up also tightens the proof path: live launch now requires a
   real post-launch reviewer heartbeat instead of counting opened windows as
   success, and the same bridge-backed `review_state` path now emits typed
@@ -2314,6 +2321,13 @@ become the main product surface.
   modules; wired into bundle.tooling, CI workflows, and quality-policy presets.
   A second 2026-03-15 anti-stall hardening pass now blocks the next real loop
   failure shape too: `implementer_completion_stall` fails when Claude-owned
+  status/ack text parks on "instruction unchanged / continuing to poll /
+  Codex should review" while the current instruction is still active and not in
+  an explicit reviewer-owned wait state. A 2026-03-25 follow-up then narrowed
+  the first live stale-implementer recovery path: `review-channel --action
+  recover --recover-provider claude` now replaces only the stale Claude
+  conductor, and reviewer-follow escalates repeated unchanged stale-
+  implementer state through that repo-owned path instead of a full rollover.
   status/ack text parks on "instruction unchanged / continuing to poll /
   Codex should review" while the current instruction is still active and not in
   an explicit reviewer-owned wait state, and the bridge writer/guard now scrub

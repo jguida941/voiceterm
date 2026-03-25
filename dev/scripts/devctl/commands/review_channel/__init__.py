@@ -108,6 +108,7 @@ from ._publisher import spawn_follow_publisher as _spawn_follow_publisher
 from ._publisher import spawn_reviewer_supervisor as _spawn_reviewer_supervisor
 from ._publisher import verify_detached_start as _verify_detached_start
 from ._publisher import verify_reviewer_supervisor_start as _verify_reviewer_supervisor_start
+from ._recover import run_recover_action as _run_recover_action
 from ._stop import run_stop_action as _run_stop_action
 
 
@@ -223,6 +224,7 @@ REVIEWER_FOLLOW_DEPS = ReviewerFollowDeps(
     ensure_reviewer_heartbeat_fn=lambda *a, **kw: ensure_reviewer_heartbeat(*a, **kw),
     build_reviewer_state_report_fn=lambda *a, **kw: _build_reviewer_state_report(*a, **kw),
     reviewer_state_write_to_dict_fn=lambda *a, **kw: reviewer_state_write_to_dict(*a, **kw),
+    run_recovery_action_fn=lambda *a, **kw: _run_recover_action(*a, **kw),
     emit_follow_ndjson_frame_fn=lambda *a, **kw: emit_follow_ndjson_frame(*a, **kw),
     reset_follow_output_fn=lambda *a, **kw: reset_follow_output(*a, **kw),
     build_follow_completion_report_fn=lambda *a, **kw: build_follow_completion_report(*a, **kw),
@@ -241,56 +243,52 @@ def _dispatch_action(
     paths: RuntimePaths,
 ) -> tuple[dict, int]:
     """Dispatch one validated review-channel action."""
+    result: tuple[dict, int]
     if action is ReviewChannelAction.STATUS:
-        return _run_status_action(args=args, repo_root=repo_root, paths=paths)
-
-    if action is ReviewChannelAction.BRIDGE_POLL:
-        return _run_bridge_poll_action_impl(
+        result = _run_status_action(args=args, repo_root=repo_root, paths=paths)
+    elif action is ReviewChannelAction.BRIDGE_POLL:
+        result = _run_bridge_poll_action_impl(
             args=args,
             repo_root=repo_root,
             paths=paths,
         )
-
-    if action is ReviewChannelAction.IMPLEMENTER_WAIT:
-        return _run_implementer_wait_action(
-            args=args,
-            repo_root=repo_root,
-            paths=paths,
-            run_status_action_fn=_run_status_action,
-        )
-
-    if action is ReviewChannelAction.REVIEWER_WAIT:
-        return _run_reviewer_wait_action(
+    elif action is ReviewChannelAction.IMPLEMENTER_WAIT:
+        result = _run_implementer_wait_action(
             args=args,
             repo_root=repo_root,
             paths=paths,
             run_status_action_fn=_run_status_action,
         )
-
-    if action in REVIEWER_STATE_ACTION_SET:
-        return _run_reviewer_state_action(
+    elif action is ReviewChannelAction.REVIEWER_WAIT:
+        result = _run_reviewer_wait_action(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+            run_status_action_fn=_run_status_action,
+        )
+    elif action in REVIEWER_STATE_ACTION_SET:
+        result = _run_reviewer_state_action(
             args=args,
             repo_root=repo_root,
             paths=paths,
         )
-
-    if action in EVENT_ACTION_SET:
-        return _run_event_action(args=args, repo_root=repo_root, paths=paths)
-
-    if action is ReviewChannelAction.ENSURE:
-        return _run_ensure_action(args=args, repo_root=repo_root, paths=paths)
-
-    if action is ReviewChannelAction.STOP:
-        return _run_stop_action(args=args, repo_root=repo_root, paths=paths)
-
-    if action.value in BRIDGE_ACTIONS or action is ReviewChannelAction.PROMOTE:
-        return _run_bridge_action(args=args, repo_root=repo_root, paths=paths)
-
-    return _error_report(
-        args,
-        f"Unsupported review-channel action: {action.value}",
-        exit_code=2,
-    )
+    elif action in EVENT_ACTION_SET:
+        result = _run_event_action(args=args, repo_root=repo_root, paths=paths)
+    elif action is ReviewChannelAction.ENSURE:
+        result = _run_ensure_action(args=args, repo_root=repo_root, paths=paths)
+    elif action is ReviewChannelAction.STOP:
+        result = _run_stop_action(args=args, repo_root=repo_root, paths=paths)
+    elif action is ReviewChannelAction.RECOVER:
+        result = _run_recover_action(args=args, repo_root=repo_root, paths=paths)
+    elif action.value in BRIDGE_ACTIONS or action is ReviewChannelAction.PROMOTE:
+        result = _run_bridge_action(args=args, repo_root=repo_root, paths=paths)
+    else:
+        result = _error_report(
+            args,
+            f"Unsupported review-channel action: {action.value}",
+            exit_code=2,
+        )
+    return result
 
 
 def _emit_report_output(args, report: dict[str, object], exit_code: int) -> int:

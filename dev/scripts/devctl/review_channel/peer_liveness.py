@@ -97,6 +97,7 @@ class AttentionStatus(StrEnum):
     CLAUDE_STATUS_MISSING = "claude_status_missing"
     CLAUDE_ACK_MISSING = "claude_ack_missing"
     CLAUDE_ACK_STALE = "claude_ack_stale"
+    IMPLEMENTER_RELAUNCH_REQUIRED = "implementer_relaunch_required"
     REVIEWER_SUPERVISOR_REQUIRED = "reviewer_supervisor_required"
     WAITING_ON_PEER = "waiting_on_peer"
     CHECKPOINT_REQUIRED = "checkpoint_required"

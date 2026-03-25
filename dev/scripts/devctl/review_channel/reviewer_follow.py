@@ -23,6 +23,11 @@ from .promotion import (
     promote_bridge_instruction,
     validate_promotion_ready,
 )
+from .reviewer_follow_recovery import (
+    ReviewerFollowRecoveryInput,
+    ReviewerFollowRecoveryState,
+    maybe_auto_recover_stale_implementer,
+)
 
 
 @dataclass(frozen=True)
@@ -30,6 +35,7 @@ class ReviewerFollowDeps:
     ensure_reviewer_heartbeat_fn: Callable[..., object]
     build_reviewer_state_report_fn: Callable[..., tuple[dict, int]]
     reviewer_state_write_to_dict_fn: Callable[..., dict[str, object] | None]
+    run_recovery_action_fn: Callable[..., tuple[dict, int]] | None
     emit_follow_ndjson_frame_fn: Callable[..., int]
     reset_follow_output_fn: Callable[..., None]
     build_follow_completion_report_fn: Callable[..., dict[str, object]]
@@ -41,10 +47,17 @@ class ReviewerFollowDeps:
 
 def run_reviewer_follow_action(*, args, repo_root: Path, paths: dict[str, object], deps: ReviewerFollowDeps) -> tuple[dict, int]:
     """Poll reviewer-worker state on cadence and emit NDJSON frames."""
+    recovery_state = ReviewerFollowRecoveryState()
     return run_configured_follow_action(
         args=args, repo_root=repo_root, paths=paths, deps_source=deps,
         action=_reviewer_follow_action_shape(deps),
-        build_tick_fn=lambda: _build_reviewer_follow_tick(args=args, repo_root=repo_root, paths=paths, deps=deps),
+        build_tick_fn=lambda: _build_reviewer_follow_tick(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+            deps=deps,
+            recovery_state=recovery_state,
+        ),
     )
 
 
@@ -66,6 +79,7 @@ def _build_reviewer_follow_tick(
     repo_root: Path,
     paths: dict[str, object],
     deps: ReviewerFollowDeps,
+    recovery_state: ReviewerFollowRecoveryState,
 ) -> FollowLoopTick:
     bridge_path = paths["bridge_path"]
     assert isinstance(bridge_path, Path)
@@ -99,6 +113,30 @@ def _build_reviewer_follow_tick(
                 paths=paths,
             )
             report["auto_promotion"] = auto_promotion
+            progress_token = build_claude_progress_token(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+            )
+    auto_recovery = maybe_auto_recover_stale_implementer(
+        recovery_fn=deps.run_recovery_action_fn,
+        recovery_input=ReviewerFollowRecoveryInput(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+            report=report,
+            progress_token=progress_token,
+            recovery_state=recovery_state,
+        ),
+    )
+    if auto_recovery is not None:
+        report["auto_recovery"] = auto_recovery
+        if bool(auto_recovery.get("recovered")):
+            report, frame_exit_code = deps.build_reviewer_state_report_fn(
+                args=args,
+                repo_root=repo_root,
+                paths=paths,
+            )
+            report["auto_recovery"] = auto_recovery
             progress_token = build_claude_progress_token(
                 repo_root=repo_root,
                 bridge_path=bridge_path,

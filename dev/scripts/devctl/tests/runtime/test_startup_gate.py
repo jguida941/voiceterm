@@ -94,6 +94,74 @@ class StartupGateEnforcementTests(unittest.TestCase):
 
     @patch(
         "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems",
+        return_value=["Latest startup receipt recorded startup-authority failures."],
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
+        return_value={
+            "ok": False,
+            "errors": [
+                "Reviewer loop blocks a new implementation slice: reviewer_mode=active_dual_agent, review_accepted=False, reason=claude_ack_stale."
+            ],
+            "checkpoint_required": False,
+            "safe_to_continue_editing": True,
+            "reviewer_loop_blocked": True,
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
+        return_value=StartupReceipt(startup_authority_ok=False),
+    )
+    def test_gate_allows_review_channel_recovery_for_reviewer_loop_only_block(
+        self,
+        _load_receipt,
+        _authority_report,
+        _receipt_problems,
+    ) -> None:
+        self.assertIsNone(
+            enforce_startup_gate(_args("review-channel", action="rollover"))
+        )
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems",
+        return_value=[
+            "Latest startup receipt still requires a checkpoint before another implementation or launcher step.",
+            "Latest startup receipt recorded startup-authority failures.",
+        ],
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
+        return_value={
+            "ok": False,
+            "errors": [
+                "Reviewer loop blocks a new implementation slice: reviewer_mode=active_dual_agent, review_accepted=False, reason=claude_ack_stale."
+            ],
+            "checkpoint_required": True,
+            "safe_to_continue_editing": False,
+            "reviewer_loop_blocked": True,
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
+        return_value=StartupReceipt(
+            startup_authority_ok=False,
+            checkpoint_required=True,
+            safe_to_continue_editing=False,
+        ),
+    )
+    def test_gate_still_blocks_recovery_when_checkpoint_is_required(
+        self,
+        _load_receipt,
+        _authority_report,
+        _receipt_problems,
+    ) -> None:
+        message = enforce_startup_gate(_args("review-channel", action="launch"))
+
+        self.assertIsNotNone(message)
+        self.assertIn("requires a checkpoint", message or "")
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems",
         return_value=[],
     )
     @patch(

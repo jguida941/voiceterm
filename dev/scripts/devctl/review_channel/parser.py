@@ -44,6 +44,7 @@ AGENT_CHOICES = ("codex", "claude", "operator", "system")
 REVIEW_ACTION_CHOICES = (
     "launch",
     "rollover",
+    "recover",
     "status",
     "implementer-wait",
     "reviewer-wait",
@@ -173,6 +174,14 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
             "execution-checklist item before launching conductors. Accepts a "
             "plan filename (e.g. `review_probes`), a full relative path "
             "(e.g. `dev/active/review_probes.md`), or an MP id (e.g. `MP-368`)."
+        ),
+    ),
+    _arg(
+        "--recover-provider",
+        choices=["claude"],
+        default="claude",
+        help=(
+            "Provider conductor to replace during `review-channel --action recover`."
         ),
     ),
     _arg(

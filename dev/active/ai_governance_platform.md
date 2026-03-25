@@ -3860,7 +3860,12 @@ working on `MP-377`.
   error, the Poll Status rewriter no longer buries reviewer notes under blank
   padding, and startup-authority now carries an explicit implementation block
   so reviewer-side mutation paths fail closed in active dual-agent mode unless
-  intentionally overridden. The remaining `MP-377` closure is the broader
+  intentionally overridden. The same lane now also has the first bounded
+  stale-implementer recovery primitive: attention emits
+  `implementer_relaunch_required`, `review-channel --action recover
+  --recover-provider claude` replaces only the stale Claude conductor, and
+  reviewer-follow escalates repeated unchanged stale-implementer state through
+  that repo-owned path instead of a full-loop restart. The remaining `MP-377` closure is the broader
   typed `current_session` / `ReviewState` cutover: more runtime consumers
   still need to stop depending on bridge prose for live freshness and
   continuity, and repo-owned reviewer runtime keepalive still has to prove the

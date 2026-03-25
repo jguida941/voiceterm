@@ -78,6 +78,7 @@ class ReviewChannelAction(StrEnum):
 
     LAUNCH = "launch"
     ROLLOVER = "rollover"
+    RECOVER = "recover"
     STATUS = "status"
     IMPLEMENTER_WAIT = "implementer-wait"
     REVIEWER_WAIT = "reviewer-wait"

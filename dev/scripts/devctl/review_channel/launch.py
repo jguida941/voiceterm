@@ -110,6 +110,7 @@ def build_launch_sessions(
     session_output_root: Path | None = None,
     cursor_lanes: list["LaneAssignment"] | None = None,
     cursor_workers: int = 0,
+    providers_to_launch: tuple[str, ...] | None = None,
     build_conductor_prompt_fn: Callable[..., str] = build_conductor_prompt,
     resolve_cli_path_fn: Callable[[str], str] = resolve_cli_path,
 ) -> list[dict[str, object]]:
@@ -147,6 +148,11 @@ def build_launch_sessions(
         provider_roster.append(
             ("cursor", "Cursor", "Claude", cursor_lanes, cursor_workers, str(role_for_provider("cursor"))),
         )
+    if providers_to_launch is not None:
+        selected = set(providers_to_launch)
+        provider_roster = [
+            row for row in provider_roster if row[0] in selected
+        ]
     for provider, provider_name, other_name, lanes, worker_budget, _role in provider_roster:
         session_name = f"{provider}-conductor"
         log_path = None if session_dir is None else session_dir / f"{session_name}.log"

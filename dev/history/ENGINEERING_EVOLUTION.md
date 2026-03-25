@@ -350,6 +350,43 @@ Evidence:
 - `dev/scripts/README.md`
 - `dev/active/MASTER_PLAN.md`
 
+### 2026-03-25 - Stale implementer recovery gained a single-side repo-owned path
+
+Fact: the live review loop no longer has to choose between “wait forever” and
+“restart everyone” when only the Claude side is stale. Review attention now
+distinguishes `implementer_relaunch_required`, `review-channel --action recover
+--recover-provider claude` launches only a fresh Claude conductor for that
+state, and `reviewer-heartbeat --follow` escalates repeated unchanged stale
+implementer progress through that narrower repo-owned recovery path instead of
+falling back to raw sleep loops or full rollover. The same slice also keeps
+startup recovery honest: `launch|rollover` still fail closed on checkpoint
+budget or real startup-authority errors, but they no longer fail solely
+because the reviewer loop is stale on the implementer side.
+
+This matters because the previous behavior encoded the wrong abstraction. The
+plans call for re-seeding the missing side from the last confirmed state, not
+for bouncing a healthy reviewer lane just because the implementer ACK is
+stale. Narrowing the first automated recovery primitive to the stale side
+keeps the repo-owned loop closer to the actual architecture while preserving
+fail-closed checkpoint and authority rules.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/_recover.py`
+- `dev/scripts/devctl/commands/review_channel/__init__.py`
+- `dev/scripts/devctl/review_channel/attention.py`
+- `dev/scripts/devctl/review_channel/reviewer_follow.py`
+- `dev/scripts/devctl/runtime/startup_gate.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_gate.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/review_channel.md`
+- `dev/active/continuous_swarm.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
 ### 2026-03-22 - Autonomy loop packets started consuming canonical probe guidance
 
 Fact: the first probe-guidance route is no longer Ralph-only. `triage-loop`

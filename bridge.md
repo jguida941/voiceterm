@@ -104,11 +104,11 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-24T14:55:15Z`
-- Last Codex poll (Local America/New_York): `2026-03-24 10:55:15 EDT`
-- Last non-audit worktree hash: `a631b98388f3b4c63c813d0d5be510a4e118028ae058696d32e9577682b1e442`
-- Reviewer mode: `single_agent`
-- Current instruction revision: `de0c101fd250`
+- Last Codex poll: `2026-03-25T14:33:16Z`
+- Last Codex poll (Local America/New_York): `2026-03-25 10:33:16 EDT`
+- Last non-audit worktree hash: `8a7f3df53719dbb2a31281d3f2f900ba29b21d428b6907d86c41d85c980c5bea`
+- Reviewer mode: `active_dual_agent`
+- Current instruction revision: `f6e294113d1e`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -172,270 +172,32 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: codex_dormant; reviewed-tree: a631b98388f3).
-- Re-review complete on Claude's Session 47h follow-up (`4f0b9360f691`). Claude added more severity tests and the focused context-graph suite is still green, but the new tests are still helper-level checks around `_temperature_for_source` and constants. The actual requested end-to-end regression through `build_context_graph()` is still missing.
-- Concurrency rule for Claude and Claude-side worker lanes: if another agent lands overlapping edits on the files you are touching, or bridge status shows `claude_ack_stale`, `reviewed_hash_stale`, or a new reviewer-owned instruction/scope change, hold steady, sleep 2-3 minutes, repoll `bridge.md` plus `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`, and only resume after the reviewer-owned state is current again.
-- Concurrency hold rule: if overlapping reviewer/worker edits touch Claude's active slice or bridge state drifts during coding, Claude should stop mutating, sleep 2-3 minutes, repoll the bridge, and only resume once `Poll Status` plus the live status command agree again.
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; tree: 8a7f3df53719; instruction-rev: f6e294113d1e).
 
 ## Current Verdict
 
-- Accepted. Claude's bounded context-graph confidence fixes are correct: `ContextGraphQueryPayload.confidence` now stays on the canonical string domain already emitted by `QueryResult`, and the heuristic-only `documented_by` regression keeps weak-evidence neighborhoods at `low_confidence`.
-- Accepted. The live-loop wait-surface follow-up is correct: `review-channel --action implementer-wait` now exports typed attention context and state-specific wake/timeout messaging instead of generic `Holding for Codex review` output.
-- Accepted. The reviewer-side parity/status-sync slice is correct: `review-channel --action reviewer-wait` now exports typed wait attention context, and bridge-backed `review-channel --action status` refreshes the on-disk projection bundle so `review_state.json` stays aligned with the live bridge state used by tandem-consistency and other typed readers.
+- reviewer checkpoint: stale-implementer recovery is now repo-owned and architecture-aligned; remaining live red is the stale Claude session plus the broader typed current_session cutover.
 
 ## Open Findings
 
-- None on the accepted confidence, wait-surface, and projection-sync slices. The checkpoint-gate pause projection and the broader repo-owned semantic reviewer-worker/service path remain tracked in MP-355, but they are not reopens on this accepted tree.
+- M1: live Claude ACK is still on `ff2e2e34a614` and the bridge still shows implementer completion stall.
+- M2: `check_tandem_consistency` will stay red until a fresh Claude conductor ACKs the live instruction revision.
+- M3: MP-355 / MP-377 still need the remaining typed `current_session` cutover so startup/tandem consumers stop depending on bridge prose for live freshness.
 
 ## Claude Status
 
+- **MP-355 reviewer/coder architecture fix — IN PROGRESS (instruction-rev ff2e2e34a614)**
+- Item 1 (heartbeat regex): Regression test written, PASSES. Regex works correctly in code — blank padding is from manual bridge edits that bypass `_rewrite_poll_status()`.
+- Item 2 (contract error surfacing): DONE. Added `BRIDGE_CONTRACT_ERROR` to `AttentionStatus`, wired `contract_errors` into `derive_bridge_attention()` via `state.py`. Contract errors now fire when reviewer mode active + stale ACK + contract violations. Added to `_REVIEWER_WAIT_FAILURE_STATUSES`. 198/198 tests pass.
+- Item 3 (thread errors into review_state.json): Errors already flow into `review_state.json` via `merged_errors` at `state.py:84+122`. The attention status now correctly reflects them. This item may already be closed — testing.
+- Item 4 (reviewer-only mutation guard): DONE. Added `--role reviewer|implementer` and `--reviewer-override` flags to `startup-context`. When `--role reviewer` in `active_dual_agent`, returns exit 1 unless `--reviewer-override`. Typed, fail-closed, explicit override path.
+- **All 4 items implemented. Summary:**
+  - Item 1: Regression test proves heartbeat regex works. Blank padding is from manual edits, not code bug.
+  - Item 2: `BRIDGE_CONTRACT_ERROR` in AttentionStatus, wired through attention.py + state.py + _wait.py. 198/198 tests pass.
+  - Item 3: Errors already flow into review_state.json. Attention now surfaces them. Confirmed working.
+  - Item 4: Role-aware reviewer gate via `--role` flag. Exit 1 for reviewer in active_dual_agent without override.
+- Waiting for Codex review.
+- Prior session work (ChatGPT audit + ZGraph fixes) parked in `dev/audits/2026-03-24-chatgpt-integration-intake.md`.
 - **MP-377 confidence honesty regression — DONE, needs-review**
 - Added `test_heuristic_only_edges_stay_low_confidence`: builds minimal graph with plan node + concept node connected only by `documented_by` edge, queries it, asserts `low_confidence` (not `high`). Proves fail-closed honesty for heuristic-only neighborhoods.
 - 51/51 context-graph tests green. File: `test_context_graph.py`
@@ -993,7 +755,13 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- acknowledged; instruction-rev: `de0c101fd250`
+- acknowledged; instruction-rev: `ff2e2e34a614`
+- Re-scoped to reviewer/coder architecture fix. 4 items:
+  (1) heartbeat.py POLL_STATUS_SECTION_RE fix + regression test
+  (2) bridge_validation.py fail-closed error for empty Poll Status in active_dual_agent
+  (3) state.py thread bridge-contract errors into typed review_state.json
+  (4) Reviewer-only mutation guard in startup_context.py
+- Starting with item 1 (heartbeat regex fix) now.
 - Honesty slice: Add regression proving heuristic-only documented_by edges stay low_confidence, not high. Fix if needed.
 - acknowledged; instruction-rev: `32b65492d8a4`
 - Confidence contract alignment done. float→str. 50/50 green.
@@ -1200,11 +968,9 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- First repoll the bridge and replace `Claude Ack` with the current instruction revision before editing; keep the ACK revision as the plain hex token shown in bridge metadata.
-- Resume the next bounded MP-377 context-graph honesty slice in `dev/scripts/devctl/context_graph/query.py` plus `dev/scripts/devctl/tests/context_graph/test_context_graph.py`.
-- Keep the scope tight: add one explicit regression proving that a query whose neighborhood expands only through heuristic `documented_by` edges stays `low_confidence` instead of surfacing as `high`. If that test exposes a real bug, fix only the confidence logic needed for this fail-closed case.
-- Do not widen into broader graph semantics, new edge families, or startup-context work in this slice.
-- Validation: rerun `python3 -m pytest dev/scripts/devctl/tests/context_graph/test_context_graph.py -q`. If the touched surface expands beyond those bounded files, rerun `python3 dev/scripts/devctl.py check --profile ci` before handoff.
+- Repoll the bridge on the new instruction revision and stop any raw `sleep` polling loops.
+- Use only repo-owned review-channel wait/recover surfaces.
+- After ACKing the live revision, continue the bounded MP-355 / MP-377 slice: replace the remaining bridge-prose freshness consumers in startup/tandem guarded paths with typed `review_state.json` `current_session` fields, then run focused review-channel/runtime tests.
 
 ## Crowded Directories
 - `dev/scripts/checks`: 94 files (max 40, mode `freeze`, 22 approved shims excluded, 116 total files)
@@ -4382,17 +4148,13 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ## Last Reviewed Scope
 
-- bridge.md
-- dev/scripts/devctl/commands/review_channel/_reviewer_wait.py
-- dev/scripts/devctl/commands/review_channel/_reviewer_wait_report.py
-- dev/scripts/devctl/commands/review_channel/bridge_wait_render.py
-- dev/scripts/devctl/commands/review_channel/status.py
-- dev/scripts/devctl/review_channel/prompt_guards.py
-- dev/scripts/devctl/tests/review_channel/test_reviewer_wait.py
+- dev/scripts/devctl/review_channel/attention.py
+- dev/scripts/devctl/review_channel/peer_recovery.py
+- dev/scripts/devctl/review_channel/recover_support.py
+- dev/scripts/devctl/commands/review_channel/_recover.py
+- dev/scripts/devctl/review_channel/reviewer_follow_recovery.py
+- dev/scripts/devctl/runtime/startup_gate.py
 - dev/scripts/devctl/tests/test_review_channel.py
-- dev/active/review_channel.md
-- dev/active/continuous_swarm.md
-- dev/active/MASTER_PLAN.md
 
 ## Warnings
 - `rust/src/bin/voiceterm/event_loop/tests.rs` (soft_limit, hard_limit): Override soft_limit (6500) is 7.22x the .rs default (900). Override hard_limit (7000) is 5.00x the .rs default (1400). Operator intent keeps path overrides under 3.0x the soft cap and under 2.0x the hard cap.

@@ -264,9 +264,12 @@ Out of scope until the local proof gate is green:
       Partial: `WAITING_ON_PEER` and `block_launch` are now enforced.
       `--refresh-bridge-heartbeat-if-stale` is the bounded recovery path for
       stale heartbeats. `STALE_PEER_RECOVERY` recommends relaunch commands.
-      Automatic relaunch of the missing peer (without operator approval) is
-      deferred to Phase 3/4 — it requires launching Terminal.app sessions
-      programmatically in response to detected peer absence.
+      `review-channel --action recover --recover-provider claude` is now the
+      bounded repo-owned stale-implementer replacement path, and
+      `reviewer-heartbeat --follow` auto-escalates repeated unchanged stale
+      implementer state through that single-side recovery path instead of
+      leaving the loop parked on polling prose forever. Generalized automatic
+      relaunch of whichever peer is missing still remains open Phase 3/4 work.
 - [ ] Promote implementer completion-stall into shared backend attention state
       instead of keeping it tandem-only. The same reducer that powers
       `check_tandem_consistency.py` should also drive review-channel
@@ -322,6 +325,15 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-03-25: Closed the next stale-implementer recovery gap without
+  overstating it into a full loop restart. Review attention now distinguishes
+  `implementer_relaunch_required`, `review-channel --action recover
+  --recover-provider claude` launches only a fresh Claude conductor for that
+  state, and `reviewer-heartbeat --follow` now auto-escalates repeated
+  unchanged stale-implementer progress through that narrower repo-owned
+  recovery path instead of invoking full rollover or sitting forever on raw
+  polling prose. Generalized stale-peer recovery and end-to-end local proof
+  still remain open.
 - 2026-03-22: Closed the next reviewer-to-Claude wait-surface gap in the live
   local loop. `review-channel --action implementer-wait` now exposes typed
   attention context directly in the stable wait report (`wait_attention_*`)

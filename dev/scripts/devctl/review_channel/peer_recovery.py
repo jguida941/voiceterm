@@ -12,6 +12,7 @@ _DEVCTL_INTERPRETER = os.path.basename(sys.executable)
 
 REVIEW_CHANNEL_STATUS_INSPECT_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action status --terminal none --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale"
 REVIEW_CHANNEL_LIVE_RELAUNCH_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale"
+REVIEW_CHANNEL_IMPLEMENTER_RECOVER_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action recover --recover-provider claude --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale"
 REVIEW_CHANNEL_ENSURE_START_PUBLISHER_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action ensure --start-publisher-if-missing --terminal none --format json --execution-mode markdown-bridge"
 REVIEW_CHANNEL_ENSURE_FOLLOW_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action ensure --follow --terminal none --format json --execution-mode markdown-bridge --follow-inactivity-timeout-seconds 0"
 REVIEW_CHANNEL_REVIEWER_FOLLOW_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action reviewer-heartbeat --follow --terminal none --format json --execution-mode markdown-bridge --auto-promote --follow-interval-seconds 150 --follow-inactivity-timeout-seconds 0"
@@ -121,6 +122,28 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
             "Claude must repoll the bridge, acknowledge the current instruction revision in Claude Ack, and only then continue coding."
         ),
         "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
+    }),
+    ("bridge_contract_error", {
+        "guard_behavior": "block_launch",
+        "owner": "codex",
+        "summary": (
+            "Reviewer-owned bridge state is inconsistent; repair reviewer sections before trusting implementer status."
+        ),
+        "recovery": (
+            "Refresh reviewer-owned bridge/status state first. Do not replace Claude until Poll Status, current instruction revision, and bridge contract sections are coherent again."
+        ),
+        "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
+    }),
+    ("implementer_relaunch_required", {
+        "guard_behavior": "warn",
+        "owner": "claude",
+        "summary": (
+            "Claude looks stuck on stale reviewer state; replace the current implementer conductor instead of waiting on it."
+        ),
+        "recovery": (
+            "Run the repo-owned implementer recovery path so a fresh Claude conductor takes over the live instruction and writes a current ACK."
+        ),
+        "recommended_command": REVIEW_CHANNEL_IMPLEMENTER_RECOVER_COMMAND,
     }),
     ("reviewer_supervisor_required", {
         "guard_behavior": "block_loop",

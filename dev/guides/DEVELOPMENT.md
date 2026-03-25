@@ -177,7 +177,14 @@ Three quality layers matter in practice:
     launches now pin `--follow-inactivity-timeout-seconds 0`, and
     `review-channel --action stop --daemon-kind <publisher|reviewer_supervisor|all>`
     is the repo-owned daemon reclaim path when those follow daemons need a
-    clean replacement.
+    clean replacement. In the same active-dual-agent loop, the reviewer
+    follow daemon now auto-triggers the repo-owned
+    `review-channel --action recover --recover-provider claude` path when
+    Claude-owned progress stays unchanged across repeated stale/missing
+    implementer state instead of waiting forever on raw shell sleep loops or
+    operator chat nudges. That recovery replaces only the stale Claude
+    conductor; full `rollover` remains the bounded round/context-rotation
+    restart path.
   - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:
     `review-channel --action implementer-wait` is the Claude-side bounded
     wait path, and `review-channel --action reviewer-wait` is the symmetric
@@ -191,7 +198,10 @@ Three quality layers matter in practice:
     `checkpoint_required` when the worktree is over the continuation budget.
     Fresh repo-owned `review-channel --action launch|rollover` starts now
     treat that checkpoint state as a hard launch blocker instead of advisory
-    status.
+    status. The startup gate still blocks those actions on checkpoint-budget
+    or other real authority failures, but it no longer blocks `launch|rollover`
+    solely because the current reviewer loop is stale on the implementer side;
+    those actions are the sanctioned recovery path for that exact failure.
   - The same `review-channel --action status` path now emits a typed
     `current_session` block in `dev/reports/review_channel/latest/review_state.json`
     and `compact.json`; prefer that contract for live instruction /

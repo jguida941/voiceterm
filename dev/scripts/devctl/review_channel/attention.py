@@ -7,6 +7,11 @@ contract in ``peer_liveness``.
 
 from __future__ import annotations
 
+_NON_REVIEWER_CONTRACT_ERROR_PREFIXES = (
+    "Live `Claude Ack` must include `instruction-rev:",
+    "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
+)
+
 from .peer_liveness import (
     CODEX_POLL_OVERDUE_AFTER_SECONDS,
     STALE_PEER_RECOVERY,
@@ -56,7 +61,7 @@ def derive_bridge_attention(
     # Contract errors only override attention when the reviewer mode is active
     # and the errors are substantive (not just missing optional fields).
     _active_contract_errors = (
-        contract_errors
+        _substantive_contract_errors(contract_errors)
         if contract_errors and reviewer_mode_is_active(reviewer_mode)
         else None
     )
@@ -90,9 +95,25 @@ def derive_bridge_attention(
     elif checkpoint_required or not safe_to_continue_editing:
         status = AttentionStatus.CHECKPOINT_REQUIRED
     elif (
+        _active_contract_errors
+        and overall_state == OverallLivenessState.WAITING_ON_PEER
+        and (not claude_ack_present or not claude_ack_current)
+    ):
+        status = AttentionStatus.BRIDGE_CONTRACT_ERROR
+    elif (
+        reviewer_mode_is_active(reviewer_mode)
+        and codex_poll_state in {CodexPollState.FRESH, CodexPollState.POLL_DUE}
+        and overall_state == OverallLivenessState.WAITING_ON_PEER
+        and implementer_completion_stall
+        and (not claude_ack_present or not claude_ack_current)
+        and not review_needed
+    ):
+        status = AttentionStatus.IMPLEMENTER_RELAUNCH_REQUIRED
+    elif (
         reviewer_mode_is_active(reviewer_mode)
         and codex_poll_state in {CodexPollState.FRESH, CodexPollState.POLL_DUE}
         and implementer_completion_stall
+        and claude_ack_current
         and not review_needed
     ):
         status = AttentionStatus.DUAL_AGENT_IDLE
@@ -159,6 +180,16 @@ def _bridge_push_checkpoint_state(
     if safe_to_continue_editing is None:
         safe_to_continue_editing = not checkpoint_required
     return checkpoint_required, bool(safe_to_continue_editing)
+
+
+def _substantive_contract_errors(
+    contract_errors: list[str] | None,
+) -> list[str]:
+    return [
+        error
+        for error in (contract_errors or [])
+        if not str(error).startswith(_NON_REVIEWER_CONTRACT_ERROR_PREFIXES)
+    ]
 
 
 def _attention_from_contract(status: str) -> dict[str, object]:
