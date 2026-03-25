@@ -1286,6 +1286,23 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-25: Re-audited the external conversation tail (`convo.md`
+  lines `4907-5668`) with an eight-way reviewer pass against the live
+  intake/code/plan stack instead of assuming the earlier intake was
+  complete. Result: the broad themes from that tail are already in tracked
+  `MP-377` state, not missing work. Compiler-pass framing is already folded
+  into `ai_governance_platform.md`, startup/bootstrap adequacy is already
+  the active `startup-context` / `WorkIntakePacket` lane here, and
+  governed-markdown self-hosting is already the `DocPolicy` /
+  `DocRegistry` / `PlanRegistry` path plus the self-hosting simplification
+  program. The one still-useful under-specified follow-on is narrower:
+  add a generated-only graph compaction/normalization pass for startup/query
+  routing after the current authority/query-engine proof. That follow-on is
+  explicitly *not* literal AST-level inlining/dead-code elimination; at the
+  current graph granularity it means separating routing-grade edges from
+  render-only noise, precomputing smaller high-signal neighborhoods, and
+  keeping the result reversible so the graph does not become a second
+  authority store.
 - 2026-03-25: Re-ran the live startup path after Claude landed the one-line
   probe-loader fix. The earlier `startup_signals.py` path bug is now closed on
   the current tree and bootstrap surfaces carry real probe counts again, so

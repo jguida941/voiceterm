@@ -104,11 +104,11 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-25T14:33:16Z`
-- Last Codex poll (Local America/New_York): `2026-03-25 10:33:16 EDT`
-- Last non-audit worktree hash: `8a7f3df53719dbb2a31281d3f2f900ba29b21d428b6907d86c41d85c980c5bea`
+- Last Codex poll: `2026-03-25T23:37:37Z`
+- Last Codex poll (Local America/New_York): `2026-03-25 19:37:37 EDT`
+- Last non-audit worktree hash: `b704a5a482d36833649c263ae6fb18824cbc522d663d88f8701e63760f2839b3`
 - Reviewer mode: `active_dual_agent`
-- Current instruction revision: `f6e294113d1e`
+- Current instruction revision: `3d733164d196`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -172,17 +172,17 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; tree: 8a7f3df53719; instruction-rev: f6e294113d1e).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; tree: b704a5a482d3; instruction-rev: 3d733164d196).
 
 ## Current Verdict
 
-- reviewer checkpoint: stale-implementer recovery is now repo-owned and architecture-aligned; remaining live red is the stale Claude session plus the broader typed current_session cutover.
+- reviewer checkpoint: the added audit-tail note is accepted as non-blocking reference evidence, but the live slice is still the repo-owned stale-implementer recovery plus the remaining typed `current_session` cutover.
 
 ## Open Findings
 
-- M1: live Claude ACK is still on `ff2e2e34a614` and the bridge still shows implementer completion stall.
-- M2: `check_tandem_consistency` will stay red until a fresh Claude conductor ACKs the live instruction revision.
-- M3: MP-355 / MP-377 still need the remaining typed `current_session` cutover so startup/tandem consumers stop depending on bridge prose for live freshness.
+- M1: `dev/audits/2026-03-24-chatgpt-integration-intake.md` is reference-only and not the active execution slice; stop spending loop time on extra audit-tail expansion unless the reviewer asks for it.
+- M2: live Claude ACK is still stale and must be replaced by a fresh conductor ACK on the current instruction revision.
+- M3: continue the MP-355 / MP-377 typed `current_session` cutover in startup/tandem guarded paths after the fresh ACK lands.
 
 ## Claude Status
 
@@ -968,9 +968,9 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- Repoll the bridge on the new instruction revision and stop any raw `sleep` polling loops.
-- Use only repo-owned review-channel wait/recover surfaces.
-- After ACKing the live revision, continue the bounded MP-355 / MP-377 slice: replace the remaining bridge-prose freshness consumers in startup/tandem guarded paths with typed `review_state.json` `current_session` fields, then run focused review-channel/runtime tests.
+- Repoll the bridge on the new instruction revision and ACK it immediately.
+- Do not run raw `sleep` loops and do not widen the audit document further.
+- Stay on the bounded MP-355 / MP-377 slice: replace the remaining bridge-prose freshness consumers in startup/tandem guarded paths with typed `review_state.json` `current_session` fields, then run focused review-channel/runtime tests.
 
 ## Crowded Directories
 - `dev/scripts/checks`: 94 files (max 40, mode `freeze`, 22 approved shims excluded, 116 total files)
@@ -4155,6 +4155,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 - dev/scripts/devctl/review_channel/reviewer_follow_recovery.py
 - dev/scripts/devctl/runtime/startup_gate.py
 - dev/scripts/devctl/tests/test_review_channel.py
+- dev/audits/2026-03-24-chatgpt-integration-intake.md
 
 ## Warnings
 - `rust/src/bin/voiceterm/event_loop/tests.rs` (soft_limit, hard_limit): Override soft_limit (6500) is 7.22x the .rs default (900). Override hard_limit (7000) is 5.00x the .rs default (1400). Operator intent keeps path overrides under 3.0x the soft cap and under 2.0x the hard cap.

@@ -13,6 +13,79 @@ This is intake, not a tracked execution plan. Accepted items must be promoted
 into the proper tracked owner: `MASTER_PLAN.md`, `platform_authority_loop.md`,
 `review_probes.md`, or `portable_code_governance.md` before implementation.
 
+## 2026-03-25 Resweep Refresh
+
+This intake was re-audited against the current repo state after the original
+2026-03-24 capture. The detailed sections below remain useful historical
+evidence, but several claims are now partially landed or narrower than they
+were when first written.
+
+### Landed Or Narrower Since Initial Intake
+
+- **Compiler framing is no longer an open gap.**
+  The compiler-pass framing now exists in
+  `dev/active/ai_governance_platform.md` under `## Compiler-Pass Framing`.
+  Treat `Gap 5` below as absorbed into the active plan, not as fresh backlog.
+- **Repo-owned startup/bootstrap is stronger than the original intake described.**
+  `startup-context`, `WorkIntakePacket`, typed `SessionResumeState`, startup
+  receipt writing, and fail-closed startup gating are now real runtime/code
+  surfaces (`dev/scripts/devctl/runtime/startup_context.py`,
+  `dev/scripts/devctl/runtime/work_intake.py`,
+  `dev/scripts/devctl/commands/governance/startup_context.py`). This is
+  evidence for repo-owned launcher/mutation paths, not proof that a fresh
+  interactive Claude session will obey Step 0 without a hook/wrapper.
+- **The old probe-summary path bug is fixed.**
+  `startup_signals.py` now reads
+  `dev/reports/probes/latest/summary.json`, so the earlier wrong-path bug is
+  historical only.
+- **Review-channel state consumption is no longer zero/none.**
+  `current_session`, queue-derived instruction state, and typed attention now
+  feed some startup, wait-loop, and recovery paths. Remaining gaps are about
+  incomplete authority/decision use, not total non-consumption.
+- **Operational feedback already reaches Ralph through escalation packets.**
+  The still-open gap is narrower than originally written: Ralph gets recent
+  fix history / quality feedback / watchdog / reliability context through
+  `context_graph/escalation.py`, but bootstrap still lacks a structured
+  recurring-pattern index and `guard-run` still lacks equivalent wiring.
+
+### Still Open After Resweep
+
+- `quality_feedback -> startup-context` remains broken: startup quality signals
+  still do not load `quality_feedback_snapshot.json`.
+- Bootstrap still lacks a structured recurring-pattern / waiver-memory surface
+  (`BadPatternIndex`-style startup enrichment).
+- `WorkIntakePacket` is produced but still weakly consumed by launcher /
+  scheduler paths; the runtime still uses only a thin slice of the startup
+  packet it emits.
+- The canonical typed `agent_registry` is still bypassed by some consumers in
+  favor of legacy `_compat.agents` / top-level agent projections.
+- Prompt consumers still drop richer decision metadata that already exists in
+  guidance/finding contracts (`precedent`, `invariants`,
+  `validation_plan`); this is the narrowest current seam inside the broader
+  output-constraints / fix-strategy lane.
+
+### Narrow Additions From This Resweep
+
+- **Graph reduction before traversal**: the conversation's dead-node
+  elimination / deterministic-fact reuse idea does not map to Rust compiler
+  plugins or inline annotations in current scope, but it does expose one real
+  missing seam in the repo: there is no transparent reducer between raw
+  context-graph production and prompt/decision consumers. Current flow is
+  effectively `build_context_graph -> query_context_graph ->
+  build_context_escalation_packet` with no intermediate stage that prunes
+  irrelevant nodes, memoizes repeated deterministic facts, or materializes a
+  smaller decision subgraph. Keep this as **audit-only** for now under
+  `MP-377`; do not promote it into active implementation scope until the graph
+  grows beyond today's file/topology-level model.
+
+### Routing
+
+- No new active-plan doc is required from this resweep.
+- Keep remaining startup/intake / review-state / markdown-consumption work in
+  `MP-377`.
+- Keep failure-rule / output-constraint / bad-pattern / signal-interaction
+  work in `MP-375`.
+
 ## What ChatGPT Got Wrong (Already Exists)
 
 These claims were factually incorrect — the system already has them:
@@ -2061,3 +2134,60 @@ structurally healthy — the issues are in data flow, not code quality.
 (same commit, stable temperature, no edge additions/removals). The graph
 infrastructure works but produces no delta signal when nothing changed —
 expected behavior.
+
+## Conversation-Tail Delta (2026-03-25 Re-audit, Lines 4907-5668)
+
+The line-4907+ re-read did **not** uncover another broad bootstrap,
+self-hosting, or compiler-framing gap. Those themes are already covered in
+the active `MP-377` plan stack:
+
+- compiler-pass framing already landed in
+  `dev/active/ai_governance_platform.md`
+- bounded startup/progressive context expansion is already tracked through
+  `startup-context`, `WorkIntakePacket`, warm refs, and the query-engine
+  follow-up in `dev/active/platform_authority_loop.md`
+- governed-markdown self-hosting is already tracked through `DocPolicy`,
+  `DocRegistry`, `PlanRegistry`, and the self-hosting simplification program
+
+The one useful under-specified idea from that tail is narrower and should be
+tracked as a deferred graph/runtime optimization rather than as a new
+foundational architecture lane.
+
+### Gap 18: Graph Compaction / Normalization Before AI Traversal
+
+**Conversation-tail insight**: apply compiler-style simplification before AI
+reasoning so the model traverses a smaller, more deterministic structure.
+
+**Repo-specific translation**: do **not** interpret this literally as AST-level
+dead-code elimination or function inlining. The current VoiceTerm graph is
+file/plan/command/concept-level, not function-level. The useful missing slice
+is a generated-only graph compaction pass that improves startup/query routing:
+
+- strip or downweight known render-only/noisy relations in default query paths
+- precompute bounded high-signal neighbor sets for common startup/query cases
+- preserve canonical refs while separating "routing-grade" edges from
+  "render-only" edges
+- keep the pass reversible and disposable so it never becomes a second
+  authority store
+
+**What exists**: `query_context_graph()` already filters generic guard-edge
+fan-out, and `platform_authority_loop.md` already tracks honest confidence,
+bounded inference, and startup/query-engine rollout.
+
+**What's missing**:
+- no explicit normalization/compaction phase between `build_context_graph()`
+  and `query_context_graph()`
+- no typed metadata distinguishing routing-grade vs render-only edges
+- no precomputed compact neighborhood for startup/work-intake consumers
+- no explicit test proving compaction preserves canonical refs while reducing
+  query noise
+
+**Implementation home**: `dev/scripts/devctl/context_graph/builder.py`,
+`dev/scripts/devctl/context_graph/query.py`, and likely a new small helper
+such as `dev/scripts/devctl/context_graph/normalization.py`
+
+**Tracked plan owner**: `MP-377`, after the current startup/query-engine
+authority proof. Treat this as a post-authority-loop optimization, not as a
+blocker ahead of startup-consumer closure.
+
+**Size**: ~80-120 lines plus focused query/consumer regressions
