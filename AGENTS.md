@@ -131,13 +131,19 @@ Run this sequence for every task. Do not skip steps.
    implementation slice is not allowed yet. The same startup/tandem path now
    resolves typed `review_state.json` through repo-pack/governance candidate
    authority instead of assuming one fixed `dev/reports/.../latest` path.
+   Startup quality signals follow the same rule and load emitted probe
+   artifacts from the managed `latest` root rather than an ad hoc sibling
+   summary path.
    After that, run
    `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
    for a slim startup context with active plans, hotspots, and deep links.
    The live graph now also carries first-pass `guards` / `scoped_by`
    relations, so file/path queries can answer "what guards protect this?" and
    "what plan scope owns this?" from the same generated surface before the
-   workflow expands into deeper reads. That bootstrap command now also
+   workflow expands into deeper reads. Query mode now suppresses generic
+   guard-edge fan-out unless you asked about a guard directly, and
+   `scoped_by` coverage may come from docs-policy rules or bounded derived
+   plan-to-directory ownership matching. That bootstrap command now also
    persists a typed `ContextGraphSnapshot` artifact under
    `dev/reports/graph_snapshots/`; use `--save-snapshot` to capture the same
    versioned graph artifact from other `context-graph` modes too, and use

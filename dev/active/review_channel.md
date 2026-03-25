@@ -1096,6 +1096,12 @@ Acceptance:
       the review-channel controller must stop issuing new implementer work,
       switch attention to checkpoint/review, and surface that state to the
       operator without waiting for a human reminder in chat.
+- [ ] Keep the temporary markdown-bridge validator semantically fail-closed
+      while `bridge.md` remains live: `check_review_channel_bridge.py`,
+      `review-channel status`, and mobile/review projections must flag
+      resolved/fixed bridge verdicts that do not promote the next scoped task,
+      so a reviewer-complete bridge cannot look healthy while implementer
+      routing state is stale.
 - [ ] Promote continuation-budget / checkpoint gating to a first-class live
       wait reason in the same typed attention/liveness contract. When
       `push_enforcement.checkpoint_required` or
@@ -1120,6 +1126,12 @@ Acceptance:
       more than one implementer or reviewer without schema forks. Keep this
       slice limited to compatibility collections/projections; full
       registry-driven topology and native multi-item routing remain Phase 3.
+- [ ] Turn the live status projections into controller inputs, not only
+      display surfaces. Queue and attention already drive current-focus and
+      wait behavior, so the remaining gap is narrower: startup/work-intake
+      routing and reviewer/implementer scheduling must also consume
+      `agent_registry` plus the typed queue/attention state instead of routing
+      off `current_session` alone.
 - [ ] Separate live current status from history in the same slice: keep
       append-only bridge/event history in trace/history projections only, and
       make the markdown-authority demotion gate explicit for MP-355. The live
@@ -1579,6 +1591,8 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-25T04:45:00Z` | `CODEX` | Re-ran the focused MP-355 regression suite and reopened one exact bridge-contract guard. `test_check_review_channel_bridge.py` now shows that `check_review_channel_bridge.py` no longer flags resolved bridge verdicts without a promoted next task. The broader typed-current-session direction still holds, but the temporary fail-closed bridge validator regressed and can again let a semantically incomplete bridge read as healthy. | `planned` | Restore guard + projection parity so resolved/fixed bridge states require promoted next-task routing, then continue the typed `current_session` / `agent_registry` cutover without widening bridge authority. |
+| `2026-03-24T16:30:00Z` | `CODEX` | Folded the remaining aligned review-channel intake into canonical MP-355 state after re-checking it against live code. The correction is explicit: queue/attention are not wholly unread because current-focus and wait surfaces already use them; the actual missing consumer path is `agent_registry` plus wider typed review status not yet steering startup/work-intake routing or reviewer/implementer scheduling. | `planned` | Keep the typed current-session cutover bounded, then make startup/work-intake and scheduling consume `agent_registry` plus typed queue/attention state before claiming the review channel is a live routing surface rather than a display bundle. |
 | `2026-03-22T18:10:00Z` | `CODEX` | Finished the remaining `SYSTEM_AUDIT` mapping for the MP-355 lane. The previously unmapped structural-debt/test tranche is now explicit in canonical plan state: the review-channel family must keep collapsing toward a smaller stable core and `test_review_channel.py` must split into feature-scoped suites before MP-355 can claim maintainability closure. | `planned` | Keep the current-session/push-safe authority work bounded, then land the maintainability tranche in the same Phase-1 closure path instead of deferring it to another audit note. |
 | `2026-03-22T04:45:00Z` | `CODEX` | Landed the reviewer-side parity slice for the planned repo-owned wait path. `review-channel --action reviewer-wait` now exports typed wait attention fields plus state-specific timeout/unhealthy/update messages, markdown wait rendering handles reviewer-wait payloads instead of only implementer-wait, and the reviewer launch prompt now explicitly tells Codex to use `reviewer-wait` instead of ad-hoc sleep loops when parking on Claude-owned progress. This closes the immediate "stay watching Claude through repo-owned wait semantics" step without pretending semantic review is fully automated yet. | `partial-pass` | Keep the broader reviewer-worker/service blocker open: the next loop-hardening slice still needs repo-owned semantic re-review/checkpoint behavior instead of chat-prompted polling. |
 | `2026-03-22T04:15:00Z` | `CODEX` | Closed the next live-loop messaging gap after typed attention was already correct but the implementer-facing wait surface still printed generic "Holding for Codex review" text. `review-channel --action implementer-wait` now carries typed attention status/summary/recommended-action fields in its stable report, timeout/reviewer-update messages specialize for `review_follow_up_required` and `claude_ack_stale`, and the markdown wait projection renders the same attention context instead of a bare stop reason. Focused review-channel proof is green (`232` tests); full `devctl check --profile ci` is only waiting on the normal reviewer checkpoint hash refresh for the current tree. | `partial-pass` | Keep the checkpoint-gate pause projection follow-up open, then continue parity so every live wait surface exposes the same typed reason without making operators infer state from generic hold text. |
@@ -1674,7 +1688,10 @@ Complete this table only after all active swarm lanes are merged.
   Phase 3. Keep the newly mapped maintainability tranche explicit while doing
   that work: the phase is not done until the review-channel module family is
   materially smaller and `test_review_channel.py` has been split into
-  feature-scoped suites.
+  feature-scoped suites. The next controller-consumer splice is explicit too:
+  startup/work-intake and reviewer/implementer scheduling should stop reading
+  `current_session` alone and start consuming `agent_registry` plus the typed
+  queue/attention bundle that already powers the live status surfaces.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

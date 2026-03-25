@@ -37,7 +37,7 @@ def load_startup_quality_signals(repo_root: Path) -> dict[str, object]:
 
 
 def _load_probe_report_summary(repo_root: Path) -> dict[str, object] | None:
-    payload = _load_json(repo_root / "dev" / "reports" / "probes" / "summary.json")
+    payload = _load_json(repo_root / "dev" / "reports" / "probes" / "latest" / "summary.json")
     summary = payload.get("summary") if isinstance(payload, dict) else None
     if not isinstance(summary, dict):
         return None

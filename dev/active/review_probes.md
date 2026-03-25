@@ -1,6 +1,6 @@
 # Review Probes Plan
 
-**Status**: active  |  **Last updated**: 2026-03-22 | **Owner:** Tooling/quality intelligence
+**Status**: active  |  **Last updated**: 2026-03-25 | **Owner:** Tooling/quality intelligence
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under `MP-368..MP-375`.
 
@@ -318,6 +318,54 @@ context-free translation = MEDIUM.
       lane once structured fields and one canonical artifact already exist.
       (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 27, Part 52, Part 54)
+- [ ] Promote recurring adjudicated findings into one generated
+      failure-rule ledger over `governance-review` history, recurrence risk,
+      and cleanup/false-positive metrics so Ralph/autonomy/review prompt
+      builders receive the top active recurring constraints automatically
+      instead of only static per-probe `ai_instruction` prose. Keep the
+      ledger canonical, bounded, and waiver-aware; do not introduce a
+      hand-maintained prompt rule list.
+- [ ] Promote recent successful/waived fix history into prompt-time bad-
+      pattern recall on top of that same feedback path: Ralph/`guard-run`/
+      startup prompt builders should be able to say "this probe or file shape
+      recurred here before, this fix pattern worked/failed, and these waivers
+      already happened" without forcing operators to reconstruct that context
+      from raw ledgers.
+- [ ] Extend carried probe guidance / `DecisionPacket` semantics with
+      output constraints for recurring structural families so AI remediation
+      is shaped before validation, not only judged after the fact. First
+      target families should reuse existing probe evidence
+      (`probe_dict_as_struct`, `probe_single_use_helpers`,
+      `probe_stringly_typed`, and similar recurring shape problems) and
+      record follow/waive/supersede evidence in the same runtime trail.
+- [ ] Make prompt-time guidance assembly deterministic across all carried
+      probe artifacts: failure rules, bad-pattern recall lines, output
+      constraints, and attached guidance refs should be canonically sorted by
+      stable typed keys before prompt rendering so identical evidence yields
+      identical remediation packets.
+- [ ] Extend carried probe guidance / `DecisionPacket` semantics with an
+      allowed-transform menu per recurring family, not only target-shape
+      constraints: the runtime should be able to say which repair operators
+      are permitted for a finding family and record follow/waive/supersede
+      evidence against that typed menu instead of burying the action space in
+      prose.
+- [ ] Add signal-interaction / trust weighting on top of probe +
+      governance-review evidence so co-occurring signals can reinforce,
+      down-rank, or ignore each other, and chronic waiver/false-positive
+      families automatically lose automation trust before they reach
+      auto-apply-capable remediation paths.
+- [ ] Close the remaining probe lifecycle joints on top of the already-live
+      verdict/history path: hotspot ranking, startup signals, Ralph guidance
+      selection, and next-file rotation must become verdict-aware so fixed or
+      waived findings cool off instead of refiring indefinitely, and quality-
+      feedback trust tuning must feed that same suppression logic.
+- [ ] Make startup probe-health consumption honest on clean trees: default
+      `working-tree` probe scans may legitimately return `files_scanned=0`, so
+      startup/context/hotspot consumers must distinguish "dirty-scope empty"
+      from "repo or branch healthy", reuse durable `latest` summaries or
+      explicit `--since-ref` / `--adoption-scan` outputs when they need broader
+      health, and surface scope/freshness metadata instead of treating a
+      zero-file scan as zero-risk proof.
 - [ ] Add the next missing probe tranche explicitly under the same portable
       evidence contract: start with test-quality, None-safety, and
       over-abstraction signals as advisory probes only, back them with
@@ -505,6 +553,27 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-25: Re-verified the latest startup/probe intake against the live
+  command behavior before promoting it into plan state. The clean-tree
+  `probe-report` zero-scan result is consistent with the current
+  `working-tree` contract, so the real `MP-375` gap is not "full-scan by
+  default" but honest startup freshness semantics: startup/hotspot consumers
+  must not let "scanned nothing" masquerade as "found nothing" once the tree
+  is clean after a commit.
+- 2026-03-24: Folded the useful external architecture-review intake back into
+  the canonical probe plan instead of keeping a new sidecar markdown as the
+  execution home. The stale narrative that the codebase lacked feedback loops,
+  persistence, metrics, or decision hierarchy is explicitly rejected here;
+  those systems already exist. The real `MP-375` follow-on is actuator
+  closure: generate bounded failure rules from adjudicated recurring findings
+  and carry output constraints alongside probe guidance so the next prompt can
+  change shape, not only receive advisory prose. The second-pass alignment
+  pass also keeps deterministic prompt ordering, allowed-transform menus, and
+  signal/trust weighting in this same lane instead of inventing a parallel
+  prompt-policy subsystem. The next missing closure is now explicit too:
+  verdict history already reaches prompt/context packets, but hotspot ranking,
+  startup signals, Ralph guidance selection, and next-file rotation are still
+  not verdict-aware.
 - 2026-03-22: Closed the next adoption/coverage slice on top of the first
   Ralph/autonomy wires instead of leaving the remaining consumers as plan
   prose. Ralph now states the probe-guidance rule before the findings list,
@@ -1391,9 +1460,11 @@ Template README at `dev/scripts/checks/PROBE_TEMPLATE_README.md`.
   the first declared `Finding.ai_instruction` family. Keep the checker-stack
   follow-up explicit too: add deterministic coverage for dual-authority
   artifact consumers, decide whether prose-parsed contract matching belongs
-  in `probe_stringly_typed` or a sibling rule family, and start proving the
+  in `probe_stringly_typed` or a sibling rule family, start proving the
   carried decision-semantics fields that still stop at human-facing packet
-  renderers.
+  renderers, and make hotspot ranking / startup guidance / Ralph guidance
+  selection verdict-aware so recurring fixed findings stop resurfacing as the
+  top target.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

@@ -46,6 +46,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-24 - External architecture-review intake was absorbed into the canonical plan chain
+
+Fact: the repo no longer leaves the 2026-03-24 external architecture-review
+intake as a sidecar roadmap. The aligned gaps are now routed to their existing
+owners in `MP-375`, `MP-376`, and `MP-377`, with explicit checklist items for
+deterministic prompt assembly, allowed transforms, signal/trust weighting,
+change-pressure gating, portable reproducibility proof, and the remaining
+authority-loop decision artifacts.
+
+This matters because the useful part of that review was not a new product
+direction; it was a sharper statement of the next closure work inside the
+architecture the repo already chose. The plan update also records two
+important contract-preservation rules: transformation-proof joins belong in
+`DecisionTrace` / `RunRecord` instead of a second proof-only packet family,
+and any AI decision-auditor remains advisory rather than replacing
+`approval_required` human/operator review.
+
+Evidence:
+
+- `dev/audits/2026-03-24-chatgpt-integration-intake.md`
+- `dev/active/review_probes.md`
+- `dev/active/portable_code_governance.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
 ### 2026-03-24 - Startup and tandem consumers stopped hardcoding one review-state path
 
 Fact: the remaining typed startup/tandem consumers no longer each assume

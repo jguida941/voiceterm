@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-03-24 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-25 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -189,6 +189,11 @@ intended execution order is:
       reviewer/operator mode, current slice, peer-review ledger,
       disagreement/arbitration state, delegated-worker receipts, restart
       packet, and ready gates.
+- [ ] Materialize one typed `SessionDecisionLog` projection over
+      `DecisionPacket` actions, matched guidance ids/dispositions, waivers,
+      evidence refs, and outcomes so `startup-context` plus future
+      `CollaborationSession` surfaces can resume from typed prior decisions
+      instead of prose-only handoff summaries.
 - [ ] Freeze startup resume rules with fail-closed ambiguity handling:
       startup may auto-resume only when exactly one prior
       `CollaborationSession` is still valid or repairable for the same repo
@@ -409,6 +414,14 @@ intended execution order is:
       authority-source integrity, and dead authority seams by reusing the
       existing `platform-contracts`, docs-governance, repo-pack, and typed
       review-state surfaces instead of building one monolithic audit script.
+- [ ] Extend that same self-governance tranche from contract-shape checks into
+      completeness checks over declared authoritative surfaces: add prevention-
+      surface closure for `missing_guard` / `missing_probe`, finding-lifecycle
+      closure, bounded producer/consumer loop closure for declared machine-
+      readable runtime surfaces, and consumer-parity for contract-catalog rows
+      marked `live`. Keep loop/parity guards scoped to authoritative families
+      only so human-facing reports and intentional scaffolds do not create
+      bookkeeping noise.
 - [ ] 1. Freeze explicit `UNKNOWN/DEFER` outcome states for deterministic
       guard/startup routing.
       Pattern source: `ML_Dump_Trace_V2`, `June17th`, `justin-prime-engine`.
@@ -711,12 +724,51 @@ intended execution order is:
       startup-authority payloads, plan-registry artifacts, runtime actions/
       results/records, and context packs must all carry schema/version fields
       plus documented compatibility checks at load time.
+- [ ] Extend `FindingReview` close-out rows with explicit prevention-follow-up
+      refs (`proposed_guard` / `proposed_probe`, owning MP, or waiver) and
+      unify `finding_id` generation across runtime/governance import/record
+      paths before lifecycle-closure guards become blocking.
+- [ ] Add lifecycle status to contract-catalog rows (`live`, `scaffold`,
+      `planned`, `compat`) and require `RunRecord`, `ArtifactStore`, adapter
+      rows, and other exported contracts either to declare one real producer-
+      consumer route or stay explicitly non-live until wired.
 - [ ] Define the contract family matrix explicitly for durable artifacts and
       config/policy surfaces: owner, compatibility window, migration path,
       rollback path, and the enforcing guard/check for each family.
 - [ ] Add provenance fields everywhere they are required:
       `rule_id`, `rule_version`, `source_command`, `repo_pack_id`,
       `policy_hash` or policy version, `run_id`, and evidence/artifact refs.
+- [ ] Split slim decision-path packets from archive/history-heavy artifact
+      families in `ArtifactStore` / retention policy so startup, review, and
+      runtime controllers can consume routing-critical evidence without
+      scanning the whole audit/report surface.
+- [ ] Make startup quality-signal loading resolve through typed authority, not
+      path literals: `startup_signals`, `startup-context`, and bootstrap
+      `context-graph` should read `probe-report`,
+      `governance-review`, `governance-quality-feedback`, and data-science
+      artifacts from declared `ProjectGovernance.artifact_roots` / repo-pack
+      candidate authority, and a loader-path regression should fail
+      deterministic tests instead of silently dropping an advertised startup
+      signal family.
+- [ ] Keep startup/work-intake routing coherent across the same typed inputs:
+      if `startup-context` selects `selected_workflow_profile` and emits
+      `check-router --since-ref ...` as the preflight, that routed bundle must
+      be derived from the same dirty-worktree / committed-diff policy the
+      packet used, not collapse to `bundle.docs` merely because the committed
+      diff is empty while live tooling changes still exist.
+- [ ] Materialize a typed `DecisionTrace` family over that same evidence
+      closure path: per-decision guard/probe results, graph/evidence path,
+      diff stats or graph-delta summary for the acted-on slice, metrics
+      deltas, confidence, chosen `DecisionPacket`, and resulting outcome
+      should be one canonical artifact that later feeds `SessionDecisionLog`,
+      startup signals, and `CollaborationSession` instead of being
+      reconstructed from unrelated ledgers or split into a second proof-only
+      packet family.
+- [ ] Evaluate one optional advisory decision-auditor step over
+      `DecisionTrace` for high-blast-radius or low-confidence cases: the AI
+      may challenge or confirm the proposed reasoning before mutation, but
+      `approval_required` remains a human/operator gate and deterministic
+      guards stay authoritative.
 - [ ] Record quality-to-cost telemetry alongside runtime/evidence rows
       wherever the provider/runtime can supply it:
       `provider_id`, `model_id`, `model_version`, `token_count`,
@@ -736,9 +788,20 @@ intended execution order is:
 - [ ] Add the aggregate governance-quality surfaces required to prove the
       platform governs itself: `master-report`, `converge`, and meta-findings
       over guard/probe/CI/exception/evidence completeness.
+- [ ] Make convergence proof explicit in that same closure tranche:
+      iterative remediation/runtime loops must record pre/post quality deltas,
+      diminishing-returns thresholds, worsening detection, and stop reasons in
+      `RunRecord` plus operator/startup projections so bounded loops can prove
+      why they stopped instead of only hitting `max_rounds` / `max_attempts`.
 - [ ] Require direct test coverage for authority-loop guards/checks and
       evidence-closure families. New closure guards do not count as complete
       until corresponding `test_check_*.py` coverage lands.
+- [ ] Add one producer-to-consumer startup smoke suite over those same
+      authoritative roots so `probe-report`, `governance-review`,
+      `governance-quality-feedback`, `context-graph --mode bootstrap`, and
+      `startup-context` prove real emitted artifact consumption, and the
+      emitted startup preflight stays coherent with `check-router` on the same
+      declared diff basis before the self-governance tranche goes stricter.
 - [ ] Define the multi-repo proof/evidence bundle schema used for adoption
       demonstrations and later evaluation corpora.
 - [ ] Treat Phase 5b as done only when guards, probes, imports, review
@@ -837,7 +900,10 @@ intended execution order is:
       and fallback/confidence fields so the least-effort-first routing
       contract exists as machine state instead of prose guidance only. The
       first proof must be backed by staged filtering plus bounded inference,
-      not just richer edge inventory.
+      not just richer edge inventory. The same proof is not complete while
+      repo-owned launchers still only check receipt/authority presence:
+      `selected_workflow_profile`, `preflight_command`, `warm_refs`, and
+      `writeback_sinks` must become real routing inputs.
 - [ ] Land the first bounded query engine in that same proof instead of
       leaving `WorkIntakePacket` as a better substring index: exact/canonical
       matches first, trigger/concept expansion second, typed-relation walks
@@ -881,8 +947,10 @@ intended execution order is:
       claiming MP-scoped graph retrieval is ready. At minimum, land canonical
       `guards` / `scoped_by` coverage plus one operation-semantic
       producer/consumer contract path (`computes` / `exports` / `consumes`,
-      with `transforms` when backed by real repo-owned evidence) before
-      calling the graph a truthful semantic router. Do not treat
+      with `transforms` when backed by real repo-owned evidence), and let one
+      high-confidence non-escalation consumer use those edges for startup /
+      work-intake / validator routing before calling the graph a truthful
+      semantic router. Do not treat
       keyword-only isolated plan matches or raw import adjacency as sufficient
       evidence.
 - [ ] Pair that first router with a small bidirectional hot-query cache.
@@ -1045,6 +1113,22 @@ intended execution order is:
       canonical tree/work-scope inputs rather than guessed. Keep guard
       inference/ranking out of scope until telemetry, cache invalidation, and
       graph-confidence semantics are proven.
+- [ ] Evaluate temporal stability/volatility signals on top of the existing
+      snapshot lane before promoting them into routing or temperature
+      authority: recent change frequency, centrality-like impact metadata, and
+      stability bias should be policy-backed graph evidence, not ad hoc
+      intuition or hardcoded one-repo math.
+- [ ] Separate presentation temperature from action gating on top of that
+      same evidence lane: derive a policy-backed change-pressure score from
+      volatility/stability signals, quality-feedback state, watchdog/probe
+      risk, command reliability, and guidance trust so runtime controllers can
+      decide whether to act, escalate, or downgrade to `approval_required`
+      without overloading hotspot temperature with decision semantics.
+- [ ] Add one explicit trigger from local repair context into bounded global
+      architecture review on top of that temporal lane: repeated local churn,
+      coupling-delta spikes, or other policy-declared graph drift signals
+      should be able to promote a slice from file-local guidance to a wider
+      architecture pass without making full-graph reasoning the default path.
 
 ## Session Resume
 
@@ -1057,7 +1141,9 @@ intended execution order is:
   `command_routing_defaults` rather than leaving those governance fields
   report-only. The remaining same-lane closure is broader adoption and
   hardening: `CollaborationSession`, more consumers of the routing packet,
-  and the validation-freshness / push-bypass gaps that the last audit surfaced.
+  repo-owned launchers still graduating from receipt-presence checks to real
+  use of `selected_workflow_profile` / `preflight_command` / `warm_refs`, and
+  the validation-freshness / push-bypass gaps that the last audit surfaced.
 - 2026-03-23 Part-53 hardening follow-up: the saved-snapshot diff path now
   has its first post-review correctness closure. `latest` / `previous`
   selection no longer depends on filesystem `mtime`, direct-path trend scans
@@ -1200,6 +1286,41 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-25: Re-ran the live startup path after Claude landed the one-line
+  probe-loader fix. The earlier `startup_signals.py` path bug is now closed on
+  the current tree and bootstrap surfaces carry real probe counts again, so
+  the remaining `MP-377` startup closure is narrower: startup still does not
+  consume `governance-quality-feedback`, the emitted
+  `check-router --since-ref ...` preflight can disagree with the packet's own
+  `bundle.tooling` decision when the worktree is dirty but the committed diff
+  is empty, and the authority-loop smoke lane now needs to pin both artifact
+  loading and routing coherence.
+- 2026-03-25: Added the next confirmed startup-evidence closure after
+  re-running the live commands instead of trusting the intake prose. The real
+  `MP-377` miss is concrete: `startup_signals.py` currently drops probe data
+  because the loader path drifted from the emitted artifact root, and the
+  clean-tree `probe-report` zero-scan case needs typed startup-freshness
+  handling rather than a fake "always full-scan" rule. The authority-loop lane
+  now explicitly owns repo-pack-aware startup-signal loading plus one
+  producer-to-consumer smoke suite over the governed artifact roots.
+- 2026-03-24: Folded the useful external architecture-review ideas into the
+  canonical plan stack instead of keeping them in a standalone intake doc.
+  The corrected takeaway is that the platform already has sensors, feedback
+  loops, persistence, and typed decision hierarchy; the remaining `MP-377`
+  work is actuator/proof closure. Accepted follow-ons are compiler-pass
+  framing in the main architecture plan, dynamic failure rules plus output
+  constraints under `MP-375`, and convergence/session-decision artifacts here
+  under the authority loop. The same alignment pass also keeps
+  transformation-proof joins inside `DecisionTrace` / `RunRecord` instead of a
+  new artifact family, and keeps any AI decision-auditor advisory rather than
+  a replacement for `approval_required` human/operator review. A deeper same-
+  day pass also narrowed the next self-governance work: raw "unused model"
+  counts stay audit evidence, while the real tracked closure is explicit
+  follow-up linkage for `missing_guard` / `missing_probe`, unified
+  `finding_id`, live-vs-scaffold contract status, first real consumers for
+  `RunRecord` / `ArtifactStore` / adapter rows, slimmer decision-path artifact
+  families, launcher adoption of `WorkIntakePacket` fields, and one bounded
+  graph relation consumer outside escalation-only reads.
 - 2026-03-23: Landed the first typed `WorkIntakePacket` / continuity runtime
   slice for `MP-377` instead of leaving startup authority at the "report-only
   governance draft" stage. `PlanRegistry` now stores parsed

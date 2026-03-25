@@ -800,6 +800,12 @@ Operator experience backlog:
       it refreshes bridge-backed review-channel state, combines it with
       autonomy `phone-status`, and emits compact/full/alert/actions mobile
       projections for future phone UI and notifier clients.)
+- [ ] Keep `mobile-status` state taxonomy aligned with review/runtime truth
+      during this read-first phase: stale live-review sessions with known
+      bridge/controller context must render `stale` rather than collapsing to
+      `runtime_missing`, and compact/full/alert views plus focused tests
+      should prove the same typed distinction the review-channel backend
+      emits.
 - [ ] Add an explicit simulator/device proving harness around the same shared
       control contract so phone work stays testable and honest during the
       transition:
@@ -999,6 +1005,10 @@ Backlog:
         expectations
   - [ ] route execution through the existing Dev broker/packet path or a typed
         successor, not through freeform `python3 <anything>` entry
+  - [ ] close the current `Ops` snapshot bypass too: `ops_snapshot.rs`
+        `process-audit` / `triage` refresh should route through
+        `DevCommandBroker` or the shared typed action path so timeout,
+        cancellation, and command-audit semantics stay authoritative
   - [ ] preserve dry-run and audit logging for any mutating action
 - [ ] Add a memory proving lane that uses the shipped foundations before more
       advanced memory automation is turned on:
@@ -1403,6 +1413,11 @@ Acceptance:
   - [ ] candidate manual tasks to automate next
 - [ ] Feed learned playbook suggestions back into `autonomy-loop` plan stage as
       ranked options (with evidence refs and confidence).
+- [ ] Feed generic `devctl triage` rollups and `triage-loop.backlog_items`
+      into the autonomy plan/context-recovery stage instead of treating only
+      the per-round `triage-loop` command as controller input; concrete file/
+      line backlog should shape plan selection, prompt context, and checkpoint
+      packets.
 
 Acceptance:
 
@@ -1436,6 +1451,26 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-25: Re-ran the focused control-plane regression suite and found one
+  live `MP-340` parity break: `test_mobile_status.py` now expects `stale` but
+  gets `runtime_missing` in two bridge-backed cases. The first merged phone
+  surface is still the right architecture, but its state mapping drifted from
+  the typed review/runtime semantics it is supposed to project.
+- 2026-03-25: Checked the latest deep-sweep claims against the Rust control
+  surface before promoting anything into plan state. The broad "one-directional
+  boundary" framing is mostly architecture description, but one concrete
+  `MP-340` miss is real: the Dev-panel `Ops` refresh path in
+  `ops_snapshot.rs` still shells out via raw `python3` and bypasses the
+  broker's timeout/cancellation/logging path, so the remaining broker
+  convergence work now records that exact closure instead of a vague boundary
+  complaint.
+- 2026-03-24: Accepted the next bounded autonomy-input closure from the deeper
+  architecture review after checking it against live code. `autonomy-loop`
+  already consumes `triage-loop` every round, so the broad claim that "triage
+  is unread" was too loose; the real miss is that generic `devctl triage`
+  rollups and structured `triage-loop.backlog_items` still do not steer plan
+  selection or context recovery. The new scope stays here under `MP-340`
+  rather than widening `MP-377`.
 - 2026-03-22: Finished the remaining `SYSTEM_AUDIT` mapping for the watchdog
   lane. The audit's test-hardening ask is now explicit here instead of living
   only in reference prose: before the repo makes stronger "watchdog improves
@@ -1844,7 +1879,10 @@ Acceptance:
   of chat-only notes, then update this section when the promoted slice
   changes. The current mapped test-hardening slice is the watchdog coverage
   tranche; keep it visible until emitter/reducer/failure-path coverage is
-  materially stronger.
+  materially stronger. The next adjacent controller-input follow-up after that
+  is the newly mapped triage-artifact slice: generic `triage` rollups and
+  structured `backlog_items` should start shaping plan selection and context
+  recovery instead of remaining report-only.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

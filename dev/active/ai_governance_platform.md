@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-03-24 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-25 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -110,6 +110,34 @@ reusable product:
    VoiceTerm-specific packaging and UX, treated as a consumer/integration layer
    over the reusable platform rather than the canonical home of every feature.
 
+## Compiler-Pass Framing
+
+Use one compiler-style explanatory model when describing the platform, without
+pretending the system is literally a compiler.
+
+1. **Frontend / signal extraction**
+   `bootstrap`, `startup-context`, guards, probes, repo maps, and policy
+   resolution parse repo state into typed signals and bounded startup packets.
+2. **Midend / semantic reduction**
+   `Finding`, `DecisionPacket`, quality-feedback summaries, governance review,
+   triage/backlog ranking, and repo policy reduce those raw signals into
+   bounded repair plans with explicit authority and evidence.
+3. **Backend / constrained execution**
+   Ralph/autonomy/review-channel/`guard-run` consume typed guidance,
+   approvals, and output constraints to emit changes through
+   `TypedAction -> ActionResult -> RunRecord`.
+4. **Link / feedback**
+   governance-review ledgers, session-decision artifacts, startup signals, and
+   convergence evidence bind accepted outcomes back into later sessions so the
+   next run starts from typed prior truth rather than chat memory.
+
+This framing is for architecture clarity, not a license to add opaque
+"optimization" layers. The design rule is to strengthen pass boundaries and
+typed handoffs, not to smuggle more behavior into prompt-local heuristics.
+The current maturity gap is not missing sensors; it is actuator closure:
+dynamic failure rules, structured output constraints, convergence proof, and
+session-level decision auditability.
+
 ## Shared Contracts
 
 Frontends and repo integrations should converge on one explicit backend
@@ -148,6 +176,16 @@ contract set:
 - `RunRecord`: durable record for one governed execution episode, including
   inputs, context-pack telemetry, artifacts, findings, repairs, approvals, and
   outcomes.
+- `DecisionTrace`: typed per-decision explanation artifact linking triggered
+  guard/probe outcomes, graph/evidence path, diff or graph-delta summary,
+  metrics deltas, confidence, the chosen `DecisionPacket`, and resulting
+  outcome so the system can explain why it acted without stitching that story
+  back together from unrelated logs or inventing a second proof-only packet.
+- `SessionDecisionLog`: typed per-session audit trail derived from
+  `DecisionPacket`, guidance adoption/waiver records, evidence refs, and
+  outcomes so startup, `CollaborationSession`, and later operators can see
+  what the system decided and why without reconstructing that history from
+  chat or scattered ledgers.
 - `CommandGoalTaxonomy`: stable grouping for canonical backend actions
   (`inspect`, `review`, `fix`, `run`, `control`, `adopt`, `publish`,
   `maintain`) so help, wrappers, skills, startup guides, and future `map`
@@ -2520,6 +2558,11 @@ Still open before `P0` closes:
       lifecycle, placement, budget, and shadow-roadmap rules. Add a dedicated
       `check_doc_authority_contract.py` only if those current surfaces cannot
       model the contract cleanly.
+- [ ] Keep `doc-authority` classification deterministic under that same
+      docs-governance lane: canonical guide/reference/spec/runbook classes
+      must come from policy/registry shape rather than ad hoc path fallbacks,
+      and focused regression tests should pin root-guide classification before
+      `DocRegistry` becomes startup authority.
 - [ ] Dogfood that same markdown contract on the repo's own active plans:
       bring execution-plan docs into parity with the enforced section order,
       metadata-header parsing, and `Session Resume` restart contract before the
@@ -3048,8 +3091,9 @@ Still open before `P0` closes:
       stale/missing fallback.
 - [ ] Make query confidence honest before widening capability: direct typed
       matches and bounded word-aware query quality must outrank accidental
-      substring/import adjacency, and sample-repo noise or generic neighbor
-      expansion must not surface as `high` confidence.
+      substring/import adjacency, and sample-repo noise, generic guard-edge
+      fan-out, or generic neighbor expansion must not surface as `high`
+      confidence merely because many low-value edges exist.
 - [ ] Replace substring-first query resolution with a bounded progressive
       filter stack in the first routing proof: exact/canonical ref matches
       first, trigger/concept expansion second, typed-relation walks third,
@@ -3060,7 +3104,9 @@ Still open before `P0` closes:
       operation-semantic producer/consumer contract family (`computes`,
       `exports`, `consumes`, and `transforms` where the repo-owned contract
       evidence is real) so the graph is anchored in repo-owned evidence
-      instead of raw import adjacency alone.
+      instead of raw import adjacency alone. `scoped_by` coverage should come
+      from plan-registry / ownership-backed mappings for active plans, not
+      only docs-policy tooling prefixes.
 - [ ] Promote the graph from escalation-only helper to the first bounded
       decision-routing input after those relation families land: make the
       builder emit real `EDGE_KIND_GUARDS` and `EDGE_KIND_SCOPED_BY` edges,
@@ -3650,6 +3696,38 @@ Still open before `P0` closes:
       the checking stack can emit findings without durable ledger linkage.
       Owner/phase: `MP-377` `P0` self-governance closure alongside the blocker
       tranche. (audit mapping: `SYSTEM_AUDIT.md` A29, G1)
+- [ ] Extend governance closeout itself before the next self-governance guard
+      tranche goes blocking: `FindingReview` rows for `missing_guard` /
+      `missing_probe` must carry explicit follow-up refs (proposed guard/probe,
+      owning MP, or waiver), and runtime/governance paths must share one
+      stable `finding_id` contract so closure checks compare like-for-like
+      identities instead of similar-looking rows.
+- [ ] Add one self-improvement guard tranche over platform completeness, not
+      just code shape: fail when `missing_guard` / `missing_probe` findings
+      have no follow-up, when authoritative/live contract rows have no
+      declared producer or consumer, when declared machine-readable runtime
+      surfaces have no proven consumer route, or when finding ids never reach
+      a terminal verdict. Narrow the contract/loop guards to authoritative or
+      `live` families so placeholder rows and human-only outputs do not become
+      bookkeeping noise.
+- [ ] Make startup quality-signal loading repo-pack-aware and fail-closed:
+      `startup_signals`, `startup-context`, and bootstrap `context-graph`
+      must resolve `probe-report`, `governance-review`,
+      `governance-quality-feedback`, and data-science summaries from declared
+      `ProjectGovernance.artifact_roots` rather than hardcoded path guesses,
+      and focused regression tests must prove every advertised startup signal
+      family is actually loadable from those emitted roots.
+- [ ] Keep startup/work-intake preflight routing coherent across the same
+      inputs: when `startup-context` selects
+      `selected_workflow_profile` and emits a `check-router --since-ref ...`
+      preflight, the routed bundle must be derived from the same
+      dirty-worktree / committed-diff policy the packet used, not tell AI to
+      run a docs-only preflight while live tooling changes still drive
+      `bundle.tooling`.
+- [ ] Add lifecycle status metadata to contract-catalog rows (`live`,
+      `scaffold`, `planned`, `compat`) before consumer-parity goes hard red,
+      and keep placeholder adapter/runtime rows explicit until a first live
+      route exists.
 - [ ] Add schema-version coverage for every durable machine artifact family:
       command receipts, event ledgers, findings, review packets, watchdog
       episodes, analytics snapshots, and other JSON/JSONL outputs should carry
@@ -3692,6 +3770,14 @@ Still open before `P0` closes:
       Owner/phase:
       `MP-377` `P1` validation tranche after the core routing paths are live.
       (audit mapping: `SYSTEM_AUDIT.md` T3, T4, T5)
+- [ ] Add one bounded self-hosting producer-to-consumer smoke lane for the
+      governed startup surfaces: exercise `probe-report`,
+      `governance-review`, `governance-quality-feedback`,
+      `context-graph --mode bootstrap`, `platform-contracts`, and
+      `startup-context` against the same artifact roots, and prove the emitted
+      startup preflight stays coherent with `check-router` on the same routing
+      basis so CI/local smoke validates real emitted data paths instead of
+      only schema/catalog drift.
 - [ ] Promote `devctl map` from narrative target to checklist deliverable:
       freeze `RepoMapSnapshot`, `MapFocusQuery`, and `TargetedCheckPlan` plus
       cache/store identity, then require topology/hotspot/review outputs and
@@ -4395,6 +4481,39 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-25: Re-checked the tree after the probe-loader fix landed. The
+  earlier `startup_signals.py` path bug is now closed, so the remaining
+  `MP-377` startup gap is the still-unconsumed
+  `governance-quality-feedback` signal plus a routing-coherence miss:
+  `startup-context` can select `bundle.tooling` while its emitted
+  `check-router --since-ref ...` preflight returns `bundle.docs` on the same
+  dirty tree. The same rerun also narrowed the graph intake work: `routes_to`
+  edges and diff-edge visibility already exist, but guard-edge neighbor noise
+  still needs downranking and `scoped_by` coverage still leans on
+  docs-policy tooling prefixes instead of active-plan ownership.
+- 2026-03-25: Re-verified the latest deep-sweep claims against the live
+  command paths before widening `MP-377`. The concrete startup bug is real:
+  `startup_signals.py` currently reads a stale probe-summary path while the
+  emitted probe artifacts live under the governed `probe_report_root`, so
+  `startup-context` and bootstrap `context-graph` silently omit probe data.
+  The clean-tree `probe-report` zero-scan result is also real, but it matches
+  the current `working-tree` contract; the tracked follow-up is therefore
+  repo-pack-aware startup loading, honest startup freshness semantics, and one
+  producer-to-consumer smoke suite over the governed startup surfaces, not a
+  blanket "run every governance command in CI" mandate.
+- 2026-03-24: Accepted the remaining aligned external-review follow-ons into
+  the platform architecture without widening the contract surface.
+  "Determinism decides if, AI decides how" is now the sequencing rule for the
+  next closures: transformation-proof joins belong in `DecisionTrace` /
+  `RunRecord`, change-pressure gating stays policy-backed, and any AI
+  decision-auditor remains an advisory reviewer rather than a replacement for
+  `approval_required` human/operator approval. A deeper same-day pass also
+  keeps the intake's strongest self-governance claims but narrows them to the
+  architecture the repo actually wants: raw zero-consumer counts stay audit
+  evidence, while tracked work becomes explicit follow-up linkage for
+  `missing_guard` / `missing_probe`, stable `finding_id`, live-vs-scaffold
+  contract status, and meta-guards over authoritative/runtime-complete
+  surfaces only.
 - 2026-03-23: Closed the next startup-authority bypass in the `MP-377`
   product lane instead of treating the new guard as operator lore. The
   startup family now owns a portable managed `StartupReceipt` rooted in live

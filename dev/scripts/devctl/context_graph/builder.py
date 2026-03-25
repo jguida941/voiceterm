@@ -247,7 +247,13 @@ def _collect_plan_scope_edges(
     source_nodes: list[GraphNode],
     plan_nodes: list[GraphNode],
 ) -> list[GraphEdge]:
-    """Emit policy-backed active-plan->source scoped_by edges."""
+    """Emit policy-backed active-plan->source scoped_by edges.
+
+    Only uses explicit docs-policy trigger prefixes. Keyword/word-overlap
+    heuristics are deliberately excluded: scoped_by is a typed ownership
+    edge, and the MP-377 contract requires registry-backed authority, not
+    filename guessing.
+    """
     policy_prefixes = _plan_scope_rule_prefixes()
     edge_keys: set[tuple[str, str]] = set()
     for plan_node in plan_nodes:

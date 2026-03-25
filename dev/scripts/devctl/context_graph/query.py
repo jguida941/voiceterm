@@ -9,6 +9,7 @@ from ..config import get_repo_root
 from ..governance.surfaces import load_surface_policy
 from ..governance.push_policy import detect_push_enforcement_state, load_push_policy
 from .models import (
+    EDGE_KIND_GUARDS,
     NODE_KIND_GUARD,
     NODE_KIND_PLAN,
     NODE_KIND_PROBE,
@@ -70,7 +71,13 @@ def query_context_graph(
 
     neighbor_ids: set[str] = set()
     matched_edges: list[GraphEdge] = []
+    # Guard edges (guard → file) create N_guards × N_files cartesian noise
+    # when querying for source files. Keep them when the query matched a guard
+    # node directly (the user asked about a guard). Filter otherwise.
+    matched_has_guard = any(nid.startswith("guard:") for nid in matched_ids)
     for edge in edges:
+        if edge.edge_kind == EDGE_KIND_GUARDS and not matched_has_guard:
+            continue
         if edge.source_id in matched_ids or edge.target_id in matched_ids:
             neighbor_ids.add(edge.source_id)
             neighbor_ids.add(edge.target_id)

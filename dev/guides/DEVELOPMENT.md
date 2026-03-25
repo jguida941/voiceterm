@@ -209,6 +209,9 @@ Three quality layers matter in practice:
     relation families, so targeted
     `context-graph --query '<term>'` calls can answer file-level protection
     and scope questions before the workflow widens into deeper startup reads.
+    Non-guard queries now suppress generic guard-edge fan-out, and scoped
+    ownership may come from docs-policy rules or bounded derived plan-to-
+    directory matches instead of raw substring adjacency alone.
     Bootstrap mode also persists a typed `ContextGraphSnapshot` artifact under
     `dev/reports/graph_snapshots/`, and `--save-snapshot` applies that same
     versioned snapshot writer to other context-graph modes. `context-graph

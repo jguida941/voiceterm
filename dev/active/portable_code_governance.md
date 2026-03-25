@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-03-22 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-03-25 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -210,6 +210,23 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       startup/status surfaces should say whether repo-owned push validation is
       merely available or actually active so operators do not assume a GitHub
       push is guarded when no hook/install path is in force.
+- [ ] Add an optional clean-slate / rollback-on-failure safety mode for
+      external-adopter remediation loops: capture a pre-fix baseline, allow a
+      bounded rollback to that baseline when post-fix validation worsens or
+      fails, and support opt-in clean-slate rounds for autonomy experiments.
+      Keep this explicit and policy-owned; do not silently replace the current
+      bounded escalation model with unbounded auto-regeneration.
+- [ ] Add one deterministic reproducibility integration test for the portable
+      engine: run the same repo snapshot + policy twice through the
+      deterministic layers and assert identical canonical findings, packets,
+      and receipts except for explicitly allowed volatile fields such as
+      timestamps or run ids.
+- [ ] Keep exported measurement schemas honest about lifecycle:
+      `portable_governance_episode` and `portable_governance_eval_record`
+      remain reference/export artifacts until importer or validator code exists;
+      if they graduate into live portable evidence, land executable validation
+      and consumer paths in the same slice instead of counting templates as
+      active contracts.
 - [ ] Route all AI-initiated VCS pushes through `devctl push` instead of raw
       `git push`: Ralph (`ralph_ai_fix.py`), autonomy-loop, and swarm agents
       currently bypass `repo_governance.push` policy, preflight bundles,
@@ -384,6 +401,19 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-25: Rechecked the deeper config/template intake against the live
+  portable code and narrowed it before promotion. The broad orphan-file claim
+  does not hold here: starter policy/templates already ship through
+  export/bootstrap, `voiceterm.json` is a live preset extension, and
+  `claude_voice_skill.template.md` is a live repo-pack surface. The remaining
+  portable follow-up worth tracking is lifecycle honesty for the exported
+  episode/eval schema templates if they are promoted beyond reference/export
+  status.
+- 2026-03-24: Folded the remaining aligned external-review items into the
+  portable-engine lane instead of leaving them in intake prose. `MP-376` now
+  keeps clean-slate / rollback-on-failure explicit for adopter safety and
+  also requires one end-to-end reproducibility integration test so portable
+  deterministic layers can prove stable outputs on the same repo snapshot.
 - 2026-03-22: Integrated `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 44 into the
   portable-engine lane. The portable startup/discoverability contract now
   explicitly owns `guard-explain`, `which-tests`, described `devctl list`
