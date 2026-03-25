@@ -5597,3 +5597,13 @@ scripts gained lightweight smoke tests. That keeps the self-hosting contract
 honest: guarded push now fails on real governance-closure debt instead of
 substring/filename false negatives, without weakening release-lane policy or
 teaching operators to bypass the gate.
+
+### 2026-03-25 - MP-377 docs now describe live `scoped_by` ownership honestly
+
+Fact: the next `context-graph` follow-up on this branch was a maintainer-doc
+drift fix, not a new runtime feature. The implementation currently suppresses
+generic guard-edge fan-out for non-guard queries, but `scoped_by` ownership is
+still derived from docs-policy prefixes only; the broader plan-registry /
+directory-ownership expansion remains open in the MP-377 graph lane. The repo
+docs were corrected to describe that current behavior precisely instead of
+claiming bounded derived plan-to-directory matching had already landed.

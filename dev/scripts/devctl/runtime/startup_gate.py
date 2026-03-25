@@ -18,6 +18,7 @@ _GATED_COMMANDS = {
     "guard-run",
     "sync",
     "autonomy-loop",
+    "mutation-loop",
     "swarm_run",
 }
 

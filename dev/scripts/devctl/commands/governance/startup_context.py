@@ -141,6 +141,21 @@ def add_parser(subparsers) -> None:
         "startup-context",
         help="Emit typed startup-context packet for AI agent sessions",
     )
+    sc_cmd.add_argument(
+        "--role",
+        choices=("implementer", "reviewer"),
+        default=None,
+        help=(
+            "Declare caller role. In active_dual_agent mode, --role reviewer "
+            "blocks implementation work unless --reviewer-override is passed."
+        ),
+    )
+    sc_cmd.add_argument(
+        "--reviewer-override",
+        action="store_true",
+        default=False,
+        help="Allow reviewer to proceed with implementation in active_dual_agent.",
+    )
     add_standard_output_arguments(sc_cmd, format_choices=("json", "md"))
 
 
@@ -201,6 +216,18 @@ def run(args) -> int:
         receipt.head_commit_sha,
     )
     blocked = blocks_new_implementation(ctx) or not bool(authority_report.get("ok", False))
+    # Role-aware reviewer gate: in active_dual_agent, reviewer must not
+    # start implementation work unless explicitly overridden.
+    caller_role = getattr(args, "role", None)
+    reviewer_override = getattr(args, "reviewer_override", False)
+    reviewer_blocked = False
+    if (
+        caller_role == "reviewer"
+        and ctx.reviewer_gate.reviewer_mode == "active_dual_agent"
+        and not reviewer_override
+    ):
+        reviewer_blocked = True
+        blocked = True
     push = governance.push_enforcement if governance is not None else None
     return emit_machine_artifact_output(
         args,

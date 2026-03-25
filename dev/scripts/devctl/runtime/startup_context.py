@@ -31,6 +31,8 @@ class ReviewerGateState:
     required_checks_status: str = "unknown"
     checkpoint_permitted: bool = True
     push_permitted: bool = False
+    implementation_blocked: bool = False
+    implementation_block_reason: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,24 +72,13 @@ def _detect_reviewer_gate(
     repo_root: Path,
     governance: ProjectGovernance | None = None,
 ) -> ReviewerGateState:
-    """Detect current reviewer/ready-gate state from typed review-state
-    artifacts when available, falling back to live bridge.md prose.
-
-    Preferred path (typed): read review_state.json from the managed projection
-    root. This avoids coupling startup to live bridge.md modifications.
-
-    Fallback path (bridge): parse bridge.md directly when projections are not
-    available. This preserves backward compatibility during migration.
-    """
-    # Try typed review-state first (preferred path)
+    """Detect reviewer gate state from typed review-state or bridge.md."""
     typed_gate = _detect_reviewer_gate_from_typed_state(
         repo_root,
         governance=governance,
     )
     if typed_gate is not None:
         return typed_gate
-
-    # Fallback: parse bridge.md directly (compatibility path)
     return _detect_reviewer_gate_from_bridge(repo_root)
 
 
@@ -96,20 +87,13 @@ def _detect_reviewer_gate_from_typed_state(
     *,
     governance: ProjectGovernance | None = None,
 ) -> ReviewerGateState | None:
-    """Read reviewer gate from typed review_state.json when available.
-
-    Uses the same reviewer-owned acceptance semantics as
-    ``bridge_validation.bridge_review_accepted()`` — verdict must show
-    accepted/all-green/resolved AND findings must be clear/none.  The typed
-    ``ReviewBridgeState`` carries ``open_findings`` directly and the bridge
-    snapshot is reconstructed from the live file only for the verdict check so
-    the acceptance contract stays identical to the bridge-backed path.
-    """
+    """Read reviewer gate from typed review_state.json when available."""
     payload = load_review_state_payload(repo_root, governance=governance)
     if payload is None:
         return None
     try:
         bridge_block = payload.get("bridge") or {}
+        attention_block = payload.get("attention") or {}
         mode = str(bridge_block.get("reviewer_mode") or "single_agent")
 
         from ..review_channel.peer_liveness import reviewer_mode_is_active
@@ -125,10 +109,15 @@ def _detect_reviewer_gate_from_typed_state(
                 push_permitted=True,
             )
 
-        # Read review_accepted directly from the typed bridge state.
-        # This field is populated by the projection layer using the same
-        # reviewer-owned acceptance semantics as bridge_review_accepted().
         review_accepted = bool(bridge_block.get("review_accepted", False))
+        claude_ack_current = bool(bridge_block.get("claude_ack_current", False))
+        implementation_blocked, implementation_block_reason = (
+            _reviewer_loop_block_state(
+                reviewer_mode=mode,
+                claude_ack_current=claude_ack_current,
+                attention_status=str(attention_block.get("status") or "").strip(),
+            )
+        )
 
         return ReviewerGateState(
             bridge_active=True,
@@ -137,9 +126,11 @@ def _detect_reviewer_gate_from_typed_state(
             required_checks_status="unknown",
             checkpoint_permitted=True,
             push_permitted=review_accepted,
+            implementation_blocked=implementation_blocked,
+            implementation_block_reason=implementation_block_reason,
         )
     except (ImportError, KeyError):
-        return None  # Fall through to bridge path
+        return None
 
 
 def _detect_reviewer_gate_from_bridge(repo_root: Path) -> ReviewerGateState:
@@ -173,6 +164,13 @@ def _detect_reviewer_gate_from_bridge(repo_root: Path) -> ReviewerGateState:
                 push_permitted=True,
             )
         review_accepted = bridge_review_accepted(snapshot)
+        implementation_blocked, implementation_block_reason = (
+            _reviewer_loop_block_state(
+                reviewer_mode=mode,
+                claude_ack_current=bool(liveness.claude_ack_current),
+                attention_status=str(liveness.overall_state or "").strip(),
+            )
+        )
         return ReviewerGateState(
             bridge_active=True,
             reviewer_mode=mode,
@@ -180,12 +178,32 @@ def _detect_reviewer_gate_from_bridge(repo_root: Path) -> ReviewerGateState:
             required_checks_status="unknown",
             checkpoint_permitted=True,
             push_permitted=review_accepted,
+            implementation_blocked=implementation_blocked,
+            implementation_block_reason=implementation_block_reason,
         )
     except (OSError, ImportError, ValueError):
         return ReviewerGateState(
-            checkpoint_permitted=True,
+            checkpoint_permitted=False,
             push_permitted=False,
+            implementation_blocked=True,
+            implementation_block_reason="bridge_parse_error",
         )
+
+
+def _reviewer_loop_block_state(
+    *,
+    reviewer_mode: str,
+    claude_ack_current: bool,
+    attention_status: str = "",
+) -> tuple[bool, str]:
+    from ..review_channel.peer_liveness import reviewer_mode_is_active
+
+    if not reviewer_mode_is_active(reviewer_mode):
+        return False, ""
+    if claude_ack_current:
+        return False, ""
+    reason = attention_status or "claude_ack_stale"
+    return True, reason
 
 
 def _derive_advisory_action(
@@ -206,6 +224,10 @@ def _derive_advisory_action(
         return "checkpoint_before_continue", pe.checkpoint_reason
     if not pe.safe_to_continue_editing:
         return "checkpoint_before_continue", "worktree_budget_exceeded"
+    if gate.implementation_blocked:
+        return "checkpoint_before_continue", (
+            gate.implementation_block_reason or "reviewer_loop_blocked"
+        )
     if gate.bridge_active and not gate.review_accepted:
         return "continue_editing", "review_pending"
     if not pe.worktree_dirty and pe.ahead_of_upstream_commits in (0, None):
@@ -250,13 +272,13 @@ def build_startup_context(
 
 def blocks_new_implementation(ctx: StartupContext) -> bool:
     """Return whether the typed startup receipt blocks another edit slice."""
+    if ctx.reviewer_gate.implementation_blocked:
+        return True
     governance = ctx.governance
     if governance is None:
         return False
     push = governance.push_enforcement
-    return bool(
-        push.checkpoint_required or not push.safe_to_continue_editing
-    )
+    return bool(push.checkpoint_required or not push.safe_to_continue_editing)
 
 
 def _startup_governance_dict(governance: ProjectGovernance) -> dict[str, Any]:

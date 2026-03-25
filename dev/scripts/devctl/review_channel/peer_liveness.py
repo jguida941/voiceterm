@@ -107,6 +107,7 @@ class AttentionStatus(StrEnum):
     PUBLISHER_MISSING = "publisher_missing"
     PUBLISHER_FAILED_START = "publisher_failed_start"
     PUBLISHER_DETACHED_EXIT = "publisher_detached_exit"
+    BRIDGE_CONTRACT_ERROR = "bridge_contract_error"
     HEALTHY = "healthy"
 
 # ---------------------------------------------------------------------------

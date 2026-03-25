@@ -11,6 +11,7 @@ from .handoff_constants import (
     IDLE_NEXT_ACTION_MARKERS,
     RESOLVED_VERDICT_MARKERS,
     find_suspicious_bridge_text_lines,
+    _is_substantive_text,
     _RESOLVED_ECHO_RE,
 )
 from .peer_liveness import (
@@ -94,6 +95,7 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
     errors: list[str] = []
     reviewer_mode = normalize_reviewer_mode(snapshot.metadata.get("reviewer_mode"))
     liveness = _summarize(snapshot)
+    poll_status = snapshot.sections.get("Poll Status", "").strip()
     last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
     if not last_reviewed_scope:
         errors.append(
@@ -119,6 +121,17 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
         errors.append(
             "`Current Instruction For Claude` is generic; reviewer must promote "
             "a concrete scoped checklist item with file-targeted steps."
+        )
+
+    if (
+        reviewer_mode_is_active(reviewer_mode)
+        and not _is_substantive_text(poll_status)
+        and not liveness.claude_ack_current
+    ):
+        errors.append(
+            "Active `active_dual_agent` bridge requires a substantive `Poll Status` "
+            "reviewer note when `Claude Ack` is stale or missing; blank or "
+            "placeholder `Poll Status` is a hard live-contract error."
         )
 
     explicit_revision = (snapshot.metadata.get("current_instruction_revision") or "").strip()

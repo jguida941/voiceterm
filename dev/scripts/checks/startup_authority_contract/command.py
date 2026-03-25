@@ -15,6 +15,7 @@ from pathlib import Path
 from .runtime_checks import (
     collect_checkpoint_budget_errors,
     collect_import_index_atomicity_findings,
+    collect_reviewer_loop_block_errors,
 )
 
 try:
@@ -120,7 +121,15 @@ def _build_report(repo_root: Path | None = None) -> dict:
     else:
         checks_passed += 1
 
-    # --- 9. repo-local Python imports resolve in the git index, not only on disk ---
+    # --- 9. active reviewer loop cannot start a fresh implementation slice when stale ---
+    checks_run += 1
+    reviewer_loop_errors = collect_reviewer_loop_block_errors(root, gov)
+    if reviewer_loop_errors:
+        errors.extend(reviewer_loop_errors)
+    else:
+        checks_passed += 1
+
+    # --- 10. repo-local Python imports resolve in the git index, not only on disk ---
     checks_run += 1
     import_atomicity_errors, import_atomicity_warnings = (
         collect_import_index_atomicity_findings(root)
@@ -144,6 +153,7 @@ def _build_report(repo_root: Path | None = None) -> dict:
         "checkpoint_required": gov.push_enforcement.checkpoint_required,
         "safe_to_continue_editing": gov.push_enforcement.safe_to_continue_editing,
         "checkpoint_reason": gov.push_enforcement.checkpoint_reason,
+        "reviewer_loop_blocked": bool(reviewer_loop_errors),
         "import_index_atomicity_violations": len(import_atomicity_errors),
     }
 
@@ -163,6 +173,7 @@ def _render_md(report: dict) -> str:
         "- import_index_atomicity_violations: "
         f"{report['import_index_atomicity_violations']}"
     )
+    lines.append(f"- reviewer_loop_blocked: {report['reviewer_loop_blocked']}")
     if report["errors"]:
         lines.append("")
         lines.append("## Errors")

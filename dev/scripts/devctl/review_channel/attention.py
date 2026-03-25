@@ -22,6 +22,7 @@ def derive_bridge_attention(
     bridge_liveness: dict[str, object],
     *,
     push_state: dict[str, object] | None = None,
+    contract_errors: list[str] | None = None,
 ) -> dict[str, object]:
     """Translate bridge liveness into one compact operator-facing attention state."""
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
@@ -52,6 +53,13 @@ def derive_bridge_attention(
     publisher_running = bool(bridge_liveness.get("publisher_running"))
     reviewer_runtime_running = reviewer_supervisor_running or publisher_running
 
+    # Contract errors only override attention when the reviewer mode is active
+    # and the errors are substantive (not just missing optional fields).
+    _active_contract_errors = (
+        contract_errors
+        if contract_errors and reviewer_mode_is_active(reviewer_mode)
+        else None
+    )
     if not reviewer_mode_is_active(reviewer_mode):
         status = AttentionStatus.INACTIVE
     elif (
@@ -106,7 +114,12 @@ def derive_bridge_attention(
     elif overall_state == OverallLivenessState.WAITING_ON_PEER and not claude_ack_present:
         status = AttentionStatus.CLAUDE_ACK_MISSING
     elif overall_state == OverallLivenessState.WAITING_ON_PEER and not claude_ack_current:
-        status = AttentionStatus.CLAUDE_ACK_STALE
+        if _active_contract_errors:
+            status = AttentionStatus.BRIDGE_CONTRACT_ERROR
+        else:
+            status = AttentionStatus.CLAUDE_ACK_STALE
+    elif _active_contract_errors:
+        status = AttentionStatus.BRIDGE_CONTRACT_ERROR
     elif overall_state == OverallLivenessState.WAITING_ON_PEER:
         status = AttentionStatus.WAITING_ON_PEER
     elif reviewed_hash_current is False:

@@ -491,6 +491,18 @@ class TestAdvisoryAction(unittest.TestCase):
         self.assertEqual(action, "continue_editing")
         self.assertEqual(reason, "review_pending")
 
+    def test_reviewer_loop_blocked(self) -> None:
+        gov = _minimal_governance()
+        gate = ReviewerGateState(
+            bridge_active=True,
+            review_accepted=False,
+            implementation_blocked=True,
+            implementation_block_reason="claude_ack_stale",
+        )
+        action, reason = _derive_advisory_action(gov, gate)
+        self.assertEqual(action, "checkpoint_before_continue")
+        self.assertEqual(reason, "claude_ack_stale")
+
     def test_no_push_needed(self) -> None:
         gov = _minimal_governance(worktree_dirty=False, ahead_of_upstream_commits=0)
         gate = ReviewerGateState()
@@ -524,6 +536,15 @@ class TestAdvisoryAction(unittest.TestCase):
         ctx = StartupContext(governance=_minimal_governance())
         self.assertFalse(blocks_new_implementation(ctx))
 
+    def test_blocks_new_implementation_when_reviewer_loop_is_blocked(self) -> None:
+        ctx = StartupContext(
+            reviewer_gate=ReviewerGateState(
+                implementation_blocked=True,
+                implementation_block_reason="claude_ack_stale",
+            )
+        )
+        self.assertTrue(blocks_new_implementation(ctx))
+
 
 class TestTypedReviewStateGatePath(unittest.TestCase):
     """Verify the typed review_state.json path preserves bridge_review_accepted semantics."""
@@ -534,6 +555,8 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
         verdict: str,
         findings: str,
         reviewer_mode: str = "active_dual_agent",
+        claude_ack_current: bool = True,
+        attention_status: str = "healthy",
     ) -> None:
         """Write both bridge.md and review_state.json for typed-path testing."""
         bridge_text = "\n".join(
@@ -577,9 +600,15 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
                 "reviewer_mode": reviewer_mode,
                 "open_findings": findings,
                 "review_accepted": review_accepted,
+                "claude_ack_current": claude_ack_current,
+            },
+            "attention": {
+                "status": attention_status,
             },
             "current_session": {
-                "implementer_ack_state": "current",
+                "implementer_ack_state": (
+                    "current" if claude_ack_current else "stale"
+                ),
                 "open_findings": findings,
             },
         }
@@ -612,6 +641,36 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             gate = _detect_reviewer_gate(repo_root)
             self.assertFalse(gate.review_accepted)
             self.assertFalse(gate.push_permitted)
+
+    def test_typed_path_blocks_new_implementation_when_ack_is_stale(self) -> None:
+        """Active dual-agent stale ack should fail closed for new implementation slices."""
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_bridge_and_typed_state(
+                repo_root,
+                "Needs-review. Implementer ack is stale.",
+                "- none",
+                claude_ack_current=False,
+                attention_status="claude_ack_stale",
+            )
+            gate = _detect_reviewer_gate(repo_root)
+            self.assertTrue(gate.implementation_blocked)
+            self.assertEqual(gate.implementation_block_reason, "claude_ack_stale")
+
+    def test_typed_path_does_not_block_single_agent_lanes(self) -> None:
+        """Single-agent reviewer mode should not trip the implementation block."""
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_bridge_and_typed_state(
+                repo_root,
+                "Needs-review. Single-agent review mode.",
+                "- none",
+                reviewer_mode="single_agent",
+                claude_ack_current=False,
+                attention_status="claude_ack_stale",
+            )
+            gate = _detect_reviewer_gate(repo_root)
+            self.assertFalse(gate.implementation_blocked)
 
     @patch(
         "dev.scripts.devctl.runtime.review_state_locator.active_path_config",

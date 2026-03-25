@@ -14,6 +14,11 @@ except ModuleNotFoundError:
         resolve_quality_scope_roots,
     )
 
+try:
+    from dev.scripts.devctl.runtime.startup_context import _detect_reviewer_gate
+except ModuleNotFoundError:
+    from ...devctl.runtime.startup_context import _detect_reviewer_gate
+
 
 def collect_checkpoint_budget_errors(gov) -> list[str]:
     """Return fail-closed errors when the worktree is over the continuation budget."""
@@ -26,6 +31,23 @@ def collect_checkpoint_budget_errors(gov) -> list[str]:
             f"reason={push.checkpoint_reason or 'worktree_budget_exceeded'}."
         ]
     return []
+
+
+def collect_reviewer_loop_block_errors(repo_root: Path, gov) -> list[str]:
+    """Return fail-closed errors when the active reviewer loop blocks implementation."""
+    try:
+        gate = _detect_reviewer_gate(repo_root, governance=gov)
+    except AttributeError:
+        gate = _detect_reviewer_gate(repo_root)
+    if not gate.implementation_blocked:
+        return []
+    reason = gate.implementation_block_reason or "reviewer_loop_blocked"
+    return [
+        "Reviewer loop blocks a new implementation slice: "
+        f"reviewer_mode={gate.reviewer_mode}, "
+        f"review_accepted={gate.review_accepted}, "
+        f"reason={reason}."
+    ]
 
 
 def collect_import_index_atomicity_findings(

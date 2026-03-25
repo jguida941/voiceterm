@@ -30,7 +30,9 @@ CURRENT_INSTRUCTION_REVISION_RE = re.compile(
     r"(?m)^- Current instruction revision:\s*`.*?`\s*$"
 )
 POLL_STATUS_SECTION_RE = re.compile(
-    r"(^## Poll Status\s*$\n)(.*?)(?=^##\s+|\Z)",
+    # Keep trailing spaces on the heading line, but do not let blank padding
+    # after the heading get absorbed into the section prefix.
+    r"(^## Poll Status[ \t]*$\n)(.*?)(?=^##\s+|\Z)",
     re.MULTILINE | re.DOTALL,
 )
 AUTO_REFRESH_PREFIX = "- Auto-refreshed reviewer heartbeat:"

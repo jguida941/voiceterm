@@ -199,6 +199,39 @@ def test_startup_authority_fails_when_checkpoint_budget_is_exceeded(
     assert any("over budget" in error for error in report["errors"])
 
 
+@patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
+def test_startup_authority_fails_when_reviewer_loop_blocks_implementation(
+    tmp_path: Path,
+) -> None:
+    _setup_full_layout(tmp_path)
+    state_dir = tmp_path / "dev" / "reports" / "review_channel" / "latest"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "review_state.json").write_text(
+        json.dumps(
+            {
+                "bridge": {
+                    "reviewer_mode": "active_dual_agent",
+                    "claude_ack_current": False,
+                    "review_accepted": False,
+                },
+                "attention": {
+                    "status": "claude_ack_stale",
+                },
+                "current_session": {
+                    "implementer_ack_state": "stale",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = _build_report(repo_root=tmp_path)
+
+    assert report["ok"] is False
+    assert report["reviewer_loop_blocked"] is True
+    assert any("Reviewer loop blocks" in error for error in report["errors"])
+
+
 def _git_commit(tmp_path: Path, message: str = "test") -> None:
     """Create a commit in the test repo so HEAD exists for ls-tree checks."""
     subprocess.run(

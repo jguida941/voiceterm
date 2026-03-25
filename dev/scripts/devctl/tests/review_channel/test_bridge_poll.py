@@ -16,6 +16,9 @@ from dev.scripts.devctl.commands.review_channel._bridge_poll import (
 from dev.scripts.devctl.commands.review_channel._wait_support import (
     build_typed_reviewer_token,
 )
+from dev.scripts.devctl.review_channel.reviewer_state import (
+    write_reviewer_heartbeat,
+)
 
 
 def _build_review_channel_text() -> str:
@@ -214,6 +217,39 @@ def test_bridge_poll_reports_changed_since_last_ack(tmp_path: Path) -> None:
     assert payload["next_turn_role"] == "implementer"
     assert payload["next_turn_reason"] == "implementer_ack_stale"
     assert payload["turn_state_token"]
+
+
+def test_write_reviewer_heartbeat_rewrites_poll_status_immediately_under_heading(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    review_channel_path = root / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
+    bridge_path = root / "bridge.md"
+    bridge_path.write_text(
+        _build_bridge_text().replace(
+            "## Poll Status\n\n- active reviewer loop",
+            "## Poll Status\n" + ("\n" * 64) + "- active reviewer loop",
+        ),
+        encoding="utf-8",
+    )
+
+    with patch(
+        "dev.scripts.devctl.review_channel.reviewer_state._refresh_projections_after_checkpoint"
+    ):
+        write_reviewer_heartbeat(
+            repo_root=root,
+            bridge_path=bridge_path,
+            reviewer_mode="active_dual_agent",
+            reason="test-heartbeat-padding",
+        )
+
+    updated_bridge = bridge_path.read_text(encoding="utf-8")
+    assert (
+        "## Poll Status\n\n- Reviewer heartbeat refreshed through repo-owned tooling"
+        in updated_bridge
+    )
 
 
 def test_bridge_poll_fails_closed_on_malformed_reviewer_content(

@@ -422,6 +422,43 @@ def test_write_reviewer_checkpoint_normalizes_leading_blank_padding(
     )
 
 
+def test_write_reviewer_checkpoint_rewrites_poll_status_immediately_under_heading(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    review_channel_path = root / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
+    bridge_path = root / "bridge.md"
+    bridge_path.write_text(
+        _build_bridge_text().replace(
+            "## Poll Status\n\n- active reviewer loop",
+            "## Poll Status\n" + ("\n" * 64) + "- active reviewer loop",
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot"):
+        write_reviewer_checkpoint(
+            repo_root=root,
+            bridge_path=bridge_path,
+            reviewer_mode="active_dual_agent",
+            reason="test-checkpoint-padding",
+            checkpoint=ReviewerCheckpointUpdate(
+                current_verdict="- accepted",
+                open_findings="- none",
+                current_instruction="- next task",
+                reviewed_scope_items=("bridge.md",),
+            ),
+        )
+
+    updated_bridge = bridge_path.read_text(encoding="utf-8")
+    assert (
+        "## Poll Status\n\n- Reviewer checkpoint updated through repo-owned tooling"
+        in updated_bridge
+    )
+
+
 def test_write_reviewer_checkpoint_rejects_stale_expected_instruction_revision(
     tmp_path: Path,
 ) -> None:

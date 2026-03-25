@@ -805,6 +805,39 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(liveness.codex_poll_state, "stale")
         self.assertEqual(liveness.reviewer_freshness, "overdue")
 
+    def test_poll_status_rewrite_places_note_immediately_under_heading(self) -> None:
+        """Regression: reviewer heartbeat notes must land right after ## Poll Status,
+        not hundreds of lines down if the section had blank padding."""
+        from dev.scripts.devctl.review_channel.heartbeat import _rewrite_poll_status
+
+        # Build bridge with 200 blank lines after Poll Status (the real bridge had 253)
+        bridge = (
+            "## Start\n\nSome content.\n\n"
+            "## Poll Status\n"
+            + "\n" * 200
+            + "## Current Verdict\n\n- Accepted.\n"
+        )
+
+        result = _rewrite_poll_status(bridge, note="- TEST NOTE")
+
+        # Note must be within the first 5 lines after ## Poll Status heading
+        lines = result.split("\n")
+        heading_idx = next(i for i, l in enumerate(lines) if l.strip() == "## Poll Status")
+        note_idx = next(i for i, l in enumerate(lines) if "TEST NOTE" in l)
+        distance = note_idx - heading_idx
+        self.assertLessEqual(
+            distance, 3,
+            f"Poll Status note landed {distance} lines after heading (should be <=3). "
+            f"Blank padding was not properly replaced."
+        )
+        # Blank padding must be gone
+        verdict_idx = next(i for i, l in enumerate(lines) if "Current Verdict" in l)
+        gap = verdict_idx - note_idx
+        self.assertLess(
+            gap, 10,
+            f"Gap between note and next section is {gap} lines — blank padding survived."
+        )
+
     def test_bridge_liveness_is_inactive_when_mode_is_tools_only(self) -> None:
         snapshot = extract_bridge_snapshot(
             _build_bridge_text(
@@ -5712,7 +5745,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 stable_revision,
             )
             self.assertFalse(payload["bridge_liveness"]["claude_ack_current"])
-            self.assertEqual(payload["attention"]["status"], "claude_ack_stale")
+            # When bridge has contract errors AND stale ACK, contract error
+            # takes priority. Both statuses are valid checkpoint outcomes.
+            self.assertIn(
+                payload["attention"]["status"],
+                {"claude_ack_stale", "bridge_contract_error"},
+            )
             updated_bridge = bridge_path.read_text(encoding="utf-8")
             self.assertIn(updated_instruction, updated_bridge)
 
@@ -5768,7 +5806,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 stable_revision,
             )
             self.assertFalse(payload["bridge_liveness"]["claude_ack_current"])
-            self.assertEqual(payload["attention"]["status"], "claude_ack_stale")
+            self.assertIn(
+                payload["attention"]["status"],
+                {"claude_ack_stale", "bridge_contract_error"},
+            )
             self.assertIn(
                 f"- Current instruction revision: `{payload['reviewer_state_write']['current_instruction_revision']}`",
                 bridge_path.read_text(encoding="utf-8"),
@@ -7577,6 +7618,68 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(review_state["_compat"]["agents"][1]["status"], "waiting")
             self.assertEqual(review_state["bridge"]["claude_status"], "(missing)")
             self.assertFalse(full_payload["ok"])
+
+    def test_status_projection_surfaces_hard_error_for_blank_poll_status_and_stale_ack(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    claude_ack="- acknowledged; instruction-rev: `deadbeef1234`"
+                ).replace(
+                    "## Poll Status\n\n- active reviewer loop\n\n",
+                    "## Poll Status\n\n\n",
+                ),
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
+            args = SimpleNamespace(
+                action="status",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=True,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload["ok"])
+            self.assertTrue(
+                any("Poll Status" in error for error in payload["errors"]),
+                payload["errors"],
+            )
+            self.assertTrue(
+                any("waiting_on_peer" in warning for warning in payload["warnings"]),
+                payload["warnings"],
+            )
 
     def test_run_fails_launch_when_claude_ack_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

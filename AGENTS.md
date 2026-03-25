@@ -141,9 +141,9 @@ Run this sequence for every task. Do not skip steps.
    relations, so file/path queries can answer "what guards protect this?" and
    "what plan scope owns this?" from the same generated surface before the
    workflow expands into deeper reads. Query mode now suppresses generic
-   guard-edge fan-out unless you asked about a guard directly, and
-   `scoped_by` coverage may come from docs-policy rules or bounded derived
-   plan-to-directory ownership matching. That bootstrap command now also
+   guard-edge fan-out unless you asked about a guard directly, and current
+   `scoped_by` coverage comes from docs-policy rules rather than raw
+   substring adjacency. That bootstrap command now also
    persists a typed `ContextGraphSnapshot` artifact under
    `dev/reports/graph_snapshots/`; use `--save-snapshot` to capture the same
    versioned graph artifact from other `context-graph` modes too, and use

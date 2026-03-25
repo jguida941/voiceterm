@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .attention import derive_bridge_attention
+from .bridge_validation import validate_live_bridge_contract
 from .core import LaneAssignment, ensure_launcher_prereqs, project_id_for_repo
 from .daemon_reducer import build_lifecycle_runtime_state
 from .handoff import (
@@ -64,8 +65,9 @@ def refresh_status_snapshot(
         execution_mode=execution_mode,
     )
     bridge_text = bridge_path.read_text(encoding="utf-8")
+    bridge_snapshot = extract_bridge_snapshot(bridge_text)
     bridge_liveness = _build_status_bridge_liveness(
-        bridge_text=bridge_text,
+        bridge_snapshot=bridge_snapshot,
         repo_root=repo_root,
     )
     bridge_liveness["push_enforcement"] = build_bridge_push_enforcement_state(
@@ -79,6 +81,7 @@ def refresh_status_snapshot(
         bridge_text=bridge_text,
     )
     bridge_liveness["review_needed"] = bool(reviewer_worker.get("review_needed"))
+    merged_errors.extend(validate_live_bridge_contract(bridge_snapshot))
     publisher_state, reviewer_supervisor_state = _load_lifecycle_states(output_root)
     _apply_lifecycle_bridge_liveness(
         bridge_liveness=bridge_liveness,
@@ -87,7 +90,9 @@ def refresh_status_snapshot(
         reviewer_overdue_threshold_seconds=reviewer_overdue_threshold_seconds,
     )
     merged_warnings.extend(_bridge_liveness_warnings(bridge_liveness))
-    attention = derive_bridge_attention(bridge_liveness)
+    attention = derive_bridge_attention(
+        bridge_liveness, contract_errors=merged_errors,
+    )
     service_identity = build_service_identity(
         repo_root=repo_root,
         bridge_path=bridge_path,
@@ -150,13 +155,12 @@ def _load_status_lanes(
 
 def _build_status_bridge_liveness(
     *,
-    bridge_text: str,
+    bridge_snapshot,
     repo_root: Path,
 ) -> dict[str, object]:
-    snapshot = extract_bridge_snapshot(bridge_text)
     return bridge_liveness_to_dict(
         summarize_bridge_liveness(
-            snapshot,
+            bridge_snapshot,
             current_worktree_hash=_current_worktree_hash(repo_root),
         )
     )

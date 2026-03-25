@@ -651,8 +651,8 @@ Current graph routing now includes first-pass `guards` and `scoped_by`
 edges, so targeted file/path queries can surface active guard coverage and
 plan-scope ownership from the generated graph before escalating to fuller
 startup-context reads. Non-guard queries now suppress generic guard-edge
-fan-out, and `scoped_by` ownership can come from docs-policy rules or bounded
-derived plan-to-directory matches instead of raw substring adjacency alone.
+fan-out, and current `scoped_by` ownership comes from docs-policy rules rather
+than raw substring adjacency alone.
 Bootstrap mode also now writes a typed
 `ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/`; use
 `--save-snapshot` on other `context-graph` modes when you need the same

@@ -3248,7 +3248,12 @@ become the main product surface.
   coverage by content reference and AI-guard CI coverage via
   `devctl check --profile ci`, while the previously-uncovered guard/probe
   scripts gained smoke coverage, so guarded push now fails on real
-  meta-governance debt instead of filename/YAML false negatives. (evidence:
+  meta-governance debt instead of filename/YAML false negatives. Latest
+  follow-up (2026-03-25): maintainer docs were corrected to stop
+  overstating `context-graph` `scoped_by` coverage; the live builder still
+  derives those ownership edges from docs-policy prefixes while the broader
+  plan-registry-backed ownership expansion remains open in the MP-377 graph
+  lane. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28, Part 36, Part 41)
   - [ ] Auto-record `governance-review` close-out and converge top-level
     failures on structured `ActionResult` crash envelopes. (evidence:

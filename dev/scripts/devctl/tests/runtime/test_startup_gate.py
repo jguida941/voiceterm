@@ -23,6 +23,7 @@ class StartupGateRoutingTests(unittest.TestCase):
         self.assertTrue(command_requires_startup_gate(_args("guard-run")))
         self.assertTrue(command_requires_startup_gate(_args("autonomy-loop")))
         self.assertTrue(command_requires_startup_gate(_args("autonomy-swarm")))
+        self.assertTrue(command_requires_startup_gate(_args("mutation-loop")))
         self.assertTrue(command_requires_startup_gate(_args("swarm_run")))
         self.assertTrue(
             command_requires_startup_gate(
@@ -90,6 +91,33 @@ class StartupGateEnforcementTests(unittest.TestCase):
         self.assertIsNotNone(message)
         self.assertIn("live startup-authority check is red", message or "")
         self.assertIn("over budget", message or "")
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems",
+        return_value=[],
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
+        return_value={
+            "ok": False,
+            "errors": ["Reviewer loop blocks a new implementation slice."],
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
+        return_value=StartupReceipt(startup_authority_ok=True),
+    )
+    def test_gate_blocks_mutation_loop_when_reviewer_loop_is_stale(
+        self,
+        _load_receipt,
+        _authority_report,
+        _receipt_problems,
+    ) -> None:
+        message = enforce_startup_gate(_args("mutation-loop"))
+
+        self.assertIsNotNone(message)
+        self.assertIn("live startup-authority check is red", message or "")
+        self.assertIn("Reviewer loop blocks", message or "")
 
     def test_gate_ignores_read_only_commands(self) -> None:
         self.assertIsNone(enforce_startup_gate(_args("check-router")))

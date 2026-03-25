@@ -26,6 +26,7 @@ _REVIEWER_WAIT_FAILURE_STATUSES = frozenset(
         AttentionStatus.PUBLISHER_FAILED_START,
         AttentionStatus.PUBLISHER_DETACHED_EXIT,
         AttentionStatus.CHECKPOINT_REQUIRED,
+        AttentionStatus.BRIDGE_CONTRACT_ERROR,
     }
 )
 
