@@ -23,6 +23,7 @@ class EnsureFollowDeps:
     reviewer_state_write_to_dict_fn: Callable[..., dict[str, object] | None]
     run_status_action_fn: Callable[..., tuple[dict, int]]
     attach_reviewer_worker_fn: Callable[..., None]
+    ensure_reviewer_supervisor_running_fn: Callable[..., dict[str, object] | None] | None
     emit_follow_ndjson_frame_fn: Callable[..., int]
     reset_follow_output_fn: Callable[..., None]
     build_follow_completion_report_fn: Callable[..., dict[str, object]]
@@ -76,6 +77,22 @@ def _build_ensure_follow_tick(
         repo_root=repo_root,
         paths=paths,
     )
+    reviewer_supervisor_auto_start = _maybe_restart_reviewer_supervisor(
+        deps=deps,
+        args=args,
+        repo_root=repo_root,
+        paths=paths,
+        report=report,
+    )
+    if reviewer_supervisor_auto_start is not None:
+        report["reviewer_supervisor_auto_start"] = reviewer_supervisor_auto_start
+        if bool(reviewer_supervisor_auto_start.get("started")):
+            report, exit_code = deps.run_status_action_fn(
+                args=args,
+                repo_root=repo_root,
+                paths=paths,
+            )
+            report["reviewer_supervisor_auto_start"] = reviewer_supervisor_auto_start
     if ensure_result.state_write is not None:
         report["reviewer_state_write"] = deps.reviewer_state_write_to_dict_fn(
             ensure_result.state_write
@@ -94,4 +111,34 @@ def _build_ensure_follow_tick(
         exit_code=exit_code,
         reviewer_mode=ensure_result.reviewer_mode,
         progress_token=progress_token,
+    )
+
+
+def _maybe_restart_reviewer_supervisor(
+    *,
+    deps: EnsureFollowDeps,
+    args,
+    repo_root: Path,
+    paths: dict[str, object],
+    report: dict[str, object],
+) -> dict[str, object] | None:
+    restart_fn = deps.ensure_reviewer_supervisor_running_fn
+    if restart_fn is None:
+        return None
+    bridge_liveness = report.get("bridge_liveness")
+    if not isinstance(bridge_liveness, dict):
+        return None
+    reviewer_supervisor = report.get("reviewer_supervisor")
+    if not isinstance(reviewer_supervisor, dict):
+        return None
+    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
+    if reviewer_mode != "active_dual_agent":
+        return None
+    if bool(reviewer_supervisor.get("running")):
+        return None
+    return restart_fn(
+        args=args,
+        repo_root=repo_root,
+        paths=paths,
+        allow_follow=True,
     )

@@ -163,13 +163,21 @@ Three quality layers matter in practice:
     `bridge-poll`.
   - The repo-root live bridge file is `bridge.md`. Repo-owned
     `reviewer-heartbeat`, `reviewer-checkpoint`, and instruction-promotion
-    writes now serialize the bridge file under a lock and scrub stale
-    mode/history lines from `Poll Status` so the markdown surface stays a
-    current-state bridge instead of an append-only session dump.
+    writes now serialize the bridge file under a lock and treat `Poll Status`
+    as current-state-only reviewer authority: stale reviewer-owned status
+    prose is replaced on each repo-owned write instead of accumulating old
+    revision/ACK bullets under a fresh heartbeat line.
   - `review-channel --action status|ensure|reviewer-heartbeat|reviewer-checkpoint`
     now emit machine-readable `reviewer_worker` state, and
     `review-channel --action ensure --follow` cadence frames carry the same
     `review_needed` signal without pretending semantic review completion.
+    In active dual-agent mode, `ensure --follow` also reclaims a missing
+    detached reviewer supervisor instead of only reporting that it is absent.
+    Detached repo-owned `ensure --follow` and `reviewer-heartbeat --follow`
+    launches now pin `--follow-inactivity-timeout-seconds 0`, and
+    `review-channel --action stop --daemon-kind <publisher|reviewer_supervisor|all>`
+    is the repo-owned daemon reclaim path when those follow daemons need a
+    clean replacement.
   - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:
     `review-channel --action implementer-wait` is the Claude-side bounded
     wait path, and `review-channel --action reviewer-wait` is the symmetric

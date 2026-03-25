@@ -108,6 +108,7 @@ from ._publisher import spawn_follow_publisher as _spawn_follow_publisher
 from ._publisher import spawn_reviewer_supervisor as _spawn_reviewer_supervisor
 from ._publisher import verify_detached_start as _verify_detached_start
 from ._publisher import verify_reviewer_supervisor_start as _verify_reviewer_supervisor_start
+from ._stop import run_stop_action as _run_stop_action
 
 
 def _build_ensure_action_deps() -> _ensure_mod.EnsureActionDeps:
@@ -208,6 +209,7 @@ ENSURE_FOLLOW_DEPS = EnsureFollowDeps(
     reviewer_state_write_to_dict_fn=lambda *a, **kw: reviewer_state_write_to_dict(*a, **kw),
     run_status_action_fn=lambda *a, **kw: _run_status_action(*a, **kw),
     attach_reviewer_worker_fn=lambda *a, **kw: _attach_reviewer_worker(*a, **kw),
+    ensure_reviewer_supervisor_running_fn=lambda *a, **kw: _ensure_reviewer_supervisor_running(*a, **kw),
     emit_follow_ndjson_frame_fn=lambda *a, **kw: emit_follow_ndjson_frame(*a, **kw),
     reset_follow_output_fn=lambda *a, **kw: reset_follow_output(*a, **kw),
     build_follow_completion_report_fn=lambda *a, **kw: build_follow_completion_report(*a, **kw),
@@ -277,6 +279,9 @@ def _dispatch_action(
 
     if action is ReviewChannelAction.ENSURE:
         return _run_ensure_action(args=args, repo_root=repo_root, paths=paths)
+
+    if action is ReviewChannelAction.STOP:
+        return _run_stop_action(args=args, repo_root=repo_root, paths=paths)
 
     if action.value in BRIDGE_ACTIONS or action is ReviewChannelAction.PROMOTE:
         return _run_bridge_action(args=args, repo_root=repo_root, paths=paths)

@@ -863,6 +863,18 @@ Evidence:
 
 - `dev/scripts/devctl/review_channel/daemon_events.py`
 - `dev/scripts/devctl/review_channel/daemon_reducer.py`
+
+### 2026-03-25 - Repo-owned reviewer writes now replace stale Poll Status prose
+
+Fact: the live markdown bridge had another self-hosting failure shape. Typed
+`current_session` state was advancing correctly through
+`reviewer-heartbeat` / `reviewer-checkpoint`, but the shared `bridge.md`
+projection could still leave old reviewer-owned revision/ACK bullets under
+`## Poll Status`, which made the bridge look half-stale even after a fresh
+repo-owned write. The writer contract is now explicit: repo-owned reviewer
+writes treat `Poll Status` as current-state-only reviewer authority and replace
+that section body instead of stacking fresh heartbeat/checkpoint notes on top
+of older reviewer prose.
 - `dev/scripts/devctl/review_channel/follow_controller.py`
 - `dev/scripts/devctl/review_channel/reviewer_follow.py`
 - `dev/scripts/devctl/review_channel/projection_bundle.py`

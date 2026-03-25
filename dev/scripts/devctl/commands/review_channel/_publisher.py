@@ -146,7 +146,7 @@ REVIEWER_SUPERVISOR_FOLLOW_ARGS = [
     "--execution-mode", "markdown-bridge",
     "--auto-promote",
     "--follow-interval-seconds", "150",
-    "--follow-inactivity-timeout-seconds", "3600",
+    "--follow-inactivity-timeout-seconds", "0",
 ]
 
 
@@ -197,6 +197,7 @@ def ensure_reviewer_supervisor_running(
     args,
     repo_root: Path,
     paths: RuntimePaths | Mapping[str, object],
+    allow_follow: bool = False,
     sleep_seconds: float = 0.5,
 ) -> dict[str, object] | None:
     """Keep the detached reviewer supervisor alive for active reviewer mode."""
@@ -204,7 +205,7 @@ def ensure_reviewer_supervisor_running(
     from ...review_channel.peer_liveness import reviewer_mode_is_active
     import time as _time
 
-    if getattr(args, "follow", False):
+    if getattr(args, "follow", False) and not allow_follow:
         return None
     if not reviewer_mode_is_active(getattr(args, "reviewer_mode", None)):
         return None

@@ -7,7 +7,7 @@ PUBLISHER_FOLLOW_OUTPUT_FILENAME = "publisher_follow.ndjson"
 PUBLISHER_FOLLOW_LOG_FILENAME = "publisher_follow.log"
 PUBLISHER_FOLLOW_COMMAND = (
     "python3 dev/scripts/devctl.py review-channel --action ensure "
-    "--follow --terminal none --format json"
+    "--follow --terminal none --format json --follow-inactivity-timeout-seconds 0"
 )
 EVENT_STATUS_FALLBACK_DETAIL = "event-backed review-channel state was not ok"
 RUNTIME_PATH_FIELD_NAMES = (
@@ -33,6 +33,8 @@ PUBLISHER_FOLLOW_COMMAND_ARGS = (
     "none",
     "--format",
     "json",
+    "--follow-inactivity-timeout-seconds",
+    "0",
 )
 FAILED_START_HEARTBEAT_FIELDS = {
     "snapshots_emitted": 0,
@@ -80,6 +82,7 @@ class ReviewChannelAction(StrEnum):
     IMPLEMENTER_WAIT = "implementer-wait"
     REVIEWER_WAIT = "reviewer-wait"
     ENSURE = "ensure"
+    STOP = "stop"
     REVIEWER_HEARTBEAT = "reviewer-heartbeat"
     REVIEWER_CHECKPOINT = "reviewer-checkpoint"
     PROMOTE = "promote"

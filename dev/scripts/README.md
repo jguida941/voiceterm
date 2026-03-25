@@ -175,7 +175,9 @@ Portability note:
   hand-maintained checklist.
 - `review-channel --action reviewer-heartbeat` is the repo-owned liveness write
   for solo-dev / tools-only / paused tandem states. It updates heartbeat and
-  mode metadata without claiming a new reviewed hash.
+  mode metadata without claiming a new reviewed hash, and it now rewrites
+  reviewer-owned `Poll Status` as current-state-only bridge content instead of
+  preserving older reviewer revision/ACK bullets.
 - `review-channel --action reviewer-checkpoint` is the repo-owned review-truth
   write. Use it only after a real review pass to advance the reviewed hash,
   verdict, findings, instruction, and reviewed scope together. Prefer one
@@ -185,6 +187,10 @@ Portability note:
   reserve inline body flags for short plain strings. In `active_dual_agent`,
   pass the live `--expected-instruction-revision` from `review-channel
   --action status` or `bridge-poll`.
+- `review-channel --action stop --daemon-kind <publisher|reviewer_supervisor|all>`
+  is the repo-owned daemon reclaim path. Use it when detached follow daemons
+  must be replaced by fresh repo-owned runtime, instead of sending raw shell
+  signals by hand.
 - `review-channel --action implementer-wait` is the repo-owned Claude-side
   wait path. It polls the bridge on the normal cadence, wakes only on
   meaningful reviewer-owned bridge changes, fails closed when the reviewer
@@ -202,6 +208,14 @@ Portability note:
   now emit machine-readable `reviewer_worker` state, and
   `review-channel --action ensure --follow` cadence frames also surface a
   `review_needed` signal without claiming semantic review completion.
+  `ensure --follow` also reclaims a missing detached reviewer supervisor when
+  dual-agent mode is still active, so the recovery loop is corrective instead
+  of status-only. Repo-owned reviewer writes also keep `bridge.md`
+  current-state-only by replacing stale reviewer `Poll Status` prose on each
+  write instead of stacking new notes over old revision bullets. Detached
+  repo-owned `ensure --follow` and `reviewer-heartbeat --follow` launches now pin
+  `--follow-inactivity-timeout-seconds 0` so the live runtime does not age out
+  just because Claude progress is temporarily idle.
 - `review-channel --action status` also surfaces bridge-backed
   `push_enforcement` state so operator/read-only consumers can see
   `checkpoint_required`, `safe_to_continue_editing`, `recommended_action`,

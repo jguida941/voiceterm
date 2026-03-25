@@ -230,7 +230,12 @@ def test_write_reviewer_heartbeat_rewrites_poll_status_immediately_under_heading
     bridge_path.write_text(
         _build_bridge_text().replace(
             "## Poll Status\n\n- active reviewer loop",
-            "## Poll Status\n" + ("\n" * 64) + "- active reviewer loop",
+            "## Poll Status\n"
+            + ("\n" * 64)
+            + "- active reviewer loop\n"
+            + "- Current reviewer instruction revision is `oldrev12345678`.\n"
+            + "- Claude has not ACKed `oldrev12345678` yet.\n"
+            + "- Claude should repoll `bridge.md` and continue the old slice.",
         ),
         encoding="utf-8",
     )
@@ -250,6 +255,8 @@ def test_write_reviewer_heartbeat_rewrites_poll_status_immediately_under_heading
         "## Poll Status\n\n- Reviewer heartbeat refreshed through repo-owned tooling"
         in updated_bridge
     )
+    assert "oldrev12345678" not in updated_bridge
+    assert "continue the old slice" not in updated_bridge
 
 
 def test_bridge_poll_fails_closed_on_malformed_reviewer_content(

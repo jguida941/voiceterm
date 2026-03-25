@@ -189,14 +189,10 @@ def _replace_or_insert_metadata_line(
 
 def _rewrite_poll_status(text: str, *, note: str) -> str:
     def replace_section(match: re.Match[str]) -> str:
-        body_lines = [line.rstrip() for line in match.group(2).splitlines()]
-        filtered_lines = [
-            line
-            for line in body_lines
-            if line.strip() and not _should_strip_poll_status_line(line)
-        ]
-        new_body_lines = [note, *filtered_lines]
-        body = "\n".join(new_body_lines).strip()
+        # `Poll Status` is current-state-only reviewer authority. Repo-owned
+        # heartbeat/checkpoint writes must replace stale reviewer prose instead
+        # of stacking a fresh note on top of older revisions.
+        body = note.strip()
         return f"{match.group(1)}\n{body}\n\n"
 
     rewritten, count = POLL_STATUS_SECTION_RE.subn(replace_section, text, count=1)

@@ -3853,6 +3853,18 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-03-25 reviewer-loop fail-closed follow-up: the first stale-reviewer
+  architecture gap is now closed as code, not just operator guidance.
+  `review-channel` status/attention now treats blank reviewer-owned
+  `Poll Status` plus stale/missing Claude ACK as a hard bridge-contract
+  error, the Poll Status rewriter no longer buries reviewer notes under blank
+  padding, and startup-authority now carries an explicit implementation block
+  so reviewer-side mutation paths fail closed in active dual-agent mode unless
+  intentionally overridden. The remaining `MP-377` closure is the broader
+  typed `current_session` / `ReviewState` cutover: more runtime consumers
+  still need to stop depending on bridge prose for live freshness and
+  continuity, and repo-owned reviewer runtime keepalive still has to prove the
+  loop stays alive without manual babysitting.
 - 2026-03-23 startup-intake follow-up: the first live startup-family proof is
   now real instead of remaining plan-only architecture. `PlanRegistry`
   entries carry parsed `SessionResumeState`, `startup-context` now emits a
@@ -4481,6 +4493,17 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-25: Closed the immediate fail-closed reviewer-loop gap that the
+  stalled Codex/Claude bridge exposed. `heartbeat.py` no longer swallows the
+  blank padding after `## Poll Status`, bridge validation/state projection now
+  surface stale Claude ACK plus empty reviewer status as a typed hard
+  contract error instead of warning-only `waiting_on_peer`, and the startup
+  family plus `mutation-loop` now honor reviewer-side implementation blocking
+  so active-dual-agent review does not silently drift back into reviewer
+  coding. This is intentionally not counted as the full bridge migration:
+  the next `MP-377` work remains the broader typed `current_session` /
+  `ReviewState` consumer cutover and durable repo-owned reviewer-runtime
+  liveness.
 - 2026-03-25: Re-checked the tree after the probe-loader fix landed. The
   earlier `startup_signals.py` path bug is now closed, so the remaining
   `MP-377` startup gap is the still-unconsumed

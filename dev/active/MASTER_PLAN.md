@@ -2317,7 +2317,11 @@ become the main product surface.
   status/ack text parks on "instruction unchanged / continuing to poll /
   Codex should review" while the current instruction is still active and not in
   an explicit reviewer-owned wait state, and the bridge writer/guard now scrub
-  + reject contradictory reviewer-mode prose in `Poll Status`.
+  + reject contradictory reviewer-mode prose in `Poll Status`. Latest
+  2026-03-25 follow-up: repo-owned reviewer heartbeat/checkpoint writes now
+  replace stale reviewer-owned `Poll Status` prose instead of stacking a fresh
+  note on older revision/ACK bullets, so the markdown bridge stays current-
+  state-only when the typed session state advances.
   The next closure slice is now explicit too: keep one backend for developers
   and agents, add a repo-owned inactive-mode liveness emitter, expose only
   thin mode toggles/aliases (`agents` / `developer`) over that same contract

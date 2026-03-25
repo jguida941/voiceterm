@@ -1551,6 +1551,96 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(frames[0]["reviewer_worker"]["state"], "up_to_date")
         self.assertFalse(frames[0]["reviewer_worker"]["review_needed"])
 
+    def test_ensure_follow_restarts_missing_reviewer_supervisor(self) -> None:
+        args = self._build_ensure_follow_args(max_follow_snapshots=1)
+        frames: list[dict[str, object]] = []
+        ensure_result = EnsureHeartbeatResult(
+            refreshed=True,
+            reviewer_mode="active_dual_agent",
+            reason="ensure-follow",
+            state_write=None,
+            error=None,
+        )
+        status_reports = [
+            {
+                "command": "review-channel",
+                "action": "status",
+                "ok": False,
+                "bridge_liveness": {
+                    "overall_state": "runtime_missing",
+                    "reviewer_mode": "active_dual_agent",
+                    "codex_poll_state": "fresh",
+                },
+                "attention": {"status": "reviewer_supervisor_required"},
+                "reviewer_supervisor": {"running": False, "pid": 0},
+            },
+            {
+                "command": "review-channel",
+                "action": "status",
+                "ok": True,
+                "bridge_liveness": {
+                    "overall_state": "fresh",
+                    "reviewer_mode": "active_dual_agent",
+                    "codex_poll_state": "fresh",
+                },
+                "attention": {"status": "healthy"},
+                "reviewer_supervisor": {"running": True, "pid": 4321},
+            },
+        ]
+        auto_start = {
+            "attempted": True,
+            "started": True,
+            "pid": 4321,
+            "log_path": "/tmp/reviewer_supervisor_follow.log",
+            "start_status": "started",
+        }
+
+        def fake_emit(payload: dict[str, object], *, args) -> int:
+            frames.append(payload)
+            return 0
+
+        with (
+            patch.object(
+                review_channel_command,
+                "ensure_reviewer_heartbeat",
+                return_value=ensure_result,
+            ),
+            patch.object(
+                review_channel_command,
+                "_run_status_action",
+                side_effect=[(status_reports[0], 0), (status_reports[1], 0)],
+            ),
+            patch.object(
+                review_channel_command,
+                "_ensure_reviewer_supervisor_running",
+                return_value=auto_start,
+            ) as ensure_supervisor,
+            patch.object(
+                review_channel_command,
+                "emit_follow_ndjson_frame",
+                side_effect=fake_emit,
+            ),
+            patch.object(review_channel_command, "reset_follow_output", return_value=None),
+            patch.object(review_channel_command, "write_publisher_heartbeat", return_value=Path("/tmp")),
+            patch.object(review_channel_command, "read_publisher_state", return_value={"running": True, "pid": 42, "stale": False}),
+            patch.object(review_channel_command.time, "sleep", return_value=None),
+        ):
+            report, rc = review_channel_command._run_ensure_action(
+                args=args,
+                repo_root=Path("/tmp/repo"),
+                paths={
+                    "bridge_path": Path("/tmp/repo/bridge.md"),
+                    "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
+                },
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(report["_already_emitted"])
+        self.assertEqual(len(frames), 1)
+        self.assertEqual(frames[0]["reviewer_supervisor_auto_start"], auto_start)
+        self.assertTrue(frames[0]["reviewer_supervisor"]["running"])
+        ensure_supervisor.assert_called_once()
+
     def test_ensure_follow_skips_heartbeat_when_mode_inactive(self) -> None:
         args = self._build_ensure_follow_args(max_follow_snapshots=1)
         frames: list[dict[str, object]] = []

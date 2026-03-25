@@ -267,6 +267,11 @@ def _validate_args(
         and getattr(args, "follow", False)
     ):
         raise ValueError("review-channel reviewer-wait does not support --follow.")
+    if (
+        normalized_action is ReviewChannelAction.STOP
+        and float(getattr(args, "stop_grace_seconds", 0.0)) < 0.0
+    ):
+        raise ValueError("--stop-grace-seconds must be zero or greater.")
 
     if normalized_action in FOLLOW_JSON_ACTIONS and getattr(args, "follow", False):
         validate_follow_json_format(

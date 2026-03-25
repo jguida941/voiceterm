@@ -48,6 +48,7 @@ REVIEW_ACTION_CHOICES = (
     "implementer-wait",
     "reviewer-wait",
     "ensure",
+    "stop",
     "reviewer-heartbeat",
     "reviewer-checkpoint",
     "promote",
@@ -172,6 +173,21 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
             "execution-checklist item before launching conductors. Accepts a "
             "plan filename (e.g. `review_probes`), a full relative path "
             "(e.g. `dev/active/review_probes.md`), or an MP id (e.g. `MP-368`)."
+        ),
+    ),
+    _arg(
+        "--daemon-kind",
+        choices=["publisher", "reviewer_supervisor", "all"],
+        default="all",
+        help="Daemon target for repo-owned review-channel stop actions.",
+    ),
+    _arg(
+        "--stop-grace-seconds",
+        type=float,
+        default=5.0,
+        help=(
+            "How long `review-channel --action stop` should wait for a daemon "
+            "to record stopped lifecycle state after SIGINT."
         ),
     ),
     _arg("--script-dir", help="Optional directory for generated conductor launch scripts"),
