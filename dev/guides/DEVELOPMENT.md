@@ -231,7 +231,9 @@ Three quality layers matter in practice:
     the typed continuity state is a startup projection over that markdown, not
     a second authority store. Generated bootstrap surfaces now make
     `startup-context --format md` the mandatory Step 0 gate before edits,
-    validation, or repo-owned launcher work, with the slim
+    validation, or repo-owned launcher work; user summaries, stale chat
+    continuity, or remembered prior state are not substitutes for that
+    receipt. The slim
     `context-graph --mode bootstrap` helper following as the bounded graph
     companion. That same graph now emits first-pass `guards` / `scoped_by`
     relation families, so targeted
@@ -275,6 +277,12 @@ Three quality layers matter in practice:
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.
     That exclusion only affects checkpoint-budget accounting; raw git state
     and reviewer-owned status remain canonical for real push/review truth.
+  - Reviewer-owned instruction rewrites in the transitional markdown bridge
+    now also reset implementer-owned live `Claude Status` / `Claude Ack`
+    sections to placeholder `- pending` state whenever the instruction
+    revision changes, so the typed `current_session` projection stops
+    mirroring stale implementer text until Claude repolls and acknowledges the
+    new revision.
   - If `tandem-validate` is red only because a release-lane external status
     check cannot reach GitHub or another off-repo dependency, treat that as an
     environment blocker and call it out separately from code-quality failures.

@@ -8,6 +8,7 @@ from typing import Any
 
 from ..runtime.review_state_models import ReviewCurrentSessionState
 from .handoff import BridgeSnapshot
+from .handoff_constants import _is_substantive_text
 from .status_projection_helpers import clean_section
 
 
@@ -202,7 +203,7 @@ def _ack_state(
     ack_current: bool,
     stale_label: str,
 ) -> str:
-    if not implementer_ack.strip():
+    if not _is_substantive_text(implementer_ack):
         return "missing"
     if ack_current:
         return "current"

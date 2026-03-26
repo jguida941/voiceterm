@@ -120,6 +120,10 @@ Projection rule:
   metrics, and replayable evidence.
 - Treat `md`, flowcharts, hotspot diagrams, and handoff summaries as human
   projections over the same payload, not as the only authority.
+- If a markdown coordination surface such as `bridge.md` remains in the
+  product, keep it as an optional repo-pack-owned frontend over the same typed
+  backend contracts so any repo can enable it without reviving markdown as the
+  canonical state source.
 - When different audiences need different detail levels (agent, junior dev,
   senior reviewer, operator), project those tiers from one shared evidence
   record instead of inventing separate result schemas per audience.

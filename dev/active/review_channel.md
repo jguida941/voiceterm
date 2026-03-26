@@ -254,8 +254,9 @@ Rules for the markdown bridge:
 7. The markdown bridge is a temporary projection path for today's workflow. It
    does not replace the Phase-1 `review_event` / `review_state` artifact model;
    once the real `devctl review-channel` path exists, `bridge.md` should
-   become a backend-fed projection/example/fallback mode instead of remaining
-   live authority.
+   become a backend-fed, repo-pack-portable projection/example/fallback mode
+   instead of remaining live authority or a VoiceTerm-only branch of the
+   architecture.
 8. In the current operator-facing loop, each meaningful Codex reviewer write to
    `bridge.md` must also emit a concise operator-visible chat update that
    summarizes the reviewed non-audit worktree hash, whether the blocker set
@@ -1111,6 +1112,11 @@ Acceptance:
       sanctioned rebuild path for `bridge.md`, regenerating the bounded
       template plus sanitized live sections from repo-owned state instead of
       relying on manual bridge surgery after a bad session.
+- [ ] Keep the markdown bridge portable if it survives the authority migration:
+      `bridge.md` should remain an optional repo-pack-owned frontend over the
+      same typed `review_state` / queue / registry backend so another repo can
+      enable the bridge surface without inheriting VoiceTerm-only runtime
+      assumptions or treating markdown as canonical state.
 - [ ] Promote continuation-budget / checkpoint gating to a first-class live
       wait reason in the same typed attention/liveness contract. When
       `push_enforcement.checkpoint_required` or

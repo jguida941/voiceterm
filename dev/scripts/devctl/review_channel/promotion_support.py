@@ -7,8 +7,13 @@ import hashlib
 import re
 from pathlib import Path
 
+from .instruction_reset import reset_implementer_sections_on_instruction_change
 from .peer_liveness import normalize_reviewer_mode
-from .reviewer_state_support import ReviewerMetadataUpdate, write_reviewer_metadata
+from .reviewer_state_support import (
+    ReviewerMetadataUpdate,
+    current_instruction_revision_from_bridge_text,
+    write_reviewer_metadata,
+)
 from .write_preconditions import assert_expected_instruction_revision
 
 CURRENT_INSTRUCTION_SECTION = "Current Instruction For Claude"
@@ -80,6 +85,9 @@ def rewrite_instruction_and_metadata(
         expected_instruction_revision=context.expected_instruction_revision,
         action="instruction-rewrite",
     )
+    previous_instruction_revision = current_instruction_revision_from_bridge_text(
+        bridge_text
+    )
     updated_text = rewrite_current_instruction(
         bridge_text=bridge_text,
         instruction=instruction,
@@ -102,7 +110,11 @@ def rewrite_instruction_and_metadata(
             ),
         ),
     )
-    return rewritten
+    return reset_implementer_sections_on_instruction_change(
+        rewritten,
+        previous_instruction_revision=previous_instruction_revision,
+        next_instruction_revision=instruction_revision,
+    )
 
 
 def _instruction_revision(text: str) -> str:

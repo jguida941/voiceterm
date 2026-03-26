@@ -5687,3 +5687,14 @@ duplicate/unsupported H2 headings, transcript/ANSI contamination, and
 overgrown live owned sections (`Claude Status`, `Claude Ack`). The broader
 typed writer/mutation cutover remains open, but the transitional bridge can no
 longer silently persist as a 4000-line mixed report blob.
+
+### 2026-03-26 - The bridge is de-authorized, not de-scoped
+
+Fact: the active architecture wording needed one explicit clarification after a
+portability review. The markdown bridge should not remain a VoiceTerm-only dead
+end or disappear just because typed runtime authority is taking over. If
+`bridge.md` survives, it survives as an optional repo-pack-owned portable
+frontend/projection over the same typed backend contracts (`review_state`,
+queue, registry, attention), not as the canonical source of truth. The
+de-authority rule is about state ownership, not about banning markdown as a
+frontend for other repos that want it.

@@ -230,8 +230,9 @@
   and reviewed scope, and `latest.md` current-status rendering now prefers
   that typed state over append-only bridge prose. The remaining work is to
   migrate writer/mutation paths plus the remaining push/preflight consumers so
-  `bridge.md` becomes a generated compatibility projection instead of a live
-  current-status authority or freshness gate. `check_tandem_consistency` now
+  `bridge.md` becomes a generated repo-pack-owned compatibility projection
+  instead of a live current-status authority or freshness gate.
+  `check_tandem_consistency` now
   prefers typed `review_state.json` authority for 4 of 7 checks (reviewer
   freshness, implementer ACK, completion stall, promotion state); the
   remaining 3 checks still use bridge-text fallback where no typed equivalent

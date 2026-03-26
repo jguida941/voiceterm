@@ -11,6 +11,7 @@ from .heartbeat import (
     NON_AUDIT_HASH_EXCLUDED_PREFIXES,
     compute_non_audit_worktree_hash,
 )
+from .instruction_reset import reset_implementer_sections_on_instruction_change
 from .reviewer_state_support import (
     EnsureHeartbeatResult,
     ReviewerMetadataUpdate,
@@ -114,6 +115,9 @@ def write_reviewer_checkpoint(
             expected_instruction_revision=checkpoint.expected_instruction_revision,
             action="reviewer-checkpoint",
         )
+        previous_instruction_revision = current_instruction_revision_from_bridge_text(
+            bridge_text
+        )
         instruction_revision = select_instruction_revision(
             bridge_text=bridge_text,
             current_instruction=checkpoint.current_instruction,
@@ -155,10 +159,15 @@ def write_reviewer_checkpoint(
             heading="Current Instruction For Claude",
             body=checkpoint.current_instruction.strip(),
         )
-        return _replace_section(
+        updated_text = _replace_section(
             updated_text,
             heading="Last Reviewed Scope",
             body=reviewed_scope_body,
+        )
+        return reset_implementer_sections_on_instruction_change(
+            updated_text,
+            previous_instruction_revision=previous_instruction_revision,
+            next_instruction_revision=effective_instruction_revision or "",
         )
 
     rewrite_bridge_markdown(bridge_path, transform=transform)

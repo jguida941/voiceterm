@@ -124,6 +124,8 @@ Run this sequence for every task. Do not skip steps.
    `python3 dev/scripts/devctl.py startup-context --format md` as Step 0, not
    optional escalation. If it exits non-zero, checkpoint or repair the repo
    state before editing files or starting guarded launcher/mutation commands.
+   User summaries, stale chat continuity, or remembered prior state are not a
+   substitute for this Step 0 receipt.
    That typed startup receipt now emits a bounded `WorkIntakePacket`
    (selected `PlanTargetRef`, typed continuity, and routing hints), writes a
    managed startup receipt under the repo-owned reports root, and exits

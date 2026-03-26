@@ -1381,8 +1381,9 @@ blockers are now explicit.
    `app/operator_console/state/review/artifact_locator.py`, and
    `rust/.../review_artifact/artifact.rs`.
    Required exit: `review_state.json`, `controller_state`, and registry/event
-   projections become authoritative; `bridge.md` remains a generated or
-   temporary bootstrap surface only.
+   projections become authoritative; `bridge.md` remains a generated,
+   repo-pack-owned projection/bootstrap/debug frontend instead of a VoiceTerm-
+   local authority seam.
 4. VoiceTerm integration details still leak through shared tooling defaults.
    Current hotspots:
    `commands/check_support.py` (`voiceterm_tui.log`),
@@ -1399,8 +1400,11 @@ Separation-first queue:
 2. Move frontend consumers onto shared runtime/API contracts and generated
    projections instead of `dev.scripts.devctl.*` imports.
 3. Demote the markdown bridge from live runtime assumption to optional
-   projection/bootstrap/debug mode over the same backend authority instead of
-   deleting markdown outright.
+   repo-pack-portable projection/bootstrap/debug mode over the same backend
+   authority instead of deleting markdown outright. If adopters want a
+   markdown coordination surface, it should work through the same typed
+   backend and repo-pack templates in any repo rather than remaining a
+   VoiceTerm-only special case.
 4. Isolate remaining VoiceTerm-named env/log/process/product details under the
    adopter/integration layer.
 5. Re-run the whole-system coupling inventory after each tranche and keep the

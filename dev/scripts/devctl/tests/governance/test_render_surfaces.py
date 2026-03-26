@@ -121,6 +121,10 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
+            "Do not treat a user summary, stale chat continuity, or memory as a substitute for this receipt.",
+            rendered_text,
+        )
+        self.assertIn(
             "`startup-context` now carries compact governance, reviewer gate, advisory",
             rendered_text,
         )

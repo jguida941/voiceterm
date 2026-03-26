@@ -150,6 +150,8 @@ def _bootstrap_files(
             "or relaunching conductor work. Then run "
             "`python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` "
             "for slim startup context (repo state, active plans, hotspots, key commands). "
+            "Do not trust a user summary, prior chat continuity, or memory as a "
+            "substitute for this Step 0 receipt. "
             "Then follow deep links when task scope requires full authority: "
             "`AGENTS.md` (SDLC policy), `dev/active/INDEX.md` (plan registry), "
             "`dev/active/MASTER_PLAN.md` (execution state). "

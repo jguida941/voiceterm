@@ -232,6 +232,31 @@ def test_startup_authority_fails_when_reviewer_loop_blocks_implementation(
     assert any("Reviewer loop blocks" in error for error in report["errors"])
 
 
+def test_startup_authority_guard_shim_executes_in_supported_script_mode(
+    tmp_path: Path,
+) -> None:
+    _setup_full_layout(tmp_path)
+    script_path = (
+        Path(__file__).resolve().parents[5]
+        / "dev"
+        / "scripts"
+        / "checks"
+        / "check_startup_authority_contract.py"
+    )
+
+    result = subprocess.run(
+        ["python3", str(script_path), "--format", "md"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "DEVCTL_REPO_ROOT": str(tmp_path)},
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "# check_startup_authority_contract" in result.stdout
+
+
 def _git_commit(tmp_path: Path, message: str = "test") -> None:
     """Create a commit in the test repo so HEAD exists for ls-tree checks."""
     subprocess.run(

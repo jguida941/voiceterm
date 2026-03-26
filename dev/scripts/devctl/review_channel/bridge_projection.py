@@ -82,7 +82,8 @@ treat these rules as active workflow instructions immediately.
    acting. The approved startup path is:
    `python3 dev/scripts/devctl.py startup-context --format md` first. If it
    exits non-zero, checkpoint or repair the repo state before coding or
-   relaunching conductor work. Then run
+   relaunching conductor work. User summaries, stale chat continuity, or
+   remembered prior state are not substitutes for this Step 0 receipt. Then run
    `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
 4. Treat `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and
    `dev/active/review_channel.md` as the canonical authority chain.

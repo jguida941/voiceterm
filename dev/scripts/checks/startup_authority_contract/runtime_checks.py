@@ -7,17 +7,24 @@ import subprocess
 from pathlib import Path
 
 try:
-    from check_bootstrap import is_under_target_roots, resolve_quality_scope_roots
+    from check_bootstrap import (
+        REPO_ROOT,
+        import_repo_module,
+        is_under_target_roots,
+        resolve_quality_scope_roots,
+    )
 except ModuleNotFoundError:
     from dev.scripts.checks.check_bootstrap import (
+        REPO_ROOT,
+        import_repo_module,
         is_under_target_roots,
         resolve_quality_scope_roots,
     )
 
-try:
-    from dev.scripts.devctl.runtime.startup_context import _detect_reviewer_gate
-except ModuleNotFoundError:
-    from ...devctl.runtime.startup_context import _detect_reviewer_gate
+_detect_reviewer_gate = import_repo_module(
+    "dev.scripts.devctl.runtime.startup_context",
+    repo_root=REPO_ROOT,
+)._detect_reviewer_gate
 
 
 def collect_checkpoint_budget_errors(gov) -> list[str]:

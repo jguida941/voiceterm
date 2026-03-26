@@ -924,6 +924,10 @@ class ReviewChannelHelperTests(unittest.TestCase):
         )
         self.assertIn("AGENTS.md", files[0])
         self.assertIn("dev/active/INDEX.md", files[0])
+        self.assertIn(
+            "Do not trust a user summary, prior chat continuity, or memory as a substitute for this Step 0 receipt.",
+            files[0],
+        )
         handoff_items = [f for f in files if "handoff" in f]
         self.assertTrue(len(handoff_items) >= 2, "handoff files should be present")
         for hf in handoff_items:
@@ -6106,10 +6110,24 @@ class ReviewChannelCommandTests(unittest.TestCase):
             # takes priority. Both statuses are valid checkpoint outcomes.
             self.assertIn(
                 payload["attention"]["status"],
-                {"claude_ack_stale", "bridge_contract_error"},
+                {
+                    "claude_ack_stale",
+                    "bridge_contract_error",
+                    "claude_status_missing",
+                },
             )
             updated_bridge = bridge_path.read_text(encoding="utf-8")
             self.assertIn(updated_instruction, updated_bridge)
+            snapshot = extract_bridge_snapshot(updated_bridge)
+            self.assertEqual(snapshot.sections.get("Claude Status", "").strip(), "- pending")
+            self.assertEqual(snapshot.sections.get("Claude Ack", "").strip(), "- pending")
+            review_state = json.loads(
+                (status_dir / "review_state.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                review_state["current_session"]["implementer_ack_state"],
+                "missing",
+            )
 
     def test_run_reviewer_checkpoint_can_force_instruction_revision_rotation(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -6165,7 +6183,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertFalse(payload["bridge_liveness"]["claude_ack_current"])
             self.assertIn(
                 payload["attention"]["status"],
-                {"claude_ack_stale", "bridge_contract_error"},
+                {
+                    "claude_ack_stale",
+                    "bridge_contract_error",
+                    "claude_status_missing",
+                },
             )
             self.assertIn(
                 f"- Current instruction revision: `{payload['reviewer_state_write']['current_instruction_revision']}`",
@@ -6591,6 +6613,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 snapshot.metadata.get("last_codex_poll_utc", ""),
                 "2026-01-01T00:00:00Z",
             )
+            self.assertEqual(snapshot.sections.get("Claude Status", "").strip(), "- pending")
+            self.assertEqual(snapshot.sections.get("Claude Ack", "").strip(), "- pending")
 
     def test_run_promote_rejects_stale_expected_instruction_revision(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
