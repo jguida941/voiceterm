@@ -10,15 +10,22 @@ plans. This file is the shared audit ledger, not the execution owner.
 
 ## Executive Summary
 
-The AI governance platform is **~80% portable**. The core engine (guards,
-probes, quality-policy, context-graph builder, autonomy orchestration) is
-governance-driven and works on external repos (proven on ci-cd-hub). But
-**~460 hardcoded VoiceTerm references** across 36 files create hidden
-coupling that would break on non-VoiceTerm repos.
+Portability remains **partial and not yet scoreable by a governed rubric**.
+The core engine (guards, probes, quality-policy, context-graph builder,
+autonomy orchestration) is governance-driven and has real external-repo proof,
+but hidden VoiceTerm defaults, governed-markdown shape assumptions, and review/
+artifact path literals still block arbitrary-repo closure.
 
-The root cause is a two-layer bootstrap design: runtime contracts resolve
-from `ProjectGovernance` (portable), but when governance isn't loaded,
-everything falls back to `VOICETERM_PATH_CONFIG` frozen at import time.
+The root cause is broader than one fallback bug: runtime contracts, generated
+instruction surfaces, docs-governance, and review/startup control-plane code
+still mix portable authority (`ProjectGovernance`) with silent VoiceTerm
+defaults, especially when governance payloads are partial or absent.
+
+Self-hosting organization is part of that architecture gap too. The current
+repo still has 27 markdown docs under `dev/active/` and 10 root-level
+markdown entrypoints, so any archive/consolidation pass is blocked until
+execution-relevant conclusions are absorbed into the canonical owner chain
+(`MASTER_PLAN` plus scoped plans) instead of living only in reference docs.
 
 ## Critical Architecture Issues
 
@@ -53,6 +60,24 @@ in a different directory gets wrong defaults silently.
 
 **Fix**: Make defaults come from `RepoPathConfig` instead of string
 literals. Or require explicit configuration (fail-closed when missing).
+
+### Issue 2b: Portable Doc/Plan Authority Still Defaults To VoiceTerm Filenames
+
+`project_governance_contract.py`, `project_governance_doc_parse.py`, and
+`project_governance_plan_parse.py` still seed `AGENTS.md`,
+`dev/active/INDEX.md`, and `dev/active/MASTER_PLAN.md` when doc/plan
+authority fields are missing or partial.
+
+These are VoiceTerm conventions, not universal platform requirements. A repo
+with a different docs authority file, plan tracker name, or registry path can
+silently collapse back to VoiceTerm-shaped startup authority instead of
+surfacing an explicit missing-contract error.
+
+**Fix**: keep repo-pack/bootstrap defaults scoped to this repo-pack only, but
+require portable runtime/draft/startup layers either to discover repo-owned
+authority from governance state or fail closed. Cross-repo proof must include
+at least one custom-layout repo that does not use `AGENTS.md`,
+`dev/active/INDEX.md`, or `dev/active/MASTER_PLAN.md`.
 
 ### Issue 3: Conductor Prompt Hardcodes Product Name
 
@@ -1235,3 +1260,676 @@ actual code. Evidence confirmed accurate at the reported line ranges:
 | LOW additions | 4 (non-blocking) |
 | Subsystems covered | 14 of 14 |
 | Clean-scoped note | Work-intake / plan-wiring produced no new MEDIUM/HIGH in this pass |
+
+## Pass 9: Codex Verification Corrections And Self-Hosting Tightening
+
+**Pass 9: 1 new HIGH portability finding, 2 previously mapped fixes verified on
+the current tree, and 1 self-hosting organization correction promoted into the
+owner plans.**
+
+### NEW HIGH: Portable authority still defaults to VoiceTerm doc/tracker names
+
+`project_governance_contract.py:37-43,63-69,117-120,154-156`,
+`project_governance_doc_parse.py:33-49,91-100`, and
+`project_governance_plan_parse.py:39-50` still seed `AGENTS.md`,
+`dev/active/INDEX.md`, and `dev/active/MASTER_PLAN.md` when portable
+governance payloads are partial. The typed runtime therefore supports custom
+names only after configuration is already correct; it does not yet fail closed
+or prove custom-layout repos by default.
+
+**Class**: authority/portability. **Why**: another repo can appear governed
+while still resolving startup/doc authority through VoiceTerm defaults.
+**Owner**: `MP-377` runtime/doc-authority contract, with fixture-proof follow-up
+in `MP-376`.
+
+### Verified Fixes In Current Tree
+
+- `sync --push` no longer bypasses the governed push path with raw `git push`.
+  The current implementation routes through the same startup/review gate,
+  preflight, push action, and post-push flow as `devctl push`.
+- Typed governance/runtime parsing no longer invents `review_root`,
+  `bridge_path`, or `review_channel_path` from sparse governance payloads, and
+  typed review-state lookup now consults repo-pack candidate paths only when a
+  repo has explicitly overridden them.
+
+### Self-Hosting Organization Correction
+
+- Reference-doc cleanup is now explicitly an absorption-first operation, not a
+  delete-first cleanup pass. The repo currently carries 27 `dev/active/*.md`
+  docs and 10 root-level markdown entrypoints; until accepted conclusions from
+  reference/audit companions are mirrored into `MASTER_PLAN` plus the scoped
+  owner docs, those files are not safe to archive.
+- Root evidence companions (`UNIVERSAL_SYSTEM_PLAN.md`,
+  `UNIVERSAL_SYSTEM_EVIDENCE.md`, `ZGRAPH_RESEARCH_EVIDENCE.md`,
+  `GUARD_AUDIT_FINDINGS.md`) remain reference-only. They are not execution
+  authority, but they also must not be retired until the absorption audit says
+  their execution-relevant conclusions are fully mapped into owner plans.
+
+## Pass 10: Claude Intake — Doc Sprawl And Absorption Candidates (Pending Codex Verification)
+
+**Purpose**: Capture ALL untracked findings from evidence files into this
+shared ledger so evidence files can eventually be archived. Also document
+the doc sprawl problem and product/platform mixing as architecture issues.
+
+**Codex review note (2026-03-26):** only part of this pass is verified so far.
+Locally re-verified facts are: 27 `dev/active/*.md` docs, 10 root-level
+markdown entrypoints, shadow-authority pressure from root evidence files, and
+the absorption-first archive rule. The broader repo-wide markdown totals,
+bootstrap-time estimates, and several of the intake tables below remain
+unverified. A raw tree scan on the current worktree sees `1,158` `.md` files
+and `73` `dev/scripts/**/README.md` surfaces, so the earlier `867` / `39`
+counts are not trustworthy authority without an explicit exclusion policy.
+
+### HIGH: Doc Sprawl — 867 Files / 212K Lines
+
+| Category | Files | Lines | Status |
+|----------|-------|-------|--------|
+| Total .md in repo | 867 | 211,986 | Crisis-level |
+| `dev/active/` plans | 27 | ~25K | Too many |
+| `dev/guides/` | 15 | ~10K | 3 major overlaps |
+| Root MDs | 10 | ~12K | Evidence not migrated |
+| `dev/scripts/` READMEs | 39 | ~2K | Fine |
+| `dev/audits/` | 7 | ~4.7K | Fine |
+| Integration subprojects | 218 | ~45K | Separate concerns |
+| Reports/temp/generated | 300+ | ~100K | Exclude from AI |
+
+Bootstrap tax: ~18K lines / 7-8 hours reading to start contributing.
+
+**Class**: organization/portability. **Owner**: MP-377 + MP-376.
+
+### HIGH: Product/Platform Plan Mixing in dev/active/
+
+27 plan docs mix VoiceTerm product and AI platform in one directory:
+- **Product only** (4): slash_command_standalone, operator_console,
+  naming_api_cohesion, ide_provider_modularization
+- **Platform only** (6): ai_governance_platform, review_probes,
+  host_process_hygiene, ralph_guardrail_control_plane,
+  devctl_reporting_upgrade, code_shape_expansion
+- **Mixed** (4): audit, loop_chat_bridge, memory_studio, review_channel
+- **Meta** (6): MASTER_PLAN, INDEX, README, PLAN_FORMAT, move, phase2
+- **Platform subordinate** (3): platform_authority_loop,
+  portable_code_governance, continuous_swarm
+- **Product feature** (4): theme_upgrade, pre_release_architecture_audit,
+  autonomous_control_plane, host_process_hygiene
+
+**Class**: organization/separation. **Owner**: MP-377.
+
+### HIGH: No AI Context Budget Enforcement
+
+No guard enforces line/file budgets on `dev/active/`. Current sizes:
+ai_governance_platform.md (6,294), MASTER_PLAN.md (3,712),
+ide_provider_modularization.md (2,946), platform_authority_loop.md (2,135),
+memory_studio.md (2,075), operator_console.md (1,998),
+theme_upgrade.md (1,941).
+
+**Class**: organization/portability. **Owner**: MP-377.
+
+### Planned But Not Executed
+
+1. Unified docs command (MASTER_PLAN 519-523) — MP-377
+2. Hot/warm/cold AI context budgets — MP-377
+3. Generated surfaces from repo-pack — MP-376
+4. Minimum adoption kit — MP-376
+5. Doc sprawl consolidation pass (MASTER_PLAN 518) — MP-377
+
+### Codex Correction: Already Planned Vs Still Open
+
+- The intake `Not planned` list was overstated. Doc lifecycle management,
+  hot/warm/cold context budgets, active-doc/file-count budgets, line-budget
+  policy, and the first consolidation detector are already planned in
+  `MASTER_PLAN`, `ai_governance_platform.md`, and
+  `platform_authority_loop.md`.
+- Product/platform separation is also already owned at the architecture level
+  by `MP-377`; what is still intake is the exact extraction/package/directory
+  strategy, not the existence of a tracked separation problem.
+
+### Intake Revalidation: audit.md
+
+**Codex correction:** do not treat `dev/active/audit.md` as proof of
+"7 items not in any plan." It is a reference artifact whose execution owner is
+`dev/active/pre_release_architecture_audit.md`, and several rows in the
+original intake are already tracked there or have gone stale on the current
+tree. The file is still not archive-safe because smaller tooling-cleanup items
+remain only partially absorbed: `run(args)` typing, logging standardization,
+repeated `REPO_ROOT` definitions, and public-function docstring coverage still
+need one clean owner chain before that evidence file can retire.
+
+### Intake Revalidation: UNIVERSAL_SYSTEM_EVIDENCE.md
+
+**Codex correction:** do not treat the original seven-row AI-wiring table as
+live authority. Large parts of that companion were already promoted into
+`review_probes.md`, `ai_governance_platform.md`, and
+`platform_authority_loop.md`. The clean remaining absorption items after this
+review are narrower:
+
+- universal doc ingestion / existing-repo normalization remains a valid
+  portable-adoption proof item, but it is already planned in
+  `portable_code_governance.md` and the `MP-377` doc-authority chain.
+- deferred-work / ADR execution enforcement was still under-specified as an
+  executable contract; this pass promotes that gap into the tracked owner docs
+  instead of leaving it stranded in the companion.
+
+The rest of the original table needs line-by-line revalidation before it can be
+counted as new open architecture debt.
+
+### Intake Revalidation: GUARD_AUDIT_FINDINGS.md
+
+**Codex correction:** the file remains useful reference evidence, but it is not
+proof of planless backlog. Its authority-source, contract-value, and
+plan-to-runtime items already map into the `MP-377` authority-closure chain.
+Keep it as focused reference evidence unless a later pass finds an item that is
+still missing from the owner plans.
+
+### Intake Revalidation: convo.md
+
+**Codex correction:** `convo.md` is raw external critique, not execution
+authority. Its accepted themes already map to the existing convergence / AI
+feedback-loop work in `review_probes.md`, `MASTER_PLAN`, and
+`ai_governance_platform.md`. Keep it only if the raw critique transcript is
+still useful; do not treat it as a second roadmap.
+
+### Candidate Archival / Retention Verdicts (Codex Reviewed 2026-03-26)
+
+| File | Lines | Status |
+|------|-------|--------|
+| `dev/active/move.md` | 33 | archive-safe; pure supporting transcript once `audit.md` remains reachable |
+| `dev/active/RUST_AUDIT_FINDINGS.md` | 8 | keep bridge for now; migration pointer, not a cleanup blocker |
+| `dev/active/phase2.md` | 8 | keep bridge for now; deferred pointer, not a cleanup blocker |
+| `UNIVERSAL_SYSTEM_PLAN.md` | 142 | keep as reference; already disposition-shaped, not an immediate archive target |
+| `dev/active/audit.md` | 82 | not archive-safe yet; still carries partially absorbed cleanup inventory |
+| `UNIVERSAL_SYSTEM_EVIDENCE.md` | 1,680 | not archive-safe yet; two execution-relevant conclusions still needed owner-level absorption proof |
+| `GUARD_AUDIT_FINDINGS.md` | 267 | keep as focused reference; no unique owner-mapping blocker found in this pass |
+| `convo.md` | 5,668 | execution-state safe to move/drop once operator no longer needs the raw transcript; accepted themes are already mapped elsewhere |
+| `ZGRAPH_RESEARCH_EVIDENCE.md` | 1,428 | keep preserved reference; later-phase research archive, not a demotion/cleanup target in this pass |
+
+## Pass 11: Claude Intake — Product/Platform Separation Audit (Pending Codex Verification)
+
+**Purpose**: Map the structural mixing of VoiceTerm product code and AI
+governance platform code. Determine feasibility and risks of separation.
+
+**Codex review note (2026-03-26):** the direction is useful, but this section
+is still intake. The existence of product/platform mixing in docs/plans is
+verified, and `MP-377` already owns the extraction problem. The exact import
+counts, workflow classifications, AGENTS percentage splits, and proposed
+three-phase extraction strategy below still need line-by-line verification
+before they count as accepted architecture findings.
+
+### HIGH: Directory Structure — Product and Platform Are Conceptually Clean But Operationally Tangled
+
+**Code separation is good** — the actual source code directories are clean:
+- `rust/` — Pure VoiceTerm product (Rust voice terminal overlay)
+- `dev/scripts/devctl/` — AI governance platform engine (109+ Python modules)
+- `dev/scripts/checks/` — Platform guard/probe enforcement (139 scripts)
+
+**But plans, docs, config, and CI are tangled**:
+- `dev/active/` — 27 plan docs mixing product and platform (classified above)
+- `dev/guides/` — 10 of 15 guides are platform, 1 is product, 4 are mixed
+- `AGENTS.md` — 60-62% platform rules, 12-15% product rules, 15-17% shared
+- `.github/workflows/` — CI deeply monorepo-coupled (details below)
+- `app/operator_console/` — Product UI that imports 23 files from platform
+
+**Class**: organization/separation. **Owner**: MP-377.
+
+### Directory Classification
+
+| Directory | Classification | Notes |
+|-----------|---------------|-------|
+| `rust/` | PRODUCT | Pure Rust voice terminal |
+| `app/macos/`, `app/ios/` | PRODUCT | Platform-specific launchers |
+| `app/operator_console/` | SHARED (product UI importing platform) | 23 imports from devctl |
+| `pypi/` | PRODUCT | PyPI distribution |
+| `guides/` | PRODUCT | End-user docs (INSTALL, USAGE, etc.) |
+| `scripts/` | PRODUCT | User-facing launchers (start.sh, install.sh) |
+| `bin/` | PRODUCT | Entry point wrappers |
+| `dev/scripts/devctl/` | PLATFORM | 109+ modules, governance engine |
+| `dev/scripts/checks/` | PLATFORM | 139 guard/probe scripts |
+| `dev/guides/` | MOSTLY PLATFORM | 10 platform, 1 product, 4 mixed |
+| `dev/active/` | MIXED | 27 plan docs, both domains |
+| `dev/config/` | SHARED | Repo policy + quality presets |
+| `dev/reports/` | PLATFORM | Generated output |
+| `integrations/` | PLATFORM | ci-cd-hub, code-link-ide |
+| `data_science/` (root) | MISPLACED | Just a README pointing to dev/scripts/devctl/data_science/ |
+
+### AGENTS.md Breakdown
+
+| Category | Lines | Percentage |
+|----------|-------|-----------|
+| AI platform rules (devctl, guards, probes, governance) | ~1,150-1,200 | 60-62% |
+| Shared process (git, commit, release, CI) | ~280-330 | 15-17% |
+| VoiceTerm product rules (Rust, HUD, themes, audio) | ~240-280 | 12-15% |
+
+If someone adopted just the AI platform, **85-88% of AGENTS.md is relevant**.
+The 12-15% VoiceTerm content is in context packs, risk matrices, and
+execution sections that could be isolated.
+
+### dev/guides/ Classification
+
+| File | Classification |
+|------|---------------|
+| DEVCTL_ARCHITECTURE.md | PLATFORM |
+| DEVCTL_PRODUCT_FLOW.md | PLATFORM |
+| DEVCTL_MULTI_AGENT_OPERATIONS.md | PLATFORM |
+| DEVCTL_JSON_CONTRACTS.md | PLATFORM |
+| MCP_DEVCTL_ALIGNMENT.md | PLATFORM |
+| DEVCTL_AUTOGUIDE.md | PLATFORM |
+| AI_GOVERNANCE_PLATFORM.md | PLATFORM |
+| AGENT_COLLABORATION_SYSTEM.md | PLATFORM |
+| PORTABLE_CODE_GOVERNANCE.md | PLATFORM |
+| SYSTEM_AUDIT.md | PLATFORM |
+| ARCHITECTURE.md | PRODUCT (Rust overlay) |
+| SYSTEM_FLOWCHART.md | MIXED |
+| SYSTEM_ARCHITECTURE_SPEC.md | MIXED |
+| DEVELOPMENT.md | MIXED |
+| README.md | META |
+
+### MASTER_PLAN MP Item Breakdown
+
+Total: 293 MP items (95 active, 198 completed).
+
+| Category | Items | % |
+|----------|-------|---|
+| Mixed (product+platform) | 157 | 54% |
+| AI platform only | 69 | 24% |
+| VoiceTerm product only | 53 | 18% |
+| Uncategorized | 14 | 5% |
+
+Top active priority is **MP-377** (platform extraction) — explicitly about
+separating the platform from VoiceTerm. MASTER_PLAN already plans this
+separation; execution hasn't started.
+
+### HIGH: Python Import Tangle Blocks Clean Separation
+
+**operator_console → devctl**: 23 files import from devctl (repo_packs,
+runtime, watchdog). This is the tightest coupling.
+
+**checks ↔ devctl**: Bidirectional — 26 check files import from devctl,
+31 devctl files import from checks. Uses try/except fallbacks, but creates
+circular dependency risk.
+
+**devctl → app**: ZERO imports. Clean.
+**devctl → rust**: ZERO Python imports. Clean (Rust referenced as paths only).
+
+| Direction | Files | Risk |
+|-----------|-------|------|
+| operator_console → devctl | 23 | BLOCKS MOVE |
+| checks → devctl | 26 | MEDIUM |
+| devctl → checks | 31 | MEDIUM |
+| devctl → app | 0 | SAFE |
+| devctl → rust | 0 | SAFE |
+
+### HIGH: CI Workflows Are Monorepo-Coupled
+
+32 workflows classified:
+
+| Classification | Count | Examples |
+|----------------|-------|---------|
+| VOICETERM_PRODUCT | 10 | rust_ci, coverage, latency_guard, memory_guard, ios_ci, publish_release_binaries, publish_homebrew |
+| AI_PLATFORM | 2 | pre_commit, publish_pypi |
+| SHARED | 4 | docs_lint, dependency_review, security_guard, release_preflight |
+| META | 6 | orchestrator_watchdog, autonomy_controller, coderabbit_triage, failure_triage |
+
+**Critical breaking point**: `release_preflight.yml` runs 60+ checks across
+BOTH Rust and Python assuming they're in the same checkout. `security_guard.yml`
+checks both `Cargo.lock` and Python. `rust_ci.yml` calls `devctl ai-guard`
+(Python) even in Rust CI.
+
+Separating product from platform would require splitting release_preflight
+into 2+ workflows, extracting devctl profiles per language, and creating
+mirror security gates.
+
+### Misplaced Directories
+
+| Directory | Issue | Fix |
+|-----------|-------|-----|
+| `/data_science/` (root) | Just a README pointing to `dev/scripts/devctl/data_science/` | Move README into devctl/data_science/ or delete |
+
+All other directories are intentionally placed. `/scripts/` (user-facing)
+vs `/dev/scripts/` (maintainer) is correct. `/app/operator_console/` is
+correctly at app root but has platform import coupling.
+
+### Separation Strategy (From Agent Analysis)
+
+**Phase 1 — Create platform boundary (no file moves)**:
+- Create `platform/` directory with re-exports from dev/scripts/devctl/
+- Create `platform/pyproject.toml` as publishable package
+- Create `product_integrations/` for VoiceTerm-specific wiring
+- External tools can `import platform` instead of `import dev.scripts.devctl`
+
+**Phase 2 — Move actual code (2-3 weeks refactoring)**:
+- Move `dev/scripts/devctl/governance/` → `platform/governance/`
+- Move `app/operator_console/` → `platform/frontends/pyqt6_console/`
+- Extract shared contracts into `platform/contracts/`
+- Move `dev/config/quality_presets/` → `platform/repo_packs/`
+
+**Phase 3 — Separate repo (optional, future)**:
+- Platform becomes `ai-governance-platform/` standalone repo
+- VoiceTerm depends on it as a package
+
+**Minimum viable separation (zero breaking changes)**:
+- Create `platform/__init__.py` re-exporting from devctl
+- Add `platform/pyproject.toml` for package boundary
+- Document separation rules in a plan doc
+- Enforce with CI: "no VoiceTerm imports in platform modules"
+
+### Risks
+
+| Risk | Severity | Mitigation |
+|------|----------|-----------|
+| Circular imports (checks ↔ devctl) | HIGH | Extract shared contracts layer first |
+| operator_console 23 imports break | HIGH | Create platform/shared/ with re-exports |
+| Config paths hardcoded to dev/config/ | HIGH | Resolve all through RepoPathConfig |
+| CI release_preflight assumes monorepo | HIGH | Split into per-component workflows |
+| Shared type drift after separation | MEDIUM | Codegen contracts from plan docs |
+
+### Pass 11 Summary
+
+| Category | Count |
+|----------|-------|
+| NEW HIGH | 3 (import tangle, CI coupling, no context budget) |
+| NEW MEDIUM | 1 (misplaced data_science README) |
+| Structural findings | Product/platform mixing documented across plans, guides, AGENTS.md, CI |
+| Separation feasibility | Possible in 3 phases; Phase 1 has zero breaking changes |
+| Owner | MP-377 (extraction) + MP-376 (portable engine) |
+
+## Pass 12: Claude Intake — Branch State Audit + New Repo Extraction Plan (Pending Codex Verification)
+
+**Purpose**: Audit the state of all branches, what's pushed vs local, and
+evaluate extracting the AI platform to a standalone repo.
+
+**Codex review note (2026-03-26):** this section is intake, not accepted
+branch-state authority. It already disagrees with current live repo state:
+`git status -sb` shows the branch is ahead of upstream by `17` commits, not
+`15`, and current review-channel status reports `44` modified plus `3`
+untracked paths with checkpoint-required state. Treat the extraction strategy,
+package counts, and branch-delta numbers below as proposals to verify, not as
+accepted architecture truth.
+
+### Branch State Summary
+
+| Branch | Ahead of master | Status |
+|--------|----------------|--------|
+| master | baseline | v1.1.1 released 2026-03-06, 45 commits this month, stable |
+| develop | +12 commits | iOS app, operator console, control plane, post-v1.1.1 cleanup |
+| feature/governance-quality-sweep (current) | +130 commits | Governance hardening, review-channel, startup authority |
+
+**Current branch → master delta**: 1,440 files changed, 241K insertions,
+17K deletions. 130 commits.
+
+**Current branch → develop delta**: 1,097 files changed, 142K insertions,
+13K deletions. 30 commits.
+
+### What's NOT on GitHub Yet
+
+| Item | Count |
+|------|-------|
+| Uncommitted dirty files | 47 modified + 3 untracked |
+| Unpushed commits (current branch) | 15 |
+| Unpushed on master | 0 (in sync) |
+| Unpushed on develop | 0 (in sync) |
+| Stashed work items | 8 (across various branches) |
+
+### Change Breakdown: Product vs Platform
+
+**On the current branch (master..HEAD)**:
+
+| Category | Files | % of total |
+|----------|-------|-----------|
+| AI Platform (devctl + checks + config + active + guides) | 960 | 66.6% |
+| VoiceTerm Product (rust + app + pypi + guides + scripts) | 389 | 27.0% |
+| Shared/CI/Docs | 91 | 6.3% |
+
+**Key finding**: Two-thirds of branch work is AI platform. The VoiceTerm
+product changes (172 Rust files) are real but secondary to the platform
+work.
+
+### Master State Assessment
+
+Master is a **strong baseline for VoiceTerm**:
+- v1.1.1 released, 2,413 test annotations in Rust
+- Critical race conditions fixed, 5-15GB debug logging removed
+- Production-quality product with comprehensive CI
+- **All platform work (devctl, checks, governance) since master is on
+  feature branches only** — master has the stable product
+
+### New Repo Extraction: Feasibility
+
+**The plan**: Create `ai-governance-platform` repo with just the platform
+code, strip VoiceTerm references, re-integrate into VoiceTerm as dependency.
+
+**Minimum file set for new repo**:
+- `dev/scripts/devctl/` (726 Python modules, 21MB)
+- `dev/scripts/checks/` (214 guard scripts, 4.5MB)
+- `dev/config/` (policy configs, templates, 0.2MB)
+- `dev/scripts/devctl/tests/` (110+ test files)
+- New `pyproject.toml` (doesn't exist yet — BLOCKER)
+
+**Current state**: NOT pip-installable. No `pyproject.toml` for the
+platform. Only `dev/scripts/pyproject.toml` naming it "voiceterm-devtools"
+with minimal metadata.
+
+### Extraction Blockers
+
+| Blocker | Severity | Detail |
+|---------|----------|--------|
+| No package metadata | HIGH | No pyproject.toml, no dependencies declared, no entry points |
+| repo_packs hardcoded to VoiceTerm | HIGH | 36+ files import VoiceTerm-specific path config; 48 refs to VOICETERM_PATH_CONFIG |
+| sys.path manipulation | MEDIUM | 8+ files use sys.path.insert to load checks dynamically |
+| No declared Python dependencies | HIGH | No requirements.txt or pyproject.toml deps |
+| Circular checks ↔ devctl imports | MEDIUM | 26 + 31 bidirectional file pairs |
+
+**VoiceTerm binary references**: Minimal. Only 2 files import
+`voiceterm_repo_root`. 96 files have "voiceterm" as strings (variable
+names, comments, test data) but not in import statements.
+
+### Recommended Extraction Sequence
+
+**Step 1: Create new repo from current branch platform code**
+```
+ai-governance-platform/
+├── pyproject.toml              (NEW)
+├── src/ai_governance/
+│   ├── platform/               (from devctl/governance/)
+│   ├── guards/                 (from dev/scripts/checks/)
+│   ├── config/                 (from dev/config/)
+│   ├── repo_packs/             (refactored — no VoiceTerm defaults)
+│   └── runtime/                (from devctl/runtime/)
+└── tests/
+```
+
+**Step 2: Refactor repo_packs**
+- Make VoiceTerm paths injectable, not default
+- `set_active_path_config()` called at consumer init time
+- Already partially designed in repo_packs/__init__.py
+
+**Step 3: Create proper packaging**
+- Audit all imports for external dependencies
+- Create pyproject.toml with proper requires
+- Pin Python 3.10+ (current minimum based on code)
+
+**Step 4: Strip VoiceTerm references**
+- Remove voiceterm.py from repo_packs
+- Update templates to be generic
+- Fix 2 files that import voiceterm_repo_root
+
+**Step 5: Re-integrate into VoiceTerm as dependency**
+- VoiceTerm pyproject.toml adds ai-governance-platform
+- VoiceTerm provides VoiceTermPathConfig at startup
+- All 48 VOICETERM_PATH_CONFIG refs resolve through injected config
+
+### Why New Repo is Better Than In-Place Separation
+
+1. **Clean room**: No risk of accidentally keeping VoiceTerm coupling
+2. **Fresh docs**: Platform docs written for platform, not mixed with product
+3. **Independent CI**: Platform CI tests portability, not VoiceTerm
+4. **Forces the boundary**: Can't cheat with relative imports to parent dirs
+5. **Proves portability**: If it works standalone, it works anywhere
+6. **VoiceTerm stays stable**: Master is untouched, product keeps working
+
+### Risk: Branch Work Not on Master
+
+The platform code being extracted lives on `feature/governance-quality-sweep`
+(130 commits ahead of master). Master has the stable VoiceTerm product but
+NOT the latest platform work. The extraction should:
+- Use the current branch as source for platform code
+- Leave master alone as the VoiceTerm product baseline
+- NOT merge 130 governance commits into master before extraction
+
+### Estimated Effort
+
+| Phase | Effort | Dependencies |
+|-------|--------|-------------|
+| Create repo + copy files | 1 day | None |
+| Create pyproject.toml + deps | 2-3 days | Audit all imports |
+| Refactor repo_packs | 3-5 days | Core architecture decision |
+| Strip VoiceTerm refs | 2-3 days | repo_packs done first |
+| Re-integrate into VoiceTerm | 3-5 days | Standalone tests passing |
+| **Total** | **~2-3 weeks** | Sequential |
+
+### Pass 12 Summary
+
+| Finding | Severity | Owner |
+|---------|----------|-------|
+| 130 commits of platform work not on master | HIGH (risk) | MP-377 |
+| 47 dirty + 15 unpushed files on current branch | HIGH (risk) | Immediate |
+| No pyproject.toml for platform package | HIGH (blocker) | MP-376 |
+| 48 VOICETERM_PATH_CONFIG refs to strip | HIGH (work) | MP-377 |
+| Master is stable VoiceTerm baseline | POSITIVE | — |
+| 66.6% of branch work is platform, not product | CONFIRMS | Extraction is the right move |
+| New repo extraction feasible in 2-3 weeks | ASSESSMENT | MP-377 |
+
+## Pass 13: VoiceTerm Product Work at Risk (Claude, 8-Agent Branch Audit)
+
+**Purpose**: Before extracting the platform to a new repo, verify what
+VoiceTerm PRODUCT work exists on branches that master doesn't have. This
+determines whether master alone is a safe VoiceTerm baseline.
+
+### CRITICAL: Master is NOT a Complete VoiceTerm Baseline
+
+**Master (v1.1.1) is MISSING major product features** that exist on develop
+and the current branch. Keeping only master would lose ~19,000 lines of
+core product work.
+
+### VoiceTerm Product Work on develop (NOT on master)
+
+develop has 12 commits ahead of master with substantial product additions:
+
+| Feature | Files | Lines | Severity if Lost |
+|---------|-------|-------|-----------------|
+| **Daemon architecture** (multiprocess, event bus, WebSocket, memory bridge) | 15+ new Rust files in daemon/ | ~3,000+ | CRITICAL — enables mobile relay |
+| **iOS mobile app** (VoiceTermMobile, Swift, full relay UI) | 21 new files in app/ios/ | ~5,000+ | CRITICAL — entire new platform |
+| **Operator console** (PyQt6 desktop, 170+ files) | 170 new Python files | ~32,000 | HIGH — enterprise control surface |
+| **Memory system** (survival_index, enhanced retrieval) | 5+ Rust files | ~1,500+ | HIGH — core feature |
+| **Dev panel overhaul** (artifact review, action catalog, brokers) | 20+ Rust files | ~4,000+ | MEDIUM |
+| **Theme studio expansion** (component editor, export, preview) | 10+ Rust files | ~800+ | MEDIUM |
+| **Status line refactor** (test suite split, format improvements) | 10+ Rust files | ~1,200 | MEDIUM |
+
+### Additional VoiceTerm Work on Current Branch (NOT on develop)
+
+The current branch has 52 more Rust files changed beyond develop:
+
+| Feature | Files | Lines |
+|---------|-------|-------|
+| Daemon hardening (agent_driver, event_bus, memory_bridge, socket, ws) | 10+ | ~500+ |
+| Memory subsystem (retrieval, survival_index, types, browser) | 5+ | ~400+ |
+| UI components (status_line, overlays, transcript_history, banner) | 8+ | ~300+ |
+| Action center and onboarding | 3+ | ~200+ |
+
+Plus 63 more app/ changes (operator console collaboration, sessions, iOS).
+
+### Rust Dependency Changes (Build Would Break on Master)
+
+**4 new Rust dependencies added since master**:
+- `tokio` (async runtime with multi-threaded support)
+- `tokio-tungstenite` (async WebSocket)
+- `tungstenite` (WebSocket protocol)
+- `futures-util` (async stream utilities)
+
+Plus 21 transitive dependencies (crypto, networking, etc). **Building the
+current Rust code on master's Cargo.toml would FAIL** — async/await and
+WebSocket code won't compile without these deps.
+
+### CI Workflows Not on Master
+
+20 of 32 CI workflows exist only on branches, including:
+
+**Product-critical (would break VoiceTerm CI)**:
+- `rust_ci.yml` (core Rust CI — fmt, clippy, tests)
+- `voice_mode_guard.yml`, `latency_guard.yml`, `memory_guard.yml`
+- `wake_word_guard.yml`, `parser_fuzz_guard.yml`, `perf_smoke.yml`
+- `coverage.yml`, `ios_ci.yml`
+- `publish_release_binaries.yml`, `publish_homebrew.yml`
+
+**Platform CI**: autonomy_controller, coderabbit_triage, orchestrator_watchdog, etc.
+
+### User-Facing Changes Not on Master
+
+| Change | Impact |
+|--------|--------|
+| PyPI auto-bootstrap of native binaries (bootstrap.py) | Users lose one-click install |
+| New CLI flags: --capture-once, --format, --daemon, --ws-port | Feature loss |
+| Operator console launcher script | New feature unavailable |
+| iPhone/iPad companion docs and workflow guidance | Feature loss |
+| User guide restructuring (Pick Your Level, new nav) | UX regression |
+| README.md complete rewrite | Marketing/discovery impact |
+| Fallback script NUL-byte injection protection | Security regression |
+
+### iOS App Status
+
+**NOT on master at all.** The entire iOS app (VoiceTermMobile, Swift
+package, simulator tests, daemon WebSocket client) was introduced in commit
+54ff89f on develop. 22 files exist on the current branch. Would be
+completely lost if only master is kept.
+
+### Operator Console Status
+
+**NOT on master.** 170+ Python files (32K lines) with comprehensive
+subsystems: theme engine, collaboration panels, session tracing, job
+tracking, workflow presets, full test suite. First appeared on develop
+at commit a334977. Classified as VoiceTerm PRODUCT (not platform) — it's a
+PyQt6 desktop app that wraps devctl workflows for operators.
+
+### Revised Extraction Plan
+
+**Master alone is NOT a safe VoiceTerm baseline.** Before extracting the
+platform to a new repo, VoiceTerm product work must be preserved:
+
+**Option A: Merge product work to master first**
+1. Cherry-pick or merge VoiceTerm product commits from develop → master
+2. Include: daemon architecture, iOS app, operator console, Rust deps,
+   CI workflows, user guides, PyPI bootstrap
+3. Exclude: platform-only changes (devctl, checks, governance docs)
+4. Then extract platform from current branch to new repo
+5. Risk: Hard to separate product from platform commits (they're interleaved)
+
+**Option B: Use develop as the VoiceTerm baseline instead of master**
+1. Merge develop → master (12 commits, includes both product AND some platform)
+2. Then extract platform from current branch to new repo
+3. Then strip platform code from VoiceTerm master after re-integration
+4. Risk: Puts some platform code on master temporarily
+
+**Option C: Branch-based extraction (recommended)**
+1. Push all unpushed work (15 commits + 47 dirty files) to remote
+2. Create new repo by copying platform files from current branch
+3. Keep current branch alive as the "full state" reference
+4. Merge product-only changes to develop → master in a focused PR
+5. Then integrate platform as dependency in VoiceTerm
+6. Risk: Requires careful cherry-picking of product vs platform
+
+### What Must Happen Before ANY Extraction
+
+1. **Push everything** — 15 unpushed commits + 47 dirty files + 8 stashes
+2. **Tag the current state** — `git tag pre-extraction-snapshot` so nothing is lost
+3. **Decide the VoiceTerm baseline** — master, develop, or current branch
+4. **Identify product-only commits** for merging to master
+
+### Pass 13 Summary
+
+| Finding | Severity |
+|---------|----------|
+| Master is MISSING daemon architecture, iOS app, operator console, memory system, 4 Rust deps, 20 CI workflows, user guide rewrites | CRITICAL |
+| Building current Rust code on master's Cargo.toml would FAIL (missing tokio, tungstenite) | CRITICAL |
+| iOS app exists ONLY on branches (22 files, entirely new platform) | CRITICAL |
+| Operator console exists ONLY on branches (170 files, 32K lines) | HIGH |
+| 20 CI workflows exist ONLY on branches (including product-critical Rust CI) | HIGH |
+| PyPI bootstrap, new CLI flags, security fixes only on branches | HIGH |
+| Option C (branch-based extraction with focused product PR) is safest path | RECOMMENDATION |

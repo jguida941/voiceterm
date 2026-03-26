@@ -223,6 +223,34 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("continuity_summary: Land the first startup intake packet.", rendered)
         self.assertIn("selected_workflow_profile: `bundle.tooling`", rendered)
 
+    def test_markdown_renders_push_next_step_guidance(self) -> None:
+        rendered = _render_markdown(
+            {
+                "advisory_action": "push_allowed",
+                "advisory_reason": "worktree_clean_and_review_accepted",
+                "reviewer_gate": {},
+                "governance": {
+                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                },
+                "push_decision": {
+                    "action": "run_devctl_push",
+                    "reason": "push_preconditions_satisfied",
+                    "push_eligible_now": True,
+                    "has_remote_work_to_push": True,
+                    "next_step_summary": "Use the governed push path now.",
+                    "next_step_command": (
+                        "python3 dev/scripts/devctl.py push --execute"
+                    ),
+                },
+            }
+        )
+
+        self.assertIn("next_step_summary: Use the governed push path now.", rendered)
+        self.assertIn(
+            "next_step_command: `python3 dev/scripts/devctl.py push --execute`",
+            rendered,
+        )
+
     def test_command_fails_closed_when_checkpoint_required(self) -> None:
         ctx = StartupContext(
             governance=_minimal_governance(
@@ -514,6 +542,7 @@ class TestAdvisoryAction(unittest.TestCase):
         decision = _derive_push_decision(gov, gate)
         self.assertEqual(decision.action, "await_checkpoint")
         self.assertFalse(decision.push_eligible_now)
+        self.assertIn("checkpoint", decision.next_step_summary.lower())
 
     def test_push_decision_waits_for_review_when_clean_but_unaccepted(self) -> None:
         gov = _minimal_governance(worktree_clean=True, worktree_dirty=False)
@@ -521,6 +550,11 @@ class TestAdvisoryAction(unittest.TestCase):
         decision = _derive_push_decision(gov, gate)
         self.assertEqual(decision.action, "await_review")
         self.assertEqual(decision.reason, "review_pending_before_push")
+        self.assertEqual(
+            decision.next_step_command,
+            "python3 dev/scripts/devctl.py review-channel --action status "
+            "--terminal none --format json",
+        )
 
     def test_push_decision_runs_devctl_push_when_preconditions_hold(self) -> None:
         gov = _minimal_governance(
@@ -533,6 +567,10 @@ class TestAdvisoryAction(unittest.TestCase):
         decision = _derive_push_decision(gov, gate)
         self.assertEqual(decision.action, "run_devctl_push")
         self.assertTrue(decision.push_eligible_now)
+        self.assertEqual(
+            decision.next_step_command,
+            "python3 dev/scripts/devctl.py push --execute",
+        )
 
     def test_reviewer_loop_blocked(self) -> None:
         gov = _minimal_governance()

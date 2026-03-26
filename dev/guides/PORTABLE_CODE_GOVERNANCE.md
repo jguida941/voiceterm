@@ -122,6 +122,7 @@ python3 dev/scripts/devctl.py governance-bootstrap --target-repo /path/to/copied
 cd /path/to/copied-repo
 python3 dev/scripts/devctl.py quality-policy --format md
 python3 dev/scripts/devctl.py render-surfaces --write --format md
+python3 dev/scripts/devctl.py startup-context --format md
 python3 dev/scripts/devctl.py check --profile ci --adoption-scan
 python3 dev/scripts/devctl.py probe-report --adoption-scan --format md
 python3 dev/scripts/devctl.py governance-export --adoption-scan --format md
@@ -150,6 +151,12 @@ Why these steps exist:
 - `render-surfaces --write` materializes the starter instruction/stub surfaces
   owned by that repo-pack policy so adopters begin from generated files instead
   of hand-copying local instructions or workflow stubs.
+- `repo_governance.push`, `startup-context`, and the generated post-commit /
+  pre-push hook stubs are the portable commit/review/push contract. After a
+  bounded checkpoint in an adopted repo, rerun
+  `python3 dev/scripts/devctl.py startup-context --format md`, read
+  `push_decision`, and only run `python3 dev/scripts/devctl.py push --execute`
+  when that typed contract says the governed push path is ready.
 - `--adoption-scan` treats the full current worktree as the baseline when the
   repo has no trusted historical ref for growth-only checks yet.
 - `probe-report` should usually run in the same onboarding mode so the first

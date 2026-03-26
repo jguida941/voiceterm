@@ -72,6 +72,13 @@ instead of inferring remote readiness from raw dirty-tree booleans alone.
 Repo policy may exclude non-authoritative scratch context such as `convo.md`
 from push cleanliness so advisory files do not strand reviewed commits.
 
+| `push_decision` | Meaning | Next governed step |
+|---|---|---|
+| `await_checkpoint` | The local worktree is not ready for remote action yet. | Cut a bounded checkpoint/commit, then rerun `python3 dev/scripts/devctl.py startup-context --format md`. |
+| `await_review` | The local slice is checkpointed, but reviewer-owned acceptance is not current yet. | Wait for the review gate to advance, then rerun `python3 dev/scripts/devctl.py startup-context --format md`. `reviewer-checkpoint` advances review truth; it does not push by itself. |
+| `run_devctl_push` | Local cleanliness, review state, and branch posture now allow the governed push path. | Run `python3 dev/scripts/devctl.py push --execute` instead of raw `git push`. |
+| `no_push_needed` | The current branch already matches its upstream. | Stop; no governed push is required. |
+
 ```mermaid
 flowchart TD
   A[Start session] --> B[Run bootstrap checks and read active docs]
@@ -615,11 +622,13 @@ Workflow permissions note:
 ### Normal work (features, fixes, docs)
 
 1. Branch from `develop` (`feature/<topic>` or `fix/<topic>`).
-2. Prefer `python3 dev/scripts/devctl.py push` for the canonical non-mutating push validation path.
-3. Re-run `python3 dev/scripts/devctl.py push --execute` after validation and explicit review go-ahead when you are ready to push the current short-lived branch.
-4. If you are not using `devctl push`, run `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` or the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`) before `git push`, then run `bundle.post-push`.
-5. If you add or rename a `devctl` command, update the CLI inventory (`devctl list`) and the maintainer command docs in the same change so discovery stays truthful.
-6. Merge to `develop` only after review and green checks.
+2. After each bounded checkpoint/commit, rerun `python3 dev/scripts/devctl.py startup-context --format md` and read `push_decision`.
+3. If `push_decision=await_review`, pause until reviewer-owned acceptance is current, then rerun `startup-context`.
+4. If `push_decision=run_devctl_push`, prefer `python3 dev/scripts/devctl.py push` for the canonical non-mutating validation path.
+5. Re-run `python3 dev/scripts/devctl.py push --execute` after validation and explicit review go-ahead when you are ready to push the current short-lived branch.
+6. If you are not using `devctl push`, run `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` or the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`) before `git push`, then run `bundle.post-push`.
+7. If you add or rename a `devctl` command, update the CLI inventory (`devctl list`) and the maintainer command docs in the same change so discovery stays truthful.
+8. Merge to `develop` only after review and green checks.
 
 ### Release/tag/publish work
 

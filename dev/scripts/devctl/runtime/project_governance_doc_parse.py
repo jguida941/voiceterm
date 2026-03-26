@@ -46,7 +46,7 @@ def doc_policy_from_mapping(
         or "dev/active/MASTER_PLAN.md",
         index_path=coerce_string(payload.get("index_path"))
         or "dev/active/INDEX.md",
-        bridge_path=coerce_string(payload.get("bridge_path")) or "bridge.md",
+        bridge_path=coerce_string(payload.get("bridge_path")),
         allowed_doc_classes=coerce_string_items(
             payload.get("allowed_doc_classes")
         ),

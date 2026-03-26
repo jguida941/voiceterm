@@ -16,6 +16,7 @@ from ...governance.push_policy import (
 from ...governance.push_routing import PushRefRoutingState, build_preflight_shell_command
 from ...governance.push_state import current_upstream_ref
 from ...runtime import ActionResult, TypedAction
+from ...runtime.startup_context import build_startup_context
 from ...runtime.vcs import branch_divergence, remote_branch_exists, remote_exists
 from .push_report import PushReportInputs, build_push_report, render_push_report
 
@@ -93,7 +94,24 @@ def _load_run_state(policy, args) -> PushRunState:
         )
     if not remote_exists(state.remote):
         state.errors.append(f"Remote `{state.remote}` is not configured.")
+    _append_startup_push_gate_errors(state)
     return state
+
+
+def _append_startup_push_gate_errors(state: PushRunState) -> None:
+    """Fail closed when startup/review state says governed push is not ready."""
+    if state.errors:
+        return
+    ctx = build_startup_context(repo_root=REPO_ROOT)
+    decision = ctx.push_decision
+    if decision.action in {"run_devctl_push", "no_push_needed"}:
+        return
+    summary = str(decision.next_step_summary or decision.reason or "").strip()
+    detail = f" {summary}" if summary else ""
+    state.errors.append(
+        "Startup push gate blocks `devctl push`: "
+        f"push_decision=`{decision.action}` ({decision.reason}).{detail}"
+    )
 
 
 def _protected_branch_errors(branch: str, policy) -> list[str]:

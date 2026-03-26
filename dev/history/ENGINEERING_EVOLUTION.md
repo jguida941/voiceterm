@@ -46,6 +46,57 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-26 - The repo stopped treating markdown cleanup as a delete-first exercise
+
+Fact: the repo's own documentation sprawl is now treated as an architecture and
+startup-authority problem, not as a cosmetic cleanup chore. The active
+authority chain already carries the universal markdown/governance plan under
+`MASTER_PLAN`, `ai_governance_platform`, `platform_authority_loop`, and
+`portable_code_governance`; the real gap is self-hosting clarity. The branch
+now records an absorption-first rule for reference-doc cleanup: current
+self-hosting pressure is 27 `dev/active/*.md` docs and 10 root-level markdown
+entrypoints, and no archive/demotion pass is valid until execution-relevant
+conclusions are mirrored into the canonical owner chain.
+
+This matters because a governance platform that cannot keep its own startup
+surface bounded is not proving portability yet. The fix is not "delete files
+until it looks cleaner." The fix is a governed doc-authority system with
+budgeted active/reference surfaces, explicit owner mapping, and portable
+custom-layout proof before archive decisions become irreversible.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/portable_code_governance.md`
+- `dev/audits/architecture_alignment.md`
+
+### 2026-03-26 - Portable startup authority stopped pretending VoiceTerm filenames were universal
+
+Fact: the broader portability audit clarified a deeper product-boundary gap.
+The repo can already honor alternate doc roots and plan filenames once
+governance is configured, but the current typed contract and several
+control-plane consumers still seed partial payloads back to `AGENTS.md`,
+`dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `bridge.md`, and
+`dev/reports/*`. That is no longer treated as "good enough if adopters copy our
+layout." It is now explicit open architecture work under `MP-377`/`MP-376`.
+
+This matters because "portable after perfect setup" is not the same thing as a
+portable platform. A universal AI-governance product has to survive different
+authority filenames, report roots, and markdown layouts without silently
+falling back to VoiceTerm conventions.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/project_governance_contract.py`
+- `dev/scripts/devctl/runtime/project_governance_doc_parse.py`
+- `dev/scripts/devctl/runtime/project_governance_plan_parse.py`
+- `dev/scripts/devctl/runtime/project_governance_parse.py`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/audits/architecture_alignment.md`
+
 ### 2026-03-26 - Push readiness stopped pretending a clean tree was the same thing as an approved push
 
 Fact: the repo corrected a misleading contract in the governed startup/push

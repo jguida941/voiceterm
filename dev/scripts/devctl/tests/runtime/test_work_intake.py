@@ -31,7 +31,10 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def _governance() -> ProjectGovernance:
+def _governance(
+    *,
+    review_root: str = "dev/reports/review_channel/latest",
+) -> ProjectGovernance:
     tracker_entry = PlanRegistryEntry(
         path="dev/active/MASTER_PLAN.md",
         role="tracker",
@@ -83,7 +86,7 @@ def _governance() -> ProjectGovernance:
             index_path="dev/active/INDEX.md",
             entries=(tracker_entry, authority_entry),
         ),
-        artifact_roots=ArtifactRoots(),
+        artifact_roots=ArtifactRoots(review_root=review_root),
         memory_roots=MemoryRoots(),
         bridge_config=BridgeConfig(
             bridge_mode="active_dual_agent",
@@ -209,7 +212,9 @@ def test_build_work_intake_packet_uses_resolved_review_state_candidate_for_warm_
 
     packet = build_work_intake_packet(
         repo_root=tmp_path,
-        governance=_governance(),
+        governance=_governance(
+            review_root="dev/reports/review_channel/projections/latest",
+        ),
         advisory_action="continue_editing",
         advisory_reason="clean_worktree",
     )

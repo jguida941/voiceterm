@@ -64,6 +64,23 @@ def make_policy(**overrides) -> PushPolicy:
     )
 
 
+def _startup_context(
+    *,
+    action: str = "run_devctl_push",
+    reason: str = "push_preconditions_satisfied",
+    next_step_summary: str = "Use the governed push path now.",
+    next_step_command: str = "python3 dev/scripts/devctl.py push --execute",
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        push_decision=SimpleNamespace(
+            action=action,
+            reason=reason,
+            next_step_summary=next_step_summary,
+            next_step_command=next_step_command,
+        )
+    )
+
+
 class PushParserTests(unittest.TestCase):
     def test_cli_accepts_push_flags(self) -> None:
         parser = build_parser()
@@ -169,8 +186,10 @@ class PushCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
     def test_push_loader_ignores_advisory_context_paths(
         self,
+        build_startup_context_mock,
         collect_git_status_mock,
         _remote_exists_mock,
     ) -> None:
@@ -178,6 +197,7 @@ class PushCommandTests(unittest.TestCase):
             "branch": "feature/demo",
             "changes": [{"path": "convo.md"}],
         }
+        build_startup_context_mock.return_value = _startup_context()
         policy = make_policy(
             checkpoint=PushCheckpointPolicy(
                 advisory_context_paths=("convo.md",),
@@ -226,8 +246,10 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
     def test_push_default_run_validates_and_stops_before_git_push(
         self,
+        build_startup_context_mock,
         collect_git_status_mock,
         load_policy_mock,
         _remote_exists_mock,
@@ -240,6 +262,7 @@ class PushCommandTests(unittest.TestCase):
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
+        build_startup_context_mock.return_value = _startup_context()
         run_cmd_mock.side_effect = [
             {
                 "name": "git-fetch",
@@ -300,8 +323,10 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
+    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
     def test_push_execute_sets_upstream_and_runs_post_push_bundle(
         self,
+        build_startup_context_mock,
         run_cmd_mock,
         collect_git_status_mock,
         load_policy_mock,
@@ -314,6 +339,7 @@ class PushCommandTests(unittest.TestCase):
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
+        build_startup_context_mock.return_value = _startup_context()
         run_cmd_mock.side_effect = [
             {
                 "name": "git-fetch",
@@ -368,6 +394,38 @@ class PushCommandTests(unittest.TestCase):
         self.assertIn(["git", "push", "--set-upstream", "origin", "feature/demo"], executed)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "pushed")
+
+    @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    def test_push_blocks_when_startup_push_gate_requires_review(
+        self,
+        build_startup_context_mock,
+        collect_git_status_mock,
+        load_policy_mock,
+        _remote_exists_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_policy_mock.return_value = make_policy()
+        build_startup_context_mock.return_value = _startup_context(
+            action="await_review",
+            reason="review_pending_before_push",
+            next_step_summary="Wait for review acceptance before any push attempt.",
+            next_step_command=(
+                "python3 dev/scripts/devctl.py review-channel --action status "
+                "--terminal none --format json"
+            ),
+        )
+
+        rc = push.run(make_args(execute=True))
+
+        self.assertEqual(rc, 1)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["status"], "blocked")
+        self.assertIn("Startup push gate blocks", payload["errors"][0])
 
     def test_build_preflight_shell_command_prefers_remote_branch_when_it_exists(self) -> None:
         policy = make_policy()

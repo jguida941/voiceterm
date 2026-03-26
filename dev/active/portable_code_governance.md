@@ -257,8 +257,9 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       is burned down.
 - [ ] Add a multi-repo portability fixture matrix that exercises the governed
       startup/adoption path on at least four shapes with no core patching:
-      empty repo bootstrap, custom docs/layout repo, existing mixed-language
-      repo, and repo with tandem/review disabled. The matrix must prove
+      empty repo bootstrap, custom docs/layout repo with non-VoiceTerm
+      authority filenames and report roots, existing mixed-language repo, and
+      repo with tandem/review disabled. The matrix must prove
       `governance-bootstrap`, `startup-context`, routed base checks, and
       generated instruction surfaces work through repo policy / repo-pack
       inputs instead of VoiceTerm defaults.
@@ -439,6 +440,13 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-26: Elevated the repo's own markdown sprawl into the portable-engine
+  proof criteria instead of leaving it as an aesthetic complaint. Verified
+  local pressure is now explicit: 27 `dev/active/*.md` docs and 10 root-level
+  markdown entrypoints. The portable path therefore needs two linked closures:
+  absorption-before-archive for reference companions, and a real
+  file-count/budget/report surface that proves the governance system can keep
+  its own repo startup-safe before it claims external-adopter readiness.
 - 2026-03-26: Verified Claude's next broad architecture pass against the live
   portable-engine code before promoting it. Two additional `MP-376` gaps are
   now confirmed on the current tree: `commands/docs/policy_runtime.py`
@@ -1155,6 +1163,12 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Session Resume
 
+- 2026-03-26 self-hosting/organization follow-up: the next `MP-376` proof is
+  not another big evidence memo. It is a custom-layout and low-doc-count
+  proof. Before archiving reference docs, verify their accepted conclusions are
+  mirrored into the owner chain. Before claiming portability, prove one repo
+  that does not use `AGENTS.md`, `dev/active/INDEX.md`,
+  `dev/active/MASTER_PLAN.md`, or VoiceTerm report roots.
 - 2026-03-26 Pass 2/3 follow-up: the next portable-engine closure is no
   longer just governance-draft and bundle/path defaults. It also has to make
   `docs-check`, optional MCP transport identity, `process_sweep`, and

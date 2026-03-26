@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..repo_packs import active_path_config
+from ..repo_packs import active_path_config, active_path_config_is_overridden
 
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
@@ -23,7 +23,10 @@ def review_state_relative_candidates(
         review_root = str(governance.artifact_roots.review_root or "").strip()
         if review_root:
             _append_candidate(candidates, f"{review_root.rstrip('/')}/review_state.json")
-    if governance is None:
+        elif active_path_config_is_overridden():
+            for candidate in active_path_config().review_state_candidates:
+                _append_candidate(candidates, candidate)
+    elif active_path_config_is_overridden():
         for candidate in active_path_config().review_state_candidates:
             _append_candidate(candidates, candidate)
     return tuple(candidates)
@@ -40,11 +43,6 @@ def resolve_review_state_path(
         path = repo_root / candidate
         if path.is_file():
             return path
-    if resolved_governance is not None:
-        for candidate in active_path_config().review_state_candidates:
-            path = repo_root / str(candidate).strip()
-            if path.is_file():
-                return path
     return None
 
 

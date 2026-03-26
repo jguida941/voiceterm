@@ -95,6 +95,10 @@ def render_key_commands_block() -> str:
             "python3 dev/scripts/devctl.py startup-context --format md",
         ),
         (
+            "Governed push execute",
+            "python3 dev/scripts/devctl.py push --execute",
+        ),
+        (
             "Saved graph diff",
             "python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md",
         ),

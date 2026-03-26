@@ -10,6 +10,7 @@ Synchronize selected branches against a remote with explicit safety guards:
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from typing import Dict, List
 
 from ..collect import collect_git_status
@@ -21,6 +22,7 @@ from ..runtime.vcs import branch_exists as _branch_exists
 from ..runtime.vcs import remote_branch_exists as _remote_branch_exists
 from ..runtime.vcs import remote_exists as _remote_exists
 from ..time_utils import utc_timestamp
+from .vcs import push as push_command
 
 MAX_DIRTY_PATHS = 12
 
@@ -75,6 +77,27 @@ def _render_md(report: Dict) -> str:
         lines.append("## Warnings")
         lines.extend(f"- {message}" for message in report["warnings"])
     return "\n".join(lines)
+
+
+def _governed_push_args(args, remote_name: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        remote=remote_name,
+        quality_policy=getattr(args, "quality_policy", None),
+        execute=True,
+        skip_preflight=False,
+        skip_post_push=False,
+    )
+
+
+def _append_governed_push_steps(branch_row: Dict, push_state) -> None:
+    for step in (
+        push_state.fetch_step,
+        push_state.preflight_step,
+        push_state.push_step,
+        *push_state.post_push_steps,
+    ):
+        if step is not None:
+            branch_row["steps"].append(step)
 
 
 def run(args) -> int:
@@ -202,14 +225,20 @@ def run(args) -> int:
         branch_row["ahead"] = divergence["ahead"]
 
         if args.push and (branch_row["ahead"] or 0) > 0:
-            push = run_cmd(
-                f"git-push-{branch}",
-                ["git", "push", remote_name, branch],
-                cwd=REPO_ROOT,
+            push_args = _governed_push_args(args, remote_name)
+            push_state = push_command._load_run_state(policy, push_args)
+            for warning in push_state.warnings:
+                if warning not in warnings:
+                    warnings.append(warning)
+            push_command._run_fetch_and_preflight(push_state, policy, push_args)
+            push_ok, push_status, _push_reason, operator_guidance = (
+                push_command._execute_push_flow(push_state, policy, push_args)
             )
-            branch_row["steps"].append(push)
-            if push["returncode"] != 0:
-                message = f"Push failed for '{branch}'."
+            _append_governed_push_steps(branch_row, push_state)
+            if not push_ok:
+                message = (
+                    f"Governed push failed for '{branch}': {operator_guidance}"
+                )
                 branch_row["status"] = "push-failed"
                 branch_row["notes"].append(message)
                 errors.append(message)

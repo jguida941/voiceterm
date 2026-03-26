@@ -171,7 +171,6 @@ def _scan_bridge_config(
     policy: dict[str, Any],
     active_docs_root: str,
 ) -> BridgeConfig:
-    defaults = BridgeConfig()
     push_payload = repo_governance_payload(policy).get("push")
     checkpoint_payload = (
         push_payload.get("checkpoint")
@@ -191,13 +190,13 @@ def _scan_bridge_config(
             for candidate in compatibility_paths
             if coerce_relative_path(candidate).lower().endswith(".md")
         ),
-        defaults.bridge_path if (repo_root / defaults.bridge_path).is_file() else "",
+        "bridge.md" if (repo_root / "bridge.md").is_file() else "",
     )
     review_channel_candidates = tuple(
         candidate
         for candidate in (
             f"{active_docs_root}/review_channel.md" if active_docs_root else "",
-            defaults.review_channel_path,
+            "dev/active/review_channel.md",
         )
         if candidate
     )

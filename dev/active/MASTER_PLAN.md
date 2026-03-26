@@ -331,6 +331,32 @@
   PyQt6 surfaces are clients over one governed backend. Treat docs that
   re-teach VoiceTerm-first authority or fixed repo-local paths as
   architecture drift, not harmless wording.
+- 2026-03-26 documentation-authority/self-hosting priority correction: the
+  repo already has the universal markdown/governance plan, but it is split
+  across the tracked `MP-377` / `MP-376` docs rather than one root tracker.
+  Canonical execution authority stays in `MASTER_PLAN.md`,
+  `ai_governance_platform.md`, `platform_authority_loop.md`,
+  `portable_code_governance.md`, and `PLAN_FORMAT.md`; root companions such
+  as `UNIVERSAL_SYSTEM_PLAN.md`, `UNIVERSAL_SYSTEM_EVIDENCE.md`,
+  `ZGRAPH_RESEARCH_EVIDENCE.md`, and `GUARD_AUDIT_FINDINGS.md` stay
+  reference-only intake/evidence and must not become parallel trackers. The
+  next proof slice is therefore explicit: self-host that doc-authority
+  system on this repo first via root markdown/file budgets, active-doc
+  graduation/consolidation, and generated AI/bootstrap surfaces from
+  governed state, then prove the same contract on non-VoiceTerm adopters.
+- 2026-03-26 archive/demotion gate correction: reference-doc cleanup must be
+  absorption-first, not delete-first. The current repo still carries 27
+  `dev/active/*.md` docs and 10 root-level markdown entrypoints, so no
+  archive/demotion move is valid until execution-relevant conclusions from the
+  candidate file are mirrored into `MASTER_PLAN` plus the owning scoped plan.
+  Thin bridge pointers may stay reference-only, but root evidence companions
+  and audit transcripts are blocked from archival until that mapping audit is
+  explicit and green.
+- 2026-03-26 deferred/ADR lifecycle correction: the owner chain still needs
+  one explicit self-governance contract for stale deferred work and accepted
+  ADR / Locked Decision parity. Current hygiene covers structure/reference
+  drift, but it does not yet give deferred docs reactivation metadata/gates or
+  prove that accepted decision records are enforced by runtime/guard surfaces.
 - 2026-03-26 push-readiness contract correction: the repo now treats raw git
   cleanliness and actual push eligibility as different layers. `push_ready`
   was misleading because it only meant "clean worktree"; the live controller
@@ -344,6 +370,25 @@
   on correction: repo-governance push state now also needs a typed advisory-
   context exclusion path (`convo.md` in VoiceTerm today) so local scratch
   files do not strand reviewed commits outside the governed push lane.
+- 2026-03-26 governed-push/runtime portability follow-up: two previously
+  mapped authority seams are now fixed in code. `sync --push` no longer
+  bypasses the governed push path with raw `git push`; it now reuses the
+  same startup/review gating, preflight, post-push, and typed push action
+  flow as `devctl push`. The typed governance/runtime layer also stops
+  inventing VoiceTerm `review_root`, `bridge_path`, and
+  `review_channel_path` values from sparse governance payloads, and
+  review-state lookup now consults repo-pack candidates only when a repo has
+  explicitly overridden them. Remaining open follow-up is broader than this
+  patch: raw AI-controlled push callers, portability-drift enforcement, and
+  cross-repo fixture proof still need closure under `MP-376` / `MP-377`.
+- 2026-03-26 doc-authority portability follow-up: the repo can partially
+  support alternate plan filenames and governed doc roots today, but the core
+  typed contract still defaults partial payloads back to `AGENTS.md`,
+  `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/reports/*`.
+  Treat "works when adopters mirror VoiceTerm names" as a failed portability
+  proof. Remaining closure now explicitly includes fail-closed/custom-layout
+  authority discovery, custom report-root proof, and review-channel/control-
+  plane consumers that still hardcode `bridge.md` plus `dev/active/*`.
 - Current deterministic self-governance closure rule after the 2026-03-21
   guard audit: do not treat more guard count or richer graph semantics as
   progress while typed/runtime authority still lies. First close the cheap
@@ -2898,8 +2943,10 @@ become the main product surface.
   - [ ] Extend the portable organization contract to cover root markdown/file
     budgets, metadata/orphan/wrong-hierarchy gaps, and continued
     `dev/scripts/devctl` flat-root burn-down under the same policy-backed
-    report surface. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 29,
-    Part 40)
+    report surface. The same tranche now explicitly includes custom
+    docs-authority / tracker / registry naming proof so portability does not
+    depend on `AGENTS.md` / `MASTER_PLAN.md` / `INDEX.md` clones. (evidence:
+    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 29, Part 40)
   - [ ] Keep tandem/review infrastructure opt-in in portable presets and setup
     until an adopter explicitly enables that enforcement, and make the enable
     point obvious in bootstrap/setup surfaces. (evidence:
@@ -2912,6 +2959,11 @@ become the main product surface.
     portable engine so the same repo snapshot + policy can be replayed
     through deterministic layers twice and produce identical canonical
     findings/packets/receipts aside from allowed volatile fields.
+  - [ ] Add one explicit absorption-before-archive pass for the repo's own
+    reference markdown: no root evidence companion or `dev/active`
+    reference/bridge doc should move until its accepted conclusions are
+    mirrored into the canonical owner chain and the doc-authority report marks
+    it reference-only with no unmapped execution state.
   - [ ] Keep exported measurement schemas honest about lifecycle:
     `portable_governance_episode` and `portable_governance_eval_record`
     remain reference/export artifacts until importer or validator code

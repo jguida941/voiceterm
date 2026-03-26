@@ -15,6 +15,7 @@ from pathlib import Path
 from .runtime_checks import (
     collect_checkpoint_budget_errors,
     collect_import_index_atomicity_findings,
+    collect_push_decision_contract_errors,
     collect_reviewer_loop_block_errors,
 )
 
@@ -137,6 +138,14 @@ def _build_report(repo_root: Path | None = None) -> dict:
     warnings.extend(import_atomicity_warnings)
     if import_atomicity_errors:
         errors.extend(import_atomicity_errors)
+    else:
+        checks_passed += 1
+
+    # --- 11. startup push decision must emit a coherent next-step contract ---
+    checks_run += 1
+    push_contract_errors = collect_push_decision_contract_errors(root, gov)
+    if push_contract_errors:
+        errors.extend(push_contract_errors)
     else:
         checks_passed += 1
 

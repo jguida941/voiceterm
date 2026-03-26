@@ -33,7 +33,7 @@ def add_sync_parser(subparsers: argparse._SubParsersAction) -> None:
     sync_cmd.add_argument(
         "--push",
         action="store_true",
-        help="Push local-ahead branches after fast-forward pull",
+        help="Push local-ahead branches through the governed devctl push flow after fast-forward pull",
     )
     sync_cmd.add_argument(
         "--quality-policy",

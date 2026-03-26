@@ -51,6 +51,7 @@ def _fake_governance(
     safe_to_continue_editing: bool = True,
     checkpoint_reason: str = "clean_worktree",
 ):
+    worktree_clean = safe_to_continue_editing and not checkpoint_required
     return SimpleNamespace(
         docs_authority="AGENTS.md",
         plan_registry=SimpleNamespace(
@@ -67,6 +68,9 @@ def _fake_governance(
             checkpoint_required=checkpoint_required,
             safe_to_continue_editing=safe_to_continue_editing,
             checkpoint_reason=checkpoint_reason,
+            worktree_clean=worktree_clean,
+            upstream_ref="origin/main",
+            ahead_of_upstream_commits=1,
         ),
     )
 
@@ -264,6 +268,34 @@ def test_startup_authority_allows_fresh_pending_implementer_state(
 
     assert report["reviewer_loop_blocked"] is False
     assert not any("Reviewer loop blocks" in error for error in report["errors"])
+
+
+def test_startup_authority_fails_when_push_contract_is_incoherent(
+    tmp_path: Path,
+) -> None:
+    _setup_full_layout(tmp_path)
+    fake_module = SimpleNamespace(
+        scan_repo_governance=lambda _root: _fake_governance(tmp_path)
+    )
+
+    with (
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.import_repo_module",
+            return_value=fake_module,
+        ),
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            return_value=([], []),
+        ),
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.collect_push_decision_contract_errors",
+            return_value=["Push decision contract must point to devctl push."],
+        ),
+    ):
+        report = _build_report(repo_root=tmp_path)
+
+    assert report["ok"] is False
+    assert any("Push decision contract" in error for error in report["errors"])
 
 
 def test_startup_authority_guard_shim_executes_in_supported_script_mode(

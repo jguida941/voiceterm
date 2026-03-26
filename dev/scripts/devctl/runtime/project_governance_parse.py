@@ -84,8 +84,7 @@ def artifact_roots_from_mapping(
     audit = coerce_string(payload.get("audit_root")) or "dev/reports/audits"
     return ArtifactRoots(
         audit_root=audit,
-        review_root=coerce_string(payload.get("review_root"))
-        or "dev/reports/review_channel/latest",
+        review_root=coerce_string(payload.get("review_root")),
         governance_log_root=coerce_string(
             payload.get("governance_log_root")
         )
@@ -111,12 +110,8 @@ def bridge_config_from_mapping(
     mode = coerce_string(payload.get("bridge_mode")) or "single_agent"
     return BridgeConfig(
         bridge_mode=mode,
-        bridge_path=coerce_string(payload.get("bridge_path"))
-        or "bridge.md",
-        review_channel_path=coerce_string(
-            payload.get("review_channel_path")
-        )
-        or "dev/active/review_channel.md",
+        bridge_path=coerce_string(payload.get("bridge_path")),
+        review_channel_path=coerce_string(payload.get("review_channel_path")),
         bridge_active=coerce_bool(payload.get("bridge_active")),
     )
 

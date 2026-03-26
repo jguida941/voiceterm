@@ -182,6 +182,8 @@ def test_scan_repo_governance_policy_fields(tmp_path: Path) -> None:
             },
             "post_push": {"bundle": "bundle.post-push"},
             "checkpoint": {
+                "advisory_context_paths": [],
+                "compatibility_projection_paths": [],
                 "max_dirty_paths_before_checkpoint": 8,
                 "max_untracked_paths_before_checkpoint": 4,
             },

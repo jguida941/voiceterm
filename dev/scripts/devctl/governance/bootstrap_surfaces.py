@@ -62,6 +62,8 @@ def build_surface_generation_governance(
                     "## Task Router Quick Map",
                     "`decision_mode` gates action: `auto_apply` means fix directly,",
                     "`python3 dev/scripts/devctl.py governance-review --record ...`",
+                    "## Checkpoint / Review / Push Contract",
+                    "`python3 dev/scripts/devctl.py push --execute`",
                     "## Mandatory post-edit verification (blocking)",
                     "After EVERY file create/edit, you MUST run the repo-required verification before",
                     "Done means the required guards/tests passed.",
@@ -77,6 +79,17 @@ def build_surface_generation_governance(
                 tracked=True,
                 local_only=False,
                 description="Starter pre-commit hook stub.",
+            )
+        ),
+        _build_surface_spec(
+            SurfaceSeed(
+                surface_id="portable_post_commit_hook_stub",
+                surface_type="starter_artifact",
+                template_path="dev/config/templates/portable_governance_post_commit_hook.stub.template.sh",
+                output_path="dev/config/templates/portable_governance_post_commit_hook.stub.sh",
+                tracked=True,
+                local_only=False,
+                description="Starter post-commit hook stub.",
             )
         ),
         _build_surface_spec(

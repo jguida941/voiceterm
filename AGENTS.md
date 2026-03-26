@@ -278,7 +278,9 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
 
 1. Be autonomous by default: implement, test, docs, and validation end-to-end.
 2. Ask only when required: ambiguous UX/product intent, destructive actions,
-   credentials/publishing/tagging, or conflicting policy signals.
+   credentials/publishing/tagging, or conflicting policy signals. Branch-
+   mutating checkpoint/commit/push actions still follow the explicit approval
+   and review gates in the Branch policy section below.
 3. Stay guarded: do not invent behavior, do not skip required checks.
 4. After any file create/edit, run the applicable repo guard/check scripts
    before handoff; do not leave changed files unvalidated. Follow
@@ -786,6 +788,11 @@ Routine helper:
   `startup-context` / `review-channel status` may now surface a four-state
   `push_decision` (`await_checkpoint`, `await_review`, `run_devctl_push`,
   `no_push_needed`).
+- After any bounded checkpoint/commit, rerun
+  `python3 dev/scripts/devctl.py startup-context --format md` and follow that
+  `push_decision` exactly: wait if it says `await_review`, run
+  `python3 dev/scripts/devctl.py push --execute` only when it says
+  `run_devctl_push`, and stop when it says `no_push_needed`.
 - Repo policy may also declare non-authoritative scratch/reference paths such
   as `convo.md` so local advisory context does not keep a reviewed branch from
   reaching the governed push path.

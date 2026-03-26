@@ -133,6 +133,7 @@ class GovernanceBootstrapTests(unittest.TestCase):
             [
                 "claude_instructions",
                 "portable_pre_commit_hook_stub",
+                "portable_post_commit_hook_stub",
                 "portable_pre_push_hook_stub",
                 "portable_tooling_workflow_stub",
             ],
@@ -144,6 +145,8 @@ class GovernanceBootstrapTests(unittest.TestCase):
                 "## Task Router Quick Map",
                 "`decision_mode` gates action: `auto_apply` means fix directly,",
                 "`python3 dev/scripts/devctl.py governance-review --record ...`",
+                "## Checkpoint / Review / Push Contract",
+                "`python3 dev/scripts/devctl.py push --execute`",
                 "## Mandatory post-edit verification (blocking)",
                 "After EVERY file create/edit, you MUST run the repo-required verification before",
                 "Done means the required guards/tests passed.",

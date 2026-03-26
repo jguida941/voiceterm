@@ -70,6 +70,12 @@ def _render_markdown(ctx_dict: dict) -> str:
             "- has_remote_work_to_push: "
             f"{push_decision.get('has_remote_work_to_push', False)}"
         )
+        next_step_summary = str(push_decision.get("next_step_summary") or "").strip()
+        next_step_command = str(push_decision.get("next_step_command") or "").strip()
+        if next_step_summary:
+            lines.append(f"- next_step_summary: {next_step_summary}")
+        if next_step_command:
+            lines.append(f"- next_step_command: `{next_step_command}`")
         lines.append("")
 
     authority = ctx_dict.get("startup_authority", {})
@@ -213,6 +219,7 @@ def _machine_summary(
     )
     summary["push_eligible_now"] = bool(ctx.push_decision.push_eligible_now)
     summary["push_action"] = ctx.push_decision.action
+    summary["push_next_step_command"] = ctx.push_decision.next_step_command
     summary["startup_authority_ok"] = bool(authority_report.get("ok", False))
     summary["startup_receipt_path"] = startup_receipt_path
     return summary

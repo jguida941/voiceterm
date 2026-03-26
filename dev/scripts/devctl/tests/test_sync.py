@@ -161,6 +161,9 @@ class SyncCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.sync._remote_branch_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.sync._branch_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.sync._remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.sync.push_command._execute_push_flow")
+    @patch("dev.scripts.devctl.commands.sync.push_command._run_fetch_and_preflight")
+    @patch("dev.scripts.devctl.commands.sync.push_command._load_run_state")
     @patch("dev.scripts.devctl.commands.sync.load_push_policy")
     @patch("dev.scripts.devctl.commands.sync.run_cmd")
     @patch("dev.scripts.devctl.commands.sync.collect_git_status")
@@ -169,6 +172,9 @@ class SyncCommandTests(unittest.TestCase):
         collect_git_status_mock,
         run_cmd_mock,
         load_push_policy_mock,
+        load_run_state_mock,
+        _run_fetch_and_preflight_mock,
+        execute_push_flow_mock,
         _remote_exists_mock,
         _branch_exists_mock,
         _remote_branch_exists_mock,
@@ -177,6 +183,26 @@ class SyncCommandTests(unittest.TestCase):
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_push_policy_mock.return_value = make_policy()
+        load_run_state_mock.return_value = SimpleNamespace(
+            warnings=[],
+            fetch_step=None,
+            preflight_step=None,
+            push_step={
+                "name": "git-push",
+                "cmd": ["git", "push", "origin", "develop"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.01,
+                "skipped": False,
+            },
+            post_push_steps=[],
+        )
+        execute_push_flow_mock.return_value = (
+            True,
+            "pushed",
+            "push_completed",
+            "Push completed.",
+        )
         branch_divergence_mock.side_effect = [
             {"behind": 0, "ahead": 2, "error": None},
             {"behind": 0, "ahead": 0, "error": None},
@@ -198,8 +224,8 @@ class SyncCommandTests(unittest.TestCase):
         rc = sync.run(args)
 
         self.assertEqual(rc, 0)
-        executed_cmds = [call.args[1] for call in run_cmd_mock.call_args_list]
-        self.assertIn(["git", "push", "origin", "develop"], executed_cmds)
+        load_run_state_mock.assert_called_once()
+        execute_push_flow_mock.assert_called_once()
 
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(payload["ok"])

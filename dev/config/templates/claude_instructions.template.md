@@ -53,6 +53,23 @@ gitignored).
   protect us`, `After file edits`) and the command table in
   `{{scripts_readme_doc}}` before inventing a narrower workflow.
 
+## Checkpoint / Review / Push Contract
+
+- After any commit/checkpoint, rerun
+  `python3 dev/scripts/devctl.py startup-context --format md`. Do not stop at
+  a clean worktree alone.
+- Treat `push_decision` as the canonical next remote-action state machine:
+  `await_checkpoint`, `await_review`, `run_devctl_push`, `no_push_needed`.
+- When `push_decision` is `run_devctl_push`, the next governed step is
+  `python3 dev/scripts/devctl.py push --execute`. Do not substitute raw
+  `git push`.
+- When `push_decision` is `await_review`, pause editing/push work, refresh the
+  repo-owned review state, and rerun `startup-context` after reviewer-owned
+  acceptance changes.
+- In `single_agent`, `tools_only`, `paused`, or portable adopted repos with no
+  live dual-agent bridge, the same `startup-context` / `push_decision` contract
+  still applies. Push readiness must not depend on bridge prose existing.
+
 ## Platform Boundary
 
 - The long-term product direction is a portable AI-governance platform. In

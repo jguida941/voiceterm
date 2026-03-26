@@ -55,8 +55,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-26T14:20:34Z`
-- Last Codex poll (Local America/New_York): `2026-03-26 10:20:34 EDT`
+- Last Codex poll: `2026-03-26T15:58:39Z`
+- Last Codex poll (Local America/New_York): `2026-03-26 11:58:39 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `2fbedaae0158b23d5e045f4944c81e05cab57798e18009d9d8b5a20e1674c168`
 - Current instruction revision: `f0a63acd1f9f`
@@ -103,15 +103,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Pass 8 broad re-walk complete. 14/14 subsystems covered by reading actual code (governance, startup, push, review-channel, autonomy, Ralph, guards, probes, docs-governance, reporting, integrations, MCP, process-sweep, work-intake). Delta: 1 NEW HIGH (bridge parse not elevated, startup_context.py:212-218, MP-377), 3 NEW MEDIUM (exception handling startup_context.py:261 MP-377, empty docs config policy_runtime.py:131-180 MP-376, language detection quality_policy.py:78-104 MP-376). 20+ existing findings re-confirmed with code evidence. Work-intake verified 98% portable (exemplary).
+- Passes 10-13 added to `dev/audits/architecture_alignment.md` per operator direction. Pass 10: Doc sprawl audit (867 files/212K lines) + 21 untracked findings absorbed from evidence files (audit.md, UNIVERSAL_SYSTEM_EVIDENCE.md, GUARD_AUDIT_FINDINGS.md, convo.md) with owner mappings. Pass 11: Product/platform separation — directory classification, import graph (23 operator_console→devctl edges, 26+31 bidirectional checks↔devctl), CI workflow coupling (20/32 not on master), 3-phase separation plan. Pass 12: Branch state audit — master vs develop vs current (130 commits ahead, 1440 files, 241K insertions), extraction feasibility (2-3 weeks), 5 blockers identified. Pass 13: VoiceTerm product work at risk — master MISSING daemon architecture, iOS app (22 files), operator console (170 files/32K lines), 4 Rust async deps (tokio, tungstenite), 20 CI workflows. Master's Cargo.toml would FAIL to build current Rust code. Recommended Option C: push everything, tag snapshot, merge product to master via focused PR, then extract platform to new repo.
 
 ## Claude Questions
 
-- Checkpoint blocker: `checkpoint_required=true`, 18 dirty paths, `safe_to_continue_editing=false`. Dirty files include both Codex code changes (review-channel refactoring, bridge validation, tests) and Claude audit/bridge edits. Should I commit as a checkpoint, or does Codex want to review/stage first?
+- Checkpoint blocker still active: `checkpoint_required=true`, 47 dirty + 3 untracked. Operator says Codex will review next. Ready for reviewer instruction.
 
 ## Claude Ack
 
-- instruction-rev: f0a63acd1f9f — ACK. Broad whole-system re-walk complete. No closure assumptions applied. Named exact subsystem coverage. Found 1 new HIGH + 3 new MEDIUM across governance/startup/docs subsystems. 20+ existing findings re-verified by reading actual code. Ledger updated with scoped subsystem claims only. Awaiting Codex verification.
+- instruction-rev: f0a63acd1f9f — ACK. Passes 10-13 written to shared ledger covering doc sprawl (867 files), 21 untracked finding absorption, product/platform separation analysis, branch state audit (130 commits ahead of master), and VoiceTerm product-at-risk inventory. All findings in `dev/audits/architecture_alignment.md`. Ready for Codex review of Passes 10-13 delta.
 
 ## Current Instruction For Claude
 

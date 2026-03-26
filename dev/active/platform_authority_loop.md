@@ -169,11 +169,23 @@ intended execution order is:
       and canonical consumer. Keep `PlanRegistry` focused on mutable execution
       docs while `DocRegistry` carries the broader docs system needed for
       bounded AI startup and cross-repo doc governance.
+- [ ] Make that doc/plan authority portable over different filenames and
+      roots: partial runtime/draft/startup payloads must not silently default
+      to `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, or
+      `dev/reports/*`. Either discover repo-owned authority from governed
+      state or fail closed, and prove the same path on a custom-layout fixture
+      repo.
 - [ ] Land the first read-only operator/AI entrypoint for that docs system:
       `python3 dev/scripts/devctl.py doc-authority --format md`.
       It should emit governed-doc counts, registry coverage, metadata-format
       drift, budget violations, overlapping authority, and consolidation
       candidates before any write-mode normalization is attempted.
+- [ ] Add one governed deferred/decision lifecycle contract on top of that
+      same docs authority chain: deferred docs must carry reactivation
+      metadata/gates, and accepted ADR / Locked Decision constraints need an
+      executable parity path so docs-governance/startup can reject stale
+      deferred state and untracked decision drift instead of only checking
+      markdown structure.
 - [ ] Define the bounded startup/work-intake packet that runtime consumes:
       freeze `WorkIntakePacket` over `PlanTargetRef`, `RepoMapSnapshot`,
       `MapFocusQuery`, `TargetedCheckPlan`, `plan snapshot`, `command map`,
@@ -1190,6 +1202,13 @@ intended execution order is:
 
 ## Session Resume
 
+- 2026-03-26 doc-authority portability follow-up: the next authority-loop
+  slice is not allowed to stop at "custom paths work when fully configured."
+  The typed contract still seeds `AGENTS.md`, `dev/active/INDEX.md`,
+  `dev/active/MASTER_PLAN.md`, and `dev/reports/*` on partial payloads, while
+  review/startup consumers still hardcode `bridge.md` plus `dev/active/*` in
+  several control-plane paths. Resume from fail-closed authority discovery,
+  custom-layout fixture proof, and absorption-first reference-doc cleanup.
 - 2026-03-26 pass-2/3 follow-up: keep the authority-loop tranche wide enough
   to absorb the later audit passes too. Remaining same-lane closure now also
   includes portable hash/exclusion policy for tandem freshness and the last
@@ -1364,6 +1383,15 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-26: Rechecked the authority-loop scope against the user's repo-
+  neutral bar. The current runtime can honor alternate authority/doc roots
+  once governance is already correct, but it is still not fail-closed or
+  custom-layout-safe: `ProjectGovernance`/`DocPolicy`/`DocRegistry`/
+  `PlanRegistry` still default partial payloads back to `AGENTS.md`,
+  `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/reports/*`,
+  while review/startup control-plane consumers still hardcode `bridge.md` and
+  `dev/active/review_channel.md`. This is now explicit same-lane closure
+  rather than "later portability polish."
 - 2026-03-26: Verified Claude's next broad architecture pass against the real
   startup-authority code before promoting it. Two concrete `MP-377` gaps are
   now confirmed in the current tree: `runtime/startup_context.py` returns a

@@ -53,7 +53,7 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         report = surfaces.build_surface_report(allow_missing_local_only=True)
 
         self.assertTrue(report["ok"])
-        self.assertEqual(report["surface_count"], 7)
+        self.assertEqual(report["surface_count"], 8)
         self.assertIn(
             "agents_bundle_reference",
             {entry["surface_id"] for entry in report["surfaces"]},
@@ -63,7 +63,7 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         report = instruction_surface_sync.build_report()
 
         self.assertTrue(report["ok"])
-        self.assertEqual(report["surface_count"], 6)
+        self.assertEqual(report["surface_count"], 7)
         self.assertNotIn(
             "agents_bundle_reference",
             {entry["surface_id"] for entry in report["surfaces"]},
@@ -106,6 +106,18 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         )
         self.assertIn(
             "`decision_mode` gates action: `auto_apply` means fix directly,",
+            rendered_text,
+        )
+        self.assertIn(
+            "## Checkpoint / Review / Push Contract",
+            rendered_text,
+        )
+        self.assertIn(
+            "Treat `push_decision` as the canonical next remote-action state machine:",
+            rendered_text,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py push --execute",
             rendered_text,
         )
         self.assertIn(

@@ -288,6 +288,14 @@ Portability note:
   readiness from mixed booleans. Clean local slices that are still waiting on
   reviewer acceptance should surface as `await_review`, not as implicitly
   push-ready.
+- Commit / review / push state machine:
+
+| `push_decision` | Meaning | Next governed step |
+|---|---|---|
+| `await_checkpoint` | Local work is not yet checkpointed for remote action. | Cut a bounded checkpoint/commit, then rerun `python3 dev/scripts/devctl.py startup-context --format md`. |
+| `await_review` | Local checkpoint is clean, but reviewer-owned acceptance is not current yet. | Wait for the review gate to advance, then rerun `python3 dev/scripts/devctl.py startup-context --format md`. `review-channel --action reviewer-checkpoint` updates review truth; it does not push by itself. |
+| `run_devctl_push` | Repo policy now allows the governed push path. | Run `python3 dev/scripts/devctl.py push --execute`; do not substitute raw `git push`. |
+| `no_push_needed` | The branch already matches its upstream. | Stop; no governed push is required. |
 - Keep the mode model simple: `active_dual_agent` means live reviewer/implementer
   freshness is enforced; `single_agent`, `tools_only`, `paused`, and `offline`
   keep the same backend and checks but suspend stale dual-agent warnings until
@@ -318,6 +326,8 @@ python3 dev/scripts/devctl.py report --pedantic --format md
 python3 dev/scripts/devctl.py report --rust-audits --with-charts --emit-bundle --format md
 python3 dev/scripts/devctl.py report --python-guard-backlog --python-guard-backlog-top-n 15 --format md
 python3 dev/scripts/devctl.py quality-policy --format md
+python3 dev/scripts/devctl.py startup-context --format md
+python3 dev/scripts/devctl.py push --execute
 python3 dev/scripts/devctl.py tandem-validate --format md
 python3 dev/scripts/devctl.py launcher-check
 python3 dev/scripts/devctl.py launcher-probes

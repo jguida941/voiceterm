@@ -67,12 +67,20 @@ class StartupReceiptProblemTests(unittest.TestCase):
                 "push_action": "run_devctl_push",
                 "push_reason": "push_preconditions_satisfied",
                 "push_eligible_now": True,
+                "push_next_step_summary": "Use the governed push path now.",
+                "push_next_step_command": (
+                    "python3 dev/scripts/devctl.py push --execute"
+                ),
             }
         )
 
         self.assertEqual(receipt.push_action, "run_devctl_push")
         self.assertEqual(receipt.push_reason, "push_preconditions_satisfied")
         self.assertTrue(receipt.push_eligible_now)
+        self.assertEqual(
+            receipt.push_next_step_command,
+            "python3 dev/scripts/devctl.py push --execute",
+        )
 
     def test_problem_list_flags_checkpoint_required_receipts(self) -> None:
         receipt = StartupReceipt(

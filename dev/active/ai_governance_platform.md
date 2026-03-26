@@ -2686,6 +2686,12 @@ Still open before `P0` closes:
       docs, and the moved reference copy should be retired once those
       findings are fully
       integrated or explicitly rejected.
+- [ ] Freeze the same absorption-first archive gate for root evidence
+      companions and reference bridges too: no root markdown cleanup or active-
+      doc demotion should happen until `doc-authority` can show that accepted
+      conclusions were mirrored into `MASTER_PLAN` plus the owning scoped
+      docs, with no remaining execution-only state stranded in the candidate
+      file.
 - [ ] Add one reviewed repo-local governance contract surface
       (`project.governance.md` as the current working name): human-readable,
       AI-draftable, machine-enforceable repo identity that captures languages,
@@ -2714,6 +2720,12 @@ Still open before `P0` closes:
       status/report render are working, run that thin slice on a rough second
       repo even if the UX is still ugly. Do not wait until the Phase 7 proof
       pack to discover hidden VoiceTerm assumptions.
+- [ ] Prove that governed markdown authority is portable over different file
+      names, doc roots, and report roots before calling the system repo-
+      neutral: partial payloads must not silently invent `AGENTS.md`,
+      `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, or `dev/reports/*`,
+      and the first custom-layout fixture must use different authority names
+      plus different report roots.
 - [ ] Freeze the startup auto-boundary explicitly: startup may inspect repo
       state, refresh stale authority caches, resume exactly one valid or
       repairable `CollaborationSession`, auto-demote stale abandoned state,
@@ -3885,6 +3897,14 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-03-26 doc-authority/organization follow-up: do not treat archive or
+  deletion as the first cleanup move. The current repo still carries 27
+  `dev/active/*.md` docs and 10 root-level markdown entrypoints, and some of
+  the root evidence companions still hold conclusions that have to be audited
+  against the tracked owner docs before they can move. The next `MP-377`
+  execution slice is therefore absorption-first: mirror execution-relevant
+  conclusions into the active authority chain, then demote/archive only the
+  docs that truly remain reference-only.
 - 2026-03-26 portability-audit follow-up: the broad architecture concern is
   confirmed. The blocker is not just one stale `bridge.md` consumer; the
   larger issue is that the platform still lets missing portable authority
@@ -4542,6 +4562,27 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-26: Tightened the architecture direction around documentation
+  sprawl instead of treating it as cleanup trivia. The repo already has the
+  universal markdown/governance plan in the tracked `MP-377` / `MP-376`
+  chain; the failure is self-hosting clarity and bounded startup, not missing
+  concepts. Current verified self-hosting pressure is concrete: 27
+  `dev/active/*.md` docs and 10 root-level markdown entrypoints. Accepted
+  next work is therefore absorption-first and budgeted: root/reference docs
+  must be audited before archival, `doc-authority` becomes the canonical
+  consolidation surface, and portability proof must include custom
+  docs-authority/tracker/index/report names instead of assuming VoiceTerm
+  filenames.
+- 2026-03-26: Re-ran the portability audit specifically against the user's
+  "what if another repo has different names/layouts?" bar. The answer is
+  partial, not closed: policy-owned discovery and typed registries can carry
+  alternate roots once configured, but the core typed contract still seeds
+  `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and
+  `dev/reports/*` on partial payloads, while review-channel/startup/control-
+  plane consumers still hardcode `bridge.md` plus `dev/active/*` in several
+  places. That gap is now treated as first-class `MP-377` architecture work,
+  with `MP-376` owning the custom-layout fixture proof and portability-drift
+  detection.
 - 2026-03-26: Promoted the next governed-push contract correction from local
   confusion into tracked `MP-377` state. The runtime now distinguishes raw
   git cleanliness (`worktree_clean`) from review-gate allowance

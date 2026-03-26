@@ -67,17 +67,16 @@ def _scan_repo_identity(
 
 def _scan_artifact_roots(repo_root: Path) -> ArtifactRoots:
     """Build ArtifactRoots by checking standard artifact directories."""
-    defaults = ArtifactRoots()
     return ArtifactRoots(
-        audit_root=_existing_dir(repo_root, defaults.audit_root),
-        review_root=_existing_dir(repo_root, defaults.review_root),
+        audit_root=_existing_dir(repo_root, "dev/reports/audits"),
+        review_root=_existing_dir(repo_root, "dev/reports/review_channel/latest"),
         governance_log_root=_existing_dir(
             repo_root,
-            defaults.governance_log_root,
+            "dev/reports/governance",
         ),
         probe_report_root=_existing_dir(
             repo_root,
-            defaults.probe_report_root,
+            "dev/reports/probes/latest",
         ),
     )
 

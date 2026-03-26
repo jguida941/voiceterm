@@ -298,10 +298,11 @@ def test_push_enforcement_legacy_push_ready_maps_to_worktree_clean() -> None:
 
     assert gov.doc_policy.docs_authority_path == "AGENTS.md"
     assert gov.doc_policy.allowed_doc_classes == ()
+    assert gov.doc_policy.bridge_path == ""
     assert gov.doc_registry.entries == ()
 
     assert gov.artifact_roots.audit_root == "dev/reports/audits"
-    assert gov.artifact_roots.review_root == "dev/reports/review_channel/latest"
+    assert gov.artifact_roots.review_root == ""
     assert gov.artifact_roots.governance_log_root == "dev/reports/governance"
     assert gov.artifact_roots.probe_report_root == "dev/reports/probes/latest"
 
@@ -309,8 +310,8 @@ def test_push_enforcement_legacy_push_ready_maps_to_worktree_clean() -> None:
     assert gov.memory_roots.context_store_root == ""
 
     assert gov.bridge_config.bridge_mode == "single_agent"
-    assert gov.bridge_config.bridge_path == "bridge.md"
-    assert gov.bridge_config.review_channel_path == "dev/active/review_channel.md"
+    assert gov.bridge_config.bridge_path == ""
+    assert gov.bridge_config.review_channel_path == ""
     assert gov.bridge_config.bridge_active is False
 
     assert gov.enabled_checks.guard_ids == ()

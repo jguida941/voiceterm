@@ -324,6 +324,67 @@
               ]
             }
           ]
+        },
+        {
+          "id": "agents_push_workflow_surface",
+          "doc_path": "AGENTS.md",
+          "required_contains": [
+            "python3 dev/scripts/devctl.py startup-context --format md",
+            "python3 dev/scripts/devctl.py push --execute",
+            "await_checkpoint",
+            "await_review",
+            "run_devctl_push",
+            "no_push_needed"
+          ]
+        },
+        {
+          "id": "development_push_workflow_surface",
+          "doc_path": "dev/guides/DEVELOPMENT.md",
+          "required_contains": [
+            "python3 dev/scripts/devctl.py startup-context --format md",
+            "python3 dev/scripts/devctl.py push --execute",
+            "reviewer-checkpoint",
+            "await_checkpoint",
+            "await_review",
+            "run_devctl_push",
+            "no_push_needed"
+          ]
+        },
+        {
+          "id": "scripts_readme_push_workflow_surface",
+          "doc_path": "dev/scripts/README.md",
+          "required_contains": [
+            "python3 dev/scripts/devctl.py startup-context --format md",
+            "python3 dev/scripts/devctl.py push --execute",
+            "reviewer-checkpoint",
+            "await_checkpoint",
+            "await_review",
+            "run_devctl_push",
+            "no_push_needed"
+          ]
+        },
+        {
+          "id": "portable_push_workflow_surface",
+          "doc_path": "dev/guides/PORTABLE_CODE_GOVERNANCE.md",
+          "required_contains": [
+            "repo_governance.push",
+            "python3 dev/scripts/devctl.py startup-context --format md",
+            "push_decision",
+            "python3 dev/scripts/devctl.py push --execute",
+            "post-commit /",
+            "pre-push hook stubs"
+          ]
+        },
+        {
+          "id": "portable_push_workflow_template",
+          "doc_path": "dev/config/templates/portable_governance_repo_setup.template.md",
+          "required_contains": [
+            "repo_governance.push",
+            "python3 dev/scripts/devctl.py startup-context --format md",
+            "push_decision",
+            "python3 dev/scripts/devctl.py push --execute",
+            "post-commit"
+          ]
         }
       ],
       "evolution_doc": "dev/history/ENGINEERING_EVOLUTION.md",
@@ -421,11 +482,14 @@
           "description": "Local-only Claude instructions surface rendered from repo-pack policy.",
           "required_contains": [
             "## Task Router Quick Map",
+            "## Checkpoint / Review / Push Contract",
             "## Mandatory post-edit verification (blocking)",
             "After EVERY file create/edit, you MUST run the repo-required verification before",
             "Done means the required guards/tests passed.",
             "Run the task-class bundle from `AGENTS.md` after every file create/edit:",
-            "python3 dev/scripts/devctl.py probe-report --format md"
+            "python3 dev/scripts/devctl.py probe-report --format md",
+            "python3 dev/scripts/devctl.py push --execute",
+            "Treat `push_decision` as the canonical next remote-action state machine:"
           ]
         },
         {
@@ -457,6 +521,16 @@
           "tracked": true,
           "local_only": false,
           "description": "Generated starter pre-commit hook stub for governance adopters."
+        },
+        {
+          "id": "portable_post_commit_hook_stub",
+          "surface_type": "starter_artifact",
+          "renderer": "template_file",
+          "template_path": "dev/config/templates/portable_governance_post_commit_hook.stub.template.sh",
+          "output_path": "dev/config/templates/portable_governance_post_commit_hook.stub.sh",
+          "tracked": true,
+          "local_only": false,
+          "description": "Generated starter post-commit hook stub for governance adopters."
         },
         {
           "id": "portable_pre_push_hook_stub",

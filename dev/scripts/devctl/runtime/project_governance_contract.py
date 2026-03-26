@@ -66,7 +66,7 @@ class DocPolicy:
     governed_doc_roots: tuple[str, ...] = ()
     tracker_path: str = "dev/active/MASTER_PLAN.md"
     index_path: str = "dev/active/INDEX.md"
-    bridge_path: str = "bridge.md"
+    bridge_path: str = ""
     allowed_doc_classes: tuple[str, ...] = ()
     allowed_authorities: tuple[str, ...] = ()
     allowed_lifecycles: tuple[str, ...] = ()
@@ -170,7 +170,7 @@ class ArtifactRoots:
     """Repo-relative roots for governance artifacts."""
 
     audit_root: str = "dev/reports/audits"
-    review_root: str = "dev/reports/review_channel/latest"
+    review_root: str = ""
     governance_log_root: str = "dev/reports/governance"
     probe_report_root: str = "dev/reports/probes/latest"
 
@@ -194,8 +194,8 @@ class BridgeConfig:
     """Bridge/reviewer-mode configuration."""
 
     bridge_mode: str = "single_agent"
-    bridge_path: str = "bridge.md"
-    review_channel_path: str = "dev/active/review_channel.md"
+    bridge_path: str = ""
+    review_channel_path: str = ""
     bridge_active: bool = False
 
 
