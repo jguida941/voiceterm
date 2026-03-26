@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ..governance.push_policy import resolve_preflight_since_ref
+from ..governance.push_routing import PushRefRoutingState, resolve_preflight_since_ref
 from .project_governance import PlanRegistryEntry, ProjectGovernance
 from .review_state_locator import resolved_review_state_relative_path
 from .review_state_models import ReviewState
@@ -140,8 +140,10 @@ def _preflight_command(push_defaults: dict[str, object]) -> str:
             or development_branch
         ),
         since_ref_template=template,
-        current_branch=_mapping_text(push_defaults.get("current_branch")),
-        upstream_ref=_mapping_text(push_defaults.get("upstream_ref")),
+        route_state=PushRefRoutingState(
+            current_branch=_mapping_text(push_defaults.get("current_branch")),
+            upstream_ref=_mapping_text(push_defaults.get("upstream_ref")),
+        ),
     )
     command_parts = [
         "python3",

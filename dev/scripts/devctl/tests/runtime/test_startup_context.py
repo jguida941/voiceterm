@@ -830,7 +830,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
 
 
 class TestPushExclusionPaths(unittest.TestCase):
-    """Verify compatibility_projection_paths are excluded from dirty count."""
+    """Verify non-authoritative paths are excluded from dirty count."""
 
     def test_worktree_change_counts_excludes_bridge(self) -> None:
         from dev.scripts.devctl.governance.push_state import _worktree_change_counts
@@ -866,10 +866,49 @@ class TestPushExclusionPaths(unittest.TestCase):
         )
         self.assertEqual(policy.compatibility_projection_paths, ("bridge.md",))
 
+    def test_worktree_change_counts_excludes_advisory_context(self) -> None:
+        from dev.scripts.devctl.governance.push_state import _worktree_change_counts
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            import subprocess
+
+            subprocess.run(["git", "init"], cwd=tmp, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@test.com"],
+                cwd=tmp,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "test"],
+                cwd=tmp,
+                capture_output=True,
+            )
+            (repo_root / "code.py").write_text("print('hello')")
+            subprocess.run(["git", "add", "."], cwd=tmp, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=tmp, capture_output=True)
+            (repo_root / "convo.md").write_text("scratch context")
+
+            dirty, untracked = _worktree_change_counts(repo_root)
+            self.assertEqual((dirty, untracked), (1, 1))
+
+            dirty, untracked = _worktree_change_counts(
+                repo_root,
+                exclude_paths=("convo.md",),
+            )
+            self.assertEqual((dirty, untracked), (0, 0))
+
+    def test_checkpoint_policy_parses_advisory_context_paths(self) -> None:
+        from dev.scripts.devctl.governance.push_policy import PushCheckpointPolicy
+
+        policy = PushCheckpointPolicy(advisory_context_paths=("convo.md",))
+
+        self.assertEqual(policy.advisory_context_paths, ("convo.md",))
+
     def test_checkpoint_policy_default_empty(self) -> None:
         from dev.scripts.devctl.governance.push_policy import PushCheckpointPolicy
         policy = PushCheckpointPolicy()
         self.assertEqual(policy.compatibility_projection_paths, ())
+        self.assertEqual(policy.advisory_context_paths, ())
 
 
 if __name__ == "__main__":

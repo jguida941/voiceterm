@@ -770,6 +770,13 @@ Routine helper:
   configured post-push bundle.
 - A local checkpoint / clean worktree is not sufficient push proof by itself;
   the review gate and the governed `devctl push` path decide remote readiness.
+- Read the typed startup/review decision, not just raw dirty-tree booleans:
+  `startup-context` / `review-channel status` may now surface a four-state
+  `push_decision` (`await_checkpoint`, `await_review`, `run_devctl_push`,
+  `no_push_needed`).
+- Repo policy may also declare non-authoritative scratch/reference paths such
+  as `convo.md` so local advisory context does not keep a reviewed branch from
+  reaching the governed push path.
 - `python3 dev/scripts/devctl.py sync --push` can audit/sync `develop` +
   `master` + current branch with clean-tree and fast-forward guards.
 

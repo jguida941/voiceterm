@@ -140,6 +140,55 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(state["recommended_action"], "commit_before_push")
         self.assertEqual(state["checkpoint_reason"], "within_dirty_budget")
 
+    @patch(
+        "dev.scripts.devctl.governance.push_state._git_stdout",
+        side_effect=[
+            "",
+            "origin/feature/demo",
+            "2",
+            "?? convo.md\n",
+        ],
+    )
+    def test_detect_push_enforcement_ignores_advisory_context_paths(
+        self,
+        _git_stdout_mock,
+    ) -> None:
+        policy = make_policy(
+            checkpoint=PushCheckpointPolicy(
+                advisory_context_paths=("convo.md",),
+            )
+        )
+
+        state = detect_push_enforcement_state(policy)
+
+        self.assertFalse(state["worktree_dirty"])
+        self.assertTrue(state["worktree_clean"])
+        self.assertEqual(state["dirty_path_count"], 0)
+        self.assertEqual(state["untracked_path_count"], 0)
+        self.assertEqual(state["recommended_action"], "use_devctl_push")
+
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    def test_push_loader_ignores_advisory_context_paths(
+        self,
+        collect_git_status_mock,
+        _remote_exists_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "branch": "feature/demo",
+            "changes": [{"path": "convo.md"}],
+        }
+        policy = make_policy(
+            checkpoint=PushCheckpointPolicy(
+                advisory_context_paths=("convo.md",),
+            )
+        )
+
+        state = push._load_run_state(policy, make_args())
+
+        self.assertEqual(state.dirty_paths, [])
+        self.assertEqual(state.errors, [])
+
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -326,9 +375,11 @@ class PushCommandTests(unittest.TestCase):
         command = push.build_preflight_shell_command(
             policy,
             remote="origin",
-            current_branch="feature/demo",
-            upstream_ref="origin/feature/demo",
-            branch_has_remote=True,
+            route_state=push.PushRefRoutingState(
+                current_branch="feature/demo",
+                upstream_ref="origin/feature/demo",
+                branch_has_remote=True,
+            ),
         )
 
         self.assertIn("--since-ref origin/feature/demo", command)

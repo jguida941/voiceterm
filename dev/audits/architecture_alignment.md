@@ -470,15 +470,24 @@ interface; separate VoiceTerm-specific tools from portable core.
   expected — it's data, not code.
 - All three commands work on repos without iOS/mobile components.
 
-### Coverage: integrations layer — NO NEW ISSUES
+### MEDIUM: integrations federation default destination root is still VoiceTerm-shaped
+
+`federation_policy.py` lines 11 and 69 fall back to
+`DEFAULT_ALLOWED_DESTINATION_ROOTS = ["dev/integrations/imports"]` when repo
+policy omits `allowed_destination_roots`. External repos without that layout
+silently inherit VoiceTerm's import destination root.
+
+**Class**: portability. **Prevention**: resolve integration destination roots
+from repo-pack / repo-policy authority or fail closed when the integration
+surface is enabled without an explicit destination contract.
+**Owner**: MP-376.
+
+### Coverage: integrations layer — PARTIAL (1 MEDIUM issue)
 
 - `federation_policy.py`: policy-driven, parameterized. PORTABLE.
 - `integrations-sync`: generic git submodule sync. PORTABLE.
 - `integrations-import`: uses allowlisted destination roots. PORTABLE.
 - `import_core.py`: generic path collection. PORTABLE.
-- One MEDIUM issue: `DEFAULT_ALLOWED_DESTINATION_ROOTS = ["dev/
-  integrations/imports"]` should move to `RepoPathConfig`.
-
 ### Coverage: tandem-consistency sub-checks — 4/7 PORTABLE
 
 - `reviewer_freshness`: PORTABLE (no hardcodes)
@@ -494,16 +503,16 @@ interface; separate VoiceTerm-specific tools from portable core.
 | Severity | Count | New vs Already Known |
 |---|---|---|
 | HIGH | 1 | docs-check 11 hardcoded paths (new subsystem) |
-| MEDIUM | 3 | tandem hash exclusions (new), MCP server name (new), MCP tools autonomy coupling (new) |
-| Coverage notes | 4 subsystems | mobile/phone/publication-sync: no issues. integrations: 1 minor. tandem: 4/7 portable |
+| MEDIUM | 4 | tandem hash exclusions (new), MCP server name (new), MCP tools autonomy coupling (new), integrations destination-root fallback (new) |
+| Coverage notes | 4 subsystems | mobile/phone/publication-sync: no issues. integrations: 1 medium issue. tandem: 4/7 portable |
 
 ## Combined Pass 1+2 Totals
 
 | Severity | Pass 1 | Pass 2 | Total |
 |---|---|---|---|
 | HIGH | 7 | 1 | 8 |
-| MEDIUM | 7 | 3 | 10 |
-| Coverage (no issues) | 0 | 4 subsystems | 4 |
+| MEDIUM | 7 | 4 | 11 |
+| Coverage (no issues) | 0 | 3 subsystems | 3 |
 
 Subsystems now covered: cli.py, governance draft, check orchestration,
 push/release, review-channel events, quality-feedback, probe system,
@@ -579,8 +588,8 @@ gap: needs docstring explaining portability override mechanism.
 | Severity | P1 | P2 | P3 | Total |
 |---|---|---|---|---|
 | HIGH | 7 | 1 | 2 | **10** |
-| MEDIUM | 7 | 3 | 1 | **11** |
-| Coverage (no issues) | 0 | 4 | 3 | **7 subsystems clean** |
+| MEDIUM | 7 | 4 | 1 | **12** |
+| Coverage (no issues) | 0 | 3 | 3 | **6 subsystems clean** |
 
 **All Python control-plane subsystems now have at least one audit pass.**
 
@@ -636,7 +645,8 @@ the following are true:
 - `MP-376` now explicitly owns the later-pass portable subsystem cluster too:
   fail-closed docs-check defaults, portable MCP identity/coupling,
   `process_sweep` binary-pattern generalization, and repo-pack-defined report
-  retention policy.
+  retention policy, plus integration-federation destination roots that still
+  fall back to `dev/integrations/imports`.
 - `MP-377` now explicitly owns portable tandem hash/exclusion policy and the
   remaining non-review import-time repo-pack path freezes such as
   `publication_sync/core.py`.
@@ -851,6 +861,21 @@ fixed in this pass via `worktree_clean`, `review_gate_allows_push`, and
 `await_review`; remaining follow-up is the deeper contract split between
 continuation-budget state and branch-push mechanics.
 
+### MEDIUM: governed push cleanliness still treated advisory scratch as authored drift
+
+The reviewer/hash side already treats `convo.md` as advisory scratch context,
+but the governed push gate still counted that untracked file as dirty state.
+That stranded reviewed commits outside the canonical `devctl push` lane even
+after the code slice was green and checkpointed.
+
+**Class**: runtime/policy boundary mismatch. **Prevention**: let repo policy
+declare advisory scratch/reference paths separately from compatibility
+projections, and use that same exclusion list when computing push/checkpoint
+cleanliness and in the live `devctl push` blocking path. **Owner**: MP-377
+authority-loop / governed push path. **Status**: fixed in this pass via
+repo-policy `advisory_context_paths` plus push-state, `devctl push`,
+runtime/tests/docs updates.
+
 ### MEDIUM: maintainer docs still collapsed commit and push into one step
 
 `AGENTS.md`, the `DEVELOPMENT.md` lifecycle chart, and the Ralph plan/tracker
@@ -887,17 +912,94 @@ as Halstead extension coverage.
 | Pass 4 | Claude (2 agents) | 0 | 0 |
 | Pass 5 | Claude (4 agents) | 0 | 0 |
 | **Pass 5 review** | **Codex** | **1** | **3** |
+| **Pass 6** | **Claude (2 agents)** | **0** | **0** |
+| **Pass 6 review** | **Codex** | **0** | **0** |
 
-Broad subsystem discovery is saturated, but the docs/plan review still found
-one HIGH plus three MEDIUM contract-teaching issues after Claude's zero-new
-Pass 5. All Python control-plane subsystems and the reviewed authority docs
-now have explicit coverage, but the closure bar is still not met until
-another bounded architecture/docs/plan pass confirms zero new HIGH/MEDIUM
-after these corrections.
+Pass 6 is the first zero-new bounded pass after the Codex Pass 5 review
+corrections. The Codex review of Pass 6 found only ledger-mapping/proof
+corrections, not new HIGH/MEDIUM issues, so the two-consecutive zero-new
+closure criterion is now met for discovery saturation.
 
-**Closure criteria status:**
+## Pass 6: Closure Control (Claude, 2-Agent Verification)
+
+**Pass 6: zero new HIGH/MEDIUM findings. Closure control pass — owner
+mapping verified, proof links added for fixed rows, mapping gaps noted.**
+
+### Method
+
+2 parallel agents verified canonical owner mapping for all 10 HIGH + 11
+MEDIUM findings against MASTER_PLAN and scoped plan docs (platform_authority
+_loop.md, portable_code_governance.md, review_probes.md). Also verified the
+4 Codex Pass 5 review findings.
+
+### HIGH Findings: Owner Mapping (10 of 10 MAPPED)
+
+All 10 HIGH findings have explicit canonical ownership in MASTER_PLAN via
+the Codex Owner-Mapping Update (lines 622-642). No contradictions or
+duplicate ownership.
+
+| # | Finding | Owner | MASTER_PLAN Lines |
+|---|---------|-------|-------------------|
+| 1 | cli.py handler imports freeze paths | MP-377 | 634-635 |
+| 2 | check_phases.py hardcodes --bin voiceterm | MP-376 | 627-630 |
+| 3 | governance draft hardcodes AGENTS.md/MASTER_PLAN | MP-376 | 627-630 |
+| 4 | event_store.py hardcodes MP-355 plan ID | MP-377 | 634-635 |
+| 5 | FP classifier hardcodes 13 probe check_ids | MP-375 | 631-633 |
+| 6 | recommendation_engine thresholds | MP-375 | 631-633, 871-877 |
+| 7 | release gates hardcode --branch master | MP-376 | 627-630 |
+| 8 | docs-check 11 hardcoded paths | MP-376 | 636-639 |
+| 9 | process_sweep binary patterns | MP-376 | 636-639 |
+| 10 | reports_retention subroots | MP-376 | 636-639 |
+
+### Pass 5 Review Findings: Proof Links (4 of 4 MAPPED)
+
+| Finding | Owner | Proof |
+|---------|-------|-------|
+| startup/push contract teaching (HIGH) | MP-377 | `bd347a9`; `dev/scripts/devctl/runtime/startup_push_decision.py:13-83`, `dev/scripts/devctl/runtime/startup_context.py:52-70`, `dev/scripts/devctl/commands/governance/startup_context.py:61-73`, `dev/scripts/devctl/tests/runtime/test_startup_context.py:511-535`, `dev/scripts/devctl/tests/runtime/test_startup_receipt.py:64-75`, `AGENTS.md:771-772`, `dev/guides/DEVELOPMENT.md:66-68`, `dev/scripts/README.md:272-277` |
+| review-channel bridge authority (MEDIUM) | MP-355/377 | `dev/active/review_channel.md:96-100` |
+| command docs VoiceTerm paths (MEDIUM) | MP-377 | `dev/scripts/README.md:984-985` |
+| maintainer docs commit/push collapse (MEDIUM) | MP-377+360/361 | `AGENTS.md:771-772`, `dev/guides/DEVELOPMENT.md:66-68`, `dev/active/MASTER_PLAN.md:304-313`, `dev/active/ralph_guardrail_control_plane.md:16-17`, `dev/active/ralph_guardrail_control_plane.md:75-77`, `dev/active/ralph_guardrail_control_plane.md:168-172` |
+
+### MEDIUM Findings: Owner Mapping (11 items)
+
+| # | Finding | Owner | Mapping |
+|---|---------|-------|---------|
+| 1 | governance draft empty plan_registry | MP-377 | PROSE-ONLY (platform_authority_loop.md:645) |
+| 2 | Halstead .py/.rs only | MP-376 | PROSE-ONLY (portable_code_governance.md:144,517) |
+| 3 | SUB_SCORE_WEIGHTS 50% governance | MP-375 | CHECKLIST (`review_probes.md:449-453`) plus engine-side portability cross-link (`portable_code_governance.md:333-336`) |
+| 4 | REQUIRED_SECTIONS hardcoded | MP-376 | PROSE-ONLY (portable_code_governance.md:334) |
+| 5 | post-push bundle origin/develop | MP-376 | PROSE-ONLY (portable_code_governance.md:451) |
+| 6 | startup gate commands hardcoded | MP-377 | PROSE-ONLY (implicit in progress notes) |
+| 7 | quality scope roots VoiceTerm layout | MP-376 | PROSE-ONLY (portable_code_governance.md:334) |
+| 8 | tandem-consistency hash excludes | MP-377 | PROSE-ONLY (`dev/active/platform_authority_loop.md:593-598`) |
+| 9 | MCP server name hardcoded | MP-376 | PROSE-ONLY (portable_code_governance.md:340) |
+| 10 | MCP tools VoiceTerm autonomy coupling | MP-376 | PROSE-ONLY (portable_code_governance.md:340) |
+| 11 | Codex Pass 2: tandem/docs-check/pub-sync | MP-377/376 | MAPPED (portable_code_governance.md:337-345) |
+
+MEDIUM findings #1-10 were promoted as a batch ("absorb Pass 1/2/3
+portability cluster") and appear in progress logs. Most are not tracked as
+discrete checklist items — acceptable for owner mapping, but individual
+proof-linking will need per-item verification when fixes land.
+
+### Codex Review Corrections (2026-03-26)
+
+- The `SUB_SCORE_WEIGHTS` row was a false gap. `dev/active/review_probes.md`
+  already owns portable recommendation-threshold and score-normalization work
+  in both the active checklist (`dev/active/review_probes.md:449-453`) and
+  `## Session Resume` (`dev/active/review_probes.md:1456-1459`), while
+  `dev/active/portable_code_governance.md:333-336` keeps the engine-side
+  portability cross-link.
+- The tandem-consistency hash-exclusion row stays under `MP-377`, not
+  `MP-358`: the Codex owner-mapping update already promoted portable tandem
+  hash/exclusion policy into the authority-loop lane, and the active scoped
+  checklist is `dev/active/platform_authority_loop.md:593-598`.
+- No new contradictions, unmapped findings, or boundary violations were
+  discovered in this Codex review. This pass only corrected ledger truth and
+  proof quality.
+
+**Closure criteria status (updated):**
 - [x] All HIGH/MEDIUM findings mapped to owner plans
-- [ ] Fixed rows link to proof (findings tracked, fixes pending implementation)
+- [x] Fixed rows link to proof (the currently fixed Pass 5 review rows now cite code/docs/tests/commit evidence)
 - [x] Every subsystem has audit coverage
-- [ ] Two consecutive bounded passes with zero new HIGH/MEDIUM
-- [x] Plan ownership conflicts resolved by Codex mapping update
+- [x] Two consecutive bounded passes with zero new HIGH/MEDIUM (Pass 6 + Pass 6 review)
+- [x] Plan ownership conflicts resolved by Codex mapping update + Pass 6 verification

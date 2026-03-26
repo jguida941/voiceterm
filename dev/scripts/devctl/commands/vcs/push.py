@@ -11,9 +11,9 @@ from ...common import emit_output, pipe_output, run_cmd, write_output
 from ...config import REPO_ROOT
 from ...governance.push_policy import (
     build_post_push_commands,
-    build_preflight_shell_command,
     load_push_policy,
 )
+from ...governance.push_routing import PushRefRoutingState, build_preflight_shell_command
 from ...governance.push_state import current_upstream_ref
 from ...runtime import ActionResult, TypedAction
 from ...runtime.vcs import branch_divergence, remote_branch_exists, remote_exists
@@ -73,7 +73,10 @@ def _load_run_state(policy, args) -> PushRunState:
         return state
 
     state.branch = str(git.get("branch", "")).strip()
-    state.dirty_paths = _summarize_dirty_paths(git.get("changes", []))
+    state.dirty_paths = _summarize_dirty_paths(
+        git.get("changes", []),
+        exclude_paths=_push_exclusion_paths(policy),
+    )
     if state.branch == "HEAD":
         state.errors.append("Detached HEAD is not supported. Check out a branch first.")
     if state.dirty_paths:
@@ -118,9 +121,11 @@ def _run_fetch_and_preflight(state: PushRunState, policy, args) -> None:
     preflight_command = build_preflight_shell_command(
         policy,
         remote=state.remote,
-        current_branch=state.branch,
-        upstream_ref=current_upstream_ref(),
-        branch_has_remote=state.branch_has_remote,
+        route_state=PushRefRoutingState(
+            current_branch=state.branch,
+            upstream_ref=current_upstream_ref(),
+            branch_has_remote=state.branch_has_remote,
+        ),
         quality_policy_path=getattr(args, "quality_policy", None),
     )
     state.preflight_step = run_cmd(
@@ -223,9 +228,26 @@ def _run_post_push_bundle(
     return True
 
 
-def _summarize_dirty_paths(changes: list[dict[str, object]]) -> list[str]:
-    paths = [str(change.get("path", "")).strip() for change in changes]
-    return [path for path in paths if path]
+def _summarize_dirty_paths(
+    changes: list[dict[str, object]],
+    *,
+    exclude_paths: tuple[str, ...] = (),
+) -> list[str]:
+    exclude_set = set(exclude_paths)
+    paths: list[str] = []
+    for change in changes:
+        path = str(change.get("path", "")).strip()
+        if not path or path in exclude_set:
+            continue
+        paths.append(path)
+    return paths
+
+
+def _push_exclusion_paths(policy) -> tuple[str, ...]:
+    return (
+        *policy.checkpoint.compatibility_projection_paths,
+        *policy.checkpoint.advisory_context_paths,
+    )
 
 
 def _matches_allowed_prefixes(branch: str, prefixes: tuple[str, ...]) -> bool:

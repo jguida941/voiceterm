@@ -55,9 +55,13 @@ def detect_push_enforcement_state(
         ahead_text = _git_stdout(repo_root, "rev-list", "--count", f"{upstream_ref}..HEAD")
         if ahead_text.isdigit():
             ahead = int(ahead_text)
+    excluded_paths = (
+        *policy.checkpoint.compatibility_projection_paths,
+        *policy.checkpoint.advisory_context_paths,
+    )
     dirty_path_count, untracked_path_count = _worktree_change_counts(
         repo_root,
-        exclude_paths=policy.checkpoint.compatibility_projection_paths,
+        exclude_paths=excluded_paths,
     )
     worktree_dirty = dirty_path_count > 0
     worktree_clean = not worktree_dirty

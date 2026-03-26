@@ -1,14 +1,14 @@
-"""Repo-governance push policy resolution and command helpers."""
+"""Repo-governance push policy resolution helpers."""
 
 from __future__ import annotations
 
-import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
 from ..bundle_registry import get_bundle_commands
 from ..common_io import inject_quality_policy_command, normalize_repo_python_shell_command
 from ..config import REPO_ROOT
+from .push_routing import build_preflight_shell_command, resolve_preflight_since_ref
 from .repo_policy import load_repo_policy_payload
 
 DEFAULT_ALLOWED_BRANCH_PREFIXES = ("feature/", "fix/")
@@ -40,6 +40,9 @@ class PushCheckpointPolicy:
     """Paths of generated compatibility projections (e.g., bridge.md) that
     should be excluded from dirty-path counting for push/checkpoint decisions.
     These files are live-modified by the review loop, not authored code."""
+    advisory_context_paths: tuple[str, ...] = ()
+    """Repo-local scratch/reference paths (e.g., convo.md) that should not
+    block governed push/checkpoint decisions for authored code."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +161,10 @@ def build_push_command_routing_defaults(policy: PushPolicy) -> dict[str, object]
         "max_untracked_paths_before_checkpoint": (
             policy.checkpoint.max_untracked_paths_before_checkpoint
         ),
+        "compatibility_projection_paths": list(
+            policy.checkpoint.compatibility_projection_paths
+        ),
+        "advisory_context_paths": list(policy.checkpoint.advisory_context_paths),
     }
     return {"push": push_defaults}
 
@@ -176,72 +183,6 @@ def detect_push_enforcement_state(
 def resolve_sync_branches(policy: PushPolicy) -> tuple[str, ...]:
     """Return the canonical development/release sync branches."""
     return _dedupe((policy.development_branch, policy.release_branch))
-
-
-def build_preflight_shell_command(
-    policy: PushPolicy,
-    *,
-    remote: str,
-    current_branch: str = "",
-    upstream_ref: str = "",
-    branch_has_remote: bool | None = None,
-    quality_policy_path: str | None = None,
-) -> str:
-    """Build the non-mutating or execution-ready preflight shell command."""
-    since_ref = resolve_preflight_since_ref(
-        remote=remote,
-        development_branch=policy.development_branch,
-        release_branch=policy.release_branch,
-        since_ref_template=policy.preflight.since_ref_template,
-        current_branch=current_branch,
-        upstream_ref=upstream_ref,
-        branch_has_remote=branch_has_remote,
-    )
-    args = [
-        "python3",
-        "dev/scripts/devctl.py",
-        policy.preflight.command,
-        "--since-ref",
-        since_ref,
-    ]
-    if policy.preflight.execute:
-        args.append("--execute")
-    command = shlex.join(args)
-    return normalize_repo_python_shell_command(
-        inject_quality_policy_command(command, quality_policy_path)
-    )
-
-
-def resolve_preflight_since_ref(
-    *,
-    remote: str,
-    development_branch: str,
-    release_branch: str,
-    since_ref_template: str,
-    current_branch: str = "",
-    upstream_ref: str = "",
-    branch_has_remote: bool | None = None,
-) -> str:
-    """Resolve the diff base for push/check-router preflight commands.
-
-    Prefer the exact remote branch being pushed when it exists. Fall back to a
-    tracked upstream on the same remote, then to the repo-policy template.
-    """
-    branch = str(current_branch or "").strip()
-    if branch_has_remote and branch:
-        return f"{remote}/{branch}"
-
-    upstream = str(upstream_ref or "").strip()
-    if upstream:
-        upstream_remote, _, _branch = upstream.partition("/")
-        if upstream_remote == remote:
-            return upstream
-
-    return (since_ref_template or "{remote}/{development_branch}").format(
-        remote=remote,
-        development_branch=development_branch,
-        release_branch=release_branch,
-    )
 
 
 def build_post_push_commands(
@@ -352,6 +293,12 @@ def _parse_checkpoint_policy(
         compat_paths = tuple(
             str(p).strip() for p in raw_compat if str(p or "").strip()
         )
+    raw_advisory = payload.get("advisory_context_paths")
+    advisory_paths: tuple[str, ...] = ()
+    if isinstance(raw_advisory, list):
+        advisory_paths = tuple(
+            str(p).strip() for p in raw_advisory if str(p or "").strip()
+        )
     return PushCheckpointPolicy(
         max_dirty_paths_before_checkpoint=_coerce_positive_int(
             payload.get("max_dirty_paths_before_checkpoint"),
@@ -362,6 +309,7 @@ def _parse_checkpoint_policy(
             fallback=6,
         ),
         compatibility_projection_paths=compat_paths,
+        advisory_context_paths=advisory_paths,
     )
 
 

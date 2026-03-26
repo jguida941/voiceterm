@@ -4553,7 +4553,10 @@ Execution order for this section:
   umbrella follow-up is the deeper contract split between continuation-budget
   / edit-safety state and branch-push mechanics so future
   `PushPreflightPacket` / `ActionResult` surfaces do not keep overloading one
-  field family with two different jobs.
+  field family with two different jobs. The same lane also needs one
+  repo-policy seam for advisory scratch context (`convo.md` in VoiceTerm
+  today) so reviewed commits can reach `run_devctl_push` without local
+  reference files being misclassified as authored worktree drift.
 - 2026-03-26: Ran a broader portability/architecture audit after the live
   review-channel cutover exposed another "works in VoiceTerm, leaks in
   portable mode" seam. The result is larger than the immediate bug: docs

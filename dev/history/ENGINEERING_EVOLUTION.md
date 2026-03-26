@@ -60,6 +60,10 @@ This matters because the earlier `push_ready` name taught the wrong mental
 model back into the system: a clean worktree is only the local checkpoint
 state, not proof that the branch is ready for a governed remote push.
 Separating those ideas makes the repo-owned controller more truthful now and
+the follow-up closes the same lie for local scratch artifacts too: repo
+policy can now mark advisory context such as `convo.md` as non-blocking for
+the push controller instead of stranding reviewed commits behind an
+unrelated untracked note file.
 keeps the future `PushPreflightPacket` design aligned with the real push path
 instead of encoding another overloaded boolean.
 
@@ -97,6 +101,28 @@ Evidence:
 - `dev/audits/architecture_alignment.md`
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/ralph_guardrail_control_plane.md`
+
+### 2026-03-26 - The shared architecture ledger stopped hiding one integrations portability gap
+
+Fact: the shared architecture ledger was corrected after Codex found that the
+Pass 2 integrations section contradicted its own summary. It claimed "NO NEW
+ISSUES" while also recording a MEDIUM portability gap:
+`federation_policy.py` still falls back to
+`DEFAULT_ALLOWED_DESTINATION_ROOTS = ["dev/integrations/imports"]` when repo
+policy does not provide explicit destination roots. The ledger now records
+that issue as a real MP-376-owned finding and fixes the pass totals and
+clean-coverage counts so closure math matches the evidence.
+
+This matters because the value of `architecture_alignment.md` is that it is
+supposed to be stricter than chat memory. If the audit can hide a real medium
+finding inside a coverage note and still report clean convergence, the shared
+Codex/Claude closure bar stops being trustworthy.
+
+Evidence:
+
+- `dev/audits/architecture_alignment.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/portable_code_governance.md`
 
 ### 2026-03-26 - Portability became an explicit maintainer rule instead of an implied architecture wish
 

@@ -269,12 +269,18 @@ Portability note:
   compatibility writes do not force false `checkpoint_required` states. Raw
   git state and reviewer-owned status remain canonical for real push/review
   truth.
+- The same checkpoint policy can also exclude repo-declared advisory scratch
+  context such as `convo.md` so local reference files do not keep a reviewed
+  branch from reaching the governed push path.
 - Push-readiness rule: `worktree_clean` means only that the local worktree is
   checkpointed/clean enough to consider the next remote step. Final push
   eligibility still requires a current review gate plus governed
-  `python3 dev/scripts/devctl.py push` validation. Clean local slices that are
-  still waiting on reviewer acceptance should surface as `await_review`, not
-  as implicitly push-ready.
+  `python3 dev/scripts/devctl.py push` validation. Read the typed
+  `push_decision` answer (`await_checkpoint`, `await_review`,
+  `run_devctl_push`, `no_push_needed`) instead of reconstructing remote
+  readiness from mixed booleans. Clean local slices that are still waiting on
+  reviewer acceptance should surface as `await_review`, not as implicitly
+  push-ready.
 - Keep the mode model simple: `active_dual_agent` means live reviewer/implementer
   freshness is enforced; `single_agent`, `tools_only`, `paused`, and `offline`
   keep the same backend and checks but suspend stale dual-agent warnings until

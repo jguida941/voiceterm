@@ -288,10 +288,19 @@
   the work is done. The remaining mapped fix queue now explicitly includes
   fail-closed `docs-check` defaults, portable MCP identity and status-provider
   boundaries, `process_sweep` binary-pattern generalization,
-  repo-pack-defined report-retention policy, portable tandem hash exclusions,
-  and the last import-time repo-pack path freezes outside review-channel
-  proper. Treat the audit as complete enough to route implementation, not as a
-  reason to stop promoting findings into scoped plans.
+  repo-pack-defined report-retention policy, integration-federation
+  destination-root policy, portable tandem hash exclusions, and the last
+  import-time repo-pack path freezes outside review-channel proper. Treat the
+  audit as complete enough to route implementation, not as a reason to stop
+  promoting findings into scoped plans.
+- 2026-03-26 architecture-review closure-truth correction: the next bounded
+  Codex pass over `dev/audits/architecture_alignment.md` found no new
+  HIGH/MEDIUM issues, corrected one false `MP-375` gap claim
+  (`SUB_SCORE_WEIGHTS` is already owned in `review_probes.md`) and one
+  `MP-377` owner typo for tandem hash exclusions, and linked the fixed
+  push/bridge/docs-teaching rows to explicit code/docs/test proof. Treat the
+  audit as saturated for broad discovery; remaining work is implementation and
+  proof on the mapped `MP-376` / `MP-377` queue, not another unbounded sweep.
 - 2026-03-26 architecture-doc teaching correction: portability closure also
   includes the docs and starter surfaces that future AI sessions read first.
   Plain-language architecture/runbook text must front-load that VoiceTerm is
@@ -309,7 +318,10 @@
   deeper contract split between continuation-budget/edit-safety state and
   branch-push mechanics plus the future typed `push_eligible_now` packet.
   Maintainer docs/README must keep teaching the same distinction so future AI
-  sessions do not relearn "clean tree == push-ready" from repo prose.
+  sessions do not relearn "clean tree == push-ready" from repo prose. Follow-
+  on correction: repo-governance push state now also needs a typed advisory-
+  context exclusion path (`convo.md` in VoiceTerm today) so local scratch
+  files do not strand reviewed commits outside the governed push lane.
 - Current deterministic self-governance closure rule after the 2026-03-21
   guard audit: do not treat more guard count or richer graph semantics as
   progress while typed/runtime authority still lies. First close the cheap

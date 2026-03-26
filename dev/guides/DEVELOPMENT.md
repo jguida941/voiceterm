@@ -66,6 +66,11 @@ This chart shows the full loop: start a session, implement, verify, and (optiona
 Checkpoint note: a local commit/checkpoint only closes the bounded worktree
 slice. Treat remote push as a later governed action that still requires the
 current review/policy gates plus `devctl push` validation.
+Use the typed `push_decision` answer from `startup-context` / review status
+(`await_checkpoint`, `await_review`, `run_devctl_push`, `no_push_needed`)
+instead of inferring remote readiness from raw dirty-tree booleans alone.
+Repo policy may exclude non-authoritative scratch context such as `convo.md`
+from push cleanliness so advisory files do not strand reviewed commits.
 
 ```mermaid
 flowchart TD
@@ -85,7 +90,7 @@ flowchart TD
   L -->|No| M[Fix issues and rerun checks]
   M --> H
   L -->|Yes| N[Commit bounded slice or checkpoint]
-  N --> O{Ready to push now?}
+  N --> O{Push decision?}
   O -->|No| P[Wait for review or next governed push window]
   O -->|Yes| Q[Run devctl push --execute]
   P --> Q

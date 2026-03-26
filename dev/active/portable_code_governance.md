@@ -444,7 +444,9 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   subsystems. `MP-376` now explicitly owns four more portable-engine gaps:
   fail-closed `docs-check` defaults, portable MCP identity and non-VoiceTerm
   status-provider boundaries, repo-policy-driven `process_sweep` binary
-  patterns, and repo-pack-defined report-retention path families.
+  patterns, repo-pack-defined report-retention path families, and
+  integration-federation destination roots that still fall back to
+  `dev/integrations/imports`.
 - 2026-03-26: Promoted the first architecture-alignment Pass 1 owner cluster
   into `MP-376` instead of leaving it as audit-only prose. The portable lane
   now explicitly owns the repo-policy follow-up for governance-draft
