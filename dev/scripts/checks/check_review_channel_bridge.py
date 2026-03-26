@@ -21,12 +21,14 @@ if str(REPO_ROOT) not in sys.path:
 
 _review_channel_handoff = importlib.import_module("dev.scripts.devctl.review_channel.handoff")
 _bridge_validation = importlib.import_module("dev.scripts.devctl.review_channel.bridge_validation")
+_bridge_projection = importlib.import_module("dev.scripts.devctl.review_channel.bridge_projection")
 _peer_liveness = importlib.import_module("dev.scripts.devctl.review_channel.peer_liveness")
 
 DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS = _review_channel_handoff.DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS
 extract_bridge_snapshot = _review_channel_handoff.extract_bridge_snapshot
 validate_live_bridge_contract = _bridge_validation.validate_live_bridge_contract
 reviewer_mode_is_active = _peer_liveness.reviewer_mode_is_active
+bridge_hygiene_errors = _bridge_projection.bridge_hygiene_errors
 
 BRIDGE_PATH = REPO_ROOT / "bridge.md"
 REVIEW_CHANNEL_PATH = REPO_ROOT / "dev/active/review_channel.md"
@@ -253,6 +255,10 @@ def _build_path_report(
         "missing_h2": missing_h2,
         "missing_markers": missing_markers,
     }
+    if path == BRIDGE_PATH:
+        hygiene_errors = bridge_hygiene_errors(text)
+        report["hygiene_errors"] = hygiene_errors
+        report["ok"] = report["ok"] and not hygiene_errors
     if untracked:
         report["untracked"] = True
         report["error"] = f"Bridge-active file is untracked by git: {relative_path}"
@@ -314,6 +320,9 @@ def render_md(report: dict) -> str:
         lines.append(f"- {key}_missing_h2: {', '.join(missing_h2) if missing_h2 else 'none'}")
         missing_markers = section.get("missing_markers", [])
         lines.append("- " f"{key}_missing_markers: " f"{', '.join(missing_markers) if missing_markers else 'none'}")
+        hygiene_errors = section.get("hygiene_errors", [])
+        if hygiene_errors:
+            lines.append("- " f"{key}_hygiene_errors: " f"{', '.join(hygiene_errors)}")
         metadata_errors = section.get("metadata_errors", [])
         if metadata_errors:
             lines.append("- " f"{key}_metadata_errors: " f"{', '.join(metadata_errors) if metadata_errors else 'none'}")

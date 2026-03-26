@@ -61,6 +61,7 @@ REVIEW_ACTION_CHOICES = (
     "apply",
     "history",
     "bridge-poll",
+    "render-bridge",
 )
 
 

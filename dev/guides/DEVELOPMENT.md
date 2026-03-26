@@ -166,7 +166,12 @@ Three quality layers matter in practice:
     writes now serialize the bridge file under a lock and treat `Poll Status`
     as current-state-only reviewer authority: stale reviewer-owned status
     prose is replaced on each repo-owned write instead of accumulating old
-    revision/ACK bullets under a fresh heartbeat line.
+    revision/ACK bullets under a fresh heartbeat line. If the bridge drifts
+    into transcript/history junk or unsupported headings, repair it with
+    `python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format md`
+    instead of hand-editing `bridge.md`; the bridge guard now fails closed on
+    oversize bridges, duplicate/unsupported sections, transcript/ANSI
+    contamination, and overgrown live `Claude Status` / `Claude Ack` blocks.
   - `review-channel --action status|ensure|reviewer-heartbeat|reviewer-checkpoint`
     now emit machine-readable `reviewer_worker` state, and
     `review-channel --action ensure --follow` cadence frames carry the same

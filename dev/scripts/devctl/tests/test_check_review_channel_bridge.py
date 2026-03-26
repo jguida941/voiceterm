@@ -277,6 +277,26 @@ class CheckReviewChannelBridgeTests(TestCase):
             report["review_channel"]["missing_markers"],
         )
 
+    def test_build_report_flags_bridge_hygiene_contamination(self) -> None:
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script)
+            + "\n## Coverage\n\n- extra report section\n\u001b[?2026h\n",
+        )
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        with (
+            patch.object(self.script, "BRIDGE_PATH", bridge),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
+        ):
+            report = self.script.build_report()
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["bridge"]["hygiene_errors"])
+
     def test_build_report_flags_poll_status_mode_conflict(self) -> None:
         bridge = self._temp_path(
             "bridge.md",

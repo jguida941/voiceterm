@@ -5673,3 +5673,17 @@ progress percentages, promoted one cross-file reference prepass for
 context-blind probes such as `probe_single_use_helpers`, and named shared
 parser/AST reuse alongside the already-tracked guard-result caching
 performance-contract lane.
+
+### 2026-03-26 - MP-355 bridge repair is now repo-owned and the bridge guard fails on transcript drift
+
+Fact: the live markdown bridge had silently degraded into a 4164-line mixed
+transcript that included duplicate report headings plus raw terminal/test
+output, which made the compatibility surface unreliable as a current-state
+handoff. The immediate fix was not more manual bridge surgery; it was to make
+bridge repair repo-owned. `review-channel --action render-bridge` now rebuilds
+`bridge.md` from the bounded compatibility template plus sanitized live
+sections, and the bridge guard now fails closed on oversize bridges,
+duplicate/unsupported H2 headings, transcript/ANSI contamination, and
+overgrown live owned sections (`Claude Status`, `Claude Ack`). The broader
+typed writer/mutation cutover remains open, but the transitional bridge can no
+longer silently persist as a 4000-line mixed report blob.

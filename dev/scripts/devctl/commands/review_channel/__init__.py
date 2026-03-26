@@ -71,6 +71,7 @@ from ..review_channel_command import (
 from ..review_channel_event_handler import _run_event_action
 from . import ensure as _ensure_mod
 from ._bridge_poll import run_bridge_poll_action as _run_bridge_poll_action_impl
+from ._render_bridge import run_render_bridge_action as _run_render_bridge_action
 from ._wait_actions import (
     run_implementer_wait_action as _run_implementer_wait_action,
     run_reviewer_wait_action as _run_reviewer_wait_action,
@@ -248,6 +249,12 @@ def _dispatch_action(
         result = _run_status_action(args=args, repo_root=repo_root, paths=paths)
     elif action is ReviewChannelAction.BRIDGE_POLL:
         result = _run_bridge_poll_action_impl(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+        )
+    elif action is ReviewChannelAction.RENDER_BRIDGE:
+        result = _run_render_bridge_action(
             args=args,
             repo_root=repo_root,
             paths=paths,

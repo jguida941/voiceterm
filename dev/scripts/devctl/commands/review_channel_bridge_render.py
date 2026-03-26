@@ -66,6 +66,7 @@ def render_bridge_md(
     append_attach_auth_policy_markdown(lines, report.get("attach_auth_policy"))
     _append_bridge_heartbeat_refresh(lines, report.get("bridge_heartbeat_refresh"))
     _append_reviewer_state_write(lines, report.get("reviewer_state_write"))
+    _append_bridge_render(lines, report.get("bridge_render"))
     _append_sessions(lines, report.get("sessions"))
     return "\n".join(lines)
 
@@ -317,6 +318,27 @@ def _append_reviewer_state_write(lines: list[str], write: object) -> None:
     lines.append(f"- last_codex_poll_utc: {write.get('last_codex_poll_utc')}")
     lines.append(f"- last_codex_poll_local: {write.get('last_codex_poll_local')}")
     lines.append(f"- last_worktree_hash: {write.get('last_worktree_hash')}")
+
+
+def _append_bridge_render(lines: list[str], bridge_render: object) -> None:
+    if not isinstance(bridge_render, dict):
+        return
+    lines.append("")
+    lines.append("## Bridge Render")
+    lines.append(f"- lines_before: {bridge_render.get('lines_before')}")
+    lines.append(f"- lines_after: {bridge_render.get('lines_after')}")
+    lines.append(f"- bytes_before: {bridge_render.get('bytes_before')}")
+    lines.append(f"- bytes_after: {bridge_render.get('bytes_after')}")
+    dropped = bridge_render.get("dropped_headings") or []
+    lines.append(
+        "- dropped_headings: "
+        + (", ".join(str(item) for item in dropped) if dropped else "none")
+    )
+    sanitized = bridge_render.get("sanitized_sections") or []
+    lines.append(
+        "- sanitized_sections: "
+        + (", ".join(str(item) for item in sanitized) if sanitized else "none")
+    )
 
 
 def _append_sessions(lines: list[str], sessions: object) -> None:

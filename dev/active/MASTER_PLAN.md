@@ -239,7 +239,13 @@
   and the symmetric repo-owned `reviewer-wait` path now wakes from
   `reviewer_worker` hash drift plus projected `current_session`
   implementer ACK/status updates instead of one-shot status reads or ad hoc
-  shell sleep loops.
+  shell sleep loops. 2026-03-26 bridge-hygiene follow-up landed: the repo now
+  has `review-channel --action render-bridge` as a repair/rebuild path for the
+  transitional compatibility bridge, and `check_review_channel_bridge.py` now
+  fails closed on oversize bridges, duplicate/unsupported H2 sections,
+  transcript/ANSI contamination, and overgrown live owned sections so a
+  4000-line mixed bridge transcript cannot silently remain current-state
+  authority.
 - Current runtime-baseline correction after the 2026-03-21 architecture audit:
   Phase 1 closure must keep five runtime-behind-docs gaps explicit instead of
   treating them as background drift. Portability is still blocked first by

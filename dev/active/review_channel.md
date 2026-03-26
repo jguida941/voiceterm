@@ -1101,7 +1101,16 @@ Acceptance:
       `review-channel status`, and mobile/review projections must flag
       resolved/fixed bridge verdicts that do not promote the next scoped task,
       so a reviewer-complete bridge cannot look healthy while implementer
-      routing state is stale.
+      routing state is stale. The same validator lane must now also reject
+      oversize compatibility bridges, duplicate/unsupported H2 sections,
+      transcript/ANSI contamination, and overgrown live owned sections
+      (`Claude Status`, `Claude Ack`) so a 4000-line mixed transcript cannot
+      masquerade as current reviewer authority.
+- [ ] Keep bridge repair repo-owned while the compatibility projection still
+      exists: `review-channel --action render-bridge` should remain the
+      sanctioned rebuild path for `bridge.md`, regenerating the bounded
+      template plus sanitized live sections from repo-owned state instead of
+      relying on manual bridge surgery after a bad session.
 - [ ] Promote continuation-budget / checkpoint gating to a first-class live
       wait reason in the same typed attention/liveness contract. When
       `push_enforcement.checkpoint_required` or
@@ -1594,6 +1603,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-26T01:50:00Z` | `CODEX` | Closed the worst current markdown-bridge failure mode after the live bridge grew into a 4164-line mixed transcript with duplicate report headings and raw terminal/test output. Landed `review-channel --action render-bridge` as the repo-owned repair path, rebuilt the live `bridge.md` down to a bounded 117-line compatibility projection, expanded bridge hygiene enforcement so `check_review_channel_bridge.py` now rejects oversize bridges, duplicate/unsupported headings, transcript/ANSI contamination, and overgrown live sections, and tightened reviewer checkpoint contamination patterns so repo-owned reviewer writes reject obvious terminal/test output earlier. | `partial-pass` | Re-run the focused review-channel/tooling bundles on the cleaned bridge, keep the remaining stale-ACK state explicit, and continue the broader typed writer/mutation cutover so bridge repair becomes exceptional instead of routine. |
 | `2026-03-25T14:05:00Z` | `CODEX` | Closed the next live stale-implementer orchestration gap without widening bridge authority. Active attention now distinguishes `implementer_relaunch_required`, `review-channel --action recover --recover-provider claude` replaces only the stale Claude conductor, and reviewer-follow now escalates repeated unchanged stale-implementer state through that narrower repo-owned recovery path instead of full rollover or passive sleep-loop polling. The same slice also keeps startup gating honest: `launch|rollover` still fail closed on checkpoint-budget or real startup-authority errors, but they no longer fail solely because the reviewer loop is stale on the implementer side. | `partial-pass` | Run the focused runtime/review-channel proofs plus docs/guard bundles, then checkpoint the slice and exercise the live recover path against a stale Claude ACK session. |
 | `2026-03-25T04:45:00Z` | `CODEX` | Re-ran the focused MP-355 regression suite and reopened one exact bridge-contract guard. `test_check_review_channel_bridge.py` now shows that `check_review_channel_bridge.py` no longer flags resolved bridge verdicts without a promoted next task. The broader typed-current-session direction still holds, but the temporary fail-closed bridge validator regressed and can again let a semantically incomplete bridge read as healthy. | `planned` | Restore guard + projection parity so resolved/fixed bridge states require promoted next-task routing, then continue the typed `current_session` / `agent_registry` cutover without widening bridge authority. |
 | `2026-03-24T16:30:00Z` | `CODEX` | Folded the remaining aligned review-channel intake into canonical MP-355 state after re-checking it against live code. The correction is explicit: queue/attention are not wholly unread because current-focus and wait surfaces already use them; the actual missing consumer path is `agent_registry` plus wider typed review status not yet steering startup/work-intake routing or reviewer/implementer scheduling. | `planned` | Keep the typed current-session cutover bounded, then make startup/work-intake and scheduling consume `agent_registry` plus typed queue/attention state before claiming the review channel is a live routing surface rather than a display bundle. |

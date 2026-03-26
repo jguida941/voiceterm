@@ -95,6 +95,7 @@ class ReviewChannelAction(StrEnum):
     APPLY = "apply"
     HISTORY = "history"
     BRIDGE_POLL = "bridge-poll"
+    RENDER_BRIDGE = "render-bridge"
 
 
 EVENT_ACTION_SET = frozenset(

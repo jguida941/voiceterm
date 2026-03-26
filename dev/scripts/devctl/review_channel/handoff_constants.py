@@ -107,6 +107,7 @@ _RESOLVED_ECHO_RE = re.compile(
     re.IGNORECASE,
 )
 SUSPICIOUS_BRIDGE_LINE_PATTERNS = (
+    re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])"),
     re.compile(r"(?i)\bplease run /login\b"),
     re.compile(r"(?i)\bnot logged in\b"),
     re.compile(r"(?i)\bcommand not found\b"),
@@ -115,6 +116,14 @@ SUSPICIOUS_BRIDGE_LINE_PATTERNS = (
     re.compile(r"(?i)\binvalid choice:\b"),
     re.compile(r"(?i)^zsh:\d*:"),
     re.compile(r"(?i)^bash:\s"),
+    re.compile(r"(?i)^test .+\.\.\. ok$"),
+    re.compile(r"(?i)^running \d+ tests$"),
+    re.compile(r"(?i)^test result:"),
+    re.compile(r"(?i)^compiling "),
+    re.compile(r"(?i)^finished "),
+    re.compile(r"(?i)^doc-tests "),
+    re.compile(r"(?i)^\s*running tests/"),
+    re.compile(r"(?i)^\[process-sweep-post\]"),
 )
 
 
