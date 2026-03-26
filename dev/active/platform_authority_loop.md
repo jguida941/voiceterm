@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-03-25 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-26 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -265,8 +265,11 @@ intended execution order is:
       decision is `checkpoint_required` or `review_required`, implementer
       coding must pause and the loop must promote review/checkpoint work
       automatically instead of leaving the model to infer that switch from
-      warnings or prompt text. Fail-closed checkpoint rule: when that typed
-      decision says the dirty/untracked slice is over budget
+      warnings or prompt text. Clean checkpointed slices that are still
+      waiting on reviewer acceptance must resolve to an explicit wait state
+      (`await_review` / equivalent), not a misleading "push-ready" signal.
+      Fail-closed checkpoint rule: when that typed decision says the
+      dirty/untracked slice is over budget
       (`safe_to_continue_editing=false` / `checkpoint_required=true`), the
       next implementation slice must not start until a fresh post-checkpoint
       startup receipt exists; repo-owned launchers may only offer
@@ -326,7 +329,9 @@ intended execution order is:
       `dev/reports/push/`. Minimum first fields:
       `schema_version`, `contract_id`, `generated_at_utc`, `tree_hash`,
       `current_branch`, `current_commit_sha`, filtered `dirty_path_count`,
-      `checkpoint_required`, `push_ready`, `blocking_errors`, and `warnings`.
+      `checkpoint_required`, `worktree_clean`,
+      `review_gate_allows_push`, `push_eligible_now`,
+      `blocking_errors`, and `warnings`.
       `devctl push`, reviewer/coder loops, and later multi-agent controllers
       should read the same packet instead of each caller re-deriving push
       readiness from raw `git status` independently.
@@ -1359,6 +1364,16 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-26: Corrected the first post-checkpoint push-readiness contract
+  mismatch in runtime code and promoted the remaining deeper split into this
+  plan. The repo no longer teaches raw git cleanliness as `push_ready`;
+  `push_enforcement` now exposes `worktree_clean`, the reviewer gate now says
+  `review_gate_allows_push`, and `startup-context` can emit `await_review`
+  when a slice is checkpointed locally but the review gate is not current yet.
+  The remaining owner-level follow-up stays explicit here: split
+  continuation-budget/edit-safety state from branch-push routing/mechanics,
+  then freeze that clearer contract into the future `PushPreflightPacket`
+  instead of keeping one mixed `push_enforcement` object forever.
 - 2026-03-26: Extended the authority-loop mapping to absorb the latest audit
   refinements instead of treating them as someone else's cleanup. The same
   path-authority lane now explicitly owns repo-pack/governance-driven

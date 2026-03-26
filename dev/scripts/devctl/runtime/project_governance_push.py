@@ -28,7 +28,7 @@ class PushEnforcement:
     safe_to_continue_editing: bool = True
     checkpoint_reason: str = "clean_worktree"
     worktree_dirty: bool = False
-    push_ready: bool = False
+    worktree_clean: bool = True
     recommended_action: str = "use_devctl_push"
 
 
@@ -38,6 +38,16 @@ def push_enforcement_from_mapping(
     """Parse PushEnforcement from a JSON-like mapping."""
     ahead_raw = payload.get("ahead_of_upstream_commits")
     ahead = coerce_int(ahead_raw) if ahead_raw is not None else None
+    worktree_dirty = coerce_bool(payload.get("worktree_dirty"))
+    worktree_clean_raw = payload.get("worktree_clean")
+    if worktree_clean_raw is None:
+        legacy_push_ready = payload.get("push_ready")
+        if legacy_push_ready is not None:
+            worktree_clean = coerce_bool(legacy_push_ready)
+        else:
+            worktree_clean = not worktree_dirty
+    else:
+        worktree_clean = coerce_bool(worktree_clean_raw)
     return PushEnforcement(
         default_remote=coerce_string(payload.get("default_remote")) or "origin",
         development_branch=coerce_string(payload.get("development_branch"))
@@ -64,8 +74,8 @@ def push_enforcement_from_mapping(
         ),
         checkpoint_reason=coerce_string(payload.get("checkpoint_reason"))
         or "clean_worktree",
-        worktree_dirty=coerce_bool(payload.get("worktree_dirty")),
-        push_ready=coerce_bool(payload.get("push_ready")),
+        worktree_dirty=worktree_dirty,
+        worktree_clean=worktree_clean,
         recommended_action=coerce_string(payload.get("recommended_action"))
         or "use_devctl_push",
     )

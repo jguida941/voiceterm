@@ -145,6 +145,10 @@ def render_bootstrap_markdown(ctx: dict[str, Any]) -> str:
             f"{'yes' if push_state.get('worktree_dirty') else 'no'}"
         )
         lines.append(
+            f"- **worktree_clean**: "
+            f"{'yes' if push_state.get('worktree_clean', True) else 'no'}"
+        )
+        lines.append(
             f"- **dirty_path_count**: {push_state.get('dirty_path_count', 0)}"
         )
         lines.append(

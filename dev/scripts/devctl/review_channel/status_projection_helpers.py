@@ -61,7 +61,7 @@ def build_bridge_push_enforcement_state(repo_root: Path) -> dict[str, object]:
                 safe_to_continue_editing=True,
                 checkpoint_reason="clean_worktree",
                 worktree_dirty=False,
-                push_ready=False,
+                worktree_clean=True,
                 recommended_action="use_devctl_push",
             )
         )

@@ -162,7 +162,7 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
             "safe_to_continue_editing": True,
             "checkpoint_reason": "within_dirty_budget",
             "worktree_dirty": False,
-            "push_ready": True,
+            "worktree_clean": True,
             "recommended_action": "use_devctl_push",
         },
         "startup_order": ["bootstrap", "guards", "probes"],
@@ -240,7 +240,7 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
     assert gov.push_enforcement.ahead_of_upstream_commits == 2
     assert gov.push_enforcement.dirty_path_count == 3
     assert gov.push_enforcement.safe_to_continue_editing is True
-    assert gov.push_enforcement.push_ready is True
+    assert gov.push_enforcement.worktree_clean is True
 
     assert gov.startup_order == ("bootstrap", "guards", "probes")
     assert gov.docs_authority == "AGENTS.md"
@@ -278,6 +278,21 @@ def test_project_governance_from_mapping_with_defaults() -> None:
 
     assert gov.plan_registry.registry_path == "dev/active/INDEX.md"
     assert gov.plan_registry.tracker_path == "dev/active/MASTER_PLAN.md"
+
+
+def test_push_enforcement_legacy_push_ready_maps_to_worktree_clean() -> None:
+    gov = project_governance_from_mapping(
+        {
+            "repo_identity": {"repo_name": "my-repo"},
+            "repo_pack": {"pack_id": "basic"},
+            "push_enforcement": {
+                "worktree_dirty": False,
+                "push_ready": True,
+            },
+        }
+    )
+
+    assert gov.push_enforcement.worktree_clean is True
     assert gov.plan_registry.index_path == "dev/active/INDEX.md"
     assert gov.plan_registry.entries == ()
 
@@ -385,7 +400,7 @@ def test_project_governance_roundtrip() -> None:
             ahead_of_upstream_commits=1,
             dirty_path_count=2,
             checkpoint_reason="within_dirty_budget",
-            push_ready=True,
+            worktree_clean=True,
         ),
         startup_order=("step_a", "step_b"),
         docs_authority="AGENTS.md",

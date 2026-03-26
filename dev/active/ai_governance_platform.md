@@ -4542,6 +4542,15 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-26: Promoted the next governed-push contract correction from local
+  confusion into tracked `MP-377` state. The runtime now distinguishes raw
+  git cleanliness (`worktree_clean`) from review-gate allowance
+  (`review_gate_allows_push`) and can emit an explicit `await_review`
+  startup action for clean-but-unaccepted slices. The remaining umbrella
+  follow-up is the deeper contract split between continuation-budget /
+  edit-safety state and branch-push mechanics so future
+  `PushPreflightPacket` / `ActionResult` surfaces do not keep overloading
+  one field family with two different jobs.
 - 2026-03-26: Ran a broader portability/architecture audit after the live
   review-channel cutover exposed another "works in VoiceTerm, leaks in
   portable mode" seam. The result is larger than the immediate bug: docs

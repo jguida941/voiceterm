@@ -31,7 +31,7 @@ class PushEnforcementSnapshot:
     safe_to_continue_editing: bool
     checkpoint_reason: str
     worktree_dirty: bool
-    push_ready: bool
+    worktree_clean: bool
     recommended_action: str
 
 
@@ -60,12 +60,12 @@ def detect_push_enforcement_state(
         exclude_paths=policy.checkpoint.compatibility_projection_paths,
     )
     worktree_dirty = dirty_path_count > 0
+    worktree_clean = not worktree_dirty
     checkpoint_required = (
         dirty_path_count >= policy.checkpoint.max_dirty_paths_before_checkpoint
         or untracked_path_count >= policy.checkpoint.max_untracked_paths_before_checkpoint
     )
     safe_to_continue_editing = not checkpoint_required
-    push_ready = not worktree_dirty
     checkpoint_reason = "clean_worktree"
     if checkpoint_required:
         recommended_action = "checkpoint_before_continue"
@@ -102,7 +102,7 @@ def detect_push_enforcement_state(
         safe_to_continue_editing=safe_to_continue_editing,
         checkpoint_reason=checkpoint_reason,
         worktree_dirty=worktree_dirty,
-        push_ready=push_ready,
+        worktree_clean=worktree_clean,
         recommended_action=recommended_action,
     )
     return asdict(snapshot)

@@ -78,6 +78,7 @@ class TestStartupContextBuild(unittest.TestCase):
         ctx = build_startup_context()
         self.assertIn(ctx.advisory_action, (
             "continue_editing",
+            "await_review",
             "checkpoint_before_continue",
             "checkpoint_allowed",
             "push_allowed",
@@ -378,7 +379,7 @@ class TestReviewerGateSemantics(unittest.TestCase):
             reviewer_mode="active_dual_agent",
             review_accepted=False,
         )
-        self.assertFalse(gate.push_permitted)
+        self.assertFalse(gate.review_gate_allows_push)
 
     def test_active_bridge_accepted_permits_push(self) -> None:
         """In active mode with reviewer-accepted verdict, push is permitted."""
@@ -386,13 +387,16 @@ class TestReviewerGateSemantics(unittest.TestCase):
             bridge_active=True,
             reviewer_mode="active_dual_agent",
             review_accepted=True,
-            push_permitted=True,
+            review_gate_allows_push=True,
         )
-        self.assertTrue(gate.push_permitted)
+        self.assertTrue(gate.review_gate_allows_push)
 
     def test_inactive_bridge_permits_push(self) -> None:
-        gate = ReviewerGateState(bridge_active=False, push_permitted=True)
-        self.assertTrue(gate.push_permitted)
+        gate = ReviewerGateState(
+            bridge_active=False,
+            review_gate_allows_push=True,
+        )
+        self.assertTrue(gate.review_gate_allows_push)
 
     def test_required_checks_status_defaults_unknown(self) -> None:
         gate = ReviewerGateState()
@@ -403,11 +407,11 @@ class TestReviewerGateSemantics(unittest.TestCase):
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
             gate = _detect_reviewer_gate(Path(tmp))
-            self.assertTrue(gate.push_permitted)
+            self.assertTrue(gate.review_gate_allows_push)
 
     def test_fail_closed_default(self) -> None:
         gate = ReviewerGateState()
-        self.assertFalse(gate.push_permitted)
+        self.assertFalse(gate.review_gate_allows_push)
 
     def test_live_verdict_based_acceptance(self) -> None:
         """On this repo, current verdict should drive review_accepted."""
@@ -426,7 +430,7 @@ class TestReviewerGateSemantics(unittest.TestCase):
             )
             gate = _detect_reviewer_gate(repo_root)
             self.assertTrue(gate.review_accepted)
-            self.assertTrue(gate.push_permitted)
+            self.assertTrue(gate.review_gate_allows_push)
 
     def test_detect_reviewer_gate_accepts_all_green_with_resolved_findings(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -438,7 +442,7 @@ class TestReviewerGateSemantics(unittest.TestCase):
             )
             gate = _detect_reviewer_gate(repo_root)
             self.assertTrue(gate.review_accepted)
-            self.assertTrue(gate.push_permitted)
+            self.assertTrue(gate.review_gate_allows_push)
 
     def test_detect_reviewer_gate_rejects_negated_acceptance_text(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -450,7 +454,7 @@ class TestReviewerGateSemantics(unittest.TestCase):
             )
             gate = _detect_reviewer_gate(repo_root)
             self.assertFalse(gate.review_accepted)
-            self.assertFalse(gate.push_permitted)
+            self.assertFalse(gate.review_gate_allows_push)
 
     def test_detect_reviewer_gate_fail_closed_on_bridge_parse_error(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -466,7 +470,7 @@ class TestReviewerGateSemantics(unittest.TestCase):
             ):
                 gate = _detect_reviewer_gate(repo_root)
             self.assertFalse(gate.review_accepted)
-            self.assertFalse(gate.push_permitted)
+            self.assertFalse(gate.review_gate_allows_push)
 
 
 class TestAdvisoryAction(unittest.TestCase):
@@ -485,11 +489,18 @@ class TestAdvisoryAction(unittest.TestCase):
         self.assertEqual(action, "checkpoint_before_continue")
 
     def test_review_pending(self) -> None:
-        gov = _minimal_governance()
+        gov = _minimal_governance(worktree_clean=False, worktree_dirty=True)
         gate = ReviewerGateState(bridge_active=True, review_accepted=False)
         action, reason = _derive_advisory_action(gov, gate)
         self.assertEqual(action, "continue_editing")
         self.assertEqual(reason, "review_pending")
+
+    def test_await_review_when_worktree_clean_but_review_pending(self) -> None:
+        gov = _minimal_governance(worktree_clean=True, worktree_dirty=False)
+        gate = ReviewerGateState(bridge_active=True, review_accepted=False)
+        action, reason = _derive_advisory_action(gov, gate)
+        self.assertEqual(action, "await_review")
+        self.assertEqual(reason, "review_pending_before_push")
 
     def test_reviewer_loop_blocked(self) -> None:
         gov = _minimal_governance()
@@ -511,15 +522,18 @@ class TestAdvisoryAction(unittest.TestCase):
 
     def test_push_allowed(self) -> None:
         gov = _minimal_governance(
-            push_ready=True, worktree_dirty=True, ahead_of_upstream_commits=1,
+            worktree_clean=True, worktree_dirty=False, ahead_of_upstream_commits=1,
         )
-        gate = ReviewerGateState(push_permitted=True)
+        gate = ReviewerGateState(review_gate_allows_push=True)
         action, _ = _derive_advisory_action(gov, gate)
         self.assertEqual(action, "push_allowed")
 
     def test_checkpoint_allowed(self) -> None:
-        gov = _minimal_governance(worktree_dirty=True)
-        gate = ReviewerGateState(checkpoint_permitted=True, push_permitted=False)
+        gov = _minimal_governance(worktree_dirty=True, worktree_clean=False)
+        gate = ReviewerGateState(
+            checkpoint_permitted=True,
+            review_gate_allows_push=False,
+        )
         action, _ = _derive_advisory_action(gov, gate)
         self.assertEqual(action, "checkpoint_allowed")
 
@@ -627,7 +641,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             )
             gate = _detect_reviewer_gate(repo_root)
             self.assertTrue(gate.review_accepted)
-            self.assertTrue(gate.push_permitted)
+            self.assertTrue(gate.review_gate_allows_push)
 
     def test_typed_path_rejects_when_verdict_not_accepted(self) -> None:
         """Typed path must reject when verdict is not accepted even if ack is current."""
@@ -640,7 +654,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             )
             gate = _detect_reviewer_gate(repo_root)
             self.assertFalse(gate.review_accepted)
-            self.assertFalse(gate.push_permitted)
+            self.assertFalse(gate.review_gate_allows_push)
 
     def test_typed_path_blocks_new_implementation_when_ack_is_stale(self) -> None:
         """Active dual-agent stale ack should fail closed for new implementation slices."""
@@ -714,7 +728,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             gate = _detect_reviewer_gate(repo_root, governance=governance)
 
         self.assertTrue(gate.review_accepted)
-        self.assertTrue(gate.push_permitted)
+        self.assertTrue(gate.review_gate_allows_push)
 
     def test_typed_path_does_not_block_when_implementer_was_freshly_reset_pending(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -766,7 +780,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             (repo_root / "bridge.md").write_text(bridge_text, encoding="utf-8")
             gate = _detect_reviewer_gate(repo_root)
             self.assertTrue(gate.review_accepted)
-            self.assertTrue(gate.push_permitted)
+            self.assertTrue(gate.review_gate_allows_push)
 
     def test_typed_path_inactive_mode_permits_push(self) -> None:
         """When reviewer mode is inactive, push is permitted regardless."""
@@ -779,7 +793,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
                 reviewer_mode="single_agent",
             )
             gate = _detect_reviewer_gate(repo_root)
-            self.assertTrue(gate.push_permitted)
+            self.assertTrue(gate.review_gate_allows_push)
             self.assertFalse(gate.bridge_active)
 
 

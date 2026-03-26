@@ -5012,7 +5012,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             "safe_to_continue_editing": False,
             "checkpoint_reason": "dirty_and_untracked_budget_exceeded",
             "worktree_dirty": True,
-            "push_ready": False,
+            "worktree_clean": False,
             "recommended_action": "checkpoint_before_continue",
         }
 

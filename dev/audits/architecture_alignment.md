@@ -835,6 +835,36 @@ first and treat VoiceTerm paths as current-repo examples only.
 **Owner**: MP-377 documentation-consolidation. **Status**: fixed in this pass
 via `dev/scripts/README.md`.
 
+### HIGH: startup/push contract taught clean worktree as push readiness
+
+The runtime contract used `push_ready` for what was only raw git cleanliness:
+`detect_push_enforcement_state()` set it to `not worktree_dirty`, and
+`startup-context` then treated that field plus reviewer acceptance as
+push-allowed. That wording taught "clean tree" as if it were the same thing
+as actual push eligibility, even though the governed push path checks
+additional policy/VCS conditions.
+
+**Class**: runtime/contract teaching. **Prevention**: keep raw git posture,
+review-gate allowance, and final push eligibility as separate named concepts.
+**Owner**: MP-377 authority-loop / governed push path. **Status**: partially
+fixed in this pass via `worktree_clean`, `review_gate_allows_push`, and
+`await_review`; remaining follow-up is the deeper contract split between
+continuation-budget state and branch-push mechanics.
+
+### MEDIUM: maintainer docs still collapsed commit and push into one step
+
+`AGENTS.md`, the `DEVELOPMENT.md` lifecycle chart, and the Ralph plan/tracker
+still described "commit and push" as one atomic step. That taught future AI
+sessions to treat a checkpointed green slice as automatically push-ready
+instead of requiring a current review gate plus governed `devctl push`
+validation.
+
+**Class**: docs/process teaching. **Prevention**: teach commit/checkpoint as
+the local bounded-slice action and push as a later governed remote action.
+**Owner**: MP-377 documentation-consolidation plus MP-360/361 Ralph lane.
+**Status**: fixed in this pass via `AGENTS.md`, `dev/guides/DEVELOPMENT.md`,
+`dev/active/ralph_guardrail_control_plane.md`, and `dev/active/MASTER_PLAN.md`.
+
 ### Owner-Mapping Correction
 
 The shared ledger had one remaining owner split wrong even after the first
@@ -856,14 +886,14 @@ as Halstead extension coverage.
 | Pass 3 review | Codex | 0 | 3 (refinements of existing) |
 | Pass 4 | Claude (2 agents) | 0 | 0 |
 | Pass 5 | Claude (4 agents) | 0 | 0 |
-| **Pass 5 review** | **Codex** | **0** | **2** |
+| **Pass 5 review** | **Codex** | **1** | **3** |
 
 Broad subsystem discovery is saturated, but the docs/plan review still found
-two MEDIUM contract-teaching issues after Claude's zero-new Pass 5. All
-Python control-plane subsystems and the reviewed authority docs now have
-explicit coverage, but the closure bar is still not met until another bounded
-architecture/docs/plan pass confirms zero new HIGH/MEDIUM after these
-corrections.
+one HIGH plus three MEDIUM contract-teaching issues after Claude's zero-new
+Pass 5. All Python control-plane subsystems and the reviewed authority docs
+now have explicit coverage, but the closure bar is still not met until
+another bounded architecture/docs/plan pass confirms zero new HIGH/MEDIUM
+after these corrections.
 
 **Closure criteria status:**
 - [x] All HIGH/MEDIUM findings mapped to owner plans

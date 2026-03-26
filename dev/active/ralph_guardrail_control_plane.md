@@ -13,7 +13,9 @@ operator visibility into what the loop is doing. This plan delivers:
 
 1. **AI-driven remediation** — `ralph_ai_fix.py` reads CodeRabbit findings,
    invokes Claude Code with false-positive filtering, runs architecture-specific
-   validation, commits and pushes. The loop becomes genuinely autonomous.
+   validation, cuts a bounded commit/checkpoint, and only then runs the
+   governed push path when review/policy gates allow it. The loop becomes
+   genuinely autonomous.
 2. **Cross-architecture guard alignment** — every guard runs consistently across
    Rust, PyQt6 operator console, Python devctl, and iOS. No architecture gets a
    pass. Documented as a mandatory policy in `AGENTS.md`.
@@ -69,8 +71,10 @@ operator visibility into what the loop is doing. This plan delivers:
 
 ### Phase 1: AI fix wrapper and policy wiring (MP-360)
 
-- [x] Create `dev/scripts/coderabbit/ralph_ai_fix.py` — AI fix wrapper that reads backlog,
-      invokes Claude Code, validates per-architecture, commits and pushes
+- [x] Create `dev/scripts/coderabbit/ralph_ai_fix.py` — AI fix wrapper that
+      reads backlog, invokes Claude Code, validates per-architecture, cuts a
+      bounded commit/checkpoint, and then runs governed push when the repo is
+      actually push-ready
 - [x] Add `ralph_ai_fix.py` to `control_plane_policy.json` triage_loop allowlist
 - [x] Set `ralph_ai_fix.py` as default fix command in `coderabbit_ralph_loop.yml`
 - [x] Add approval-mode support (`strict|balanced|trusted`) via `RALPH_APPROVAL_MODE`
@@ -161,6 +165,11 @@ operator visibility into what the loop is doing. This plan delivers:
 
 ## Progress Log
 
+- 2026-03-26: Corrected the Ralph plan/tracker teaching drift around VCS flow.
+  Ralph automation should treat commit/checkpoint and remote push as separate
+  governed actions: validate first, cut a bounded local slice, then run the
+  governed push path only when review/policy gates say the repo is actually
+  push-ready.
 - 2026-03-26: Promoted the architecture-alignment audit gap into this plan.
   `ralph_ai_fix.py` still hardcodes architecture validation commands and
   working directories (`ARCH_CHECKS`, `rust/`, repo-local test roots), which

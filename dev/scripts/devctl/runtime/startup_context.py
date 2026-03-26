@@ -31,7 +31,7 @@ class ReviewerGateState:
     review_accepted: bool = False
     required_checks_status: str = "unknown"
     checkpoint_permitted: bool = True
-    push_permitted: bool = False
+    review_gate_allows_push: bool = False
     implementation_blocked: bool = False
     implementation_block_reason: str = ""
 
@@ -110,7 +110,7 @@ def _detect_reviewer_gate_from_typed_state(
                 review_accepted=True,
                 required_checks_status="unknown",
                 checkpoint_permitted=True,
-                push_permitted=True,
+                review_gate_allows_push=True,
             )
 
         review_accepted = bool(bridge_block.get("review_accepted", False))
@@ -137,7 +137,7 @@ def _detect_reviewer_gate_from_typed_state(
             review_accepted=review_accepted,
             required_checks_status="unknown",
             checkpoint_permitted=True,
-            push_permitted=review_accepted,
+            review_gate_allows_push=review_accepted,
             implementation_blocked=implementation_blocked,
             implementation_block_reason=implementation_block_reason,
         )
@@ -159,7 +159,7 @@ def _detect_reviewer_gate_from_bridge_with_governance(
     if bridge_path is None or not bridge_path.exists():
         return ReviewerGateState(
             checkpoint_permitted=True,
-            push_permitted=True,
+            review_gate_allows_push=True,
         )
     try:
         from ..review_channel.bridge_validation import bridge_review_accepted
@@ -181,7 +181,7 @@ def _detect_reviewer_gate_from_bridge_with_governance(
                 review_accepted=True,
                 required_checks_status="unknown",
                 checkpoint_permitted=True,
-                push_permitted=True,
+                review_gate_allows_push=True,
             )
         review_accepted = bridge_review_accepted(snapshot)
         implementation_blocked, implementation_block_reason = (
@@ -199,14 +199,14 @@ def _detect_reviewer_gate_from_bridge_with_governance(
             review_accepted=review_accepted,
             required_checks_status="unknown",
             checkpoint_permitted=True,
-            push_permitted=review_accepted,
+            review_gate_allows_push=review_accepted,
             implementation_blocked=implementation_blocked,
             implementation_block_reason=implementation_block_reason,
         )
     except (OSError, ImportError, ValueError):
         return ReviewerGateState(
             checkpoint_permitted=False,
-            push_permitted=False,
+            review_gate_allows_push=False,
             implementation_blocked=True,
             implementation_block_reason="bridge_parse_error",
         )
@@ -267,6 +267,7 @@ def _derive_advisory_action(
 
     Outcomes:
     - continue_editing: safe to keep working
+    - await_review: local slice is checkpointed; wait for current review state
     - checkpoint_before_continue: commit/checkpoint before more edits
     - checkpoint_allowed: checkpoint is permitted now (but not required)
     - push_allowed: push to remote is safe now
@@ -282,11 +283,13 @@ def _derive_advisory_action(
             gate.implementation_block_reason or "reviewer_loop_blocked"
         )
     if gate.bridge_active and not gate.review_accepted:
+        if pe.worktree_clean:
+            return "await_review", "review_pending_before_push"
         return "continue_editing", "review_pending"
-    if not pe.worktree_dirty and pe.ahead_of_upstream_commits in (0, None):
+    if pe.worktree_clean and pe.ahead_of_upstream_commits in (0, None):
         return "no_push_needed", "clean_worktree"
-    if pe.push_ready and gate.push_permitted:
-        return "push_allowed", "clean_worktree_and_review_accepted"
+    if pe.worktree_clean and gate.review_gate_allows_push:
+        return "push_allowed", "worktree_clean_and_review_accepted"
     if gate.checkpoint_permitted and pe.worktree_dirty:
         return "checkpoint_allowed", "worktree_dirty_within_budget"
     return "continue_editing", "clean_worktree"

@@ -37,13 +37,17 @@ def _render_markdown(ctx_dict: dict) -> str:
     lines.append(f"- bridge_active: {gate.get('bridge_active', False)}")
     lines.append(f"- reviewer_mode: {gate.get('reviewer_mode', 'single_agent')}")
     lines.append(f"- review_accepted: {gate.get('review_accepted', False)}")
-    lines.append(f"- push_permitted: {gate.get('push_permitted', False)}")
+    lines.append(
+        "- review_gate_allows_push: "
+        f"{gate.get('review_gate_allows_push', False)}"
+    )
     lines.append("")
 
     pe = gov.get("push_enforcement", {})
     if pe:
         lines.append("## Push/Checkpoint State")
         lines.append(f"- worktree_dirty: {pe.get('worktree_dirty', False)}")
+        lines.append(f"- worktree_clean: {pe.get('worktree_clean', True)}")
         lines.append(
             f"- checkpoint_required: {pe.get('checkpoint_required', False)}"
         )

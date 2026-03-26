@@ -756,8 +756,10 @@ Non-release work flow:
      `git push`.
    - If the user asks to test before commit, keep changes uncommitted until
      that local validation completes.
-7. Commit and push short-lived branch only after explicit user approval.
-8. Merge short-lived branch into `develop` only after required checks pass.
+7. Commit the bounded slice/checkpoint only after explicit user approval.
+8. Push the short-lived branch only after explicit user approval, a current
+   review gate, and a green `python3 dev/scripts/devctl.py push` validation.
+9. Merge short-lived branch into `develop` only after required checks pass.
 
 Routine helper:
 

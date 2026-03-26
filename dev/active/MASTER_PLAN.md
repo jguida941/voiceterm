@@ -300,6 +300,14 @@
   PyQt6 surfaces are clients over one governed backend. Treat docs that
   re-teach VoiceTerm-first authority or fixed repo-local paths as
   architecture drift, not harmless wording.
+- 2026-03-26 push-readiness contract correction: the repo now treats raw git
+  cleanliness and actual push eligibility as different layers. `push_ready`
+  was misleading because it only meant "clean worktree"; the live controller
+  now exposes `worktree_clean`, reviewer gating now uses
+  `review_gate_allows_push`, and `startup-context` can emit `await_review`
+  for checkpointed-but-unaccepted slices. Remaining `MP-377` closure is the
+  deeper contract split between continuation-budget/edit-safety state and
+  branch-push mechanics plus the future typed `push_eligible_now` packet.
 - Current deterministic self-governance closure rule after the 2026-03-21
   guard audit: do not treat more guard count or richer graph semantics as
   progress while typed/runtime authority still lies. First close the cheap
@@ -2647,9 +2655,10 @@ become the main product surface.
 - [x] MP-360 Wire AI-driven remediation into Ralph loop: create
   `ralph_ai_fix.py` with Claude Code invocation, false-positive filtering,
   architecture-specific validation (Rust/PyQt6/devctl/iOS), approval-mode
-  support, and commit/push automation. Update policy allowlist and workflow
-  default fix command. Add cross-architecture guard enforcement policy to
-  `AGENTS.md` and wire 7 new guard scripts into `tooling_control_plane.yml`.
+  support, bounded commit/checkpoint automation, and governed push routing.
+  Update policy allowlist and workflow default fix command. Add
+  cross-architecture guard enforcement policy to `AGENTS.md` and wire 7 new
+  guard scripts into `tooling_control_plane.yml`.
 - [ ] MP-361 Create guardrail configuration registry
   (`dev/config/ralph_guardrails.json`) mapping finding categories to AGENTS.md
   standards, documentation links, AI fix skills, and portable Ralph

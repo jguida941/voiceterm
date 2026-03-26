@@ -80,10 +80,14 @@ flowchart TD
   K --> L{All checks pass?}
   L -->|No| M[Fix issues and rerun checks]
   M --> H
-  L -->|Yes| N[Commit and push branch]
-  N --> O[Review and merge to develop]
-  O --> P[Run post-push audit and CI status check]
-  P --> Q[Done]
+  L -->|Yes| N[Commit bounded slice or checkpoint]
+  N --> O{Ready to push now?}
+  O -->|No| P[Wait for review or next governed push window]
+  O -->|Yes| Q[Run devctl push --execute]
+  P --> Q
+  Q --> R[Review and merge to develop]
+  R --> S[Run post-push audit and CI status check]
+  S --> T[Done]
 
   D -->|Yes| R[Switch to master release flow]
   R --> S[Verify version parity and changelog]
@@ -93,7 +97,7 @@ flowchart TD
   V --> T
   U -->|Yes| W[Tag and publish release]
   W --> X[Run post-push audit and CI status check]
-  X --> Q
+  X --> T
 ```
 
 ## What checks protect us
