@@ -164,6 +164,19 @@ def summarize_active_session_conflicts(
     return "; ".join(parts)
 
 
+def active_conductor_providers(
+    *,
+    session_output_root: Path,
+    freshness_seconds: int = ACTIVE_SESSION_FRESHNESS_SECONDS,
+) -> tuple[str, ...]:
+    """Return provider ids with live-looking repo-owned conductor sessions."""
+    conflicts = detect_active_session_conflicts(
+        session_output_root=session_output_root,
+        freshness_seconds=freshness_seconds,
+    )
+    return tuple(sorted({conflict.provider for conflict in conflicts}))
+
+
 def bridge_is_active(review_channel_text: str) -> bool:
     """Return True when the transitional markdown bridge remains active."""
     return TRANSITIONAL_BRIDGE_HEADING in review_channel_text

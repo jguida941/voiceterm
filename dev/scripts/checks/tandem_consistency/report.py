@@ -66,10 +66,10 @@ def build_report(
         check_reviewer_freshness(bridge_text, typed_state=typed_state),
         check_implementer_ack_freshness(bridge_text, typed_state=typed_state),
         check_implementer_completion_stall(bridge_text, typed_state=typed_state),
-        check_reviewed_hash_honesty(bridge_text, repo_root=repo_root, ci_bundle=ci_bundle),
-        check_plan_alignment(bridge_text, repo_root=repo_root),
+        check_reviewed_hash_honesty(bridge_text, repo_root=repo_root, ci_bundle=ci_bundle, typed_state=typed_state),
+        check_plan_alignment(bridge_text, repo_root=repo_root, typed_state=typed_state),
         check_promotion_state(bridge_text, typed_state=typed_state),
-        check_launch_truth(bridge_text),
+        check_launch_truth(bridge_text, typed_state=typed_state),
     ]
     all_ok = all(check["ok"] for check in checks)
     failed = [check for check in checks if not check["ok"]]

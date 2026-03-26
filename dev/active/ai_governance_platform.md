@@ -3190,10 +3190,10 @@ Still open before `P0` closes:
 - [ ] Add one composed `devctl system-picture` read surface on top of the same
       authority stack so fresh AI/operator sessions do not have to reconstruct
       repo state from five or more separate commands manually. It should stitch
-      together startup identity/state, active-plan status, runtime contract
-      chain, doc health, guard/probe health, topology coverage, mutation-op
-      coverage, and agent-readiness drift into one bounded generated view whose
-      sections still cite canonical sources.
+      together startup identity/state, active-plan status / progress
+      percentages, runtime contract chain, doc health, guard/probe health,
+      topology coverage, mutation-op coverage, and agent-readiness drift into
+      one bounded generated view whose sections still cite canonical sources.
 - [ ] Make `system-picture` a generated warm-start cache rather than another
       authority document: persist it under managed artifacts with `tree_hash`
       plus per-section hashes, recompute only stale sections on warm start, and
@@ -3881,15 +3881,17 @@ working on `MP-377`.
   `CollaborationSession`, more runtime consumers, and the validation-
   freshness / raw-push policy gaps already called out in the active plan.
 - 2026-03-23 startup-authority enforcement follow-up: the platform no longer
-  leaves that new startup packet on an instruction-only honor system.
+  leaves the repo-owned startup path on an instruction-only honor system.
   `startup-context` is now the explicit Step 0 gate in repo process docs,
   generated bootstrap surfaces, and review-channel conductor bootstrap text;
   it persists a managed `StartupReceipt` under the repo-owned reports root
   derived from live governance/path-root authority; and scoped repo-owned
   launcher/mutation `devctl` paths now require a fresh receipt plus a live
   startup-authority pass before starting another implementation or launcher
-  slice. The remaining gap here is the separate raw git/pre-commit bypass
-  plus wider repo-pack activation, not the old optional-escalation loophole.
+  slice. The remaining gap here is narrower but still real: raw interactive
+  provider sessions can still skip Step 0 until a supported hook/wrapper
+  entry path exists, and raw git/pre-commit plus wider repo-pack activation
+  still remain open, not the old repo-owned-launcher loophole.
 - 2026-03-24 review-state locator follow-up: another repo-pack activation
   leak is now closed on the same startup-authority lane. The remaining typed
   review-state consumers behind startup/tandem continuity no longer each

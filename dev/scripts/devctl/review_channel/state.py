@@ -6,7 +6,12 @@ from pathlib import Path
 
 from .attention import derive_bridge_attention
 from .bridge_validation import validate_live_bridge_contract
-from .core import LaneAssignment, ensure_launcher_prereqs, project_id_for_repo
+from .core import (
+    LaneAssignment,
+    active_conductor_providers,
+    ensure_launcher_prereqs,
+    project_id_for_repo,
+)
 from .daemon_reducer import build_lifecycle_runtime_state
 from .handoff import (
     bridge_liveness_to_dict,
@@ -89,7 +94,12 @@ def refresh_status_snapshot(
         reviewer_supervisor_state=reviewer_supervisor_state,
         reviewer_overdue_threshold_seconds=reviewer_overdue_threshold_seconds,
     )
+    _attach_conductor_session_state(
+        bridge_liveness=bridge_liveness,
+        output_root=output_root,
+    )
     merged_warnings.extend(_bridge_liveness_warnings(bridge_liveness))
+    merged_errors.extend(_hybrid_loop_errors(bridge_liveness))
     attention = derive_bridge_attention(
         bridge_liveness, contract_errors=merged_errors,
     )
@@ -215,6 +225,30 @@ def _bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
             "Bridge review content is stale: the worktree has changed since the last reviewed hash. Current Verdict, Open Findings, and Current Instruction may not reflect the current tree state."
         )
     return warnings
+
+
+def _attach_conductor_session_state(
+    *,
+    bridge_liveness: dict[str, object],
+    output_root: Path,
+) -> None:
+    active_providers = active_conductor_providers(session_output_root=output_root)
+    bridge_liveness["active_conductor_providers"] = list(active_providers)
+    bridge_liveness["codex_conductor_active"] = "codex" in active_providers
+    bridge_liveness["claude_conductor_active"] = "claude" in active_providers
+
+
+def _hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:
+    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
+    if not reviewer_mode_is_active(reviewer_mode):
+        return []
+    if not bool(bridge_liveness.get("claude_conductor_active")):
+        return []
+    if bool(bridge_liveness.get("codex_conductor_active")):
+        return []
+    return [
+        "Repo-owned Claude conductor is active but no live repo-owned Codex conductor session is present. Hybrid chat/terminal review loops are not trusted; relaunch with `review-channel --action launch` or `review-channel --action rollover` instead of relying on Claude-only recover."
+    ]
 
 
 def _load_lifecycle_states(output_root: Path) -> tuple[dict[str, object], dict[str, object]]:

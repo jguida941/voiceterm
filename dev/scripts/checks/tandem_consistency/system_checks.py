@@ -16,15 +16,41 @@ from .support import skip_live_freshness
 _TANDEM_GUARD_STALE_THRESHOLD = CODEX_POLL_STALE_AFTER_SECONDS + 300
 
 
-def check_launch_truth(bridge_text: str) -> dict[str, object]:
-    """Verify bridge liveness signals are internally consistent."""
-    snapshot = extract_bridge_snapshot(bridge_text)
-    liveness = summarize_bridge_liveness(snapshot)
-    overall_state = liveness.overall_state
-    reviewer_mode = liveness.reviewer_mode
-    codex_poll_state = liveness.codex_poll_state
-    claude_status_present = liveness.claude_status_present
-    claude_ack_present = liveness.claude_ack_present
+def check_launch_truth(
+    bridge_text: str,
+    *,
+    typed_state: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Verify bridge liveness signals are internally consistent.
+
+    When typed review_state.json is available, reads overall_state,
+    reviewer_mode, codex_poll_state, and presence flags from the typed
+    bridge block instead of re-parsing bridge prose via
+    extract_bridge_snapshot/summarize_bridge_liveness.
+    """
+    bridge_block = (typed_state or {}).get("bridge") or {}
+    typed_overall = str(bridge_block.get("overall_state") or "").strip()
+
+    if typed_overall:
+        overall_state = typed_overall
+        reviewer_mode = str(bridge_block.get("reviewer_mode") or "")
+        codex_poll_state = str(bridge_block.get("codex_poll_state") or "")
+        claude_status_present = bool(
+            str(bridge_block.get("claude_status") or "").strip()
+        )
+        claude_ack_present = bool(
+            str(bridge_block.get("claude_ack") or "").strip()
+        )
+        age = bridge_block.get("last_codex_poll_age_seconds")
+    else:
+        snapshot = extract_bridge_snapshot(bridge_text)
+        liveness = summarize_bridge_liveness(snapshot)
+        overall_state = liveness.overall_state
+        reviewer_mode = liveness.reviewer_mode
+        codex_poll_state = liveness.codex_poll_state
+        claude_status_present = liveness.claude_status_present
+        claude_ack_present = liveness.claude_ack_present
+        age = liveness.last_codex_poll_age_seconds
 
     if not reviewer_mode_is_active(reviewer_mode):
         return {
@@ -43,7 +69,6 @@ def check_launch_truth(bridge_text: str) -> dict[str, object]:
         }
 
     issues: list[str] = []
-    age = liveness.last_codex_poll_age_seconds
     genuinely_stale = (
         age is not None and age > _TANDEM_GUARD_STALE_THRESHOLD
     ) and not skip_live_freshness()

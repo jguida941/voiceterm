@@ -109,12 +109,26 @@ def check_reviewed_hash_honesty(
     *,
     repo_root: Path | None = None,
     ci_bundle: bool = False,
+    typed_state: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    """Verify the reviewed worktree hash matches the current tree state."""
-    reviewer_mode = normalize_reviewer_mode(
-        extract_metadata_value(bridge_text, "Reviewer mode:")
-    )
-    last_hash = extract_metadata_value(bridge_text, "Last non-audit worktree hash:")
+    """Verify the reviewed worktree hash matches the current tree state.
+
+    When typed review_state.json is available, reads reviewer_mode and
+    last_worktree_hash from the typed bridge block instead of parsing
+    bridge prose.
+    """
+    bridge_block = (typed_state or {}).get("bridge") or {}
+    typed_mode = str(bridge_block.get("reviewer_mode") or "").strip()
+    typed_hash = str(bridge_block.get("last_worktree_hash") or "").strip()
+
+    if typed_mode:
+        reviewer_mode = normalize_reviewer_mode(typed_mode)
+    else:
+        reviewer_mode = normalize_reviewer_mode(
+            extract_metadata_value(bridge_text, "Reviewer mode:")
+        )
+
+    last_hash = typed_hash or extract_metadata_value(bridge_text, "Last non-audit worktree hash:")
     if not last_hash:
         return {
             "check": "reviewed_hash_honesty",

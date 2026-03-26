@@ -5656,3 +5656,20 @@ still derived from docs-policy prefixes only; the broader plan-registry /
 directory-ownership expansion remains open in the MP-377 graph lane. The repo
 docs were corrected to describe that current behavior precisely instead of
 claiming bounded derived plan-to-directory matching had already landed.
+
+### 2026-03-25 - MP-377 plan state now distinguishes repo-owned startup gates from raw provider entry
+
+Fact: a direct raw `claude` repro showed that the earlier `MP-377` wording had
+collapsed two different states into one claim. Repo-owned launcher/mutation
+flows are gated by `startup-context` plus `StartupReceipt`, but a fresh raw
+interactive provider session can still skip Step 0 until a supported
+hook/wrapper/launcher path exists. The active plan stack was corrected to say
+that precisely, and the two validated resweep deltas were promoted into actual
+tracked checklist state instead of staying only in intake/progress prose: raw
+interactive bootstrap enforcement for provider entry, and a generated-only
+graph normalization/compaction reducer after the first query-engine proof. The
+same follow-up also made the `system-picture` lane explicit about plan-status /
+progress percentages, promoted one cross-file reference prepass for
+context-blind probes such as `probe_single_use_helpers`, and named shared
+parser/AST reuse alongside the already-tracked guard-result caching
+performance-contract lane.

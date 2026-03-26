@@ -7,6 +7,7 @@ from pathlib import Path
 from ...review_channel.core import (
     AUTO_DARK_TERMINAL_PROFILES,
     DEFAULT_TERMINAL_PROFILE,
+    active_conductor_providers,
     ensure_launcher_prereqs,
     filter_provider_lanes,
 )
@@ -60,6 +61,16 @@ def run_recover_action(
         repo_root=repo_root,
         runtime_paths=runtime_paths,
     )
+    peer_session_error = _validate_live_reviewer_session_for_recover(
+        status_dir=status_dir
+    )
+    if peer_session_error is not None:
+        return _invalid_recover_state_report(
+            args=args,
+            status_snapshot=status_snapshot,
+            validation_error=peer_session_error,
+            provider=provider,
+        )
     validation_error = validate_recoverable_state(
         bridge_liveness=status_snapshot.bridge_liveness,
         attention=status_snapshot.attention,
@@ -141,6 +152,21 @@ def _recover_provider(args) -> str | None:
     return provider
 
 
+def _validate_live_reviewer_session_for_recover(
+    *,
+    status_dir: Path,
+) -> str | None:
+    active_providers = active_conductor_providers(session_output_root=status_dir)
+    if "codex" in active_providers:
+        return None
+    return (
+        "review-channel recover requires a live repo-owned Codex conductor session. "
+        "The current state would create a hybrid loop (Claude in Terminal, Codex in chat). "
+        "Relaunch the pair with `review-channel --action launch` or "
+        "`review-channel --action rollover` instead of relying on Claude-only recover."
+    )
+
+
 def _refresh_recover_snapshot(
     *,
     args,
@@ -182,6 +208,7 @@ def _invalid_recover_state_report(
     report["warnings"] = status_snapshot.warnings
     report["errors"] = [validation_error]
     report["recover_provider"] = provider
+    report["sessions"] = []
     return report, 1
 
 

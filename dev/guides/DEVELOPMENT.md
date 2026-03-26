@@ -183,8 +183,11 @@ Three quality layers matter in practice:
     Claude-owned progress stays unchanged across repeated stale/missing
     implementer state instead of waiting forever on raw shell sleep loops or
     operator chat nudges. That recovery replaces only the stale Claude
-    conductor; full `rollover` remains the bounded round/context-rotation
-    restart path.
+    conductor, and it now fails closed unless a live repo-owned Codex
+    conductor session is already present. If the reviewer side is not
+    already live, use full `launch|rollover` instead of creating a hybrid
+    "Claude in Terminal, Codex in chat" loop. Full `rollover` remains the
+    bounded round/context-rotation restart path.
   - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:
     `review-channel --action implementer-wait` is the Claude-side bounded
     wait path, and `review-channel --action reviewer-wait` is the symmetric
@@ -201,7 +204,9 @@ Three quality layers matter in practice:
     status. The startup gate still blocks those actions on checkpoint-budget
     or other real authority failures, but it no longer blocks `launch|rollover`
     solely because the current reviewer loop is stale on the implementer side;
-    those actions are the sanctioned recovery path for that exact failure.
+    those actions remain the sanctioned full-session relaunch path when the
+    pair needs a fresh start, while `recover` is the narrower Claude-only
+    repair path when the repo-owned Codex reviewer is already live.
   - The same `review-channel --action status` path now emits a typed
     `current_session` block in `dev/reports/review_channel/latest/review_state.json`
     and `compact.json`; prefer that contract for live instruction /

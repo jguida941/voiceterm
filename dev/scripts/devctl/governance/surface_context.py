@@ -132,11 +132,11 @@ def render_key_commands_block() -> str:
         ),
         (
             "Implementer wait",
-            "python3 dev/scripts/devctl.py review-channel --action implementer-wait --reason awaiting-reviewer --seconds 60 --terminal none --format json",
+            "python3 dev/scripts/devctl.py review-channel --action implementer-wait --reason awaiting-reviewer --terminal none --format json",
         ),
         (
             "Reviewer wait",
-            "python3 dev/scripts/devctl.py review-channel --action reviewer-wait --reason awaiting-implementer --seconds 60 --terminal none --format json",
+            "python3 dev/scripts/devctl.py review-channel --action reviewer-wait --reason awaiting-implementer --terminal none --format json",
         ),
         (
             "Docs governance",

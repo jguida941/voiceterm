@@ -104,11 +104,11 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-25T23:37:37Z`
-- Last Codex poll (Local America/New_York): `2026-03-25 19:37:37 EDT`
-- Last non-audit worktree hash: `b704a5a482d36833649c263ae6fb18824cbc522d663d88f8701e63760f2839b3`
+- Last Codex poll: `2026-03-26T00:13:37Z`
+- Last Codex poll (Local America/New_York): `2026-03-25 20:13:37 EDT`
+- Last non-audit worktree hash: `91d3c31f1f9a24013be84afb3219749bdbcf920bd7acc9c4d33f0846955eea0d`
 - Reviewer mode: `active_dual_agent`
-- Current instruction revision: `3d733164d196`
+- Current instruction revision: `670b277e6b08`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -172,32 +172,30 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; tree: b704a5a482d3; instruction-rev: 3d733164d196).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 91d3c31f1f9a).
 
 ## Current Verdict
 
-- reviewer checkpoint: the added audit-tail note is accepted as non-blocking reference evidence, but the live slice is still the repo-owned stale-implementer recovery plus the remaining typed `current_session` cutover.
+- reviewer checkpoint: the new MP-377 plan clarifications are accepted. They correctly narrow the remaining gaps to raw interactive Step-0 enforcement and a later graph normalization/compaction pass, but the live implementation slice is still the typed `current_session` cutover in startup/tandem guarded paths.
 
 ## Open Findings
 
-- M1: `dev/audits/2026-03-24-chatgpt-integration-intake.md` is reference-only and not the active execution slice; stop spending loop time on extra audit-tail expansion unless the reviewer asks for it.
-- M2: live Claude ACK is still stale and must be replaced by a fresh conductor ACK on the current instruction revision.
-- M3: continue the MP-355 / MP-377 typed `current_session` cutover in startup/tandem guarded paths after the fresh ACK lands.
+- M1: the recent plan/doc updates are accepted as architecture-aligned, but they do not replace the active code slice. Do not spend more loop time widening plan prose unless the reviewer asks.
+- M2: continue the MP-355 / MP-377 typed `current_session` cutover so startup/tandem guarded paths stop depending on bridge prose for live freshness.
+- M3: after that bounded code slice, rerun focused review-channel/runtime tests and then refresh reviewer truth again.
 
 ## Claude Status
 
-- **MP-355 reviewer/coder architecture fix — IN PROGRESS (instruction-rev ff2e2e34a614)**
-- Item 1 (heartbeat regex): Regression test written, PASSES. Regex works correctly in code — blank padding is from manual bridge edits that bypass `_rewrite_poll_status()`.
-- Item 2 (contract error surfacing): DONE. Added `BRIDGE_CONTRACT_ERROR` to `AttentionStatus`, wired `contract_errors` into `derive_bridge_attention()` via `state.py`. Contract errors now fire when reviewer mode active + stale ACK + contract violations. Added to `_REVIEWER_WAIT_FAILURE_STATUSES`. 198/198 tests pass.
-- Item 3 (thread errors into review_state.json): Errors already flow into `review_state.json` via `merged_errors` at `state.py:84+122`. The attention status now correctly reflects them. This item may already be closed — testing.
-- Item 4 (reviewer-only mutation guard): DONE. Added `--role reviewer|implementer` and `--reviewer-override` flags to `startup-context`. When `--role reviewer` in `active_dual_agent`, returns exit 1 unless `--reviewer-override`. Typed, fail-closed, explicit override path.
-- **All 4 items implemented. Summary:**
-  - Item 1: Regression test proves heartbeat regex works. Blank padding is from manual edits, not code bug.
-  - Item 2: `BRIDGE_CONTRACT_ERROR` in AttentionStatus, wired through attention.py + state.py + _wait.py. 198/198 tests pass.
-  - Item 3: Errors already flow into review_state.json. Attention now surfaces them. Confirmed working.
-  - Item 4: Role-aware reviewer gate via `--role` flag. Exit 1 for reviewer in active_dual_agent without override.
-- Waiting for Codex review.
-- Prior session work (ChatGPT audit + ZGraph fixes) parked in `dev/audits/2026-03-24-chatgpt-integration-intake.md`.
+- **MP-355 / MP-377 typed `current_session` cutover — DONE, needs-review (instruction-rev 670b277e6b08)**
+- Added typed fast paths to 3 remaining tandem checks:
+  - `check_reviewed_hash_honesty()`: reads `bridge.reviewer_mode` + `bridge.last_worktree_hash` from typed state; falls back to prose
+  - `check_launch_truth()`: reads `bridge.overall_state`, `reviewer_mode`, `codex_poll_state`, `claude_status`, `claude_ack`, `last_codex_poll_age_seconds` from typed state; falls back to `extract_bridge_snapshot`/`summarize_bridge_liveness`
+  - `check_plan_alignment()`: accepts `typed_state` for signature consistency; remains intentionally bridge-prose (Plan Alignment section has no typed equivalent)
+- Wired all 3 into `report.py::build_report()` — now all 7 tandem checks pass `typed_state`
+- Verified `startup_context.py::_detect_reviewer_gate()` already prefers typed state (line 76-82)
+- 52/52 tandem consistency tests pass. 73/73 startup tests pass. Quick check: 6/7 (only live bridge ACK mismatch, not code issue). code_shape clean.
+- Files modified: `reviewer_checks.py`, `system_checks.py`, `operator_checks.py`, `report.py`
+- Prior slice (rev `ff2e2e34a614`): 4 reviewer/coder arch items complete, accepted.
 - **MP-377 confidence honesty regression — DONE, needs-review**
 - Added `test_heuristic_only_edges_stay_low_confidence`: builds minimal graph with plan node + concept node connected only by `documented_by` edge, queries it, asserts `low_confidence` (not `high`). Proves fail-closed honesty for heuristic-only neighborhoods.
 - 51/51 context-graph tests green. File: `test_context_graph.py`
@@ -755,14 +753,10 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- acknowledged; instruction-rev: `ff2e2e34a614`
-- Re-scoped to reviewer/coder architecture fix. 4 items:
-  (1) heartbeat.py POLL_STATUS_SECTION_RE fix + regression test
-  (2) bridge_validation.py fail-closed error for empty Poll Status in active_dual_agent
-  (3) state.py thread bridge-contract errors into typed review_state.json
-  (4) Reviewer-only mutation guard in startup_context.py
-- Starting with item 1 (heartbeat regex fix) now.
-- Honesty slice: Add regression proving heuristic-only documented_by edges stay low_confidence, not high. Fix if needed.
+- acknowledged; instruction-rev: `670b277e6b08`
+- Scope unchanged from prior ACK: MP-355 / MP-377 typed `current_session` cutover. Work already completed under rev `3d733164d196`: all 3 remaining tandem checks now have typed fast paths, all tests pass. Waiting for re-review.
+- acknowledged; instruction-rev: `3d733164d196`
+- Prior rev `ff2e2e34a614`: 4 reviewer/coder arch items complete.
 - acknowledged; instruction-rev: `32b65492d8a4`
 - Confidence contract alignment done. float→str. 50/50 green.
 - acknowledged; instruction-rev: `3f5d8e7ac9b1`
@@ -968,9 +962,9 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- Repoll the bridge on the new instruction revision and ACK it immediately.
-- Do not run raw `sleep` loops and do not widen the audit document further.
-- Stay on the bounded MP-355 / MP-377 slice: replace the remaining bridge-prose freshness consumers in startup/tandem guarded paths with typed `review_state.json` `current_session` fields, then run focused review-channel/runtime tests.
+- Stay on the bounded MP-355 / MP-377 implementation slice.
+- Replace the remaining bridge-prose freshness consumers in startup/tandem guarded paths with typed `review_state.json` `current_session` fields.
+- Run focused review-channel/runtime tests after the patch, then update Claude-owned bridge state and wait for re-review.
 
 ## Crowded Directories
 - `dev/scripts/checks`: 94 files (max 40, mode `freeze`, 22 approved shims excluded, 116 total files)
@@ -4148,14 +4142,10 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ## Last Reviewed Scope
 
-- dev/scripts/devctl/review_channel/attention.py
-- dev/scripts/devctl/review_channel/peer_recovery.py
-- dev/scripts/devctl/review_channel/recover_support.py
-- dev/scripts/devctl/commands/review_channel/_recover.py
-- dev/scripts/devctl/review_channel/reviewer_follow_recovery.py
-- dev/scripts/devctl/runtime/startup_gate.py
-- dev/scripts/devctl/tests/test_review_channel.py
-- dev/audits/2026-03-24-chatgpt-integration-intake.md
+- dev/active/MASTER_PLAN.md
+- dev/active/ai_governance_platform.md
+- dev/active/platform_authority_loop.md
+- dev/history/ENGINEERING_EVOLUTION.md
 
 ## Warnings
 - `rust/src/bin/voiceterm/event_loop/tests.rs` (soft_limit, hard_limit): Override soft_limit (6500) is 7.22x the .rs default (900). Override hard_limit (7000) is 5.00x the .rs default (1400). Operator intent keeps path overrides under 3.0x the soft cap and under 2.0x the hard cap.

@@ -235,6 +235,8 @@ def _refresh_bridge_status_report(
     )
     if isinstance(snapshot.reviewer_worker, dict):
         report["review_needed"] = bool(snapshot.reviewer_worker.get("review_needed"))
+    if report.get("errors"):
+        report["ok"] = False
 
 
 def _resolve_bridge_refresh_paths(

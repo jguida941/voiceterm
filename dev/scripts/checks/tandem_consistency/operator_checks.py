@@ -17,8 +17,16 @@ def check_plan_alignment(
     bridge_text: str,
     *,
     repo_root: Path | None = None,
+    typed_state: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    """Verify the bridge references the required active plan chain."""
+    """Verify the bridge references the required active plan chain.
+
+    This check validates bridge.md document structure (the Plan Alignment
+    section) rather than runtime state. The core logic intentionally remains
+    bridge-prose based because the Plan Alignment section has no typed
+    equivalent in review_state.json.  ``typed_state`` is accepted for
+    signature consistency but is not yet consumed.
+    """
     plan_alignment = extract_section(bridge_text, "Plan Alignment")
     if not plan_alignment.strip():
         return {

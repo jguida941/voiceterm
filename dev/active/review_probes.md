@@ -354,6 +354,11 @@ context-free translation = MEDIUM.
       down-rank, or ignore each other, and chronic waiver/false-positive
       families automatically lose automation trust before they reach
       auto-apply-capable remediation paths.
+- [ ] Add one shared cross-file reference prepass for context-blind probes
+      before widening automation trust: `probe_single_use_helpers` and
+      similar file-local scanners should be able to query repo-level
+      reuse/import evidence so helpers reused outside the current file do not
+      false-positive as single-use.
 - [ ] Close the remaining probe lifecycle joints on top of the already-live
       verdict/history path: hotspot ranking, startup signals, Ralph guidance
       selection, and next-file rotation must become verdict-aware so fixed or

@@ -283,6 +283,23 @@ def _write_live_runtime(
     )
 
 
+def _write_active_conductor_session(status_dir: Path, *, provider: str) -> None:
+    session_dir = status_dir / "sessions"
+    session_dir.mkdir(parents=True, exist_ok=True)
+    log_path = session_dir / f"{provider}-conductor.log"
+    log_path.write_text("still running\n", encoding="utf-8")
+    (session_dir / f"{provider}-conductor.json").write_text(
+        json.dumps(
+            {
+                "session_name": f"{provider}-conductor",
+                "log_path": str(log_path),
+                "script_path": "",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def _build_event_bundle_for_test(packet_ids: list[str]) -> ReviewChannelEventBundle:
     packets = [
         {
@@ -5296,6 +5313,57 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 bridge_path.read_text(encoding="utf-8"),
             )
 
+    def test_run_status_fails_closed_for_hybrid_claude_only_session(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
+            _write_active_conductor_session(status_dir, provider="claude")
+            args = SimpleNamespace(
+                action="status",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                promotion_plan="dev/active/continuous_swarm.md",
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=False,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload["ok"])
+            self.assertTrue(payload["bridge_liveness"]["claude_conductor_active"])
+            self.assertFalse(payload["bridge_liveness"]["codex_conductor_active"])
+            self.assertTrue(
+                any("Hybrid chat/terminal review loops are not trusted" in error for error in payload["errors"])
+            )
+
     def test_run_reviewer_heartbeat_preserves_reviewed_hash(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -6671,6 +6739,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
             _write_live_runtime(status_dir)
+            _write_active_conductor_session(status_dir, provider="codex")
             args = SimpleNamespace(
                 action="recover",
                 execution_mode="auto",
@@ -6724,6 +6793,67 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(len(payload["sessions"]), 1)
             self.assertEqual(payload["sessions"][0]["provider"], "claude")
 
+    def test_run_recover_refuses_without_live_codex_conductor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    current_instruction="- replace the stale implementer conductor",
+                    claude_status="- continuing to poll",
+                    claude_ack="- waiting for reviewer promotion; instruction-rev: `deadbeefcafe`",
+                ),
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
+            args = SimpleNamespace(
+                action="recover",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                promotion_plan=None,
+                rollover_threshold_pct=50,
+                rollover_trigger="peer-stale",
+                await_ack_seconds=180,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                approval_mode="balanced",
+                script_dir=None,
+                dry_run=True,
+                recover_provider="claude",
+                refresh_bridge_heartbeat_if_stale=False,
+                format="json",
+                output=str(output_path),
+                json_output=None,
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 1)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["recover_provider"], "claude")
+            self.assertEqual(payload["sessions"], [])
+            self.assertTrue(
+                any("requires a live repo-owned Codex conductor session" in error for error in payload["errors"])
+            )
+
     def test_validate_recoverable_state_refuses_bridge_contract_error(self) -> None:
         from dev.scripts.devctl.review_channel.recover_support import (
             validate_recoverable_state,
@@ -6754,6 +6884,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
             _write_live_runtime(status_dir)
+            _write_active_conductor_session(status_dir, provider="codex")
             args = SimpleNamespace(
                 action="recover",
                 execution_mode="auto",

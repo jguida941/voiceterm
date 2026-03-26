@@ -153,9 +153,10 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
-            "python3 dev/scripts/devctl.py review-channel --action reviewer-wait --reason awaiting-implementer --seconds 60 --terminal none --format json",
+            "python3 dev/scripts/devctl.py review-channel --action reviewer-wait --reason awaiting-implementer --terminal none --format json",
             rendered_text,
         )
+        self.assertNotIn("--seconds 60", rendered_text)
         self.assertIn(
             "## Mode-aware review-channel bootstrap",
             rendered_text,

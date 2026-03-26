@@ -2723,6 +2723,11 @@ become the main product surface.
     governance-review evidence so co-occurring signals and chronic
     waiver/false-positive families influence automation trust before
     remediation reaches auto-apply-capable paths.
+  - [ ] Add one shared cross-file reference prepass for context-blind probes
+    before widening automation trust: `probe_single_use_helpers` and
+    similar file-local scanners should be able to query repo-level
+    reuse/import evidence so helpers reused outside the current file do not
+    false-positive as single-use.
   - [ ] Close the remaining probe lifecycle joints on top of the already-live
     verdict/history path: hotspot ranking, startup signals, Ralph guidance
     selection, and next-file rotation must become verdict-aware so fixed or
@@ -3041,9 +3046,12 @@ become the main product surface.
   under the repo-owned reports root derived from live governance/path-root
   authority; and scoped repo-owned launcher/mutation `devctl` paths now
   require that receipt and re-check live startup authority before starting
-  another implementation or launcher slice. The remaining gap is the
-  separate raw git/pre-commit bypass plus broader repo-pack activation, not
-  the old "startup-context exists but nothing requires it" hole. Latest
+  another implementation or launcher slice. The remaining gap is narrower
+  but still real: fresh raw interactive provider sessions can still skip
+  Step 0 until a supported hook/wrapper entry path exists, and raw
+  git/pre-commit plus broader repo-pack activation still remain open, not
+  the old repo-owned-launcher "startup-context exists but nothing requires
+  it" hole. Latest
   architecture-framing follow-up (2026-03-24): explain the platform as a
   compiler-like pass pipeline (signal extraction -> decision reduction ->
   constrained execution -> feedback) while keeping typed contracts, not
@@ -3116,6 +3124,13 @@ become the main product surface.
     `startup-context` must not emit a `check-router --since-ref ...`
     preflight that falls back to `bundle.docs` on the same dirty tree the
     packet already classified as `bundle.tooling`.
+  - [ ] Close the raw interactive bootstrap bypass on top of the repo-owned
+    receipt gate: a fresh provider-owned `claude` or `codex` shell can
+    still skip Step 0 and cold-read files before `startup-context` runs.
+    Add one supported hook/wrapper/launcher contract that consumes the same
+    startup receipt for raw interactive entry, and keep generated bootstrap
+    docs explicit that documented Step 0 is not universal mechanical
+    enforcement until that adapter path is live.
   - [ ] Keep docs-governance classification deterministic before
     `DocRegistry` / startup authority widen: canonical
     guide/reference/spec/runbook classes must come from policy/registry
@@ -3202,6 +3217,19 @@ become the main product surface.
     paths. Remaining work is wider capture automation and richer drift
     interpretation, not basic diff/trend plumbing. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 53)
+  - [ ] Add a generated-only graph normalization/compaction reducer after the
+    first query-engine proof: distinguish routing-grade vs render-only
+    edges, precompute bounded high-signal neighborhoods for startup /
+    work-intake / common query paths, and prove the compacted view
+    preserves canonical refs while lowering default query noise. Keep the
+    reducer reversible and disposable so it never becomes a second
+    authority store.
+  - [ ] Add check-runner performance contracts after the first cache-backed
+    startup / `system-picture` path is real: diff-aware and language-aware
+    skip rules, shared parser/AST reuse for multi-guard runs, immutable
+    tree-hash guard-result caching, and layered early-exit execution should
+    be measured, typed, and invalidated from canonical tree/work-scope
+    inputs rather than guessed.
   - [ ] Evaluate temporal stability/volatility signals on top of that graph
     lane before promoting them into routing or temperature authority:
     change-frequency and centrality-like impact metadata should become

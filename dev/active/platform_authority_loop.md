@@ -278,6 +278,13 @@ intended execution order is:
       the content-hash/git-diff-invalidated slices, and the next
       `startup-context` / `WorkIntakePacket` must come from cached artifacts +
       delta instead of full repo recomputation.
+- [ ] Close the raw interactive bootstrap bypass on top of that repo-owned
+      receipt gate: a fresh provider-owned `claude` or `codex` shell can
+      still read files and answer before `startup-context` runs. Add one
+      supported hook/wrapper/launcher contract that auto-runs or explicitly
+      blocks on Step 0 for raw interactive entries, and keep generated
+      bootstrap docs honest that documented Step 0 is not mechanical
+      enforcement until that adapter path exists.
 - [ ] Add one repo-pack-owned checkpoint/push packet plus warm-start cache
       layer that enhances the same startup path without creating a second
       authority. It must be generated from canonical git/plan/guard/review
@@ -909,6 +916,13 @@ intended execution order is:
       matches first, trigger/concept expansion second, typed-relation walks
       third, bounded 2-3 hop inference fourth, and fail-closed fallback only
       after the cheaper filters reject the scope.
+- [ ] Add a generated-only graph normalization/compaction reducer after that
+      first query-engine proof: distinguish routing-grade vs render-only
+      edges, precompute bounded high-signal neighborhoods for startup /
+      work-intake / common query paths, and prove the compacted view
+      preserves canonical refs while lowering default query noise. Keep the
+      reducer reversible and disposable so it never becomes a second
+      authority store.
 - [ ] Keep `context-graph --mode bootstrap` subordinate to the same startup
       family: it may expose a hot-index/bootstrap helper view over cached
       authority artifacts, but `startup-context` remains the single canonical
@@ -918,10 +932,11 @@ intended execution order is:
       after that first `startup-context` / `WorkIntakePacket` proof and before
       richer graph capability work. It should compose the already-existing
       authority slices into one bounded startup-orientation artifact:
-      identity/state, contract chain, active-plan status, guard/probe health,
-      graph/topology coverage, cross-plan dependencies, mutation-op coverage,
-      and agent-readiness drift. This is a reducer over canonical commands and
-      artifacts, not a new authority layer.
+      identity/state, contract chain, active-plan status / progress
+      percentages, guard/probe health, graph/topology coverage, cross-plan
+      dependencies, mutation-op coverage, and agent-readiness drift. This is
+      a reducer over canonical commands and artifacts, not a new authority
+      layer.
 - [ ] Keep `system-picture` cached and fail-closed. The first artifact lives
       under managed `dev/reports/**` outputs, carries `tree_hash`,
       `commit_sha`, `generated_at`, and per-section `section_hashes`, and may
@@ -1108,11 +1123,12 @@ intended execution order is:
       exception family appears without explicit policy ownership.
 - [ ] Add check-runner performance contracts after the first cache-backed
       startup / `system-picture` path is real: diff-aware and language-aware
-      skip rules, immutable tree-hash guard-result caching, and layered
-      early-exit execution should be measured, typed, and invalidated from
-      canonical tree/work-scope inputs rather than guessed. Keep guard
-      inference/ranking out of scope until telemetry, cache invalidation, and
-      graph-confidence semantics are proven.
+      skip rules, shared parser/AST reuse for multi-guard runs, immutable
+      tree-hash guard-result caching, and layered early-exit execution should
+      be measured, typed, and invalidated from canonical tree/work-scope
+      inputs rather than guessed. Keep guard inference/ranking out of scope
+      until telemetry, cache invalidation, and graph-confidence semantics are
+      proven.
 - [ ] Evaluate temporal stability/volatility signals on top of the existing
       snapshot lane before promoting them into routing or temperature
       authority: recent change frequency, centrality-like impact metadata, and
@@ -1303,6 +1319,14 @@ intended execution order is:
   render-only noise, precomputing smaller high-signal neighborhoods, and
   keeping the result reversible so the graph does not become a second
   authority store.
+- 2026-03-25: Corrected the startup-enforcement conclusion after the direct
+  raw `claude` repro. Repo-owned launcher/mutation flows are gated by
+  `startup-context` / `StartupReceipt`, but raw interactive provider entry
+  is not yet mechanically forced through Step 0. Promoted the two validated
+  resweep deltas into checklist state in this plan/`MASTER_PLAN`: (1) raw
+  interactive bootstrap enforcement via supported hook/wrapper/launcher
+  entry, and (2) generated-only graph normalization/compaction after the
+  first query-engine proof.
 - 2026-03-25: Re-ran the live startup path after Claude landed the one-line
   probe-loader fix. The earlier `startup_signals.py` path bug is now closed on
   the current tree and bootstrap surfaces carry real probe counts again, so
@@ -1365,16 +1389,18 @@ intended execution order is:
   module-split atomicity for staged edits, committed-tree importer coherence
   for `HEAD`, and fail-closed startup receipt behavior on over-budget trees.
 - 2026-03-23: Closed the next startup-authority bypass in the same `MP-377`
-  lane instead of leaving the new guard on an honor system. The portable
-  `StartupReceipt` now writes under the repo-owned reports root derived from
-  live governance/path roots, `startup-context` is now the explicit Step 0
-  bootstrap gate in `AGENTS.md`, generated bootstrap surfaces, and the
-  review-channel conductor prompt, and scoped repo-owned launcher/mutation
-  `devctl` commands now refuse to run when that receipt is missing/stale or
-  when live startup-authority truth is already red. The remaining gap is no
-  longer "agents may never hit startup-context"; it is the separate raw
-  git/pre-commit bypass plus broader repo-pack activation and any still-
-  ungated mutating paths.
+  lane for repo-owned launcher/mutation flows instead of leaving the new
+  guard on an honor system. The portable `StartupReceipt` now writes under
+  the repo-owned reports root derived from live governance/path roots,
+  `startup-context` is now the explicit Step 0 bootstrap gate in
+  `AGENTS.md`, generated bootstrap surfaces, and the review-channel
+  conductor prompt, and scoped repo-owned launcher/mutation `devctl`
+  commands now refuse to run when that receipt is missing/stale or when
+  live startup-authority truth is already red. The remaining gap is
+  narrower but still real: a fresh raw interactive provider session can
+  still skip Step 0 until a hook/wrapper/launcher contract closes that
+  bypass, and raw git/pre-commit plus broader repo-pack activation still
+  remain open too.
 - 2026-03-24: Closed the next repo-pack activation seam behind that same
   startup-authority lane. The remaining typed review-state consumers no
   longer each fan out on one VoiceTerm-default report path: a shared
