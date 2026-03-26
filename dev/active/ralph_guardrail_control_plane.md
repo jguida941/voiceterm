@@ -1,6 +1,6 @@
 # Ralph Guardrail Control Plane
 
-**Status**: active - Phase 1 scaffolding  |  **Last updated**: 2026-03-09 | **Owner:** Control-plane/guardrails
+**Status**: active - Phase 1 scaffolding  |  **Last updated**: 2026-03-26 | **Owner:** Control-plane/guardrails
 Execution plan contract: required
 This spec is execution mirrored in `dev/active/MASTER_PLAN.md` under `MP-360..MP-367`.
 
@@ -84,6 +84,10 @@ operator visibility into what the loop is doing. This plan delivers:
 
 - [ ] Create `dev/config/ralph_guardrails.json` — standards registry mapping
       finding categories to AGENTS.md sections, doc links, and fix skills
+- [ ] Externalize `ralph_ai_fix.py` architecture validation commands and
+      working-directory rules out of the hardcoded `ARCH_CHECKS` table so
+      repo policy / repo-pack state can declare build targets, test roots,
+      and per-architecture validation on non-VoiceTerm repos
 - [ ] Define fix skills enum: `code-shape-fix`, `dedup-extract`, `facade-inline`,
       `global-mutable-fix`, `naming-fix`, `security-fix`, `docs-fix`
 - [ ] Add standards refs per guard (e.g., facade-wrappers → AGENTS.md §Engineering
@@ -157,6 +161,13 @@ operator visibility into what the loop is doing. This plan delivers:
 
 ## Progress Log
 
+- 2026-03-26: Promoted the architecture-alignment audit gap into this plan.
+  `ralph_ai_fix.py` still hardcodes architecture validation commands and
+  working directories (`ARCH_CHECKS`, `rust/`, repo-local test roots), which
+  blocks portable repo adoption even if the broader governance/runtime layers
+  become portable. Track the fix here under MP-361 so Ralph validation
+  commands come from repo policy / repo-pack authority instead of VoiceTerm
+  literals.
 - 2026-03-21: Accepted the next Ralph-specific measurement/backlog split for
   context recovery. The current fixer injection is the first bounded proof,
   but the next steps are now explicit: record whether a packet was used,
@@ -185,6 +196,10 @@ operator visibility into what the loop is doing. This plan delivers:
 - Current status: this plan remains active; start from the highest-priority
   open item in `## Execution Checklist` and the latest dated entry in
   `## Progress Log`.
+- Portability follow-up: before widening Ralph autonomy, replace the
+  hardcoded architecture validation map with repo-policy / repo-pack-driven
+  validation commands so non-VoiceTerm repos do not inherit `voiceterm`,
+  `rust/`, or repo-local test-root assumptions from this fixer.
 - Next action: keep current-slice decisions and blockers in this file instead
   of chat-only notes, then update this section when the promoted slice
   changes.

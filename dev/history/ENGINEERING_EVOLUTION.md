@@ -46,6 +46,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-26 - The portability audit became a shared ledger with explicit closure rules
+
+Fact: `dev/audits/architecture_alignment.md` is now treated as the shared
+Codex/Claude architecture audit ledger rather than an unstructured side note,
+and the repo records the rule that audit findings must be mapped back into
+`MASTER_PLAN` plus the owning scoped plan instead of becoming a second live
+execution authority. The same review loop now has an explicit closure bar:
+owner mapping or waiver for every HIGH/MEDIUM finding, proof links for fixed
+rows, subsystem coverage, and two consecutive bounded passes with no new
+HIGH/MEDIUM findings.
+
+This matters because the repo had started collecting valid portability and
+authority findings, but there was still ambiguity about where the audit lived,
+who owned implementation, and what "aligned enough" meant. Making the shared
+ledger and closure rules repo-visible keeps the Codex/Claude review cycle from
+drifting into chat-only coordination or a never-ending list of disconnected
+findings. The same pass also promoted the previously untracked Ralph
+architecture-validation portability gap into `MP-361` so hardcoded
+`ralph_ai_fix.py` validation commands now have a real owner plan.
+
+Evidence:
+
+- `dev/audits/architecture_alignment.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ralph_guardrail_control_plane.md`
+
 ### 2026-03-26 - Portability became an explicit maintainer rule instead of an implied architecture wish
 
 Fact: the repo now records the portability rule in the main active plans and
@@ -5729,3 +5755,14 @@ frontend/projection over the same typed backend contracts (`review_state`,
 queue, registry, attention), not as the canonical source of truth. The
 de-authority rule is about state ownership, not about banning markdown as a
 frontend for other repos that want it.
+
+### 2026-03-26 - Architecture docs are part of the portability boundary too
+
+Fact: the portability review found the next failure mode was not only runtime
+code. Some review/runbook docs were still teaching fixed VoiceTerm review paths
+and speaking about `bridge.md` as if it were the live backend authority. The
+correction was to front-load the governed boundary in the docs themselves:
+typed `review_state` stays the canonical machine authority, while `bridge.md`
+is the temporary repo-owned compatibility projection for this repo's current
+loop and the documented path roots are examples resolved through
+`ProjectGovernance` / repo-pack state, not universal defaults.

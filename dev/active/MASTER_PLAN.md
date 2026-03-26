@@ -283,6 +283,23 @@
   `bridge.md`, and first-hop AI bootstrap surfaces that still under-specify
   the portable-platform boundary. Treat those as blocking authority-loop work,
   not cleanup to defer behind new features.
+- 2026-03-26 architecture-review convergence follow-up: the shared audit now
+  covers all Python control-plane subsystems, but convergence does not mean
+  the work is done. The remaining mapped fix queue now explicitly includes
+  fail-closed `docs-check` defaults, portable MCP identity and status-provider
+  boundaries, `process_sweep` binary-pattern generalization,
+  repo-pack-defined report-retention policy, portable tandem hash exclusions,
+  and the last import-time repo-pack path freezes outside review-channel
+  proper. Treat the audit as complete enough to route implementation, not as a
+  reason to stop promoting findings into scoped plans.
+- 2026-03-26 architecture-doc teaching correction: portability closure also
+  includes the docs and starter surfaces that future AI sessions read first.
+  Plain-language architecture/runbook text must front-load that VoiceTerm is
+  a first-party adopter/client of the governance platform, `bridge.md` is an
+  optional repo-pack-owned compatibility projection, and review/MCP/mobile/
+  PyQt6 surfaces are clients over one governed backend. Treat docs that
+  re-teach VoiceTerm-first authority or fixed repo-local paths as
+  architecture drift, not harmless wording.
 - Current deterministic self-governance closure rule after the 2026-03-21
   guard audit: do not treat more guard count or richer graph semantics as
   progress while typed/runtime authority still lies. First close the cheap
@@ -2635,8 +2652,10 @@ become the main product surface.
   `AGENTS.md` and wire 7 new guard scripts into `tooling_control_plane.yml`.
 - [ ] MP-361 Create guardrail configuration registry
   (`dev/config/ralph_guardrails.json`) mapping finding categories to AGENTS.md
-  standards, documentation links, and AI fix skills so the AI brain has
-  context for each finding class.
+  standards, documentation links, AI fix skills, and portable Ralph
+  architecture-validation command mappings so the AI brain has context for
+  each finding class and `ralph_ai_fix.py` does not hardcode VoiceTerm build
+  targets / test roots on external repos.
 - [ ] MP-362 Emit structured guardrail report (`ralph-report.json`) from AI fix
   wrapper with per-finding status, standards refs, fix skills used, and
   aggregate analytics (fix rate, by-architecture, by-severity, false-positive
@@ -3375,7 +3394,8 @@ become the main product surface.
   `A16-A19`, `A27`, `A29`, `T3-T5`), `MP-376` carries portability/adoption
   proof (`A14`, `A20-A26`), `MP-355` carries review-channel consolidation
   (`A15`, `T1`), `review_probes.md` carries probe expansion/history wiring
-  (`A28`, `A30`), and `MP-340` carries watchdog coverage (`T2`).
+  plus probe-quality portability/scoring calibration (`A28`, `A30`), and
+  `MP-340` carries watchdog coverage (`T2`).
   `dev/guides/SYSTEM_AUDIT.md` is now integration-complete reference evidence
   pending retirement after the current Phase 7 proof/cleanup gate.
   `MP-340`,

@@ -161,13 +161,16 @@ Three quality layers matter in practice:
     `active_dual_agent`, always pass the live
     `--expected-instruction-revision` from `review-channel --action status` or
     `bridge-poll`.
-  - The repo-root live bridge file is `bridge.md`. Repo-owned
-    `reviewer-heartbeat`, `reviewer-checkpoint`, and instruction-promotion
-    writes now serialize the bridge file under a lock and treat `Poll Status`
-    as current-state-only reviewer authority: stale reviewer-owned status
-    prose is replaced on each repo-owned write instead of accumulating old
-    revision/ACK bullets under a fresh heartbeat line. If the bridge drifts
-    into transcript/history junk or unsupported headings, repair it with
+  - In VoiceTerm today the live compatibility bridge file is repo-root
+    `bridge.md`, but review-channel roots should be understood as governed
+    repo-pack/project-governance state and typed `review_state` remains the
+    canonical machine authority. Repo-owned `reviewer-heartbeat`,
+    `reviewer-checkpoint`, and instruction-promotion writes serialize the
+    bridge file under a lock and treat `Poll Status` as current-state-only
+    reviewer authority: stale reviewer-owned status prose is replaced on each
+    repo-owned write instead of accumulating old revision/ACK bullets under a
+    fresh heartbeat line. If the bridge drifts into transcript/history junk or
+    unsupported headings, repair it with
     `python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format md`
     instead of hand-editing `bridge.md`; the bridge guard now fails closed on
     oversize bridges, duplicate/unsupported sections, transcript/ANSI

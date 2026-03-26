@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-03-25 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-26 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -2628,6 +2628,13 @@ Still open before `P0` closes:
       execution delta is near zero; and trim oversized active docs by moving
       completed phases, comparative analysis, and long reference sections into
       guides/reference/archive surfaces.
+- [ ] Front-load the platform/client boundary in plain-language architecture,
+      runbook, and generated bootstrap docs. `DEVCTL_ARCHITECTURE`,
+      review/runbook surfaces, starter instruction docs, and later
+      `doc-authority` reports must teach that VoiceTerm is a first-party
+      adopter/client, `bridge.md` is an optional repo-pack-owned compatibility
+      projection, and review/MCP/mobile/PyQt6 surfaces are clients over one
+      governed backend rather than universal defaults.
 - [ ] Absorb the full `dev/guides/SYSTEM_AUDIT.md` action plan into the canonical
       `MP-377` checklist instead of leaving it in a parallel document.
       Required mapping:

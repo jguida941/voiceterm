@@ -585,6 +585,12 @@ intended execution order is:
       portable layers, plus fixture-repo tests that prove empty-repo bootstrap,
       existing-repo adoption, alternate governed-doc roots, and
       tandem-disabled repos do not silently collapse back to VoiceTerm rules.
+- [ ] Move reviewer-freshness/hash exclusions and other ephemeral-artifact
+      filters onto repo-pack / governance-owned exclusion families: tandem
+      checks and reviewer heartbeats must not hardcode `.voiceterm/memory/`,
+      `rust/target/`, or similar VoiceTerm paths, and non-review helpers such
+      as `publication_sync` must not freeze repo-pack-derived registry paths
+      at import time while the same portability cutover is in progress.
 - [ ] Make the first extensibility step config-driven rather than implied:
       `project.governance.json` / repo-pack policy must be able to declare
       enabled guard/probe ids, bundle overrides, and repo-local routing
@@ -627,6 +633,11 @@ intended execution order is:
       invent ids locally from visible prose.
 - [ ] Replace markdown/prose scope scraping in review/promotion/startup paths
       with the typed registry.
+- [ ] Remove hardcoded review-plan identity from runtime defaults: review-
+      channel packets, event reducers, prompts, and status projections must
+      resolve plan ids from `PlanRegistry` / selected targets instead of
+      embedding `MP-355`, and startup/governance authority must not treat an
+      empty `plan_registry` as a healthy state.
 - [ ] Replace line-number- or context-based plan targeting in bridge/proposal
       flows with `PlanTargetRef` resolution over stable heading/checklist/log
       anchors so adjacent prose edits do not strand the planning loop.
@@ -1174,6 +1185,15 @@ intended execution order is:
 
 ## Session Resume
 
+- 2026-03-26 pass-2/3 follow-up: keep the authority-loop tranche wide enough
+  to absorb the later audit passes too. Remaining same-lane closure now also
+  includes portable hash/exclusion policy for tandem freshness and the last
+  non-review import-time repo-pack captures (for example
+  `publication_sync/core.py`), not only review-channel path literals.
+- 2026-03-26 pass-1 follow-up: keep the current portability tranche broader
+  than path literals alone. The next same-lane closure also has to remove
+  hardcoded review-plan ids from review-channel runtime defaults and stop
+  treating empty `plan_registry` state as healthy startup authority.
 - 2026-03-26 portability-audit follow-up: the next authority-loop slice is
   broader than the current `bridge.md` consumer cleanup. The portable runtime
   still lets missing authority silently collapse to VoiceTerm defaults in
@@ -1339,6 +1359,20 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-26: Extended the authority-loop mapping to absorb the latest audit
+  refinements instead of treating them as someone else's cleanup. The same
+  path-authority lane now explicitly owns repo-pack/governance-driven
+  freshness/hash exclusions and the remaining import-time repo-pack captures
+  outside review-channel proper, including the publication-sync registry-path
+  freeze that Claude's later passes surfaced.
+- 2026-03-26: Promoted the next authority-loop owner gap from the shared
+  architecture ledger into tracked plan state. Beyond path fallbacks, the
+  runtime still hardcodes review-plan identity (`MP-355`) in review-channel
+  defaults and can still report success with an empty `plan_registry`.
+  Keeping those gaps explicit here makes the closure rule sharper: plan ids
+  must resolve from `PlanRegistry` / selected targets, and startup authority
+  must treat missing execution registries as policy-owned or fail-closed
+  state rather than a silent green.
 - 2026-03-26: Re-scoped the current startup/review cutover into a broader
   authority-loop portability audit after the live review-channel state
   exposed another hidden VoiceTerm fallback. The concrete misses are now

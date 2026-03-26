@@ -192,9 +192,10 @@ contract, not the long-term product boundary.
 ## Transitional Markdown Bridge (Current Operating Mode)
 
 Until Phase 1 lands in code, the sanctioned live coordination bridge for the
-current Codex-reviewer / Claude-coder loop is the repo-root `bridge.md`
-file. This is the temporary operating protocol for the work happening now, not
-an accident or an off-book workaround.
+current Codex-reviewer / Claude-coder loop is this repo's `bridge.md`
+compatibility projection. Typed `review_state` remains the canonical
+machine-readable authority; `bridge.md` is the temporary coordination surface
+for the work happening now, not an accident or an off-book workaround.
 
 Rules for the markdown bridge:
 
@@ -220,15 +221,17 @@ Rules for the markdown bridge:
     sections. Specialist reviewer/fixer workers must report back to their
     conductor instead of editing `bridge.md` directly.
 6.2 Bridge behavior is mode-aware. When `Reviewer mode` is `active_dual_agent`,
-    Claude must treat `bridge.md` as the live reviewer/coder authority and
-    keep polling it instead of waiting for the operator to restate the process.
-    When the structured review queue is available, Claude must also poll the
-    Claude-targeted `review-channel inbox/watch` surface on the same cadence so
-    direct reviewer packets are consumed through the canonical event/projection
-    path instead of relying on operator chat relay. When `Reviewer mode` is
-    `single_agent`, `tools_only`, `paused`, or `offline`, Claude must not
-    assume a live Codex review loop unless a reviewer-owned bridge section
-    explicitly reactivates it.
+    Claude must treat `bridge.md` as the live reviewer/coder coordination
+    surface for this compatibility mode and keep polling it instead of waiting
+    for the operator to restate the process. The typed `review_state`
+    projection remains the canonical machine authority for current-session
+    truth. When the structured review queue is available, Claude must also
+    poll the Claude-targeted `review-channel inbox/watch` surface on the same
+    cadence so direct reviewer packets are consumed through the canonical
+    event/projection path instead of relying on operator chat relay. When
+    `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`,
+    Claude must not assume a live Codex review loop unless a reviewer-owned
+    bridge section explicitly reactivates it.
 6.2.1 In that active mode, the live cycle is:
     `bootstrap -> poll bridge + inbox/watch -> acknowledge -> code one bounded
     slice -> update coder state -> wait/poll for re-review -> receive next

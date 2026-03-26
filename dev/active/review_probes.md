@@ -1,6 +1,6 @@
 # Review Probes Plan
 
-**Status**: active  |  **Last updated**: 2026-03-25 | **Owner:** Tooling/quality intelligence
+**Status**: active  |  **Last updated**: 2026-03-26 | **Owner:** Tooling/quality intelligence
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under `MP-368..MP-375`.
 
@@ -446,6 +446,12 @@ context-free translation = MEDIUM.
       `--quality-policy`, `DEVCTL_QUALITY_POLICY` provides the same override
       for automation, and `devctl quality-policy` renders the resolved active
       policy/scopes for human or AI review.
+- [ ] Make probe-quality feedback portable too: false-positive classification
+      must read live probe/catalog metadata instead of a static VoiceTerm
+      check-id table, recommendation thresholds must be policy-backed rather
+      than one-repo calibration constants, and score weighting must normalize
+      by the available language/governance evidence instead of penalizing
+      repos that do not emit every VoiceTerm-era signal.
 - [x] Seed the next portable-guard backlog from official lint ecosystems and
       repo evidence: Python design-complexity guards (`too-many-branches`,
       `too-many-return-statements`) and Python cyclic-import detection are now
@@ -558,6 +564,13 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-26: Promoted the architecture-alignment Pass 1 probe-quality gap
+  into the tracked probe lane. The portable issue is no longer just "more
+  probes"; `fp_classifier.py`, recommendation thresholds, and evidence-score
+  weighting still assume VoiceTerm-era check ids and governance density. The
+  next `MP-375` portability slice is to key classification off the live probe
+  catalog/policy and normalize recommendation/scoring behavior by available
+  evidence instead of one repo's history.
 - 2026-03-25: Re-verified the latest startup/probe intake against the live
   command behavior before promoting it into plan state. The clean-tree
   `probe-report` zero-scan result is consistent with the current
@@ -1440,6 +1453,10 @@ Template README at `dev/scripts/checks/PROBE_TEMPLATE_README.md`.
 
 ## Session Resume
 
+- Portability follow-up: the next `MP-375` review should verify that false-
+  positive classification, recommendation thresholds, and composite scoring
+  no longer assume VoiceTerm check ids, governance density, or one repo's
+  calibration constants when portable policy is in play.
 - Current status: the first two live probe-to-AI proof slices have landed.
   Ralph reads exact file-matched canonical probe guidance from
   `dev/reports/probes/review_targets.json` and renders `Probe guidance:` lines

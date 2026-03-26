@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-03-25 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-03-26 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -325,6 +325,24 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       a later `governance-init`, and adoption scans should suggest contract
       updates when repo structure drifts instead of letting starter docs rot
       silently.
+- [ ] Absorb the architecture-alignment Pass 1 portability cluster into the
+      portable engine contract: `governance-draft` / surface discovery must
+      not fall back to `AGENTS.md` / `MASTER_PLAN.md` / `INDEX.md`,
+      `check_phases.py` and push-routing helpers must resolve build targets,
+      source roots, and branches from repo policy instead of `voiceterm` /
+      `rust/` / `origin/develop` / `master`, and policy-owned defaults must
+      cover plan-section requirements, quality-scope roots, available
+      language families, and score-weight normalization so other repos do not
+      inherit VoiceTerm-era assumptions.
+- [ ] Absorb the architecture-alignment Pass 2/3 portable subsystem cluster
+      into the same engine lane: `docs-check` must not silently fall back to
+      VoiceTerm maintainer docs when repo policy is empty/partial, optional
+      MCP transport surfaces must derive identity from governed repo metadata
+      and keep VoiceTerm-only status providers out of the portable core,
+      `process_sweep` must not hardcode `voiceterm` binary/process patterns,
+      and `reports_retention` must move managed/protected path families onto
+      repo-pack / repo-policy retention definitions instead of embedded
+      VoiceTerm subroot tables.
 - [ ] Close the remaining adopter-productization proof before broader Phase 7
       claims: ship the installable governance entrypoint plus the reviewed
       `governance-init` bootstrap path, then require a second-repo /
@@ -421,6 +439,19 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-26: Promoted the next architecture-alignment owner tranche after
+  Claude's later passes widened coverage to the remaining control-plane
+  subsystems. `MP-376` now explicitly owns four more portable-engine gaps:
+  fail-closed `docs-check` defaults, portable MCP identity and non-VoiceTerm
+  status-provider boundaries, repo-policy-driven `process_sweep` binary
+  patterns, and repo-pack-defined report-retention path families.
+- 2026-03-26: Promoted the first architecture-alignment Pass 1 owner cluster
+  into `MP-376` instead of leaving it as audit-only prose. The portable lane
+  now explicitly owns the repo-policy follow-up for governance-draft
+  fallbacks, `check_phases.py` build/source assumptions, release/post-push
+  branch literals, policy-owned required plan sections, quality-scope roots,
+  and language coverage plus non-probe metric portability for non-VoiceTerm
+  repos.
 - 2026-03-26: Promoted a broader portability-audit tranche after the live
   reviewer-state repair exposed that the remaining risk is bigger than one
   bridge bug. The codebase already has starter bootstrap flows,
@@ -1113,6 +1144,17 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Session Resume
 
+- 2026-03-26 Pass 2/3 follow-up: the next portable-engine closure is no
+  longer just governance-draft and bundle/path defaults. It also has to make
+  `docs-check`, optional MCP transport identity, `process_sweep`, and
+  `reports_retention` resolve from repo policy / repo-pack state so later
+  adopters do not inherit VoiceTerm-shaped defaults after the main authority
+  loop is cleaned up.
+- 2026-03-26 Pass 1 follow-up: after the path-authority drift tranche, the
+  next portable-engine review slice should verify that repo-policy really
+  owns governance-draft defaults, build/source/branch routing,
+  required-plan-sections, quality-scope roots, and metric/score portability
+  instead of leaving those as VoiceTerm-shaped fallback behavior.
 - 2026-03-26 portability-drift follow-up: the next `MP-376` evidence slice
   should stop treating "works on one pilot repo" as enough. The broader
   architecture audit confirmed that portable layers can still inherit
