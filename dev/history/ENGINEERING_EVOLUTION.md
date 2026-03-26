@@ -46,6 +46,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-26 - Push readiness stopped pretending a clean tree was the same thing as an approved push
+
+Fact: the repo corrected a misleading contract in the governed startup/push
+path. Runtime state now distinguishes raw git cleanliness
+(`worktree_clean`) from reviewer-side push allowance
+(`review_gate_allows_push`), and `startup-context` can emit `await_review`
+when a slice is checkpointed locally but the reviewer gate is not current yet.
+The maintainer docs were corrected in the same pass so they stop teaching
+"commit and push" as one atomic step.
+
+This matters because the earlier `push_ready` name taught the wrong mental
+model back into the system: a clean worktree is only the local checkpoint
+state, not proof that the branch is ready for a governed remote push.
+Separating those ideas makes the repo-owned controller more truthful now and
+keeps the future `PushPreflightPacket` design aligned with the real push path
+instead of encoding another overloaded boolean.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/push_state.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/platform_authority_loop.md`
+
 ### 2026-03-26 - The portability audit became a shared ledger with explicit closure rules
 
 Fact: `dev/audits/architecture_alignment.md` is now treated as the shared

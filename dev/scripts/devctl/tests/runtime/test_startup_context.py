@@ -18,6 +18,7 @@ from dev.scripts.devctl.runtime.startup_context import (
     StartupContext,
     blocks_new_implementation,
     _derive_advisory_action,
+    _derive_push_decision,
     _detect_reviewer_gate,
     build_startup_context,
 )
@@ -74,6 +75,10 @@ class TestStartupContextBuild(unittest.TestCase):
         ctx = build_startup_context()
         self.assertIsInstance(ctx.reviewer_gate, ReviewerGateState)
 
+    def test_has_push_decision(self) -> None:
+        ctx = build_startup_context()
+        self.assertTrue(ctx.push_decision.action)
+
     def test_has_advisory_action(self) -> None:
         ctx = build_startup_context()
         self.assertIn(ctx.advisory_action, (
@@ -100,6 +105,7 @@ class TestStartupContextBuild(unittest.TestCase):
         d = ctx.to_dict()
         self.assertIn("advisory_action", d)
         self.assertIn("reviewer_gate", d)
+        self.assertIn("push_decision", d)
         self.assertIn("governance", d)
         self.assertIn("work_intake", d)
         self.assertIn("quality_signals", d)
@@ -501,6 +507,32 @@ class TestAdvisoryAction(unittest.TestCase):
         action, reason = _derive_advisory_action(gov, gate)
         self.assertEqual(action, "await_review")
         self.assertEqual(reason, "review_pending_before_push")
+
+    def test_push_decision_requires_checkpoint_when_worktree_dirty(self) -> None:
+        gov = _minimal_governance(worktree_clean=False, worktree_dirty=True)
+        gate = ReviewerGateState(review_gate_allows_push=False)
+        decision = _derive_push_decision(gov, gate)
+        self.assertEqual(decision.action, "await_checkpoint")
+        self.assertFalse(decision.push_eligible_now)
+
+    def test_push_decision_waits_for_review_when_clean_but_unaccepted(self) -> None:
+        gov = _minimal_governance(worktree_clean=True, worktree_dirty=False)
+        gate = ReviewerGateState(review_gate_allows_push=False)
+        decision = _derive_push_decision(gov, gate)
+        self.assertEqual(decision.action, "await_review")
+        self.assertEqual(decision.reason, "review_pending_before_push")
+
+    def test_push_decision_runs_devctl_push_when_preconditions_hold(self) -> None:
+        gov = _minimal_governance(
+            worktree_clean=True,
+            worktree_dirty=False,
+            ahead_of_upstream_commits=1,
+            upstream_ref="origin/feature/test",
+        )
+        gate = ReviewerGateState(review_gate_allows_push=True)
+        decision = _derive_push_decision(gov, gate)
+        self.assertEqual(decision.action, "run_devctl_push")
+        self.assertTrue(decision.push_eligible_now)
 
     def test_reviewer_loop_blocked(self) -> None:
         gov = _minimal_governance()

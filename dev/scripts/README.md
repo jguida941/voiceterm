@@ -269,6 +269,12 @@ Portability note:
   compatibility writes do not force false `checkpoint_required` states. Raw
   git state and reviewer-owned status remain canonical for real push/review
   truth.
+- Push-readiness rule: `worktree_clean` means only that the local worktree is
+  checkpointed/clean enough to consider the next remote step. Final push
+  eligibility still requires a current review gate plus governed
+  `python3 dev/scripts/devctl.py push` validation. Clean local slices that are
+  still waiting on reviewer acceptance should surface as `await_review`, not
+  as implicitly push-ready.
 - Keep the mode model simple: `active_dual_agent` means live reviewer/implementer
   freshness is enforced; `single_agent`, `tools_only`, `paused`, and `offline`
   keep the same backend and checks but suspend stale dual-agent warnings until

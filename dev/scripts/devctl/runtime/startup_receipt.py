@@ -32,6 +32,9 @@ class StartupReceipt:
     advisory_action: str = ""
     advisory_reason: str = ""
     recommended_action: str = ""
+    push_action: str = ""
+    push_reason: str = ""
+    push_eligible_now: bool = False
     checkpoint_required: bool = False
     safe_to_continue_editing: bool = True
     startup_authority_ok: bool = False
@@ -102,6 +105,9 @@ def build_startup_receipt(
         recommended_action=(
             str(push.recommended_action or "").strip() if push is not None else ""
         ),
+        push_action=str(ctx.push_decision.action or "").strip(),
+        push_reason=str(ctx.push_decision.reason or "").strip(),
+        push_eligible_now=bool(ctx.push_decision.push_eligible_now),
         checkpoint_required=bool(push.checkpoint_required) if push is not None else False,
         safe_to_continue_editing=(
             bool(push.safe_to_continue_editing) if push is not None else True
@@ -158,6 +164,9 @@ def startup_receipt_from_mapping(payload: dict[str, object]) -> StartupReceipt:
         advisory_action=str(payload.get("advisory_action") or "").strip(),
         advisory_reason=str(payload.get("advisory_reason") or "").strip(),
         recommended_action=str(payload.get("recommended_action") or "").strip(),
+        push_action=str(payload.get("push_action") or "").strip(),
+        push_reason=str(payload.get("push_reason") or "").strip(),
+        push_eligible_now=bool(payload.get("push_eligible_now", False)),
         checkpoint_required=bool(payload.get("checkpoint_required", False)),
         safe_to_continue_editing=bool(payload.get("safe_to_continue_editing", True)),
         startup_authority_ok=bool(payload.get("startup_authority_ok", False)),

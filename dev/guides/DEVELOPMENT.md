@@ -63,6 +63,10 @@ Start with `AGENTS.md` to pick your task class, then use this file for commands.
 
 This chart shows the full loop: start a session, implement, verify, and (optionally) release.
 
+Checkpoint note: a local commit/checkpoint only closes the bounded worktree
+slice. Treat remote push as a later governed action that still requires the
+current review/policy gates plus `devctl push` validation.
+
 ```mermaid
 flowchart TD
   A[Start session] --> B[Run bootstrap checks and read active docs]

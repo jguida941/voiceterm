@@ -768,6 +768,8 @@ Routine helper:
 - `python3 dev/scripts/devctl.py push --execute` runs the same preflight,
   performs the current short-lived branch push, and then executes the
   configured post-push bundle.
+- A local checkpoint / clean worktree is not sufficient push proof by itself;
+  the review gate and the governed `devctl push` path decide remote readiness.
 - `python3 dev/scripts/devctl.py sync --push` can audit/sync `develop` +
   `master` + current branch with clean-tree and fast-forward guards.
 

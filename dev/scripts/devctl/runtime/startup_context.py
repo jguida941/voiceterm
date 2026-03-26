@@ -18,6 +18,10 @@ from typing import Any
 from .project_governance import ProjectGovernance
 from .review_state_semantics import is_pending_implementer_state
 from .review_state_locator import load_review_state_payload
+from .startup_push_decision import (
+    PushDecisionState,
+    derive_push_decision as _derive_push_decision,
+)
 from .startup_signals import load_startup_quality_signals
 from .work_intake import WorkIntakePacket, build_work_intake_packet
 
@@ -49,6 +53,7 @@ class StartupContext:
     contract_id: str = "StartupContext"
     governance: ProjectGovernance | None = None
     reviewer_gate: ReviewerGateState = field(default_factory=ReviewerGateState)
+    push_decision: PushDecisionState = field(default_factory=PushDecisionState)
     advisory_action: str = "continue_editing"
     advisory_reason: str = ""
     work_intake: WorkIntakePacket | None = None
@@ -61,6 +66,7 @@ class StartupContext:
         d["advisory_action"] = self.advisory_action
         d["advisory_reason"] = self.advisory_reason
         d["reviewer_gate"] = asdict(self.reviewer_gate)
+        d["push_decision"] = asdict(self.push_decision)
         d["quality_signals"] = dict(self.quality_signals)
         if self.governance is not None:
             d["governance"] = _startup_governance_dict(self.governance)
@@ -293,8 +299,6 @@ def _derive_advisory_action(
     if gate.checkpoint_permitted and pe.worktree_dirty:
         return "checkpoint_allowed", "worktree_dirty_within_budget"
     return "continue_editing", "clean_worktree"
-
-
 def build_startup_context(
     *,
     repo_root: Path | None = None,
@@ -307,6 +311,7 @@ def build_startup_context(
     from ..governance.draft import scan_repo_governance
     governance = scan_repo_governance(repo_root)
     gate = _detect_reviewer_gate(repo_root, governance=governance)
+    push_decision = _derive_push_decision(governance, gate)
     action, reason = _derive_advisory_action(governance, gate)
     work_intake = build_work_intake_packet(
         repo_root=repo_root,
@@ -319,6 +324,7 @@ def build_startup_context(
     return StartupContext(
         governance=governance,
         reviewer_gate=gate,
+        push_decision=push_decision,
         advisory_action=action,
         advisory_reason=reason,
         work_intake=work_intake,

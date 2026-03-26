@@ -58,6 +58,20 @@ def _render_markdown(ctx_dict: dict) -> str:
         lines.append(f"- recommended_action: `{pe.get('recommended_action', '?')}`")
         lines.append("")
 
+    push_decision = ctx_dict.get("push_decision", {})
+    if isinstance(push_decision, dict) and push_decision:
+        lines.append("## Push Decision")
+        lines.append(f"- action: `{push_decision.get('action', '?')}`")
+        lines.append(f"- reason: `{push_decision.get('reason', '')}`")
+        lines.append(
+            f"- push_eligible_now: {push_decision.get('push_eligible_now', False)}"
+        )
+        lines.append(
+            "- has_remote_work_to_push: "
+            f"{push_decision.get('has_remote_work_to_push', False)}"
+        )
+        lines.append("")
+
     authority = ctx_dict.get("startup_authority", {})
     receipt = ctx_dict.get("startup_receipt", {})
     if isinstance(authority, dict) and authority:
@@ -197,6 +211,8 @@ def _machine_summary(
     summary["safe_to_continue_editing"] = (
         bool(push.safe_to_continue_editing) if push is not None else True
     )
+    summary["push_eligible_now"] = bool(ctx.push_decision.push_eligible_now)
+    summary["push_action"] = ctx.push_decision.action
     summary["startup_authority_ok"] = bool(authority_report.get("ok", False))
     summary["startup_receipt_path"] = startup_receipt_path
     return summary

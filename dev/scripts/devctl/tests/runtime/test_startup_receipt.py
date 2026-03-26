@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.runtime.startup_receipt import (
     StartupReceipt,
+    startup_receipt_from_mapping,
     startup_receipt_path,
     startup_receipt_problems,
     startup_receipt_relative_path,
@@ -60,6 +61,19 @@ class StartupReceiptPathTests(unittest.TestCase):
 
 
 class StartupReceiptProblemTests(unittest.TestCase):
+    def test_receipt_round_trip_preserves_push_decision_fields(self) -> None:
+        receipt = startup_receipt_from_mapping(
+            {
+                "push_action": "run_devctl_push",
+                "push_reason": "push_preconditions_satisfied",
+                "push_eligible_now": True,
+            }
+        )
+
+        self.assertEqual(receipt.push_action, "run_devctl_push")
+        self.assertEqual(receipt.push_reason, "push_preconditions_satisfied")
+        self.assertTrue(receipt.push_eligible_now)
+
     def test_problem_list_flags_checkpoint_required_receipts(self) -> None:
         receipt = StartupReceipt(
             checkpoint_required=True,

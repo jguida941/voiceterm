@@ -308,6 +308,8 @@
   for checkpointed-but-unaccepted slices. Remaining `MP-377` closure is the
   deeper contract split between continuation-budget/edit-safety state and
   branch-push mechanics plus the future typed `push_eligible_now` packet.
+  Maintainer docs/README must keep teaching the same distinction so future AI
+  sessions do not relearn "clean tree == push-ready" from repo prose.
 - Current deterministic self-governance closure rule after the 2026-03-21
   guard audit: do not treat more guard count or richer graph semantics as
   progress while typed/runtime authority still lies. First close the cheap
