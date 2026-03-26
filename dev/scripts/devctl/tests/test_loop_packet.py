@@ -6,7 +6,7 @@ import json
 import os
 import tempfile
 import unittest
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -94,7 +94,7 @@ class LoopPacketCommandTests(unittest.TestCase):
                 json.dumps(
                     {
                         "command": "triage-loop",
-                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                         "branch": "develop",
                         "reason": "report_only_below_threshold",
                         "unresolved_count": 3,
@@ -124,7 +124,7 @@ class LoopPacketCommandTests(unittest.TestCase):
                 json.dumps(
                     {
                         "command": "triage-loop",
-                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                         "branch": "develop",
                         "reason": "no fix command configured",
                         "unresolved_count": 2,
@@ -186,7 +186,7 @@ class LoopPacketCommandTests(unittest.TestCase):
                 json.dumps(
                     {
                         "command": "triage-loop",
-                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                         "branch": "develop",
                         "reason": "resolved",
                         "unresolved_count": 0,
@@ -218,7 +218,7 @@ class LoopPacketCommandTests(unittest.TestCase):
                 json.dumps(
                     {
                         "command": "triage-loop",
-                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                         "branch": "develop",
                         "reason": "resolved",
                         "unresolved_count": 0,
@@ -298,7 +298,7 @@ class LoopPacketCommandTests(unittest.TestCase):
                 json.dumps(
                     {
                         "command": "mutation-loop",
-                        "timestamp": (datetime.now(UTC) - timedelta(hours=200)).isoformat().replace("+00:00", "Z"),
+                        "timestamp": (datetime.now(timezone.utc) - timedelta(hours=200)).isoformat().replace("+00:00", "Z"),
                         "reason": "report_only_below_threshold",
                         "last_score": 0.55,
                         "threshold": 0.8,
@@ -325,12 +325,12 @@ class LoopPacketCommandTests(unittest.TestCase):
             command="triage",
             payload={
                 "command": "triage",
-                "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 "rollup": {"total": 0, "by_severity": {"high": 0, "medium": 0}},
                 "next_actions": ["No urgent triage actions detected from current signals."],
             },
-            timestamp=datetime.now(UTC),
-            mtime=datetime.now(UTC).timestamp(),
+            timestamp=datetime.now(timezone.utc),
+            mtime=datetime.now(timezone.utc).timestamp(),
         )
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = Path(tmp_dir) / "packet.json"
@@ -374,7 +374,7 @@ class LoopPacketCommandTests(unittest.TestCase):
                 json.dumps(
                     {
                         "command": "triage-loop",
-                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                         "branch": "develop",
                         "reason": "report_only_below_threshold",
                         "unresolved_count": 1,

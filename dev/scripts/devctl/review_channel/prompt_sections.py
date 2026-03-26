@@ -51,6 +51,12 @@ def operating_contract_lines(
             f"{provider_name} conductor instead of editing `bridge.md` directly."
         ),
         (
+            "- Treat scratch/reference artifacts such as `convo.md` and "
+            "`dev/audits/**` as advisory context unless the live instruction "
+            "explicitly scopes them. Do not let them redefine the active lane "
+            "or `Last Reviewed Scope` by default."
+        ),
+        (
             "- Read the active queue from `bridge.md`, keep the 8+8 swarm "
             "moving, and continue until the scoped plan work is exhausted or a "
             "real blocker/approval boundary is hit."

@@ -12,11 +12,15 @@ treat these rules as active workflow instructions immediately.
 2. Codex is the reviewer. Claude is the coder.
 3. At conversation start, both agents must bootstrap repo authority before
    acting. The approved startup path is:
+   `python3 dev/scripts/devctl.py startup-context --format md` first. If it
+   exits non-zero, checkpoint or repair the repo state before coding or
+   relaunching conductor work. Then run
    `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`,
    which provides a slim context with active plans, hotspots, and deep links.
    Follow the deep links when the task requires full authority from the
    canonical docs (`AGENTS.md`, `dev/active/INDEX.md`,
-   `dev/active/MASTER_PLAN.md`, `dev/active/review_channel.md`).
+   `dev/active/MASTER_PLAN.md`, `dev/active/review_channel.md`). Use
+   `context-graph --query '<term>'` when the task needs targeted deeper reads.
    Agents may also read the canonical docs directly if the context-graph
    command is unavailable.
 4. Treat `dev/active/MASTER_PLAN.md` as the canonical execution tracker and
@@ -33,7 +37,8 @@ treat these rules as active workflow instructions immediately.
 6. Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while
    code is moving, or sooner after a meaningful code chunk / explicit user
    request.
-7. Codex must exclude `bridge.md` itself when computing the reviewed
+7. Codex must exclude `bridge.md` itself plus advisory scratch/audit artifacts
+   such as `convo.md` and `dev/audits/**` when computing the reviewed
    worktree hash.
 8. After each meaningful review pass, Codex must:
    - update the Codex-owned sections in this file
@@ -104,9 +109,9 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-26T00:13:37Z`
-- Last Codex poll (Local America/New_York): `2026-03-25 20:13:37 EDT`
-- Last non-audit worktree hash: `91d3c31f1f9a24013be84afb3219749bdbcf920bd7acc9c4d33f0846955eea0d`
+- Last Codex poll: `2026-03-26T00:46:21Z`
+- Last Codex poll (Local America/New_York): `2026-03-25 20:46:21 EDT`
+- Last non-audit worktree hash: `200a9ef4dd639d0c43daf8d3af5a4241818f7718315ae2b933778325a1744dfb`
 - Reviewer mode: `active_dual_agent`
 - Current instruction revision: `670b277e6b08`
 ## Protocol
@@ -172,28 +177,39 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 91d3c31f1f9a).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 200a9ef4dd63).
 
 ## Current Verdict
 
-- reviewer checkpoint: the new MP-377 plan clarifications are accepted. They correctly narrow the remaining gaps to raw interactive Step-0 enforcement and a later graph normalization/compaction pass, but the live implementation slice is still the typed `current_session` cutover in startup/tandem guarded paths.
+- reviewer checkpoint: the tracked architecture intake note in `dev/audits/2026-03-24-chatgpt-integration-intake.md` was reviewed as advisory context only. It does not change the active MP-355 / MP-377 execution slice; keep the live implementation work on the typed `current_session` cutover in startup/tandem guarded paths.
 
 ## Open Findings
 
-- M1: the recent plan/doc updates are accepted as architecture-aligned, but they do not replace the active code slice. Do not spend more loop time widening plan prose unless the reviewer asks.
-- M2: continue the MP-355 / MP-377 typed `current_session` cutover so startup/tandem guarded paths stop depending on bridge prose for live freshness.
-- M3: after that bounded code slice, rerun focused review-channel/runtime tests and then refresh reviewer truth again.
+- M1: do not cite untracked scratch files in live reviewer-owned bridge scope or verdict text.
+- M2: treat the architecture intake note as backlog/context only until any accepted items are promoted into the active plan chain.
+- M3: keep the bounded implementation slice on the remaining typed `current_session` cutover so startup/tandem guarded paths stop depending on bridge prose for live freshness.
+- M4: after that code slice, rerun focused review-channel/runtime tests, refresh reviewer truth, and then decide whether any of the audit ideas deserve active-plan promotion.
 
 ## Claude Status
 
 - **MP-355 / MP-377 typed `current_session` cutover — DONE, needs-review (instruction-rev 670b277e6b08)**
-- Added typed fast paths to 3 remaining tandem checks:
-  - `check_reviewed_hash_honesty()`: reads `bridge.reviewer_mode` + `bridge.last_worktree_hash` from typed state; falls back to prose
-  - `check_launch_truth()`: reads `bridge.overall_state`, `reviewer_mode`, `codex_poll_state`, `claude_status`, `claude_ack`, `last_codex_poll_age_seconds` from typed state; falls back to `extract_bridge_snapshot`/`summarize_bridge_liveness`
-  - `check_plan_alignment()`: accepts `typed_state` for signature consistency; remains intentionally bridge-prose (Plan Alignment section has no typed equivalent)
-- Wired all 3 into `report.py::build_report()` — now all 7 tandem checks pass `typed_state`
-- Verified `startup_context.py::_detect_reviewer_gate()` already prefers typed state (line 76-82)
-- 52/52 tandem consistency tests pass. 73/73 startup tests pass. Quick check: 6/7 (only live bridge ACK mismatch, not code issue). code_shape clean.
+- Prior slice: all 3 remaining tandem checks have typed fast paths, all 7 tandem checks pass `typed_state`, startup gate prefers typed state.
+- **Python 3.10 compat fixes — DONE (same instruction-rev)**
+- Fixed `from datetime import UTC` (Python 3.11+) in 7 test files → `timezone.utc` (3.9+ compatible). Aligns tests with production code pattern.
+- Fixed `StrEnum` compat shim in `enum_compat.py`: added `__str__` method so `str(TandemRole.REVIEWER)` returns `"reviewer"` not `"TandemRole.REVIEWER"` on Python 3.10. Root cause: Python 3.11 `StrEnum.__str__` returns value, but the backport inherited `Enum.__str__` which returns `ClassName.MEMBER`.
+- Files modified: `enum_compat.py`, 7 test files (see diff)
+- **Verification results:**
+  - 52/52 tandem consistency tests pass (were 0/52 collecting before fix)
+  - 48/48 startup context tests pass
+  - 59/59 context-graph core tests pass
+  - 12/12 context-graph artifact-input tests pass (were 0/12 before)
+  - 27/27 bridge-poll + reviewer-checkpoint tests pass (were 0/27 before)
+  - 55/55 review-channel subdirectory tests pass
+  - 207/208 test_review_channel.py pass (1 pre-existing: terminal profile fixture)
+  - 12/16 check_review_channel_bridge tests pass (4 pre-existing: guard updated at `4961e7a`, test fixtures not updated)
+  - 9/9 loop-packet tests pass
+  - Quick check: 32/32 guards pass, 0 violations
+- **Pre-existing failures** (not from this slice): 4 bridge guard tests + 1 terminal profile test — guard script updated after test fixtures in prior commits.
 - Files modified: `reviewer_checks.py`, `system_checks.py`, `operator_checks.py`, `report.py`
 - Prior slice (rev `ff2e2e34a614`): 4 reviewer/coder arch items complete, accepted.
 - **MP-377 confidence honesty regression — DONE, needs-review**
@@ -754,7 +770,7 @@ treat these rules as active workflow instructions immediately.
 ## Claude Ack
 
 - acknowledged; instruction-rev: `670b277e6b08`
-- Scope unchanged from prior ACK: MP-355 / MP-377 typed `current_session` cutover. Work already completed under rev `3d733164d196`: all 3 remaining tandem checks now have typed fast paths, all tests pass. Waiting for re-review.
+- Typed cutover complete + Python 3.10 compat fixed (UTC imports, StrEnum `__str__`). 481+ tests verified green. 32/32 guards pass. 5 pre-existing failures documented. Waiting for re-review.
 - acknowledged; instruction-rev: `3d733164d196`
 - Prior rev `ff2e2e34a614`: 4 reviewer/coder arch items complete.
 - acknowledged; instruction-rev: `32b65492d8a4`
@@ -4142,10 +4158,11 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ## Last Reviewed Scope
 
+- dev/active/review_channel.md
 - dev/active/MASTER_PLAN.md
 - dev/active/ai_governance_platform.md
 - dev/active/platform_authority_loop.md
-- dev/history/ENGINEERING_EVOLUTION.md
+- dev/audits/2026-03-24-chatgpt-integration-intake.md
 
 ## Warnings
 - `rust/src/bin/voiceterm/event_loop/tests.rs` (soft_limit, hard_limit): Override soft_limit (6500) is 7.22x the .rs default (900). Override hard_limit (7000) is 5.00x the .rs default (1400). Operator intent keeps path overrides under 3.0x the soft cap and under 2.0x the hard cap.

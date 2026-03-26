@@ -46,6 +46,8 @@ REQUIRED_BRIDGE_H2 = [
 
 REQUIRED_BRIDGE_MARKERS = [
     "Codex is the reviewer. Claude is the coder.",
+    "`python3 dev/scripts/devctl.py startup-context --format md`",
+    "`python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`",
     "`AGENTS.md`",
     "`dev/active/INDEX.md`",
     "`dev/active/MASTER_PLAN.md`",

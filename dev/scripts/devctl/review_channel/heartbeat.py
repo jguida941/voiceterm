@@ -60,8 +60,12 @@ _HISTORICAL_POLL_STATUS_PHRASES = (
 )
 NON_AUDIT_HASH_EXCLUDED_PREFIXES = (
     "dev/reports/",
+    "dev/audits/",
     ".voiceterm/memory/",
     "rust/target/",
+)
+NON_AUDIT_HASH_EXCLUDED_BASENAMES = (
+    "convo.md",
 )
 NON_AUDIT_HASH_EXCLUDED_DIR_NAMES = (
     ".pytest_cache",
@@ -285,13 +289,16 @@ def _is_non_audit_hash_excluded(
     excluded: set[str],
     excluded_prefixes: tuple[str, ...],
 ) -> bool:
+    path = Path(relative_path)
     if relative_path in excluded:
         return True
     if excluded_prefixes and any(relative_path.startswith(p) for p in excluded_prefixes):
         return True
+    if path.name in NON_AUDIT_HASH_EXCLUDED_BASENAMES:
+        return True
     return any(
         part in NON_AUDIT_HASH_EXCLUDED_DIR_NAMES
-        for part in Path(relative_path).parts[:-1]
+        for part in path.parts[:-1]
     )
 
 

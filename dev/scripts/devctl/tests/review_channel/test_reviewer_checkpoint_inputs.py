@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -54,7 +54,7 @@ def _build_review_channel_text() -> str:
 
 
 def _build_bridge_text() -> str:
-    last_codex_poll = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    last_codex_poll = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return "\n".join(
         [
             "# Review Bridge",

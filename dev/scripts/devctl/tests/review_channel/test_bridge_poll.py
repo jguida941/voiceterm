@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -54,7 +54,7 @@ def _build_bridge_text(
     open_findings: str = "- keep this slice limited to bridge-poll",
 ) -> str:
     if last_codex_poll is None:
-        last_codex_poll = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        last_codex_poll = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return "\n".join(
         [
             "# Review Bridge",

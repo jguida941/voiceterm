@@ -1506,18 +1506,21 @@ Bootstrap workflow for the current live cycle:
 3. The launched Codex conductor owns the `AGENT-1..AGENT-8` reviewer lanes and
    Claude owns the `AGENT-9..AGENT-16` coding lanes. The conductors may fan out
    specialist workers internally, but only the conductors update `bridge.md`.
+   Missing listed worktrees are not permission to improvise live-repo fallback
+   workers; if a lane worktree is unavailable, stay conductor-only for that
+   lane until the repo-owned worktree contract is repaired.
 4. Terminal.app launch defaults to the `auto-dark` profile selector on macOS so
    the conductor windows come up on a dark profile when a known one is
    available. Use `--terminal-profile default` only when you explicitly want to
    keep Terminal.app unchanged.
-5. Before either conductor hits compaction, the active threshold is 50%
+5. Before either conductor hits compaction, the active threshold is 20%
    remaining context. At or below that line, the current conductor finishes the
    atomic step, updates its owned `bridge.md` sections, and triggers:
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action rollover \
-     --rollover-threshold-pct 50 \
+     --rollover-threshold-pct 20 \
      --await-ack-seconds 180 \
      --format md
    ```
@@ -1675,6 +1678,7 @@ Complete this table only after all active swarm lanes are merged.
 | `2026-03-14T12:40:00Z` | `CODEX` | Closed the next Claude/Codex instruction-drift gap for MP-355. The review-channel conductor prompt now reads the same repo-pack post-edit verification intro/steps/done-criteria contract that generates `CLAUDE.md`, so live launcher scripts and local Claude bootstrap instructions share one blocking definition of when checks are required and what counts as done. Added regression coverage for prompt-level policy injection plus dry-run launcher script output. | `in-progress` | Keep the remaining architecture gap explicit: `AGENTS.md` itself is still only partially generated, so the next cross-AI portability step is to move more of the canonical instruction surface under the same repo-pack renderer/guard path instead of leaving only the bundle reference section generated. |
 | `2026-03-13T21:40:00Z` | `CODEX` | Closed the next live-launch honesty gap and the matching desktop read gap. `review-channel --action launch --terminal terminal-app` now waits for `Last Codex poll` to advance after launch and fails closed if a fresh reviewer heartbeat never appears, so opening Terminal windows no longer counts as a successful live reviewer loop by itself. The bridge-backed `review_state` projection now also emits a compact machine-readable `attention` contract (`status`, `owner`, `summary`, `recommended_action`, `recommended_command`) for stale reviewer / poll-due / waiting-on-peer states, and the Operator Console snapshot path now carries those structured warnings forward instead of silently dropping them after JSON load. | `partial-pass` | Keep the launch path fail-closed on real reviewer liveness, then extend the same typed attention contract into any later event-backed/state-store review path so restart/recovery/UI surfaces all read the same stale-peer truth. |
 | `2026-03-13T22:05:00Z` | `CODEX` | Followed that liveness slice through the repo-owned structure and the default desktop view. The bridge-attention policy now lives in `review_channel/attention.py`, bridge-backed payload assembly in `status_projection.py`, and Terminal.app launch behavior in `terminal_app.py`, which brings the review-channel state/launch path back under shape policy instead of leaving the honesty logic in crowded files. The PyQt6 follow-up now promotes non-healthy review attention into Codex/operator lane health plus session stats, so the default session-first layout goes visibly stale instead of burying the problem only in the warning list. | `partial-pass` | Keep future stale-peer recovery and event-backed review state on the same typed attention contract instead of reintroducing lane-specific heuristics or prompt-only reminders. |
+| `2026-03-26T00:38:51Z` | `CODEX` | Live operator review found the conductor contract was still too loose in two concrete places: reviewer prompts allowed lane fanout without fail-closed worktree checks, and reviewer freshness/hash truth still absorbed advisory artifacts like `convo.md` and `dev/audits/**` into live follow-up scope. Tightened the runtime so non-audit reviewer hash comparisons ignore those advisory artifacts, the conductor prompt now stays conductor-only when listed lane worktrees are missing instead of improvising live-repo fallback lanes, and the default planned anti-compaction rollover threshold moved from 50% to 20% remaining context. | `in-progress` | Re-run focused review-channel proof plus tooling/docs governance, then confirm a fresh launch/rollover dry-run advertises the tightened worktree and rollover contract. |
 
 ## Session Resume
 

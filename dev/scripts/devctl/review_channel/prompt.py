@@ -233,6 +233,13 @@ def _worker_budget_lines(
             "assignments below. If worker fanout is unavailable, stay in conductor "
             "mode and keep executing the loop yourself."
         ),
+        (
+            "Before worker fanout, verify each assigned lane worktree exists and "
+            "is usable. If a listed worktree is missing or unavailable, do not "
+            "substitute a live-repo or read-only fallback lane; skip that lane "
+            "and stay conductor-only until the repo-owned worktree contract is "
+            "repaired."
+        ),
     ]
 
 

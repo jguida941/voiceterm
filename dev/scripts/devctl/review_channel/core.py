@@ -40,7 +40,7 @@ DEFAULT_REVIEW_CHANNEL_REL = active_path_config().review_channel_rel
 
 DEFAULT_TERMINAL_PROFILE = "auto-dark"
 DEFAULT_ROLLOVER_DIR_REL = active_path_config().rollover_root_rel
-DEFAULT_ROLLOVER_THRESHOLD_PCT = 50
+DEFAULT_ROLLOVER_THRESHOLD_PCT = 20
 DEFAULT_ROLLOVER_ACK_WAIT_SECONDS = 180
 BRIDGE_GUARD_SCRIPT_PATH = (
     Path(__file__).resolve().parents[2] / "checks/check_review_channel_bridge.py"

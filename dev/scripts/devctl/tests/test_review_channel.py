@@ -13,7 +13,7 @@ import sys
 import tempfile
 import time
 import unittest
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -171,7 +171,7 @@ def _build_bridge_text(
     claude_ack: str = "- acknowledged; instruction-rev: `56bcd5d01510`",
 ) -> str:
     if last_codex_poll is None:
-        last_codex_poll = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        last_codex_poll = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return "\n".join(
         [
             "# Review Bridge",
@@ -180,6 +180,8 @@ def _build_bridge_text(
             "",
             "Codex is the reviewer. Claude is the coder.",
             "At conversation start, both agents must bootstrap repo authority in this order before acting: `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/review_channel.md`.",
+            "Run `python3 dev/scripts/devctl.py startup-context --format md` first before coding or relaunching conductor work.",
+            "Then run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for slim startup context.",
             "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
             "Codex must exclude `bridge.md` itself when computing the reviewed worktree hash.",
             "Each meaningful review must include an operator-visible chat update.",
@@ -245,7 +247,7 @@ def _build_bridge_text(
 
 
 def _fresh_utc_z(*, seconds_offset: int = 0) -> str:
-    timestamp = datetime.now(UTC) + timedelta(seconds=seconds_offset)
+    timestamp = datetime.now(timezone.utc) + timedelta(seconds=seconds_offset)
     return timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -625,7 +627,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=timezone.utc),
         )
 
         self.assertEqual(liveness.overall_state, "fresh")
@@ -645,7 +647,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=timezone.utc),
         )
 
         self.assertEqual(liveness.overall_state, "waiting_on_peer")
@@ -659,7 +661,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=timezone.utc),
         )
 
         self.assertEqual(liveness.overall_state, "fresh")
@@ -675,7 +677,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=timezone.utc),
         )
 
         self.assertEqual(liveness.overall_state, "waiting_on_peer")
@@ -693,7 +695,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=timezone.utc),
         )
 
         self.assertEqual(liveness.overall_state, "waiting_on_peer")
@@ -803,7 +805,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 0, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 13, 0, tzinfo=timezone.utc),
         )
 
         self.assertEqual(liveness.overall_state, "fresh")
@@ -816,7 +818,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=timezone.utc),
         )
 
         self.assertEqual(liveness.overall_state, "stale")
@@ -868,7 +870,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 12, 0, tzinfo=timezone.utc),
         )
 
         self.assertEqual(liveness.overall_state, "inactive")
@@ -886,7 +888,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 8, 50, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 8, 50, tzinfo=timezone.utc),
         )
 
         self.assertTrue(liveness.implementer_completion_stall)
@@ -901,7 +903,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 8, 50, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 8, 50, tzinfo=timezone.utc),
         )
 
         self.assertFalse(liveness.implementer_completion_stall)
@@ -982,7 +984,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             codex_workers=8,
             claude_workers=8,
             dangerous=False,
-            rollover_threshold_pct=50,
+            rollover_threshold_pct=DEFAULT_ROLLOVER_THRESHOLD_PCT,
             await_ack_seconds=180,
             retirement_note=REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
             rollover_command="python3 dev/scripts/devctl.py review-channel --action rollover",
@@ -998,6 +1000,22 @@ class ReviewChannelHelperTests(unittest.TestCase):
         )
         self.assertIn(
             "Do not leave the reviewer parked on unanswered approval prompts.",
+            prompt,
+        )
+        self.assertIn(
+            "Treat scratch/reference artifacts such as `convo.md` and "
+            "`dev/audits/**` as advisory context unless the live instruction "
+            "explicitly scopes them.",
+            prompt,
+        )
+        self.assertIn(
+            "Before worker fanout, verify each assigned lane worktree exists "
+            "and is usable.",
+            prompt,
+        )
+        self.assertIn(
+            f"When the interface shows {DEFAULT_ROLLOVER_THRESHOLD_PCT}% context remaining "
+            "or lower",
             prompt,
         )
         self.assertIn(
@@ -4896,7 +4914,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             bridge_path = root / "bridge.md"
             bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
             status_dir = root / "dev/reports/review_channel/latest"
-            now = datetime.now(UTC)
+            now = datetime.now(timezone.utc)
             publisher_started_at = (now - timedelta(minutes=3)).isoformat().replace(
                 "+00:00", "Z"
             )
@@ -8652,7 +8670,7 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
         snapshot = extract_bridge_snapshot(_build_bridge_text())
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=timezone.utc),
             current_worktree_hash=stored_hash,
         )
         self.assertIs(liveness.reviewed_hash_current, True)
@@ -8662,7 +8680,7 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
         snapshot = extract_bridge_snapshot(_build_bridge_text())
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=timezone.utc),
             current_worktree_hash=different_hash,
         )
         self.assertIs(liveness.reviewed_hash_current, False)
@@ -8671,7 +8689,7 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
         snapshot = extract_bridge_snapshot(_build_bridge_text())
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=timezone.utc),
         )
         self.assertIsNone(liveness.reviewed_hash_current)
 
@@ -8682,7 +8700,7 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
         snapshot = extract_bridge_snapshot(_build_bridge_text())
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=timezone.utc),
             current_worktree_hash=stored_hash,
         )
         liveness_dict = bridge_liveness_to_dict(liveness)
@@ -8697,7 +8715,7 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
         snapshot = extract_bridge_snapshot(bridge_text)
         liveness = summarize_bridge_liveness(
             snapshot,
-            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=UTC),
+            now_utc=datetime(2026, 3, 8, 19, 13, 45, tzinfo=timezone.utc),
             current_worktree_hash="c" * 64,
         )
         self.assertIs(liveness.reviewed_hash_current, False)
@@ -8732,6 +8750,11 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
             rust_target_path = root / "rust/target/.rustc_info.json"
             rust_target_path.parent.mkdir(parents=True, exist_ok=True)
             rust_target_path.write_text("{\"rustc\": \"1.88.0\"}\n", encoding="utf-8")
+            audit_path = root / "dev/audits/notes.md"
+            audit_path.parent.mkdir(parents=True, exist_ok=True)
+            audit_path.write_text("audit v1\n", encoding="utf-8")
+            convo_path = root / "convo.md"
+            convo_path.write_text("scratch v1\n", encoding="utf-8")
             subprocess.run(
                 ["git", "add", ".gitignore", "src/tracked.py"],
                 cwd=root,
@@ -8754,6 +8777,8 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
             pytest_cache_path.write_text("[\"test_two\"]\n", encoding="utf-8")
             pycache_path.write_bytes(b"compiled-v2")
             rust_target_path.write_text("{\"rustc\": \"1.88.1\"}\n", encoding="utf-8")
+            audit_path.write_text("audit v2\n", encoding="utf-8")
+            convo_path.write_text("scratch v2\n", encoding="utf-8")
             artifact_only_hash = compute_non_audit_worktree_hash(
                 repo_root=root,
                 excluded_rel_paths=(),
@@ -9164,10 +9189,10 @@ class TestDaemonEventReducer(unittest.TestCase):
 
     def test_filter_inbox_packets_skips_expired_pending_rows(self) -> None:
         """Expired pending packets must not mask the live Claude inbox view."""
-        expired_at = (datetime.now(UTC) - timedelta(minutes=5)).isoformat().replace(
+        expired_at = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat().replace(
             "+00:00", "Z"
         )
-        live_expires_at = (datetime.now(UTC) + timedelta(minutes=30)).isoformat().replace(
+        live_expires_at = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat().replace(
             "+00:00", "Z"
         )
         events = [

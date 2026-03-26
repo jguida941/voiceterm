@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -56,7 +56,7 @@ def _write_summary(repo_root: Path, *, generated_at: str | None) -> None:
 
 
 def _utc_timestamp(delta: timedelta | None = None) -> str:
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     if delta is not None:
         now += delta
     return now.isoformat().replace("+00:00", "Z")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import textwrap
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -26,7 +26,7 @@ from dev.scripts.checks.tandem_consistency.checks import (
 
 
 def _utc_stamp(offset_seconds: int = 0) -> str:
-    ts = datetime.now(UTC) + timedelta(seconds=offset_seconds)
+    ts = datetime.now(timezone.utc) + timedelta(seconds=offset_seconds)
     return ts.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 import tempfile
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
@@ -33,6 +33,8 @@ def _valid_bridge_text(script) -> str:
         "",
         "Codex is the reviewer. Claude is the coder.",
         "At conversation start, both agents must bootstrap repo authority in this order before acting: `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/review_channel.md`.",
+        "Run `python3 dev/scripts/devctl.py startup-context --format md` first before coding or relaunching conductor work.",
+        "Then run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for slim startup context.",
         "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
         "Codex must exclude `bridge.md` itself when computing the reviewed worktree hash.",
         "Each meaningful review must include an operator-visible chat update.",
@@ -53,13 +55,22 @@ def _valid_bridge_text(script) -> str:
         "- Last Codex poll (Local America/New_York): `2026-03-07 23:58:19 EST`",
         "- Reviewer mode: `active_dual_agent`",
         f"- Last non-audit worktree hash: `{'a' * 64}`",
+        "- Current instruction revision: `56bcd5d01510`",
         "",
     ]
     for heading in script.REQUIRED_BRIDGE_H2[1:]:
         lines.append(f"## {heading}")
         lines.append("")
-        if heading == "Current Instruction For Claude":
+        if heading == "Poll Status":
+            lines.append("- reviewer waiting on Claude progress; live loop healthy.")
+        elif heading == "Current Instruction For Claude":
             lines.append("- continue with the next scoped task")
+        elif heading == "Claude Status":
+            lines.append("- implementing the current bounded slice")
+        elif heading == "Claude Questions":
+            lines.append("- (none)")
+        elif heading == "Claude Ack":
+            lines.append("- acknowledged; instruction-rev: `56bcd5d01510`")
         elif heading == "Last Reviewed Scope":
             lines.append("- app/operator_console/theme/theme_engine.py")
         else:
@@ -111,7 +122,7 @@ class CheckReviewChannelBridgeTests(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.script = _load_script_module()
-        cls.fixed_now = datetime(2026, 3, 8, 5, 0, 0, tzinfo=UTC)
+        cls.fixed_now = datetime(2026, 3, 8, 5, 0, 0, tzinfo=timezone.utc)
 
     def _temp_path(self, name: str, text: str) -> Path:
         tmp_dir = tempfile.TemporaryDirectory(dir=REPO_ROOT)
@@ -325,7 +336,7 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=UTC)
+        stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=timezone.utc)
         with (
             patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
@@ -347,7 +358,7 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=UTC)
+        stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=timezone.utc)
         with (
             patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),

@@ -2157,6 +2157,13 @@ become the main product surface.
   unchanged stale-implementer state through that repo-owned recovery path, and
   `launch|rollover` no longer fail solely because the reviewer loop is stale
   on the implementer side.
+  A 2026-03-26 live-loop follow-up also tightened the conductor contract
+  itself: the default planned rollover threshold is now 20% remaining context,
+  reviewer prompts must stay conductor-only when listed lane worktrees are
+  missing instead of improvising live-repo fallback workers, and reviewed-hash
+  truth now ignores advisory artifacts such as `convo.md` and `dev/audits/**`
+  so live reviewer follow-up tracks the real execution slice instead of scratch
+  intake material.
   The next narrowed runtime-consumer splice is also explicit: queue and
   attention already drive current-focus and wait projections, but startup/
   work-intake routing and reviewer/implementer scheduling still ignore
