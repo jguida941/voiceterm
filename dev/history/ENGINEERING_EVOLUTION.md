@@ -102,6 +102,64 @@ Evidence:
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/ralph_guardrail_control_plane.md`
 
+### 2026-03-26 - The architecture audit loop now states reviewer/controller ownership explicitly
+
+Fact: the shared architecture audit needed one more process correction after
+an interrupted session exposed that the live reviewer instruction and ledger
+had drifted into a bounded "closure pass" framing. The repo now records the
+operating mode explicitly: Claude is the primary broad whole-system finder,
+Codex is the reviewer/controller that verifies Claude deltas against actual
+code/docs, `dev/audits/architecture_alignment.md` is the shared audit ledger,
+and `dev/active/MASTER_PLAN.md` plus the scoped plans remain the execution
+owners. The same correction also de-scopes older bounded pass language:
+finding "no new issues" in a named four-area pass does not count as a
+whole-platform closure claim, and the review-channel plan now states the
+producer/consumer split between MP-355 typed `current_session` projection and
+MP-377 checkpoint/push decision authority more explicitly.
+
+This matters because the repo was at risk of teaching the wrong control
+contract back into future sessions. If the ledger itself implies that a
+bounded pass closed the whole platform, later agents will stop broad review
+too early or start treating the audit ledger as the execution owner. Making
+the finder/reviewer split and the plan-ownership split explicit keeps the
+live review loop honest without reintroducing Codex-side broad audit swarms.
+
+Evidence:
+
+- `dev/audits/architecture_alignment.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/review_channel.md`
+
+### 2026-03-26 - Review-channel now fails closed on no-op implementer polling and detached-daemon dual-agent drift
+
+Fact: the repo had already taught parts of the "don't park Claude on polling"
+contract, but that rule was fragmented across prompt surfaces and was not
+consistently enforced. A live regression exposed two specific holes: Claude
+could still satisfy the loop with low-information updates like `No change.
+Continuing.` while active work was assigned, and `review-channel --action
+status` could still present `active_dual_agent` as effectively live when only
+the detached publisher/supervisor heartbeats remained and no repo-owned
+conductors were present.
+
+This matters because partial prompt wording is not enough for a control-plane
+contract. If generated `CLAUDE.md`, bridge start rules, conductor prompts,
+runtime validators, and maintainer docs do not agree, the system drifts back
+to "looks fresh, does nothing" behavior. The fix is now layered in the repo:
+shared stall markers drive review-channel runtime plus tandem checks, bridge
+validation rejects no-op implementer parking under active work, `status`
+elevates detached-daemon/no-conductor dual-agent state to a bridge-contract
+error, and the maintainer docs now teach the same rule the runtime enforces.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/bridge_validation.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/review_channel/status_projection_helpers.py`
+- `dev/config/templates/claude_instructions.template.md`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
 ### 2026-03-26 - The shared architecture ledger stopped hiding one integrations portability gap
 
 Fact: the shared architecture ledger was corrected after Codex found that the

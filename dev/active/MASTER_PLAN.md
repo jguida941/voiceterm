@@ -293,14 +293,36 @@
   import-time repo-pack path freezes outside review-channel proper. Treat the
   audit as complete enough to route implementation, not as a reason to stop
   promoting findings into scoped plans.
-- 2026-03-26 architecture-review closure-truth correction: the next bounded
-  Codex pass over `dev/audits/architecture_alignment.md` found no new
-  HIGH/MEDIUM issues, corrected one false `MP-375` gap claim
-  (`SUB_SCORE_WEIGHTS` is already owned in `review_probes.md`) and one
-  `MP-377` owner typo for tandem hash exclusions, and linked the fixed
-  push/bridge/docs-teaching rows to explicit code/docs/test proof. Treat the
-  audit as saturated for broad discovery; remaining work is implementation and
-  proof on the mapped `MP-376` / `MP-377` queue, not another unbounded sweep.
+- 2026-03-26 architecture-review closure-truth correction: the bounded Codex
+  pass over `dev/audits/architecture_alignment.md` did correct one false
+  `MP-375` gap claim (`SUB_SCORE_WEIGHTS` is already owned in
+  `review_probes.md`), one `MP-377` owner typo for tandem hash exclusions,
+  and the proof links for the fixed push/bridge/docs-teaching rows. That
+  pass was ledger cleanup, not proof that whole-platform discovery is
+  finished. The live audit loop is now explicit: Claude is the primary broad
+  finder across the full AI governance platform and connected Python control-
+  plane surfaces; Codex verifies Claude deltas against actual code/docs and
+  only then promotes verified findings into `MASTER_PLAN` plus the scoped
+  owner plans. `dev/audits/architecture_alignment.md` is the shared audit
+  ledger, not the execution owner, and Codex-side broad audit swarms should
+  stay off. Do not claim whole-platform "no new issues" or closure until
+  full subsystem coverage is re-verified and two consecutive Claude+Codex
+  broad passes add no new HIGH/MEDIUM findings.
+- 2026-03-26 architecture-review verification follow-up: Codex reviewed
+  Claude's next broad pass against the actual code and accepted four concrete
+  findings for owner routing. `MP-377` now has two additional startup-
+  authority gaps to close: `runtime/startup_context.py` swallows bridge-parse
+  failure into `implementation_block_reason="bridge_parse_error"` without
+  surfacing that degradation through the startup receipt/rendered operator
+  path, and `_resolve_bridge_path()` still catches only `ImportError` while
+  sibling startup code already handles `OSError`/`ValueError` fail-closed.
+  `MP-376` now also owns two newly verified portability gaps:
+  `resolve_docs_check_policy()` silently falls back to VoiceTerm maintainer-
+  doc defaults when the repo policy section is empty, and
+  `detect_repo_capabilities()` still recognizes only Python/Rust families and
+  silently disables language-dependent probes on other repos. The raw Pass 8
+  percentage-style portability scores were not accepted as authoritative and
+  were stripped back to scoped, evidence-backed claims.
 - 2026-03-26 architecture-doc teaching correction: portability closure also
   includes the docs and starter surfaces that future AI sessions read first.
   Plain-language architecture/runbook text must front-load that VoiceTerm is
@@ -2235,6 +2257,14 @@ become the main product surface.
   truth now ignores advisory artifacts such as `convo.md` and `dev/audits/**`
   so live reviewer follow-up tracks the real execution slice instead of scratch
   intake material.
+  A second 2026-03-26 follow-up closed the next live honesty gap too: the
+  repo now teaches the anti-stall contract through generated `CLAUDE.md`,
+  bridge start rules, maintainer docs, and prompt guards together, bridge
+  validation rejects no-op implementer parking such as `No change.
+  Continuing.` while active work is still assigned, and `review-channel
+  --action status` now treats `active_dual_agent` without repo-owned
+  conductors as a bridge-contract error instead of healthy detached-daemon
+  freshness.
   The next narrowed runtime-consumer splice is also explicit: queue and
   attention already drive current-focus and wait projections, but startup/
   work-intake routing and reviewer/implementer scheduling still ignore

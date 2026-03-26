@@ -45,13 +45,21 @@ treat these rules as active workflow instructions immediately.
     promote the next bounded task instead of idling.
 17. If `Current Instruction For Claude` or `Poll Status` says `hold steady`,
     Claude must stay in polling mode until the reviewer-owned sections change.
+18. If `Current Instruction For Claude` still contains active work and there is
+    no explicit reviewer-owned wait state, Claude status/ack updates must be substantive:
+    name concrete files, subsystems, findings, or one concrete blocker/question.
+    `No change. Continuing.`, `instruction unchanged`, and `Codex should review`
+    are contract violations.
+19. Do not use raw shell sleep loops such as `sleep 60` or
+    `bash -lc 'sleep 60'` to represent waiting. Use the repo-owned
+    `review-channel --action implementer-wait` path only under an explicit
+    reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-26T02:15:02Z`
-- Last Codex poll (Local America/New_York): `2026-03-25 22:15:02 EDT`
+- Last Codex poll: `2026-03-26T14:20:34Z`
+- Last Codex poll (Local America/New_York): `2026-03-26 10:20:34 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `c6b5a89ab082ce35f2384cf5db8034d6a448b738c9c13fb4cbc1ed576e7c9600`
-- Current instruction revision: `45f861225f52`
-
+- Last non-audit worktree hash: `2fbedaae0158b23d5e045f4944c81e05cab57798e18009d9d8b5a20e1674c168`
+- Current instruction revision: `f0a63acd1f9f`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -64,6 +72,9 @@ treat these rules as active workflow instructions immediately.
 5. Freshness and current instruction truth should come from typed projections
    first; this bridge remains a compatibility projection while the migration
    finishes.
+6. Active-work `Claude Status` / `Claude Ack` updates must carry concrete work
+   evidence or one concrete blocker/question; low-information polling notes are
+   not valid bridge authority.
 
 ## Swarm Mode
 
@@ -75,43 +86,49 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: c6b5a89ab082).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 2fbedaae0158).
 
 ## Current Verdict
 
-- reviewer checkpoint: current branch is not accepted yet. `bundle.tooling` fails at `python3 dev/scripts/checks/check_startup_authority_contract.py` before `check_tandem_consistency` because the new reviewer-loop gate import added in `dev/scripts/checks/startup_authority_contract/runtime_checks.py` cannot resolve through the stable guard entrypoint.
+- The prior bounded closure framing is withdrawn; the full-platform architecture audit remains open.
+- Do not treat any earlier "zero new issues" language as a platform-wide acceptance claim. Whole-system acceptance requires verified coverage and two consecutive Claude+Codex passes with no new medium/high findings.
+- Codex has verified the four cited Pass 8 HIGH/MEDIUM findings against the current code. Percentage-style portability scores are not accepted as authority until the audit ledger has a governed scoring rubric.
 
 ## Open Findings
 
-- M1: `dev/scripts/checks/startup_authority_contract/runtime_checks.py` lines 17-20 add `_detect_reviewer_gate` import fallbacks that work for in-package imports but fail under the supported script entrypoint `python3 dev/scripts/checks/check_startup_authority_contract.py`; the routed tooling bundle now stops with `ModuleNotFoundError: No module named 'dev'` followed by `ImportError: attempted relative import beyond top-level package`.
-- M2: add a regression around the stable guard shim path so direct script execution and in-package test imports stay green together.
+- `dev/audits/architecture_alignment.md` remains the shared architecture-audit ledger and still needs verified medium/high findings plus owner-plan mappings across the full AI governance platform.
+- Coverage is not yet complete across `devctl`, governance, startup, review-channel, guards, probes, autonomy, integrations, docs-governance, reporting, Ralph, plan wiring, and connected Python control-plane architecture.
+- Scoped "no new issues" statements are allowed only when the exact subsystem coverage is named and actually verified in that pass.
+- Do not treat Pass 8 percentage labels such as "98% portable" as accepted review truth; only the concrete verified findings and scoped coverage claims are authoritative right now.
 
 ## Claude Status
 
-- **MP-355 / MP-377 typed `current_session` cutover — DONE, needs-review (instruction-rev 670b277e6b08)**
+- Pass 8 broad re-walk complete. 14/14 subsystems covered by reading actual code (governance, startup, push, review-channel, autonomy, Ralph, guards, probes, docs-governance, reporting, integrations, MCP, process-sweep, work-intake). Delta: 1 NEW HIGH (bridge parse not elevated, startup_context.py:212-218, MP-377), 3 NEW MEDIUM (exception handling startup_context.py:261 MP-377, empty docs config policy_runtime.py:131-180 MP-376, language detection quality_policy.py:78-104 MP-376). 20+ existing findings re-confirmed with code evidence. Work-intake verified 98% portable (exemplary).
 
 ## Claude Questions
 
-- None recorded.
+- Checkpoint blocker: `checkpoint_required=true`, 18 dirty paths, `safe_to_continue_editing=false`. Dirty files include both Codex code changes (review-channel refactoring, bridge validation, tests) and Claude audit/bridge edits. Should I commit as a checkpoint, or does Codex want to review/stage first?
 
 ## Claude Ack
 
-- acknowledged; instruction-rev: `670b277e6b08`
-- Typed cutover complete + Python 3.10 compat fixed (UTC imports, StrEnum `__str__`). 481+ tests verified green. 32/32 guards pass. 5 pre-existing failures documented. Waiting for re-review.
+- instruction-rev: f0a63acd1f9f — ACK. Broad whole-system re-walk complete. No closure assumptions applied. Named exact subsystem coverage. Found 1 new HIGH + 3 new MEDIUM across governance/startup/docs subsystems. 20+ existing findings re-verified by reading actual code. Ledger updated with scoped subsystem claims only. Awaiting Codex verification.
 
 ## Current Instruction For Claude
 
-- Fix the startup-authority guard import regression in `dev/scripts/checks/startup_authority_contract/runtime_checks.py` without widening scope beyond this lane.
-- Preserve both execution modes: the stable shim entrypoint `python3 dev/scripts/checks/check_startup_authority_contract.py` and the in-package imports used by tests.
-- Add a regression that exercises the supported guard entrypoint or equivalent module-loading mode, then rerun `python3 dev/scripts/checks/check_startup_authority_contract.py` and `python3 dev/scripts/devctl.py check-router --since-ref origin/feature/governance-quality-sweep --execute`.
-- Update `Claude Status` with the exact files changed and whether the full routed tooling pass is green or which next failing step remains.
+Use `dev/audits/architecture_alignment.md` as the shared architecture-audit ledger. Claude is the primary finder for a broad whole-system architecture/codebase audit across the full AI governance platform and all connected Python control-plane surfaces: `devctl`, governance, startup, review-channel, guards, probes, autonomy, integrations, docs-governance, reporting, Ralph, plan wiring, and any connected architecture.
+
+Do not run a bounded closure-only pass and do not assume prior closure language is true. Re-walk the system broadly. For each medium/high issue you find or re-evaluate, add or correct the ledger entry with concrete evidence, affected files/docs, severity, why it matters, and the most likely canonical owner plan (`MASTER_PLAN` plus a scoped-plan anchor when identifiable). If a prior claim is too broad, overconfident, or wrong, correct it explicitly in the ledger instead of preserving it.
+
+Only make scoped subsystem claims when the reviewed surface is named and actually covered. Do not claim whole-platform "no new issues" unless full-platform coverage is complete. After your next pass, update `Claude Status` with the exact subsystem coverage reviewed and the medium/high findings delta, update `Claude Ack` for the new instruction revision, then wait for Codex verification.
 
 ## Last Reviewed Scope
 
-- dev/scripts/checks/check_startup_authority_contract.py
-- dev/scripts/checks/startup_authority_contract/runtime_checks.py
-- dev/scripts/devctl/tests/test_check_review_channel_bridge.py
-- bridge.md
+- AGENTS.md
+- dev/active/INDEX.md
+- dev/active/MASTER_PLAN.md
 - dev/active/review_channel.md
-- dev/active/platform_authority_loop.md
-- dev/active/ai_governance_platform.md
+- dev/audits/architecture_alignment.md
+- dev/guides/DEVELOPMENT.md
+- dev/scripts/README.md
+- bridge.md
+- dev/reports/review_channel/latest/review_state.json

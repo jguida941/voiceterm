@@ -193,6 +193,8 @@ def _build_bridge_text(
             "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`, Claude must not assume a live Codex review loop. Treat this file as context unless a reviewer-owned section explicitly reactivates the bridge or the operator asks for dual-agent mode.",
             'When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
             "If `Current Instruction For Claude` or `Poll Status` says `hold steady`, `waiting for reviewer promotion`, `Codex committing/pushing`, or similar wait-state language, Claude must not mine plan docs for side work or self-promote the next slice. Keep polling until a reviewer-owned section changes.",
+            "If `Current Instruction For Claude` still contains active work and there is no explicit reviewer-owned wait state, Claude status/ack updates must be substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `Codex should review` are contract violations.",
+            "Do not use raw shell sleep loops such as `sleep 60` or `bash -lc 'sleep 60'` to represent waiting. Use the repo-owned `review-channel --action implementer-wait` path only under an explicit reviewer-owned wait state.",
             "Only the Codex conductor may update the Codex-owned sections in this file.",
             "Only the Claude conductor may update the Claude-owned sections in this file.",
             "Specialist workers should wake on owned-path changes or explicit conductor request instead of every worker polling the full tree blindly on the same cadence.",
@@ -751,6 +753,21 @@ class ReviewChannelHelperTests(unittest.TestCase):
             "live bridge validation must reject stale Claude Ack revision tokens",
         )
 
+    def test_validate_live_bridge_contract_rejects_implementer_completion_stall(self) -> None:
+        snapshot = extract_bridge_snapshot(
+            _build_bridge_text(
+                claude_status="- No change. Continuing.",
+                claude_ack="- instruction-rev: `56bcd5d01510`",
+            )
+        )
+
+        errors = validate_live_bridge_contract(snapshot)
+
+        self.assertTrue(
+            any("completion-stall language" in error for error in errors),
+            "live bridge validation must reject no-op implementer polling while work is still assigned",
+        )
+
     def test_detect_active_session_conflicts_uses_fresh_logs_when_process_probe_is_unavailable(
         self,
     ) -> None:
@@ -1107,6 +1124,16 @@ class ReviewChannelHelperTests(unittest.TestCase):
         )
         self.assertIn(
             "also poll the Claude-targeted packet inbox/watch surface",
+            prompt,
+        )
+        self.assertIn(
+            "every `Claude Status` / `Claude Ack` update must name concrete files, "
+            "subsystems, findings, or one concrete blocker/question.",
+            prompt,
+        )
+        self.assertIn(
+            "Do not use raw shell idling such as `sleep 60` or "
+            "`bash -lc 'sleep 60'` to emulate waiting.",
             prompt,
         )
         self.assertIn(
@@ -2544,6 +2571,30 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         attention = derive_bridge_attention(liveness)
         self.assertEqual(attention["status"], "reviewer_supervisor_required")
         self.assertIn("reviewer-heartbeat --follow", attention["recommended_command"])
+
+    def test_attention_prioritizes_bridge_contract_error_over_review_follow_up(self) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "review_needed": True,
+            "reviewer_supervisor_running": True,
+            "reviewed_hash_current": False,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+        }
+        attention = derive_bridge_attention(
+            liveness,
+            contract_errors=[
+                "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present."
+            ],
+        )
+        self.assertEqual(attention["status"], "bridge_contract_error")
 
     def test_attention_reports_review_follow_up_required_when_review_is_pending_and_supervisor_is_running(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
@@ -5385,6 +5436,61 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertFalse(payload["bridge_liveness"]["codex_conductor_active"])
             self.assertTrue(
                 any("Hybrid chat/terminal review loops are not trusted" in error for error in payload["errors"])
+            )
+
+    def test_run_status_fails_closed_when_runtime_is_live_but_no_conductors_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
+            args = SimpleNamespace(
+                action="status",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                promotion_plan="dev/active/continuous_swarm.md",
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=False,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload["ok"])
+            self.assertFalse(payload["bridge_liveness"]["claude_conductor_active"])
+            self.assertFalse(payload["bridge_liveness"]["codex_conductor_active"])
+            self.assertEqual(payload["attention"]["status"], "bridge_contract_error")
+            self.assertTrue(
+                any(
+                    "no live repo-owned Codex or Claude conductor sessions are present"
+                    in error
+                    for error in payload["errors"]
+                )
             )
 
     def test_run_reviewer_heartbeat_preserves_reviewed_hash(self) -> None:

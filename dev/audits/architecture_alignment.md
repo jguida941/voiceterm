@@ -1,7 +1,12 @@
 # Architecture Alignment Audit
 
 **Created**: 2026-03-26 | **Owner**: MP-377 / MP-376
-**Method**: 8-agent parallel audit across all devctl subsystems
+**Method**: Initial baseline from an 8-agent parallel audit across devctl subsystems
+
+**Current operating mode**: Claude is the primary broad whole-system finder.
+Codex is the reviewer/controller that verifies Claude deltas against code/docs
+before promoting verified findings into `MASTER_PLAN` and the scoped owner
+plans. This file is the shared audit ledger, not the execution owner.
 
 ## Executive Summary
 
@@ -1000,6 +1005,233 @@ proof-linking will need per-item verification when fixes land.
 **Closure criteria status (updated):**
 - [x] All HIGH/MEDIUM findings mapped to owner plans
 - [x] Fixed rows link to proof (the currently fixed Pass 5 review rows now cite code/docs/tests/commit evidence)
-- [x] Every subsystem has audit coverage
-- [x] Two consecutive bounded passes with zero new HIGH/MEDIUM (Pass 6 + Pass 6 review)
+- [ ] Whole-system coverage re-verified under the restored Claude-primary broad audit loop
+- [ ] Two consecutive Claude+Codex broad passes produce no new HIGH/MEDIUM findings
 - [x] Plan ownership conflicts resolved by Codex mapping update + Pass 6 verification
+
+## Pass 7: Focused 4-Area Verification (Claude, 2-Agent, bounded)
+
+**Pass 7 covered only four previously named areas from the then-current Codex
+instruction. It is a bounded verification pass, not a whole-platform "zero
+new issues" claim.**
+
+### 1. Startup Gate Command Hardcodes
+
+**Status**: PROSE-ONLY, code still hardcoded, already tracked.
+
+`startup_gate.py` lines 15-23: `_GATED_COMMANDS` is still a static set of 7
+commands. Not yet moved to governance config. MP-377 owns this per the audit
+ledger (Pass 1, line 387-393). The scoped plan (platform_authority_loop.md)
+references startup authority broadly but has no discrete checklist item for
+this specific parameterization.
+
+**Conclusion**: Already tracked, owner correct (MP-377), no new finding.
+
+### 2. Integration Federation Destination Root Defaults
+
+**Status**: PROSE-ONLY, code still hardcoded, already tracked.
+
+`federation_policy.py` line 11: `DEFAULT_ALLOWED_DESTINATION_ROOTS =
+["dev/integrations/imports"]` still hardcoded. MP-376 owns this per the
+audit Pass 2 coverage notes (line 479-480). Tracked in
+portable_code_governance.md:442-450 as promoted work but no MASTER_PLAN
+checklist item.
+
+**Conclusion**: Already tracked, owner correct (MP-376), no new finding.
+
+### 3. MP-376 vs MP-377 Authority Boundary
+
+**Status**: CLEAR, no contradictions.
+
+The boundary is fully explicit in the Codex Owner-Mapping Update (audit
+lines 631-651) and MASTER_PLAN.md:
+- MP-376 = portable engine code (guards, probes, evidence contracts)
+- MP-377 = startup authority, session state, repo-pack activation, platform
+  extraction
+- No remaining overlap or ambiguity detected.
+
+**Conclusion**: No new finding.
+
+### 4. Review-Channel Delegation of current_session / checkpoint / push
+
+**Status**: Delegation is correct in code but implicit in plan docs.
+
+- `current_session`: MP-355 implements `ReviewCurrentSessionState` in
+  `review_state_models.py`. MP-377 consumes it for continuation/push
+  decisions via `startup_push_decision.py`. The delegation is correct but
+  not documented in review_channel.md Cross-Plan Dependencies (lines
+  139-190), which lists 13 items but zero mention of push_enforcement,
+  checkpoint_required, or current_session handoff to MP-377.
+
+- `checkpoint semantics`: MP-377 owns authority (platform_authority_loop.md
+  :271-278). MP-355 implements the checkpoint action (review_channel.md
+  :1632). Cross-plan delegation is undocumented.
+
+- `push authority`: MP-377 owns push eligibility decision (via
+  `startup_push_decision.py`). MP-355's role in push UI/reporting is
+  undefined in plan docs.
+
+**Conclusion**: This is a plan-doc completeness gap (cross-plan dependency
+documentation), not a new architecture violation. The code is correct and
+the authority chain works. The missing cross-plan entries are a doc
+improvement item, not a HIGH/MEDIUM finding. Recommend adding entries 14-15
+to review_channel.md Cross-Plan Dependencies covering push_enforcement and
+current_session delegation to MP-377.
+
+### Pass 7 Summary
+
+| Area | Status | New Finding? |
+|------|--------|-------------|
+| Startup gate commands | PROSE-ONLY, already tracked | No |
+| Federation destination roots | PROSE-ONLY, already tracked | No |
+| MP-376/377 boundary | CLEAR | No |
+| Review-channel delegation | Implicit in docs, correct in code | No (doc improvement only) |
+
+No new HIGH/MEDIUM findings were added within these four named areas. This
+bounded result does not close broad discovery for the whole platform.
+
+### Codex Re-open Correction (2026-03-26, broad-loop restore)
+
+- Pass 7 remains valid only as a four-area bounded verification pass. It does
+  not prove whole-platform completion, whole-platform "no new issues", or
+  architecture-review closure.
+- The live audit loop is now explicit: Claude performs the broad whole-system
+  review across the full AI governance platform and connected Python control-
+  plane surfaces; Codex verifies Claude deltas against the actual code/docs
+  and only then promotes verified findings into owner plans.
+- Until the reopened whole-system loop re-verifies coverage, do not use the
+  earlier bounded-pass results as proof that broad discovery is saturated or
+  that medium/high findings are exhausted platform-wide.
+
+## Pass 8: Broad Whole-System Re-Walk (Claude broad pass)
+
+**Pass 8: 1 new HIGH, 3 new MEDIUM findings. Broad re-walk across 14
+subsystems with no closure assumptions. Prior closure framing withdrawn
+per reviewer instruction f0a63acd1f9f.**
+
+### Subsystem Coverage
+
+Claude reported code coverage across 14 subsystems. Codex verified the new
+HIGH/MEDIUM findings below against the cited code paths before promoting them
+into owner plans.
+
+| Agent | Subsystems Covered | Files Read |
+|-------|-------------------|------------|
+| 1 | governance bootstrap, startup authority, push | project_governance_parse.py, push_policy.py, push_routing.py, push_state.py, startup_context.py, startup_gate.py, startup_receipt.py, startup_push_decision.py, push.py |
+| 2 | review-channel, autonomy, Ralph | core.py, event_store.py, prompt.py, handoff.py, status_projection.py, report_helpers.py, run_parser.py, benchmark_parser.py, ralph_ai_fix.py |
+| 3 | guards, probes, docs-governance, reporting | check_phases.py, code_shape_policy.py, check_repo_url_parity.py, fp_classifier.py, recommendation_engine.py, policy_defaults.py, policy_runtime.py, halstead.py, metrics.py, quality_policy.py, quality_policy_scopes.py |
+| 4 | integrations, MCP, process-sweep, plan-wiring, reports-retention | federation_policy.py, mcp.py, mcp_tools.py, config.py (process_sweep), matching.py, work_intake_routing.py, work_intake_models.py, reports_retention.py |
+
+### NEW Findings (Not Previously in Ledger)
+
+#### NEW HIGH: Silent bridge parse failures not elevated to startup receipt
+
+`startup_context.py` lines 212-218: When bridge.md parsing fails
+(OSError/ImportError/ValueError), the code returns a valid
+`ReviewerGateState` with `bridge_parse_error` but this is not elevated to
+the startup receipt. Operators see a blocked state but don't see that
+governance was unrecoverable.
+
+**Class**: authority. **Why**: Corrupted bridge silently blocks all work
+without surfacing as a startup-authority failure. Operators may not realize
+the repo is degraded. **Owner**: MP-377.
+
+#### NEW MEDIUM: Incomplete exception handling in startup_context.py
+
+`startup_context.py` line 261: `_resolve_bridge_path()` catches only
+`ImportError` when calling `scan_repo_governance()`. If governance fails
+with `OSError` or `ValueError`, the exception propagates uncaught.
+`startup_receipt.py:257-265` correctly catches `(OSError, ValueError)`.
+Inconsistent error handling between sibling modules.
+
+**Class**: correctness. **Why**: Unpredictable failure behavior depending
+on which startup module is called. **Owner**: MP-377.
+
+#### NEW MEDIUM: Docs-check empty config returns VoiceTerm defaults without warning
+
+`policy_runtime.py` lines 131-180: When `resolve_docs_check_policy()` is
+called with no policy section, it returns VoiceTerm defaults (6 user docs,
+4 tooling docs, non-null evolution_doc) without logging a warning. External
+repos with empty governance get VoiceTerm doc requirements silently applied.
+The failure mode is false violations ("AGENTS.md missing") on repos that
+don't use this doc structure.
+
+**Class**: authority. **Why**: Silent assumption of repo structure on empty
+config. **Owner**: MP-376.
+
+#### NEW MEDIUM: Language capability detection limited to Python+Rust
+
+`quality_policy.py` lines 78-104: `detect_repo_capabilities()` only checks
+for `Cargo.toml` (Rust) and `pyproject.toml`/`setup.py` (Python). Go,
+TypeScript, Java repos report `capabilities: {python: false, rust: false}`,
+disabling all language-dependent probes without warning. The system silently
+skips quality gates instead of indicating unsupported languages.
+
+**Class**: portability. **Why**: Polyglot repos get zero probe coverage
+without indication. **Owner**: MP-376.
+
+### Confirmed Existing Findings (Already in Ledger)
+
+All 4 agents re-verified the following already-documented issues by reading
+actual code. Evidence confirmed accurate at the reported line ranges:
+
+| Finding | Ledger Lines | Confirmed? |
+|---------|-------------|-----------|
+| Import-time path freezing (36 files, 13+ modules) | 20-34, 216-229 | YES |
+| Governance parser fallback defaults (bridge.md, review_channel) | 36-50 | YES |
+| Conductor prompt hardcodes VoiceTerm + MP-355 | 52-64, 307-314 | YES |
+| 460+ hardcoded VoiceTerm references | 66-79 | YES |
+| check_phases.py --bin voiceterm | 289-296 | YES |
+| FP classifier 13 hardcoded check_ids | 316-323 | YES |
+| recommendation_engine calibration thresholds | 325-332 | YES |
+| release gates --branch master | 334-341 | YES |
+| docs-check 11 hardcoded paths | 428-442 | YES |
+| MCP server name voiceterm-devctl-mcp | 444-450 | YES |
+| MCP tools autonomy coupling | 452-461 | YES |
+| process_sweep binary patterns | 519-527 | YES |
+| reports_retention hardcoded subroots | 529-538 | YES |
+| Halstead .py/.rs only | 352-358 | YES |
+| SUB_SCORE_WEIGHTS 50% governance | 360-367 | YES |
+| startup gate commands hardcoded | 387-393 | YES |
+| quality scope roots | 395-402 | YES |
+| Ralph binary name + arch mapping | 81-91 | YES |
+| federation destination roots | 479-480 | YES |
+| autonomy argparse frozen defaults | 224-225 | YES |
+
+### Additional LOW Findings (Not Blocking)
+
+- FP classifier test-path bias: `fp_classifier.py:76-80` assumes all test-
+  file findings are threshold noise. Enterprise repos may have legitimate
+  test quality issues. Owner: MP-375.
+- Halstead MI formula uses academic calibration constants: `halstead.py:200`.
+  Modern microservices have different complexity distributions. Owner: MP-375.
+- code_shape_policy.py language extensions limited to .py/.rs: `lines 34-49`.
+  Same pattern as Halstead. Owner: MP-376.
+- Autonomy plan scope MP-338 hardcoded: `run_parser.py:28`, `benchmark_
+  parser.py:30`. Partially tracked under import-time freezing category.
+
+### Pass 8 Scope Notes
+
+- Claude's pass covered the listed subsystems broadly enough to re-open
+  whole-platform review instead of preserving the earlier bounded-closure
+  framing.
+- Codex verified the four new HIGH/MEDIUM findings above directly in
+  `startup_context.py`, `startup_receipt.py`, `policy_runtime.py`, and
+  `quality_policy.py`.
+- The percentage-style portability scoring from the raw pass is withdrawn for
+  now. This ledger does not yet have a governed scoring rubric that makes
+  claims such as "98% portable" auditable enough to treat as authority.
+- Work-intake / plan-wiring remains a relatively clean slice in this pass, but
+  only the scoped claim "no new MEDIUM/HIGH found in the reviewed files" is
+  accepted here.
+
+### Pass 8 Summary
+
+| Category | Count |
+|----------|-------|
+| NEW HIGH | 1 (bridge parse not elevated) |
+| NEW MEDIUM | 3 (exception handling, empty docs config, language detection) |
+| Confirmed existing | 20+ findings re-verified with code evidence |
+| LOW additions | 4 (non-blocking) |
+| Subsystems covered | 14 of 14 |
+| Clean-scoped note | Work-intake / plan-wiring produced no new MEDIUM/HIGH in this pass |

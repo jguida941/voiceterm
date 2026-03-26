@@ -215,6 +215,13 @@ Three quality layers matter in practice:
     Codex-side bounded wait path over `reviewer_worker` hash truth plus the
     projected typed `current_session` ACK/status fields from
     `review_state.json`.
+  - `implementer-wait` is only valid under an explicit reviewer-owned wait
+    state. If `Current Instruction For Claude` still assigns active work,
+    `Claude Status` / `Claude Ack` must stay substantive: name concrete
+    files, subsystems, findings, or one concrete blocker/question. `No
+    change. Continuing.`, `instruction unchanged`, `Codex should review`,
+    and raw shell `sleep` loops are contract failures now, not harmless
+    polling prose.
   - `review-channel --action status` also projects repo-governance
     `push_enforcement` state (`checkpoint_required`,
     `safe_to_continue_editing`, `raw_git_push_guarded`,
@@ -228,6 +235,9 @@ Three quality layers matter in practice:
     those actions remain the sanctioned full-session relaunch path when the
     pair needs a fresh start, while `recover` is the narrower Claude-only
     repair path when the repo-owned Codex reviewer is already live.
+  - The same `status` path is now fail-closed on live-loop honesty too:
+    `active_dual_agent` with detached publisher/supervisor heartbeats but no
+    repo-owned conductors is a bridge-contract error, not a healthy loop.
   - The same `review-channel --action status` path now emits a typed
     `current_session` block in `dev/reports/review_channel/latest/review_state.json`
     and `compact.json`; prefer that contract for live instruction /

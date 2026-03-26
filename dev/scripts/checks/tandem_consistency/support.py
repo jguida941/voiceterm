@@ -6,6 +6,11 @@ import os
 import re
 from datetime import datetime, timezone
 
+from dev.scripts.devctl.review_channel.peer_liveness import (
+    IMPLEMENTER_STALL_MARKERS,
+    REVIEWER_WAIT_STATE_MARKERS,
+)
+
 
 def current_utc() -> datetime:
     """Return the current UTC timestamp."""
@@ -88,25 +93,7 @@ _KEYWORD_STOPWORDS = frozenset(
     }
 )
 
-STALL_MARKERS = (
-    "instruction unchanged",
-    "continuing to poll",
-    "waiting for codex review",
-    "waiting for codex to review",
-    "codex should review",
-    "review and promote the next slice",
-    "waiting for reviewer promotion",
-)
-
-REVIEWER_WAIT_STATE_MARKERS = (
-    "hold steady",
-    "waiting for reviewer promotion",
-    "codex committing/pushing",
-    "codex committing",
-    "commit is in progress",
-    "push in progress",
-    "promotion pending",
-)
+STALL_MARKERS = IMPLEMENTER_STALL_MARKERS
 
 
 def extract_instruction_keywords(instruction: str) -> list[str]:

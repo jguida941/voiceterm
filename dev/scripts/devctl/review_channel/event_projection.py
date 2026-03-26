@@ -29,6 +29,10 @@ from .event_projection_context import (
     build_event_context_packet,
     build_instruction_source,
 )
+from .peer_liveness import (
+    IMPLEMENTER_STALL_MARKERS,
+    REVIEWER_WAIT_STATE_MARKERS,
+)
 from .service_identity import build_service_identity
 
 
@@ -266,24 +270,8 @@ def _mapping(value: object) -> Mapping[str, object]:
 
 
 # Stall detection markers (shared contract with tandem_consistency checks).
-_STALL_MARKERS = (
-    "instruction unchanged",
-    "continuing to poll",
-    "waiting for codex review",
-    "waiting for codex to review",
-    "codex should review",
-    "review and promote the next slice",
-    "waiting for reviewer promotion",
-)
-_REVIEWER_WAIT_MARKERS = (
-    "hold steady",
-    "waiting for reviewer promotion",
-    "codex committing/pushing",
-    "codex committing",
-    "commit is in progress",
-    "push in progress",
-    "promotion pending",
-)
+_STALL_MARKERS = IMPLEMENTER_STALL_MARKERS
+_REVIEWER_WAIT_MARKERS = REVIEWER_WAIT_STATE_MARKERS
 
 
 def _detect_implementer_stall(

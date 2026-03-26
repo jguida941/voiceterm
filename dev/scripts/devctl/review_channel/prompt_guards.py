@@ -86,9 +86,22 @@ def provider_bootstrap_guard_lines(
         (
             "- If `Current Instruction For Claude` still contains active work and "
             "the reviewer has not written an explicit wait state, do not say "
-            "\"instruction unchanged\", \"done from my side\", or \"Codex should "
-            "review\" and park. Keep executing the current bounded slice or post a "
-            "concrete blocker in `Claude Questions`."
+            "\"instruction unchanged\", \"done from my side\", \"No change. "
+            "Continuing.\", or \"Codex should review\" and park. Keep executing "
+            "the current bounded slice or post a concrete blocker in `Claude "
+            "Questions`."
+        ),
+        (
+            "- While active work is still assigned, every `Claude Status` / "
+            "`Claude Ack` update must name concrete files, subsystems, findings, "
+            "or one concrete blocker/question. Low-information polling/completion "
+            "notes are contract violations, not acceptable progress reports."
+        ),
+        (
+            "- Do not use raw shell idling such as `sleep 60` or "
+            "`bash -lc 'sleep 60'` to emulate waiting. Use the repo-owned "
+            "`review-channel --action implementer-wait` path only when the "
+            "reviewer-owned bridge state is explicitly in a wait posture."
         ),
         (
             "- Posting `Claude Status` or `Claude Ack` is not the end of the loop. "

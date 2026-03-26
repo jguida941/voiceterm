@@ -69,3 +69,14 @@ def test_stall_from_ack_text() -> None:
         poll_status="",
         reviewer_mode="active_dual_agent",
     ) is True
+
+
+def test_stall_from_no_change_continuing_status() -> None:
+    """Low-information no-op polling text must count as a stall marker."""
+    assert _detect_implementer_stall(
+        claude_status="No change. Continuing.",
+        claude_ack="acknowledged; instruction-rev: abc123",
+        instruction="Implement the bridge-poll action",
+        poll_status="",
+        reviewer_mode="active_dual_agent",
+    ) is True

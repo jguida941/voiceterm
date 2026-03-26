@@ -1364,6 +1364,17 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-26: Verified Claude's next broad architecture pass against the real
+  startup-authority code before promoting it. Two concrete `MP-377` gaps are
+  now confirmed in the current tree: `runtime/startup_context.py` returns a
+  blocked reviewer-gate state with `implementation_block_reason=
+  "bridge_parse_error"` when bridge parsing fails, but the emitted startup
+  receipt / operator-facing startup render does not surface that degradation
+  explicitly; and `_resolve_bridge_path()` still catches only `ImportError`
+  while the sibling `startup_receipt.py` governance scan already treats
+  `OSError`/`ValueError` as expected fail-closed conditions. Route both fixes
+  through the existing Phase 1 startup-authority lane instead of leaving them
+  as audit-only prose.
 - 2026-03-26: Corrected the first post-checkpoint push-readiness contract
   mismatch in runtime code and promoted the remaining deeper split into this
   plan. The repo no longer teaches raw git cleanliness as `push_ready`;

@@ -94,11 +94,7 @@ def derive_bridge_attention(
         status = AttentionStatus.REVIEWER_POLL_DUE
     elif checkpoint_required or not safe_to_continue_editing:
         status = AttentionStatus.CHECKPOINT_REQUIRED
-    elif (
-        _active_contract_errors
-        and overall_state == OverallLivenessState.WAITING_ON_PEER
-        and (not claude_ack_present or not claude_ack_current)
-    ):
+    elif _active_contract_errors:
         status = AttentionStatus.BRIDGE_CONTRACT_ERROR
     elif (
         reviewer_mode_is_active(reviewer_mode)

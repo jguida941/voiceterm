@@ -59,6 +59,12 @@ IMPLEMENTER_STALL_MARKERS = (
     "continuing to poll",
     "polling.",
     "all green after codex's refactor. polling.",
+    "no change. continuing",
+    "no changes. continuing",
+    "no change, continuing",
+    "no changes, continuing",
+    "no change; continuing",
+    "no changes; continuing",
     "waiting for codex review",
     "waiting for codex to review",
     "codex should review",
@@ -66,6 +72,17 @@ IMPLEMENTER_STALL_MARKERS = (
     "waiting for reviewer promotion",
 )
 """Phrases in implementer status/ACK that indicate a completion-stall pattern."""
+
+REVIEWER_WAIT_STATE_MARKERS = (
+    "hold steady",
+    "waiting for reviewer promotion",
+    "codex committing/pushing",
+    "codex committing",
+    "commit is in progress",
+    "push in progress",
+    "promotion pending",
+)
+"""Reviewer-owned wait-state phrases that authorize implementer polling."""
 
 class ReviewerFreshness(StrEnum):
     """Explicit reviewer timing state derived from poll age and thresholds.

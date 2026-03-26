@@ -104,8 +104,18 @@ rendered from that typed router.
   bridge section changes.
 - If `Current Instruction For Claude` still contains active work and the reviewer
   has not written an explicit wait state, do not say `instruction unchanged`,
-  `done from my side`, or `Codex should review` and park. Keep executing the
-  current bounded slice or post one concrete blocker in `Claude Questions`.
+  `done from my side`, `No change. Continuing.`, or `Codex should review` and
+  park. Keep executing the current bounded slice or post one concrete blocker
+  in `Claude Questions`.
+- If the current instruction is still active and the reviewer has not written
+  an explicit wait state, every `Claude Status` / `Claude Ack` update must
+  name concrete files, subsystems, findings, or one concrete blocker/question.
+  Low-information polling/completion notes are contract violations, not valid
+  active-work state.
+- Do not use raw shell sleep loops such as `sleep 60` or
+  `bash -lc 'sleep 60'` to emulate polling. Use
+  `python3 dev/scripts/devctl.py review-channel --action implementer-wait --reason awaiting-reviewer --terminal none --format json`
+  only when reviewer-owned state is explicitly in a wait posture.
 
 ## Mode-aware validation starter
 

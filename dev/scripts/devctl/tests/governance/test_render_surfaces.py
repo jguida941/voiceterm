@@ -177,6 +177,14 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             "On each repoll, read `Last Codex poll` / `Poll Status` first.",
             rendered_text,
         )
+        self.assertIn(
+            "every `Claude Status` / `Claude Ack` update must",
+            rendered_text,
+        )
+        self.assertIn(
+            "Do not use raw shell sleep loops such as `sleep 60`",
+            rendered_text,
+        )
 
 
 class RenderSurfacesCliIntegrationTests(unittest.TestCase):

@@ -64,6 +64,8 @@ REQUIRED_BRIDGE_MARKERS = [
     "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or",
     "When the current slice is accepted and scoped plan work remains, Codex must",
     "If `Current Instruction For Claude` or `Poll Status` says `hold steady`,",
+    "Claude status/ack updates must be substantive",
+    "Do not use raw shell sleep loops such as `sleep 60`",
     "Only the Codex conductor may update the Codex-owned sections",
     "Only the Claude conductor may update the Claude-owned sections",
     "Specialist workers should wake on owned-path changes",

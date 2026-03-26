@@ -8,7 +8,6 @@ from .attention import derive_bridge_attention
 from .bridge_validation import validate_live_bridge_contract
 from .core import (
     LaneAssignment,
-    active_conductor_providers,
     ensure_launcher_prereqs,
     project_id_for_repo,
 )
@@ -21,9 +20,7 @@ from .handoff import (
 from .heartbeat import compute_non_audit_worktree_hash
 from .heartbeat import bridge_excluded_rel_paths
 from .peer_liveness import (
-    CodexPollState,
     OverallLivenessState,
-    ReviewerFreshness,
     reviewer_mode_is_active,
 )
 from .projection_bundle import (
@@ -38,7 +35,12 @@ from .status_bundle import (
     StatusProjectionPayload,
     write_status_projection_bundle,
 )
-from .status_projection_helpers import build_bridge_push_enforcement_state
+from .status_projection_helpers import (
+    attach_conductor_session_state,
+    bridge_liveness_warnings,
+    build_bridge_push_enforcement_state,
+    hybrid_loop_errors,
+)
 from .lifecycle_state import (
     DEFAULT_REVIEW_STATUS_DIR_REL,
     PublisherHeartbeat,
@@ -96,12 +98,12 @@ def refresh_status_snapshot(
         reviewer_supervisor_state=reviewer_supervisor_state,
         reviewer_overdue_threshold_seconds=reviewer_overdue_threshold_seconds,
     )
-    _attach_conductor_session_state(
+    attach_conductor_session_state(
         bridge_liveness=bridge_liveness,
         output_root=output_root,
     )
-    merged_warnings.extend(_bridge_liveness_warnings(bridge_liveness))
-    merged_errors.extend(_hybrid_loop_errors(bridge_liveness))
+    merged_warnings.extend(bridge_liveness_warnings(bridge_liveness))
+    merged_errors.extend(hybrid_loop_errors(bridge_liveness))
     attention = derive_bridge_attention(
         bridge_liveness, contract_errors=merged_errors,
     )
@@ -193,71 +195,6 @@ def _current_worktree_hash(*, repo_root: Path, bridge_path: Path) -> str | None:
         )
     except (ValueError, OSError):
         return None
-
-
-def _bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
-    warnings: list[str] = []
-    codex_poll_state = str(bridge_liveness.get("codex_poll_state") or "unknown")
-    reviewer_freshness = str(bridge_liveness.get("reviewer_freshness") or "")
-    overall_state = str(bridge_liveness.get("overall_state") or "unknown")
-    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
-    if not reviewer_mode_is_active(reviewer_mode):
-        warnings.append(
-            "Bridge reviewer mode is inactive; live heartbeat freshness is not enforced until the reviewer resumes active_dual_agent mode."
-        )
-    elif overall_state == OverallLivenessState.RUNTIME_MISSING:
-        warnings.append(
-            "Reviewer runtime is missing while `active_dual_agent` is still declared. The daemon is treated as missing runtime, not as authority to pause the loop."
-        )
-    elif reviewer_freshness == ReviewerFreshness.MISSING or codex_poll_state == CodexPollState.MISSING:
-        warnings.append(
-            "Bridge liveness is missing: the bridge header does not expose a usable `Last Codex poll` timestamp yet."
-        )
-    elif reviewer_freshness == ReviewerFreshness.OVERDUE:
-        warnings.append(
-            "Bridge liveness is overdue: the latest Codex poll timestamp has exceeded the controller escalation threshold."
-        )
-    elif reviewer_freshness == ReviewerFreshness.STALE or codex_poll_state == CodexPollState.STALE:
-        warnings.append(
-            "Bridge liveness is stale: the latest Codex poll timestamp is older than the five-minute heartbeat contract."
-        )
-    elif reviewer_freshness == ReviewerFreshness.POLL_DUE or codex_poll_state == CodexPollState.POLL_DUE:
-        warnings.append(
-            "Bridge liveness is due for refresh: the latest Codex poll timestamp is older than the 2-3 minute reviewer cadence but still within the five-minute heartbeat window."
-        )
-    elif overall_state == OverallLivenessState.WAITING_ON_PEER:
-        warnings.append(
-            "Bridge liveness is waiting_on_peer: the current bridge state still needs a fresh reviewer poll or complete Claude status/ACK state before the next cycle."
-        )
-    if bridge_liveness.get("reviewed_hash_current") is False:
-        warnings.append(
-            "Bridge review content is stale: the worktree has changed since the last reviewed hash. Current Verdict, Open Findings, and Current Instruction may not reflect the current tree state."
-        )
-    return warnings
-
-
-def _attach_conductor_session_state(
-    *,
-    bridge_liveness: dict[str, object],
-    output_root: Path,
-) -> None:
-    active_providers = active_conductor_providers(session_output_root=output_root)
-    bridge_liveness["active_conductor_providers"] = list(active_providers)
-    bridge_liveness["codex_conductor_active"] = "codex" in active_providers
-    bridge_liveness["claude_conductor_active"] = "claude" in active_providers
-
-
-def _hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:
-    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
-    if not reviewer_mode_is_active(reviewer_mode):
-        return []
-    if not bool(bridge_liveness.get("claude_conductor_active")):
-        return []
-    if bool(bridge_liveness.get("codex_conductor_active")):
-        return []
-    return [
-        "Repo-owned Claude conductor is active but no live repo-owned Codex conductor session is present. Hybrid chat/terminal review loops are not trusted; relaunch with `review-channel --action launch` or `review-channel --action rollover` instead of relying on Claude-only recover."
-    ]
 
 
 def _load_lifecycle_states(output_root: Path) -> tuple[dict[str, object], dict[str, object]]:

@@ -188,6 +188,19 @@ contract, not the long-term product boundary.
     review packet in MP-355 must resolve target plans through that startup-
     authority stack instead of hard-coded repo paths, exact line numbers, or
     whole-block markdown matching.
+14. `MP-377` owns continuation-budget and push-readiness authority
+    (`push_enforcement`, `checkpoint_required`,
+    `safe_to_continue_editing`, `review_gate_allows_push`, and successor
+    push-decision contracts such as `push_eligible_now`). MP-355 may surface
+    that state in `review-channel status`, bridge projections, and live wait
+    reasons, but it must not redefine the governing decision logic locally.
+15. MP-355 owns the live review projection for typed
+    `ReviewCurrentSessionState`, while `MP-377` owns startup/push/preflight
+    consumers that use `current_session`, reviewer acceptance, and checkpoint
+    state to decide whether a new implementation slice or governed push may
+    proceed. Keep that producer/consumer split explicit in docs and runtime
+    contracts so the review channel does not become a second startup-
+    authority source.
 
 ## Transitional Markdown Bridge (Current Operating Mode)
 
@@ -1619,6 +1632,8 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-26T11:45:00Z` | `CODEX` | Audited the live tandem regression after Claude fell back to low-value polling/no-op wait behavior. The repo already had partial anti-stall teaching, but the contract was split across prompt surfaces and did not fail closed on two live shapes: active work plus `No change. Continuing.`-style implementer parking, and `active_dual_agent` with detached publisher/supervisor heartbeats but no repo-owned conductors. Closed that gap by sharing stall markers across review-channel runtime/checks, tightening bridge + generated `CLAUDE.md` + conductor prompt wording, hard-failing bridge validation on no-op implementer parking under active work, and making `status` surface the no-conductor state as a bridge-contract error instead of healthy loop freshness. Updated maintainer docs in the same slice so the repo teaches the same contract it now enforces. | `partial-pass` | Keep verifying live Claude deltas against code/docs, but now treat any future no-op polling or detached-daemon-only dual-agent state as contract errors to repair before trusting the loop. |
+| `2026-03-26T08:10:00Z` | `CODEX` | Restored the live architecture-audit operating mode after an interrupted session and an overly narrow reviewer instruction. Rewrote the reviewer-owned bridge/current-session instruction through the repo-owned `reviewer-checkpoint` path so Claude is again the primary broad whole-system finder, Codex stays the verifier/controller, and the shared audit ledger is `dev/audits/architecture_alignment.md` instead of a hidden chat state. Also verified that the typed `current_session` / push-decision split remains an MP-355 producer -> MP-377 consumer contract and promoted the missing dependency notes into this plan. | `partial-pass` | Keep reviewing Claude deltas against real code/docs, correct overbroad ledger claims before accepting them, and promote only verified findings into `MASTER_PLAN` plus the scoped owner plans. Do not reintroduce Codex-side broad audit swarms. |
 | `2026-03-26T05:05:00Z` | `CODEX` | Re-audited the live bridge/current-session lane against the portable-platform architecture after the latest startup/tandem bug fixes. The design direction remains correct: typed `review_state` is the live authority and `bridge.md` is already supposed to become a repo-pack-owned compatibility projection. The concrete remaining gap is mixed teaching and mixed consumers: some runtime/guard paths now resolve bridge/review state through governance, while prompts, templates, and a few guards still encode repo-root `bridge.md` or VoiceTerm plan-path assumptions directly. | `planned` | Keep the typed `current_session` cutover bounded, then remove literal bridge/path assumptions from prompts/guards/projections and add non-VoiceTerm fixture coverage before claiming the bridge path is portable. |
 | `2026-03-26T01:50:00Z` | `CODEX` | Closed the worst current markdown-bridge failure mode after the live bridge grew into a 4164-line mixed transcript with duplicate report headings and raw terminal/test output. Landed `review-channel --action render-bridge` as the repo-owned repair path, rebuilt the live `bridge.md` down to a bounded 117-line compatibility projection, expanded bridge hygiene enforcement so `check_review_channel_bridge.py` now rejects oversize bridges, duplicate/unsupported headings, transcript/ANSI contamination, and overgrown live sections, and tightened reviewer checkpoint contamination patterns so repo-owned reviewer writes reject obvious terminal/test output earlier. | `partial-pass` | Re-run the focused review-channel/tooling bundles on the cleaned bridge, keep the remaining stale-ACK state explicit, and continue the broader typed writer/mutation cutover so bridge repair becomes exceptional instead of routine. |
 | `2026-03-25T14:05:00Z` | `CODEX` | Closed the next live stale-implementer orchestration gap without widening bridge authority. Active attention now distinguishes `implementer_relaunch_required`, `review-channel --action recover --recover-provider claude` replaces only the stale Claude conductor, and reviewer-follow now escalates repeated unchanged stale-implementer state through that narrower repo-owned recovery path instead of full rollover or passive sleep-loop polling. The same slice also keeps startup gating honest: `launch|rollover` still fail closed on checkpoint-budget or real startup-authority errors, but they no longer fail solely because the reviewer loop is stale on the implementer side. | `partial-pass` | Run the focused runtime/review-channel proofs plus docs/guard bundles, then checkpoint the slice and exercise the live recover path against a stale Claude ACK session. |
@@ -1726,7 +1741,11 @@ Complete this table only after all active swarm lanes are merged.
   queue/attention bundle that already powers the live status surfaces. The
   same slice must also stop prompts/guards/projections from teaching repo-root
   `bridge.md` or VoiceTerm plan paths as default authority while the bridge
-  remains a compatibility projection.
+  remains a compatibility projection. For the active architecture-audit loop
+  running through this surface, keep Claude as the primary broad finder and
+  Codex as the verifier/controller; `dev/audits/architecture_alignment.md`
+  is the shared ledger, while `MASTER_PLAN` plus the scoped plans remain the
+  execution owners.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

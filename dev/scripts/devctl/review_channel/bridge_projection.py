@@ -113,7 +113,16 @@ treat these rules as active workflow instructions immediately.
 16. When the current slice is accepted and scoped plan work remains, Codex must
     promote the next bounded task instead of idling.
 17. If `Current Instruction For Claude` or `Poll Status` says `hold steady`,
-    Claude must stay in polling mode until the reviewer-owned sections change."""
+    Claude must stay in polling mode until the reviewer-owned sections change.
+18. If `Current Instruction For Claude` still contains active work and there is
+    no explicit reviewer-owned wait state, Claude status/ack updates must be
+    substantive: name concrete files, subsystems, findings, or one concrete
+    blocker/question. `No change. Continuing.`, `instruction unchanged`, and
+    `Codex should review` are contract violations.
+19. Do not use raw shell sleep loops such as `sleep 60` or
+    `bash -lc 'sleep 60'` to represent waiting. Use the repo-owned
+    `review-channel --action implementer-wait` path only under an explicit
+    reviewer-owned wait state."""
 
 _PROTOCOL_BODY = """1. Claude should poll this file periodically while coding.
 2. Codex rewrites reviewer-owned sections after each real review pass instead
@@ -124,7 +133,10 @@ _PROTOCOL_BODY = """1. Claude should poll this file periodically while coding.
    history blocks.
 5. Freshness and current instruction truth should come from typed projections
    first; this bridge remains a compatibility projection while the migration
-   finishes."""
+   finishes.
+6. Active-work `Claude Status` / `Claude Ack` updates must carry concrete work
+   evidence or one concrete blocker/question; low-information polling notes are
+   not valid bridge authority."""
 
 _SWARM_MODE_BODY = """- Current scale-out mode is `8+8`.
 - `dev/active/review_channel.md` contains the static swarm plan and lane map.

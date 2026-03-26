@@ -46,6 +46,8 @@ def _valid_bridge_text(script) -> str:
         "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`, Claude must not assume a live Codex review loop.",
         'When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
         "If `Current Instruction For Claude` or `Poll Status` says `hold steady`, `waiting for reviewer promotion`, `Codex committing/pushing`, or similar wait-state language, Claude must not mine plan docs for side work or self-promote the next slice. Keep polling until a reviewer-owned section changes.",
+        "If `Current Instruction For Claude` still contains active work and there is no explicit reviewer-owned wait state, Claude status/ack updates must be substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `Codex should review` are contract violations.",
+        "Do not use raw shell sleep loops such as `sleep 60` or `bash -lc 'sleep 60'` to represent waiting. Use the repo-owned `review-channel --action implementer-wait` path only under an explicit reviewer-owned wait state.",
         "Only the Codex conductor may update the Codex-owned sections in this file.",
         "Only the Claude conductor may update the Claude-owned sections in this file.",
         "Specialist workers should wake on owned-path changes or explicit conductor request instead of every worker polling the full tree blindly on the same cadence.",
@@ -250,6 +252,33 @@ class CheckReviewChannelBridgeTests(TestCase):
         self.assertIn(
             "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
             report["bridge"]["missing_markers"],
+        )
+
+    def test_build_report_flags_no_op_implementer_polling(self) -> None:
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script).replace(
+                "- implementing the current bounded slice",
+                "- No change. Continuing.",
+            ),
+        )
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        with (
+            patch.object(self.script, "BRIDGE_PATH", bridge),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
+        ):
+            report = self.script.build_report()
+        self.assertFalse(report["ok"])
+        self.assertTrue(
+            any(
+                "completion-stall language" in error
+                for error in report["bridge"].get("state_errors", [])
+            )
         )
 
     def test_build_report_flags_missing_review_channel_bridge_guard_marker(self) -> None:

@@ -439,6 +439,15 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-26: Verified Claude's next broad architecture pass against the live
+  portable-engine code before promoting it. Two additional `MP-376` gaps are
+  now confirmed on the current tree: `commands/docs/policy_runtime.py`
+  silently falls back to VoiceTerm maintainer-doc defaults when the
+  `repo_governance.docs_check` section is empty, and `quality_policy.py`
+  capability detection still recognizes only Python/Rust families so other
+  repo types silently lose language-dependent probe coverage. Keep both as
+  portable-engine authority work under the existing Pass 1/2 portability
+  checklist instead of treating them as ad hoc audit notes.
 - 2026-03-26: Promoted the next architecture-alignment owner tranche after
   Claude's later passes widened coverage to the remaining control-plane
   subsystems. `MP-376` now explicitly owns four more portable-engine gaps:

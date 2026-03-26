@@ -16,6 +16,8 @@ from .handoff_constants import (
 )
 from .peer_liveness import (
     CodexPollState,
+    IMPLEMENTER_STALL_MARKERS,
+    REVIEWER_WAIT_STATE_MARKERS,
     ReviewerMode,
     normalize_reviewer_mode,
     reviewer_mode_is_active,
@@ -122,6 +124,13 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
             "`Current Instruction For Claude` is generic; reviewer must promote "
             "a concrete scoped checklist item with file-targeted steps."
         )
+    else:
+        implementer_stall_error = _implementer_completion_stall_error(
+            snapshot=snapshot,
+            reviewer_mode=reviewer_mode,
+        )
+        if implementer_stall_error is not None:
+            errors.append(implementer_stall_error)
 
     if (
         reviewer_mode_is_active(reviewer_mode)
@@ -187,6 +196,50 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
             )
 
     return errors
+
+
+def _implementer_completion_stall_error(
+    *,
+    snapshot,
+    reviewer_mode: ReviewerMode,
+) -> str | None:
+    if not reviewer_mode_is_active(reviewer_mode):
+        return None
+    instruction = snapshot.sections.get("Current Instruction For Claude", "")
+    poll_status = snapshot.sections.get("Poll Status", "")
+    if _contains_any_marker(instruction, REVIEWER_WAIT_STATE_MARKERS) or _contains_any_marker(
+        poll_status,
+        REVIEWER_WAIT_STATE_MARKERS,
+    ):
+        return None
+    claude_status = _leading_section_excerpt(snapshot.sections.get("Claude Status", ""))
+    claude_ack = _leading_section_excerpt(snapshot.sections.get("Claude Ack", ""))
+    combined = f"{claude_status}\n{claude_ack}".strip()
+    if not _contains_any_marker(combined, IMPLEMENTER_STALL_MARKERS):
+        return None
+    return (
+        "Claude Status/Ack show implementer completion-stall language while "
+        "`Current Instruction For Claude` still assigns active work. Resume "
+        "the active slice or record one concrete blocker/question instead of "
+        "parking on reviewer polling."
+    )
+
+
+def _contains_any_marker(text: str, markers: tuple[str, ...]) -> bool:
+    lower = text.lower()
+    return any(marker in lower for marker in markers)
+
+
+def _leading_section_excerpt(text: str, *, max_lines: int = 12) -> str:
+    lines: list[str] = []
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        lines.append(stripped)
+        if len(lines) >= max_lines:
+            break
+    return "\n".join(lines)
 
 
 def validate_launch_bridge_state(
