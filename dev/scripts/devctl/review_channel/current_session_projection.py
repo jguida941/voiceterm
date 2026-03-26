@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from typing import Any
 
+from ..runtime.review_state_semantics import classify_implementer_ack_state
 from ..runtime.review_state_models import ReviewCurrentSessionState
 from .handoff import BridgeSnapshot
 from .handoff_constants import _is_substantive_text
@@ -17,19 +18,22 @@ def build_bridge_current_session(
     bridge_liveness: Mapping[str, object],
 ) -> ReviewCurrentSessionState:
     """Build typed current-session state from bridge sections."""
+    implementer_status = _section_text(snapshot, "Claude Status")
     implementer_ack = _section_text(snapshot, "Claude Ack")
     return ReviewCurrentSessionState(
         current_instruction=_section_text(snapshot, "Current Instruction For Claude"),
         current_instruction_revision=str(
             bridge_liveness.get("current_instruction_revision") or ""
         ),
-        implementer_status=_section_text(snapshot, "Claude Status"),
+        implementer_status=implementer_status,
         implementer_ack=implementer_ack,
         implementer_ack_revision=str(bridge_liveness.get("claude_ack_revision") or ""),
-        implementer_ack_state=_ack_state(
+        implementer_ack_state=classify_implementer_ack_state(
+            implementer_status=implementer_status,
             implementer_ack=implementer_ack,
             ack_current=bool(bridge_liveness.get("claude_ack_current")),
             stale_label="stale",
+            is_substantive_text=_is_substantive_text,
         ),
         open_findings=_section_text(snapshot, "Open Findings"),
         last_reviewed_scope=_section_text(snapshot, "Last Reviewed Scope"),
@@ -44,18 +48,21 @@ def build_event_current_session(
     """Build typed current-session state from event-backed review state."""
     queue = _mapping(review_state.get("queue"))
     implementer_ack = event_claude_ack(queue)
+    implementer_status = event_agent_status(review_state, "claude")
     return ReviewCurrentSessionState(
         current_instruction=event_current_instruction(review_state),
         current_instruction_revision=str(
             bridge_liveness.get("current_instruction_revision") or ""
         ),
-        implementer_status=event_agent_status(review_state, "claude"),
+        implementer_status=implementer_status,
         implementer_ack=implementer_ack,
         implementer_ack_revision=str(bridge_liveness.get("claude_ack_revision") or ""),
-        implementer_ack_state=_ack_state(
+        implementer_ack_state=classify_implementer_ack_state(
+            implementer_status=implementer_status,
             implementer_ack=implementer_ack,
             ack_current=bool(bridge_liveness.get("claude_ack_current")),
             stale_label="unknown",
+            is_substantive_text=_is_substantive_text,
         ),
         open_findings=event_open_findings(queue),
         last_reviewed_scope=str(
@@ -195,19 +202,6 @@ def event_agent_status(
             continue
         return str(agent.get("job_status") or agent.get("status") or "")
     return ""
-
-
-def _ack_state(
-    *,
-    implementer_ack: str,
-    ack_current: bool,
-    stale_label: str,
-) -> str:
-    if not _is_substantive_text(implementer_ack):
-        return "missing"
-    if ack_current:
-        return "current"
-    return stale_label
 
 
 def _section_text(snapshot: BridgeSnapshot, section: str) -> str:

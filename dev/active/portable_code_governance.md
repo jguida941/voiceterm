@@ -248,6 +248,26 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       review-channel enforcement, and bootstrap/setup surfaces must say when
       that infrastructure becomes required. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 41)
+- [ ] Add one portable authority-drift scanner/report on top of that same
+      adoption contract: detect hardcoded repo names, fixed governed-doc or
+      artifact path literals in portable/control-path modules, import-time
+      `active_path_config()` capture, and bridge-markdown current-status reads
+      outside approved compatibility adapters. Start report-only, then promote
+      low-noise subsets into blocking guards once the current fallback backlog
+      is burned down.
+- [ ] Add a multi-repo portability fixture matrix that exercises the governed
+      startup/adoption path on at least four shapes with no core patching:
+      empty repo bootstrap, custom docs/layout repo, existing mixed-language
+      repo, and repo with tandem/review disabled. The matrix must prove
+      `governance-bootstrap`, `startup-context`, routed base checks, and
+      generated instruction surfaces work through repo policy / repo-pack
+      inputs instead of VoiceTerm defaults.
+- [ ] Make generated AI instruction/setup surfaces part of the portability
+      proof, not only a docs nicety: starter `CLAUDE.md`, setup guides, and
+      related bootstrap renders must explain the platform purpose, the target
+      repo's own product summary, and the client-vs-core boundary so adopters
+      do not inherit VoiceTerm-specific identity or teach agents to hardcode
+      VoiceTerm paths back into portable runtime work.
 - [ ] Add a portable work-intake / startup-authority layer on top of that map
       and policy stack: another repo should be able to ask "what is active,
       what changed, what bundle should run, and where should accepted outcomes
@@ -401,6 +421,16 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-26: Promoted a broader portability-audit tranche after the live
+  reviewer-state repair exposed that the remaining risk is bigger than one
+  bridge bug. The codebase already has starter bootstrap flows,
+  `ProjectGovernance`, repo-policy-owned doc discovery, and typed review-state
+  authority, but portable/control-path consumers still leak VoiceTerm through
+  silent fallback, import-time path capture, and bridge-prose reads outside
+  approved compatibility seams. The portable-engine plan now tracks the fix as
+  explicit work: authority-drift scanning, cross-repo fixture proof, and
+  generated AI/setup surfaces that teach the right repo-pack boundary instead
+  of repo-specific folklore.
 - 2026-03-25: Rechecked the deeper config/template intake against the live
   portable code and narrowed it before promotion. The broad orphan-file claim
   does not hold here: starter policy/templates already ship through
@@ -1083,6 +1113,15 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Session Resume
 
+- 2026-03-26 portability-drift follow-up: the next `MP-376` evidence slice
+  should stop treating "works on one pilot repo" as enough. The broader
+  architecture audit confirmed that portable layers can still inherit
+  VoiceTerm defaults through typed-model/parser fallbacks, generated AI
+  surfaces, and frozen repo-pack accessors even when adoption scans look
+  healthy. Next work under this doc is the detection/proof stack itself:
+  static portability-drift checks plus fixture repos that exercise empty
+  bootstrap, existing-repo adoption, alternate layout roots, and
+  tandem-disabled operation.
 - 2026-03-22 evidence follow-up: Part 44 is now explicitly tracked here.
   The next portable implementation slice should improve operator discovery and
   delta-aware validation with `guard-explain`, `which-tests`, described

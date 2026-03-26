@@ -93,6 +93,18 @@ def bridge_heartbeat_refresh_to_dict(
     return asdict(refresh)
 
 
+def bridge_excluded_rel_paths(
+    *,
+    repo_root: Path,
+    bridge_path: Path,
+) -> tuple[str, ...]:
+    """Return repo-relative bridge paths that should not affect code hashes."""
+    try:
+        return (bridge_path.relative_to(repo_root).as_posix(),)
+    except ValueError:
+        return ()
+
+
 def refresh_bridge_heartbeat(
     *,
     repo_root: Path,
@@ -126,7 +138,10 @@ def refresh_bridge_heartbeat(
         try:
             current_hash = compute_non_audit_worktree_hash(
                 repo_root=repo_root,
-                excluded_rel_paths=(bridge_path.relative_to(repo_root).as_posix(),),
+                excluded_rel_paths=bridge_excluded_rel_paths(
+                    repo_root=repo_root,
+                    bridge_path=bridge_path,
+                ),
             )
         except (ValueError, OSError):
             current_hash = snapshot.metadata.get("last_non_audit_worktree_hash") or ""

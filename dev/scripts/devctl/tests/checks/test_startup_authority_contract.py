@@ -232,6 +232,40 @@ def test_startup_authority_fails_when_reviewer_loop_blocks_implementation(
     assert any("Reviewer loop blocks" in error for error in report["errors"])
 
 
+@patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
+def test_startup_authority_allows_fresh_pending_implementer_state(
+    tmp_path: Path,
+) -> None:
+    _setup_full_layout(tmp_path)
+    state_dir = tmp_path / "dev" / "reports" / "review_channel" / "latest"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "review_state.json").write_text(
+        json.dumps(
+            {
+                "bridge": {
+                    "reviewer_mode": "active_dual_agent",
+                    "claude_ack_current": False,
+                    "review_accepted": False,
+                },
+                "attention": {
+                    "status": "claude_ack_stale",
+                },
+                "current_session": {
+                    "implementer_status": "- pending",
+                    "implementer_ack": "- pending",
+                    "implementer_ack_state": "pending",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = _build_report(repo_root=tmp_path)
+
+    assert report["reviewer_loop_blocked"] is False
+    assert not any("Reviewer loop blocks" in error for error in report["errors"])
+
+
 def test_startup_authority_guard_shim_executes_in_supported_script_mode(
     tmp_path: Path,
 ) -> None:

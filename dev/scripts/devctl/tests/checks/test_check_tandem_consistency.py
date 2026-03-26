@@ -41,7 +41,7 @@ def _bridge(
     status: str = "Working on tandem guard role-profile implementation.",
     verdict: str = "In progress.",
     findings: str = "- M1: open.",
-    plan_alignment: str = "- MASTER_PLAN, continuous_swarm.md",
+    plan_alignment: str = "- dev/active/MASTER_PLAN.md, dev/active/review_channel.md",
     last_reviewed_scope: str = "- file.py",
     poll_status: str = "Reviewer active.",
 ) -> str:
@@ -244,15 +244,30 @@ class TestPlanAlignment:
         assert "chain is complete" in result["detail"]
 
     def test_missing_master_plan_fails(self):
-        text = _bridge(plan_alignment="- continuous_swarm.md only")
+        text = _bridge(plan_alignment="- dev/active/review_channel.md")
         result = check_plan_alignment(text)
         assert result["ok"] is False
 
-    def test_missing_continuous_swarm_fails(self):
-        text = _bridge(plan_alignment="- MASTER_PLAN only")
+    def test_missing_review_channel_fails(self):
+        text = _bridge(plan_alignment="- dev/active/MASTER_PLAN.md")
         result = check_plan_alignment(text)
         assert result["ok"] is False
-        assert "continuous_swarm.md" in result["detail"]
+        assert "review_channel.md" in result["detail"]
+
+    def test_missing_section_uses_project_governance_fallback(self, tmp_path):
+        (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+        active_dir = tmp_path / "dev" / "active"
+        active_dir.mkdir(parents=True)
+        (active_dir / "INDEX.md").write_text("# Index\n", encoding="utf-8")
+        (active_dir / "MASTER_PLAN.md").write_text("# Master Plan\n", encoding="utf-8")
+        (active_dir / "review_channel.md").write_text(
+            "# Review Channel\n",
+            encoding="utf-8",
+        )
+        text = _bridge(plan_alignment="")
+        result = check_plan_alignment(text, repo_root=tmp_path)
+        assert result["ok"] is True
+        assert result["fallback_source"] == "project_governance"
 
 
 class TestPromotionState:
@@ -456,6 +471,20 @@ class TestTypedPathImplementerAck:
         )
         assert result["ok"] is False
         assert result["tranche_aligned"] is False
+
+    def test_typed_pending_passes(self):
+        text = _bridge(ack="- pending", status="- pending")
+        result = check_implementer_ack_freshness(
+            text,
+            typed_state=_typed_state(
+                claude_ack_current=False,
+                implementer_ack="- pending",
+                implementer_status="- pending",
+                implementer_ack_state="pending",
+            ),
+        )
+        assert result["ok"] is True
+        assert result["ack_state"] == "pending"
 
     def test_falls_back_to_bridge_when_typed_missing(self):
         text = _bridge()

@@ -257,6 +257,13 @@ Portability note:
   not substitutes for that receipt, with the slim bootstrap packet remaining
   the bounded graph companion for discovery after that startup receipt is
   refreshed.
+- Portable-authority rule: new reusable runtime/tooling code should resolve
+  plan docs, artifact roots, bridge/review state, and generated bootstrap
+  instructions through `ProjectGovernance` / repo-pack state instead of
+  reviving fixed VoiceTerm paths or `VOICETERM_PATH_CONFIG` as implicit
+  universal defaults. Keep VoiceTerm-specific literals inside repo-pack or
+  product-integration surfaces, and fail closed or stay in explicit
+  compatibility mode when portable authority is missing.
 - Repo-governance checkpoint policy may exclude compatibility projections such
   as `bridge.md` from advisory dirty-path budgeting so live review-channel
   compatibility writes do not force false `checkpoint_required` states. Raw

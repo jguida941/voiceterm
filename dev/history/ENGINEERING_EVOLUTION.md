@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-24
+**Last Updated:** 2026-03-26
 
 ## At a Glance
 
@@ -45,6 +45,37 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-26 - Portability became an explicit maintainer rule instead of an implied architecture wish
+
+Fact: the repo now records the portability rule in the main active plans and
+maintainer docs instead of leaving it as something agents are expected to
+remember from chat. `AGENTS.md`, `DEVELOPMENT.md`, `dev/scripts/README.md`,
+`MASTER_PLAN`, `ai_governance_platform.md`, `platform_authority_loop.md`, and
+`portable_code_governance.md` now all say the same thing: VoiceTerm is the
+first client/integration layer over the governance platform, while portable
+runtime/tooling surfaces must resolve authority through
+`ProjectGovernance` / repo-pack state or fail closed rather than silently
+reusing VoiceTerm defaults.
+
+This matters because the architecture docs already said the product should
+work across arbitrary repos, but several runtime/check/generated-surface paths
+were still treating `dev/active/*`, `dev/reports/*`, `bridge.md`, and
+`VOICETERM_PATH_CONFIG` as hidden default truth. Making the portability rule
+explicit in the canonical maintainer surfaces turns that concern into a
+reviewable engineering contract and sets up the next prevention work:
+portability-drift guards, fixture-repo proofs, and repo-pack-driven AI
+bootstrap surfaces.
+
+Evidence:
+
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/portable_code_governance.md`
 
 ### 2026-03-24 - External architecture-review intake was absorbed into the canonical plan chain
 

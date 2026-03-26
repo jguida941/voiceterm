@@ -2445,6 +2445,20 @@ Still open before `P0` closes:
       tokens it must state the product mission, proof obligation, platform
       boundaries, and the current priority so fresh AI sessions stop learning
       process without understanding why the process exists.
+- [ ] Make that same bootstrap/instruction layer enforce the client-vs-core
+      boundary explicitly: generated `CLAUDE.md`, starter setup docs, and
+      future wrapper surfaces must tell agents that VoiceTerm is a first-party
+      client/product integration over the portable governance platform, while
+      repo packs and typed runtime contracts remain the backend authority for
+      arbitrary repos. Another repo's generated surfaces must carry the same
+      platform thesis with that repo's own product summary instead of
+      inheriting VoiceTerm-specific identity or hidden path assumptions.
+- [ ] Make AI/bootstrap instruction surfaces repo-pack-driven and scope-aware:
+      generated `CLAUDE.md`, startup receipts, bridge/conductor prompts, and
+      other AI-facing bootstrap text must render the product thesis, active
+      workflow mode, and canonical authority chain from `ProjectGovernance` /
+      `RepoPack` / `DocPolicy` / `PlanRegistry` instead of embedding
+      VoiceTerm-only paths or tandem-review rules as if they were universal.
 - [x] Add one read-only executable platform blueprint surface
       (`devctl platform-contracts`) so frontends, adopters, and AI setup flows
       can consume the intended backend/repo-pack contract in machine-readable
@@ -2465,6 +2479,13 @@ Still open before `P0` closes:
       identity, state, action, artifact, lifecycle, projections, parity, and
       portability so drift prevention is platform-owned instead of spread
       across many local rules.
+- [ ] Add one platform-wide portability-drift prevention stack for the AI
+      coding system itself: classify which layers are allowed to mention
+      product-specific paths or names, add static detection for repo-name/path
+      literals plus import-time path-config capture in portable layers, and
+      prove the result on fixture repos that cover empty-repo bootstrap,
+      existing-repo adoption, alternate layout roots, and tandem-disabled
+      operation.
 - [ ] Freeze the backend authority contract in executable form: define the
       canonical reducer-backed JSON/runtime authority, typed action/write
       surface, receipt/telemetry path, optional local service/API seam, and
@@ -3857,6 +3878,16 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-03-26 portability-audit follow-up: the broad architecture concern is
+  confirmed. The blocker is not just one stale `bridge.md` consumer; the
+  larger issue is that the platform still lets missing portable authority
+  silently collapse back to VoiceTerm defaults in typed governance models,
+  repo-pack accessors, review-channel prompts, and generated AI bootstrap
+  text. The next execution slice is now explicit: remove silent
+  VoiceTerm-default authority from portable runtime mode, make generated
+  AI/bootstrap/review instructions render from repo-pack/governed state, add
+  a static portability-drift guard, and prove the same flow on non-VoiceTerm
+  fixture repos before calling the system portable.
 - 2026-03-25 reviewer-loop fail-closed follow-up: the first stale-reviewer
   architecture gap is now closed as code, not just operator guidance.
   `review-channel` status/attention now treats blank reviewer-owned
@@ -4504,6 +4535,21 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-26: Ran a broader portability/architecture audit after the live
+  review-channel cutover exposed another "works in VoiceTerm, leaks in
+  portable mode" seam. The result is larger than the immediate bug: docs
+  already say VoiceTerm should be a client over a portable governance stack,
+  but the implementation still allows portable layers to fall back to
+  VoiceTerm defaults when repo-pack/governance data is missing. Confirmed
+  examples include typed governance defaults for `dev/active/*`,
+  `dev/reports/*`, and `bridge.md`, `active_path_config()` falling back to
+  `VOICETERM_PATH_CONFIG`, import-time frozen path-config capture in
+  review-channel modules, and AI/bootstrap/review prompt text that still
+  emits VoiceTerm/tandem assumptions as universal instructions. Accepted
+  response: treat this as a first-class `MP-377` portability-governance
+  slice, not as incidental cleanup; encode product-thesis/bootstrap intent in
+  generated surfaces, add a portability-drift prevention stack, and require
+  cross-repo fixture proof instead of relying on future agent memory.
 - 2026-03-25: Closed the immediate fail-closed reviewer-loop gap that the
   stalled Codex/Claude bridge exposed. `heartbeat.py` no longer swallows the
   blank padding after `## Poll Status`, bridge validation/state projection now

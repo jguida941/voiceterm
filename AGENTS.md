@@ -12,6 +12,23 @@ Gemini CLI remains experimental.
 Goal of this file: give agents one repeatable process so every task follows the
 same execution path with minimal ambiguity.
 
+Architectural scope rule: this repo contains the VoiceTerm product, but the
+active platform target is the portable AI-governance system tracked under
+`MP-377`. Treat VoiceTerm as a first-party adopter/client of that platform,
+not the hidden default authority for shared runtime, startup, review-channel,
+or governance layers. New shared code, prompts, guards, and docs must resolve
+repo-local behavior through `ProjectGovernance`, repo-pack policy, and typed
+runtime contracts rather than VoiceTerm-specific literals.
+
+Portable-platform rule:
+- The product direction under `MP-377` is a reusable AI-governance platform
+  that should work across arbitrary repositories. VoiceTerm is the first
+  client/integration layer, not the hidden default authority for portable
+  runtime/tooling code. In portable layers, do not hardcode VoiceTerm repo
+  names, fixed `dev/active/*` / `dev/reports/*` paths, `bridge.md`, or
+  `VOICETERM_PATH_CONFIG` fallbacks as universal truth; resolve authority
+  through `ProjectGovernance` / repo-pack state or fail closed.
+
 Top-level enforcement rule: every time an agent creates a file or edits an
 existing file, it must run the relevant repo guard/check scripts before
 handoff to catch bad practices, policy drift, and structural regressions. This
@@ -337,6 +354,13 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     `SessionResumeState` for one selected plan target, but that projection is
     a bounded startup read, not a replacement for the reviewed markdown
     authority itself.
+4.7.1 Preserve the product boundary while doing that work: in portable
+    runtime/tooling layers, treat VoiceTerm as a consumer of the governance
+    platform rather than the universal repo shape. New portable code should
+    resolve docs, plans, artifact roots, bridge/review state, and generated
+    AI bootstrap instructions through `ProjectGovernance` / repo-pack
+    authority. If that authority is missing, fail closed or stay in explicit
+    compatibility mode; do not silently revive VoiceTerm defaults.
 4.8 After fixing a meaningful issue, verify both levels before handoff: the
     local defect must be fixed, and the chosen prevention/absorption path must
     either be landed and validated or explicitly deferred/waived with the

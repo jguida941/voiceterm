@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .heartbeat import (
     NON_AUDIT_HASH_EXCLUDED_PREFIXES,
+    bridge_excluded_rel_paths,
     compute_non_audit_worktree_hash,
 )
 from .peer_liveness import ReviewerMode
@@ -19,8 +20,6 @@ from .reviewer_state import (
     current_reviewed_hash,
     reviewer_mode_from_bridge_text,
 )
-_BRIDGE_EXCLUDED_REL_PATHS = ("bridge.md",)
-
 
 @dataclass(frozen=True)
 class ReviewerWorkerTick:
@@ -84,7 +83,10 @@ def check_review_needed(
         try:
             current_hash = compute_non_audit_worktree_hash(
                 repo_root=repo_root,
-                excluded_rel_paths=_BRIDGE_EXCLUDED_REL_PATHS,
+                excluded_rel_paths=bridge_excluded_rel_paths(
+                    repo_root=repo_root,
+                    bridge_path=bridge_path,
+                ),
                 excluded_prefixes=NON_AUDIT_HASH_EXCLUDED_PREFIXES,
             )
         except (ValueError, OSError):

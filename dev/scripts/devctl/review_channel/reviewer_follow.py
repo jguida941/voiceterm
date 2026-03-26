@@ -13,7 +13,7 @@ from .follow_loop import (
     run_configured_follow_action,
 )
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
-from .heartbeat import compute_non_audit_worktree_hash
+from .heartbeat import bridge_excluded_rel_paths, compute_non_audit_worktree_hash
 from .lifecycle_state import (
     ReviewerSupervisorHeartbeat,
 )
@@ -189,7 +189,10 @@ def _maybe_auto_promote(
     try:
         current_hash = compute_non_audit_worktree_hash(
             repo_root=repo_root,
-            excluded_rel_paths=("bridge.md",),
+            excluded_rel_paths=bridge_excluded_rel_paths(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+            ),
         )
     except (OSError, ValueError):
         current_hash = None

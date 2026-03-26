@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
@@ -672,16 +672,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             gate = _detect_reviewer_gate(repo_root)
             self.assertFalse(gate.implementation_blocked)
 
-    @patch(
-        "dev.scripts.devctl.runtime.review_state_locator.active_path_config",
-        return_value=SimpleNamespace(
-            review_state_candidates=("portable/review_state.json",)
-        ),
-    )
-    def test_typed_path_uses_active_path_config_candidate(
-        self,
-        _active_path_config,
-    ) -> None:
+    def test_typed_path_uses_governance_review_root_candidate(self) -> None:
         with TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
             self._write_bridge_and_typed_state(
@@ -711,10 +702,47 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
                 / "review_state.json"
             ).unlink()
 
-            gate = _detect_reviewer_gate(repo_root)
+            governance = replace(
+                _minimal_governance(),
+                artifact_roots=ArtifactRoots(
+                    audit_root="",
+                    review_root="portable",
+                    governance_log_root="",
+                    probe_report_root="",
+                ),
+            )
+            gate = _detect_reviewer_gate(repo_root, governance=governance)
 
         self.assertTrue(gate.review_accepted)
         self.assertTrue(gate.push_permitted)
+
+    def test_typed_path_does_not_block_when_implementer_was_freshly_reset_pending(self) -> None:
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_bridge_and_typed_state(
+                repo_root,
+                "Needs-review. Fresh instruction reset is pending.",
+                "- none",
+                claude_ack_current=False,
+                attention_status="claude_ack_stale",
+            )
+            state_path = (
+                repo_root
+                / "dev"
+                / "reports"
+                / "review_channel"
+                / "latest"
+                / "review_state.json"
+            )
+            payload = json.loads(state_path.read_text(encoding="utf-8"))
+            payload["current_session"]["implementer_status"] = "- pending"
+            payload["current_session"]["implementer_ack"] = "- pending"
+            payload["current_session"]["implementer_ack_state"] = "pending"
+            state_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            gate = _detect_reviewer_gate(repo_root)
+
+        self.assertFalse(gate.implementation_blocked)
 
     def test_typed_path_falls_back_when_state_missing(self) -> None:
         """When review_state.json is absent, falls back to bridge parsing."""

@@ -258,6 +258,31 @@
   concrete slices such as `vcs.push` still need `ActionResult` business-state
   cleanup plus real `RunRecord` closure before the authority loop can claim
   runtime parity with the docs.
+- Current portability-audit correction after the 2026-03-26 architecture
+  review: the main blocker is broader than the remaining bridge consumer
+  count. The typed governance/runtime spine still carries hidden VoiceTerm
+  default authority in places where portable mode should fail closed or use an
+  explicit repo-pack: `ProjectGovernance` / `DocPolicy` / `PlanRegistry` /
+  `ArtifactRoots` / `BridgeConfig` still default missing fields to
+  `dev/active/*`, `dev/reports/*`, and `bridge.md`; `active_path_config()`
+  still falls back to `VOICETERM_PATH_CONFIG`; several review-channel modules
+  still freeze that config at import time; and generated AI/bootstrap/review
+  surfaces still emit VoiceTerm/tandem rules as if they were universal. The
+  accepted remediation order is now explicit: fail closed on missing
+  repo-pack/governance path families outside compatibility mode, remove frozen
+  global path capture from runtime surfaces, generate AI/bootstrap/review
+  instructions from governed repo-pack state instead of literals, and add a
+  portability-drift guard plus non-VoiceTerm fixture-repo proof before
+  `MP-377` can claim portable authority-loop closure.
+- 2026-03-26 portability-audit follow-up: the current burn-down queue is now
+  concrete, not generic. Highest-priority remaining leaks are governance
+  models that still default partial state back to VoiceTerm path literals,
+  review-state lookup that can still drop to repo-pack globals when callers
+  skip explicit governance, plan-resolution/tandem checks that still infer one
+  repo's authority chain, bridge-hash exclusions that still assume root
+  `bridge.md`, and first-hop AI bootstrap surfaces that still under-specify
+  the portable-platform boundary. Treat those as blocking authority-loop work,
+  not cleanup to defer behind new features.
 - Current deterministic self-governance closure rule after the 2026-03-21
   guard audit: do not treat more guard count or richer graph semantics as
   progress while typed/runtime authority still lies. First close the cheap

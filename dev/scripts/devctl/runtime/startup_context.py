@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from .project_governance import ProjectGovernance
+from .review_state_semantics import is_pending_implementer_state
 from .review_state_locator import load_review_state_payload
 from .startup_signals import load_startup_quality_signals
 from .work_intake import WorkIntakePacket, build_work_intake_packet
@@ -79,7 +80,10 @@ def _detect_reviewer_gate(
     )
     if typed_gate is not None:
         return typed_gate
-    return _detect_reviewer_gate_from_bridge(repo_root)
+    return _detect_reviewer_gate_from_bridge_with_governance(
+        repo_root,
+        governance=governance,
+    )
 
 
 def _detect_reviewer_gate_from_typed_state(
@@ -111,11 +115,19 @@ def _detect_reviewer_gate_from_typed_state(
 
         review_accepted = bool(bridge_block.get("review_accepted", False))
         claude_ack_current = bool(bridge_block.get("claude_ack_current", False))
+        current_session = payload.get("current_session") or {}
         implementation_blocked, implementation_block_reason = (
             _reviewer_loop_block_state(
                 reviewer_mode=mode,
                 claude_ack_current=claude_ack_current,
                 attention_status=str(attention_block.get("status") or "").strip(),
+                implementer_status=str(
+                    current_session.get("implementer_status") or ""
+                ).strip(),
+                implementer_ack=str(current_session.get("implementer_ack") or "").strip(),
+                implementer_ack_state=str(
+                    current_session.get("implementer_ack_state") or ""
+                ).strip(),
             )
         )
 
@@ -135,8 +147,16 @@ def _detect_reviewer_gate_from_typed_state(
 
 def _detect_reviewer_gate_from_bridge(repo_root: Path) -> ReviewerGateState:
     """Fallback: detect reviewer gate by parsing live bridge.md prose."""
-    bridge_path = repo_root / "bridge.md"
-    if not bridge_path.exists():
+    return _detect_reviewer_gate_from_bridge_with_governance(repo_root, governance=None)
+
+
+def _detect_reviewer_gate_from_bridge_with_governance(
+    repo_root: Path,
+    *,
+    governance: ProjectGovernance | None,
+) -> ReviewerGateState:
+    bridge_path = _resolve_bridge_path(repo_root, governance=governance)
+    if bridge_path is None or not bridge_path.exists():
         return ReviewerGateState(
             checkpoint_permitted=True,
             push_permitted=True,
@@ -169,6 +189,8 @@ def _detect_reviewer_gate_from_bridge(repo_root: Path) -> ReviewerGateState:
                 reviewer_mode=mode,
                 claude_ack_current=bool(liveness.claude_ack_current),
                 attention_status=str(liveness.overall_state or "").strip(),
+                implementer_status=snapshot.sections.get("Claude Status", "").strip(),
+                implementer_ack=snapshot.sections.get("Claude Ack", "").strip(),
             )
         )
         return ReviewerGateState(
@@ -195,6 +217,9 @@ def _reviewer_loop_block_state(
     reviewer_mode: str,
     claude_ack_current: bool,
     attention_status: str = "",
+    implementer_status: str = "",
+    implementer_ack: str = "",
+    implementer_ack_state: str = "",
 ) -> tuple[bool, str]:
     from ..review_channel.peer_liveness import reviewer_mode_is_active
 
@@ -202,8 +227,36 @@ def _reviewer_loop_block_state(
         return False, ""
     if claude_ack_current:
         return False, ""
+    if is_pending_implementer_state(
+        implementer_status=implementer_status,
+        implementer_ack=implementer_ack,
+        implementer_ack_state=implementer_ack_state,
+    ):
+        return False, ""
     reason = attention_status or "claude_ack_stale"
     return True, reason
+
+
+def _resolve_bridge_path(
+    repo_root: Path,
+    *,
+    governance: ProjectGovernance | None,
+) -> Path | None:
+    bridge_rel = ""
+    if governance is not None:
+        bridge_rel = str(governance.bridge_config.bridge_path or "").strip()
+    if not bridge_rel:
+        try:
+            from ..governance.draft import scan_repo_governance
+
+            bridge_rel = str(
+                scan_repo_governance(repo_root).bridge_config.bridge_path or ""
+            ).strip()
+        except ImportError:
+            bridge_rel = ""
+    if not bridge_rel:
+        return None
+    return repo_root / bridge_rel
 
 
 def _derive_advisory_action(

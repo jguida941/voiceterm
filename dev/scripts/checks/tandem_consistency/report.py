@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from dev.scripts.devctl.governance.draft import scan_repo_governance
 from dev.scripts.devctl.runtime.review_state_locator import load_review_state_payload
 
 try:
@@ -32,7 +33,8 @@ def _load_typed_review_state(repo_root: Path | None) -> dict[str, object] | None
     """Try to load typed review_state.json for checks that can use it."""
     if repo_root is None:
         return None
-    payload = load_review_state_payload(repo_root)
+    governance = scan_repo_governance(repo_root)
+    payload = load_review_state_payload(repo_root, governance=governance)
     if payload is None:
         return None
     return dict(payload)

@@ -28,7 +28,15 @@ def check_plan_alignment(
     signature consistency but is not yet consumed.
     """
     plan_alignment = extract_section(bridge_text, "Plan Alignment")
+    tracker_path, scoped_plan_path = _expected_plan_alignment_targets(repo_root)
     if not plan_alignment.strip():
+        fallback = _repo_plan_alignment_fallback(
+            repo_root,
+            tracker_path=tracker_path,
+            scoped_plan_path=scoped_plan_path,
+        )
+        if fallback is not None:
+            return fallback
         return {
             "check": "plan_alignment",
             "role": TandemRole.OPERATOR,
@@ -36,20 +44,32 @@ def check_plan_alignment(
             "detail": "No Plan Alignment section found in bridge.",
         }
 
-    has_continuous_swarm = "continuous_swarm.md" in plan_alignment
-    has_master_plan = "MASTER_PLAN" in plan_alignment
+    expected_tracker = tracker_path or "dev/active/MASTER_PLAN.md"
+    expected_scoped_plan = scoped_plan_path or "dev/active/review_channel.md"
+    has_tracker = _section_mentions_path(
+        plan_alignment,
+        expected_path=expected_tracker,
+        legacy_marker="MASTER_PLAN",
+    )
+    has_scoped_plan = _section_mentions_path(
+        plan_alignment,
+        expected_path=expected_scoped_plan,
+        legacy_marker=Path(expected_scoped_plan).name,
+    )
     missing: list[str] = []
-    if not has_master_plan:
-        missing.append("MASTER_PLAN")
-    if not has_continuous_swarm:
-        missing.append("continuous_swarm.md")
+    if not has_tracker:
+        missing.append(_plan_alignment_label(expected_tracker))
+    if not has_scoped_plan:
+        missing.append(_plan_alignment_label(expected_scoped_plan))
     if missing:
         return {
             "check": "plan_alignment",
             "role": TandemRole.OPERATOR,
             "ok": False,
-            "references_continuous_swarm": has_continuous_swarm,
-            "references_master_plan": has_master_plan,
+            "references_master_plan": has_tracker,
+            "references_scoped_plan": has_scoped_plan,
+            "tracker_path": expected_tracker,
+            "scoped_plan_path": expected_scoped_plan,
             "detail": (
                 "Plan Alignment is missing required references: "
                 f"{', '.join(missing)}."
@@ -58,10 +78,7 @@ def check_plan_alignment(
 
     missing_files: list[str] = []
     if repo_root is not None:
-        for rel_path in (
-            "dev/active/MASTER_PLAN.md",
-            "dev/active/continuous_swarm.md",
-        ):
+        for rel_path in (expected_tracker, expected_scoped_plan):
             if not (repo_root / rel_path).exists():
                 missing_files.append(rel_path)
     if missing_files:
@@ -69,8 +86,10 @@ def check_plan_alignment(
             "check": "plan_alignment",
             "role": TandemRole.OPERATOR,
             "ok": False,
-            "references_continuous_swarm": has_continuous_swarm,
-            "references_master_plan": has_master_plan,
+            "references_master_plan": has_tracker,
+            "references_scoped_plan": has_scoped_plan,
+            "tracker_path": expected_tracker,
+            "scoped_plan_path": expected_scoped_plan,
             "missing_files": missing_files,
             "detail": (
                 "Referenced plan files missing on disk: "
@@ -82,10 +101,88 @@ def check_plan_alignment(
         "check": "plan_alignment",
         "role": TandemRole.OPERATOR,
         "ok": True,
-        "references_continuous_swarm": has_continuous_swarm,
-        "references_master_plan": has_master_plan,
-        "detail": "Plan alignment chain is complete (MASTER_PLAN → continuous_swarm.md).",
+        "references_master_plan": has_tracker,
+        "references_scoped_plan": has_scoped_plan,
+        "tracker_path": expected_tracker,
+        "scoped_plan_path": expected_scoped_plan,
+        "detail": (
+            "Plan alignment chain is complete "
+            f"({_plan_alignment_label(expected_tracker)} -> "
+            f"{_plan_alignment_label(expected_scoped_plan)})."
+        ),
     }
+
+
+def _repo_plan_alignment_fallback(
+    repo_root: Path | None,
+    *,
+    tracker_path: str = "",
+    scoped_plan_path: str = "",
+) -> dict[str, object] | None:
+    if repo_root is None:
+        return None
+    if not tracker_path or not scoped_plan_path:
+        tracker_path, scoped_plan_path = _expected_plan_alignment_targets(repo_root)
+    if not tracker_path or not scoped_plan_path:
+        return None
+    missing = [
+        rel_path
+        for rel_path in (tracker_path, scoped_plan_path)
+        if not (repo_root / rel_path).exists()
+    ]
+    if missing:
+        return None
+    return {
+        "check": "plan_alignment",
+        "role": TandemRole.OPERATOR,
+        "ok": True,
+        "references_master_plan": True,
+        "references_scoped_plan": True,
+        "fallback_source": "project_governance",
+        "tracker_path": tracker_path,
+        "scoped_plan_path": scoped_plan_path,
+        "detail": (
+            "Bridge compatibility projection omits `Plan Alignment`; "
+            "authority resolved from `ProjectGovernance` tracker and scoped "
+            "plan paths instead of hardcoded VoiceTerm defaults."
+        ),
+    }
+
+
+def _expected_plan_alignment_targets(
+    repo_root: Path | None,
+) -> tuple[str, str]:
+    if repo_root is None:
+        return "", ""
+    try:
+        from dev.scripts.devctl.governance.draft import scan_repo_governance
+
+        governance = scan_repo_governance(repo_root)
+    except (ImportError, OSError, ValueError):
+        return "", ""
+    tracker_path = str(governance.plan_registry.tracker_path or "").strip()
+    scoped_plan_path = str(governance.bridge_config.review_channel_path or "").strip()
+    return tracker_path, scoped_plan_path
+
+
+def _section_mentions_path(
+    section_text: str,
+    *,
+    expected_path: str,
+    legacy_marker: str,
+) -> bool:
+    expected = str(expected_path or "").strip()
+    if expected and expected in section_text:
+        return True
+    name = Path(expected).name if expected else ""
+    if name and name in section_text:
+        return True
+    return legacy_marker in section_text
+
+
+def _plan_alignment_label(expected_path: str) -> str:
+    expected = str(expected_path or "").strip()
+    return expected or "(missing scoped path)"
 
 
 def check_promotion_state(

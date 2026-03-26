@@ -518,6 +518,12 @@ intended execution order is:
 - [ ] Land that runtime-loaded repo-pack accessor in compatibility mode first
       (`get_repo_pack()` or an equivalent runtime seam) so old defaults can
       coexist temporarily while callers migrate.
+- [ ] Remove silent VoiceTerm-default authority from portable runtime mode:
+      `ProjectGovernance`, `DocPolicy`, `PlanRegistry`, `ArtifactRoots`, and
+      `BridgeConfig` must stop treating `dev/active/*`, `dev/reports/*`, and
+      `bridge.md` as implicit truth in portable mode. Compatibility mode may
+      keep bounded defaults only when the active repo-pack explicitly declares
+      them and receipts/runtime state make that fallback visible.
 - [ ] Freeze one dependency-injection pattern for portable runtime code:
       top-level commands, service constructors, and helper entrypoints accept
       `RepoPack` or `RepoPathConfig` explicitly and thread it through;
@@ -533,6 +539,19 @@ intended execution order is:
 - [ ] Eliminate module-level frozen `active_path_config()` defaults from the
       portable/runtime surfaces. Current audit baseline: `51` call sites need
       explicit migration, not only the review-channel subset.
+- [ ] Ban silent VoiceTerm fallback in portable control-path consumers:
+      startup/tandem/review/runtime modules may not treat
+      `VOICETERM_PATH_CONFIG`, `active_path_config()` defaults, or
+      `voiceterm_repo_root()` as implicit authority when repo-pack/governance
+      inputs are absent. Allowed behavior is explicit injected authority,
+      an intentionally declared compatibility seam, or fail-closed
+      startup/report output that says the pack/path authority is unresolved.
+- [ ] Make generated bootstrap/review instruction surfaces use the same
+      authority chain: `CLAUDE.md`, startup receipts, bridge compatibility
+      projections, tandem prompts, and conductor prompts must resolve process
+      docs, tracker/index paths, bridge paths, review-state paths, and review
+      plan refs from `DocPolicy` / `PlanRegistry` / `BridgeConfig` instead of
+      embedding VoiceTerm literals or assuming tandem mode is universally on.
 - [ ] Replace the `voiceterm_repo_root()` singleton/fallback behavior with a
       repo-pack/provider boundary that callers receive explicitly.
 - [ ] Close the remaining path-authority portability blockers before
@@ -559,6 +578,13 @@ intended execution order is:
       first while legacy frozen defaults are still being migrated, then
       promote it to a blocking guard only after those call sites are removed
       and covered by tests so CI cannot deadlock on the migration itself.
+- [ ] Add one portability-drift enforcement bundle for the same phase: a
+      static scan for repo-name/path literals, `VOICETERM_PATH_CONFIG`
+      fallback use, `voiceterm_repo_root()`, import-time `active_path_config()`
+      capture, and raw `bridge.md` / `dev/active/*` authority reads inside
+      portable layers, plus fixture-repo tests that prove empty-repo bootstrap,
+      existing-repo adoption, alternate governed-doc roots, and
+      tandem-disabled repos do not silently collapse back to VoiceTerm rules.
 - [ ] Make the first extensibility step config-driven rather than implied:
       `project.governance.json` / repo-pack policy must be able to declare
       enabled guard/probe ids, bundle overrides, and repo-local routing
@@ -1148,6 +1174,17 @@ intended execution order is:
 
 ## Session Resume
 
+- 2026-03-26 portability-audit follow-up: the next authority-loop slice is
+  broader than the current `bridge.md` consumer cleanup. The portable runtime
+  still lets missing authority silently collapse to VoiceTerm defaults in
+  typed governance models, repo-pack accessors, and generated review/AI
+  surfaces. Resume from four concrete tasks: (1) remove silent VoiceTerm path
+  defaults from portable runtime mode, (2) eliminate frozen
+  `active_path_config()` capture and other hidden globals from runtime
+  consumers, (3) make generated bootstrap/review text render from governed
+  repo-pack/doc/plan state, and (4) add portability-drift guards plus
+  fixture-repo proof so the next regression fails in code instead of another
+  repo conversation.
 - 2026-03-23 startup-intake follow-up: the first typed continuity/runtime
   proof is now real on the live branch. `PlanRegistry` entries carry parsed
   `SessionResumeState` instead of a boolean marker, `startup-context`
@@ -1302,6 +1339,32 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-26: Re-scoped the current startup/review cutover into a broader
+  authority-loop portability audit after the live review-channel state
+  exposed another hidden VoiceTerm fallback. The concrete misses are now
+  recorded in plan state instead of chat only: typed governance models still
+  default missing fields to `dev/active/*`, `dev/reports/*`, and `bridge.md`;
+  `active_path_config()` still falls back to `VOICETERM_PATH_CONFIG`;
+  review-channel modules still freeze that config at import time; and AI /
+  bridge / prompt surfaces still emit VoiceTerm-specific authority text even
+  where the architecture says those instructions must come from repo-pack /
+  governed-doc state. Accepted next closure is therefore not just "fix the
+  pending-state bug": fail closed on missing portable authority, migrate
+  bootstrap/review instruction generators onto governed state, and add a
+  portability-drift enforcement bundle plus fixture-repo proof under the same
+  phase-2 activation lane.
+- 2026-03-26 implementation follow-up: converted the audit from abstract
+  concern into named code tranches. The immediate landed/runtime-active fixes
+  now target governance-first review-state lookup, governance-first tracker /
+  plan resolution, bridge-path-relative hash exclusions instead of hardcoded
+  root `bridge.md`, and a tandem `Plan Alignment` check that validates the
+  actual governed tracker/scoped-plan pair rather than one legacy
+  `MASTER_PLAN -> continuous_swarm.md` chain. The remaining higher-severity
+  debt stays explicit here: `ProjectGovernance` default models still bake in
+  VoiceTerm literals, operator-console/runtime consumers still import
+  `VOICETERM_PATH_CONFIG` directly, and generated AI instruction surfaces
+  still need stronger portable-boundary wording plus proof on non-VoiceTerm
+  repo fixtures.
 - 2026-03-25: Re-audited the external conversation tail (`convo.md`
   lines `4907-5668`) with an eight-way reviewer pass against the live
   intake/code/plan stack instead of assuming the earlier intake was

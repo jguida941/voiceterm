@@ -16,6 +16,21 @@ gitignored).
   before acting so the live review-channel/tandem workflow matches the
   repo-owned command surface instead of chat memory.
 
+## Platform scope
+
+- Treat this repo's product files as one adopter/client over a portable
+  governance platform unless the active plan explicitly scopes the work to a
+  repo-pack or product-integration surface.
+- In shared governance/runtime/startup/review-channel code, resolve repo-local
+  paths, plan docs, and bridge surfaces through `startup-context`,
+  `ProjectGovernance`, repo-pack policy, or typed runtime state. Do not
+  hardcode repo names, `bridge.md`, or `dev/...` literals back into portable
+  layers.
+- If a markdown bridge is enabled, treat it as a repo-pack-owned compatibility
+  projection over typed review state unless the active plan explicitly says
+  the migration is incomplete and that bridge prose is still temporary live
+  authority for the current repo.
+
 ## Governance capabilities (available during work)
 
 - Probe findings may carry `ai_instruction` with targeted fix guidance. Treat
@@ -38,6 +53,21 @@ gitignored).
   protect us`, `After file edits`) and the command table in
   `{{scripts_readme_doc}}` before inventing a narrower workflow.
 
+## Platform Boundary
+
+- The long-term product direction is a portable AI-governance platform. In
+  this repo, `{{product_name}}` is one client/integration of that platform,
+  not permission to treat repo-local paths or product defaults as universal.
+- In portable/runtime/tooling layers, resolve docs, report roots, bridge
+  files, startup order, and review-state paths through governed repo state
+  (`ProjectGovernance`, repo pack metadata, repo policy, typed runtime
+  contracts) instead of hardcoding `bridge.md`, `dev/active/*`,
+  `dev/reports/*`, repo names, or one client's defaults.
+- If a behavior is intentionally repo-local or client-local, keep that scope
+  explicit in code, docs, and tests. If the behavior should work on arbitrary
+  repos, empty repos, or already-built repos, treat hardcoded local literals
+  as a bug or compatibility seam to remove.
+
 ## Task Router Quick Map
 
 Canonical task-router authority lives in
@@ -52,15 +82,17 @@ rendered from that typed router.
 
 ## Mode-aware review-channel bootstrap
 
-- If repo-root `bridge.md` is absent, or `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+- If the repo's configured markdown bridge projection is absent, or
+  `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
   reports `reviewer_mode` as `single_agent`, `tools_only`, `paused`, or `offline`,
   do not assume a live Codex review loop. Use the normal `AGENTS.md` + active-plan
   flow unless the operator explicitly reactivates dual-agent mode.
-- If repo-root `bridge.md` is present and `reviewer_mode` is
-  `active_dual_agent`, treat the bridge as the live reviewer/coder authority:
-  read `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`,
-  and `Last Reviewed Scope` before acting, then keep polling the bridge instead of
-  waiting for the operator to restate the process in chat.
+- If a bridge projection is present and `reviewer_mode` is `active_dual_agent`,
+  treat that projection as the live reviewer/coder surface for the current
+  repo-pack. Read `Poll Status`, `Current Verdict`, `Open Findings`,
+  `Current Instruction For Claude`, and `Last Reviewed Scope` before acting,
+  but prefer typed `review_state.json` / `current_session` fields whenever a
+  current-status question can be answered without rereading prose.
 - On each repoll, read `Last Codex poll` / `Poll Status` first. If the reviewer-owned
   timestamp and the reviewer-owned sections are unchanged after you already finished
   the current bounded work, treat that as a live wait state, wait on the documented

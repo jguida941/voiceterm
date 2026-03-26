@@ -1117,6 +1117,13 @@ Acceptance:
       same typed `review_state` / queue / registry backend so another repo can
       enable the bridge surface without inheriting VoiceTerm-only runtime
       assumptions or treating markdown as canonical state.
+- [ ] Remove VoiceTerm-local bridge assumptions from prompts, guards, and
+      projections while that migration is in flight: bridge path, review plan
+      path, promotion plan path, and status artifact roots must resolve
+      through `ProjectGovernance` / repo-pack state, and bootstrap text should
+      describe the bridge as a repo-pack-owned compatibility projection over
+      typed `review_state` rather than teaching agents to hardcode repo-root
+      `bridge.md`.
 - [ ] Promote continuation-budget / checkpoint gating to a first-class live
       wait reason in the same typed attention/liveness contract. When
       `push_enforcement.checkpoint_required` or
@@ -1609,6 +1616,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-26T05:05:00Z` | `CODEX` | Re-audited the live bridge/current-session lane against the portable-platform architecture after the latest startup/tandem bug fixes. The design direction remains correct: typed `review_state` is the live authority and `bridge.md` is already supposed to become a repo-pack-owned compatibility projection. The concrete remaining gap is mixed teaching and mixed consumers: some runtime/guard paths now resolve bridge/review state through governance, while prompts, templates, and a few guards still encode repo-root `bridge.md` or VoiceTerm plan-path assumptions directly. | `planned` | Keep the typed `current_session` cutover bounded, then remove literal bridge/path assumptions from prompts/guards/projections and add non-VoiceTerm fixture coverage before claiming the bridge path is portable. |
 | `2026-03-26T01:50:00Z` | `CODEX` | Closed the worst current markdown-bridge failure mode after the live bridge grew into a 4164-line mixed transcript with duplicate report headings and raw terminal/test output. Landed `review-channel --action render-bridge` as the repo-owned repair path, rebuilt the live `bridge.md` down to a bounded 117-line compatibility projection, expanded bridge hygiene enforcement so `check_review_channel_bridge.py` now rejects oversize bridges, duplicate/unsupported headings, transcript/ANSI contamination, and overgrown live sections, and tightened reviewer checkpoint contamination patterns so repo-owned reviewer writes reject obvious terminal/test output earlier. | `partial-pass` | Re-run the focused review-channel/tooling bundles on the cleaned bridge, keep the remaining stale-ACK state explicit, and continue the broader typed writer/mutation cutover so bridge repair becomes exceptional instead of routine. |
 | `2026-03-25T14:05:00Z` | `CODEX` | Closed the next live stale-implementer orchestration gap without widening bridge authority. Active attention now distinguishes `implementer_relaunch_required`, `review-channel --action recover --recover-provider claude` replaces only the stale Claude conductor, and reviewer-follow now escalates repeated unchanged stale-implementer state through that narrower repo-owned recovery path instead of full rollover or passive sleep-loop polling. The same slice also keeps startup gating honest: `launch|rollover` still fail closed on checkpoint-budget or real startup-authority errors, but they no longer fail solely because the reviewer loop is stale on the implementer side. | `partial-pass` | Run the focused runtime/review-channel proofs plus docs/guard bundles, then checkpoint the slice and exercise the live recover path against a stale Claude ACK session. |
 | `2026-03-25T04:45:00Z` | `CODEX` | Re-ran the focused MP-355 regression suite and reopened one exact bridge-contract guard. `test_check_review_channel_bridge.py` now shows that `check_review_channel_bridge.py` no longer flags resolved bridge verdicts without a promoted next task. The broader typed-current-session direction still holds, but the temporary fail-closed bridge validator regressed and can again let a semantically incomplete bridge read as healthy. | `planned` | Restore guard + projection parity so resolved/fixed bridge states require promoted next-task routing, then continue the typed `current_session` / `agent_registry` cutover without widening bridge authority. |
@@ -1712,7 +1720,10 @@ Complete this table only after all active swarm lanes are merged.
   feature-scoped suites. The next controller-consumer splice is explicit too:
   startup/work-intake and reviewer/implementer scheduling should stop reading
   `current_session` alone and start consuming `agent_registry` plus the typed
-  queue/attention bundle that already powers the live status surfaces.
+  queue/attention bundle that already powers the live status surfaces. The
+  same slice must also stop prompts/guards/projections from teaching repo-root
+  `bridge.md` or VoiceTerm plan paths as default authority while the bridge
+  remains a compatibility projection.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

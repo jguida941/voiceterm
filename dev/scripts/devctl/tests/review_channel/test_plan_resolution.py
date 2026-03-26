@@ -5,10 +5,8 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from dev.scripts.devctl.review_channel.plan_resolution import (
-    PlanResolution,
     resolve_promotion_plan_path,
 )
 
@@ -46,12 +44,9 @@ class TestPlanResolutionFromTracker(unittest.TestCase):
             _write_index(repo, [
                 "| `dev/active/test_plan.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-100` | always |",
             ])
-            with patch("dev.scripts.devctl.review_channel.plan_resolution.active_path_config") as mock_cfg:
-                mock_cfg.return_value.active_master_plan_doc_rel = "dev/active/MASTER_PLAN.md"
-                mock_cfg.return_value.active_index_doc_rel = "dev/active/INDEX.md"
-                result = resolve_promotion_plan_path(
-                    repo_root=repo, bridge_path=None, explicit_plan_path=None,
-                )
+            result = resolve_promotion_plan_path(
+                repo_root=repo, bridge_path=None, explicit_plan_path=None,
+            )
             self.assertEqual(result.source, "tracker_scope")
             self.assertIsNotNone(result.path)
 
@@ -60,12 +55,9 @@ class TestPlanResolutionFromTracker(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             _write_master(repo, "MP-100")
-            with patch("dev.scripts.devctl.review_channel.plan_resolution.active_path_config") as mock_cfg:
-                mock_cfg.return_value.active_master_plan_doc_rel = "dev/active/MASTER_PLAN.md"
-                mock_cfg.return_value.active_index_doc_rel = "dev/active/INDEX.md"
-                result = resolve_promotion_plan_path(
-                    repo_root=repo, bridge_path=None, explicit_plan_path=None,
-                )
+            result = resolve_promotion_plan_path(
+                repo_root=repo, bridge_path=None, explicit_plan_path=None,
+            )
             self.assertIsNone(result.path)
             self.assertIn(result.source, ("bridge_missing", "bridge_scope_missing", "index_missing"))
 
@@ -77,12 +69,9 @@ class TestPlanResolutionFromTracker(unittest.TestCase):
             _write_index(repo, [
                 "| `dev/active/other.md` | `spec` | `mirrored` | `MP-100` | always |",
             ])
-            with patch("dev.scripts.devctl.review_channel.plan_resolution.active_path_config") as mock_cfg:
-                mock_cfg.return_value.active_master_plan_doc_rel = "dev/active/MASTER_PLAN.md"
-                mock_cfg.return_value.active_index_doc_rel = "dev/active/INDEX.md"
-                result = resolve_promotion_plan_path(
-                    repo_root=repo, bridge_path=None, explicit_plan_path=None,
-                )
+            result = resolve_promotion_plan_path(
+                repo_root=repo, bridge_path=None, explicit_plan_path=None,
+            )
             self.assertIsNone(result.path)
             self.assertIn(result.source, ("bridge_missing", "bridge_scope_missing", "tracker_scope_unmapped"))
 

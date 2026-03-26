@@ -23,8 +23,9 @@ def review_state_relative_candidates(
         review_root = str(governance.artifact_roots.review_root or "").strip()
         if review_root:
             _append_candidate(candidates, f"{review_root.rstrip('/')}/review_state.json")
-    for candidate in active_path_config().review_state_candidates:
-        _append_candidate(candidates, candidate)
+    if governance is None:
+        for candidate in active_path_config().review_state_candidates:
+            _append_candidate(candidates, candidate)
     return tuple(candidates)
 
 
@@ -34,10 +35,16 @@ def resolve_review_state_path(
     governance: "ProjectGovernance | None" = None,
 ) -> Path | None:
     """Return the first existing typed review-state projection path."""
-    for candidate in review_state_relative_candidates(governance=governance):
+    resolved_governance = _resolve_governance(repo_root, governance=governance)
+    for candidate in review_state_relative_candidates(governance=resolved_governance):
         path = repo_root / candidate
         if path.is_file():
             return path
+    if resolved_governance is not None:
+        for candidate in active_path_config().review_state_candidates:
+            path = repo_root / str(candidate).strip()
+            if path.is_file():
+                return path
     return None
 
 
@@ -90,6 +97,23 @@ def _append_candidate(candidates: list[str], candidate: Any) -> None:
     text = str(candidate or "").strip()
     if text and text not in candidates:
         candidates.append(text)
+
+
+def _resolve_governance(
+    repo_root: Path,
+    *,
+    governance: "ProjectGovernance | None" = None,
+) -> "ProjectGovernance | None":
+    if governance is not None:
+        return governance
+    try:
+        from ..governance.draft import scan_repo_governance
+    except ImportError:
+        return None
+    try:
+        return scan_repo_governance(repo_root)
+    except (OSError, ValueError):
+        return None
 
 
 __all__ = [

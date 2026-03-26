@@ -19,6 +19,7 @@ def main() -> int:
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
 
+    from dev.scripts.devctl.governance.draft import scan_repo_governance
     from tandem_consistency.report import build_report, render_md
 
     parser = argparse.ArgumentParser(description="Tandem-consistency guard.")
@@ -26,8 +27,14 @@ def main() -> int:
     parser.add_argument("--ci-bundle", action="store_true", help="Relax hash enforcement for bundled CI runs")
     args = parser.parse_args()
 
-    bridge_path = REPO_ROOT / "bridge.md"
-    bridge_text = bridge_path.read_text(encoding="utf-8") if bridge_path.exists() else None
+    governance = scan_repo_governance(REPO_ROOT)
+    bridge_rel = str(governance.bridge_config.bridge_path or "").strip()
+    bridge_path = REPO_ROOT / bridge_rel if bridge_rel else None
+    bridge_text = (
+        bridge_path.read_text(encoding="utf-8")
+        if bridge_path is not None and bridge_path.exists()
+        else None
+    )
     report = build_report(bridge_text=bridge_text, repo_root=REPO_ROOT, ci_bundle=args.ci_bundle)
     output = json.dumps(report, indent=2) if args.format == "json" else render_md(report)
     print(output)

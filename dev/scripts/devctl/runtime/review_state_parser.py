@@ -17,6 +17,7 @@ from .review_state_models import (
     ReviewSessionState,
     ReviewState,
 )
+from .review_state_semantics import is_pending_implementer_state
 
 
 def _bool(value: object) -> bool:
@@ -178,6 +179,11 @@ def _current_session_state_from_payload(
 
 
 def _bridge_ack_state(bridge: Mapping[str, object], implementer_ack: str) -> str:
+    if is_pending_implementer_state(
+        implementer_status=_string(bridge.get("claude_status")),
+        implementer_ack=implementer_ack,
+    ):
+        return "pending"
     if not implementer_ack:
         return "missing"
     if _bool(bridge.get("claude_ack_current")):

@@ -12,7 +12,7 @@ from typing import Callable
 from .daemon_events import DaemonEventContext
 from .follow_lifecycle import FollowLifecycleContext
 from .handoff import extract_bridge_snapshot
-from .heartbeat import compute_non_audit_worktree_hash
+from .heartbeat import bridge_excluded_rel_paths, compute_non_audit_worktree_hash
 
 
 @dataclass(frozen=True)
@@ -110,7 +110,10 @@ def build_claude_progress_token(
     try:
         current_worktree_hash = compute_non_audit_worktree_hash(
             repo_root=repo_root,
-            excluded_rel_paths=("bridge.md",),
+            excluded_rel_paths=bridge_excluded_rel_paths(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+            ),
         )
     except (OSError, ValueError):
         current_worktree_hash = ""

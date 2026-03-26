@@ -273,6 +273,12 @@ Three quality layers matter in practice:
     state. The adjacent typed review-state reads in startup/tandem consumers
     now resolve through repo-pack/governance candidate paths rather than one
     fixed `dev/reports/review_channel/latest/review_state.json` literal.
+  - Treat that startup/governance path as the portable authority rule for new
+    work too: reusable runtime/tooling layers should resolve docs, plans,
+    artifact roots, and review-channel state through `ProjectGovernance` /
+    repo-pack data or fail closed. VoiceTerm-specific paths/defaults belong in
+    repo-pack or product-integration surfaces, not as hidden universal
+    fallbacks inside portable control-plane code.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.
     That exclusion only affects checkpoint-budget accounting; raw git state

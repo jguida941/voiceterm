@@ -19,6 +19,7 @@ from .handoff import (
     summarize_bridge_liveness,
 )
 from .heartbeat import compute_non_audit_worktree_hash
+from .heartbeat import bridge_excluded_rel_paths
 from .peer_liveness import (
     CodexPollState,
     OverallLivenessState,
@@ -74,6 +75,7 @@ def refresh_status_snapshot(
     bridge_liveness = _build_status_bridge_liveness(
         bridge_snapshot=bridge_snapshot,
         repo_root=repo_root,
+        bridge_path=bridge_path,
     )
     bridge_liveness["push_enforcement"] = build_bridge_push_enforcement_state(
         repo_root
@@ -167,20 +169,27 @@ def _build_status_bridge_liveness(
     *,
     bridge_snapshot,
     repo_root: Path,
+    bridge_path: Path,
 ) -> dict[str, object]:
     return bridge_liveness_to_dict(
         summarize_bridge_liveness(
             bridge_snapshot,
-            current_worktree_hash=_current_worktree_hash(repo_root),
+            current_worktree_hash=_current_worktree_hash(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+            ),
         )
     )
 
 
-def _current_worktree_hash(repo_root: Path) -> str | None:
+def _current_worktree_hash(*, repo_root: Path, bridge_path: Path) -> str | None:
     try:
         return compute_non_audit_worktree_hash(
             repo_root=repo_root,
-            excluded_rel_paths=("bridge.md",),
+            excluded_rel_paths=bridge_excluded_rel_paths(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+            ),
         )
     except (ValueError, OSError):
         return None
@@ -297,7 +306,10 @@ def _build_reviewer_worker_snapshot(
             repo_root=repo_root,
             bridge_path=bridge_path,
             bridge_text=bridge_text,
-            current_hash=_current_worktree_hash(repo_root),
+            current_hash=_current_worktree_hash(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+            ),
         )
     )
 

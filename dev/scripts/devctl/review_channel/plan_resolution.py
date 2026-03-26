@@ -103,9 +103,9 @@ def _resolve_from_bridge(
 
 
 def _resolve_from_master_tracker(*, repo_root: Path) -> PlanResolution:
-    path_config = active_path_config()
-    master_path = (repo_root / path_config.active_master_plan_doc_rel).resolve()
-    index_path = (repo_root / path_config.active_index_doc_rel).resolve()
+    tracker_rel, index_rel = _tracker_and_index_paths(repo_root)
+    master_path = (repo_root / tracker_rel).resolve()
+    index_path = (repo_root / index_rel).resolve()
     if not master_path.exists():
         return PlanResolution(
             path=None,
@@ -144,6 +144,29 @@ def _resolve_from_master_tracker(*, repo_root: Path) -> PlanResolution:
         path=None,
         source="tracker_scope_unmapped",
         detail=f"Active scope {scope} is not mapped to a plan path in INDEX.md.",
+    )
+
+
+def _tracker_and_index_paths(repo_root: Path) -> tuple[str, str]:
+    try:
+        from ..governance.draft import scan_repo_governance
+
+        governance = scan_repo_governance(repo_root)
+    except (ImportError, OSError, ValueError):
+        governance = None
+    if governance is not None:
+        tracker_rel = str(governance.plan_registry.tracker_path or "").strip()
+        index_rel = str(
+            governance.plan_registry.index_path
+            or governance.plan_registry.registry_path
+            or ""
+        ).strip()
+        if tracker_rel and index_rel:
+            return tracker_rel, index_rel
+    path_config = active_path_config()
+    return (
+        path_config.active_master_plan_doc_rel,
+        path_config.active_index_doc_rel,
     )
 
 

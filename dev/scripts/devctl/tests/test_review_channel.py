@@ -6126,7 +6126,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertEqual(
                 review_state["current_session"]["implementer_ack_state"],
-                "missing",
+                "pending",
             )
 
     def test_run_reviewer_checkpoint_can_force_instruction_revision_rotation(self) -> None:

@@ -6,6 +6,9 @@ from dev.scripts.devctl.review_channel.peer_liveness import (
     normalize_reviewer_mode,
     reviewer_mode_is_active,
 )
+from dev.scripts.devctl.runtime.review_state_semantics import (
+    is_pending_implementer_state,
+)
 from dev.scripts.devctl.runtime.role_profile import TandemRole
 
 from .support import (
@@ -60,6 +63,7 @@ def check_implementer_ack_freshness(
     instruction = str(cs.get("current_instruction") or "").strip() or extract_section(bridge_text, "Current Instruction For Claude")
     ack = str(cs.get("implementer_ack") or "").strip() or extract_section(bridge_text, "Claude Ack")
     status = str(cs.get("implementer_status") or "").strip() or extract_section(bridge_text, "Claude Status")
+    typed_ack_state = str(cs.get("implementer_ack_state") or "").strip().lower()
 
     if not instruction.strip():
         return make_result(
@@ -67,6 +71,19 @@ def check_implementer_ack_freshness(
             _R,
             True,
             "No current instruction — implementer ACK not required.",
+        )
+    if is_pending_implementer_state(
+        implementer_status=status,
+        implementer_ack=ack,
+        implementer_ack_state=typed_ack_state,
+    ):
+        return make_result(
+            _CK,
+            _R,
+            True,
+            "Implementer state is freshly reset to pending for the current instruction revision.",
+            tranche_aligned=True,
+            ack_state="pending",
         )
     if not ack.strip():
         return make_result(

@@ -9,6 +9,7 @@ from pathlib import Path
 from .bridge_file import rewrite_bridge_markdown
 from .heartbeat import (
     NON_AUDIT_HASH_EXCLUDED_PREFIXES,
+    bridge_excluded_rel_paths,
     compute_non_audit_worktree_hash,
 )
 from .instruction_reset import reset_implementer_sections_on_instruction_change
@@ -30,8 +31,6 @@ from .write_preconditions import assert_expected_instruction_revision
 from .peer_liveness import ReviewerMode, normalize_reviewer_mode
 
 REVIEWER_MODE_RE = re.compile(r"(?m)^- Reviewer mode:\s*`.*?`\s*$")
-_BRIDGE_EXCLUDED_REL_PATHS = ("bridge.md",)
-
 @dataclass(frozen=True)
 class ReviewerCheckpointUpdate:
     """Reviewer-owned section updates for one checkpoint write."""
@@ -96,7 +95,10 @@ def write_reviewer_checkpoint(
     normalized_mode = normalize_reviewer_mode(reviewer_mode)
     current_hash = compute_non_audit_worktree_hash(
         repo_root=repo_root,
-        excluded_rel_paths=_BRIDGE_EXCLUDED_REL_PATHS,
+        excluded_rel_paths=bridge_excluded_rel_paths(
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+        ),
         excluded_prefixes=NON_AUDIT_HASH_EXCLUDED_PREFIXES,
     )
     reviewed_scope_body = _format_markdown_list(checkpoint.reviewed_scope_items)
