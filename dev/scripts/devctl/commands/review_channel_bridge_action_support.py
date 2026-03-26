@@ -30,6 +30,7 @@ from ..review_channel.bridge_promotion import (
     maybe_auto_promote_next_task,
     promotion_plan_rel_for_session,
 )
+from ..review_channel.packet_contract import PacketPostRequest
 from .review_channel_bridge_support import (
     bridge_launch_state,
     build_bridge_guard_report,
@@ -309,16 +310,18 @@ def post_session_lifecycle_event(
             repo_root=context.repo_root,
             review_channel_path=context.review_channel_path,
             artifact_paths=context.artifact_paths,
-            from_agent="system",
-            to_agent="operator",
-            kind="system_notice",
-            summary=summary,
-            body=body,
-            evidence_refs=[],
-            context_pack_refs=[],
-            confidence=1.0,
-            requested_action="review_only",
-            policy_hint="review_only",
-            approval_required=False,
-            expires_in_minutes=60,
+            request=PacketPostRequest(
+                from_agent="system",
+                to_agent="operator",
+                kind="system_notice",
+                summary=summary,
+                body=body,
+                evidence_refs=(),
+                context_pack_refs=(),
+                confidence=1.0,
+                requested_action="review_only",
+                policy_hint="review_only",
+                approval_required=False,
+                expires_in_minutes=60,
+            ),
         )

@@ -20,6 +20,7 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import review_channel as review_channel_command
+from dev.scripts.devctl.commands import review_channel_bridge_action_support
 from dev.scripts.devctl.commands import review_channel_bridge_handler
 from dev.scripts.devctl.commands.review_channel import ensure as review_channel_ensure_mod
 from dev.scripts.devctl.commands import review_channel_event_handler
@@ -8938,6 +8939,48 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
             state_path.write_text("{}", encoding="utf-8")
 
             self.assertTrue(event_state_exists(artifact_paths))
+
+    def test_post_session_lifecycle_event_wraps_packet_request(self) -> None:
+        recorded: dict[str, object] = {}
+
+        def _record_post_packet(**kwargs):
+            recorded.update(kwargs)
+            return None
+
+        context = review_channel_bridge_action_support.BridgeLifecycleEventContext(
+            repo_root=Path("/tmp/repo"),
+            review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+            artifact_paths=ReviewChannelArtifactPaths(
+                artifact_root="/tmp/repo/dev/reports/review_channel",
+                event_log_path="/tmp/repo/dev/reports/review_channel/events.ndjson",
+                state_path="/tmp/repo/dev/reports/review_channel/latest/review_state.json",
+                projections_root="/tmp/repo/dev/reports/review_channel/latest",
+            ),
+            sessions=[
+                {"provider": "codex", "lane_count": 8},
+                {"provider": "claude", "lane_count": 8},
+            ],
+        )
+
+        review_channel_bridge_action_support.post_session_lifecycle_event(
+            action="launch",
+            context=context,
+            post_packet_fn=_record_post_packet,
+            event_state_exists_fn=lambda _: True,
+        )
+
+        self.assertEqual(recorded["repo_root"], Path("/tmp/repo"))
+        self.assertEqual(
+            recorded["review_channel_path"],
+            Path("/tmp/repo/dev/active/review_channel.md"),
+        )
+        self.assertEqual(recorded["artifact_paths"], context.artifact_paths)
+        request = recorded["request"]
+        self.assertEqual(request.from_agent, "system")
+        self.assertEqual(request.to_agent, "operator")
+        self.assertEqual(request.kind, "system_notice")
+        self.assertIn("Session launch", request.summary)
+        self.assertIn("2 conductor session(s)", request.body)
 
 
 class TestWatchFollowContract(unittest.TestCase):
