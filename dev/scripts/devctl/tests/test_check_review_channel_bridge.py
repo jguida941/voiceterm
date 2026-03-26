@@ -484,4 +484,9 @@ class CheckReviewChannelBridgeTests(TestCase):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
         self.assertIn("state_errors", report["bridge"])
-        self.assertTrue(any("promote the next scoped task" in error for error in report["bridge"]["state_errors"]))
+        self.assertTrue(
+            any(
+                "live next task" in error or "promote the next scoped task" in error
+                for error in report["bridge"]["state_errors"]
+            )
+        )

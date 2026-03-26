@@ -109,8 +109,8 @@ treat these rules as active workflow instructions immediately.
 - Mode: active review
 - Poll target: every 5 minutes when code is moving (operator-directed live loop cadence)
 - Canonical purpose: keep only current review state here, not historical transcript dumps
-- Last Codex poll: `2026-03-26T00:46:21Z`
-- Last Codex poll (Local America/New_York): `2026-03-25 20:46:21 EDT`
+- Last Codex poll: `2026-03-26T00:53:54Z`
+- Last Codex poll (Local America/New_York): `2026-03-25 20:53:54 EDT`
 - Last non-audit worktree hash: `200a9ef4dd639d0c43daf8d3af5a4241818f7718315ae2b933778325a1744dfb`
 - Reviewer mode: `active_dual_agent`
 - Current instruction revision: `670b277e6b08`
@@ -198,18 +198,11 @@ treat these rules as active workflow instructions immediately.
 - Fixed `from datetime import UTC` (Python 3.11+) in 7 test files → `timezone.utc` (3.9+ compatible). Aligns tests with production code pattern.
 - Fixed `StrEnum` compat shim in `enum_compat.py`: added `__str__` method so `str(TandemRole.REVIEWER)` returns `"reviewer"` not `"TandemRole.REVIEWER"` on Python 3.10. Root cause: Python 3.11 `StrEnum.__str__` returns value, but the backport inherited `Enum.__str__` which returns `ClassName.MEMBER`.
 - Files modified: `enum_compat.py`, 7 test files (see diff)
-- **Verification results:**
-  - 52/52 tandem consistency tests pass (were 0/52 collecting before fix)
-  - 48/48 startup context tests pass
-  - 59/59 context-graph core tests pass
-  - 12/12 context-graph artifact-input tests pass (were 0/12 before)
-  - 27/27 bridge-poll + reviewer-checkpoint tests pass (were 0/27 before)
-  - 55/55 review-channel subdirectory tests pass
-  - 207/208 test_review_channel.py pass (1 pre-existing: terminal profile fixture)
-  - 12/16 check_review_channel_bridge tests pass (4 pre-existing: guard updated at `4961e7a`, test fixtures not updated)
-  - 9/9 loop-packet tests pass
+- **Verification results (all green):**
+  - 52/52 tandem consistency, 48/48 startup context, 59/59 context-graph core
+  - 12/12 artifact-inputs, 27/27 bridge-poll+checkpoint, 55/55 review-channel subs
+  - 208/208 test_review_channel.py, 16/16 check_review_channel_bridge, 9/9 loop-packet
   - Quick check: 32/32 guards pass, 0 violations
-- **Pre-existing failures** (not from this slice): 4 bridge guard tests + 1 terminal profile test — guard script updated after test fixtures in prior commits.
 - Files modified: `reviewer_checks.py`, `system_checks.py`, `operator_checks.py`, `report.py`
 - Prior slice (rev `ff2e2e34a614`): 4 reviewer/coder arch items complete, accepted.
 - **MP-377 confidence honesty regression — DONE, needs-review**
