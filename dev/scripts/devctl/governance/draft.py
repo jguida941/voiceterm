@@ -164,6 +164,7 @@ def _governed_markdown_inputs(
         tracker_path=discovery.tracker_path,
         governed_doc_roots=discovery.governed_doc_roots,
         startup_order=discovery.startup_order,
+        shared_backlog_path=discovery.shared_backlog_path,
     )
 
 

@@ -110,9 +110,15 @@ def writeback_sinks(
 ) -> tuple[str, ...]:
     """Return authoritative writeback sinks for startup follow-up work."""
     sinks: list[str] = []
+    shared_backlogs = tuple(
+        entry.path
+        for entry in governance.doc_registry.entries
+        if entry.artifact_role == "shared_backlog"
+    )
     for candidate in (
         active_entry.path if active_entry is not None else "",
         governance.plan_registry.tracker_path,
+        *shared_backlogs,
     ):
         candidate = candidate.strip()
         if candidate and candidate not in sinks:

@@ -228,6 +228,11 @@ contract set:
   family; it now emits the packet while returning non-zero when checkpoint
   budget says another implementation slice must stop and cut a checkpoint
   first.
+- `SharedBacklogDoc`: repo-pack-configured governed backlog/intake surface
+  that startup/work-intake may surface as warm context and an accepted
+  writeback sink for humans and AI. It stays shared intake rather than plan
+  authority; promotion into `MASTER_PLAN` / active-plan state is still
+  required before execution.
 - `CollaborationSession`: typed shared-work contract derived from
   `WorkIntakePacket`, review state, and writer-lease state so Codex, Claude,
   operators, and future clients can share one live view of
@@ -4066,6 +4071,11 @@ working on `MP-377`.
   extend explicit repo-pack/capability gating, finish broader doc-authority
   compression, and keep governed-push/Ralph follow-ups separate from graph or
   memory expansion.
+- 2026-03-27 shared-backlog intake landed: the same owner chain now treats a
+  repo-pack-configured shared backlog doc as governed intake visible to
+  startup/work-intake while keeping execution authority in
+  `dev/active/MASTER_PLAN.md` plus the owning active plan. Humans and AI can
+  share one backlog file without reopening the old hidden-backlog problem.
 - 2026-03-27 current priority lock: treat the next `MP-377` work as one
   bounded architecture tranche, not as a general cleanup bucket. The active
   focus is self-hosting authority compression plus governed-push integrity.
@@ -4160,6 +4170,17 @@ working on `MP-377`.
   inventing a second crowding checker; the next follow-up is bounded
   decomposition plus selective ratcheting of crowded roots/families to
   stronger enforcement once those namespaces are actually compressed.
+- 2026-03-27 package-layout self-hosting validation follow-up: the same
+  portable direction exposed a narrower proof miss in the repo's own coverage
+  story. The rule-loading extraction into
+  `dev/scripts/checks/package_layout/rule_resolution.py` was the right
+  architecture, but the paired support tests were still targeting the old
+  `support.py` seam and therefore failed after the refactor even while the
+  public command-level package-layout checks stayed green. The immediate fix
+  stays at the test boundary; the tracked owner follow-up is that
+  package-layout/internal engine refactors must keep the support-level suite
+  in routed default validation so self-hosting proof stays aligned with the
+  canonical seam rather than only the external command surface.
 - 2026-03-27 governed-push follow-up: the platform now has the intended
   fail-closed branch-push truth for this tranche. `repo_governance.push`
   policy now gates skip-flag bypasses, and `devctl push` emits typed stage
@@ -4905,6 +4926,23 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-27: Accepted the portable baseline-repo contract more explicitly in
+  the tracked owner chain. `backlog.md` should stay a shared intake surface,
+  not a catch-all architecture ledger, and it can remain empty when there is
+  no real queued work. The cross-repo organization answer is one
+  repo-pack-owned repo-shape/convention policy layered under the existing
+  process doc + execution tracker + shared backlog baseline; larger
+  per-slice plan docs remain the escalation path when execution complexity
+  actually requires them. Ownership stays split on purpose: `MP-376` for the
+  reusable shape/enforcement/discovery contract, `MP-377` for the startup/
+  work-intake surface that teaches and routes that contract.
+- 2026-03-27: Added the first repo-pack-configured shared backlog contract to
+  the live `MP-377` owner chain instead of leaving backlog tracking as either
+  hidden local notes or plan-authority leakage. Repo policy now advertises
+  `backlog.md`, governance/doc-authority classifies it as `shared_backlog`,
+  startup/work-intake can surface it in warm refs plus writeback sinks, and
+  the contract stays explicit that backlog is shared intake only until
+  promoted into `dev/active/MASTER_PLAN.md` plus the owning active plan.
 - 2026-03-27: Captured the missing architecture-intake scope in the tracked
   `MP-377` owner chain instead of leaving it as
   fragile chat context. Locked four same-lane directions into plan state:

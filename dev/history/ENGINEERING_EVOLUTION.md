@@ -6327,3 +6327,22 @@ Evidence: `dev/scripts/checks/package_layout/command.py`,
 `dev/scripts/devctl/tests/checks/package_layout/test_check_package_layout.py`,
 `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`.
+
+### 2026-03-27 - Shared backlog is now governed startup/work-intake intake instead of an orphaned side file
+
+Fact: the repo needed one shared backlog surface that humans and AI could both
+use without recreating the old hidden-backlog problem. The fix did not make
+backlog execution authority. Instead, repo policy now advertises `backlog.md`
+as a governed shared backlog doc, doc-authority classifies it as
+`shared_backlog`, and `startup-context` / `WorkIntakePacket` can surface it in
+warm refs plus writeback sinks. The fail-closed rule stays intact:
+`backlog.md` is shared intake only, and any item that becomes active work must
+still be promoted into `dev/active/MASTER_PLAN.md` plus the owning active
+plan.
+
+Evidence: `backlog.md`,
+`dev/config/devctl_repo_policy.json`,
+`dev/scripts/devctl/governance/draft_policy_scan.py`,
+`dev/scripts/devctl/runtime/work_intake_routing.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/platform_authority_loop.md`.

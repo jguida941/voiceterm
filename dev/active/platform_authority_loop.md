@@ -173,6 +173,10 @@ intended execution order is:
       and canonical consumer. Keep `PlanRegistry` focused on mutable execution
       docs while `DocRegistry` carries the broader docs system needed for
       bounded AI startup and cross-repo doc governance.
+- [x] Add one repo-pack-configured shared backlog doc to that same doc-
+      authority chain so startup/work-intake can expose a governed human+AI
+      intake/writeback surface without letting backlog prose bypass
+      `MASTER_PLAN` / active-plan execution authority.
 - [ ] Freeze typed artifact-role / scope rules strongly enough that startup
       and docs-governance can distinguish VoiceTerm product docs,
       development-self-hosting docs, portable adopter docs, and
@@ -1361,6 +1365,12 @@ blocker or exception in plan state before skipping the declared order.
   gaps only: explicit repo-pack activation/capability gating beyond the
   current runtime slice, remaining docs-authority compression, and portable
   report/push state closure.
+- 2026-03-27 shared-backlog slice landed: repo policy now advertises
+  `backlog.md` as a governed shared backlog doc, doc-authority marks it as
+  `shared_backlog`, and startup/work-intake can expose it in warm refs plus
+  writeback sinks without treating it as execution authority. Keep the next
+  same-lane closure on doc compression, fail-closed fallback removal, and
+  publish truth instead of widening backlog into a second tracker.
 - 2026-03-27 consumer-refresh follow-up: the bounded `current_session`
   consumer cutover is now real for startup/preflight. `startup-context`,
   `check_tandem_consistency`, and the governed push gate refresh the
@@ -1652,6 +1662,14 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-03-27: Added the first governed shared-backlog surface to the
+  authority-loop runtime. `repo_governance.surface_generation.context` now
+  advertises `backlog.md`, governance discovery/doc-authority classify it as
+  `shared_backlog`, startup projections report that surface, and
+  `WorkIntakePacket` warm refs/writeback sinks can carry it for both humans
+  and AI. The contract stays fail-closed on execution authority: backlog
+  entries remain shared intake until promoted into `dev/active/MASTER_PLAN.md`
+  plus the owning active plan.
 - 2026-03-27: Validated the bounded out-of-order docs-authority /
   publish-truth tranche against the real dirty branch instead of only the
   edited files. Focused Python/runtime tests are green, and the full

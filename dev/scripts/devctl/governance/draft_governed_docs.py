@@ -36,6 +36,7 @@ class GovernedMarkdownScanInputs:
     tracker_path: str
     governed_doc_roots: tuple[str, ...]
     startup_order: tuple[str, ...]
+    shared_backlog_path: str = ""
 
 
 def _is_root_markdown_path(relative_path: str) -> bool:
@@ -68,6 +69,7 @@ def _build_governed_doc_layout(
         index_path=inputs.index_path,
         tracker_path=inputs.tracker_path,
         docs_authority_path=inputs.docs_authority,
+        shared_backlog_path=inputs.shared_backlog_path,
         bridge_path=(
             inputs.bridge_config.bridge_path
             if inputs.bridge_config.bridge_active

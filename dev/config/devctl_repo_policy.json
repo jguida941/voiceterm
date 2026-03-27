@@ -450,6 +450,7 @@
         "architecture_doc": "dev/guides/AI_GOVERNANCE_PLATFORM.md",
         "development_doc": "dev/guides/DEVELOPMENT.md",
         "scripts_readme_doc": "dev/scripts/README.md",
+        "shared_backlog_doc": "backlog.md",
         "ci_workflows_doc": ".github/workflows/README.md",
         "cli_flags_doc": "rust/src/bin/voiceterm/config/cli.rs",
         "project_summary": "Rust voice-first terminal overlay for AI CLIs (Codex, Claude, Gemini)",

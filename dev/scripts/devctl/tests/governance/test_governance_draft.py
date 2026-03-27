@@ -136,6 +136,46 @@ def test_scan_repo_governance_with_standard_layout(tmp_path: Path) -> None:
 
 
 @patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
+def test_scan_repo_governance_discovers_configured_shared_backlog_doc(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "dev" / "active").mkdir(parents=True)
+    (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+    (tmp_path / "dev" / "active" / "INDEX.md").write_text(
+        "# Index\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "dev" / "active" / "MASTER_PLAN.md").write_text(
+        "# Master Plan\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "backlog.md").write_text(
+        "# Shared Backlog\n",
+        encoding="utf-8",
+    )
+
+    policy = {
+        "repo_governance": {
+            "surface_generation": {
+                "context": {
+                    "shared_backlog_doc": "backlog.md",
+                },
+            },
+        },
+    }
+
+    gov = scan_repo_governance(tmp_path, policy=policy)
+
+    assert "backlog.md" in gov.startup_order
+    backlog_entry = next(
+        entry for entry in gov.doc_registry.entries if entry.path == "backlog.md"
+    )
+    assert backlog_entry.artifact_role == "shared_backlog"
+    assert backlog_entry.authority_kind == "shared_intake"
+    assert backlog_entry.consumer_scope == "startup_default"
+
+
+@patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
 def test_scan_repo_governance_discovers_memory_roots_when_present(tmp_path: Path) -> None:
     (tmp_path / ".claude" / "memory").mkdir(parents=True)
     (tmp_path / "dev" / "context").mkdir(parents=True)

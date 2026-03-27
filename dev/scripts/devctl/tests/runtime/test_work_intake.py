@@ -37,6 +37,7 @@ def _write(path: Path, text: str) -> None:
 def _governance(
     *,
     review_root: str = "dev/reports/review_channel/latest",
+    include_shared_backlog: bool = False,
 ) -> ProjectGovernance:
     tracker_entry = PlanRegistryEntry(
         path="dev/active/MASTER_PLAN.md",
@@ -83,6 +84,84 @@ def _governance(
             ),
         ),
     )
+    doc_registry_entries = [
+        DocRegistryEntry(
+            path="AGENTS.md",
+            doc_class="guide",
+            authority="canonical",
+            lifecycle="active",
+            scope="startup contract",
+            artifact_role="docs_authority",
+            authority_kind="startup_authority",
+            system_scope="development_self_hosting",
+            consumer_scope="startup_default",
+        ),
+        DocRegistryEntry(
+            path="dev/active/INDEX.md",
+            doc_class="reference",
+            authority="canonical",
+            lifecycle="active",
+            scope="plan registry",
+            artifact_role="plan_registry",
+            authority_kind="startup_authority",
+            system_scope="platform_core",
+            consumer_scope="startup_default",
+        ),
+        DocRegistryEntry(
+            path="dev/active/MASTER_PLAN.md",
+            doc_class="tracker",
+            authority="canonical",
+            lifecycle="active",
+            scope="all active MP execution state",
+            artifact_role="execution_tracker",
+            authority_kind="startup_authority",
+            system_scope="platform_core",
+            consumer_scope="startup_default",
+        ),
+        DocRegistryEntry(
+            path="dev/active/platform_authority_loop.md",
+            doc_class="spec",
+            authority="mirrored in MASTER_PLAN",
+            lifecycle="active",
+            scope="MP-377",
+            artifact_role="execution_plan",
+            authority_kind="execution_authority",
+            system_scope="platform_core",
+            consumer_scope="startup_default",
+        ),
+        DocRegistryEntry(
+            path="bridge.md",
+            doc_class="generated_report",
+            authority="reference-only",
+            lifecycle="active",
+            scope="review compatibility",
+            artifact_role="compatibility_projection",
+            authority_kind="compatibility_only",
+            system_scope="repo_pack_client",
+            consumer_scope="review_runtime",
+        ),
+    ]
+    startup_order = [
+        "AGENTS.md",
+        "dev/active/INDEX.md",
+        "dev/active/MASTER_PLAN.md",
+    ]
+    if include_shared_backlog:
+        doc_registry_entries.append(
+            DocRegistryEntry(
+                path="backlog.md",
+                doc_class="reference",
+                authority="reference-only",
+                lifecycle="active",
+                scope="shared repo backlog",
+                artifact_role="shared_backlog",
+                authority_kind="shared_intake",
+                system_scope="repo_local",
+                consumer_scope="startup_default",
+            )
+        )
+        startup_order.append("backlog.md")
+
     return ProjectGovernance(
         schema_version=PROJECT_GOVERNANCE_SCHEMA_VERSION,
         contract_id=PROJECT_GOVERNANCE_CONTRACT_ID,
@@ -102,65 +181,7 @@ def _governance(
             tracker_path="dev/active/MASTER_PLAN.md",
             index_path="dev/active/INDEX.md",
         ),
-        doc_registry=DocRegistry(
-            entries=(
-                DocRegistryEntry(
-                    path="AGENTS.md",
-                    doc_class="guide",
-                    authority="canonical",
-                    lifecycle="active",
-                    scope="startup contract",
-                    artifact_role="docs_authority",
-                    authority_kind="startup_authority",
-                    system_scope="development_self_hosting",
-                    consumer_scope="startup_default",
-                ),
-                DocRegistryEntry(
-                    path="dev/active/INDEX.md",
-                    doc_class="reference",
-                    authority="canonical",
-                    lifecycle="active",
-                    scope="plan registry",
-                    artifact_role="plan_registry",
-                    authority_kind="startup_authority",
-                    system_scope="platform_core",
-                    consumer_scope="startup_default",
-                ),
-                DocRegistryEntry(
-                    path="dev/active/MASTER_PLAN.md",
-                    doc_class="tracker",
-                    authority="canonical",
-                    lifecycle="active",
-                    scope="all active MP execution state",
-                    artifact_role="execution_tracker",
-                    authority_kind="startup_authority",
-                    system_scope="platform_core",
-                    consumer_scope="startup_default",
-                ),
-                DocRegistryEntry(
-                    path="dev/active/platform_authority_loop.md",
-                    doc_class="spec",
-                    authority="mirrored in MASTER_PLAN",
-                    lifecycle="active",
-                    scope="MP-377",
-                    artifact_role="execution_plan",
-                    authority_kind="execution_authority",
-                    system_scope="platform_core",
-                    consumer_scope="startup_default",
-                ),
-                DocRegistryEntry(
-                    path="bridge.md",
-                    doc_class="generated_report",
-                    authority="reference-only",
-                    lifecycle="active",
-                    scope="review compatibility",
-                    artifact_role="compatibility_projection",
-                    authority_kind="compatibility_only",
-                    system_scope="repo_pack_client",
-                    consumer_scope="review_runtime",
-                ),
-            )
-        ),
+        doc_registry=DocRegistry(entries=tuple(doc_registry_entries)),
         artifact_roots=ArtifactRoots(review_root=review_root),
         memory_roots=MemoryRoots(),
         bridge_config=BridgeConfig(
@@ -171,7 +192,7 @@ def _governance(
         enabled_checks=EnabledChecks(),
         bundle_overrides=BundleOverrides(overrides={}),
         push_enforcement=PushEnforcement(upstream_ref="origin/feature/demo"),
-        startup_order=("AGENTS.md", "dev/active/INDEX.md", "dev/active/MASTER_PLAN.md"),
+        startup_order=tuple(startup_order),
         docs_authority="AGENTS.md",
         workflow_profiles=("bundle.bootstrap", "bundle.tooling", "bundle.post-push"),
         command_routing_defaults={
@@ -473,3 +494,44 @@ def test_build_work_intake_packet_suppresses_lane_specific_plan_refs_from_defaul
     assert packet.active_target.plan_path == "dev/active/review_channel.md"
     assert "dev/active/review_channel.md" not in packet.warm_refs
     assert "bridge.md" not in packet.warm_refs
+
+
+def test_build_work_intake_packet_surfaces_shared_backlog_refs_and_sink(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path / "AGENTS.md", "# Agents\n")
+    _write(tmp_path / "bridge.md", "# Bridge\n")
+    _write(tmp_path / "backlog.md", "# Shared Backlog\n")
+    _write(tmp_path / "dev/active/INDEX.md", "# Index\n")
+    _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
+    _write(tmp_path / "dev/active/platform_authority_loop.md", "# Authority Loop\n")
+    _write(
+        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        json.dumps(
+            {
+                "bridge": {"reviewer_mode": "active_dual_agent"},
+                "review": {"plan_id": "MP-377"},
+                "current_session": {
+                    "last_reviewed_scope": "MP-377",
+                    "current_instruction": "Keep backlog and plan in sync.",
+                    "open_findings": "none",
+                    "implementer_status": "coding",
+                    "implementer_ack_state": "current",
+                },
+            }
+        ),
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(include_shared_backlog=True),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert "backlog.md" in packet.warm_refs
+    assert packet.writeback_sinks == (
+        "dev/active/platform_authority_loop.md",
+        "dev/active/MASTER_PLAN.md",
+        "backlog.md",
+    )

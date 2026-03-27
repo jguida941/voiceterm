@@ -10,6 +10,11 @@ from .project_governance import ProjectGovernance
 
 def startup_governance_dict(governance: ProjectGovernance) -> dict[str, Any]:
     """Return the bounded governance projection used by startup-context."""
+    shared_backlog_paths = [
+        entry.path
+        for entry in governance.doc_registry.entries
+        if entry.artifact_role == "shared_backlog"
+    ]
     payload: dict[str, Any] = {}
     payload["schema_version"] = governance.schema_version
     payload["contract_id"] = governance.contract_id
@@ -39,7 +44,10 @@ def startup_governance_dict(governance: ProjectGovernance) -> dict[str, Any]:
         managed_count=sum(
             1 for entry in governance.doc_registry.entries if entry.registry_managed
         ),
+        shared_backlog_count=len(shared_backlog_paths),
     )
+    if shared_backlog_paths:
+        payload["shared_backlog_paths"] = shared_backlog_paths
     if governance.memory_roots.configured():
         payload["memory_roots"] = governance.memory_roots.to_dict()
     return payload

@@ -39,6 +39,14 @@ Documentation-boundary rule:
   satisfy that requirement by editing product docs unless shipped end-user
   VoiceTerm behavior changed too.
 
+Shared-backlog rule:
+- `backlog.md` is the repo-visible shared backlog surface for humans and AI.
+  It may appear in governed startup/work-intake warm refs and writeback
+  sinks, but it is not active execution authority. Promote items into
+  `dev/active/MASTER_PLAN.md` plus the owning active plan before treating
+  them as in-flight work. Keep local-only scratch backlog in
+  `dev/deferred/LOCAL_BACKLOG.md`.
+
 Package-layout truth rule:
 - Treat `check_package_layout.py` as a two-layer self-hosting signal: blocking
   violations still decide command failure, but freeze-mode crowded roots or
@@ -94,6 +102,7 @@ Release-governance note:
 | Where is the portable code-governance engine / multi-repo portability and measurement plan? | `dev/active/portable_code_governance.md` (engine/adoption companion plan) |
 | Where is the full reusable AI governance platform / package-extraction architecture plan? | `dev/active/ai_governance_platform.md` (the only main active architecture plan for this product scope) |
 | Where is the current `MP-377` startup-authority / repo-pack / typed-plan-registry / runtime-evidence-context closure plan? | `dev/active/platform_authority_loop.md` (subordinate `MP-377` execution spec; read after `dev/active/ai_governance_platform.md`) |
+| Where is the shared repo-visible backlog intake for humans + AI? | `backlog.md` (shared intake only; promote items into `dev/active/MASTER_PLAN.md` plus the owning active plan before execution) |
 | Where is the governed active-plan markdown contract used by docs-governance and future `PlanRegistry` work? | `dev/active/PLAN_FORMAT.md` (reference-only companion for plan-doc schema/self-hosting) |
 | Where is the durable reusable AI governance platform thesis/architecture guide? | `dev/guides/AI_GOVERNANCE_PLATFORM.md` (durable companion to the active platform plan) |
 | Where is the platform-owned Python architecture guide and decision tree for contract-first tooling/runtime design? | `dev/guides/PYTHON_ARCHITECTURE.md` (durable companion for `MP-377` Python modeling/composition choices) |

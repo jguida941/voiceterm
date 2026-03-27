@@ -30,6 +30,7 @@ class GovernedDocDiscovery:
     path_roots: PathRoots
     bridge_config: BridgeConfig
     governed_doc_roots: tuple[str, ...]
+    shared_backlog_path: str
     startup_order: tuple[str, ...]
 
 def _scan_docs_authority(repo_root: Path, policy: dict[str, Any]) -> str:
@@ -39,6 +40,14 @@ def _scan_docs_authority(repo_root: Path, policy: dict[str, Any]) -> str:
         configured=surface_context.get("process_doc"),
         fallback="AGENTS.md",
         allow_missing_fallback=True,
+    )
+
+
+def _scan_shared_backlog_doc(repo_root: Path, policy: dict[str, Any]) -> str:
+    surface_context = surface_generation_context(policy)
+    return configured_doc_path(
+        repo_root,
+        configured=surface_context.get("shared_backlog_doc"),
     )
 
 
@@ -276,8 +285,9 @@ def _scan_startup_order(
     docs_authority: str,
     index_path: str,
     tracker_path: str,
+    shared_backlog_path: str,
 ) -> tuple[str, ...]:
-    candidates = [docs_authority, index_path, tracker_path]
+    candidates = [docs_authority, index_path, tracker_path, shared_backlog_path]
     return tuple(c for c in candidates if (repo_root / c).is_file())
 
 
@@ -289,6 +299,7 @@ def scan_governed_doc_discovery(
 ) -> GovernedDocDiscovery:
     """Resolve repo-policy-owned startup markdown surfaces for one repo."""
     docs_authority = _scan_docs_authority(repo_root, policy)
+    shared_backlog_path = _scan_shared_backlog_doc(repo_root, policy)
     index_path, tracker_path = _scan_plan_registry_paths(repo_root, policy)
     path_roots = _scan_path_roots(
         repo_root,
@@ -307,6 +318,7 @@ def scan_governed_doc_discovery(
         docs_authority=docs_authority,
         index_path=index_path,
         tracker_path=tracker_path,
+        shared_backlog_path=shared_backlog_path,
     )
     governed_doc_roots = _scan_governed_doc_roots(
         repo_root,
@@ -323,6 +335,7 @@ def scan_governed_doc_discovery(
         path_roots=path_roots,
         bridge_config=bridge_config,
         governed_doc_roots=governed_doc_roots,
+        shared_backlog_path=shared_backlog_path,
         startup_order=startup_order,
     )
 

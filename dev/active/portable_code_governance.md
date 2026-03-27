@@ -148,6 +148,14 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       dominant patterns, emit a starter convention policy, then use
       `naming-report` as the AI/human-readable surface for active convention
       rules, drift probes, and recommended next checks.
+- [ ] Freeze a portable repo-shape policy contract on top of those same
+      organization/convention surfaces: starter adoption should work with one
+      process doc, one execution tracker, one shared backlog, and one
+      repo-pack-owned shape/convention policy that can express either default
+      best-practice structure or explicit repo-owner preferences for
+      directories, naming, boundaries, and exceptions. Additional scoped plan
+      docs should be an escalation path for larger execution slices, not the
+      mandatory baseline shape for every adopting repo.
 - [ ] Explicitly align that structural-readability tranche with the existing
       metric research: identifier density, cognitive complexity, Halstead
       volume, and later entropy/cohesion probes should provide portable
@@ -397,6 +405,13 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       explainable clean report, and code-shape/file-layout thresholds must be
       calibrated against coupling/cohesion/fan-out so the engine is not forced
       into line-count-compliant but less comprehensible fragmentation.
+- [ ] Keep self-hosting validation aligned with the canonical internal seams:
+      when package-layout or similar engine internals move behind shared
+      loaders/helpers, the routed validation/default targeted suites must
+      still cover the support-level tests that patch those canonical seams.
+      A green command-level check is not enough if the support-layer tests can
+      still silently target the pre-refactor boundary and miss the live loader
+      contract.
 - [ ] Extract shared governance-engine primitives where repetition is clearly
       structural rather than domain-specific: mapping/decoder helpers, guard or
       probe registration, markdown/report builders, and JSON/JSONL artifact
@@ -453,6 +468,26 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-27: Clarified the owner split for the next cross-repo organization
+  decision instead of leaving it in ad hoc chat/backlog discussion. The
+  portable baseline should stay small: one process doc, one execution
+  tracker, one shared backlog, and one repo-pack-owned repo-shape/convention
+  policy. This lane owns the reusable shape/convention contract plus
+  enforcement/discovery surfaces, while `MP-377` keeps ownership of how that
+  baseline shows up in startup/work-intake packets. Keep shared backlog empty
+  unless there is real queued work; architecture decisions belong in the
+  tracked owner plans.
+- 2026-03-27: Closed a real self-hosting validation miss in the portable
+  package-layout engine without widening the runtime surface again. The recent
+  rule-loading extraction into `dev/scripts/checks/package_layout/
+  rule_resolution.py` was directionally correct, but the paired support tests
+  were still monkeypatching the old `support.py` seam and therefore failed
+  after the refactor even though the command-level package-layout path stayed
+  green. Fixed the tests to patch the canonical loaded `rule_resolution`
+  module instead of reintroducing a duplicate compatibility alias in
+  `support.py`, and accepted the explicit follow-up that package-layout
+  internal refactors must keep the support-level suite in the default routed
+  validation story so self-hosting proof keeps pace with the architecture.
 - 2026-03-27: Re-audited the portable-engine lane against the current repo
   organization problem and tightened the owner split. The platform plans were
   already carrying the right direction; the missing piece was making the
@@ -1207,6 +1242,12 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Session Resume
 
+- 2026-03-27 baseline-contract clarification: do not use `backlog.md` as the
+  decision log for core architecture. Keep the shared backlog empty until
+  there is real queued work. The next organization/convention slice belongs in
+  this lane as a portable repo-shape policy contract, while `MP-377` owns the
+  startup/work-intake projection that should expose only the minimal adopter
+  baseline by default.
 - 2026-03-27 ownership clarification: `MP-376` does not own the canonical
   docs-authority/runtime split itself. It owns proof that an adopter can use
   that split without VoiceTerm-shaped docs, paths, enabled capabilities, or

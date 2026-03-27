@@ -154,6 +154,8 @@ def _artifact_role(*, rel: str, doc_class: str, layout: GovernedDocLayout) -> st
         return "compatibility_projection"
     if rel == layout.docs_authority_path:
         return "docs_authority"
+    if rel == layout.shared_backlog_path:
+        return "shared_backlog"
     if rel == layout.index_path:
         return "plan_registry"
     if rel == layout.tracker_path:
@@ -169,6 +171,8 @@ def _authority_kind(*, artifact_role: str, authority: str, doc_class: str) -> st
     authority_text = authority.strip().lower()
     if artifact_role == "compatibility_projection":
         return "compatibility_only"
+    if artifact_role == "shared_backlog":
+        return "shared_intake"
     if authority_text == "canonical":
         return "canonical_markdown"
     if authority_text == "reference-only":
@@ -197,6 +201,8 @@ def _system_scope(
         return "repo_pack_client"
     if artifact_role == "docs_authority":
         return "development_self_hosting"
+    if artifact_role == "shared_backlog":
+        return "repo_local"
     if artifact_role in {"plan_registry", "execution_tracker"}:
         return "platform_core"
     if artifact_role == "execution_plan":
@@ -215,6 +221,8 @@ def _system_scope(
 def _consumer_scope(*, artifact_role: str, system_scope: str) -> str:
     if artifact_role == "compatibility_projection":
         return "review_runtime"
+    if artifact_role == "shared_backlog":
+        return "startup_default"
     if artifact_role in {"docs_authority", "plan_registry", "execution_tracker"}:
         return "startup_default"
     if artifact_role == "execution_plan":

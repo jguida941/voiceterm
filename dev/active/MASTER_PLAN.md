@@ -481,6 +481,21 @@
   the VoiceTerm default layout. Remaining same-lane work stays narrow:
   explicit repo-pack capability gating, broader docs-authority compression,
   fail-closed push publication state, and Ralph canonical-history closure.
+- 2026-03-27 shared backlog intake landed: the same authority-loop tranche now
+  treats root `backlog.md` as a repo-pack-configured governed shared backlog
+  doc instead of an orphaned side file. Startup/work-intake can surface that
+  backlog in warm refs plus writeback sinks for human/AI coordination, while
+  execution authority stays fail-closed on `dev/active/MASTER_PLAN.md` plus
+  the owning active plan. This closes the old "hidden backlog vs tracked
+  execution" gap without reopening a second tracker surface.
+- 2026-03-27 portable baseline-repo contract clarified: keep `backlog.md`
+  empty unless there is real queued work. Foundational architecture and
+  cross-repo organization decisions belong in the existing owner-plan chain,
+  not in backlog. The next organization slice stays split on purpose:
+  `MP-376` owns the reusable repo-shape/convention policy and enforcement
+  contract, while `MP-377` owns the minimal startup/work-intake baseline that
+  should surface process doc + execution tracker + shared backlog + policy
+  without forcing every adopter into the full VoiceTerm plan lattice.
 - 2026-03-27 self-hosting organization priority correction: the repo does not
   need another universal-system roadmap. The active `MP-377` / `MP-376`
   chain already owns the universal docs/governance architecture; the missing
@@ -507,6 +522,18 @@
   the same owner chain: use this truthful state to drive bounded decomposition
   and only then promote selected crowded roots/families from reporting debt to
   blocking working-tree failures.
+- 2026-03-27 package-layout self-hosting validation follow-up: the recent
+  rule-loading extraction into
+  `dev/scripts/checks/package_layout/rule_resolution.py` kept the runtime
+  architecture pointed the right way, but it also exposed a proof gap in the
+  repo's own validation story. The command-level package-layout checks stayed
+  green while the support-level tests were still patching the pre-refactor
+  `support.py` seam instead of the canonical loaded rule-resolution module.
+  The immediate regression is fixed in the test suite; the tracked follow-up
+  now lives under `MP-376`: package-layout/internal engine refactors must keep
+  the support-layer validation path in the routed default coverage so
+  self-hosting proof stays aligned with the canonical seam rather than only
+  the public command surface.
 - 2026-03-27 governed-push fail-closed closure: `devctl push` now reads
   policy-gated bypass settings from `repo_governance.push.bypass`, reports
   typed push stages (`validation_ready`, `published_remote`,

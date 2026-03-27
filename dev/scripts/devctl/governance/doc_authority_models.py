@@ -46,6 +46,7 @@ class GovernedDocLayout:
     docs_authority_path: str
     bridge_path: str
     root_files: tuple[str, ...]
+    shared_backlog_path: str = ""
 
 
 @dataclass(frozen=True, slots=True)

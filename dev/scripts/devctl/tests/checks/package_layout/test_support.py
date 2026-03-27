@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import unittest
 from pathlib import Path
 
@@ -16,6 +17,7 @@ SCRIPT = load_repo_module(
     "package_layout_support",
     "dev/scripts/checks/package_layout/support.py",
 )
+RULE_RESOLUTION = sys.modules[SCRIPT.resolve_layout_rules.__module__]
 
 
 class CodeShapeLayoutSupportTests(unittest.TestCase):
@@ -254,7 +256,7 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
         self._write("dev/scripts/devctl/review_channel_new.py")
         override_module_attrs(
             self,
-            SCRIPT,
+            RULE_RESOLUTION,
             resolve_guard_config=lambda script_id, repo_root: {
                 "namespace_family_rules": [
                     {
@@ -442,7 +444,7 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
         self._write("dev/scripts/checks/helper_new.py")
         override_module_attrs(
             self,
-            SCRIPT,
+            RULE_RESOLUTION,
             resolve_guard_config=lambda script_id, repo_root: {
                 "flat_root_rules": [
                     {
@@ -854,7 +856,7 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
         self._write("dev/scripts/checks/check_guard_new.py")
         override_module_attrs(
             self,
-            SCRIPT,
+            RULE_RESOLUTION,
             resolve_guard_config=lambda script_id, repo_root: {
                 "directory_crowding_rules": [
                     {

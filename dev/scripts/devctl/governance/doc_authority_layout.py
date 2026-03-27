@@ -38,6 +38,14 @@ def load_governed_doc_layout(
         index_path=governance.plan_registry.index_path,
         tracker_path=governance.plan_registry.tracker_path,
         docs_authority_path=governance.docs_authority,
+        shared_backlog_path=next(
+            (
+                entry.path
+                for entry in governance.doc_registry.entries
+                if entry.artifact_role == "shared_backlog"
+            ),
+            "",
+        ),
         bridge_path=governance.bridge_config.bridge_path,
         root_files=tuple(sorted(root_files)),
     )
@@ -49,6 +57,7 @@ def load_governed_doc_layout(
         index_path=layout.index_path,
         tracker_path=layout.tracker_path,
         docs_authority_path=layout.docs_authority_path,
+        shared_backlog_path=layout.shared_backlog_path,
         bridge_path=layout.bridge_path,
         root_files=_collect_root_governed_docs(repo_root, layout, policy_path),
     )
