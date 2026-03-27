@@ -1748,6 +1748,12 @@ Branch guards for all agents:
    (`MP-148..MP-182`), naming/API cohesion (`MP-267`), and MP-346 scopes
    overlap.
 
+Historical example only: the table below records one prior 8+8 swarm
+assignment. Future runs should regenerate lane roles from the active plan
+targets / issue clusters and the selected `WorkIntakePacket` /
+`PlanExpectationPacket`, not reuse these exact assignments as if they were the
+permanent architecture.
+
 | Agent | Lane | Active-doc scope | MP scope (authoritative) | Worktree | Branch | Status | Last update (UTC) | Notes |
 |---|---|---|---|---|---|---|---|---|
 | `AGENT-1` | Codex architecture contract review | `dev/active/review_channel.md`, `dev/active/autonomous_control_plane.md` | `MP-340, MP-355` | `../codex-voice-wt-a1` | `feature/a1-codex-architecture-review` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Codex reviewer lane for controller/review/memory contract boundaries. |
@@ -3487,6 +3493,13 @@ become the main product surface.
     (`PlanTargetRef`, `WorkIntakePacket`, `CollaborationSession`) before
     widening `P1`/`P2` routing and adoption work. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 32)
+  - [ ] Compile plan-derived swarm packets from that same authority spine.
+    The selected `PlanTargetRef` / `WorkIntakePacket` /
+    `PlanExpectationPacket` should produce bounded reviewer/coder lane
+    assignments with explicit role, owned target or issue cluster, owned
+    worktree/path scope, allowed command families, required guards,
+    expected artifacts, and conductor return contracts. Treat the 8+8 lane
+    table as maximum capacity only, not as permanent role truth.
   - [ ] Replace boolean-only `Session Resume` detection with typed continuity
     state in `startup-context` / intake routing. (evidence:
     `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28)
@@ -3528,6 +3541,13 @@ become the main product surface.
     test-quality probes distinct from blocking contract-test guards, and keep
     selectors/thresholds repo-policy-owned rather than hardcoded repo-wide
     coverage rules.
+  - [ ] Keep the next swarm implementation order foundation-first even when
+    fan-out capacity exists. The near-term bounded lanes are
+    `validation_plan` execution and contract/workflow hardening, pattern
+    aggregation plus typed `current_session` closure, and at most one
+    report-only adopter smoke lane for early hidden-coupling signal. Official
+    cross-repo proof stays in the later Phase-7 adoption owner lane and must
+    not jump ahead of blocker/P0 prerequisites.
   - [ ] Keep live current-status narrow and projection-first:
     `review_state.json.current_session` should carry only the current answer
     by reference to the latest `DecisionTrace` plus the next action,

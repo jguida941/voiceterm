@@ -648,6 +648,11 @@ Round 4 pushback decision: keep `dev/CHANGELOG.md` at its current path for now; 
 - [x] Add `reason` attributes to all 16 `#[allow(dead_code)]` in `ipc/session/event_sink.rs`, `ipc/session.rs`, `ipc/session/auth_flow.rs`
 - [x] Move `#[cfg(test)]` constants from `writer/state.rs` top-level into test module (completed 2026-03-07: moved timing constants into `writer/state/tests.rs`, keeping production module scope focused on runtime paths)
 - [x] Partial verification: dead_code reason attributes added across IPC modules
+- [ ] Close the Rust runtime panic/resource-leak backlog cluster from
+      `issues.md`: `ISS-050` and `ISS-051` stay owned here until production
+      `unwrap()` risk is burned down on live Rust paths and voice-capture job
+      shutdown closes microphone/device ownership deterministically instead of
+      detaching leaked workers.
 
 ### Phase 5: Docs, Config, and Project Hygiene
 - [x] Fix repo URL mismatch: `rust/Cargo.toml` had wrong repo name (`codex-voice`), fixed to `voiceterm`; all other files already correct
@@ -708,6 +713,12 @@ Round 4 pushback decision: keep `dev/CHANGELOG.md` at its current path for now; 
 - [ ] Add binary artifact provenance attestation to `publish_release_binaries.yml`
 - [ ] Document release rollback playbook (PyPI yank, GH release delete, Homebrew revert)
 - [ ] Add input validation to `autonomy_controller.yml`, `autonomy_run.yml`, `coderabbit_ralph_loop.yml`
+- [ ] Close the release/push hardening backlog cluster from `issues.md`:
+      `ISS-016`, `ISS-058`, and `ISS-059` stay owned here until push/release
+      workflow tests stop relying on heavy mocks that hide integration
+      failures, `rust_ci.yml` no longer performs unguarded badge-update pushes,
+      and release workflows validate required secrets before attempting live
+      publish paths.
 - [ ] Run verification: manual workflow_dispatch test + `check_workflow_shell_hygiene.py`
 
 ### Phase 12: Platform Parity + Performance Baselines (Round 3) (deferred post-release)
@@ -725,7 +736,7 @@ Round 4 pushback decision: keep `dev/CHANGELOG.md` at its current path for now; 
 - [x] Upgrade `ratatui` from 0.26 to latest compatible (landed at `ratatui 0.30.0` + `crossterm 0.29.0`; transitive `lru` moved to `0.16.3` and cleared the `RUSTSEC-2026-0002` path)
 - [ ] Add `cargo-vet init` + begin auditing direct dependencies
 - [ ] Add `cargo-auditable` to release profile in Cargo.toml
-- [ ] Fix Python CI/PyPI version mismatch (test on 3.9 or raise floor to 3.11)
+- [ ] Fix Python CI/PyPI version mismatch (`ISS-031`) (test on 3.9 or raise floor to 3.11)
 - [ ] Run verification: `cargo deny check` + `cargo vet`
 
 ### Phase 14: DevCtl Guard System Hardening v2 (Round 3) (deferred post-release)
@@ -758,6 +769,11 @@ Round 4 pushback decision: keep `dev/CHANGELOG.md` at its current path for now; 
   - explicit exclusions: test files, helper-only modules, gitignored files, and temporary caches should not trigger zone failures
   - performance budget: filter candidate paths by zone globs before reading authority docs and keep the guard under a `<5s` CI budget on normal repo-sized diffs
   - git assumptions to document: `git ls-files --others --exclude-standard` is correct for this repo and intentionally excludes ignored files; note that it does not recurse into submodules, which is a non-issue because this repo currently has no submodules
+- [ ] Close the guard false-failure backlog cluster from `issues.md`:
+      `ISS-067` stays owned here until guard infrastructure distinguishes
+      malformed input/infrastructure errors from real policy violations and
+      emits structured failure modes instead of letting internal JSON decode
+      failures masquerade as ordinary mutation-score findings.
   - required integration steps belong in the checklist, not tribal memory: `script_catalog.py`, `_SHARED_GOVERNANCE_CHECKS`, `tooling_control_plane.yml`, `release_preflight.yml`, AGENTS onboarding/docs, and a closing `check_bundle_workflow_parity.py` verification step
 - [x] Extend `check_duplication_audit.py` + `check_duplication_audit_support.py` with advisory `--check-shared-logic` heuristics instead of creating a separate `check_shared_logic_candidates.py` script. This is a refinement of the duplication domain, not a new architecture-rule domain. MVP decisions:
   - keep default severity advisory / report-only; do not make semantic/shared-logic heuristics blocking until false-positive behavior is well understood

@@ -213,12 +213,17 @@ contract set:
   required artifacts, forbidden states, validation commands, evidence queries,
   success criteria, and any blast-radius or approval-policy metadata needed to
   reconcile plan truth against observed runtime evidence without letting
-  runtime drift silently become authority.
+  runtime drift silently become authority. Multi-agent sessions must derive
+  delegated worker scope from this packet rather than asking workers to infer
+  repo-wide intent from prose or file adjacency.
 - `WorkIntakePacket`: repo-pack-aware startup/work-intake envelope that binds
   one task to active `PlanTargetRef` entries, changed scope, command goal,
   routed bundle/check plan, designated canonical-write authority, writer-lease
   metadata (`writer_id`, lease epoch, expiry, stale-writer recovery), and the
   durable sinks where accepted findings/decisions/progress must be recorded.
+  It also carries role-routing defaults for later conductor fan-out so the
+  plan-selected target, allowed command families, and expected writeback sinks
+  stay repo-owned even when multiple agents participate.
   This is the universal ingestion surface for AI agents, human operators, and
   automation loops. Bootstrap must materialize at least one reviewed
   governance contract, one active-plan registry, one exported `PlanTargetRef`
@@ -239,9 +244,16 @@ contract set:
   role assignment (`lead_agent`, `review_agent`, `coding_agent`,
   `reviewer_mode`, `operator_mode`), the current slice, peer findings and
   responses, disagreement/arbitration state, delegated-worker receipts,
-  restart/resume state, and reviewer ready gates. Markdown bridges remain
-  projections of this contract rather than a second authority for plan or
-  queue state.
+  restart/resume state, reviewer ready gates, and the active worker/lane
+  registry. Markdown bridges remain projections of this contract rather than
+  a second authority for plan or queue state.
+- `DelegatedWorkPacket`: typed conductor-issued worker contract compiled from
+  `WorkIntakePacket` + `PlanExpectationPacket` for one bounded lane. Required
+  fields: role id, owned `PlanTargetRef` / issue cluster, owned worktree and
+  path scope, allowed command families, required guards/validators, expected
+  artifacts and writeback sinks, escalation policy, and return-to-conductor
+  receipt contract. Workers consume this packet instead of self-selecting new
+  plan targets or scanning the whole repo for adjacent work.
 - `PlanMutationOp`: typed mutation contract for canonical plan authority
   targets so adopters do not invent incompatible patch semantics.
   Initial required operations:
@@ -282,6 +294,11 @@ Architecture-freeze note for the current `P0`/`P1` lane:
   work-routing envelope; `CollaborationSession` is the live shared-work
   projection over intake + review/runtime state. Revisit a merged envelope
   only after cross-repo proof shows the separation is redundant.
+- Keep delegated worker routing subordinate to canonical plan authority.
+  Conductors may fan out many lanes, but every lane must be derived from the
+  selected `PlanTargetRef` / `PlanExpectationPacket` path and reported back
+  through `CollaborationSession`; capacity tables are not permission for
+  open-ended repo-wide scanning.
 - Keep intake-backed writer leases as the authority model for canonical plan
   mutation and shared-session ownership. `version_counter`,
   `expected_revision`, and `state_hash` checks are accepted as supplemental
@@ -2585,6 +2602,13 @@ Still open before `P0` closes:
       service/API contract that frontends, wrappers, hooks, and future shells
       consume so file reads and command wrappers remain transitional rather
       than becoming the permanent cross-client interface.
+- [ ] Close the backend transport and tempfile security backlog cluster from
+      `issues.md`: `ISS-047`, `ISS-048`, and `ISS-049` stay owned here until
+      local daemon/control sockets default to restricted permissions,
+      temporary file creation moves to unpredictable secure helpers instead of
+      fixed `/tmp` paths, and the shared bridge/service transport binds
+      locally with an explicit authentication story instead of exposing
+      network-reachable defaults.
 - [ ] Freeze the local service lifecycle contract: define how the shared
       backend is launched, discovered, attached, health-checked, resumed,
       and shut down when run standalone, through `devctl`, or through
@@ -4198,6 +4222,17 @@ working on `MP-377`.
   bridge/chat/latest/status are projections, and `DecisionTrace` plus typed
   `current_session` is the right owner chain for future explain/audit
   surfaces rather than another planning memo.
+- 2026-03-27 plan-driven swarm follow-up: future Codex-review / Claude-code
+  swarms must be derived from plan authority instead of static file buckets.
+  The accepted execution model is explicit: `startup-context` selects
+  `PlanTargetRef`, `PlanExpectationPacket` compiles the slice contract, the
+  conductors derive bounded `DelegatedWorkPacket` lane assignments from that
+  contract, and workers stay inside owned targets/worktrees/commands while
+  Codex keeps final review authority. Static 8+8 lane tables remain capacity
+  planning examples, not permanent role truth. Early adopter smoke work is
+  acceptable only as a bounded feedback lane while blocker/P0 foundation work
+  continues; official cross-repo proof still stays in the later Phase-7 owner
+  lane.
 - 2026-03-27 same-lane hardening follow-up: the explainability rollout also
   confirmed the current self-governance blind spot. A local cleanup could
   still satisfy code-shape while weakening typed authority by routing fixed-

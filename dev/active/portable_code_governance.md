@@ -171,6 +171,15 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       as measured meta-findings, not just audit prose. Route those as
       first-class repo-portable findings instead of assuming the guard stack
       validates itself. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 34)
+- [ ] Close the repo-policy, export, and retention portability backlog cluster
+      from `issues.md`: `ISS-024`, `ISS-026`, `ISS-036`, `ISS-038`,
+      `ISS-057`, `ISS-078`, and `ISS-082` stay owned here until repo-policy
+      /script naming is coherent, governance export snapshot names use strict
+      safe-character validation, portable artifacts such as graph snapshots
+      have retention/cleanup policy, repo-policy fields are documented and
+      schema-backed, remaining VoiceTerm-path literals are removed from
+      portable guards/context-graph surfaces, and preset extension failures
+      stop degrading silently.
 - [ ] Extract the first shared guard-family base where the current
       implementation has already converged on one pattern: `GrowthGuard`
       variants should inherit the same bounded core instead of maintaining

@@ -1448,6 +1448,18 @@ Acceptance:
       reducer, emitter, and failure-path cases so the repo can prove watchdog
       behavior from tests instead of analytics happy paths only. (audit
       mapping: `SYSTEM_AUDIT.md` T2)
+- [ ] Close the autonomy execution-hardening backlog cluster from `issues.md`:
+      `ISS-004`, `ISS-006`, `ISS-019`, `ISS-022`, `ISS-032`, `ISS-033`,
+      `ISS-068`, `ISS-069`, `ISS-070`, `ISS-071`, `ISS-072`, `ISS-077`, and
+      `ISS-080` stay owned here until improvement deltas influence loop
+      decisions with validated prior snapshots and baseline-vs-current
+      comparisons, fix/triage subprocesses gain bounded timeouts plus
+      mid-round hang detection, swarm writes are isolated or locked, checkpoint
+      writes are verified, policy hard caps include agent count and workflow
+      bridge maxima, GitHub API preflight handles rate limits explicitly,
+      concurrent autonomy runs are prevented, sizing logic stops oscillating,
+      and phone/mobile status records crash/failure state instead of silently
+      reading as healthy.
 
 ## Progress Log
 

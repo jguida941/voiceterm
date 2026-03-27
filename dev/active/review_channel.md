@@ -263,6 +263,18 @@ Rules for the markdown bridge:
     `plan_patch_review` proposes one typed canonical-plan mutation but is not
     itself the canonical edit, and `plan_ready_gate` records reviewer
     acceptance that the targeted plan slice is coherent enough to proceed.
+6.2.2.1 When the loop widens beyond one reviewer and one coder, conductors
+    must derive lane assignments from the selected `WorkIntakePacket` /
+    `PlanExpectationPacket`, not from ad hoc "scan the repo and help"
+    instructions. Every worker lane needs one conductor-issued scope packet
+    naming role, owned plan target or issue cluster, owned worktree/path
+    scope, allowed command families, required validators/guards, expected
+    artifacts, and the return-to-conductor receipt path.
+6.2.2.2 The 8+8 lane map is capacity planning, not permanent role truth.
+    Future runs may assign lanes to foundation wiring, contract/workflow
+    hardening, verification review, pattern aggregation, or report-only
+    adopter smoke work depending on the active plan slice, but each lane must
+    stay bounded, conductor-owned, and repo-visible in canonical plan state.
 6.3 If reviewer-owned bridge state says `hold steady`, `waiting for reviewer
     promotion`, `Codex committing/pushing`, or equivalent wait-state language,
     Claude must stay in polling mode. It must not mine plan docs for side work
@@ -1213,6 +1225,16 @@ Acceptance:
 - [ ] Emit projection files from the same reduced state source:
       `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, and
       `latest.md`.
+- [ ] Close the review-event durability backlog cluster from `issues.md` in
+      this phase: `ISS-011`, `ISS-015`, `ISS-021`, `ISS-027`, `ISS-039`,
+      `ISS-040`, `ISS-042`, `ISS-043`, `ISS-044`, `ISS-046`, and
+      `ISS-075` stay owned here until event/bridge writes are synchronized,
+      follow/watch loops handle shutdown cleanly, expired packets and callback
+      state are reaped, malformed or orphaned events surface typed degraded
+      state instead of looking healthy, event ids/rotation stay future-proof,
+      bridge-vs-event drift is detected explicitly, heartbeat freshness is
+      time-aware, daemon JSON parsing recovers safely, and terminal launch
+      failures degrade instead of crashing the session.
 - [ ] Add a terminal-packet projection for safe staging into a target PTY or
       overlay draft lane using the existing `DevTerminalPacket` shape.
 - [x] Allow packets to carry `context_pack_refs` for `task_pack`,
@@ -1382,6 +1404,11 @@ Expected Phase-2 tests:
       registry instead of `pending_codex`, `pending_claude`, `claude_ack`,
       and `codex_poll_state` remaining first-class runtime fields forever.
       Keep compatibility projections while current consumers migrate.
+- [ ] Close the registry-driven multi-agent backlog cluster from `issues.md`
+      in this phase: `ISS-041` stays owned here until reducer/projection
+      logic stops hardcoding named agent ids and derives routing/state from
+      the same typed registry and profile contracts that Phase 3 already
+      intends to expose.
 - [ ] Add explicit `acked|dismissed|applied|expired` transitions and
       stale-packet watch behavior.
 - [ ] Add policy-aware action hints so packets can express `review_only`,
@@ -1541,12 +1568,15 @@ Bootstrap workflow for the current live cycle:
      --format md
    ```
 
-3. The launched Codex conductor owns the `AGENT-1..AGENT-8` reviewer lanes and
-   Claude owns the `AGENT-9..AGENT-16` coding lanes. The conductors may fan out
-   specialist workers internally, but only the conductors update `bridge.md`.
-   Missing listed worktrees are not permission to improvise live-repo fallback
-   workers; if a lane worktree is unavailable, stay conductor-only for that
-   lane until the repo-owned worktree contract is repaired.
+3. The launched Codex conductor owns reviewer-lane capacity
+   (`AGENT-1..AGENT-8`) and Claude owns coding-lane capacity
+   (`AGENT-9..AGENT-16`). Exact lane roles should be derived from the active
+   `WorkIntakePacket` / `PlanExpectationPacket` slice instead of copied from a
+   historical table by habit. The conductors may fan out specialist workers
+   internally, but only the conductors update `bridge.md`. Missing listed
+   worktrees are not permission to improvise live-repo fallback workers; if a
+   lane worktree is unavailable, stay conductor-only for that lane until the
+   repo-owned worktree contract is repaired.
 4. Terminal.app launch defaults to the `auto-dark` profile selector on macOS so
    the conductor windows come up on a dark profile when a known one is
    available. Use `--terminal-profile default` only when you explicitly want to

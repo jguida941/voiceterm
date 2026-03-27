@@ -85,10 +85,18 @@ Out of scope until the local proof gate is green:
 14. Claude may fan out many bounded coding workers, but only behind one Claude
     conductor. Claude workers do not self-promote scope, rewrite
     reviewer-owned bridge/backend state, or bypass the active plan chain.
+14.1 Worker fan-out must be plan-derived and deterministic. Conductors assign
+    lanes from the active `WorkIntakePacket` / selected `PlanTargetRef` /
+    `PlanExpectationPacket`, and each worker receives one bounded scope:
+    role, owned target or issue cluster, owned worktree/path set, allowed
+    command family, required guards, and expected evidence.
 15. Every non-trivial runtime, tooling, or cross-surface slice must keep a
     separate architecture-fit reviewer lane on the Codex side. Green checks
     do not waive architecture drift; architecture-fit findings flow back
     through the Codex conductor before acceptance.
+15.1 Lane-count capacity is not scope authority. An 8+8 swarm means the repo
+     can host up to that many bounded lanes under the shared bridge, not that
+     workers may widen into repo-wide scanning or self-assigned side quests.
 
 ## Cross-Plan Dependencies
 
@@ -384,6 +392,14 @@ Out of scope until the local proof gate is green:
   reviewer before acceptance. The loop direction stays one shared backend plus
   conductor-owned bridge/state writes, not a second worker-owned control
   plane.
+- 2026-03-27 plan-driven swarm-scoping follow-up: the many-agent model now
+  also freezes where worker scope comes from. Future swarms should compile
+  lane roles from active plan authority (`WorkIntakePacket`,
+  `PlanExpectationPacket`, owned issue cluster/target refs) so workers are
+  assigned exact roles, worktrees, command families, and evidence contracts
+  instead of "read the repo and help" prompts. Capacity stays 8+8, but the
+  role map is regenerated per plan slice rather than treated as a permanent
+  static table.
 - 2026-03-15: Closed the next scope-drift miss on the operator-docs path.
   `DEVCTL_AUTOGUIDE.md` had durable system knowledge in prose but no
   deterministic sync contract, so `docs-check --strict-tooling` could stay

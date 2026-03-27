@@ -46,6 +46,38 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-27 - Swarm planning now derives worker roles from typed plan authority instead of static lane lore
+
+Fact: the active `MP-377` owner chain now states the multi-agent execution
+model more concretely. `MASTER_PLAN`, `ai_governance_platform`,
+`platform_authority_loop`, `review_channel`, and `continuous_swarm` now all
+say the same thing: future Codex-review / Claude-code swarms should be
+compiled from `PlanTargetRef` -> `WorkIntakePacket` ->
+`PlanExpectationPacket`, not from a permanent 8+8 table or vague "read the
+repo and help" prompts. The architecture now names one conductor-issued
+worker contract (`DelegatedWorkPacket`), bounded per-lane scope
+(`role`, owned target/issue cluster, worktree/path ownership, allowed command
+family, required guards/validators, expected artifacts, return-to-conductor
+receipt), and keeps bridge/state writes conductor-owned. The same update also
+locks the next-ordering rule into plan state: foundation-first lanes
+(`validation_plan` execution, contract/workflow hardening, pattern
+aggregation, typed `current_session` closure) may use swarm fan-out now, but
+official cross-repo proof still remains the later Phase-7 adoption lane.
+
+This matters because the repo already had multi-agent capacity, but the docs
+were still letting that capacity read like authority. The plans now record the
+correct split: lane count is capacity only, plan-selected typed packets define
+scope, and the bridge is coordination over one authority chain rather than a
+second control plane.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_channel.md`
+- `dev/active/continuous_swarm.md`
+
 ### 2026-03-27 - Self-hosting organization debt now ratchets crowded `devctl` roots instead of only reporting them
 
 Fact: the repo already had the right organization guard seam, but the

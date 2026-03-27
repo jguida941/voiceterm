@@ -99,6 +99,10 @@ operator visibility into what the loop is doing. This plan delivers:
 - [ ] Wire guardrails config into `ralph_ai_fix.py` prompt builder so AI gets
       standards context with each finding
 - [ ] Add tests for guardrails config loading and validation
+- [ ] Close the Ralph config failure-handling backlog cluster from
+      `issues.md`: `ISS-076` stays owned here until guardrail-config JSON
+      loading returns structured parse failures or safe defaults instead of
+      crashing the fixer loop on malformed config.
 
 ### Phase 3: Structured guardrail report (MP-362)
 

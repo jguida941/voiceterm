@@ -362,6 +362,13 @@ context-free translation = MEDIUM.
       shared Python call-site prepass in `probe_bootstrap` plus relocation
       coverage in `probe_single_use_helpers`; keep this open until the other
       file-local probes adopt the same corpus.
+- [ ] Close the probe-context and topology backlog cluster from `issues.md`
+      in this phase: `ISS-001`, `ISS-002`, `ISS-007`, `ISS-008`, and
+      `ISS-009` stay owned here until probe packets consume graph/topology
+      data through one canonical path, guard/probe follow-up widens from
+      changed files to affected neighbors/importers when needed, and obvious
+      rule-gaming patterns are caught as deterministic trust-reduction
+      signals instead of remaining prose-only warnings.
 - [ ] Close the remaining probe lifecycle joints on top of the already-live
       verdict/history path: hotspot ranking, startup signals, Ralph guidance
       selection, and next-file rotation must become verdict-aware so fixed or
@@ -441,6 +448,13 @@ context-free translation = MEDIUM.
       string-dispatch only to prose-parsed structured-contract seams, and keep
       mixed-concern / responsibility-count signals honest by rerunning them on
       the cleaned files so stale complaints are not logged as active misses.
+- [ ] Close the probe reliability and operability backlog cluster from
+      `issues.md` in this phase: `ISS-035`, `ISS-055`, `ISS-065`,
+      `ISS-066`, and `ISS-074` stay owned here until probe artifacts write
+      atomically, probe/report I/O is encoding-safe and bounded against hung
+      stdin, coverage moves beyond smoke-only cases for the current probe
+      fleet, and threshold policy stops living as scattered per-script
+      constants.
 - [ ] Turn function-shape exceptions into an explicit governed debt surface
       instead of a static Python list: emit/report the current `58`
       `FunctionShapeException` entries with owner, expiry, age buckets,

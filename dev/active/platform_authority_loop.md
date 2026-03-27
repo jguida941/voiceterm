@@ -214,6 +214,27 @@ intended execution order is:
       evidence queries, success criteria, and any blast-radius / approval
       policy needed for the current slice. Runtime should consume that packet
       instead of asking AI/chat to restate plan truth from prose each run.
+- [ ] Compile plan-derived worker/lane packets from that same
+      `PlanExpectationPacket` path before any multi-agent fan-out:
+      each packet must declare role, owned `PlanTargetRef` / issue cluster,
+      owned worktree and path scope, allowed command families, required
+      guards/validators, expected artifacts, writeback sinks, and escalation
+      policy so workers stay inside one deterministic slice instead of
+      re-interpreting the repo on their own.
+- [ ] Freeze the multi-agent role taxonomy on that same authority path:
+      one Codex conductor/final reviewer, optional Codex architecture-fit and
+      verification reviewers, one Claude conductor, and bounded Claude coding
+      or report-only adopter workers all report through one typed
+      `CollaborationSession`; bridge/state writes stay conductor-owned.
+- [ ] Close the startup-authority fail-closed backlog cluster from `issues.md`
+      in this phase: `ISS-012`, `ISS-013`, `ISS-014`, `ISS-020`,
+      `ISS-028`, and `ISS-029` stay owned here until startup receipts use
+      concurrent-write protection, governance/review-state discovery fails
+      closed instead of silently downgrading, push-bypass policy is rechecked
+      when a cached decision is honored, `review_state` loads validate
+      schema/version before use, partial `ProjectGovernance` payloads are
+      rejected, and no-target work-intake outcomes become typed failures
+      instead of silent `None`.
 - [ ] Define one repo-neutral `CollaborationSession` projection over
       `WorkIntakePacket` + review state + writer lease so Markdown/JSON/status
       surfaces can expose the same shared slice without becoming a second
@@ -881,6 +902,18 @@ blocker or exception in plan state before skipping the declared order.
       surfaces before widening `DecisionTrace`: task-router contract,
       push-policy contract, startup-context output shape, and the first
       validation/failure adapter path must each have focused contract tests.
+- [ ] Close the validation and runtime-contract backlog cluster from
+      `issues.md` in this phase: `ISS-003`, `ISS-005`, `ISS-010`,
+      `ISS-017`, `ISS-018`, `ISS-025`, `ISS-052`, `ISS-053`, `ISS-054`,
+      `ISS-056`, `ISS-060`, `ISS-061`, `ISS-062`, and `ISS-063` stay owned
+      here until post-fix re-verification is executable, finding/decision
+      aggregation and identity are deterministic, runtime/domain layers stop
+      importing shell/process concerns and command-layer code, frozen contract
+      models stop carrying mutable state by reference, startup/governance
+      decision helpers gain focused tests, `governance-review --record` gets
+      negative coverage, guard exceptions become governed debt instead of
+      silent drift, and payload contracts distinguish required from optional
+      fields without coercing missing values into fake zeros.
 - [ ] Replace stringly governance ledger dicts with typed row contracts on the
       same evidence path: introduce a frozen `GovernanceReviewRow`
       (or equivalent typed row family), migrate `ledger_helpers.py` /
@@ -979,6 +1012,12 @@ blocker or exception in plan state before skipping the declared order.
       than quality alone.
 - [ ] Add `check_evidence_identity_closure.py` so finding ids, review ledger
       rows, and packet identities converge on one scheme.
+- [ ] Close the evidence, schema, and self-governance backlog cluster from
+      `issues.md` in this phase: `ISS-034`, `ISS-037`, `ISS-083`, and
+      `ISS-084` stay owned here until conflicting duplicate finding ids are
+      rejected deterministically, version-field naming converges across config
+      families, and the docs/plan self-governance checks scale without
+      repeated whole-file regex or linear-search hot loops.
 - [ ] Keep `check_platform_contract_closure.py` in the Phase 5b closure path
       as contract families expand beyond the current implemented slice; this
       phase is not done while runtime-model rows, durable artifact schemas,
@@ -1466,6 +1505,17 @@ blocker or exception in plan state before skipping the declared order.
   `explain-latest` / `PlanExpectationPacket`; 5b.3 is closure telemetry and
   self-governance. Record any justified out-of-order exception in plan state
   before widening.
+- 2026-03-27 plan-driven swarm follow-up: accepted the same-lane correction
+  that future swarms should be compiled from active plan truth, not from a
+  static agent table or file-by-file intuition. The next implementation slice
+  in this owner lane now includes plan-derived worker packet compilation,
+  conductor-owned role routing, and bounded command-family/guard contracts for
+  each lane. Near-term widening is also explicit: foundation-first lanes
+  (`validation_plan` execution, contract/workflow hardening, pattern
+  aggregation, typed `current_session` cutover) may run in parallel with at
+  most one report-only adopter smoke lane for hidden-coupling signal, but the
+  formal cross-repo adoption proof remains Phase 7 work after the blocker and
+  authority-loop prerequisites are green.
 - 2026-03-27 push/doc-authority follow-up: the push half of this tranche is
   now real in code. `repo_governance.push.bypass` gates skip flags, and
   `devctl push` reports typed stage truth (`validation_ready`,

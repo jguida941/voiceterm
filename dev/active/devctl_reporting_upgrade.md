@@ -629,6 +629,13 @@ Exit criteria:
 7. Add Textual live mode and automation hooks as lightweight fallback.
 8. Add full non-interference certification proving default Whisper/listen mode
    behavior remains unchanged by all Dev Tools additions.
+9. Close the reporting and telemetry robustness backlog cluster from
+   `issues.md`: `ISS-023`, `ISS-064`, `ISS-073`, `ISS-079`, and `ISS-081`
+   stay owned here until telemetry/reporting failures become structured,
+   JSON-format consumers stop receiving warning noise on stderr, notification
+   webhook inputs are validated/redacted safely, data-science snapshots write
+   atomically, and quality-backlog collection degrades visibly instead of
+   crashing on git failures.
 
 Exit criteria:
 

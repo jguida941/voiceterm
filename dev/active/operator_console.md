@@ -731,6 +731,12 @@ Checklist:
 - [ ] Add an artifact browser for repo-visible logs, reports, review-channel
       outputs, operator decisions, and generated markdown so operators can
       inspect the current state without leaving the controller app.
+- [ ] Close the operator-console artifact portability and synchronization
+      backlog cluster from `issues.md` in this phase: `ISS-030` and
+      `ISS-045` stay owned here until polling/refresh paths read repo-owned
+      artifacts through synchronized snapshots instead of racing active
+      `devctl` writers, and console path discovery resolves through repo-pack
+      or governance authority instead of hardcoded `.voiceterm` assumptions.
 - [ ] Add quick jumps from workspace/artifact surfaces into the relevant
       playbook, command, AI-help prompt, or review lane.
 
