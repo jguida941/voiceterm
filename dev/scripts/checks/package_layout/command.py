@@ -33,6 +33,10 @@ collect_directory_crowding_violations = import_attr(
     "package_layout.support",
     "collect_directory_crowding_violations",
 )
+collect_compatibility_redirects = import_attr(
+    "package_layout.compatibility_redirects",
+    "collect_compatibility_redirects",
+)
 collect_namespace_docs_sync_violations = import_attr(
     "package_layout.support",
     "collect_namespace_docs_sync_violations",
@@ -55,10 +59,23 @@ def _crowding_suffix(crowded: dict) -> str:
     return f", {shim_files} approved shims excluded, {total_files} total files"
 
 
+def _layout_status(*, violations: list[dict], crowded_directories: list[dict], crowded_namespace_families: list[dict]) -> str:
+    if violations:
+        return "violations_present"
+    if crowded_directories or crowded_namespace_families:
+        return "baseline_debt_detected"
+    return "clean"
+
+
 def _render_md(report: dict) -> str:
     lines = ["# check_package_layout", ""]
+    lines.append(f"- status: {report['status']}")
     lines.append(f"- mode: {report['mode']}")
     lines.append(f"- ok: {report['ok']}")
+    lines.append(f"- layout_clean: {report['layout_clean']}")
+    lines.append(
+        f"- baseline_layout_debt_detected: {report['baseline_layout_debt_detected']}"
+    )
     lines.append(f"- files_changed: {report['files_changed']}")
     lines.append(
         f"- flat_root_candidates_scanned: {report['flat_root_candidates_scanned']}"
@@ -88,6 +105,9 @@ def _render_md(report: dict) -> str:
     lines.append(
         f"- crowded_directories_detected: {len(report['crowded_directories'])}"
     )
+    lines.append(
+        f"- compatibility_redirects_detected: {len(report['compatibility_redirects'])}"
+    )
     lines.append(f"- violations: {len(report['violations'])}")
     if report.get("since_ref"):
         lines.append(f"- since_ref: {report['since_ref']}")
@@ -114,6 +134,20 @@ def _render_md(report: dict) -> str:
                 f"(threshold {crowded['min_family_size']}, mode `{crowded['enforcement_mode']}`, "
                 f"target `{crowded['root']}/{crowded['namespace_subdir']}`"
                 f"{_crowding_suffix(crowded)})"
+            )
+
+    if report["compatibility_redirects"]:
+        lines.append("")
+        lines.append("## Compatibility Redirects")
+        for redirect in report["compatibility_redirects"]:
+            resolved_suffix = ""
+            if (
+                redirect["resolved_target"]
+                and redirect["resolved_target"] != redirect["target"]
+            ):
+                resolved_suffix = f" (resolved to `{redirect['resolved_target']}`)"
+            lines.append(
+                f"- `{redirect['path']}` -> `{redirect['target']}`{resolved_suffix}"
             )
 
     if report["violations"]:
@@ -179,6 +213,7 @@ def main() -> int:
                 since_ref=args.since_ref,
             )
         )
+        compatibility_redirects = collect_compatibility_redirects(repo_root=REPO_ROOT)
     except RuntimeError as exc:
         return emit_runtime_error("check_package_layout", args.format, str(exc))
 
@@ -188,13 +223,24 @@ def main() -> int:
         *docs_sync_violations,
         *crowding_violations,
     ]
+    status = _layout_status(
+        violations=violations,
+        crowded_directories=crowded_directories,
+        crowded_namespace_families=crowded_namespace_families,
+    )
+    baseline_layout_debt_detected = bool(
+        crowded_directories or crowded_namespace_families
+    )
     report = {
         "command": "check_package_layout",
         "timestamp": utc_timestamp(),
+        "status": status,
         "mode": report_mode,
         "since_ref": None if report_mode == "adoption-scan" else args.since_ref,
         "head_ref": None if report_mode == "adoption-scan" else args.head_ref,
         "ok": len(violations) == 0,
+        "layout_clean": status == "clean",
+        "baseline_layout_debt_detected": baseline_layout_debt_detected,
         "files_changed": len(changed_paths),
         "flat_root_candidates_scanned": flat_root_candidates_scanned,
         "flat_root_violations": len(flat_root_violations),
@@ -206,6 +252,7 @@ def main() -> int:
         "crowded_directory_candidates_scanned": crowded_directory_candidates_scanned,
         "crowded_directory_violations": len(crowding_violations),
         "crowded_directories": crowded_directories,
+        "compatibility_redirects": compatibility_redirects,
         "violations": violations,
     }
 

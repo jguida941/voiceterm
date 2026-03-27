@@ -83,8 +83,13 @@
   core patches. Current measured self-hosting baseline: `doc-authority`
   reports `50` governed docs / `45,484` lines, `19` budget violations,
   `4` authority overlaps, and `8` consolidation candidates, while
-  `check_package_layout` still reports four frozen crowded roots and seven
-  crowded namespace families.
+  `check_package_layout` still reports four crowded roots and seven crowded
+  namespace families, with repo policy now treating touched files inside
+  those `devctl` self-hosting hotspots as `strict` layout debt instead of
+  ordinary freeze-only edits. The same package-layout report now also emits
+  canonical compatibility redirects from valid `shim-target` metadata so
+  moved entrypoints advertise their new home through one portable guard
+  surface.
 - Current immediate `P0` execution order inside that authority-loop lane:
   first clear the blocking pre-spine hardening tranche (daemon attach/auth
   security, autonomy authority boundaries, JSONL/evidence integrity, and
@@ -483,12 +488,25 @@
   repo-owned baselines make that explicit: `doc-authority` reports `50`
   governed docs / `45,107` lines, `19` budget violations, `4` authority
   overlaps, and `8` consolidation candidates, while `check_package_layout`
-  still reports four frozen crowded directories and seven crowded namespace
-  families under the `devctl` stack. The next priority tranche is therefore
+  still reports four crowded directories and seven crowded namespace families
+  under the `devctl` stack. The same self-hosting lane now ratchets those
+  known crowded `devctl` roots/families from `freeze` to `strict` for touched
+  edits so the existing `package_layout` engine stops treating active work
+  there as ordinary healthy churn. The next priority tranche is therefore
   explicit: finish `DocPolicy` / `DocRegistry` / `doc-authority`, absorb root
   intake conclusions into owner docs, separate development-self-hosting docs
   from adopter/bootstrap surfaces, and use that same contract to shrink the
   live authority surface instead of adding more planning prose.
+- 2026-03-27 package-layout truth follow-up: the self-hosting organization
+  guard was honest about crowded roots/families but still easy to misread
+  because `ok: True` only meant "no blocking drift in this edit." The same
+  `package_layout` surface now emits explicit baseline-debt state
+  (`status=baseline_debt_detected`, `layout_clean=false`) whenever freeze-mode
+  crowded roots/families remain, so the repo cannot describe itself as
+  structurally clean while that debt is still open. Keep the next ratchet in
+  the same owner chain: use this truthful state to drive bounded decomposition
+  and only then promote selected crowded roots/families from reporting debt to
+  blocking working-tree failures.
 - 2026-03-27 governed-push fail-closed closure: `devctl push` now reads
   policy-gated bypass settings from `repo_governance.push.bypass`, reports
   typed push stages (`validation_ready`, `published_remote`,
@@ -3080,7 +3098,10 @@ become the main product surface.
     before widening automation trust: `probe_single_use_helpers` and
     similar file-local scanners should be able to query repo-level
     reuse/import evidence so helpers reused outside the current file do not
-    false-positive as single-use.
+    false-positive as single-use. First closure tranche: the shared Python
+    call-site prepass now lives in `probe_bootstrap` and backs
+    `probe_single_use_helpers` with relocation regression coverage; keep this
+    item open until the remaining context-blind probes adopt the same corpus.
   - [ ] Close the remaining probe lifecycle joints on top of the already-live
     verdict/history path: hotspot ranking, startup signals, Ralph guidance
     selection, and next-file rotation must become verdict-aware so fixed or

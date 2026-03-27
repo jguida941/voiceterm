@@ -15,19 +15,16 @@ if __package__:
         detect_compatibility_shim,
         docs_contain_tokens,
         is_under_root,
-        load_directory_crowding_rules,
-        load_flat_root_rules,
-        load_namespace_docs_sync_rules,
-        load_namespace_family_rules,
         recommended_namespace_path,
-        resolve_guard_config,
     )
+    from .compatibility_redirects import collect_compatibility_redirects
     from .directory_crowding import (
         collect_directory_crowding_violations_from_rules,
     )
     from .namespace_family import (
         collect_namespace_family_violations_from_rules,
     )
+    from .rule_resolution import resolve_layout_rules
 else:  # pragma: no cover - standalone script fallback
     from bootstrap import (
         DirectoryCrowdingRule,
@@ -37,47 +34,21 @@ else:  # pragma: no cover - standalone script fallback
         detect_compatibility_shim,
         docs_contain_tokens,
         is_under_root,
-        load_directory_crowding_rules,
-        load_flat_root_rules,
-        load_namespace_docs_sync_rules,
-        load_namespace_family_rules,
         recommended_namespace_path,
-        resolve_guard_config,
     )
+    from compatibility_redirects import collect_compatibility_redirects
     from directory_crowding import (
         collect_directory_crowding_violations_from_rules,
     )
     from namespace_family import (
         collect_namespace_family_violations_from_rules,
     )
+    from rule_resolution import resolve_layout_rules
 
 
 def _shim_metadata_guidance(missing_fields: tuple[str, ...]) -> str:
     fields_label = ", ".join(f"`shim-{field}: ...`" for field in missing_fields)
     return f" Valid compatibility shims here must also declare metadata fields: {fields_label}."
-
-
-def _resolved_layout_rules(
-    repo_root: Path,
-) -> tuple[
-    tuple[FlatRootRule, ...],
-    tuple[NamespaceFamilyRule, ...],
-    tuple[NamespaceDocsSyncRule, ...],
-    tuple[DirectoryCrowdingRule, ...],
-]:
-    package_layout = resolve_guard_config("package_layout", repo_root=repo_root)
-    code_shape = resolve_guard_config("code_shape", repo_root=repo_root)
-    flat_rules = load_flat_root_rules(package_layout.get("flat_root_rules"))
-    family_rules = load_namespace_family_rules(
-        package_layout.get("namespace_family_rules")
-    ) or load_namespace_family_rules(code_shape.get("namespace_family_rules"))
-    docs_sync_rules = load_namespace_docs_sync_rules(
-        package_layout.get("namespace_docs_sync_rules")
-    ) or load_namespace_docs_sync_rules(code_shape.get("namespace_docs_sync_rules"))
-    crowding_rules = load_directory_crowding_rules(
-        package_layout.get("directory_crowding_rules")
-    ) or load_directory_crowding_rules(code_shape.get("directory_crowding_rules"))
-    return flat_rules, family_rules, docs_sync_rules, crowding_rules
 
 
 def collect_flat_root_violations(
@@ -95,7 +66,7 @@ def collect_flat_root_violations(
     active_rules = flat_root_rules
     if active_rules is None:
         active_rules, _family_rules, _docs_sync_rules, _crowding_rules = (
-            _resolved_layout_rules(repo_root)
+            resolve_layout_rules(repo_root)
         )
 
     for rule in active_rules:
@@ -173,7 +144,7 @@ def collect_namespace_layout_violations(
     active_family_rules = family_rules
     if active_family_rules is None:
         _flat_rules, active_family_rules, _docs_sync_rules, _crowding_rules = (
-            _resolved_layout_rules(repo_root)
+            resolve_layout_rules(repo_root)
         )
     return collect_namespace_family_violations_from_rules(
         repo_root=repo_root,
@@ -201,7 +172,7 @@ def collect_namespace_docs_sync_violations(
     active_docs_sync_rules = docs_sync_rules
     if active_docs_sync_rules is None:
         _flat_rules, _family_rules, active_docs_sync_rules, _crowding_rules = (
-            _resolved_layout_rules(repo_root)
+            resolve_layout_rules(repo_root)
         )
 
     for changed_path in changed_paths:
@@ -266,7 +237,7 @@ def collect_directory_crowding_violations(
     active_rules = crowding_rules
     if active_rules is None:
         _flat_rules, _family_rules, _docs_sync_rules, active_rules = (
-            _resolved_layout_rules(repo_root)
+            resolve_layout_rules(repo_root)
         )
     return collect_directory_crowding_violations_from_rules(
         repo_root=repo_root,

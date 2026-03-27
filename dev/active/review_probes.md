@@ -358,7 +358,10 @@ context-free translation = MEDIUM.
       before widening automation trust: `probe_single_use_helpers` and
       similar file-local scanners should be able to query repo-level
       reuse/import evidence so helpers reused outside the current file do not
-      false-positive as single-use.
+      false-positive as single-use. First tranche is now live through the
+      shared Python call-site prepass in `probe_bootstrap` plus relocation
+      coverage in `probe_single_use_helpers`; keep this open until the other
+      file-local probes adopt the same corpus.
 - [ ] Close the remaining probe lifecycle joints on top of the already-live
       verdict/history path: hotspot ranking, startup signals, Ralph guidance
       selection, and next-file rotation must become verdict-aware so fixed or

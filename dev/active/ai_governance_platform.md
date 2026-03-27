@@ -4137,13 +4137,29 @@ working on `MP-377`.
   repos to adopt. Current repo-owned measurements are now part of the owner
   state: `doc-authority` reports `50` governed docs / `45,107` lines,
   `19` budget violations, `4` authority overlaps, and `8` consolidation
-  candidates; `check_package_layout` still reports four frozen crowded roots
-  and seven crowded namespace families under the `devctl` stack. Resume from
-  one bounded tranche: absorb root intake conclusions into the owner chain,
+  candidates; `check_package_layout` still reports four crowded roots and
+  seven crowded namespace families under the `devctl` stack, and repo policy
+  now ratchets touched files in those self-hosting hotspots to `strict`
+  instead of freeze-only drift control. The same guard now also emits
+  compatibility redirects from valid `shim-target` metadata so moved
+  entrypoints resolve through one portable package-layout surface rather than
+  chat memory. Resume from one bounded tranche:
+  absorb root intake conclusions into the owner chain,
   shrink the active authority surface through `DocPolicy` / `DocRegistry`,
   separate development-self-hosting docs from adopter/bootstrap surfaces, and
   keep portable runtime/startup blind to VoiceTerm filenames unless repo-pack
   policy explicitly names them.
+- 2026-03-27 package-layout truth follow-up: the current self-hosting miss was
+  not that `check_package_layout` lacked crowded-root detection; it was that
+  freeze-mode reporting could still read as "green" in day-to-day work because
+  `ok` only tracked blocking violations. The same guard surface now emits
+  explicit baseline-debt state (`status=baseline_debt_detected`,
+  `layout_clean=false`) whenever crowded roots/families remain under freeze
+  mode. Keep this architecture rule explicit: one `package_layout` system owns
+  both blocking drift and baseline organization debt. Do not answer this by
+  inventing a second crowding checker; the next follow-up is bounded
+  decomposition plus selective ratcheting of crowded roots/families to
+  stronger enforcement once those namespaces are actually compressed.
 - 2026-03-27 governed-push follow-up: the platform now has the intended
   fail-closed branch-push truth for this tranche. `repo_governance.push`
   policy now gates skip-flag bypasses, and `devctl push` emits typed stage
@@ -4999,9 +5015,12 @@ Execution order for this section:
   mixed. `doc-authority` now provides the measured baseline (`50` governed
   docs / `45,107` lines, `19` budget violations, `4` authority overlaps,
   `8` consolidation candidates), while `check_package_layout` confirms the
-  same self-hosting problem in code structure (four frozen crowded roots and
-  seven crowded namespace families). Promoted the conclusion as owner
-  priority, not a new parallel roadmap: the next platform tranche is
+  same self-hosting problem in code structure (four crowded roots and seven
+  crowded namespace families). The same owner lane now ratchets those known
+  `devctl` hotspots from `freeze` to `strict` on touched edits so the
+  existing `package_layout` engine blocks continued flat-root churn instead of
+  merely describing it. Promoted the conclusion as owner priority, not a new
+  parallel roadmap: the next platform tranche is
   executable doc/organization compression plus development-vs-adopter
   boundary cleanup.
 - 2026-03-27: Landed the governed-push architecture closure for this tranche.
@@ -6779,4 +6798,4 @@ Execution order for this section:
 - `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
 - `dev/scripts/devctl/tests/test_docs_check.py`
 - `dev/scripts/devctl/tests/test_docs_check_constants.py`
-- `dev/scripts/devctl/tests/test_quality_policy.py`
+- `dev/scripts/devctl/tests/quality_policy/test_quality_policy.py`

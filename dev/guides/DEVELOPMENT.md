@@ -153,6 +153,14 @@ Three quality layers matter in practice:
   `check_package_layout.py` enforces structural/layout policy, while
   `probe_compatibility_shims.py` ranks stale shim debt such as missing
   metadata, expired wrappers, broken targets, and shim-heavy roots/families.
+  `check_package_layout.py` also distinguishes blocking layout violations from
+  baseline organization debt, so freeze-mode crowded roots/families still read
+  as not clean even when the current edit did not add a new flat file there.
+  Repo policy may ratchet those known crowded areas to `strict` so touched
+  files must keep decomposing into owned packages or approved thin shims. When
+  a move keeps a compatibility wrapper, the same report should emit
+  `compatibility_redirects` from `shim-target` so the next AI/human session can
+  see the canonical destination path directly.
 - `dev/config/devctl_repo_policy.json` is the repo-local switchboard for which
   built-in guards/probes are active by default; keep enablement there instead
   of hard-coding repo behavior into `check` or `probe-report`.

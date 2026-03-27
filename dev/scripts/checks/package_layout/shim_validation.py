@@ -131,6 +131,26 @@ def _namespace_targets_match(import_targets: tuple[str, ...], namespace_subdir: 
     )
 
 
+def resolve_shim_target_path(repo_root: Path, target: str) -> Path | None:
+    """Resolve one shim target to a live repo path when possible."""
+    target_text = target.strip()
+    if not target_text:
+        return None
+    target_path = repo_root / Path(target_text)
+    if target_path.exists():
+        return target_path
+    if "/" in target_text or "\\" in target_text or target_text.endswith(".py"):
+        return None
+    dotted = Path(*target_text.split("."))
+    module_path = repo_root / dotted.with_suffix(".py")
+    package_init = repo_root / dotted / "__init__.py"
+    if module_path.exists():
+        return module_path
+    if package_init.exists():
+        return package_init
+    return None
+
+
 def detect_compatibility_shim(
     path: Path,
     *,
@@ -198,4 +218,5 @@ __all__ = [
     "STANDARD_SHIM_METADATA_FIELDS",
     "detect_compatibility_shim",
     "is_backward_compat_shim",
+    "resolve_shim_target_path",
 ]

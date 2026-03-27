@@ -7,11 +7,11 @@ from datetime import date
 from pathlib import Path
 
 if __package__:
-    from .bootstrap import import_attr
+    from .bootstrap import import_attr, resolve_shim_target_path
     from .probe_compatibility_rules import ShimFamilyRule, ShimFinding, ShimRootRule
     from .probe_compatibility_usage import ShimLifecycle
 else:  # pragma: no cover - standalone script fallback
-    from bootstrap import import_attr
+    from bootstrap import import_attr, resolve_shim_target_path
     from probe_compatibility_rules import ShimFamilyRule, ShimFinding, ShimRootRule
     from probe_compatibility_usage import ShimLifecycle
 
@@ -225,25 +225,6 @@ def build_temporary_unused_hint(
     )
 
 
-def _target_path(repo_root: Path, target: str) -> Path | None:
-    target_text = target.strip()
-    if not target_text:
-        return None
-    target_path = repo_root / Path(target_text)
-    if target_path.exists():
-        return target_path
-    if "/" in target_text or "\\" in target_text or target_text.endswith(".py"):
-        return None
-    dotted = Path(*target_text.split("."))
-    module_path = repo_root / dotted.with_suffix(".py")
-    package_init = repo_root / dotted / "__init__.py"
-    if module_path.exists():
-        return module_path
-    if package_init.exists():
-        return package_init
-    return None
-
-
 def _expiry_status(value: str) -> tuple[date | None, str | None]:
     try:
         return date.fromisoformat(value.strip()), None
@@ -282,7 +263,7 @@ def build_file_level_hints(repo_root: Path, finding: ShimFinding) -> list[RiskHi
                 )
             )
     target = str(finding.metadata.get("target") or "").strip()
-    if target and _target_path(repo_root, target) is None:
+    if target and resolve_shim_target_path(repo_root, target) is None:
         hints.append(
             RiskHint(
                 file=finding.relative_path.as_posix(),

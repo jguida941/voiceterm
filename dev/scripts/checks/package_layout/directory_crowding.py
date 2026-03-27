@@ -135,6 +135,8 @@ def collect_directory_crowding_violations_from_rules(
                 continue
             if not any(fnmatch(relative.name, pattern) for pattern in rule.include_globs):
                 continue
+            if not (repo_root / relative).exists():
+                continue
             candidates_scanned += 1
             is_new_file = read_text_from_ref(relative, base_ref) is None
             validation = shim_validations.get(repo_root / relative)
@@ -144,11 +146,7 @@ def collect_directory_crowding_violations_from_rules(
                 continue
             if rule.enforcement_mode == "freeze" and not is_new_file:
                 continue
-            recommended_path = (
-                rule.root / rule.recommended_subdir / relative.name
-                if rule.recommended_subdir
-                else None
-            )
+            recommended_path = rule.root / rule.recommended_subdir / relative.name if rule.recommended_subdir else None
             guidance = rule.guidance or (
                 f"`{rule.root.as_posix()}` already has {current_count} files matching "
                 f"{', '.join(rule.include_globs)} and is frozen against further flat growth."

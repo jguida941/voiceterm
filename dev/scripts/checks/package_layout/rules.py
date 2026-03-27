@@ -23,6 +23,7 @@ if __package__:
         STANDARD_SHIM_METADATA_FIELDS,
         detect_compatibility_shim,
         is_backward_compat_shim,
+        resolve_shim_target_path,
     )
 else:  # pragma: no cover - standalone script fallback
     from rule_models import (
@@ -45,6 +46,7 @@ else:  # pragma: no cover - standalone script fallback
         STANDARD_SHIM_METADATA_FIELDS,
         detect_compatibility_shim,
         is_backward_compat_shim,
+        resolve_shim_target_path,
     )
 
 __all__ = [
@@ -63,4 +65,5 @@ __all__ = [
     "load_namespace_docs_sync_rules",
     "load_namespace_family_rules",
     "recommended_namespace_path",
+    "resolve_shim_target_path",
 ]

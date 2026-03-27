@@ -56,7 +56,15 @@ registry wiring in `dev/scripts/devctl/script_catalog.py`.
 Organization is now part of the quality surface too: `check_package_layout.py`
 enforces repo-policy layout contracts for flat roots, helper-family namespaces,
 docs coverage, crowded-family baseline/adoption reporting, and crowded-directory
-freeze/baseline reporting instead of relying on informal cleanup norms.
+freeze/baseline reporting instead of relying on informal cleanup norms. The
+same report now distinguishes blocking violations from baseline organization
+debt, so freeze-mode crowded roots cannot be misread as a clean layout just
+because no new flat file was added in the current edit. Repo policy can also
+ratchet known crowded roots/families from `freeze` to `strict` when a
+self-hosting repo needs touched flat-root files to stop behaving like normal
+healthy edits. The same report now also emits `compatibility_redirects` from
+valid `shim-target` metadata so agents can follow moved entrypoints through
+one repo-owned surface instead of inferring the new path ad hoc.
 Compatibility shims inside that layout surface are now governed too: the
 portable engine validates shim wrapper shape structurally, repo policy can
 require metadata such as `owner`/`reason`/`expiry`/`target`, and crowded-root
@@ -780,7 +788,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
 | `dev/scripts/checks/check_publication_sync.py` | External publication drift gate | Compares tracked papers/sites against watched repo source paths and fails when synced public artifacts lag behind the recorded source baseline. |
 | `dev/scripts/checks/check_code_shape.py` | Source-shape drift guard | Blocks new Rust/Python God-file growth using language-level soft/hard limits (Rust: 900/1400, Python: 350/650), path-level hotspot budgets, **function-length guardrails** (Rust: 100 lines, Python: 150 lines) with expiry-tracked exceptions for existing oversized functions, stale loose path-override detection, override-cap ratcheting (untouched legacy over-cap overrides stay visible as warnings; touched, newly introduced, or worsened over-cap overrides fail), touched-file mixed-concern ratcheting for Python files with 3+ independent function clusters, repo-policy-owned namespace/layout rules, and audit-first remediation guidance (modularize/consolidate before merge, with Python/Rust best-practice links). |
-| `dev/scripts/checks/check_package_layout.py` | Package-layout organization guard | Enforces repo-policy placement rules for flat roots, crowded namespace families, docs sync, crowded-directory freeze/baseline reporting, and portable compatibility-shim governance so self-hosting repo structure stays legible and external adopters can see layout debt early without treating thin wrapper seams as invisible or ad hoc. |
+| `dev/scripts/checks/check_package_layout.py` | Package-layout organization guard | Enforces repo-policy placement rules for flat roots, crowded namespace families, docs sync, crowded-directory freeze/baseline reporting, and portable compatibility-shim governance so self-hosting repo structure stays legible and external adopters can see layout debt early without treating thin wrapper seams as invisible or ad hoc. The report now also marks freeze-mode crowded roots/families as baseline debt (`status: baseline_debt_detected`, `layout_clean: false`) instead of implying the repo is structurally clean whenever blocking violations are absent, and emits `compatibility_redirects` from valid `shim-target` metadata so moved entrypoints advertise where they now live. |
 | `dev/scripts/checks/check_duplicate_types.py` | Duplicate Rust type-name guard | Detects duplicate `struct`/`enum` names across Rust files (with explicit allowlist for known transitional duplicates) so new cross-file type-shadowing does not slip in. |
 | `dev/scripts/checks/check_structural_complexity.py` | Structural-complexity guard | Flags Rust functions whose structural complexity score (branch points + nesting) exceeds policy limits, with expiry-bound exceptions for active MP-346 transition hotspots. |
 | `dev/scripts/checks/check_workflow_shell_hygiene.py` | Workflow-shell anti-pattern guard | Blocks fragile inline shell patterns in workflow run blocks (single-match find/head chains, inline Python snippets) across `.yml`/`.yaml` workflows; supports auditable line-level suppressions via `workflow-shell-hygiene: allow=inline-python-c` (or `allow=all`) when a justified exception is required. |

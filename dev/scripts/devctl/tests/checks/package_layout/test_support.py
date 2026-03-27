@@ -346,6 +346,38 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             "changed_flat_namespace_module_in_crowded_family",
         )
 
+    def test_namespace_family_strict_allows_deleted_file(self) -> None:
+        for idx in range(6):
+            self._write(f"dev/scripts/devctl/commands/check_guard_{idx}.py")
+        (self.root / "dev/scripts/devctl/commands/check_guard_2.py").unlink()
+        family_rules = (
+            SCRIPT.NamespaceFamilyRule(
+                root=Path("dev/scripts/devctl/commands"),
+                flat_prefix="check_",
+                namespace_subdir="check",
+                min_family_size=4,
+                enforcement_mode="strict",
+            ),
+        )
+
+        def _read_text_from_ref(path: Path, ref: str) -> str | None:
+            del ref
+            if path.as_posix() == "dev/scripts/devctl/commands/check_guard_2.py":
+                return "existing content\n"
+            return None
+
+        violations, crowded_families, scanned = SCRIPT.collect_namespace_layout_violations(
+            repo_root=self.root,
+            changed_paths=[Path("dev/scripts/devctl/commands/check_guard_2.py")],
+            read_text_from_ref=_read_text_from_ref,
+            since_ref=None,
+            family_rules=family_rules,
+        )
+
+        self.assertEqual(scanned, 0)
+        self.assertEqual(len(crowded_families), 1)
+        self.assertEqual(violations, [])
+
     def test_namespace_family_adoption_scan_blocks_baseline_crowding(self) -> None:
         for idx in range(6):
             self._write(f"dev/scripts/devctl/commands/check_guard_{idx}.py")
@@ -782,6 +814,40 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
         self.assertEqual(len(violations), 1)
         self.assertEqual(violations[0]["reason"], "changed_file_in_crowded_directory")
 
+    def test_directory_crowding_strict_allows_deleted_file(self) -> None:
+        for idx in range(6):
+            self._write(f"dev/scripts/checks/check_guard_{idx}.py")
+        (self.root / "dev/scripts/checks/check_guard_2.py").unlink()
+        crowding_rules = (
+            SCRIPT.DirectoryCrowdingRule(
+                root=Path("dev/scripts/checks"),
+                include_globs=("*.py",),
+                max_files=4,
+                enforcement_mode="strict",
+                guidance="strict crowded roots block flat edits, not deletions",
+            ),
+        )
+
+        def _read_text_from_ref(path: Path, ref: str) -> str | None:
+            del ref
+            if path.as_posix() == "dev/scripts/checks/check_guard_2.py":
+                return "existing content\n"
+            return None
+
+        violations, crowded_directories, scanned = (
+            SCRIPT.collect_directory_crowding_violations(
+                repo_root=self.root,
+                changed_paths=[Path("dev/scripts/checks/check_guard_2.py")],
+                read_text_from_ref=_read_text_from_ref,
+                since_ref=None,
+                crowding_rules=crowding_rules,
+            )
+        )
+
+        self.assertEqual(scanned, 0)
+        self.assertEqual(len(crowded_directories), 1)
+        self.assertEqual(violations, [])
+
     def test_directory_crowding_rules_can_be_loaded_from_guard_config(self) -> None:
         for idx in range(5):
             self._write(f"dev/scripts/checks/check_guard_{idx}.py")
@@ -816,6 +882,52 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
         self.assertEqual(scanned, 1)
         self.assertEqual(len(crowded_directories), 1)
         self.assertEqual(len(violations), 1)
+
+    def test_collect_compatibility_redirects_reports_shim_targets(self) -> None:
+        self._write(
+            "dev/scripts/checks/package_layout/command.py",
+            "def main() -> int:\n    return 0\n",
+        )
+        self._write(
+            "dev/scripts/checks/check_package_layout.py",
+            '"""Backward-compat shim -- use `package_layout.command`."""\n'
+            "# shim-owner: platform\n"
+            "# shim-reason: preserve the stable public check entrypoint during package migration\n"
+            "# shim-expiry: 2026-06-01\n"
+            "# shim-target: dev/scripts/checks/package_layout/command.py\n"
+            "from package_layout.command import main\n",
+        )
+        crowding_rules = (
+            SCRIPT.DirectoryCrowdingRule(
+                root=Path("dev/scripts/checks"),
+                include_globs=("*.py",),
+                max_files=1,
+                enforcement_mode="strict",
+                recommended_subdir="package_layout",
+                shim_contains_all=("package_layout.command",),
+                shim_max_nonblank_lines=6,
+                shim_required_metadata_fields=("owner", "reason", "expiry", "target"),
+            ),
+        )
+
+        redirects = SCRIPT.collect_compatibility_redirects(
+            repo_root=self.root,
+            crowding_rules=crowding_rules,
+            family_rules=(),
+        )
+
+        self.assertEqual(
+            redirects,
+            [
+                {
+                    "path": "dev/scripts/checks/check_package_layout.py",
+                    "target": "dev/scripts/checks/package_layout/command.py",
+                    "resolved_target": "dev/scripts/checks/package_layout/command.py",
+                    "target_exists": True,
+                    "policy_source": "directory_crowding:dev/scripts/checks",
+                }
+            ],
+        )
 
 
 if __name__ == "__main__":

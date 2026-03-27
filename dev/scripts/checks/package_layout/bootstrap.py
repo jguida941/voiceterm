@@ -54,6 +54,7 @@ load_flat_root_rules = _rules_module.load_flat_root_rules
 load_namespace_docs_sync_rules = _rules_module.load_namespace_docs_sync_rules
 load_namespace_family_rules = _rules_module.load_namespace_family_rules
 recommended_namespace_path = _rules_module.recommended_namespace_path
+resolve_shim_target_path = _rules_module.resolve_shim_target_path
 is_adoption_scan = _quality_scan_mode_module.is_adoption_scan
 
 __all__ = [
@@ -77,6 +78,7 @@ __all__ = [
     "load_namespace_docs_sync_rules",
     "load_namespace_family_rules",
     "recommended_namespace_path",
+    "resolve_shim_target_path",
     "resolve_guard_config",
     "utc_timestamp",
 ]

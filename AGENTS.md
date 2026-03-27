@@ -39,6 +39,17 @@ Documentation-boundary rule:
   satisfy that requirement by editing product docs unless shipped end-user
   VoiceTerm behavior changed too.
 
+Package-layout truth rule:
+- Treat `check_package_layout.py` as a two-layer self-hosting signal: blocking
+  violations still decide command failure, but freeze-mode crowded roots or
+  namespace families are still active organization debt and must not be
+  described as structurally clean. Maintain the explicit report state
+  (`status`, `layout_clean`, `baseline_layout_debt_detected`) so the repo does
+  not confuse "no new drift in this edit" with "the layout is healthy." When
+  compatibility shims carry `shim-target`, keep the emitted
+  `compatibility_redirects` map truthful too so agents can see where moved
+  entrypoints now resolve without guessing from stale paths.
+
 Top-level enforcement rule: every time an agent creates a file or edits an
 existing file, it must run the relevant repo guard/check scripts before
 handoff to catch bad practices, policy drift, and structural regressions. This

@@ -425,6 +425,54 @@ class QualityPolicyTests(unittest.TestCase):
             9,
         )
 
+    def test_repo_package_layout_ratchets_crowded_devctl_roots_to_strict(self) -> None:
+        resolved = quality_policy.resolve_quality_policy(repo_root=REPO_ROOT)
+
+        package_layout = resolved.guard_configs["package_layout"]
+        directory_rules = {
+            rule["root"]: rule.get("enforcement_mode", "freeze")
+            for rule in package_layout["directory_crowding_rules"]
+        }
+        namespace_rules = {
+            (rule["root"], rule["flat_prefix"]): rule.get(
+                "enforcement_mode", "freeze"
+            )
+            for rule in package_layout["namespace_family_rules"]
+        }
+
+        self.assertEqual(directory_rules["dev/scripts/checks"], "strict")
+        self.assertEqual(directory_rules["dev/scripts/devctl"], "strict")
+        self.assertEqual(directory_rules["dev/scripts/devctl/commands"], "strict")
+        self.assertEqual(directory_rules["dev/scripts/devctl/tests"], "strict")
+        self.assertEqual(
+            namespace_rules[("dev/scripts/devctl", "review_channel_")], "strict"
+        )
+        self.assertEqual(
+            namespace_rules[("dev/scripts/devctl/commands", "check_")], "strict"
+        )
+        self.assertEqual(
+            namespace_rules[("dev/scripts/devctl/commands", "autonomy_")], "strict"
+        )
+        self.assertEqual(
+            namespace_rules[("dev/scripts/devctl/commands", "docs_")], "strict"
+        )
+        self.assertEqual(
+            namespace_rules[("dev/scripts/devctl/commands", "review_channel_")],
+            "strict",
+        )
+        self.assertEqual(
+            namespace_rules[("dev/scripts/devctl/commands", "release_")], "strict"
+        )
+        self.assertEqual(
+            namespace_rules[("dev/scripts/devctl/commands", "ship_")], "strict"
+        )
+        self.assertEqual(
+            namespace_rules[("dev/scripts/devctl/commands", "governance_")], "strict"
+        )
+        self.assertEqual(
+            namespace_rules[("dev/scripts/devctl/commands", "process_")], "strict"
+        )
+
     def test_resolve_quality_policy_uses_runtime_repo_root_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

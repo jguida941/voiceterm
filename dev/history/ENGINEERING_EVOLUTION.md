@@ -46,6 +46,37 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-27 - Self-hosting organization debt now ratchets crowded `devctl` roots instead of only reporting them
+
+Fact: the repo already had the right organization guard seam, but the
+VoiceTerm self-hosting policy was still too permissive in the exact places
+where clutter keeps accumulating. `check_package_layout.py` was honestly
+reporting crowded `dev/scripts/checks`, `dev/scripts/devctl`,
+`dev/scripts/devctl/commands`, `dev/scripts/devctl/tests`, and the crowded
+`devctl` command/review families, but repo policy left those roots on
+`freeze`, which only blocks new flat files. The policy now ratchets those
+known-crowded self-hosting areas to `strict`, so edits in the flat roots fail
+unless they move implementation into owned packages or stay as approved thin
+compatibility shims. The same guard surface now also emits canonical
+`compatibility_redirects` from valid `shim-target` metadata so follow-up AI
+sessions can see where a moved entrypoint now resolves without reverse-
+engineering the wrapper or a one-off git diff.
+
+This matters because it closes the “green but still messy” gap that makes the
+platform look unserious about its own architecture. The fix stayed in the
+existing `package_layout` engine and repo-policy contract instead of creating
+another organization checker, and it keeps graph/docs surfaces as projections
+over the same enforcement truth rather than turning them into the authority.
+
+Evidence:
+
+- `dev/config/quality_presets/voiceterm.json`
+- `dev/scripts/devctl/tests/quality_policy/test_quality_policy.py`
+- `dev/scripts/README.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+
 ### 2026-03-27 - Typed decision seams and dual-agent truth now fail closer to the real authority source
 
 Fact: the first `MP-377` explainability refactor exposed a useful self-hosting
@@ -1713,7 +1744,7 @@ Evidence:
 - `dev/scripts/checks/run_probe_report.py`
 - `dev/config/quality_presets/portable_python.json`
 - `dev/config/quality_presets/voiceterm.json`
-- `dev/scripts/devctl/tests/test_code_shape_layout_support.py`
+- `dev/scripts/devctl/tests/checks/package_layout/test_support.py`
 - `dev/scripts/devctl/tests/checks/package_layout/test_probe_compatibility_shims.py`
 
 ### 2026-03-12 - The first shared runtime contract moved from blueprint to code
@@ -6277,3 +6308,22 @@ Evidence: `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`,
 `dev/active/review_probes.md`,
 `dev/active/platform_authority_loop.md`.
+
+### 2026-03-27 - Package-layout now reports baseline organization debt as first-class truth
+
+Fact: the self-hosting organization review exposed a narrower failure than "no
+guard exists." `check_package_layout.py` already detected overcrowded roots and
+families, but its top-line `ok` field only tracked blocking drift, so a
+freeze-mode repo could still look green in ordinary working-tree runs while
+carrying obvious structural debt. The fix keeps one `package_layout` system
+instead of inventing another checker: the report now emits explicit baseline
+organization-debt state (`status=baseline_debt_detected`,
+`layout_clean=false`) whenever crowded roots/families remain. That makes the
+repo's self-description honest now, while the later ratchet to hard-fail
+selected crowded namespaces stays coupled to actual decomposition work rather
+than silently deadlocking the whole tree overnight.
+
+Evidence: `dev/scripts/checks/package_layout/command.py`,
+`dev/scripts/devctl/tests/checks/package_layout/test_check_package_layout.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.

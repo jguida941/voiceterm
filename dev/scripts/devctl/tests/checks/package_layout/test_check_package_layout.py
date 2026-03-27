@@ -55,8 +55,21 @@ class CheckPackageLayoutCommandTests(unittest.TestCase):
             5,
         ),
     )
+    @patch(
+        "dev.scripts.checks.package_layout.command.collect_compatibility_redirects",
+        return_value=[
+            {
+                "path": "dev/scripts/checks/check_package_layout.py",
+                "target": "dev/scripts/checks/package_layout/command.py",
+                "resolved_target": "dev/scripts/checks/package_layout/command.py",
+                "target_exists": True,
+                "policy_source": "directory_crowding:dev/scripts/checks",
+            }
+        ],
+    )
     def test_main_reports_adoption_scan_without_ref_fields(
         self,
+        _mock_redirects,
         _mock_crowding,
         _mock_docs_sync,
         _mock_namespace,
@@ -82,17 +95,27 @@ class CheckPackageLayoutCommandTests(unittest.TestCase):
 
         self.assertEqual(rc, 1)
         payload = json.loads(buffer.getvalue())
+        self.assertEqual(payload["status"], "violations_present")
         self.assertEqual(payload["mode"], "adoption-scan")
+        self.assertFalse(payload["layout_clean"])
+        self.assertTrue(payload["baseline_layout_debt_detected"])
+        self.assertEqual(
+            payload["compatibility_redirects"][0]["path"],
+            "dev/scripts/checks/check_package_layout.py",
+        )
         self.assertIsNone(payload["since_ref"])
         self.assertIsNone(payload["head_ref"])
         self.assertEqual(payload["crowded_directories"][0]["shim_files"], 2)
         mock_validate_ref.assert_any_call(ADOPTION_BASE_REF)
         mock_validate_ref.assert_any_call(WORKTREE_HEAD_REF)
 
-    def test_render_markdown_mentions_excluded_shims(self) -> None:
+    def test_render_markdown_marks_baseline_debt_as_not_clean(self) -> None:
         report = {
+            "status": "baseline_debt_detected",
             "mode": "adoption-scan",
-            "ok": False,
+            "ok": True,
+            "layout_clean": False,
+            "baseline_layout_debt_detected": True,
             "files_changed": 0,
             "flat_root_candidates_scanned": 0,
             "flat_root_violations": 0,
@@ -115,11 +138,28 @@ class CheckPackageLayoutCommandTests(unittest.TestCase):
             "crowded_directory_candidates_scanned": 0,
             "crowded_directory_violations": 0,
             "crowded_directories": [],
+            "compatibility_redirects": [
+                {
+                    "path": "dev/scripts/checks/check_package_layout.py",
+                    "target": "dev/scripts/checks/package_layout/command.py",
+                    "resolved_target": "dev/scripts/checks/package_layout/command.py",
+                    "target_exists": True,
+                    "policy_source": "directory_crowding:dev/scripts/checks",
+                }
+            ],
             "violations": [],
         }
 
         rendered = command._render_md(report)
 
+        self.assertIn("- status: baseline_debt_detected", rendered)
+        self.assertIn("- layout_clean: False", rendered)
+        self.assertIn("- baseline_layout_debt_detected: True", rendered)
+        self.assertIn("## Compatibility Redirects", rendered)
+        self.assertIn(
+            "`dev/scripts/checks/check_package_layout.py` -> `dev/scripts/checks/package_layout/command.py`",
+            rendered,
+        )
         self.assertIn("approved shims excluded", rendered)
 
 

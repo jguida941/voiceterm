@@ -139,6 +139,8 @@ def collect_namespace_family_violations_from_rules(
                 continue
             if not relative.name.startswith(rule.flat_prefix):
                 continue
+            if not (repo_root / relative).exists():
+                continue
             validation = shim_validations.get(repo_root / relative)
             if validation is None:
                 validation = _shim_validation_for_path(repo_root / relative, rule=rule)
