@@ -57,6 +57,9 @@ reports root. Generated bootstrap surfaces, the review-channel conductor
 prompt, and the bridge startup instructions now all point at that summary
 format, so Codex/Claude launches consume less prompt budget before the
 optional `context-graph --mode bootstrap` expansion.
+The same follow-up now states the chat boundary explicitly: agents should keep
+bootstrap chat output to blocker state plus next step by default and leave the
+full packet detail in repo-owned artifacts or terminal output unless asked.
 
 This matters because Step 0 had become architecturally correct but still
 expensive in live dual-agent loops. The repo keeps the same fail-closed

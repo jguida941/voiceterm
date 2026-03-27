@@ -75,6 +75,7 @@ def render_bootstrap_steps(
     steps = (
         "Step 0 for any edit, validation, or repo-owned launcher session: run `python3 dev/scripts/devctl.py startup-context --format summary`. If it exits non-zero, checkpoint or repair the state before editing or launching more work. Do not treat a user summary, stale chat continuity, or memory as a substitute for this receipt.",
         "Run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for a slim startup packet: repo identity, active plans, hotspots, key commands, and recent quality signals when artifacts exist.",
+        "Do not echo bootstrap packets back into chat by default. Keep any chat bootstrap acknowledgement to blocker state plus next step; inspect repo-owned artifacts or terminal output when more detail is needed.",
         f"Follow the deep links from steps 1-2 when full authority is needed: read `{process_doc}`, `{active_registry_doc}`, and `{execution_tracker_doc}`.",
         "Use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md` for bounded subgraphs instead of opening whole docs when only one file, guard, command, or MP scope is relevant.",
         "Use `python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md` when the slice needs proof over saved graph baselines.",

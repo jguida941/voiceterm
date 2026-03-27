@@ -3485,7 +3485,11 @@ become the main product surface.
   (`action`, `reason`, `blockers`, `next`) before the optional
   `context-graph` expansion. The typed JSON payload and managed startup
   receipt still remain authoritative artifacts under the repo-owned reports
-  root; this slice only compresses the human bootstrap projection.
+  root; this slice only compresses the human bootstrap projection. Latest
+  chat-bootstrap follow-up (2026-03-27): the same generated bootstrap/review
+  surfaces now tell agents not to replay that packet into chat by default.
+  Chat bootstrap acknowledgements should stay at blocker state plus next step
+  unless the operator explicitly asks for the richer packet.
   Latest
   architecture-framing follow-up (2026-03-24): explain the platform as a
   compiler-like pass pipeline (signal extraction -> decision reduction ->

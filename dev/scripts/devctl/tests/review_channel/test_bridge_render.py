@@ -62,6 +62,7 @@ def _bridge_text() -> str:
             "Codex is the reviewer. Claude is the coder.",
             "Run `python3 dev/scripts/devctl.py startup-context --format summary` first before coding or relaunching conductor work.",
             "Then run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for slim startup context.",
+            "Keep chat bootstrap acknowledgements concise: blocker state plus next step, not a replay of the packet, unless the operator asks for the detail.",
             "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
             "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
             "Claude must read `Last Codex poll` / `Poll Status` first on each repoll.",

@@ -141,6 +141,14 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
+            "Do not echo bootstrap packets back into chat by default.",
+            rendered_text,
+        )
+        self.assertIn(
+            "Keep any chat bootstrap acknowledgement to blocker state plus next step;",
+            rendered_text,
+        )
+        self.assertIn(
             "`startup-context` now carries compact governance, reviewer gate, advisory",
             rendered_text,
         )

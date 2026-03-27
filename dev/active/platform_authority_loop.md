@@ -1725,6 +1725,12 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-03-27 chat-bootstrap follow-up: tightened the same MP-377 startup
+  compression lane so generated bootstrap/review instruction surfaces now say
+  the quiet part explicitly. Fresh sessions should keep chat bootstrap output
+  to blocker state plus next step by default, while the full startup packet,
+  work-intake detail, and companion graph context stay in repo-owned artifacts
+  or terminal output unless the operator asks for more detail.
 - 2026-03-27: Added the first governed shared-backlog surface to the
   authority-loop runtime. `repo_governance.surface_generation.context` now
   advertises `backlog.md`, governance discovery/doc-authority classify it as

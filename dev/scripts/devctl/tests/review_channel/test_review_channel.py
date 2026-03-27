@@ -182,6 +182,7 @@ def _build_bridge_text(
             "At conversation start, both agents must bootstrap repo authority in this order before acting: `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/review_channel.md`.",
             "Run `python3 dev/scripts/devctl.py startup-context --format summary` first before coding or relaunching conductor work.",
             "Then run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for slim startup context.",
+            "Keep chat bootstrap acknowledgements concise: blocker state plus next step, not a replay of the packet, unless the operator asks for the detail.",
             "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
             "Codex must exclude `bridge.md` itself when computing the reviewed worktree hash.",
             "Each meaningful review must include an operator-visible chat update.",
@@ -959,6 +960,10 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertIn("dev/active/INDEX.md", files[0])
         self.assertIn(
             "Do not trust a user summary, prior chat continuity, or memory as a substitute for this Step 0 receipt.",
+            files[0],
+        )
+        self.assertIn(
+            "Do not echo the startup packet back into chat by default; keep any bootstrap acknowledgement to blocker state plus next step unless the operator asks for more detail.",
             files[0],
         )
         handoff_items = [f for f in files if "handoff" in f]

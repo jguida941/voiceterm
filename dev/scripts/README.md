@@ -279,7 +279,9 @@ Portability note:
   `startup-context --format summary` the mandatory Step 0 gate before edits,
   validation, or repo-owned launcher work. User summaries, stale chat
   continuity, or remembered prior state are not substitutes for that
-  receipt, with the slim bootstrap packet remaining the bounded graph
+  receipt. Keep chat bootstrap acknowledgements to blocker state plus next
+  step by default; inspect the repo-owned artifacts or terminal output for the
+  richer packet detail. The slim bootstrap packet remains the bounded graph
   companion for discovery after that startup receipt is refreshed.
 - Portable-authority rule: new reusable runtime/tooling code should resolve
   plan docs, artifact roots, bridge/review state, and generated bootstrap

@@ -4340,7 +4340,10 @@ working on `MP-377`.
   writing under the repo-owned reports root. Generated bootstrap surfaces,
   review-channel conductor bootstrap text, and bridge startup instructions now
   all use that summary path so the next startup/relaunch consumes less prompt
-  budget before any deeper `context-graph` expansion.
+  budget before any deeper `context-graph` expansion. The same lane now makes
+  the chat/output boundary explicit too: bootstrap details stay in repo-owned
+  artifacts or terminal output by default, while chat acknowledgements should
+  stay concise unless the operator asks for the fuller packet.
 - 2026-03-24 review-state locator follow-up: another repo-pack activation
   leak is now closed on the same startup-authority lane. The remaining typed
   review-state consumers behind startup/tandem continuity no longer each

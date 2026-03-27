@@ -85,6 +85,8 @@ treat these rules as active workflow instructions immediately.
    relaunching conductor work. User summaries, stale chat continuity, or
    remembered prior state are not substitutes for this Step 0 receipt. Then run
    `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
+   Keep chat bootstrap acknowledgements concise: blocker state plus next step,
+   not a replay of the packet, unless the operator asks for the detail.
 4. Treat `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and
    `dev/active/review_channel.md` as the canonical authority chain.
 5. Start from the live sections in this file:

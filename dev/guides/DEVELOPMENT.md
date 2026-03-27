@@ -288,7 +288,9 @@ Three quality layers matter in practice:
     `startup-context --format summary` the mandatory Step 0 gate before edits,
     validation, or repo-owned launcher work; user summaries, stale chat
     continuity, or remembered prior state are not substitutes for that
-    receipt. The slim
+    receipt. Chat bootstrap acknowledgements should stay concise by default:
+    blocker state plus next step, with detailed packet inspection left to the
+    repo-owned artifacts or terminal output. The slim
     `context-graph --mode bootstrap` helper following as the bounded graph
     companion. That same graph now emits first-pass `guards` / `scoped_by`
     relation families, so targeted

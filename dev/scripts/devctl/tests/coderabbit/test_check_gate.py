@@ -62,9 +62,12 @@ class CheckCodeRabbitGateTests(TestCase):
 
         def fake_run_capture(cmd: list[str]):
             calls.append(cmd)
-            if len(calls) == 1:
+            if cmd[:4] == ["git", "rev-parse", "--abbrev-ref", "HEAD"]:
+                return 0, "master\n", ""
+            gh_calls = [call for call in calls if call[:3] == ["gh", "run", "list"]]
+            if len(gh_calls) == 1:
                 return 0, "[]", ""
-            if len(calls) == 2:
+            if len(gh_calls) == 2:
                 return 0, json.dumps(run_payload), ""
             raise AssertionError(f"unexpected command: {cmd}")
 
@@ -76,17 +79,20 @@ class CheckCodeRabbitGateTests(TestCase):
         self.assertTrue(report["ok"])
         self.assertTrue(report["allow_branch_fallback"])
         self.assertTrue(report["fallback_without_branch"])
-        self.assertEqual(len(calls), 2)
-        self.assertIn("--commit", calls[0])
-        self.assertIn(self.sha, calls[0])
-        self.assertIn("--branch", calls[0])
-        self.assertNotIn("--branch", calls[1])
+        gh_calls = [cmd for cmd in calls if cmd[:3] == ["gh", "run", "list"]]
+        self.assertEqual(len(gh_calls), 2)
+        self.assertIn("--commit", gh_calls[0])
+        self.assertIn(self.sha, gh_calls[0])
+        self.assertIn("--branch", gh_calls[0])
+        self.assertNotIn("--branch", gh_calls[1])
 
     def test_branch_filter_fails_when_no_runs_and_fallback_disabled(self) -> None:
         calls: list[list[str]] = []
 
         def fake_run_capture(cmd: list[str]):
             calls.append(cmd)
+            if cmd[:4] == ["git", "rev-parse", "--abbrev-ref", "HEAD"]:
+                return 0, "master\n", ""
             return 0, "[]", ""
 
         with patch.object(self.script, "_run_capture", side_effect=fake_run_capture):
@@ -96,7 +102,8 @@ class CheckCodeRabbitGateTests(TestCase):
         self.assertEqual(report["reason"], "no_workflow_runs_for_requested_branch")
         self.assertFalse(report["allow_branch_fallback"])
         self.assertFalse(report["fallback_without_branch"])
-        self.assertEqual(len(calls), 1)
+        gh_calls = [cmd for cmd in calls if cmd[:3] == ["gh", "run", "list"]]
+        self.assertEqual(len(gh_calls), 1)
 
     def test_sha_like_branch_argument_is_ignored(self) -> None:
         calls: list[list[str]] = []
@@ -211,6 +218,31 @@ class CheckCodeRabbitGateTests(TestCase):
 
         self.assertFalse(report["ok"])
         self.assertIn("gh_run_list_failed", report["reason"])
+
+    def test_missing_runs_on_other_branch_is_non_blocking_until_publish(self) -> None:
+        def fake_run_capture(cmd: list[str]):
+            if cmd[:3] == ["gh", "run", "list"]:
+                return 0, "[]", ""
+            if cmd[:4] == ["git", "rev-parse", "--abbrev-ref", "HEAD"]:
+                return 0, "feature/governance-quality-sweep\n", ""
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        with (
+            patch.object(self.script, "_run_capture", side_effect=fake_run_capture),
+            patch.object(
+                self.script, "_local_workflow_exists_by_name", return_value=True
+            ),
+        ):
+            report = self.script._build_report(self._args(branch="master"))
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(
+            report["reason"], "workflow_runs_not_present_on_target_branch_yet"
+        )
+        warnings = report.get("warnings") or []
+        self.assertTrue(
+            any("does not yet contain this commit" in warning for warning in warnings)
+        )
 
     def test_connectivity_error_is_non_blocking_outside_ci(self) -> None:
         def fake_run_capture(cmd: list[str]):
