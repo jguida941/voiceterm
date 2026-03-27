@@ -6162,7 +6162,11 @@ startup/task-router/workflow-profile receipts with `match_evidence` and
 rejected-rule traces, and render `practices.py` / `SIGNAL_TO_PRACTICE`
 teaching content plus plain-language hotspot metric explanations directly into
 canonical probe packets. That keeps the owner chain consistent while still
-delivering the low-effort/high-value clarity wins first.
+delivering the low-effort/high-value clarity wins first. The same audit also
+confirmed one extra missing explanation surface worth tracking now instead of
+implicitly rolling into the router work later: context-graph/query results
+still need a short "why this matched/ranked" explanation rather than only
+lists, temperatures, and edge counts.
 
 Evidence: `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`,

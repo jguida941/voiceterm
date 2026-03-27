@@ -522,9 +522,9 @@
   Phase-5b `DecisionTrace` artifact before improving operator-facing clarity.
   Use the existing `DecisionPacketRecord`, task-router surfaces, and probe
   best-practice library to land routed-rule `match_evidence`, practice-linked
-  why text, and plain-language metric explanations first; then promote the
-  same evidence into the full typed provenance family already tracked under
-  `platform_authority_loop`.
+  why text, plain-language metric explanations, and context-graph/query
+  relevance summaries first; then promote the same evidence into the full
+  typed provenance family already tracked under `platform_authority_loop`.
 - 2026-03-27 governed-push session-lifetime fix: the shared `devctl`
   live-output runner now stops following inherited stdout lifetime once the
   parent push/post-push command has exited, after a short bounded drain for
@@ -3508,13 +3508,22 @@ become the main product surface.
     waiting for a greenfield trace module: extend `DecisionPacketRecord` and
     the routed startup/task-router/workflow-profile receipts with
     `match_evidence`, rejected-rule traces, and plain-language rule summaries
-    so selected bundles and next commands explain why they were chosen.
+    so selected bundles and next commands explain why they were chosen. First
+    rollout targets are explicit: task-router lane selection,
+    `selected_workflow_profile`, startup/push decisions, and context-graph
+    query relevance ("why this node matched") before widening to broader
+    runtime traces.
   - [ ] Reuse the shipped probe teaching corpus before writing new prose:
     render `dev/scripts/checks/probe_report/practices.py` /
     `SIGNAL_TO_PRACTICE` explanations and fix patterns directly into
     canonical probe packets, and add plain-language metric explanations for
     `fan_in`, `fan_out`, `bridge_score`, and hotspot rank so quality signals
     stop surfacing as unlabeled numbers.
+  - [ ] Explain context-graph/query relevance in the same vocabulary: query
+    matches, ranking/downgrade choices, and selected hotspot/context nodes
+    should surface one short "why this node matched / why this node ranked"
+    explanation instead of only temperatures, edge counts, or returned file
+    lists.
   - [ ] Evaluate one optional advisory decision-auditor step over
     `DecisionTrace` for high-blast-radius or low-confidence cases; it may
     challenge or confirm the reasoning before mutation, but

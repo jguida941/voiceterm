@@ -2505,14 +2505,26 @@ Still open before `P0` closes:
       receipts with `match_evidence`, rejected-rule traces, and plain-
       language rule summaries so selected bundles and next commands explain
       why they were chosen before the full provenance-grade trace family
-      lands.
+      lands. First rollout targets are explicit: task-router lane selection,
+      `selected_workflow_profile`, startup/push decisions, and context-graph
+      query relevance ("why this node matched") before widening to broader
+      runtime traces.
 - [ ] Reuse the shipped probe teaching corpus before authoring a second
       disconnected tutorial stack: render
       `dev/scripts/checks/probe_report/practices.py` /
       `SIGNAL_TO_PRACTICE` explanations and fix patterns directly into
       canonical probe packets, and add plain-language metric explanations for
       `fan_in`, `fan_out`, `bridge_score`, and hotspot rank so quality
-      signals stop acting like unlabeled telemetry.
+      signals stop acting like unlabeled telemetry. The rich markdown probe
+      report already carries more of this teaching detail; the remaining
+      rollout is to preserve that same why/fix/metric layer in compact
+      startup/status/context-graph projections instead of compressing back to
+      raw numbers.
+- [ ] Explain context-graph/query relevance in the same vocabulary: query
+      matches, ranking/downgrade choices, and selected hotspot/context nodes
+      should surface one short "why this node matched / why this node ranked"
+      explanation instead of only temperatures, edge counts, or returned file
+      lists.
 - [x] Add one read-only executable platform blueprint surface
       (`devctl platform-contracts`) so frontends, adopters, and AI setup flows
       can consume the intended backend/repo-pack contract in machine-readable
@@ -4063,8 +4075,8 @@ working on `MP-377`.
   family remains in the existing `platform_authority_loop` Phase-5b lane, but
   the first operator-facing wins should land sooner by extending
   `DecisionPacketRecord`, routed bundle-selection receipts, and probe packets
-  with match evidence, practice-linked why text, and plain-language metric
-  explanations.
+  with match evidence, practice-linked why text, plain-language metric
+  explanations, and context-graph/query relevance summaries.
 - 2026-03-26 doc-authority/organization follow-up: do not treat archive or
   deletion as the first cleanup move. The current repo still carries 27
   `dev/active/*.md` docs and 10 root-level markdown entrypoints, and some of
@@ -4740,7 +4752,9 @@ Execution order for this section:
   `DecisionTrace` family remains in the `platform_authority_loop` evidence/
   provenance closure lane; the new instruction is to land the low-effort
   explanation projections first instead of waiting for that deeper phase to
-  finish.
+  finish. One additional same-lane omission is now explicit too:
+  context-graph/query surfaces need short "why this matched/ranked" summaries
+  instead of only node lists, temperatures, and edge counts.
 - 2026-03-27: Accepted the user's push to treat Python architecture learning
   and AI decision explainability as one `MP-377` concern instead of two loose
   follow-ups. The resulting plan correction is explicit: authoritative

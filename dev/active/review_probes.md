@@ -397,7 +397,9 @@ context-free translation = MEDIUM.
 - [ ] Add plain-language topology and metric explanations to the same packet
       family: `fan_in`, `fan_out`, `bridge_score`, hotspot rank, and similar
       quality signals should render with one short "what this means" sentence
-      instead of surfacing as raw numbers only.
+      instead of surfacing as raw numbers only. Keep that explanation visible
+      in compact startup/status/context-graph projections too, not only the
+      full markdown review packet.
 - [ ] Attach governance-ledger history to probe packets and remediation
       surfaces: each finding should be able to surface prior
       `governance-review` dispositions, last reviewed verdict, repeated-failure
