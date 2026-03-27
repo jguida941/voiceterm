@@ -60,7 +60,7 @@ def _bridge_text() -> str:
             "## Start-Of-Conversation Rules",
             "",
             "Codex is the reviewer. Claude is the coder.",
-            "Run `python3 dev/scripts/devctl.py startup-context --format md` first before coding or relaunching conductor work.",
+            "Run `python3 dev/scripts/devctl.py startup-context --format summary` first before coding or relaunching conductor work.",
             "Then run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for slim startup context.",
             "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
             "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
@@ -145,7 +145,9 @@ def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() ->
         last_worktree_hash="b" * 64,
     )
 
-    assert result.lines_after < result.lines_before
+    assert "Coverage" in result.dropped_headings
+    assert "Claude Status" in result.sanitized_sections
+    assert "Claude Ack" in result.sanitized_sections
     assert "## Coverage" not in rendered
     assert "raw terminal noise" not in rendered
     assert "test writer::state::tests::foo ... ok" not in rendered
@@ -191,7 +193,9 @@ def test_review_channel_render_bridge_action_rewrites_live_bridge(tmp_path: Path
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     rewritten = bridge_path.read_text(encoding="utf-8")
     assert rc == 0
-    assert payload["bridge_render"]["lines_after"] < payload["bridge_render"]["lines_before"]
+    assert "Coverage" in payload["bridge_render"]["dropped_headings"]
+    assert "Claude Status" in payload["bridge_render"]["sanitized_sections"]
+    assert "Claude Ack" in payload["bridge_render"]["sanitized_sections"]
     assert "## Coverage" not in rewritten
     assert "olderrev123456" not in rewritten
     assert "test writer::state::tests::foo ... ok" not in rewritten

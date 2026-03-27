@@ -33,7 +33,7 @@ def _valid_bridge_text(script) -> str:
         "",
         "Codex is the reviewer. Claude is the coder.",
         "At conversation start, both agents must bootstrap repo authority in this order before acting: `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/review_channel.md`.",
-        "Run `python3 dev/scripts/devctl.py startup-context --format md` first before coding or relaunching conductor work.",
+        "Run `python3 dev/scripts/devctl.py startup-context --format summary` first before coding or relaunching conductor work.",
         "Then run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for slim startup context.",
         "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
         "Codex must exclude `bridge.md` itself when computing the reviewed worktree hash.",

@@ -275,12 +275,12 @@ Portability note:
   governed-markdown baseline (`DocPolicy`, `DocRegistry`, parsed
   `PlanRegistry` entries) so startup no longer depends only on hard-coded
   path roots, but `## Session Resume` content is still markdown-only restart
-  state. Generated bootstrap surfaces now make `startup-context --format md`
-  the mandatory Step 0 gate before edits, validation, or repo-owned launcher
-  work. User summaries, stale chat continuity, or remembered prior state are
-  not substitutes for that receipt, with the slim bootstrap packet remaining
-  the bounded graph companion for discovery after that startup receipt is
-  refreshed.
+  state. Generated bootstrap surfaces now make
+  `startup-context --format summary` the mandatory Step 0 gate before edits,
+  validation, or repo-owned launcher work. User summaries, stale chat
+  continuity, or remembered prior state are not substitutes for that
+  receipt, with the slim bootstrap packet remaining the bounded graph
+  companion for discovery after that startup receipt is refreshed.
 - Portable-authority rule: new reusable runtime/tooling code should resolve
   plan docs, artifact roots, bridge/review state, and generated bootstrap
   instructions through `ProjectGovernance` / repo-pack state instead of
@@ -309,8 +309,8 @@ Portability note:
 
 | `push_decision` | Meaning | Next governed step |
 |---|---|---|
-| `await_checkpoint` | Local work is not yet checkpointed for remote action. | Cut a bounded checkpoint/commit, then rerun `python3 dev/scripts/devctl.py startup-context --format md`. |
-| `await_review` | Local checkpoint is clean, but reviewer-owned acceptance is not current yet. | Wait for the review gate to advance, then rerun `python3 dev/scripts/devctl.py startup-context --format md`. `review-channel --action reviewer-checkpoint` updates review truth; it does not push by itself. |
+| `await_checkpoint` | Local work is not yet checkpointed for remote action. | Cut a bounded checkpoint/commit, then rerun `python3 dev/scripts/devctl.py startup-context --format summary`. |
+| `await_review` | Local checkpoint is clean, but reviewer-owned acceptance is not current yet. | Wait for the review gate to advance, then rerun `python3 dev/scripts/devctl.py startup-context --format summary`. `review-channel --action reviewer-checkpoint` updates review truth; it does not push by itself. |
 | `run_devctl_push` | Repo policy now allows the governed push path. | Run `python3 dev/scripts/devctl.py push --execute`; do not substitute raw `git push`. |
 | `no_push_needed` | The branch already matches its upstream. | Stop; no governed push is required. |
 - Keep the mode model simple: `active_dual_agent` means live reviewer/implementer
@@ -343,7 +343,7 @@ python3 dev/scripts/devctl.py report --pedantic --format md
 python3 dev/scripts/devctl.py report --rust-audits --with-charts --emit-bundle --format md
 python3 dev/scripts/devctl.py report --python-guard-backlog --python-guard-backlog-top-n 15 --format md
 python3 dev/scripts/devctl.py quality-policy --format md
-python3 dev/scripts/devctl.py startup-context --format md
+python3 dev/scripts/devctl.py startup-context --format summary
 python3 dev/scripts/devctl.py push --execute
 python3 dev/scripts/devctl.py tandem-validate --format md
 python3 dev/scripts/devctl.py launcher-check
@@ -722,7 +722,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 `context-graph --mode bootstrap` is the slim warm-start packet. Keep it
 bounded by default and use `context-graph --query '<term>'` when the task
 needs more repo context. Before edits, validation, or repo-owned launcher
-work, run `python3 dev/scripts/devctl.py startup-context --format md` first
+work, run `python3 dev/scripts/devctl.py startup-context --format summary` first
 and treat a non-zero exit as a hard stop to checkpoint or repair the repo
 state. After that Step 0 receipt is fresh, use the slim bootstrap packet for
 additional discovery and targeted `--query` reads.

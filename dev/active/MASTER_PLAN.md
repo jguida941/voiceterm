@@ -3478,6 +3478,15 @@ become the main product surface.
   git/pre-commit plus broader repo-pack activation still remain open, not
   the old repo-owned-launcher "startup-context exists but nothing requires
   it" hole. Latest
+  bootstrap-compression follow-up (2026-03-27): the human-facing Step 0
+  default is now `startup-context --format summary` across generated
+  bootstrap surfaces and review-channel conductor/bridge startup text, so AI
+  sessions get the same typed startup decision in a compact four-line receipt
+  (`action`, `reason`, `blockers`, `next`) before the optional
+  `context-graph` expansion. The typed JSON payload and managed startup
+  receipt still remain authoritative artifacts under the repo-owned reports
+  root; this slice only compresses the human bootstrap projection.
+  Latest
   architecture-framing follow-up (2026-03-24): explain the platform as a
   compiler-like pass pipeline (signal extraction -> decision reduction ->
   constrained execution -> feedback) while keeping typed contracts, not

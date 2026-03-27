@@ -333,7 +333,7 @@
           "id": "agents_push_workflow_surface",
           "doc_path": "AGENTS.md",
           "required_contains": [
-            "python3 dev/scripts/devctl.py startup-context --format md",
+            "python3 dev/scripts/devctl.py startup-context --format summary",
             "python3 dev/scripts/devctl.py push --execute",
             "await_checkpoint",
             "await_review",
@@ -345,7 +345,7 @@
           "id": "development_push_workflow_surface",
           "doc_path": "dev/guides/DEVELOPMENT.md",
           "required_contains": [
-            "python3 dev/scripts/devctl.py startup-context --format md",
+            "python3 dev/scripts/devctl.py startup-context --format summary",
             "python3 dev/scripts/devctl.py push --execute",
             "reviewer-checkpoint",
             "await_checkpoint",
@@ -358,7 +358,7 @@
           "id": "scripts_readme_push_workflow_surface",
           "doc_path": "dev/scripts/README.md",
           "required_contains": [
-            "python3 dev/scripts/devctl.py startup-context --format md",
+            "python3 dev/scripts/devctl.py startup-context --format summary",
             "python3 dev/scripts/devctl.py push --execute",
             "reviewer-checkpoint",
             "await_checkpoint",

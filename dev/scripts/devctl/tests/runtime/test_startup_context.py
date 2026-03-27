@@ -11,7 +11,10 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
 from dev.scripts.devctl.commands.listing import COMMANDS
-from dev.scripts.devctl.commands.governance.startup_context import _render_markdown
+from dev.scripts.devctl.commands.governance.startup_context import (
+    _render_markdown,
+    _render_summary,
+)
 from dev.scripts.devctl.commands.governance import startup_context as startup_context_command
 from dev.scripts.devctl.runtime.startup_context import (
     ReviewerGateState,
@@ -127,6 +130,12 @@ class TestCLIRegistration(unittest.TestCase):
         parser = build_parser()
         args = parser.parse_args(["startup-context", "--format", "json"])
         self.assertEqual(args.command, "startup-context")
+
+    def test_parser_accepts_summary_output(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["startup-context", "--format", "summary"])
+        self.assertEqual(args.command, "startup-context")
+        self.assertEqual(args.format, "summary")
 
     def test_handler_registered(self) -> None:
         self.assertIn("startup-context", COMMAND_HANDLERS)
@@ -329,6 +338,70 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("next_step_summary: Use the governed push path now.", rendered)
         self.assertIn(
             "next_step_command: `python3 dev/scripts/devctl.py push --execute`",
+            rendered,
+        )
+
+    def test_summary_renders_compact_step_zero_guidance(self) -> None:
+        rendered = _render_summary(
+            {
+                "advisory_action": "checkpoint_allowed",
+                "advisory_reason": "worktree_dirty_within_budget",
+                "reviewer_gate": {
+                    "implementation_blocked": False,
+                    "implementation_block_reason": "",
+                },
+                "startup_authority": {"ok": True},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                    }
+                },
+                "push_decision": {
+                    "action": "await_checkpoint",
+                    "next_step_command": "",
+                },
+            }
+        )
+
+        self.assertEqual(
+            rendered,
+            "\n".join(
+                (
+                    "action=checkpoint_allowed",
+                    "reason=worktree_dirty_within_budget",
+                    "blockers=none",
+                    "next=python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md",
+                )
+            ),
+        )
+
+    def test_summary_reports_blockers_and_rerun_when_checkpoint_is_required(self) -> None:
+        rendered = _render_summary(
+            {
+                "advisory_action": "checkpoint_before_continue",
+                "advisory_reason": "dirty_path_budget_exceeded",
+                "reviewer_gate": {
+                    "implementation_blocked": False,
+                    "implementation_block_reason": "",
+                },
+                "startup_authority": {"ok": False},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": True,
+                        "safe_to_continue_editing": False,
+                    }
+                },
+                "push_decision": {
+                    "action": "await_checkpoint",
+                    "next_step_command": "",
+                },
+            }
+        )
+
+        self.assertIn("blockers=startup_authority,checkpoint_required", rendered)
+        self.assertIn(
+            "next=checkpoint current slice, then rerun python3 dev/scripts/devctl.py startup-context --format summary",
             rendered,
         )
 

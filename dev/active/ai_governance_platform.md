@@ -4332,6 +4332,15 @@ working on `MP-377`.
   provider sessions can still skip Step 0 until a supported hook/wrapper
   entry path exists, and raw git/pre-commit plus wider repo-pack activation
   still remain open, not the old repo-owned-launcher loophole.
+- 2026-03-27 startup-summary follow-up: the same startup-authority lane now
+  compresses the human Step 0 projection without weakening authority. The
+  default AI-facing bootstrap command is `startup-context --format summary`,
+  which emits a compact four-line receipt (`action`, `reason`, `blockers`,
+  `next`) while the typed JSON payload plus managed `StartupReceipt` keep
+  writing under the repo-owned reports root. Generated bootstrap surfaces,
+  review-channel conductor bootstrap text, and bridge startup instructions now
+  all use that summary path so the next startup/relaunch consumes less prompt
+  budget before any deeper `context-graph` expansion.
 - 2026-03-24 review-state locator follow-up: another repo-pack activation
   leak is now closed on the same startup-authority lane. The remaining typed
   review-state consumers behind startup/tandem continuity no longer each

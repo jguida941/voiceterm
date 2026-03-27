@@ -46,6 +46,33 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-27 - MP-377 startup bootstrap now defaults to a compact summary receipt
+
+Fact: the next startup-authority follow-up in `MP-377` was not a new policy
+layer, it was compression on the same authority path. `startup-context` now
+accepts `--format summary`, which emits a compact four-line Step 0 receipt
+(`action`, `reason`, `blockers`, `next`) for AI bootstrap while leaving the
+typed JSON payload and managed `StartupReceipt` unchanged under the repo-owned
+reports root. Generated bootstrap surfaces, the review-channel conductor
+prompt, and the bridge startup instructions now all point at that summary
+format, so Codex/Claude launches consume less prompt budget before the
+optional `context-graph --mode bootstrap` expansion.
+
+This matters because Step 0 had become architecturally correct but still
+expensive in live dual-agent loops. The repo keeps the same fail-closed
+startup authority and artifact truth, but the default human projection now
+fits the bounded-bootstrap design instead of re-spending markdown context on
+every launch.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/startup_context.py`
+- `dev/scripts/devctl/governance/surface_context.py`
+- `dev/scripts/devctl/review_channel/prompt.py`
+- `dev/scripts/devctl/review_channel/bridge_projection.py`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+
 ### 2026-03-27 - Swarm planning now derives worker roles from typed plan authority instead of static lane lore
 
 Fact: the active `MP-377` owner chain now states the multi-agent execution

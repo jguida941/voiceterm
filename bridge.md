@@ -12,7 +12,7 @@ treat these rules as active workflow instructions immediately.
 2. Codex is the reviewer. Claude is the coder.
 3. At conversation start, both agents must bootstrap repo authority before
    acting. The approved startup path is:
-   `python3 dev/scripts/devctl.py startup-context --format md` first. If it
+   `python3 dev/scripts/devctl.py startup-context --format summary` first. If it
    exits non-zero, checkpoint or repair the repo state before coding or
    relaunching conductor work. User summaries, stale chat continuity, or
    remembered prior state are not substitutes for this Step 0 receipt. Then run
@@ -56,11 +56,12 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-27T22:48:10Z`
-- Last Codex poll (Local America/New_York): `2026-03-27 18:48:10 EDT`
+- Last Codex poll: `2026-03-27T23:05:18Z`
+- Last Codex poll (Local America/New_York): `2026-03-27 19:05:18 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `5841a327bbc9d98d67c2606beaf110afd364b3caab5ad4a9f45324dc1bb57b10`
+- Last non-audit worktree hash: `6031a2a53305c9df3defbe79a14e3b5453a50c3b735b687402f71443a332ec95`
 - Current instruction revision: `518d4ea9f97a`
+
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -87,7 +88,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 5841a327bbc9).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: pre-commit-refresh; reviewed-tree: 6031a2a53305).
 
 ## Current Verdict
 
@@ -123,4 +124,3 @@ Stay on the shared architecture loop. Use `dev/audits/architecture_alignment.md`
 - plan/history alignment: `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md`, `dev/active/review_probes.md`, `dev/active/platform_authority_loop.md`, `dev/active/portable_code_governance.md`, `dev/history/ENGINEERING_EVOLUTION.md`
 - review-channel compatibility state: `bridge.md`, `dev/reports/review_channel/latest/review_state.json`
 - broader architecture ledger remains active: `dev/audits/architecture_alignment.md`
-

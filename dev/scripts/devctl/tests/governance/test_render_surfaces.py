@@ -129,6 +129,10 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
+            "python3 dev/scripts/devctl.py startup-context --format summary",
+            rendered_text,
+        )
+        self.assertIn(
             "If it exits non-zero, checkpoint or repair the state before editing or launching more work.",
             rendered_text,
         )

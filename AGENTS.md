@@ -169,11 +169,13 @@ Run this sequence for every task. Do not skip steps.
 
 1. Run session bootstrap checks and load `dev/active/INDEX.md` (`bundle.bootstrap`).
    For any implementation, validation, or repo-owned launcher session, treat
-   `python3 dev/scripts/devctl.py startup-context --format md` as Step 0, not
-   optional escalation. If it exits non-zero, checkpoint or repair the repo
-   state before editing files or starting guarded launcher/mutation commands.
-   User summaries, stale chat continuity, or remembered prior state are not a
-   substitute for this Step 0 receipt.
+   `python3 dev/scripts/devctl.py startup-context --format summary` as Step 0,
+   not optional escalation. The compact summary is the default human-facing
+   receipt for AI bootstrap; the typed JSON receipt/artifacts still write
+   silently under the repo-owned reports root. If it exits non-zero,
+   checkpoint or repair the repo state before editing files or starting
+   guarded launcher/mutation commands. User summaries, stale chat continuity,
+   or remembered prior state are not a substitute for this Step 0 receipt.
    That typed startup receipt now emits a bounded `WorkIntakePacket`
    (selected `PlanTargetRef`, typed continuity, and routing hints), writes a
    managed startup receipt under the repo-owned reports root, and exits
@@ -858,8 +860,8 @@ Routine helper:
   `push_decision` (`await_checkpoint`, `await_review`, `run_devctl_push`,
   `no_push_needed`).
 - After any bounded checkpoint/commit, rerun
-  `python3 dev/scripts/devctl.py startup-context --format md` and follow that
-  `push_decision` exactly: wait if it says `await_review`, run
+  `python3 dev/scripts/devctl.py startup-context --format summary` and follow
+  that `push_decision` exactly: wait if it says `await_review`, run
   `python3 dev/scripts/devctl.py push --execute` only when it says
   `run_devctl_push`, and stop when it says `no_push_needed`.
 - Repo policy may also declare non-authoritative scratch/reference paths such

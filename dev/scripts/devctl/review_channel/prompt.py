@@ -145,7 +145,7 @@ def _bootstrap_files(
 ) -> list[str]:
     files: list[str] = [
         (
-            "Run `python3 dev/scripts/devctl.py startup-context --format md` first. "
+            "Run `python3 dev/scripts/devctl.py startup-context --format summary` first. "
             "If it exits non-zero, checkpoint or repair the repo state before coding "
             "or relaunching conductor work. Then run "
             "`python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` "

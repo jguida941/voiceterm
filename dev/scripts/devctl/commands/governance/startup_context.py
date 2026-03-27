@@ -16,6 +16,13 @@ from ...runtime.startup_receipt import (
 from ...runtime.startup_authority import build_startup_authority_report
 from ...runtime.startup_context import build_startup_context, blocks_new_implementation
 
+_CONTEXT_GRAPH_BOOTSTRAP_COMMAND = (
+    "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
+)
+_SUMMARY_RERUN_COMMAND = (
+    "python3 dev/scripts/devctl.py startup-context --format summary"
+)
+
 
 def _append_rule_explanation(
     lines: list[str],
@@ -202,6 +209,63 @@ def _render_markdown(ctx_dict: dict) -> str:
     return "\n".join(lines)
 
 
+def _summary_blockers(ctx_dict: dict) -> str:
+    blockers: list[str] = []
+
+    authority = ctx_dict.get("startup_authority")
+    if isinstance(authority, dict) and authority and not bool(authority.get("ok", False)):
+        blockers.append("startup_authority")
+
+    governance = ctx_dict.get("governance")
+    if isinstance(governance, dict):
+        push_enforcement = governance.get("push_enforcement")
+        if isinstance(push_enforcement, dict):
+            if bool(push_enforcement.get("checkpoint_required", False)):
+                blockers.append("checkpoint_required")
+            elif not bool(push_enforcement.get("safe_to_continue_editing", True)):
+                blockers.append("continuation_blocked")
+
+    reviewer_gate = ctx_dict.get("reviewer_gate")
+    if isinstance(reviewer_gate, dict) and bool(
+        reviewer_gate.get("implementation_blocked", False)
+    ):
+        block_reason = str(
+            reviewer_gate.get("implementation_block_reason") or ""
+        ).strip()
+        blockers.append(block_reason or "reviewer_gate")
+
+    return ",".join(blockers) if blockers else "none"
+
+
+def _summary_next_command(ctx_dict: dict) -> str:
+    if _summary_blockers(ctx_dict) == "none":
+        return _CONTEXT_GRAPH_BOOTSTRAP_COMMAND
+
+    push_decision = ctx_dict.get("push_decision")
+    if isinstance(push_decision, dict):
+        next_step_command = str(push_decision.get("next_step_command") or "").strip()
+        if next_step_command:
+            return next_step_command
+
+        if str(push_decision.get("action") or "").strip() == "await_checkpoint":
+            return f"checkpoint current slice, then rerun {_SUMMARY_RERUN_COMMAND}"
+
+    return f"resolve blockers, then rerun {_SUMMARY_RERUN_COMMAND}"
+
+
+def _render_summary(ctx_dict: dict) -> str:
+    action = str(ctx_dict.get("advisory_action") or "").strip() or "unknown"
+    reason = str(ctx_dict.get("advisory_reason") or "").strip() or "unknown"
+    return "\n".join(
+        (
+            f"action={action}",
+            f"reason={reason}",
+            f"blockers={_summary_blockers(ctx_dict)}",
+            f"next={_summary_next_command(ctx_dict)}",
+        )
+    )
+
+
 def _join_paths(paths: list[object], *, limit: int = 4) -> str:
     cleaned = [str(path).strip() for path in paths if str(path).strip()]
     if len(cleaned) <= limit:
@@ -231,7 +295,7 @@ def add_parser(subparsers) -> None:
         default=False,
         help="Allow reviewer to proceed with implementation in active_dual_agent.",
     )
-    add_standard_output_arguments(sc_cmd, format_choices=("json", "md"))
+    add_standard_output_arguments(sc_cmd, format_choices=("json", "md", "summary"))
 
 
 def _startup_authority_payload(authority_report: dict[str, object]) -> dict[str, object]:
@@ -307,11 +371,14 @@ def run(args) -> int:
         reviewer_blocked = True
         blocked = True
     push = governance.push_enforcement if governance is not None else None
+    human_output = _render_summary(payload)
+    if getattr(args, "format", "") == "md":
+        human_output = _render_markdown(payload)
     return emit_machine_artifact_output(
         args,
         command="startup-context",
         json_payload=payload,
-        human_output=_render_markdown(payload),
+        human_output=human_output,
         options=ArtifactOutputOptions(
             ok=not blocked,
             summary=_machine_summary(

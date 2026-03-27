@@ -341,6 +341,11 @@ intended execution order is:
       blocks on Step 0 for raw interactive entries, and keep generated
       bootstrap docs honest that documented Step 0 is not mechanical
       enforcement until that adapter path exists.
+- [ ] Add `--format summary` to `startup-context` and update CLAUDE.md Step 0
+      to use it so agent bootstrap emits ~200-byte compact output (action,
+      reason, blockers, next command) instead of full markdown, while JSON
+      artifacts still write silently to the reports root. Saves ~15,000 tokens
+      per bootstrap run without losing any machine-readable state.
 - [ ] Add one repo-pack-owned checkpoint/push packet plus warm-start cache
       layer that enhances the same startup path without creating a second
       authority. It must be generated from canonical git/plan/guard/review
@@ -1516,6 +1521,14 @@ blocker or exception in plan state before skipping the declared order.
   most one report-only adopter smoke lane for hidden-coupling signal, but the
   formal cross-repo adoption proof remains Phase 7 work after the blocker and
   authority-loop prerequisites are green.
+- 2026-03-27 startup-summary follow-up: the human-facing Step 0 projection is
+  now compressed on the same owner lane instead of waiting for later polish.
+  `startup-context` now accepts `--format summary`, emitting only `action`,
+  `reason`, `blockers`, and `next`, while the typed JSON payload and managed
+  startup receipt stay unchanged under the repo-owned reports root. Generated
+  bootstrap surfaces plus review-channel conductor/bridge startup text now
+  consume that compact path so launch/bootstrap context cost drops without
+  changing startup authority or artifact truth.
 - 2026-03-27 push/doc-authority follow-up: the push half of this tranche is
   now real in code. `repo_governance.push.bypass` gates skip flags, and
   `devctl push` reports typed stage truth (`validation_ready`,

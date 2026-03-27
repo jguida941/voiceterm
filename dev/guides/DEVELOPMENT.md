@@ -75,8 +75,8 @@ from push cleanliness so advisory files do not strand reviewed commits.
 
 | `push_decision` | Meaning | Next governed step |
 |---|---|---|
-| `await_checkpoint` | The local worktree is not ready for remote action yet. | Cut a bounded checkpoint/commit, then rerun `python3 dev/scripts/devctl.py startup-context --format md`. |
-| `await_review` | The local slice is checkpointed, but reviewer-owned acceptance is not current yet. | Wait for the review gate to advance, then rerun `python3 dev/scripts/devctl.py startup-context --format md`. `reviewer-checkpoint` advances review truth; it does not push by itself. |
+| `await_checkpoint` | The local worktree is not ready for remote action yet. | Cut a bounded checkpoint/commit, then rerun `python3 dev/scripts/devctl.py startup-context --format summary`. |
+| `await_review` | The local slice is checkpointed, but reviewer-owned acceptance is not current yet. | Wait for the review gate to advance, then rerun `python3 dev/scripts/devctl.py startup-context --format summary`. `reviewer-checkpoint` advances review truth; it does not push by itself. |
 | `run_devctl_push` | Local cleanliness, review state, and branch posture now allow the governed push path. | Run `python3 dev/scripts/devctl.py push --execute` instead of raw `git push`. |
 | `no_push_needed` | The current branch already matches its upstream. | Stop; no governed push is required. |
 
@@ -285,7 +285,7 @@ Three quality layers matter in practice:
     `## Session Resume` section still remains the canonical restart surface;
     the typed continuity state is a startup projection over that markdown, not
     a second authority store. Generated bootstrap surfaces now make
-    `startup-context --format md` the mandatory Step 0 gate before edits,
+    `startup-context --format summary` the mandatory Step 0 gate before edits,
     validation, or repo-owned launcher work; user summaries, stale chat
     continuity, or remembered prior state are not substitutes for that
     receipt. The slim
@@ -316,7 +316,7 @@ Three quality layers matter in practice:
     still resolves inside `HEAD` without reusing working-tree edits as proof.
     Fresh repos without a first commit skip that committed-tree layer until
     `HEAD` exists, so the normal stage-then-first-commit workflow stays clean.
-  - `python3 dev/scripts/devctl.py startup-context --format md|json` now uses
+  - `python3 dev/scripts/devctl.py startup-context --format summary|md|json` now uses
     that same typed checkpoint truth as a fail-closed receipt. The packet is
     still emitted for inspection, but the command exits non-zero when
     `checkpoint_required=true` or `safe_to_continue_editing=false`, so
@@ -653,7 +653,7 @@ Workflow permissions note:
 ### Normal work (features, fixes, docs)
 
 1. Branch from `develop` (`feature/<topic>` or `fix/<topic>`).
-2. After each bounded checkpoint/commit, rerun `python3 dev/scripts/devctl.py startup-context --format md` and read `push_decision`.
+2. After each bounded checkpoint/commit, rerun `python3 dev/scripts/devctl.py startup-context --format summary` and read `push_decision`.
 3. If `push_decision=await_review`, pause until reviewer-owned acceptance is current, then rerun `startup-context`.
 4. If `push_decision=run_devctl_push`, prefer `python3 dev/scripts/devctl.py push` for the canonical non-mutating validation path.
 5. Re-run `python3 dev/scripts/devctl.py push --execute` after validation and explicit review go-ahead when you are ready to push the current short-lived branch.

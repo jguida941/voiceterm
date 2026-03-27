@@ -80,7 +80,7 @@ treat these rules as active workflow instructions immediately.
 2. Codex is the reviewer. Claude is the coder.
 3. At conversation start, both agents must bootstrap repo authority before
    acting. The approved startup path is:
-   `python3 dev/scripts/devctl.py startup-context --format md` first. If it
+   `python3 dev/scripts/devctl.py startup-context --format summary` first. If it
    exits non-zero, checkpoint or repair the repo state before coding or
    relaunching conductor work. User summaries, stale chat continuity, or
    remembered prior state are not substitutes for this Step 0 receipt. Then run

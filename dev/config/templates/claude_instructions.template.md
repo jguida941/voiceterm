@@ -56,7 +56,7 @@ gitignored).
 ## Checkpoint / Review / Push Contract
 
 - After any commit/checkpoint, rerun
-  `python3 dev/scripts/devctl.py startup-context --format md`. Do not stop at
+  `python3 dev/scripts/devctl.py startup-context --format summary`. Do not stop at
   a clean worktree alone.
 - Treat `push_decision` as the canonical next remote-action state machine:
   `await_checkpoint`, `await_review`, `run_devctl_push`, `no_push_needed`.
