@@ -724,6 +724,22 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         self.assertTrue(any("Claude Ack" in error for error in errors))
 
+    def test_validate_launch_bridge_state_accepts_pending_reset_state(self) -> None:
+        snapshot = extract_bridge_snapshot(
+            _build_bridge_text(
+                claude_status="- pending",
+                claude_ack="- pending",
+            )
+        )
+
+        errors = validate_launch_bridge_state(
+            snapshot,
+            liveness=summarize_bridge_liveness(snapshot),
+        )
+
+        self.assertFalse(any("Claude Status" in error for error in errors))
+        self.assertFalse(any("Claude Ack" in error for error in errors))
+
     def test_validate_live_bridge_contract_requires_ack_instruction_revision(self) -> None:
         snapshot = extract_bridge_snapshot(
             _build_bridge_text(claude_ack="- acknowledged")
@@ -6226,6 +6242,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertIn(updated_instruction, updated_bridge)
             snapshot = extract_bridge_snapshot(updated_bridge)
             self.assertEqual(snapshot.sections.get("Claude Status", "").strip(), "- pending")
+            self.assertEqual(
+                snapshot.sections.get("Claude Questions", "").strip(),
+                "- None recorded.",
+            )
             self.assertEqual(snapshot.sections.get("Claude Ack", "").strip(), "- pending")
             review_state = json.loads(
                 (status_dir / "review_state.json").read_text(encoding="utf-8")
@@ -6720,6 +6740,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 "2026-01-01T00:00:00Z",
             )
             self.assertEqual(snapshot.sections.get("Claude Status", "").strip(), "- pending")
+            self.assertEqual(
+                snapshot.sections.get("Claude Questions", "").strip(),
+                "- None recorded.",
+            )
             self.assertEqual(snapshot.sections.get("Claude Ack", "").strip(), "- pending")
 
     def test_run_promote_rejects_stale_expected_instruction_revision(self) -> None:

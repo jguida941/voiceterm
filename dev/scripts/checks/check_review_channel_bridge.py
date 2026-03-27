@@ -102,12 +102,17 @@ def _extract_h2(text: str) -> list[str]:
     return [match.group(1).strip() for match in re.finditer(r"^##\s+(.+?)\s*$", text, re.MULTILINE)]
 
 
+def _normalize_marker_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _missing_markers(text: str, required_markers: list[str]) -> list[str]:
-    return [marker for marker in required_markers if marker not in text]
-
-
-def _review_bridge_is_active(text: str) -> bool:
-    return "## Transitional Markdown Bridge (Current Operating Mode)" in text
+    normalized_text = _normalize_marker_text(text)
+    return [
+        marker
+        for marker in required_markers
+        if _normalize_marker_text(marker) not in normalized_text
+    ]
 
 
 def _strip_backticks(text: str) -> str:
@@ -195,10 +200,6 @@ def _validate_bridge_metadata(text: str) -> list[str]:
     return errors
 
 
-def _validate_bridge_live_state(text: str) -> list[str]:
-    return validate_live_bridge_contract(extract_bridge_snapshot(text))
-
-
 def _is_tracked_by_git(path: Path) -> bool:
     """Return True if the file is tracked by git (committed or staged)."""
     import subprocess
@@ -269,7 +270,7 @@ def _build_path_report(
 
 def build_report() -> dict:
     review_channel_text = REVIEW_CHANNEL_PATH.read_text(encoding="utf-8") if REVIEW_CHANNEL_PATH.exists() else ""
-    review_bridge_active = _review_bridge_is_active(review_channel_text)
+    review_bridge_active = "## Transitional Markdown Bridge (Current Operating Mode)" in review_channel_text
     bridge = _build_path_report(
         path=BRIDGE_PATH,
         required_h2=REQUIRED_BRIDGE_H2,
@@ -283,7 +284,9 @@ def build_report() -> dict:
         if metadata_errors:
             bridge["ok"] = False
             bridge["metadata_errors"] = metadata_errors
-        state_errors = _validate_bridge_live_state(bridge_text)
+        state_errors = validate_live_bridge_contract(
+            extract_bridge_snapshot(bridge_text)
+        )
         if state_errors:
             bridge["ok"] = False
             bridge["state_errors"] = state_errors

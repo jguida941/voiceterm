@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from .reviewer_state_support import _replace_section
 
-_PENDING_IMPLEMENTER_UPDATE = "- pending"
-_IMPLEMENTER_RESET_HEADINGS = (
-    "Claude Status",
-    "Claude Ack",
+_IMPLEMENTER_RESET_BODIES = (
+    ("Claude Status", "- pending"),
+    ("Claude Questions", "- None recorded."),
+    ("Claude Ack", "- pending"),
 )
 
 
@@ -24,10 +24,10 @@ def reset_implementer_sections_on_instruction_change(
     ):
         return bridge_text
     updated_text = bridge_text
-    for heading in _IMPLEMENTER_RESET_HEADINGS:
+    for heading, body in _IMPLEMENTER_RESET_BODIES:
         updated_text = _replace_section(
             updated_text,
             heading=heading,
-            body=_PENDING_IMPLEMENTER_UPDATE,
+            body=body,
         )
     return updated_text

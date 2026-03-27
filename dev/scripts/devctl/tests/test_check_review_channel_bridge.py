@@ -281,6 +281,29 @@ class CheckReviewChannelBridgeTests(TestCase):
             )
         )
 
+    def test_build_report_accepts_wrapped_required_marker_text(self) -> None:
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script).replace(
+                "Claude status/ack updates must be substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `Codex should review` are contract violations.",
+                "Claude status/ack updates must be\n"
+                "substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `Codex should review` are contract violations.",
+            ),
+        )
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        with (
+            patch.object(self.script, "BRIDGE_PATH", bridge),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
+        ):
+            report = self.script.build_report()
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["bridge"]["missing_markers"], [])
+
     def test_build_report_flags_missing_review_channel_bridge_guard_marker(self) -> None:
         bridge = self._temp_path(
             "bridge.md",

@@ -330,6 +330,12 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     concrete files, subsystems, findings, or one concrete blocker/question;
     `No change. Continuing.`, `instruction unchanged`, `Codex should review`,
     and raw shell `sleep` loops are contract violations.
+4.4.3 Fresh launch validation now treats the canonical reviewer-reset
+    implementer placeholder (`Claude Status: - pending`, `Claude Ack:
+    - pending`) as launchable state for a new instruction revision. The same
+    reviewer-owned instruction reset must clear stale `Claude Questions`
+    alongside status/ack so compatibility-bridge handoff text does not carry
+    forward dead blockers from the previous instruction tranche.
 4.5 In that same live review-channel mode, treat
     `dev/reports/review_channel/latest/review_state.json` (and the mirrored
     `compact.json` projection) `current_session` block as the canonical typed

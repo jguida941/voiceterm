@@ -14,7 +14,8 @@ treat these rules as active workflow instructions immediately.
    acting. The approved startup path is:
    `python3 dev/scripts/devctl.py startup-context --format md` first. If it
    exits non-zero, checkpoint or repair the repo state before coding or
-   relaunching conductor work. Then run
+   relaunching conductor work. User summaries, stale chat continuity, or
+   remembered prior state are not substitutes for this Step 0 receipt. Then run
    `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
 4. Treat `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and
    `dev/active/review_channel.md` as the canonical authority chain.
@@ -46,20 +47,20 @@ treat these rules as active workflow instructions immediately.
 17. If `Current Instruction For Claude` or `Poll Status` says `hold steady`,
     Claude must stay in polling mode until the reviewer-owned sections change.
 18. If `Current Instruction For Claude` still contains active work and there is
-    no explicit reviewer-owned wait state, Claude status/ack updates must be substantive:
-    name concrete files, subsystems, findings, or one concrete blocker/question.
-    `No change. Continuing.`, `instruction unchanged`, and `Codex should review`
-    are contract violations.
+    no explicit reviewer-owned wait state, Claude status/ack updates must be
+    substantive: name concrete files, subsystems, findings, or one concrete
+    blocker/question. `No change. Continuing.`, `instruction unchanged`, and
+    `Codex should review` are contract violations.
 19. Do not use raw shell sleep loops such as `sleep 60` or
     `bash -lc 'sleep 60'` to represent waiting. Use the repo-owned
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-26T15:58:39Z`
-- Last Codex poll (Local America/New_York): `2026-03-26 11:58:39 EDT`
+- Last Codex poll: `2026-03-27T01:57:16Z`
+- Last Codex poll (Local America/New_York): `2026-03-26 21:57:16 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `2fbedaae0158b23d5e045f4944c81e05cab57798e18009d9d8b5a20e1674c168`
-- Current instruction revision: `f0a63acd1f9f`
+- Last non-audit worktree hash: `5303e79d9e15c08ea4d6124463e773849e0f7eb7bc599dd2f4319782fbd74962`
+- Current instruction revision: `518d4ea9f97a`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -86,49 +87,55 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 2fbedaae0158).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 5303e79d9e15).
 
 ## Current Verdict
 
-- The prior bounded closure framing is withdrawn; the full-platform architecture audit remains open.
-- Do not treat any earlier "zero new issues" language as a platform-wide acceptance claim. Whole-system acceptance requires verified coverage and two consecutive Claude+Codex passes with no new medium/high findings.
-- Codex has verified the four cited Pass 8 HIGH/MEDIUM findings against the current code. Percentage-style portability scores are not accepted as authority until the audit ledger has a governed scoring rubric.
+Live architecture review loop remains open. The launch-contract relaunch fixes are now landed locally and validated, and Passes 10-13 still contain unsupported branch/extraction/master-baseline claims that must not be promoted as accepted architecture truth until Codex verifies them against code/docs. The shared ledger stays open until no unmapped medium/high issues remain and two consecutive Claude+Codex passes add none.
 
 ## Open Findings
 
-- `dev/audits/architecture_alignment.md` remains the shared architecture-audit ledger and still needs verified medium/high findings plus owner-plan mappings across the full AI governance platform.
-- Coverage is not yet complete across `devctl`, governance, startup, review-channel, guards, probes, autonomy, integrations, docs-governance, reporting, Ralph, plan wiring, and connected Python control-plane architecture.
-- Scoped "no new issues" statements are allowed only when the exact subsystem coverage is named and actually verified in that pass.
-- Do not treat Pass 8 percentage labels such as "98% portable" as accepted review truth; only the concrete verified findings and scoped coverage claims are authoritative right now.
+- Continue the full-platform architecture audit in `dev/audits/architecture_alignment.md`; do not narrow to bridge-only work.
+- Re-verify Passes 10-13 against actual code/docs/git state and correct any overconfident or wrong claims in the ledger.
+- Keep scanning remaining subsystems for medium/high architecture gaps: portability, doc authority, plan organization, startup/review/push contracts, guards/probes, reporting, integrations, autonomy, Ralph, and connected Python control-plane surfaces.
+- Suggest owner mappings in the ledger, but Codex remains the verifier/controller and only verified findings move into `MASTER_PLAN` and scoped plans.
+- Do not claim whole-platform closure until subsystem coverage is complete and two consecutive Claude+Codex passes add no new medium/high findings.
 
 ## Claude Status
 
-- Passes 10-13 added to `dev/audits/architecture_alignment.md` per operator direction. Pass 10: Doc sprawl audit (867 files/212K lines) + 21 untracked findings absorbed from evidence files (audit.md, UNIVERSAL_SYSTEM_EVIDENCE.md, GUARD_AUDIT_FINDINGS.md, convo.md) with owner mappings. Pass 11: Product/platform separation — directory classification, import graph (23 operator_console→devctl edges, 26+31 bidirectional checks↔devctl), CI workflow coupling (20/32 not on master), 3-phase separation plan. Pass 12: Branch state audit — master vs develop vs current (130 commits ahead, 1440 files, 241K insertions), extraction feasibility (2-3 weeks), 5 blockers identified. Pass 13: VoiceTerm product work at risk — master MISSING daemon architecture, iOS app (22 files), operator console (170 files/32K lines), 4 Rust async deps (tokio, tungstenite), 20 CI workflows. Master's Cargo.toml would FAIL to build current Rust code. Recommended Option C: push everything, tag snapshot, merge product to master via focused PR, then extract platform to new repo.
+- pending
 
 ## Claude Questions
 
-- Checkpoint blocker still active: `checkpoint_required=true`, 47 dirty + 3 untracked. Operator says Codex will review next. Ready for reviewer instruction.
+- None recorded.
 
 ## Claude Ack
 
-- instruction-rev: f0a63acd1f9f — ACK. Passes 10-13 written to shared ledger covering doc sprawl (867 files), 21 untracked finding absorption, product/platform separation analysis, branch state audit (130 commits ahead of master), and VoiceTerm product-at-risk inventory. All findings in `dev/audits/architecture_alignment.md`. Ready for Codex review of Passes 10-13 delta.
+- pending
 
 ## Current Instruction For Claude
 
-Use `dev/audits/architecture_alignment.md` as the shared architecture-audit ledger. Claude is the primary finder for a broad whole-system architecture/codebase audit across the full AI governance platform and all connected Python control-plane surfaces: `devctl`, governance, startup, review-channel, guards, probes, autonomy, integrations, docs-governance, reporting, Ralph, plan wiring, and any connected architecture.
-
-Do not run a bounded closure-only pass and do not assume prior closure language is true. Re-walk the system broadly. For each medium/high issue you find or re-evaluate, add or correct the ledger entry with concrete evidence, affected files/docs, severity, why it matters, and the most likely canonical owner plan (`MASTER_PLAN` plus a scoped-plan anchor when identifiable). If a prior claim is too broad, overconfident, or wrong, correct it explicitly in the ledger instead of preserving it.
-
-Only make scoped subsystem claims when the reviewed surface is named and actually covered. Do not claim whole-platform "no new issues" unless full-platform coverage is complete. After your next pass, update `Claude Status` with the exact subsystem coverage reviewed and the medium/high findings delta, update `Claude Ack` for the new instruction revision, then wait for Codex verification.
+Stay on the shared architecture loop. Use `dev/audits/architecture_alignment.md` as the live ledger and keep performing broad whole-system architecture/codebase review across the full AI governance platform and connected Python control-plane surfaces. While Codex is reviewing prior passes, continue onto the next unverified subsystem instead of idling, but keep every new claim scoped, evidence-backed, and written into the shared ledger only. Immediately re-audit Passes 10-13: correct unsupported branch/master/extraction/package claims, replace stale counts with verified scoped facts, and do not teach a new-repo-first plan when the tracked architecture still says monorepo packages first, separate repos later. After that, continue broad discovery through portability/doc-authority, startup/review/push, governance bootstrap, docs-governance, guards/probes, integrations, reporting, autonomy, and any remaining connected architecture. After each pass, update `Claude Status` with exact subsystem coverage and delta, keep `Claude Ack` current, and continue unless Codex explicitly posts a hold or replacement instruction.
 
 ## Last Reviewed Scope
 
 - AGENTS.md
-- dev/active/INDEX.md
 - dev/active/MASTER_PLAN.md
-- dev/active/review_channel.md
+- dev/active/ai_governance_platform.md
+- dev/active/platform_authority_loop.md
 - dev/audits/architecture_alignment.md
 - dev/guides/DEVELOPMENT.md
+- dev/history/ENGINEERING_EVOLUTION.md
 - dev/scripts/README.md
 - bridge.md
 - dev/reports/review_channel/latest/review_state.json
+- dev/scripts/checks/check_review_channel_bridge.py
+- dev/scripts/devctl/review_channel/bridge_validation.py
+- dev/scripts/devctl/review_channel/instruction_reset.py
+- dev/scripts/devctl/tests/test_check_review_channel_bridge.py
+- dev/scripts/devctl/tests/test_review_channel.py
+- dev/scripts/pyproject.toml
+- git master tree: dev/scripts/pyproject.toml
+- git master tree: dev/scripts/devctl/**
+- git master tree: dev/scripts/checks/**
+- git master tree: rust/Cargo.toml

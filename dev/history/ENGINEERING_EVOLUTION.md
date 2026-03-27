@@ -97,6 +97,38 @@ Evidence:
 - `dev/active/ai_governance_platform.md`
 - `dev/audits/architecture_alignment.md`
 
+### 2026-03-26 - Review-channel relaunch now accepts canonical pending reset state and clears stale implementer questions
+
+Fact: the review-channel relaunch path no longer misclassifies the canonical
+reviewer-reset implementer placeholder (`Claude Status: - pending`,
+`Claude Ack: - pending`) as missing launch state, and the bridge guard now
+matches required marker text across wrapped whitespace instead of failing on
+line-wrap formatting alone. The same reviewer-owned instruction reset now
+clears stale `Claude Questions` alongside status/ack so old blockers do not
+survive into a new instruction revision.
+
+This matters because the relaunch contract had been internally inconsistent:
+reviewer checkpoint/promotion writes deliberately reset implementer sections to
+pending for a new instruction revision, but fresh launch validation still
+treated that canonical state as missing and blocked the pair from relaunching.
+At the same time, the guard could fail on a wrapped sentence even when the
+required rule was present, and old `Claude Questions` text could outlive the
+instruction that produced it. Closing all three seams makes the bridge-backed
+launcher more truthful and keeps compatibility-bridge state from teaching stale
+blockers back into the next session.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/bridge_validation.py`
+- `dev/scripts/checks/check_review_channel_bridge.py`
+- `dev/scripts/devctl/review_channel/instruction_reset.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `dev/scripts/devctl/tests/test_check_review_channel_bridge.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
 ### 2026-03-26 - Push readiness stopped pretending a clean tree was the same thing as an approved push
 
 Fact: the repo corrected a misleading contract in the governed startup/push

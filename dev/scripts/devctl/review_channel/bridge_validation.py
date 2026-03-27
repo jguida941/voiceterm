@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from ..runtime.review_state_semantics import is_pending_implementer_state
 from .handoff_constants import (
     GENERIC_NEXT_ACTION_MARKERS,
     IDLE_FINDING_MARKERS,
@@ -252,6 +253,11 @@ def validate_launch_bridge_state(
 
     errors = validate_live_bridge_contract(snapshot)
     effective_liveness = liveness or _summarize(snapshot)
+    pending_implementer_state = is_pending_implementer_state(
+        implementer_status=snapshot.sections.get("Claude Status", ""),
+        implementer_ack=snapshot.sections.get("Claude Ack", ""),
+    )
+
     if not reviewer_mode_is_active(effective_liveness.reviewer_mode):
         return errors
     if effective_liveness.codex_poll_state == CodexPollState.MISSING:
@@ -264,12 +270,12 @@ def validate_launch_bridge_state(
             "`Last Codex poll` is stale; fresh launch requires bridge activity "
             "within the five-minute heartbeat contract."
         )
-    if not effective_liveness.claude_status_present:
+    if not effective_liveness.claude_status_present and not pending_implementer_state:
         errors.append(
             "Missing live `Claude Status`; fresh launch requires the implementer "
             "status section before bootstrap."
         )
-    if not effective_liveness.claude_ack_present:
+    if not effective_liveness.claude_ack_present and not pending_implementer_state:
         errors.append(
             "Missing live `Claude Ack`; fresh launch requires a current Claude "
             "ACK before bootstrap."

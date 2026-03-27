@@ -242,6 +242,9 @@ Three quality layers matter in practice:
     those actions remain the sanctioned full-session relaunch path when the
     pair needs a fresh start, while `recover` is the narrower Claude-only
     repair path when the repo-owned Codex reviewer is already live.
+    Canonical reviewer-reset implementer placeholders (`Claude Status: - pending`,
+    `Claude Ack: - pending`) are valid fresh-launch state for a new instruction
+    revision, and the same reset now clears stale `Claude Questions` too.
   - The same `status` path is now fail-closed on live-loop honesty too:
     `active_dual_agent` with detached publisher/supervisor heartbeats but no
     repo-owned conductors is a bridge-contract error, not a healthy loop.

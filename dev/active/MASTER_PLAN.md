@@ -323,6 +323,15 @@
   silently disables language-dependent probes on other repos. The raw Pass 8
   percentage-style portability scores were not accepted as authoritative and
   were stripped back to scoped, evidence-backed claims.
+- 2026-03-26 launch-contract follow-up: `MP-355` now also owns the reviewer
+  reset/launch seam hardening that was exposed during the architecture-loop
+  relaunch attempt. Fresh launch validation must accept the canonical
+  reviewer-reset implementer placeholder state (`Claude Status: - pending`,
+  `Claude Ack: - pending`) for a new instruction revision, the bridge guard
+  must tolerate wrapped required marker text instead of failing on formatting
+  alone, and reviewer-owned instruction resets must clear stale `Claude
+  Questions` so compatibility-bridge handoff text does not carry dead
+  blockers into the next tranche.
 - 2026-03-26 architecture-doc teaching correction: portability closure also
   includes the docs and starter surfaces that future AI sessions read first.
   Plain-language architecture/runbook text must front-load that VoiceTerm is
