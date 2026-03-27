@@ -65,32 +65,25 @@ def repo_pack_ref_from_mapping(
 def path_roots_from_mapping(
     payload: Mapping[str, object],
 ) -> PathRoots:
-    active = coerce_string(payload.get("active_docs")) or "dev/active"
     return PathRoots(
-        active_docs=active,
-        reports=coerce_string(payload.get("reports")) or "dev/reports",
-        scripts=coerce_string(payload.get("scripts")) or "dev/scripts",
-        checks=coerce_string(payload.get("checks")) or "dev/scripts/checks",
-        workflows=coerce_string(payload.get("workflows"))
-        or ".github/workflows",
-        guides=coerce_string(payload.get("guides")) or "dev/guides",
-        config=coerce_string(payload.get("config")) or "dev/config",
+        active_docs=coerce_string(payload.get("active_docs")),
+        reports=coerce_string(payload.get("reports")),
+        scripts=coerce_string(payload.get("scripts")),
+        checks=coerce_string(payload.get("checks")),
+        workflows=coerce_string(payload.get("workflows")),
+        guides=coerce_string(payload.get("guides")),
+        config=coerce_string(payload.get("config")),
     )
 
 
 def artifact_roots_from_mapping(
     payload: Mapping[str, object],
 ) -> ArtifactRoots:
-    audit = coerce_string(payload.get("audit_root")) or "dev/reports/audits"
     return ArtifactRoots(
-        audit_root=audit,
+        audit_root=coerce_string(payload.get("audit_root")),
         review_root=coerce_string(payload.get("review_root")),
-        governance_log_root=coerce_string(
-            payload.get("governance_log_root")
-        )
-        or "dev/reports/governance",
-        probe_report_root=coerce_string(payload.get("probe_report_root"))
-        or "dev/reports/probes/latest",
+        governance_log_root=coerce_string(payload.get("governance_log_root")),
+        probe_report_root=coerce_string(payload.get("probe_report_root")),
     )
 
 

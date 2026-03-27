@@ -36,16 +36,16 @@ class StartupReceiptPathTests(unittest.TestCase):
 
         self.assertEqual(
             path,
-            Path(tmp_dir) / "dev" / "reports" / "startup" / "latest" / "receipt.json",
+            Path(tmp_dir) / "startup" / "latest" / "receipt.json",
         )
 
     @patch(
-        "dev.scripts.devctl.runtime.startup_receipt.active_path_config",
+        "dev.scripts.devctl.runtime.startup_receipt.configured_path_config",
         return_value=SimpleNamespace(reports_root_rel="portable-reports"),
     )
     def test_receipt_path_falls_back_to_active_path_config(
         self,
-        _active_path_config,
+        _configured_path_config,
     ) -> None:
         with TemporaryDirectory() as tmp_dir:
             path = startup_receipt_path(repo_root=Path(tmp_dir))

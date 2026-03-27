@@ -377,6 +377,11 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     `SessionResumeState` for one selected plan target, but that projection is
     a bounded startup read, not a replacement for the reviewed markdown
     authority itself.
+4.7.0 Docs-routing follows that same rule now: `check-router` /
+    `docs-check` should classify governed markdown from typed doc authority
+    (`DocRegistry` plus repo-owned surface context) before falling back to
+    generic path buckets, and empty `docs_check` policy sections must not
+    silently recreate VoiceTerm maintainer-doc requirements in another repo.
 4.7.1 Preserve the product boundary while doing that work: in portable
     runtime/tooling layers, treat VoiceTerm as a consumer of the governance
     platform rather than the universal repo shape. New portable code should
@@ -384,6 +389,11 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     AI bootstrap instructions through `ProjectGovernance` / repo-pack
     authority. If that authority is missing, fail closed or stay in explicit
     compatibility mode; do not silently revive VoiceTerm defaults.
+4.7.2 Apply the same fail-closed rule to typed runtime parsing: partial
+    `ProjectGovernance` payloads and startup receipt helpers must preserve
+    empty doc/plan/report roots unless real governance or an explicitly
+    activated repo pack supplied them, rather than materializing
+    `AGENTS.md`, `dev/active/*`, or `dev/reports/*` as hidden defaults.
 4.8 After fixing a meaningful issue, verify both levels before handoff: the
     local defect must be fixed, and the chosen prevention/absorption path must
     either be landed and validated or explicitly deferred/waived with the

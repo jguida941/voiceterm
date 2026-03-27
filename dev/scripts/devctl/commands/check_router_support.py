@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from ..config import REPO_ROOT
 from .check_router_constants import (
     BUNDLE_BY_LANE,
     CheckRouterConfig,
@@ -30,6 +33,12 @@ def _is_release_path(path: str, config: CheckRouterConfig) -> bool:
 
 
 def _is_tooling_path(path: str, config: CheckRouterConfig) -> bool:
+    if path in config.governed_tooling_exact_paths:
+        return True
+    if path.endswith(".md") and any(
+        path.startswith(prefix) for prefix in config.governed_tooling_prefixes
+    ):
+        return True
     if path in config.tooling_exact_paths:
         return True
     if any(path.startswith(prefix) for prefix in config.tooling_prefixes):
@@ -67,9 +76,13 @@ def _is_docs_path(path: str, config: CheckRouterConfig) -> bool:
 def classify_lane(
     changed_paths: list[str],
     *,
+    repo_root: Path = REPO_ROOT,
     policy_path: str | None = None,
 ) -> dict:
-    config = resolve_check_router_config(policy_path=policy_path)
+    config = resolve_check_router_config(
+        repo_root=repo_root,
+        policy_path=policy_path,
+    )
     if not changed_paths:
         lane = "docs"
         reasons = ["No changed paths detected; defaulting to docs lane."]
@@ -135,9 +148,13 @@ def classify_lane(
 def detect_risk_addons(
     changed_paths: list[str],
     *,
+    repo_root: Path = REPO_ROOT,
     policy_path: str | None = None,
 ) -> list[dict]:
-    config = resolve_check_router_config(policy_path=policy_path)
+    config = resolve_check_router_config(
+        repo_root=repo_root,
+        policy_path=policy_path,
+    )
     addons: list[dict] = []
     for spec in config.risk_addons:
         matched_paths = [

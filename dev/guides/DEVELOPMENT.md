@@ -320,6 +320,11 @@ Three quality layers matter in practice:
     repo-pack data or fail closed. VoiceTerm-specific paths/defaults belong in
     repo-pack or product-integration surfaces, not as hidden universal
     fallbacks inside portable control-plane code.
+  - `check-router` and `docs-check` now follow the same rule for markdown
+    routing: use typed doc authority (`DocRegistry` plus repo-owned surface
+    context) to decide which docs are tooling/self-hosting surfaces before
+    generic path buckets, and keep empty/partial repo policy from silently
+    reviving VoiceTerm maintainer-doc defaults in another repo.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.
     That exclusion only affects checkpoint-budget accounting; raw git state

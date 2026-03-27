@@ -860,6 +860,10 @@ Machine-first output note:
   - Lane rules and add-ons resolve from `repo_governance.check_router` in the
     active repo policy; use `--quality-policy <path>` to reuse the same router
     in another repo without changing code.
+  - Governed markdown now routes registry-first: plan/self-hosting/
+    compatibility docs come from typed doc authority (`ProjectGovernance`
+    `DocRegistry` plus surface context), so custom-layout repos do not need
+    VoiceTerm-shaped `dev/active/*` buckets for tooling classification.
   - The six-row `AGENTS.md` router table and the generated `CLAUDE.md`
     task-router quick map render from the same typed authority in
     `dev/scripts/devctl/governance/task_router_contract.py`.
@@ -871,6 +875,10 @@ Machine-first output note:
     `repo_governance.docs_check` in the active repo policy; use
     `--quality-policy <path>` to point the same command at another repo's
     governance contract.
+  - When `repo_governance.docs_check` is empty or partial, tooling-doc
+    requirements now derive from typed governance authority (`DocRegistry`,
+    tracker/docs-authority paths, and repo-owned surface docs) instead of
+    silently falling back to VoiceTerm's `AGENTS.md` / `dev/active/*` set.
 - `hygiene`: archive/ADR/scripts governance checks plus orphaned/stale repo-related host-process detection (matched `cargo test --bin voiceterm`, `target/debug/deps/voiceterm-*`, stress sessions, repo-runtime cargo/target trees, orphaned repo-tooling wrappers that execute `dev/scripts/**`, repo-owned review-channel conductor trees, and repo-cwd background helpers such as `python3 -m unittest`, direct `bash dev/scripts/...` wrappers, or `qemu/node/make` descendants that outlive their repo-owned parent; stale active threshold: `>=600s`; attached supervised review-channel conductors remain visible but are no longer promoted into stale failures unless they detach/background); ADR checks include numbering-gap governance (`Retired ADR IDs`, `Reserved ADR IDs`), `next:` pointer validation, active backlog parity checks between `MASTER_PLAN` and `autonomous_control_plane`, and stale ADR reference-pattern detection (hard-coded ADR counts/ranges) in long-lived governance docs; includes automatic report-retention drift warnings for stale `dev/reports/**` run artifacts and tracked external-publication drift warnings when watched repo paths outpace synced papers/sites; `--strict-warnings` promotes warnings to failures (used by CI governance/release lanes), while `--ignore-warning-source mutation_badge` keeps stale mutation-badge freshness visible without failing non-release tooling lanes; optional `--fix` removes detected `dev/scripts/**/__pycache__` directories and re-audits scripts hygiene
 - `process-cleanup`: host-side cleanup for orphaned/stale repo-related process trees; expands cleanup roots to full descendant trees so leaked PTY children, repo-cwd background helpers, and orphaned tooling descendants are reaped with their parent wrappers when possible, skips recent active processes by default, and `--verify` reruns strict host audit after cleanup
 - `process-audit`: read-only host-side Activity Monitor equivalent for repo-related process trees; reports matched roots plus descendants, includes repo-cwd runtime/tooling helpers that would otherwise look generic in Activity Monitor, fails fast when `ps` access is unavailable, preserves attached supervised review-channel conductors as visible non-blocking rows, and `--strict` turns leftover runtime/test trees or stale/orphaned repo-related helpers into a blocking failure before handoff

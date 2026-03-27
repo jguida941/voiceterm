@@ -9,7 +9,7 @@ import subprocess
 from typing import TYPE_CHECKING, Any
 
 from ..config import get_repo_root
-from ..repo_packs import active_path_config
+from ..repo_packs import configured_path_config
 from ..time_utils import utc_timestamp
 from .governance_scan import scan_repo_governance_safely
 
@@ -241,7 +241,10 @@ def _reports_root_relative_path(
     configured = _configured_reports_root(governance=governance, repo_root=repo_root)
     if configured is not None:
         return configured
-    return Path(active_path_config().reports_root_rel)
+    repo_pack = configured_path_config()
+    if repo_pack is not None:
+        return Path(repo_pack.reports_root_rel)
+    return Path()
 
 
 def _configured_reports_root(

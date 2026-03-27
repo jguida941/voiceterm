@@ -43,15 +43,10 @@ def plan_registry_entry_from_mapping(
 def plan_registry_from_mapping(
     payload: Mapping[str, object],
 ) -> PlanRegistry:
-    registry_path = (
-        coerce_string(payload.get("registry_path")) or "dev/active/INDEX.md"
-    )
     registry = PlanRegistry(
-        registry_path=registry_path,
-        tracker_path=coerce_string(payload.get("tracker_path"))
-        or "dev/active/MASTER_PLAN.md",
-        index_path=coerce_string(payload.get("index_path"))
-        or "dev/active/INDEX.md",
+        registry_path=coerce_string(payload.get("registry_path")),
+        tracker_path=coerce_string(payload.get("tracker_path")),
+        index_path=coerce_string(payload.get("index_path")),
         entries=tuple(
             plan_registry_entry_from_mapping(row)
             for row in coerce_mapping_items(payload.get("entries"))

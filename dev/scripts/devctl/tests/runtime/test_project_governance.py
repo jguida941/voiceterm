@@ -278,16 +278,16 @@ def test_project_governance_from_mapping_with_defaults() -> None:
     assert gov.repo_pack.pack_version == ""
     assert gov.repo_pack.description == ""
 
-    assert gov.path_roots.active_docs == "dev/active"
-    assert gov.path_roots.reports == "dev/reports"
-    assert gov.path_roots.scripts == "dev/scripts"
-    assert gov.path_roots.checks == "dev/scripts/checks"
-    assert gov.path_roots.workflows == ".github/workflows"
-    assert gov.path_roots.guides == "dev/guides"
-    assert gov.path_roots.config == "dev/config"
+    assert gov.path_roots.active_docs == ""
+    assert gov.path_roots.reports == ""
+    assert gov.path_roots.scripts == ""
+    assert gov.path_roots.checks == ""
+    assert gov.path_roots.workflows == ""
+    assert gov.path_roots.guides == ""
+    assert gov.path_roots.config == ""
 
-    assert gov.plan_registry.registry_path == "dev/active/INDEX.md"
-    assert gov.plan_registry.tracker_path == "dev/active/MASTER_PLAN.md"
+    assert gov.plan_registry.registry_path == ""
+    assert gov.plan_registry.tracker_path == ""
 
 
 def test_push_enforcement_legacy_push_ready_maps_to_worktree_clean() -> None:
@@ -303,18 +303,18 @@ def test_push_enforcement_legacy_push_ready_maps_to_worktree_clean() -> None:
     )
 
     assert gov.push_enforcement.worktree_clean is True
-    assert gov.plan_registry.index_path == "dev/active/INDEX.md"
+    assert gov.plan_registry.index_path == ""
     assert gov.plan_registry.entries == ()
 
-    assert gov.doc_policy.docs_authority_path == "AGENTS.md"
+    assert gov.doc_policy.docs_authority_path == ""
     assert gov.doc_policy.allowed_doc_classes == ()
     assert gov.doc_policy.bridge_path == ""
     assert gov.doc_registry.entries == ()
 
-    assert gov.artifact_roots.audit_root == "dev/reports/audits"
+    assert gov.artifact_roots.audit_root == ""
     assert gov.artifact_roots.review_root == ""
-    assert gov.artifact_roots.governance_log_root == "dev/reports/governance"
-    assert gov.artifact_roots.probe_report_root == "dev/reports/probes/latest"
+    assert gov.artifact_roots.governance_log_root == ""
+    assert gov.artifact_roots.probe_report_root == ""
 
     assert gov.memory_roots.memory_root == ""
     assert gov.memory_roots.context_store_root == ""

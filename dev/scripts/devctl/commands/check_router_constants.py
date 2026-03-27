@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
+from ..config import REPO_ROOT
+from ..governance.governed_doc_routing import resolve_governed_doc_routing
 from ..repo_policy import load_repo_governance_section
+from .docs_check_policy import resolve_docs_check_policy
 from ..governance.task_router_contract import (
     TASK_ROUTER_AUTHORITY_PATH,
     TASK_ROUTER_ROWS,
@@ -207,6 +211,8 @@ class CheckRouterConfig:
     tooling_exact_paths: frozenset[str]
     tooling_prefixes: tuple[str, ...]
     tooling_markdown_prefixes: tuple[str, ...]
+    governed_tooling_exact_paths: frozenset[str]
+    governed_tooling_prefixes: tuple[str, ...]
     runtime_prefixes: tuple[str, ...]
     runtime_exact_paths: frozenset[str]
     docs_prefixes: tuple[str, ...]
@@ -298,14 +304,45 @@ def _coerce_risk_addons(raw_value: Any) -> tuple[RiskAddonSpec, ...]:
                 )
             )
     return tuple(resolved) or _default_risk_addons()
+
+
+def _append_unique(values: list[str], candidate: str) -> None:
+    text = str(candidate or "").strip()
+    if text and text not in values:
+        values.append(text)
+
+
+def _prefixes_from_user_docs(user_docs: tuple[str, ...]) -> tuple[str, ...]:
+    prefixes: list[str] = []
+    for path in user_docs:
+        parent = Path(path).parent.as_posix()
+        if parent in {".", ""}:
+            continue
+        _append_unique(prefixes, f"{parent.rstrip('/')}/")
+    return tuple(prefixes)
+
+
 def resolve_check_router_config(
+    *,
+    repo_root: Path = REPO_ROOT,
     policy_path: str | None = None,
 ) -> CheckRouterConfig:
     """Resolve repo-specific routing rules from the shared repo policy file."""
     section, warnings, resolved_policy_path = load_repo_governance_section(
         "check_router",
+        repo_root=repo_root,
         policy_path=policy_path,
     )
+    routing = resolve_governed_doc_routing(
+        repo_root=repo_root,
+        policy_path=policy_path,
+    )
+    docs_policy = resolve_docs_check_policy(
+        repo_root=repo_root,
+        policy_path=policy_path,
+    )
+    docs_exact_default = tuple(docs_policy.user_docs)
+    docs_prefix_default = _prefixes_from_user_docs(docs_policy.user_docs)
     return CheckRouterConfig(
         bundle_by_lane=_coerce_bundle_by_lane(section.get("bundle_by_lane")),
         release_exact_paths=_coerce_str_set(
@@ -328,6 +365,8 @@ def resolve_check_router_config(
             section.get("tooling_markdown_prefixes"),
             TOOLING_MARKDOWN_PREFIXES,
         ),
+        governed_tooling_exact_paths=frozenset(routing.governed_tooling_docs),
+        governed_tooling_prefixes=routing.governed_tooling_prefixes,
         runtime_prefixes=_coerce_str_tuple(
             section.get("runtime_prefixes"),
             RUNTIME_PREFIXES,
@@ -338,11 +377,11 @@ def resolve_check_router_config(
         ),
         docs_prefixes=_coerce_str_tuple(
             section.get("docs_prefixes"),
-            DOCS_PREFIXES,
+            docs_prefix_default,
         ),
         docs_exact_paths=_coerce_str_set(
             section.get("docs_exact_paths"),
-            DOCS_EXACT_PATHS,
+            set(docs_exact_default),
         ),
         risk_addons=_coerce_risk_addons(section.get("risk_addons")),
         policy_path=str(resolved_policy_path),

@@ -34,18 +34,14 @@ def doc_policy_from_mapping(
     payload: Mapping[str, object],
 ) -> DocPolicy:
     policy = DocPolicy(
-        docs_authority_path=coerce_string(payload.get("docs_authority_path"))
-        or "AGENTS.md",
-        active_docs_root=coerce_string(payload.get("active_docs_root"))
-        or "dev/active",
-        guides_root=coerce_string(payload.get("guides_root")) or "dev/guides",
+        docs_authority_path=coerce_string(payload.get("docs_authority_path")),
+        active_docs_root=coerce_string(payload.get("active_docs_root")),
+        guides_root=coerce_string(payload.get("guides_root")),
         governed_doc_roots=coerce_string_items(
             payload.get("governed_doc_roots")
         ),
-        tracker_path=coerce_string(payload.get("tracker_path"))
-        or "dev/active/MASTER_PLAN.md",
-        index_path=coerce_string(payload.get("index_path"))
-        or "dev/active/INDEX.md",
+        tracker_path=coerce_string(payload.get("tracker_path")),
+        index_path=coerce_string(payload.get("index_path")),
         bridge_path=coerce_string(payload.get("bridge_path")),
         allowed_doc_classes=coerce_string_items(
             payload.get("allowed_doc_classes")
@@ -96,12 +92,9 @@ def doc_registry_from_mapping(
     payload: Mapping[str, object],
 ) -> DocRegistry:
     registry = DocRegistry(
-        docs_authority_path=coerce_string(payload.get("docs_authority_path"))
-        or "AGENTS.md",
-        index_path=coerce_string(payload.get("index_path"))
-        or "dev/active/INDEX.md",
-        tracker_path=coerce_string(payload.get("tracker_path"))
-        or "dev/active/MASTER_PLAN.md",
+        docs_authority_path=coerce_string(payload.get("docs_authority_path")),
+        index_path=coerce_string(payload.get("index_path")),
+        tracker_path=coerce_string(payload.get("tracker_path")),
         entries=tuple(
             doc_registry_entry_from_mapping(row)
             for row in coerce_mapping_items(payload.get("entries"))
