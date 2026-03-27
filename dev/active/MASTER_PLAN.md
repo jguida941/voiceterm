@@ -232,6 +232,11 @@
   migrate writer/mutation paths plus the remaining push/preflight consumers so
   `bridge.md` becomes a generated repo-pack-owned compatibility projection
   instead of a live current-status authority or freshness gate.
+  `startup-context`, `check_tandem_consistency`, and the governed push gate
+  now refresh the bridge-backed typed review-state projection before
+  consuming `current_session` / review freshness, so stale
+  `dev/reports/review_channel/latest/review_state.json` snapshots no longer
+  strand startup or preflight truth behind older bridge-derived state.
   `check_tandem_consistency` now
   prefers typed `review_state.json` authority for 4 of 7 checks (reviewer
   freshness, implementer ACK, completion stall, promotion state); the

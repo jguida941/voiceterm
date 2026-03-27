@@ -287,6 +287,14 @@ the control sockets. Most users do not need these flags; use the normal
 overlay unless you are deliberately running one of those advanced
 source-checkout companion surfaces.
 
+If one of those companion surfaces looks stale, rerun
+`python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
+or `python3 dev/scripts/devctl.py startup-context --format md` from the same
+checkout. Both commands refresh the live typed review-state snapshot before
+trusting saved `review_state.json` projections. If they report
+`checkpoint_required`, cut a checkpoint before `Start Swarm`, `Launch Live`, or
+any new edit slice.
+
 ---
 
 ## Sounds

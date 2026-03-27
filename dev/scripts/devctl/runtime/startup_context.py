@@ -18,7 +18,7 @@ from typing import Any
 from .governance_scan import scan_repo_governance_safely
 from .project_governance import ProjectGovernance
 from .review_state_semantics import is_pending_implementer_state
-from .review_state_locator import load_review_state
+from .review_state_locator import load_current_review_state
 from .startup_governance_projection import startup_governance_dict
 from .startup_push_decision import (
     PushDecisionState,
@@ -98,7 +98,7 @@ def _detect_reviewer_gate_from_typed_state(
     governance: ProjectGovernance | None = None,
 ) -> ReviewerGateState | None:
     """Read reviewer gate from typed review_state.json when available."""
-    state = load_review_state(repo_root, governance=governance)
+    state = load_current_review_state(repo_root, governance=governance)
     if state is None:
         return None
     try:

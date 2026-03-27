@@ -342,7 +342,9 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     current-status read for live instruction / implementer ACK state. While
     the bridge migration remains in progress, `bridge.md` is a compatibility
     projection and handoff surface, not the preferred source for current-
-    status reads.
+    status reads. Startup/tandem/push consumers that read live freshness from
+    that projection must refresh the bridge-backed typed snapshot through the
+    repo-owned status path before trusting `current_session` fields.
 4.6 Treat `startup-context` the same way: prefer typed
     `review_state.json` fields such as `bridge.review_accepted` as the
     canonical startup reviewer-gate authority. `bridge.md` is now a
@@ -709,7 +711,10 @@ The same enforcement patterns apply everywhere — no architecture gets a pass.
 Tandem-consistency checks (`check_tandem_consistency.py`) prefer typed
 `review_state.json` authority when available; bridge-text fallback is used
 only for checks without a typed equivalent (`reviewed_hash_honesty`,
-`plan_alignment`, `launch_truth`).
+`plan_alignment`, `launch_truth`). When those checks need live review-channel
+freshness they must refresh the bridge-backed typed projection before reading
+`current_session`, so stale on-disk snapshots do not outrank the repo-owned
+status writer.
 
 | Architecture | Language | Guard entry point | CI workflow |
 |---|---|---|---|

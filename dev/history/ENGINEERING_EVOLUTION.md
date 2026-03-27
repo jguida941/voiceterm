@@ -1018,6 +1018,32 @@ consumer migration off live bridge freshness plus a small number of later
 self-governance items. The canonical plans now say that directly instead of
 leaving operators to infer it from chat history.
 
+### 2026-03-27 - Startup and tandem consumers refresh typed review-state truth
+
+Fact: the remaining read-side freshness seam narrowed again. The
+repo-pack-aware review-state locator now refreshes the bridge-backed typed
+`review_state.json` projection through the repo-owned review-channel status
+path before live consumers trust `current_session` / review freshness fields.
+`startup-context` and `check_tandem_consistency` now consume that refreshed
+typed projection instead of treating a stale saved snapshot as machine
+authority, while `bridge.md` remains compatibility-only prose.
+
+This matters because the earlier cutover moved consumers onto typed
+`review_state.json` semantics, but a stale on-disk projection could still lag
+behind the live status writer. Refreshing the typed snapshot at the consumer
+edge keeps startup/tandem/push truth aligned with the reviewer-owned status
+path without reintroducing bridge-text parsing as authority.
+
+Files changed:
+- `dev/scripts/devctl/runtime/review_state_locator.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/checks/tandem_consistency/report.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state_locator.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/devctl/tests/checks/test_check_tandem_consistency.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+
 Evidence:
 
 - `dev/active/review_channel.md`

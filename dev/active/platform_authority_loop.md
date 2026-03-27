@@ -1212,6 +1212,15 @@ intended execution order is:
   gaps only: explicit repo-pack activation/capability gating beyond the
   current runtime slice, remaining docs-authority compression, and portable
   report/push state closure.
+- 2026-03-27 consumer-refresh follow-up: the bounded `current_session`
+  consumer cutover is now real for startup/preflight. `startup-context`,
+  `check_tandem_consistency`, and the governed push gate refresh the
+  bridge-backed typed review-state projection before reading live
+  `current_session` / review freshness, so stale `latest/review_state.json`
+  snapshots no longer outrank the repo-owned status writer. The remaining
+  same-lane work is the writer/mutation side of the cutover plus the last
+  bridge-text-only tandem checks (`reviewed_hash_honesty`, `plan_alignment`,
+  `launch_truth`).
 - 2026-03-27 authority-loop priority lock: keep the next `MP-377` execution
   slice on the authority surfaces that actually leak VoiceTerm defaults or
   lie about publish truth. Concretely, route work first through typed
@@ -1420,6 +1429,15 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-27: Closed the next bounded bridge-authority consumer slice without
+  widening the plan. `review_state_locator` now has a live-consumer path that
+  refreshes the bridge-backed typed projection before `startup-context` or
+  `check_tandem_consistency` read `current_session` / review freshness, and
+  the governed push gate inherits the same refreshed startup truth through
+  `build_startup_context()`. Added focused regressions proving refreshed
+  review-state wins over stale on-disk snapshots for the locator,
+  startup-context, and tandem-consistency paths, plus reran the focused
+  startup/tandem/push pytest suites.
 - 2026-03-27: Closed the first bounded authority-loop tranche in code.
   `doc_authority` / governance-draft now emit typed artifact-role plus
   authority/system/consumer scope for governed docs and plans, warm-ref

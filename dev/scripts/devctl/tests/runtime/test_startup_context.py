@@ -822,6 +822,96 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
                 "typed_review_state_required",
             )
 
+    @patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
+    def test_typed_path_prefers_refreshed_review_state_projection(
+        self,
+        refresh_status_snapshot_mock,
+    ) -> None:
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            (repo_root / "bridge.md").write_text("# Review Bridge\n", encoding="utf-8")
+            review_channel_path = repo_root / "dev" / "active" / "review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+            state_path = (
+                repo_root
+                / "dev"
+                / "reports"
+                / "review_channel"
+                / "latest"
+                / "review_state.json"
+            )
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "bridge": {
+                            "reviewer_mode": "active_dual_agent",
+                            "review_accepted": True,
+                            "claude_ack_current": True,
+                        },
+                        "current_session": {
+                            "implementer_ack_state": "current",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def _refresh(*, repo_root, bridge_path, review_channel_path, output_root):
+                state_path.write_text(
+                    json.dumps(
+                        {
+                            "bridge": {
+                                "reviewer_mode": "active_dual_agent",
+                                "review_accepted": False,
+                                "claude_ack_current": False,
+                            },
+                            "attention": {"status": "claude_ack_stale"},
+                            "current_session": {
+                                "implementer_status": "Working on a stale tranche.",
+                                "implementer_ack": "Old ack",
+                                "implementer_ack_state": "stale",
+                            },
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                return type(
+                    "Snapshot",
+                    (),
+                    {
+                        "projection_paths": type(
+                            "ProjectionPaths",
+                            (),
+                            {"review_state_path": str(state_path)},
+                        )()
+                    },
+                )()
+
+            refresh_status_snapshot_mock.side_effect = _refresh
+            governance = replace(
+                _minimal_governance(),
+                artifact_roots=ArtifactRoots(
+                    audit_root="",
+                    review_root="dev/reports/review_channel/latest",
+                    governance_log_root="",
+                    probe_report_root="",
+                ),
+                bridge_config=BridgeConfig(
+                    bridge_path="bridge.md",
+                    review_channel_path="dev/active/review_channel.md",
+                    bridge_active=True,
+                ),
+            )
+
+            gate = _detect_reviewer_gate(repo_root, governance=governance)
+
+        self.assertFalse(gate.review_accepted)
+        self.assertFalse(gate.review_gate_allows_push)
+        self.assertTrue(gate.implementation_blocked)
+        self.assertEqual(gate.implementation_block_reason, "claude_ack_stale")
+
     def test_typed_path_inactive_mode_permits_push(self) -> None:
         """When reviewer mode is inactive, push is permitted regardless."""
         with TemporaryDirectory() as tmp:

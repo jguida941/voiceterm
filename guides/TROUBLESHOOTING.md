@@ -218,6 +218,11 @@ python3 dev/scripts/devctl.py review-channel --action status --terminal none --f
 
 1. Refresh stale live bundles or bridge state before retrying `Start Swarm` or
    `Launch Live`.
+2. If review state still looks stale, rerun either `review-channel --action status`
+   or `startup-context`. Both commands now refresh the bridge-backed typed
+   review-state snapshot before trusting saved `review_state.json` projections.
+3. If status reports `checkpoint_required`, cut a checkpoint before retrying
+   `Start Swarm`, `Launch Live`, or any new editing slice.
 
 ## Mobile App Issues
 

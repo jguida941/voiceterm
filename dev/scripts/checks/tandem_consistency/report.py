@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from dev.scripts.devctl.governance.draft import scan_repo_governance
-from dev.scripts.devctl.runtime.review_state_locator import load_review_state_payload
+from dev.scripts.devctl.runtime.review_state_locator import (
+    load_current_review_state_payload,
+)
 
 try:
     from .checks import (
@@ -34,7 +36,7 @@ def _load_typed_review_state(repo_root: Path | None) -> dict[str, object] | None
     if repo_root is None:
         return None
     governance = scan_repo_governance(repo_root)
-    payload = load_review_state_payload(repo_root, governance=governance)
+    payload = load_current_review_state_payload(repo_root, governance=governance)
     if payload is None:
         return None
     return dict(payload)

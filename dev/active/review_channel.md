@@ -1720,6 +1720,7 @@ Complete this table only after all active swarm lanes are merged.
 | `2026-03-14T12:40:00Z` | `CODEX` | Closed the next Claude/Codex instruction-drift gap for MP-355. The review-channel conductor prompt now reads the same repo-pack post-edit verification intro/steps/done-criteria contract that generates `CLAUDE.md`, so live launcher scripts and local Claude bootstrap instructions share one blocking definition of when checks are required and what counts as done. Added regression coverage for prompt-level policy injection plus dry-run launcher script output. | `in-progress` | Keep the remaining architecture gap explicit: `AGENTS.md` itself is still only partially generated, so the next cross-AI portability step is to move more of the canonical instruction surface under the same repo-pack renderer/guard path instead of leaving only the bundle reference section generated. |
 | `2026-03-13T21:40:00Z` | `CODEX` | Closed the next live-launch honesty gap and the matching desktop read gap. `review-channel --action launch --terminal terminal-app` now waits for `Last Codex poll` to advance after launch and fails closed if a fresh reviewer heartbeat never appears, so opening Terminal windows no longer counts as a successful live reviewer loop by itself. The bridge-backed `review_state` projection now also emits a compact machine-readable `attention` contract (`status`, `owner`, `summary`, `recommended_action`, `recommended_command`) for stale reviewer / poll-due / waiting-on-peer states, and the Operator Console snapshot path now carries those structured warnings forward instead of silently dropping them after JSON load. | `partial-pass` | Keep the launch path fail-closed on real reviewer liveness, then extend the same typed attention contract into any later event-backed/state-store review path so restart/recovery/UI surfaces all read the same stale-peer truth. |
 | `2026-03-13T22:05:00Z` | `CODEX` | Followed that liveness slice through the repo-owned structure and the default desktop view. The bridge-attention policy now lives in `review_channel/attention.py`, bridge-backed payload assembly in `status_projection.py`, and Terminal.app launch behavior in `terminal_app.py`, which brings the review-channel state/launch path back under shape policy instead of leaving the honesty logic in crowded files. The PyQt6 follow-up now promotes non-healthy review attention into Codex/operator lane health plus session stats, so the default session-first layout goes visibly stale instead of burying the problem only in the warning list. | `partial-pass` | Keep future stale-peer recovery and event-backed review state on the same typed attention contract instead of reintroducing lane-specific heuristics or prompt-only reminders. |
+| `2026-03-27T05:10:00Z` | `CODEX` | Closed the bounded MP-355 producer -> MP-377 consumer freshness splice for the typed `current_session` lane. The shared review-state locator can now refresh the bridge-backed typed projection before startup/tandem consumers read it, so `startup-context`, `check_tandem_consistency`, and the governed push gate stop trusting stale `latest/review_state.json` snapshots while `bridge.md` remains a compatibility projection. Added focused regression proof for locator refresh, startup gate refresh, and tandem guard refresh. | `partial-pass` | Keep the remaining writer/mutation cutover bounded: stale-write preconditions, reviewer checkpoint/promotion paths, and the last bridge-text-only tandem checks still need typed/current-session or later collaboration-session authority before bridge prose can retire from live truth entirely. |
 | `2026-03-26T00:38:51Z` | `CODEX` | Live operator review found the conductor contract was still too loose in two concrete places: reviewer prompts allowed lane fanout without fail-closed worktree checks, and reviewer freshness/hash truth still absorbed advisory artifacts like `convo.md` and `dev/audits/**` into live follow-up scope. Tightened the runtime so non-audit reviewer hash comparisons ignore those advisory artifacts, the conductor prompt now stays conductor-only when listed lane worktrees are missing instead of improvising live-repo fallback lanes, and the default planned anti-compaction rollover threshold moved from 50% to 20% remaining context. | `in-progress` | Re-run focused review-channel proof plus tooling/docs governance, then confirm a fresh launch/rollover dry-run advertises the tightened worktree and rollover contract. |
 
 ## Session Resume
@@ -1727,25 +1728,26 @@ Complete this table only after all active swarm lanes are merged.
 - Current status: this plan remains active; start from the highest-priority
   open item in `## Execution Checklist` and the latest dated entry in
   `## Progress Log`.
-- Next action: finish the remaining writer/mutation and guard-consumer side of
-  the typed `current_session` cutover so `startup-context`,
-  `check_tandem_consistency`, and guarded push/preflight stop depending on
-  bridge prose for live freshness, while keeping `bridge.md` as a
-  compatibility projection and leaving full registry-driven N-agent routing in
-  Phase 3. Keep the newly mapped maintainability tranche explicit while doing
-  that work: the phase is not done until the review-channel module family is
-  materially smaller and `test_review_channel.py` has been split into
-  feature-scoped suites. The next controller-consumer splice is explicit too:
-  startup/work-intake and reviewer/implementer scheduling should stop reading
-  `current_session` alone and start consuming `agent_registry` plus the typed
-  queue/attention bundle that already powers the live status surfaces. The
-  same slice must also stop prompts/guards/projections from teaching repo-root
-  `bridge.md` or VoiceTerm plan paths as default authority while the bridge
-  remains a compatibility projection. For the active architecture-audit loop
-  running through this surface, keep Claude as the primary broad finder and
-  Codex as the verifier/controller; `dev/audits/architecture_alignment.md`
-  is the shared ledger, while `MASTER_PLAN` plus the scoped plans remain the
-  execution owners.
+- Next action: keep the remaining writer/mutation side of the typed
+  `current_session` cutover bounded now that startup/tandem/push consumers
+  refresh the typed projection first. Stale-write preconditions,
+  reviewer-checkpoint/promotion paths, and the last bridge-text-only tandem
+  checks still need typed or later `CollaborationSession` authority before
+  `bridge.md` can stop acting like a live freshness source. Keep the newly
+  mapped maintainability tranche explicit while doing that work: the phase is
+  not done until the review-channel module family is materially smaller and
+  `test_review_channel.py` has been split into feature-scoped suites. The
+  next controller-consumer splice is explicit too: startup/work-intake and
+  reviewer/implementer scheduling should stop reading `current_session` alone
+  and start consuming `agent_registry` plus the typed queue/attention bundle
+  that already powers the live status surfaces. The same slice must also stop
+  prompts/guards/projections from teaching repo-root `bridge.md` or VoiceTerm
+  plan paths as default authority while the bridge remains a compatibility
+  projection. For the active architecture-audit loop running through this
+  surface, keep Claude as the primary broad finder and Codex as the
+  verifier/controller; `dev/audits/architecture_alignment.md` is the shared
+  ledger, while `MASTER_PLAN` plus the scoped plans remain the execution
+  owners.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

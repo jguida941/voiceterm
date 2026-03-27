@@ -3897,6 +3897,14 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-03-27 consumer-refresh follow-up landed: the same authority-closure
+  lane now refreshes the bridge-backed typed review-state projection before
+  startup/tandem/push consumers read live `current_session` or review
+  freshness. That keeps stale `latest/review_state.json` snapshots from
+  outranking the repo-owned status writer while `bridge.md` remains a
+  compatibility projection. The next same-lane work narrows to
+  writer/mutation authority, the last bridge-text-only tandem checks, and the
+  separate governed-push publish-vs-post-push truth contract.
 - 2026-03-27 authority-closure tranche 1 landed: typed startup authority now
   uses the governed `review_state.json` path or fails closed instead of
   trusting `bridge.md` prose, and `ProjectGovernance` doc/plan entries now
@@ -4618,6 +4626,15 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-27: Followed the authority-closure patch through the remaining
+  startup/tandem/push consumers instead of leaving it at docs plus one gate.
+  The shared review-state locator can now refresh the bridge-backed typed
+  projection before live consumers read it, `startup-context` plus the
+  governed push gate inherit that fresher current-session truth, and
+  `check_tandem_consistency` now reads the refreshed typed projection instead
+  of trusting a stale on-disk snapshot. Added focused regressions for the
+  locator, startup gate, and tandem guard, plus reran the startup/tandem/push
+  pytest suites.
 - 2026-03-27: Landed the first bounded authority-closure patch instead of
   leaving the external-review translation as owner-doc intent only.
   `ProjectGovernance` runtime entries now carry typed artifact/scope

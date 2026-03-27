@@ -207,6 +207,14 @@ If you want the matching desktop companion for the same repo-backed workflow,
 launch `./scripts/operator_console.sh` from a source checkout. Both companion
 surfaces are optional and do not replace the normal overlay.
 
+If the companion workflow looks stale, rerun
+`python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
+or `python3 dev/scripts/devctl.py startup-context --format md` from that same
+checkout. Those commands refresh the live typed review-state snapshot before
+trusting saved `review_state.json` projections. If they report
+`checkpoint_required`, cut a checkpoint before retrying `Start Swarm`,
+`Launch Live`, or a new implementation slice.
+
 If install/import fails, start with
 [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md) and
 `app/ios/VoiceTermMobileApp/README.md`.

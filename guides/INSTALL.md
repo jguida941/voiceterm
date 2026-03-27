@@ -301,6 +301,14 @@ The matching iPhone/iPad companion uses the same repo-visible live bundle from
 the source checkout. See [app/ios/README.md](../app/ios/README.md) if you want
 the mobile surface as well.
 
+If either companion surface looks stale, rerun
+`python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
+or `python3 dev/scripts/devctl.py startup-context --format md` from that same
+checkout. Both commands refresh the live typed review-state snapshot before
+trusting saved `review_state.json` projections. If they report
+`checkpoint_required`, cut a checkpoint before retrying `Start Swarm`,
+`Launch Live`, or a new implementation slice.
+
 ## After install: run in your project
 
 Run VoiceTerm from your project directory, or set `VOICETERM_CWD`.

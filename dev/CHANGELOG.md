@@ -36,6 +36,10 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### Tooling
 
+- Refresh the bridge-backed typed `review_state.json` projection before
+  `startup-context`, tandem-consistency checks, and governed push/preflight
+  consumers trust live `current_session` freshness, so stale saved review
+  artifacts no longer outrank the repo-owned review status writer.
 - Add `runtime/role_profile.py` with `TandemRole`, `RoleProfile`,
   `TandemProfile`, and `role_for_provider()` as the provider-agnostic contract
   for the review/code tandem loop.

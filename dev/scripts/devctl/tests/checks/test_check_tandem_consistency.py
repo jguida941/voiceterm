@@ -361,6 +361,63 @@ class TestBuildReport:
         assert hash_check["matches_current"] is False
         assert hash_check["ok"] is False
 
+    @mock.patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
+    def test_build_report_uses_refreshed_typed_review_state(
+        self,
+        refresh_status_snapshot_mock,
+        tmp_path: Path,
+    ) -> None:
+        bridge_path = tmp_path / "bridge.md"
+        bridge_text = _bridge()
+        bridge_path.write_text(bridge_text, encoding="utf-8")
+        active_dir = tmp_path / "dev" / "active"
+        active_dir.mkdir(parents=True)
+        (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+        (active_dir / "INDEX.md").write_text("# Index\n", encoding="utf-8")
+        (active_dir / "MASTER_PLAN.md").write_text("# Master Plan\n", encoding="utf-8")
+        (active_dir / "review_channel.md").write_text(
+            "# Review Channel\n",
+            encoding="utf-8",
+        )
+        state_path = (
+            tmp_path / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+        )
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(
+            json.dumps(_typed_state(claude_ack_current=True)),
+            encoding="utf-8",
+        )
+
+        def _refresh(*, repo_root, bridge_path, review_channel_path, output_root):
+            state_path.write_text(
+                json.dumps(_typed_state(claude_ack_current=False)),
+                encoding="utf-8",
+            )
+            return type(
+                "Snapshot",
+                (),
+                {
+                    "projection_paths": type(
+                        "ProjectionPaths",
+                        (),
+                        {"review_state_path": str(state_path)},
+                    )()
+                },
+            )()
+
+        refresh_status_snapshot_mock.side_effect = _refresh
+
+        report = build_report(bridge_text=bridge_text, repo_root=tmp_path)
+
+        assert report["ok"] is False
+        ack_check = next(
+            check
+            for check in report["checks"]
+            if check["check"] == "implementer_ack_freshness"
+        )
+        assert ack_check["ok"] is False
+        assert ack_check["tranche_aligned"] is False
+
 
 class TestRenderMd:
     def test_markdown_output(self):
@@ -577,6 +634,21 @@ class TestTypedPathBuildReport:
         (state_dir / "review_state.json").write_text(
             json.dumps(_typed_state()), encoding="utf-8"
         )
-        with _mock_hash_matching():
+        with (
+            _mock_hash_matching(),
+            mock.patch(
+                "dev.scripts.devctl.runtime.review_state_locator.active_path_config_is_overridden",
+                return_value=True,
+            ),
+            mock.patch(
+                "dev.scripts.devctl.runtime.review_state_locator.active_path_config",
+                return_value=mock.Mock(
+                    review_status_dir_rel="dev/reports/review_channel/latest",
+                    review_state_candidates=(
+                        "dev/reports/review_channel/projections/latest/review_state.json",
+                    )
+                ),
+            ),
+        ):
             report = build_report(bridge_text=text, repo_root=tmp_path)
         assert report["typed_review_state_available"] is True

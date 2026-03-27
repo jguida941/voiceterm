@@ -309,7 +309,11 @@ Three quality layers matter in practice:
     fresh receipt instead of silently starting new work from ad hoc session
     state. The adjacent typed review-state reads in startup/tandem consumers
     now resolve through repo-pack/governance candidate paths rather than one
-    fixed `dev/reports/review_channel/latest/review_state.json` literal.
+    fixed `dev/reports/review_channel/latest/review_state.json` literal. Those
+    same consumers now refresh the bridge-backed typed projection through the
+    repo-owned review status path before reading live `current_session` /
+    freshness fields, so stale saved snapshots do not outrank the status
+    writer.
   - Treat that startup/governance path as the portable authority rule for new
     work too: reusable runtime/tooling layers should resolve docs, plans,
     artifact roots, and review-channel state through `ProjectGovernance` /
