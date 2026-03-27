@@ -5997,3 +5997,16 @@ typed `review_state` stays the canonical machine authority, while `bridge.md`
 is the temporary repo-owned compatibility projection for this repo's current
 loop and the documented path roots are examples resolved through
 `ProjectGovernance` / repo-pack state, not universal defaults.
+
+### 2026-03-27 - Governed push now follows the real parent command lifetime
+
+Fact: the next push failure shape on `feature/governance-quality-sweep` was
+not a git-policy miss. The branch did reach `origin`, but the local `devctl
+push --execute` session looked wedged because the shared live-output runner
+waited for stdout EOF even after the parent push/post-push process had
+already exited. A descendant inherited the pipe, so command completion was
+incorrectly tied to descendant stdout lifetime instead of the actual parent
+step. The fix keeps a short post-exit drain window for buffered lines, then
+ends the step based on parent-process completion; a regression test now
+proves the runner does not time out when a child inherits stdout after the
+parent command has finished.

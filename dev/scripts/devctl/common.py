@@ -17,6 +17,7 @@ FAILURE_OUTPUT_MAX_LINES = 60
 FAILURE_OUTPUT_MAX_CHARS = 8000
 INTERRUPT_KILL_GRACE_SECONDS = 3.0
 LIVE_OUTPUT_TIMEOUT_SECONDS = 1800.0
+POST_EXIT_STDOUT_DRAIN_SECONDS = 0.1
 
 # Keep the shared module object and legacy common-io helpers visible so
 # existing imports and patch targets keep working after the split.
@@ -100,6 +101,7 @@ def _run_with_live_output(
             raise
     timeout_seconds = _resolve_live_output_timeout_seconds()
     deadline = time.monotonic() + timeout_seconds if timeout_seconds > 0 else None
+    post_exit_drain_deadline: float | None = None
     line_queue: queue.Queue[object] = queue.Queue()
     reader = threading.Thread(
         target=_enqueue_stdout_lines,
@@ -110,20 +112,49 @@ def _run_with_live_output(
 
     try:
         while True:
-            if deadline is not None and time.monotonic() >= deadline:
+            parent_exited = process.poll() is not None
+            if parent_exited and post_exit_drain_deadline is None:
+                post_exit_drain_deadline = time.monotonic() + POST_EXIT_STDOUT_DRAIN_SECONDS
+
+            if parent_exited and line_queue.empty() and (
+                not reader.is_alive()
+                or (
+                    post_exit_drain_deadline is not None
+                    and time.monotonic() >= post_exit_drain_deadline
+                )
+            ):
+                break
+
+            if not parent_exited and deadline is not None and time.monotonic() >= deadline:
                 _terminate_subprocess_tree(process)
                 timeout_message = f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
                 output_tail.append(timeout_message)
                 return 124, "\n".join(output_tail)
 
             wait_timeout = 0.25
-            if deadline is not None:
+            if parent_exited and post_exit_drain_deadline is not None:
+                wait_timeout = max(
+                    0.0,
+                    min(wait_timeout, post_exit_drain_deadline - time.monotonic()),
+                )
+            elif deadline is not None:
                 wait_timeout = max(0.0, min(wait_timeout, deadline - time.monotonic()))
 
             try:
                 line = line_queue.get(timeout=wait_timeout)
             except queue.Empty:
-                if process.poll() is not None and not reader.is_alive() and line_queue.empty():
+                if process.poll() is None:
+                    continue
+
+                if post_exit_drain_deadline is None:
+                    post_exit_drain_deadline = (
+                        time.monotonic() + POST_EXIT_STDOUT_DRAIN_SECONDS
+                    )
+
+                if line_queue.empty() and (
+                    not reader.is_alive()
+                    or time.monotonic() >= post_exit_drain_deadline
+                ):
                     break
                 continue
 

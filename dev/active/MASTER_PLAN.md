@@ -460,6 +460,13 @@
   startup/status/receipts to distinguish "published" from "post-push green"
   so agents and operators do not mistake a remote update for full contract
   success.
+- 2026-03-27 governed-push session-lifetime fix: the shared `devctl`
+  live-output runner now stops following inherited stdout lifetime once the
+  parent push/post-push command has exited, after a short bounded drain for
+  buffered lines. This closes the "remote already updated but local push
+  session looks wedged" failure shape exposed during the authority-leak
+  tranche checkpoint push and keeps governed push completion tied to the real
+  command contract instead of detached descendant pipe ownership.
 - Current deterministic self-governance closure rule after the 2026-03-21
   guard audit: do not treat more guard count or richer graph semantics as
   progress while typed/runtime authority still lies. First close the cheap
