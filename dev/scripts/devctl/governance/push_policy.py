@@ -31,6 +31,14 @@ class PushPostPushPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class PushBypassPolicy:
+    """Policy-gated bypass controls for the canonical push flow."""
+
+    allow_skip_preflight: bool = False
+    allow_skip_post_push: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class PushCheckpointPolicy:
     """Deterministic checkpoint budget for local editing before push."""
 
@@ -59,6 +67,7 @@ class PushPolicy:
     allowed_branch_prefixes: tuple[str, ...]
     preflight: PushPreflightPolicy
     post_push: PushPostPushPolicy
+    bypass: PushBypassPolicy
     checkpoint: PushCheckpointPolicy
 
 
@@ -120,6 +129,7 @@ def push_policy_from_payload(
         push_payload.get("post_push"),
         warning_list,
     )
+    bypass = _parse_bypass_policy(push_payload.get("bypass"))
     checkpoint = _parse_checkpoint_policy(
         push_payload.get("checkpoint"),
         warning_list,
@@ -136,6 +146,7 @@ def push_policy_from_payload(
         allowed_branch_prefixes=_dedupe(allowed_prefixes),
         preflight=preflight,
         post_push=post_push,
+        bypass=bypass,
         checkpoint=checkpoint,
     )
 
@@ -154,6 +165,10 @@ def build_push_command_routing_defaults(policy: PushPolicy) -> dict[str, object]
         "execute": policy.preflight.execute,
     }
     push_defaults["post_push"] = {"bundle": policy.post_push.bundle}
+    push_defaults["bypass"] = {
+        "allow_skip_preflight": policy.bypass.allow_skip_preflight,
+        "allow_skip_post_push": policy.bypass.allow_skip_post_push,
+    }
     push_defaults["checkpoint"] = {
         "max_dirty_paths_before_checkpoint": (
             policy.checkpoint.max_dirty_paths_before_checkpoint
@@ -201,8 +216,7 @@ def build_post_push_commands(
 
 
 def _coerce_text(value: object, fallback: str) -> str:
-    text = str(value or "").strip()
-    return text or fallback
+    return str(value or "").strip() or fallback
 
 
 def _coerce_text_items(
@@ -222,6 +236,12 @@ def _coerce_positive_int(value: object, *, fallback: int) -> int:
     except (TypeError, ValueError):
         return fallback
     return parsed if parsed > 0 else fallback
+
+
+def _coerce_mapping(value: object) -> dict[str, object]:
+    if isinstance(value, dict):
+        return value
+    return {}
 
 
 def _dedupe(values: tuple[str, ...]) -> tuple[str, ...]:
@@ -276,6 +296,15 @@ def _parse_post_push_policy(
     return PushPostPushPolicy(bundle=bundle)
 
 
+def _parse_bypass_policy(payload: object) -> PushBypassPolicy:
+    if not isinstance(payload, dict):
+        return PushBypassPolicy()
+    return PushBypassPolicy(
+        allow_skip_preflight=bool(payload.get("allow_skip_preflight", False)),
+        allow_skip_post_push=bool(payload.get("allow_skip_post_push", False)),
+    )
+
+
 def _parse_checkpoint_policy(
     payload: object,
     warnings: list[str],
@@ -287,18 +316,14 @@ def _parse_checkpoint_policy(
             "repo_governance.push.checkpoint must be an object; using defaults."
         )
         return PushCheckpointPolicy()
-    raw_compat = payload.get("compatibility_projection_paths")
-    compat_paths: tuple[str, ...] = ()
-    if isinstance(raw_compat, list):
-        compat_paths = tuple(
-            str(p).strip() for p in raw_compat if str(p or "").strip()
-        )
-    raw_advisory = payload.get("advisory_context_paths")
-    advisory_paths: tuple[str, ...] = ()
-    if isinstance(raw_advisory, list):
-        advisory_paths = tuple(
-            str(p).strip() for p in raw_advisory if str(p or "").strip()
-        )
+    compat_paths = _coerce_text_items(
+        payload.get("compatibility_projection_paths"),
+        fallback=(),
+    )
+    advisory_paths = _coerce_text_items(
+        payload.get("advisory_context_paths"),
+        fallback=(),
+    )
     return PushCheckpointPolicy(
         max_dirty_paths_before_checkpoint=_coerce_positive_int(
             payload.get("max_dirty_paths_before_checkpoint"),
@@ -314,15 +339,12 @@ def _parse_checkpoint_policy(
 
 
 def _resolve_repo_pack_id(payload: dict[str, object], *, repo_root: Path) -> str:
-    surface_generation = payload.get("repo_governance")
-    if isinstance(surface_generation, dict):
-        section = surface_generation.get("surface_generation")
-        if isinstance(section, dict):
-            metadata = section.get("repo_pack_metadata")
-            if isinstance(metadata, dict):
-                pack_id = str(metadata.get("pack_id") or "").strip()
-                if pack_id:
-                    return pack_id
+    repo_governance = _coerce_mapping(payload.get("repo_governance"))
+    surface_generation = _coerce_mapping(repo_governance.get("surface_generation"))
+    metadata = _coerce_mapping(surface_generation.get("repo_pack_metadata"))
+    pack_id = str(metadata.get("pack_id") or "").strip()
+    if pack_id:
+        return pack_id
     repo_name = str(payload.get("repo_name") or "").strip()
     if repo_name:
         return repo_name.lower().replace(" ", "_")

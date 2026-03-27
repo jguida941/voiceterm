@@ -9,16 +9,18 @@ from typing import Any
 from ...collect import collect_git_status
 from ...common import emit_output, pipe_output, run_cmd, write_output
 from ...config import REPO_ROOT
-from ...governance.push_policy import (
-    build_post_push_commands,
-    load_push_policy,
-)
+from ...governance.push_policy import build_post_push_commands, load_push_policy
 from ...governance.push_routing import PushRefRoutingState, build_preflight_shell_command
 from ...governance.push_state import current_upstream_ref
 from ...runtime import ActionResult, TypedAction
 from ...runtime.startup_context import build_startup_context
 from ...runtime.vcs import branch_divergence, remote_branch_exists, remote_exists
-from .push_report import PushReportInputs, build_push_report, render_push_report
+from .push_flow import PushFlowOutcome, execute_push_flow_with_dependencies
+from .push_report import (
+    PushReportInputs,
+    build_push_report,
+    render_push_report,
+)
 
 REQUESTED_BY = "devctl.push"
 
@@ -68,6 +70,7 @@ def _load_run_state(policy, args) -> PushRunState:
     state = PushRunState()
     state.remote = str(args.remote or policy.default_remote).strip() or policy.default_remote
     state.warnings.extend(policy.warnings)
+    _append_bypass_policy_errors(state, policy, args)
     git = collect_git_status()
     if "error" in git:
         state.errors.append(str(git["error"]))
@@ -96,6 +99,21 @@ def _load_run_state(policy, args) -> PushRunState:
         state.errors.append(f"Remote `{state.remote}` is not configured.")
     _append_startup_push_gate_errors(state)
     return state
+
+
+def _append_bypass_policy_errors(state: PushRunState, policy, args) -> None:
+    if args.skip_preflight and not policy.bypass.allow_skip_preflight:
+        state.errors.append(
+            "Repo policy blocks `--skip-preflight` for `devctl push`. "
+            "Remove the flag or enable "
+            "`repo_governance.push.bypass.allow_skip_preflight`."
+        )
+    if args.skip_post_push and not policy.bypass.allow_skip_post_push:
+        state.errors.append(
+            "Repo policy blocks `--skip-post-push` for `devctl push`. "
+            "Remove the flag or enable "
+            "`repo_governance.push.bypass.allow_skip_post_push`."
+        )
 
 
 def _append_startup_push_gate_errors(state: PushRunState) -> None:
@@ -170,80 +188,14 @@ def _record_divergence(state: PushRunState, remote: str, branch: str) -> bool:
     return True
 
 
-def _execute_push_flow(state: PushRunState, policy, args) -> tuple[bool, str, str, str]:
-    if state.errors:
-        return (
-            False,
-            "blocked",
-            "validation_failed",
-            "Fix the reported policy or preflight failures, then rerun `devctl push`.",
-        )
-    if state.branch_has_remote and state.ahead == 0:
-        return (
-            True,
-            "already-synced",
-            "branch_already_pushed",
-            "No push is required; the current branch already matches the remote.",
-        )
-    if not args.execute:
-        return (
-            True,
-            "ready",
-            "execute_flag_required",
-            "Validation passed. Re-run with `--execute` to push this branch.",
-        )
-
-    push_cmd = ["git", "push", state.remote, state.branch]
-    if not state.branch_has_remote:
-        push_cmd = ["git", "push", "--set-upstream", state.remote, state.branch]
-    state.push_step = run_cmd("git-push", push_cmd, cwd=REPO_ROOT)
-    if state.push_step["returncode"] != 0:
-        return (
-            False,
-            "push-failed",
-            "git_push_failed",
-            "Inspect the push failure, repair the git state, and rerun `devctl push --execute`.",
-        )
-    if args.skip_post_push:
-        return (
-            True,
-            "pushed",
-            "push_completed",
-            "Push completed. Post-push bundle was skipped for this run.",
-        )
-    if _run_post_push_bundle(state, policy, getattr(args, "quality_policy", None)):
-        return (
-            True,
-            "pushed",
-            "push_completed",
-            "Push and post-push audit completed successfully.",
-        )
-    return (
-        False,
-        "post-push-failed",
-        "post_push_bundle_failed",
-        "The branch was pushed, but the post-push bundle failed. Fix the failure before merge.",
+def _execute_push_flow(state: PushRunState, policy, args) -> PushFlowOutcome:
+    return execute_push_flow_with_dependencies(
+        state,
+        policy,
+        args,
+        run_cmd_fn=run_cmd,
+        build_post_push_commands_fn=build_post_push_commands,
     )
-
-
-def _run_post_push_bundle(
-    state: PushRunState,
-    policy,
-    quality_policy_path: str | None,
-) -> bool:
-    for index, command in enumerate(
-        build_post_push_commands(policy, quality_policy_path=quality_policy_path),
-        start=1,
-    ):
-        step = run_cmd(
-            f"push-post-{index:02d}",
-            ["bash", "-lc", command],
-            cwd=REPO_ROOT,
-        )
-        state.post_push_steps.append(step)
-        if step["returncode"] != 0:
-            return False
-    return True
 
 
 def _summarize_dirty_paths(
@@ -302,7 +254,7 @@ def run(args) -> int:
     policy = load_push_policy(policy_path=getattr(args, "quality_policy", None))
     state = _load_run_state(policy, args)
     _run_fetch_and_preflight(state, policy, args)
-    ok, status, reason, operator_guidance = _execute_push_flow(state, policy, args)
+    outcome = _execute_push_flow(state, policy, args)
     typed_action = asdict(
         _build_typed_action(
             repo_pack_id=policy.repo_pack_id,
@@ -312,12 +264,12 @@ def run(args) -> int:
         )
     )
     action_result = _build_action_result(
-        status=status,
-        reason=reason,
-        ok=ok,
+        status=outcome.status,
+        reason=outcome.reason,
+        ok=outcome.ok,
         warnings=state.warnings,
-        partial_progress=status == "post-push-failed",
-        operator_guidance=operator_guidance,
+        partial_progress=outcome.partial_progress,
+        operator_guidance=outcome.operator_guidance,
     ).to_dict()
     report_inputs = PushReportInputs(
         policy=policy,
@@ -331,6 +283,7 @@ def run(args) -> int:
         preflight_step=state.preflight_step,
         push_step=state.push_step,
         post_push_steps=state.post_push_steps,
+        push_stages=outcome.stages,
         typed_action=typed_action,
         action_result=action_result,
         warnings=state.warnings,
@@ -348,4 +301,4 @@ def run(args) -> int:
     )
     if pipe_rc != 0:
         return pipe_rc
-    return 0 if ok else 1
+    return 0 if outcome.ok else 1

@@ -231,13 +231,12 @@ def run(args) -> int:
                 if warning not in warnings:
                     warnings.append(warning)
             push_command._run_fetch_and_preflight(push_state, policy, push_args)
-            push_ok, push_status, _push_reason, operator_guidance = (
-                push_command._execute_push_flow(push_state, policy, push_args)
-            )
+            push_outcome = push_command._execute_push_flow(push_state, policy, push_args)
             _append_governed_push_steps(branch_row, push_state)
-            if not push_ok:
+            if not push_outcome.ok:
                 message = (
-                    f"Governed push failed for '{branch}': {operator_guidance}"
+                    f"Governed push failed for '{branch}': "
+                    f"{push_outcome.operator_guidance}"
                 )
                 branch_row["status"] = "push-failed"
                 branch_row["notes"].append(message)

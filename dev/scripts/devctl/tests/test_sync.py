@@ -8,6 +8,7 @@ from unittest.mock import patch
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import sync
 from dev.scripts.devctl.governance.push_policy import (
+    PushBypassPolicy,
     PushCheckpointPolicy,
     PushPolicy,
     PushPostPushPolicy,
@@ -44,6 +45,7 @@ def make_policy(**overrides) -> PushPolicy:
         "allowed_branch_prefixes": ("feature/", "fix/"),
         "preflight": PushPreflightPolicy(),
         "post_push": PushPostPushPolicy(),
+        "bypass": PushBypassPolicy(),
         "checkpoint": PushCheckpointPolicy(),
     }
     defaults.update(overrides)
@@ -197,11 +199,9 @@ class SyncCommandTests(unittest.TestCase):
             },
             post_push_steps=[],
         )
-        execute_push_flow_mock.return_value = (
-            True,
-            "pushed",
-            "push_completed",
-            "Push completed.",
+        execute_push_flow_mock.return_value = SimpleNamespace(
+            ok=True,
+            operator_guidance="Push completed.",
         )
         branch_divergence_mock.side_effect = [
             {"behind": 0, "ahead": 2, "error": None},

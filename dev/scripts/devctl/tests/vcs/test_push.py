@@ -10,6 +10,7 @@ from unittest.mock import patch
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.vcs import push
 from dev.scripts.devctl.governance.push_policy import (
+    PushBypassPolicy,
     PushCheckpointPolicy,
     PushPolicy,
     PushPostPushPolicy,
@@ -46,6 +47,7 @@ def make_policy(**overrides) -> PushPolicy:
         "allowed_branch_prefixes": ("feature/", "fix/"),
         "preflight": PushPreflightPolicy(),
         "post_push": PushPostPushPolicy(),
+        "bypass": PushBypassPolicy(),
         "checkpoint": PushCheckpointPolicy(),
     }
     values.update(overrides)
@@ -60,6 +62,7 @@ def make_policy(**overrides) -> PushPolicy:
         allowed_branch_prefixes=values["allowed_branch_prefixes"],
         preflight=values["preflight"],
         post_push=values["post_push"],
+        bypass=values["bypass"],
         checkpoint=values["checkpoint"],
     )
 
@@ -302,7 +305,15 @@ class PushCommandTests(unittest.TestCase):
             ],
         )
         payload = json.loads(write_output_mock.call_args.args[0])
-        self.assertEqual(payload["status"], "ready")
+        self.assertEqual(payload["status"], "validation_ready")
+        self.assertEqual(
+            payload["push_stages"],
+            {
+                "validation_ready": True,
+                "published_remote": False,
+                "post_push_green": False,
+            },
+        )
         self.assertEqual(payload["typed_action"]["action_id"], "vcs.push")
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
@@ -393,7 +404,15 @@ class PushCommandTests(unittest.TestCase):
         executed = [call.args[1] for call in run_cmd_mock.call_args_list]
         self.assertIn(["git", "push", "--set-upstream", "origin", "feature/demo"], executed)
         payload = json.loads(write_output_mock.call_args.args[0])
-        self.assertEqual(payload["status"], "pushed")
+        self.assertEqual(payload["status"], "post_push_green")
+        self.assertEqual(
+            payload["push_stages"],
+            {
+                "validation_ready": True,
+                "published_remote": True,
+                "post_push_green": True,
+            },
+        )
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
@@ -426,6 +445,223 @@ class PushCommandTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "blocked")
         self.assertIn("Startup push gate blocks", payload["errors"][0])
+
+    @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    def test_push_rejects_skip_preflight_when_policy_disallows_bypass(
+        self,
+        build_startup_context_mock,
+        collect_git_status_mock,
+        load_policy_mock,
+        _remote_exists_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_policy_mock.return_value = make_policy()
+        build_startup_context_mock.return_value = _startup_context()
+
+        rc = push.run(make_args(skip_preflight=True))
+
+        self.assertEqual(rc, 1)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["status"], "blocked")
+        self.assertIn("Repo policy blocks `--skip-preflight`", payload["errors"][0])
+
+    @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    def test_push_rejects_skip_post_push_when_policy_disallows_bypass(
+        self,
+        build_startup_context_mock,
+        collect_git_status_mock,
+        load_policy_mock,
+        _remote_exists_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_policy_mock.return_value = make_policy()
+        build_startup_context_mock.return_value = _startup_context()
+
+        rc = push.run(make_args(skip_post_push=True))
+
+        self.assertEqual(rc, 1)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["status"], "blocked")
+        self.assertIn("Repo policy blocks `--skip-post-push`", payload["errors"][0])
+
+    @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        return_value="",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+        return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
+    )
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False)
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
+    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    def test_push_policy_gated_skip_post_push_reports_remote_publication(
+        self,
+        build_startup_context_mock,
+        run_cmd_mock,
+        collect_git_status_mock,
+        load_policy_mock,
+        _remote_exists_mock,
+        _remote_branch_exists_mock,
+        _preflight_command_mock,
+        _current_upstream_ref_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_policy_mock.return_value = make_policy(
+            bypass=PushBypassPolicy(allow_skip_post_push=True),
+        )
+        build_startup_context_mock.return_value = _startup_context()
+        run_cmd_mock.side_effect = [
+            {
+                "name": "git-fetch",
+                "cmd": ["git", "fetch", "origin"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "push-preflight",
+                "cmd": [
+                    "bash",
+                    "-lc",
+                    "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
+                ],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "git-push",
+                "cmd": ["git", "push", "--set-upstream", "origin", "feature/demo"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+        ]
+
+        rc = push.run(make_args(execute=True, skip_post_push=True))
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["status"], "published_remote")
+        self.assertEqual(payload["reason"], "post_push_skipped_by_policy")
+        self.assertTrue(payload["action_result"]["partial_progress"])
+        self.assertEqual(
+            payload["push_stages"],
+            {
+                "validation_ready": True,
+                "published_remote": True,
+                "post_push_green": False,
+            },
+        )
+
+    @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.build_post_push_commands",
+        return_value=["git status"],
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        return_value="",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+        return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
+    )
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False)
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
+    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    def test_push_post_push_failure_reports_remote_published_not_green(
+        self,
+        build_startup_context_mock,
+        run_cmd_mock,
+        collect_git_status_mock,
+        load_policy_mock,
+        _remote_exists_mock,
+        _remote_branch_exists_mock,
+        _preflight_command_mock,
+        _current_upstream_ref_mock,
+        _post_push_commands_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_policy_mock.return_value = make_policy()
+        build_startup_context_mock.return_value = _startup_context()
+        run_cmd_mock.side_effect = [
+            {
+                "name": "git-fetch",
+                "cmd": ["git", "fetch", "origin"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "push-preflight",
+                "cmd": [
+                    "bash",
+                    "-lc",
+                    "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
+                ],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "git-push",
+                "cmd": ["git", "push", "--set-upstream", "origin", "feature/demo"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "push-post-01",
+                "cmd": ["bash", "-lc", "git status"],
+                "cwd": ".",
+                "returncode": 1,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+        ]
+
+        rc = push.run(make_args(execute=True))
+
+        self.assertEqual(rc, 1)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["status"], "published_remote")
+        self.assertEqual(payload["reason"], "post_push_bundle_failed")
+        self.assertTrue(payload["action_result"]["partial_progress"])
+        self.assertEqual(
+            payload["push_stages"],
+            {
+                "validation_ready": True,
+                "published_remote": True,
+                "post_push_green": False,
+            },
+        )
 
     def test_build_preflight_shell_command_prefers_remote_branch_when_it_exists(self) -> None:
         policy = make_policy()

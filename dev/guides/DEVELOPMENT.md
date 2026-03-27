@@ -639,6 +639,11 @@ Workflow permissions note:
 3. If `push_decision=await_review`, pause until reviewer-owned acceptance is current, then rerun `startup-context`.
 4. If `push_decision=run_devctl_push`, prefer `python3 dev/scripts/devctl.py push` for the canonical non-mutating validation path.
 5. Re-run `python3 dev/scripts/devctl.py push --execute` after validation and explicit review go-ahead when you are ready to push the current short-lived branch.
+   The guarded push flow now reports typed stage truth (`validation_ready`,
+   `published_remote`, `post_push_green`) so remote publication is not
+   mistaken for full post-push green, and `--skip-preflight` /
+   `--skip-post-push` only work when repo policy explicitly allows those
+   bypasses.
    The shared `devctl` command runner now follows the parent push/post-push
    command lifetime instead of waiting forever on inherited descendant stdout
    pipes after the governed push has already completed.

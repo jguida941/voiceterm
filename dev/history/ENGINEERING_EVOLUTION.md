@@ -84,6 +84,56 @@ Evidence:
 - `dev/active/platform_authority_loop.md`
 - `dev/active/portable_code_governance.md`
 
+### 2026-03-27 - Governed push now reports publication truth in stages instead of one overloaded success state
+
+Fact: the repo closed the bounded governed-push contract gap that was still
+mixing "remote updated" with "post-push green." `repo_governance.push` now
+includes explicit bypass policy for `--skip-preflight` / `--skip-post-push`,
+the canonical `devctl push` report carries typed stage truth
+(`validation_ready`, `published_remote`, `post_push_green`), and the same
+policy/contract now flows through `sync` and governance-draft output instead
+of living only inside one command implementation.
+
+This matters because the live 2026-03-27 push proved a branch can publish
+before the broader post-push bundle finishes green. The repo now records that
+truth directly in the command contract rather than teaching one generic
+"push succeeded" state that hides the difference.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_report.py`
+- `dev/scripts/devctl/governance/push_policy.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/portable_code_governance.md`
+
+### 2026-03-27 - The owner chain now records one restartable separation tranche instead of scattered reminders
+
+Fact: the repo re-audited the VoiceTerm-versus-platform split and confirmed the
+architecture direction was already present in the active plans. The missing
+piece was not another roadmap; it was a compact restartable owner chain plus
+an explicit blocking tranche. `MASTER_PLAN` now points at one owner table,
+`ai_governance_platform` records the blocking separation tranche with exit
+criteria, `platform_authority_loop` turns docs-boundary plus publish-truth
+work into checklist scope, `portable_code_governance` records its proof-only
+ownership, and the shared architecture audit now starts with a routing table
+instead of acting like a parallel roadmap.
+
+This matters because interrupted sessions were still forcing people to recover
+priority from repeated prose spread across multiple active docs. The repo now
+states the pushback explicitly too: the fix is not "put everything in one
+directory." The fix is a layered split between governance core/runtime,
+adapters/frontends, repo packs, and VoiceTerm as a product integration.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/portable_code_governance.md`
+- `dev/audits/architecture_alignment.md`
+
 ### 2026-03-26 - The repo stopped treating markdown cleanup as a delete-first exercise
 
 Fact: the repo's own documentation sprawl is now treated as an architecture and

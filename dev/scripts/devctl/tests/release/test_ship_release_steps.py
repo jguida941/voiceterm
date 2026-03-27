@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.commands.ship_release_steps import run_tag_step
 from dev.scripts.devctl.governance.push_policy import (
+    PushBypassPolicy,
     PushCheckpointPolicy,
     PushPolicy,
     PushPostPushPolicy,
@@ -27,6 +28,7 @@ def make_policy(**overrides) -> PushPolicy:
         "allowed_branch_prefixes": ("feature/", "fix/"),
         "preflight": PushPreflightPolicy(),
         "post_push": PushPostPushPolicy(),
+        "bypass": PushBypassPolicy(),
         "checkpoint": PushCheckpointPolicy(),
     }
     defaults.update(overrides)

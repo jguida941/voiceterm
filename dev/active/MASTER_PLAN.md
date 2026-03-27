@@ -34,7 +34,7 @@
 - `dev/active/code_shape_expansion.md` is the research/calibration companion for future code-shape additions under `MP-378`; promotion into implementation still flows through `dev/active/review_probes.md` once Phase 5b evidence gates pass.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-03-17)
+## Status Snapshot (2026-03-27)
 
 - Last tagged release: `v1.1.1` (2026-03-06)
 - Current release target: `post-v1.1.1 planning`
@@ -56,10 +56,35 @@
   `ProjectGovernance -> RepoPack -> PlanRegistry -> PlanTargetRef ->
   WorkIntakePacket -> TypedAction -> ActionResult / RunRecord / Finding ->
   ContextPack`.
+- Current owner chain for the blocking separation tranche:
+
+| Concern | Owner doc | Why |
+|---|---|---|
+| Repo-wide product boundary, docs split, and priority order | `dev/active/ai_governance_platform.md` | main `MP-377` architecture authority |
+| Startup authority, `DocPolicy` / `DocRegistry`, fail-closed defaults, and push packet truth | `dev/active/platform_authority_loop.md` | current subordinate `MP-377` execution spec |
+| Adopter proof, optional capability gating, organization proof, and non-VoiceTerm push semantics | `dev/active/portable_code_governance.md` | narrower `MP-376` companion |
+| Review-channel producer cutover and bridge compatibility retirement | `dev/active/review_channel.md` | subordinate `MP-355` producer lane |
 - Execution order: freeze and extract shared governance/runtime contracts
   first, converge CLI/VoiceTerm/PyQt6/phone on the same backend second,
   rebind VoiceTerm as a first consumer third, then resume broader Theme,
   Memory, and later product lanes.
+- Current blocking separation tranche: do not answer this with one giant
+  directory move or more VoiceTerm user-doc churn. The target repo shape
+  stays layer-based: `governance_core`, `governance_runtime`,
+  `governance_adapters`, `governance_frontends`, `repo_packs`, and
+  `product_integrations`, with VoiceTerm only as the first product
+  integration. The immediate closure bar is fourfold:
+  `DocPolicy` / `DocRegistry` plus artifact-role/scope classification keep
+  VoiceTerm product docs separate from self-hosting/adopter/generated
+  surfaces; portable runtime/startup/docs-check stop reviving VoiceTerm
+  filenames from partial payloads; governed push reports `published`
+  separately from `post-push green` with no unrestricted bypass path; and
+  custom-layout plus optional-capability adopter proof stays green without
+  core patches. Current measured self-hosting baseline: `doc-authority`
+  reports `50` governed docs / `45,484` lines, `19` budget violations,
+  `4` authority overlaps, and `8` consolidation candidates, while
+  `check_package_layout` still reports four frozen crowded roots and seven
+  crowded namespace families.
 - Current immediate `P0` execution order inside that authority-loop lane:
   first clear the blocking pre-spine hardening tranche (daemon attach/auth
   security, autonomy authority boundaries, JSONL/evidence integrity, and
@@ -163,10 +188,11 @@
   raw counts for filesystem inventory only.
 - Current VCS-governance proof point inside that same `P0` lane: the repo now
   has its first repo-pack-owned push-routing contract. `repo_governance.push`
-  owns remote/default-branch/protected-branch rules plus preflight and
-  post-push routing, `devctl push` is the canonical policy-backed branch push
-  surface, and legacy `sync` / release helpers now read the same policy
-  instead of hardcoding GitHub push defaults.
+  owns remote/default-branch/protected-branch rules plus preflight, post-push,
+  and policy-gated bypass routing, `devctl push` now emits typed push-stage
+  truth (`validation_ready`, `published_remote`, `post_push_green`), and
+  legacy `sync` / release helpers now read the same policy instead of
+  hardcoding GitHub push defaults.
 - Current checkpoint-intake follow-up inside that same lane: startup surfaces
   must expose not only whether a push is policy-guarded, but whether the
   current worktree is still within the repo-pack-defined continuation budget.
@@ -454,17 +480,29 @@
   intake conclusions into owner docs, separate development-self-hosting docs
   from adopter/bootstrap surfaces, and use that same contract to shrink the
   live authority surface instead of adding more planning prose.
-- 2026-03-27 governed-push fail-closed correction: `devctl push` is now the
-  canonical branch-push path, but the contract is still not atomic or
-  bypass-proof. The CLI still exposes `--skip-preflight` /
-  `--skip-post-push`, and the 2026-03-27 governed push of this branch proved
-  the remote can advance before a broader post-push bundle fails
-  (`check_code_shape.py --since-ref origin/develop`). Remaining closure under
-  `MP-377` / `MP-376` is now explicit: remove or policy-gate bypass flags,
-  align preflight/post-push scopes with the publish contract, and teach
-  startup/status/receipts to distinguish "published" from "post-push green"
+- 2026-03-27 governed-push fail-closed closure: `devctl push` now reads
+  policy-gated bypass settings from `repo_governance.push.bypass`, reports
+  typed push stages (`validation_ready`, `published_remote`,
+  `post_push_green`), and stops treating remote publication as equivalent to
+  post-push green. The same contract now flows through `sync`, governance
+  draft output, and the repo policy itself. Remaining `MP-377` / `MP-376`
+  closure is adopter proof and authority-surface compression, not ambiguity in
+  branch-push truth.
   so agents and operators do not mistake a remote update for full contract
   success.
+- 2026-03-27 repo-entrance/dev-loop adjudication: accepted two additional
+  same-lane follow-ups without widening the product roadmap. First, keep the
+  root repo entrance split by audience: `README.md` remains the VoiceTerm
+  product/user entrypoint while `MP-377` adds a separate platform/developer
+  entry surface inside the monorepo and only later promotes that surface into
+  the root README of the extracted platform repo. Second, promote
+  self-governance from checkpoint budget alone into bounded-slice discipline:
+  developer-facing implementer surfaces must keep the human/operator as
+  checkpoint/push authority, emit deterministic slice packets for outside
+  review, and eventually render "why continue/checkpoint/review/push" from
+  typed `DecisionTrace` / `current_session` state rather than from bridge/chat
+  prose. Treat this as owner-chain work under `MP-377` / `MP-355`, not as a
+  new architecture doc or another audit-only memo.
 - 2026-03-27 governed-push session-lifetime fix: the shared `devctl`
   live-output runner now stops following inherited stdout lifetime once the
   parent push/post-push command has exited, after a short bounded drain for

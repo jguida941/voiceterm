@@ -2,11 +2,29 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
 
 from ...governance.push_policy import PushPolicy
+
+
+@dataclass(frozen=True, slots=True)
+class PushStageTruth:
+    """Typed push-stage truth for publish vs post-push reporting."""
+
+    validation_ready: bool = False
+    published_remote: bool = False
+    post_push_green: bool = False
+
+    def highest_stage(self) -> str:
+        if self.post_push_green:
+            return "post_push_green"
+        if self.published_remote:
+            return "published_remote"
+        if self.validation_ready:
+            return "validation_ready"
+        return "blocked"
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +42,7 @@ class PushReportInputs:
     preflight_step: dict[str, Any] | None
     push_step: dict[str, Any] | None
     post_push_steps: list[dict[str, Any]]
+    push_stages: PushStageTruth
     typed_action: dict[str, Any]
     action_result: dict[str, Any]
     warnings: list[str]
@@ -49,6 +68,7 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     report["preflight_step"] = inputs.preflight_step
     report["push_step"] = inputs.push_step
     report["post_push_steps"] = inputs.post_push_steps
+    report["push_stages"] = asdict(inputs.push_stages)
     report["policy"] = _build_policy_summary(inputs.policy)
     report["typed_action"] = inputs.typed_action
     report["action_result"] = inputs.action_result
@@ -82,6 +102,17 @@ def render_push_report(report: dict[str, Any]) -> str:
         "- allowed_branch_prefixes: "
         + ", ".join(policy.get("allowed_branch_prefixes", []))
     )
+    bypass = policy.get("bypass") or {}
+    lines.append(f"- allow_skip_preflight: {bypass.get('allow_skip_preflight', False)}")
+    lines.append(f"- allow_skip_post_push: {bypass.get('allow_skip_post_push', False)}")
+    push_stages = report.get("push_stages") or {}
+    if push_stages:
+        lines.append("")
+        lines.append("## Push Stages")
+        lines.append("")
+        lines.append(f"- validation_ready: {push_stages.get('validation_ready')}")
+        lines.append(f"- published_remote: {push_stages.get('published_remote')}")
+        lines.append(f"- post_push_green: {push_stages.get('post_push_green')}")
     typed_action = report.get("typed_action") or {}
     if typed_action:
         lines.append("")
@@ -137,6 +168,10 @@ def _build_policy_summary(policy: PushPolicy) -> dict[str, Any]:
     summary["release_branch"] = policy.release_branch
     summary["protected_branches"] = list(policy.protected_branches)
     summary["allowed_branch_prefixes"] = list(policy.allowed_branch_prefixes)
+    summary["bypass"] = {
+        "allow_skip_preflight": policy.bypass.allow_skip_preflight,
+        "allow_skip_post_push": policy.bypass.allow_skip_post_push,
+    }
     return summary
 
 

@@ -1052,8 +1052,8 @@ Machine-first output note:
 | `docs-check --user-facing` | you changed user docs or user behavior | keeps docs and behavior aligned |
 | `docs-check --strict-tooling` | you changed tooling, workflows, or process docs | enforces governance, active-plan sync, and durable guide coverage contracts |
 | `docs-check --strict-tooling --quality-policy /tmp/pilot-policy.json` | you want the same docs-governance contract in another repo without patching devctl | resolves canonical doc paths and deprecated-command policy from the supplied repo policy file |
-| `push` | you want the canonical repo-owned short-lived branch push validator without mutating git state yet | resolves `repo_governance.push`, checks branch/remote policy, runs the configured preflight, and exits ready/blocked without doing the actual push |
-| `push --execute` | validation passed and you want the repo-owned push path instead of ad-hoc `git push` | runs the same policy-driven validation, performs the branch push, executes the configured post-push bundle, and treats parent-process completion as the terminal step even if detached descendants inherited stdout |
+| `push` | you want the canonical repo-owned short-lived branch push validator without mutating git state yet | resolves `repo_governance.push`, checks branch/remote policy, runs the configured preflight, and emits typed push stages (`validation_ready`, `published_remote`, `post_push_green`) without mutating git state |
+| `push --execute` | validation passed and you want the repo-owned push path instead of ad-hoc `git push` | runs the same policy-driven validation, performs the branch push, executes the configured post-push bundle, reports remote publication separately from post-push green, and only honors `--skip-preflight` / `--skip-post-push` when repo policy explicitly allows those bypasses |
 | `render-surfaces --format md` | you need to inspect repo-pack instruction/starter surfaces or validate drift without writing files | resolves `repo_governance.surface_generation` and reports current sync state for each governed surface |
 | `render-surfaces --write --format md` | you changed a repo-pack template, starter stub, or surface-generation policy context | regenerates the governed outputs in place so `docs-check --strict-tooling` and the standalone guard stay green |
 | `hygiene` | before merge on tooling/process work | catches doc/process drift and leaked runtime test processes |
@@ -1222,7 +1222,8 @@ consistent:
   scope resolution and target derivation for core security scanners.
 - `dev/scripts/devctl/governance/push_policy.py`: repo-governance push-policy
   loader and command builder shared by `push`, `sync`, `ship`, and
-  `governance-draft`.
+  `governance-draft`, including policy-gated bypass rules and staged
+  publication truth.
 - `dev/scripts/devctl/governance/bootstrap_push.py`: starter repo-pack push
   governance detection used by `governance-bootstrap` to seed default remote,
   branch, and guard-routing policy.

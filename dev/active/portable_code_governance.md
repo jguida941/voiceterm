@@ -45,6 +45,14 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 4. Package the system and its reports cleanly enough that a reasoning model or a
    maintainer can inspect the full governance stack outside this repo.
 
+## Ownership Split
+
+| Concern | Owner doc | This plan's role |
+|---|---|---|
+| Canonical docs-authority/runtime split and platform-vs-client boundary | `dev/active/ai_governance_platform.md` | consume the architecture contract; do not replace it |
+| Startup authority, `DocPolicy` / `DocRegistry`, fail-closed defaults, push packet truth | `dev/active/platform_authority_loop.md` | prove the contract works on adopters instead of redefining it |
+| Custom-layout proof, optional-capability proof, organization proof, and adopter-facing push semantics | `dev/active/portable_code_governance.md` | this file owns the external-adopter proof and portability evidence |
+
 ## Execution Checklist
 
 - [x] Move built-in guard/probe capability metadata into portable resolver code.
@@ -445,6 +453,14 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-27: Re-audited the portable-engine lane against the current repo
+  organization problem and tightened the owner split. The platform plans were
+  already carrying the right direction; the missing piece was making the
+  portable proof bar restartable and explicit. Locked this lane to four proof
+  obligations only: custom-layout authority discovery, optional-capability
+  gating, portable organization enforcement from `doc-authority` /
+  `check_package_layout`, and adopter-facing push semantics that separate a
+  remote update from full post-push green.
 - 2026-03-27: Added the first portable authority fixtures that matter for
   adoption proof instead of talking about them abstractly. Governance-draft
   and startup/runtime tests now cover a policy-owned custom layout plus a
@@ -461,14 +477,13 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
   cannot get a clean adoption story until this repo can prove the same
   organization contract on itself without drifting into shadow docs or flat-
   root sprawl.
-- 2026-03-27: Verified the next adopter-facing push gap against the live
-  governed push flow. The canonical `devctl push` surface still exposes
-  `--skip-preflight` / `--skip-post-push`, and the real run published the
-  branch before the broader post-push bundle finished green. Promoted the
-  remaining closure into this portable lane too: adopters need explicit
-  publish-state honesty and policy-gated bypass behavior, not just a command
-  that says "guarded push" while optional flags or post-push timing still
-  let the contract split in two.
+- 2026-03-27: Closed the self-hosting side of the adopter-facing push gap.
+  The canonical `devctl push` surface now gates skip-flag bypasses through
+  repo policy and reports typed publish truth (`validation_ready`,
+  `published_remote`, `post_push_green`) instead of one overloaded success
+  state. That narrows the remaining `MP-376` push work to proving the same
+  semantics on custom-layout / optional-capability adopters without core
+  patches.
 - 2026-03-26: Elevated the repo's own markdown sprawl into the portable-engine
   proof criteria instead of leaving it as an aesthetic complaint. Verified
   local pressure is now explicit: 27 `dev/active/*.md` docs and 10 root-level
@@ -1192,6 +1207,12 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Session Resume
 
+- 2026-03-27 ownership clarification: `MP-376` does not own the canonical
+  docs-authority/runtime split itself. It owns proof that an adopter can use
+  that split without VoiceTerm-shaped docs, paths, enabled capabilities, or
+  push habits. Keep this lane on custom-layout, optional-capability,
+  organization, and publish-state-honesty proof instead of pulling main
+  architecture ownership out of `MP-377`.
 - 2026-03-27 fixture-proof follow-up landed: the portable lane now has code
   proof that custom-layout and no-bridge repos do not need `bridge.md` to act
   as startup authority, and startup warm refs can suppress compatibility

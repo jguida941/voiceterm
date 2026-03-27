@@ -60,12 +60,12 @@ def add_push_parser(subparsers: argparse._SubParsersAction) -> None:
     push_cmd.add_argument(
         "--skip-preflight",
         action="store_true",
-        help="Skip the configured push preflight command",
+        help="Policy-gated: skip the configured push preflight command",
     )
     push_cmd.add_argument(
         "--skip-post-push",
         action="store_true",
-        help="Skip the configured post-push bundle after a successful push",
+        help="Policy-gated: skip the configured post-push bundle after a successful push",
     )
     push_cmd.add_argument(
         "--quality-policy",

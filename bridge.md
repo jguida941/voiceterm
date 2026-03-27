@@ -56,10 +56,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-27T01:57:16Z`
-- Last Codex poll (Local America/New_York): `2026-03-26 21:57:16 EDT`
+- Last Codex poll: `2026-03-27T17:58:01Z`
+- Last Codex poll (Local America/New_York): `2026-03-27 13:58:01 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `5303e79d9e15c08ea4d6124463e773849e0f7eb7bc599dd2f4319782fbd74962`
+- Last non-audit worktree hash: `15acedffc9f5598fac47c9bc5c3b05e3a9f86c98e0e8006157ea393e12ef1c5b`
 - Current instruction revision: `518d4ea9f97a`
 ## Protocol
 
@@ -87,19 +87,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 5303e79d9e15).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 15acedffc9f5).
 
 ## Current Verdict
 
-Live architecture review loop remains open. The launch-contract relaunch fixes are now landed locally and validated, and Passes 10-13 still contain unsupported branch/extraction/master-baseline claims that must not be promoted as accepted architecture truth until Codex verifies them against code/docs. The shared ledger stays open until no unmapped medium/high issues remain and two consecutive Claude+Codex passes add none.
+Reviewer-accepted: the governed-push tranche now lands policy-gated skip-flag handling plus staged push truth (`validation_ready`, `published_remote`, `post_push_green`) across the canonical `devctl push` path, shared push policy, sync wrapper, tests, and owner docs. The broader architecture audit remains open in `dev/audits/architecture_alignment.md` under the current instruction, but this bounded tranche has no blocking review finding on the current tree.
 
 ## Open Findings
 
-- Continue the full-platform architecture audit in `dev/audits/architecture_alignment.md`; do not narrow to bridge-only work.
-- Re-verify Passes 10-13 against actual code/docs/git state and correct any overconfident or wrong claims in the ledger.
-- Keep scanning remaining subsystems for medium/high architecture gaps: portability, doc authority, plan organization, startup/review/push contracts, guards/probes, reporting, integrations, autonomy, Ralph, and connected Python control-plane surfaces.
-- Suggest owner mappings in the ledger, but Codex remains the verifier/controller and only verified findings move into `MASTER_PLAN` and scoped plans.
-- Do not claim whole-platform closure until subsystem coverage is complete and two consecutive Claude+Codex passes add no new medium/high findings.
+- None blocking this governed-push tranche. The broader architecture audit remains active in `dev/audits/architecture_alignment.md` and continues under the current reviewer instruction.
 
 ## Claude Status
 
@@ -119,23 +115,12 @@ Stay on the shared architecture loop. Use `dev/audits/architecture_alignment.md`
 
 ## Last Reviewed Scope
 
-- AGENTS.md
-- dev/active/MASTER_PLAN.md
-- dev/active/ai_governance_platform.md
-- dev/active/platform_authority_loop.md
-- dev/audits/architecture_alignment.md
-- dev/guides/DEVELOPMENT.md
-- dev/history/ENGINEERING_EVOLUTION.md
-- dev/scripts/README.md
-- bridge.md
-- dev/reports/review_channel/latest/review_state.json
-- dev/scripts/checks/check_review_channel_bridge.py
-- dev/scripts/devctl/review_channel/bridge_validation.py
-- dev/scripts/devctl/review_channel/instruction_reset.py
-- dev/scripts/devctl/tests/test_check_review_channel_bridge.py
-- dev/scripts/devctl/tests/test_review_channel.py
-- dev/scripts/pyproject.toml
-- git master tree: dev/scripts/pyproject.toml
-- git master tree: dev/scripts/devctl/**
-- git master tree: dev/scripts/checks/**
-- git master tree: rust/Cargo.toml
+- governed push runtime: `dev/scripts/devctl/commands/vcs/push.py`
+- push-stage helpers: `dev/scripts/devctl/commands/vcs/push_flow.py`, `dev/scripts/devctl/commands/vcs/push_report.py`
+- push governance + sync wiring: `dev/scripts/devctl/governance/push_policy.py`, `dev/scripts/devctl/commands/sync.py`, `dev/scripts/devctl/sync_parser.py`, `dev/config/devctl_repo_policy.json`
+- validation: `dev/scripts/devctl/tests/vcs/test_push.py`, `dev/scripts/devctl/tests/test_sync.py`, `dev/scripts/devctl/tests/governance/test_governance_draft.py`, `dev/scripts/devctl/tests/runtime/test_work_intake.py`, `dev/scripts/devctl/tests/release/test_ship_release_steps.py`
+- maintainer docs: `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`
+- plan/history alignment: `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md`, `dev/active/platform_authority_loop.md`, `dev/active/portable_code_governance.md`, `dev/history/ENGINEERING_EVOLUTION.md`
+- review-channel compatibility state: `bridge.md`, `dev/reports/review_channel/latest/review_state.json`
+- broader architecture ledger remains active: `dev/audits/architecture_alignment.md`
+

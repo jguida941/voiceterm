@@ -27,6 +27,18 @@ markdown entrypoints, so any archive/consolidation pass is blocked until
 execution-relevant conclusions are absorbed into the canonical owner chain
 (`MASTER_PLAN` plus scoped plans) instead of living only in reference docs.
 
+## Live Blocker Routing
+
+| Live blocker | Owner doc | Exact section | Why |
+|---|---|---|---|
+| Product-doc vs AI-system-doc boundary and self-hosting compression | `dev/active/ai_governance_platform.md` | `## Session Resume` -> `### Current status` | repo-wide `MP-377` architecture authority |
+| `DocPolicy` / `DocRegistry`, fail-closed authority discovery, and push packet truth | `dev/active/platform_authority_loop.md` | `## Execution Checklist`, `## Session Resume` | current subordinate execution spec |
+| Custom-layout proof, optional-capability gating, organization proof, and adopter-facing push honesty | `dev/active/portable_code_governance.md` | `## Session Resume` | narrower portable/adopter proof owner |
+| Review-channel `current_session` producer cutover and bridge compatibility retirement | `dev/active/review_channel.md` | `## Session Resume` | subordinate `MP-355` producer lane |
+
+Use this audit as evidence and routing support. Do not treat it as a second
+execution roadmap once the owner docs above have absorbed a finding.
+
 ## Critical Architecture Issues
 
 ### Issue 1: Import-Time Path Freezing (36 Files Affected)

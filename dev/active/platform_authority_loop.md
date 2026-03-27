@@ -145,6 +145,10 @@ intended execution order is:
       that defines default remote, development/release branches, protected
       branches, preflight command, and post-push bundle, then consume it from
       the canonical `devctl push` surface plus legacy release/sync helpers.
+- [x] Split governed push outcome truth into typed stages
+      (`validation_ready`, `published_remote`, `post_push_green`) and remove
+      or policy-gate unrestricted `--skip-preflight` / `--skip-post-push`
+      bypass from the canonical `devctl push` workflow.
 - [ ] Define the repo-pack-owned documentation contract that
       `ProjectGovernance` points at (`DocPolicy`): doc classes
       (`tracker`, `spec`, `runbook`, `guide`, `reference`,
@@ -169,6 +173,12 @@ intended execution order is:
       and canonical consumer. Keep `PlanRegistry` focused on mutable execution
       docs while `DocRegistry` carries the broader docs system needed for
       bounded AI startup and cross-repo doc governance.
+- [ ] Freeze typed artifact-role / scope rules strongly enough that startup
+      and docs-governance can distinguish VoiceTerm product docs,
+      development-self-hosting docs, portable adopter docs, and
+      compatibility/generated surfaces. AI-system control-plane work must not
+      force VoiceTerm user-doc churn, and startup warm refs should suppress
+      non-matching doc classes by default.
 - [ ] Make that doc/plan authority portable over different filenames and
       roots: partial runtime/draft/startup payloads must not silently default
       to `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, or
@@ -370,6 +380,13 @@ intended execution order is:
       from raw git status or prompt-local memory. These fields are execution
       authority, not advisory telemetry only: repo-owned launch/review loops
       must consume them as blocking inputs before widening a slice.
+- [ ] Extend that same self-governance contract from dirty-budget truth into
+      slice-size governance for development sessions: startup/review status
+      should surface changed-path count, mixed-surface scope, unpublished
+      stack depth, and a bounded-slice recommendation so oversized local
+      tranches fail early instead of relying on reviewer taste or chat
+      memory. Keep push authority with the human/operator; implementer-facing
+      surfaces should only recommend continue/checkpoint/review/push.
 - [ ] Put one bounded `Why Stack` product thesis at the top of that startup
       surface before SOP/router detail: every fresh session should read the
       mission, proof obligation, and current product priority first so agents
@@ -569,6 +586,13 @@ intended execution order is:
       docs, tracker/index paths, bridge paths, review-state paths, and review
       plan refs from `DocPolicy` / `PlanRegistry` / `BridgeConfig` instead of
       embedding VoiceTerm literals or assuming tandem mode is universally on.
+- [ ] Keep human-facing and agent-facing projections secondary to typed state
+      in that same lane: `review_state.json.current_session` stays the
+      canonical live decision/status block, bridge/latest/chat/operator
+      summaries plus generated implementer/reviewer instruction packets render
+      from typed runtime state, and future `DecisionTrace` / `explain-latest`
+      surfaces should explain startup/review/push decisions by reference to
+      typed evidence instead of append-only bridge prose.
 - [ ] Replace the `voiceterm_repo_root()` singleton/fallback behavior with a
       repo-pack/provider boundary that callers receive explicitly.
 - [ ] Close the remaining path-authority portability blockers before
@@ -1202,6 +1226,13 @@ intended execution order is:
 
 ## Session Resume
 
+- 2026-03-27 re-audit lock: the next same-lane slice is not "move everything
+  somewhere cleaner" and not another prose cleanup. It is three executable
+  closures: docs class/scope split, fail-closed fallback removal, and push
+  publication truth. Keep the repo shape target layered
+  (`governance_core`, `governance_runtime`, `governance_adapters`,
+  `governance_frontends`, `repo_packs`, `product_integrations`) instead of
+  collapsing the system into one catch-all directory.
 - 2026-03-27 authority-loop tranche 1 landed: startup/review authority now
   stays on typed `review_state.json` and fails closed for active bridge
   sessions when that typed projection is absent, while `ProjectGovernance`
@@ -1249,16 +1280,23 @@ intended execution order is:
   lanes, keep `startup_order` / warm refs from loading irrelevant process docs
   or compatibility projections by default, and keep client/repo-pack surfaces
   from teaching themselves as universal runtime law.
-- 2026-03-27 push/doc-authority follow-up: the next authority-loop slice must
-  close two still-live contract gaps together. First, `doc-authority` now
-  proves the self-hosting baseline is still over budget (`50` governed docs /
-  `45,107` lines, `19` budget violations, `4` overlaps), so authority
-  compression has to be executed through `DocPolicy` / `DocRegistry` instead
-  of more intake prose. Second, the canonical `devctl push` path still
-  exposes `--skip-preflight` / `--skip-post-push`, and the 2026-03-27 live
-  push proved the remote can advance before a broader post-push bundle fails.
-  Resume from fail-closed push packet semantics, policy-gated bypass handling,
-  and explicit "published vs post-push green" typed state.
+- 2026-03-27 self-governance follow-up: external review also tightened the
+  development loop requirements without changing the owner chain. Resume from
+  one bounded path: keep the human/operator as session authority, keep the
+  implementer bounded to one slice, add explicit slice-size governance on top
+  of checkpoint budget, and make future "why are we waiting/continuing/
+  reviewing/pushing?" surfaces render from typed startup/review/push state
+  (`DecisionTrace` plus typed `current_session`) rather than from bridge
+  prose or chat memory. The same conclusion also locks the repo-entrance
+  split: root VoiceTerm product docs stay product-facing while platform/
+  self-hosting instructions move into MP-377 owner docs and generated
+  developer surfaces.
+- 2026-03-27 push/doc-authority follow-up: the push half of this tranche is
+  now real in code. `repo_governance.push.bypass` gates skip flags, and
+  `devctl push` reports typed stage truth (`validation_ready`,
+  `published_remote`, `post_push_green`) instead of treating any successful
+  `git push` as equivalent to post-push green. The remaining same-lane work
+  here is the doc-authority/self-hosting compression half of the tranche.
 - 2026-03-26 doc-authority portability follow-up: the next authority-loop
   slice is not allowed to stop at "custom paths work when fully configured."
   The typed contract still seeds `AGENTS.md`, `dev/active/INDEX.md`,
@@ -1440,6 +1478,15 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-27: Re-audited the authority-loop owner lane after the docs-policy
+  boundary miss and the live governed push. Confirmed the next blocker is not
+  another abstract architecture memo: it is executable closure on three
+  fronts already measured in repo-owned surfaces. `doc-authority` shows the
+  self-hosting markdown surface is still over budget, portable runtime/doc
+  parsing still has VoiceTerm fallback risk on partial payloads, and governed
+  push still conflates remote publication with full post-push success. Added
+  those as explicit checklist scope instead of leaving them only in session
+  prose.
 - 2026-03-27: Closed the next bounded bridge-authority consumer slice without
   widening the plan. `review_state_locator` now has a live-consumer path that
   refreshes the bridge-backed typed projection before `startup-context` or
@@ -1466,14 +1513,14 @@ intended execution order is:
   complaint to typed authority-loop evidence: the next closure needs
   executable compression of the live authority surface, not more shadow
   planning docs.
-- 2026-03-27: Verified a remaining governed-push contract split on the live
-  branch. `devctl push` is the canonical path, but `sync_parser.py` still
-  exposes `--skip-preflight` / `--skip-post-push`, and the real governed push
-  published the branch before a broader post-push bundle failed. This plan
-  now explicitly owns the next fix: make push publication/reporting read from
-  one typed packet that can represent validation, publish, and post-push
-  states coherently instead of treating any successful `git push` as the end
-  of the governed contract.
+- 2026-03-27: Closed the governed-push truth gap on the current branch.
+  `repo_governance.push.bypass` now gates `--skip-preflight` /
+  `--skip-post-push`, `devctl push` reports typed stages
+  (`validation_ready`, `published_remote`, `post_push_green`), and the same
+  staged truth now flows through `sync` and governance-draft command routing
+  defaults. This keeps "remote updated" distinct from "post-push green" in
+  the canonical branch-push surface instead of overloading one generic
+  success state.
 - 2026-03-26: Rechecked the authority-loop scope against the user's repo-
   neutral bar. The current runtime can honor alternate authority/doc roots
   once governance is already correct, but it is still not fail-closed or

@@ -2453,12 +2453,35 @@ Still open before `P0` closes:
       arbitrary repos. Another repo's generated surfaces must carry the same
       platform thesis with that repo's own product summary instead of
       inheriting VoiceTerm-specific identity or hidden path assumptions.
+- [ ] Keep repo entrance surfaces split by audience until extraction is real:
+      the root `README.md` in this repo remains the VoiceTerm product/user
+      entrypoint while the portable governance platform gets its own
+      developer/maintainer entry surface inside the monorepo first and only
+      later becomes the root README of the extracted platform repo/package.
+      AI-system/control-plane changes must not keep routing through VoiceTerm
+      user docs unless product behavior actually changed.
 - [ ] Make AI/bootstrap instruction surfaces repo-pack-driven and scope-aware:
       generated `CLAUDE.md`, startup receipts, bridge/conductor prompts, and
       other AI-facing bootstrap text must render the product thesis, active
       workflow mode, and canonical authority chain from `ProjectGovernance` /
       `RepoPack` / `DocPolicy` / `PlanRegistry` instead of embedding
       VoiceTerm-only paths or tandem-review rules as if they were universal.
+- [ ] Add one developer-mode bounded-implementer workflow surface over that
+      same authority chain: generated implementer instructions, slice
+      closeout packets, and audit-ready status summaries must keep the
+      human/operator as checkpoint/push authority, keep Codex/Claude bounded
+      to one slice at a time, and emit stable fields (`SLICE GOAL`,
+      changed files, why, checks run, open risks, recommended next step) so
+      outside reviewers can audit a slice without reconstructing chat state.
+      Use the same typed decision/current-state inputs for those agent-facing
+      instructions instead of asking models to reconstruct authority from
+      bridge prose or session memory.
+- [ ] Land one explanation projection over typed runtime state instead of
+      bridge/chat prose: materialize `DecisionTrace` for startup/review/push
+      decisions, keep only current truth under `review_state.json` /
+      `current_session`, and render bridge/latest/chat/status/external-audit
+      packets plus generated implementer/reviewer instruction views from those
+      typed records instead of inventing the "why" in append-only markdown.
 - [x] Add one read-only executable platform blueprint surface
       (`devctl platform-contracts`) so frontends, adopters, and AI setup flows
       can consume the intended backend/repo-pack contract in machine-readable
@@ -3897,6 +3920,20 @@ working on `MP-377`.
 
 ### Current status
 
+- Current blocking separation tranche:
+
+| Outcome | Owner doc | Exit condition |
+|---|---|---|
+| Product-doc vs AI-system-doc boundary | `dev/active/platform_authority_loop.md` | `DocPolicy` / `DocRegistry` plus artifact-role/scope classification keep VoiceTerm end-user docs product-only and route AI-system guidance into self-hosting, adopter, or generated surfaces |
+| Fail-closed portable authority | `dev/active/platform_authority_loop.md` | portable runtime/startup/docs consumers stop reviving VoiceTerm filenames or paths from partial payloads; repo-pack/bootstrap owns repo-local defaults |
+| Publish truth | `dev/active/platform_authority_loop.md` | `devctl push` reports `published` separately from `post-push green`, and unrestricted bypass flags are removed or policy-gated |
+| Adopter proof | `dev/active/portable_code_governance.md` | custom-layout, no-bridge, and optional-capability repos stay green without core-engine edits |
+
+- Directory rule for this tranche: do not flatten the repo into one catch-all
+  directory. The target layering remains `governance_core`,
+  `governance_runtime`, `governance_adapters`, `governance_frontends`,
+  `repo_packs`, and `product_integrations`, with VoiceTerm only in
+  `product_integrations`.
 - 2026-03-27 consumer-refresh follow-up landed: the same authority-closure
   lane now refreshes the bridge-backed typed review-state projection before
   startup/tandem/push consumers read live `current_session` or review
@@ -3962,14 +3999,23 @@ working on `MP-377`.
   separate development-self-hosting docs from adopter/bootstrap surfaces, and
   keep portable runtime/startup blind to VoiceTerm filenames unless repo-pack
   policy explicitly names them.
-- 2026-03-27 governed-push follow-up: the platform now has a canonical
-  `devctl push` path, but the contract is still not fail-closed end-to-end.
-  The CLI still exposes `--skip-preflight` / `--skip-post-push`, and the live
-  2026-03-27 governed push published the branch before a broader post-push
-  bundle failed. The next `MP-377` push slice must remove or policy-gate
-  bypass flags, unify publish/post-push readiness semantics, and emit typed
-  status that distinguishes "remote updated" from "full post-push contract
-  green."
+- 2026-03-27 governed-push follow-up: the platform now has the intended
+  fail-closed branch-push truth for this tranche. `repo_governance.push`
+  policy now gates skip-flag bypasses, and `devctl push` emits typed stage
+  truth that distinguishes validation readiness, remote publication, and
+  post-push green instead of collapsing them into one generic success claim.
+- 2026-03-27 repo-entrance and dev-loop correction: keep the current repo
+  split by audience instead of trying to make one README do two jobs. The
+  root `README.md` remains the VoiceTerm product entrypoint while `MP-377`
+  now explicitly owns a separate platform/developer entry surface inside this
+  monorepo, and the same lane now also owns a bounded-implementer workflow
+  surface where the human/operator stays session authority while the coding
+  agent returns a deterministic slice packet (`goal`, changed files, why,
+  checks, open risks, next step) for outside review. The matching
+  architecture rule is also explicit now: typed state is the brain,
+  bridge/chat/latest/status are projections, and `DecisionTrace` plus typed
+  `current_session` is the right owner chain for future explain/audit
+  surfaces rather than another planning memo.
 - 2026-03-26 doc-authority/organization follow-up: do not treat archive or
   deletion as the first cleanup move. The current repo still carries 27
   `dev/active/*.md` docs and 10 root-level markdown entrypoints, and some of
@@ -4635,6 +4681,14 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-27: Re-audited the full owner chain after the latest docs-boundary
+  miss instead of assuming the problem was lack of planning. The plan
+  direction was already correct; the real gap was restartability and owner
+  compression. Locked the next `MP-377` work to one bounded separation
+  tranche with repo-visible exit criteria: docs/product boundary,
+  fail-closed portable authority, governed-push publish truth, and adopter
+  proof. Also recorded the explicit pushback on repo shape in plan state:
+  the target is layered separation, not one new catch-all directory.
 - 2026-03-27: Followed the authority-closure patch through the remaining
   startup/tandem/push consumers instead of leaving it at docs plus one gate.
   The shared review-state locator can now refresh the bridge-backed typed
@@ -4665,15 +4719,11 @@ Execution order for this section:
   priority, not a new parallel roadmap: the next platform tranche is
   executable doc/organization compression plus development-vs-adopter
   boundary cleanup.
-- 2026-03-27: Verified the next governed-push architecture gap against the
-  live repo instead of leaving it as operator frustration. The canonical
-  `devctl push` surface still exposes `--skip-preflight` / `--skip-post-push`
-  in `sync_parser.py`, and the real governed push of
-  `feature/governance-quality-sweep` showed the remote can advance before a
-  broader post-push bundle fails. Recorded the remaining work as architecture
-  scope under this plan: make branch publication and post-push contract
-  state coherent, and stop teaching "push succeeded" as equivalent to "repo
-  is post-push green."
+- 2026-03-27: Landed the governed-push architecture closure for this tranche.
+  `devctl push` now treats publish truth as staged contract state instead of a
+  single binary success, repo policy explicitly gates skip-flag bypasses, and
+  the same semantics propagate through the shared push-policy/governance
+  surfaces used by `sync` and startup-facing command routing defaults.
 - 2026-03-26: Tightened the architecture direction around documentation
   sprawl instead of treating it as cleanup trivia. The repo already has the
   universal markdown/governance plan in the tracked `MP-377` / `MP-376`

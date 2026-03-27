@@ -800,10 +800,14 @@ Non-release work flow:
 Routine helper:
 
 - `python3 dev/scripts/devctl.py push` runs the canonical non-mutating
-  branch-push validation path from repo policy (`repo_governance.push`).
+  branch-push validation path from repo policy (`repo_governance.push`) and
+  now reports typed push stages (`validation_ready`, `published_remote`,
+  `post_push_green`) without mutating git state.
 - `python3 dev/scripts/devctl.py push --execute` runs the same preflight,
   performs the current short-lived branch push, and then executes the
-  configured post-push bundle.
+  configured post-push bundle. `--skip-preflight` / `--skip-post-push` are
+  policy-gated under `repo_governance.push.bypass`; a remote update is not the
+  same state as post-push green.
 - Shared `devctl` command execution now follows the parent command lifetime:
   inherited stdout pipes from detached descendants must not keep a completed
   governed push session open after the parent push/post-push step exits.

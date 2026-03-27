@@ -204,6 +204,10 @@
         "since_ref_template": "{remote}/{development_branch}",
         "execute": true
       },
+      "bypass": {
+        "allow_skip_preflight": false,
+        "allow_skip_post_push": false
+      },
       "checkpoint": {
         "max_dirty_paths_before_checkpoint": 12,
         "max_untracked_paths_before_checkpoint": 6,

@@ -185,6 +185,10 @@ def _governance(
                     "execute": True,
                 },
                 "post_push": {"bundle": "bundle.post-push"},
+                "bypass": {
+                    "allow_skip_preflight": False,
+                    "allow_skip_post_push": False,
+                },
             }
         },
     )
