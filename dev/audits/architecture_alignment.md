@@ -1853,6 +1853,171 @@ WebSocket code won't compile without these deps.
 20 of 32 CI workflows exist only on branches, including:
 
 **Product-critical (would break VoiceTerm CI)**:
+
+## Pass 14: Codex Self-Hosting Docs/Push Contract Audit (Verified 2026-03-27)
+
+**Pass 14: 1 new HIGH finding, plus measured self-hosting baselines promoted
+into owner plans.**
+
+### NEW HIGH: Governed push is not fail-closed end-to-end
+
+`dev/scripts/devctl/sync_parser.py:47-68` still exposes `devctl push`
+`--skip-preflight` and `--skip-post-push`, and
+`dev/scripts/devctl/commands/vcs/push.py:54-55,136,207,327-328` carries those
+flags through the canonical governed push path. The parser contract is covered
+by `dev/scripts/devctl/tests/vcs/test_push.py:76-93`, which asserts the CLI
+accepts `--skip-post-push`.
+
+Codex also verified the runtime consequence on the live branch during the
+2026-03-27 governed push of `feature/governance-quality-sweep`: startup truth
+correctly advanced to `push_allowed`, preflight passed, `git push` succeeded,
+and the branch reached `origin/feature/governance-quality-sweep`; only after
+publication did the configured post-push bundle fail on
+`check_code_shape.py --since-ref origin/develop`.
+
+**Class**: push-authority / workflow integrity. **Why**: the canonical push
+surface can still publish a branch before the full governance contract is
+green, and it still exposes explicit bypass switches for the same contract.
+That is an architecture gap, not operator-only error handling.
+**Owner**: `MP-377` push/startup authority contract, with adopter-surface
+parity follow-up in `MP-376`.
+
+### Measured Self-Hosting Baseline (No New Severity Promotion)
+
+Codex re-ran the repo-owned self-hosting surfaces to replace vague
+"too many docs" claims with measured baseline evidence:
+
+- `python3 dev/scripts/devctl.py doc-authority --format md` reports
+  `50` governed docs, `45,107` total lines, `19` budget violations,
+  `4` authority overlaps, and `8` consolidation candidates.
+- `python3 dev/scripts/checks/check_package_layout.py --format md` reports
+  `4` frozen crowded directories
+  (`dev/scripts/checks`, `dev/scripts/devctl`,
+  `dev/scripts/devctl/commands`, `dev/scripts/devctl/tests`) plus
+  `7` crowded namespace families.
+- `python3 dev/scripts/devctl.py governance-draft --format md` confirms the
+  universal authority shape is partially landed (`ProjectGovernance`,
+  `PlanRegistry`, `DocPolicy`, `DocRegistry`, startup order, push-enforcement
+  snapshot), but this repo still resolves those surfaces through VoiceTerm-
+  shaped authority roots.
+
+These measurements do **not** create a second new HIGH/MEDIUM finding by
+themselves because the underlying doc-authority and self-hosting organization
+gap is already owned in the active `MP-377` / `MP-376` chain. They do,
+however, raise the priority of executing that existing plan instead of
+treating it as background cleanup.
+
+### Universal-Plan Clarification (Codex Verified)
+
+The repo does not need a second universal-system roadmap. The universal
+authority model is already the active owner chain:
+`MASTER_PLAN -> ai_governance_platform -> platform_authority_loop ->
+portable_code_governance`. Root companions such as `UNIVERSAL_SYSTEM_PLAN.md`,
+`UNIVERSAL_SYSTEM_EVIDENCE.md`, `GUARD_AUDIT_FINDINGS.md`, and
+`ZGRAPH_RESEARCH_EVIDENCE.md` remain intake/reference only until accepted
+conclusions are mirrored into that owner chain.
+
+The next closure therefore is executable compression, not more parallel docs:
+
+1. Finish `DocPolicy` / `DocRegistry` / `doc-authority` as the bounded
+   startup/read surface for governed markdown.
+2. Separate self-hosting development authority from portable adopter/bootstrap
+   surfaces so exported/generated instructions do not teach VoiceTerm-shaped
+   defaults as universal truth.
+3. Burn down over-budget active docs and crowded `devctl` roots through the
+   existing organization contract rather than one-off cleanup.
+4. Make the governed push contract fail closed end-to-end, including
+   bypass-flag removal/policy gating and clear "published vs post-push green"
+   semantics.
+
+### Priority Routing Note
+
+Pass 14 is now the active architecture-priority intake for this neighborhood,
+not a side memo. Until the owner plans close the self-hosting authority
+budget, the development-self-hosting vs adopter/bootstrap boundary, and the
+governed-push integrity gap, new findings in this area should map back into
+the same `MP-377` / `MP-376` tranche instead of spawning another parallel
+organization roadmap.
+
+### External Review Adjudication (2026-03-27, Codex verified)
+
+An external architecture review usefully reinforced the main diagnosis:
+split authority is still the current blocker, not missing platform ambition.
+Codex verified the strongest parts against the repo and routed them into the
+same owner chain instead of treating the write-up as a second roadmap.
+
+Accepted direction, translated into current repo architecture:
+
+1. Keep machine startup authority singular: use `ProjectGovernance`,
+   generated `project.governance.json` (or equivalent typed materialization),
+   typed registries, and startup/runtime receipts as the machine truth.
+2. Keep the reviewed repo-governance markdown contract
+   (`project.governance.md` as the current working name) as the human mirror
+   of that machine authority, not as a competing runtime authority.
+3. Make startup/intake classify artifact role more explicitly so AI can tell
+   portable platform work, repo-pack/client work, development-self-hosting
+   docs, and generated/compatibility projections apart.
+4. Keep generated AI/bootstrap surfaces, bridge/status views, and similar
+   projections derived from the typed authority path only.
+5. Make repo-pack capability gating/adopter presets prove optional subsystems
+   really are optional for non-VoiceTerm adopters.
+6. Keep findings/remediation history on one canonical evidence path:
+   strengthen `Finding` / `FindingReview` / quality-feedback / Ralph memory
+   consumption rather than inventing a second pattern ledger with overlapping
+   ownership.
+7. Keep registry/config sprawl on the existing config-driven closure path:
+   guard/probe/bundle/routing/provider registration should resolve from
+   repo-pack/policy/typed registry surfaces rather than remaining as hidden
+   hardcoded chains in portable layers.
+8. Self-host the same authority/meta-governance rules on this repo and keep
+   the "second repo without core patches" proof ahead of graph/memory
+   expansion so portability is demonstrated, not narrated.
+
+Required translation corrections:
+
+- Do **not** replace the current typed authority spine with a new
+  JSON-only constitution. The repo already plans
+  `ProjectGovernance -> RepoPack -> PlanRegistry -> PlanTargetRef ->
+  WorkIntakePacket -> CollaborationSession -> TypedAction -> ActionResult /
+  RunRecord / Finding -> ContextPack`; the closure is to finish that cutover,
+  not to discard it.
+- Do **not** require a new shadow JSON twin for every plan before the current
+  `PlanRegistry` / governed-markdown contract is ready. Close the existing
+  typed-registry lane first, keep markdown execution authority reviewed, and
+  only promote machine twins where the owner chain already calls for them.
+- Do **not** widen into graph/memory work before authority, portability, and
+  capability gating closure. The external review was right on sequencing, and
+  that remains the accepted order here too.
+
+Still-open owner-chain follow-ups sharpened by that review:
+
+- 2026-03-27 first authority-closure tranche now exists as code and fixture
+  proof, not just intake prose. `ProjectGovernance` doc/plan registries now
+  carry typed `artifact_role`, `authority_kind`, `system_scope`, and
+  `consumer_scope`; startup warm refs suppress compatibility projections and
+  lane-specific docs by default; and `startup-context` no longer treats
+  `bridge.md` prose as fallback startup authority when typed
+  `review_state.json` is missing. Custom-layout and no-bridge governance
+  fixtures now prove the same contract on alternate repo shapes.
+- Make `startup_order` / warm-ref routing honor artifact-role and
+  consumer-scope classification so development/tooling docs and compatibility
+  projections load only for matching lanes instead of bleeding into every
+  startup packet.
+- Split or suppress mixed universal-vs-current-operating-mode docs where
+  needed (especially temporary markdown-swarm material) so AI startup does
+  not confuse a live VoiceTerm operating mode with the portable product
+  contract.
+- Keep config-driven registry closure, self-host meta-guards, and the second-
+  repo proof in the same `MP-377` / `MP-376` tranche rather than as later
+  cleanup ambitions.
+
+### Pass 14 Summary
+
+| Category | Count |
+|----------|-------|
+| NEW HIGH | 1 (governed push not fail-closed end-to-end) |
+| Measured self-hosting baselines | 3 repo-owned command reads |
+| Revalidated owner-chain clarification | 1 (universal plan already exists; execute it) |
 - `rust_ci.yml` (core Rust CI — fmt, clippy, tests)
 - `voice_mode_guard.yml`, `latency_guard.yml`, `memory_guard.yml`
 - `wake_word_guard.yml`, `parser_fuzz_guard.yml`, `perf_smoke.yml`

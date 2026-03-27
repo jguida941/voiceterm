@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-03-26 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-27 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -3897,6 +3897,62 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-03-27 authority-closure tranche 1 landed: typed startup authority now
+  uses the governed `review_state.json` path or fails closed instead of
+  trusting `bridge.md` prose, and `ProjectGovernance` doc/plan entries now
+  carry `artifact_role`, `authority_kind`, `system_scope`, and
+  `consumer_scope` so default warm refs can suppress compatibility
+  projections and lane-specific docs. Fixture proof now covers both
+  custom-layout and no-bridge repos. Keep the next slice in the same lane:
+  extend explicit repo-pack/capability gating, finish broader doc-authority
+  compression, and keep governed-push/Ralph follow-ups separate from graph or
+  memory expansion.
+- 2026-03-27 current priority lock: treat the next `MP-377` work as one
+  bounded architecture tranche, not as a general cleanup bucket. The active
+  focus is self-hosting authority compression plus governed-push integrity.
+  Stay in this lane until four outcomes are true in repo-visible state:
+  `DocPolicy` / `DocRegistry` bound the startup/read markdown surface,
+  development-self-hosting docs are cleanly separated from portable
+  adopter/bootstrap surfaces, portable runtime/startup no longer revive
+  VoiceTerm filenames from partial payloads, and governed push reports
+  "published" separately from "post-push green" with no unrestricted bypass
+  path left in the canonical workflow.
+- 2026-03-27 external-review translation follow-up: preserve one constitution,
+  but translate it into the repo's actual architecture instead of flattening
+  it. The machine truth remains `ProjectGovernance` plus generated
+  `project.governance.json` (or equivalent typed materialization), typed
+  registries, and runtime receipts; the reviewed `project.governance.md`
+  contract remains the human mirror; generated AI/bootstrap surfaces remain
+  projections; and the next closure should add explicit artifact-role/scope
+  classification so startup can distinguish platform-core, repo-pack/client,
+  development-self-hosting, evidence, and compatibility/generated surfaces
+  without rereading broad prose. That same closure now also explicitly owns
+  startup-order/warm-ref suppression for non-matching doc classes, mixed-doc
+  split/suppression where temporary VoiceTerm operating-mode prose still sits
+  beside reusable contract text, and the remaining config-driven registry
+  migration for guard/probe/bundle/provider routing so the constitution is
+  executable instead of aspirational.
+- 2026-03-27 self-hosting compression follow-up: the next `MP-377` slice is
+  not another universal-plan memo. It is the executable compression pass that
+  proves this repo can follow the same governance contract it wants external
+  repos to adopt. Current repo-owned measurements are now part of the owner
+  state: `doc-authority` reports `50` governed docs / `45,107` lines,
+  `19` budget violations, `4` authority overlaps, and `8` consolidation
+  candidates; `check_package_layout` still reports four frozen crowded roots
+  and seven crowded namespace families under the `devctl` stack. Resume from
+  one bounded tranche: absorb root intake conclusions into the owner chain,
+  shrink the active authority surface through `DocPolicy` / `DocRegistry`,
+  separate development-self-hosting docs from adopter/bootstrap surfaces, and
+  keep portable runtime/startup blind to VoiceTerm filenames unless repo-pack
+  policy explicitly names them.
+- 2026-03-27 governed-push follow-up: the platform now has a canonical
+  `devctl push` path, but the contract is still not fail-closed end-to-end.
+  The CLI still exposes `--skip-preflight` / `--skip-post-push`, and the live
+  2026-03-27 governed push published the branch before a broader post-push
+  bundle failed. The next `MP-377` push slice must remove or policy-gate
+  bypass flags, unify publish/post-push readiness semantics, and emit typed
+  status that distinguishes "remote updated" from "full post-push contract
+  green."
 - 2026-03-26 doc-authority/organization follow-up: do not treat archive or
   deletion as the first cleanup move. The current repo still carries 27
   `dev/active/*.md` docs and 10 root-level markdown entrypoints, and some of
@@ -4562,6 +4618,36 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-27: Landed the first bounded authority-closure patch instead of
+  leaving the external-review translation as owner-doc intent only.
+  `ProjectGovernance` runtime entries now carry typed artifact/scope
+  classification, `startup-context` only trusts typed `review_state.json` for
+  reviewer-gate authority and blocks active bridge sessions when that typed
+  state is missing, and `work_intake` default warm refs now suppress
+  compatibility projections plus lane-specific docs. Added regression proof
+  for custom-layout and no-bridge repos and reran focused runtime/governance
+  pytest plus `python3 dev/scripts/devctl.py check --profile ci`.
+- 2026-03-27: Re-ran the self-hosting docs/organization surfaces before
+  reprioritizing the architecture work. The universal-system model is already
+  the active `MP-377` / `MP-376` owner chain, but the repo still makes that
+  model hard to ingest because the live authority surface is too large and too
+  mixed. `doc-authority` now provides the measured baseline (`50` governed
+  docs / `45,107` lines, `19` budget violations, `4` authority overlaps,
+  `8` consolidation candidates), while `check_package_layout` confirms the
+  same self-hosting problem in code structure (four frozen crowded roots and
+  seven crowded namespace families). Promoted the conclusion as owner
+  priority, not a new parallel roadmap: the next platform tranche is
+  executable doc/organization compression plus development-vs-adopter
+  boundary cleanup.
+- 2026-03-27: Verified the next governed-push architecture gap against the
+  live repo instead of leaving it as operator frustration. The canonical
+  `devctl push` surface still exposes `--skip-preflight` / `--skip-post-push`
+  in `sync_parser.py`, and the real governed push of
+  `feature/governance-quality-sweep` showed the remote can advance before a
+  broader post-push bundle fails. Recorded the remaining work as architecture
+  scope under this plan: make branch publication and post-push contract
+  state coherent, and stop teaching "push succeeded" as equivalent to "repo
+  is post-push green."
 - 2026-03-26: Tightened the architecture direction around documentation
   sprawl instead of treating it as cleanup trivia. The repo already has the
   universal markdown/governance plan in the tracked `MP-377` / `MP-376`

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from ..config import get_repo_root
 from ..repo_packs import active_path_config
 from ..time_utils import utc_timestamp
+from .governance_scan import scan_repo_governance_safely
 
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
@@ -252,23 +253,12 @@ def _configured_reports_root(
     if governance is not None:
         reports_root = str(governance.path_roots.reports or "").strip()
     if not reports_root:
-        scanned = _scan_repo_governance(repo_root or get_repo_root())
+        scanned = scan_repo_governance_safely(repo_root or get_repo_root())
         if scanned is not None:
             reports_root = str(scanned.path_roots.reports or "").strip()
     if not reports_root:
         return None
     return Path(reports_root)
-
-
-def _scan_repo_governance(repo_root: Path) -> "ProjectGovernance | None":
-    try:
-        from ..governance.draft import scan_repo_governance
-    except ImportError:
-        return None
-    try:
-        return scan_repo_governance(repo_root)
-    except (OSError, ValueError):
-        return None
 
 
 def _git_stdout(repo_root: Path, *cmd: str) -> str:

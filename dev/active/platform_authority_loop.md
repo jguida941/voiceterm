@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-03-26 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-27 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1202,6 +1202,43 @@ intended execution order is:
 
 ## Session Resume
 
+- 2026-03-27 authority-loop tranche 1 landed: startup/review authority now
+  stays on typed `review_state.json` and fails closed for active bridge
+  sessions when that typed projection is absent, while `ProjectGovernance`
+  plan/doc entries carry typed `artifact_role`, `authority_kind`,
+  `system_scope`, and `consumer_scope` that default warm refs use to suppress
+  compatibility projections and lane-specific docs. The same slice now has
+  custom-layout and no-bridge fixture proof. Resume from the next same-lane
+  gaps only: explicit repo-pack activation/capability gating beyond the
+  current runtime slice, remaining docs-authority compression, and portable
+  report/push state closure.
+- 2026-03-27 authority-loop priority lock: keep the next `MP-377` execution
+  slice on the authority surfaces that actually leak VoiceTerm defaults or
+  lie about publish truth. Concretely, route work first through typed
+  governance/doc parsing, startup/report consumers, and push packet/status
+  semantics. Do not widen this tranche into unrelated review-channel cleanup
+  or new graph/docs features unless the change directly helps close the
+  self-hosting authority budget, dev-vs-adopter surface split, or fail-closed
+  push contract.
+- 2026-03-27 scope-classification follow-up: the next authority-loop proof
+  should make artifact role visible to startup and work intake instead of
+  leaving AI to infer it from prose order. Add explicit typed classification
+  for machine authority vs human mirror vs development execution doc vs
+  generated surface vs compatibility projection, plus consumer/system scope
+  strong enough to suppress development-only guidance outside development
+  lanes, keep `startup_order` / warm refs from loading irrelevant process docs
+  or compatibility projections by default, and keep client/repo-pack surfaces
+  from teaching themselves as universal runtime law.
+- 2026-03-27 push/doc-authority follow-up: the next authority-loop slice must
+  close two still-live contract gaps together. First, `doc-authority` now
+  proves the self-hosting baseline is still over budget (`50` governed docs /
+  `45,107` lines, `19` budget violations, `4` overlaps), so authority
+  compression has to be executed through `DocPolicy` / `DocRegistry` instead
+  of more intake prose. Second, the canonical `devctl push` path still
+  exposes `--skip-preflight` / `--skip-post-push`, and the 2026-03-27 live
+  push proved the remote can advance before a broader post-push bundle fails.
+  Resume from fail-closed push packet semantics, policy-gated bypass handling,
+  and explicit "published vs post-push green" typed state.
 - 2026-03-26 doc-authority portability follow-up: the next authority-loop
   slice is not allowed to stop at "custom paths work when fully configured."
   The typed contract still seeds `AGENTS.md`, `dev/active/INDEX.md`,
@@ -1383,6 +1420,31 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-27: Closed the first bounded authority-loop tranche in code.
+  `doc_authority` / governance-draft now emit typed artifact-role plus
+  authority/system/consumer scope for governed docs and plans, warm-ref
+  routing suppresses compatibility projections plus repo-pack lane docs by
+  default, and `startup-context` no longer falls back to `bridge.md` prose
+  when typed reviewer state is missing. Added targeted regression proof for
+  custom-layout/no-bridge repos, reran focused pytest, and cleared
+  `python3 dev/scripts/devctl.py check --profile ci`.
+- 2026-03-27: Re-ran the repo-owned self-hosting authority surfaces against
+  the pushed branch and promoted the measured baseline into this plan. The
+  universal startup/doc authority contract is already the intended spine, but
+  `doc-authority` still reports `50` governed docs / `45,107` lines with
+  `19` budget violations and `4` overlaps, while package-layout still reports
+  frozen crowding in the `devctl` roots. That moves "doc sprawl" from vague
+  complaint to typed authority-loop evidence: the next closure needs
+  executable compression of the live authority surface, not more shadow
+  planning docs.
+- 2026-03-27: Verified a remaining governed-push contract split on the live
+  branch. `devctl push` is the canonical path, but `sync_parser.py` still
+  exposes `--skip-preflight` / `--skip-post-push`, and the real governed push
+  published the branch before a broader post-push bundle failed. This plan
+  now explicitly owns the next fix: make push publication/reporting read from
+  one typed packet that can represent validation, publish, and post-push
+  states coherently instead of treating any successful `git push` as the end
+  of the governed contract.
 - 2026-03-26: Rechecked the authority-loop scope against the user's repo-
   neutral bar. The current runtime can honor alternate authority/doc roots
   once governance is already correct, but it is still not fail-closed or

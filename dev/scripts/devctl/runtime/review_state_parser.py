@@ -109,7 +109,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             or "unknown",
             reviewer_freshness=_string(bridge_liveness.get("reviewer_freshness"))
             or "unknown",
-            reviewer_mode=_string(bridge.get("reviewer_mode")) or "active_dual_agent",
+            reviewer_mode=_string(bridge.get("reviewer_mode")) or "single_agent",
             last_codex_poll_utc=_string(bridge.get("last_codex_poll_utc")),
             last_codex_poll_age_seconds=_int(
                 bridge_liveness.get("last_codex_poll_age_seconds")

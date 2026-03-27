@@ -254,10 +254,11 @@ Three quality layers matter in practice:
     implementer ACK reads instead of scraping append-only prose from
     `bridge.md`.
   - `startup-context` is the typed startup packet for those same sessions.
-    When `review_state.json` is present, it should read reviewer acceptance
-    from typed `bridge.review_accepted` state and only fall back to parsing
-    `bridge.md` when the typed projection is unavailable. The same startup
-    path now has a typed governed-markdown baseline too:
+    It should read reviewer acceptance from typed `bridge.review_accepted`
+    state; `bridge.md` remains a compatibility projection and handoff
+    surface, not a startup-authority fallback when typed review state is
+    missing. The same startup path now has a typed governed-markdown baseline
+    too:
     `ProjectGovernance` carries `DocPolicy`, `DocRegistry`, and parsed
     `PlanRegistry` entries built from governed docs plus `INDEX.md`, and
     `startup-context` now emits a bounded `WorkIntakePacket` carrying the

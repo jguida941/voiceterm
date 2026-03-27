@@ -50,9 +50,25 @@ def active_path_config() -> RepoPathConfig:
     return VOICETERM_PATH_CONFIG
 
 
+def configured_path_config() -> RepoPathConfig | None:
+    """Return the explicitly activated repo-pack path config, if any."""
+    return _active_path_config_state().config
+
+
 def active_path_config_is_overridden() -> bool:
     """Return whether the repo-pack path config was explicitly overridden."""
-    return _active_path_config_state().config is not None
+    return configured_path_config() is not None
+
+
+def require_active_path_config() -> RepoPathConfig:
+    """Return the activated repo-pack path config or fail closed."""
+    config = configured_path_config()
+    if config is None:
+        raise RuntimeError(
+            "Repo-pack path config is not activated; use ProjectGovernance or "
+            "call set_active_path_config() explicitly."
+        )
+    return config
 
 
 def set_active_path_config(config: RepoPathConfig) -> None:
@@ -63,6 +79,8 @@ def set_active_path_config(config: RepoPathConfig) -> None:
 __all__ = [
     "active_path_config",
     "active_path_config_is_overridden",
+    "configured_path_config",
+    "require_active_path_config",
     "set_active_path_config",
     "DEFAULT_BRIDGE_REL",
     "DEFAULT_MOBILE_STATUS_REL",

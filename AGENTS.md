@@ -344,9 +344,10 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     projection and handoff surface, not the preferred source for current-
     status reads.
 4.6 Treat `startup-context` the same way: prefer typed
-    `review_state.json` fields such as `bridge.review_accepted` when that
-    projection is available, and fall back to parsing live `bridge.md` only
-    while the bridge-backed migration remains incomplete. Advisory
+    `review_state.json` fields such as `bridge.review_accepted` as the
+    canonical startup reviewer-gate authority. `bridge.md` is now a
+    compatibility projection and handoff surface, not a startup-authority
+    fallback when typed review state is missing. Advisory
     checkpoint-budget accounting may exclude policy-declared compatibility
     projections such as `bridge.md`, but canonical git/review truth still
     comes from the real worktree plus reviewer-owned state. Shared startup /

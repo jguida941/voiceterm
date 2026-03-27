@@ -115,14 +115,24 @@ def test_scan_repo_governance_with_standard_layout(tmp_path: Path) -> None:
     assert "tracker" in gov.doc_policy.allowed_doc_classes
     assert "## Session Resume" in gov.doc_policy.required_plan_sections
     assert len(gov.doc_registry.entries) >= 3
-    assert any(
-        entry.path == "AGENTS.md" and entry.doc_class == "guide"
-        for entry in gov.doc_registry.entries
+    agents_entry = next(
+        entry for entry in gov.doc_registry.entries if entry.path == "AGENTS.md"
     )
-    assert any(
-        entry.path == "dev/active/MASTER_PLAN.md" and entry.doc_class == "tracker"
+    assert agents_entry.doc_class == "guide"
+    assert agents_entry.artifact_role == "docs_authority"
+    assert agents_entry.consumer_scope == "startup_default"
+    tracker_entry = next(
+        entry
         for entry in gov.doc_registry.entries
+        if entry.path == "dev/active/MASTER_PLAN.md"
     )
+    assert tracker_entry.doc_class == "tracker"
+    assert tracker_entry.system_scope == "platform_core"
+    bridge_entry = next(
+        entry for entry in gov.doc_registry.entries if entry.path == "bridge.md"
+    )
+    assert bridge_entry.artifact_role == "compatibility_projection"
+    assert bridge_entry.authority_kind == "compatibility_only"
 
 
 @patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
@@ -282,8 +292,67 @@ def test_scan_repo_governance_uses_policy_owned_doc_layout(tmp_path: Path) -> No
         "docs/plans",
         "docs/engineering",
     )
-    assert any(
-        entry.path == "docs/plans/MASTER_PLAN.md" and entry.doc_class == "tracker"
+    tracker_entry = next(
+        entry
+        for entry in gov.doc_registry.entries
+        if entry.path == "docs/plans/MASTER_PLAN.md"
+    )
+    assert tracker_entry.doc_class == "tracker"
+    assert tracker_entry.artifact_role == "execution_tracker"
+    bridge_entry = next(
+        entry
+        for entry in gov.doc_registry.entries
+        if entry.path == "docs/live_bridge.md"
+    )
+    assert bridge_entry.artifact_role == "compatibility_projection"
+    assert bridge_entry.consumer_scope == "review_runtime"
+
+
+@patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
+def test_scan_repo_governance_no_bridge_repo_has_no_compatibility_projection(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "docs" / "plans").mkdir(parents=True)
+    (tmp_path / "docs" / "engineering").mkdir(parents=True)
+    (tmp_path / "CONTRIBUTING.md").write_text("# Process\n", encoding="utf-8")
+    (tmp_path / "docs" / "plans" / "INDEX.md").write_text(
+        "# Index\n"
+        "| `docs/plans/MASTER_PLAN.md` | `tracker` | `canonical` | all active execution | always |\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "plans" / "MASTER_PLAN.md").write_text(
+        "# Master Plan\n"
+        "**Status**: active  |  **Last updated**: 2026-03-22 | **Owner:** Team\n"
+        "Execution plan contract: required\n"
+        "## Scope\ntext\n"
+        "## Execution Checklist\n- [ ] item\n"
+        "## Progress Log\n- 2026-03-22: started\n"
+        "## Session Resume\n- next\n"
+        "## Audit Evidence\n- proof\n",
+        encoding="utf-8",
+    )
+
+    policy = {
+        "repo_governance": {
+            "check_router": {
+                "tooling_markdown_prefixes": ["docs/plans/", "docs/engineering/"],
+            },
+            "surface_generation": {
+                "repo_pack_metadata": {"pack_id": "portable-pack"},
+                "context": {
+                    "process_doc": "CONTRIBUTING.md",
+                    "execution_tracker_doc": "docs/plans/MASTER_PLAN.md",
+                    "active_registry_doc": "docs/plans/INDEX.md",
+                },
+            },
+        }
+    }
+
+    gov = scan_repo_governance(tmp_path, policy=policy)
+
+    assert gov.bridge_config.bridge_active is False
+    assert all(
+        entry.artifact_role != "compatibility_projection"
         for entry in gov.doc_registry.entries
     )
 

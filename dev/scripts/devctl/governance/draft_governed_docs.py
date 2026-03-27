@@ -48,9 +48,8 @@ def _build_governed_doc_layout(
 ) -> GovernedDocLayout:
     root_files: set[str] = set()
     for candidate in (
-        *inputs.startup_order,
         inputs.docs_authority,
-        inputs.bridge_config.bridge_path,
+        *inputs.startup_order,
     ):
         if not candidate:
             continue
@@ -58,6 +57,9 @@ def _build_governed_doc_layout(
             continue
         if (repo_root / candidate).is_file():
             root_files.add(candidate)
+    bridge_path = inputs.bridge_config.bridge_path
+    if bridge_path and (repo_root / bridge_path).is_file():
+        root_files.add(bridge_path)
     return GovernedDocLayout(
         repo_root=repo_root,
         active_docs_root=inputs.path_roots.active_docs,
@@ -138,6 +140,10 @@ def _scan_plan_registry(
             PlanRegistryEntry(
                 path=record_path,
                 role=str(getattr(record, "doc_class", "")),
+                artifact_role=str(getattr(record, "artifact_role", "")),
+                authority_kind=str(getattr(record, "authority_kind", "")),
+                system_scope=str(getattr(record, "system_scope", "")),
+                consumer_scope=str(getattr(record, "consumer_scope", "")),
                 authority=str(getattr(record, "authority", "")),
                 scope=str(getattr(record, "scope", "")),
                 when_agents_read=str(getattr(record, "canonical_consumer", "")),
@@ -166,6 +172,10 @@ def _scan_doc_registry(
         DocRegistryEntry(
             path=str(getattr(record, "path", "")),
             doc_class=str(getattr(record, "doc_class", "")),
+            artifact_role=str(getattr(record, "artifact_role", "")),
+            authority_kind=str(getattr(record, "authority_kind", "")),
+            system_scope=str(getattr(record, "system_scope", "")),
+            consumer_scope=str(getattr(record, "consumer_scope", "")),
             authority=str(getattr(record, "authority", "")),
             lifecycle=str(getattr(record, "lifecycle", "")),
             scope=str(getattr(record, "scope", "")),

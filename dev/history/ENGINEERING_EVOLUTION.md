@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-26
+**Last Updated:** 2026-03-27
 
 ## At a Glance
 
@@ -45,6 +45,44 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-27 - Self-hosting authority is now measured, and governed push is explicitly still incomplete
+
+Fact: the repo promoted a measured self-hosting baseline into the owner-plan
+chain instead of continuing with vague "too many docs" complaints. The
+portable-governance owner docs now all point at the same numbers:
+`doc-authority` reports `50` governed docs / `45,107` lines with `19` budget
+violations and `4` authority overlaps, while `check_package_layout` reports
+frozen crowding across the main Python control-plane roots. The same pass also
+made one push-contract truth explicit in owner state and the shared
+architecture ledger: governed push is still not fail-closed end-to-end because
+the canonical `devctl push` path exposes bypass flags and can publish before a
+broader post-push bundle finishes green.
+
+The same owner chain also absorbed a fresh external architecture review without
+creating a second constitution. The accepted translation is explicit now:
+machine truth remains `ProjectGovernance` plus generated machine governance
+material and typed registries/receipts, the reviewed `project.governance.md`
+contract remains the human mirror, generated/bootstrap/bridge surfaces stay
+projections, and the next closure adds clearer artifact-role/scope
+classification, startup warm-ref suppression, optional-capability proof, and
+config-driven registry closure rather than another umbrella roadmap.
+
+This matters because the platform does not need another universal-system
+roadmap; it already has one in `MASTER_PLAN -> ai_governance_platform ->
+platform_authority_loop -> portable_code_governance`. The real work is to
+compress markdown authority into executable `DocPolicy` / `DocRegistry`
+surfaces, separate development-self-hosting docs from portable adopter/runtime
+surfaces, and close the remaining governed-push integrity gap instead of
+pretending publish success equals full-policy success.
+
+Evidence:
+
+- `dev/audits/architecture_alignment.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/portable_code_governance.md`
 
 ### 2026-03-26 - The repo stopped treating markdown cleanup as a delete-first exercise
 

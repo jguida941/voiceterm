@@ -205,6 +205,12 @@ operator visibility into what the loop is doing. This plan delivers:
 - Current status: this plan remains active; start from the highest-priority
   open item in `## Execution Checklist` and the latest dated entry in
   `## Progress Log`.
+- Remediation-memory follow-up: before widening Ralph autonomy, make the
+  fixer consume canonical `Finding` / `FindingReview` / quality-feedback
+  history plus bounded failed-fix memory from the shared governance artifacts
+  so repeated misses change the next attempt. Keep guard/probe promotion
+  reviewed: repeated Ralph failures may become candidates, but they should not
+  auto-promote straight from one incident into a permanent always-on guard.
 - Portability follow-up: before widening Ralph autonomy, replace the
   hardcoded architecture validation map with repo-policy / repo-pack-driven
   validation commands so non-VoiceTerm repos do not inherit `voiceterm`,

@@ -398,6 +398,68 @@
   proof. Remaining closure now explicitly includes fail-closed/custom-layout
   authority discovery, custom report-root proof, and review-channel/control-
   plane consumers that still hardcode `bridge.md` plus `dev/active/*`.
+- 2026-03-27 architecture focus lock: keep the next platform tranche centered
+  on self-hosting authority compression plus governed-push integrity. Until
+  those closures land, do not widen scope into new universal-roadmap docs,
+  archive/delete sweeps, or extraction packaging churn unless the work
+  directly reduces one of these three gaps: governed markdown budget/overlap,
+  development-self-hosting vs adopter/bootstrap leakage, or push-contract
+  truth. New audit findings in this neighborhood should route through
+  `dev/audits/architecture_alignment.md` and then back into `MP-377` /
+  `MP-376`, not into another tracker surface.
+- 2026-03-27 external-review adjudication: a fresh architecture review was
+  accepted as confirming the same owner-chain direction, but only after
+  translation into the repo's current typed model. The approved next work is
+  now explicit: keep machine startup authority singular through
+  `ProjectGovernance` / generated `project.governance.json` plus typed
+  registries/receipts, keep the reviewed `project.governance.md` contract as
+  the human mirror, add clearer artifact-role/scope classification so AI can
+  distinguish platform core vs repo-pack/client vs development-self-hosting
+  surfaces, prove optional subsystem capability gating for adopters, and make
+  Ralph/remediation consume canonical finding history before promoting new
+  guard candidates. The same adjudication also locks three under-specified
+  follow-ups into this tranche: route startup-order/warm-ref loading through
+  artifact-role/scope gating so dev/process docs and compatibility
+  projections are lane-specific, keep guard/probe/bundle/provider registries
+  on the existing config-driven policy/repo-pack closure path, and require
+  self-host meta-governance plus a second-repo proof before widening graph or
+  memory work. Do not create a second constitution doc, a JSON-only rewrite,
+  or a blanket "every plan gets a twin now" project outside the existing
+  `MP-377` / `MP-376` chain.
+- 2026-03-27 authority-leak tranche 1 landed: the first bounded `MP-377`
+  startup-authority closure is now live in code. `ProjectGovernance`
+  plan/doc entries carry typed `artifact_role` / `authority_kind` /
+  `system_scope` / `consumer_scope`, `startup-context` no longer falls back
+  to `bridge.md` prose when typed `review_state.json` is missing, default
+  warm refs suppress compatibility projections plus lane-specific docs, and
+  custom-layout/no-bridge fixture repos now prove the same behavior outside
+  the VoiceTerm default layout. Remaining same-lane work stays narrow:
+  explicit repo-pack capability gating, broader docs-authority compression,
+  fail-closed push publication state, and Ralph canonical-history closure.
+- 2026-03-27 self-hosting organization priority correction: the repo does not
+  need another universal-system roadmap. The active `MP-377` / `MP-376`
+  chain already owns the universal docs/governance architecture; the missing
+  work is executable compression and self-hosting enforcement. Current
+  repo-owned baselines make that explicit: `doc-authority` reports `50`
+  governed docs / `45,107` lines, `19` budget violations, `4` authority
+  overlaps, and `8` consolidation candidates, while `check_package_layout`
+  still reports four frozen crowded directories and seven crowded namespace
+  families under the `devctl` stack. The next priority tranche is therefore
+  explicit: finish `DocPolicy` / `DocRegistry` / `doc-authority`, absorb root
+  intake conclusions into owner docs, separate development-self-hosting docs
+  from adopter/bootstrap surfaces, and use that same contract to shrink the
+  live authority surface instead of adding more planning prose.
+- 2026-03-27 governed-push fail-closed correction: `devctl push` is now the
+  canonical branch-push path, but the contract is still not atomic or
+  bypass-proof. The CLI still exposes `--skip-preflight` /
+  `--skip-post-push`, and the 2026-03-27 governed push of this branch proved
+  the remote can advance before a broader post-push bundle fails
+  (`check_code_shape.py --since-ref origin/develop`). Remaining closure under
+  `MP-377` / `MP-376` is now explicit: remove or policy-gate bypass flags,
+  align preflight/post-push scopes with the publish contract, and teach
+  startup/status/receipts to distinguish "published" from "post-push green"
+  so agents and operators do not mistake a remote update for full contract
+  success.
 - Current deterministic self-governance closure rule after the 2026-03-21
   guard audit: do not treat more guard count or richer graph semantics as
   progress while typed/runtime authority still lies. First close the cheap

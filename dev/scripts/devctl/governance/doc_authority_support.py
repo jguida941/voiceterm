@@ -7,7 +7,12 @@ from pathlib import Path
 
 from .doc_authority_paths import path_in_root, registry_managed as registry_managed_path
 from .doc_authority_metadata import lifecycle_from_meta, parse_metadata_header
-from .doc_authority_models import PLAN_DOC_CLASSES, REQUIRED_SECTIONS, DocRecord, GovernedDocLayout
+from .doc_authority_models import (
+    PLAN_DOC_CLASSES,
+    REQUIRED_SECTIONS,
+    DocRecord,
+    GovernedDocLayout,
+)
 from .doc_authority_rules import (
     check_budget,
     classify_doc,
@@ -90,9 +95,29 @@ def _build_record(
     lifecycle = lifecycle_from_meta(meta)
     managed = registry_managed_path(rel, layout.active_docs_root, layout.index_path)
     in_index = reg_entry is not None
+    artifact_role = _artifact_role(rel=rel, doc_class=doc_class, layout=layout)
+    authority_kind = _authority_kind(
+        artifact_role=artifact_role,
+        authority=reg_entry["authority"] if reg_entry else "",
+        doc_class=doc_class,
+    )
+    system_scope = _system_scope(
+        rel=rel,
+        scope=reg_entry["scope"] if reg_entry else "",
+        artifact_role=artifact_role,
+        layout=layout,
+    )
+    consumer_scope = _consumer_scope(
+        artifact_role=artifact_role,
+        system_scope=system_scope,
+    )
     return DocRecord(
         path=rel,
         doc_class=doc_class,
+        artifact_role=artifact_role,
+        authority_kind=authority_kind,
+        system_scope=system_scope,
+        consumer_scope=consumer_scope,
         owner=meta.get("owner", ""),
         authority=reg_entry["authority"] if reg_entry else "",
         lifecycle=lifecycle,
@@ -122,6 +147,81 @@ def _build_record(
             layout=layout,
         ),
     )
+
+
+def _artifact_role(*, rel: str, doc_class: str, layout: GovernedDocLayout) -> str:
+    if rel == layout.bridge_path:
+        return "compatibility_projection"
+    if rel == layout.docs_authority_path:
+        return "docs_authority"
+    if rel == layout.index_path:
+        return "plan_registry"
+    if rel == layout.tracker_path:
+        return "execution_tracker"
+    if doc_class in PLAN_DOC_CLASSES:
+        return "execution_plan"
+    if doc_class == "generated_report":
+        return "generated_surface"
+    return doc_class or "reference"
+
+
+def _authority_kind(*, artifact_role: str, authority: str, doc_class: str) -> str:
+    authority_text = authority.strip().lower()
+    if artifact_role == "compatibility_projection":
+        return "compatibility_only"
+    if authority_text == "canonical":
+        return "canonical_markdown"
+    if authority_text == "reference-only":
+        return "reference_only"
+    if authority_text == "supporting":
+        return "supporting_context"
+    if authority_text.startswith("mirrored"):
+        return "mirrored_markdown"
+    if artifact_role in {"docs_authority", "plan_registry", "execution_tracker"}:
+        return "startup_authority"
+    if artifact_role == "execution_plan":
+        return "execution_authority"
+    if doc_class == "reference":
+        return "reference_only"
+    return "supporting_context"
+
+
+def _system_scope(
+    *,
+    rel: str,
+    scope: str,
+    artifact_role: str,
+    layout: GovernedDocLayout,
+) -> str:
+    if artifact_role == "compatibility_projection":
+        return "repo_pack_client"
+    if artifact_role == "docs_authority":
+        return "development_self_hosting"
+    if artifact_role in {"plan_registry", "execution_tracker"}:
+        return "platform_core"
+    if artifact_role == "execution_plan":
+        if rel.endswith("ai_governance_platform.md") or rel.endswith(
+            "platform_authority_loop.md"
+        ):
+            return "platform_core"
+        if "MP-376" in scope or "MP-377" in scope:
+            return "platform_core"
+        return "repo_pack_client"
+    if artifact_role == "guide":
+        return "development_self_hosting"
+    return "repo_local"
+
+
+def _consumer_scope(*, artifact_role: str, system_scope: str) -> str:
+    if artifact_role == "compatibility_projection":
+        return "review_runtime"
+    if artifact_role in {"docs_authority", "plan_registry", "execution_tracker"}:
+        return "startup_default"
+    if artifact_role == "execution_plan":
+        return "startup_default" if system_scope == "platform_core" else "lane_specific"
+    if artifact_role == "guide":
+        return "development_only"
+    return "on_demand"
 
 
 def _scan_roots(layout: GovernedDocLayout) -> tuple[str, ...]:

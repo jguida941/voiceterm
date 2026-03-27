@@ -69,6 +69,10 @@ class DocRecord:
     in_index: bool
     issues: tuple[str, ...]
     consolidation_signals: tuple[str, ...]
+    artifact_role: str = ""
+    authority_kind: str = ""
+    system_scope: str = ""
+    consumer_scope: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)

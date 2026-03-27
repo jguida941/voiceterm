@@ -95,6 +95,10 @@ class DocRegistryEntry:
     authority: str
     lifecycle: str
     scope: str
+    artifact_role: str = ""
+    authority_kind: str = ""
+    system_scope: str = ""
+    consumer_scope: str = ""
     owner: str = ""
     canonical_consumer: str = ""
     line_count: int = 0
@@ -134,6 +138,10 @@ class PlanRegistryEntry:
     authority: str
     scope: str
     when_agents_read: str
+    artifact_role: str = ""
+    authority_kind: str = ""
+    system_scope: str = ""
+    consumer_scope: str = ""
     title: str = ""
     owner: str = ""
     lifecycle: str = "unknown"

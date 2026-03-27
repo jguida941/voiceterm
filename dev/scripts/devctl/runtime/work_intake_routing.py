@@ -20,7 +20,9 @@ def build_routing(
 ) -> IntakeRoutingState:
     """Build startup routing hints from live ProjectGovernance fields."""
     startup_reads = tuple(
-        path for path in governance.startup_order if path and (repo_root / path).exists()
+        path
+        for path in governance.startup_order
+        if _startup_ref_allowed(governance, path) and (repo_root / path).exists()
     )
     workflow_profiles = tuple(
         profile for profile in governance.workflow_profiles if profile
@@ -71,14 +73,11 @@ def warm_refs(
 ) -> tuple[str, ...]:
     """Return the bounded set of warm refs for startup reading."""
     refs: list[str] = list(routing.startup_reads)
-    _append_existing_ref(
-        refs,
-        repo_root,
-        active_entry.path if active_entry is not None else "",
-    )
-    _append_existing_ref(refs, repo_root, governance.plan_registry.tracker_path)
-    _append_existing_ref(refs, repo_root, governance.plan_registry.index_path)
-    _append_existing_ref(refs, repo_root, governance.docs_authority)
+    if active_entry is not None and _startup_visible_plan_entry(active_entry):
+        _append_existing_ref(refs, repo_root, active_entry.path)
+    _append_startup_ref(refs, repo_root, governance, governance.plan_registry.tracker_path)
+    _append_startup_ref(refs, repo_root, governance, governance.plan_registry.index_path)
+    _append_startup_ref(refs, repo_root, governance, governance.docs_authority)
     _append_existing_ref(
         refs,
         repo_root,
@@ -87,7 +86,12 @@ def warm_refs(
             governance=governance,
         ),
     )
-    _append_existing_ref(refs, repo_root, governance.bridge_config.bridge_path.strip())
+    _append_startup_ref(
+        refs,
+        repo_root,
+        governance,
+        governance.bridge_config.bridge_path.strip(),
+    )
     return tuple(refs)
 
 
@@ -113,6 +117,45 @@ def _append_existing_ref(refs: list[str], repo_root: Path, candidate: str) -> No
         return
     if (repo_root / candidate).exists():
         refs.append(candidate)
+
+
+def _append_startup_ref(
+    refs: list[str],
+    repo_root: Path,
+    governance: ProjectGovernance,
+    candidate: str,
+) -> None:
+    if _startup_ref_allowed(governance, candidate):
+        _append_existing_ref(refs, repo_root, candidate)
+
+
+def _startup_ref_allowed(governance: ProjectGovernance, candidate: str) -> bool:
+    candidate = candidate.strip()
+    if not candidate:
+        return False
+    entry = _doc_registry_entry(governance, candidate)
+    if entry is None:
+        return True
+    if entry.authority_kind == "compatibility_only":
+        return False
+    if not entry.consumer_scope:
+        return True
+    return entry.consumer_scope == "startup_default"
+
+
+def _doc_registry_entry(governance: ProjectGovernance, candidate: str):
+    return next(
+        (entry for entry in governance.doc_registry.entries if entry.path == candidate),
+        None,
+    )
+
+
+def _startup_visible_plan_entry(entry: PlanRegistryEntry) -> bool:
+    if entry.authority_kind == "compatibility_only":
+        return False
+    if not entry.consumer_scope:
+        return True
+    return entry.consumer_scope == "startup_default"
 
 
 def _push_defaults(

@@ -20,6 +20,10 @@ def plan_registry_entry_from_mapping(
     entry = PlanRegistryEntry(
         path=coerce_string(payload.get("path")),
         role=coerce_string(payload.get("role")),
+        artifact_role=coerce_string(payload.get("artifact_role")),
+        authority_kind=coerce_string(payload.get("authority_kind")),
+        system_scope=coerce_string(payload.get("system_scope")),
+        consumer_scope=coerce_string(payload.get("consumer_scope")),
         authority=coerce_string(payload.get("authority")),
         scope=coerce_string(payload.get("scope")),
         when_agents_read=coerce_string(payload.get("when_agents_read")),

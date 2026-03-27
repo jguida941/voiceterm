@@ -64,6 +64,10 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
                 {
                     "path": "dev/active/MASTER_PLAN.md",
                     "role": "tracker",
+                    "artifact_role": "execution_tracker",
+                    "authority_kind": "startup_authority",
+                    "system_scope": "platform_core",
+                    "consumer_scope": "startup_default",
                     "authority": "canonical",
                     "scope": "all active MP execution state",
                     "when_agents_read": "always",
@@ -111,6 +115,10 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
                 {
                     "path": "dev/active/MASTER_PLAN.md",
                     "doc_class": "tracker",
+                    "artifact_role": "execution_tracker",
+                    "authority_kind": "startup_authority",
+                    "system_scope": "platform_core",
+                    "consumer_scope": "startup_default",
                     "authority": "canonical",
                     "lifecycle": "active",
                     "scope": "all active MP execution state",
@@ -193,6 +201,7 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
     assert gov.plan_registry.tracker_path == "dev/active/MASTER_PLAN.md"
     assert len(gov.plan_registry.entries) == 1
     assert gov.plan_registry.entries[0].title == "Master Plan"
+    assert gov.plan_registry.entries[0].consumer_scope == "startup_default"
     assert gov.plan_registry.entries[0].has_execution_plan_contract is True
     assert gov.plan_registry.entries[0].session_resume is not None
     assert (
@@ -217,6 +226,7 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
     assert gov.doc_registry.docs_authority_path == "AGENTS.md"
     assert len(gov.doc_registry.entries) == 1
     assert gov.doc_registry.entries[0].doc_class == "tracker"
+    assert gov.doc_registry.entries[0].artifact_role == "execution_tracker"
     assert gov.doc_registry.entries[0].registry_managed is True
 
     assert gov.artifact_roots.audit_root == "dev/reports/audits"

@@ -15,9 +15,11 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .governance_scan import scan_repo_governance_safely
 from .project_governance import ProjectGovernance
 from .review_state_semantics import is_pending_implementer_state
-from .review_state_locator import load_review_state_payload
+from .review_state_locator import load_review_state
+from .startup_governance_projection import startup_governance_dict
 from .startup_push_decision import (
     PushDecisionState,
     derive_push_decision as _derive_push_decision,
@@ -79,17 +81,15 @@ def _detect_reviewer_gate(
     repo_root: Path,
     governance: ProjectGovernance | None = None,
 ) -> ReviewerGateState:
-    """Detect reviewer gate state from typed review-state or bridge.md."""
+    """Detect reviewer gate state from typed review-state only."""
+    resolved_governance = governance or scan_repo_governance_safely(repo_root)
     typed_gate = _detect_reviewer_gate_from_typed_state(
         repo_root,
-        governance=governance,
+        governance=resolved_governance,
     )
     if typed_gate is not None:
         return typed_gate
-    return _detect_reviewer_gate_from_bridge_with_governance(
-        repo_root,
-        governance=governance,
-    )
+    return _detect_reviewer_gate_without_typed_state(resolved_governance)
 
 
 def _detect_reviewer_gate_from_typed_state(
@@ -98,16 +98,13 @@ def _detect_reviewer_gate_from_typed_state(
     governance: ProjectGovernance | None = None,
 ) -> ReviewerGateState | None:
     """Read reviewer gate from typed review_state.json when available."""
-    payload = load_review_state_payload(repo_root, governance=governance)
-    if payload is None:
+    state = load_review_state(repo_root, governance=governance)
+    if state is None:
         return None
     try:
-        bridge_block = payload.get("bridge") or {}
-        attention_block = payload.get("attention") or {}
-        mode = str(bridge_block.get("reviewer_mode") or "single_agent")
-
         from ..review_channel.peer_liveness import reviewer_mode_is_active
 
+        mode = state.bridge.reviewer_mode
         active = reviewer_mode_is_active(mode)
         if not active:
             return ReviewerGateState(
@@ -119,105 +116,62 @@ def _detect_reviewer_gate_from_typed_state(
                 review_gate_allows_push=True,
             )
 
-        review_accepted = bool(bridge_block.get("review_accepted", False))
-        claude_ack_current = bool(bridge_block.get("claude_ack_current", False))
-        current_session = payload.get("current_session") or {}
         implementation_blocked, implementation_block_reason = (
             _reviewer_loop_block_state(
                 reviewer_mode=mode,
-                claude_ack_current=claude_ack_current,
-                attention_status=str(attention_block.get("status") or "").strip(),
-                implementer_status=str(
-                    current_session.get("implementer_status") or ""
-                ).strip(),
-                implementer_ack=str(current_session.get("implementer_ack") or "").strip(),
-                implementer_ack_state=str(
-                    current_session.get("implementer_ack_state") or ""
-                ).strip(),
+                claude_ack_current=state.bridge.claude_ack_current,
+                attention_status=(
+                    str(state.attention.status).strip()
+                    if state.attention is not None
+                    else ""
+                ),
+                implementer_status=state.current_session.implementer_status.strip(),
+                implementer_ack=state.current_session.implementer_ack.strip(),
+                implementer_ack_state=state.current_session.implementer_ack_state.strip(),
             )
         )
 
         return ReviewerGateState(
             bridge_active=True,
             reviewer_mode=mode,
-            review_accepted=review_accepted,
+            review_accepted=state.bridge.review_accepted,
             required_checks_status="unknown",
             checkpoint_permitted=True,
-            review_gate_allows_push=review_accepted,
+            review_gate_allows_push=state.bridge.review_accepted,
             implementation_blocked=implementation_blocked,
             implementation_block_reason=implementation_block_reason,
         )
-    except (ImportError, KeyError):
+    except ImportError:
         return None
 
 
-def _detect_reviewer_gate_from_bridge(repo_root: Path) -> ReviewerGateState:
-    """Fallback: detect reviewer gate by parsing live bridge.md prose."""
-    return _detect_reviewer_gate_from_bridge_with_governance(repo_root, governance=None)
-
-
-def _detect_reviewer_gate_from_bridge_with_governance(
-    repo_root: Path,
-    *,
+def _detect_reviewer_gate_without_typed_state(
     governance: ProjectGovernance | None,
 ) -> ReviewerGateState:
-    bridge_path = _resolve_bridge_path(repo_root, governance=governance)
-    if bridge_path is None or not bridge_path.exists():
+    if governance is None:
         return ReviewerGateState(
             checkpoint_permitted=True,
             review_gate_allows_push=True,
         )
-    try:
-        from ..review_channel.bridge_validation import bridge_review_accepted
-        from ..review_channel.peer_liveness import reviewer_mode_is_active
-        from ..review_channel.handoff import (
-            extract_bridge_snapshot,
-            summarize_bridge_liveness,
-        )
-
-        text = bridge_path.read_text(encoding="utf-8")
-        snapshot = extract_bridge_snapshot(text)
-        liveness = summarize_bridge_liveness(snapshot)
-        mode = liveness.reviewer_mode or "single_agent"
-        active = reviewer_mode_is_active(mode)
-        if not active:
-            return ReviewerGateState(
-                bridge_active=False,
-                reviewer_mode=mode,
-                review_accepted=True,
-                required_checks_status="unknown",
-                checkpoint_permitted=True,
-                review_gate_allows_push=True,
-            )
-        review_accepted = bridge_review_accepted(snapshot)
-        implementation_blocked, implementation_block_reason = (
-            _reviewer_loop_block_state(
-                reviewer_mode=mode,
-                claude_ack_current=bool(liveness.claude_ack_current),
-                attention_status=str(liveness.overall_state or "").strip(),
-                implementer_status=snapshot.sections.get("Claude Status", "").strip(),
-                implementer_ack=snapshot.sections.get("Claude Ack", "").strip(),
-            )
-        )
+    bridge_active = bool(
+        governance.bridge_config.bridge_active
+        or str(governance.bridge_config.review_channel_path or "").strip()
+        or str(governance.bridge_config.bridge_path or "").strip()
+    )
+    if not bridge_active:
         return ReviewerGateState(
-            bridge_active=True,
-            reviewer_mode=mode,
-            review_accepted=review_accepted,
-            required_checks_status="unknown",
             checkpoint_permitted=True,
-            review_gate_allows_push=review_accepted,
-            implementation_blocked=implementation_blocked,
-            implementation_block_reason=implementation_block_reason,
+            review_gate_allows_push=True,
         )
-    except (OSError, ImportError, ValueError):
-        return ReviewerGateState(
-            checkpoint_permitted=False,
-            review_gate_allows_push=False,
-            implementation_blocked=True,
-            implementation_block_reason="bridge_parse_error",
-        )
-
-
+    return ReviewerGateState(
+        bridge_active=True,
+        reviewer_mode="unknown",
+        review_accepted=False,
+        checkpoint_permitted=True,
+        review_gate_allows_push=False,
+        implementation_blocked=True,
+        implementation_block_reason="typed_review_state_required",
+    )
 def _reviewer_loop_block_state(
     *,
     reviewer_mode: str,
@@ -241,28 +195,6 @@ def _reviewer_loop_block_state(
         return False, ""
     reason = attention_status or "claude_ack_stale"
     return True, reason
-
-
-def _resolve_bridge_path(
-    repo_root: Path,
-    *,
-    governance: ProjectGovernance | None,
-) -> Path | None:
-    bridge_rel = ""
-    if governance is not None:
-        bridge_rel = str(governance.bridge_config.bridge_path or "").strip()
-    if not bridge_rel:
-        try:
-            from ..governance.draft import scan_repo_governance
-
-            bridge_rel = str(
-                scan_repo_governance(repo_root).bridge_config.bridge_path or ""
-            ).strip()
-        except ImportError:
-            bridge_rel = ""
-    if not bridge_rel:
-        return None
-    return repo_root / bridge_rel
 
 
 def _derive_advisory_action(
@@ -299,6 +231,8 @@ def _derive_advisory_action(
     if gate.checkpoint_permitted and pe.worktree_dirty:
         return "checkpoint_allowed", "worktree_dirty_within_budget"
     return "continue_editing", "clean_worktree"
+
+
 def build_startup_context(
     *,
     repo_root: Path | None = None,
@@ -309,6 +243,7 @@ def build_startup_context(
         repo_root = get_repo_root()
 
     from ..governance.draft import scan_repo_governance
+
     governance = scan_repo_governance(repo_root)
     gate = _detect_reviewer_gate(repo_root, governance=governance)
     push_decision = _derive_push_decision(governance, gate)
@@ -345,52 +280,4 @@ def blocks_new_implementation(ctx: StartupContext) -> bool:
 
 def _startup_governance_dict(governance: ProjectGovernance) -> dict[str, Any]:
     """Return a bounded governance projection suitable for startup packets."""
-    payload: dict[str, Any] = {}
-    payload["schema_version"] = governance.schema_version
-    payload["contract_id"] = governance.contract_id
-    payload["repo_identity"] = asdict(governance.repo_identity)
-    payload["repo_pack"] = asdict(governance.repo_pack)
-    payload["path_roots"] = asdict(governance.path_roots)
-    payload["plan_registry"] = {
-        "registry_path": governance.plan_registry.registry_path,
-        "tracker_path": governance.plan_registry.tracker_path,
-        "index_path": governance.plan_registry.index_path,
-        "entries": [
-            _startup_plan_entry_dict(entry)
-            for entry in governance.plan_registry.entries
-        ],
-    }
-    payload["bridge_config"] = asdict(governance.bridge_config)
-    payload["push_enforcement"] = asdict(governance.push_enforcement)
-    payload["startup_order"] = list(governance.startup_order)
-    payload["docs_authority"] = governance.docs_authority
-    payload["workflow_profiles"] = list(governance.workflow_profiles)
-    payload["command_routing_defaults"] = dict(governance.command_routing_defaults or {})
-    payload["enabled_checks_summary"] = dict(
-        guard_count=len(governance.enabled_checks.guard_ids),
-        probe_count=len(governance.enabled_checks.probe_ids),
-    )
-    payload["doc_registry_summary"] = dict(
-        entry_count=len(governance.doc_registry.entries),
-        managed_count=sum(
-            1 for entry in governance.doc_registry.entries if entry.registry_managed
-        ),
-    )
-    if governance.memory_roots.configured():
-        payload["memory_roots"] = governance.memory_roots.to_dict()
-    return payload
-
-
-def _startup_plan_entry_dict(entry) -> dict[str, object]:
-    payload: dict[str, object] = {}
-    payload["path"] = entry.path
-    payload["role"] = entry.role
-    payload["authority"] = entry.authority
-    payload["scope"] = entry.scope
-    payload["when_agents_read"] = entry.when_agents_read
-    payload["title"] = entry.title
-    payload["lifecycle"] = entry.lifecycle
-    payload["has_execution_plan_contract"] = entry.has_execution_plan_contract
-    if entry.session_resume is not None and entry.session_resume.summary:
-        payload["session_resume_summary"] = entry.session_resume.summary
-    return payload
+    return startup_governance_dict(governance)

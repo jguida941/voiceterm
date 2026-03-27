@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-03-26 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-03-27 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -209,7 +209,12 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       `devctl push`, optional installed pre-push hooks, and raw `git push`;
       startup/status surfaces should say whether repo-owned push validation is
       merely available or actually active so operators do not assume a GitHub
-      push is guarded when no hook/install path is in force.
+      push is guarded when no hook/install path is in force. The same tranche
+      now also owns bypass-proofing and publish-state honesty: policy-backed
+      push surfaces should not expose unrestricted `--skip-preflight` /
+      `--skip-post-push` paths to normal AI/operator workflows, and typed
+      status/receipts must distinguish "remote updated" from "post-push green"
+      when a branch is published before the broader bundle finishes.
 - [ ] Add an optional clean-slate / rollback-on-failure safety mode for
       external-adopter remediation loops: capture a pre-fix baseline, allow a
       bounded rollback to that baseline when post-fix validation worsens or
@@ -440,6 +445,30 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-03-27: Added the first portable authority fixtures that matter for
+  adoption proof instead of talking about them abstractly. Governance-draft
+  and startup/runtime tests now cover a policy-owned custom layout plus a
+  no-bridge repo, and the runtime no longer needs `bridge.md` prose as a
+  startup fallback when typed review state is absent. The same slice proves
+  default warm refs can stay on startup-authority docs while suppressing
+  compatibility projections and repo-pack lane docs.
+- 2026-03-27: Re-ran the self-hosting portability evidence on the pushed
+  branch instead of relying on broad complaints. `doc-authority` now reports
+  `50` governed docs / `45,107` lines, `19` budget violations, `4` authority
+  overlaps, and `8` consolidation candidates; `check_package_layout` still
+  reports four frozen crowded directories plus seven crowded namespace
+  families. That keeps the portable-engine ownership sharp: another repo
+  cannot get a clean adoption story until this repo can prove the same
+  organization contract on itself without drifting into shadow docs or flat-
+  root sprawl.
+- 2026-03-27: Verified the next adopter-facing push gap against the live
+  governed push flow. The canonical `devctl push` surface still exposes
+  `--skip-preflight` / `--skip-post-push`, and the real run published the
+  branch before the broader post-push bundle finished green. Promoted the
+  remaining closure into this portable lane too: adopters need explicit
+  publish-state honesty and policy-gated bypass behavior, not just a command
+  that says "guarded push" while optional flags or post-push timing still
+  let the contract split in two.
 - 2026-03-26: Elevated the repo's own markdown sprawl into the portable-engine
   proof criteria instead of leaving it as an aesthetic complaint. Verified
   local pressure is now explicit: 27 `dev/active/*.md` docs and 10 root-level
@@ -1163,6 +1192,39 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Session Resume
 
+- 2026-03-27 fixture-proof follow-up landed: the portable lane now has code
+  proof that custom-layout and no-bridge repos do not need `bridge.md` to act
+  as startup authority, and startup warm refs can suppress compatibility
+  projections plus lane-specific docs when `ProjectGovernance` classification
+  is present. Keep the next `MP-376` slice on explicit capability gating and
+  second-repo/adopter proof rather than widening back into VoiceTerm-only
+  operating-mode cleanup.
+- 2026-03-27 portable-proof priority lock: keep the next `MP-376` tranche
+  focused on proving that adopters do not need VoiceTerm-shaped docs, paths,
+  or push habits. The immediate proof bar is narrow: custom-layout authority
+  discovery, generated bootstrap/instruction surfaces that only emit
+  repo-pack-selected docs, portable organization enforcement from
+  `doc-authority` / `check_package_layout`, and adopter-facing push semantics
+  that do not treat a remote update as full policy success. Do not spend this
+  tranche on more evidence memos unless they directly advance that proof.
+- 2026-03-27 optional-capability proof follow-up: the next adopter proof must
+  show that review-channel, bridge compatibility, autonomy, operator-console,
+  and mobile/phone surfaces are genuinely repo-pack/capability gated. Starter
+  adoption should be able to run with those capabilities absent, and
+  generated setup/instruction surfaces must advertise only the enabled
+  capability set instead of teaching VoiceTerm's full operating stack as the
+  universal baseline. Keep the same proof tranche responsible for config-
+  driven registry closure too: starter/adopter repos should not need hardcoded
+  bundle/script/provider chains copied from VoiceTerm to discover the portable
+  engine correctly.
+- 2026-03-27 push/organization follow-up: the next `MP-376` proof should use
+  the measured self-hosting baseline, not another general audit memo.
+  `doc-authority` and `check_package_layout` now give the portable lane real
+  numbers for the repo's own organization debt, and the governed push flow
+  proved the adopter-facing push contract is still not bypass-proof or
+  publish-state-honest. Resume from portable organization enforcement,
+  custom-layout proof, and explicit push-state semantics before claiming a
+  clean adopter kit.
 - 2026-03-26 self-hosting/organization follow-up: the next `MP-376` proof is
   not another big evidence memo. It is a custom-layout and low-doc-count
   proof. Before archiving reference docs, verify their accepted conclusions are

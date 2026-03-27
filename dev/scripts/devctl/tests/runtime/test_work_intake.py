@@ -11,6 +11,9 @@ from dev.scripts.devctl.runtime.project_governance import (
     ArtifactRoots,
     BridgeConfig,
     BundleOverrides,
+    DocPolicy,
+    DocRegistry,
+    DocRegistryEntry,
     EnabledChecks,
     MemoryRoots,
     PathRoots,
@@ -41,6 +44,10 @@ def _governance(
         authority="canonical",
         scope="all active MP execution state",
         when_agents_read="always",
+        artifact_role="execution_tracker",
+        authority_kind="startup_authority",
+        system_scope="platform_core",
+        consumer_scope="startup_default",
         title="Master Plan",
         session_resume=SessionResumeState(
             section_hash="tracker1234",
@@ -54,6 +61,10 @@ def _governance(
         authority="MP-377",
         scope="MP-377",
         when_agents_read="matching MP scope is in play",
+        artifact_role="execution_plan",
+        authority_kind="execution_authority",
+        system_scope="platform_core",
+        consumer_scope="startup_default",
         title="Platform Authority Loop",
         session_resume=SessionResumeState(
             section_hash="resume1234",
@@ -85,6 +96,70 @@ def _governance(
             tracker_path="dev/active/MASTER_PLAN.md",
             index_path="dev/active/INDEX.md",
             entries=(tracker_entry, authority_entry),
+        ),
+        doc_policy=DocPolicy(
+            docs_authority_path="AGENTS.md",
+            tracker_path="dev/active/MASTER_PLAN.md",
+            index_path="dev/active/INDEX.md",
+        ),
+        doc_registry=DocRegistry(
+            entries=(
+                DocRegistryEntry(
+                    path="AGENTS.md",
+                    doc_class="guide",
+                    authority="canonical",
+                    lifecycle="active",
+                    scope="startup contract",
+                    artifact_role="docs_authority",
+                    authority_kind="startup_authority",
+                    system_scope="development_self_hosting",
+                    consumer_scope="startup_default",
+                ),
+                DocRegistryEntry(
+                    path="dev/active/INDEX.md",
+                    doc_class="reference",
+                    authority="canonical",
+                    lifecycle="active",
+                    scope="plan registry",
+                    artifact_role="plan_registry",
+                    authority_kind="startup_authority",
+                    system_scope="platform_core",
+                    consumer_scope="startup_default",
+                ),
+                DocRegistryEntry(
+                    path="dev/active/MASTER_PLAN.md",
+                    doc_class="tracker",
+                    authority="canonical",
+                    lifecycle="active",
+                    scope="all active MP execution state",
+                    artifact_role="execution_tracker",
+                    authority_kind="startup_authority",
+                    system_scope="platform_core",
+                    consumer_scope="startup_default",
+                ),
+                DocRegistryEntry(
+                    path="dev/active/platform_authority_loop.md",
+                    doc_class="spec",
+                    authority="mirrored in MASTER_PLAN",
+                    lifecycle="active",
+                    scope="MP-377",
+                    artifact_role="execution_plan",
+                    authority_kind="execution_authority",
+                    system_scope="platform_core",
+                    consumer_scope="startup_default",
+                ),
+                DocRegistryEntry(
+                    path="bridge.md",
+                    doc_class="generated_report",
+                    authority="reference-only",
+                    lifecycle="active",
+                    scope="review compatibility",
+                    artifact_role="compatibility_projection",
+                    authority_kind="compatibility_only",
+                    system_scope="repo_pack_client",
+                    consumer_scope="review_runtime",
+                ),
+            )
         ),
         artifact_roots=ArtifactRoots(review_root=review_root),
         memory_roots=MemoryRoots(),
@@ -161,6 +236,7 @@ def test_build_work_intake_packet_prefers_mp_scoped_spec_and_reconciles_review_s
     )
     assert "AGENTS.md" in packet.warm_refs
     assert "dev/reports/review_channel/latest/review_state.json" in packet.warm_refs
+    assert "bridge.md" not in packet.warm_refs
 
 
 def test_build_work_intake_packet_falls_back_to_tracker_without_review_state(
@@ -223,3 +299,100 @@ def test_build_work_intake_packet_uses_resolved_review_state_candidate_for_warm_
         "dev/reports/review_channel/projections/latest/review_state.json"
         in packet.warm_refs
     )
+    assert "bridge.md" not in packet.warm_refs
+
+
+def test_build_work_intake_packet_suppresses_lane_specific_plan_refs_from_default_warm_refs(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path / "AGENTS.md", "# Agents\n")
+    _write(tmp_path / "bridge.md", "# Bridge\n")
+    _write(tmp_path / "dev/active/INDEX.md", "# Index\n")
+    _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
+    _write(tmp_path / "dev/active/review_channel.md", "# Review Channel\n")
+    _write(
+        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        json.dumps(
+            {
+                "bridge": {"reviewer_mode": "active_dual_agent"},
+                "review": {"plan_id": "MP-355"},
+                "current_session": {
+                    "last_reviewed_scope": "MP-355",
+                    "current_instruction": "Stay on the current review channel slice.",
+                    "open_findings": "none",
+                    "implementer_status": "coding",
+                    "implementer_ack_state": "current",
+                },
+            }
+        ),
+    )
+
+    base = _governance()
+    review_entry = PlanRegistryEntry(
+        path="dev/active/review_channel.md",
+        role="spec",
+        authority="mirrored in MASTER_PLAN",
+        scope="MP-355",
+        when_agents_read="when review-channel work is in scope",
+        artifact_role="execution_plan",
+        authority_kind="execution_authority",
+        system_scope="repo_pack_client",
+        consumer_scope="lane_specific",
+        title="Review Channel",
+        session_resume=SessionResumeState(
+            section_hash="review355",
+            summary="Current review-channel follow-up.",
+            entries=(SessionResumeEntry(text="Current review-channel follow-up."),),
+        ),
+    )
+    governance = ProjectGovernance(
+        schema_version=base.schema_version,
+        contract_id=base.contract_id,
+        repo_identity=base.repo_identity,
+        repo_pack=base.repo_pack,
+        path_roots=base.path_roots,
+        plan_registry=PlanRegistry(
+            tracker_path=base.plan_registry.tracker_path,
+            index_path=base.plan_registry.index_path,
+            entries=(*base.plan_registry.entries, review_entry),
+        ),
+        artifact_roots=base.artifact_roots,
+        memory_roots=base.memory_roots,
+        bridge_config=base.bridge_config,
+        enabled_checks=base.enabled_checks,
+        bundle_overrides=base.bundle_overrides,
+        doc_policy=base.doc_policy,
+        doc_registry=DocRegistry(
+            entries=(
+                *base.doc_registry.entries,
+                DocRegistryEntry(
+                    path="dev/active/review_channel.md",
+                    doc_class="spec",
+                    authority="mirrored in MASTER_PLAN",
+                    lifecycle="active",
+                    scope="MP-355",
+                    artifact_role="execution_plan",
+                    authority_kind="execution_authority",
+                    system_scope="repo_pack_client",
+                    consumer_scope="lane_specific",
+                ),
+            )
+        ),
+        push_enforcement=base.push_enforcement,
+        startup_order=base.startup_order,
+        docs_authority=base.docs_authority,
+        workflow_profiles=base.workflow_profiles,
+        command_routing_defaults=base.command_routing_defaults,
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=governance,
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.active_target is not None
+    assert packet.active_target.plan_path == "dev/active/review_channel.md"
+    assert "dev/active/review_channel.md" not in packet.warm_refs
+    assert "bridge.md" not in packet.warm_refs

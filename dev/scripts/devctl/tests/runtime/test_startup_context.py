@@ -454,7 +454,7 @@ class TestReviewerGateSemantics(unittest.TestCase):
             # Acceptance must come from verdict, not mode
             self.assertIsInstance(ctx.reviewer_gate.review_accepted, bool)
 
-    def test_detect_reviewer_gate_accepts_reviewer_accepted_with_clear_findings(self) -> None:
+    def test_detect_reviewer_gate_requires_typed_review_state_for_bridge_sessions(self) -> None:
         with TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
             self._write_bridge(
@@ -463,48 +463,13 @@ class TestReviewerGateSemantics(unittest.TestCase):
                 "- none",
             )
             gate = _detect_reviewer_gate(repo_root)
-            self.assertTrue(gate.review_accepted)
-            self.assertTrue(gate.review_gate_allows_push)
-
-    def test_detect_reviewer_gate_accepts_all_green_with_resolved_findings(self) -> None:
-        with TemporaryDirectory() as tmp:
-            repo_root = Path(tmp)
-            self._write_bridge(
-                repo_root,
-                "All green. Ready for the next scoped task.",
-                "resolved",
-            )
-            gate = _detect_reviewer_gate(repo_root)
-            self.assertTrue(gate.review_accepted)
-            self.assertTrue(gate.review_gate_allows_push)
-
-    def test_detect_reviewer_gate_rejects_negated_acceptance_text(self) -> None:
-        with TemporaryDirectory() as tmp:
-            repo_root = Path(tmp)
-            self._write_bridge(
-                repo_root,
-                "Not accepted. Follow-up review still required.",
-                "- none",
-            )
-            gate = _detect_reviewer_gate(repo_root)
             self.assertFalse(gate.review_accepted)
             self.assertFalse(gate.review_gate_allows_push)
-
-    def test_detect_reviewer_gate_fail_closed_on_bridge_parse_error(self) -> None:
-        with TemporaryDirectory() as tmp:
-            repo_root = Path(tmp)
-            self._write_bridge(
-                repo_root,
-                "Reviewer-accepted. Narrow startup-context slice is clean.",
-                "- none",
+            self.assertTrue(gate.implementation_blocked)
+            self.assertEqual(
+                gate.implementation_block_reason,
+                "typed_review_state_required",
             )
-            with patch(
-                "dev.scripts.devctl.review_channel.handoff.extract_bridge_snapshot",
-                side_effect=ValueError("boom"),
-            ):
-                gate = _detect_reviewer_gate(repo_root)
-            self.assertFalse(gate.review_accepted)
-            self.assertFalse(gate.review_gate_allows_push)
 
 
 class TestAdvisoryAction(unittest.TestCase):
@@ -828,8 +793,8 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
 
         self.assertFalse(gate.implementation_blocked)
 
-    def test_typed_path_falls_back_when_state_missing(self) -> None:
-        """When review_state.json is absent, falls back to bridge parsing."""
+    def test_typed_path_requires_typed_state_when_bridge_exists(self) -> None:
+        """When review_state.json is absent, startup stays fail-closed."""
         with TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
             bridge_text = "\n".join(
@@ -849,8 +814,13 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             )
             (repo_root / "bridge.md").write_text(bridge_text, encoding="utf-8")
             gate = _detect_reviewer_gate(repo_root)
-            self.assertTrue(gate.review_accepted)
-            self.assertTrue(gate.review_gate_allows_push)
+            self.assertFalse(gate.review_accepted)
+            self.assertFalse(gate.review_gate_allows_push)
+            self.assertTrue(gate.implementation_blocked)
+            self.assertEqual(
+                gate.implementation_block_reason,
+                "typed_review_state_required",
+            )
 
     def test_typed_path_inactive_mode_permits_push(self) -> None:
         """When reviewer mode is inactive, push is permitted regardless."""

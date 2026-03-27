@@ -182,6 +182,21 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.packets[0].packet_id, "pkt-legacy")
         self.assertEqual(state.lane_agents("claude")[0].agent_id, "AGENT-9")
 
+    def test_missing_reviewer_mode_defaults_to_single_agent(self) -> None:
+        state = review_state_from_payload(
+            {
+                "review_state": {
+                    "review": {"session_id": "session-legacy"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {},
+                }
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertEqual(state.bridge.reviewer_mode, "single_agent")
+
 
     def test_implementer_completion_stall_survives_parser_roundtrip(self) -> None:
         state = review_state_from_payload(

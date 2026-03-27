@@ -323,12 +323,13 @@ def collect_devctl_quality_backlog(
 
 
 def load_review_payload_from_bridge(
-    repo_root: Path,
+    repo_root: Path, *, path_config: RepoPathConfig | None = None
 ) -> tuple[dict[str, object] | None, tuple[str, ...]]:
     """Refresh and load the repo-pack owned review payload for thin clients."""
-    review_channel_path = repo_root / VOICETERM_PATH_CONFIG.review_channel_rel
-    bridge_path = repo_root / VOICETERM_PATH_CONFIG.bridge_rel
-    status_root = repo_root / VOICETERM_PATH_CONFIG.review_status_dir_rel
+    config = path_config or VOICETERM_PATH_CONFIG
+    review_channel_path = repo_root / config.review_channel_rel
+    bridge_path = repo_root / config.bridge_rel
+    status_root = repo_root / config.review_status_dir_rel
     if not review_channel_path.exists() or not bridge_path.exists():
         return None, ()
 
