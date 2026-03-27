@@ -390,6 +390,14 @@ context-free translation = MEDIUM.
 - [ ] Enrich the recommended bounded next slice when graph coverage exists:
       include likely callers/importers, related tests, config/workflow refs,
       and verification hints so AI fix packets do not stop at file-local prose.
+- [ ] Wire the shipped best-practice library directly into canonical probe
+      packets: render `practices.py` / `SIGNAL_TO_PRACTICE` why/fix content
+      alongside `ai_instruction` so findings explain why the pattern matters,
+      not only what to change.
+- [ ] Add plain-language topology and metric explanations to the same packet
+      family: `fan_in`, `fan_out`, `bridge_score`, hotspot rank, and similar
+      quality signals should render with one short "what this means" sentence
+      instead of surfacing as raw numbers only.
 - [ ] Attach governance-ledger history to probe packets and remediation
       surfaces: each finding should be able to surface prior
       `governance-review` dispositions, last reviewed verdict, repeated-failure

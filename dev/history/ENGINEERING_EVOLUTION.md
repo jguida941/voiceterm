@@ -6128,3 +6128,43 @@ step. The fix keeps a short post-exit drain window for buffered lines, then
 ends the step based on parent-process completion; a regression test now
 proves the runner does not time out when a child inherits stdout after the
 parent command has finished.
+
+### 2026-03-27 - Python architecture learning and AI explainability are now one tracked MP-377 concern
+
+Fact: the latest architecture discussion exposed a real usability gap in the
+governance stack. The repo already had strong typed-contract direction, but it
+still treated Python learning guidance and AI explanation quality as loosely
+related concerns. The correction is to keep them on one owner chain: runtime
+decisions should explain themselves through a small schema-validated
+decision-record vocabulary rendered into plain language, while the matching
+human-learning surface should teach the same contract-first modeling choices
+(`dict` vs `TypedDict` vs `dataclass` vs boundary-validation models,
+`Protocol`, composition, repository/service/unit-of-work, and dependency
+injection) instead of leaving that reasoning scattered across docs and chat.
+The active plan now records the recommended study spine explicitly too:
+Cosmic Python (Ch. 1-6, 8, 13), the official typing docs, Pydantic
+strict-mode/JSON Schema, and FastAPI boundary-model docs, with Pydantic kept
+focused on untrusted or serialized boundaries rather than promoted to every
+internal runtime contract.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-03-27 - Immediate explanation rollout now reuses existing packets and probe teaching content
+
+Fact: the follow-up review tightened the execution order for that same
+explainability slice. The full typed `DecisionTrace` family is still the
+Phase-5b provenance/evidence closure tracked under
+`platform_authority_loop.md`; it should not be pulled earlier just because the
+need is urgent. The correct near-term move is to improve the current operator
+surfaces with what already exists: extend `DecisionPacketRecord` and routed
+startup/task-router/workflow-profile receipts with `match_evidence` and
+rejected-rule traces, and render `practices.py` / `SIGNAL_TO_PRACTICE`
+teaching content plus plain-language hotspot metric explanations directly into
+canonical probe packets. That keeps the owner chain consistent while still
+delivering the low-effort/high-value clarity wins first.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/review_probes.md`,
+`dev/active/platform_authority_loop.md`.

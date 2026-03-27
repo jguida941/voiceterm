@@ -56,10 +56,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-27T17:58:01Z`
-- Last Codex poll (Local America/New_York): `2026-03-27 13:58:01 EDT`
+- Last Codex poll: `2026-03-27T18:17:34Z`
+- Last Codex poll (Local America/New_York): `2026-03-27 14:17:34 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `15acedffc9f5598fac47c9bc5c3b05e3a9f86c98e0e8006157ea393e12ef1c5b`
+- Last non-audit worktree hash: `73c394bf46ee8e0277584e652676c437998f456fac1a663c8c3fb40748c97b6d`
 - Current instruction revision: `518d4ea9f97a`
 ## Protocol
 
@@ -87,15 +87,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 15acedffc9f5).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; tree: 73c394bf46ee; instruction-rev: 518d4ea9f97a).
 
 ## Current Verdict
 
-Reviewer-accepted: the governed-push tranche now lands policy-gated skip-flag handling plus staged push truth (`validation_ready`, `published_remote`, `post_push_green`) across the canonical `devctl push` path, shared push policy, sync wrapper, tests, and owner docs. The broader architecture audit remains open in `dev/audits/architecture_alignment.md` under the current instruction, but this bounded tranche has no blocking review finding on the current tree.
+Reviewer-accepted: the governed-push tranche remains green on the current tree, and the same-lane follow-up now also records deterministic explanation outputs plus the platform-owned Python architecture learning path under MP-377 without widening into implementation. The broader architecture audit remains open in `dev/audits/architecture_alignment.md` under the current instruction, but this bounded tree has no blocking review finding.
 
 ## Open Findings
 
-- None blocking this governed-push tranche. The broader architecture audit remains active in `dev/audits/architecture_alignment.md` and continues under the current reviewer instruction.
+- None blocking this governed-push tranche or the same-lane explainability/learning-path tracking follow-up. The broader architecture audit remains active in `dev/audits/architecture_alignment.md` and continues under the current reviewer instruction.
 
 ## Claude Status
 
@@ -120,7 +120,7 @@ Stay on the shared architecture loop. Use `dev/audits/architecture_alignment.md`
 - push governance + sync wiring: `dev/scripts/devctl/governance/push_policy.py`, `dev/scripts/devctl/commands/sync.py`, `dev/scripts/devctl/sync_parser.py`, `dev/config/devctl_repo_policy.json`
 - validation: `dev/scripts/devctl/tests/vcs/test_push.py`, `dev/scripts/devctl/tests/test_sync.py`, `dev/scripts/devctl/tests/governance/test_governance_draft.py`, `dev/scripts/devctl/tests/runtime/test_work_intake.py`, `dev/scripts/devctl/tests/release/test_ship_release_steps.py`
 - maintainer docs: `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`
-- plan/history alignment: `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md`, `dev/active/platform_authority_loop.md`, `dev/active/portable_code_governance.md`, `dev/history/ENGINEERING_EVOLUTION.md`
+- plan/history alignment: `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md`, `dev/active/review_probes.md`, `dev/active/platform_authority_loop.md`, `dev/active/portable_code_governance.md`, `dev/history/ENGINEERING_EVOLUTION.md`
 - review-channel compatibility state: `bridge.md`, `dev/reports/review_channel/latest/review_state.json`
 - broader architecture ledger remains active: `dev/audits/architecture_alignment.md`
 

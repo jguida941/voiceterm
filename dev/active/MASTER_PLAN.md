@@ -503,6 +503,28 @@
   typed `DecisionTrace` / `current_session` state rather than from bridge/chat
   prose. Treat this as owner-chain work under `MP-377` / `MP-355`, not as a
   new architecture doc or another audit-only memo.
+- 2026-03-27 explanation/learning-path follow-up: accepted the same-lane
+  correction that architecture transparency and Python learning need one
+  contract-first surface instead of separate lore. The platform should not ask
+  AI for unconstrained prose "reasoning"; it should emit a small schema-
+  validated decision record with fixed vocabulary (`status`, observed facts,
+  triggered rules, rejected options, chosen action, next command,
+  uncertainty), then render a junior-dev-readable explanation from that typed
+  packet. Pair that runtime work with one platform-owned Python architecture
+  guide/decision tree that teaches when to use `dict`, `TypedDict`,
+  `dataclass`, boundary-validation models, and `Protocol`, then connects those
+  shapes back to repository/service/unit-of-work/dependency-injection patterns
+  in plain language. Recommended source spine: Cosmic Python (Ch. 1-6, 8, 13),
+  the official typing docs, Pydantic strict-mode/JSON Schema, and FastAPI
+  boundary-model docs. Keep Pydantic focused on untrusted or serialized
+  boundaries rather than forcing every internal runtime type through it.
+  Immediate execution split is explicit now too: do not wait for the full
+  Phase-5b `DecisionTrace` artifact before improving operator-facing clarity.
+  Use the existing `DecisionPacketRecord`, task-router surfaces, and probe
+  best-practice library to land routed-rule `match_evidence`, practice-linked
+  why text, and plain-language metric explanations first; then promote the
+  same evidence into the full typed provenance family already tracked under
+  `platform_authority_loop`.
 - 2026-03-27 governed-push session-lifetime fix: the shared `devctl`
   live-output runner now stops following inherited stdout lifetime once the
   parent push/post-push command has exited, after a short bounded drain for
@@ -3466,6 +3488,33 @@ become the main product surface.
     metrics deltas, confidence, chosen decision, and outcome travel together
     before they are aggregated into a session log, instead of creating a
     separate proof-only packet family for the same slice.
+  - [ ] Make explanation outputs deterministic and teachable: define one
+    schema-validated decision-record vocabulary for startup/review/push and
+    later runtime decisions (`status`, `goal`, `facts_observed`,
+    `rules_triggered`, `rejected_options`, `chosen_action`, `next_command`,
+    `uncertainty`), keep direct observations separate from guesses, and render
+    junior-dev-readable explanations from that packet instead of asking AI for
+    open-ended reasoning prose in the authoritative path.
+  - [ ] Add one platform-owned Python architecture guide and decision tree
+    aligned with the same contract-first style: teach when to use `dict`,
+    `TypedDict`, `dataclass`, boundary-validation models, and `Protocol`,
+    then connect those modeling choices to repository/service/unit-of-work/
+    dependency-injection patterns in plain language. Treat Cosmic Python
+    (Ch. 1-6, 8, 13), the official typing docs, Pydantic strict-mode/JSON
+    Schema, and FastAPI boundary-model docs as the recommended starter stack,
+    while keeping Pydantic scoped to untrusted or serialized boundaries rather
+    than as the default internal model for every runtime contract.
+  - [ ] Start the explanation rollout from existing typed surfaces instead of
+    waiting for a greenfield trace module: extend `DecisionPacketRecord` and
+    the routed startup/task-router/workflow-profile receipts with
+    `match_evidence`, rejected-rule traces, and plain-language rule summaries
+    so selected bundles and next commands explain why they were chosen.
+  - [ ] Reuse the shipped probe teaching corpus before writing new prose:
+    render `dev/scripts/checks/probe_report/practices.py` /
+    `SIGNAL_TO_PRACTICE` explanations and fix patterns directly into
+    canonical probe packets, and add plain-language metric explanations for
+    `fan_in`, `fan_out`, `bridge_score`, and hotspot rank so quality signals
+    stop surfacing as unlabeled numbers.
   - [ ] Evaluate one optional advisory decision-auditor step over
     `DecisionTrace` for high-blast-radius or low-confidence cases; it may
     challenge or confirm the reasoning before mutation, but

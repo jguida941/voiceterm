@@ -2482,6 +2482,37 @@ Still open before `P0` closes:
       `current_session`, and render bridge/latest/chat/status/external-audit
       packets plus generated implementer/reviewer instruction views from those
       typed records instead of inventing the "why" in append-only markdown.
+- [ ] Make explanation outputs deterministic and teachable: define one small
+      schema-validated decision-record vocabulary for startup/review/push and
+      later runtime decisions (`status`, `goal`, `facts_observed`,
+      `rules_triggered`, `rejected_options`, `chosen_action`, `next_command`,
+      `uncertainty`), keep direct observations separate from guesses, and
+      render junior-dev-readable explanation views from that packet instead of
+      asking AI for open-ended reasoning prose in the authoritative path.
+- [ ] Add one platform-owned Python architecture guide and decision tree
+      aligned with the same contract-first style: teach when to use `dict`,
+      `TypedDict`, `dataclass`, boundary-validation models, and `Protocol`,
+      then connect those modeling choices to repository/service/unit-of-work/
+      dependency-injection patterns in plain language. Treat Cosmic Python
+      (Ch. 1-6, 8, 13), the official typing docs, Pydantic strict-mode/JSON
+      Schema, and FastAPI boundary-model docs as the recommended starter
+      stack, while keeping Pydantic scoped to untrusted or serialized
+      boundaries rather than as the default internal model for every runtime
+      contract.
+- [ ] Start the explanation rollout from existing typed packets instead of
+      waiting for a greenfield `DecisionTrace` module: extend
+      `DecisionPacketRecord` plus routed startup/task-router/workflow-profile
+      receipts with `match_evidence`, rejected-rule traces, and plain-
+      language rule summaries so selected bundles and next commands explain
+      why they were chosen before the full provenance-grade trace family
+      lands.
+- [ ] Reuse the shipped probe teaching corpus before authoring a second
+      disconnected tutorial stack: render
+      `dev/scripts/checks/probe_report/practices.py` /
+      `SIGNAL_TO_PRACTICE` explanations and fix patterns directly into
+      canonical probe packets, and add plain-language metric explanations for
+      `fan_in`, `fan_out`, `bridge_score`, and hotspot rank so quality
+      signals stop acting like unlabeled telemetry.
 - [x] Add one read-only executable platform blueprint surface
       (`devctl platform-contracts`) so frontends, adopters, and AI setup flows
       can consume the intended backend/repo-pack contract in machine-readable
@@ -4016,6 +4047,24 @@ working on `MP-377`.
   bridge/chat/latest/status are projections, and `DecisionTrace` plus typed
   `current_session` is the right owner chain for future explain/audit
   surfaces rather than another planning memo.
+- 2026-03-27 explainability/learning-path correction: keep the next
+  human-facing clarity slice inside the same owner chain. The right fix is
+  not open-ended "AI reasoning" prose; it is typed `DecisionTrace` plus one
+  small schema-validated decision-record vocabulary rendered into plain-
+  language explanation views. Pair that with one platform-owned Python
+  architecture guide/decision tree for `dict` vs `TypedDict` vs `dataclass`
+  vs boundary-validation models, `Protocol`, composition, repository/service/
+  unit-of-work, and dependency injection. Treat Cosmic Python (Ch. 1-6, 8,
+  13), the official typing docs, Pydantic strict-mode/JSON Schema, and
+  FastAPI boundary-model docs as the starter study spine, while keeping
+  Pydantic scoped to untrusted or serialized boundaries instead of making it
+  the default internal runtime model.
+  Keep the rollout split explicit: the full provenance-grade `DecisionTrace`
+  family remains in the existing `platform_authority_loop` Phase-5b lane, but
+  the first operator-facing wins should land sooner by extending
+  `DecisionPacketRecord`, routed bundle-selection receipts, and probe packets
+  with match evidence, practice-linked why text, and plain-language metric
+  explanations.
 - 2026-03-26 doc-authority/organization follow-up: do not treat archive or
   deletion as the first cleanup move. The current repo still carries 27
   `dev/active/*.md` docs and 10 root-level markdown entrypoints, and some of
@@ -4681,6 +4730,30 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-27: Tightened the new explainability/learning-path direction so it
+  does not create a second disconnected roadmap or wait on the wrong phase.
+  The immediate output-layer work should reuse what already exists:
+  `DecisionPacketRecord` as the starting decision shape, routed startup/task-
+  router/workflow-profile receipts for `match_evidence` and rejected-rule
+  traces, and `dev/scripts/checks/probe_report/practices.py` /
+  `SIGNAL_TO_PRACTICE` for the first why/fix teaching content. The full typed
+  `DecisionTrace` family remains in the `platform_authority_loop` evidence/
+  provenance closure lane; the new instruction is to land the low-effort
+  explanation projections first instead of waiting for that deeper phase to
+  finish.
+- 2026-03-27: Accepted the user's push to treat Python architecture learning
+  and AI decision explainability as one `MP-377` concern instead of two loose
+  follow-ups. The resulting plan correction is explicit: authoritative
+  runtime explanations should come from a small schema-validated decision-
+  record vocabulary rendered from typed decision state, not from open-ended
+  prose reasoning; the matching human-learning surface should be one
+  platform-owned guide/decision tree for `dict` vs `TypedDict` vs
+  `dataclass` vs boundary-validation models, `Protocol`, composition,
+  repository/service/unit-of-work, and dependency injection. Locked the
+  recommended source spine in plan state too: Cosmic Python (Ch. 1-6, 8,
+  13), the official typing docs, Pydantic strict-mode/JSON Schema, and
+  FastAPI boundary-model docs, with Pydantic kept at untrusted/serialized
+  boundaries rather than promoted to every internal runtime contract.
 - 2026-03-27: Re-audited the full owner chain after the latest docs-boundary
   miss instead of assuming the problem was lack of planning. The plan
   direction was already correct; the real gap was restartability and owner
