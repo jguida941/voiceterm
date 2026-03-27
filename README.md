@@ -131,14 +131,6 @@ These companion surfaces are optional source-checkout workflow tools. They read
 repo-visible live review/control state and do not replace the normal VoiceTerm
 overlay path.
 
-If a companion surface reports stale review state, rerun
-`python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
-or `python3 dev/scripts/devctl.py startup-context --format md` from the same
-checkout. Both commands refresh the live typed review-state snapshot before
-trusting saved `review_state.json` projections. If either reports
-`checkpoint_required`, cut a checkpoint before `Start Swarm`, `Launch Live`, or
-continuing a new edit slice.
-
 </details>
 
 <details>

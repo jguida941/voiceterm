@@ -113,6 +113,10 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Align active plan docs (`MASTER_PLAN.md`, `INDEX.md`) with current execution
   state, reconcile plan boundaries, and scope devctl reporting upgrade.
+- Pull AI-governance startup/review/operator instructions back out of the
+  VoiceTerm end-user guides so product docs stay VoiceTerm-specific while the
+  self-hosting/platform boundary is tracked in the `MP-377` owner docs and
+  audit surfaces.
 - Update `dev/scripts/README.md` and `dev/guides/DEVELOPMENT.md` with new
   mutation testing module structure and CLI flags.
 - Simplify the main onboarding docs (`README.md`, `QUICK_START.md`,

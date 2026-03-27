@@ -122,14 +122,6 @@ repo-backed companion surfaces:
 These are advanced workflow tools. They do not replace the overlay or the
 voice-capture flow described in the rest of this guide.
 
-If one of these surfaces looks stale, rerun
-`python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
-or `python3 dev/scripts/devctl.py startup-context --format md` from the same
-checkout. Both commands refresh the live typed review-state snapshot before
-trusting saved `review_state.json` projections. If they report
-`checkpoint_required`, cut a checkpoint before `Start Swarm`, `Launch Live`, or
-any new edit slice.
-
 ## How Voice Input Works
 
 VoiceTerm handles voice capture and text injection.

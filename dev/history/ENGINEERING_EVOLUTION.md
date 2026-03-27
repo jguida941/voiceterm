@@ -1018,6 +1018,48 @@ consumer migration off live bridge freshness plus a small number of later
 self-governance items. The canonical plans now say that directly instead of
 leaving operators to infer it from chat history.
 
+### 2026-03-27 - VoiceTerm product docs split back out from AI-system authority docs
+
+Fact: the repo recorded a self-hosting docs-boundary failure explicitly after
+the consumer-refresh checkpoint. A follow-up attempt briefly taught
+review/startup/operator-control behavior through VoiceTerm end-user docs,
+which is the wrong product boundary for `MP-355` / `MP-377`. The active
+owner chain now says that fix belongs in the platform plans and audit ledger
+instead: VoiceTerm user docs stay product-facing, while AI-system self-hosting
+and operator authority lives in the `MP-377` plan stack plus maintainer or
+generated surfaces.
+
+This matters because packaging and cross-repo adoption will keep failing if
+the repo treats every governance/runtime explanation as VoiceTerm help text.
+The next organization tranche is now explicit in the plan state: classify docs
+by product, self-hosting/development, portable adopter, and generated/
+compatibility roles, then make docs policy enforce that split instead of
+driving churn across `README`, `QUICK_START`, `guides/USAGE.md`,
+`guides/CLI_FLAGS.md`, `guides/INSTALL.md`, and
+`guides/TROUBLESHOOTING.md`.
+
+Files changed:
+- `README.md`
+- `QUICK_START.md`
+- `guides/USAGE.md`
+- `guides/CLI_FLAGS.md`
+- `guides/INSTALL.md`
+- `guides/TROUBLESHOOTING.md`
+- `dev/CHANGELOG.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_channel.md`
+- `dev/audits/architecture_alignment.md`
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_channel.md`
+- `dev/audits/architecture_alignment.md`
+
 ### 2026-03-27 - Startup and tandem consumers refresh typed review-state truth
 
 Fact: the remaining read-side freshness seam narrowed again. The

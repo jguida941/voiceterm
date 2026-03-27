@@ -3248,6 +3248,18 @@ become the main product surface.
   maintain system-level guide/playbook surfaces (`DEVCTL_AUTOGUIDE`,
   starter instructions, generated local instructions) through repo-policy
   contracts and guard-backed sync rather than human memory alone. This scope
+  now explicitly includes docs-boundary cleanup between VoiceTerm and the AI
+  system itself: review/startup/operator-control and self-hosting governance
+  guidance must live in the `MP-377` owner chain plus maintainer/generated
+  surfaces, not in VoiceTerm end-user docs just because the current repo hosts
+  both systems. Treat any pressure to patch `README.md`, `QUICK_START.md`,
+  `guides/USAGE.md`, `guides/CLI_FLAGS.md`, `guides/INSTALL.md`, or
+  `guides/TROUBLESHOOTING.md` for MP-355/MP-377 control-plane semantics as a
+  signal that the organization/docs contract is still wrong and needs repair.
+  This same slice must finish the repo-agnostic docs policy so product docs,
+  self-hosting/development docs, portable adopter docs, and generated
+  operator/bootstrap surfaces stop bleeding into one another.
+  This scope
   also keeps the existing `package_layout` engine as the self-hosting
   organization seam rather than inventing a second crowding guard: the next
   platform follow-up is to generalize those layout/family rules beyond the

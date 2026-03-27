@@ -1221,6 +1221,17 @@ intended execution order is:
   same-lane work is the writer/mutation side of the cutover plus the last
   bridge-text-only tandem checks (`reviewed_hash_honesty`, `plan_alignment`,
   `launch_truth`).
+- 2026-03-27 docs-boundary failure follow-up: the consumer cutover also
+  exposed a self-hosting organization bug. The repo still makes it too easy
+  for `MP-355` / `MP-377` review/startup/operator-control notes to spill into
+  VoiceTerm end-user docs when the real missing work is plan-state capture and
+  docs-policy separation. Do not treat README/Quick Start/Usage/Flags/Install/
+  Troubleshooting churn as the fix for AI-system control-plane changes. The
+  next organization tranche must keep VoiceTerm product docs product-only,
+  move self-hosting/runtime authority guidance into the `MP-377` owner chain
+  plus maintainer/generated surfaces, and teach docs policy to distinguish
+  product docs, self-hosting/development docs, portable adopter docs, and
+  compatibility/generated surfaces by typed artifact role/scope.
 - 2026-03-27 authority-loop priority lock: keep the next `MP-377` execution
   slice on the authority surfaces that actually leak VoiceTerm defaults or
   lie about publish truth. Concretely, route work first through typed

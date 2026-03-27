@@ -79,6 +79,29 @@ authority from governance state or fail closed. Cross-repo proof must include
 at least one custom-layout repo that does not use `AGENTS.md`,
 `dev/active/INDEX.md`, or `dev/active/MASTER_PLAN.md`.
 
+### Issue 2c: Docs Governance Still Pushes AI-System Guidance Into VoiceTerm User Docs
+
+The repo still treats some `MP-355` / `MP-377` review-channel, startup, and
+operator-control changes as if the right repair were to update VoiceTerm end-
+user docs (`README`, `QUICK_START`, `guides/USAGE`, `guides/CLI_FLAGS`,
+`guides/INSTALL`, `guides/TROUBLESHOOTING`).
+
+That mixes two different products:
+
+- VoiceTerm end-user behavior and product-facing help.
+- The reusable AI-governance system's self-hosting, operator, startup, review,
+  and organization contracts.
+
+This is not just a wording issue. If docs policy keeps forcing AI-system
+control-plane guidance into VoiceTerm product docs, the repo will keep hiding
+the real architecture split behind markdown churn and external-repo adoption
+will inherit the wrong mental model.
+
+**Fix**: classify docs by typed artifact role and scope, keep VoiceTerm user
+docs product-only, route AI-system self-hosting/operator guidance into the
+`MP-377` owner chain plus maintainer/generated surfaces, and make docs policy
+enforce that split before more packaging or adopter proof work.
+
 ### Issue 3: Conductor Prompt Hardcodes Product Name
 
 `review_channel/prompt.py` lines 130-135:

@@ -3925,6 +3925,15 @@ working on `MP-377`.
   VoiceTerm filenames from partial payloads, and governed push reports
   "published" separately from "post-push green" with no unrestricted bypass
   path left in the canonical workflow.
+- 2026-03-27 docs-boundary correction: a live self-hosting miss showed the
+  repo still responds to AI-system review/startup/operator changes by trying
+  to teach them through VoiceTerm end-user docs. That is the wrong repair.
+  The next organization pass must pull those instructions back into the
+  `MP-377` owner chain, maintainer docs, and generated operator/bootstrap
+  surfaces, then finish docs-policy classification so product docs,
+  development-self-hosting docs, portable adopter docs, and compatibility/
+  generated surfaces are different governed classes instead of one markdown
+  bucket.
 - 2026-03-27 external-review translation follow-up: preserve one constitution,
   but translate it into the repo's actual architecture instead of flattening
   it. The machine truth remains `ProjectGovernance` plus generated
