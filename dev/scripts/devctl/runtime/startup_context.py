@@ -15,10 +15,12 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
 from .governance_scan import scan_repo_governance_safely
 from .project_governance import ProjectGovernance
 from .review_state_semantics import is_pending_implementer_state
 from .review_state_locator import load_current_review_state
+from .startup_advisory_decision import derive_advisory_decision as _derive_advisory_decision
 from .startup_governance_projection import startup_governance_dict
 from .startup_push_decision import (
     PushDecisionState,
@@ -58,6 +60,9 @@ class StartupContext:
     push_decision: PushDecisionState = field(default_factory=PushDecisionState)
     advisory_action: str = "continue_editing"
     advisory_reason: str = ""
+    rule_summary: str = ""
+    match_evidence: tuple[RuleMatchEvidenceRecord, ...] = ()
+    rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...] = ()
     work_intake: WorkIntakePacket | None = None
     quality_signals: dict[str, object] = field(default_factory=dict)
 
@@ -67,8 +72,15 @@ class StartupContext:
         d["contract_id"] = self.contract_id
         d["advisory_action"] = self.advisory_action
         d["advisory_reason"] = self.advisory_reason
+        d["rule_summary"] = self.rule_summary
+        d["match_evidence"] = [
+            evidence.to_dict() for evidence in self.match_evidence
+        ]
+        d["rejected_rule_traces"] = [
+            trace.to_dict() for trace in self.rejected_rule_traces
+        ]
         d["reviewer_gate"] = asdict(self.reviewer_gate)
-        d["push_decision"] = asdict(self.push_decision)
+        d["push_decision"] = self.push_decision.to_dict()
         d["quality_signals"] = dict(self.quality_signals)
         if self.governance is not None:
             d["governance"] = _startup_governance_dict(self.governance)
@@ -172,6 +184,8 @@ def _detect_reviewer_gate_without_typed_state(
         implementation_blocked=True,
         implementation_block_reason="typed_review_state_required",
     )
+
+
 def _reviewer_loop_block_state(
     *,
     reviewer_mode: str,
@@ -201,36 +215,8 @@ def _derive_advisory_action(
     governance: ProjectGovernance,
     gate: ReviewerGateState,
 ) -> tuple[str, str]:
-    """Derive the advisory action from push enforcement + reviewer gate.
-
-    Outcomes:
-    - continue_editing: safe to keep working
-    - await_review: local slice is checkpointed; wait for current review state
-    - checkpoint_before_continue: commit/checkpoint before more edits
-    - checkpoint_allowed: checkpoint is permitted now (but not required)
-    - push_allowed: push to remote is safe now
-    - no_push_needed: worktree is clean, nothing to push
-    """
-    pe = governance.push_enforcement
-    if pe.checkpoint_required:
-        return "checkpoint_before_continue", pe.checkpoint_reason
-    if not pe.safe_to_continue_editing:
-        return "checkpoint_before_continue", "worktree_budget_exceeded"
-    if gate.implementation_blocked:
-        return "checkpoint_before_continue", (
-            gate.implementation_block_reason or "reviewer_loop_blocked"
-        )
-    if gate.bridge_active and not gate.review_accepted:
-        if pe.worktree_clean:
-            return "await_review", "review_pending_before_push"
-        return "continue_editing", "review_pending"
-    if pe.worktree_clean and pe.ahead_of_upstream_commits in (0, None):
-        return "no_push_needed", "clean_worktree"
-    if pe.worktree_clean and gate.review_gate_allows_push:
-        return "push_allowed", "worktree_clean_and_review_accepted"
-    if gate.checkpoint_permitted and pe.worktree_dirty:
-        return "checkpoint_allowed", "worktree_dirty_within_budget"
-    return "continue_editing", "clean_worktree"
+    decision = _derive_advisory_decision(governance, gate)
+    return decision.action, decision.reason
 
 
 def build_startup_context(
@@ -247,12 +233,12 @@ def build_startup_context(
     governance = scan_repo_governance(repo_root)
     gate = _detect_reviewer_gate(repo_root, governance=governance)
     push_decision = _derive_push_decision(governance, gate)
-    action, reason = _derive_advisory_action(governance, gate)
+    advisory = _derive_advisory_decision(governance, gate)
     work_intake = build_work_intake_packet(
         repo_root=repo_root,
         governance=governance,
-        advisory_action=action,
-        advisory_reason=reason,
+        advisory_action=advisory.action,
+        advisory_reason=advisory.reason,
     )
     quality_signals = load_startup_quality_signals(repo_root)
 
@@ -260,8 +246,11 @@ def build_startup_context(
         governance=governance,
         reviewer_gate=gate,
         push_decision=push_decision,
-        advisory_action=action,
-        advisory_reason=reason,
+        advisory_action=advisory.action,
+        advisory_reason=advisory.reason,
+        rule_summary=advisory.rule_summary,
+        match_evidence=advisory.match_evidence,
+        rejected_rule_traces=advisory.rejected_rule_traces,
         work_intake=work_intake,
         quality_signals=quality_signals,
     )

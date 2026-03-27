@@ -78,19 +78,9 @@ def _load_guidance_hotspots(repo_root: Path) -> list[dict[str, object]]:
     guidance = []
     if isinstance(hints, list):
         for hint in hints[:2]:
-            if not isinstance(hint, dict):
-                continue
-            instruction = str(hint.get("ai_instruction") or "").strip()
-            if not instruction:
-                continue
-            guidance.append(
-                {
-                    "probe": str(hint.get("probe") or "unknown").strip(),
-                    "symbol": str(hint.get("symbol") or "(file-level)").strip(),
-                    "severity": str(hint.get("severity") or "unknown").strip(),
-                    "ai_instruction": instruction,
-                }
-            )
+            entry = _guidance_from_hint(hint)
+            if entry is not None:
+                guidance.append(entry)
     if not guidance:
         return []
     return [
@@ -101,6 +91,22 @@ def _load_guidance_hotspots(repo_root: Path) -> list[dict[str, object]]:
             "guidance": guidance,
         }
     ]
+
+
+def _guidance_from_hint(hint: object) -> dict[str, object] | None:
+    if not isinstance(hint, dict):
+        return None
+    instruction = str(hint.get("ai_instruction") or "").strip()
+    if not instruction:
+        return None
+    entry: dict[str, object] = {}
+    entry["probe"] = str(hint.get("probe") or "unknown").strip()
+    entry["symbol"] = str(hint.get("symbol") or "(file-level)").strip()
+    entry["severity"] = str(hint.get("severity") or "unknown").strip()
+    entry["ai_instruction"] = instruction
+    entry["practice_title"] = str(hint.get("practice_title") or "").strip()
+    entry["practice_explanation"] = str(hint.get("practice_explanation") or "").strip()
+    return entry
 
 
 def _load_watchdog_summary(repo_root: Path) -> dict[str, object] | None:

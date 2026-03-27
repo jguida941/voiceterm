@@ -37,6 +37,12 @@ def render_review_packet_markdown(
         lines.append(
             f"- coupling: fan-in={hotspot.get('fan_in')}, fan-out={hotspot.get('fan_out')}, bridge={hotspot.get('bridge_score')}"
         )
+        metric_explanations = hotspot.get("metric_explanations")
+        if isinstance(metric_explanations, dict):
+            for key in ("fan_in", "fan_out", "bridge_score", "hotspot_rank"):
+                text = str(metric_explanations.get(key) or "").strip()
+                if text:
+                    lines.append(f"- {key}_explanation: {text}")
         lines.append(f"- owners: {', '.join(hotspot.get('owners', [])) or 'unowned'}")
         lines.append(f"- changed: {hotspot.get('changed')}")
         lines.append(f"- bounded_next_slice: {hotspot.get('bounded_next_slice')}")
@@ -56,6 +62,15 @@ def render_review_packet_markdown(
             )
             if formatted_hints:
                 lines.append(f"- representative_hints: {formatted_hints}")
+            for row in hints:
+                if not isinstance(row, dict):
+                    continue
+                practice_title = str(row.get("practice_title") or "").strip()
+                if not practice_title:
+                    continue
+                lines.append(
+                    f"- practice: {practice_title} -> {row.get('practice_explanation', '')}"
+                )
         lines.append("")
     decision_packets = packet.get("decision_packets", [])
     if isinstance(decision_packets, list) and decision_packets:
@@ -81,6 +96,25 @@ def render_review_packet_markdown(
             lines.append(f"- severity: {decision.get('severity')}")
             lines.append(f"- detected_by: {decision.get('probe')}")
             lines.append(f"- rationale: {decision.get('rationale')}")
+            rule_summary = str(decision.get("rule_summary") or "").strip()
+            if rule_summary:
+                lines.append(f"- rule_summary: {rule_summary}")
+            match_evidence = decision.get("match_evidence")
+            if isinstance(match_evidence, list):
+                for row in match_evidence[:2]:
+                    if not isinstance(row, dict):
+                        continue
+                    lines.append(
+                        f"- match_evidence: {row.get('summary', '')}"
+                    )
+            rejected_rule_traces = decision.get("rejected_rule_traces")
+            if isinstance(rejected_rule_traces, list):
+                for row in rejected_rule_traces[:2]:
+                    if not isinstance(row, dict):
+                        continue
+                    lines.append(
+                        f"- rejected_rule: {row.get('summary', '')} -> {row.get('rejected_because', '')}"
+                    )
             invariants = decision.get("invariants", [])
             if isinstance(invariants, list) and invariants:
                 lines.append(f"- invariants: {' | '.join(str(item) for item in invariants)}")

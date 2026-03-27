@@ -155,6 +155,12 @@ Directory layout rule:
 Portability note:
 - The guard/probe engine and quality-policy resolver are designed for reuse in
   another repo via policy/preset swaps.
+- Deterministic validation contracts are the next portable trust layer under
+  `MP-377`: keep the shared contract runner-agnostic, bind repo-local
+  adapters such as pytest here where they fit, and route autonomy decisions
+  through exact typed validator refs rather than generic "all tests passed"
+  signals. Coverage and blast radius can weight trust, but they do not
+  replace finding-scoped validator proof.
 - `platform-contracts` exposes the broader shared backend blueprint so another
   repo, frontend, or AI installer can see the intended package/runtime/repo-pack
   boundary without reverse-engineering it from active-plan prose alone.
@@ -169,6 +175,9 @@ Portability note:
 - `check-router`, `docs-check`, and `render-surfaces` all accept
   `--quality-policy <path>` so another repo can replace those repo-owned
   contracts without patching command code.
+- Tooling/process/governance architecture belongs in maintainer docs and
+  generated repo-pack surfaces, not in VoiceTerm product docs unless
+  end-user behavior changed.
 - `tandem-validate` is the repo-owned tandem-session validator: it resolves the
   lane and risk add-ons through `check-router`, runs the routed bundle, then
   re-runs final bridge/tandem guards so Codex/Claude sessions do not rely on a
@@ -815,6 +824,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_nesting_depth.py` | Nesting-depth non-regression guard | Fails when changed Rust or Python files introduce functions with deeply nested control flow (Python: >4 indent levels, Rust: >5 brace-depth levels). Uses the same function scanners as `check_code_shape.py`; tests are excluded; supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_parameter_count.py` | Parameter-count non-regression guard | Fails when changed Rust or Python files introduce functions with excessive parameter counts (Python: >6 params, Rust: >7 params, excluding `self`/`cls`/`&self`/`&mut self`). Tests are excluded; `#[cfg(test)]` blocks are stripped for Rust scans; supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_python_dict_schema.py` | Python dict-schema non-regression guard | Fails when changed Python files grow large untyped dict literals (>= 6 string keys suggesting a missing dataclass) or weak `dict[str, Any]` type aliases. Tests are excluded; supports `--since-ref/--head-ref` and `--format`. |
+| `dev/scripts/checks/check_python_typed_seams.py` | Python typed-seams guard | Stable shim entrypoint for the typed-seam guard that blocks configured `object` + repeated `getattr()` fixed-field bags on portable runtime seams while the implementation lives under `dev/scripts/checks/python_typed_seams/`. |
 | `dev/scripts/checks/check_python_global_mutable.py` | Python default-state trap non-regression guard | Fails when changed Python files introduce new `global` statements, mutable default arguments (`list`, `dict`, `set`, `defaultdict`, `deque`), function-call default arguments, or dataclass fields that evaluate mutable/call defaults eagerly instead of using `field(default_factory=...)`. Tests are excluded; supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_python_design_complexity.py` | Python design-complexity non-regression guard | Fails when changed Python files add functions whose branch count or return-statement count crosses the repo-policy thresholds (portable defaults: branches >30, returns >10 so another repo can ratchet from a conservative baseline), or when already-over-limit functions become even more branchy/return-heavy. Tests are excluded; supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_python_cyclic_imports.py` | Python cyclic-import non-regression guard | Fails when changed Python files introduce new top-level local import cycles inside the configured Python guard roots. Cycle allowlists are repo-policy owned so another repo can adopt the same engine without editing script code. Tests are excluded; supports `--since-ref/--head-ref` and `--format`. |

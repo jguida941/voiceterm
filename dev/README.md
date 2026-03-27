@@ -22,6 +22,7 @@ The main starting points are:
 | Build, test, or release | [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) |
 | Understand how the runtime works | [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) |
 | Understand the reusable AI governance platform thesis and architecture | [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) and [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) |
+| Choose Python contract/modeling patterns for platform/runtime tooling | [`dev/guides/PYTHON_ARCHITECTURE.md`](guides/PYTHON_ARCHITECTURE.md) after [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) |
 | Understand the current `MP-377` priority lane for startup authority, repo packs, typed plan routing, and runtime/evidence/context closure | [`dev/active/platform_authority_loop.md`](active/platform_authority_loop.md) after [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) |
 | Edit governed active-plan markdown or active-plan schema enforcement | [`dev/active/PLAN_FORMAT.md`](active/PLAN_FORMAT.md) after [`dev/active/platform_authority_loop.md`](active/platform_authority_loop.md) |
 | Understand how the current Codex/Claude collaboration system works | [`dev/guides/AGENT_COLLABORATION_SYSTEM.md`](guides/AGENT_COLLABORATION_SYSTEM.md) |
@@ -38,8 +39,9 @@ The main starting points are:
 4. [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) for runtime design.
 5. [`dev/scripts/README.md`](scripts/README.md) for `devctl` and check commands.
 6. [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) when the task is about the standalone governance product, repo packs, extraction, or frontend/runtime convergence.
-7. [`dev/guides/PORTABLE_CODE_GOVERNANCE.md`](guides/PORTABLE_CODE_GOVERNANCE.md) when the task is about portable guards, exports, or multi-repo evaluation.
-8. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) if you need the why behind the current process.
+7. [`dev/guides/PYTHON_ARCHITECTURE.md`](guides/PYTHON_ARCHITECTURE.md) when the task is about Python runtime/tooling contracts, modeling choices, or composition patterns under `MP-377`.
+8. [`dev/guides/PORTABLE_CODE_GOVERNANCE.md`](guides/PORTABLE_CODE_GOVERNANCE.md) when the task is about portable guards, exports, or multi-repo evaluation.
+9. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) if you need the why behind the current process.
 
 ## Active Plans By Area
 

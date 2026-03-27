@@ -7,6 +7,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+try:
+    from dev.scripts.devctl.runtime.decision_explainability import (
+        rejected_rule_trace as _rejected_rule,
+        rule_match_evidence as _rule_match,
+    )
+except ModuleNotFoundError:  # pragma: no cover
+    from devctl.runtime.decision_explainability import (
+        rejected_rule_trace as _rejected_rule,
+        rule_match_evidence as _rule_match,
+    )
+
 from .contracts import (
     PROBE_ALLOWLIST_CONTRACT_ID,
     PROBE_ALLOWLIST_SCHEMA_VERSION,
@@ -127,6 +138,13 @@ def build_design_decision_packet(
     finding = hint
     if "finding_id" not in finding:
         finding = enrich_probe_hint_contract(hint=hint, repo_name="unknown-repo")
+    file_path = str(finding.get("file_path") or finding.get("file") or "")
+    symbol = str(finding.get("symbol") or "(file-level)")
+    probe_name = str(finding.get("probe") or finding.get("check_id") or "")
+    rule_summary = (
+        "Matched a design-decision allowlist entry, so this finding stays "
+        "visible for review instead of disappearing as a silent suppression."
+    )
     packet = decision_packet_from_finding(
         finding,
         policy=DecisionPacketPolicy(
@@ -136,6 +154,37 @@ def build_design_decision_packet(
             precedent=entry.precedent,
             invariants=entry.invariants,
             validation_plan=entry.validation_plan or DEFAULT_DECISION_VALIDATION_PLAN,
+            rule_summary=rule_summary,
+            match_evidence=(
+                _rule_match(
+                    "probe_allowlist.design_decision_match",
+                    "The allowlist entry matched this file/symbol/probe and requested a visible design-decision packet.",
+                    f"file={file_path}",
+                    f"symbol={symbol}",
+                    f"probe={probe_name}",
+                    f"disposition={entry.disposition}",
+                ),
+                _rule_match(
+                    "decision_packet.apply_allowlist_mode",
+                    "The packet kept the allowlist's explicit decision mode for downstream AI behavior.",
+                    f"decision_mode={entry.decision_mode}",
+                    "validation plan kept from repo policy or defaults",
+                ),
+            ),
+            rejected_rule_traces=(
+                _rejected_rule(
+                    "probe_allowlist.suppressed_match",
+                    "Suppress the finding completely when the allowlist marks it as intentional noise.",
+                    "The matching allowlist entry uses `design_decision`, so the finding must stay visible.",
+                    f"disposition={entry.disposition}",
+                ),
+                _rejected_rule(
+                    "decision_packet.auto_apply",
+                    "Let the AI auto-apply the next change without waiting for review.",
+                    f"The allowlist chose `{entry.decision_mode}` instead.",
+                    f"decision_mode={entry.decision_mode}",
+                ),
+            ),
         ),
     )
     return packet.to_dict()

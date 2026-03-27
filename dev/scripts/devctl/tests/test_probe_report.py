@@ -22,6 +22,7 @@ from dev.scripts.checks.probe_report.contracts import (
 from dev.scripts.devctl import cli, quality_policy, review_probe_report
 from dev.scripts.devctl.config import REPO_ROOT, get_repo_root
 from dev.scripts.devctl.commands import probe_report
+from dev.scripts.devctl.probe_topology import render_review_packet_markdown
 from dev.scripts.devctl.quality_policy_loader import QUALITY_POLICY_ENV_VAR
 from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
 
@@ -85,10 +86,24 @@ def _topology_payload() -> dict:
                 "fan_in": 4,
                 "fan_out": 6,
                 "bridge_score": 4,
+                "metric_explanations": {
+                    "fan_in": "fan_in explanation",
+                    "fan_out": "fan_out explanation",
+                    "bridge_score": "bridge explanation",
+                    "hotspot_rank": "rank explanation",
+                },
                 "changed": True,
                 "owners": ["@jguida941"],
                 "connected_files": [],
-                "representative_hints": [],
+                "representative_hints": [
+                    {
+                        "probe": "probe_blank_line_frequency",
+                        "symbol": "_metadata_from_snapshot",
+                        "severity": "high",
+                        "practice_title": "Add visual breaks between logical blocks",
+                        "practice_explanation": "Blank lines make long functions easier to scan.",
+                    }
+                ],
                 "bounded_next_slice": "fix the main render path",
             }
         ],
@@ -153,6 +168,9 @@ class ProbeReportCommandTests(unittest.TestCase):
             packets[0]["invariants"],
             ["Preserve the presenter/public contract."],
         )
+        self.assertTrue(packets[0]["rule_summary"])
+        self.assertTrue(packets[0]["match_evidence"])
+        self.assertTrue(packets[0]["rejected_rule_traces"])
         self.assertTrue(any("check --profile ci" in step for step in packets[0]["validation_plan"]))
 
     def test_build_design_decision_packets_match_probe_independently(self) -> None:
@@ -218,6 +236,15 @@ class ProbeReportCommandTests(unittest.TestCase):
         self.assertIn("## Design Decision Packets", output)
         self.assertIn("[recommend_only]", output)
         self.assertIn("build_probe_report", output)
+
+    def test_render_probe_review_packet_markdown_includes_metric_and_practice_explanations(self) -> None:
+        output = render_review_packet_markdown(
+            _review_packet_payload(),
+            rich_report_markdown="# probe report",
+        )
+
+        self.assertIn("fan_in_explanation", output)
+        self.assertIn("practice: Add visual breaks between logical blocks", output)
 
     def test_run_aggregates_probe_results_and_writes_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -223,6 +223,21 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Checks to rerun after the selected decision path.",
             ),
             ContractField("signals", "list[str]", "Evidence signals carried into the packet."),
+            ContractField(
+                "rule_summary",
+                "str",
+                "Plain-language summary of why this decision rule was selected.",
+            ),
+            ContractField(
+                "match_evidence",
+                "list[RuleMatchEvidence]",
+                "Structured reasons and concrete facts showing why the selected rule matched.",
+            ),
+            ContractField(
+                "rejected_rule_traces",
+                "list[RejectedRuleTrace]",
+                "Competing rules that were considered and explicitly rejected.",
+            ),
         ),
         runtime_model="dev.scripts.devctl.runtime.finding_contracts:DecisionPacketRecord",
     ),

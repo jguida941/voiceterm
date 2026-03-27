@@ -46,6 +46,111 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-27 - Typed decision seams and dual-agent truth now fail closer to the real authority source
+
+Fact: the first `MP-377` explainability refactor exposed a useful self-hosting
+gap, and the repair stayed in the same architecture lane instead of becoming a
+one-off style cleanup. Startup advisory and startup push decisions now consume
+the typed `PushEnforcement` contract directly rather than taking `object` and
+reading fixed fields through `getattr()`. The `probe_design_smells` detector
+also now catches the missed first-parameter and multiline-signature
+`parameter: object` cases, `check_python_typed_seams.py` now blocks the same
+`object`-plus-`getattr` seam on configured runtime paths with the shared
+scanner, and review-channel attention
+now surfaces `bridge_contract_error` before checkpoint advice when
+`active_dual_agent` metadata is still live but no repo-owned Codex or Claude
+conductor sessions exist.
+
+This matters because it closes the exact failure mode that makes AI coding feel
+like debt shuffling: a refactor could get locally cleaner while silently
+weakening typed authority, and bridge compatibility state could outrank the
+real runtime truth. The repo now records the intended correction in code and
+owner docs: typed runtime seams must stay typed, and invalid authority state
+must not be hidden behind a softer operational recommendation.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/startup_advisory_decision.py`
+- `dev/scripts/devctl/runtime/startup_push_decision.py`
+- `dev/scripts/checks/probe_design_smells.py`
+- `dev/scripts/checks/check_python_typed_seams.py`
+- `dev/scripts/checks/python_typed_seams/scanner.py`
+- `dev/scripts/devctl/review_channel/attention.py`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_probes.md`
+
+### 2026-03-27 - Maintainer docs now separate product-doc scope from portable validation-contract architecture
+
+Fact: the next `MP-377` follow-up tightened the maintainer docs around a
+repeating source of drift. The repo now states the boundary explicitly:
+VoiceTerm product docs stay user-facing, while shared governance/runtime/AI
+authority rules live in maintainer/self-hosting docs and the active `MP-377`
+owner chain. In the same slice, the docs now describe deterministic
+validation contracts as the portable trust layer: the core contract stays
+runner-agnostic, this repo may use pytest-first adapters where they fit,
+exact typed validator refs are the intended autonomy proof, and coverage or
+blast-radius signals remain advisory weighting rather than the gate.
+
+This matters because the docs-governance failures were repeatedly creating the
+wrong repair instinct: edit VoiceTerm user docs whenever platform/self-hosting
+architecture moved. The maintainer docs now record the proper split and the
+same validator-contract rule as the plans, so future AI/dev sessions have one
+clear owner chain instead of inferring architecture from product docs or
+generic "all tests passed" language.
+
+Evidence:
+
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_probes.md`
+
+### 2026-03-27 - Startup, probe, and context-graph surfaces started explaining themselves from typed evidence
+
+Fact: the first `MP-377` explainability slice landed on the typed surfaces the
+platform already had instead of waiting for a greenfield `DecisionTrace`
+module. Routed startup/task-router/workflow-profile receipts and startup push
+decisions now carry `rule_summary`, `match_evidence`, and rejected-rule
+traces; canonical probe packets now reuse the shipped
+`dev/scripts/checks/probe_report/practices.py` / `SIGNAL_TO_PRACTICE`
+teaching corpus plus plain-language metric explanations for `fan_in`,
+`fan_out`, `bridge_score`, and hotspot rank; and context-graph query/bootstrap
+renders now say why nodes matched or ranked instead of only listing files,
+temperatures, and counts.
+
+The same slice also added one durable platform-owned Python architecture guide
+at `dev/guides/PYTHON_ARCHITECTURE.md`. That guide makes the modeling rule
+explicit: default internal runtime/tooling code to stdlib typing plus
+`dataclass`, use `TypedDict` for fixed-key packets, keep plain `dict` for
+genuinely dynamic maps, use `Protocol` for behavioral seams, and keep
+Pydantic-style boundary models at untrusted or serialized edges rather than
+as the default internal object model.
+
+This matters because the platform was still making people choose between
+opaque machine packets and deferred future provenance work. The repo now has a
+bounded middle layer: operator-facing "why" views projected from typed
+evidence today, while the higher-fidelity `DecisionTrace` family remains
+explicitly queued for the later Phase-5b evidence lane.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/work_intake_models.py`
+- `dev/scripts/devctl/runtime/work_intake_routing.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/runtime/startup_push_decision.py`
+- `dev/scripts/devctl/probe_topology_builder.py`
+- `dev/scripts/devctl/probe_topology_packet.py`
+- `dev/scripts/devctl/context_graph/query.py`
+- `dev/scripts/devctl/context_graph/render.py`
+- `dev/guides/PYTHON_ARCHITECTURE.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+
 ### 2026-03-27 - Self-hosting authority is now measured, and governed push is explicitly still incomplete
 
 Fact: the repo promoted a measured self-hosting baseline into the owner-plan

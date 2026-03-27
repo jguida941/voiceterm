@@ -19,6 +19,7 @@ _RECOVERABLE_ATTENTION_STATUSES = frozenset(
 _RECOVERABLE_ERROR_PREFIXES = (
     "Live `Claude Ack` must include `instruction-rev:",
     "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
+    "Claude Status/Ack show implementer completion-stall language while ",
 )
 
 

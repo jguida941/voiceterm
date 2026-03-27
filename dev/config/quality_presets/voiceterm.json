@@ -10,6 +10,7 @@
     "compat_matrix_smoke",
     "naming_consistency",
     "platform_layer_boundaries",
+    "python_typed_seams",
     "platform_contract_closure",
     "platform_contract_sync",
     "tandem_consistency"
@@ -210,6 +211,19 @@
             "app.ios"
           ],
           "guidance": "Review-channel backend code must not import UI/mobile surface layers; keep surfaces as clients of shared backend truth."
+        }
+      ]
+    },
+    "python_typed_seams": {
+      "rules": [
+        {
+          "rule_id": "runtime_helpers_no_object_getattr_bags",
+          "include_globs": [
+            "dev/scripts/devctl/runtime/*.py",
+            "dev/scripts/devctl/runtime/**/*.py"
+          ],
+          "min_object_getattr_calls": 1,
+          "guidance": "Portable runtime helpers must convert fixed-shape boundary data into typed contracts before field access. Replace `param: object` plus `getattr(param, 'field')` with a dataclass, TypedDict, or Protocol-backed seam."
         }
       ]
     },

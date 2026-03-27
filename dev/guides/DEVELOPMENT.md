@@ -125,6 +125,12 @@ Three quality layers matter in practice:
 
 - Hard guards (`check_*.py`) block regressions.
 - Review probes (`probe_*.py`) surface AI-style design smells without failing CI.
+- Deterministic validation contracts are the next portable trust layer under
+  `MP-377`: keep the core runner-agnostic, use repo-local adapters such as
+  pytest where they fit, and treat the exact finding-scoped validator set as
+  the future autonomy proof. Generic green suites, raw coverage, or broad
+  blast-radius heuristics can weight trust, but they are not the primary
+  automation gate.
 - `probe_mixed_concerns.py` ranks Python files that contain 3+ independent
   top-level function clusters so mixed-concern modules get split before line
   counts hide the smell.
@@ -1208,6 +1214,10 @@ targeted instead of ad-hoc.
 
 Docs governance guardrails:
 
+- Tooling/process/governance architecture belongs in maintainer/self-hosting
+  docs (`AGENTS.md`, this guide, `dev/scripts/README.md`,
+  `dev/history/ENGINEERING_EVOLUTION.md`, and the active `MP-377` owner
+  docs), not in VoiceTerm product docs unless user-facing behavior changed.
 - `python3 dev/scripts/checks/check_cli_flags_parity.py` keeps clap long flags and `guides/CLI_FLAGS.md` synchronized.
 - `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
 - `python3 dev/scripts/checks/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files, oversized-file growth, path-level hotspot growth budgets for Phase 3C decomposition targets, and touched Python files that still mix 3+ independent function clusters) and surfaces advisory override-cap warnings only for untouched path overrides that exceed 3x the soft cap or 2x the hard cap.
@@ -1265,7 +1275,15 @@ Use this protocol for non-trivial runtime/tooling Rust changes.
 ## Testing philosophy
 
 - Favor fast unit tests for parsing, queueing, and prompt detection logic.
+- Prefer TDD-style contract tests for deterministic input -> output behavior:
+  schemas, finding projections, routing decisions, state transitions, typed
+  packet rendering, and other fixed-vocabulary boundaries.
 - Add regression tests when fixing a reported bug.
+- When a change affects AI decision routing or future autonomy scope, define
+  the exact validator boundary first. The portable contract is a
+  runner-agnostic validation plan; pytest can be the first adapter here for
+  Python slices, but maintainers should not encode repo-wide coverage
+  thresholds or "all tests passed" as the autonomy gate.
 - Run at least `cargo test` locally for most changes; add targeted bin tests for overlay-only work.
 
 ## CI/CD Workflow

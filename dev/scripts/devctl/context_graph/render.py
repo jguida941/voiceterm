@@ -48,16 +48,19 @@ def render_query_result_markdown(result: QueryResult) -> str:
         lines.append("## Matched Nodes")
         lines.append("")
         lines.append(
-            "| Node | Kind | Temperature | Canonical Ref | Provenance |"
+            "| Node | Kind | Temperature | Why Matched | Why Ranked | Canonical Ref |"
         )
-        lines.append("|---|---|---|---|---|")
+        lines.append("|---|---|---|---|---|---|")
         for node in result.matched_nodes[:50]:
+            metadata = node.metadata if isinstance(node.metadata, dict) else {}
             lines.append(
                 f"| `{node.label}` "
                 f"| {node.node_kind} "
                 f"| {node.temperature:.3f} "
+                f"| {metadata.get('match_summary', '')} "
+                f"| {metadata.get('ranking_summary', '')} "
                 f"| `{node.canonical_pointer_ref}` "
-                f"| {node.provenance_ref} |"
+                f"|"
             )
         lines.append("")
 
@@ -118,10 +121,13 @@ def render_bootstrap_markdown(ctx: dict[str, Any]) -> str:
     if hotspots:
         lines.append("## Hotspots (highest temperature)")
         lines.append("")
-        lines.append("| File | Temp | Fan-in | Fan-out |")
-        lines.append("|---|---|---|---|")
+        lines.append("| File | Temp | Fan-in | Fan-out | Why Ranked |")
+        lines.append("|---|---|---|---|---|")
         for h in hotspots:
-            lines.append(f"| `{h['file']}` | {h['temperature']:.3f} | {h.get('fan_in', 0)} | {h.get('fan_out', 0)} |")
+            lines.append(
+                f"| `{h['file']}` | {h['temperature']:.3f} | {h.get('fan_in', 0)} | "
+                f"{h.get('fan_out', 0)} | {h.get('ranking_summary', '')} |"
+            )
         lines.append("")
 
     cmds = ctx.get("key_commands", {})
@@ -290,6 +296,12 @@ def _append_guidance_hotspots(lines: list[str], payload: Any) -> None:
                     instruction=row.get("ai_instruction", ""),
                 )
             )
+            practice_title = str(row.get("practice_title") or "").strip()
+            practice_explanation = str(row.get("practice_explanation") or "").strip()
+            if practice_title and practice_explanation:
+                lines.append(
+                    f"- practice: {practice_title} -> {practice_explanation}"
+                )
 
 
 def _append_watchdog_summary(lines: list[str], payload: Any) -> None:

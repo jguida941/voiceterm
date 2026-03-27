@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
+from .context_graph.models import GraphNode
+
 SEVERITY_POINTS = {"high": 100, "medium": 40, "low": 10}
 
 
@@ -93,6 +95,114 @@ def priority_reason(
     if changed:
         parts.append("currently changed")
     return "; ".join(parts)
+
+
+def metric_explanations(*, fan_in: int, fan_out: int, bridge_score: int, **context: Any) -> dict[str, str]:
+    priority_score = int(context.get("priority_score", 0) or 0)
+    connected_hint_neighbors = int(context.get("connected_hint_neighbors", 0) or 0)
+    changed = bool(context.get("changed", False))
+    owners = context.get("owners", [])
+    owner_count = len(owners) if isinstance(owners, list) else 0
+    return {
+        "fan_in": (
+            f"`fan_in` is `{fan_in}`: this many repo files point into the hotspot, "
+            "so higher values mean more callers or dependents can feel a change here."
+        ),
+        "fan_out": (
+            f"`fan_out` is `{fan_out}`: this many repo files the hotspot points to, "
+            "so higher values mean the file orchestrates more downstream behavior."
+        ),
+        "bridge_score": (
+            f"`bridge_score` is `{bridge_score}` (`min(fan_in, fan_out)`), which highlights files "
+            "that both depend on other files and are depended on in return."
+        ),
+        "hotspot_rank": (
+            f"`priority_score` is `{priority_score}` because severity, coupling, "
+            f"{connected_hint_neighbors} connected hinted neighbor(s), "
+            f"{'current edits' if changed else 'no current edits'}, and "
+            f"{'known ownership' if owner_count else 'missing ownership'} all feed the hotspot ranking."
+        ),
+    }
+
+
+def record_query_match_reason(
+    match_reasons: dict[str, list[str]],
+    node_id: str,
+    reason: str,
+) -> None:
+    reasons = match_reasons.setdefault(node_id, [])
+    if reason not in reasons:
+        reasons.append(reason)
+
+
+def query_match_summary(
+    node: GraphNode,
+    *,
+    direct_match: bool,
+    reasons: list[str],
+) -> str:
+    if direct_match and reasons:
+        return reasons[0]
+    return f"Included because `{node.label}` is directly connected to a matched node."
+
+
+def query_match_evidence(
+    node: GraphNode,
+    *,
+    direct_match: bool,
+    reasons: list[str],
+) -> tuple[str, ...]:
+    if direct_match and reasons:
+        return tuple(reasons[:3])
+    return (f"`{node.label}` stayed in the result because one matched edge touches it.",)
+
+
+def query_ranking_summary(
+    node: GraphNode,
+    *,
+    direct_match: bool,
+    connected_edge_count: int,
+) -> str:
+    fan_in = int(node.metadata.get("fan_in", 0) or 0)
+    fan_out = int(node.metadata.get("fan_out", 0) or 0)
+    changed = bool(node.metadata.get("changed", False))
+    direct_text = "direct query match" if direct_match else "connected neighbor"
+    return (
+        f"Ranked as a {direct_text} with temperature {node.temperature:.3f}, "
+        f"fan-in {fan_in}, fan-out {fan_out}, and {connected_edge_count} visible edge(s)"
+        + (" while the file is currently changed." if changed else ".")
+    )
+
+
+def query_hot_index_ranking_summary(node: GraphNode) -> str:
+    fan_in = int(node.metadata.get("fan_in", 0) or 0)
+    fan_out = int(node.metadata.get("fan_out", 0) or 0)
+    return (
+        f"Ranked by hotspot temperature {node.temperature:.3f} from the hot index, "
+        f"with fan-in {fan_in} and fan-out {fan_out} contributing to that score."
+    )
+
+
+def enrich_query_node(
+    node: GraphNode,
+    *,
+    match_summary: str,
+    match_evidence: tuple[str, ...],
+    ranking_summary: str,
+) -> GraphNode:
+    metadata = dict(node.metadata)
+    metadata["match_summary"] = match_summary
+    metadata["match_evidence"] = list(match_evidence)
+    metadata["ranking_summary"] = ranking_summary
+    return GraphNode(
+        node_id=node.node_id,
+        node_kind=node.node_kind,
+        label=node.label,
+        canonical_pointer_ref=node.canonical_pointer_ref,
+        provenance_ref=node.provenance_ref,
+        temperature=node.temperature,
+        metadata=metadata,
+    )
 
 
 def bounded_next_slice(file_path: str, hints: list[dict[str, Any]]) -> str:

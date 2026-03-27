@@ -26,6 +26,7 @@ from .probe_topology_packet import (
     bounded_next_slice,
     build_focused_graph,
     lens_counts,
+    metric_explanations,
     priority_reason,
     priority_score,
     rank_neighbors,
@@ -44,6 +45,11 @@ from .probe_topology_scan import (
 )
 from .time_utils import utc_timestamp
 
+try:
+    from dev.scripts.checks.probe_report.practices import match_best_practice
+except ModuleNotFoundError:  # pragma: no cover
+    from checks.probe_report.practices import match_best_practice
+
 
 @dataclass(frozen=True)
 class HintExcerpt:
@@ -56,6 +62,9 @@ class HintExcerpt:
     severity: object
     review_lens: object
     ai_instruction: object
+    practice_title: object
+    practice_explanation: object
+    practice_fix_pattern: object
 
 
 def build_node_record(
@@ -78,6 +87,7 @@ def build_node_record(
 
 
 def build_hint_excerpt(hint: dict[str, Any]) -> HintExcerpt:
+    practice = match_best_practice(hint)
     return HintExcerpt(
         finding_id=hint.get("finding_id"),
         rule_id=hint.get("rule_id"),
@@ -88,6 +98,13 @@ def build_hint_excerpt(hint: dict[str, Any]) -> HintExcerpt:
         severity=hint.get("severity"),
         review_lens=hint.get("review_lens"),
         ai_instruction=hint.get("ai_instruction"),
+        practice_title=practice.get("title") if isinstance(practice, dict) else "",
+        practice_explanation=(
+            practice.get("explanation") if isinstance(practice, dict) else ""
+        ),
+        practice_fix_pattern=(
+            practice.get("fix_pattern") if isinstance(practice, dict) else ""
+        ),
     )
 
 
@@ -120,6 +137,15 @@ def build_hotspot_record(
         fan_out=int(node["fan_out"]),
         connected_hint_neighbors=connected_hint_neighbors,
         changed=bool(node["changed"]),
+    )
+    record["metric_explanations"] = metric_explanations(
+        fan_in=int(node["fan_in"]),
+        fan_out=int(node["fan_out"]),
+        bridge_score=int(record["bridge_score"]),
+        priority_score=score,
+        connected_hint_neighbors=connected_hint_neighbors,
+        changed=bool(node["changed"]),
+        owners=list(node["owners"]),
     )
     record["connected_files"] = neighbors
     excerpts = [
@@ -222,6 +248,15 @@ def build_probe_topology_artifact(
             )
         )
     hotspots.sort(key=lambda row: (-int(row["priority_score"]), row["file"]))
+    total_hotspots = len(hotspots)
+    for rank, hotspot in enumerate(hotspots, start=1):
+        hotspot["hotspot_rank"] = rank
+        metric_explanations = hotspot.get("metric_explanations")
+        if isinstance(metric_explanations, dict):
+            metric_explanations["hotspot_rank"] = (
+                f"Ranked #{rank} of {total_hotspots} because its combined priority score is "
+                f"{hotspot.get('priority_score')} across {hotspot.get('hint_count')} hint(s)."
+            )
 
     summary: dict[str, Any] = {}
     summary["source_files"] = len(all_paths)

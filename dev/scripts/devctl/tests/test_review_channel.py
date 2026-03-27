@@ -2440,6 +2440,35 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(attention["status"], "checkpoint_required")
         self.assertIn("checkpoint", attention["summary"].lower())
 
+    def test_attention_prioritizes_bridge_contract_error_over_checkpoint_required(self) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "push_enforcement": {
+                "checkpoint_required": True,
+                "safe_to_continue_editing": False,
+            },
+        }
+
+        attention = derive_bridge_attention(
+            liveness,
+            contract_errors=[
+                "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present."
+            ],
+        )
+
+        self.assertEqual(attention["status"], "bridge_contract_error")
+        self.assertIn("contract", attention["summary"].lower())
+
     def test_launch_attention_blocks_checkpoint_required(self) -> None:
         from dev.scripts.devctl.review_channel.bridge_runtime_state import (
             enforce_bridge_launch_attention,
@@ -2506,6 +2535,29 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         attention = derive_bridge_attention(liveness)
         self.assertEqual(attention["status"], "claude_ack_stale")
 
+    def test_attention_allows_implementer_relaunch_to_outrank_stall_contract_hint(self) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "waiting_on_peer",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": False,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": True,
+            "publisher_running": True,
+        }
+        attention = derive_bridge_attention(
+            liveness,
+            contract_errors=[
+                "Claude Status/Ack show implementer completion-stall language while `Current Instruction For Claude` still assigns active work."
+            ],
+        )
+        self.assertEqual(attention["status"], "implementer_relaunch_required")
+
     def test_attention_reports_dual_agent_idle_with_stale_precedence(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
 
@@ -2567,6 +2619,35 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(attention["status"], "bridge_contract_error")
         self.assertEqual(attention["owner"], "codex")
         self.assertIn("Do not replace Claude", attention["recommended_action"])
+
+    def test_attention_prioritizes_bridge_contract_error_over_checkpoint_required(self) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "waiting_on_peer",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": False,
+            "claude_ack_present": False,
+            "claude_ack_current": False,
+            "review_needed": True,
+            "reviewed_hash_current": False,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "reviewer_freshness": "fresh",
+            "push_enforcement": {
+                "checkpoint_required": True,
+                "safe_to_continue_editing": False,
+            },
+        }
+        attention = derive_bridge_attention(
+            liveness,
+            contract_errors=[
+                "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present."
+            ],
+        )
+        self.assertEqual(attention["status"], "bridge_contract_error")
 
     def test_attention_requires_reviewer_supervisor_when_review_is_pending(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
@@ -4712,6 +4793,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
             _write_live_runtime(status_dir)
+            _write_active_conductor_session(status_dir, provider="codex")
+            _write_active_conductor_session(status_dir, provider="claude")
             args = SimpleNamespace(
                 action="status",
                 execution_mode="auto",
@@ -5122,10 +5205,17 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 )
             )
 
-        self.assertEqual(status_snapshot.attention["status"], "checkpoint_required")
+        self.assertEqual(status_snapshot.attention["status"], "bridge_contract_error")
         self.assertTrue(status_snapshot.bridge_liveness["push_enforcement"]["checkpoint_required"])
         self.assertFalse(
             status_snapshot.bridge_liveness["push_enforcement"]["safe_to_continue_editing"]
+        )
+        self.assertTrue(
+            any(
+                "no live repo-owned Codex or Claude conductor sessions are present"
+                in error
+                for error in status_snapshot.errors
+            )
         )
         self.assertEqual(
             status_snapshot.bridge_liveness["push_enforcement"]["recommended_action"],
@@ -5156,6 +5246,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
             _write_live_runtime(status_dir)
+            _write_active_conductor_session(status_dir, provider="codex")
+            _write_active_conductor_session(status_dir, provider="claude")
             args = SimpleNamespace(
                 action="status",
                 execution_mode="auto",
@@ -5507,6 +5599,66 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     in error
                     for error in payload["errors"]
                 )
+            )
+
+    def test_run_status_prioritizes_bridge_contract_error_over_checkpoint_required(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
+            args = SimpleNamespace(
+                action="status",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                promotion_plan="dev/active/continuous_swarm.md",
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=False,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            push_state = {
+                "checkpoint_required": True,
+                "safe_to_continue_editing": False,
+                "checkpoint_reason": "dirty_and_untracked_budget_exceeded",
+                "worktree_dirty": True,
+                "worktree_clean": False,
+                "recommended_action": "checkpoint_before_continue",
+            }
+
+            with patch.object(review_channel_command, "REPO_ROOT", root), patch(
+                "dev.scripts.devctl.review_channel.state.build_bridge_push_enforcement_state",
+                return_value=push_state,
+            ):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload["attention"]["status"], "bridge_contract_error")
+            self.assertTrue(
+                payload["bridge_liveness"]["push_enforcement"]["checkpoint_required"]
             )
 
     def test_run_reviewer_heartbeat_preserves_reviewed_hash(self) -> None:
@@ -6885,6 +7037,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertIn(
                 payload["attention"]["status"],
                 {
+                    "bridge_contract_error",
                     "claude_ack_stale",
                     "runtime_missing",
                     "review_follow_up_required",
@@ -8292,6 +8445,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
             _write_live_runtime(status_dir)
+            _write_active_conductor_session(status_dir, provider="codex")
+            _write_active_conductor_session(status_dir, provider="claude")
             args = SimpleNamespace(
                 action="status",
                 execution_mode="auto",

@@ -109,6 +109,9 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIn("governance", d)
         self.assertIn("work_intake", d)
         self.assertIn("quality_signals", d)
+        self.assertIn("rule_summary", d)
+        self.assertIn("match_evidence", d)
+        self.assertIn("rejected_rule_traces", d)
 
     def test_slim_token_budget(self) -> None:
         ctx = build_startup_context()
@@ -204,6 +207,22 @@ class TestCLIRegistration(unittest.TestCase):
                     "routing": {
                         "selected_workflow_profile": "bundle.tooling",
                         "preflight_command": "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
+                        "rule_summary": "Selected bundle.tooling for edit-first work.",
+                        "match_evidence": [
+                            {
+                                "rule_id": "work_intake.prefer_bundle_tooling",
+                                "summary": "bundle.tooling is available.",
+                                "evidence": ["advisory_action=continue_editing"],
+                            }
+                        ],
+                        "rejected_rule_traces": [
+                            {
+                                "rule_id": "work_intake.select_post_push_bundle",
+                                "summary": "Use the post-push bundle when startup is push-ready.",
+                                "rejected_because": "Startup is not push-ready yet.",
+                                "evidence": [],
+                            }
+                        ],
                     },
                     "warm_refs": [
                         "AGENTS.md",
@@ -222,6 +241,68 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("dev/active/platform_authority_loop.md", rendered)
         self.assertIn("continuity_summary: Land the first startup intake packet.", rendered)
         self.assertIn("selected_workflow_profile: `bundle.tooling`", rendered)
+        self.assertIn(
+            "workflow_profile_rule_summary: Selected bundle.tooling for edit-first work.",
+            rendered,
+        )
+
+    def test_markdown_renders_startup_and_push_rule_explanations(self) -> None:
+        rendered = _render_markdown(
+            {
+                "advisory_action": "push_allowed",
+                "advisory_reason": "worktree_clean_and_review_accepted",
+                "rule_summary": "Startup allows the governed push path.",
+                "match_evidence": [
+                    {
+                        "rule_id": "startup_advisory.push_allowed",
+                        "summary": "All startup prerequisites for push are satisfied.",
+                        "evidence": ["worktree_clean=True"],
+                    }
+                ],
+                "rejected_rule_traces": [
+                    {
+                        "rule_id": "startup_advisory.no_push_needed",
+                        "summary": "Stop because nothing remains to push.",
+                        "rejected_because": "The branch still has remote work to publish.",
+                        "evidence": [],
+                    }
+                ],
+                "reviewer_gate": {},
+                "governance": {
+                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                },
+                "push_decision": {
+                    "action": "run_devctl_push",
+                    "reason": "push_preconditions_satisfied",
+                    "push_eligible_now": True,
+                    "has_remote_work_to_push": True,
+                    "next_step_summary": "Use the governed push path now.",
+                    "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+                    "rule_summary": "Push uses the governed path now.",
+                    "match_evidence": [
+                        {
+                            "rule_id": "startup_push.run_devctl_push",
+                            "summary": "Push prerequisites are green.",
+                            "evidence": ["review_gate_allows_push=True"],
+                        }
+                    ],
+                    "rejected_rule_traces": [
+                        {
+                            "rule_id": "startup_push.no_push_needed",
+                            "summary": "Declare that no governed push is needed.",
+                            "rejected_because": "The branch still has work to publish upstream.",
+                            "evidence": [],
+                        }
+                    ],
+                },
+            }
+        )
+
+        self.assertIn(
+            "startup_rule_summary: Startup allows the governed push path.",
+            rendered,
+        )
+        self.assertIn("push_rule_summary: Push uses the governed path now.", rendered)
 
     def test_markdown_renders_push_next_step_guidance(self) -> None:
         rendered = _render_markdown(

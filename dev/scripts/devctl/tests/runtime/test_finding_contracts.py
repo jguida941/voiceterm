@@ -87,6 +87,9 @@ def test_decision_packet_from_finding_preserves_identity_and_provenance() -> Non
     assert packet["file_path"] == "demo.py"
     assert packet["probe"] == "probe_identifier_density"
     assert packet["source_artifact"] == "probe-report:risk_hints"
+    assert packet["rule_summary"] == "Keep the orchestration seam explicit."
+    assert "match_evidence" in packet
+    assert "rejected_rule_traces" in packet
 
 
 def test_build_finding_id_is_stable_for_same_inputs() -> None:

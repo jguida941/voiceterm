@@ -47,6 +47,10 @@ except ModuleNotFoundError:  # pragma: no cover
 list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 is_review_probe_test_path = import_attr("probe_path_filters", "is_review_probe_test_path")
+scan_object_param_getattr_functions = import_attr(
+    "python_typed_seams.scanner",
+    "scan_object_param_getattr_functions",
+)
 scan_python_functions = import_attr("code_shape_function_policy", "scan_python_functions")
 
 guard = GuardContext(REPO_ROOT)
@@ -66,7 +70,6 @@ GETATTR_RECEIVER_ALLOWLIST = frozenset({"args", "self", "cls"})
 
 # Regex patterns.
 GETATTR_RE = re.compile(r"getattr\s*\(\s*(\w+)\s*,\s*[\"']")
-OBJECT_PARAM_RE = re.compile(r"(?:^|\s)(\w+)\s*:\s*object(?:\s*\||\s*[,)])")
 FORMAT_HELPER_RE = re.compile(r"^def\s+(_fmt_\w+|_format_\w+)\s*\(", re.MULTILINE)
 
 AI_INSTRUCTIONS = {
@@ -97,10 +100,6 @@ def _count_getattr_by_receiver(body: str) -> Counter:
     """
     return Counter(m.group(1) for m in GETATTR_RE.finditer(body) if m.group(1) not in GETATTR_RECEIVER_ALLOWLIST)
 
-def _find_object_params(def_line: str) -> set[str]:
-    """Return parameter names annotated as `: object` on a def line."""
-    return {m.group(1) for m in OBJECT_PARAM_RE.finditer(def_line)}
-
 def _getattr_density_signal(body: str) -> tuple[list[str], str | None, Counter]:
     signals: list[str] = []
     signal_key: str | None = None
@@ -117,14 +116,17 @@ def _getattr_density_signal(body: str) -> tuple[list[str], str | None, Counter]:
         signal_key = "getattr_density"
     return signals, signal_key, receiver_counts
 
-def _object_param_signal(def_line: str, body: str) -> tuple[list[str], str | None]:
-    for param in _find_object_params(def_line):
-        param_getattr_count = sum(1 for match in GETATTR_RE.finditer(body) if match.group(1) == param)
-        if param_getattr_count >= 2:
-            return (
-                [f"parameter '{param}: object' accessed via getattr() {param_getattr_count} times"],
-                "untyped_object_param",
-            )
+def _object_param_signal(
+    func_name: str,
+    object_param_findings: dict[str, tuple[str, int]],
+) -> tuple[list[str], str | None]:
+    finding = object_param_findings.get(func_name)
+    if finding is not None:
+        param_name, getattr_count = finding
+        return (
+            [f"parameter '{param_name}: object' accessed via getattr() {getattr_count} times"],
+            "untyped_object_param",
+        )
     return [], None
 
 def _scan_function_smells(text: str, path: Path) -> list[RiskHint]:
@@ -133,6 +135,10 @@ def _scan_function_smells(text: str, path: Path) -> list[RiskHint]:
     functions = scan_python_functions(text)
     lines = text.splitlines()
     rel_path = path.as_posix()
+    object_param_findings = {
+        finding.function_name: (finding.param_name, finding.getattr_count)
+        for finding in scan_object_param_getattr_functions(text)
+    }
 
     for func in functions:
         if func["line_count"] < MIN_FUNCTION_LINES:
@@ -141,13 +147,12 @@ def _scan_function_smells(text: str, path: Path) -> list[RiskHint]:
         start = func["start_line"] - 1
         end = func["end_line"]
         func_name = func["name"]
-        def_line = lines[start] if start < len(lines) else ""
         body_lines = lines[start + 1 : end]
         body = "\n".join(body_lines)
 
         signals, signal_key, receiver_counts = _getattr_density_signal(body)
         if not signal_key:
-            signals, signal_key = _object_param_signal(def_line, body)
+            signals, signal_key = _object_param_signal(func_name, object_param_findings)
 
         if signals:
             severity = (

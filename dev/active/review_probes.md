@@ -375,7 +375,10 @@ context-free translation = MEDIUM.
       evidence contract: start with test-quality, None-safety, and
       over-abstraction signals as advisory probes only, back them with
       `ai_instruction` and review-packet support, and do not promote them
-      without reviewed false-positive evidence. (audit mapping:
+      without reviewed false-positive evidence. Keep this advisory probe
+      tranche distinct from the blocking validation-contract / trust-token
+      guard family tracked under `MP-377`; probes may influence trust
+      weighting, but they are not the primary autonomy gate. (audit mapping:
       `SYSTEM_AUDIT.md` A28)
 - [x] Add structural-connectivity context to probe output:
       per-file fan-in/fan-out, import/use neighbors, and changed-subgraph
@@ -1487,6 +1490,16 @@ Template README at `dev/scripts/checks/PROBE_TEMPLATE_README.md`.
 - The same lane now owns the missing follow-ons too: next-probe expansion stays
   bounded to test-quality / None-safety / over-abstraction, and probe packets
   need governance-ledger history instead of file-local prose only.
+- 2026-03-27 detector hardening follow-up: the live branch confirmed a
+  narrower miss inside `probe_design_smells`. The probe already claimed to
+  catch `parameter: object` plus repeated `getattr`, but first-parameter and
+  multiline-signature forms could still pass cleanly. Fix that detector and
+  keep the boundary explicit: advisory probe coverage proves the smell is
+  visible again, and the same shape has now graduated into bounded
+  deterministic hard enforcement without widening repo-wide: the `MP-377`
+  self-governance lane now reuses the dedicated `check_python_typed_seams.py`
+  path so the advisory probe and hard guard share one scanner for configured
+  `object`-plus-`getattr` runtime seams.
 - Next action: turn the current consumer-specific route proofs into the next
   broader produced-but-never-consumed / single-authority meta-guard beyond
   the first declared `Finding.ai_instruction` family. Keep the checker-stack

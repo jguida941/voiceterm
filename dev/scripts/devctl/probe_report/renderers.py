@@ -23,6 +23,11 @@ def _append_hotspot_markdown(
             f"hints={hotspot.get('hint_count')}, "
             f"fan_in={hotspot.get('fan_in')}, fan_out={hotspot.get('fan_out')}"
         )
+        metric_explanations = hotspot.get("metric_explanations")
+        if isinstance(metric_explanations, dict):
+            why_ranked = str(metric_explanations.get("hotspot_rank") or "").strip()
+            if why_ranked:
+                lines.append(f"  why_ranked: {why_ranked}")
         lines.append(f"  next: {hotspot.get('bounded_next_slice')}")
 
 
@@ -42,7 +47,9 @@ def _append_decision_packet_markdown(
             f"{decision.get('file')}::{decision.get('symbol')} "
             f"({decision.get('severity')})"
         )
-        lines.append(f"  why: {decision.get('rationale')}")
+        lines.append(
+            f"  why: {decision.get('rule_summary') or decision.get('rationale')}"
+        )
 
 
 def _append_command_metadata(lines: list[str], report: dict[str, Any]) -> None:
@@ -115,6 +122,11 @@ def render_probe_report_terminal(
                 ),
             ]
         )
+        metric_explanations = first_hotspot.get("metric_explanations")
+        if isinstance(metric_explanations, dict):
+            why_ranked = str(metric_explanations.get("hotspot_rank") or "").strip()
+            if why_ranked:
+                lines.append(f"  {why_ranked}")
     decision_packets = report.get("decision_packets", [])
     first_decision = _first_mapping(decision_packets) if isinstance(decision_packets, list) else None
     if first_decision is not None:
@@ -128,6 +140,9 @@ def render_probe_report_terminal(
                 ),
             ]
         )
+        rule_summary = str(first_decision.get("rule_summary") or "").strip()
+        if rule_summary:
+            lines.append(f"  {rule_summary}")
     if report["warnings"]:
         lines.extend(["", "Warnings:"])
         lines.extend(f"- {warning}" for warning in report["warnings"])

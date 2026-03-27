@@ -63,6 +63,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("nesting_depth", "check_nesting_depth.py"),
     ("parameter_count", "check_parameter_count.py"),
     ("python_dict_schema", "check_python_dict_schema.py"),
+    ("python_typed_seams", "check_python_typed_seams.py"),
     ("python_global_mutable", "check_python_global_mutable.py"),
     ("python_design_complexity", "check_python_design_complexity.py"),
     ("python_cyclic_imports", "check_python_cyclic_imports.py"),

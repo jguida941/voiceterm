@@ -50,6 +50,9 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "forbidden_actions" in contract_map["CallerAuthorityPolicy"]
     assert "signals" in contract_map["Finding"]
     assert "validation_plan" in contract_map["DecisionPacket"]
+    assert "rule_summary" in contract_map["DecisionPacket"]
+    assert "match_evidence" in contract_map["DecisionPacket"]
+    assert "rejected_rule_traces" in contract_map["DecisionPacket"]
 
 
 def test_platform_contracts_json_output(capsys) -> None:

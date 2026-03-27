@@ -132,6 +132,11 @@ DEFAULT_AI_GUARD_SPECS = (
         languages=("python",),
     ),
     QualityStepSpec(
+        "python-typed-seams-guard",
+        "python_typed_seams",
+        languages=("python",),
+    ),
+    QualityStepSpec(
         "python-global-mutable-guard",
         "python_global_mutable",
         languages=("python",),
@@ -307,6 +312,7 @@ VOICETERM_ONLY_AI_GUARD_IDS = (
     "compat_matrix_smoke",
     "naming_consistency",
     "platform_layer_boundaries",
+    "python_typed_seams",
     "tandem_consistency",
 )
 

@@ -29,6 +29,16 @@ Portable-platform rule:
   `VOICETERM_PATH_CONFIG` fallbacks as universal truth; resolve authority
   through `ProjectGovernance` / repo-pack state or fail closed.
 
+Documentation-boundary rule:
+- Keep VoiceTerm product docs (`README.md`, `QUICK_START.md`, `guides/*`)
+  user-facing. Shared governance/runtime/AI authority rules belong in
+  maintainer docs (`AGENTS.md`, `dev/guides/DEVELOPMENT.md`,
+  `dev/scripts/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`), active
+  `MP-377` owner docs, or generated repo-pack/bootstrap surfaces. When a
+  tooling/process/governance change triggers maintainer-doc updates, do not
+  satisfy that requirement by editing product docs unless shipped end-user
+  VoiceTerm behavior changed too.
+
 Top-level enforcement rule: every time an agent creates a file or edits an
 existing file, it must run the relevant repo guard/check scripts before
 handoff to catch bad practices, policy drift, and structural regressions. This
@@ -75,6 +85,7 @@ Release-governance note:
 | Where is the current `MP-377` startup-authority / repo-pack / typed-plan-registry / runtime-evidence-context closure plan? | `dev/active/platform_authority_loop.md` (subordinate `MP-377` execution spec; read after `dev/active/ai_governance_platform.md`) |
 | Where is the governed active-plan markdown contract used by docs-governance and future `PlanRegistry` work? | `dev/active/PLAN_FORMAT.md` (reference-only companion for plan-doc schema/self-hosting) |
 | Where is the durable reusable AI governance platform thesis/architecture guide? | `dev/guides/AI_GOVERNANCE_PLATFORM.md` (durable companion to the active platform plan) |
+| Where is the platform-owned Python architecture guide and decision tree for contract-first tooling/runtime design? | `dev/guides/PYTHON_ARCHITECTURE.md` (durable companion for `MP-377` Python modeling/composition choices) |
 | Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
 | Where is the completed Rust workspace path/layout migration record? | `dev/archive/2026-03-07-rust-workspace-layout-migration.md` |
 | Where is the naming/API cohesion execution plan? | `dev/active/naming_api_cohesion.md` |
@@ -394,6 +405,15 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     empty doc/plan/report roots unless real governance or an explicitly
     activated repo pack supplied them, rather than materializing
     `AGENTS.md`, `dev/active/*`, or `dev/reports/*` as hidden defaults.
+4.7.3 Treat deterministic validation contracts the same way: the portable
+    authority is a runner-agnostic validator contract, not one repo's test
+    runner. This repo may use pytest-first adapters for Python slices, but
+    the shared architecture must stay open to `cargo test`, JS runners, and
+    other deterministic validators through typed validator refs. Passing
+    validators may widen weaker automation modes only inside the exact
+    finding-scoped validation plan; repo-wide coverage percentages or generic
+    green suites are weighting signals, not the autonomy gate, and they must
+    never override explicit human `approval_required`.
 4.8 After fixing a meaningful issue, verify both levels before handoff: the
     local defect must be fixed, and the chosen prevention/absorption path must
     either be landed and validated or explicitly deferred/waived with the
@@ -987,6 +1007,7 @@ python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_typed_seams.py
 python3 dev/scripts/checks/check_python_global_mutable.py
 python3 dev/scripts/checks/check_python_design_complexity.py
 python3 dev/scripts/checks/check_python_cyclic_imports.py
@@ -1027,6 +1048,7 @@ python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_typed_seams.py
 python3 dev/scripts/checks/check_python_global_mutable.py
 python3 dev/scripts/checks/check_python_design_complexity.py
 python3 dev/scripts/checks/check_python_cyclic_imports.py
@@ -1085,6 +1107,7 @@ python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_typed_seams.py
 python3 dev/scripts/checks/check_python_global_mutable.py
 python3 dev/scripts/checks/check_python_design_complexity.py
 python3 dev/scripts/checks/check_python_cyclic_imports.py
@@ -1150,6 +1173,7 @@ python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_typed_seams.py
 python3 dev/scripts/checks/check_python_global_mutable.py
 python3 dev/scripts/checks/check_python_design_complexity.py
 python3 dev/scripts/checks/check_python_cyclic_imports.py
@@ -1197,6 +1221,7 @@ python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py --since-ref origin/develop
 python3 dev/scripts/checks/check_parameter_count.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_dict_schema.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_typed_seams.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_global_mutable.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_design_complexity.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_cyclic_imports.py --since-ref origin/develop

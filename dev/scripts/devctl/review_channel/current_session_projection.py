@@ -191,16 +191,23 @@ def event_agent_status(
     review_state: Mapping[str, object],
     agent_id: str,
 ) -> str:
-    """Read one agent status from event-backed compat or legacy agent rows."""
+    """Read one agent status from typed registry rows before compatibility fallbacks."""
+    registry = _mapping(review_state.get("registry"))
+    registry_agents = registry.get("agents")
     compat = review_state.get("_compat")
     compat_agents = compat.get("agents") if isinstance(compat, dict) else None
-    agents = compat_agents or review_state.get("agents")
+    agents = registry_agents or compat_agents or review_state.get("agents")
     if not isinstance(agents, list):
         return ""
     for agent in agents:
         if not isinstance(agent, dict) or agent.get("agent_id") != agent_id:
             continue
-        return str(agent.get("job_status") or agent.get("status") or "")
+        return str(
+            agent.get("job_state")
+            or agent.get("job_status")
+            or agent.get("status")
+            or ""
+        )
     return ""
 
 

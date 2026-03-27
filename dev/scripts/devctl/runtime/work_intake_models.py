@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
+from .finding_contracts import (
+    RejectedRuleTraceRecord,
+    RuleMatchEvidenceRecord,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class PlanTargetRef:
@@ -53,11 +58,20 @@ class IntakeRoutingState:
     development_branch: str = ""
     preflight_command: str = ""
     post_push_bundle: str = ""
+    rule_summary: str = ""
+    match_evidence: tuple[RuleMatchEvidenceRecord, ...] = ()
+    rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["startup_reads"] = list(self.startup_reads)
         payload["workflow_profiles"] = list(self.workflow_profiles)
+        payload["match_evidence"] = [
+            evidence.to_dict() for evidence in self.match_evidence
+        ]
+        payload["rejected_rule_traces"] = [
+            trace.to_dict() for trace in self.rejected_rule_traces
+        ]
         return payload
 
 

@@ -166,6 +166,8 @@ class TestContextGraphQuery(unittest.TestCase):
             any("cli.py" in ref for ref in matched_refs),
             "query for cli.py should match at least one cli.py file",
         )
+        self.assertTrue(result.matched_nodes[0].metadata.get("match_summary"))
+        self.assertTrue(result.matched_nodes[0].metadata.get("ranking_summary"))
 
     def test_mp_query_returns_plan_nodes(self) -> None:
         result = query_context_graph("MP-377", self.nodes, self.edges)
@@ -226,6 +228,7 @@ class TestContextGraphRender(unittest.TestCase):
         self.assertIn("# Context Graph", md)
         self.assertIn("foo.py", md)
         self.assertIn("0.500", md)
+        self.assertIn("Why Matched", md)
 
 
 class TestBootstrapContext(unittest.TestCase):
@@ -256,6 +259,7 @@ class TestBootstrapContext(unittest.TestCase):
         for h in ctx.hotspots:
             self.assertIn("file", h)
             self.assertIn("temperature", h)
+            self.assertIn("ranking_summary", h)
 
     def test_bootstrap_token_budget(self) -> None:
         """Bootstrap packet should stay under 5K tokens."""

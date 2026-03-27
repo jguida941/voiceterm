@@ -7,8 +7,10 @@ from typing import Any
 
 from ..governance.push_routing import PushRefRoutingState, resolve_preflight_since_ref
 from .project_governance import PlanRegistryEntry, ProjectGovernance
+from .project_governance_push import PushEnforcement
 from .review_state_locator import resolved_review_state_relative_path
 from .review_state_models import ReviewState
+from .work_intake_profile_selection import select_workflow_profile
 from .work_intake_models import IntakeRoutingState
 
 
@@ -33,18 +35,25 @@ def build_routing(
     if "upstream_ref" not in push_defaults:
         push_defaults["upstream_ref"] = governance.push_enforcement.upstream_ref
     post_push_bundle = _mapping_text(_mapping(push_defaults.get("post_push")).get("bundle"))
+    selection = select_workflow_profile(
+        workflow_profiles,
+        advisory_action=advisory_action,
+        post_push_bundle=post_push_bundle,
+    )
     return IntakeRoutingState(
         startup_reads=startup_reads,
         workflow_profiles=workflow_profiles,
-        selected_workflow_profile=_selected_profile(
-            workflow_profiles,
-            advisory_action=advisory_action,
-            post_push_bundle=post_push_bundle,
-        ),
+        selected_workflow_profile=selection.profile,
         default_remote=_mapping_text(push_defaults.get("default_remote")),
         development_branch=_mapping_text(push_defaults.get("development_branch")),
-        preflight_command=_preflight_command(push_defaults),
+        preflight_command=_preflight_command(
+            push_defaults,
+            push_enforcement=governance.push_enforcement,
+        ),
         post_push_bundle=post_push_bundle,
+        rule_summary=selection.rule_summary,
+        match_evidence=selection.match_evidence,
+        rejected_rule_traces=selection.rejected_rule_traces,
     )
 
 
@@ -167,27 +176,38 @@ def _push_defaults(
     return dict(push_defaults) if isinstance(push_defaults, dict) else {}
 
 
-def _preflight_command(push_defaults: dict[str, object]) -> str:
+def _preflight_command(
+    push_defaults: dict[str, object],
+    *,
+    push_enforcement: PushEnforcement | None = None,
+) -> str:
     preflight = _mapping(push_defaults.get("preflight"))
     command = _mapping_text(preflight.get("command"))
     if not command:
         return ""
     remote = _mapping_text(push_defaults.get("default_remote")) or "origin"
     development_branch = _mapping_text(push_defaults.get("development_branch")) or "main"
-    template = _mapping_text(preflight.get("since_ref_template"))
-    since_ref = resolve_preflight_since_ref(
-        remote=remote,
-        development_branch=development_branch,
-        release_branch=(
-            _mapping_text(push_defaults.get("release_branch"))
-            or development_branch
-        ),
-        since_ref_template=template,
-        route_state=PushRefRoutingState(
-            current_branch=_mapping_text(push_defaults.get("current_branch")),
-            upstream_ref=_mapping_text(push_defaults.get("upstream_ref")),
-        ),
+    release_branch = (
+        _mapping_text(push_defaults.get("release_branch")) or development_branch
     )
+    template = _mapping_text(preflight.get("since_ref_template"))
+    if _dirty_worktree_requires_branch_base(push_enforcement):
+        since_ref = (template or "{remote}/{development_branch}").format(
+            remote=remote,
+            development_branch=development_branch,
+            release_branch=release_branch,
+        )
+    else:
+        since_ref = resolve_preflight_since_ref(
+            remote=remote,
+            development_branch=development_branch,
+            release_branch=release_branch,
+            since_ref_template=template,
+            route_state=PushRefRoutingState(
+                current_branch=_mapping_text(push_defaults.get("current_branch")),
+                upstream_ref=_mapping_text(push_defaults.get("upstream_ref")),
+            ),
+        )
     command_parts = [
         "python3",
         "dev/scripts/devctl.py",
@@ -200,27 +220,24 @@ def _preflight_command(push_defaults: dict[str, object]) -> str:
     return " ".join(command_parts)
 
 
-def _selected_profile(
-    workflow_profiles: tuple[str, ...],
-    *,
-    advisory_action: str,
-    post_push_bundle: str,
-) -> str:
-    if advisory_action == "push_allowed" and post_push_bundle in workflow_profiles:
-        return post_push_bundle
-    if "bundle.tooling" in workflow_profiles:
-        return "bundle.tooling"
-    if post_push_bundle and post_push_bundle in workflow_profiles:
-        return post_push_bundle
-    return workflow_profiles[0] if workflow_profiles else ""
-
-
 def _mapping(value: object) -> dict[str, object]:
     return dict(value) if isinstance(value, dict) else {}
 
 
 def _mapping_text(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _dirty_worktree_requires_branch_base(
+    push_enforcement: PushEnforcement | None,
+) -> bool:
+    if push_enforcement is None:
+        return False
+    return (
+        push_enforcement.checkpoint_required
+        or push_enforcement.worktree_dirty
+        or not push_enforcement.worktree_clean
+    )
 
 
 __all__ = ["build_routing", "scope_hints", "warm_refs", "writeback_sinks"]

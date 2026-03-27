@@ -5,8 +5,14 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TypedDict
 
+from .finding_explainability_contracts import (
+    RejectedRuleTracePayload,
+    RejectedRuleTraceRecord,
+    RuleMatchEvidencePayload,
+    RuleMatchEvidenceRecord,
+)
+from .finding_payload_contracts import DecisionPacketPayload, FindingPayload
 from .value_coercion import coerce_int, coerce_string, coerce_string_items
 
 FINDING_CONTRACT_ID, FINDING_SCHEMA_VERSION = "Finding", 1
@@ -25,56 +31,6 @@ REVIEW_TARGETS_CONTRACT_ID, REVIEW_TARGETS_SCHEMA_VERSION = (
     PROBE_REVIEW_TARGETS_CONTRACT_ID,
     PROBE_REVIEW_TARGETS_SCHEMA_VERSION,
 )
-
-
-class FindingPayload(TypedDict, total=False):
-    schema_version: int
-    contract_id: str
-    finding_id: str
-    signal_type: str
-    check_id: str
-    rule_id: str
-    rule_version: int
-    repo_name: str
-    repo_path: str
-    file_path: str
-    file: str
-    probe: str
-    symbol: str
-    line: int
-    end_line: int
-    severity: str
-    risk_type: str
-    review_lens: str
-    ai_instruction: str
-    signals: list[str]
-    source_command: str
-    source_artifact: str
-
-
-class DecisionPacketPayload(TypedDict, total=False):
-    schema_version: int
-    contract_id: str
-    finding_id: str
-    check_id: str
-    rule_id: str
-    rule_version: int
-    file_path: str
-    file: str
-    probe: str
-    symbol: str
-    severity: str
-    review_lens: str
-    risk_type: str
-    decision_mode: str
-    rationale: str
-    ai_instruction: str
-    research_instruction: str
-    source_artifact: str
-    precedent: str
-    invariants: list[str]
-    validation_plan: list[str]
-    signals: list[str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +63,9 @@ class DecisionPacketPolicy:
     precedent: str = ""
     invariants: tuple[str, ...] = ()
     validation_plan: tuple[str, ...] = ()
+    rule_summary: str = ""
+    match_evidence: tuple["RuleMatchEvidenceRecord", ...] = ()
+    rejected_rule_traces: tuple["RejectedRuleTraceRecord", ...] = ()
 
 
 def _positive_int(value: object) -> int | None:
@@ -212,6 +171,9 @@ class DecisionPacketRecord:
     invariants: tuple[str, ...] = ()
     validation_plan: tuple[str, ...] = ()
     signals: tuple[str, ...] = ()
+    rule_summary: str = ""
+    match_evidence: tuple["RuleMatchEvidenceRecord", ...] = ()
+    rejected_rule_traces: tuple["RejectedRuleTraceRecord", ...] = ()
 
     def to_dict(self) -> DecisionPacketPayload:
         payload: DecisionPacketPayload = {}
@@ -237,8 +199,14 @@ class DecisionPacketRecord:
         payload["invariants"] = list(self.invariants)
         payload["validation_plan"] = list(self.validation_plan)
         payload["signals"] = list(self.signals)
+        payload["rule_summary"] = self.rule_summary
+        payload["match_evidence"] = [
+            evidence.to_dict() for evidence in self.match_evidence
+        ]
+        payload["rejected_rule_traces"] = [
+            trace.to_dict() for trace in self.rejected_rule_traces
+        ]
         return payload
-
 
 def finding_from_probe_hint(
     hint: Mapping[str, object],
@@ -322,6 +290,9 @@ def decision_packet_from_finding(
         invariants=policy.invariants,
         validation_plan=policy.validation_plan,
         signals=coerce_string_items(finding.get("signals")),
+        rule_summary=policy.rule_summary or policy.rationale,
+        match_evidence=policy.match_evidence,
+        rejected_rule_traces=policy.rejected_rule_traces,
     )
 
 

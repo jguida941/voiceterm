@@ -10,6 +10,7 @@ from __future__ import annotations
 _NON_REVIEWER_CONTRACT_ERROR_PREFIXES = (
     "Live `Claude Ack` must include `instruction-rev:",
     "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
+    "Claude Status/Ack show implementer completion-stall language while ",
 )
 
 from .peer_liveness import (
@@ -92,10 +93,10 @@ def derive_bridge_attention(
         not reviewer_freshness and codex_poll_state == CodexPollState.POLL_DUE
     ):
         status = AttentionStatus.REVIEWER_POLL_DUE
-    elif checkpoint_required or not safe_to_continue_editing:
-        status = AttentionStatus.CHECKPOINT_REQUIRED
     elif _active_contract_errors:
         status = AttentionStatus.BRIDGE_CONTRACT_ERROR
+    elif checkpoint_required or not safe_to_continue_editing:
+        status = AttentionStatus.CHECKPOINT_REQUIRED
     elif (
         reviewer_mode_is_active(reviewer_mode)
         and codex_poll_state in {CodexPollState.FRESH, CodexPollState.POLL_DUE}

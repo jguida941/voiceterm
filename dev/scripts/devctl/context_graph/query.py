@@ -8,6 +8,14 @@ from typing import Any
 from ..config import get_repo_root
 from ..governance.surfaces import load_surface_policy
 from ..governance.push_policy import detect_push_enforcement_state, load_push_policy
+from ..probe_topology_packet import (
+    enrich_query_node,
+    query_hot_index_ranking_summary,
+    query_match_evidence,
+    query_match_summary,
+    query_ranking_summary,
+    record_query_match_reason,
+)
 from .models import (
     EDGE_KIND_GUARDS,
     NODE_KIND_GUARD,
@@ -44,7 +52,15 @@ def query_context_graph(
     """
     query_lower = query.lower().strip()
     if not query_lower:
-        top_nodes = sorted(nodes, key=lambda n: -n.temperature)[:20]
+        top_nodes = [
+            enrich_query_node(
+                node,
+                match_summary="Returned from the hot index because the query was empty.",
+                match_evidence=("empty query requested the hottest nodes",),
+                ranking_summary=query_hot_index_ranking_summary(node),
+            )
+            for node in sorted(nodes, key=lambda n: -n.temperature)[:20]
+        ]
         return QueryResult(
             query=query,
             matched_nodes=top_nodes,
@@ -57,17 +73,50 @@ def query_context_graph(
     query_variants = {query_lower, query_lower.replace("-", "_"), query_lower.replace("_", "-")}
 
     matched_ids: set[str] = set()
+    match_reasons: dict[str, list[str]] = {}
     for node in nodes:
         label_lower = node.label.lower()
         ref_lower = node.canonical_pointer_ref.lower()
-        if any(v in label_lower or v in ref_lower for v in query_variants):
+        label_matches = [v for v in query_variants if v in label_lower]
+        ref_matches = [v for v in query_variants if v in ref_lower]
+        if label_matches or ref_matches:
             matched_ids.add(node.node_id)
+        if label_matches:
+            record_query_match_reason(
+                match_reasons,
+                node.node_id,
+                f"label matched `{node.label}`",
+            )
+        if ref_matches:
+            record_query_match_reason(
+                match_reasons,
+                node.node_id,
+                f"canonical ref matched `{node.canonical_pointer_ref}`",
+            )
         scope = str(node.metadata.get("scope", "")).lower()
-        if scope and any(v in scope for v in query_variants):
+        scope_matches = [v for v in query_variants if scope and v in scope]
+        if scope_matches:
             matched_ids.add(node.node_id)
+            record_query_match_reason(
+                match_reasons,
+                node.node_id,
+                f"scope matched `{scope}`",
+            )
         aliases = node.metadata.get("aliases", [])
-        if isinstance(aliases, list) and any(query_lower in str(a).lower() for a in aliases):
+        alias_matches: list[str] = []
+        if isinstance(aliases, list):
+            alias_matches = [
+                str(alias) for alias in aliases if query_lower in str(alias).lower()
+            ]
+        if alias_matches:
             matched_ids.add(node.node_id)
+            record_query_match_reason(
+                match_reasons,
+                node.node_id,
+                "alias matched `"
+                + ", ".join(alias_matches[:2])
+                + "`",
+            )
 
     neighbor_ids: set[str] = set()
     matched_edges: list[GraphEdge] = []
@@ -84,10 +133,34 @@ def query_context_graph(
             matched_edges.append(edge)
 
     result_ids = matched_ids | neighbor_ids
-    result_nodes = sorted(
-        [n for n in nodes if n.node_id in result_ids],
-        key=lambda n: (-n.temperature, n.node_id),
-    )
+    edge_count_by_node: dict[str, int] = {}
+    for edge in matched_edges:
+        edge_count_by_node[edge.source_id] = edge_count_by_node.get(edge.source_id, 0) + 1
+        edge_count_by_node[edge.target_id] = edge_count_by_node.get(edge.target_id, 0) + 1
+    result_nodes = [
+        enrich_query_node(
+            node,
+            match_summary=query_match_summary(
+                node,
+                direct_match=node.node_id in matched_ids,
+                reasons=match_reasons.get(node.node_id, []),
+            ),
+            match_evidence=query_match_evidence(
+                node,
+                direct_match=node.node_id in matched_ids,
+                reasons=match_reasons.get(node.node_id, []),
+            ),
+            ranking_summary=query_ranking_summary(
+                node,
+                direct_match=node.node_id in matched_ids,
+                connected_edge_count=edge_count_by_node.get(node.node_id, 0),
+            ),
+        )
+        for node in sorted(
+            [n for n in nodes if n.node_id in result_ids],
+            key=lambda n: (-n.temperature, n.node_id),
+        )
+    ]
 
     if not matched_ids:
         confidence = "no_match"
@@ -247,6 +320,11 @@ def _hotspot_summaries(hotspots: list[GraphNode]) -> list[dict[str, object]]:
             "temperature": n.temperature,
             "fan_in": n.metadata.get("fan_in", 0),
             "fan_out": n.metadata.get("fan_out", 0),
+            "ranking_summary": query_ranking_summary(
+                n,
+                direct_match=False,
+                connected_edge_count=0,
+            ),
         }
         for n in hotspots
     ]

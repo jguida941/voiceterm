@@ -17,6 +17,42 @@ from ...runtime.startup_authority import build_startup_authority_report
 from ...runtime.startup_context import build_startup_context, blocks_new_implementation
 
 
+def _append_rule_explanation(
+    lines: list[str],
+    payload: dict,
+    *,
+    summary_label: str,
+) -> None:
+    rule_summary = str(payload.get("rule_summary") or "").strip()
+    if rule_summary:
+        lines.append(f"- {summary_label}: {rule_summary}")
+    match_evidence = payload.get("match_evidence")
+    if isinstance(match_evidence, list):
+        for row in match_evidence[:3]:
+            if not isinstance(row, dict):
+                continue
+            summary = str(row.get("summary") or "").strip()
+            if summary:
+                lines.append(f"- match_evidence: {summary}")
+            evidence = row.get("evidence")
+            if isinstance(evidence, list):
+                for item in evidence[:2]:
+                    text = str(item).strip()
+                    if text:
+                        lines.append(f"- evidence: {text}")
+    rejected = payload.get("rejected_rule_traces")
+    if isinstance(rejected, list):
+        for row in rejected[:2]:
+            if not isinstance(row, dict):
+                continue
+            summary = str(row.get("summary") or "").strip()
+            rejected_because = str(row.get("rejected_because") or "").strip()
+            if summary and rejected_because:
+                lines.append(
+                    f"- rejected_rule: {summary} -> {rejected_because}"
+                )
+
+
 def _render_markdown(ctx_dict: dict) -> str:
     """Render startup context as concise AI-ready markdown."""
     lines = ["# Startup Context", ""]
@@ -29,6 +65,11 @@ def _render_markdown(ctx_dict: dict) -> str:
     lines.append(
         f"**Action:** `{ctx_dict.get('advisory_action', '?')}` "
         f"({ctx_dict.get('advisory_reason', '')})"
+    )
+    _append_rule_explanation(
+        lines,
+        ctx_dict,
+        summary_label="startup_rule_summary",
     )
     lines.append("")
 
@@ -76,6 +117,11 @@ def _render_markdown(ctx_dict: dict) -> str:
             lines.append(f"- next_step_summary: {next_step_summary}")
         if next_step_command:
             lines.append(f"- next_step_command: `{next_step_command}`")
+        _append_rule_explanation(
+            lines,
+            push_decision,
+            summary_label="push_rule_summary",
+        )
         lines.append("")
 
     authority = ctx_dict.get("startup_authority", {})
@@ -129,6 +175,11 @@ def _render_markdown(ctx_dict: dict) -> str:
             preflight = str(routing.get("preflight_command") or "").strip()
             if preflight:
                 lines.append(f"- preflight_command: `{preflight}`")
+            _append_rule_explanation(
+                lines,
+                routing,
+                summary_label="workflow_profile_rule_summary",
+            )
         warm_refs = intake.get("warm_refs")
         if isinstance(warm_refs, list) and warm_refs:
             lines.append(f"- warm_refs: {_join_paths(warm_refs)}")

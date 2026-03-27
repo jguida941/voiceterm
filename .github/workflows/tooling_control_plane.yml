@@ -557,6 +557,13 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
+      - name: Run Python typed-seams guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_typed_seams.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
       - name: Run Python global-mutable non-regression guard
         run: |
           set -euo pipefail

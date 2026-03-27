@@ -79,6 +79,9 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(payload["lane"], "docs")
         self.assertEqual(payload["bundle"], "bundle.docs")
         self.assertEqual(payload["risk_addons"], [])
+        self.assertTrue(payload["rule_summary"])
+        self.assertTrue(payload["match_evidence"])
+        self.assertTrue(payload["rejected_rule_traces"])
 
     @patch("dev.scripts.devctl.commands.check_router.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")

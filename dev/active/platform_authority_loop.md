@@ -204,6 +204,12 @@ intended execution order is:
       writer lease metadata (`writer_id`, lease epoch, expiry, stale-writer
       recovery), role-routing defaults, accepted-outcome sinks, restart packet
       metadata, ready-gate state, and cache invalidation / refresh rules.
+- [ ] Compile the selected `PlanTargetRef` / `WorkIntakePacket` into one typed
+      `PlanExpectationPacket` before mutation or validation begins:
+      required artifacts, forbidden states, invariants, validation commands,
+      evidence queries, success criteria, and any blast-radius / approval
+      policy needed for the current slice. Runtime should consume that packet
+      instead of asking AI/chat to restate plan truth from prose each run.
 - [ ] Define one repo-neutral `CollaborationSession` projection over
       `WorkIntakePacket` + review state + writer lease so Markdown/JSON/status
       surfaces can expose the same shared slice without becoming a second
@@ -570,6 +576,17 @@ intended execution order is:
 - [ ] Thread `RepoPack` / `RepoPathConfig` through function signatures,
       service constructors, and helper entrypoints before removing old
       defaults; do not make the migration depend on one giant all-sites PR.
+- [ ] Run the first explicit `REPO_ROOT` / checkout-root burn-down batch under
+      that same dependency-injection rule: inject `repo_root: Path` (or a
+      narrower repo-pack/path-family dependency) into the highest-fan-in
+      command/runtime helpers that still import `REPO_ROOT` directly, and
+      keep the batch bounded enough that later call sites can migrate without
+      reopening hidden globals in already-migrated surfaces.
+- [ ] Extract repo-agnostic git/filesystem adapter seams before the same path
+      rewrite widens further: add a `GitRunner(Protocol)` plus the first
+      repository-style artifact loaders/writers for JSON/git-backed runtime
+      state so startup/push/collection/publication flows stop mixing storage
+      access, subprocess calls, and domain/runtime decisions in one function.
 - [ ] Eliminate module-level frozen `active_path_config()` defaults from the
       portable/runtime surfaces. Current audit baseline: `51` call sites need
       explicit migration, not only the review-channel subset.
@@ -632,6 +649,10 @@ intended execution order is:
       `rust/target/`, or similar VoiceTerm paths, and non-review helpers such
       as `publication_sync` must not freeze repo-pack-derived registry paths
       at import time while the same portability cutover is in progress.
+- [ ] Pull raw git/subprocess reads out of inner runtime helpers on the same
+      lane: runtime contracts such as `startup_receipt.py` should accept
+      injected git/runtime facts (for example `head_commit_sha`) or adapter
+      results instead of shelling out directly from the domain/runtime layer.
 - [ ] Make the first extensibility step config-driven rather than implied:
       `project.governance.json` / repo-pack policy must be able to declare
       enabled guard/probe ids, bundle overrides, and repo-local routing
@@ -801,10 +822,82 @@ intended execution order is:
 
 ### Phase 5b - Evidence And Provenance Closure
 
+Execution rule:
+Treat Phase 5b as a sequenced lane, not one parallel backlog. Complete the
+5b.1 foundation slice before starting broad `DecisionTrace`,
+`current_session`, `explain-latest`, or `PlanExpectationPacket`
+implementation work. If a later 5b item becomes urgent first, record the
+blocker or exception in plan state before skipping the declared order.
+
+#### Phase 5b.1 - Foundation And Boundary Contracts
+
 - [ ] Extend the Phase 5a identity freeze across guards, probes, external
       imports, review ledgers, and decision packets so every evidence family
       materializes the same canonical `Finding` contract with
       `schema_version`, stable identity, and portable repo-relative paths.
+- [ ] Add one deterministic validation-contract evidence family on that same
+      canonical path: project failing contract-test / validation-runner cases
+      into `Finding` rows, widen the allowed signal/import/review vocabularies
+      deliberately, and make `DecisionPacket.validation_plan` executable as
+      typed validator refs before and after mutations. Start with a
+      pytest-first adapter in this repo, but keep the runtime family
+      runner-agnostic so other repos can bind `cargo test`, JS runners, or
+      other deterministic validators through the same contract. Trust
+      upgrades must prove the exact routed validation selectors for the
+      acted-on finding, not a repo-wide green test blanket, and they may
+      widen weaker modes only, never override explicit human
+      `approval_required`. Coverage/blast-radius inputs may weight trust, but
+      remain secondary to exact validator proof.
+- [ ] Make `DecisionPacket.validation_plan` a live contract instead of a
+      descriptive field: `guard-run`, repair/apply flows, and the first
+      review/runtime closeout paths must execute the exact routed validation
+      selectors before a fix can widen `decision_mode` or claim success.
+- [ ] Keep deterministic validation subordinate to broader evidence closure:
+      failing contract-test / validation-runner cases should normalize into
+      canonical `Finding` rows with a distinct validation/test-failure signal
+      family, while passing validators count as one trust input only and never
+      become the sole autonomy gate.
+- [ ] Land the first concrete failure-evidence adapter for that family:
+      normalize `FailureCase` / `FailurePacket` rows into canonical
+      `FindingRecord` entries with a distinct `test_failure`-style signal so
+      pytest/other runner failures travel through the same governance path as
+      guards and probes instead of staying as isolated test output.
+- [ ] Name contract testing explicitly in this lane and separate it from
+      generic integration runs: register strict pytest markers for
+      contract/guard-style suites, keep marker metadata repo-visible, and use
+      those markers to route the first validation-contract selectors instead
+      of treating the whole test corpus as one undifferentiated green light.
+- [ ] Add the first boundary-first contract-hardening order for the same
+      evidence family and keep future slices in that sequence unless a blocker
+      is recorded: `startup-context` output shape, typed
+      `review_state.json.current_session` plus bridge projection parity,
+      `FailurePacket -> FindingRecord`, then `DecisionPacket.validation_plan`
+      enforcement.
+- [ ] Add explicit contract-test coverage for the first named boundary
+      surfaces before widening `DecisionTrace`: task-router contract,
+      push-policy contract, startup-context output shape, and the first
+      validation/failure adapter path must each have focused contract tests.
+- [ ] Replace stringly governance ledger dicts with typed row contracts on the
+      same evidence path: introduce a frozen `GovernanceReviewRow`
+      (or equivalent typed row family), migrate `ledger_helpers.py` /
+      `governance_review_log.py` to that contract, and keep raw
+      `dict[str, Any]` only at narrow serialization edges.
+- [ ] Add one `GovernanceFinding` aggregate root (or equivalently bounded
+      aggregate contract) over `FindingRecord`, `DecisionPacketRecord`, and
+      the typed governance-review row so finding/decision/review lifecycle
+      invariants are enforced together instead of being spread across foreign
+      keys and ad hoc helper logic.
+- [ ] Freeze the first fixed-vocabulary explanation enums before broad
+      `DecisionTrace` rollout: status / wait-reason values should be closed
+      sets carried by typed contracts so explain/latest/startup projections do
+      not drift back into freeform prose or invented synonyms.
+- [ ] Add strict boundary-validation models only at the trust edge for the
+      first evidence/explanation slice: parse `StartupReceipt`,
+      `DecisionTrace`, and `FailurePacket` through explicit boundary models
+      that can emit JSON Schema, while converting immediately into frozen
+      runtime dataclasses so internal runtime code stays framework-light.
+
+#### Phase 5b.2 - Decision And Projection Contracts
 - [ ] Version the broader platform contracts too, not only findings:
       startup-authority payloads, plan-registry artifacts, runtime actions/
       results/records, and context packs must all carry schema/version fields
@@ -849,11 +942,31 @@ intended execution order is:
       startup signals, and `CollaborationSession` instead of being
       reconstructed from unrelated ledgers or split into a second proof-only
       packet family.
+- [ ] Keep live current-status projection narrow and typed in that same lane:
+      `review_state.json.current_session` should store only the current answer
+      by reference to the latest `DecisionTrace` plus the next action,
+      wait/block reasons, bounded blocker summary, and live reviewer/ack
+      fields. `bridge.md`, `latest.md`, chat packets, CLI status, and
+      operator views must project from that typed state instead of carrying
+      independent current truth.
+- [ ] Add one repo-owned `explain-latest` surface over the same owner chain:
+      load `current_session` plus the latest `DecisionTrace`, then render what
+      changed, why the system chose continue/checkpoint/review/push, which
+      evidence blocked or allowed that choice, and the exact next command
+      without inventing a parallel authority path.
+- [ ] Use `PlanExpectationPacket` for plan-to-runtime reconciliation in the
+      same closure tranche: compare selected plan expectations against
+      observed runtime/test evidence and emit deterministic `Finding` rows for
+      plan drift, implementation drift, contract drift, or missing
+      validation. Observed behavior must not auto-rewrite plan truth; only a
+      governed decision path may update the plan or accept the drift.
 - [ ] Evaluate one optional advisory decision-auditor step over
       `DecisionTrace` for high-blast-radius or low-confidence cases: the AI
       may challenge or confirm the proposed reasoning before mutation, but
       `approval_required` remains a human/operator gate and deterministic
       guards stay authoritative.
+
+#### Phase 5b.3 - Closure, Telemetry, And Self-Governance
 - [ ] Record quality-to-cost telemetry alongside runtime/evidence rows
       wherever the provider/runtime can supply it:
       `provider_id`, `model_id`, `model_version`, `token_count`,
@@ -1233,6 +1346,11 @@ intended execution order is:
   (`governance_core`, `governance_runtime`, `governance_adapters`,
   `governance_frontends`, `repo_packs`, `product_integrations`) instead of
   collapsing the system into one catch-all directory.
+- 2026-03-27 sequencing correction: the dirty branch already carries part of
+  the docs-authority / publish-truth tranche ahead of the blocker queue.
+  Treat that as a bounded out-of-order exception only: checkpoint and
+  validate this tranche, then return to blocker hardening before widening
+  into Phase 1A, Phase 5b, or more graph/startup expansion.
 - 2026-03-27 authority-loop tranche 1 landed: startup/review authority now
   stays on typed `review_state.json` and fails closed for active bridge
   sessions when that typed projection is absent, while `ProjectGovernance`
@@ -1271,6 +1389,20 @@ intended execution order is:
   or new graph/docs features unless the change directly helps close the
   self-hosting authority budget, dev-vs-adopter surface split, or fail-closed
   push contract.
+- 2026-03-27 same-lane repair note: the explainability slice also exposed one
+  typed-seam regression and one authority-source-integrity miss inside the
+  existing owner chain. Startup advisory/push decision helpers must keep
+  consuming typed `PushEnforcement` instead of `object` + `getattr`, and
+  review-channel attention must not hide `bridge_contract_error` behind
+  checkpoint advice when `active_dual_agent` is already invalid because no
+  repo-owned conductors exist. `probe_design_smells` now proves first-
+  parameter and multiline `: object` seams are visible again, and the
+  dedicated `check_python_typed_seams.py` guard now blocks the same
+  `object`-plus-`getattr` seam on configured portable runtime paths. The
+  remaining same-lane follow-up is not another new guard family;
+  it is teaching typed status projection to carry one validated effective
+  reviewer-mode/authority field so downstream consumers stop reading declared
+  bridge mode as if it were live truth.
 - 2026-03-27 scope-classification follow-up: the next authority-loop proof
   should make artifact role visible to startup and work intake instead of
   leaving AI to infer it from prose order. Add explicit typed classification
@@ -1291,12 +1423,54 @@ intended execution order is:
   split: root VoiceTerm product docs stay product-facing while platform/
   self-hosting instructions move into MP-377 owner docs and generated
   developer surfaces.
+- 2026-03-27 deterministic-validation follow-up: when the current
+  doc-authority/push-truth tranche opens enough to widen Phase 5b, land test
+  evidence through the same canonical path as guards and probes instead of
+  creating a side channel. Add a runner-agnostic validation-contract family,
+  normalize failure cases into `Finding`, and make `validation_plan` the
+  exact pre/post-fix trust proof. Do not treat generic green coverage or
+  review-probe output as sufficient auto-apply evidence.
+- 2026-03-27 scope-capture follow-up: preserve the external architecture
+  intake in this owner lane before another startup pass narrows the context
+  away. Same-lane additions are now explicit: keep the bridge and adjacent
+  human views as projections over typed `current_session` plus
+  `DecisionTrace`, add `explain-latest`, treat validation/test failures as
+  one governed evidence family rather than the whole autonomy story, and
+  later compile selected `PlanTargetRef` into `PlanExpectationPacket` so plan
+  truth can be reconciled against observed evidence without letting runtime
+  drift silently become authority.
+- 2026-03-27 foundation-first follow-up: the same intake also exposed that
+  headline artifacts are not enough. Before widening `DecisionTrace`,
+  `explain-latest`, or broader plan-reconciliation logic, this lane now also
+  owns the supporting infrastructure explicitly: `REPO_ROOT` / checkout-root
+  injection burn-down, git/filesystem adapter seams, typed governance ledger
+  rows, a bounded `GovernanceFinding` aggregate, live
+  `DecisionPacket.validation_plan` execution, failure-case adapters,
+  contract-test markers, and the first boundary-contract suites. Do not land
+  the roof while leaving those foundations implicit.
+- 2026-03-27 sequencing follow-up: Phase 5b now has an explicit internal
+  order so future AI sessions do not treat it as one monolith. 5b.1 is the
+  mandatory foundation slice (typed rows, aggregates, adapters, markers,
+  boundary contracts, live `validation_plan` execution); 5b.2 is
+  `DecisionTrace` / typed `current_session` projection /
+  `explain-latest` / `PlanExpectationPacket`; 5b.3 is closure telemetry and
+  self-governance. Record any justified out-of-order exception in plan state
+  before widening.
 - 2026-03-27 push/doc-authority follow-up: the push half of this tranche is
   now real in code. `repo_governance.push.bypass` gates skip flags, and
   `devctl push` reports typed stage truth (`validation_ready`,
   `published_remote`, `post_push_green`) instead of treating any successful
   `git push` as equivalent to post-push green. The remaining same-lane work
   here is the doc-authority/self-hosting compression half of the tranche.
+- 2026-03-27 explainability projection follow-up landed: the bounded
+  operator-facing slice now reuses the current typed surfaces instead of
+  waiting for the future provenance family. Startup/task-router/workflow-
+  profile receipts plus startup push decisions now carry `rule_summary`,
+  `match_evidence`, and rejected-rule traces; probe packets reuse
+  `SIGNAL_TO_PRACTICE` plus metric explanations; and context-graph
+  query/bootstrap renders now say why nodes matched or ranked. Keep the
+  split explicit: this closes the output-layer teaching slice only. The full
+  `DecisionTrace` family remains the later Phase-5b evidence/provenance lane.
 - 2026-03-26 doc-authority portability follow-up: the next authority-loop
   slice is not allowed to stop at "custom paths work when fully configured."
   The typed contract still seeds `AGENTS.md`, `dev/active/INDEX.md`,
@@ -1478,6 +1652,58 @@ intended execution order is:
 
 ## Progress Log
 
+- 2026-03-27: Validated the bounded out-of-order docs-authority /
+  publish-truth tranche against the real dirty branch instead of only the
+  edited files. Focused Python/runtime tests are green, and the full
+  `check-router --since-ref origin/develop --execute` rerun now proves the
+  local architecture guards/tests are holding; the remaining failure is that
+  the dirty branch still routes to `bundle.release` because earlier branch
+  history includes release-sensitive workflow edits, so the last red step is
+  the `master` CodeRabbit release gate rather than a new local runtime bug.
+  Live `review-channel --action status` remains `bridge_contract_error`
+  because `reviewer_mode=active_dual_agent` still has no repo-owned Codex or
+  Claude conductor sessions, so checkpoint this tranche now and relaunch the
+  reviewer loop before treating the bridge as current truth.
+- 2026-03-27: Tightened two same-lane truth seams exposed by the live dirty
+  branch review. Event-backed `current_session` projection now prefers the
+  typed agent registry instead of reading `_compat.agents` first, reducing
+  producer dependence on legacy compatibility rows. Startup work-intake
+  preflight generation now falls back to the development-branch diff base
+  while the worktree is still dirty/checkpoint-blocked, so the emitted
+  `check-router` hint no longer collapses an uncheckpointed feature-branch
+  slice into `changed_paths=0` / docs-lane misclassification.
+- 2026-03-27: Captured the missing architecture intake in the tracked
+  authority-loop spec instead of leaving it as chat-only context.
+  Added plan-owned scope for `current_session` by-reference `DecisionTrace`
+  truth, a repo-owned `explain-latest` surface, validation/test failures as a
+  distinct evidence family rather than blanket trust, and a future
+  `PlanExpectationPacket` that compiles selected plan truth into machine-
+  usable expectations before runtime/test reconciliation.
+- 2026-03-27: Captured the missing foundation work behind that same
+  architecture intake instead of only tracking the visible features. The
+  plan now names concrete prerequisites for the explanation/provenance lane:
+  `REPO_ROOT` injection burn-down, git/filesystem adapter seams, typed
+  governance-review rows, a bounded `GovernanceFinding` aggregate, live
+  `validation_plan` execution, failure-case -> `Finding` adapters, strict
+  contract/guard markers, boundary-first contract hardening order, and
+  focused contract tests for task-router, push-policy, startup-context, and
+  the validation/failure adapter path.
+- 2026-03-27: Landed the bounded explainability projection slice without
+  widening the owner chain. Reused existing typed packet contracts for
+  `rule_summary`, `match_evidence`, and rejected-rule traces across startup,
+  task-router, workflow-profile, and push receipts; wired
+  `SIGNAL_TO_PRACTICE` plus plain-language metric explanations into canonical
+  probe packets; added short "why this node matched / why this node ranked"
+  summaries to context-graph query/bootstrap renders; and kept the full
+  provenance-grade `DecisionTrace` family explicitly deferred to the later
+  Phase-5b lane.
+- 2026-03-27: Re-audited the proposed TDD-as-guard/trust-token path against
+  the actual runtime spine. Accepted the direction, but narrowed the
+  implementation contract: this lane needs a runner-agnostic
+  validation-contract family, a failure-case -> `Finding` adapter, widened
+  signal/import vocabularies, and executable `validation_plan` routing.
+  Rejected the looser idea of repo-wide coverage thresholds or probe-owned
+  test semantics as the autonomy gate.
 - 2026-03-27: Re-audited the authority-loop owner lane after the docs-policy
   boundary miss and the live governed push. Confirmed the next blocker is not
   another abstract architecture memo: it is executable closure on three

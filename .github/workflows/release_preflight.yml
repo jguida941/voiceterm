@@ -225,6 +225,7 @@ jobs:
           python3 dev/scripts/checks/check_nesting_depth.py
           python3 dev/scripts/checks/check_parameter_count.py
           python3 dev/scripts/checks/check_python_dict_schema.py
+          python3 dev/scripts/checks/check_python_typed_seams.py
           python3 dev/scripts/checks/check_python_global_mutable.py
           python3 dev/scripts/checks/check_python_design_complexity.py
           python3 dev/scripts/checks/check_python_cyclic_imports.py

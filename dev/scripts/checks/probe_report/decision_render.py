@@ -44,9 +44,25 @@ def append_design_decision_packets_rich(
                 "",
             ]
         )
+        if packet.get("rule_summary"):
+            lines.extend([f"**Rule summary:** {packet['rule_summary']}", ""])
         lines.append("**Signals:**")
         lines.extend(f"- {signal}" for signal in packet["signals"])
         lines.extend(["", f"**AI action:** {packet['ai_instruction'] or 'Review the signals and rationale before changing this boundary.'}", ""])
+        match_evidence = packet.get("match_evidence", [])
+        if isinstance(match_evidence, list) and match_evidence:
+            lines.append("**Match evidence:**")
+            for row in match_evidence[:2]:
+                if isinstance(row, dict):
+                    lines.append(f"- {row.get('summary', '')}")
+            lines.append("")
+        rejected_rule_traces = packet.get("rejected_rule_traces", [])
+        if isinstance(rejected_rule_traces, list) and rejected_rule_traces:
+            lines.append("**Rejected rules:**")
+            for row in rejected_rule_traces[:2]:
+                if isinstance(row, dict):
+                    lines.append(f"- {row.get('rejected_because', '')}")
+            lines.append("")
         if packet["invariants"]:
             lines.append("**Invariants:**")
             lines.extend(f"- {item}" for item in packet["invariants"])
@@ -77,3 +93,5 @@ def append_design_decision_packets_terminal(
             + f"({packet['severity'].upper()})"
         )
         lines.append(f"               {packet['rationale']}")
+        if packet.get("rule_summary"):
+            lines.append(f"               {packet['rule_summary']}")
