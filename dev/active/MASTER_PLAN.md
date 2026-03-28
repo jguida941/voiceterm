@@ -3408,6 +3408,11 @@ become the main product surface.
   should also be able to drive the full platform action surface through that
   same backend path: guards, probes, quality/reporting, bootstrap/export,
   review-channel actions, remediation loops, and generated instruction/skills
+  surfaces. Latest miss-closure follow-up (2026-03-28): commit-range
+  docs-governance predicates must reuse one resolved docs/governance contract
+  per repo/policy path instead of rescanning policy/authority inside per-path
+  loops; keep the cache plus regression test as part of the MP-377
+  self-hosting enforcement surface.
   surfaces. Remaining missing-proof items now explicitly include: local
   service lifecycle/attach semantics, a portable contract-sync guard for that
   lifecycle/authority surface, caller authority + approval matrix, and golden

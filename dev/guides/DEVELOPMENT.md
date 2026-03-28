@@ -165,6 +165,12 @@ Three quality layers matter in practice:
 - `dev/config/devctl_repo_policy.json` is the repo-local switchboard for which
   built-in guards/probes are active by default; keep enablement there instead
   of hard-coding repo behavior into `check` or `probe-report`.
+- Treat docs/governance path predicates as bounded-runtime code too: commands
+  such as `docs-check --since-ref ...` should resolve the governing
+  docs/policy contract once per repo/policy context and reuse it inside
+  per-path loops. If commit-range docs-governance suddenly becomes slow or
+  hangs, treat that as a real tooling regression, not as normal validation
+  cost.
 - When a policy-backed slice needs a simpler human-facing entrypoint, prefer a
   short wrapper command over asking maintainers to remember raw policy paths.
   Current examples: `python3 dev/scripts/devctl.py launcher-check`,

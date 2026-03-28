@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from pathlib import Path
 
 from ...config import REPO_ROOT
@@ -209,12 +210,23 @@ def _coerce_tooling_doc_requirement_rules(
     return tuple(rules)
 
 
-def resolve_docs_check_policy(
-    *,
-    repo_root: Path = REPO_ROOT,
-    policy_path: str | None = None,
+def _normalize_repo_root(repo_root: Path) -> str:
+    return str(repo_root.resolve())
+
+
+def _normalize_policy_path(policy_path: str | Path | None) -> str | None:
+    if policy_path is None:
+        return None
+    return str(Path(policy_path).resolve())
+
+
+@lru_cache(maxsize=32)
+def _resolve_docs_check_policy_cached(
+    repo_root_text: str,
+    policy_path_text: str | None,
 ) -> DocsCheckPolicy:
-    """Resolve docs-check path and docs requirements from repo policy."""
+    repo_root = Path(repo_root_text)
+    policy_path = policy_path_text
     section, warnings, resolved_path = load_repo_governance_section(
         "docs_check",
         repo_root=repo_root,
@@ -294,6 +306,18 @@ def resolve_docs_check_policy(
         ),
         policy_path=str(resolved_path),
         warnings=warnings,
+    )
+
+
+def resolve_docs_check_policy(
+    *,
+    repo_root: Path = REPO_ROOT,
+    policy_path: str | None = None,
+) -> DocsCheckPolicy:
+    """Resolve docs-check path and docs requirements from repo policy."""
+    return _resolve_docs_check_policy_cached(
+        _normalize_repo_root(repo_root),
+        _normalize_policy_path(policy_path),
     )
 
 

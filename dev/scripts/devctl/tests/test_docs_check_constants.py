@@ -6,8 +6,10 @@ import json
 import tempfile
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
 
 from dev.scripts.devctl.commands import docs_check_constants, docs_check_policy
+from dev.scripts.devctl.governance.governed_doc_routing import GovernedDocRouting
 
 
 class DocsCheckConstantsCompatibilityTests(TestCase):
@@ -171,3 +173,51 @@ class DocsCheckConstantsCompatibilityTests(TestCase):
                     policy_path=str(policy_path),
                 )
             )
+
+    def test_resolved_policy_is_cached_per_repo_and_policy_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            policy_path = repo_root / "policy.json"
+            policy_path.write_text("{}", encoding="utf-8")
+            routing = GovernedDocRouting(
+                process_doc="",
+                development_doc="",
+                scripts_readme_doc="",
+                architecture_doc="",
+                tracker_path="",
+                index_path="",
+                governed_tooling_docs=(),
+                governed_tooling_prefixes=(),
+                tooling_change_prefixes=("tools/",),
+            )
+
+            with patch(
+                "dev.scripts.devctl.commands.docs.policy_runtime.resolve_governed_doc_routing",
+                return_value=routing,
+            ) as routing_mock:
+                first = docs_check_policy.resolve_docs_check_policy(
+                    repo_root=repo_root,
+                    policy_path=str(policy_path),
+                )
+                second = docs_check_policy.resolve_docs_check_policy(
+                    repo_root=repo_root,
+                    policy_path=str(policy_path),
+                )
+
+                self.assertIs(first, second)
+                self.assertTrue(
+                    docs_check_policy.is_tooling_change(
+                        "tools/checks/guard.py",
+                        repo_root=repo_root,
+                        policy_path=str(policy_path),
+                    )
+                )
+                self.assertFalse(
+                    docs_check_policy.requires_evolution_update(
+                        "notes.txt",
+                        repo_root=repo_root,
+                        policy_path=str(policy_path),
+                    )
+                )
+
+            self.assertEqual(routing_mock.call_count, 1)

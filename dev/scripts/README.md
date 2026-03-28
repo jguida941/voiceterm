@@ -191,6 +191,10 @@ Portability note:
 - `check-router`, `docs-check`, and `render-surfaces` all accept
   `--quality-policy <path>` so another repo can replace those repo-owned
   contracts without patching command code.
+- Path-scoped docs-governance helpers are expected to reuse one resolved
+  docs/policy contract per repo + policy path. If `docs-check --since-ref ...`
+  starts rescanning governance inside per-file loops, treat that as a bug in
+  the control plane rather than normal commit-range cost.
 - Tooling/process/governance architecture belongs in maintainer docs and
   generated repo-pack surfaces, not in VoiceTerm product docs unless
   end-user behavior changed.

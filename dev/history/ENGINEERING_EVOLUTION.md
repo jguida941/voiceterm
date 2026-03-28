@@ -6463,3 +6463,26 @@ Evidence: `backlog.md`,
 `dev/scripts/devctl/runtime/work_intake_routing.py`,
 `dev/active/MASTER_PLAN.md`,
 `dev/active/platform_authority_loop.md`.
+
+### 2026-03-27 - Docs-check commit-range policy resolution is now bounded instead of rescanning governance per path
+
+Fact: a governed push replay exposed a real performance/pathology miss in the
+docs-governance lane. `docs-check --user-facing --since-ref origin/develop`
+was logically correct, but path-level helpers such as `is_tooling_change()`
+and `requires_evolution_update()` were rebuilding the same resolved
+docs/governance policy for each changed file. On a large commit range that
+turned the release lane into repeated repo-governance scans instead of one
+bounded evaluation pass. The fix is two-part: cache the resolved docs policy
+per repo/policy-path context inside `policy_runtime.py`, and keep a regression
+test proving repeated helper calls on the same repo/policy path reuse that
+single resolved contract. The active `MP-377` plan now records the broader
+closure rule too: governance scans may be expensive, but path predicates must
+consume one resolved authority contract instead of rescanning inside loops.
+
+Evidence: `dev/scripts/devctl/commands/docs/policy_runtime.py`,
+`dev/scripts/devctl/tests/test_docs_check_constants.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`.

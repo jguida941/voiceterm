@@ -296,6 +296,13 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     contract, authority rule, parity check, regression test, docs update) or
     record an explicit waiver with reason. Do not silently close meaningful
     findings as patch-only work.
+2.3.1 Apply the same closure rule to performance/pathology misses in
+    governance tooling. If a path-scoped predicate or commit-range command
+    (`docs-check`, router helpers, startup scans, etc.) keeps rebuilding the
+    same authority/policy state inside a loop, treat that as a real escaped
+    defect: resolve the contract once per repo/policy context, reuse it inside
+    the loop, and add regression proof so the slowdown does not silently
+    return.
 3. "Cannot automate yet" is acceptable only with a documented reason and a
    guard path (checklist/runbook entry that prevents unsafe execution).
 4. When automation lands, update command/docs surfaces in the same change

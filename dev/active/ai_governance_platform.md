@@ -4146,6 +4146,13 @@ working on `MP-377`.
   by loose family resemblance. Keep `commands.governance.hygiene` callable
   adapters plus `REPO_ROOT` synchronization marked as bounded compatibility
   debt until that seam has a cleaner long-term shape.
+- 2026-03-28 docs-check hot-path closure: the governed push replay exposed a
+  real `docs-check --since-ref` miss where path-level helpers kept rebuilding
+  docs/governance policy for each changed file. The instance fix is a
+  per-repo/per-policy-path resolver cache plus regression coverage; the
+  class-level rule is "governance scans may be expensive, but path predicates
+  must consume one resolved contract instead of rescanning authority inside
+  loops."
 - 2026-03-27 scope-capture follow-up: preserve the external architecture
   intake in repo-visible plan state instead of letting it live only in chat or
   ad hoc markdown. The same-lane additions are now explicit: keep
