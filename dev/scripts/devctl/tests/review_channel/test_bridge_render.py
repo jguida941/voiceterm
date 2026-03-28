@@ -9,6 +9,10 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import review_channel as review_channel_command
+from dev.scripts.devctl.review_channel.bridge_sanitize import (
+    BRIDGE_SECTION_LINE_LIMITS,
+    sanitize_bridge_sections,
+)
 from dev.scripts.devctl.review_channel.bridge_projection import (
     bridge_hygiene_errors,
     render_bridge_projection,
@@ -138,6 +142,33 @@ def _bridge_text() -> str:
             "",
         ]
     )
+
+
+def test_sanitize_bridge_sections_rewrites_live_state_sections() -> None:
+    sections = {
+        "Claude Status": "\n".join(
+            [
+                "- current slice is clean",
+                "- prior slice that should be dropped",
+            ]
+        ),
+        "Claude Ack": "\n".join(
+            [
+                "- acknowledged; instruction-rev: `abc123`",
+                "- prior slice that should be dropped",
+            ]
+        ),
+    }
+
+    sanitized, mutated = sanitize_bridge_sections(
+        sections,
+        section_line_limits=BRIDGE_SECTION_LINE_LIMITS,
+    )
+
+    assert sanitized["Claude Status"] == "- current slice is clean"
+    assert sanitized["Claude Ack"] == "- acknowledged; instruction-rev: `abc123`"
+    assert "Claude Status" in mutated
+    assert "Claude Ack" in mutated
 
 
 def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() -> None:

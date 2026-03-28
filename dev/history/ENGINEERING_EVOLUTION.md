@@ -46,6 +46,31 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-28 - MP-377 code-shape modularization split 7 oversized self-hosting modules
+
+Fact: seven MP-377 self-hosting Python modules exceeded the 350-line code-shape
+soft limit, blocking `check_code_shape --since-ref origin/develop`. Each was
+split into a focused main module (public API, constants, dataclasses) plus a
+sibling helper module (coercion, rendering, or session-detection logic). All
+splits re-export public symbols from the original module path so existing
+callers require zero changes. The mixed-concerns detector passes because each
+helper module forms one connected call graph through shared utility functions.
+
+Evidence: `dev/scripts/devctl/review_channel/bridge_projection.py`,
+`dev/scripts/devctl/review_channel/bridge_sanitize.py`,
+`dev/scripts/devctl/commands/docs/policy_runtime.py`,
+`dev/scripts/devctl/commands/docs/policy_runtime_checks.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/commands/check_router_constants.py`,
+`dev/scripts/devctl/commands/check_router_resolve.py`,
+`dev/scripts/devctl/commands/review_channel_bridge_render.py`,
+`dev/scripts/devctl/commands/review_channel_bridge_render_sections.py`,
+`dev/scripts/devctl/review_channel/core.py`,
+`dev/scripts/devctl/review_channel/session_probe.py`,
+`dev/scripts/devctl/governance/push_policy.py`,
+`dev/scripts/devctl/governance/push_policy_parse.py`.
+
 ### 2026-03-28 - Release-maintenance escape closure became contract surfaces instead of a lucky green pass
 
 Fact: the next release-maintenance/import-shim follow-up closed the real miss

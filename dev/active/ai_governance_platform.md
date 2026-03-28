@@ -5183,6 +5183,14 @@ Execution order for this section:
   parallel roadmap: the next platform tranche is
   executable doc/organization compression plus development-vs-adopter
   boundary cleanup.
+- 2026-03-28: Modularized 7 MP-377 self-hosting modules that exceeded the
+  Python 350-line code-shape soft limit. Each was split into a main module
+  (public API, constants) plus a sibling helper module (coercion, rendering, or
+  session-detection logic). All splits re-export public symbols for backward
+  compatibility. Affected modules: `bridge_projection`, `policy_runtime`,
+  `startup_context`, `check_router_constants`, `review_channel_bridge_render`,
+  `core`, `push_policy`. `check_code_shape` working-tree passes with 0
+  violations.
 - 2026-03-27: Landed the governed-push architecture closure for this tranche.
   `devctl push` now treats publish truth as staged contract state instead of a
   single binary success, repo policy explicitly gates skip-flag bypasses, and

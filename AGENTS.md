@@ -542,6 +542,9 @@ For non-trivial Rust runtime/tooling changes, contributors must:
    exceptions are tracked in `code_shape_policy.py` with expiry dates; new
    oversized functions require a `FunctionShapeException` with owner, expiry,
    and decomposition reason before merge.
+   When a module exceeds the file soft limit (Python 350, Rust 900), split
+   private helper clusters into a sibling module and re-export public symbols
+   from the original path for backward compatibility.
 5. Prefer consolidation over duplication: extract shared helpers instead of
    repeating logic across overlays/themes/settings/status surfaces. The
    `function_duplication` guard blocks new identical function bodies (>= 6

@@ -1264,7 +1264,7 @@ consistent:
 - `dev/scripts/devctl/governance/push_policy.py`: repo-governance push-policy
   loader and command builder shared by `push`, `sync`, `ship`, and
   `governance-draft`, including policy-gated bypass rules and staged
-  publication truth.
+  publication truth. Parse/coerce helpers live in `push_policy_parse.py`.
 - `dev/scripts/devctl/governance/bootstrap_push.py`: starter repo-pack push
   governance detection used by `governance-bootstrap` to seed default remote,
   branch, and guard-routing policy.

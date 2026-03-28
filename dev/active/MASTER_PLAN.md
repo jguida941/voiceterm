@@ -640,6 +640,18 @@
   session looks wedged" failure shape exposed during the authority-leak
   tranche checkpoint push and keeps governed push completion tied to the real
   command contract instead of detached descendant pipe ownership.
+- 2026-03-28 MP-377 code-shape modularization: split 7 self-hosting files
+  that exceeded the Python 350-line soft limit into 14 focused modules.
+  `bridge_projection` -> `bridge_projection` + `bridge_sanitize`;
+  `policy_runtime` -> `policy_runtime` + `policy_runtime_checks`;
+  `startup_context` -> `startup_context` + `startup_context_render`;
+  `check_router_constants` -> `check_router_constants` + `check_router_resolve`;
+  `review_channel_bridge_render` -> `review_channel_bridge_render` +
+  `review_channel_bridge_render_sections`; `core` -> `core` + `session_probe`;
+  `push_policy` -> `push_policy` + `push_policy_parse`. All re-export public
+  symbols for backward compatibility; `check_code_shape` working-tree is green
+  with 0 violations. Prevention pattern: extract private helper clusters to
+  sibling modules while keeping public API in the original module.
 - Current deterministic self-governance closure rule after the 2026-03-21
   guard audit: do not treat more guard count or richer graph semantics as
   progress while typed/runtime authority still lies. First close the cheap

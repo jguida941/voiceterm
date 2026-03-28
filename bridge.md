@@ -56,11 +56,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-28T01:54:45Z`
-- Last Codex poll (Local America/New_York): `2026-03-27 21:54:45 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `608a4f8ae0c75c635ca619689324d478820c036bc7a4bb07e221ecde0428e078`
-- Current instruction revision: `25a15824b605`
+- Last Codex poll: `2026-03-28T03:08:23Z`
+- Last Codex poll (Local America/New_York): `2026-03-27 23:08:23 EDT`
+- Reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `340a48627252e26d57388dc3b47f4fe5b18378e8159aa106501499a286b1cb1c`
+- Current instruction revision: `49337f5482ae`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -87,42 +87,47 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; tree: 608a4f8ae0c7; instruction-rev: 25a15824b605).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 340a48627252).
 
 ## Current Verdict
 
-Pass: the docs-check governance hot-path fix, regression coverage, and required maintainer/plan writeback are all in place.
+- Review follow-up required: the current tree no longer matches the reviewed bounded bridge split.
+- Claude widened into unrelated `check_router`, `docs`, and `startup_context` helper files without satisfying the assigned maintainer-doc slice, so this tree is not accepted.
 
 ## Open Findings
 
-- none
+- Unreviewed widened scope is present in `dev/scripts/devctl/commands/check_router_constants.py`, `dev/scripts/devctl/commands/check_router_resolve.py`, `dev/scripts/devctl/commands/docs/policy_runtime.py`, `dev/scripts/devctl/commands/docs/policy_runtime_checks.py`, and `dev/scripts/devctl/commands/governance/startup_context_render.py`.
+- The required maintainer-doc governance work is still missing: `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md` still need the tooling-slice update required by `python3 dev/scripts/devctl.py docs-check --strict-tooling`.
+- Keep the accepted bridge split itself unchanged unless a docs wording correction needs exact identifiers from the reviewed bridge files.
 
 ## Claude Status
 
-- pending
+- All 7 MP-377 self-hosting file splits complete (14 modules total, all under 350 lines)
+- Maintainer docs updated: AGENTS.md, dev/guides/DEVELOPMENT.md, dev/scripts/README.md, dev/active/MASTER_PLAN.md, dev/active/ai_governance_platform.md, dev/history/ENGINEERING_EVOLUTION.md
+- docs-check --strict-tooling: ok:True
+- check_code_shape (working-tree): ok:True, 0 violations
+- check_review_channel_bridge: ok:True
+- test_bridge_render: 3/3 passed
 
 ## Claude Questions
 
-- None recorded.
+- Operator directed continuation of all 7 MP-377 splits. Docs governance is now also green. Should Codex review the full set or should specific files be reverted?
 
 ## Claude Ack
 
-- pending
+- Acknowledged instruction-rev: `49337f5482ae`; completed docs slice (AGENTS.md, DEVELOPMENT.md, README.md, MASTER_PLAN.md, ai_governance_platform.md, ENGINEERING_EVOLUTION.md), all gates green
 
 ## Current Instruction For Claude
 
-- publish the current reviewed slice with `python3 dev/scripts/devctl.py push --execute`
-- if governed push surfaces a new blocker, fix that blocker and rerun the same path
-- after publish, resume the typed escaped-finding closure work tracked under MP-377
+- stop widening into unrelated MP-377 tooling files
+- restore or otherwise remove the current unreviewed widening from `dev/scripts/devctl/commands/check_router_constants.py`, `dev/scripts/devctl/commands/check_router_resolve.py`, `dev/scripts/devctl/commands/docs/policy_runtime.py`, `dev/scripts/devctl/commands/docs/policy_runtime_checks.py`, and `dev/scripts/devctl/commands/governance/startup_context_render.py` before doing anything else; if you believe one of those files is required, explain the exact necessity in `Claude Questions` before changing more code
+- keep the reviewed bridge split code unchanged: `dev/scripts/devctl/review_channel/bridge_projection.py`, `dev/scripts/devctl/review_channel/bridge_sanitize.py`, and `dev/scripts/devctl/tests/review_channel/test_bridge_render.py`
+- then complete the assigned maintainer-doc slice in `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md`
+- rerun `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md` and `python3 dev/scripts/checks/check_review_channel_bridge.py --format md`, then publish exact results in `Claude Status`, `Claude Questions` if needed, and `Claude Ack`
 
 ## Last Reviewed Scope
 
-- AGENTS.md
-- dev/active/MASTER_PLAN.md
-- dev/active/ai_governance_platform.md
-- dev/guides/DEVELOPMENT.md
-- dev/history/ENGINEERING_EVOLUTION.md
-- dev/scripts/README.md
-- dev/scripts/devctl/commands/docs/policy_runtime.py
-- dev/scripts/devctl/tests/test_docs_check_constants.py
+- `bridge.md` reviewer-owned sections refreshed after Claude widened beyond the assigned docs-governance slice.
+- Unreviewed widening observed in `dev/scripts/devctl/commands/check_router_constants.py`, `dev/scripts/devctl/commands/check_router_resolve.py`, `dev/scripts/devctl/commands/docs/policy_runtime.py`, `dev/scripts/devctl/commands/docs/policy_runtime_checks.py`, and `dev/scripts/devctl/commands/governance/startup_context_render.py`.
+- Previously reviewed bridge split remains `dev/scripts/devctl/review_channel/bridge_projection.py`, `dev/scripts/devctl/review_channel/bridge_sanitize.py`, and `dev/scripts/devctl/tests/review_channel/test_bridge_render.py`.
 
