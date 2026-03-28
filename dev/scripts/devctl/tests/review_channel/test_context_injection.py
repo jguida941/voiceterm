@@ -75,7 +75,10 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
     @patch(
         "dev.scripts.devctl.review_channel.event_projection.build_event_context_packet"
     )
-    def test_event_queue_summary_carries_context_packet(self, packet_mock) -> None:
+    def test_event_queue_summary_carries_bridge_safe_context_summary(
+        self,
+        packet_mock,
+    ) -> None:
         from dev.scripts.devctl.context_graph.escalation import ContextEscalationPacket
         from dev.scripts.devctl.review_channel.event_projection import (
             build_event_queue_summary,
@@ -116,6 +119,10 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
             summary["derived_next_instruction"].startswith("review the live tranche")
         )
         self.assertIn(
+            "- Context packet:",
+            summary["derived_next_instruction"],
+        )
+        self.assertNotIn(
             "## Context Recovery Packet",
             summary["derived_next_instruction"],
         )

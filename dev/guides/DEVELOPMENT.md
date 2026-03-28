@@ -220,6 +220,11 @@ Three quality layers matter in practice:
     now emit machine-readable `reviewer_worker` state, and
     `review-channel --action ensure --follow` cadence frames carry the same
     `review_needed` signal without pretending semantic review completion.
+    Keep instruction-shaped review-channel fields flat: bridge/current-session
+    instructions and queue `derived_next_instruction` should use compact
+    summary text only, while full `Context Recovery Packet` markdown stays in
+    source metadata or prompt/audit surfaces instead of nested inside fixed
+    projection sections.
     In active dual-agent mode, `ensure --follow` also reclaims a missing
     detached reviewer supervisor instead of only reporting that it is absent.
     Detached repo-owned `ensure --follow` and `reviewer-heartbeat --follow`

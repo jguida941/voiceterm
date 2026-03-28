@@ -7,10 +7,10 @@ from dataclasses import asdict
 
 from ..context_graph.escalation import (
     ContextEscalationPacket,
-    append_context_packet_markdown,
     build_context_escalation_packet,
     collect_query_terms,
 )
+from ..context_graph.escalation_render import append_compact_context_packet_markdown
 
 
 def build_event_context_packet(
@@ -31,6 +31,14 @@ def build_event_context_packet(
         query_terms=query_terms,
         options={"max_chars": 1200},
     )
+
+
+def append_event_instruction_context(
+    summary: str,
+    context_packet: ContextEscalationPacket | None,
+) -> str:
+    """Render event-backed instructions as flat markdown safe for projections."""
+    return append_compact_context_packet_markdown(summary, context_packet)
 
 
 def build_instruction_source(

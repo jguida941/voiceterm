@@ -300,7 +300,11 @@
   fails closed on oversize bridges, duplicate/unsupported H2 sections,
   transcript/ANSI contamination, and overgrown live owned sections so a
   4000-line mixed bridge transcript cannot silently remain current-state
-  authority.
+  authority. 2026-03-28 follow-up closed the sibling event-backed leak too:
+  queue/current-session instruction-shaped projections now use the same flat
+  no-H2 context summary as bridge-safe promotion text, while full context
+  packets stay in source metadata/prompt surfaces instead of reappearing as
+  nested headings in compatibility outputs.
 - Current runtime-baseline correction after the 2026-03-21 architecture audit:
   Phase 1 closure must keep five runtime-behind-docs gaps explicit instead of
   treating them as background drift. Portability is still blocked first by

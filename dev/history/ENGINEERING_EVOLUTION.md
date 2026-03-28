@@ -37,6 +37,21 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
+
+The first bridge-hardening pass closed the direct `bridge.md` pollution path by
+flattening promotion/checkpoint instruction text and rejecting embedded
+markdown headings in reviewer-owned live sections. One sibling path remained:
+event-backed queue/current-session projections still built
+`derived_next_instruction` from raw `Context Recovery Packet` markdown, which
+meant `latest.md`-style outputs could still show nested `##` headings even
+when the live bridge stayed clean.
+
+Closed that gap by switching event-backed instruction-shaped fields to the same
+compact no-H2 context summary used by bridge-safe promotion text, while keeping
+the full structured packet only in source metadata for prompt/audit consumers
+that actually need the full packet body.
+
 ## Term Quick Reference
 
 - PTY: pseudo-terminal session used to keep CLI context alive.

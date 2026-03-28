@@ -25,7 +25,7 @@ from .current_session_projection import (
     event_open_findings,
 )
 from .event_projection_context import (
-    append_context_packet_markdown,
+    append_event_instruction_context,
     build_event_context_packet,
     build_instruction_source,
 )
@@ -246,7 +246,7 @@ def _derived_next_instruction_bundle(
         summary = str(packet.get("summary") or "").strip()
         if summary:
             context_packet = build_event_context_packet(packet)
-            instruction = append_context_packet_markdown(summary, context_packet)
+            instruction = append_event_instruction_context(summary, context_packet)
             return instruction, build_instruction_source(packet, context_packet)
     return "", {}
 

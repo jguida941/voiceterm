@@ -58,12 +58,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-28T13:45:20Z`
-- Last Codex poll (Local America/New_York): `2026-03-28 09:45:20 EDT`
+- Last Codex poll: `2026-03-28T13:58:09Z`
+- Last Codex poll (Local America/New_York): `2026-03-28 09:58:09 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `57e11d0d07b4f0e01b308d9763ca269519e3b9b9d5dd85e9d965d5872319bc13`
-- Current instruction revision: `868e61f7161a`
-
+- Last non-audit worktree hash: `7f07a526325874bb248b9b375bd58930fab5a7e073870a1f96e2ff2506315f6b`
+- Current instruction revision: `441f072817a4`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -90,11 +89,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 57e11d0d07b4).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 7f07a5263258).
 
 ## Current Verdict
 
-Accepted the bounded Phase 1 code-quality slice: Claude checked off the remaining Phase 1 launcher/code-quality item in `dev/active/continuous_swarm.md` and backed it with the already-landed prompt modularization, repo-pack path centralization, attention-priority cleanup, maintainer-doc updates, and a green focused guard/test bundle on the current tree.
+Accepted the bounded event-backed instruction projection follow-up: queue/current-session derived instruction fields now use the same compact no-H2 context summary as bridge-safe promotion text, while the full packet remains available in source metadata for prompt and audit consumers.
 
 ## Open Findings
 
@@ -102,7 +101,7 @@ Accepted the bounded Phase 1 code-quality slice: Claude checked off the remainin
 
 ## Claude Status
 
-- W2 CHECKED OFF: prompt contract requires inbox polling; bridge-poll returns packet-aware turn detection; active_plan_sync ok:True
+- pending
 
 ## Claude Questions
 
@@ -110,14 +109,20 @@ Accepted the bounded Phase 1 code-quality slice: Claude checked off the remainin
 
 ## Claude Ack
 
-- Acknowledged instruction-rev: `868e61f7161a`; W2 closed
+- pending
 
 ## Current Instruction For Claude
 
-- Next scoped plan item (dev/active/continuous_swarm.md): Phase 2 - Continuous Loop Behavior: Keep reviewer packet visibility synchronized with the same loop contract: when the structured review queue is available, Claude-side `implementer-wait` / repoll behavior must wake on fresh Claude-targeted packets as well as bridge changes, and the conductor prompt/launcher path must require inbox/watch polling on the same cadence so direct reviewer packets are not lost behind bridge-only polling.
+
+- Next scoped plan item (dev/active/review_channel.md): Phase 1 - Canonical Review Channel: Keep bridge repair repo-owned while the compatibility projection still exists: `review-channel --action render-bridge` should remain the sanctioned rebuild path for `bridge.md`, regenerating the bounded template plus sanitized live sections from repo-owned state instead of relying on manual bridge surgery after a bad session.
+- Context packet: trigger `review-channel-promotion`; query terms: `dev/active/review_channel.md`, `bridge.md`
+- Canonical refs:
+  - `dev/active/review_channel.md`
+  - `dev/scripts/devctl/review_channel`
+  - `dev/active/loop_chat_bridge.md`
 
 ## Last Reviewed Scope
 
-- Reviewed the current Phase 1 code-quality diff across `dev/active/continuous_swarm.md`, `dev/scripts/devctl/review_channel/attention.py`, `dev/scripts/devctl/tests/review_channel/test_review_channel.py`, `dev/scripts/devctl/commands/review_channel/ensure.py`, `dev/active/review_channel.md`, `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md`.
-- Verified the supporting code-quality claim: no `TODO`/`FIXME` markers remain in `dev/scripts/devctl/review_channel/prompt.py`, `prompt_sections.py`, `prompt_contract.py`, `prompt_guards.py`, or `core.py`.
-- Ran `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md`, `python3 dev/scripts/checks/check_review_channel_bridge.py --format md`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_multi_agent_sync.py`, `python3 dev/scripts/checks/check_code_shape.py --format md`, and `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -q -k 'ensure or reviewer_follow or implementer_wait or attention_prioritizes_review_follow_up_over_checkpoint_required'` (all green).
+- Reviewed the current event-backed instruction/projection diff across dev/scripts/devctl/review_channel/event_projection.py, dev/scripts/devctl/review_channel/event_projection_context.py, dev/scripts/devctl/tests/review_channel/test_context_injection.py, dev/active/review_channel.md, dev/history/ENGINEERING_EVOLUTION.md, AGENTS.md, dev/guides/DEVELOPMENT.md, dev/scripts/README.md, and dev/active/MASTER_PLAN.md.
+- Ran python3 -m pytest dev/scripts/devctl/tests/review_channel/test_context_injection.py dev/scripts/devctl/tests/review_channel/test_current_session_projection.py -q, python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -q -k "derived_next_instruction or current_instruction or review_packet or run_promote or auto_promote_on_launch or instruction_auto_promoted", python3 dev/scripts/devctl.py docs-check --strict-tooling --format md, python3 dev/scripts/checks/check_code_shape.py --format md, python3 dev/scripts/checks/check_active_plan_sync.py, python3 dev/scripts/checks/check_multi_agent_sync.py, and python3 dev/scripts/checks/check_instruction_surface_sync.py (all green).
+
