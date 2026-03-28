@@ -4,6 +4,4 @@
 # shim-expiry: 2026-06-30
 # shim-target: dev/scripts/devctl/commands/docs/check.py
 
-from __future__ import annotations
-
 from .docs.check import *

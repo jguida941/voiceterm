@@ -79,9 +79,17 @@ def add_hygiene_parser(sub: argparse._SubParsersAction) -> None:
         help="Treat hygiene warnings as blocking failures",
     )
     hygiene_cmd.add_argument(
+        "--strict-release-warnings",
+        action="store_true",
+        help=(
+            "Treat hygiene warnings as blocking on the release branch while keeping "
+            "release-maintenance drift visible but non-blocking on other branches"
+        ),
+    )
+    hygiene_cmd.add_argument(
         "--ignore-warning-source",
         action="append",
-        choices=("mutation_badge",),
+        choices=("mutation_badge", "publications"),
         default=[],
         help=(
             "Keep the selected warning family visible in output but exclude it "

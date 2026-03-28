@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-03-27 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-28 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -4085,6 +4085,14 @@ working on `MP-377`.
   compatibility projection. The next same-lane work narrows to
   writer/mutation authority, the last bridge-text-only tandem checks, and the
   separate governed-push publish-vs-post-push truth contract.
+- 2026-03-27 startup-model discoverability follow-up landed: the compiler-
+  style governance framing that had been buried here and in local scratch
+  notes is now carried by tracked first-hop dev/agent surfaces too.
+  `AGENTS.md`, `dev/guides/AI_GOVERNANCE_PLATFORM.md`, and the generated
+  `CLAUDE.md` source now all say explicitly that the AI is a probabilistic
+  proposer inside repo-owned deterministic passes. The next same-lane work
+  stays on startup/work-intake authority and actuator closure, not more
+  architecture theory.
 - 2026-03-27 authority-closure tranche 1 landed: typed startup authority now
   uses the governed `review_state.json` path or fails closed instead of
   trusting `bridge.md` prose, and `ProjectGovernance` doc/plan entries now
@@ -4973,6 +4981,43 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-28: Captured the release-maintenance escape as a first-class
+  architecture miss-closure example instead of treating it as one lucky debug
+  run. The same slice exposed three concrete system misses: 1) a moved guard
+  still had dead flag semantics and heuristic composition proof, 2) shim
+  metadata had become executable authority without repo-root/file-exists
+  validation, and 3) the public root-entrypoint / CLI-import path for moved
+  commands was not covered strongly enough to fail before the release router.
+  Locked the correction into platform architecture rather than chat memory:
+  `DEVCTL_ARCHITECTURE.md` now defines the explicit
+  `Escape -> classify -> prevention surface -> regression proof -> record
+  closure` loop, root entrypoints now count as architecture-owned execution
+  contracts instead of "just shims", and the fix path for this tranche is to
+  land deterministic prevention surfaces in the same slice
+  (architecture-surface import closure, shim-target validation, DRY-guard
+  contract tightening, and root-entrypoint smoke coverage) so the class moves
+  from remediation toward governed class elimination.
+- 2026-03-27: Closed the second feature-branch release-preflight mismatch in
+  the same governed lane. `bundle.release` now uses
+  `devctl hygiene --strict-release-warnings` so the configured release branch
+  stays fully strict while feature branches keep release-maintenance warning
+  families visible but non-blocking, and
+  `check_publication_sync.py --release-branch-aware` keeps stale publication
+  drift visible everywhere but only hard-blocks freshness debt when `HEAD`
+  resolves to the configured release branch. The same slice also followed the
+  package-layout/self-hosting contract through the implementation: touched
+  crowded-root commands/checks/tests moved into topical packages with thin
+  compatibility shims so the branch-aware release logic lands without
+  widening the self-hosting debt it is trying to govern.
+- 2026-03-27: Promoted the compiler-style governance explanation out of local
+  scratch notes and into canonical dev/agent surfaces. `AGENTS.md` now tells
+  sessions to reason about the system as repo-owned deterministic passes plus
+  typed control objects instead of a checklist plus chat memory,
+  `dev/guides/AI_GOVERNANCE_PLATFORM.md` now carries the durable
+  source-program / control-surface / pass mapping, and the governed
+  `claude_instructions.template.md` now echoes that same model at startup.
+  `dev/read.md` can therefore retire without losing the architecture framing
+  needed by fresh AI/dev sessions.
 - 2026-03-27: Accepted the portable baseline-repo contract more explicitly in
   the tracked owner chain. `backlog.md` should stay a shared intake surface,
   not a catch-all architecture ledger, and it can remain empty when there is

@@ -25,6 +25,15 @@ AGENTS_BUNDLE_SECTION_INTRO_LINES: Final[tuple[str, ...]] = (
 # Shared command layers (compose into bundles below)
 # ---------------------------------------------------------------------------
 
+# Explicit composition contract consumed by self-hosting DRY guards. Each
+# listed tuple must stay repo-private, string-only, and reused by multiple
+# bundle definitions.
+COMPOSITION_LAYER_NAMES: Final[tuple[str, ...]] = (
+    "_GUARD_CHECKS",
+    "_SHARED_GOVERNANCE_CHECKS",
+    "_ORCHESTRATE_COMMANDS",
+)
+
 # Guard checks shared across all non-bootstrap bundles.
 _GUARD_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_active_plan_sync.py",
@@ -109,11 +118,6 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_governance_closure.py",
 )
 
-# Publication drift only blocks release lanes. Normal tooling/post-push work
-# still sees the warning via hygiene, but should not fail on unrelated external
-# site sync debt.
-_RELEASE_ONLY_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = ("python3 dev/scripts/checks/check_publication_sync.py",)
-
 # Orchestration status commands used by tooling, release, and post-push bundles.
 _ORCHESTRATE_COMMANDS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/devctl.py orchestrate-status --format md",
@@ -122,6 +126,16 @@ _ORCHESTRATE_COMMANDS: Final[tuple[str, ...]] = (
 
 # Host-side cleanup/audit step for repo-related stale/orphan process trees.
 _HOST_PROCESS_HYGIENE_COMMAND: Final[str] = "python3 dev/scripts/devctl.py process-cleanup --verify --format md"
+_RELEASE_HYGIENE_COMMAND: Final[str] = (
+    "python3 dev/scripts/devctl.py hygiene --strict-release-warnings"
+)
+# Publication drift only hard-blocks release freshness on the configured
+# release branch. Feature branches still render the stale state, but the
+# explicit branch-aware gate keeps short-lived release-lane preflight from
+# failing on unrelated external-site sync debt.
+_RELEASE_PUBLICATION_SYNC_COMMAND: Final[str] = (
+    "python3 dev/scripts/checks/check_publication_sync.py --release-branch-aware"
+)
 
 # Operator Console proof path for tooling changes touching the optional PyQt UI.
 _OPERATOR_CONSOLE_TESTS_COMMAND: Final[str] = "python3 -m pytest app/operator_console/tests/ -q --tb=short"
@@ -201,10 +215,10 @@ _BUNDLE_SPECS: Final[tuple[BundleSpec, ...]] = (
         "python3 dev/scripts/devctl.py check --profile release",
         "python3 dev/scripts/devctl.py docs-check --user-facing --strict-release",
         "python3 dev/scripts/devctl.py docs-check --strict-tooling",
-        "python3 dev/scripts/devctl.py hygiene --strict-warnings",
+        _RELEASE_HYGIENE_COMMAND,
         *_ORCHESTRATE_COMMANDS,
         *_SHARED_GOVERNANCE_CHECKS,
-        *_RELEASE_ONLY_GOVERNANCE_CHECKS,
+        _RELEASE_PUBLICATION_SYNC_COMMAND,
         "CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master",
         "CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master",
         *_GUARD_CHECKS,

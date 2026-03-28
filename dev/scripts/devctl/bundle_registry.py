@@ -4,6 +4,4 @@
 # shim-expiry: 2026-06-30
 # shim-target: dev/scripts/devctl/bundles/registry.py
 
-from __future__ import annotations
-
 from .bundles.registry import *

@@ -3497,6 +3497,15 @@ become the main product surface.
   requirement when the branch carries a release-style user-doc signal (CLI
   schema drift or a broad user-doc edit set), so tooling-only workflow edits
   no longer strand governed `devctl push` on unrelated product docs.
+  Latest release-maintenance follow-up (2026-03-27): the same release bundle
+  now distinguishes master-only freshness gates from feature-branch preflight
+  noise. `devctl hygiene --strict-release-warnings` keeps the release branch
+  fully strict while auto-ignoring release-maintenance warning families on
+  non-release branches, and `check_publication_sync.py --release-branch-aware`
+  still reports stale publication drift everywhere but only hard-blocks it
+  when `HEAD` resolves to the configured release branch. That keeps governed
+  feature-branch `check-router` / `devctl push` aligned with real release risk
+  instead of stalling on unrelated external-site sync debt.
   Latest
   architecture-framing follow-up (2026-03-24): explain the platform as a
   compiler-like pass pipeline (signal extraction -> decision reduction ->

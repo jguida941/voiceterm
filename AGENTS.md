@@ -312,6 +312,15 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
 
 ## AI operating contract (required)
 
+Use the compiler-style governance framing from
+`dev/guides/AI_GOVERNANCE_PLATFORM.md` and
+`dev/active/ai_governance_platform.md` when reasoning about this system. The
+AI is a probabilistic proposer inside repo-owned deterministic passes:
+`startup-context`, guards, probes, and policy resolution lower repo state into
+typed control objects, and only governed execution turns that into
+`TypedAction -> ActionResult -> RunRecord`. Do not treat the repo as a
+checklist plus chat memory.
+
 1. Be autonomous by default: implement, test, docs, and validation end-to-end.
 2. Ask only when required: ambiguous UX/product intent, destructive actions,
    credentials/publishing/tagging, or conflicting policy signals. Branch-
@@ -1150,7 +1159,7 @@ python3 dev/scripts/devctl.py process-cleanup --verify --format md
 python3 dev/scripts/devctl.py check --profile release
 python3 dev/scripts/devctl.py docs-check --user-facing --strict-release
 python3 dev/scripts/devctl.py docs-check --strict-tooling
-python3 dev/scripts/devctl.py hygiene --strict-warnings
+python3 dev/scripts/devctl.py hygiene --strict-release-warnings
 python3 dev/scripts/devctl.py orchestrate-status --format md
 python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 python3 dev/scripts/checks/check_agents_contract.py
@@ -1169,7 +1178,7 @@ python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_startup_authority_contract.py
 python3 dev/scripts/checks/check_tandem_consistency.py
 python3 dev/scripts/checks/check_governance_closure.py
-python3 dev/scripts/checks/check_publication_sync.py
+python3 dev/scripts/checks/check_publication_sync.py --release-branch-aware
 CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
 CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/checks/check_active_plan_sync.py

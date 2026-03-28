@@ -73,6 +73,16 @@ release-style user-doc signal exists (CLI schema drift or a broad user-doc
 edit set). That keeps true release validation strict while unblocking
 tooling-only release-lane preflight on short-lived branches.
 
+Second-pass release-maintenance follow-up on 2026-03-27 narrowed the next
+feature-branch mismatch in the same lane. The release bundle now uses
+`devctl hygiene --strict-release-warnings`, which keeps the configured
+release branch fully strict while auto-ignoring release-maintenance warning
+families such as stale mutation badges on other branches, and the external
+publication guard now offers `check_publication_sync.py --release-branch-aware`
+so stale publication drift remains visible everywhere but only hard-blocks
+when `HEAD` resolves to the configured release branch. Registry/parse errors
+still fail everywhere; only freshness debt becomes branch-aware.
+
 This matters because Step 0 had become architecturally correct but still
 expensive in live dual-agent loops. The repo keeps the same fail-closed
 startup authority and artifact truth, but the default human projection now

@@ -160,6 +160,53 @@ Use this rule:
 If a behavior exists but does not have a clear owner in that stack, it is a
 future drift bug.
 
+## Escape Closure Loop
+
+Escaped defects are not done when the instance is fixed. The architecture rule
+is:
+
+1. classify the escaped failure as a concrete bug class
+2. remediate the local instance
+3. choose the prevention surface for that class
+4. add deterministic regression proof in the same slice
+5. record the closure in the active architecture/plan owner chain
+
+Use this exact framing:
+
+- self-healing fixes the instance
+- self-hardening adds the prevention surface
+- class elimination means the same bug class should not recur silently
+
+Open-world repos will still generate novel misses. The platform goal is not
+"no future bugs"; it is "no known bug class should recur without the system
+surfacing or preventing it earlier through deterministic governance."
+
+### Prevention Surface Selection
+
+Choose the narrowest deterministic closure that fits the escaped class:
+
+- new guard when the failure should block
+- new smoke test when the failure is an execution-path/entrypoint miss
+- new typed policy/runtime field when the miss came from weak untyped state
+- new bootstrap/helper contract when the miss came from launch/import drift
+- new self-governance/contract-sync check when the miss came from repo-owned
+  architecture surfaces disagreeing
+
+### Root Entrypoint Rule
+
+Moved checks and commands must carry one explicit execution contract:
+
+- one canonical package/import path
+- one stable public CLI or root-script entrypoint
+- one deterministic bootstrap/import helper for script-vs-package mode
+- one smoke proof that exercises the shipped root entrypoint, not only the
+  implementation module
+
+Metadata-driven shims such as `# shim-target:` are therefore architecture
+authority data, not comments only. Consumers must validate that redirect
+metadata stays inside the repo root and resolves to a real file before using
+it to alter analysis or runtime behavior.
+
 ### The canonical order
 
 When two layers disagree, trust this order:
