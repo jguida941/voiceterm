@@ -923,6 +923,9 @@ python3 dev/scripts/devctl.py mutation-score --threshold 0.80 --max-age-hours 72
 
 # Docs check (user-facing changes must update docs + changelog)
 python3 dev/scripts/devctl.py docs-check --user-facing
+# Release-bundle user-doc gate: stays strict on the release branch and only
+# widens on feature branches when the release-style user-doc signal fires.
+python3 dev/scripts/devctl.py docs-check --user-facing --strict-release
 
 # Tooling/release docs policy (change-class aware + deprecated-command guard)
 python3 dev/scripts/devctl.py docs-check --strict-tooling

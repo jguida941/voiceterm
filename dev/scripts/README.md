@@ -390,6 +390,7 @@ python3 dev/scripts/devctl.py push --execute
 
 # Docs + governance checks
 python3 dev/scripts/devctl.py docs-check --user-facing
+python3 dev/scripts/devctl.py docs-check --user-facing --strict-release
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py docs-check --strict-tooling --quality-policy /tmp/pilot-policy.json
 python3 dev/scripts/devctl.py hygiene

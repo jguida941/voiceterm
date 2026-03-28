@@ -1148,7 +1148,7 @@ python3 dev/scripts/devctl.py process-cleanup --verify --format md
 
 ```bash
 python3 dev/scripts/devctl.py check --profile release
-python3 dev/scripts/devctl.py docs-check --user-facing --strict
+python3 dev/scripts/devctl.py docs-check --user-facing --strict-release
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene --strict-warnings
 python3 dev/scripts/devctl.py orchestrate-status --format md
@@ -1528,7 +1528,7 @@ Enforcement commands:
 
 ```bash
 python3 dev/scripts/devctl.py docs-check --user-facing
-python3 dev/scripts/devctl.py docs-check --user-facing --strict
+python3 dev/scripts/devctl.py docs-check --user-facing --strict-release
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_agents_bundle_render.py

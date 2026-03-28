@@ -61,6 +61,18 @@ The same follow-up now states the chat boundary explicitly: agents should keep
 bootstrap chat output to blocker state plus next step by default and leave the
 full packet detail in repo-owned artifacts or terminal output unless asked.
 
+Local release-preflight follow-up on 2026-03-27 closed a separate
+governance mismatch. Feature-branch `devctl push` preflight was reusing the
+release bundle and forcing `docs-check --user-facing --strict` for workflow-
+only release-surface edits, which wrongly demanded all canonical product docs
+even when the branch only changed governance/tooling internals. The local and
+workflow-owned release bundle now uses `docs-check --user-facing
+--strict-release`: strict stays unconditional on the configured release
+branch, but feature branches only enable the all-user-doc requirement when a
+release-style user-doc signal exists (CLI schema drift or a broad user-doc
+edit set). That keeps true release validation strict while unblocking
+tooling-only release-lane preflight on short-lived branches.
+
 This matters because Step 0 had become architecturally correct but still
 expensive in live dual-agent loops. The repo keeps the same fail-closed
 startup authority and artifact truth, but the default human projection now

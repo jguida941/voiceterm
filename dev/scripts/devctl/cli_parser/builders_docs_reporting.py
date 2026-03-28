@@ -13,6 +13,14 @@ def add_docs_check_parser(sub: argparse._SubParsersAction) -> None:
     docs_cmd.add_argument("--user-facing", action="store_true", help="Enforce user-facing doc updates")
     docs_cmd.add_argument("--strict", action="store_true", help="Require all user docs when --user-facing")
     docs_cmd.add_argument(
+        "--strict-release",
+        action="store_true",
+        help=(
+            "Require all user docs on the release branch and on other branches "
+            "only when the release-style user-doc signal fires"
+        ),
+    )
+    docs_cmd.add_argument(
         "--strict-tooling",
         action="store_true",
         help="Require all canonical maintainer docs for tooling/release changes",

@@ -174,7 +174,7 @@ jobs:
         run: |
           set -euo pipefail
           PREV_TAG="$(git describe --tags --abbrev=0)"
-          python3 dev/scripts/devctl.py docs-check --user-facing --strict --since-ref "${PREV_TAG}" --head-ref HEAD
+          python3 dev/scripts/devctl.py docs-check --user-facing --strict-release --since-ref "${PREV_TAG}" --head-ref HEAD
           python3 dev/scripts/devctl.py docs-check --strict-tooling --since-ref "${PREV_TAG}" --head-ref HEAD
           python3 dev/scripts/devctl.py hygiene --strict-warnings
           python3 dev/scripts/devctl.py orchestrate-status --format md

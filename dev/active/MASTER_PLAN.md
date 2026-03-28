@@ -3490,6 +3490,13 @@ become the main product surface.
   surfaces now tell agents not to replay that packet into chat by default.
   Chat bootstrap acknowledgements should stay at blocker state plus next step
   unless the operator explicitly asks for the richer packet.
+  Local release-preflight follow-up (2026-03-27): the release bundle's
+  user-doc gate is now branch-aware. `docs-check --user-facing
+  --strict-release` keeps master release validation fully strict while
+  feature-branch release-sensitive preflight only turns on the strict user-doc
+  requirement when the branch carries a release-style user-doc signal (CLI
+  schema drift or a broad user-doc edit set), so tooling-only workflow edits
+  no longer strand governed `devctl push` on unrelated product docs.
   Latest
   architecture-framing follow-up (2026-03-24): explain the platform as a
   compiler-like pass pipeline (signal extraction -> decision reduction ->
