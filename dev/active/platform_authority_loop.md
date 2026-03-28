@@ -1725,6 +1725,13 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-03-27: Closed the next startup-model discoverability gap in the same
+  `MP-377` lane. `AGENTS.md` and the durable platform guide now say explicitly
+  that the governance stack is a compiler-style control system for
+  probabilistic coding agents, and the generated `CLAUDE.md` bootstrap source
+  now echoes that model instead of teaching only commands. That lets the
+  local scratch explanation in `dev/read.md` retire without losing the
+  architecture framing that fresh AI/dev sessions need.
 - 2026-03-27 chat-bootstrap follow-up: tightened the same MP-377 startup
   compression lane so generated bootstrap/review instruction surfaces now say
   the quiet part explicitly. Fresh sessions should keep chat bootstrap output

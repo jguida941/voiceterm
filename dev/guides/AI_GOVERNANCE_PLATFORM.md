@@ -1,6 +1,6 @@
 # AI Governance Platform
 
-**Status**: active reference  |  **Last updated**: 2026-03-13 | **Owner:** Tooling/control plane/product architecture
+**Status**: active reference  |  **Last updated**: 2026-03-27 | **Owner:** Tooling/control plane/product architecture
 
 This guide is the maintainable "whitepaper plus flowchart" for the reusable AI
 governance platform direction.
@@ -37,6 +37,35 @@ This is stronger than "CLI is better than MCP."
 The real thesis is:
 
 Executable governance beats prompt-only governance for engineering work.
+
+## Compiler-Style Control Model
+
+Use one compiler-style explanatory model when describing the platform, without
+pretending the system is literally a compiler.
+
+The AI is a probabilistic proposer inside a deterministic supervisory system.
+Repo state, plan state, and repo policy are the input program; repo-owned
+passes decide what work is admissible, what evidence is required, and which
+state transitions are legal.
+
+A practical mapping for this repo is:
+
+1. `startup-context`, guards, probes, repo maps, and policy resolution are the
+   frontend / signal-extraction passes.
+2. `ProjectGovernance`, `WorkIntakePacket`, `Finding`, `DecisionPacket`,
+   `ReviewState`, `TypedAction`, `ActionResult`, and `RunRecord` are the typed
+   control surface.
+3. `check-router`, validation plans, governed push/release flows,
+   review-channel, Ralph, autonomy, and `guard-run` are the analysis and
+   constrained-execution passes.
+4. Receipts, governance-review ledgers, startup signals, and convergence
+   evidence form the link / feedback stage that carries accepted truth into
+   later sessions.
+
+This framing matters because the goal is not to make the model deterministic.
+The goal is to compile execution authority away from prompt-local memory and
+into repo-owned typed contracts, deterministic passes, and replayable
+evidence.
 
 ## What The Product Actually Is
 

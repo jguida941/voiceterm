@@ -4131,6 +4131,21 @@ working on `MP-377`.
   `validation_plan` routing, and scoped autonomy upgrades only when the exact
   finding-owned validation plan passes. Keep this separate from advisory
   test-quality probes and reject repo-wide coverage-threshold shortcuts.
+- 2026-03-28 recurrence-closing governance follow-up: treat the just-cleared
+  release-maintenance/import-shim miss as the bounded template for the next
+  `MP-377` self-hosting slice. Finish the concrete escape, then encode the
+  class-level mechanism instead of widening into "fix everything related":
+  1) make DRY/composition contracts explicit and require declared parameters
+  to affect behavior, 2) treat metadata-driven shim redirects as authority
+  data with repo-root plus file-exists validation, 3) treat moved commands/
+  checks/shims as one declared-surface parity class that must prove script
+  mode, package mode, and public CLI/root-entrypoint reachability, and
+  4) define one typed closure workflow for escaped findings
+  (`classify -> prevention surface -> regression proof -> record closure`).
+  Expand only across equivalent instances governed by the same contract, not
+  by loose family resemblance. Keep `commands.governance.hygiene` callable
+  adapters plus `REPO_ROOT` synchronization marked as bounded compatibility
+  debt until that seam has a cleaner long-term shape.
 - 2026-03-27 scope-capture follow-up: preserve the external architecture
   intake in repo-visible plan state instead of letting it live only in chat or
   ad hoc markdown. The same-lane additions are now explicit: keep
@@ -4803,12 +4818,20 @@ Execution order for this section:
    `ActionResult.status` domain closure, `context-graph` confidence type
    alignment, and making mypy blocking for the `dev/scripts/devctl` lane
    before broader graph/system-picture expansion.
-2. Freeze the repo-understanding and naming surfaces before more wrappers
+2. Turn escaped-finding closure into a typed meta-governance contract instead
+   of a chat-only principle. The next bounded implementation should add
+   finding-class -> prevention-surface routing, require each escaped class to
+   close through one deterministic surface (`guard`, typed contract,
+   bootstrap/helper contract, smoke test, or bounded debt record), and add
+   regression proof plus repo-visible closure writeback in the same slice.
+   Use the release-maintenance/import-shim tranche as the seed case, and
+   generalize only across equivalent instances governed by the same contract.
+3. Freeze the repo-understanding and naming surfaces before more wrappers
    proliferate: define `RepoMapSnapshot` / `MapFocusQuery` /
    `TargetedCheckPlan`, define the JSON-plus-SQLite cache contract, and define
    the guard-backed mapping between canonical backend ids and friendly wrapper
    names.
-3. ~~Move the next real seam from frontend path cleanup to transitional
+4. ~~Move the next real seam from frontend path cleanup to transitional
    runtime separation~~ — done enough to accept for this slice. The
    `review_channel` runtime modules now resolve VoiceTerm paths through
    repo-pack/runtime contracts, `mobile_status.py` now loads review status
@@ -4822,21 +4845,21 @@ Execution order for this section:
    `dev/reports/governance/*` defaults directly, then the follow-up seam is
    `autonomy/run_parser.py` reducing hard-coded VoiceTerm plan/report
    defaults.
-4. Keep the iOS/mobile path cleanup marked partial until generated or emitted
+5. Keep the iOS/mobile path cleanup marked partial until generated or emitted
    repo-pack-owned metadata replaces duplicate literals in preview/demo
    surfaces; comments alone do not close that seam.
-5. Define the installable governance package surface explicitly:
+6. Define the installable governance package surface explicitly:
    `pyproject.toml`, build backend, versioning, dependency contract, and stable
    CLI entrypoint(s) for clean-environment installs.
-6. ~~Widen `RepoPathConfig` coverage~~ — done. `RepoPathConfig` now has 15
+7. ~~Widen `RepoPathConfig` coverage~~ — done. `RepoPathConfig` now has 15
    fields, 13 OC/frontend modules consume `VOICETERM_PATH_CONFIG`, 5
    repo-pack collector helpers replace forbidden imports, and iOS shell
    scripts centralize paths with source-of-truth comments. Only non-blocking
    presentation/help strings and test fixtures retain inline path literals.
-7. Finish the compatibility contract, not just the version field:
+8. Finish the compatibility contract, not just the version field:
    document schema-version ownership, migration rules, compatibility checks,
    and rollback expectations alongside repo-pack/platform version pinning.
-8. Expand the adapter/frontend migration: `artifact_locator.py`,
+9. Expand the adapter/frontend migration: `artifact_locator.py`,
    `bridge_sections.py`, and `session_trace_reader.py` are now path-migrated
    to `VOICETERM_PATH_CONFIG`. The remaining deeper couplings are
    `workflow_loop_utils.py`, `loops/comment.py`, the transitional
@@ -4844,87 +4867,87 @@ Execution order for this section:
    adapter-contract work (replacing direct `subprocess`/`gh` calls and local
    path ownership with `WorkflowAdapter` / repo-pack contracts rather than
    more path migration).
-9. Continue `Phase 2 - Normalize repo-pack policy and surface generation` by
+10. Continue `Phase 2 - Normalize repo-pack policy and surface generation` by
    adding explicit repo-pack context-budget profiles and usage-tier guidance
    hooks; the generated surfaces are now policy-owned, but bounded context
    modes still need to become first-class repo-pack behavior too.
-10. Promote the missing runtime evidence contracts into the executable
+11. Promote the missing runtime evidence contracts into the executable
    `governance_runtime` surface: `ContextPack`, `ContextBudgetPolicy`,
    `Finding`, `FindingReview`, `MetricEvent`, and the thin-client snapshot
    states now scattered across operator-console readers.
-11. Keep using this section plus the `Progress Log` for session handoff. Do not
+12. Keep using this section plus the `Progress Log` for session handoff. Do not
    create a second "main plan" or a separate hidden scratch log for `MP-377`.
-12. Define the canonical event-history/runtime-evidence contract that unifies
+13. Define the canonical event-history/runtime-evidence contract that unifies
    existing JSONL ledgers (`devctl_events`, governance reviews, watchdog
    episodes, swarm summaries) without collapsing session handoff into the
    future database layer.
-13. Define the context-budget contract and first repo-pack usage tiers before
+14. Define the context-budget contract and first repo-pack usage tiers before
    packaging more AI-facing loops; prompt cost must stay explicit platform
    behavior instead of hidden product debt.
-14. Add a machine-artifact control-envelope contract for JSON-canonical
+15. Add a machine-artifact control-envelope contract for JSON-canonical
    surfaces so `--output` can produce compact machine receipts plus artifact
    hash/byte/token metadata without forcing the same behavior onto
    human-first commands.
-15. Promote the same machine-first projection rule beyond the governance
+16. Promote the same machine-first projection rule beyond the governance
    command family into review-channel, autonomy, and data-science packet
    surfaces so agents, operators, junior developers, and senior reviewers can
    consume one shared evidence payload at different projection/detail levels.
-16. Extend runtime evidence beyond command duration/success: `RunRecord`,
+17. Extend runtime evidence beyond command duration/success: `RunRecord`,
     `devctl_events`, and later data-science rollups need artifact-size,
     artifact-hash, and estimated token fields so the repo can measure whether
     machine-first outputs are actually reducing context cost.
-16. Continue burning down the crowded freeze-mode roots that
+18. Continue burning down the crowded freeze-mode roots that
     `check_package_layout.py` is currently baselining. The next structural
     cleanup work should keep moving real implementation/test code out of flat
     `checks/`, `devctl/`, `commands/`, and `tests/` roots so the repo can later
     ratchet those areas toward stricter package ownership instead of living in
     permanent freeze mode.
-17. Tighten structured-ledger coverage so manual/chat-driven fix sessions can
+19. Tighten structured-ledger coverage so manual/chat-driven fix sessions can
     either emit first-class run records or explicitly declare telemetry gaps
     instead of leaving command-history completeness ambiguous.
-18. Increase full-codebase evidence density: use repeated `--adoption-scan`
+20. Increase full-codebase evidence density: use repeated `--adoption-scan`
     audit cycles and wider watchdog coverage so the repo can measure real
     false-positive and cleanup rates across more than the current reviewed
     subset.
-19. Make false-positive remediation explicit: each false positive should produce
+21. Make false-positive remediation explicit: each false positive should produce
     a root-cause note and a concrete rule/policy follow-up unless the repo can
     justify leaving it as an intentionally advisory heuristic.
-20. Add a replayable rule-quality benchmark path: define the first labeled
+22. Add a replayable rule-quality benchmark path: define the first labeled
     cross-repo corpus and the versioned replay/evaluation flow that future
     DB/ML work must consume instead of relying only on live current-worktree
     scans.
-21. Define the waiver/suppression lifecycle so known-noisy signals remain
+23. Define the waiver/suppression lifecycle so known-noisy signals remain
     visible, expiring governance debt rather than becoming permanent silent
     bypasses.
-22. Write explicit platform completion gates so this scope cannot be called
+24. Write explicit platform completion gates so this scope cannot be called
     done after repo split or packaging alone; closure should require
     architecture, pipeline, evidence, and telemetry trust together.
-23. Add the repo-pack/platform compatibility guard and exercise it in pilot
+25. Add the repo-pack/platform compatibility guard and exercise it in pilot
     upgrades before treating external adoption as complete.
-24. Preserve the platform’s differentiators in public proof, not only private
+26. Preserve the platform’s differentiators in public proof, not only private
     plan text: adaptive feedback sizing, three-layer enforcement, artifact-
     backed governed loops, multi-agent review/coding, context budgets, mutation
     remediation, multi-surface control, and self-hosted portability should all
     survive into the durable/public whitepaper.
-25. Start the standing Python/Rust pattern-mining loop against this repo and
+27. Start the standing Python/Rust pattern-mining loop against this repo and
     external pilot repos so new rule families come from measured evidence, not
     one-off intuition.
-26. Measure which current rule families show repeatable AI-quality uplift
+28. Measure which current rule families show repeatable AI-quality uplift
     across multiple repos instead of only sounding correct locally; treat
     those empirically supported families as the first true portable
     primitives.
-27. Build the first loop-value proof packet for recent successful cleanup
+29. Build the first loop-value proof packet for recent successful cleanup
     runs: before/after tests/builds, findings delta by rule family, artifact
     and token cost, reread/skip counts, loops-to-green, artifacts consumed
     per successful change, defer/revert rates, and the first ranked list of
     candidate portable primitives.
-28. Keep a living list of common AI-generated bad patterns that still pass all
+30. Keep a living list of common AI-generated bad patterns that still pass all
     current checks so future guard/probe work is driven by measured misses,
     not taste alone.
-29. Define the future language-extension contract while Python/Rust are still
+31. Define the future language-extension contract while Python/Rust are still
     the active lanes so new languages can plug into the same architecture
     instead of creating parallel subsystems later.
-30. Land the `check_governance_closure` meta-guard as a concrete `P0`
+32. Land the `check_governance_closure` meta-guard as a concrete `P0`
     enforcement surface: one guard script that verifies (a) every registered
     guard has a corresponding test file, (b) every registered probe has a
     corresponding test file, (c) every registered guard is invoked by at
@@ -4934,14 +4957,14 @@ Execution order for this section:
     on parse failures instead of silently skipping corrupted lines. This
     guard makes the governance system self-proving and catches the class of
     gaps found by the 2026-03-17 25-agent architecture audit.
-31. Land the two immediate data-integrity fixes that the audit surfaced as
+33. Land the two immediate data-integrity fixes that the audit surfaced as
     zero-risk blockers: (a) `jsonl_support.py` must log a warning with line
     number on `json.JSONDecodeError` instead of returning `None` silently,
     and (b) `code_shape_function_exceptions.py` must track the two guard
     functions (`coderabbit_ralph_loop_core.py::execute_loop` at 222 lines,
     `coderabbit_gate_core.py::build_report` at 177 lines) that currently
     exceed the 150-line Python limit without an exception entry.
-32. Standardize the devctl command UX contract across all 67+ commands:
+34. Standardize the devctl command UX contract across all 67+ commands:
     (a) `--format` choices must be `["json", "md", "terminal"]` with
     default `"md"` everywhere, (b) all stderr output must use
     `[command-name] error:` prefix format, (c) all state-modifying commands
@@ -4951,7 +4974,7 @@ Execution order for this section:
     to match the hyphenated naming convention. Add a
     `check_command_ux_consistency` guard that validates these patterns across
     registered commands so drift is caught by CI.
-33. Add `timeout-minutes` to the 15 CI workflows that currently lack it:
+35. Add `timeout-minutes` to the 15 CI workflows that currently lack it:
     `rust_ci.yml` (45 min), `tooling_control_plane.yml` (60 min),
     `coverage.yml` (30 min), `memory_guard.yml` (20 min),
     `parser_fuzz_guard.yml` (30 min), and the remaining 10 workflows

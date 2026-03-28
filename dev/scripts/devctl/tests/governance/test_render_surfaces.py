@@ -88,7 +88,39 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
+            "## System model",
+            rendered_text,
+        )
+        self.assertIn(
+            "compiler-style control system for AI work",
+            rendered_text,
+        )
+        self.assertIn(
+            "`TypedAction -> ActionResult -> RunRecord`",
+            rendered_text,
+        )
+        self.assertIn(
             "## Governance capabilities (available during work)",
+            rendered_text,
+        )
+        self.assertIn(
+            "See `dev/guides/AI_GOVERNANCE_PLATFORM.md` for the durable architecture version of this",
+            rendered_text,
+        )
+        self.assertIn(
+            "model.",
+            rendered_text,
+        )
+        self.assertIn(
+            "The model proposes, but repo-owned",
+            rendered_text,
+        )
+        self.assertIn(
+            "deterministic passes decide what work is admissible and what evidence is",
+            rendered_text,
+        )
+        self.assertIn(
+            "required.",
             rendered_text,
         )
         self.assertIn("## Task Router Quick Map", rendered_text)

@@ -16,6 +16,22 @@ gitignored).
   before acting so the live review-channel/tandem workflow matches the
   repo-owned command surface instead of chat memory.
 
+## System model
+
+Treat the governance stack as a compiler-style control system for AI work, not
+as a checklist plus chat memory. The model proposes, but repo-owned
+deterministic passes decide what work is admissible and what evidence is
+required.
+
+- `startup-context`, guards, probes, repo maps, and policy resolution turn
+  repo state into typed signals.
+- `ProjectGovernance`, `WorkIntakePacket`, `Finding`, `DecisionPacket`, and
+  `TypedAction` are the typed control surface.
+- Execution is constrained through `TypedAction -> ActionResult -> RunRecord`,
+  and accepted outcomes feed later sessions through repo-owned evidence.
+- See `{{architecture_doc}}` for the durable architecture version of this
+  model.
+
 ## Platform scope
 
 - Treat this repo's product files as one adopter/client over a portable

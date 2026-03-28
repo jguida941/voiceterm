@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-27
+**Last Updated:** 2026-03-28
 
 ## At a Glance
 
@@ -45,6 +45,39 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-28 - Release-maintenance escape closure became contract surfaces instead of a lucky green pass
+
+Fact: the next release-maintenance/import-shim follow-up closed the real miss
+class, not only the local failure instance. `check_bundle_registry_dry.py`
+now treats bundle composition as an explicit contract
+(`COMPOSITION_LAYER_NAMES`) instead of a loose "any private tuple[str]"
+heuristic, the widely shared command budget is no longer dead config, shim
+metadata that redirects authority (`# shim-target`) is validated against repo
+root plus file existence, the moved hygiene route is wired through the public
+`devctl` CLI surface instead of an incidental import path, and the owning test
+suite now includes entrypoint smoke/integration coverage for shipped script
+mode / public CLI paths rather than only direct module tests.
+
+This matters because the escape showed four deterministic prevention gaps at
+once: declared values could exist without actually governing behavior, comment
+metadata could affect analysis without authority validation, root entrypoints
+were tested more weakly than implementation modules, and closure could stop at
+"local patch went green" without requiring a class-level prevention artifact.
+The active `MP-377` plan chain now records the stronger recurrence-closing
+rule explicitly: fix the concrete instance, classify the defect class, choose
+the minimal deterministic prevention surface, add regression proof, and record
+the closure boundary in repo-visible plan state. The same review also leaves
+`commands.governance.hygiene` callable adapters plus `REPO_ROOT`
+synchronization marked as bounded compatibility debt rather than pretending the
+current wrapper shape is the long-term architecture.
+
+Evidence: `dev/scripts/checks/bundle_registry_dry/command.py`,
+`dev/scripts/devctl/tests/checks/test_check_bundle_registry_dry.py`,
+`dev/scripts/devctl/cli.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/guides/DEVCTL_ARCHITECTURE.md`.
 
 ### 2026-03-27 - MP-377 startup bootstrap now defaults to a compact summary receipt
 

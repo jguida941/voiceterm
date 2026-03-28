@@ -141,6 +141,9 @@ class GovernanceBootstrapTests(unittest.TestCase):
         self.assertEqual(
             surface_generation["surfaces"][0]["required_contains"],
             [
+                "## System model",
+                "compiler-style control system for AI work",
+                "`TypedAction -> ActionResult -> RunRecord`",
                 "## Governance capabilities (available during work)",
                 "## Task Router Quick Map",
                 "`decision_mode` gates action: `auto_apply` means fix directly,",

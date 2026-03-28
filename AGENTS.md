@@ -214,7 +214,10 @@ Run this sequence for every task. Do not skip steps.
    `governance-review --record`, packet-level operational feedback, and saved
    `ContextGraphSnapshot` baselines) and points agents at
    `dev/guides/DEVELOPMENT.md` plus `dev/scripts/README.md` for the canonical
-   "which tool do I run when?" guidance.
+   "which tool do I run when?" guidance. That rendered bootstrap surface must
+   also state the compiler-style system model for AI work plus the
+   `TypedAction -> ActionResult -> RunRecord` execution path so launchers start
+   from repo-owned authority rather than chat-local lore.
 2. Decide scope (`develop` work or `master` release work).
 3. Classify task using the task router table.
 4. Load only the required context pack listed for your task class.

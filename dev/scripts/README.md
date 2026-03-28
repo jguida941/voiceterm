@@ -47,6 +47,11 @@ For the broader standalone-governance product architecture, repo-pack
 extraction, and frontend/runtime convergence plan, see
 `dev/active/ai_governance_platform.md` and
 `dev/guides/AI_GOVERNANCE_PLATFORM.md`.
+Generated bootstrap surfaces such as `CLAUDE.md` are part of that same
+architecture boundary: keep them synced with `render-surfaces`, and make sure
+they explain the compiler-style control model plus the
+`TypedAction -> ActionResult -> RunRecord` path instead of relying on chat
+memory or stale starter prose.
 For plain-language CI lane docs, see `.github/workflows/README.md`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
@@ -148,6 +153,9 @@ Compatibility note:
   `check_review_channel_bridge.py` freshness output, because that guard
   intentionally relaxes live heartbeat enforcement on `GITHUB_ACTIONS=true`
   runners.
+- Treat moved public scripts and compatibility shims as entrypoint smoke/
+  integration coverage too: when script mode, package mode, or root-entrypoint
+  routing changes, do not rely only on direct module unit tests.
 - When a tooling/docs workflow invokes compile-time Rust guards, install the
   repo Rust toolchain and required Linux headers in that job first; the main
   Rust CI lane’s setup does not carry over automatically to `tooling_control_plane.yml`.
@@ -803,7 +811,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_guard_enforcement_inventory.py` | Guard enforcement inventory gate | Verifies cataloged quality scripts still have a real enforcement lane through bundle/workflow invocation or an explicit helper/manual/advisory exemption. The guard recognizes the current `docs-check --strict-tooling` family, the AI-guard family owned by `devctl check`, and the review-probe family owned by `devctl check` / `devctl probe-report`, and keeps manual-only/report-only surfaces explicit instead of letting catalog drift silently. |
 | `dev/scripts/checks/check_governance_closure.py` | Governance self-closure guard | Verifies the governance stack proves itself by requiring registered guards/probes to have tests, requiring default guards to appear in CI workflows, and checking CI workflows for timeout coverage. Supports `--format` and `--output`. |
 | `dev/scripts/checks/check_bundle_workflow_parity.py` | Bundle/workflow parity guard | Verifies registry commands for `bundle.tooling` and `bundle.release` remain present in the owning CI workflows so policy bundles and workflow execution do not silently drift. |
-| `dev/scripts/checks/check_bundle_registry_dry.py` | Bundle-registry DRY guard | Verifies canonical bundle definitions in `bundle_registry.py` are composed through shared command groups instead of duplicated command lists. |
+| `dev/scripts/checks/check_bundle_registry_dry.py` | Bundle-registry DRY guard | Verifies canonical bundle definitions in `bundle_registry.py` use explicit composition layers instead of repeated command lists, validates shim-target authority for the registry entrypoint, and enforces the budget for widely shared commands before composition becomes mandatory. |
 | `dev/scripts/checks/check_ide_provider_isolation.py` | IDE/provider coupling audit | Blocks mixed host/provider executable statements outside explicit policy-owner allowlists (default blocking mode; optional `--report-only`). Scanner ignores import blocks and `#[cfg(test)]` sections so enforcement stays runtime-focused. |
 | `dev/scripts/checks/check_compat_matrix.py` | Compatibility matrix schema gate | Validates `dev/config/compat/ide_provider_matrix.yaml` required hosts/providers, per-cell coverage, duplicate/missing entries, and provider IPC-mode policy labels. |
 | `dev/scripts/checks/compat_matrix_smoke.py` | Compatibility matrix runtime smoke gate | Cross-checks matrix coverage against runtime host/provider enums (`runtime_compat`) plus IPC provider enum (`ipc/protocol`) and enforces explicit non-IPC labeling for runtime-visible non-IPC providers. |

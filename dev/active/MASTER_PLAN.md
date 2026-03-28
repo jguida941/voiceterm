@@ -188,6 +188,15 @@
   coverage, CI invocation coverage, exception-list completeness, workflow
   timeout coverage, and data-as-code/configuration drift as first-class
   platform evidence instead of assuming the guard registry is self-policing.
+- Current recurrence-closing governance rule inside that same `P0` closure:
+  escaped defects are not complete at instance remediation. For each escaped
+  class, the active plan must now record 1) the root-cause class, 2) the
+  minimal deterministic prevention surface (`guard`, typed contract,
+  bootstrap/helper contract, smoke test, or explicit bounded debt), 3) the
+  equivalent-instance boundary the prevention applies to, and 4) the
+  regression proof that closes the class. Generalize enforcement, not patches;
+  widen only across instances governed by the same contract, not by loose
+  similarity.
 - Current accepted self-hosting slice inside that `P0` work: `probe-report`
   now routes its first shared `Finding` / `DecisionPacket` contract seam
   through `devctl.runtime`, durable `ProbeReport` / `ReviewPacket` /

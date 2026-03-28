@@ -380,6 +380,10 @@ Three quality layers matter in practice:
   policy-owned instruction/starter surfaces defined in
   `repo_governance.surface_generation`; use `--write` after updating those
   templates, context values, or generated starter outputs.
+- Treat those generated bootstrap surfaces as architecture surfaces too: they
+  should explain the compiler-style control model and the
+  `TypedAction -> ActionResult -> RunRecord` path so AI launchers start from
+  repo-owned authority rather than from chat-only continuity.
 - The rendered `CLAUDE.md` guard-limit block now derives its numbers from the
   live code-shape policy modules
   (`dev/scripts/checks/code_shape_function_exceptions.py`,
@@ -400,6 +404,10 @@ Three quality layers matter in practice:
   or added/retired a `check_*.py` or `probe_*.py` entrypoint, run both
   `quality-policy --format md` and `render-surfaces --format md` before push
   so the resolved inventory and AI/dev instruction surfaces stay aligned.
+- Treat moved public `dev/scripts/**` entrypoints and compatibility shims as
+  smoke/integration surfaces, not pure unit seams: direct module tests are not
+  enough when script mode, package mode, and public CLI/root-entrypoint
+  reachability are part of the contract.
 
 ## After file edits
 
