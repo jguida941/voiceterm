@@ -56,12 +56,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-27T23:05:18Z`
-- Last Codex poll (Local America/New_York): `2026-03-27 19:05:18 EDT`
-- Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `6031a2a53305c9df3defbe79a14e3b5453a50c3b735b687402f71443a332ec95`
-- Current instruction revision: `518d4ea9f97a`
-
+- Last Codex poll: `2026-03-28T01:40:22Z`
+- Last Codex poll (Local America/New_York): `2026-03-27 21:40:22 EDT`
+- Reviewer mode: `single_agent`
+- Last non-audit worktree hash: `4211c01637d51c0b4020f96871efd55f98524002e080dc717138d13e71916f62`
+- Current instruction revision: `9b86eb1499cd`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -88,15 +87,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: pre-commit-refresh; reviewed-tree: 6031a2a53305).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; tree: 4211c01637d5; instruction-rev: 9b86eb1499cd).
 
 ## Current Verdict
 
-Reviewer-accepted: the governed-push tranche remains green on the current tree, and the same-lane follow-up now also records deterministic explanation outputs plus the platform-owned Python architecture learning path under MP-377 without widening into implementation. The broader architecture audit remains open in `dev/audits/architecture_alignment.md` under the current instruction, but this bounded tree has no blocking review finding.
+- reviewer accepted
 
 ## Open Findings
 
-- None blocking this governed-push tranche or the same-lane explainability/learning-path tracking follow-up. The broader architecture audit remains active in `dev/audits/architecture_alignment.md` and continues under the current reviewer instruction.
+- none
 
 ## Claude Status
 
@@ -112,15 +111,16 @@ Reviewer-accepted: the governed-push tranche remains green on the current tree, 
 
 ## Current Instruction For Claude
 
-Stay on the shared architecture loop. Use `dev/audits/architecture_alignment.md` as the live ledger and keep performing broad whole-system architecture/codebase review across the full AI governance platform and connected Python control-plane surfaces. While Codex is reviewing prior passes, continue onto the next unverified subsystem instead of idling, but keep every new claim scoped, evidence-backed, and written into the shared ledger only. Immediately re-audit Passes 10-13: correct unsupported branch/master/extraction/package claims, replace stale counts with verified scoped facts, and do not teach a new-repo-first plan when the tracked architecture still says monorepo packages first, separate repos later. After that, continue broad discovery through portability/doc-authority, startup/review/push, governance bootstrap, docs-governance, guards/probes, integrations, reporting, autonomy, and any remaining connected architecture. After each pass, update `Claude Status` with exact subsystem coverage and delta, keep `Claude Ack` current, and continue unless Codex explicitly posts a hold or replacement instruction.
+- turn escaped-finding closure into a typed meta-governance contract for MP-377. Use the release-maintenance/import-shim tranche as the seed case and land finding-class to prevention-surface routing, regression proof, and repo-visible closure writeback without widening into unrelated cleanup.
 
 ## Last Reviewed Scope
 
-- governed push runtime: `dev/scripts/devctl/commands/vcs/push.py`
-- push-stage helpers: `dev/scripts/devctl/commands/vcs/push_flow.py`, `dev/scripts/devctl/commands/vcs/push_report.py`
-- push governance + sync wiring: `dev/scripts/devctl/governance/push_policy.py`, `dev/scripts/devctl/commands/sync.py`, `dev/scripts/devctl/sync_parser.py`, `dev/config/devctl_repo_policy.json`
-- validation: `dev/scripts/devctl/tests/vcs/test_push.py`, `dev/scripts/devctl/tests/test_sync.py`, `dev/scripts/devctl/tests/governance/test_governance_draft.py`, `dev/scripts/devctl/tests/runtime/test_work_intake.py`, `dev/scripts/devctl/tests/release/test_ship_release_steps.py`
-- maintainer docs: `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`
-- plan/history alignment: `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md`, `dev/active/review_probes.md`, `dev/active/platform_authority_loop.md`, `dev/active/portable_code_governance.md`, `dev/history/ENGINEERING_EVOLUTION.md`
-- review-channel compatibility state: `bridge.md`, `dev/reports/review_channel/latest/review_state.json`
-- broader architecture ledger remains active: `dev/audits/architecture_alignment.md`
+- AGENTS.md
+- dev/active/MASTER_PLAN.md
+- dev/active/ai_governance_platform.md
+- dev/scripts/checks/bundle_registry_dry/command.py
+- dev/scripts/checks/bundle_registry_dry/analysis.py
+- dev/scripts/checks/bundle_registry_dry/loader.py
+- dev/scripts/checks/bundle_registry_dry/rendering.py
+- dev/scripts/devctl/tests/checks/test_check_bundle_registry_dry.py
+
