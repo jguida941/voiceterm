@@ -222,10 +222,7 @@ def run_ensure_action(
     refreshed = False
     refresh_detail = None
 
-    if (
-        deps.reviewer_mode_is_active_fn(bridge_state.reviewer_mode)
-        and bridge_state.codex_poll_state in ("stale", "missing")
-    ):
+    if bridge_state.codex_poll_state in ("stale", "missing"):
         if runtime_paths.bridge_path is not None and runtime_paths.bridge_path.exists():
             try:
                 refresh_result = deps.refresh_bridge_heartbeat_fn(

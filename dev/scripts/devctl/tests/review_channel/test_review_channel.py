@@ -2445,6 +2445,34 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(attention["status"], "checkpoint_required")
         self.assertIn("checkpoint", attention["summary"].lower())
 
+    def test_attention_prioritizes_review_follow_up_over_checkpoint_required(self) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "reviewed_hash_current": False,
+            "review_needed": True,
+            "reviewer_supervisor_running": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "push_enforcement": {
+                "checkpoint_required": True,
+                "safe_to_continue_editing": False,
+                "recommended_action": "checkpoint_before_continue",
+            },
+        }
+        attention = derive_bridge_attention(liveness)
+        self.assertEqual(
+            attention["status"],
+            "review_follow_up_required",
+            "reviewer follow-up must outrank generic checkpoint when review is pending on stale hash",
+        )
+
     def test_attention_prioritizes_bridge_contract_error_over_checkpoint_required(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
 

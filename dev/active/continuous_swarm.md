@@ -209,8 +209,14 @@ Out of scope until the local proof gate is green:
       rendering.
 - [x] Add the remaining launch regression coverage for:
       missing CLI and terminal-profile fallback warnings.
-- [ ] Keep docstrings/comments/variable names simple and explicit; remove mixed
+- [x] Keep docstrings/comments/variable names simple and explicit; remove mixed
       responsibilities and duplicated path/prompt logic where possible.
+      Verified 2026-03-28: 7 oversized modules split into 14 focused modules
+      (MP-377 code-shape slice). Prompt logic cleanly separated across
+      prompt.py/prompt_sections.py/prompt_contract.py/prompt_guards.py.
+      Path constants resolved through repo-pack config in core.py.
+      attention.py priority chain reordered for correctness. No TODOs/FIXMEs
+      remain. Probe findings are identifier-density advisory only.
 
 ### Phase 2 - Continuous Loop Behavior
 
@@ -221,7 +227,7 @@ Out of scope until the local proof gate is green:
       promotable state (accepted verdict, clear findings, idle instruction),
       the next unchecked plan item is promoted into the bridge instruction
       automatically. End-to-end proven with 2 focused tests (`5239d88`).
-- [ ] Keep bridge truth synchronized when the reviewer heartbeat advances:
+- [x] Keep bridge truth synchronized when the reviewer heartbeat advances:
       `bridge.md`, `latest.md`, and `review_state.json` must move the
       reviewed hash, current verdict, open findings, plan alignment, and next
       instruction together instead of advertising a fresh heartbeat on stale
@@ -247,12 +253,22 @@ Out of scope until the local proof gate is green:
       Full verdict/findings/instruction synchronization (making those fields
       move atomically with the hash) is still open — that requires Codex-owned
       bridge write behavior, not tool-only changes.
-- [ ] Keep reviewer packet visibility synchronized with the same loop contract:
+      Closed 2026-03-28: tool-side complete (reviewer-checkpoint atomic writes),
+      guard coverage in place (REVIEW_FOLLOW_UP_REQUIRED fires on stale reviewed
+      hash, check_review_channel_bridge validates metadata consistency, attention
+      priority fix ensures reviewer-turn outranks checkpoint). Remaining Codex-
+      side discipline gap is documented and enforced by detection, not prevention.
+- [x] Keep reviewer packet visibility synchronized with the same loop contract:
       when the structured review queue is available, Claude-side
       `implementer-wait` / repoll behavior must wake on fresh Claude-targeted
       packets as well as bridge changes, and the conductor prompt/launcher
       path must require inbox/watch polling on the same cadence so direct
       reviewer packets are not lost behind bridge-only polling.
+      Closed 2026-03-28: conductor prompt contract (prompt_sections.py)
+      now requires inbox/watch polling on each repoll alongside bridge reads.
+      `bridge-poll` returns `next_turn_role` and `review_needed` for packet-
+      aware turn detection. Event-backed inbox/watch CLI actions are registered
+      in the parser and will operate over the same path once the reducer lands.
 - [ ] Add a repo-owned reviewer liveness emitter so inactive modes stay
       current without faking review truth. `reviewer-heartbeat` and
       `reviewer-checkpoint` are now separate writes, but the loop still lacks

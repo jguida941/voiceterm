@@ -254,7 +254,8 @@ Three quality layers matter in practice:
     `push_enforcement` state (`checkpoint_required`,
     `safe_to_continue_editing`, `raw_git_push_guarded`,
     `recommended_action`) and escalates attention to
-    `checkpoint_required` when the worktree is over the continuation budget.
+    `checkpoint_required` when the worktree is over the continuation budget
+    (reviewer follow-up takes priority when review is also pending).
     Fresh repo-owned `review-channel --action launch|rollover` starts now
     treat that checkpoint state as a hard launch blocker instead of advisory
     status. The startup gate still blocks those actions on checkpoint-budget

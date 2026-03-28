@@ -7,8 +7,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import review_channel as review_channel_command
+from dev.scripts.devctl.review_channel.bridge_section_validation import (
+    find_embedded_markdown_headings,
+)
 from dev.scripts.devctl.review_channel.bridge_sanitize import (
     BRIDGE_SECTION_LINE_LIMITS,
     sanitize_bridge_sections,
@@ -16,6 +21,10 @@ from dev.scripts.devctl.review_channel.bridge_sanitize import (
 from dev.scripts.devctl.review_channel.bridge_projection import (
     bridge_hygiene_errors,
     render_bridge_projection,
+)
+from dev.scripts.devctl.review_channel.promotion_support import (
+    InstructionRewriteContext,
+    rewrite_instruction_and_metadata,
 )
 
 
@@ -187,6 +196,41 @@ def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() ->
     assert "Prior slice:" not in rendered
     assert "Session 44 / historical item" not in rendered
     assert bridge_hygiene_errors(rendered) == []
+
+
+def test_find_embedded_markdown_headings_detects_flat_bridge_contract_violation() -> None:
+    assert find_embedded_markdown_headings(
+        "\n".join(
+            [
+                "- Next scoped task.",
+                "## Context Recovery Packet",
+                "- Trigger: `review-channel-promotion`",
+            ]
+        )
+    ) == ("## Context Recovery Packet",)
+
+
+def test_instruction_rewrite_rejects_embedded_markdown_headings() -> None:
+    with pytest.raises(
+        ValueError,
+        match="embedded markdown headings in `Current Instruction For Claude`",
+    ):
+        rewrite_instruction_and_metadata(
+            bridge_text=_bridge_text(),
+            instruction="\n".join(
+                [
+                    "- Next scoped task.",
+                    "## Context Recovery Packet",
+                    "- Trigger: `review-channel-promotion`",
+                ]
+            ),
+            context=InstructionRewriteContext(
+                repo_root=Path("/tmp/repo"),
+                bridge_path=Path("/tmp/repo/bridge.md"),
+                reviewer_mode="active_dual_agent",
+                reason="next-plan-item",
+            ),
+        )
 
 
 def test_review_channel_render_bridge_action_rewrites_live_bridge(tmp_path: Path) -> None:

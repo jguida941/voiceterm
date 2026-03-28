@@ -91,6 +91,44 @@ def render_packet_markdown(payload: PacketRenderPayload) -> str:
     return "\n".join(lines)
 
 
+def append_compact_context_packet_markdown(
+    text: str,
+    packet: ContextEscalationPacket | None,
+    *,
+    max_refs: int = 3,
+) -> str:
+    """Append a flat markdown summary suitable for fixed-section bridge writes."""
+    base_text = str(text or "").strip()
+    compact_markdown = compact_context_packet_markdown(packet, max_refs=max_refs)
+    if not compact_markdown:
+        return base_text
+    if not base_text:
+        return compact_markdown
+    return f"{base_text}\n{compact_markdown}"
+
+
+def compact_context_packet_markdown(
+    packet: ContextEscalationPacket | None,
+    *,
+    max_refs: int = 3,
+) -> str:
+    """Render one compact packet summary without nested markdown headings."""
+    if packet is None:
+        return ""
+
+    query_terms = ", ".join(f"`{term}`" for term in packet.query_terms)
+    lines = [
+        "- Context packet: "
+        f"trigger `{packet.trigger}`; query terms: {query_terms or '`n/a`'}",
+    ]
+    refs = tuple(ref for ref in packet.canonical_refs[:max_refs] if ref)
+    if refs:
+        lines.append("- Canonical refs:")
+        for ref in refs:
+            lines.append(f"  - `{ref}`")
+    return "\n".join(lines)
+
+
 def _append_section(
     lines: list[str],
     *,

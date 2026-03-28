@@ -46,6 +46,20 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-28 - Attention priority fix: reviewer follow-up outranks generic checkpoint
+
+Fact: when both `checkpoint_required` and `review_follow_up_required` were true
+simultaneously (stale reviewed hash + dirty worktree), the attention system
+collapsed to the generic checkpoint state and hid the more actionable
+reviewer-turn signal. Fixed by reordering the attention priority chain so
+`REVIEW_FOLLOW_UP_REQUIRED` and `REVIEWER_SUPERVISOR_REQUIRED` are evaluated
+before `CHECKPOINT_REQUIRED`. The same fix also makes `ensure` refresh stale
+heartbeats for inactive reviewer modes (single_agent, tools_only, paused).
+
+Evidence: `dev/scripts/devctl/review_channel/attention.py`,
+`dev/scripts/devctl/commands/review_channel/ensure.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`.
+
 ### 2026-03-28 - Context-graph output honesty: suppress misleading Hot Index Summary on zero-match queries
 
 Fact: `context-graph --query '<term>' --format md` rendered the global Hot Index

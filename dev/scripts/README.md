@@ -267,7 +267,8 @@ Portability note:
   `checkpoint_required`, `safe_to_continue_editing`, `recommended_action`,
   and `raw_git_push_guarded` without running `startup-context` separately; the
   same path escalates attention to `checkpoint_required` when the worktree is
-  over the continuation budget.
+  over the continuation budget (reviewer follow-up takes priority when review
+  is also pending on a stale hash).
 - That same `review-channel --action status` path now emits a typed
   `current_session` block in `dev/reports/review_channel/latest/review_state.json`
   and `compact.json`; prefer it for live current instruction / implementer ACK

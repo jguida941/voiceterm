@@ -20,6 +20,7 @@ from .heartbeat import (
     _rewrite_poll_status,
 )
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
+from .bridge_section_validation import find_embedded_markdown_headings
 from .handoff_constants import find_suspicious_bridge_text_lines
 from .peer_liveness import ReviewerMode, normalize_reviewer_mode
 
@@ -245,6 +246,13 @@ def validate_reviewer_checkpoint_sections(
             quoted = "; ".join(f"`{line}`" for line in suspicious_lines)
             raise ValueError(
                 "Reviewer checkpoint rejected suspicious terminal/status text in "
+                f"`{heading}`: {quoted}"
+            )
+        heading_lines = find_embedded_markdown_headings(body)
+        if heading_lines:
+            quoted = "; ".join(f"`{line}`" for line in heading_lines)
+            raise ValueError(
+                "Reviewer checkpoint rejected embedded markdown headings in "
                 f"`{heading}`: {quoted}"
             )
 

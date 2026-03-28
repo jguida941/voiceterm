@@ -640,6 +640,10 @@
   session looks wedged" failure shape exposed during the authority-leak
   tranche checkpoint push and keeps governed push completion tied to the real
   command contract instead of detached descendant pipe ownership.
+- 2026-03-28 attention priority fix: `REVIEW_FOLLOW_UP_REQUIRED` now
+  outranks `CHECKPOINT_REQUIRED` in the attention chain so reviewer-turn
+  signals are not hidden behind generic checkpoint state. Also: `ensure`
+  refreshes stale heartbeats for inactive modes. Regression test added.
 - 2026-03-28 context-graph output honesty: `context-graph --query` no longer
   renders the global Hot Index Summary on zero-match results. Fix in
   `dev/scripts/devctl/context_graph/render.py`. Tracked in

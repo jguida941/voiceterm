@@ -95,6 +95,19 @@ def derive_bridge_attention(
         status = AttentionStatus.REVIEWER_POLL_DUE
     elif _active_contract_errors:
         status = AttentionStatus.BRIDGE_CONTRACT_ERROR
+    elif (
+        reviewer_mode_is_active(reviewer_mode)
+        and review_needed
+        and reviewer_supervisor_running
+        and reviewed_hash_current is False
+    ):
+        status = AttentionStatus.REVIEW_FOLLOW_UP_REQUIRED
+    elif (
+        reviewer_mode_is_active(reviewer_mode)
+        and review_needed
+        and not reviewer_supervisor_running
+    ):
+        status = AttentionStatus.REVIEWER_SUPERVISOR_REQUIRED
     elif checkpoint_required or not safe_to_continue_editing:
         status = AttentionStatus.CHECKPOINT_REQUIRED
     elif (
@@ -114,19 +127,6 @@ def derive_bridge_attention(
         and not review_needed
     ):
         status = AttentionStatus.DUAL_AGENT_IDLE
-    elif (
-        reviewer_mode_is_active(reviewer_mode)
-        and review_needed
-        and not reviewer_supervisor_running
-    ):
-        status = AttentionStatus.REVIEWER_SUPERVISOR_REQUIRED
-    elif (
-        reviewer_mode_is_active(reviewer_mode)
-        and review_needed
-        and reviewer_supervisor_running
-        and reviewed_hash_current is False
-    ):
-        status = AttentionStatus.REVIEW_FOLLOW_UP_REQUIRED
     elif overall_state == OverallLivenessState.WAITING_ON_PEER and not claude_status_present:
         status = AttentionStatus.CLAUDE_STATUS_MISSING
     elif overall_state == OverallLivenessState.WAITING_ON_PEER and not claude_ack_present:

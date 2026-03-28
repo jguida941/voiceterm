@@ -7,6 +7,7 @@ import hashlib
 import re
 from pathlib import Path
 
+from .bridge_section_validation import find_embedded_markdown_headings
 from .instruction_reset import reset_implementer_sections_on_instruction_change
 from .peer_liveness import normalize_reviewer_mode
 from .reviewer_state_support import (
@@ -80,6 +81,13 @@ def rewrite_instruction_and_metadata(
     context: InstructionRewriteContext,
 ) -> str:
     """Rewrite instruction and refresh heartbeat metadata in one atomic text edit."""
+    heading_hits = find_embedded_markdown_headings(instruction)
+    if heading_hits:
+        quoted = "; ".join(f"`{line}`" for line in heading_hits)
+        raise ValueError(
+            "Instruction rewrite rejected embedded markdown headings in "
+            f"`{CURRENT_INSTRUCTION_SECTION}`: {quoted}"
+        )
     assert_expected_instruction_revision(
         bridge_text=bridge_text,
         expected_instruction_revision=context.expected_instruction_revision,

@@ -9,10 +9,10 @@ from pathlib import Path
 from ..common import display_path
 from ..context_graph.escalation import (
     ContextEscalationPacket,
-    append_context_packet_markdown,
     build_context_escalation_packet,
     collect_query_terms,
 )
+from ..context_graph.escalation_render import append_compact_context_packet_markdown
 from ..repo_packs import active_path_config
 from .bridge_file import rewrite_bridge_markdown
 from .handoff import (
@@ -101,7 +101,7 @@ def derive_promotion_candidate(
         phase_heading=phase_heading,
         checklist_item=checklist_item,
     )
-    instruction = append_context_packet_markdown(
+    instruction = append_compact_context_packet_markdown(
         f"- Next scoped plan item ({source_path}): {phase_prefix}{checklist_item}",
         context_packet,
     )

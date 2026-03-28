@@ -366,6 +366,9 @@ checklist plus chat memory.
     `attention.status=checkpoint_required` or
     `push_enforcement.safe_to_continue_editing=false`, stop widening the
     slice and cut a checkpoint before further edits or any raw push attempt.
+    When both checkpoint and review follow-up are needed, the attention
+    system prioritizes `review_follow_up_required` so the reviewer-turn
+    signal is not hidden behind the generic checkpoint state.
     Fresh repo-owned `review-channel --action launch|rollover` starts must
     treat that same checkpoint state as a hard launch blocker, not as
     advisory status to be ignored while starting another implementation loop.

@@ -10,7 +10,10 @@ from unittest.mock import patch
 
 class ReviewChannelPromotionContextTests(unittest.TestCase):
     @patch("dev.scripts.devctl.review_channel.promotion.build_context_escalation_packet")
-    def test_promotion_candidate_appends_context_packet(self, escalation_mock) -> None:
+    def test_promotion_candidate_appends_bridge_safe_context_summary(
+        self,
+        escalation_mock,
+    ) -> None:
         from dev.scripts.devctl.context_graph.escalation import ContextEscalationPacket
         from dev.scripts.devctl.review_channel.promotion import (
             derive_promotion_candidate,
@@ -62,7 +65,9 @@ class ReviewChannelPromotionContextTests(unittest.TestCase):
                 "- Next scoped plan item (dev/active/continuous_swarm.md):"
             )
         )
-        self.assertIn("## Context Recovery Packet", candidate.instruction)
+        self.assertIn("- Context packet:", candidate.instruction)
+        self.assertIn("- Canonical refs:", candidate.instruction)
+        self.assertNotIn("## Context Recovery Packet", candidate.instruction)
         self.assertIsNotNone(candidate.context_packet)
 
 

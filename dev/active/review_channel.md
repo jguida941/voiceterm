@@ -1073,10 +1073,14 @@ Rules:
       metadata, not replacements for `source`.
 - [x] Freeze canonical artifact layout and protected-path expectations under
       `dev/reports/review_channel/`.
-      Verified 2026-03-28: runtime layout matches spec — `state/latest.json`,
-      `events/trace.ndjson`, `projections/latest/{full,compact,trace,actions}.json`,
-      `projections/latest/latest.md`, `projections/latest/registry/` all exist.
-      Protected-path retention extension tracked under Phase 1 (line 1303).
+      Verified 2026-03-28: spec defines target layout as `state/latest.json`,
+      `events/trace.ndjson`, `projections/latest/...`. Current bridge-backed
+      implementation writes to `latest/` (review_state.json, compact.json,
+      full.json, actions.json, latest.md, registry/agents.json) plus
+      `events/trace.ndjson`, `state/latest.json`, and
+      `projections/latest/...` as empty stubs. Full migration to the spec
+      layout requires the event-backed reducer (Phase 1 code). The spec itself
+      is frozen. Protected-path retention extension tracked under Phase 1.
 - [x] Draft complete `review_state` and `review_event` schemas with field
       names, types, required/optional status, enums, and example payloads.
       Verified 2026-03-28: Schema Draft section (lines 485-670) defines both
