@@ -28,18 +28,22 @@ def render_query_result_markdown(result: QueryResult) -> str:
     )
     lines.append("")
 
-    summary = result.hot_index_summary
-    lines.append("## Hot Index Summary")
-    lines.append("")
-    lines.append(f"- Total nodes: {summary.total_nodes}")
-    lines.append(f"- Total edges: {summary.total_edges}")
-    if summary.nodes_by_kind:
-        for kind, count in sorted(summary.nodes_by_kind.items()):
-            lines.append(f"  - {kind}: {count}")
-    lines.append("")
+    no_match = not result.matched_nodes and getattr(result, "confidence", "") == "no_match"
+    if not no_match:
+        summary = result.hot_index_summary
+        lines.append("## Hot Index Summary")
+        lines.append("")
+        lines.append(f"- Total nodes: {summary.total_nodes}")
+        lines.append(f"- Total edges: {summary.total_edges}")
+        if summary.nodes_by_kind:
+            for kind, count in sorted(summary.nodes_by_kind.items()):
+                lines.append(f"  - {kind}: {count}")
+        lines.append("")
 
     lines.append("## Evidence")
     lines.append("")
+    if no_match:
+        lines.append("- **No matches found** for the given query terms.")
     for item in result.evidence:
         lines.append(f"- {item}")
     lines.append("")

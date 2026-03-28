@@ -226,11 +226,14 @@ Out of scope until the local proof gate is green:
       reviewed hash, current verdict, open findings, plan alignment, and next
       instruction together instead of advertising a fresh heartbeat on stale
       review state or a completed task.
-      New explicit gap: reviewer-owned markdown findings/instruction rewrites
-      can still land without also advancing the `Last Codex poll` header
-      metadata, which makes Claude treat Codex as offline even while the bridge
-      content changes. Close that by coupling reviewer writes to an automatic
-      heartbeat/header refresh path instead of relying on manual discipline.
+      Re-audited 2026-03-28: repo-owned reviewer writes already couple this
+      path. `review-channel --action reviewer-checkpoint` atomically advances
+      reviewed hash, verdict, findings, instruction, and `Last Codex poll`,
+      while `review-channel --action promote` / instruction rewrites refresh
+      the same reviewer metadata in one transform. The remaining open gap is
+      not another writer primitive; it is fail-closed reviewer discipline and
+      guard coverage so Codex does not bypass those repo-owned paths with raw
+      `bridge.md` edits or other out-of-band reviewer-owned rewrites.
       Partial: `reviewed_hash_current` is threaded through all surfaces
       (liveness, attention, status, launch, handoff, review_state.json,
       latest.md). Heartbeat refresh no longer advances the reviewed hash
@@ -278,13 +281,19 @@ Out of scope until the local proof gate is green:
       implementer state through that single-side recovery path instead of
       leaving the loop parked on polling prose forever. Generalized automatic
       relaunch of whichever peer is missing still remains open Phase 3/4 work.
-- [ ] Promote implementer completion-stall into shared backend attention state
+- [x] Promote implementer completion-stall into shared backend attention state
       instead of keeping it tandem-only. The same reducer that powers
       `check_tandem_consistency.py` should also drive review-channel
       `AttentionStatus`, status projections, and downstream VoiceTerm/PyQt6/
       phone/CLI surfaces so "Claude parked on review/polling" is visible as
       repo-owned runtime truth rather than only prompt text plus an on-demand
       validator.
+      Verified 2026-03-28: `IMPLEMENTER_COMPLETION_STALL` is already an
+      `AttentionStatus` in attention.py, threaded through status_projection.py,
+      event_projection.py, peer_liveness.py, peer_recovery.py,
+      bridge_validation.py, and handoff.py/handoff_constants.py. The stall
+      flag flows from bridge liveness through the shared attention contract
+      to all downstream surfaces.
 - [x] Ensure the loop uses one master document chain:
       `MASTER_PLAN` -> relevant active-plan checklist -> `bridge.md`
       current-state bridge.
@@ -333,6 +342,16 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-03-28: Re-audited the W1 bridge-truth-sync item against the actual
+  reviewer write paths after Claude flagged a likely overstatement in the
+  checklist text. Confirmed the repo-owned tooling side is already in place:
+  `review-channel --action reviewer-checkpoint` atomically rewrites reviewed
+  hash, verdict, findings, instruction, and `Last Codex poll`, and the
+  repo-owned promote/instruction-rewrite path also refreshes reviewer
+  metadata in the same transform. Narrowed the remaining open work
+  accordingly: keep Codex on repo-owned reviewer writes only, and add the
+  guard/prompt/contract coverage needed so raw `bridge.md` edits cannot
+  silently bypass that synchronized path.
 - 2026-03-25: Closed the next stale-implementer recovery gap without
   overstating it into a full loop restart. Review attention now distinguishes
   `implementer_relaunch_required`, `review-channel --action recover

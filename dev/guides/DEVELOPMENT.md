@@ -457,7 +457,8 @@ the concrete minimum inventory after edits:
    - `python3 dev/scripts/checks/check_platform_contract_closure.py`
    - `python3 dev/scripts/devctl.py platform-contracts --format md`
 5. For bounded context on specific files, MPs, guards, or subsystems during
-   development, use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`.
+   development, use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`
+   (the renderer suppresses the global summary on zero-match results).
    For a concept-level subsystem diagram, use `--format mermaid` or `--format dot`.
    Use `--mode bootstrap` only for the slim warm start; use `--query` for
    on-demand expansion instead of widening the default startup packet.

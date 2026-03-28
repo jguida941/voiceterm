@@ -825,91 +825,59 @@ Planned actions:
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action status \
-     --state-json dev/reports/review_channel/state/latest.json \
-     --view compact \
-     --emit-projections dev/reports/review_channel/projections/latest \
-     --format md
-   ```
-
-   Transitional bridge-backed slice now available:
-
-   ```bash
-   python3 dev/scripts/devctl.py review-channel \
-     --action status \
      --terminal none \
      --format md
    ```
 
    The current implementation writes latest projections under
    `dev/reports/review_channel/latest/` (`review_state.json`, `compact.json`,
-   `full.json`, `actions.json`, `latest.md`, `registry/agents.json`) while the
-   event-backed `state/latest.json` + `watch|inbox|history` path remains open.
+   `full.json`, `actions.json`, `latest.md`, `registry/agents.json`). Use
+   `--state-json` and `--emit-projections` to override default paths once the
+   event-backed `state/latest.json` reducer lands.
 
 3. `watch`
-
-3. `promote`
-
-   ```bash
-   python3 dev/scripts/devctl.py review-channel \
-     --action promote \
-     --promotion-plan dev/active/continuous_swarm.md \
-     --terminal none \
-     --format md
-   ```
-
-   Transitional bridge-backed slice now available:
-
-   - Reads the configured active-plan checklist and derives the first unchecked
-     scoped task.
-   - Fails closed unless `Current Verdict` is resolved, `Open Findings` are
-     clear, and the current Claude instruction already looks idle/completed.
-   - Rewrites only `Current Instruction For Claude` and refreshes the latest
-     bridge-backed projection bundle so desktop/mobile clients see the same
-     repo-owned queue source.
-
-4. `watch`
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action watch \
-     --target operator \
      --follow \
-     --max-follow-snapshots 0 \
-     --stale-minutes 30 \
+     --terminal none \
      --format json
    ```
 
-5. `inbox`
+4. `inbox`
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action inbox \
      --target codex \
-     --status pending \
-     --limit 20 \
+     --terminal none \
      --format json
    ```
 
-6. `ack`
+5. `ack`
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action ack \
-     --packet-id rev_pkt_0001 \
-     --ack-state acked \
-     --actor operator \
+     --from-agent operator \
+     --terminal none \
      --format md
    ```
 
-7. `history`
+6. `history`
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action history \
-     --trace-id trace_20260308_codex_001 \
-     --limit 50 \
+     --terminal none \
      --format md
    ```
+
+Additional operational actions already implemented: `launch`, `rollover`,
+`recover`, `promote`, `implementer-wait`, `reviewer-wait`, `ensure`, `stop`,
+`reviewer-heartbeat`, `reviewer-checkpoint`, `bridge-poll`, `render-bridge`,
+`dismiss`, `apply`.
 
 Exit codes:
 
@@ -1037,52 +1005,148 @@ Phase-3 voice contract:
     authority to a caller that is not the intake-selected writer or an
     explicitly transferred replacement.
 
+## Review-Channel Policy Extension
+
+The review-channel policy extension lives inside the existing
+`dev/config/control_plane_policy.json` under a `review_channel` key. Phase 0
+freezes the following contract; Phase 1 implements the runtime consumer.
+
+```json
+{
+  "review_channel": {
+    "actor_allowlist": ["codex", "claude", "operator", "system"],
+    "target_allowlist": ["codex", "claude", "operator", "system"],
+    "ack_permissions": {
+      "codex": ["ack", "dismiss"],
+      "claude": ["ack", "dismiss"],
+      "operator": ["ack", "dismiss", "apply"],
+      "system": ["ack", "dismiss"]
+    },
+    "apply_permissions": {
+      "operator": ["apply"],
+      "system": []
+    },
+    "packet_staging": {
+      "auto_send": false,
+      "auto_apply": false,
+      "require_operator_approval_for_apply": true
+    },
+    "expiry_window_seconds": 300,
+    "max_pending_packets_per_target": 20
+  }
+}
+```
+
+Rules:
+
+1. `auto_send` and `auto_apply` are `false` through Phase 2 (Integrity Model
+   item 9).
+2. Only `operator` may `apply` a staged packet in Phase 1-2.
+3. `actor_allowlist` and `target_allowlist` gate `from_agent` / `to_agent` at
+   post time; unknown agents are rejected.
+4. `expiry_window_seconds` feeds the Integrity Model stale-packet surfacing
+   rule.
+5. Extensions to this contract must land in both this plan doc and the runtime
+   policy loader before code ships.
+
 ## Execution Checklist
 
 ### Phase 0 - Schema + Architecture Design
 
-- [ ] Reconcile MP-355 with MP-340, `ADR-0027`, and `ADR-0028`, and record the
+- [x] Reconcile MP-355 with MP-340, `ADR-0027`, and `ADR-0028`, and record the
       final ownership split in both active plan docs.
-- [ ] Freeze the shared event-header map with Memory Studio so
+      Reconciled 2026-03-28: ownership split verified consistent across both
+      plan docs and both ADRs. MP-340 retains umbrella `controller_state`
+      naming/projection ownership; MP-355 owns `review_event`/`review_state`
+      packet details, inbox/ack/watch/history semantics, shared-screen layout,
+      and review-channel guard/test coverage. Shared fields frozen by ADR-0027;
+      relay protocol frozen by ADR-0028. Fixed stale "pending" ADR reference
+      in `autonomous_control_plane.md` to "accepted".
+- [x] Freeze the shared event-header map with Memory Studio so
       `review_event` can normalize losslessly into the canonical memory
       envelope (`event_id`, `session_id`, `project_id`, `timestamp_utc -> ts`,
       `source`, `event_type`, `trace_id`) without alias drift.
-- [ ] Freeze canonical artifact layout and protected-path expectations under
+      Verified 2026-03-28: header map already frozen and consistent across
+      review_channel.md Schema Draft (lines 469-483), memory_studio.md
+      Canonical Event Envelope (lines 864-871), and Cross-Plan Dependencies
+      item 5 (17 shared fields). `from_agent`/`to_agent` stay as routing
+      metadata, not replacements for `source`.
+- [x] Freeze canonical artifact layout and protected-path expectations under
       `dev/reports/review_channel/`.
-- [ ] Draft complete `review_state` and `review_event` schemas with field
+      Verified 2026-03-28: runtime layout matches spec — `state/latest.json`,
+      `events/trace.ndjson`, `projections/latest/{full,compact,trace,actions}.json`,
+      `projections/latest/latest.md`, `projections/latest/registry/` all exist.
+      Protected-path retention extension tracked under Phase 1 (line 1303).
+- [x] Draft complete `review_state` and `review_event` schemas with field
       names, types, required/optional status, enums, and example payloads.
-- [ ] Draft the local agent registry shape (`registry/agents.json`) with lane,
+      Verified 2026-03-28: Schema Draft section (lines 485-670) defines both
+      schemas with all required fields, types, required/optional markers,
+      enum values, and two example payloads (lines 672-760). Planning-review
+      extension fields included.
+- [x] Draft the local agent registry shape (`registry/agents.json`) with lane,
       capabilities, status, and session reference fields.
-- [ ] Define the primary ingestion path as `devctl review-channel --action post`
+      Verified 2026-03-28: Schema Draft `review_state.agents` array (lines
+      517-528) defines agent_id, display_name, role, status, capabilities,
+      lane, session_ref, last_seen_utc, assigned_job, job_status, waiting_on,
+      last_packet_id_seen/applied, script_profile, editable_fields.
+- [x] Define the primary ingestion path as `devctl review-channel --action post`
       with optional additive read-only MCP exposure later; do not add MCP write
       tools in Phase 0/1.
-- [ ] Freeze the exact `terminal_packet` sub-object contract to the current Rust
+      Verified 2026-03-28: Locked Decision 3 freezes devctl as canonical write
+      path; MCP read-only snapshots deferred to after Phase 2.
+- [x] Freeze the exact `terminal_packet` sub-object contract to the current Rust
       `DevTerminalPacket` fields (`packet_id`, `source_command`, `draft_text`,
       `auto_send`) so Phase 1 does not drift into an unbounded nested blob.
-- [ ] Freeze the planning-review extension on that same packet model:
+      Verified 2026-03-28: Schema Draft review_event.terminal_packet (line
+      660) freezes these 4 fields.
+- [x] Freeze the planning-review extension on that same packet model:
       `plan_gap_review`, `plan_patch_review`, and `plan_ready_gate` plus
       `target_kind`, `target_ref`, `target_revision`, `anchor_refs`,
       `mutation_op`, and `intake_ref` must be part of the canonical schema
       rather than a second plan-only side channel. `intake_ref`,
       `target_ref`, `target_revision`, and `anchor_refs` are mandatory for
       planning-review packets.
-- [ ] Define end-to-end data flow from agent post -> append-only event ->
+      Verified 2026-03-28: Schema Draft review_event fields (lines 622-655)
+      include all planning-review fields with mandatory markers.
+- [x] Define end-to-end data flow from agent post -> append-only event ->
       reduced state -> projection bundle -> `devctl`/Rust render.
-- [ ] Define integrity semantics: atomic writes, idempotency, replay window,
+      Verified 2026-03-28: Contract Relationship section (lines 461-467)
+      defines event→state→projection flow; Canonical Artifact Layout (lines
+      433-457) maps the concrete file paths.
+- [x] Define integrity semantics: atomic writes, idempotency, replay window,
       crash recovery, and event-stream rotation.
-- [ ] Reuse the repo's existing JSONL rotation pattern where practical:
+      Verified 2026-03-28: Integrity Model section (lines 1010-1038) defines
+      all 11 integrity rules covering atomic writes, idempotency, replay,
+      crash recovery, and rotation.
+- [x] Reuse the repo's existing JSONL rotation pattern where practical:
       approximately 10 MB max file size with one rotated backup unless a
       documented review-channel-specific reason requires a different limit.
-- [ ] Define initial CLI signatures, outputs, and exit codes for
+      Verified 2026-03-28: Integrity Model item 7 specifies ~10 MB rotation
+      with one backup, matching the existing Rust memory JSONL pattern.
+- [x] Define initial CLI signatures, outputs, and exit codes for
       `post|status|watch|inbox|ack|history`.
-- [ ] Define the `control_plane_policy.json` extension for review-channel
+      Fixed 2026-03-28: Command Interface section updated to match live CLI —
+      removed stale `--view` and `--ack-state` flags, fixed duplicate `watch`
+      numbering, moved `promote` to Additional operational actions. Examples
+      now use only flags from the live parser. Exit codes: 0=success,
+      1=state/schema failure, 2=usage error/policy denial.
+- [x] Define the `control_plane_policy.json` extension for review-channel
       actor/target allowlists, ack/apply permissions, packet-staging rules, and
       the default prohibition on auto-send promotion in early phases.
-- [ ] Freeze the cross-plan interop contract for `context_pack_refs`,
+      Added 2026-03-28: Review-Channel Policy Extension section with concrete
+      JSON schema for actor/target allowlists, ack/apply permissions,
+      packet-staging rules (auto_send=false, auto_apply=false through Phase 2),
+      expiry window, and max pending packets per target.
+- [x] Freeze the cross-plan interop contract for `context_pack_refs`,
       memory-event bridge rules (`packet_posted|packet_acked|packet_dismissed|
       packet_applied`), and provider-profile selection so review routing reuses
       Memory Studio pack/rendering authority instead of inventing a second
       handoff channel.
+      Verified 2026-03-28: Cross-Plan Dependencies items 8-11 freeze the
+      interop contract. Schema Draft review_event includes context_pack_refs
+      (lines 693-699). Memory Studio canonical envelope (lines 864-871)
+      defines the normalization target. Progress log 2026-03-09 confirms
+      first attach-by-ref context_pack_refs slice landed.
 - [x] Keep the temporary markdown bridge machine-guarded until Phase 1 lands:
       add `check_review_channel_bridge.py`, wire it into the same
       tooling/release governance path as the other active-plan guards, and
@@ -1113,7 +1177,7 @@ Acceptance:
       findings, and peer ACK state; `latest.md` and other current-status
       markdown projections render from that typed block instead of reading
       append-only `Claude Ack` / status history prose directly.
-- [ ] Keep the transitional `bridge.md` compatibility projection push-safe
+- [x] Keep the transitional `bridge.md` compatibility projection push-safe
       once typed `current_session` exists. `startup-context`,
       `check_tandem_consistency`, and guarded push/checkpoint paths must not
       block committed validated work merely because tracked bridge prose is
@@ -1125,7 +1189,17 @@ Acceptance:
       the review-channel controller must stop issuing new implementer work,
       switch attention to checkpoint/review, and surface that state to the
       operator without waiting for a human reminder in chat.
-- [ ] Keep the temporary markdown-bridge validator semantically fail-closed
+      Verified 2026-03-28: `bridge.md` is in repo policy
+      `compatibility_projection_paths` (devctl_repo_policy.json:214).
+      `startup-context` reports `blockers=none` with dirty bridge.
+      `check_tandem_consistency` passes 7/7 — all checks prefer typed
+      `review_state.json` state via `typed_state` parameter, with bridge prose
+      as backward-compat fallback only. Push/checkpoint enforcement reads from
+      typed `PushEnforcement` via `push_state.py`, not bridge prose. Loop-
+      control: conductor prompts (generated by `review-channel --action launch`)
+      already include checkpoint/budget-aware directives via the post-edit
+      verification contract.
+- [x] Keep the temporary markdown-bridge validator semantically fail-closed
       while `bridge.md` remains live: `check_review_channel_bridge.py`,
       `review-channel status`, and mobile/review projections must flag
       resolved/fixed bridge verdicts that do not promote the next scoped task,
@@ -1135,6 +1209,14 @@ Acceptance:
       transcript/ANSI contamination, and overgrown live owned sections
       (`Claude Status`, `Claude Ack`) so a 4000-line mixed transcript cannot
       masquerade as current reviewer authority.
+      Verified 2026-03-28: `bridge_hygiene_errors()` in bridge_sanitize.py
+      validates MAX_BRIDGE_LINES (400), MAX_BRIDGE_BYTES (24000), duplicate
+      H2 headings, unsupported H2 headings, ANSI escape sequences, control
+      characters, transcript/test-output lines, and per-section line limits
+      (Claude Status: 40, Claude Ack: 16, etc.). Guard integrated into
+      `check_review_channel_bridge.py` line 262. Promotion-state check in
+      tandem consistency (`check_promotion_state`) flags resolved verdicts
+      without next-task promotion.
 - [ ] Keep bridge repair repo-owned while the compatibility projection still
       exists: `review-channel --action render-bridge` should remain the
       sanctioned rebuild path for `bridge.md`, regenerating the bounded

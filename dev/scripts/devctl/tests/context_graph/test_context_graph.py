@@ -652,5 +652,24 @@ class TestContextGraphQueryPayloadConfidence(unittest.TestCase):
         self.assertIsInstance(payload_dict["confidence"], str)
 
 
+    def test_no_match_render_suppresses_hot_index_summary(self) -> None:
+        from dev.scripts.devctl.context_graph.render import render_query_result_markdown
+
+        nodes, edges = build_context_graph()
+        result = query_context_graph("xyzzy_nonexistent_12345", nodes, edges)
+        md = render_query_result_markdown(result)
+        self.assertNotIn("## Hot Index Summary", md)
+        self.assertIn("**No matches found**", md)
+
+    def test_matched_query_render_includes_hot_index_summary(self) -> None:
+        from dev.scripts.devctl.context_graph.render import render_query_result_markdown
+
+        nodes, edges = build_context_graph()
+        result = query_context_graph("review_channel", nodes, edges)
+        md = render_query_result_markdown(result)
+        self.assertIn("## Hot Index Summary", md)
+        self.assertNotIn("**No matches found**", md)
+
+
 if __name__ == "__main__":
     unittest.main()

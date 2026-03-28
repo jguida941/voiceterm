@@ -207,7 +207,9 @@ Run this sequence for every task. Do not skip steps.
    Follow the deep links when the task requires full authority from the
    canonical docs (`AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`).
    Keep that bootstrap packet small by default and expand with
-   `context-graph --query '<term>'` when the task needs more context. The
+   `context-graph --query '<term>'` when the task needs more context (the
+   query renderer suppresses the global Hot Index Summary on zero-match
+   results to avoid misleading evidence). The
    generated `CLAUDE.md` bootstrap surface is the first-hop AI awareness
    layer: keep it synchronized via `render-surfaces` so it advertises live
    governance capabilities (`ai_instruction`, `decision_mode`,

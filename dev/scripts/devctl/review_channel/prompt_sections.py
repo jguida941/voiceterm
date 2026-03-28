@@ -73,6 +73,12 @@ def operating_contract_lines(
             "conductor session."
         ),
         (
+            "- On each repoll, also poll the Claude-targeted packet "
+            "inbox/watch surface (`review-channel --action inbox --target claude "
+            "--status pending --format json` or equivalent) so reviewer packets "
+            "cannot be missed behind bridge-only polling."
+        ),
+        (
             "- `waiting_on_peer` means the loop stays live while you keep polling "
             "for the next bridge change; it does not mean the conductor should "
             "exit or park silently."

@@ -46,6 +46,15 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ## Recent Evolution Updates
 
+### 2026-03-28 - Context-graph output honesty: suppress misleading Hot Index Summary on zero-match queries
+
+Fact: `context-graph --query '<term>' --format md` rendered the global Hot Index
+Summary (2400+ nodes, 40K+ edges) even when confidence was `no_match`, making
+empty results look like they matched something. The fix suppresses the summary
+when `confidence == "no_match"` and shows a clear "No matches found" message.
+
+Evidence: `dev/scripts/devctl/context_graph/render.py`.
+
 ### 2026-03-28 - MP-377 code-shape modularization split 7 oversized self-hosting modules
 
 Fact: seven MP-377 self-hosting Python modules exceeded the 350-line code-shape

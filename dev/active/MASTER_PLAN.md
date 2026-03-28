@@ -640,6 +640,10 @@
   session looks wedged" failure shape exposed during the authority-leak
   tranche checkpoint push and keeps governed push completion tied to the real
   command contract instead of detached descendant pipe ownership.
+- 2026-03-28 context-graph output honesty: `context-graph --query` no longer
+  renders the global Hot Index Summary on zero-match results. Fix in
+  `dev/scripts/devctl/context_graph/render.py`. Tracked in
+  `dev/active/platform_authority_loop.md`.
 - 2026-03-28 MP-377 code-shape modularization: split 7 self-hosting files
   that exceeded the Python 350-line soft limit into 14 focused modules.
   `bridge_projection` -> `bridge_projection` + `bridge_sanitize`;

@@ -367,7 +367,7 @@ python3 dev/scripts/devctl.py render-surfaces --format md
 python3 dev/scripts/devctl.py render-surfaces --write --format md
 python3 dev/scripts/devctl.py platform-contracts --format md
 python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md
-python3 dev/scripts/devctl.py context-graph --query '<term>' --format md
+python3 dev/scripts/devctl.py context-graph --query '<term>' --format md  # suppresses Hot Index on no_match
 python3 dev/scripts/devctl.py context-graph --query '<term>' --save-snapshot --format md
 python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md
 python3 dev/scripts/devctl.py context-graph --format mermaid

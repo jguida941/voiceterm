@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-03-27 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-28 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1137,7 +1137,11 @@ blocker or exception in plan state before skipping the declared order.
       severity data reaches built source-node metadata and temperature through
       `build_context_graph()`. The remaining same-bounded follow-up is the
       confidence contract/parity cleanup (`QueryResult.confidence` /
-      machine-output alignment), not another widening of artifact semantics.
+      machine-output alignment), including no-match render honesty: if a query
+      resolves to `matched 0 direct node(s)` / `confidence: no_match`, the
+      markdown view must not present `## Hot Index Summary` as matched-scope
+      evidence unless it is explicitly labeled as repo-global background
+      context. Do not widen this into new artifact semantics.
 - [ ] Land one typed `startup-context` / `WorkIntakePacket` repo-owned command
       before broader graph fan-out. That packet should act as the first
       deterministic context-router: given command goal/intent, active target
@@ -1725,6 +1729,12 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-03-28: Fixed context-graph output-honesty gap. The `no_match` render
+  path now suppresses the global `## Hot Index Summary` when confidence is
+  `no_match` (zero matches), and shows a clear "No matches found" message
+  instead. Normal queries with matches still show the full summary. Fix in
+  `dev/scripts/devctl/context_graph/render.py`: conditional on `has_matches`
+  and `confidence != "no_match"`.
 - 2026-03-27: Closed the next startup-model discoverability gap in the same
   `MP-377` lane. `AGENTS.md` and the durable platform guide now say explicitly
   that the governance stack is a compiler-style control system for

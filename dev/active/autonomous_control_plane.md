@@ -703,8 +703,8 @@ Unified data contract backlog:
   - audit refs (`event_id`, `idempotency_key`, `nonce`, `expires_at`).
 - [ ] Keep MP-355 (`dev/active/review_channel.md`) as the review-focused schema
       slice of this contract rather than a parallel authority: MP-340 retains
-      umbrella `controller_state` naming/projection ownership plus the pending
-      `ADR-0027`/`ADR-0028` backlog, while MP-355 owns the concrete
+      umbrella `controller_state` naming/projection ownership plus the accepted
+      `ADR-0027`/`ADR-0028` authority, while MP-355 owns the concrete
       `review_event`/`review_state` packet details, inbox/ack/watch/history
       semantics, and shared-screen layout. Shared fields must stay name- and
       meaning-compatible across both plans.
