@@ -56,11 +56,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-28T01:40:22Z`
-- Last Codex poll (Local America/New_York): `2026-03-27 21:40:22 EDT`
+- Last Codex poll: `2026-03-28T01:54:45Z`
+- Last Codex poll (Local America/New_York): `2026-03-27 21:54:45 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `4211c01637d51c0b4020f96871efd55f98524002e080dc717138d13e71916f62`
-- Current instruction revision: `9b86eb1499cd`
+- Last non-audit worktree hash: `608a4f8ae0c75c635ca619689324d478820c036bc7a4bb07e221ecde0428e078`
+- Current instruction revision: `25a15824b605`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -87,11 +87,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; tree: 4211c01637d5; instruction-rev: 9b86eb1499cd).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; tree: 608a4f8ae0c7; instruction-rev: 25a15824b605).
 
 ## Current Verdict
 
-- reviewer accepted
+Pass: the docs-check governance hot-path fix, regression coverage, and required maintainer/plan writeback are all in place.
 
 ## Open Findings
 
@@ -111,16 +111,18 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- turn escaped-finding closure into a typed meta-governance contract for MP-377. Use the release-maintenance/import-shim tranche as the seed case and land finding-class to prevention-surface routing, regression proof, and repo-visible closure writeback without widening into unrelated cleanup.
+- publish the current reviewed slice with `python3 dev/scripts/devctl.py push --execute`
+- if governed push surfaces a new blocker, fix that blocker and rerun the same path
+- after publish, resume the typed escaped-finding closure work tracked under MP-377
 
 ## Last Reviewed Scope
 
 - AGENTS.md
 - dev/active/MASTER_PLAN.md
 - dev/active/ai_governance_platform.md
-- dev/scripts/checks/bundle_registry_dry/command.py
-- dev/scripts/checks/bundle_registry_dry/analysis.py
-- dev/scripts/checks/bundle_registry_dry/loader.py
-- dev/scripts/checks/bundle_registry_dry/rendering.py
-- dev/scripts/devctl/tests/checks/test_check_bundle_registry_dry.py
+- dev/guides/DEVELOPMENT.md
+- dev/history/ENGINEERING_EVOLUTION.md
+- dev/scripts/README.md
+- dev/scripts/devctl/commands/docs/policy_runtime.py
+- dev/scripts/devctl/tests/test_docs_check_constants.py
 
