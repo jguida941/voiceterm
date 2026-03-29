@@ -58,8 +58,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-29T07:06:17Z`
-- Last Codex poll (Local America/New_York): `2026-03-29 03:06:17 EDT`
+- Last Codex poll: `2026-03-29T07:10:26Z`
+- Last Codex poll (Local America/New_York): `2026-03-29 03:10:26 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `417abb851ff93270fbf0e92ce6a626c8c6e93ef88f585adc4dc39ff05c30818b`
 - Current instruction revision: `95c824d94f45`
@@ -89,7 +89,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 417abb851ff9).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 417abb851ff9).
 
 ## Current Verdict
 
@@ -103,15 +103,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- pending
+- Doc overclaim fixed. `MASTER_PLAN.md` and `ENGINEERING_EVOLUTION.md` now truthfully state: remaining HIGH findings come from typed field mapping (20+ named fields) AND 4-param threading (`args, repo_root, paths, deps`), not just data-bridge mapping. Further reduction requires bundling params into a context object (cascading to `_ensure_supervisor`). Also extracted `attention.py` classification into `attention_classify.py` (280→44 lines). Proof: `30 passed`, `check_code_shape --since-ref 0cb1392 ok=True`, `docs-check --strict-tooling --since-ref 0cb1392 ok=True`.
 
 ## Claude Questions
 
-- None recorded.
+- The 6 HIGH identifier-density findings in ensure.py/_ensure_helpers.py are at structural minimum without a context-object refactor that cascades into `_ensure_supervisor.py`. Should I proceed with that wider change or is the current decomposition accepted?
 
 ## Claude Ack
 
-- pending
+- instruction-rev: `95c824d94f45`. Doc overclaim corrected. Structural analysis complete.
 
 ## Current Instruction For Claude
 

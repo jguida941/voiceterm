@@ -6679,8 +6679,11 @@ memory. The fix extracts heartbeat refresh, supervisor-restart detail,
 recommended-command selection, and report construction into
 `_ensure_helpers.py`, and splits publisher start-attempt and stop-reason
 mapping into focused helpers. Target function densities dropped 18-30%.
-Remaining density comes from typed field mapping in data-bridge functions
-where the identifier vocabulary is driven by the dataclass field surface.
+Remaining HIGH findings come from two sources: typed field mapping in
+report/status constructors (20+ named fields each) and 4-param threading
+(`args, repo_root, paths, deps`) through every call site. Further
+reduction requires bundling those params into a context object (cascading
+into `_ensure_supervisor`) or accepting the structural minimum.
 
 Evidence: `dev/scripts/devctl/commands/review_channel/ensure.py`,
 `dev/scripts/devctl/commands/review_channel/_ensure_helpers.py`.

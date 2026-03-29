@@ -564,8 +564,12 @@
 - 2026-03-29 ensure-action probe-guided refactor: `ensure.py` orchestration
   split into `_ensure_helpers.py` (heartbeat refresh, detail assembly, report
   construction) and focused publisher lifecycle helpers. Target function
-  identifier density reduced 18-30% (max 69→51). Remaining density is
-  from typed field mapping in data-bridge functions.
+  identifier density reduced 18-30% (max 69→51). Remaining HIGH findings
+  come from both typed field mapping (report/status constructors with 20+
+  named fields) and operational helpers that thread `args, repo_root, paths,
+  deps` through every call site. Further reduction requires either bundling
+  those 4 params into a context object (cascading into `_ensure_supervisor`)
+  or accepting the structural minimum for typed data-bridge code.
 - 2026-03-29 package-layout baseline-debt enforcement closure: the
   `check_package_layout` guard now supports `--fail-on-baseline-debt` with
   optional `--baseline-debt-root` filtering, promoting detected baseline debt
