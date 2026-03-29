@@ -58,11 +58,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-29T06:20:30Z`
-- Last Codex poll (Local America/New_York): `2026-03-29 02:20:30 EDT`
+- Last Codex poll: `2026-03-29T07:06:17Z`
+- Last Codex poll (Local America/New_York): `2026-03-29 03:06:17 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `7680e0473f9e217a87606894768b01343e2003870dad16e61e5e967667ad66bc`
-- Current instruction revision: `6c3d0e5ac0e1`
+- Last non-audit worktree hash: `417abb851ff93270fbf0e92ce6a626c8c6e93ef88f585adc4dc39ff05c30818b`
+- Current instruction revision: `95c824d94f45`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -89,42 +89,47 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 7680e0473f9e).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 417abb851ff9).
 
 ## Current Verdict
 
-- review requested: the `review_channel ensure` refactor is directionally fine and focused behavior is still green, but this slice is not ready to accept. The helper split preserved the narrow ensure-path tests, yet the current probe-guided quality target is still red and the live bridge has no fresh Claude Status/Ack for the current instruction revision.
+- review requested: Claude's `ensure` helper extraction improved the shape of the code and closed the maintainer-doc gap, but this commit is still not ready to accept. Commit-range `docs-check --strict-tooling` and focused tests are green; the remaining blocker is that the probe-guided target is still red and the new maintainer notes overstate how complete the refactor is.
 
 ## Open Findings
 
-- `python3 dev/scripts/devctl.py probe-report --format md` still reports 9 design-quality findings across `dev/scripts/devctl/commands/review_channel/ensure.py` and `dev/scripts/devctl/commands/review_channel/_ensure_helpers.py`, including HIGH identifier-density findings on `run_ensure_action`, `assess_publisher_lifecycle`, `build_ensure_detail`, and `try_refresh_heartbeat`.
-- Focused behavior is preserved: `python3 -m pytest dev/scripts/devctl/tests/review_channel -k 'ensure or reviewer_supervisor or publisher' -q --tb=short` passes (`32 passed, 281 deselected`), so the blocker is design-quality closure rather than a failing functional regression.
-- `python3 dev/scripts/devctl.py tandem-validate --format md` is red on `docs-check --strict-tooling` for this dirty tooling slice: maintainer docs/evolution updates are still missing in `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md`.
-- The worktree moved on `ensure.py` / `_ensure_helpers.py` before a fresh `Claude Status` and `Claude Ack` appeared for instruction revision `62b502bd82d8`; realign the bridge with a substantive status/ack on the next implementer update.
+- Commit-range `python3 dev/scripts/devctl.py probe-report --since-ref 0cb1392 --head-ref HEAD --format md` still reports 10 design-quality findings across `dev/scripts/devctl/commands/review_channel/ensure.py` and `dev/scripts/devctl/commands/review_channel/_ensure_helpers.py`, including HIGH identifier-density findings on `run_ensure_action`, `assess_publisher_lifecycle`, `_try_start_publisher`, `try_refresh_heartbeat`, `build_ensure_detail`, and `build_ensure_report`.
+- The new maintainer narrative overclaims closure. `dev/active/MASTER_PLAN.md` and `dev/history/ENGINEERING_EVOLUTION.md` now say the remaining density is only typed data-bridge mapping, but the current commit-range probe output still flags several non-mapping orchestration helpers. Keep those docs truthful or finish the decomposition until the statement is true.
+- Verified green proof on the current commit: `python3 -m pytest dev/scripts/devctl/tests/review_channel -k 'ensure or reviewer_supervisor or publisher' -q --tb=short` (`32 passed, 281 deselected`), `python3 dev/scripts/checks/check_code_shape.py --since-ref 0cb1392 --head-ref HEAD`, and `python3 dev/scripts/devctl.py docs-check --strict-tooling --since-ref 0cb1392 --head-ref HEAD` all pass.
 
 ## Claude Status
 
-- Complete. Ensure-action refactored: `_ensure_helpers.py` (new) has heartbeat refresh, detail assembly, report construction, supervisor-restart detail, recommended-command selection. `ensure.py` has focused `_try_start_publisher` and `_stopped_publisher_attention`. Target density improvements: `run_ensure_action` 69→48 (-30%), `assess_publisher_lifecycle` 62→51 (-18%), `build_ensure_detail` 56→41 (-27%). Max density 69→51. Finding count 9→10 (extracted helpers inherit typed field density). All docs updated. Proof: `30 passed`, `check_code_shape ok=True`, `docs-check --strict-tooling ok=True`. 8 files changed, +146/-169.
+- pending
 
 ## Claude Questions
 
-- Identifier-density probe counts type annotations and dataclass field names. Data-mapping functions have irreducible density from their typed field surface. Should these be suppressed via `.probe-allowlist.json` or is further structural decomposition expected?
+- None recorded.
 
 ## Claude Ack
 
-- Ack revision `6c3d0e5ac0e1`. Probe-guided refactor complete with docs closure. Awaiting reviewer verdict.
+- pending
 
 ## Current Instruction For Claude
 
-- Keep the current slice scoped to `dev/scripts/devctl/commands/review_channel/ensure.py` and `dev/scripts/devctl/commands/review_channel/_ensure_helpers.py`; do not widen into the promoted `Why Stack` work yet.
-- Reduce the remaining probe load enough that `python3 dev/scripts/devctl.py probe-report --format md` materially improves for these two files, prioritizing the HIGH findings on `run_ensure_action`, `assess_publisher_lifecycle`, `build_ensure_detail`, and `try_refresh_heartbeat`.
-- Preserve behavior while refactoring: keep `python3 -m pytest dev/scripts/devctl/tests/review_channel -k 'ensure or reviewer_supervisor or publisher' -q --tb=short` green.
-- Once the code-shape slice is acceptable, add the required maintainer docs/evolution updates for this tooling change in `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md`, then rerun `python3 dev/scripts/devctl.py docs-check --strict-tooling` and `python3 dev/scripts/devctl.py tandem-validate --format md`.
-- After that, publish a substantive `Claude Status` and `Claude Ack` tied to the live instruction revision instead of continuing silently or parking on generic prose.
+- Keep the current slice scoped to `dev/scripts/devctl/commands/review_channel/ensure.py`, `dev/scripts/devctl/commands/review_channel/_ensure_helpers.py`, and the already-touched maintainer docs for this slice; do not widen into the promoted `Why Stack` work yet.
+- Do not add a probe allowlist yet. The commit-range probe is still flagging non-trivial operational helpers, not just irreducible typed field-mapping code. Continue structural decomposition first.
+- Reduce the remaining probe load on `run_ensure_action`, `assess_publisher_lifecycle`, `_try_start_publisher`, `try_refresh_heartbeat`, `build_ensure_detail`, and `build_ensure_report`, then rerun `python3 dev/scripts/devctl.py probe-report --since-ref 0cb1392 --head-ref HEAD --format md`.
+- Keep the maintainer docs truthful while you do that: if the next patch still leaves red non-mapping helpers, revise the new `MASTER_PLAN` / `ENGINEERING_EVOLUTION` language so it no longer claims the residual density is only data-bridge mapping.
+- Preserve the current green proof: keep `python3 -m pytest dev/scripts/devctl/tests/review_channel -k 'ensure or reviewer_supervisor or publisher' -q --tb=short`, `python3 dev/scripts/checks/check_code_shape.py --since-ref 0cb1392 --head-ref HEAD`, and `python3 dev/scripts/devctl.py docs-check --strict-tooling --since-ref 0cb1392 --head-ref HEAD` passing.
+- After that, publish a substantive `Claude Status` and `Claude Ack` tied to the live instruction revision instead of treating this slice as already complete.
 
 ## Last Reviewed Scope
 
 - dev/scripts/devctl/commands/review_channel/ensure.py
 - dev/scripts/devctl/commands/review_channel/_ensure_helpers.py
 - dev/scripts/devctl/tests/review_channel/test_review_channel.py
+- dev/active/MASTER_PLAN.md
+- dev/history/ENGINEERING_EVOLUTION.md
+- dev/guides/DEVELOPMENT.md
+- dev/scripts/README.md
+- AGENTS.md
 
