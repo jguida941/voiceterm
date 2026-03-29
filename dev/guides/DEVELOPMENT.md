@@ -684,7 +684,11 @@ Workflow permissions note:
    `published_remote`, `post_push_green`) so remote publication is not
    mistaken for full post-push green, and `--skip-preflight` /
    `--skip-post-push` only work when repo policy explicitly allows those
-   bypasses.
+   bypasses. The managed latest-push artifact at
+   `dev/reports/push/latest.json` preserves that stage truth for later
+   startup/recovery, so `published_remote=true` plus
+   `post_push_green=false` means "repair the post-push follow-up" rather
+   than "push again."
    The shared `devctl` command runner now follows the parent push/post-push
    command lifetime instead of waiting forever on inherited descendant stdout
    pipes after the governed push has already completed.

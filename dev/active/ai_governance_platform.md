@@ -5232,6 +5232,15 @@ Execution order for this section:
   repo-policy seam for advisory scratch context (`convo.md` in VoiceTerm
   today) so reviewed commits can reach `run_devctl_push` without local
   reference files being misclassified as authored worktree drift.
+- 2026-03-28: Closed the next recovery blind spot in that same governed-push
+  lane. Typed push stages no longer disappear with terminal output:
+  `devctl push` now persists the latest typed push result at
+  `dev/reports/push/latest.json`, `PushEnforcement` carries that managed
+  artifact into startup authority, and `startup-context` now treats
+  `published_remote=true` plus `post_push_green=false` as "publication is
+  settled; repair the post-push follow-up" instead of "push unresolved".
+  The remaining umbrella closure is still the fuller branch/tree-hash
+  `PushPreflightPacket`, not another repo-local push-status heuristic.
 - 2026-03-26: Ran a broader portability/architecture audit after the live
   review-channel cutover exposed another "works in VoiceTerm, leaks in
   portable mode" seam. The result is larger than the immediate bug: docs

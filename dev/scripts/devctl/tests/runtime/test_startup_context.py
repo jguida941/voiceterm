@@ -341,6 +341,34 @@ class TestCLIRegistration(unittest.TestCase):
             rendered,
         )
 
+    def test_push_decision_recovers_remote_published_post_push_failure(self) -> None:
+        governance = _minimal_governance(
+            upstream_ref="origin/feature/x",
+            ahead_of_upstream_commits=0,
+            worktree_clean=True,
+            worktree_dirty=False,
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            latest_push_report_path="dev/reports/push/latest.json",
+            latest_push_report_status="published_remote",
+            latest_push_report_reason="post_push_bundle_failed",
+            latest_push_report_published_remote=True,
+            latest_push_report_post_push_green=False,
+        )
+
+        decision = _derive_push_decision(
+            governance,
+            ReviewerGateState(
+                review_accepted=True,
+                review_gate_allows_push=True,
+            ),
+        )
+
+        self.assertEqual(decision.action, "no_push_needed")
+        self.assertEqual(decision.reason, "remote_publish_recorded_post_push_pending")
+        self.assertIn("Remote publication already succeeded", decision.next_step_summary)
+        self.assertIn("dev/reports/push/latest.json", decision.next_step_summary)
+
     def test_summary_renders_compact_step_zero_guidance(self) -> None:
         rendered = _render_summary(
             {

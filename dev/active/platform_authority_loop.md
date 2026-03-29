@@ -305,7 +305,10 @@ intended execution order is:
       `CollaborationSession` / review-state authority for reviewer freshness,
       acceptance, reviewed scope, and implementer ACK truth instead of
       reparsing `bridge.md`. During migration `bridge.md` may remain a
-      compatibility projection / repair surface only.
+      compatibility projection / repair surface only. The same recovery path
+      must also re-read persisted push-state truth after interrupted or
+      long-running push sessions so later startup/review surfaces do not
+      reclassify `published_remote` work as unresolved publication.
 - [ ] Make that startup path enforceable instead of advisory: the first typed
       `startup-context` / `WorkIntakePacket` flow must emit a startup receipt
       tied to repo/worktree identity, current tree hash, command goal, and
@@ -321,6 +324,9 @@ intended execution order is:
       warnings or prompt text. Clean checkpointed slices that are still
       waiting on reviewer acceptance must resolve to an explicit wait state
       (`await_review` / equivalent), not a misleading "push-ready" signal.
+      The same typed decision must follow persisted push-state truth rather
+      than shell/process lifetime: distinguish `published_remote settled,
+      post_push_green pending` from a genuinely unresolved push.
       Fail-closed checkpoint rule: when that typed decision says the
       dirty/untracked slice is over budget
       (`safe_to_continue_editing=false` / `checkpoint_required=true`), the
@@ -384,7 +390,12 @@ intended execution order is:
       widening the candidate checkpoint.
 - [ ] Freeze the first concrete artifact in that checkpoint/push family as a
       disposable typed `PushPreflightPacket` keyed by branch + tree hash under
-      `dev/reports/push/`. Minimum first fields:
+      `dev/reports/push/`. First landing is the managed
+      `dev/reports/push/latest.json` artifact carrying typed push-stage truth
+      (`validation_ready`, `published_remote`, `post_push_green`) so warm
+      restart/recovery can tell "already published remotely" from "push still
+      unresolved" even when the prior local command was interrupted. Minimum
+      future packet fields:
       `schema_version`, `contract_id`, `generated_at_utc`, `tree_hash`,
       `current_branch`, `current_commit_sha`, filtered `dirty_path_count`,
       `checkpoint_required`, `worktree_clean`,
@@ -1398,6 +1409,10 @@ blocker or exception in plan state before skipping the declared order.
   (`governance_core`, `governance_runtime`, `governance_adapters`,
   `governance_frontends`, `repo_packs`, `product_integrations`) instead of
   collapsing the system into one catch-all directory.
+- 2026-03-28 recovery closure: persist publication truth across warm-start /
+  recovery so later sessions treat `published_remote` as settled even when
+  the prior local push session ended before post-push verification turned
+  green.
 - 2026-03-27 sequencing correction: the dirty branch already carries part of
   the docs-authority / publish-truth tranche ahead of the blocker queue.
   Treat that as a bounded out-of-order exception only: checkpoint and
@@ -1729,6 +1744,14 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-03-28: Closed the next bounded push-recovery truth gap without
+  widening branch-push execution. `devctl push` now persists the latest typed
+  push result at `dev/reports/push/latest.json`, `PushEnforcement` carries
+  that managed artifact into startup authority, and `startup-context` now
+  distinguishes "already published remotely, post-push follow-up still
+  pending" from "push unresolved". The remaining MP-377 closure is the
+  fuller branch/tree-hash `PushPreflightPacket`, not another retry loop over
+  raw process lifetime.
 - 2026-03-28: Fixed context-graph output-honesty gap. The `no_match` render
   path now suppresses the global `## Hot Index Summary` when confidence is
   `no_match` (zero matches), and shows a clear "No matches found" message

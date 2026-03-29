@@ -429,6 +429,10 @@ checklist plus chat memory.
     packet now carries the bounded `WorkIntakePacket` startup projection, so
     `startup_order`, typed plan continuity, and routing defaults travel
     through one startup-family surface instead of staying report-only.
+    Startup recovery now also reads the managed latest-push artifact at
+    `dev/reports/push/latest.json`: if it records `published_remote=true`
+    while `post_push_green=false`, the next action is post-push repair/status
+    work, not another push attempt.
 4.7 Treat governed-markdown authority the same way: prefer typed
     `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
     parsed `plan_registry` entries when those projections are available, but
@@ -874,12 +878,18 @@ Routine helper:
 - `python3 dev/scripts/devctl.py push` runs the canonical non-mutating
   branch-push validation path from repo policy (`repo_governance.push`) and
   now reports typed push stages (`validation_ready`, `published_remote`,
-  `post_push_green`) without mutating git state.
+  `post_push_green`) without mutating git state. The same command also
+  persists a managed latest-push artifact at `dev/reports/push/latest.json`
+  so later startup/recovery can read the last typed push truth instead of
+  inferring state from chat or process lifetime.
 - `python3 dev/scripts/devctl.py push --execute` runs the same preflight,
   performs the current short-lived branch push, and then executes the
   configured post-push bundle. `--skip-preflight` / `--skip-post-push` are
   policy-gated under `repo_governance.push.bypass`; a remote update is not the
-  same state as post-push green.
+  same state as post-push green. When the persisted artifact says
+  `published_remote=true` and `post_push_green=false`, treat remote
+  publication as settled and repair the post-push follow-up instead of
+  pushing again.
 - Shared `devctl` command execution now follows the parent command lifetime:
   inherited stdout pipes from detached descendants must not keep a completed
   governed push session open after the parent push/post-push step exits.

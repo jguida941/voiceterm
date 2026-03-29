@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 from .decision_explainability import rejected_rule_trace, rule_match_evidence
-from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
+from .startup_push_models import (
+    PushDecisionInputs,
+    PushDecisionSpec,
+    PushDecisionState,
+    project_push_decision as _project_push_decision,
+)
 
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
@@ -18,56 +22,6 @@ _REVIEW_STATUS_COMMAND = (
     "--terminal none --format json"
 )
 _DEVCTL_PUSH_EXECUTE_COMMAND = "python3 dev/scripts/devctl.py push --execute"
-
-
-@dataclass(frozen=True, slots=True)
-class PushDecisionState:
-    """Typed answer for the next governed push step."""
-
-    worktree_clean: bool = False
-    review_gate_allows_push: bool = False
-    has_remote_work_to_push: bool = False
-    push_eligible_now: bool = False
-    action: str = "await_checkpoint"
-    reason: str = ""
-    next_step_summary: str = ""
-    next_step_command: str = ""
-    rule_summary: str = ""
-    match_evidence: tuple[RuleMatchEvidenceRecord, ...] = ()
-    rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...] = ()
-
-    def to_dict(self) -> dict[str, object]:
-        payload = asdict(self)
-        payload["match_evidence"] = [
-            evidence.to_dict() for evidence in self.match_evidence
-        ]
-        payload["rejected_rule_traces"] = [
-            trace.to_dict() for trace in self.rejected_rule_traces
-        ]
-        return payload
-
-
-@dataclass(frozen=True, slots=True)
-class PushDecisionInputs:
-    """Derived inputs reused across push-decision branches."""
-
-    worktree_clean: bool
-    review_gate_allows_push: bool
-    has_remote_work_to_push: bool
-
-
-@dataclass(frozen=True, slots=True)
-class PushDecisionSpec:
-    """Branch-specific payload that gets projected into a push decision."""
-
-    action: str
-    reason: str
-    next_step_summary: str
-    rule_summary: str
-    match_evidence: tuple[RuleMatchEvidenceRecord, ...]
-    rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...]
-    next_step_command: str = ""
-    push_eligible_now: bool = False
 
 
 def derive_push_decision(
@@ -90,6 +44,51 @@ def derive_push_decision(
     if review_decision is not None:
         return review_decision
     if not inputs.has_remote_work_to_push:
+        published_remote = bool(pe.latest_push_report_published_remote)
+        post_push_green = bool(pe.latest_push_report_post_push_green)
+        if published_remote and not post_push_green:
+            artifact_path = str(pe.latest_push_report_path or "").strip()
+            artifact_hint = (
+                f" Review the latest push artifact at `{artifact_path}` and repair the "
+                "failed post-push follow-up instead of pushing again."
+                if artifact_path
+                else " Repair the failed post-push follow-up instead of pushing again."
+            )
+            return _project_push_decision(
+                inputs,
+                PushDecisionSpec(
+                    action="no_push_needed",
+                    reason="remote_publish_recorded_post_push_pending",
+                    next_step_summary=(
+                        "Remote publication already succeeded for this branch."
+                        + artifact_hint
+                    ),
+                    rule_summary=(
+                        "No governed push is needed because the branch already matches "
+                        "upstream and the latest persisted push report shows the remote "
+                        "publish succeeded even though the post-push bundle did not "
+                        "finish green."
+                    ),
+                    match_evidence=(
+                        rule_match_evidence(
+                            "startup_push.remote_publish_recorded_post_push_pending",
+                            "Startup recovered a persisted remote-published push result.",
+                            "worktree_clean=True",
+                            "review_gate_allows_push=True",
+                            "ahead_of_upstream_commits=0",
+                            f"latest_push_report_published_remote={published_remote}",
+                            f"latest_push_report_post_push_green={post_push_green}",
+                        ),
+                    ),
+                    rejected_rule_traces=(
+                        rejected_rule_trace(
+                            "startup_push.run_devctl_push",
+                            "Run the governed push path immediately.",
+                            "The latest push artifact already recorded remote publication.",
+                        ),
+                    ),
+                ),
+            )
         return _project_push_decision(
             inputs,
             PushDecisionSpec(
@@ -320,23 +319,4 @@ def _review_state_decision(
                 ),
             ),
         ),
-    )
-
-
-def _project_push_decision(
-    inputs: PushDecisionInputs,
-    spec: PushDecisionSpec,
-) -> PushDecisionState:
-    return PushDecisionState(
-        worktree_clean=inputs.worktree_clean,
-        review_gate_allows_push=inputs.review_gate_allows_push,
-        has_remote_work_to_push=inputs.has_remote_work_to_push,
-        push_eligible_now=spec.push_eligible_now,
-        action=spec.action,
-        reason=spec.reason,
-        next_step_summary=spec.next_step_summary,
-        next_step_command=spec.next_step_command,
-        rule_summary=spec.rule_summary,
-        match_evidence=spec.match_evidence,
-        rejected_rule_traces=spec.rejected_rule_traces,
     )

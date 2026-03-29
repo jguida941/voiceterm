@@ -47,6 +47,7 @@ class PushReportInputs:
     action_result: dict[str, Any]
     warnings: list[str]
     errors: list[str]
+    artifact_path: str = ""
 
 
 def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
@@ -74,6 +75,8 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     report["action_result"] = inputs.action_result
     report["warnings"] = inputs.warnings
     report["errors"] = inputs.errors
+    if inputs.artifact_path:
+        report["artifacts"] = {"latest_json": inputs.artifact_path}
     return report
 
 
@@ -91,6 +94,9 @@ def render_push_report(report: dict[str, Any]) -> str:
     errors = report.get("errors") or []
     lines.append(f"- warnings: {len(warnings)}")
     lines.append(f"- errors: {len(errors)}")
+    artifacts = report.get("artifacts") or {}
+    if artifacts:
+        lines.append(f"- latest_json: {artifacts.get('latest_json')}")
     lines.append("")
     lines.append("## Policy")
     lines.append("")

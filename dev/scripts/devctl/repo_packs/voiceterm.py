@@ -11,13 +11,10 @@ DEFAULT_BRIDGE_REL = "bridge.md"
 DEFAULT_REVIEW_STATUS_DIR_REL = "dev/reports/review_channel/latest"
 DEFAULT_MOBILE_STATUS_REL = "dev/reports/mobile/latest/full.json"
 DEFAULT_PHONE_STATUS_REL = "dev/reports/autonomy/queue/phone/latest.json"
-
-
+DEFAULT_PUSH_REPORT_REL = "dev/reports/push/latest.json"
 # ---------------------------------------------------------------------------
 # Centralized path configuration for VoiceTerm repo artifacts
 # ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class RepoPathConfig:
     """Frozen registry of repo-relative artifact paths for VoiceTerm.
@@ -27,20 +24,12 @@ class RepoPathConfig:
     Use the ``voiceterm_defaults()`` classmethod to get the standard config.
     """
 
-    # Review channel plan doc
     review_channel_rel: str = DEFAULT_REVIEW_CHANNEL_REL
-
-    # Bridge markdown file
     bridge_rel: str = DEFAULT_BRIDGE_REL
-
-    # Review status directory
     review_status_dir_rel: str = DEFAULT_REVIEW_STATUS_DIR_REL
-
-    # Mobile status payload
     mobile_status_rel: str = DEFAULT_MOBILE_STATUS_REL
-
-    # Phone status payload
     phone_status_rel: str = DEFAULT_PHONE_STATUS_REL
+    push_report_rel: str = DEFAULT_PUSH_REPORT_REL
 
     # Structured review-state JSON candidates (tried in order)
     review_state_candidates: tuple[str, ...] = (

@@ -7,6 +7,7 @@ import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from ..commands.vcs.push_artifact import load_latest_push_report, latest_push_report_relpath
 from ..config import REPO_ROOT
 from .push_policy import PushCheckpointPolicy, PushPolicy
 
@@ -33,6 +34,11 @@ class PushEnforcementSnapshot:
     worktree_dirty: bool
     worktree_clean: bool
     recommended_action: str
+    latest_push_report_path: str = ""
+    latest_push_report_status: str = ""
+    latest_push_report_reason: str = ""
+    latest_push_report_published_remote: bool = False
+    latest_push_report_post_push_green: bool = False
 
 
 def detect_push_enforcement_state(
@@ -85,6 +91,10 @@ def detect_push_enforcement_state(
         recommended_action = "no_push_needed"
     else:
         recommended_action = "use_devctl_push"
+    latest_push_report = load_latest_push_report(repo_root=repo_root) or {}
+    push_stages = latest_push_report.get("push_stages")
+    if not isinstance(push_stages, dict):
+        push_stages = {}
     snapshot = PushEnforcementSnapshot(
         default_remote=policy.default_remote,
         development_branch=policy.development_branch,
@@ -108,6 +118,11 @@ def detect_push_enforcement_state(
         worktree_dirty=worktree_dirty,
         worktree_clean=worktree_clean,
         recommended_action=recommended_action,
+        latest_push_report_path=latest_push_report_relpath(repo_root=repo_root),
+        latest_push_report_status=str(latest_push_report.get("status") or "").strip(),
+        latest_push_report_reason=str(latest_push_report.get("reason") or "").strip(),
+        latest_push_report_published_remote=bool(push_stages.get("published_remote")),
+        latest_push_report_post_push_green=bool(push_stages.get("post_push_green")),
     )
     return asdict(snapshot)
 

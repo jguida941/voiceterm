@@ -16,6 +16,7 @@ from ...runtime import ActionResult, TypedAction
 from ...runtime.startup_context import build_startup_context
 from ...runtime.vcs import branch_divergence, remote_branch_exists, remote_exists
 from .push_flow import PushFlowOutcome, execute_push_flow_with_dependencies
+from .push_artifact import latest_push_report_relpath, serialize_push_report
 from .push_report import (
     PushReportInputs,
     build_push_report,
@@ -226,29 +227,6 @@ def _matches_allowed_prefixes(branch: str, prefixes: tuple[str, ...]) -> bool:
     return any(branch.startswith(prefix) for prefix in prefixes)
 
 
-def _build_action_result(
-    *,
-    status: str,
-    reason: str,
-    ok: bool,
-    warnings: list[str],
-    partial_progress: bool,
-    operator_guidance: str,
-) -> ActionResult:
-    return ActionResult(
-        schema_version=1,
-        contract_id="ActionResult",
-        action_id="vcs.push",
-        ok=ok,
-        status=status,
-        reason=reason,
-        retryable=not ok,
-        partial_progress=partial_progress,
-        operator_guidance=operator_guidance,
-        warnings=tuple(warnings),
-    )
-
-
 def run(args) -> int:
     """Validate and optionally execute a guarded push for the current branch."""
     policy = load_push_policy(policy_path=getattr(args, "quality_policy", None))
@@ -263,13 +241,19 @@ def run(args) -> int:
             args=args,
         )
     )
-    action_result = _build_action_result(
+    artifact_path = latest_push_report_relpath()
+    action_result = ActionResult(
+        schema_version=1,
+        contract_id="ActionResult",
+        action_id="vcs.push",
+        ok=outcome.ok,
         status=outcome.status,
         reason=outcome.reason,
-        ok=outcome.ok,
-        warnings=state.warnings,
+        retryable=not outcome.ok,
         partial_progress=outcome.partial_progress,
         operator_guidance=outcome.operator_guidance,
+        warnings=tuple(state.warnings),
+        artifact_paths=(artifact_path,),
     ).to_dict()
     report_inputs = PushReportInputs(
         policy=policy,
@@ -288,14 +272,17 @@ def run(args) -> int:
         action_result=action_result,
         warnings=state.warnings,
         errors=state.errors,
+        artifact_path=artifact_path,
     )
     report = build_push_report(report_inputs)
-    output = json.dumps(report, indent=2) if args.format == "json" else render_push_report(report)
+    report_json = serialize_push_report(report)
+    output = report_json if args.format == "json" else render_push_report(report)
     pipe_rc = emit_output(
         output,
         output_path=args.output,
         pipe_command=args.pipe_command,
         pipe_args=args.pipe_args,
+        additional_outputs=((report_json, artifact_path),),
         writer=write_output,
         piper=pipe_output,
     )

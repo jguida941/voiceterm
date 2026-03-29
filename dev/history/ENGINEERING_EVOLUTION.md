@@ -6445,6 +6445,18 @@ ends the step based on parent-process completion; a regression test now
 proves the runner does not time out when a child inherits stdout after the
 parent command has finished.
 
+### 2026-03-28 - Persisted push truth now survives interrupted local sessions
+
+Fact: fixing the parent-lifetime bug was not enough. The repo could still end
+up in a misleading recovery state after a real remote publication because the
+typed push stages only existed in terminal output. `devctl push` now persists
+the latest typed push result at `dev/reports/push/latest.json`, and startup
+authority reads that managed artifact before recommending another push. The
+new recovery rule is explicit: `published_remote=true` is canonical remote
+publication truth even if the local command later exits non-zero because the
+post-push bundle failed or the terminal session was interrupted; the next
+step is post-push repair/status verification, not a second push attempt.
+
 ### 2026-03-27 - Python architecture learning and AI explainability are now one tracked MP-377 concern
 
 Fact: the latest architecture discussion exposed a real usability gap in the

@@ -213,7 +213,8 @@
   has its first repo-pack-owned push-routing contract. `repo_governance.push`
   owns remote/default-branch/protected-branch rules plus preflight, post-push,
   and policy-gated bypass routing, `devctl push` now emits typed push-stage
-  truth (`validation_ready`, `published_remote`, `post_push_green`), and
+  truth (`validation_ready`, `published_remote`, `post_push_green`), persists
+  the managed latest push artifact at `dev/reports/push/latest.json`, and
   legacy `sync` / release helpers now read the same policy instead of
   hardcoding GitHub push defaults.
 - Current checkpoint-intake follow-up inside that same lane: startup surfaces
@@ -557,6 +558,13 @@
   branch-push truth.
   so agents and operators do not mistake a remote update for full contract
   success.
+- 2026-03-28 push-recovery follow-up: the repo now persists the latest typed
+  push result at `dev/reports/push/latest.json`, threads that managed
+  artifact through `PushEnforcement`, and teaches `startup-context` to treat
+  `published_remote=true` plus `post_push_green=false` as "publication is
+  settled; repair the follow-up" instead of "push unresolved". Remaining
+  MP-377 closure is the fuller branch/tree-hash `PushPreflightPacket`, not a
+  second push authority.
 - 2026-03-27 repo-entrance/dev-loop adjudication: accepted two additional
   same-lane follow-ups without widening the product roadmap. First, keep the
   root repo entrance split by audience: `README.md` remains the VoiceTerm

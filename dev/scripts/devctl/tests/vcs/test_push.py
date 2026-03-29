@@ -306,6 +306,11 @@ class PushCommandTests(unittest.TestCase):
         )
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "validation_ready")
+        self.assertEqual(payload["artifacts"]["latest_json"], "dev/reports/push/latest.json")
+        self.assertEqual(
+            payload["action_result"]["artifact_paths"],
+            ["dev/reports/push/latest.json"],
+        )
         self.assertEqual(
             payload["push_stages"],
             {
@@ -405,6 +410,11 @@ class PushCommandTests(unittest.TestCase):
         self.assertIn(["git", "push", "--set-upstream", "origin", "feature/demo"], executed)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "post_push_green")
+        self.assertEqual(payload["artifacts"]["latest_json"], "dev/reports/push/latest.json")
+        self.assertEqual(
+            payload["action_result"]["artifact_paths"],
+            ["dev/reports/push/latest.json"],
+        )
         self.assertEqual(
             payload["push_stages"],
             {
@@ -565,6 +575,10 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(payload["reason"], "post_push_skipped_by_policy")
         self.assertTrue(payload["action_result"]["partial_progress"])
         self.assertEqual(
+            payload["action_result"]["artifact_paths"],
+            ["dev/reports/push/latest.json"],
+        )
+        self.assertEqual(
             payload["push_stages"],
             {
                 "validation_ready": True,
@@ -654,6 +668,10 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(payload["status"], "published_remote")
         self.assertEqual(payload["reason"], "post_push_bundle_failed")
         self.assertTrue(payload["action_result"]["partial_progress"])
+        self.assertEqual(
+            payload["action_result"]["artifact_paths"],
+            ["dev/reports/push/latest.json"],
+        )
         self.assertEqual(
             payload["push_stages"],
             {

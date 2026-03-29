@@ -30,6 +30,11 @@ class PushEnforcement:
     worktree_dirty: bool = False
     worktree_clean: bool = True
     recommended_action: str = "use_devctl_push"
+    latest_push_report_path: str = ""
+    latest_push_report_status: str = ""
+    latest_push_report_reason: str = ""
+    latest_push_report_published_remote: bool = False
+    latest_push_report_post_push_green: bool = False
 
 
 def push_enforcement_from_mapping(
@@ -78,4 +83,13 @@ def push_enforcement_from_mapping(
         worktree_clean=worktree_clean,
         recommended_action=coerce_string(payload.get("recommended_action"))
         or "use_devctl_push",
+        latest_push_report_path=coerce_string(payload.get("latest_push_report_path")),
+        latest_push_report_status=coerce_string(payload.get("latest_push_report_status")),
+        latest_push_report_reason=coerce_string(payload.get("latest_push_report_reason")),
+        latest_push_report_published_remote=coerce_bool(
+            payload.get("latest_push_report_published_remote")
+        ),
+        latest_push_report_post_push_green=coerce_bool(
+            payload.get("latest_push_report_post_push_green")
+        ),
     )
