@@ -13,6 +13,7 @@ from .peer_liveness import (
     ReviewerFreshness,
     reviewer_mode_is_active,
 )
+from .session_state_hints import provider_session_state_hint
 from ..governance.push_policy import load_push_policy
 from ..governance.push_state import PushEnforcementSnapshot, detect_push_enforcement_state
 
@@ -52,6 +53,8 @@ def build_bridge_push_enforcement_state(repo_root: Path) -> dict[str, object]:
     except (OSError, ValueError):
         return asdict(
             PushEnforcementSnapshot(
+                current_branch="",
+                current_head_commit="",
                 default_remote="origin",
                 development_branch="main",
                 release_branch="main",
@@ -128,6 +131,9 @@ def bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
         warnings.append(
             "Bridge review content is stale: the worktree has changed since the last reviewed hash. Current Verdict, Open Findings, and Current Instruction may not reflect the current tree state."
         )
+    claude_hint = provider_session_state_hint(bridge_liveness, provider="claude")
+    if claude_hint:
+        warnings.append(str(claude_hint.get("summary") or "Claude session hint detected."))
     return warnings
 
 

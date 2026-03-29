@@ -38,6 +38,7 @@ class StatusProjectionPayload:
     """Dynamic status payload projected into operator-facing bundle files."""
 
     reviewer_worker: dict[str, object] | None
+    push_decision: dict[str, object] | None
     service_identity: dict[str, object]
     attach_auth_policy: dict[str, object]
     warnings: list[str]
@@ -87,7 +88,7 @@ def _build_status_review_state(
             promotion_plan_path=context.promotion_plan_path,
             require_exists=False,
         )
-    return build_bridge_review_state(
+    review_state = build_bridge_review_state(
         context=ReviewStateContext(
             repo_root=context.repo_root,
             bridge_path=context.bridge_path,
@@ -107,6 +108,14 @@ def _build_status_review_state(
         promotion_candidate=promotion_candidate,
         reduced_runtime=payload.reduced_runtime,
     )
+    compat = review_state.get("_compat")
+    if isinstance(compat, dict):
+        push_enforcement = context.bridge_liveness.get("push_enforcement")
+        if isinstance(push_enforcement, dict):
+            compat["push_enforcement"] = push_enforcement
+        if isinstance(payload.push_decision, dict):
+            compat["push_decision"] = payload.push_decision
+    return review_state
 
 
 def _build_status_agent_registry(
@@ -125,6 +134,12 @@ def _status_provider_state(
     bridge_liveness: dict[str, object],
 ) -> dict[str, dict[str, object]]:
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
+    session_hints = bridge_liveness.get("session_state_hints")
+    claude_hint = (
+        session_hints.get("claude")
+        if isinstance(session_hints, dict) and isinstance(session_hints.get("claude"), dict)
+        else {}
+    )
     return {
         "codex": {
             "job_state": overall_state,
@@ -141,6 +156,7 @@ def _status_provider_state(
                 and bool(bridge_liveness.get("claude_ack_present"))
                 else "waiting"
             ),
+            "waiting_on": str(claude_hint.get("state") or "") or None,
         },
     }
 
@@ -160,4 +176,6 @@ def _status_full_extras(
     }
     if isinstance(push_enforcement, dict):
         extras["push_enforcement"] = push_enforcement
+    if isinstance(payload.push_decision, dict):
+        extras["push_decision"] = payload.push_decision
     return extras

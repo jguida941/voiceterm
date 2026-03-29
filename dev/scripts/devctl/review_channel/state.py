@@ -28,6 +28,7 @@ from .projection_bundle import (
     projection_paths_to_dict as projection_paths_to_dict,
     write_projection_bundle as write_projection_bundle,
 )
+from .current_session_projection import build_bridge_current_session
 from .reviewer_worker import check_review_needed, reviewer_worker_tick_to_dict
 from .status_models import ReviewChannelStatusSnapshot
 from .status_bundle import (
@@ -41,6 +42,7 @@ from .status_projection_helpers import (
     build_bridge_push_enforcement_state,
     hybrid_loop_errors,
 )
+from .session_state_hints import detect_session_state_hints, session_state_hints_to_dict
 from .lifecycle_state import (
     DEFAULT_REVIEW_STATUS_DIR_REL,
     PublisherHeartbeat,
@@ -52,6 +54,9 @@ from .lifecycle_state import (
 )
 from .attach_auth_policy import build_attach_auth_policy
 from .service_identity import build_service_identity
+from ..runtime.project_governance_push import push_enforcement_from_mapping
+from ..runtime.reviewer_gate_logic import reviewer_loop_block_state
+from ..runtime.startup_push_decision import derive_push_decision
 
 
 def refresh_status_snapshot(
@@ -102,10 +107,21 @@ def refresh_status_snapshot(
         bridge_liveness=bridge_liveness,
         output_root=output_root,
     )
+    session_state_hints = detect_session_state_hints(session_output_root=output_root)
+    if session_state_hints:
+        bridge_liveness["session_state_hints"] = session_state_hints_to_dict(
+            session_state_hints
+        )
     merged_warnings.extend(bridge_liveness_warnings(bridge_liveness))
     merged_errors.extend(hybrid_loop_errors(bridge_liveness))
     attention = derive_bridge_attention(
         bridge_liveness, contract_errors=merged_errors,
+    )
+    current_session = build_bridge_current_session(bridge_snapshot, bridge_liveness)
+    push_decision = _build_status_push_decision(
+        bridge_liveness=bridge_liveness,
+        attention=attention,
+        current_session=current_session,
     )
     service_identity = build_service_identity(
         repo_root=repo_root,
@@ -132,6 +148,7 @@ def refresh_status_snapshot(
         ),
         payload=StatusProjectionPayload(
             reviewer_worker=reviewer_worker,
+            push_decision=push_decision,
             service_identity=service_identity,
             attach_auth_policy=attach_auth_policy,
             warnings=merged_warnings,
@@ -148,6 +165,7 @@ def refresh_status_snapshot(
         errors=merged_errors,
         projection_paths=projection_paths,
         reviewer_worker=reviewer_worker,
+        push_decision=push_decision,
         service_identity=service_identity,
         attach_auth_policy=attach_auth_policy,
     )
@@ -249,6 +267,32 @@ def _build_reviewer_worker_snapshot(
             ),
         )
     )
+
+
+def _build_status_push_decision(
+    *,
+    bridge_liveness: dict[str, object],
+    attention: dict[str, object],
+    current_session,
+) -> dict[str, object]:
+    push_enforcement_payload = bridge_liveness.get("push_enforcement")
+    if not isinstance(push_enforcement_payload, dict):
+        return {}
+    push_enforcement = push_enforcement_from_mapping(push_enforcement_payload)
+    implementation_blocked, implementation_block_reason = reviewer_loop_block_state(
+        reviewer_mode=str(bridge_liveness.get("reviewer_mode") or ""),
+        claude_ack_current=bool(bridge_liveness.get("claude_ack_current")),
+        attention_status=str(attention.get("status") or ""),
+        implementer_status=str(current_session.implementer_status or "").strip(),
+        implementer_ack=str(current_session.implementer_ack or "").strip(),
+        implementer_ack_state=str(current_session.implementer_ack_state or "").strip(),
+    )
+    return derive_push_decision(
+        push_enforcement,
+        review_gate_allows_push=bool(bridge_liveness.get("review_accepted")),
+        implementation_blocked=implementation_blocked,
+        implementation_block_reason=implementation_block_reason,
+    ).to_dict()
 
 
 def _build_reduced_runtime(

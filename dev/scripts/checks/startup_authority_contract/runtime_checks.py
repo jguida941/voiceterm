@@ -79,7 +79,12 @@ def collect_push_decision_contract_errors(repo_root: Path, gov) -> list[str]:
         gate = _detect_reviewer_gate(repo_root, governance=gov)
     except AttributeError:
         gate = _detect_reviewer_gate(repo_root)
-    decision = _derive_push_decision(gov, gate)
+    decision = _derive_push_decision(
+        gov.push_enforcement,
+        review_gate_allows_push=gate.review_gate_allows_push,
+        implementation_blocked=gate.implementation_blocked,
+        implementation_block_reason=gate.implementation_block_reason,
+    )
     errors: list[str] = []
 
     if decision.action not in _VALID_PUSH_ACTIONS:

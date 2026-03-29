@@ -140,6 +140,38 @@ def _parse_checkpoint_policy(
     )
 
 
+def _parse_publication_policy(
+    payload: object,
+    warnings: list[str],
+) -> "PushPublicationPolicy":
+    from .push_policy import PushPublicationPolicy
+
+    if payload is None:
+        return PushPublicationPolicy()
+    if not isinstance(payload, dict):
+        warnings.append(
+            "repo_governance.push.publication must be an object; using defaults."
+        )
+        return PushPublicationPolicy()
+    recommend_after = _coerce_positive_int(
+        payload.get("recommend_after_ahead_commits"),
+        fallback=2,
+    )
+    urgent_after = _coerce_positive_int(
+        payload.get("urgent_after_ahead_commits"),
+        fallback=5,
+    )
+    if urgent_after < recommend_after:
+        warnings.append(
+            "repo_governance.push.publication.urgent_after_ahead_commits must be greater than or equal to recommend_after_ahead_commits; using recommend_after value."
+        )
+        urgent_after = recommend_after
+    return PushPublicationPolicy(
+        recommend_after_ahead_commits=recommend_after,
+        urgent_after_ahead_commits=urgent_after,
+    )
+
+
 def _resolve_repo_pack_id(payload: dict[str, object], *, repo_root: Path) -> str:
     repo_governance = _coerce_mapping(payload.get("repo_governance"))
     surface_generation = _coerce_mapping(repo_governance.get("surface_generation"))

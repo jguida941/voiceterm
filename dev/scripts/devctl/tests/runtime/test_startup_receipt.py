@@ -71,6 +71,14 @@ class StartupReceiptProblemTests(unittest.TestCase):
                 "push_next_step_command": (
                     "python3 dev/scripts/devctl.py push --execute"
                 ),
+                "publication_backlog_state": "recommended",
+                "publication_backlog_summary": (
+                    "2 local commit(s) waiting for governed push."
+                ),
+                "publication_backlog_recommended": True,
+                "publication_guidance": (
+                    "2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now."
+                ),
             }
         )
 
@@ -81,6 +89,8 @@ class StartupReceiptProblemTests(unittest.TestCase):
             receipt.push_next_step_command,
             "python3 dev/scripts/devctl.py push --execute",
         )
+        self.assertEqual(receipt.publication_backlog_state, "recommended")
+        self.assertTrue(receipt.publication_backlog_recommended)
 
     def test_problem_list_flags_checkpoint_required_receipts(self) -> None:
         receipt = StartupReceipt(

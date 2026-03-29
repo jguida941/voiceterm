@@ -12,6 +12,16 @@ _NON_REVIEWER_CONTRACT_ERROR_PREFIXES = (
     "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
     "Claude Status/Ack show implementer completion-stall language while ",
 )
+_RESETTABLE_IMPLEMENTER_ERROR_PREFIXES = (
+    "Live `Claude Ack` must include `instruction-rev:",
+    "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
+    "Claude Status/Ack show implementer completion-stall language while ",
+    "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present.",
+    "Repo-owned Codex conductor sessions are present, but the latest reviewer poll still comes from automation-only heartbeat refresh",
+)
+_RESETTABLE_IMPLEMENTER_SESSION_STATES = frozenset(
+    {"interrupt_prompt", "waiting_for_user_input"}
+)
 
 from .peer_liveness import (
     CODEX_POLL_OVERDUE_AFTER_SECONDS,
@@ -52,25 +62,40 @@ def derive_bridge_attention(
         "reviewer_overdue_threshold_seconds",
         CODEX_POLL_OVERDUE_AFTER_SECONDS,
     )
+    reviewer_mode_active = reviewer_mode_is_active(reviewer_mode)
     checkpoint_required, safe_to_continue_editing = _bridge_push_checkpoint_state(
         bridge_liveness,
         push_state=push_state,
     )
     publisher_running = bool(bridge_liveness.get("publisher_running"))
     reviewer_runtime_running = reviewer_supervisor_running or publisher_running
-
-    # Contract errors only override attention when the reviewer mode is active
-    # and the errors are substantive (not just missing optional fields).
-    _active_contract_errors = (
-        _substantive_contract_errors(contract_errors)
-        if contract_errors and reviewer_mode_is_active(reviewer_mode)
-        else None
+    raw_contract_errors = [str(error) for error in (contract_errors or [])]
+    session_hint_state = _claude_session_hint_state(bridge_liveness)
+    resettable_error_seen = any(
+        _is_resettable_implementer_error(error) for error in raw_contract_errors
     )
-    if not reviewer_mode_is_active(reviewer_mode):
+    _active_contract_errors = _active_contract_errors_for_mode(
+        contract_errors,
+        reviewer_mode_active=reviewer_mode_active,
+    )
+    if not reviewer_mode_active:
         status = AttentionStatus.INACTIVE
+    elif _requires_implementer_state_reset(
+        bridge_liveness=bridge_liveness,
+        reviewer_mode_active=reviewer_mode_active,
+        review_needed=review_needed,
+        implementer_state_invalid=(
+            (not claude_ack_current)
+            or implementer_completion_stall
+            or session_hint_state in _RESETTABLE_IMPLEMENTER_SESSION_STATES
+        ),
+        resettable_error_seen=resettable_error_seen,
+        session_hint_state=session_hint_state,
+    ):
+        status = AttentionStatus.IMPLEMENTER_STATE_RESET_REQUIRED
     elif (
         overall_state == OverallLivenessState.RUNTIME_MISSING
-        or (reviewer_mode_is_active(reviewer_mode) and not reviewer_runtime_running)
+        or (reviewer_mode_active and not reviewer_runtime_running)
     ):
         status = AttentionStatus.RUNTIME_MISSING
     elif reviewer_freshness == ReviewerFreshness.MISSING or (
@@ -96,14 +121,14 @@ def derive_bridge_attention(
     elif _active_contract_errors:
         status = AttentionStatus.BRIDGE_CONTRACT_ERROR
     elif (
-        reviewer_mode_is_active(reviewer_mode)
+        reviewer_mode_active
         and review_needed
         and reviewer_supervisor_running
         and reviewed_hash_current is False
     ):
         status = AttentionStatus.REVIEW_FOLLOW_UP_REQUIRED
     elif (
-        reviewer_mode_is_active(reviewer_mode)
+        reviewer_mode_active
         and review_needed
         and not reviewer_supervisor_running
     ):
@@ -111,7 +136,7 @@ def derive_bridge_attention(
     elif checkpoint_required or not safe_to_continue_editing:
         status = AttentionStatus.CHECKPOINT_REQUIRED
     elif (
-        reviewer_mode_is_active(reviewer_mode)
+        reviewer_mode_active
         and codex_poll_state in {CodexPollState.FRESH, CodexPollState.POLL_DUE}
         and overall_state == OverallLivenessState.WAITING_ON_PEER
         and implementer_completion_stall
@@ -120,7 +145,7 @@ def derive_bridge_attention(
     ):
         status = AttentionStatus.IMPLEMENTER_RELAUNCH_REQUIRED
     elif (
-        reviewer_mode_is_active(reviewer_mode)
+        reviewer_mode_active
         and codex_poll_state in {CodexPollState.FRESH, CodexPollState.POLL_DUE}
         and implementer_completion_stall
         and claude_ack_current
@@ -145,7 +170,7 @@ def derive_bridge_attention(
     elif implementer_completion_stall:
         status = AttentionStatus.IMPLEMENTER_COMPLETION_STALL
     elif (
-        reviewer_mode_is_active(reviewer_mode)
+        reviewer_mode_active
         and not publisher_running
     ):
         stop_reason = str(bridge_liveness.get("publisher_stop_reason") or "")
@@ -187,6 +212,60 @@ def _substantive_contract_errors(
         for error in (contract_errors or [])
         if not str(error).startswith(_NON_REVIEWER_CONTRACT_ERROR_PREFIXES)
     ]
+
+
+def _active_contract_errors_for_mode(
+    contract_errors: list[str] | None,
+    *,
+    reviewer_mode_active: bool,
+) -> list[str] | None:
+    if not reviewer_mode_active or not contract_errors:
+        return None
+    return _substantive_contract_errors(contract_errors)
+
+
+def _requires_implementer_state_reset(
+    *,
+    bridge_liveness: dict[str, object],
+    reviewer_mode_active: bool,
+    review_needed: bool,
+    implementer_state_invalid: bool,
+    resettable_error_seen: bool,
+    session_hint_state: str,
+) -> bool:
+    if not reviewer_mode_active or review_needed:
+        return False
+    if not _reviewer_state_seeded(bridge_liveness):
+        return False
+    if not implementer_state_invalid:
+        return False
+    if not resettable_error_seen:
+        return False
+    return (
+        session_hint_state in _RESETTABLE_IMPLEMENTER_SESSION_STATES
+        or bool(bridge_liveness.get("poll_status_automation_only"))
+        or not bool(bridge_liveness.get("claude_conductor_active"))
+    )
+
+
+def _reviewer_state_seeded(bridge_liveness: dict[str, object]) -> bool:
+    return bool(bridge_liveness.get("current_instruction_revision")) and bool(
+        bridge_liveness.get("last_reviewed_scope_present")
+    )
+
+
+def _is_resettable_implementer_error(error: str) -> bool:
+    return str(error).startswith(_RESETTABLE_IMPLEMENTER_ERROR_PREFIXES)
+
+
+def _claude_session_hint_state(bridge_liveness: dict[str, object]) -> str:
+    hints = bridge_liveness.get("session_state_hints")
+    if not isinstance(hints, dict):
+        return ""
+    claude_hint = hints.get("claude")
+    if not isinstance(claude_hint, dict):
+        return ""
+    return str(claude_hint.get("state") or "")
 
 
 def _attention_from_contract(status: str) -> dict[str, object]:

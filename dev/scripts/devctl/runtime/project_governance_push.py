@@ -32,6 +32,13 @@ class PushEnforcement:
     worktree_dirty: bool = False
     worktree_clean: bool = True
     recommended_action: str = "use_devctl_push"
+    pending_publication_commits: int | None = None
+    publication_backlog_state: str = "none"
+    publication_backlog_summary: str = ""
+    publication_backlog_recommended: bool = False
+    publication_backlog_urgent: bool = False
+    recommend_after_ahead_commits: int = 2
+    urgent_after_ahead_commits: int = 5
     latest_push_report_path: str = ""
     latest_push_report_branch: str = ""
     latest_push_report_remote: str = ""
@@ -92,6 +99,28 @@ def push_enforcement_from_mapping(
         worktree_clean=worktree_clean,
         recommended_action=coerce_string(payload.get("recommended_action"))
         or "use_devctl_push",
+        pending_publication_commits=(
+            coerce_int(payload.get("pending_publication_commits"))
+            if payload.get("pending_publication_commits") is not None
+            else None
+        ),
+        publication_backlog_state=coerce_string(payload.get("publication_backlog_state"))
+        or "none",
+        publication_backlog_summary=coerce_string(
+            payload.get("publication_backlog_summary")
+        ),
+        publication_backlog_recommended=coerce_bool(
+            payload.get("publication_backlog_recommended")
+        ),
+        publication_backlog_urgent=coerce_bool(
+            payload.get("publication_backlog_urgent")
+        ),
+        recommend_after_ahead_commits=(
+            coerce_int(payload.get("recommend_after_ahead_commits")) or 2
+        ),
+        urgent_after_ahead_commits=(
+            coerce_int(payload.get("urgent_after_ahead_commits")) or 5
+        ),
         latest_push_report_path=coerce_string(payload.get("latest_push_report_path")),
         latest_push_report_branch=coerce_string(payload.get("latest_push_report_branch")),
         latest_push_report_remote=coerce_string(payload.get("latest_push_report_remote")),

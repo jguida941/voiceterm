@@ -224,6 +224,7 @@ def _refresh_bridge_status_report(
     report["bridge_liveness"] = snapshot.bridge_liveness
     report["attention"] = snapshot.attention
     report["reviewer_worker"] = snapshot.reviewer_worker
+    report["push_decision"] = snapshot.push_decision
     report["projection_paths"] = projection_paths_to_dict(snapshot.projection_paths)
     report["warnings"] = _merge_status_messages(
         report.get("warnings"),

@@ -214,6 +214,10 @@
         "compatibility_projection_paths": ["bridge.md"],
         "advisory_context_paths": ["convo.md"]
       },
+      "publication": {
+        "recommend_after_ahead_commits": 2,
+        "urgent_after_ahead_commits": 5
+      },
       "post_push": {
         "bundle": "bundle.post-push"
       }

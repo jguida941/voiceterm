@@ -38,6 +38,8 @@ class ReviewCurrentSessionState:
     implementer_ack: str
     implementer_ack_revision: str
     implementer_ack_state: str
+    implementer_session_state: str = ""
+    implementer_session_hint: str = ""
     open_findings: str = ""
     last_reviewed_scope: str = ""
 

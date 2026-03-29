@@ -265,10 +265,15 @@ Portability note:
 - `review-channel --action status` also surfaces bridge-backed
   `push_enforcement` state so operator/read-only consumers can see
   `checkpoint_required`, `safe_to_continue_editing`, `recommended_action`,
-  and `raw_git_push_guarded` without running `startup-context` separately; the
-  same path escalates attention to `checkpoint_required` when the worktree is
-  over the continuation budget (reviewer follow-up takes priority when review
-  is also pending on a stale hash).
+  `raw_git_push_guarded`, and the typed publication-backlog cadence fields
+  without running `startup-context` separately; the same status path now also
+  projects the shared typed `push_decision` used by startup into
+  `review_state.json`, `full.json`, `compact.json`, and `latest.md`, so
+  operators do not have to infer push timing from `recommended_action`
+  strings alone. The same path still escalates attention to
+  `checkpoint_required` when the worktree is over the continuation budget
+  (reviewer follow-up takes priority when review is also pending on a stale
+  hash).
 - That same `review-channel --action status` path now emits a typed
   `current_session` block in `dev/reports/review_channel/latest/review_state.json`
   and `compact.json`; prefer it for live current instruction / implementer ACK
@@ -1050,7 +1055,7 @@ Machine-first output note:
 - `mobile-app`: wrapper over the first-party iPhone/iPad app flow; can run the real simulator demo against the live repo bundle, optionally refresh live Ralph/review state first (`--live-review`), list available simulator/physical devices, open an honest physical-device install wizard, and attempt a real signed physical-device install/launch when an Apple Development Team is provided
 - `ralph-status`: Ralph guardrail analytics surface; reads `ralph-report*.json` artifacts, aggregates fix/open counts plus architecture breakdowns, now also surfaces probe-guidance attachment/adoption/waiver counts from Ralph runs, and can emit SVG charts for CLI/reporting/mobile consumers
 - `controller-action`: policy-gated control surface for `refresh-status`, `dispatch-report-only`, `pause-loop`, and `resume-loop`; dispatch/mode actions enforce allowlisted workflows/branches, respect `AUTONOMY_MODE=off` kill-switch behavior, and emit auditable action reports plus a stable `typed_action` runtime contract and optional local controller-mode state artifact
-- `startup-context`: typed startup packet for AI agent sessions; composes compact repo governance, reviewer gate, push/checkpoint state, and a bounded `WorkIntakePacket` carrying the selected `PlanTargetRef`, typed continuity reconciliation, startup-order warm refs, and live routing defaults; reads reviewer acceptance from typed `review_state.json`, treats `bridge.md` as a compatibility projection instead of a startup-authority fallback, resolves typed `review_state.json` through repo-pack/governance candidate-path authority instead of one fixed `dev/reports/.../latest` literal, loads probe startup signals from the managed `dev/reports/probes/latest/summary.json` artifact under that same governed root, reads the managed latest-push artifact at `dev/reports/push/latest.json` so recovered sessions can distinguish `published_remote=true` plus `post_push_green=false` from an unresolved push, renders continuity roots only when the canonical memory/context directories actually exist, persists a managed startup receipt under the repo-owned reports root, returns non-zero when the typed checkpoint budget says another implementation slice must stop and checkpoint first, and is guarded by `check_startup_authority_contract.py` so over-budget continuation or worktree-only module splits fail closed instead of slipping through as local-only state
+- `startup-context`: typed startup packet for AI agent sessions; composes compact repo governance, reviewer gate, push/checkpoint state, and a bounded `WorkIntakePacket` carrying the selected `PlanTargetRef`, typed continuity reconciliation, startup-order warm refs, and live routing defaults; reads reviewer acceptance from typed `review_state.json`, treats `bridge.md` as a compatibility projection instead of a startup-authority fallback, resolves typed `review_state.json` through repo-pack/governance candidate-path authority instead of one fixed `dev/reports/.../latest` literal, loads probe startup signals from the managed `dev/reports/probes/latest/summary.json` artifact under that same governed root, reads the managed latest-push artifact at `dev/reports/push/latest.json` so recovered sessions can distinguish `published_remote=true` plus `post_push_green=false` from an unresolved push, now surfaces ahead-of-upstream publication backlog and push timing guidance directly in the human-facing startup summary/markdown output, renders continuity roots only when the canonical memory/context directories actually exist, persists a managed startup receipt under the repo-owned reports root, returns non-zero when the typed checkpoint budget says another implementation slice must stop and checkpoint first, and is guarded by `check_startup_authority_contract.py` so over-budget continuation or worktree-only module splits fail closed instead of slipping through as local-only state
   - When repo policy advertises a shared backlog doc (for this repo:
     `backlog.md`), the same intake packet may surface it in warm refs and
     writeback sinks so humans and AI can share one governed intake surface

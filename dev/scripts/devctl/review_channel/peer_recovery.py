@@ -13,6 +13,7 @@ _DEVCTL_INTERPRETER = os.path.basename(sys.executable)
 REVIEW_CHANNEL_STATUS_INSPECT_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action status --terminal none --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale"
 REVIEW_CHANNEL_LIVE_RELAUNCH_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale"
 REVIEW_CHANNEL_IMPLEMENTER_RECOVER_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action recover --recover-provider claude --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale"
+REVIEW_CHANNEL_IMPLEMENTER_RESET_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action reset-implementer-state --reviewer-mode active_dual_agent --reason stale-implementer-launch-block --terminal none --format json --execution-mode markdown-bridge"
 REVIEW_CHANNEL_ENSURE_START_PUBLISHER_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action ensure --start-publisher-if-missing --terminal none --format json --execution-mode markdown-bridge"
 REVIEW_CHANNEL_ENSURE_FOLLOW_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action ensure --follow --terminal none --format json --execution-mode markdown-bridge --follow-inactivity-timeout-seconds 0"
 REVIEW_CHANNEL_REVIEWER_FOLLOW_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action reviewer-heartbeat --follow --terminal none --format json --execution-mode markdown-bridge --auto-promote --follow-interval-seconds 150 --follow-inactivity-timeout-seconds 0"
@@ -122,6 +123,18 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
             "Claude must repoll the bridge, acknowledge the current instruction revision in Claude Ack, and only then continue coding."
         ),
         "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
+    }),
+    ("implementer_state_reset_required", {
+        "guard_behavior": "block_launch",
+        "owner": "codex",
+        "summary": (
+            "Stale implementer bridge state is blocking a fresh launch/recovery cycle."
+        ),
+        "recovery": (
+            "Run the repo-owned implementer-state reset path so stale Claude Status/Ack "
+            "sections are rewritten to `- pending` before the next launch or recovery step."
+        ),
+        "recommended_command": REVIEW_CHANNEL_IMPLEMENTER_RESET_COMMAND,
     }),
     ("bridge_contract_error", {
         "guard_behavior": "block_launch",

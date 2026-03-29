@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
+from ..governance.push_publication import (
+    PublicationBacklogState,
+    publication_guidance_for_action,
+)
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
 
 
@@ -20,6 +24,10 @@ class PushDecisionState:
     next_step_summary: str = ""
     next_step_command: str = ""
     rule_summary: str = ""
+    publication_backlog: PublicationBacklogState = field(
+        default_factory=PublicationBacklogState
+    )
+    publication_guidance: str = ""
     match_evidence: tuple[RuleMatchEvidenceRecord, ...] = ()
     rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...] = ()
 
@@ -41,6 +49,7 @@ class PushDecisionInputs:
     worktree_clean: bool
     review_gate_allows_push: bool
     has_remote_work_to_push: bool
+    publication_backlog: PublicationBacklogState
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +81,13 @@ def project_push_decision(
         next_step_summary=spec.next_step_summary,
         next_step_command=spec.next_step_command,
         rule_summary=spec.rule_summary,
+        publication_backlog=inputs.publication_backlog,
+        publication_guidance=publication_guidance_for_action(
+            inputs.publication_backlog,
+            action=spec.action,
+            push_eligible_now=spec.push_eligible_now,
+            next_step_command=spec.next_step_command,
+        ),
         match_evidence=spec.match_evidence,
         rejected_rule_traces=spec.rejected_rule_traces,
     )

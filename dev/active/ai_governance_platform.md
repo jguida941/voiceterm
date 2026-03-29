@@ -4088,6 +4088,14 @@ working on `MP-377`.
   compatibility projection. The next same-lane work narrows to
   writer/mutation authority, the last bridge-text-only tandem checks, and the
   separate governed-push publish-vs-post-push truth contract.
+- 2026-03-28 publication-cadence closure landed in the same owner chain:
+  governed push cadence is now policy-backed typed runtime state instead of
+  surface-local prose. `PushEnforcement` computes the shared publication
+  backlog once, `PushDecisionState` projects it for operator and AI guidance,
+  and startup plus review/status surfaces now render that same typed result.
+  Keep the next step narrower than a general recovery merge: broader bridge,
+  checkpoint, and review recovery composition should build on top of this
+  contract in a later continuation-decision slice.
 - 2026-03-27 startup-model discoverability follow-up landed: the compiler-
   style governance framing that had been buried here and in local scratch
   notes is now carried by tracked first-hop dev/agent surfaces too.
@@ -4149,6 +4157,14 @@ working on `MP-377`.
   by loose family resemblance. Keep `commands.governance.hygiene` callable
   adapters plus `REPO_ROOT` synchronization marked as bounded compatibility
   debt until that seam has a cleaner long-term shape.
+- 2026-03-28 publication-cadence closure landed in the same `MP-377`
+  authority lane: `repo_governance.push.publication` now declares the backlog
+  thresholds, `PushEnforcement` computes the typed publication state once, and
+  `PushDecisionState` carries the shared guidance so startup, review-channel
+  status, and startup/context renderers stop inventing separate push wording.
+  The next same-lane work stays bounded: broader checkpoint/review/bridge
+  recovery composition should consume this shared cadence contract later
+  instead of widening this first patch into a second recovery state machine.
 - 2026-03-28 docs-check hot-path closure: the governed push replay exposed a
   real `docs-check --since-ref` miss where path-level helpers kept rebuilding
   docs/governance policy for each changed file. The instance fix is a
@@ -5021,6 +5037,16 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-28: Landed the first policy-backed publication-cadence contract in
+  the tracked `MP-377` runtime owner chain. `repo_governance.push.publication`
+  now defines recommendation vs overdue thresholds, `PushEnforcement`
+  computes the publication backlog state once from ahead-of-upstream truth,
+  and `PushDecisionState` projects shared operator guidance that startup,
+  review/status, and startup/context surfaces reuse instead of rebuilding
+  stringly push recommendations independently. The slice stays intentionally
+  narrow: publication cadence is now typed and shared, while broader
+  checkpoint/review/bridge recovery composition remains deferred to the later
+  continuation-decision layer.
 - 2026-03-28: Captured the release-maintenance escape as a first-class
   architecture miss-closure example instead of treating it as one lucky debug
   run. The same slice exposed three concrete system misses: 1) a moved guard
@@ -6906,6 +6932,9 @@ Execution order for this section:
   integrations, AGENTS/memory conversion ideas, and related proof chains.
   They are useful implementation/review companions in this workspace, but the
   tracked plan chain remains the canonical execution authority.
+- `dev/scripts/devctl/governance/push_publication.py`
+- `dev/scripts/devctl/runtime/startup_push_decision.py`
+- `dev/scripts/devctl/review_channel/state.py`
 - `dev/scripts/devctl/platform/contracts.py`
 - `dev/scripts/devctl/platform/blueprint.py`
 - `dev/scripts/devctl/platform/parser.py`

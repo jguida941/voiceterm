@@ -179,6 +179,11 @@ Run this sequence for every task. Do not skip steps.
    Do not replay bootstrap packets into chat by default; keep any chat
    acknowledgement to blocker state plus next step unless the user asks for
    the detailed packet.
+   The compact summary now also surfaces unpublished stack depth
+   (`ahead_of_upstream_commits`) plus governed-push timing guidance when the
+   branch still has remote work to publish, so fresh sessions can answer
+   "when do we push?" without manual `git` inspection or spelunking through
+   typed JSON fields.
    That typed startup receipt now emits a bounded `WorkIntakePacket`
    (selected `PlanTargetRef`, typed continuity, and routing hints), writes a
    managed startup receipt under the repo-owned reports root, and exits

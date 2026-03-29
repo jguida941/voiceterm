@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ..commands.vcs.push_artifact import load_latest_push_report, latest_push_report_relpath
 from ..config import REPO_ROOT
+from .push_publication import build_publication_backlog_state
 from .push_policy import PushCheckpointPolicy, PushPolicy
 
 
@@ -36,6 +37,13 @@ class PushEnforcementSnapshot:
     worktree_dirty: bool
     worktree_clean: bool
     recommended_action: str
+    pending_publication_commits: int | None = None
+    publication_backlog_state: str = "none"
+    publication_backlog_summary: str = ""
+    publication_backlog_recommended: bool = False
+    publication_backlog_urgent: bool = False
+    recommend_after_ahead_commits: int = 2
+    urgent_after_ahead_commits: int = 5
     latest_push_report_path: str = ""
     latest_push_report_branch: str = ""
     latest_push_report_remote: str = ""
@@ -110,6 +118,10 @@ def detect_push_enforcement_state(
         and latest_push_report_matches_current_branch
         and latest_push_report_matches_current_head
     )
+    has_remote_work_to_push = not (
+        recorded_remote_publication_for_current_head
+        or (ahead == 0 and upstream_ref)
+    )
     if checkpoint_required:
         recommended_action = "checkpoint_before_continue"
         checkpoint_reason = _checkpoint_reason(
@@ -124,6 +136,14 @@ def detect_push_enforcement_state(
         recommended_action = "no_push_needed"
     else:
         recommended_action = "use_devctl_push"
+    publication_backlog = build_publication_backlog_state(
+        ahead_of_upstream_commits=ahead,
+        has_remote_work_to_push=has_remote_work_to_push,
+        recommend_after_ahead_commits=(
+            policy.publication.recommend_after_ahead_commits
+        ),
+        urgent_after_ahead_commits=policy.publication.urgent_after_ahead_commits,
+    )
     snapshot = PushEnforcementSnapshot(
         current_branch=current_branch,
         current_head_commit=current_head_commit,
@@ -149,6 +169,15 @@ def detect_push_enforcement_state(
         worktree_dirty=worktree_dirty,
         worktree_clean=worktree_clean,
         recommended_action=recommended_action,
+        pending_publication_commits=publication_backlog.pending_publication_commits,
+        publication_backlog_state=publication_backlog.backlog_state,
+        publication_backlog_summary=publication_backlog.backlog_summary,
+        publication_backlog_recommended=publication_backlog.backlog_recommended,
+        publication_backlog_urgent=publication_backlog.backlog_urgent,
+        recommend_after_ahead_commits=(
+            publication_backlog.recommend_after_ahead_commits
+        ),
+        urgent_after_ahead_commits=publication_backlog.urgent_after_ahead_commits,
         latest_push_report_path=latest_push_report_relpath(repo_root=repo_root),
         latest_push_report_branch=latest_push_report_branch,
         latest_push_report_remote=latest_push_report_remote,

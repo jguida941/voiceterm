@@ -16,6 +16,7 @@ from .current_session_projection import (
     append_current_session_markdown,
     current_focus_line,
 )
+from .projection_markdown import append_push_markdown
 
 
 @dataclass(frozen=True)
@@ -150,6 +151,7 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
     compat = review_state.get("_compat") or {}
     service_identity = compat.get("service_identity")
     attach_auth_policy = compat.get("attach_auth_policy")
+    push_decision = compat.get("push_decision")
     current_focus = current_focus_line(review_state)
     return {
         "schema_version": 1,
@@ -160,6 +162,7 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
         "current_session": current_session,
         "service_identity": service_identity,
         "attach_auth_policy": attach_auth_policy,
+        "push_decision": push_decision,
         "bridge": {
             "last_codex_poll_utc": bridge.get("last_codex_poll_utc"),
             "last_worktree_hash": bridge.get("last_worktree_hash"),
@@ -219,6 +222,8 @@ def _render_latest_markdown(
     runtime = md_compat.get("runtime", {})
     service_identity = md_compat.get("service_identity", {})
     attach_auth_policy = md_compat.get("attach_auth_policy", {})
+    push_enforcement = md_compat.get("push_enforcement", {})
+    push_decision = md_compat.get("push_decision", {})
     agents = agent_registry.get("agents", [])
     packets = review_state.get("packets", [])
     lines = ["# review-channel status", ""]
@@ -252,6 +257,7 @@ def _render_latest_markdown(
         lines.append(f"- status_root: {service_identity.get('status_root') or 'n/a'}")
     append_attach_auth_policy_markdown(lines, attach_auth_policy)
     _append_runtime_markdown(lines, runtime)
+    append_push_markdown(lines, push_enforcement, push_decision)
     append_current_session_markdown(lines, current_session)
     lines.append("")
     lines.append("## Current Instruction")

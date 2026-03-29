@@ -56,6 +56,11 @@
   `ProjectGovernance -> RepoPack -> PlanRegistry -> PlanTargetRef ->
   WorkIntakePacket -> TypedAction -> ActionResult / RunRecord / Finding ->
   ContextPack`.
+- Current same-lane focus inside that `MP-377` execution spec: keep push
+  publication cadence on one typed contract
+  (`PushEnforcement` -> `PushDecisionState`) shared by startup and
+  review/status consumers, then widen into broader continuation/recovery
+  composition only after that cadence lane is validated.
 - Current owner chain for the blocking separation tranche:
 
 | Concern | Owner doc | Why |
@@ -235,6 +240,12 @@
   bounded git/plan/guard/review summary every session. Keep that layer
   generated-only, hash-invalidated, and disposable; canonical authority stays
   in git state, active plans, repo policy, and guard/review outputs.
+- Current startup discoverability follow-up inside that same lane: the compact
+  `startup-context --format summary` and markdown render now also surface
+  unpublished stack depth (`ahead_of_upstream_commits`) plus explicit
+  governed-push timing guidance when local commits are waiting on review or
+  checkpoint clearance, so fresh sessions no longer have to infer "when do we
+  push?" from buried JSON fields or separate `git` inspection.
 - Current checkpoint-scope rule inside that same lane: `context-graph` /
   `ConceptIndex` / ZGraph-compatible outputs may help explain a candidate
   checkpoint by narrowing related plan/check/doc scope around the real diff,

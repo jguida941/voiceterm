@@ -10,6 +10,7 @@ from ..runtime.review_state_semantics import classify_implementer_ack_state
 from ..runtime.review_state_models import ReviewCurrentSessionState
 from .handoff import BridgeSnapshot
 from .handoff_constants import _is_substantive_text
+from .session_state_hints import provider_session_state_hint
 from .status_projection_helpers import clean_section
 
 
@@ -20,6 +21,7 @@ def build_bridge_current_session(
     """Build typed current-session state from bridge sections."""
     implementer_status = _section_text(snapshot, "Claude Status")
     implementer_ack = _section_text(snapshot, "Claude Ack")
+    claude_hint = provider_session_state_hint(dict(bridge_liveness), provider="claude")
     return ReviewCurrentSessionState(
         current_instruction=_section_text(snapshot, "Current Instruction For Claude"),
         current_instruction_revision=str(
@@ -35,6 +37,8 @@ def build_bridge_current_session(
             stale_label="stale",
             is_substantive_text=_is_substantive_text,
         ),
+        implementer_session_state=str(claude_hint.get("state") or ""),
+        implementer_session_hint=str(claude_hint.get("summary") or ""),
         open_findings=_section_text(snapshot, "Open Findings"),
         last_reviewed_scope=_section_text(snapshot, "Last Reviewed Scope"),
     )
@@ -64,6 +68,8 @@ def build_event_current_session(
             stale_label="unknown",
             is_substantive_text=_is_substantive_text,
         ),
+        implementer_session_state="",
+        implementer_session_hint="",
         open_findings=event_open_findings(queue),
         last_reviewed_scope=str(
             _mapping(review_state.get("review")).get("plan_id") or ""
@@ -106,6 +112,11 @@ def append_current_session_markdown(
         "- implementer_ack_state: "
         f"{current_session.get('implementer_ack_state') or 'n/a'}"
     )
+    if current_session.get("implementer_session_state"):
+        lines.append(
+            "- implementer_session_state: "
+            f"{current_session.get('implementer_session_state') or 'n/a'}"
+        )
     lines.append(
         "- last_reviewed_scope: "
         f"{current_session.get('last_reviewed_scope') or 'n/a'}"

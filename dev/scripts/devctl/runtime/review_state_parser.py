@@ -171,6 +171,12 @@ def _current_session_state_from_payload(
                 current_session.get("implementer_ack_state")
             )
             or "unknown",
+            implementer_session_state=_string(
+                current_session.get("implementer_session_state")
+            ),
+            implementer_session_hint=_string(
+                current_session.get("implementer_session_hint")
+            ),
             open_findings=_string(current_session.get("open_findings")),
             last_reviewed_scope=_string(current_session.get("last_reviewed_scope")),
         )
@@ -183,6 +189,8 @@ def _current_session_state_from_payload(
         implementer_ack=implementer_ack,
         implementer_ack_revision=_string(bridge.get("claude_ack_revision")),
         implementer_ack_state=_bridge_ack_state(bridge, implementer_ack),
+        implementer_session_state="",
+        implementer_session_hint="",
         open_findings=_string(bridge.get("open_findings")),
         last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
     )

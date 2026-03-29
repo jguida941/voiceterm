@@ -18,7 +18,7 @@ from typing import Any
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
 from .governance_scan import scan_repo_governance_safely
 from .project_governance import ProjectGovernance
-from .review_state_semantics import is_pending_implementer_state
+from .reviewer_gate_logic import reviewer_loop_block_state
 from .review_state_locator import load_current_review_state
 from .startup_advisory_decision import derive_advisory_decision as _derive_advisory_decision
 from .startup_governance_projection import startup_governance_dict
@@ -131,19 +131,17 @@ def _detect_reviewer_gate_from_typed_state(
                 review_gate_allows_push=True,
             )
 
-        implementation_blocked, implementation_block_reason = (
-            _reviewer_loop_block_state(
-                reviewer_mode=mode,
-                claude_ack_current=state.bridge.claude_ack_current,
-                attention_status=(
-                    str(state.attention.status).strip()
-                    if state.attention is not None
-                    else ""
-                ),
-                implementer_status=state.current_session.implementer_status.strip(),
-                implementer_ack=state.current_session.implementer_ack.strip(),
-                implementer_ack_state=state.current_session.implementer_ack_state.strip(),
-            )
+        implementation_blocked, implementation_block_reason = reviewer_loop_block_state(
+            reviewer_mode=mode,
+            claude_ack_current=state.bridge.claude_ack_current,
+            attention_status=(
+                str(state.attention.status).strip()
+                if state.attention is not None
+                else ""
+            ),
+            implementer_status=state.current_session.implementer_status.strip(),
+            implementer_ack=state.current_session.implementer_ack.strip(),
+            implementer_ack_state=state.current_session.implementer_ack_state.strip(),
         )
 
         return ReviewerGateState(
@@ -189,31 +187,6 @@ def _detect_reviewer_gate_without_typed_state(
     )
 
 
-def _reviewer_loop_block_state(
-    *,
-    reviewer_mode: str,
-    claude_ack_current: bool,
-    attention_status: str = "",
-    implementer_status: str = "",
-    implementer_ack: str = "",
-    implementer_ack_state: str = "",
-) -> tuple[bool, str]:
-    from ..review_channel.peer_liveness import reviewer_mode_is_active
-
-    if not reviewer_mode_is_active(reviewer_mode):
-        return False, ""
-    if claude_ack_current:
-        return False, ""
-    if is_pending_implementer_state(
-        implementer_status=implementer_status,
-        implementer_ack=implementer_ack,
-        implementer_ack_state=implementer_ack_state,
-    ):
-        return False, ""
-    reason = attention_status or "claude_ack_stale"
-    return True, reason
-
-
 def _derive_advisory_action(
     governance: ProjectGovernance,
     gate: ReviewerGateState,
@@ -235,7 +208,12 @@ def build_startup_context(
 
     governance = scan_repo_governance(repo_root)
     gate = _detect_reviewer_gate(repo_root, governance=governance)
-    push_decision = _derive_push_decision(governance, gate)
+    push_decision = _derive_push_decision(
+        governance.push_enforcement,
+        review_gate_allows_push=gate.review_gate_allows_push,
+        implementation_blocked=gate.implementation_blocked,
+        implementation_block_reason=gate.implementation_block_reason,
+    )
     advisory = _derive_advisory_decision(governance, gate)
     work_intake = build_work_intake_packet(
         repo_root=repo_root,

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ..governance.push_publication import (
+    PublicationBacklogState,
+    build_publication_backlog_state,
+)
 from .decision_explainability import rejected_rule_trace, rule_match_evidence
+from .startup_push_publication import publication_backlog_from_push_enforcement
 from .startup_push_models import (
     PushDecisionInputs,
     PushDecisionSpec,
@@ -17,9 +22,7 @@ from .startup_push_recovery import (
 )
 
 if TYPE_CHECKING:
-    from .project_governance import ProjectGovernance
     from .project_governance_push import PushEnforcement
-    from .startup_context import ReviewerGateState
 
 _REVIEW_STATUS_COMMAND = (
     "python3 dev/scripts/devctl.py review-channel --action status "
@@ -29,27 +32,35 @@ _DEVCTL_PUSH_EXECUTE_COMMAND = "python3 dev/scripts/devctl.py push --execute"
 
 
 def derive_push_decision(
-    governance: "ProjectGovernance",
-    gate: "ReviewerGateState",
+    push_enforcement: "PushEnforcement",
+    *,
+    review_gate_allows_push: bool,
+    implementation_blocked: bool,
+    implementation_block_reason: str = "",
 ) -> PushDecisionState:
     """Return the next governed push action for AI-facing startup surfaces."""
-    pe = governance.push_enforcement
-    remote_publication_is_current = artifact_records_current_head_publish(governance)
+    pe = push_enforcement
+    remote_publication_is_current = artifact_records_current_head_publish(pe)
     inputs = PushDecisionInputs(
         worktree_clean=bool(pe.worktree_clean),
-        review_gate_allows_push=bool(gate.review_gate_allows_push),
+        review_gate_allows_push=bool(review_gate_allows_push),
         has_remote_work_to_push=not (
             remote_publication_is_current
             or (pe.upstream_ref and pe.ahead_of_upstream_commits == 0)
         ),
+        publication_backlog=publication_backlog_from_push_enforcement(pe),
     )
     local_readiness = _local_readiness_decision(inputs, pe)
     if local_readiness is not None:
         return local_readiness
-    review_decision = _review_state_decision(inputs, gate)
+    review_decision = _review_state_decision(
+        inputs,
+        implementation_blocked=implementation_blocked,
+        implementation_block_reason=implementation_block_reason,
+    )
     if review_decision is not None:
         return review_decision
-    artifact_recovery = artifact_publication_recovery_decision(inputs, governance)
+    artifact_recovery = artifact_publication_recovery_decision(inputs, pe)
     if artifact_recovery is not None:
         return artifact_recovery
     if not inputs.has_remote_work_to_push:
@@ -205,10 +216,12 @@ def _local_readiness_decision(
 
 def _review_state_decision(
     inputs: PushDecisionInputs,
-    gate: "ReviewerGateState",
+    *,
+    implementation_blocked: bool,
+    implementation_block_reason: str,
 ) -> PushDecisionState | None:
-    if gate.implementation_blocked:
-        block_reason = gate.implementation_block_reason or "reviewer_loop_blocked"
+    if implementation_blocked:
+        block_reason = implementation_block_reason or "reviewer_loop_blocked"
         return _project_push_decision(
             inputs,
             PushDecisionSpec(

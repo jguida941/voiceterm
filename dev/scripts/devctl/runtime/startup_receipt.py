@@ -38,6 +38,11 @@ class StartupReceipt:
     push_eligible_now: bool = False
     push_next_step_summary: str = ""
     push_next_step_command: str = ""
+    publication_backlog_state: str = "none"
+    publication_backlog_summary: str = ""
+    publication_backlog_recommended: bool = False
+    publication_backlog_urgent: bool = False
+    publication_guidance: str = ""
     checkpoint_required: bool = False
     safe_to_continue_editing: bool = True
     startup_authority_ok: bool = False
@@ -113,6 +118,20 @@ def build_startup_receipt(
         push_eligible_now=bool(ctx.push_decision.push_eligible_now),
         push_next_step_summary=str(ctx.push_decision.next_step_summary or "").strip(),
         push_next_step_command=str(ctx.push_decision.next_step_command or "").strip(),
+        publication_backlog_state=(
+            str(ctx.push_decision.publication_backlog.backlog_state or "").strip()
+            or "none"
+        ),
+        publication_backlog_summary=str(
+            ctx.push_decision.publication_backlog.backlog_summary or ""
+        ).strip(),
+        publication_backlog_recommended=bool(
+            ctx.push_decision.publication_backlog.backlog_recommended
+        ),
+        publication_backlog_urgent=bool(
+            ctx.push_decision.publication_backlog.backlog_urgent
+        ),
+        publication_guidance=str(ctx.push_decision.publication_guidance or "").strip(),
         checkpoint_required=bool(push.checkpoint_required) if push is not None else False,
         safe_to_continue_editing=(
             bool(push.safe_to_continue_editing) if push is not None else True
@@ -174,6 +193,19 @@ def startup_receipt_from_mapping(payload: dict[str, object]) -> StartupReceipt:
         push_eligible_now=bool(payload.get("push_eligible_now", False)),
         push_next_step_summary=str(payload.get("push_next_step_summary") or "").strip(),
         push_next_step_command=str(payload.get("push_next_step_command") or "").strip(),
+        publication_backlog_state=(
+            str(payload.get("publication_backlog_state") or "").strip() or "none"
+        ),
+        publication_backlog_summary=str(
+            payload.get("publication_backlog_summary") or ""
+        ).strip(),
+        publication_backlog_recommended=bool(
+            payload.get("publication_backlog_recommended", False)
+        ),
+        publication_backlog_urgent=bool(
+            payload.get("publication_backlog_urgent", False)
+        ),
+        publication_guidance=str(payload.get("publication_guidance") or "").strip(),
         checkpoint_required=bool(payload.get("checkpoint_required", False)),
         safe_to_continue_editing=bool(payload.get("safe_to_continue_editing", True)),
         startup_authority_ok=bool(payload.get("startup_authority_ok", False)),

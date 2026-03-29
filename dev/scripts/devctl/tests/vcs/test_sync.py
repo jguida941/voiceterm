@@ -13,6 +13,7 @@ from dev.scripts.devctl.governance.push_policy import (
     PushPolicy,
     PushPostPushPolicy,
     PushPreflightPolicy,
+    PushPublicationPolicy,
 )
 
 
@@ -47,6 +48,7 @@ def make_policy(**overrides) -> PushPolicy:
         "post_push": PushPostPushPolicy(),
         "bypass": PushBypassPolicy(),
         "checkpoint": PushCheckpointPolicy(),
+        "publication": PushPublicationPolicy(),
     }
     defaults.update(overrides)
     return PushPolicy(**defaults)

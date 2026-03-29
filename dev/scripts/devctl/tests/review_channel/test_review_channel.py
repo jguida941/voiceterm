@@ -5246,6 +5246,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertFalse(
             status_snapshot.bridge_liveness["push_enforcement"]["safe_to_continue_editing"]
         )
+        self.assertEqual(status_snapshot.push_decision["action"], "await_checkpoint")
         self.assertTrue(
             any(
                 "no live repo-owned Codex or Claude conductor sessions are present"
@@ -5259,6 +5260,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
         )
         self.assertTrue(full_payload["push_enforcement"]["raw_git_push_guarded"])
         self.assertTrue(full_payload["push_enforcement"]["pre_push_hook_installed"])
+        self.assertEqual(full_payload["push_decision"]["action"], "await_checkpoint")
         self.assertEqual(
             full_payload["push_enforcement"]["recommended_action"],
             "checkpoint_before_continue",

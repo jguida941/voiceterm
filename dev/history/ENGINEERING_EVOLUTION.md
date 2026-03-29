@@ -229,6 +229,42 @@ Evidence:
 - `dev/active/platform_authority_loop.md`
 - `dev/active/ai_governance_platform.md`
 
+### 2026-03-29 - Startup Step 0 now surfaces unpublished push backlog directly
+
+Fact: the authority-loop/runtime stack already knew whether the branch still
+had remote work to publish, but that signal was effectively buried in typed
+`push_enforcement` / `push_decision` payloads. Fresh sessions could see
+`action`, `reason`, and `next`, but not the unpublished stack depth that told
+them whether local commits were piling up waiting for a governed push.
+
+Change: `startup-context` summary and markdown output now surface
+`ahead_of_upstream_commits` plus explicit governed-push timing guidance when
+local commits are waiting on review/checkpoint clearance, and the underlying
+contract is now policy-backed instead of renderer-only: repo policy owns
+publication thresholds, `PushEnforcement` computes the typed publication
+backlog once, `PushDecisionState` projects that cadence truth, and
+`review-channel status` consumes the same projection in its JSON/markdown
+surfaces.
+
+Why: the system should tell operators and fresh AI sessions "there are local
+commits waiting; push after this gate clears" without manual `git` inspection
+or JSON spelunking. This is the first bounded closure on the active MP-377
+checklist item that called for startup/review status to surface unpublished
+stack depth directly.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/startup_context.py`
+- `dev/scripts/devctl/commands/governance/startup_context_render.py`
+- `dev/scripts/devctl/governance/push_state.py`
+- `dev/scripts/devctl/runtime/startup_push_models.py`
+- `dev/scripts/devctl/runtime/startup_push_decision.py`
+- `dev/scripts/devctl/review_channel/status_bundle.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/README.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/MASTER_PLAN.md`
+
 ### 2026-03-27 - Swarm planning now derives worker roles from typed plan authority instead of static lane lore
 
 Fact: the active `MP-377` owner chain now states the multi-agent execution

@@ -13,27 +13,41 @@ from .startup_push_models import (
 )
 
 if TYPE_CHECKING:
-    from .project_governance import ProjectGovernance
+    from .project_governance_push import PushEnforcement
 
 
-def artifact_records_current_head_publish(governance: "ProjectGovernance") -> bool:
+def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -> bool:
     """Return True when the latest push artifact already proves current-HEAD publication."""
-    pe = governance.push_enforcement
-    current_branch = governance.repo_identity.current_branch
-    artifact_branch_matches = bool(pe.latest_push_report_matches_current_branch)
+    latest_push_report_matches_current_branch = bool(
+        getattr(push_enforcement, "latest_push_report_matches_current_branch", False)
+    )
+    current_branch = str(getattr(push_enforcement, "current_branch", "") or "")
+    latest_push_report_branch = str(
+        getattr(push_enforcement, "latest_push_report_branch", "") or ""
+    )
+    latest_push_report_remote = str(
+        getattr(push_enforcement, "latest_push_report_remote", "") or ""
+    )
+    default_remote = str(getattr(push_enforcement, "default_remote", "") or "")
+    latest_push_report_published_remote = bool(
+        getattr(push_enforcement, "latest_push_report_published_remote", False)
+    )
+    latest_push_report_matches_current_head = bool(
+        getattr(push_enforcement, "latest_push_report_matches_current_head", False)
+    )
+    artifact_branch_matches = latest_push_report_matches_current_branch
     if not artifact_branch_matches:
         artifact_branch_matches = bool(
             current_branch
-            and pe.latest_push_report_branch
-            and current_branch == pe.latest_push_report_branch
+            and latest_push_report_branch
+            and current_branch == latest_push_report_branch
         )
     artifact_remote_matches = (
-        not pe.latest_push_report_remote
-        or pe.latest_push_report_remote == pe.default_remote
+        not latest_push_report_remote or latest_push_report_remote == default_remote
     )
     return bool(
-        pe.latest_push_report_published_remote
-        and pe.latest_push_report_matches_current_head
+        latest_push_report_published_remote
+        and latest_push_report_matches_current_head
         and artifact_branch_matches
         and artifact_remote_matches
     )
@@ -41,19 +55,18 @@ def artifact_records_current_head_publish(governance: "ProjectGovernance") -> bo
 
 def artifact_publication_recovery_decision(
     inputs: PushDecisionInputs,
-    governance: "ProjectGovernance",
+    push_enforcement: "PushEnforcement",
 ) -> PushDecisionState | None:
     """Return a recovery decision when persisted push truth already proves publication."""
-    if not artifact_records_current_head_publish(governance):
+    if not artifact_records_current_head_publish(push_enforcement):
         return None
-    pe = governance.push_enforcement
-    artifact_path = str(pe.latest_push_report_path or "").strip()
+    artifact_path = str(push_enforcement.latest_push_report_path or "").strip()
     artifact_hint = (
         f" Review the latest push artifact at `{artifact_path}` for the current HEAD."
         if artifact_path
         else ""
     )
-    if not pe.latest_push_report_post_push_green:
+    if not push_enforcement.latest_push_report_post_push_green:
         return project_push_decision(
             inputs,
             PushDecisionSpec(
@@ -77,7 +90,7 @@ def artifact_publication_recovery_decision(
                         "the current HEAD.",
                         "worktree_clean=True",
                         "review_gate_allows_push=True",
-                        f"current_head_commit={pe.current_head_commit or '(missing)'}",
+                        f"current_head_commit={push_enforcement.current_head_commit or '(missing)'}",
                         "latest_push_report_published_remote=True",
                         "latest_push_report_post_push_green=False",
                         "latest_push_report_matches_current_head=True",

@@ -172,6 +172,13 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
             "worktree_dirty": False,
             "worktree_clean": True,
             "recommended_action": "use_devctl_push",
+            "pending_publication_commits": 2,
+            "publication_backlog_state": "recommended",
+            "publication_backlog_summary": "2 local commit(s) waiting for governed push.",
+            "publication_backlog_recommended": True,
+            "publication_backlog_urgent": False,
+            "recommend_after_ahead_commits": 2,
+            "urgent_after_ahead_commits": 5,
         },
         "startup_order": ["bootstrap", "guards", "probes"],
         "docs_authority": "AGENTS.md",
@@ -251,6 +258,8 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
     assert gov.push_enforcement.dirty_path_count == 3
     assert gov.push_enforcement.safe_to_continue_editing is True
     assert gov.push_enforcement.worktree_clean is True
+    assert gov.push_enforcement.publication_backlog_state == "recommended"
+    assert gov.push_enforcement.pending_publication_commits == 2
 
     assert gov.startup_order == ("bootstrap", "guards", "probes")
     assert gov.docs_authority == "AGENTS.md"

@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-03-28 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-29 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1402,6 +1402,15 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-03-29 typed push-cadence landed: repo policy now owns publication
+  thresholds, `PushEnforcement` computes the typed publication backlog once,
+  and `PushDecisionState` projects that same cadence truth into
+  `startup-context`, startup receipts, `review-channel status`,
+  `review_state.json`, `full.json`, `compact.json`, and `latest.md`. The next
+  bounded same-lane closure is no longer "teach when to push"; it is the
+  broader typed continuation/recovery composition that can combine cadence,
+  review freshness, bridge recovery, and checkpoint urgency without
+  rebuilding a second push-warning rule tree under MP-355.
 - 2026-03-27 re-audit lock: the next same-lane slice is not "move everything
   somewhere cleaner" and not another prose cleanup. It is three executable
   closures: docs class/scope split, fail-closed fallback removal, and push
@@ -1751,6 +1760,25 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-03-29: Closed the policy-backed typed publication-cadence slice in the
+  active `MP-377` authority-loop lane. Repo policy now owns backlog thresholds
+  (`recommend_after_ahead_commits`, `urgent_after_ahead_commits`),
+  `PushEnforcement` computes publication backlog state/summary once, and
+  `PushDecisionState` carries that same cadence contract into startup and
+  live review/status consumers instead of leaving push timing on
+  `recommended_action` strings or render-only prose. Startup Step 0,
+  bootstrap/context surfaces, startup receipts, and bridge-backed
+  `review-channel status` projections now read the same typed cadence truth.
+- 2026-03-29: Closed the next startup/push discoverability gap in the active
+  `MP-377` authority-loop lane. `startup-context` human-facing summary and
+  markdown output now surface unpublished stack depth
+  (`ahead_of_upstream_commits`) plus explicit governed-push timing guidance
+  when local commits are waiting on review/checkpoint clearance, so fresh AI
+  or operator sessions no longer have to infer "when do we push?" from buried
+  JSON fields or manual `git` inspection. This is the first narrow closure on
+  the plan item that called for startup/review status to expose unpublished
+  stack depth and bounded-slice recommendation; broader runtime attention
+  escalation is still open.
 - 2026-03-29: Closed one bounded `MP-377` / `MP-355` compatibility-projection
   leak without widening authority claims. Bridge-backed status projection now
   emits a typed `bridge_projection` payload and the repo-owned

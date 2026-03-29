@@ -341,6 +341,39 @@ class TestCLIRegistration(unittest.TestCase):
             rendered,
         )
 
+    def test_markdown_surfaces_publication_backlog_when_commits_are_waiting(self) -> None:
+        rendered = _render_markdown(
+            {
+                "advisory_action": "await_review",
+                "advisory_reason": "review_pending_before_push",
+                "reviewer_gate": {},
+                "governance": {
+                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "push_enforcement": {
+                        "worktree_dirty": False,
+                        "worktree_clean": True,
+                        "ahead_of_upstream_commits": 3,
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                        "recommended_action": "use_devctl_push",
+                    },
+                },
+                "push_decision": {
+                    "action": "await_review",
+                    "reason": "review_pending_before_push",
+                    "push_eligible_now": False,
+                    "has_remote_work_to_push": True,
+                    "next_step_summary": "Wait for review acceptance before push.",
+                },
+            }
+        )
+
+        self.assertIn("ahead_of_upstream_commits: 3", rendered)
+        self.assertIn(
+            "publication_backlog: 3 local commit(s) waiting for governed push once review is accepted.",
+            rendered,
+        )
+
     def test_push_decision_recovers_remote_published_post_push_failure_for_current_head(
         self,
     ) -> None:
@@ -366,11 +399,9 @@ class TestCLIRegistration(unittest.TestCase):
         )
 
         decision = _derive_push_decision(
-            governance,
-            ReviewerGateState(
-                review_accepted=True,
-                review_gate_allows_push=True,
-            ),
+            governance.push_enforcement,
+            review_gate_allows_push=True,
+            implementation_blocked=False,
         )
 
         self.assertEqual(decision.action, "no_push_needed")
@@ -439,6 +470,38 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("blockers=startup_authority,checkpoint_required", rendered)
         self.assertIn(
             "next=checkpoint current slice, then rerun python3 dev/scripts/devctl.py startup-context --format summary",
+            rendered,
+        )
+
+    def test_summary_surfaces_push_backlog_when_remote_work_is_waiting(self) -> None:
+        rendered = _render_summary(
+            {
+                "advisory_action": "await_review",
+                "advisory_reason": "review_pending_before_push",
+                "reviewer_gate": {
+                    "implementation_blocked": True,
+                    "implementation_block_reason": "claude_ack_stale",
+                },
+                "startup_authority": {"ok": True},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                        "ahead_of_upstream_commits": 2,
+                    }
+                },
+                "push_decision": {
+                    "action": "await_review",
+                    "has_remote_work_to_push": True,
+                    "push_eligible_now": False,
+                    "next_step_command": "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+                },
+            }
+        )
+
+        self.assertIn("ahead_of_upstream_commits=2", rendered)
+        self.assertIn(
+            "push_guidance=2 local commit(s) waiting for governed push once review is accepted.",
             rendered,
         )
 
@@ -695,7 +758,12 @@ class TestAdvisoryAction(unittest.TestCase):
     def test_push_decision_requires_checkpoint_when_worktree_dirty(self) -> None:
         gov = _minimal_governance(worktree_clean=False, worktree_dirty=True)
         gate = ReviewerGateState(review_gate_allows_push=False)
-        decision = _derive_push_decision(gov, gate)
+        decision = _derive_push_decision(
+            gov.push_enforcement,
+            review_gate_allows_push=gate.review_gate_allows_push,
+            implementation_blocked=gate.implementation_blocked,
+            implementation_block_reason=gate.implementation_block_reason,
+        )
         self.assertEqual(decision.action, "await_checkpoint")
         self.assertFalse(decision.push_eligible_now)
         self.assertIn("checkpoint", decision.next_step_summary.lower())
@@ -703,7 +771,12 @@ class TestAdvisoryAction(unittest.TestCase):
     def test_push_decision_waits_for_review_when_clean_but_unaccepted(self) -> None:
         gov = _minimal_governance(worktree_clean=True, worktree_dirty=False)
         gate = ReviewerGateState(review_gate_allows_push=False)
-        decision = _derive_push_decision(gov, gate)
+        decision = _derive_push_decision(
+            gov.push_enforcement,
+            review_gate_allows_push=gate.review_gate_allows_push,
+            implementation_blocked=gate.implementation_blocked,
+            implementation_block_reason=gate.implementation_block_reason,
+        )
         self.assertEqual(decision.action, "await_review")
         self.assertEqual(decision.reason, "review_pending_before_push")
         self.assertEqual(
@@ -720,13 +793,19 @@ class TestAdvisoryAction(unittest.TestCase):
             upstream_ref="origin/feature/test",
         )
         gate = ReviewerGateState(review_gate_allows_push=True)
-        decision = _derive_push_decision(gov, gate)
+        decision = _derive_push_decision(
+            gov.push_enforcement,
+            review_gate_allows_push=gate.review_gate_allows_push,
+            implementation_blocked=gate.implementation_blocked,
+            implementation_block_reason=gate.implementation_block_reason,
+        )
         self.assertEqual(decision.action, "run_devctl_push")
         self.assertTrue(decision.push_eligible_now)
         self.assertEqual(
             decision.next_step_command,
             "python3 dev/scripts/devctl.py push --execute",
         )
+        self.assertEqual(decision.publication_backlog.backlog_state, "queued")
 
     def test_reviewer_loop_blocked(self) -> None:
         gov = _minimal_governance()

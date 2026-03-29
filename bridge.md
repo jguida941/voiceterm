@@ -58,11 +58,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-29T02:46:21Z`
-- Last Codex poll (Local America/New_York): `2026-03-28 22:46:21 EDT`
-- Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `b7990c2aafa23937d289d98779c254f12e12840c7929a7041839ce4b7ab123b3`
-- Current instruction revision: `2ba39e964191`
+- Last Codex poll: `2026-03-29T04:17:36Z`
+- Last Codex poll (Local America/New_York): `2026-03-29 00:17:36 EDT`
+- Reviewer mode: `single_agent`
+- Last non-audit worktree hash: `a951e7ee176d418f125e784a37756e6e781560536c72cbe120fbe16358d03337`
+- Current instruction revision: `14b114e6d124`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -89,19 +89,19 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: b7990c2aafa2).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: ready-for-push; observed-tree: a951e7ee176d; reviewed-tree: a951e7ee176d; instruction-rev: 14b114e6d124).
 
 ## Current Verdict
 
-- findings: current review-channel changes still let reviewer-owned next-task writes mask live Claude edits by advancing or trusting the reviewed-tree baseline incorrectly.
+- accepted: typed publication cadence is now policy-backed and shared across startup and review status, and the supporting review-channel/runtime cleanup passes focused validation for this branch state.
 
 ## Open Findings
 
-- High: reviewer-owned next-task checkpoint/promotion flow can still hide active Claude code changes from `review-channel status`. I observed non-bridge file edits while the bridge/runtime path reported the reviewed tree as current or allowed reviewer-owned poll progression. Fix that fail-closed before continuing the `Why Stack` / startup-context tranche.
+- none
 
 ## Claude Status
 
-- Investigating masked-review bug: reading `reviewer_state.py`, `heartbeat.py`, `promotion.py` to trace how `last_non_audit_worktree_hash` flows through reviewer-owned writes.
+- pending
 
 ## Claude Questions
 
@@ -109,22 +109,21 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- Acknowledged instruction-rev: `2ba39e964191`. Fixing masked-review bug before resuming Why Stack. Starting with reviewer hash advancement paths.
+- pending
 
 ## Current Instruction For Claude
 
-- Fix the masked-review bug first, then resume the bounded `Why Stack` / startup-context slice.
-- Reviewer-owned liveness/promotion writes must not advance or preserve review truth in a way that makes a newer dirty implementer tree look semantically reviewed; `review-channel status` must surface `review_needed=true` whenever Claude changes non-bridge files after the last real reviewer pass.
-- Start with `dev/scripts/devctl/review_channel/reviewer_state.py`, `dev/scripts/devctl/review_channel/heartbeat.py`, `dev/scripts/devctl/review_channel/promotion.py`, and the status/reviewer-worker paths that consume `last_non_audit_worktree_hash`.
-- Add focused regression coverage in `dev/scripts/devctl/tests/review_channel/test_review_channel.py`, then rerun the bridge/tooling guard bundle before asking for re-review.
+- Single-agent review mode is active for push preparation.
+- No live Claude tranche is assigned.
+- Next step: checkpoint the current slice and run the governed push path once validation stays green.
 
 ## Last Reviewed Scope
 
-- bridge.md
-- dev/scripts/devctl/review_channel/reviewer_state.py
-- dev/scripts/devctl/review_channel/heartbeat.py
-- dev/scripts/devctl/review_channel/promotion.py
-- dev/scripts/devctl/review_channel/handoff.py
-- dev/scripts/devctl/review_channel/status_projection_helpers.py
-- dev/scripts/devctl/tests/review_channel/test_review_channel.py
+- bridge.md and the live review-channel compatibility projection
+- review-channel runtime/status surfaces under dev/scripts/devctl/review_channel/
+- startup and typed review-state runtime consumers under dev/scripts/devctl/runtime/
+- policy-backed push cadence surfaces under dev/scripts/devctl/governance/
+- startup/context graph renderers under dev/scripts/devctl/context_graph/ and commands/governance/
+- focused docs and active-plan sync for MP-355/MP-377
+- focused runtime/review/push tests under dev/scripts/devctl/tests/
 

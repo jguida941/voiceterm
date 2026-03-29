@@ -308,7 +308,10 @@ Three quality layers matter in practice:
     continuity, or remembered prior state are not substitutes for that
     receipt. Chat bootstrap acknowledgements should stay concise by default:
     blocker state plus next step, with detailed packet inspection left to the
-    repo-owned artifacts or terminal output. The slim
+    repo-owned artifacts or terminal output. That same compact summary now
+    also surfaces unpublished stack depth (`ahead_of_upstream_commits`) plus
+    governed-push timing guidance when local commits are waiting on review or
+    checkpoint clearance. The slim
     `context-graph --mode bootstrap` helper following as the bounded graph
     companion. That same graph now emits first-pass `guards` / `scoped_by`
     relation families, so targeted

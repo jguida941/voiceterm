@@ -15,6 +15,7 @@ from dev.scripts.devctl.governance.push_policy import (
     PushPolicy,
     PushPostPushPolicy,
     PushPreflightPolicy,
+    PushPublicationPolicy,
     detect_push_enforcement_state,
 )
 
@@ -49,6 +50,7 @@ def make_policy(**overrides) -> PushPolicy:
         "post_push": PushPostPushPolicy(),
         "bypass": PushBypassPolicy(),
         "checkpoint": PushCheckpointPolicy(),
+        "publication": PushPublicationPolicy(),
     }
     values.update(overrides)
     return PushPolicy(
@@ -64,6 +66,7 @@ def make_policy(**overrides) -> PushPolicy:
         post_push=values["post_push"],
         bypass=values["bypass"],
         checkpoint=values["checkpoint"],
+        publication=values["publication"],
     )
 
 
@@ -134,6 +137,7 @@ class PushCommandTests(unittest.TestCase):
         self.assertFalse(state["safe_to_continue_editing"])
         self.assertEqual(state["recommended_action"], "checkpoint_before_continue")
         self.assertEqual(state["checkpoint_reason"], "dirty_path_budget_exceeded")
+        self.assertEqual(state["publication_backlog_state"], "none")
 
     @patch(
         "dev.scripts.devctl.governance.push_state._git_stdout",
@@ -163,6 +167,7 @@ class PushCommandTests(unittest.TestCase):
         self.assertTrue(state["safe_to_continue_editing"])
         self.assertEqual(state["recommended_action"], "commit_before_push")
         self.assertEqual(state["checkpoint_reason"], "within_dirty_budget")
+        self.assertEqual(state["publication_backlog_state"], "none")
 
     @patch(
         "dev.scripts.devctl.governance.push_state._git_stdout",
@@ -192,6 +197,8 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(state["dirty_path_count"], 0)
         self.assertEqual(state["untracked_path_count"], 0)
         self.assertEqual(state["recommended_action"], "use_devctl_push")
+        self.assertEqual(state["publication_backlog_state"], "recommended")
+        self.assertEqual(state["pending_publication_commits"], 2)
 
     @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
@@ -238,6 +245,7 @@ class PushCommandTests(unittest.TestCase):
         state = detect_push_enforcement_state(make_policy())
 
         self.assertEqual(state["recommended_action"], "no_push_needed")
+        self.assertEqual(state["publication_backlog_state"], "none")
         self.assertTrue(state["latest_push_report_matches_current_head"])
         self.assertTrue(state["latest_push_report_matches_current_branch"])
 

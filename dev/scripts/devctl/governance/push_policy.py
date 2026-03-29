@@ -18,6 +18,7 @@ from .push_policy_parse import (
     _parse_checkpoint_policy,
     _parse_post_push_policy,
     _parse_preflight_policy,
+    _parse_publication_policy,
     _resolve_repo_pack_id,
 )
 from .push_routing import build_preflight_shell_command, resolve_preflight_since_ref
@@ -66,6 +67,14 @@ class PushCheckpointPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class PushPublicationPolicy:
+    """Policy-backed thresholds for unpublished local branch backlog."""
+
+    recommend_after_ahead_commits: int = 2
+    urgent_after_ahead_commits: int = 5
+
+
+@dataclass(frozen=True, slots=True)
 class PushPolicy:
     """Resolved repo-owned push governance policy."""
 
@@ -81,6 +90,7 @@ class PushPolicy:
     post_push: PushPostPushPolicy
     bypass: PushBypassPolicy
     checkpoint: PushCheckpointPolicy
+    publication: PushPublicationPolicy
 
 
 def load_push_policy(
@@ -146,6 +156,10 @@ def push_policy_from_payload(
         push_payload.get("checkpoint"),
         warning_list,
     )
+    publication = _parse_publication_policy(
+        push_payload.get("publication"),
+        warning_list,
+    )
     repo_pack_id = _resolve_repo_pack_id(payload, repo_root=repo_root)
     return PushPolicy(
         policy_path=resolved_policy_path,
@@ -160,6 +174,7 @@ def push_policy_from_payload(
         post_push=post_push,
         bypass=bypass,
         checkpoint=checkpoint,
+        publication=publication,
     )
 
 
@@ -193,6 +208,12 @@ def build_push_command_routing_defaults(policy: PushPolicy) -> dict[str, object]
         ),
         "advisory_context_paths": list(policy.checkpoint.advisory_context_paths),
     }
+    push_defaults["publication"] = {
+        "recommend_after_ahead_commits": (
+            policy.publication.recommend_after_ahead_commits
+        ),
+        "urgent_after_ahead_commits": policy.publication.urgent_after_ahead_commits,
+    }
     return {"push": push_defaults}
 
 
@@ -225,5 +246,4 @@ def build_post_push_commands(
         )
         for command in commands
     ]
-
 

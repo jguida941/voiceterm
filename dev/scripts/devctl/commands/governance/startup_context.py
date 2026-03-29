@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from ...common_io import display_path
 from ...common import add_standard_output_arguments
-from .startup_context_render import render_markdown as _render_markdown
+from .startup_context_render import (
+    publication_backlog_count,
+    publication_backlog_guidance,
+    render_markdown as _render_markdown,
+)
 from ...runtime.machine_output import (
     ArtifactOutputOptions,
     emit_machine_artifact_output,
@@ -71,14 +75,19 @@ def _summary_next_command(ctx_dict: dict) -> str:
 def _render_summary(ctx_dict: dict) -> str:
     action = str(ctx_dict.get("advisory_action") or "").strip() or "unknown"
     reason = str(ctx_dict.get("advisory_reason") or "").strip() or "unknown"
-    return "\n".join(
-        (
-            f"action={action}",
-            f"reason={reason}",
-            f"blockers={_summary_blockers(ctx_dict)}",
-            f"next={_summary_next_command(ctx_dict)}",
-        )
-    )
+    lines = [
+        f"action={action}",
+        f"reason={reason}",
+        f"blockers={_summary_blockers(ctx_dict)}",
+        f"next={_summary_next_command(ctx_dict)}",
+    ]
+    ahead = publication_backlog_count(ctx_dict)
+    if ahead is not None and ahead > 0:
+        lines.append(f"ahead_of_upstream_commits={ahead}")
+    backlog_guidance = publication_backlog_guidance(ctx_dict)
+    if backlog_guidance:
+        lines.append(f"push_guidance={backlog_guidance.replace('`', '')}")
+    return "\n".join(lines)
 
 
 def add_parser(subparsers) -> None:
@@ -142,6 +151,16 @@ def _machine_summary(
     summary["push_eligible_now"] = bool(ctx.push_decision.push_eligible_now)
     summary["push_action"] = ctx.push_decision.action
     summary["push_next_step_command"] = ctx.push_decision.next_step_command
+    summary["publication_backlog_state"] = (
+        ctx.push_decision.publication_backlog.backlog_state
+    )
+    summary["publication_backlog_recommended"] = bool(
+        ctx.push_decision.publication_backlog.backlog_recommended
+    )
+    summary["publication_backlog_urgent"] = bool(
+        ctx.push_decision.publication_backlog.backlog_urgent
+    )
+    summary["publication_guidance"] = ctx.push_decision.publication_guidance
     summary["startup_authority_ok"] = bool(authority_report.get("ok", False))
     summary["startup_receipt_path"] = startup_receipt_path
     return summary
