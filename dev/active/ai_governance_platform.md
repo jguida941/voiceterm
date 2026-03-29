@@ -2468,7 +2468,7 @@ Still open before `P0` closes:
 - [x] Write one durable maintainable architecture/thesis/flowchart guide for
       the reusable platform so the product direction is not trapped in active
       plan notes or chat history alone.
-- [ ] Generate one bounded repo/product thesis starter (`Why Stack`) that
+- [x] Generate one bounded repo/product thesis starter (`Why Stack`) that
       `startup-context` reads before SOP/router detail: in roughly 300-500
       tokens it must state the product mission, proof obligation, platform
       boundaries, and the current priority so fresh AI sessions stop learning
@@ -4184,6 +4184,23 @@ working on `MP-377`.
   markdown output. This completes the ratchet path described in `MASTER_PLAN`
   2026-03-27: truthful baseline-debt reporting now drives hard enforcement on
   the primary self-hosting hotspot.
+- 2026-03-29 package-layout dirty-diff refinement: the first live
+  review-channel conductor run after that ratchet showed a narrower workflow
+  bug. Filtered `--fail-on-baseline-debt` was still hard-failing dirty
+  worktrees whose changed paths did not touch the targeted root, which made
+  bridge-only/local tooling loops look permanently red on unrelated debt.
+  The guard now preserves clean-worktree/adoption-scan hard enforcement for
+  selected roots, but filtered dirty working-tree and commit-range runs only
+  block when the current diff actually touches the targeted root. That keeps
+  the `dev/scripts/devctl/commands` convergence rule meaningful without
+  collapsing all non-command tooling passes into repo-wide debt failures.
+- 2026-03-29 startup thesis bootstrap landed: `startup-context` now renders a
+  bounded `## Why Stack` section from `dev/config/why_stack.md` before
+  SOP/router detail, so fresh sessions see the product mission, proof
+  obligation, platform boundaries, and current priority before descending
+  into process. The next same-lane closure stays narrow: keep generated
+  bootstrap surfaces carrying that same client-vs-core boundary explicitly
+  instead of implying it from one repo's defaults.
 - 2026-03-27 scope-capture follow-up: preserve the external architecture
   intake in repo-visible plan state instead of letting it live only in chat or
   ad hoc markdown. The same-lane additions are now explicit: keep
@@ -5049,6 +5066,15 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-29: Closed the bounded startup-thesis checklist item for `MP-377`.
+  `dev/config/why_stack.md` now feeds `startup-context` with a concise
+  repo/product thesis ahead of SOP/router detail, and the rendered startup
+  packet shows those four required commitments (`Mission`,
+  `Proof obligation`, `Platform boundaries`, `Current priority`) before the
+  task router and guard inventory. The remaining follow-up is deliberately
+  smaller than a general startup rewrite: keep the generated bootstrap and
+  starter surfaces explicit about the client-vs-core boundary so other repos
+  inherit the platform thesis without inheriting VoiceTerm identity.
 - 2026-03-28: Landed the first policy-backed publication-cadence contract in
   the tracked `MP-377` runtime owner chain. `repo_governance.push.publication`
   now defines recommendation vs overdue thresholds, `PushEnforcement`

@@ -91,7 +91,8 @@ def render_starter_setup_guide(
             "## Truthful Scope",
             "",
             "- The portable quality engine is ready for Python and Rust repos.",
-            "- Higher-level VoiceTerm control-plane helpers such as Ralph, mutation loops, and host-process hygiene are still more repo-local than the core guard/probe engine.",
+            "- Higher-level control-plane helpers (mutation loops, host-process hygiene, operator-console automation) are still repo-local to the originating project and not yet part of the portable core.",
+            f"- This repo (`{repo_root.name}`) is one adopter/client of the portable governance platform. Each adopting repo must supply its own product name, project summary, and repo identity through repo-pack metadata instead of inheriting defaults from any other project.",
         ]
     )
     return "\n".join(lines) + "\n"

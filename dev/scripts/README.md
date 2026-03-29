@@ -68,7 +68,10 @@ because no new flat file was added in the current edit. The
 `--fail-on-baseline-debt` flag promotes baseline debt to a hard failure; the
 optional `--baseline-debt-root` filter scopes enforcement to specific
 directories (the tooling and release bundles currently enforce
-`dev/scripts/devctl/commands`). Repo policy can also ratchet known crowded
+`dev/scripts/devctl/commands`). When filtered roots are supplied, dirty
+working-tree and commit-range runs only hard-fail if the current diff touches
+one of those roots; clean-worktree and adoption-scan runs still enforce the
+selected roots globally. Repo policy can also ratchet known crowded
 roots/families from `freeze` to `strict` when a self-hosting repo needs
 touched flat-root files to stop behaving like normal healthy edits. The same report now also emits `compatibility_redirects` from
 valid `shim-target` metadata so agents can follow moved entrypoints through

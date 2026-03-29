@@ -56,7 +56,12 @@ Package-layout truth rule:
   not confuse "no new drift in this edit" with "the layout is healthy." When
   compatibility shims carry `shim-target`, keep the emitted
   `compatibility_redirects` map truthful too so agents can see where moved
-  entrypoints now resolve without guessing from stale paths.
+  entrypoints now resolve without guessing from stale paths. When
+  `--fail-on-baseline-debt` is scoped with `--baseline-debt-root`, dirty
+  working-tree and commit-range runs should only hard-fail when the current
+  diff touches one of those selected roots; clean-worktree and adoption-scan
+  runs still enforce the targeted roots globally so release/self-hosting truth
+  does not silently degrade.
 
 Top-level enforcement rule: every time an agent creates a file or edits an
 existing file, it must run the relevant repo guard/check scripts before

@@ -37,6 +37,10 @@ required.
 - Treat this repo's product files as one adopter/client over a portable
   governance platform unless the active plan explicitly scopes the work to a
   repo-pack or product-integration surface.
+- The product identity rendered in this file (`{{product_name}}`) comes from
+  repo-pack metadata. Each adopting repo must supply its own product name,
+  project summary, and repo identity; the portable governance platform does
+  not assume or inherit any particular client's defaults.
 - In shared governance/runtime/startup/review-channel code, resolve repo-local
   paths, plan docs, and bridge surfaces through `startup-context`,
   `ProjectGovernance`, repo-pack policy, or typed runtime state. Do not

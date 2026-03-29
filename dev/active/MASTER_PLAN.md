@@ -570,6 +570,13 @@
   deps` through every call site. Further reduction requires either bundling
   those 4 params into a context object (cascading into `_ensure_supervisor`)
   or accepting the structural minimum for typed data-bridge code.
+- 2026-03-29 startup thesis bootstrap closure: `startup-context` now renders a
+  bounded `## Why Stack` section from `dev/config/why_stack.md` before the
+  SOP/router detail, so fresh sessions see the product mission, proof
+  obligation, platform boundaries, and current priority before process-heavy
+  guidance. The next same-lane follow-up stays scoped to generated bootstrap
+  surfaces: make the client-vs-core boundary equally explicit in starter
+  instructions/docs instead of implying it from VoiceTerm defaults.
 - 2026-03-29 package-layout baseline-debt enforcement closure: the
   `check_package_layout` guard now supports `--fail-on-baseline-debt` with
   optional `--baseline-debt-root` filtering, promoting detected baseline debt
@@ -581,6 +588,15 @@
   closes the ratchet path described in the 2026-03-27 entry: truthful
   baseline-debt reporting now drives hard enforcement on the targeted
   self-hosting hotspot.
+- 2026-03-29 package-layout dirty-diff follow-up: the first live conductor
+  pass exposed that the new `--fail-on-baseline-debt --baseline-debt-root`
+  ratchet was too coarse for local tooling/reviewer loops because it failed
+  unrelated dirty worktrees such as bridge-only edits. The guard now keeps
+  clean-worktree/adoption-scan enforcement unchanged, but filtered dirty
+  working-tree and commit-range runs only hard-fail when the current diff
+  actually touches the targeted root. That preserves the `dev/scripts/devctl/commands`
+  convergence ratchet for touched hotspot edits without making every local
+  tooling pass permanently red on pre-existing baseline debt.
 - 2026-03-27 package-layout self-hosting validation follow-up: the recent
   rule-loading extraction into
   `dev/scripts/checks/package_layout/rule_resolution.py` kept the runtime

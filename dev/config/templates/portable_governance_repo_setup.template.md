@@ -83,6 +83,8 @@ python3 dev/scripts/devctl.py probe-report --adoption-scan --format md
 ## Truthful Scope
 
 The portable quality engine is ready for Python and Rust repos.
-Higher-level VoiceTerm-specific workflow helpers such as Ralph, mutation, and
-process-hygiene automation still need further extraction before the full
-control plane is repo-agnostic.
+Higher-level control-plane helpers (mutation loops, host-process hygiene,
+operator-console automation) are still repo-local to the originating project
+and not yet part of the portable core. Each adopting repo must configure its
+own product identity through repo-pack metadata instead of inheriting defaults
+from any particular first-party client.

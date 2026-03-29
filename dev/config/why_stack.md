@@ -1,3 +1,7 @@
+This is the product thesis for the governance stack in this repository.
+Absorb these four commitments before engaging with SOP, guard, routing,
+or plan detail — they explain why the process exists.
+
 This repo builds a portable AI governance platform proven through one
 production client (VoiceTerm, a Rust voice-first terminal overlay for AI
 CLIs). The product thesis is that executable local control — guards,

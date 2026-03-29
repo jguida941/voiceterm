@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+from pathlib import Path
 import unittest
 from contextlib import redirect_stdout
 from types import SimpleNamespace
@@ -230,7 +231,10 @@ class BaselineDebtEnforcementTests(unittest.TestCase):
         _mock_flat_root,
         _mock_changed_paths,
         _mock_validate_ref,
+        *,
+        changed_paths: list[Path] | None = None,
     ):
+        _mock_changed_paths.return_value = [] if changed_paths is None else changed_paths
         mock_crowding.return_value = ([], self._CROWDED_DIRS, 0)
         mock_namespace.return_value = ([], self._CROWDED_FAMILIES, 0)
 
@@ -280,6 +284,41 @@ class BaselineDebtEnforcementTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertFalse(payload["baseline_debt_enforced"])
         self.assertNotIn("enforced_crowded_directories", payload)
+
+    def test_targeted_root_passes_when_changed_paths_do_not_touch_root(self) -> None:
+        args = SimpleNamespace(
+            since_ref=None,
+            head_ref="HEAD",
+            format="json",
+            fail_on_baseline_debt=True,
+            baseline_debt_roots=["dev/scripts/devctl/commands"],
+        )
+        rc, payload = self._run_main(args, changed_paths=[Path("bridge.md")])
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["baseline_debt_enforced"])
+        self.assertNotIn("enforced_crowded_directories", payload)
+
+    def test_targeted_root_fails_when_changed_paths_touch_root(self) -> None:
+        args = SimpleNamespace(
+            since_ref=None,
+            head_ref="HEAD",
+            format="json",
+            fail_on_baseline_debt=True,
+            baseline_debt_roots=["dev/scripts/devctl/commands"],
+        )
+        rc, payload = self._run_main(
+            args,
+            changed_paths=[Path("dev/scripts/devctl/commands/review_channel/ensure.py")],
+        )
+
+        self.assertEqual(rc, 1)
+        self.assertFalse(payload["ok"])
+        self.assertTrue(payload["baseline_debt_enforced"])
+        enforced_dirs = payload.get("enforced_crowded_directories", [])
+        self.assertEqual(len(enforced_dirs), 1)
+        self.assertEqual(enforced_dirs[0]["root"], "dev/scripts/devctl/commands")
 
     def test_flag_disabled_passes_even_with_debt(self) -> None:
         args = SimpleNamespace(

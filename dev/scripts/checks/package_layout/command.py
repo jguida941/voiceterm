@@ -37,6 +37,14 @@ collect_compatibility_redirects = import_attr(
     "package_layout.compatibility_redirects",
     "collect_compatibility_redirects",
 )
+resolve_baseline_debt_enforcement = import_attr(
+    "package_layout.baseline_debt",
+    "resolve_baseline_debt_enforcement",
+)
+BaselineDebtSnapshot = import_attr(
+    "package_layout.baseline_debt",
+    "BaselineDebtSnapshot",
+)
 collect_namespace_docs_sync_violations = import_attr(
     "package_layout.support",
     "collect_namespace_docs_sync_violations",
@@ -65,21 +73,6 @@ def _layout_status(*, violations: list[dict], crowded_directories: list[dict], c
     if crowded_directories or crowded_namespace_families:
         return "baseline_debt_detected"
     return "clean"
-
-
-def _filter_baseline_debt_by_roots(
-    crowded_directories: list[dict],
-    crowded_namespace_families: list[dict],
-    roots: list[str],
-) -> tuple[list[dict], list[dict]]:
-    """Return only crowded entries whose root matches one of the filter roots."""
-    filtered_dirs = [
-        d for d in crowded_directories if d["root"] in roots
-    ]
-    filtered_families = [
-        f for f in crowded_namespace_families if f["root"] in roots
-    ]
-    return filtered_dirs, filtered_families
 
 
 def _render_md(report: dict) -> str:
@@ -282,19 +275,20 @@ def main() -> int:
     baseline_debt_enforced = False
     enforced_dirs: list[dict] = []
     enforced_families: list[dict] = []
-    fail_on_baseline_debt = getattr(args, "fail_on_baseline_debt", False)
-    baseline_debt_roots = getattr(args, "baseline_debt_roots", None)
-    if fail_on_baseline_debt and baseline_layout_debt_detected:
-        if baseline_debt_roots:
-            enforced_dirs, enforced_families = _filter_baseline_debt_by_roots(
-                crowded_directories,
-                crowded_namespace_families,
-                baseline_debt_roots,
-            )
-        else:
-            enforced_dirs = crowded_directories
-            enforced_families = crowded_namespace_families
-        baseline_debt_enforced = bool(enforced_dirs or enforced_families)
+    baseline_snapshot = BaselineDebtSnapshot(
+        detected=baseline_layout_debt_detected,
+        roots=getattr(args, "baseline_debt_roots", None),
+        crowded_directories=crowded_directories,
+        crowded_namespace_families=crowded_namespace_families,
+    )
+    baseline_debt_enforced, enforced_dirs, enforced_families = (
+        resolve_baseline_debt_enforcement(
+            repo_root=REPO_ROOT,
+            changed_paths=changed_paths,
+            fail_on_baseline_debt=getattr(args, "fail_on_baseline_debt", False),
+            snapshot=baseline_snapshot,
+        )
+    )
 
     ok = len(violations) == 0 and not baseline_debt_enforced
     report = {

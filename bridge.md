@@ -58,11 +58,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-29T07:10:26Z`
-- Last Codex poll (Local America/New_York): `2026-03-29 03:10:26 EDT`
+- Last Codex poll: `2026-03-29T14:02:46Z`
+- Last Codex poll (Local America/New_York): `2026-03-29 10:02:46 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `417abb851ff93270fbf0e92ce6a626c8c6e93ef88f585adc4dc39ff05c30818b`
-- Current instruction revision: `95c824d94f45`
+- Last non-audit worktree hash: `71414f7dfd27ed4ba790c8268abe3c7ec38fba4925dfac11d5bfde5b45e42926`
+- Current instruction revision: `1e8ab745422c`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -89,47 +89,48 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 417abb851ff9).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-accepted; observed-tree: 71414f7dfd27; reviewed-tree: 71414f7dfd27; instruction-rev: 1e8ab745422c).
 
 ## Current Verdict
 
-- review requested: Claude's `ensure` helper extraction improved the shape of the code and closed the maintainer-doc gap, but this commit is still not ready to accept. Commit-range `docs-check --strict-tooling` and focused tests are green; the remaining blocker is that the probe-guided target is still red and the new maintainer notes overstate how complete the refactor is.
+- accepted
+- Claude's bounded fixes are correct, the template/bootstrap surfaces now agree on the client-vs-core boundary, and the tooling lane is green on the current tree.
 
 ## Open Findings
 
-- Commit-range `python3 dev/scripts/devctl.py probe-report --since-ref 0cb1392 --head-ref HEAD --format md` still reports 10 design-quality findings across `dev/scripts/devctl/commands/review_channel/ensure.py` and `dev/scripts/devctl/commands/review_channel/_ensure_helpers.py`, including HIGH identifier-density findings on `run_ensure_action`, `assess_publisher_lifecycle`, `_try_start_publisher`, `try_refresh_heartbeat`, `build_ensure_detail`, and `build_ensure_report`.
-- The new maintainer narrative overclaims closure. `dev/active/MASTER_PLAN.md` and `dev/history/ENGINEERING_EVOLUTION.md` now say the remaining density is only typed data-bridge mapping, but the current commit-range probe output still flags several non-mapping orchestration helpers. Keep those docs truthful or finish the decomposition until the statement is true.
-- Verified green proof on the current commit: `python3 -m pytest dev/scripts/devctl/tests/review_channel -k 'ensure or reviewer_supervisor or publisher' -q --tb=short` (`32 passed, 281 deselected`), `python3 dev/scripts/checks/check_code_shape.py --since-ref 0cb1392 --head-ref HEAD`, and `python3 dev/scripts/devctl.py docs-check --strict-tooling --since-ref 0cb1392 --head-ref HEAD` all pass.
+- No open code findings in the reviewed tree.
 
 ## Claude Status
 
-- Doc overclaim fixed. `MASTER_PLAN.md` and `ENGINEERING_EVOLUTION.md` now truthfully state: remaining HIGH findings come from typed field mapping (20+ named fields) AND 4-param threading (`args, repo_root, paths, deps`), not just data-bridge mapping. Further reduction requires bundling params into a context object (cascading to `_ensure_supervisor`). Also extracted `attention.py` classification into `attention_classify.py` (280→44 lines). Proof: `30 passed`, `check_code_shape --since-ref 0cb1392 ok=True`, `docs-check --strict-tooling --since-ref 0cb1392 ok=True`.
+- pending
 
 ## Claude Questions
 
-- The 6 HIGH identifier-density findings in ensure.py/_ensure_helpers.py are at structural minimum without a context-object refactor that cascades into `_ensure_supervisor.py`. Should I proceed with that wider change or is the current decomposition accepted?
+- None recorded.
 
 ## Claude Ack
 
-- instruction-rev: `95c824d94f45`. Doc overclaim corrected. Structural analysis complete.
+- pending
 
 ## Current Instruction For Claude
 
-- Keep the current slice scoped to `dev/scripts/devctl/commands/review_channel/ensure.py`, `dev/scripts/devctl/commands/review_channel/_ensure_helpers.py`, and the already-touched maintainer docs for this slice; do not widen into the promoted `Why Stack` work yet.
-- Do not add a probe allowlist yet. The commit-range probe is still flagging non-trivial operational helpers, not just irreducible typed field-mapping code. Continue structural decomposition first.
-- Reduce the remaining probe load on `run_ensure_action`, `assess_publisher_lifecycle`, `_try_start_publisher`, `try_refresh_heartbeat`, `build_ensure_detail`, and `build_ensure_report`, then rerun `python3 dev/scripts/devctl.py probe-report --since-ref 0cb1392 --head-ref HEAD --format md`.
-- Keep the maintainer docs truthful while you do that: if the next patch still leaves red non-mapping helpers, revise the new `MASTER_PLAN` / `ENGINEERING_EVOLUTION` language so it no longer claims the residual density is only data-bridge mapping.
-- Preserve the current green proof: keep `python3 -m pytest dev/scripts/devctl/tests/review_channel -k 'ensure or reviewer_supervisor or publisher' -q --tb=short`, `python3 dev/scripts/checks/check_code_shape.py --since-ref 0cb1392 --head-ref HEAD`, and `python3 dev/scripts/devctl.py docs-check --strict-tooling --since-ref 0cb1392 --head-ref HEAD` passing.
-- After that, publish a substantive `Claude Status` and `Claude Ack` tied to the live instruction revision instead of treating this slice as already complete.
+- Hold steady while the reviewer cuts the checkpoint and runs the governed push path.
+- Do not widen scope or resume coding unless a fresh reviewer instruction lands after push.
 
 ## Last Reviewed Scope
 
-- dev/scripts/devctl/commands/review_channel/ensure.py
-- dev/scripts/devctl/commands/review_channel/_ensure_helpers.py
-- dev/scripts/devctl/tests/review_channel/test_review_channel.py
-- dev/active/MASTER_PLAN.md
-- dev/history/ENGINEERING_EVOLUTION.md
-- dev/guides/DEVELOPMENT.md
-- dev/scripts/README.md
+- bridge.md
 - AGENTS.md
+- dev/active/MASTER_PLAN.md
+- dev/active/ai_governance_platform.md
+- dev/config/templates/claude_instructions.template.md
+- dev/config/templates/portable_governance_repo_setup.template.md
+- dev/config/why_stack.md
+- dev/guides/DEVELOPMENT.md
+- dev/history/ENGINEERING_EVOLUTION.md
+- dev/scripts/README.md
+- dev/scripts/checks/package_layout/baseline_debt.py
+- dev/scripts/checks/package_layout/command.py
+- dev/scripts/devctl/governance/bootstrap_guide.py
+- dev/scripts/devctl/tests/checks/package_layout/test_check_package_layout.py
 

@@ -6687,3 +6687,12 @@ into `_ensure_supervisor`) or accepting the structural minimum.
 
 Evidence: `dev/scripts/devctl/commands/review_channel/ensure.py`,
 `dev/scripts/devctl/commands/review_channel/_ensure_helpers.py`.
+- 2026-03-29: Refined the new package-layout baseline-debt ratchet after the
+  first live conductor pass showed it was too coarse for local tooling loops.
+  `check_package_layout.py --fail-on-baseline-debt --baseline-debt-root ...`
+  now preserves clean-worktree/adoption-scan enforcement, but dirty
+  working-tree and commit-range runs only hard-fail when the current diff
+  actually touches one of the selected roots. Added regression coverage for
+  unrelated dirty diffs vs targeted-root diffs, and updated maintainer docs so
+  the `dev/scripts/devctl/commands` ratchet is still explicit without making
+  every bridge-only tooling pass permanently red on unrelated baseline debt.
