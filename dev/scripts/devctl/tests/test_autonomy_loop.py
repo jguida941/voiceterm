@@ -80,7 +80,11 @@ def _triage_payload(
     }
 
 
-def _loop_packet_payload(*, unresolved_count: int) -> dict:
+def _loop_packet_payload(
+    *,
+    unresolved_count: int,
+    context_packet: dict[str, object] | None = None,
+) -> dict:
     risk = "low" if unresolved_count == 0 else "medium"
     return {
         "command": "loop-packet",
@@ -89,6 +93,7 @@ def _loop_packet_payload(*, unresolved_count: int) -> dict:
         "reason": "packet_ready",
         "risk": risk,
         "next_actions": ["review next step"],
+        "context_packet": context_packet,
         "terminal_packet": {
             "packet_id": "abc123",
             "source_command": "triage-loop",
@@ -225,6 +230,77 @@ class AutonomyLoopCommandTests(unittest.TestCase):
 
             first_round_phone = Path(report["rounds"][0]["phone_status_json"])
             self.assertTrue(first_round_phone.exists())
+
+    @patch(
+        "dev.scripts.devctl.commands.autonomy_loop.resolve_repo",
+        return_value="owner/repo",
+    )
+    @patch("dev.scripts.devctl.commands.autonomy_loop._load_policy", return_value={})
+    def test_checkpoint_packet_carries_context_packet(
+        self,
+        _policy_mock,
+        _resolve_repo_mock,
+    ) -> None:
+        context_packet = {
+            "trigger": "loop-packet:triage-loop",
+            "query_terms": ["MP-377"],
+            "matched_nodes": 1,
+            "edge_count": 0,
+            "canonical_refs": ["dev/active/platform_authority_loop.md"],
+            "evidence": ["MP-377: nodes=1, edges=0"],
+            "markdown": "## Context Recovery Packet\n\n- Trigger: `loop-packet:triage-loop`",
+        }
+
+        def triage_side_effect(args) -> int:
+            payload = _triage_payload(
+                mode=args.mode,
+                unresolved_count=0,
+                reason="resolved",
+                attempt=1,
+            )
+            Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.output).write_text(json.dumps(payload), encoding="utf-8")
+            return 0
+
+        def packet_side_effect(args) -> int:
+            payload = _loop_packet_payload(
+                unresolved_count=0,
+                context_packet=context_packet,
+            )
+            Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.output).write_text(json.dumps(payload), encoding="utf-8")
+            return 0
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "autonomy.json"
+            args = make_args(
+                output=str(output_path),
+                packet_out=str(Path(tmp_dir) / "packets"),
+                queue_out=str(Path(tmp_dir) / "queue"),
+                dry_run=True,
+            )
+            with patch(
+                "dev.scripts.devctl.commands.autonomy_loop_rounds.triage_loop_command.run",
+                side_effect=triage_side_effect,
+            ), patch(
+                "dev.scripts.devctl.commands.autonomy_loop_rounds.loop_packet_command.run",
+                side_effect=packet_side_effect,
+            ):
+                rc = autonomy_loop.run(args)
+
+            self.assertEqual(rc, 0)
+            report = json.loads(output_path.read_text(encoding="utf-8"))
+            checkpoint = json.loads(
+                Path(report["latest_packet"]).read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                checkpoint["context_packet"]["trigger"],
+                "loop-packet:triage-loop",
+            )
+            self.assertEqual(
+                checkpoint["context_packet"]["canonical_refs"],
+                ["dev/active/platform_authority_loop.md"],
+            )
 
     @patch(
         "dev.scripts.devctl.commands.autonomy_loop.resolve_repo",

@@ -9,7 +9,13 @@ import re
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 AGENTS_PATH = REPO_ROOT / "AGENTS.md"
 
 REQUIRED_H2 = [
@@ -39,6 +45,34 @@ REQUIRED_BUNDLES = [
     "bundle.post-push",
 ]
 
+
+def _load_router_requirements() -> tuple[str, list[str]]:
+    from dev.scripts.devctl.commands.check_router_constants import (
+        resolve_check_router_config,
+    )
+    from dev.scripts.devctl.governance.task_router_contract import (
+        TASK_ROUTER_AUTHORITY_PATH,
+        task_router_markdown_rows,
+    )
+
+    router_config = resolve_check_router_config()
+    router_rows = list(
+        task_router_markdown_rows(bundle_by_lane=router_config.bundle_by_lane)
+    )
+    return TASK_ROUTER_AUTHORITY_PATH, router_rows
+
+
+TASK_ROUTER_AUTHORITY_PATH, REQUIRED_ROUTER_SNIPPETS = _load_router_requirements()
+
+
+def _load_command_requirements() -> list[str]:
+    from dev.scripts.devctl.commands.listing import COMMANDS
+
+    return list(COMMANDS)
+
+
+REQUIRED_COMMANDS = _load_command_requirements()
+
 REQUIRED_MARKERS = [
     "dev/active/INDEX.md",
     "python3 dev/scripts/checks/check_active_plan_sync.py",
@@ -46,18 +80,12 @@ REQUIRED_MARKERS = [
     "python3 dev/scripts/devctl.py docs-check --strict-tooling",
     "python3 dev/scripts/devctl.py status --ci --require-ci --format md",
     "dev/scripts/devctl/bundle_registry.py",
+    TASK_ROUTER_AUTHORITY_PATH,
     "Execution plan contract: required",
     "repeat-to-automate",
     "dev/audits/AUTOMATION_DEBT_REGISTER.md",
     "dev/audits/METRICS_SCHEMA.md",
     "python3 dev/scripts/audits/audit_metrics.py",
-]
-
-REQUIRED_ROUTER_SNIPPETS = [
-    "| Changed runtime behavior under `rust/src/**` | Runtime feature/fix | `bundle.runtime` |",
-    "| Changed only user-facing docs | Docs-only | `bundle.docs` |",
-    "| Changed tooling/process/CI/governance surfaces | Tooling/process/CI | `bundle.tooling` |",
-    "| Preparing/publishing release | Release/tag/distribution | `bundle.release` |",
 ]
 
 
@@ -66,6 +94,11 @@ def _extract_h2(text: str) -> list[str]:
         match.group(1).strip()
         for match in re.finditer(r"^##\s+(.+?)\s*$", text, re.MULTILINE)
     ]
+
+
+def _contains_command_token(text: str, command: str) -> bool:
+    pattern = rf"(?<![A-Za-z0-9_-]){re.escape(command)}(?![A-Za-z0-9_-])"
+    return re.search(pattern, text) is not None
 
 
 def _build_report() -> dict:
@@ -85,8 +118,19 @@ def _build_report() -> dict:
     ]
     missing_markers = [marker for marker in REQUIRED_MARKERS if marker not in text]
     missing_router = [row for row in REQUIRED_ROUTER_SNIPPETS if row not in text]
+    missing_commands = [
+        command
+        for command in REQUIRED_COMMANDS
+        if not _contains_command_token(text, command)
+    ]
 
-    ok = not (missing_h2 or missing_bundles or missing_markers or missing_router)
+    ok = not (
+        missing_h2
+        or missing_bundles
+        or missing_markers
+        or missing_router
+        or missing_commands
+    )
 
     return {
         "command": "check_agents_contract",
@@ -96,6 +140,7 @@ def _build_report() -> dict:
         "missing_bundles": missing_bundles,
         "missing_markers": missing_markers,
         "missing_router_rows": missing_router,
+        "missing_commands": missing_commands,
     }
 
 
@@ -132,6 +177,14 @@ def _render_md(report: dict) -> str:
         + (
             ", ".join(report["missing_router_rows"])
             if report["missing_router_rows"]
+            else "none"
+        )
+    )
+    lines.append(
+        "- missing_commands: "
+        + (
+            ", ".join(report["missing_commands"])
+            if report["missing_commands"]
             else "none"
         )
     )

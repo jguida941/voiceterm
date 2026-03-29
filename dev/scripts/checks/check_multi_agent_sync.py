@@ -10,7 +10,10 @@ import sys
 from itertools import combinations
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 MASTER_PLAN_PATH = REPO_ROOT / "dev/active/MASTER_PLAN.md"
 RUNBOOK_PATH = REPO_ROOT / "dev/active/review_channel.md"
 

@@ -31,7 +31,7 @@ jobs:
         id: dep_graph
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 dev/scripts/dependency_graph_probe.py --repo "${{ github.repository }}" --github-output "${GITHUB_OUTPUT}"
+        run: python3 dev/scripts/rust_tools/dependency_graph_probe.py --repo "${{ github.repository }}" --github-output "${GITHUB_OUTPUT}"
 
       - name: Dependency Review
         if: steps.dep_graph.outputs.enabled == 'true'

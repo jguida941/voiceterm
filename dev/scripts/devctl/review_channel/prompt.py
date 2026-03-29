@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE
 from ..common import display_path
-from .handoff import (
-    BRIDGE_LIVENESS_KEYS,
-    expected_rollover_ack_line,
-    expected_rollover_ack_section,
+from ..context_graph.escalation import (
+    build_context_escalation_packet,
+    collect_query_terms,
+    normalize_query_terms,
 )
+from ..runtime.role_profile import role_for_provider
+from .handoff import BRIDGE_LIVENESS_KEYS, expected_rollover_ack_line, expected_rollover_ack_section
+from .prompt_sections import operating_contract_lines
 
 if TYPE_CHECKING:
     from .core import LaneAssignment
@@ -39,7 +43,7 @@ def build_conductor_prompt(
     handoff_bundle: dict[str, str] | None = None,
 ) -> str:
     """Render the initial conductor prompt for Codex or Claude."""
-    provider_worker_budget = codex_workers if provider == "codex" else claude_workers
+    provider_worker_budget = codex_workers if role_for_provider(provider) == "reviewer" else claude_workers
     rollover_ack_line, rollover_ack_section = _rollover_ack_details(
         provider=provider,
         handoff_bundle=handoff_bundle,
@@ -51,6 +55,7 @@ def build_conductor_prompt(
         )
         for lane in lanes
     ]
+    context_lines = _context_escalation_lines(lanes=lanes)
     return "\n".join(
         [
             _opening_line(provider_name=provider_name, handoff_bundle=handoff_bundle),
@@ -67,8 +72,9 @@ def build_conductor_prompt(
             ],
             "",
             "Operating contract:",
-            *_operating_contract_lines(
+            *operating_contract_lines(
                 provider_name=provider_name,
+                repo_root=repo_root,
                 approval_mode=approval_mode,
                 rollover_threshold_pct=rollover_threshold_pct,
                 promote_command=promote_command,
@@ -90,13 +96,14 @@ def build_conductor_prompt(
                 provider_name=provider_name,
                 provider_worker_budget=provider_worker_budget,
             ),
+            *context_lines,
             "",
             f"{provider_name} lane assignments:",
             *lane_lines,
             "",
             "Execution reminders:",
             (
-                "- Keep `code_audit.md` current-state only; do not turn it into a "
+                "- Keep `bridge.md` current-state only; do not turn it into a "
                 "transcript dump."
             ),
             (
@@ -106,7 +113,7 @@ def build_conductor_prompt(
             retirement_note,
             "",
             (
-                f"Coordinate with {other_name} only through `code_audit.md` plus the "
+                f"Coordinate with {other_name} only through `bridge.md` plus the "
                 "required operator-visible progress updates."
             ),
         ]
@@ -137,9 +144,22 @@ def _bootstrap_files(
     handoff_bundle: dict[str, str] | None,
 ) -> list[str]:
     files: list[str] = [
-        "AGENTS.md",
-        "dev/active/INDEX.md",
-        "dev/active/MASTER_PLAN.md",
+        (
+            "Run `python3 dev/scripts/devctl.py startup-context --format summary` first. "
+            "If it exits non-zero, checkpoint or repair the repo state before coding "
+            "or relaunching conductor work. Then run "
+            "`python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` "
+            "for slim startup context (repo state, active plans, hotspots, key commands). "
+            "Do not trust a user summary, prior chat continuity, or memory as a "
+            "substitute for this Step 0 receipt. "
+            "Do not echo the startup packet back into chat by default; keep any "
+            "bootstrap acknowledgement to blocker state plus next step unless the "
+            "operator asks for more detail. "
+            "Then follow deep links when task scope requires full authority: "
+            "`AGENTS.md` (SDLC policy), `dev/active/INDEX.md` (plan registry), "
+            "`dev/active/MASTER_PLAN.md` (execution state). "
+            "Use `--query '<term>'` for targeted subgraphs on specific files or MPs."
+        ),
         display_path(review_channel_path, repo_root=repo_root),
         display_path(bridge_path, repo_root=repo_root),
     ]
@@ -169,127 +189,6 @@ def _rollover_ack_details(
     )
 
 
-def _operating_contract_lines(
-    *,
-    provider_name: str,
-    approval_mode: str,
-    rollover_threshold_pct: int,
-    promote_command: str,
-) -> list[str]:
-    owned_sections = (
-        "`Poll Status`, `Current Verdict`, `Open Findings`, "
-        "`Current Instruction For Claude`"
-        if provider_name == "Codex"
-        else "`Claude Status`, `Claude Questions`, `Claude Ack`"
-    )
-    return [
-        "- `dev/active/review_channel.md` is the static swarm plan.",
-        "- `code_audit.md` is the only live cross-team coordination surface.",
-        (
-            "- Do not rely on automatic context compaction or recovery summaries "
-            "to preserve the conductor role. Relaunch before compaction instead."
-        ),
-        (
-            "- Treat this as a tooling/process/CI lane and follow repo policy through "
-            "`AGENTS.md`, `dev/scripts/README.md`, and `dev/guides/DEVCTL_AUTOGUIDE.md`."
-        ),
-        (
-            "- Use the repo-owned `devctl`/check scripts instead of ad-hoc shell "
-            "work whenever policy already defines the command path."
-        ),
-        (
-            "- Shared approval mode for this conductor session is "
-            f"`{approval_mode}`. Destructive/publish-class actions still require "
-            "explicit approval even when provider CLI prompts are relaxed."
-        ),
-        f"- Only the {provider_name} conductor updates {owned_sections} in `code_audit.md`.",
-        (
-            f"- Specialist {provider_name} workers must report back to the "
-            f"{provider_name} conductor instead of editing `code_audit.md` directly."
-        ),
-        (
-            "- Read the active queue from `code_audit.md`, keep the 8+8 swarm "
-            "moving, and continue until the scoped plan work is exhausted or a "
-            "real blocker/approval boundary is hit."
-        ),
-        (
-            "- A bridge summary, `waiting_on_peer` note, or \"all green so far\" "
-            "update is never terminal by itself. After every owned-section write, "
-            "re-read `code_audit.md` and continue the loop instead of ending the "
-            "conductor session."
-        ),
-        (
-            "- `waiting_on_peer` means the loop stays live while you keep polling "
-            "for the next bridge change; it does not mean the conductor should "
-            "exit or park silently."
-        ),
-        (
-            "- Never treat one completed slice, one proof bundle, or one peer "
-            "handoff summary as permission to stop while the markdown bridge "
-            "remains the active operating mode."
-        ),
-        (
-            "- Ask the human only for destructive actions, credentials/auth, "
-            "push/publish approval, or required manual validation."
-        ),
-        (
-            "- Before merge/handoff, satisfy the tooling lane governance path: "
-            "`docs-check --strict-tooling`, `check_review_channel_bridge.py`, "
-            "`check_active_plan_sync.py`, `check_multi_agent_sync.py`, and the "
-            "rest of the required `bundle.tooling` surfaces in `AGENTS.md`."
-        ),
-        (
-            f"- When the interface shows {rollover_threshold_pct}% context remaining "
-            "or lower, finish the current atomic step, update your owned bridge "
-            "state, and trigger a planned rollover before compaction."
-        ),
-        *_provider_bootstrap_guard_lines(
-            provider_name=provider_name,
-            promote_command=promote_command,
-        ),
-    ]
-
-
-def _provider_bootstrap_guard_lines(
-    *,
-    provider_name: str,
-    promote_command: str,
-) -> list[str]:
-    """Return provider-specific guardrails for unattended conductor sessions."""
-    if provider_name == "Codex":
-        return [
-            (
-                "- First action after bootstrap on every fresh launch: refresh "
-                "`Last Codex poll`, `Last non-audit worktree hash`, and `Poll Status` "
-                "in `code_audit.md` before worker fan-out or long-running analysis."
-            ),
-            (
-                "- Do not leave the reviewer parked on unanswered approval prompts. "
-                "If a command or worker branch needs human approval, record the "
-                "blocked state in `Poll Status`, skip or defer that branch, and keep "
-                "the reviewer heartbeat current instead of waiting silently."
-            ),
-            (
-                "- If Claude reports a slice complete and scoped work still remains, "
-                f"run `{promote_command}` to derive the next highest-priority "
-                "unchecked plan item and rewrite `Current Instruction For Claude` "
-                "instead of inventing the next task by hand or ending on a summary."
-            ),
-        ]
-    return [
-        (
-            "- If you are waiting on Codex review or the next instruction, stay in "
-            "the conductor role, keep polling the bridge on the documented cadence, "
-            "and resume as soon as `Current Instruction For Claude` changes."
-        ),
-        (
-            "- Posting `Claude Status` or `Claude Ack` is not the end of the loop. "
-            "After each coding summary, re-read the bridge, look for the next live "
-            "instruction, and keep the session alive instead of exiting."
-        ),
-    ]
-
-
 def _bridge_liveness_lines(bridge_liveness: dict[str, object] | None) -> list[str]:
     if bridge_liveness is None:
         return []
@@ -315,7 +214,7 @@ def _rollover_ack_lines(
     return [
         (
             "- First action after bootstrap: write this exact rollover "
-            f"ACK line into `{rollover_ack_section}` in `code_audit.md`: "
+            f"ACK line into `{rollover_ack_section}` in `bridge.md`: "
             f"`{rollover_ack_line}`"
         ),
         (
@@ -339,4 +238,46 @@ def _worker_budget_lines(
             "assignments below. If worker fanout is unavailable, stay in conductor "
             "mode and keep executing the loop yourself."
         ),
+        (
+            "Before worker fanout, verify each assigned lane worktree exists and "
+            "is usable. If a listed worktree is missing or unavailable, do not "
+            "substitute a live-repo or read-only fallback lane; skip that lane "
+            "and stay conductor-only until the repo-owned worktree contract is "
+            "repaired."
+        ),
     ]
+
+
+def _context_escalation_lines(*, lanes: list["LaneAssignment"]) -> list[str]:
+    lines = [
+        "",
+        "Context escalation policy:",
+        (
+            "- When an instruction mentions an MP, file, guard, or subsystem you "
+            "have not read yet, run `python3 dev/scripts/devctl.py context-graph "
+            "--query '<term>' --format md` before widening scope."
+        ),
+        (
+            "- Trigger the same query before editing unread files, after repeated "
+            "failed attempts, or when blast radius is unclear."
+        ),
+    ]
+    lane_terms = normalize_query_terms(
+        ("review_channel", *collect_query_terms([lane.mp_scope for lane in lanes], max_terms=3)),
+        max_terms=4,
+    )
+    packet = build_context_escalation_packet(
+        trigger="review-channel-bootstrap",
+        query_terms=lane_terms,
+        options={"max_chars": 1200},
+    )
+    if packet is None:
+        return lines
+    payload = asdict(packet)
+    lines.extend(
+        [
+            "- Preloaded bounded packet for the active lane scopes:",
+            payload["markdown"],
+        ]
+    )
+    return lines

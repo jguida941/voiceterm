@@ -12,6 +12,52 @@ Gemini CLI remains experimental.
 Goal of this file: give agents one repeatable process so every task follows the
 same execution path with minimal ambiguity.
 
+Architectural scope rule: this repo contains the VoiceTerm product, but the
+active platform target is the portable AI-governance system tracked under
+`MP-377`. Treat VoiceTerm as a first-party adopter/client of that platform,
+not the hidden default authority for shared runtime, startup, review-channel,
+or governance layers. New shared code, prompts, guards, and docs must resolve
+repo-local behavior through `ProjectGovernance`, repo-pack policy, and typed
+runtime contracts rather than VoiceTerm-specific literals.
+
+Portable-platform rule:
+- The product direction under `MP-377` is a reusable AI-governance platform
+  that should work across arbitrary repositories. VoiceTerm is the first
+  client/integration layer, not the hidden default authority for portable
+  runtime/tooling code. In portable layers, do not hardcode VoiceTerm repo
+  names, fixed `dev/active/*` / `dev/reports/*` paths, `bridge.md`, or
+  `VOICETERM_PATH_CONFIG` fallbacks as universal truth; resolve authority
+  through `ProjectGovernance` / repo-pack state or fail closed.
+
+Documentation-boundary rule:
+- Keep VoiceTerm product docs (`README.md`, `QUICK_START.md`, `guides/*`)
+  user-facing. Shared governance/runtime/AI authority rules belong in
+  maintainer docs (`AGENTS.md`, `dev/guides/DEVELOPMENT.md`,
+  `dev/scripts/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`), active
+  `MP-377` owner docs, or generated repo-pack/bootstrap surfaces. When a
+  tooling/process/governance change triggers maintainer-doc updates, do not
+  satisfy that requirement by editing product docs unless shipped end-user
+  VoiceTerm behavior changed too.
+
+Shared-backlog rule:
+- `backlog.md` is the repo-visible shared backlog surface for humans and AI.
+  It may appear in governed startup/work-intake warm refs and writeback
+  sinks, but it is not active execution authority. Promote items into
+  `dev/active/MASTER_PLAN.md` plus the owning active plan before treating
+  them as in-flight work. Keep local-only scratch backlog in
+  `dev/deferred/LOCAL_BACKLOG.md`.
+
+Package-layout truth rule:
+- Treat `check_package_layout.py` as a two-layer self-hosting signal: blocking
+  violations still decide command failure, but freeze-mode crowded roots or
+  namespace families are still active organization debt and must not be
+  described as structurally clean. Maintain the explicit report state
+  (`status`, `layout_clean`, `baseline_layout_debt_detected`) so the repo does
+  not confuse "no new drift in this edit" with "the layout is healthy." When
+  compatibility shims carry `shim-target`, keep the emitted
+  `compatibility_redirects` map truthful too so agents can see where moved
+  entrypoints now resolve without guessing from stale paths.
+
 Top-level enforcement rule: every time an agent creates a file or edits an
 existing file, it must run the relevant repo guard/check scripts before
 handoff to catch bad practices, policy drift, and structural regressions. This
@@ -23,6 +69,17 @@ inventory in `dev/guides/DEVELOPMENT.md` (`What checks protect us` and
 Direct post-edit enforcement link:
 - After every file create/edit, follow
   `dev/guides/DEVELOPMENT.md#after-file-edits` before handoff.
+
+Release-governance note:
+- When preparing a release, treat `bundle.release` as the blocking source of
+  truth and make sure maintainer docs (`AGENTS.md`,
+  `dev/guides/DEVELOPMENT.md`, `dev/active/MASTER_PLAN.md`,
+  `dev/history/ENGINEERING_EVOLUTION.md`) plus canonical user docs
+  (`README.md`, `QUICK_START.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`,
+  `guides/INSTALL.md`, `guides/TROUBLESHOOTING.md`) reflect the shipped
+  behavior. Recent control-plane/mobile changes also require the
+  `check_mobile_relay_protocol.py` guard to stay green in runtime and release
+  bundles.
 
 ## Source-of-truth map
 
@@ -41,6 +98,14 @@ Direct post-edit enforcement link:
 | Where is the optional VoiceTerm Operator Console plan? | `dev/active/operator_console.md` |
 | Where is the Ralph guardrail remediation/control-plane plan? | `dev/active/ralph_guardrail_control_plane.md` |
 | Where is the heuristic review-probe execution plan? | `dev/active/review_probes.md` |
+| Where is the code-shape expansion research companion (readability, coupling, AI-specific, information-theoretic probes/guards)? | `dev/active/code_shape_expansion.md` (subordinate evidence/calibration companion feeding `dev/active/review_probes.md` Phase 5b+, not a second execution authority) |
+| Where is the portable code-governance engine / multi-repo portability and measurement plan? | `dev/active/portable_code_governance.md` (engine/adoption companion plan) |
+| Where is the full reusable AI governance platform / package-extraction architecture plan? | `dev/active/ai_governance_platform.md` (the only main active architecture plan for this product scope) |
+| Where is the current `MP-377` startup-authority / repo-pack / typed-plan-registry / runtime-evidence-context closure plan? | `dev/active/platform_authority_loop.md` (subordinate `MP-377` execution spec; read after `dev/active/ai_governance_platform.md`) |
+| Where is the shared repo-visible backlog intake for humans + AI? | `backlog.md` (shared intake only; promote items into `dev/active/MASTER_PLAN.md` plus the owning active plan before execution) |
+| Where is the governed active-plan markdown contract used by docs-governance and future `PlanRegistry` work? | `dev/active/PLAN_FORMAT.md` (reference-only companion for plan-doc schema/self-hosting) |
+| Where is the durable reusable AI governance platform thesis/architecture guide? | `dev/guides/AI_GOVERNANCE_PLATFORM.md` (durable companion to the active platform plan) |
+| Where is the platform-owned Python architecture guide and decision tree for contract-first tooling/runtime design? | `dev/guides/PYTHON_ARCHITECTURE.md` (durable companion for `MP-377` Python modeling/composition choices) |
 | Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
 | Where is the completed Rust workspace path/layout migration record? | `dev/archive/2026-03-07-rust-workspace-layout-migration.md` |
 | Where is the naming/API cohesion execution plan? | `dev/active/naming_api_cohesion.md` |
@@ -55,8 +120,11 @@ Direct post-edit enforcement link:
 | How do we run the current parallel Codex/Claude markdown swarm cycle? | `dev/active/review_channel.md` |
 | Where is the local-first continuous swarm execution contract (next-task promotion, peer liveness, context rotation)? | `dev/active/continuous_swarm.md` |
 | Where are `devctl` command semantics and examples? | `dev/scripts/README.md` |
+| Where is the plain-language `devctl` system architecture map, including portable naming/map direction? | `dev/guides/DEVCTL_ARCHITECTURE.md` |
 | Where is the devctl automation playbook? | `dev/guides/DEVCTL_AUTOGUIDE.md` |
 | Where is MCP-to-devctl architecture alignment and extension policy? | `dev/guides/MCP_DEVCTL_ALIGNMENT.md` |
+| Where is the portable-governance engine boundary, export flow, and benchmark/evaluation guide? | `dev/guides/PORTABLE_CODE_GOVERNANCE.md` (engine/adoption companion guide) |
+| Where is repo-local / portable guard-probe policy and repo-pack surface generation? | `dev/config/devctl_repo_policy.json`, `dev/config/quality_presets/`, and the `dev/scripts/devctl/quality_policy*.py` resolver stack |
 | Where is the remediation scaffold template used by guard-driven Rust audits? | `dev/config/templates/rust_audit_findings_template.md` |
 | What user behavior is current? | `guides/USAGE.md`, `guides/CLI_FLAGS.md` |
 | What flags are actually supported? | `rust/src/bin/voiceterm/config/cli.rs`, `rust/src/config/mod.rs` |
@@ -100,6 +168,63 @@ Use this route to run end-to-end without ambiguity:
 Run this sequence for every task. Do not skip steps.
 
 1. Run session bootstrap checks and load `dev/active/INDEX.md` (`bundle.bootstrap`).
+   For any implementation, validation, or repo-owned launcher session, treat
+   `python3 dev/scripts/devctl.py startup-context --format summary` as Step 0,
+   not optional escalation. The compact summary is the default human-facing
+   receipt for AI bootstrap; the typed JSON receipt/artifacts still write
+   silently under the repo-owned reports root. If it exits non-zero,
+   checkpoint or repair the repo state before editing files or starting
+   guarded launcher/mutation commands. User summaries, stale chat continuity,
+   or remembered prior state are not a substitute for this Step 0 receipt.
+   Do not replay bootstrap packets into chat by default; keep any chat
+   acknowledgement to blocker state plus next step unless the user asks for
+   the detailed packet.
+   The compact summary now also surfaces unpublished stack depth
+   (`ahead_of_upstream_commits`) plus governed-push timing guidance when the
+   branch still has remote work to publish, so fresh sessions can answer
+   "when do we push?" without manual `git` inspection or spelunking through
+   typed JSON fields.
+   That typed startup receipt now emits a bounded `WorkIntakePacket`
+   (selected `PlanTargetRef`, typed continuity, and routing hints), writes a
+   managed startup receipt under the repo-owned reports root, and exits
+   non-zero when checkpoint budget or startup-authority truth says another
+   implementation slice is not allowed yet. The same startup/tandem path now
+   resolves typed `review_state.json` through repo-pack/governance candidate
+   authority instead of assuming one fixed `dev/reports/.../latest` path.
+   Startup quality signals follow the same rule and load emitted probe
+   artifacts from the managed `latest` root rather than an ad hoc sibling
+   summary path.
+   After that, run
+   `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
+   for a slim startup context with active plans, hotspots, and deep links.
+   The live graph now also carries first-pass `guards` / `scoped_by`
+   relations, so file/path queries can answer "what guards protect this?" and
+   "what plan scope owns this?" from the same generated surface before the
+   workflow expands into deeper reads. Query mode now suppresses generic
+   guard-edge fan-out unless you asked about a guard directly, and current
+   `scoped_by` coverage comes from docs-policy rules rather than raw
+   substring adjacency. That bootstrap command now also
+   persists a typed `ContextGraphSnapshot` artifact under
+   `dev/reports/graph_snapshots/`; use `--save-snapshot` to capture the same
+   versioned graph artifact from other `context-graph` modes too, and use
+   `python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md`
+   when the slice needs a typed delta/trend read over saved graph baselines.
+   Follow the deep links when the task requires full authority from the
+   canonical docs (`AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`).
+   Keep that bootstrap packet small by default and expand with
+   `context-graph --query '<term>'` when the task needs more context (the
+   query renderer suppresses the global Hot Index Summary on zero-match
+   results to avoid misleading evidence). The
+   generated `CLAUDE.md` bootstrap surface is the first-hop AI awareness
+   layer: keep it synchronized via `render-surfaces` so it advertises live
+   governance capabilities (`ai_instruction`, `decision_mode`,
+   `governance-review --record`, packet-level operational feedback, and saved
+   `ContextGraphSnapshot` baselines) and points agents at
+   `dev/guides/DEVELOPMENT.md` plus `dev/scripts/README.md` for the canonical
+   "which tool do I run when?" guidance. That rendered bootstrap surface must
+   also state the compiler-style system model for AI work plus the
+   `TypedAction -> ActionResult -> RunRecord` execution path so launchers start
+   from repo-owned authority rather than chat-local lore.
 2. Decide scope (`develop` work or `master` release work).
 3. Classify task using the task router table.
 4. Load only the required context pack listed for your task class.
@@ -125,12 +250,25 @@ anchored in an active tracked plan doc under `dev/active/`.
    - `## Scope`
    - `## Execution Checklist`
    - `## Progress Log`
+   - `## Session Resume`
    - `## Audit Evidence`
+3.1 Execution-plan docs must expose one parseable metadata header near the top
+    of the file. Follow `dev/active/PLAN_FORMAT.md` when editing or creating
+    governed plan markdown.
 4. The associated MP scope must be present in both `dev/active/INDEX.md` and
    `dev/active/MASTER_PLAN.md`.
 4.1 In multi-agent runs, progress/decisions must be written into the active
     plan markdown and/or `MASTER_PLAN` updates; hidden memory-only coordination
     is not acceptable execution state.
+4.2 For substantive AI sessions, keep restart state in the active plan's
+    `Session Resume` and `Progress Log`. Structured JSONL audit/event logs are
+    for machine-readable execution evidence, metrics, and later database/ML
+    ingestion, not prose session handoff.
+4.3 Do not hand-edit command audit JSONL logs. `python3 dev/scripts/devctl.py`
+    commands auto-emit machine-readable event rows; use
+    `python3 dev/scripts/devctl.py governance-review --record ...` only for
+    adjudicated guard/probe outcomes. If meaningful non-`devctl` work happened
+    outside that telemetry path, call out the coverage gap in handoff notes.
 5. `python3 dev/scripts/checks/check_active_plan_sync.py` is the enforcement
    gate and must pass before merge.
 
@@ -150,10 +288,37 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     finds a new leaked-process shape, extend the cleanup/audit automation in
     the same MP scope before closure or log explicit debt with the missed
     process shape and the guard path needed to catch it next time.
+2.2 When a real issue is found by audit/review/manual use and the current
+    tooling did not catch it, first decide whether the miss belongs in an
+    existing guard/probe/runtime contract or should become a new reusable,
+    low-noise modular enforcement path. Prefer fixing the detection gap over
+    landing a one-off patch without a corresponding enforcement follow-up, and
+    keep that decision in repo-visible plan state before closure.
+2.3 No important issue is complete until it has been evaluated for
+    architectural absorption. For any non-trivial bug, review finding,
+    runtime failure, audit issue, or docs/process miss, classify whether it is
+    a local defect, contract mismatch, missing guard, missing probe, authority
+    boundary failure, workflow/process gap, or documentation/plan drift. Then
+    either encode the prevention path in an approved surface (guard, probe,
+    contract, authority rule, parity check, regression test, docs update) or
+    record an explicit waiver with reason. Do not silently close meaningful
+    findings as patch-only work.
+2.3.1 Apply the same closure rule to performance/pathology misses in
+    governance tooling. If a path-scoped predicate or commit-range command
+    (`docs-check`, router helpers, startup scans, etc.) keeps rebuilding the
+    same authority/policy state inside a loop, treat that as a real escaped
+    defect: resolve the contract once per repo/policy context, reuse it inside
+    the loop, and add regression proof so the slowdown does not silently
+    return.
 3. "Cannot automate yet" is acceptable only with a documented reason and a
    guard path (checklist/runbook entry that prevents unsafe execution).
 4. When automation lands, update command/docs surfaces in the same change
    (`AGENTS.md`, `dev/scripts/README.md`, `dev/guides/DEVCTL_AUTOGUIDE.md` as needed).
+4.1 During staged Python module splits or relocations under `dev/scripts/**`,
+    preserve stable compatibility re-exports or aliases in the old module in
+    the same change until all repo importers, tests, workflows, and
+    pre-commit hooks have been migrated. Treat those compatibility seams as
+    part of the maintainer-facing contract, not as disposable cleanup.
 5. Baseline full-surface audit execution starts from
    `dev/audits/2026-02-24-autonomy-baseline-audit.md` and should be copied
    forward for each new audit cycle.
@@ -164,13 +329,162 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
 
 ## AI operating contract (required)
 
+Use the compiler-style governance framing from
+`dev/guides/AI_GOVERNANCE_PLATFORM.md` and
+`dev/active/ai_governance_platform.md` when reasoning about this system. The
+AI is a probabilistic proposer inside repo-owned deterministic passes:
+`startup-context`, guards, probes, and policy resolution lower repo state into
+typed control objects, and only governed execution turns that into
+`TypedAction -> ActionResult -> RunRecord`. Do not treat the repo as a
+checklist plus chat memory.
+
 1. Be autonomous by default: implement, test, docs, and validation end-to-end.
 2. Ask only when required: ambiguous UX/product intent, destructive actions,
-   credentials/publishing/tagging, or conflicting policy signals.
+   credentials/publishing/tagging, or conflicting policy signals. Branch-
+   mutating checkpoint/commit/push actions still follow the explicit approval
+   and review gates in the Branch policy section below.
 3. Stay guarded: do not invent behavior, do not skip required checks.
 4. After any file create/edit, run the applicable repo guard/check scripts
    before handoff; do not leave changed files unvalidated. Follow
-   `dev/guides/DEVELOPMENT.md#after-file-edits`.
+   `dev/guides/DEVELOPMENT.md#after-file-edits`. After complex edits
+   (new modules, multi-file refactors, or business-logic changes), also run
+   the review probe suite to catch design-quality regressions early:
+   `python3 dev/scripts/devctl.py check --profile ci` (includes probes).
+4.1 Keep tooling dry-run/report-only paths portable: script-generation,
+    dry-run launch, and local preflight flows must not depend on provider CLIs
+    or GitHub API reachability unless the action actually needs live
+    execution. Preserve explicit strict failure paths separately for real
+    launch/fix execution and focused tests.
+4.2 When a guard intentionally relaxes live-review freshness on GitHub-hosted
+    CI, do not reuse that relaxed guard output as the only trigger for stale
+    bridge auto-repair. Auto-refresh helpers must derive stale/missing
+    heartbeat repairability from the bridge snapshot itself so CI parity stays
+    aligned with the real launch/status contract.
+4.3 Any CI job that invokes compile-time Rust guards (for example
+    `check_rust_compiler_warnings.py`) must provision the repo Rust toolchain
+    plus required platform headers first; tooling/docs workflows cannot assume
+    those prerequisites are inherited just because the dedicated Rust CI lane
+    already installs them.
+4.4 In live review-channel mode, treat
+    `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+    as the canonical checkpoint-budget read too. If
+    `attention.status=checkpoint_required` or
+    `push_enforcement.safe_to_continue_editing=false`, stop widening the
+    slice and cut a checkpoint before further edits or any raw push attempt.
+    When both checkpoint and review follow-up are needed, the attention
+    system prioritizes `review_follow_up_required` so the reviewer-turn
+    signal is not hidden behind the generic checkpoint state.
+    Fresh repo-owned `review-channel --action launch|rollover` starts must
+    treat that same checkpoint state as a hard launch blocker, not as
+    advisory status to be ignored while starting another implementation loop.
+    The narrower stale-implementer replacement path is now
+    `python3 dev/scripts/devctl.py review-channel --action recover --recover-provider claude`;
+    it replaces only the stale Claude conductor and now requires an already-live
+    repo-owned Codex conductor session. If the reviewer side is not already
+    live, fail closed and use `launch|rollover` to relaunch the pair instead of
+    drifting into a hybrid "Claude in Terminal, Codex in chat" loop.
+4.4.1 In that same active review-channel loop, detached publisher/supervisor
+    heartbeats are not proof the dual-agent session is still alive. If
+    `reviewer_mode=active_dual_agent` but repo-owned conductor sessions are
+    missing, treat the state as a bridge-contract error and relaunch the
+    pair instead of trusting stale "fresh" status.
+4.4.2 Claude-side waiting is also fail-closed now: use the repo-owned
+    `review-channel --action implementer-wait` path only under an explicit
+    reviewer-owned wait state. If `Current Instruction For Claude` still
+    assigns active work, `Claude Status` / `Claude Ack` updates must name
+    concrete files, subsystems, findings, or one concrete blocker/question;
+    `No change. Continuing.`, `instruction unchanged`, `Codex should review`,
+    and raw shell `sleep` loops are contract violations.
+4.4.3 Fresh launch validation now treats the canonical reviewer-reset
+    implementer placeholder (`Claude Status: - pending`, `Claude Ack:
+    - pending`) as launchable state for a new instruction revision. The same
+    reviewer-owned instruction reset must clear stale `Claude Questions`
+    alongside status/ack so compatibility-bridge handoff text does not carry
+    forward dead blockers from the previous instruction tranche.
+4.5 In that same live review-channel mode, treat
+    `dev/reports/review_channel/latest/review_state.json` (and the mirrored
+    `compact.json` projection) `current_session` block as the canonical typed
+    current-status read for live instruction / implementer ACK state. While
+    the bridge migration remains in progress, `bridge.md` is a compatibility
+    projection and handoff surface, not the preferred source for current-
+    status reads. Startup/tandem/push consumers that read live freshness from
+    that projection must refresh the bridge-backed typed snapshot through the
+    repo-owned status path before trusting `current_session` fields. The same
+    typed artifact now carries reviewer hash truth in `bridge` too:
+    `bridge.reviewed_hash_current` / `bridge.review_needed` are the canonical
+    booleans for "does Codex still owe review?" while `current_session`
+    remains intentionally narrow to instruction / ACK state.
+4.6 Treat `startup-context` the same way: prefer typed
+    `review_state.json` fields such as `bridge.review_accepted` as the
+    canonical startup reviewer-gate authority. `bridge.md` is now a
+    compatibility projection and handoff surface, not a startup-authority
+    fallback when typed review state is missing. Advisory
+    checkpoint-budget accounting may exclude policy-declared compatibility
+    projections such as `bridge.md`, but canonical git/review truth still
+    comes from the real worktree plus reviewer-owned state. Shared startup /
+    escalation packets now also carry bounded decision constraints plus
+    watchdog and command-reliability summaries; use those typed packet fields
+    before reaching back to raw ledgers. Empty `memory_roots` placeholders are
+    not authority and should not be resurrected in downstream JSON/rendering.
+    `check_startup_authority_contract.py` is the fail-closed proof for this
+    path: it must reject startup-authority states that are already over the
+    checkpoint budget and Python module splits whose imports only resolve from
+    worktree-on-disk files instead of the git index, while also proving the
+    committed `HEAD` tree stays internally coherent. Fresh repos without a
+    first commit skip that committed-tree layer until `HEAD` exists.
+    The `startup-context` command itself now uses that same typed checkpoint
+    truth as a fail-closed receipt: it still emits the packet, but returns
+    non-zero when another implementation slice should not start yet. That same
+    packet now carries the bounded `WorkIntakePacket` startup projection, so
+    `startup_order`, typed plan continuity, and routing defaults travel
+    through one startup-family surface instead of staying report-only.
+    Startup recovery now also reads the managed latest-push artifact at
+    `dev/reports/push/latest.json`: `devctl push --execute` writes a
+    `published_remote` snapshot as soon as `git push` succeeds, keyed to the
+    current branch and HEAD commit, and startup treats that persisted
+    current-HEAD publication record as canonical even if local upstream
+    divergence still looks stale until the next fetch. So
+    `published_remote=true` plus a matching current HEAD means post-push
+    repair/status work, not another push attempt.
+4.7 Treat governed-markdown authority the same way: prefer typed
+    `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
+    parsed `plan_registry` entries when those projections are available, but
+    keep the reviewed markdown `## Session Resume` content as the canonical
+    restart surface. `startup-context` / `WorkIntakePacket` may consume typed
+    `SessionResumeState` for one selected plan target, but that projection is
+    a bounded startup read, not a replacement for the reviewed markdown
+    authority itself.
+4.7.0 Docs-routing follows that same rule now: `check-router` /
+    `docs-check` should classify governed markdown from typed doc authority
+    (`DocRegistry` plus repo-owned surface context) before falling back to
+    generic path buckets, and empty `docs_check` policy sections must not
+    silently recreate VoiceTerm maintainer-doc requirements in another repo.
+4.7.1 Preserve the product boundary while doing that work: in portable
+    runtime/tooling layers, treat VoiceTerm as a consumer of the governance
+    platform rather than the universal repo shape. New portable code should
+    resolve docs, plans, artifact roots, bridge/review state, and generated
+    AI bootstrap instructions through `ProjectGovernance` / repo-pack
+    authority. If that authority is missing, fail closed or stay in explicit
+    compatibility mode; do not silently revive VoiceTerm defaults.
+4.7.2 Apply the same fail-closed rule to typed runtime parsing: partial
+    `ProjectGovernance` payloads and startup receipt helpers must preserve
+    empty doc/plan/report roots unless real governance or an explicitly
+    activated repo pack supplied them, rather than materializing
+    `AGENTS.md`, `dev/active/*`, or `dev/reports/*` as hidden defaults.
+4.7.3 Treat deterministic validation contracts the same way: the portable
+    authority is a runner-agnostic validator contract, not one repo's test
+    runner. This repo may use pytest-first adapters for Python slices, but
+    the shared architecture must stay open to `cargo test`, JS runners, and
+    other deterministic validators through typed validator refs. Passing
+    validators may widen weaker automation modes only inside the exact
+    finding-scoped validation plan; repo-wide coverage percentages or generic
+    green suites are weighting signals, not the autonomy gate, and they must
+    never override explicit human `approval_required`.
+4.8 After fixing a meaningful issue, verify both levels before handoff: the
+    local defect must be fixed, and the chosen prevention/absorption path must
+    either be landed and validated or explicitly deferred/waived with the
+    reason recorded in repo-visible state. Passing tests alone is not
+    sufficient closure when the issue exposed a reusable architecture gap.
 5. Keep changes scoped: ignore unrelated diffs unless user asks.
 
 ## Prerequisites
@@ -183,6 +497,13 @@ Required tools (install before running any bundle):
 - **markdownlint-cli**: `npm install -g markdownlint-cli@0.45.0`
 - **GitHub CLI**: `gh auth status -h github.com`
 - **jscpd** (optional, duplication audits): `npm install -g jscpd`
+
+Interpreter note:
+- `devctl` now keeps repo-owned Python subprocesses on the interpreter that
+  launched `dev/scripts/devctl.py` (checks, probes, and `guard-run`
+  follow-ups). If local `python3` is older than the repo requirement, invoke
+  `python3.11 dev/scripts/devctl.py ...` so nested guard runs stay on the same
+  runtime.
 
 Verify with: `python3 dev/scripts/devctl.py list` (exits non-zero if critical
 tools are missing).
@@ -243,6 +564,9 @@ For non-trivial Rust runtime/tooling changes, contributors must:
    exceptions are tracked in `code_shape_policy.py` with expiry dates; new
    oversized functions require a `FunctionShapeException` with owner, expiry,
    and decomposition reason before merge.
+   When a module exceeds the file soft limit (Python 350, Rust 900), split
+   private helper clusters into a sibling module and re-export public symbols
+   from the original path for backward compatibility.
 5. Prefer consolidation over duplication: extract shared helpers instead of
    repeating logic across overlays/themes/settings/status surfaces. The
    `function_duplication` guard blocks new identical function bodies (>= 6
@@ -256,10 +580,240 @@ For non-trivial Rust runtime/tooling changes, contributors must:
    (`broad-except: allow reason=...`) instead of silent fail-soft behavior.
 8. Record references consulted in handoff for non-trivial Rust changes.
 
+## Review probe suite — AI design-quality enforcement (required)
+
+Review probes are heuristic scanners that detect design-quality regressions
+commonly produced by AI agents. Unlike hard guards (exit 0/1), probes always
+exit 0 and emit structured `risk_hints` in JSON format. They are the
+**second layer** of quality enforcement:
+
+| Layer | Purpose | Exit behavior | Registration |
+|---|---|---|---|
+| **A — Hard guards** | Block regressions | exit 1 on violation | `quality_policy.py` built-in guard registry + `dev/config/devctl_repo_policy.json` enablement |
+| **B — Review probes** | Surface design smells | always exit 0 | `quality_policy.py` built-in probe registry + `dev/config/devctl_repo_policy.json` enablement |
+| **C — AI investigative review** | Deep contextual analysis | advisory | manual / future |
+
+### Active probes
+
+| Probe | Detects | Python | Rust |
+|---|---|---|---|
+| `probe_concurrency` | Nested lock acquisition, mutex+spawn without Arc, relaxed atomics with multi-flag, poison recovery | — | yes |
+| `probe_design_smells` | Excessive `getattr()` density, untyped `object` params with attribute access, format helper sprawl | yes | — |
+| `probe_boolean_params` | Functions with 3+ boolean parameters (unreadable call sites) | yes | yes |
+| `probe_stringly_typed` | String-literal dispatch chains that should be enums | yes | yes |
+| `probe_blank_line_frequency` | Excessive blank-line gaps that make function or module logic read as fragmented instead of cohesive | yes | yes |
+| `probe_identifier_density` | Dense short or opaque identifier mixes that usually signal unreadable local naming | yes | yes |
+| `probe_term_consistency` | Legacy public words and mixed term families inside configured repo-owned code/docs surfaces | yes | — |
+| `probe_cognitive_complexity` | Branch-heavy control flow that is hard to review, test, or safely modify | yes | yes |
+| `probe_fan_out` | Functions or modules touching too many collaborators, suggesting orchestration sprawl | yes | yes |
+| `probe_unwrap_chains` | `.unwrap()`/`.expect()` chains in production code (should use `?` operator) | — | yes |
+| `probe_clone_density` | Excessive `.clone()` calls suggesting ownership confusion (Arc::clone excluded) | — | yes |
+| `probe_type_conversions` | Redundant type conversion chains (`.as_str().to_string()` round-trips) | — | yes |
+| `probe_magic_numbers` | Unnamed numeric literals in slice operations that should be named constants | yes | — |
+| `probe_dict_as_struct` | Functions returning dicts with 5+ keys that should be dataclasses/TypedDict | yes | — |
+| `probe_unnecessary_intermediates` | Assign-then-return patterns with generic variable names (`result`, `ret`, `output`) | yes | — |
+| `probe_vague_errors` | `bail!()`/`anyhow!()` error messages without runtime context variables | — | yes |
+| `probe_side_effect_mixing` | Python functions that mix orchestration or mutation with value-shaping logic in one body | yes | — |
+| `probe_defensive_overchecking` | 3+ consecutive `isinstance()` checks on the same variable | yes | — |
+| `probe_single_use_helpers` | Private functions (`_name`) called only once in the file (indirection without reuse) | yes | — |
+| `probe_exception_quality` | Suppressive broad handlers and generic exception translation without runtime context | yes | — |
+| `probe_compatibility_shims` | Missing/expired shim metadata, unresolved shim targets, and shim-heavy roots/families | yes | — |
+| `probe_tuple_return_complexity` | Functions returning tuples with 3+ elements that should become named structs | — | yes |
+| `probe_mutable_parameter_density` | Rust functions carrying too many mutable parameters, indicating ownership or orchestration overload | — | yes |
+| `probe_match_arm_complexity` | Rust `match` arms with too much inline logic instead of extracted helpers or richer types | — | yes |
+
+### When agents must run probes
+
+Run probes after **any** of these events:
+1. Creating a new module or file with business logic.
+2. Refactoring or restructuring existing code (module splits, API changes).
+3. Adding new function signatures with 3+ parameters.
+4. Introducing string-based dispatch (`match`, `if/elif` chains on strings).
+5. Writing concurrent/async code with shared mutable state.
+
+Quick command: `python3 dev/scripts/devctl.py check --profile ci` runs all
+hard guards **and** review probes. `python3 dev/scripts/devctl.py probe-report --format md`
+is the canonical aggregated probe surface when an agent needs ranked cleanup
+order, topology context, or a self-contained handoff packet. It refreshes
+`review_targets.json`, `file_topology.json`, `review_packet.{json,md}`, and
+hotspot `hotspots.{mmd,dot}` artifacts under `dev/reports/probes/latest/`.
+Repo-root `.probe-allowlist.json` entries apply to that canonical `devctl`
+path too: `design_decision` entries stay visible in a typed decision-packet
+bucket instead of active debt. Matching is by `file` + `symbol` + `probe`
+when the allowlist entry declares a probe id; omit `probe` only when the same
+decision intentionally applies across all probes for that symbol. The root
+payload may carry `schema_version: 1` and
+`contract_id: "ProbeAllowlist"`. Those packets are for AI agents and human
+reviewers alike; `decision_mode` only controls whether the agent may
+auto-apply, should recommend, or must explain and wait for approval.
+When the guard/probe surface itself changes (new `probe_*.py` or `check_*.py`
+entrypoints, `script_catalog.py`, `quality_policy_defaults.py`,
+`dev/config/quality_presets/*.json`, or `dev/config/devctl_repo_policy.json`),
+also run `python3 dev/scripts/devctl.py quality-policy --format md` plus
+`python3 dev/scripts/devctl.py render-surfaces --format md`; use `--write`
+when the policy-owned AI/dev instruction surfaces need regeneration.
+When the platform contract surface itself changes (`dev/scripts/devctl/platform/**`,
+shared runtime contract models, probe/report schema constants, or
+`repo_governance.surface_generation` contract-routing text), also run
+`python3 dev/scripts/checks/check_platform_contract_closure.py` plus
+`python3 dev/scripts/devctl.py platform-contracts --format md`.
+For probes only:
+```bash
+# Canonical aggregated probe packet:
+python3 dev/scripts/devctl.py probe-report --format md
+python3 dev/scripts/devctl.py probe-report --format terminal
+
+# Direct script entrypoint (fallback):
+python3 dev/scripts/checks/run_probe_report.py --format md
+python3 dev/scripts/checks/run_probe_report.py --format terminal
+
+# Individual probes:
+python3 dev/scripts/checks/probe_concurrency.py
+python3 dev/scripts/checks/probe_design_smells.py
+python3 dev/scripts/checks/probe_boolean_params.py
+python3 dev/scripts/checks/probe_stringly_typed.py
+python3 dev/scripts/checks/probe_blank_line_frequency.py
+python3 dev/scripts/checks/probe_identifier_density.py
+python3 dev/scripts/checks/probe_term_consistency.py
+python3 dev/scripts/checks/probe_cognitive_complexity.py
+python3 dev/scripts/checks/probe_fan_out.py
+python3 dev/scripts/checks/probe_unwrap_chains.py
+python3 dev/scripts/checks/probe_clone_density.py
+python3 dev/scripts/checks/probe_type_conversions.py
+python3 dev/scripts/checks/probe_magic_numbers.py
+python3 dev/scripts/checks/probe_dict_as_struct.py
+python3 dev/scripts/checks/probe_unnecessary_intermediates.py
+python3 dev/scripts/checks/probe_vague_errors.py
+python3 dev/scripts/checks/probe_side_effect_mixing.py
+python3 dev/scripts/checks/probe_defensive_overchecking.py
+python3 dev/scripts/checks/probe_single_use_helpers.py
+python3 dev/scripts/checks/probe_exception_quality.py
+python3 dev/scripts/checks/probe_compatibility_shims.py
+python3 dev/scripts/checks/probe_tuple_return_complexity.py
+python3 dev/scripts/checks/probe_mutable_parameter_density.py
+python3 dev/scripts/checks/probe_match_arm_complexity.py
+```
+
+Default AI operating rule:
+- Run `python3 dev/scripts/devctl.py check --profile ci` after those changes.
+- Run `python3 dev/scripts/devctl.py probe-report --format md` when the change
+  needs prioritization, human handoff, or AI follow-up packets.
+- Use `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...`
+  for raw Rust tests / test binaries so post-run hygiene is enforced
+  automatically.
+
+### Acting on probe findings
+
+When a probe emits risk hints, agents MUST:
+1. Read the `ai_instruction` field — it contains targeted remediation guidance.
+2. Fix `high` severity hints before handoff (these are unambiguous smells).
+2.1 When a live AI consumer attaches probe guidance (for example Ralph or an
+    autonomy `loop-packet` draft), treat that guidance as the default repair
+    plan unless you can justify waiving it with a concrete reason. Keep the
+    resulting guidance disposition visible in the route's report/packet
+    surface so adoption is measurable, and use
+    `governance-review --record --guidance-id ... --guidance-followed ...`
+    when the finding is adjudicated so the adoption signal survives outside
+    the prompt text. If the matched carried decision packet sets
+    `decision_mode=approval_required`, do not mutate through that route until
+    the approval step is explicit in the packet/report surface.
+3. Document `medium` severity hints in handoff notes if not fixed immediately.
+4. Record adjudicated probe/guard outcomes with
+   `python3 dev/scripts/devctl.py governance-review --record ...` when a hint
+   is confirmed, fixed, deferred, waived, or judged false-positive so the repo
+   maintains a durable finding-quality ledger before handoff.
+4.1 Treat every recorded `false_positive` verdict as a rule-quality defect to
+    investigate. Before closing the slice, document why the signal was wrong
+    and whether the fix belongs in rule narrowing, richer context capture,
+    severity demotion, repo-pack policy tuning, or explicit allowlisting.
+5. Never suppress probe output — probes are advisory but findings are real.
+
+### Adding new probes
+
+New probes must follow the established pattern:
+1. Create `dev/scripts/checks/probe_<name>.py` using `probe_bootstrap.py`.
+2. Register in `script_catalog.py::PROBE_SCRIPT_FILES`.
+3. Register built-in probe metadata in `dev/scripts/devctl/quality_policy_defaults.py` and enable it in the relevant preset/policy file (`dev/config/quality_presets/*.json`, `dev/config/devctl_repo_policy.json`) when this repo should run it by default.
+4. Include per-signal `AI_INSTRUCTIONS` dict for targeted remediation.
+5. Always exit 0 — probes emit hints, never block CI.
+6. Skip test files (`_is_test_path`) — test code has different design rules.
+
+Portable policy note:
+- Built-in guard/probe capability metadata now lives in
+  `dev/scripts/devctl/quality_policy_defaults.py`, with resolution/inheritance
+  handled by the rest of the `quality_policy*.py` stack.
+- Built-in portable presets now live in `dev/config/quality_presets/*.json`.
+- Repo-local enablement/default arguments live in
+  `dev/config/devctl_repo_policy.json`.
+- The repo policy file and any touched preset JSON files are committed source
+  of truth, not local-only scratch config. If local validation depends on a
+  policy/preset change, commit those `dev/config/**` files in the same slice so
+  CI resolves the same guard/probe surface.
+- Use `python3 dev/scripts/devctl.py quality-policy --format md` to inspect the
+  resolved active guard/probe set, scopes, and warnings before reusing the
+  engine somewhere else.
+- Use `python3 dev/scripts/devctl.py render-surfaces --format md` to inspect
+  policy-owned instruction/starter surfaces from
+  `repo_governance.surface_generation`, and `--write` to regenerate them after
+  template or context changes.
+- Use `python3 dev/scripts/checks/check_platform_contract_closure.py` when the
+  shared platform blueprint, runtime contract models, artifact schema
+  metadata, or startup-surface routing changes so `platform-contracts`,
+  emitted packet metadata, and AI/dev startup surfaces cannot drift apart.
+- When a critical contract field gains a live consumer route (for example
+  `Finding.ai_instruction` flowing from probe artifacts into the Ralph prompt),
+  extend `check_platform_contract_closure.py` with a deterministic field-route
+  proof so produced-but-unconsumed regressions fail before handoff.
+- Once a field has more than one declared live consumer, keep that same guard
+  honest at the family level too: record the expected route family and fail if
+  any declared consumer disappears, not only when the first surviving route
+  still passes.
+- When that new route still needs a compatibility seam, keep one canonical
+  artifact authority and structured routing keys. Do not let AI consumers
+  silently negotiate between multiple artifacts or depend on prose-derived
+  matching once typed fields exist; track any temporary fallback in the active
+  plan and extend the relevant guard/probe so the seam cannot become
+  permanent by accident.
+- Use `python3 dev/scripts/devctl.py governance-export --format md` when the
+  whole governance stack, latest reports, and policy/templates need to be
+  handed to another repo or model outside this checkout.
+- Use `python3 dev/scripts/devctl.py governance-review --format md` to inspect
+  the current adjudicated finding ledger, and `--record` to append one reviewed
+  guard/probe outcome before the summary is regenerated.
+- `devctl` command telemetry is auto-emitted to
+  `dev/reports/audits/devctl_events.jsonl`; do not hand-edit that ledger.
+  The operator rule is:
+  - use `devctl` commands for work that should land in command telemetry,
+  - use `governance-review --record` for adjudicated finding outcomes,
+  - use active-plan markdown for prose session continuity and handoff state.
+- Use `python3 dev/scripts/devctl.py governance-bootstrap --target-repo <path> --format md`
+  before first-run pilots against copied repos or submodule snapshots that may
+  carry broken `.git` indirection.
+- `check`, `probe-report`, and `governance-export` accept `--adoption-scan`
+  for full current-worktree onboarding scans when a repo has no trustworthy
+  baseline yet.
+- `check`, `probe-report`, `status --probe-report`, `report --probe-report`,
+  `triage --probe-report`, and `render-surfaces` accept
+  `--quality-policy <path>`, and
+  `DEVCTL_QUALITY_POLICY` provides the same override through the environment.
+- When a repo-local policy path becomes a repeated operator workflow, add a
+  short wrapper command instead of forcing maintainers to keep using the raw
+  policy-path form. Current examples: `launcher-check`,
+  `launcher-probes`, and `launcher-policy`.
+- To reuse this system in another repo, prefer swapping the repo-policy file
+  over editing `check` or `probe-report` orchestration code.
+
 ## Cross-architecture quality enforcement (required)
 
 All quality guard tooling MUST align across the three codebase architectures.
 The same enforcement patterns apply everywhere — no architecture gets a pass.
+Tandem-consistency checks (`check_tandem_consistency.py`) prefer typed
+`review_state.json` authority when available; bridge-text fallback is used
+only for checks without a typed equivalent (`reviewed_hash_honesty`,
+`plan_alignment`, `launch_truth`). When those checks need live review-channel
+freshness they must refresh the bridge-backed typed projection before reading
+`current_session`, so stale on-disk snapshots do not outrank the repo-owned
+status writer.
 
 | Architecture | Language | Guard entry point | CI workflow |
 |---|---|---|---|
@@ -283,16 +837,22 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
 6. Ralph loop checks new backlog → repeats until clean or max attempts reached
 7. If unresolved after max attempts → escalation comment requests human review
 
-**AI fix wrapper** (`dev/scripts/ralph_ai_fix.py`):
+**AI fix wrapper** (`dev/scripts/coderabbit/ralph_ai_fix.py`):
 - Reads `RALPH_BACKLOG_DIR/backlog-medium.json`
+- Reads canonical probe guidance from `dev/reports/probes/review_targets.json`
+  when probe artifacts are available; `review_packet.json` remains a separate
+  artifact for other consumers, not a second Ralph guidance authority
 - Maps finding categories to architectures (Rust, PyQt6, devctl, iOS)
 - Invokes Claude Code with structured prompt including false-positive filtering
 - Runs architecture-specific checks before committing
+- Prefer structured backlog `path` / `line` fields for matching probe
+  guidance to CodeRabbit items; summary-string parsing is compatibility-only
+  for older backlog payloads
 - Policy-gated via `control_plane_policy.json` allowlist
 
 **Cross-architecture guard alignment rules:**
-1. Every new guard script MUST be registered in `check_support.py::AI_GUARD_CHECKS`.
-2. Every guard in `AI_GUARD_CHECKS` MUST have a step in `tooling_control_plane.yml`.
+1. Every new guard script MUST be registered in `dev/scripts/devctl/quality_policy.py` and enabled in `dev/config/devctl_repo_policy.json` when this repo should run it by default.
+2. Every repo-enabled AI guard MUST have a step in `tooling_control_plane.yml`.
 3. Guard output format MUST support `--since-ref`/`--head-ref` for growth-based gating.
 4. The Ralph AI fix wrapper MUST run architecture-specific validation after fixes.
 5. No architecture may bypass the Ralph loop — all CodeRabbit findings across Rust,
@@ -321,11 +881,45 @@ Non-release work flow:
      `git push`.
    - If the user asks to test before commit, keep changes uncommitted until
      that local validation completes.
-7. Commit and push short-lived branch only after explicit user approval.
-8. Merge short-lived branch into `develop` only after required checks pass.
+7. Commit the bounded slice/checkpoint only after explicit user approval.
+8. Push the short-lived branch only after explicit user approval, a current
+   review gate, and a green `python3 dev/scripts/devctl.py push` validation.
+9. Merge short-lived branch into `develop` only after required checks pass.
 
 Routine helper:
 
+- `python3 dev/scripts/devctl.py push` runs the canonical non-mutating
+  branch-push validation path from repo policy (`repo_governance.push`) and
+  now reports typed push stages (`validation_ready`, `published_remote`,
+  `post_push_green`) without mutating git state. The same command also
+  persists a managed latest-push artifact at `dev/reports/push/latest.json`
+  so later startup/recovery can read the last typed push truth instead of
+  inferring state from chat or process lifetime.
+- `python3 dev/scripts/devctl.py push --execute` runs the same preflight,
+  performs the current short-lived branch push, and then executes the
+  configured post-push bundle. `--skip-preflight` / `--skip-post-push` are
+  policy-gated under `repo_governance.push.bypass`; a remote update is not the
+  same state as post-push green. When the persisted artifact says
+  `published_remote=true` and `post_push_green=false`, treat remote
+  publication as settled and repair the post-push follow-up instead of
+  pushing again.
+- Shared `devctl` command execution now follows the parent command lifetime:
+  inherited stdout pipes from detached descendants must not keep a completed
+  governed push session open after the parent push/post-push step exits.
+- A local checkpoint / clean worktree is not sufficient push proof by itself;
+  the review gate and the governed `devctl push` path decide remote readiness.
+- Read the typed startup/review decision, not just raw dirty-tree booleans:
+  `startup-context` / `review-channel status` may now surface a four-state
+  `push_decision` (`await_checkpoint`, `await_review`, `run_devctl_push`,
+  `no_push_needed`).
+- After any bounded checkpoint/commit, rerun
+  `python3 dev/scripts/devctl.py startup-context --format summary` and follow
+  that `push_decision` exactly: wait if it says `await_review`, run
+  `python3 dev/scripts/devctl.py push --execute` only when it says
+  `run_devctl_push`, and stop when it says `no_push_needed`.
+- Repo policy may also declare non-authoritative scratch/reference paths such
+  as `convo.md` so local advisory context does not keep a reviewed branch from
+  reaching the governed push path.
 - `python3 dev/scripts/devctl.py sync --push` can audit/sync `develop` +
   `master` + current branch with clean-tree and fast-forward guards.
 
@@ -360,9 +954,11 @@ When adding any new markdown file under `dev/active/`, this sequence is required
 2. If the file carries execution state, reflect that scope in
    `dev/active/MASTER_PLAN.md` (the only tracker authority).
 2.1 If the file is an execution plan, include marker
-    `Execution plan contract: required` and sections `Scope`,
-    `Execution Checklist`, `Progress Log`, and `Audit Evidence`.
-3. Update discovery links in `AGENTS.md`, `DEV_INDEX.md`, and `dev/README.md`
+    `Execution plan contract: required`, one parseable metadata header, and
+    sections `Scope`, `Execution Checklist`, `Progress Log`,
+    `Session Resume`, and `Audit Evidence`. Follow
+    `dev/active/PLAN_FORMAT.md`.
+3. Update discovery links in `AGENTS.md` and `dev/README.md`
    if navigation/ownership changed.
 3.1 For new active-plan/check-script/devctl-command/app/workflow surfaces, run
     `python3 dev/scripts/checks/check_architecture_surface_sync.py` before
@@ -374,6 +970,11 @@ When adding any new markdown file under `dev/active/`, this sequence is required
 8. Commit file + index + governance docs in one change.
 
 ## Task router (pick one class)
+
+Canonical task-router authority lives in
+`dev/scripts/devctl/governance/task_router_contract.py`.
+The table below is a human-readable reference and must stay aligned with that
+typed router.
 
 | User story | Task class | Required bundle |
 |---|---|---|
@@ -460,6 +1061,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
@@ -476,12 +1078,17 @@ python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 python3 dev/scripts/checks/check_facade_wrappers.py
 python3 dev/scripts/checks/check_god_class.py
 python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_typed_seams.py
 python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_python_design_complexity.py
+python3 dev/scripts/checks/check_python_cyclic_imports.py
+python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
 
@@ -495,6 +1102,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
@@ -511,12 +1119,17 @@ python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 python3 dev/scripts/checks/check_facade_wrappers.py
 python3 dev/scripts/checks/check_god_class.py
 python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_typed_seams.py
 python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_python_design_complexity.py
+python3 dev/scripts/checks/check_python_cyclic_imports.py
+python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
 
@@ -524,7 +1137,7 @@ find . -maxdepth 1 -type f -name '--*'
 
 ```bash
 python3 dev/scripts/devctl.py docs-check --strict-tooling
-python3 dev/scripts/devctl.py hygiene --strict-warnings
+python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge
 python3 dev/scripts/devctl.py orchestrate-status --format md
 python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 python3 dev/scripts/checks/check_agents_contract.py
@@ -532,14 +1145,23 @@ python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_repo_url_parity.py
 python3 dev/scripts/checks/check_guard_enforcement_inventory.py
 python3 dev/scripts/checks/check_architecture_surface_sync.py
+python3 dev/scripts/checks/check_guide_contract_sync.py
+python3 dev/scripts/checks/check_instruction_surface_sync.py
 python3 dev/scripts/checks/check_bundle_registry_dry.py
 python3 dev/scripts/checks/check_bundle_workflow_parity.py
+python3 dev/scripts/checks/check_platform_layer_boundaries.py
+python3 dev/scripts/checks/check_platform_contract_closure.py
+python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
+python3 dev/scripts/checks/check_startup_authority_contract.py
+python3 dev/scripts/checks/check_tandem_consistency.py
+python3 dev/scripts/checks/check_governance_closure.py
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
@@ -556,12 +1178,17 @@ python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 python3 dev/scripts/checks/check_facade_wrappers.py
 python3 dev/scripts/checks/check_god_class.py
 python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_typed_seams.py
 python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_python_design_complexity.py
+python3 dev/scripts/checks/check_python_cyclic_imports.py
+python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 python3 -m pytest app/operator_console/tests/ -q --tb=short
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
@@ -571,9 +1198,9 @@ python3 dev/scripts/devctl.py process-cleanup --verify --format md
 
 ```bash
 python3 dev/scripts/devctl.py check --profile release
-python3 dev/scripts/devctl.py docs-check --user-facing --strict
+python3 dev/scripts/devctl.py docs-check --user-facing --strict-release
 python3 dev/scripts/devctl.py docs-check --strict-tooling
-python3 dev/scripts/devctl.py hygiene --strict-warnings
+python3 dev/scripts/devctl.py hygiene --strict-release-warnings
 python3 dev/scripts/devctl.py orchestrate-status --format md
 python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 python3 dev/scripts/checks/check_agents_contract.py
@@ -581,10 +1208,18 @@ python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_repo_url_parity.py
 python3 dev/scripts/checks/check_guard_enforcement_inventory.py
 python3 dev/scripts/checks/check_architecture_surface_sync.py
+python3 dev/scripts/checks/check_guide_contract_sync.py
+python3 dev/scripts/checks/check_instruction_surface_sync.py
 python3 dev/scripts/checks/check_bundle_registry_dry.py
 python3 dev/scripts/checks/check_bundle_workflow_parity.py
+python3 dev/scripts/checks/check_platform_layer_boundaries.py
+python3 dev/scripts/checks/check_platform_contract_closure.py
+python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
-python3 dev/scripts/checks/check_publication_sync.py
+python3 dev/scripts/checks/check_startup_authority_contract.py
+python3 dev/scripts/checks/check_tandem_consistency.py
+python3 dev/scripts/checks/check_governance_closure.py
+python3 dev/scripts/checks/check_publication_sync.py --release-branch-aware
 CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
 CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/checks/check_active_plan_sync.py
@@ -592,6 +1227,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
@@ -608,12 +1244,17 @@ python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 python3 dev/scripts/checks/check_facade_wrappers.py
 python3 dev/scripts/checks/check_god_class.py
 python3 dev/scripts/checks/check_mobile_relay_protocol.py
+python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py
 python3 dev/scripts/checks/check_parameter_count.py
 python3 dev/scripts/checks/check_python_dict_schema.py
+python3 dev/scripts/checks/check_python_typed_seams.py
 python3 dev/scripts/checks/check_python_global_mutable.py
+python3 dev/scripts/checks/check_python_design_complexity.py
+python3 dev/scripts/checks/check_python_cyclic_imports.py
+python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
 ```
@@ -634,6 +1275,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop
+python3 dev/scripts/checks/check_package_layout.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_subprocess_policy.py --since-ref origin/develop
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
@@ -650,12 +1292,17 @@ python3 dev/scripts/checks/check_rust_runtime_panic_policy.py --since-ref origin
 python3 dev/scripts/checks/check_facade_wrappers.py --since-ref origin/develop
 python3 dev/scripts/checks/check_god_class.py --since-ref origin/develop
 python3 dev/scripts/checks/check_mobile_relay_protocol.py --since-ref origin/develop
+python3 dev/scripts/checks/check_daemon_state_parity.py
 python3 dev/scripts/checks/check_nesting_depth.py --since-ref origin/develop
 python3 dev/scripts/checks/check_parameter_count.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_dict_schema.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_typed_seams.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_global_mutable.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_design_complexity.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_cyclic_imports.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_suppression_debt.py --since-ref origin/develop
 python3 dev/scripts/checks/check_structural_similarity.py --since-ref origin/develop
-markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
 ```
@@ -931,7 +1578,7 @@ Enforcement commands:
 
 ```bash
 python3 dev/scripts/devctl.py docs-check --user-facing
-python3 dev/scripts/devctl.py docs-check --user-facing --strict
+python3 dev/scripts/devctl.py docs-check --user-facing --strict-release
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_agents_bundle_render.py
@@ -975,6 +1622,7 @@ Core commands:
     tooling lanes remain deterministic when `PyYAML` is unavailable.
   - Malformed inline collection scalars in fallback mode now fail closed (no
     silent coercion), preserving guard reliability.
+- `mcp` (optional read-only MCP adapter for allowlisted `devctl` tools/resources plus stdio transport; additive transport only, not a second enforcement authority)
 - `docs-check`
   - `--strict-tooling` also runs active-plan + multi-agent sync gates, markdown metadata-header checks, workflow-shell hygiene checks, bundle/workflow parity checks, plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
   - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical.
@@ -983,6 +1631,7 @@ Core commands:
 - `process-audit` (host-side Activity Monitor equivalent for repo-related runtime/tooling process trees; reports matched roots plus descendants, includes repo-cwd runtime/tooling helpers that would otherwise look generic in Activity Monitor, fails fast if `ps` is unavailable, and `--strict` turns leftover runtime/test trees or stale/orphaned repo-related helpers into a blocking failure before handoff)
 - `process-watch` (bounded periodic host-process monitor that reruns the same audit logic on a cadence, optionally performs orphan/stale cleanup before each pass, and stops only when zero repo-related host processes remain if `--stop-on-clean` is set)
 - `publication-sync` (tracked external publication report/record surface that compares watched repo paths against the last synced source commit for papers/sites and can record a new baseline after external publish)
+- `push` (policy-driven guarded push surface for the current branch; validates repo-owned branch/remote rules plus configured preflight, defaults to non-mutating validation, and uses the configured post-push bundle after `--execute`)
 - `path-audit` (stale-reference scan for legacy check-script paths; excludes `dev/archive/`)
 - `path-rewrite` (auto-rewrite legacy check-script paths to canonical registry targets; use `--dry-run` first)
 - `sync` (branch-sync automation with clean-tree, remote-ref, and `--ff-only` pull guards; optional `--push` for ahead branches)
@@ -1002,17 +1651,31 @@ Core commands:
 - `orchestrate-status` (single-view orchestrator summary for active-plan sync + multi-agent coordination guard state)
 - `orchestrate-watch` (SLA watchdog for stale agent updates and overdue instruction ACKs)
 - `report` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
-- `data-science` (builds one rolling telemetry snapshot from devctl audit events plus autonomy swarm/benchmark history, emits `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/`, and supports source/output overrides for experiments; devctl also auto-refreshes this snapshot after each command unless `DEVCTL_DATA_SCIENCE_DISABLE=1`)
+- `data-science` (builds one rolling telemetry snapshot from devctl audit events plus autonomy swarm/benchmark history, folds in governance-review false-positive/cleanup metrics, emits `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/`, and supports source/output overrides for experiments; devctl also auto-refreshes this snapshot after each command unless `DEVCTL_DATA_SCIENCE_DISABLE=1`)
+- `tandem-validate` (repo-owned tandem-session validator that resolves the real lane and risk add-ons through `check-router`, executes the routed bundle, then rechecks review-channel and tandem consistency at the end)
+- `doc-authority` (read-only governed-markdown authority scan that derives the current doc registry, plan metadata, and owner/classification signals from the reviewed markdown set)
+- `governance-draft` (deterministic governed-doc discovery and starter surface that should stay aligned with the live CLI inventory and maintainer docs before write-mode governance changes)
+- `governance-import-findings` (imports external review findings into the repo-owned governance ledger with normalized metadata and auditable append-only records)
+- `governance-quality-feedback` (rolls adjudicated findings and probe guidance into a reusable quality-feedback summary for policy tuning and platform evidence)
+- `governance-review` (records adjudicated guard/probe findings to
+  `dev/reports/governance/finding_reviews.jsonl`, writes
+  `dev/reports/governance/latest/review_summary.{md,json}`, and gives the repo
+  a durable false-positive / cleanup-rate ledger; `--record` also accepts
+  optional `guidance_id` / `guidance_followed` fields so probe-guidance
+  adoption can be measured in the same ledger as verdict/fix outcomes)
 - `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing; report timestamps are UTC)
-- `triage-loop` (bounded CodeRabbit medium/high loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; fix execution is policy-gated via `AUTONOMY_MODE`, branch allowlist, and command-prefix allowlist; emits md/json bundles and optional MASTER_PLAN proposal artifacts, with review-escalation comment upserts when attempts exhaust unresolved backlog)
-- `loop-packet` (builds a guarded terminal feedback packet from triage/loop JSON sources for dev-mode draft injection with freshness/risk/auto-send-eligibility gates)
+- `triage-loop` (bounded CodeRabbit medium/high loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; fix execution is policy-gated via `AUTONOMY_MODE`, branch allowlist, and command-prefix allowlist; emits md/json bundles plus a bounded structured backlog slice for downstream autonomy consumers, optional MASTER_PLAN proposal artifacts, and review-escalation comment upserts when attempts exhaust unresolved backlog)
+- `loop-packet` (builds a guarded terminal feedback packet from triage/loop JSON sources for dev-mode draft injection with freshness/risk/auto-send-eligibility gates; `triage-loop` sources now also carry a bounded structured backlog slice so autonomy drafts can inject canonical `review_targets.json` probe guidance, mark when guidance adoption is required, and keep that contract in packet JSON instead of hidden prompt-only text)
 - `autonomy-loop` (bounded controller loop that orchestrates triage-loop + loop-packet rounds, emits checkpoint packets/queue artifacts, writes phone-ready status snapshots under `dev/reports/autonomy/queue/phone/`, and enforces policy-driven stop reasons; non-dry-run write modes require `AUTONOMY_MODE=operate`)
 - `autonomy-benchmark` (active-plan-scoped swarm matrix runner for tactic/swarm-size tradeoff analysis; executes `autonomy-swarm` batches across configurable count/tactic grids, emits per-swarm and per-scenario productivity metrics, and writes benchmark bundles under `dev/reports/autonomy/benchmarks/<label>/`; non-report modes require `--fix-command`)
 - `swarm_run` (guarded plan-scoped autonomy pipeline that derives next unchecked plan steps, runs `autonomy-swarm` with reviewer + post-audit defaults, executes governance checks (`check_active_plan_sync`, `check_multi_agent_sync`, `docs-check --strict-tooling`, `orchestrate-status/watch`), and appends run evidence to plan-doc `Progress Log` + `Audit Evidence`; supports optional multi-cycle execution (`--continuous --continuous-max-cycles`) to keep processing plan checklist scope until failure/limit; non-report modes require `--fix-command`)
 - `autonomy-report` (builds a human-readable autonomy digest bundle from loop/watch artifacts under `dev/reports/autonomy/library/<label>` with summary markdown/json, copied sources, and optional matplotlib charts)
 - `phone-status` (renders iPhone/SSH-safe autonomy status projections from `dev/reports/autonomy/queue/phone/latest.json` with selectable views `full|compact|trace|actions` and optional projection bundle emission: `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`)
+- `mobile-app` (wrapper over the first-party iPhone/iPad app flow; supports simulator demo, repo-backed live-review refresh before launch, physical-device install guidance, and real signed device install/launch when Apple signing is configured)
 - `controller-action` (policy-gated operator action surface for `refresh-status`, `dispatch-report-only`, `pause-loop`, and `resume-loop`; dispatch and mode writes are bounded by workflow/branch allowlists and autonomy mode gates, with optional dry-run and mode-state artifact output)
-- `review-channel` (current bridge-gated review-swarm bootstrap surface; `--action launch` reads `dev/active/review_channel.md` + `code_audit.md`, emits Codex/Claude conductor launch scripts, defaults live macOS launches to an `auto-dark` Terminal profile when available, and fails closed when the markdown bridge is inactive; `--action rollover` writes a repo-visible handoff bundle, relaunches fresh conductors before compaction, and can wait for visible ACK lines in `code_audit.md`)
+- `ralph-status` (Ralph guardrail analytics surface; aggregates `ralph-report*.json` artifacts into fix/open counts, architecture breakdowns, guidance adoption/waiver metrics, and optional chart outputs for CLI/mobile/operator surfaces)
+- `review-channel` (current bridge-gated review-swarm bootstrap surface; it resolves the review plan, compatibility bridge, and status root through `ProjectGovernance` / repo-pack state, with VoiceTerm currently mapping those to `dev/active/review_channel.md`, `bridge.md`, and `dev/reports/review_channel/latest/`; `--action launch` emits Codex/Claude conductor launch scripts, defaults live macOS launches to an `auto-dark` Terminal profile when available, and fails closed when the markdown bridge is inactive; `--action status`, `--action ensure`, `--action reviewer-heartbeat`, and `--action reviewer-checkpoint` now also emit machine-readable `reviewer_worker` state plus the typed `current_session` live-status block so current instruction / ACK reads no longer depend on append-only bridge prose, preserve shared-context `guidance_refs` when probe guidance is in scope, and keep those refs visible to downstream packet/prompt consumers, while `ensure --follow` frames carry `review_needed` without claiming semantic review completion and also reclaim a missing detached reviewer supervisor in active dual-agent mode; bridge-backed `status` also emits a typed `_compat.bridge_projection` payload so repo-owned bridge repair can rebuild the compatibility projection from typed state instead of reparsing `bridge.md`; detached repo-owned `ensure --follow` / `reviewer-heartbeat --follow` launches pin `--follow-inactivity-timeout-seconds 0`, `--action stop --daemon-kind <publisher|reviewer_supervisor|all>` is the repo-owned daemon reclaim path, and repo-owned reviewer writes now treat `Poll Status` as current-state-only reviewer authority and replace stale reviewer prose instead of stacking fresh heartbeat/checkpoint notes on older revision bullets; active reviewer checkpoints should prefer one typed `--checkpoint-payload-file` or the existing per-section `--*-file` flags for AI-generated markdown / shell-sensitive content instead of inline shell bodies, and `active_dual_agent` writes must carry the live `--expected-instruction-revision`; the repo-owned wait paths are `--action implementer-wait` for Claude-side bounded waiting and `--action reviewer-wait` for the symmetric Codex-side bounded wait over `reviewer_worker` hash truth plus projected `current_session` ACK/status state from `review_state.json`, not ad hoc shell sleep loops or invented top-level status payload blocks, and Claude-side wait is only valid under an explicit reviewer-owned wait state because low-information updates such as `No change. Continuing.` or `Codex should review` are now contract violations while work is still assigned; `--action recover --recover-provider claude` is the narrower stale-implementer replacement path, but it now fails closed unless a live repo-owned Codex conductor session is already present, and `reviewer-heartbeat --follow` now auto-escalates repeated unchanged stale-implementer state through that repo-owned recovery command instead of sitting forever on polling prose; `--action status` also treats a Claude-only repo-owned session as a hybrid-loop error and `active_dual_agent` with no repo-owned conductors as a bridge-contract error instead of healthy live state; `--action rollover` writes a repo-visible handoff bundle, relaunches fresh conductors before compaction, and can wait for visible ACK lines in `bridge.md`)
+  - Instruction-shaped bridge and event-backed projection fields must stay flat markdown only; full `Context Recovery Packet` bodies belong in source metadata and prompt surfaces, not inside `Current Instruction For Claude`, `derived_next_instruction`, or other fixed-section compatibility projections.
 - `autonomy-swarm` (adaptive multi-agent orchestration wrapper with metadata-driven worker sizing, optional `--plan-only` allocation mode, bounded per-agent autonomy-loop fanout, default reserved `AGENT-REVIEW` lane for post-audit review when execution runs with more than one lane, per-run swarm summary bundles under `dev/reports/autonomy/swarms/<label>/`, and default post-audit digest bundles under `dev/reports/autonomy/library/<label>-digest/`; disable with `--no-post-audit` and/or `--no-reviewer-lane`; non-report modes require `--fix-command`)
 - `mutation-loop` (bounded mutation remediation loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json/playbook bundles and supports policy-gated fix execution)
 - `failure-cleanup` (guarded cleanup for local failure triage bundles under `dev/reports/failures`; default path-root guard, optional `--allow-outside-failure-root` constrained to `dev/reports/**`, CI-green gating with optional `--ci-branch`/`--ci-workflow`/`--ci-event`/`--ci-sha` filters, plus `--dry-run` and confirmation)
@@ -1042,17 +1705,28 @@ Core commands:
 | `python3 dev/scripts/devctl.py check --profile release` | before release/tag validation on `master` | adds strict remote CI-status + CodeRabbit/Ralph release gates on top of local checks, with mutation-score surfaced as non-blocking reminder output |
 | `python3 dev/scripts/devctl.py docs-check --user-facing` | user behavior/docs changed | keeps user docs aligned with behavior |
 | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | tooling/process/CI changed | enforces governance and active-plan sync |
+| `python3 dev/scripts/devctl.py tandem-validate --format md` | a Codex/Claude tandem slice needs one canonical validator instead of a hand-written checklist | resolves the real lane through `check-router`, runs the routed bundle plus risk add-ons, then rechecks review-channel and tandem consistency |
+| `python3 dev/scripts/devctl.py doc-authority --format md` | you need the current governed-markdown authority set before changing docs, plans, or startup surfaces | scans the reviewed markdown roots and emits the typed registry/metadata view the rest of the governance stack should consume |
+| `python3 dev/scripts/devctl.py governance-draft --format md` | you need the deterministic governed-doc discovery surface before a write-mode governance/docs change | renders the repo-owned starter/governed-doc packet that should stay aligned with CLI inventory and maintainer docs |
+| `python3 dev/scripts/devctl.py render-surfaces --format md` | repo-pack templates/policy changed or you need to inspect governed instruction/starter surfaces | previews the current sync state for policy-owned generated surfaces; add `--write` to regenerate drifted outputs |
 | `python3 dev/scripts/devctl.py publication-sync --format md` | external paper/site content depends on repo evidence and you need drift visibility | reports watched-path changes since the last recorded sync and shows how to record a new baseline after publish |
 | `python3 dev/scripts/devctl.py data-science --format md` | you want one fresh telemetry + agent-sizing snapshot | summarizes command productivity, success/latency stats, and recommended swarm size from historical runs |
+| `python3 dev/scripts/devctl.py governance-review --format md` | you want the current false-positive / cleanup scoreboard for adjudicated guard and probe findings | reads the governance review JSONL log, rolls up latest verdicts per finding, and writes refreshed `review_summary.{md,json}` artifacts |
+| `python3 dev/scripts/devctl.py governance-import-findings --source <path> --format md` | you need to bring external review findings into the repo-owned ledger instead of carrying them in ad hoc notes | normalizes external finding metadata, appends auditable records, and keeps later review/cleanup accounting on one contract |
+| `python3 dev/scripts/devctl.py governance-quality-feedback --format md` | you want one current view of guidance adoption and quality-policy feedback signals | summarizes adjudicated findings and probe-guidance follow-through for policy tuning and platform evidence |
+| `python3 dev/scripts/devctl.py mcp --tool status_snapshot --format json` | an MCP client needs a read-only contract snapshot without changing `devctl` governance authority | exposes allowlisted tools/resources and optional stdio transport while keeping enforcement ownership in `devctl` |
 | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` | you want current federated source pins (`code-link-ide`, `ci-cd-hub`) before import/sync work | gives auditable source SHA + status visibility in one command |
 | `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | you want to import reusable upstream surfaces safely | shows allowlisted source/profile mappings before any file writes |
-| `python3 dev/scripts/devctl.py triage-loop --branch develop --mode plan-then-fix --max-attempts 3 --format md` | you want bounded CodeRabbit remediation automation with artifacts | runs report/fix loop under policy gates, writes actionable loop evidence, and can auto-publish review escalation comments when retries exhaust |
+| `python3 dev/scripts/devctl.py triage-loop --branch develop --mode plan-then-fix --max-attempts 3 --format md` | you want bounded CodeRabbit remediation automation with artifacts | runs report/fix loop under policy gates, writes actionable loop evidence plus the bounded backlog slice used by autonomy `loop-packet`, and can auto-publish review escalation comments when retries exhaust |
 | `python3 dev/scripts/devctl.py loop-packet --format json` | you want one guarded packet for terminal draft injection from loop/triage evidence | builds a risk-scored packet with draft text and auto-send eligibility metadata |
 | `python3 dev/scripts/devctl.py autonomy-loop --plan-id <id> --branch-base develop --mode report-only --max-rounds 6 --max-hours 4 --max-tasks 24 --format json` | you want a bounded autonomy-controller run with checkpoint packets and queue artifacts | orchestrates triage-loop/loop-packet rounds with policy-gated stop reasons, run-scoped outputs, and phone-ready `latest.json`/`latest.md` status snapshots |
 | `python3 dev/scripts/devctl.py phone-status --view compact --format md` | you want one fast iPhone/SSH-safe controller snapshot from loop artifacts | loads `queue/phone/latest.json`, renders a compact/trace/actions/full view, and can emit controller-state projection files for downstream clients |
+| `python3 dev/scripts/devctl.py mobile-app --action simulator-demo --format md` | you want the real iPhone app built, installed into the simulator, and launched against the live repo bundle | runs the guided simulator flow over the first-party mobile app and prints the real bundle/app paths instead of sample-only data |
 | `python3 dev/scripts/devctl.py controller-action --action dispatch-report-only --repo <owner/repo> --branch develop --dry-run --format md` | you want one guarded remote-control action surface without ad-hoc shell steps | validates policy allowlists/mode gates, then executes or previews bounded dispatch/pause/resume/status actions with auditable output |
-| `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md` | you want to bootstrap the current Codex-reviewer / Claude-coder 8+8 markdown swarm from a fresh conversation | validates that the markdown bridge is still active, reads the merged lane table from `dev/active/review_channel.md`, generates conductor launch scripts, and shows the exact bootstrap before opening any terminals |
-| `python3 dev/scripts/devctl.py review-channel --action rollover --rollover-threshold-pct 50 --await-ack-seconds 180 --format md` | the active conductor is nearing compaction and needs a clean relaunch instead of relying on recovery summaries | writes a repo-visible handoff bundle, relaunches fresh Codex/Claude conductors, and waits for visible rollover ACK lines in `code_audit.md` before the retiring session exits |
+| `python3 dev/scripts/devctl.py ralph-status --report-dir dev/reports/ralph --format md` | you want one current view of Ralph guardrail progress before wiring phone or PyQt surfaces on top | aggregates Ralph report artifacts into fix/open counts, architecture breakdowns, and guidance-adoption state for downstream consumers |
+| `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md` | you want to bootstrap the current Codex-reviewer / Claude-coder 8+8 markdown swarm from a fresh conversation | validates that the markdown bridge is still active, refuses launch when typed checkpoint budget says another implementation slice would exceed the continuation budget, reads the merged lane table from `dev/active/review_channel.md`, generates conductor launch scripts, and shows the exact bootstrap before opening any terminals |
+| `python3 dev/scripts/devctl.py review-channel --action rollover --rollover-threshold-pct 20 --await-ack-seconds 180 --format md` | the active conductor is nearing compaction and needs a clean relaunch instead of relying on recovery summaries | writes a repo-visible handoff bundle, relaunches fresh Codex/Claude conductors, and waits for visible rollover ACK lines in `bridge.md` before the retiring session exits |
+| `python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format md` | the live markdown bridge has drifted into transcript/history junk and needs a repo-owned rebuild | rewrites `bridge.md` from the typed `review_state` compatibility projection payload plus sanitized fixed sections, rejects embedded markdown headings in flat bridge sections fail-closed, drops unsupported headings/report blobs, refreshes review-channel projections, and leaves stale ACK/review truth explicit instead of preserving a 4000-line mixed transcript |
 | `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --dry-run --format md` | you want measurable swarm tradeoff data before scaling live worker runs | validates active-plan scope, runs tactic/swarm-size matrix batches, and emits one benchmark report with per-scenario productivity metrics/charts |
 | `python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --run-label <label> --format md` | you want one fully-guarded plan-scoped swarm run without manual glue steps | loads active-plan scope, executes swarm with reviewer+post-audit defaults, runs governance checks, and appends progress/audit evidence to the plan doc |
 | `python3 dev/scripts/devctl.py autonomy-report --source-root dev/reports/autonomy --library-root dev/reports/autonomy/library --run-label <label> --format md` | you want one operator-readable autonomy digest | assembles latest loop/watch artifacts into a dated bundle with markdown/json summary and chart outputs |
@@ -1066,19 +1740,19 @@ Core commands:
 Implementation note for maintainers:
 
 - Shared internals in `devctl` are intentional and should stay centralized:
-  `dev/scripts/devctl/process_sweep.py` (process parsing/cleanup),
-  `dev/scripts/devctl/security_parser.py` (security CLI parser wiring),
-  `dev/scripts/devctl/security_codeql.py` (CodeQL alert-fetch wiring for security gate),
-  `dev/scripts/devctl/security_python_scope.py` (Python changed/all scope resolution + core scanner targets),
+  `dev/scripts/devctl/process_sweep/` (process parsing/cleanup package),
+  `dev/scripts/devctl/security/parser.py` (security CLI parser wiring),
+  `dev/scripts/devctl/security/codeql.py` (CodeQL alert-fetch wiring for security gate),
+  `dev/scripts/devctl/security/python_scope.py` (Python changed/all scope resolution + core scanner targets),
   `dev/scripts/devctl/audit_events.py` (auto-emitted per-command audit-metrics event logging),
-  `dev/scripts/devctl/autonomy_report_helpers.py` (autonomy-report source discovery + summarization helpers),
-  `dev/scripts/devctl/autonomy_report_render.py` (autonomy-report markdown/chart renderer helpers),
-  `dev/scripts/devctl/autonomy_swarm_helpers.py` (adaptive swarm metadata scoring + sizing + report renderer helpers),
-  `dev/scripts/devctl/autonomy_swarm_post_audit.py` (shared autonomy-swarm post-audit payload + digest helpers),
-  `dev/scripts/devctl/autonomy_loop_helpers.py` (shared autonomy-loop packet/policy/render helper logic),
-  `dev/scripts/devctl/autonomy_phone_status.py` (phone-ready autonomy status payload/render helpers),
+  `dev/scripts/devctl/autonomy/report_helpers.py` (autonomy-report source discovery + summarization helpers),
+  `dev/scripts/devctl/autonomy/report_render.py` (autonomy-report markdown/chart renderer helpers),
+  `dev/scripts/devctl/autonomy/swarm_helpers.py` (adaptive swarm metadata scoring + sizing + report renderer helpers),
+  `dev/scripts/devctl/autonomy/swarm_post_audit.py` (shared autonomy-swarm post-audit payload + digest helpers),
+  `dev/scripts/devctl/autonomy/loop_helpers.py` (shared autonomy-loop packet/policy/render helper logic),
+  `dev/scripts/devctl/autonomy/phone_status.py` (phone-ready autonomy status payload/render helpers),
   `dev/scripts/devctl/phone_status_views.py` (phone-status projection/render helpers and projection-bundle writer),
-  `dev/scripts/devctl/autonomy_status_parsers.py` (shared parser wiring for autonomy-report + phone-status),
+  `dev/scripts/devctl/autonomy/status_parsers.py` (shared parser wiring for autonomy-report + phone-status),
   `dev/scripts/devctl/controller_action_parser.py` (`controller-action` parser wiring),
   `dev/scripts/devctl/controller_action_support.py` (`controller-action` policy/mode/dispatch helper logic),
   `dev/scripts/devctl/sync_parser.py` (sync CLI parser wiring),
@@ -1090,28 +1764,28 @@ Implementation note for maintainers:
   `dev/scripts/devctl/script_catalog.py` (canonical check-script path registry),
   `dev/scripts/devctl/path_audit_parser.py` (path-audit/path-rewrite parser wiring),
   `dev/scripts/devctl/path_audit.py` (shared stale-path scanner + rewrite engine),
-  `dev/scripts/devctl/triage_parser.py` (triage parser wiring),
-  `dev/scripts/devctl/triage_loop_parser.py` (triage-loop parser wiring),
+  `dev/scripts/devctl/triage/parser.py` (triage parser wiring),
+  `dev/scripts/devctl/triage/loop_parser.py` (triage-loop parser wiring),
   `dev/scripts/devctl/loop_fix_policy.py` (shared fix-policy engine used by both triage-loop and mutation-loop policy wrappers),
-  `dev/scripts/devctl/triage_loop_policy.py` (triage-loop fix policy evaluation),
-  `dev/scripts/devctl/triage_loop_escalation.py` (triage-loop escalation comment helper logic),
-  `dev/scripts/devctl/triage_loop_support.py` (triage-loop connectivity/comment/bundle helper logic),
+  `dev/scripts/devctl/triage/loop_policy.py` (triage-loop fix policy evaluation),
+  `dev/scripts/devctl/triage/loop_escalation.py` (triage-loop escalation comment helper logic),
+  `dev/scripts/devctl/triage/loop_support.py` (triage-loop connectivity/comment/bundle helper logic),
   `dev/scripts/devctl/loop_packet_parser.py` (loop-packet parser wiring),
-  `dev/scripts/devctl/autonomy_loop_parser.py` (autonomy-loop parser wiring),
-  `dev/scripts/devctl/autonomy_benchmark_parser.py` (autonomy-benchmark parser wiring),
-  `dev/scripts/devctl/autonomy_run_parser.py` (`swarm_run` parser wiring),
-  `dev/scripts/devctl/autonomy_benchmark_helpers.py` (autonomy-benchmark scenario orchestration + metrics helpers),
-  `dev/scripts/devctl/autonomy_benchmark_matrix.py` (autonomy-benchmark matrix planner/execution helpers),
-  `dev/scripts/devctl/autonomy_benchmark_runner.py` (autonomy-benchmark scenario runner + per-scenario bundle helpers),
-  `dev/scripts/devctl/autonomy_benchmark_render.py` (autonomy-benchmark markdown/chart renderer),
-  `dev/scripts/devctl/autonomy_run_helpers.py` (`swarm_run` shared scope/prompt/governance/plan-update helpers),
-  `dev/scripts/devctl/autonomy_run_render.py` (`swarm_run` markdown renderer),
+  `dev/scripts/devctl/autonomy/loop_parser.py` (autonomy-loop parser wiring),
+  `dev/scripts/devctl/autonomy/benchmark_parser.py` (autonomy-benchmark parser wiring),
+  `dev/scripts/devctl/autonomy/run_parser.py` (`swarm_run` parser wiring),
+  `dev/scripts/devctl/autonomy/benchmark_helpers.py` (autonomy-benchmark scenario orchestration + metrics helpers),
+  `dev/scripts/devctl/autonomy/benchmark_matrix.py` (autonomy-benchmark matrix planner/execution helpers),
+  `dev/scripts/devctl/autonomy/benchmark_runner.py` (autonomy-benchmark scenario runner + per-scenario bundle helpers),
+  `dev/scripts/devctl/autonomy/benchmark_render.py` (autonomy-benchmark markdown/chart renderer),
+  `dev/scripts/devctl/autonomy/run_helpers.py` (`swarm_run` shared scope/prompt/governance/plan-update helpers),
+  `dev/scripts/devctl/autonomy/run_render.py` (`swarm_run` markdown renderer),
   `dev/scripts/devctl/failure_cleanup_parser.py` (failure-cleanup parser wiring),
   `dev/scripts/devctl/reports_cleanup_parser.py` (reports-cleanup parser wiring),
   `dev/scripts/devctl/reports_retention.py` (shared report-retention planner used by hygiene + reports-cleanup),
   `dev/scripts/devctl/commands/audit_scaffold.py` (guard-to-remediation scaffold generation),
-  `dev/scripts/devctl/triage_support.py` (triage rendering + bundle helpers),
-  `dev/scripts/devctl/triage_enrich.py` (triage owner/category/severity enrichment),
+  `dev/scripts/devctl/triage/support.py` (triage rendering + bundle helpers),
+  `dev/scripts/devctl/triage/enrich.py` (triage owner/category/severity enrichment),
   `dev/scripts/devctl/commands/triage_loop.py` (bounded CodeRabbit loop command),
   `dev/scripts/devctl/commands/controller_action.py` (policy-gated controller action command),
   `dev/scripts/devctl/commands/loop_packet.py` (guarded loop-to-terminal packet builder),
@@ -1176,7 +1850,7 @@ Supporting scripts:
 - `dev/scripts/audits/audit_metrics.py`
 - `dev/scripts/tests/measure_latency.sh`
 - `dev/scripts/tests/wake_word_guard.sh`
-- `dev/scripts/workflow_shell_bridge.py`
+- `dev/scripts/workflow_bridge/shell.py`
 - `scripts/macros.sh`
 
 `check_code_shape.py` enforces both language-level limits and path-level
@@ -1198,6 +1872,11 @@ references).
 `check_python_subprocess_policy.py` blocks repo-owned Python tooling and
 Operator Console code from calling `subprocess.run(...)` without an explicit
 `check=` keyword.
+`check_command_source_validation.py` blocks launcher/package Python entrypoints
+from rebuilding unsafe command sources (`shlex.split(...)` on CLI/env/config
+input, raw `sys.argv` forwarding, env-controlled command argv without
+validation); during the pilot it is intentionally scoped through the selectable
+launcher lane rather than the full default repo policy.
 `check_python_broad_except.py` blocks newly added `except Exception` /
 `except BaseException` handlers in repo-owned Python tooling/app code unless a
 nearby `broad-except: allow reason=...` comment documents the fail-soft path.
@@ -1219,7 +1898,7 @@ large suites.
 phase heading and `MASTER_PLAN` link contracts, and `MASTER_PLAN` Status
 Snapshot release freshness (branch policy + release-tag consistency).
 `check_review_channel_bridge.py` enforces the temporary markdown review bridge
-contract so `code_audit.md` remains a valid fresh-conversation bootstrap
+contract so `bridge.md` remains a valid fresh-conversation bootstrap
 artifact for the current Codex-reviewer / Claude-coder loop, including the
 required authority bootstrap order, section ownership, local+UTC heartbeat
 header, and operator-visible reviewer chat ping requirement.

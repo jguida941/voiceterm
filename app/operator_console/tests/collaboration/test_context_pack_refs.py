@@ -30,7 +30,7 @@ def _approval(*, pack_kind: str = "task_pack") -> ApprovalRequest:
         policy_hint="operator_approval_required",
         requested_action="git_push",
         status="pending",
-        evidence_refs=("code_audit.md#L1",),
+        evidence_refs=("bridge.md#L1",),
         context_pack_refs=(
             ContextPackRef(
                 pack_kind=pack_kind,
@@ -118,7 +118,7 @@ class OperatorConsoleContextPackRefTests(unittest.TestCase):
                 "policy_hint": "operator_approval_required",
                 "requested_action": "git_push",
                 "status": "pending",
-                "evidence_refs": ["code_audit.md#L1"],
+                "evidence_refs": ["bridge.md#L1"],
                 "context_pack_refs": [
                     {
                         "pack_kind": "task_pack",

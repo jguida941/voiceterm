@@ -105,6 +105,18 @@ public struct SourceRun: Codable, Equatable, Sendable {
 }
 """
 
+SWIFT_DIFFERENT_STRUCT = """\
+import Foundation
+
+public struct RelayEnvelope: Codable, Equatable, Sendable {
+    public let sessionID: String?
+
+    enum CodingKeys: String, CodingKey {
+        case sessionID = "session_id"
+    }
+}
+"""
+
 RUST_NON_SERDE = """\
 #[derive(Debug, Clone)]
 pub(crate) struct DaemonConfig {
@@ -264,22 +276,17 @@ class ComparisonTests(unittest.TestCase):
 class ReportTests(unittest.TestCase):
     """Verify end-to-end report building."""
 
+    def _report(self, **kwargs):
+        return SCRIPT.build_report(SCRIPT.ProtocolReportRequest(**kwargs))
+
     def test_report_ok_when_fields_match(self) -> None:
-        report = SCRIPT.build_report(
-            rust_text=RUST_SIMPLE,
-            swift_text=SWIFT_SIMPLE_MATCHING,
-            mode="test",
-        )
+        report = self._report(rust_text=RUST_SIMPLE, swift_text=SWIFT_SIMPLE_MATCHING, mode="test")
         self.assertTrue(report["ok"])
         self.assertEqual(report["violations"], [])
         self.assertGreaterEqual(report["matched_pairs"], 1)
 
     def test_report_fails_when_field_missing(self) -> None:
-        report = SCRIPT.build_report(
-            rust_text=RUST_SIMPLE,
-            swift_text=SWIFT_SIMPLE_MISSING_FIELD,
-            mode="test",
-        )
+        report = self._report(rust_text=RUST_SIMPLE, swift_text=SWIFT_SIMPLE_MISSING_FIELD, mode="test")
         self.assertFalse(report["ok"])
         self.assertGreater(len(report["violations"]), 0)
         wire_names = {v["wire_name"] for v in report["violations"]}
@@ -287,7 +294,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("is_alive", wire_names)
 
     def test_report_skips_when_no_protocol_files_changed(self) -> None:
-        report = SCRIPT.build_report(
+        report = self._report(
             rust_text=RUST_SIMPLE,
             swift_text=SWIFT_SIMPLE_MISSING_FIELD,
             mode="commit-range",
@@ -297,7 +304,7 @@ class ReportTests(unittest.TestCase):
         self.assertTrue(report.get("skipped"))
 
     def test_report_runs_when_rust_types_changed(self) -> None:
-        report = SCRIPT.build_report(
+        report = self._report(
             rust_text=RUST_SIMPLE,
             swift_text=SWIFT_SIMPLE_MISSING_FIELD,
             mode="commit-range",
@@ -307,7 +314,7 @@ class ReportTests(unittest.TestCase):
         self.assertGreater(len(report["violations"]), 0)
 
     def test_report_runs_when_swift_models_changed(self) -> None:
-        report = SCRIPT.build_report(
+        report = self._report(
             rust_text=RUST_SIMPLE,
             swift_text=SWIFT_SIMPLE_MISSING_FIELD,
             mode="commit-range",
@@ -321,20 +328,18 @@ class ReportTests(unittest.TestCase):
         self.assertFalse(report["ok"])
 
     def test_report_handles_missing_files_gracefully(self) -> None:
-        report = SCRIPT.build_report(
-            rust_text=None,
-            swift_text=None,
-            mode="test",
-        )
+        report = self._report(rust_text=None, swift_text=None, mode="test")
         self.assertTrue(report["ok"])
         self.assertTrue(report.get("skipped"))
 
+    def test_report_fails_when_no_struct_pairs_match(self) -> None:
+        report = self._report(rust_text=RUST_SIMPLE, swift_text=SWIFT_DIFFERENT_STRUCT, mode="test")
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["matched_pairs"], 0)
+        self.assertEqual(report["violations"][0]["side"], "no_shared_structs")
+
     def test_report_violation_structure(self) -> None:
-        report = SCRIPT.build_report(
-            rust_text=RUST_SIMPLE,
-            swift_text=SWIFT_SIMPLE_EXTRA_FIELD,
-            mode="test",
-        )
+        report = self._report(rust_text=RUST_SIMPLE, swift_text=SWIFT_SIMPLE_EXTRA_FIELD, mode="test")
         swift_only_violations = [
             v for v in report["violations"] if v["side"] == "swift_only"
         ]
@@ -350,32 +355,19 @@ class RendererTests(unittest.TestCase):
     """Verify markdown rendering."""
 
     def test_render_ok_report(self) -> None:
-        report = SCRIPT.build_report(
-            rust_text=RUST_SIMPLE,
-            swift_text=SWIFT_SIMPLE_MATCHING,
-            mode="test",
-        )
+        report = SCRIPT.build_report(SCRIPT.ProtocolReportRequest(rust_text=RUST_SIMPLE, swift_text=SWIFT_SIMPLE_MATCHING, mode="test"))
         md = SCRIPT._render_md(report)
         self.assertIn("check_mobile_relay_protocol", md)
         self.assertIn("ok: True", md)
 
     def test_render_violation_report(self) -> None:
-        report = SCRIPT.build_report(
-            rust_text=RUST_SIMPLE,
-            swift_text=SWIFT_SIMPLE_MISSING_FIELD,
-            mode="test",
-        )
+        report = SCRIPT.build_report(SCRIPT.ProtocolReportRequest(rust_text=RUST_SIMPLE, swift_text=SWIFT_SIMPLE_MISSING_FIELD, mode="test"))
         md = SCRIPT._render_md(report)
         self.assertIn("Violations", md)
         self.assertIn("rust_only", md)
 
     def test_render_skipped_report(self) -> None:
-        report = SCRIPT.build_report(
-            rust_text=RUST_SIMPLE,
-            swift_text=SWIFT_SIMPLE_MATCHING,
-            mode="commit-range",
-            changed_paths=[Path("some/other/file.rs")],
-        )
+        report = SCRIPT.build_report(SCRIPT.ProtocolReportRequest(rust_text=RUST_SIMPLE, swift_text=SWIFT_SIMPLE_MATCHING, mode="commit-range", changed_paths=[Path("some/other/file.rs")]))
         md = SCRIPT._render_md(report)
         self.assertIn("skipped", md)
 

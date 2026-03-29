@@ -8,7 +8,10 @@ import re
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 DEFAULT_DOC_PATH = REPO_ROOT / "guides/CLI_FLAGS.md"
 DEFAULT_SCHEMA_PATHS = (
     REPO_ROOT / "rust/src/config/mod.rs",

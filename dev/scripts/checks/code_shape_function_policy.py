@@ -104,8 +104,12 @@ def scan_python_functions(text: str | None) -> list[dict]:
         def_indent = len(match.group(1))
         name = match.group(2)
         start_line = i + 1
-        # advance past the def line and find the end of the body
-        i += 1
+        signature_end = i
+        while signature_end < len(lines):
+            if lines[signature_end].rstrip().endswith(":"):
+                break
+            signature_end += 1
+        i = signature_end + 1
         while i < len(lines):
             raw = lines[i]
             stripped = raw.strip()

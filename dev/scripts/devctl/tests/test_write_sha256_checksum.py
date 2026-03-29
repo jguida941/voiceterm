@@ -26,7 +26,7 @@ class WriteSha256ChecksumTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.helper = load_module(
             "write_sha256_checksum",
-            "dev/scripts/write_sha256_checksum.py",
+            "dev/scripts/artifacts/sha256.py",
         )
 
     def test_write_checksum_file_uses_expected_format(self) -> None:

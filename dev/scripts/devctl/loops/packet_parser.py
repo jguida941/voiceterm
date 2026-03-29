@@ -47,7 +47,7 @@ def add_loop_packet_parser(sub) -> None:
             "requires explicit guard opt-in."
         ),
     )
-    packet_cmd.add_argument("--format", choices=["md", "json"], default="json")
+    packet_cmd.add_argument("--format", choices=["json", "md"], default="md")
     packet_cmd.add_argument("--output")
     packet_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
     packet_cmd.add_argument(

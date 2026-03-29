@@ -1,7 +1,16 @@
-"""Static classification/risk constants used by check-router helpers."""
+"""Default routing constants and dataclasses for check-router."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
+from ..governance.task_router_contract import (
+    TASK_ROUTER_AUTHORITY_PATH,
+    TASK_ROUTER_ROWS,
+    TaskRouterRow,
+    render_task_router_table_markdown,
+    task_router_markdown_rows,
+)
 BUNDLE_BY_LANE = {
     "docs": "bundle.docs",
     "runtime": "bundle.runtime",
@@ -46,11 +55,22 @@ TOOLING_PREFIXES = (
     "scripts/macro-packs/",
 )
 
+TOOLING_MARKDOWN_PREFIXES = (
+    "dev/active/",
+    "dev/config/",
+)
+
 RUNTIME_PREFIXES = (
     "rust/src/",
     "rust/tests/",
     "rust/benches/",
 )
+
+RUNTIME_EXACT_PATHS = {
+    "rust/Cargo.toml",
+    "rust/Cargo.lock",
+    "rust/clippy.toml",
+}
 
 DOCS_PREFIXES = (
     "guides/",
@@ -61,7 +81,6 @@ DOCS_PREFIXES = (
 DOCS_EXACT_PATHS = {
     "README.md",
     "QUICK_START.md",
-    "DEV_INDEX.md",
     "dev/README.md",
     "scripts/README.md",
     "pypi/README.md",
@@ -176,3 +195,35 @@ RISK_ADDONS = (
         "commands": ("python3 dev/scripts/devctl.py security",),
     },
 )
+@dataclass(frozen=True, slots=True)
+class CheckRouterConfig:
+    """Resolved repo-governance policy used by check-router."""
+
+    bundle_by_lane: dict[str, str]
+    release_exact_paths: frozenset[str]
+    release_workflow_files: frozenset[str]
+    tooling_exact_paths: frozenset[str]
+    tooling_prefixes: tuple[str, ...]
+    tooling_markdown_prefixes: tuple[str, ...]
+    governed_tooling_exact_paths: frozenset[str]
+    governed_tooling_prefixes: tuple[str, ...]
+    runtime_prefixes: tuple[str, ...]
+    runtime_exact_paths: frozenset[str]
+    docs_prefixes: tuple[str, ...]
+    docs_exact_paths: frozenset[str]
+    risk_addons: tuple["RiskAddonSpec", ...]
+    policy_path: str
+    warnings: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RiskAddonSpec:
+    """One risk add-on rule surfaced by check-router."""
+
+    id: str
+    label: str
+    tokens: tuple[str, ...]
+    commands: tuple[str, ...]
+
+
+from .check_router_resolve import resolve_check_router_config  # noqa: E402, F401

@@ -62,18 +62,45 @@ def _base_review_channel(
     return cmd
 
 
+def _normalize_optional_flag_value(
+    *,
+    flag_name: str,
+    value: str | None,
+) -> str | None:
+    """Return a stripped optional CLI flag value or reject blank strings."""
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError(f"{flag_name} must not be blank")
+    return cleaned
+
+
 def build_launch_command(
     *,
     live: bool,
     output_format: str = "md",
     refresh_bridge_heartbeat_if_stale: bool = False,
+    scope: str | None = None,
+    promotion_plan: str | None = None,
 ) -> list[str]:
     """Build the current review-channel launch command."""
+    extra_flags: list[str] = []
+    cleaned_scope = _normalize_optional_flag_value(flag_name="scope", value=scope)
+    cleaned_promotion_plan = _normalize_optional_flag_value(
+        flag_name="promotion_plan",
+        value=promotion_plan,
+    )
+    if cleaned_scope is not None:
+        extra_flags.extend(["--scope", cleaned_scope])
+    if cleaned_promotion_plan is not None:
+        extra_flags.extend(["--promotion-plan", cleaned_promotion_plan])
     return _base_review_channel(
         action="launch",
         live=live,
         output_format=output_format,
         refresh_bridge_heartbeat_if_stale=refresh_bridge_heartbeat_if_stale,
+        extra_flags=extra_flags,
     )
 
 

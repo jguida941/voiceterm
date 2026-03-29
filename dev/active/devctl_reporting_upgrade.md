@@ -1,9 +1,10 @@
 # Devctl Reporting Upgrade (User-Story Driven, Production-Ready)
 
-Status: active tooling roadmap (execution mirrored in `dev/active/MASTER_PLAN.md`; scoped here to `MP-297..MP-300`, `MP-303`, `MP-306`)
+Status: active tooling roadmap (execution mirrored in `dev/active/MASTER_PLAN.md`; scoped here to `MP-297..MP-300`, `MP-303`, `MP-306`, `MP-379`)
 
-Scope note (2026-03-09): the currently promoted execution slices
-(`MP-297..MP-300`, `MP-303`, `MP-306`) are closed. This doc stays in
+Scope note (2026-03-25): the originally promoted execution slices
+(`MP-297..MP-300`, `MP-303`, `MP-306`) are closed, and `MP-379` is the next
+bounded reporting-integrity follow-up. This doc stays in
 `dev/active/` as the canonical roadmap/spec for the next reporting/control-
 plane promotion, but broader sections below remain planning context until they
 are explicitly promoted in `MASTER_PLAN`.
@@ -36,6 +37,11 @@ Key gaps in the current tooling:
 
 This plan defines a phased path to deliver utility-first reporting without
 breaking existing command behavior.
+
+The UX follow-up for this lane is normalization, not new surface area: keep
+`status`, `report`, `triage`, `dashboard`, `doctor`, and `health` aligned on
+one command-goal vocabulary, one report schema vocabulary, and one help/output
+style so operators do not have to relearn the same action model per command.
 
 ## Personas and User Stories
 
@@ -353,7 +359,7 @@ Execution order is fixed:
 Coordination model for this sprint:
 
 1. Use the merged markdown-swarm plan in `dev/active/review_channel.md` plus
-   the live `code_audit.md` bridge as the only instruction, ACK, progress, and
+   the live `bridge.md` bridge as the only instruction, ACK, progress, and
    handoff surfaces.
 2. Keep `dev/active/MASTER_PLAN.md` as the execution tracker.
 3. Run orchestrator loop every 30 minutes:
@@ -623,6 +629,13 @@ Exit criteria:
 7. Add Textual live mode and automation hooks as lightweight fallback.
 8. Add full non-interference certification proving default Whisper/listen mode
    behavior remains unchanged by all Dev Tools additions.
+9. Close the reporting and telemetry robustness backlog cluster from
+   `issues.md`: `ISS-023`, `ISS-064`, `ISS-073`, `ISS-079`, and `ISS-081`
+   stay owned here until telemetry/reporting failures become structured,
+   JSON-format consumers stop receiving warning noise on stderr, notification
+   webhook inputs are validated/redacted safely, data-science snapshots write
+   atomically, and quality-backlog collection degrades visibly instead of
+   crashing on git failures.
 
 Exit criteria:
 
@@ -738,6 +751,14 @@ current MP scope.
 
 ## Change Log
 
+- 2026-03-25: Promoted `MP-379` as the next bounded reporting-integrity
+  follow-up after a live command sweep found that `status` / `report` still
+  surface `mutation outcomes are unavailable (invalid JSON payload)` when the
+  underlying mutation CLI is honestly saying no results exist. The next slice
+  is shared collector contract honesty: distinguish unavailable/no-results from
+  parse failure, keep optional inputs machine-readable, and keep
+  `collect.py` / `status_report.py` projections consistent for downstream
+  automation.
 - 2026-03-09: Closed `MP-298` after finishing the last remaining gap on the
   `ship --verify` path. `status` / `report` already had deterministic parallel
   probe collection; `ship --verify` now also runs its independent release-gate,

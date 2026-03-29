@@ -5,9 +5,13 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 
+from dev.scripts.devctl.runtime import (
+    AgentRegistryEntryState,
+    ReviewState,
+)
+
 from ..core.models import AgentLaneData
 from .session_trace_reader import SessionTraceSnapshot
-from ..core.value_coercion import safe_text
 
 _TOKENS_RE = re.compile(r"([↑↓])\s*([0-9][0-9.,kK]*)\s*tokens", re.IGNORECASE)
 _THOUGHT_RE = re.compile(r"(thought for\s*[0-9]+\s*[smh])", re.IGNORECASE)
@@ -28,16 +32,17 @@ def render_stats_text(rows: list[tuple[str, str]]) -> str:
 def render_registry_text(
     *,
     lane_name: str,
-    lane_agents: tuple[dict[str, object], ...],
-    review_projection: dict[str, object] | None,
+    lane_agents: tuple[AgentRegistryEntryState, ...],
+    review_contract: ReviewState | None,
 ) -> str:
-    registry = review_projection.get("agent_registry") if isinstance(review_projection, dict) else None
-    registry_timestamp = safe_text(registry.get("timestamp")) if isinstance(registry, dict) else None
+    registry = review_contract.registry if review_contract is not None else None
+    has_registry = registry is not None and bool(registry.agents)
+    registry_timestamp = registry.timestamp if registry is not None else None
     total_agents = len(lane_agents)
     state_counts = state_counts_for_agents(lane_agents)
 
     lines = [
-        f"source: {'review-channel full projection' if isinstance(registry, dict) else 'none'}",
+        f"source: {'runtime review contract' if has_registry else 'none'}",
         f"updated_at: {registry_timestamp or '(unknown)'}",
         (
             "summary: "
@@ -51,17 +56,19 @@ def render_registry_text(
     ]
 
     if not lane_agents:
-        lines.append(f"no {lane_name.lower()} lane agents are visible in the current projection")
+        lines.append(
+            f"no {lane_name.lower()} lane agents are visible in the current projection"
+        )
         return "\n".join(lines)
 
     for item in lane_agents:
-        agent_id = safe_text(item.get("display_name")) or safe_text(item.get("agent_id")) or "(unknown-agent)"
-        job_state = safe_text(item.get("job_state")) or "unknown"
-        current_job = safe_text(item.get("current_job")) or "(no job recorded)"
-        mp_scope = clean_inline(safe_text(item.get("mp_scope")))
-        worktree = clean_inline(safe_text(item.get("worktree")))
-        branch = clean_inline(safe_text(item.get("branch")))
-        updated_at = safe_text(item.get("updated_at"))
+        agent_id = item.display_name or item.agent_id or "(unknown-agent)"
+        job_state = item.job_state or "unknown"
+        current_job = item.current_job or "(no job recorded)"
+        mp_scope = clean_inline(item.mp_scope)
+        worktree = clean_inline(item.worktree)
+        branch = clean_inline(item.branch)
+        updated_at = item.updated_at
         lines.append(f"- {agent_id} [{job_state}] {current_job}")
         if mp_scope:
             lines.append(f"  scope: {mp_scope}")
@@ -75,28 +82,13 @@ def render_registry_text(
 
 
 def extract_lane_agents(
-    review_projection: dict[str, object] | None,
+    review_contract: ReviewState | None,
     *,
     lane_name: str,
-) -> tuple[dict[str, object], ...]:
-    if not isinstance(review_projection, dict):
+) -> tuple[AgentRegistryEntryState, ...]:
+    if review_contract is None:
         return ()
-    registry = review_projection.get("agent_registry")
-    if not isinstance(registry, dict):
-        return ()
-    agents = registry.get("agents")
-    if not isinstance(agents, list):
-        return ()
-
-    lane_agents: list[dict[str, object]] = []
-    for item in agents:
-        if not isinstance(item, dict):
-            continue
-        lane = safe_text(item.get("lane")) or safe_text(item.get("provider"))
-        if lane != lane_name:
-            continue
-        lane_agents.append(item)
-    return tuple(lane_agents)
+    return review_contract.lane_agents(lane_name)
 
 
 def trace_signal_lines(text: str) -> list[tuple[str, str]]:
@@ -126,24 +118,24 @@ def trace_signal_lines(text: str) -> list[tuple[str, str]]:
     return rows
 
 
-def state_counts_for_agents(lane_agents: tuple[dict[str, object], ...]) -> dict[str, int]:
+def state_counts_for_agents(
+    lane_agents: tuple[AgentRegistryEntryState, ...],
+) -> dict[str, int]:
     counts: dict[str, int] = {}
     for item in lane_agents:
-        state = safe_text(item.get("job_state")) or "unknown"
+        state = item.job_state or "unknown"
         counts[state] = counts.get(state, 0) + 1
     return counts
 
 
 def registry_mode_label(
-    review_projection: dict[str, object] | None,
+    review_contract: ReviewState | None,
     live_trace: SessionTraceSnapshot,
 ) -> str:
     del live_trace
-    if not isinstance(review_projection, dict):
+    if review_contract is None or not review_contract.registry.agents:
         return "live trace only"
-    if isinstance(review_projection.get("agent_registry"), dict):
-        return "repo projection (can lag the live terminal)"
-    return "live trace only"
+    return "runtime review contract (can lag the live terminal)"
 
 
 def lane_state_label(lane: AgentLaneData | None) -> str:

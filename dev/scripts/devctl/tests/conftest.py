@@ -50,3 +50,12 @@ def init_temp_repo_root(testcase: Any, *relative_dirs: str) -> Path:
     for relative_dir in relative_dirs:
         (root / relative_dir).mkdir(parents=True, exist_ok=True)
     return root
+
+
+def init_python_guard_repo_root(testcase: Any) -> Path:
+    """Create the common temp repo roots used by Python guard tests."""
+    return init_temp_repo_root(
+        testcase,
+        "dev/scripts",
+        "app/operator_console",
+    )

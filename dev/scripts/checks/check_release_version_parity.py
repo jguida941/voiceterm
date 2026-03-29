@@ -10,7 +10,10 @@ import re
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 CARGO_TOML = REPO_ROOT / "rust/Cargo.toml"
 PYPROJECT_TOML = REPO_ROOT / "pypi/pyproject.toml"
 INIT_PY = REPO_ROOT / "pypi/src/voiceterm/__init__.py"

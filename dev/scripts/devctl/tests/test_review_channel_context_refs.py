@@ -15,6 +15,10 @@ from dev.scripts.devctl.review_channel.events import (
     resolve_artifact_paths,
     transition_packet,
 )
+from dev.scripts.devctl.review_channel.packet_contract import (
+    PacketPostRequest,
+    PacketTransitionRequest,
+)
 
 
 def _review_channel_text() -> str:
@@ -97,25 +101,29 @@ class ReviewChannelContextRefTests(unittest.TestCase):
                 repo_root=root,
                 review_channel_path=review_channel_path,
                 artifact_paths=artifact_paths,
-                from_agent="codex",
-                to_agent="operator",
-                kind="approval_request",
-                summary="Attach reviewed memory packs",
-                body="Use the exported task pack for approval context.",
-                evidence_refs=["code_audit.md#L1"],
-                context_pack_refs=context_pack_refs,
-                confidence=1.0,
-                requested_action="approve_memory_context",
-                policy_hint="operator_approval_required",
-                approval_required=True,
+                request=PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="operator",
+                    kind="approval_request",
+                    summary="Attach reviewed memory packs",
+                    body="Use the exported task pack for approval context.",
+                    evidence_refs=("bridge.md#L1",),
+                    context_pack_refs=tuple(context_pack_refs),
+                    confidence=1.0,
+                    requested_action="approve_memory_context",
+                    policy_hint="operator_approval_required",
+                    approval_required=True,
+                ),
             )
             refreshed, apply_event = transition_packet(
                 repo_root=root,
                 review_channel_path=review_channel_path,
                 artifact_paths=artifact_paths,
-                action="apply",
-                packet_id=str(event["packet_id"]),
-                actor="operator",
+                request=PacketTransitionRequest(
+                    action="apply",
+                    packet_id=str(event["packet_id"]),
+                    actor="operator",
+                ),
             )
 
             packet = next(

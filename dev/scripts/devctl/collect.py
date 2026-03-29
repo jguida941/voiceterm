@@ -3,43 +3,99 @@
 import json
 import shutil
 import subprocess
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any
 
 from .clippy_pedantic import build_snapshot as build_clippy_pedantic_snapshot
-from .collect_dev_logs import (
-    DevLogSessionRow,
-    DevLogSummary,
-    collect_dev_log_summary,
-)
-from .config import REPO_ROOT
+from .collect_dev_logs import collect_dev_log_summary as _collect_dev_log_summary
+from .config import REPO_ROOT, get_repo_root
+from .quality_scan_mode import is_adoption_scan
+from .runtime.failure_packet import collect_failure_packet as _collect_failure_packet
 
 CI_RUN_FIELDS_EXTENDED = (
-    "status,conclusion,displayTitle,name,event,headBranch,headSha,"
-    "createdAt,updatedAt,url,databaseId"
+    "status,conclusion,displayTitle,name,event,headBranch,headSha," "createdAt,updatedAt,url,databaseId"
 )
 CI_RUN_FIELDS_FALLBACK = "status,conclusion,displayTitle,headSha,createdAt,updatedAt"
+CI_RUN_FALLBACK_MARKERS = (
+    "unknown json field",
+    "accepts the following fields",
+    "invalid value for --json",
+)
+collect_dev_log_summary = _collect_dev_log_summary
 
 
-def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> Dict:
+def collect_failure_packet() -> dict[str, object] | None:
+    """Return the latest structured failure packet when local artifacts exist."""
+    return _collect_failure_packet(Path(REPO_ROOT))
+
+
+def _build_git_status_payload(
+    *,
+    branch: str,
+    changes: list[dict[str, str]],
+    since_ref: str | None,
+    head_ref: str | None,
+    mode: str,
+) -> dict[str, Any]:
+    changed_paths = {change["path"] for change in changes}
+    payload: dict[str, Any] = {
+        "branch": branch,
+        "changes": changes,
+    }
+    payload["changelog_updated"] = "dev/CHANGELOG.md" in changed_paths
+    payload["master_plan_updated"] = "dev/active/MASTER_PLAN.md" in changed_paths
+    payload["since_ref"] = since_ref
+    payload["head_ref"] = head_ref
+    payload["mode"] = mode
+    return payload
+
+
+def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> dict:
     """Return branch and dirty state info from git."""
     if not shutil.which("git"):
         return {"error": "git not found"}
+    repo_root = get_repo_root()
     try:
         branch = subprocess.check_output(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=REPO_ROOT,
+            cwd=repo_root,
             text=True,
         ).strip()
+        if is_adoption_scan(since_ref=since_ref, head_ref=head_ref):
+            tracked_raw = subprocess.check_output(
+                ["git", "ls-files"],
+                cwd=repo_root,
+                text=True,
+            )
+            untracked_raw = subprocess.check_output(
+                ["git", "ls-files", "--others", "--exclude-standard"],
+                cwd=repo_root,
+                text=True,
+            )
+            changes = []
+            for line in tracked_raw.splitlines():
+                if line.strip():
+                    changes.append({"status": "A", "path": line.strip()})
+            for line in untracked_raw.splitlines():
+                if line.strip():
+                    changes.append({"status": "??", "path": line.strip()})
+            return _build_git_status_payload(
+                branch=branch,
+                changes=changes,
+                since_ref=None,
+                head_ref=None,
+                mode="adoption-scan",
+            )
         if since_ref:
             status_raw = subprocess.check_output(
                 ["git", "diff", "--name-status", f"{since_ref}...{head_ref}"],
-                cwd=REPO_ROOT,
+                cwd=repo_root,
                 text=True,
             )
         else:
             status_raw = subprocess.check_output(
                 ["git", "status", "--porcelain", "--untracked-files=all"],
-                cwd=REPO_ROOT,
+                cwd=repo_root,
                 text=True,
             )
     except subprocess.CalledProcessError as exc:
@@ -66,18 +122,16 @@ def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> 
                 path = path.split("->")[-1].strip()
             changes.append({"status": status, "path": path})
 
-    changed_paths = {change["path"] for change in changes}
-    return {
-        "branch": branch,
-        "changes": changes,
-        "changelog_updated": "dev/CHANGELOG.md" in changed_paths,
-        "master_plan_updated": "dev/active/MASTER_PLAN.md" in changed_paths,
-        "since_ref": since_ref,
-        "head_ref": head_ref,
-    }
+    return _build_git_status_payload(
+        branch=branch,
+        changes=changes,
+        since_ref=since_ref,
+        head_ref=head_ref,
+        mode="commit-range" if since_ref else "working-tree",
+    )
 
 
-def collect_ci_runs(limit: int) -> Dict:
+def collect_ci_runs(limit: int) -> dict:
     """Return recent GitHub Actions runs via gh, if available."""
     if not shutil.which("gh"):
         return {"error": "gh not found"}
@@ -101,63 +155,43 @@ def collect_ci_runs(limit: int) -> Dict:
             runs = json.loads(output)
             if not isinstance(runs, list):
                 return {"error": "gh run list returned non-list payload"}
-            normalized_runs = _normalize_ci_runs(runs)
-            result: Dict[str, Any] = {"runs": normalized_runs}
+            normalized_runs: list[dict[str, Any]] = []
+            for run in runs:
+                if not isinstance(run, dict):
+                    continue
+                row = dict(run)
+                # Legacy `gh` versions can omit these fields; populate stable keys for callers.
+                row.setdefault("name", row.get("displayTitle"))
+                row.setdefault("event", None)
+                row.setdefault("headBranch", None)
+                row.setdefault("url", None)
+                row.setdefault("databaseId", None)
+                normalized_runs.append(row)
+            result: dict[str, Any] = {"runs": normalized_runs}
             if fields != CI_RUN_FIELDS_EXTENDED:
                 result["warning"] = (
-                    "gh run list fallback mode: extended fields unavailable; "
-                    "upgrade gh for full CI run metadata."
+                    "gh run list fallback mode: extended fields unavailable; " "upgrade gh for full CI run metadata."
                 )
             return result
         except subprocess.CalledProcessError as exc:
             last_error = exc
-            if (
-                fields == CI_RUN_FIELDS_EXTENDED
-                and _should_retry_ci_runs_with_fallback(exc)
-            ):
+            output = (exc.output or "").lower()
+            retry_fallback = fields == CI_RUN_FIELDS_EXTENDED and any(
+                marker in output for marker in CI_RUN_FALLBACK_MARKERS
+            )
+            if retry_fallback:
                 continue
-            return {"error": _format_collect_ci_error(exc)}
-        except Exception as exc:
-            last_error = exc
+            if exc.output:
+                return {"error": f"gh run list failed: {exc.output.strip()}"}
             return {"error": f"gh run list failed: {exc}"}
+        except (json.JSONDecodeError, OSError) as exc:
+            last_error = exc
+            return {"error": f"gh run list failed for fields `{fields}`: {exc}"}
     return {"error": f"gh run list failed: {last_error}"}
 
 
-def _normalize_ci_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    normalized: list[dict[str, Any]] = []
-    for run in runs:
-        if not isinstance(run, dict):
-            continue
-        row = dict(run)
-        # Legacy `gh` versions can omit these fields; populate stable keys for callers.
-        row.setdefault("name", row.get("displayTitle"))
-        row.setdefault("event", None)
-        row.setdefault("headBranch", None)
-        row.setdefault("url", None)
-        row.setdefault("databaseId", None)
-        normalized.append(row)
-    return normalized
-
-
-def _should_retry_ci_runs_with_fallback(exc: subprocess.CalledProcessError) -> bool:
-    output = (exc.output or "").lower()
-    fallback_markers = (
-        "unknown json field",
-        "accepts the following fields",
-        "invalid value for --json",
-    )
-    return any(marker in output for marker in fallback_markers)
-
-
-def _format_collect_ci_error(exc: subprocess.CalledProcessError) -> str:
-    output = (exc.output or "").strip()
-    if output:
-        return f"gh run list failed: {output}"
-    return f"gh run list failed: {exc}"
-
-
-def collect_mutation_summary() -> Dict:
-    """Return the latest mutation summary via mutants.py."""
+def collect_mutation_summary() -> dict:
+    """Return the latest mutation summary via the canonical mutation CLI."""
     if not shutil.which("python3"):
         return {"error": "python3 not found"}
 
@@ -171,16 +205,14 @@ def collect_mutation_summary() -> Dict:
     }
     try:
         output = subprocess.check_output(
-            ["python3", "dev/scripts/mutants.py", "--results-only", "--json"],
+            ["python3", "dev/scripts/mutation/cli.py", "--results-only", "--json"],
             cwd=REPO_ROOT,
             text=True,
         )
         payload = output.strip()
         if not payload:
             result = dict(unavailable_result)
-            result["warning"] = (
-                "mutation outcomes are unavailable (empty results payload)"
-            )
+            result["warning"] = "mutation outcomes are unavailable (empty results payload)"
             return result
         if payload.lower().startswith("no results found under"):
             result = dict(unavailable_result)
@@ -200,15 +232,19 @@ def collect_mutation_summary() -> Dict:
         result = dict(unavailable_result)
         result["warning"] = "mutation outcomes are unavailable (invalid JSON payload)"
         return result
-    except Exception as exc:
-        return {"error": f"mutants summary failed: {exc}"}
+    except OSError as exc:
+        return {
+            "error": (
+                "mutants summary failed while running " f"`python3 dev/scripts/mutation/cli.py --results-only --json`: {exc}"
+            )
+        }
 
 
 def collect_clippy_pedantic_summary(
     summary_path: str | None = None,
     lints_path: str | None = None,
     policy_path: str | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return advisory `clippy::pedantic` summary from existing artifacts."""
     return build_clippy_pedantic_snapshot(
         summary_path=summary_path,

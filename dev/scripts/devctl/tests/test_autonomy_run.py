@@ -137,6 +137,49 @@ class AutonomyRunParserTests(unittest.TestCase):
         self.assertEqual(args.format, "json")
 
 
+class AutonomyRunHelperTests(unittest.TestCase):
+    @patch("dev.scripts.devctl.autonomy.run_helpers.build_context_escalation_packet")
+    def test_derive_prompt_appends_context_packet(self, escalation_mock) -> None:
+        from dev.scripts.devctl.autonomy.run_helpers import derive_prompt
+        from dev.scripts.devctl.context_graph.escalation import ContextEscalationPacket
+
+        escalation_mock.return_value = ContextEscalationPacket(
+            trigger="swarm-run",
+            query_terms=("MP-338",),
+            matched_nodes=1,
+            edge_count=1,
+            canonical_refs=("dev/active/autonomous_control_plane.md",),
+            evidence=("MP-338: nodes=1, edges=1",),
+            markdown="## Context Recovery Packet\n\n- Trigger: `swarm-run`",
+        )
+
+        prompt = derive_prompt(
+            plan_doc="dev/active/autonomous_control_plane.md",
+            mp_scope="MP-338",
+            next_steps=["Scope lane assignments for next swarm run"],
+            explicit_question=None,
+        )
+
+        self.assertIn(
+            "Execute the next tracked checklist items for `dev/active/autonomous_control_plane.md` under `MP-338`.",
+            prompt,
+        )
+        self.assertIn("Probe guidance policy:", prompt)
+        self.assertIn("## Context Recovery Packet", prompt)
+
+    def test_derive_prompt_keeps_explicit_question_unmodified(self) -> None:
+        from dev.scripts.devctl.autonomy.run_helpers import derive_prompt
+
+        prompt = derive_prompt(
+            plan_doc="dev/active/autonomous_control_plane.md",
+            mp_scope="MP-338",
+            next_steps=["ignored"],
+            explicit_question="Use this exact prompt.",
+        )
+
+        self.assertEqual(prompt, "Use this exact prompt.")
+
+
 class AutonomyRunCommandTests(unittest.TestCase):
     def test_run_executes_pipeline_and_updates_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

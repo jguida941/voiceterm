@@ -6,14 +6,17 @@ Owner lane: Control-plane/operator surfaces
 
 ## Scope
 
-Build one shared review/control channel for Codex, Claude, and VoiceTerm
-operator surfaces so agents can coordinate through a visible, structured lane
-instead of ad-hoc chat copy/paste or hidden state.
+Build one shared review/control channel for Codex, Claude, VoiceTerm operator
+surfaces, and later provider/front-end adopters so agents can coordinate
+through a visible, structured lane instead of ad-hoc chat copy/paste or hidden
+state.
 
 This plan covers:
 
 1. One canonical machine-readable review packet/event contract aligned to the
-   broader `controller_state` direction already tracked under MP-340.
+   broader `controller_state` direction already tracked under MP-340 and broad
+   enough to carry code-review, plan-review, and operator-decision packets
+   without forking the transport.
 2. Multiple projections over that contract (`json`, `ndjson`, `md`,
    overlay/terminal-packet views) using the same projection shape already used
    by `phone-status`.
@@ -27,9 +30,12 @@ This plan covers:
    concurrent writes into one live terminal too early.
 
 This plan is an execution slice of the broader control-plane/operator-surface
-program in `dev/active/autonomous_control_plane.md`, but it is tracked
-separately because the schema, command surface, overlay UX, and guard model need
-their own phased delivery and iteration loop.
+program in `dev/active/autonomous_control_plane.md` and the full-system
+extraction tracked under `dev/active/ai_governance_platform.md`, but it is
+tracked separately because the schema, command surface, overlay UX, and guard
+model need their own phased delivery and iteration loop. The current
+Codex/Claude markdown-swarm operating mode is a temporary projection over this
+contract, not the long-term product boundary.
 
 ## Execution Protocol (Required)
 
@@ -58,7 +64,7 @@ their own phased delivery and iteration loop.
    executing until the current scoped checklist items and live review findings
    are closed, rather than waiting for the operator to restate the next step.
 7. Until Phase 1 replaces the markdown bridge with structured artifacts,
-   `check_review_channel_bridge.py` must guard the `code_audit.md` bootstrap
+   `check_review_channel_bridge.py` must guard the `bridge.md` bootstrap
    contract, section layout, and operator-visible heartbeat requirements in
    the same governance lane as the other plan-sync checks.
 8. For today's markdown bridge, "current slice accepted" is not a terminal
@@ -66,6 +72,20 @@ their own phased delivery and iteration loop.
    highest-priority unchecked scoped plan item into the bridge and keep the
    loop moving until the scoped plan is exhausted or a real blocker/approval
    boundary is hit.
+8.1 In `active_dual_agent` markdown-bridge mode, the temporary live loop must
+    be explicit and repeatable: Codex starts polling immediately after
+    bootstrap, Claude starts in polling mode immediately after bootstrap,
+    Claude codes one bounded slice at a time, then returns to wait/poll mode,
+    Codex re-reviews that slice and rewrites the bridge, and the pair keeps
+    cycling until the scoped plan is exhausted or a real blocker/approval
+    boundary is hit. When the scoped slice is plan hardening rather than code
+    change, the same loop applies through plan-review packets against typed
+    plan targets, and only the intake-selected canonical-plan writer may patch
+    the reviewed plan markdown.
+9. The same backend must serve developers, solo agents, and dual-agent loops.
+   Any future PyQt6/mobile toggle should switch `reviewer_mode` on the shared
+   backend (`active_dual_agent`, `single_agent`, `tools_only`, `paused`,
+   `offline`) instead of inventing a separate dev-only control plane.
 
 ## Locked Decisions
 
@@ -97,6 +117,24 @@ their own phased delivery and iteration loop.
 9. Initial refresh for Rust review surfaces should use local artifact polling
    and existing periodic task hooks rather than a new filesystem-watcher
    dependency.
+10. Planning review must reuse this packet/event transport instead of creating
+    a second authoritative `plan.md` bridge. When packets target mutable plan
+    authority, the canonical plan stays authoritative and packet state is
+    proposal/coordination only.
+11. The long-term human-facing markdown bridge is one backend-fed
+    `CollaborationSession` projection over `WorkIntakePacket`, review packets,
+    reviewer state, and writer leases. It must expose role assignment,
+    current slice, peer findings/responses, disagreement/arbitration,
+    delegated-worker receipts, restart packet, and ready gates without
+    becoming a second authority for plans, queues, or review truth.
+12. The review backend must preserve the startup-authority boundary:
+    `WorkIntakePacket` stays the bounded startup/work-routing contract and
+    `CollaborationSession` stays the live shared-work projection. Do not
+    collapse those contracts inside MP-355 just to simplify bridge prose.
+13. Concurrency controls are additive, not substitutive: intake-backed writer
+    authority decides who may mutate canonical plan/session state, while
+    `expected_revision`, `version_counter`, and `state_hash` style checks
+    decide when a stale reader must re-read before acting.
 
 ## Cross-Plan Dependencies
 
@@ -145,24 +183,48 @@ their own phased delivery and iteration loop.
     controller, review, and memory traces once Phase-1/2 artifacts are stable;
     MP-355 must keep timestamps, trace ids, and header fields compatible with
     that later merge view.
+13. `dev/active/platform_authority_loop.md` under `MP-377` owns
+    `PlanRegistry`, `PlanTargetRef`, and `WorkIntakePacket`. Any planning-
+    review packet in MP-355 must resolve target plans through that startup-
+    authority stack instead of hard-coded repo paths, exact line numbers, or
+    whole-block markdown matching.
+14. `MP-377` owns continuation-budget and push-readiness authority
+    (`push_enforcement`, `checkpoint_required`,
+    `safe_to_continue_editing`, `review_gate_allows_push`, and successor
+    push-decision contracts such as `push_eligible_now`). MP-355 may surface
+    that state in `review-channel status`, bridge projections, and live wait
+    reasons, but it must not redefine the governing decision logic locally.
+    That includes persisted push/publication truth: if MP-377 already records
+    `published_remote`, MP-355 must re-read that state before telling a
+    conductor the push is still pending.
+15. MP-355 owns the live review projection for typed
+    `ReviewCurrentSessionState`, while `MP-377` owns startup/push/preflight
+    consumers that use `current_session`, reviewer acceptance, and checkpoint
+    state to decide whether a new implementation slice or governed push may
+    proceed. Keep that producer/consumer split explicit in docs and runtime
+    contracts so the review channel does not become a second startup-
+    authority source. Review-channel recovery should consume persisted
+    MP-377 push-state truth, not infer unresolved publication from a stale
+    local terminal session.
 
 ## Transitional Markdown Bridge (Current Operating Mode)
 
 Until Phase 1 lands in code, the sanctioned live coordination bridge for the
-current Codex-reviewer / Claude-coder loop is the repo-root `code_audit.md`
-file. This is the temporary operating protocol for the work happening now, not
-an accident or an off-book workaround.
+current Codex-reviewer / Claude-coder loop is this repo's `bridge.md`
+compatibility projection. Typed `review_state` remains the canonical
+machine-readable authority; `bridge.md` is the temporary coordination surface
+for the work happening now, not an accident or an off-book workaround.
 
 Rules for the markdown bridge:
 
-1. `code_audit.md` is current-state coordination only. Keep live verdicts,
+1. `bridge.md` is current-state coordination only. Keep live verdicts,
    open findings, reviewer instructions, coder status/questions/acks, and the
    latest non-audit worktree hash there; do not turn it into an endless chat
    transcript dump.
 2. Codex owns reviewer-state sections (`Poll Status`, `Current Verdict`,
    `Open Findings`, `Current Instruction For Claude`). Claude owns
    coder-state sections (`Claude Status`, `Claude Questions`, `Claude Ack`).
-3. Codex polls non-`code_audit.md` worktree deltas every 2-3 minutes while
+3. Codex polls non-`bridge.md` worktree deltas every 2-3 minutes while
    code is moving, or sooner after a meaningful code chunk / explicit user
    request. Poll cadence is part of the protocol, not ad-hoc reviewer choice.
 4. Each meaningful reviewer update must record the latest reviewed non-audit
@@ -175,25 +237,78 @@ Rules for the markdown bridge:
     conductor-owned: only one Codex conductor updates the Codex-owned bridge
     sections and only one Claude conductor updates the Claude-owned bridge
     sections. Specialist reviewer/fixer workers must report back to their
-    conductor instead of editing `code_audit.md` directly.
+    conductor instead of editing `bridge.md` directly.
+6.2 Bridge behavior is mode-aware. When `Reviewer mode` is `active_dual_agent`,
+    Claude must treat `bridge.md` as the live reviewer/coder coordination
+    surface for this compatibility mode and keep polling it instead of waiting
+    for the operator to restate the process. The typed `review_state`
+    projection remains the canonical machine authority for current-session
+    truth. When the structured review queue is available, Claude must also
+    poll the Claude-targeted `review-channel inbox/watch` surface on the same
+    cadence so direct reviewer packets are consumed through the canonical
+    event/projection path instead of relying on operator chat relay. When
+    `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`,
+    Claude must not assume a live Codex review loop unless a reviewer-owned
+    bridge section explicitly reactivates it.
+6.2.1 In that active mode, the live cycle is:
+    `bootstrap -> poll bridge + inbox/watch -> acknowledge -> code one bounded
+    slice -> update coder state -> wait/poll for re-review -> receive next
+    reviewer bridge write or direct packet -> repeat`.
+    Claude must not treat one landed patch as permission to self-promote the
+    next task; Codex must not stop polling just because one slice turned green.
+6.2.2 When the active scoped slice is plan hardening, the same live cycle
+    routes through typed plan targets instead of raw code diffs:
+    `select WorkIntakePacket -> post plan_gap_review against PlanTargetRef +
+    anchor_refs -> designated plan writer patches canonical plan -> re-review
+    updated target_revision -> emit plan_ready_gate or next gap`.
+    Match mutable plan targets by typed target refs and stable
+    heading/checklist/progress anchors, not by raw line numbers or brittle
+    surrounding prose, so adjacent markdown edits do not strand the loop.
+    `plan_gap_review` identifies a missing/wrong plan element,
+    `plan_patch_review` proposes one typed canonical-plan mutation but is not
+    itself the canonical edit, and `plan_ready_gate` records reviewer
+    acceptance that the targeted plan slice is coherent enough to proceed.
+6.2.2.1 When the loop widens beyond one reviewer and one coder, conductors
+    must derive lane assignments from the selected `WorkIntakePacket` /
+    `PlanExpectationPacket`, not from ad hoc "scan the repo and help"
+    instructions. Every worker lane needs one conductor-issued scope packet
+    naming role, owned plan target or issue cluster, owned worktree/path
+    scope, allowed command families, required validators/guards, expected
+    artifacts, and the return-to-conductor receipt path.
+6.2.2.2 The 8+8 lane map is capacity planning, not permanent role truth.
+    Future runs may assign lanes to foundation wiring, contract/workflow
+    hardening, verification review, pattern aggregation, or report-only
+    adopter smoke work depending on the active plan slice, but each lane must
+    stay bounded, conductor-owned, and repo-visible in canonical plan state.
+6.3 If reviewer-owned bridge state says `hold steady`, `waiting for reviewer
+    promotion`, `Codex committing/pushing`, or equivalent wait-state language,
+    Claude must stay in polling mode. It must not mine plan docs for side work
+    or self-promote the next slice until a reviewer-owned section changes.
 7. The markdown bridge is a temporary projection path for today's workflow. It
    does not replace the Phase-1 `review_event` / `review_state` artifact model;
-   once the real `devctl review-channel` path exists, `code_audit.md` should
-   become a projection/example or be retired.
+   once the real `devctl review-channel` path exists, `bridge.md` should
+   become a backend-fed, repo-pack-portable projection/example/fallback mode
+   instead of remaining live authority or a VoiceTerm-only branch of the
+   architecture.
 8. In the current operator-facing loop, each meaningful Codex reviewer write to
-   `code_audit.md` must also emit a concise operator-visible chat update that
+   `bridge.md` must also emit a concise operator-visible chat update that
    summarizes the reviewed non-audit worktree hash, whether the blocker set
    changed, and any new instruction for Claude. The chat ping is observability
    for the human operator, not a second execution authority.
 8.1 While code is moving, Codex should also emit a lightweight operator-visible
     heartbeat every five minutes even when the blocker set is unchanged so the
     human can tell the loop is still alive.
+8.2 This observability requirement must graduate out of chat habit and into the
+    shared backend: the same heartbeat/findings/next-action stream should feed
+    chat summaries, CLI status, PyQt6, phone/mobile, and overlay projections
+    automatically so the operator does not need to keep asking whether the loop
+    is still running.
 9. Until structured `review_event` / `review_state` artifacts land, the
    markdown bridge contract itself must stay machine-checked so a fresh convo
-   can bootstrap safely from the attached `code_audit.md` file without relying
+   can bootstrap safely from the attached `bridge.md` file without relying
    on hidden session memory.
 10. The bridge guard is conditional on the bridge being active. If repo-root
-    `code_audit.md` is absent, `check_review_channel_bridge.py` should treat
+    `bridge.md` is absent, `check_review_channel_bridge.py` should treat
     that as "bridge inactive" instead of failing clean checkouts or unrelated
     branches.
 11. For truly hands-off checklist progression, the repo-native runner is
@@ -211,6 +326,24 @@ Rules for the markdown bridge:
     `AGENTS.md`, `dev/scripts/README.md`, and `dev/guides/DEVCTL_AUTOGUIDE.md`,
     and be retired or migrated once the markdown bridge is inactive or the
     overlay-native review launcher becomes canonical.
+14. Header metadata must include `Reviewer mode`. `active_dual_agent` keeps the
+    live reviewer/implementer freshness contract on; `single_agent`,
+    `tools_only`, `paused`, and `offline` keep the same bridge/runtime surfaces
+    but suspend stale dual-agent enforcement until the reviewer resumes active
+    mode.
+15. Repo-owned writer actions must keep bridge truth honest:
+    `review-channel --action reviewer-heartbeat` updates liveness only, while
+    `review-channel --action reviewer-checkpoint` is the only sanctioned path
+    for advancing reviewed hash, verdict, findings, instruction, and reviewed
+    scope together. For AI-generated markdown or other shell-sensitive bodies,
+    reviewer checkpoints should prefer one typed
+    `--checkpoint-payload-file` (or the existing per-section `--*-file` flags
+    when bodies intentionally stay split) instead of inline shell text.
+    Guards validate these fields but must not auto-write reviewer truth.
+16. Human-facing controls may offer simple aliases such as `agents` and
+    `developer`, but review artifacts and projections must normalize those
+    inputs to the canonical reviewer-mode values (`active_dual_agent`,
+    `single_agent`, `tools_only`, `paused`, `offline`).
 
 Minimum bridge state:
 
@@ -219,10 +352,10 @@ Minimum bridge state:
    `review_status`, `blockers`, `next_action`, and `last_poll_utc`, even if the
    human-readable file spells those out through section names instead of one
    literal key/value table.
-2. For the current `code_audit.md` projection, those fields map to:
+2. For the current `bridge.md` projection, those fields map to:
    `Poll Status` + `Current Verdict` + `Open Findings` + `Current Instruction
-   For Claude` + `Claude Ack` + header metadata (`Last Codex poll`, `Last
-   non-audit worktree hash`).
+   For Claude` + `Claude Ack` + header metadata (`Last Codex poll`,
+   `Reviewer mode`, `Last non-audit worktree hash`).
 3. The important property is not markdown vs JSON. The important property is
    that the current coordination file behaves like a lightweight coordination
    log with explicit current state, ownership, and next action instead of loose
@@ -234,7 +367,7 @@ Temporary bridge state machine:
    `idle -> coding -> review_pending -> findings_posted -> claude_ack_pending
    -> fix_in_progress -> verify_pending -> resolved -> next_slice_selected -> coding`
    or `blocked` / `scope_exhausted`.
-2. `code_audit.md` does not need one literal `state=` line yet, but the live
+2. `bridge.md` does not need one literal `state=` line yet, but the live
    sections must make that state inferable without rereading chat transcript or
    hidden memory.
 3. Any reviewer update that moves the loop into `blocked` or `resolved` must
@@ -255,7 +388,7 @@ Temporary bridge failure modes:
    guard path is reviewed-hash + poll timestamp recording on each meaningful
    Codex update.
 2. Section clobbering: one agent overwrites the other's state. Current guard
-   path is strict section ownership inside `code_audit.md`.
+   path is strict section ownership inside `bridge.md`.
 3. Blocking-state ambiguity: Claude cannot tell which findings are blockers vs
    advisory notes. Current guard path is keeping only live blockers in
    `Open Findings` and putting accepted direction in `Current Verdict`.
@@ -269,17 +402,24 @@ Temporary bridge failure modes:
    hidden memory channel.
 6. Completion stall: one accepted slice finishes and both agents stop even
    though scoped plan work remains. Current guard path is explicit next-slice
-   promotion in `code_audit.md`, operator-visible reviewer chat pings, and the
+   promotion in `bridge.md`, operator-visible reviewer chat pings, and the
    repo-native fallback of `devctl swarm_run --continuous` for fully hands-off
    plan progression.
+7. Fixed-offset polling: the implementer re-reads one unchanged bridge line or
+   stale section range and misses reviewer changes that landed elsewhere in the
+   same file. Current guard path is requiring `Poll Status` + `Current Verdict`
+   + `Open Findings` + `Current Instruction For Claude` to be re-read together,
+   plus generated prompt/autoguide instructions that force timestamp-first
+   repolls instead of cached line-range polling.
 
 ## Repo Wiring Constraints
 
 1. `review-channel` must ship as one flat top-level `devctl` command wired
    through a dedicated parser module and command handler registration, then
-   listed in the command inventory. Do not grow `cli_parser_reporting.py`
+   listed in the command inventory. Do not grow `cli_parser/reporting.py`
    further for MP-355; this track should use a dedicated parser file such as
-   `review_channel_parser.py` or a similarly isolated builder path.
+   `dev/scripts/devctl/review_channel/parser.py` or a similarly isolated
+   builder path.
 2. `review-channel` must receive an explicit audit-events area mapping on first
    implementation day; do not let the command fall through to `misc`.
 3. Review-channel policy must extend the existing
@@ -391,12 +531,42 @@ Retention rule:
   - `latest_event_id: string`
   - `from_agent: string`
   - `to_agent: string`
-  - `kind: finding|question|draft|action_request|approval_request|decision|system_notice`
+  - `kind: finding|question|draft|action_request|approval_request|decision|system_notice|plan_gap_review|plan_patch_review|plan_ready_gate`
+    planning-kind semantics:
+    `plan_gap_review` = reviewer finding against plan authority,
+    `plan_patch_review` = proposed typed plan mutation for the designated
+    writer to apply or reject,
+    `plan_ready_gate` = reviewer acceptance/closure for the targeted plan
+    slice.
+  - `target_kind: string?`
+    optional enum `code|plan|policy|artifact|runbook|runtime`; required as
+    `plan` for planning-review kinds.
+  - `target_ref: string?`
+    optional typed target reference; plan targets should resolve through
+    `PlanTargetRef`. Required for planning-review kinds.
+  - `target_revision: string?`
+    optional expected revision/hash of the referenced authority surface;
+    required for planning-review kinds.
+  - `anchor_refs: array<string>?`
+    ordered stable anchors for plan mutations; required for planning-review
+    kinds. Initial grammar is registry-generated ids only:
+    `checklist:<id>`, `section:<id>`, `session_resume:<id>`, `progress:<id>`,
+    `audit:<id>`. Resolve from most-specific to least-specific; the first
+    resolvable anchor must match `target_ref`, and ambiguity, mismatch, or
+    missing highest-precedence anchors fails closed with no fuzzy fallback.
   - `summary: string`
   - `body: string`
   - `evidence_refs: array<string>`
   - `confidence: number`
   - `requested_action: string`
+  - `mutation_op: string?`
+    optional typed mutation operation for mutable plan targets. Initial
+    allowed values:
+    `rewrite_section_note|set_checklist_state|rewrite_session_resume|append_progress_log|append_audit_evidence`.
+  - `intake_ref: string?`
+    optional `WorkIntakePacket` reference that selected the target, canonical
+    writer, and required write-back sinks. Required for planning-review kinds;
+    missing, expired, or lease-mismatched intake makes the packet invalid.
   - `policy_hint: review_only|stage_draft|operator_approval_required|safe_auto_apply`
   - `approval_required: bool`
   - `status: pending|acked|dismissed|applied|expired`
@@ -449,11 +619,36 @@ Retention rule:
 - `to_agent: string`
 - `kind: string`
   same enum as `review_state.packets[*].kind`.
+  Planning-kind semantics are identical to `review_state.packets[*].kind`.
+- `target_kind: string?`
+  optional enum `code|plan|policy|artifact|runbook|runtime`; required as
+  `plan` for planning-review kinds.
+- `target_ref: string?`
+  optional typed target reference; plan targets should resolve through
+  `PlanTargetRef`. Required for planning-review kinds.
+- `target_revision: string?`
+  optional expected revision/hash of the referenced authority surface;
+  required for planning-review kinds.
+- `anchor_refs: array<string>?`
+  ordered stable anchors for plan mutations; required for planning-review
+  kinds. Initial grammar is registry-generated ids only:
+  `checklist:<id>`, `section:<id>`, `session_resume:<id>`, `progress:<id>`,
+  `audit:<id>`. Resolve from most-specific to least-specific; the first
+  resolvable anchor must match `target_ref`, and ambiguity, mismatch, or
+  missing highest-precedence anchors fails closed with no fuzzy fallback.
 - `summary: string`
 - `body: string`
 - `evidence_refs: array<string>`
 - `confidence: number`
 - `requested_action: string`
+- `mutation_op: string?`
+  optional typed mutation operation for mutable plan targets. Initial allowed
+  values:
+  `rewrite_section_note|set_checklist_state|rewrite_session_resume|append_progress_log|append_audit_evidence`.
+- `intake_ref: string?`
+  optional `WorkIntakePacket` reference that selected the target, canonical
+  writer, and required write-back sinks. Required for planning-review kinds;
+  missing, expired, or lease-mismatched intake makes the event invalid.
 - `policy_hint: string`
   same enum as `review_state.packets[*].policy_hint`.
 - `approval_required: bool`
@@ -635,90 +830,59 @@ Planned actions:
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action status \
-     --state-json dev/reports/review_channel/state/latest.json \
-     --view compact \
-     --emit-projections dev/reports/review_channel/projections/latest \
-     --format md
-   ```
-
-   Transitional bridge-backed slice now available:
-
-   ```bash
-   python3 dev/scripts/devctl.py review-channel \
-     --action status \
      --terminal none \
      --format md
    ```
 
    The current implementation writes latest projections under
    `dev/reports/review_channel/latest/` (`review_state.json`, `compact.json`,
-   `full.json`, `actions.json`, `latest.md`, `registry/agents.json`) while the
-   event-backed `state/latest.json` + `watch|inbox|history` path remains open.
+   `full.json`, `actions.json`, `latest.md`, `registry/agents.json`). Use
+   `--state-json` and `--emit-projections` to override default paths once the
+   event-backed `state/latest.json` reducer lands.
 
 3. `watch`
-
-3. `promote`
-
-   ```bash
-   python3 dev/scripts/devctl.py review-channel \
-     --action promote \
-     --promotion-plan dev/active/continuous_swarm.md \
-     --terminal none \
-     --format md
-   ```
-
-   Transitional bridge-backed slice now available:
-
-   - Reads the configured active-plan checklist and derives the first unchecked
-     scoped task.
-   - Fails closed unless `Current Verdict` is resolved, `Open Findings` are
-     clear, and the current Claude instruction already looks idle/completed.
-   - Rewrites only `Current Instruction For Claude` and refreshes the latest
-     bridge-backed projection bundle so desktop/mobile clients see the same
-     repo-owned queue source.
-
-4. `watch`
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action watch \
-     --target operator \
      --follow \
-     --stale-minutes 30 \
-     --format md
+     --terminal none \
+     --format json
    ```
 
-5. `inbox`
+4. `inbox`
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action inbox \
      --target codex \
-     --status pending \
-     --limit 20 \
+     --terminal none \
      --format json
    ```
 
-6. `ack`
+5. `ack`
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action ack \
-     --packet-id rev_pkt_0001 \
-     --ack-state acked \
-     --actor operator \
+     --from-agent operator \
+     --terminal none \
      --format md
    ```
 
-7. `history`
+6. `history`
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action history \
-     --trace-id trace_20260308_codex_001 \
-     --limit 50 \
+     --terminal none \
      --format md
    ```
+
+Additional operational actions already implemented: `launch`, `rollover`,
+`recover`, `promote`, `implementer-wait`, `reviewer-wait`, `ensure`, `stop`,
+`reviewer-heartbeat`, `reviewer-checkpoint`, `bridge-poll`, `render-bridge`,
+`dismiss`, `apply`.
 
 Exit codes:
 
@@ -838,50 +1002,164 @@ Phase-3 voice contract:
    stale in both `status/watch` output and the guard script.
 9. Packet staging is never auto-applied in Phase 1-2, even if a
    `terminal_packet` is present.
+10. Canonical plan/session mutations must carry freshness proof
+    (`expected_revision`, `state_hash`, or an equivalent reducer-visible
+    revision token) and fail closed on mismatch instead of relying on stale
+    local reads.
+11. Freshness checks supplement writer ownership; they do not grant write
+    authority to a caller that is not the intake-selected writer or an
+    explicitly transferred replacement.
+
+## Review-Channel Policy Extension
+
+The review-channel policy extension lives inside the existing
+`dev/config/control_plane_policy.json` under a `review_channel` key. Phase 0
+freezes the following contract; Phase 1 implements the runtime consumer.
+
+```json
+{
+  "review_channel": {
+    "actor_allowlist": ["codex", "claude", "operator", "system"],
+    "target_allowlist": ["codex", "claude", "operator", "system"],
+    "ack_permissions": {
+      "codex": ["ack", "dismiss"],
+      "claude": ["ack", "dismiss"],
+      "operator": ["ack", "dismiss", "apply"],
+      "system": ["ack", "dismiss"]
+    },
+    "apply_permissions": {
+      "operator": ["apply"],
+      "system": []
+    },
+    "packet_staging": {
+      "auto_send": false,
+      "auto_apply": false,
+      "require_operator_approval_for_apply": true
+    },
+    "expiry_window_seconds": 300,
+    "max_pending_packets_per_target": 20
+  }
+}
+```
+
+Rules:
+
+1. `auto_send` and `auto_apply` are `false` through Phase 2 (Integrity Model
+   item 9).
+2. Only `operator` may `apply` a staged packet in Phase 1-2.
+3. `actor_allowlist` and `target_allowlist` gate `from_agent` / `to_agent` at
+   post time; unknown agents are rejected.
+4. `expiry_window_seconds` feeds the Integrity Model stale-packet surfacing
+   rule.
+5. Extensions to this contract must land in both this plan doc and the runtime
+   policy loader before code ships.
 
 ## Execution Checklist
 
 ### Phase 0 - Schema + Architecture Design
 
-- [ ] Reconcile MP-355 with MP-340, `ADR-0027`, and `ADR-0028`, and record the
+- [x] Reconcile MP-355 with MP-340, `ADR-0027`, and `ADR-0028`, and record the
       final ownership split in both active plan docs.
-- [ ] Freeze the shared event-header map with Memory Studio so
+      Reconciled 2026-03-28: ownership split verified consistent across both
+      plan docs and both ADRs. MP-340 retains umbrella `controller_state`
+      naming/projection ownership; MP-355 owns `review_event`/`review_state`
+      packet details, inbox/ack/watch/history semantics, shared-screen layout,
+      and review-channel guard/test coverage. Shared fields frozen by ADR-0027;
+      relay protocol frozen by ADR-0028. Fixed stale "pending" ADR reference
+      in `autonomous_control_plane.md` to "accepted".
+- [x] Freeze the shared event-header map with Memory Studio so
       `review_event` can normalize losslessly into the canonical memory
       envelope (`event_id`, `session_id`, `project_id`, `timestamp_utc -> ts`,
       `source`, `event_type`, `trace_id`) without alias drift.
-- [ ] Freeze canonical artifact layout and protected-path expectations under
+      Verified 2026-03-28: header map already frozen and consistent across
+      review_channel.md Schema Draft (lines 469-483), memory_studio.md
+      Canonical Event Envelope (lines 864-871), and Cross-Plan Dependencies
+      item 5 (17 shared fields). `from_agent`/`to_agent` stay as routing
+      metadata, not replacements for `source`.
+- [x] Freeze canonical artifact layout and protected-path expectations under
       `dev/reports/review_channel/`.
-- [ ] Draft complete `review_state` and `review_event` schemas with field
+      Verified 2026-03-28: spec defines target layout as `state/latest.json`,
+      `events/trace.ndjson`, `projections/latest/...`. Current bridge-backed
+      implementation writes to `latest/` (review_state.json, compact.json,
+      full.json, actions.json, latest.md, registry/agents.json) plus
+      `events/trace.ndjson`, `state/latest.json`, and
+      `projections/latest/...` as empty stubs. Full migration to the spec
+      layout requires the event-backed reducer (Phase 1 code). The spec itself
+      is frozen. Protected-path retention extension tracked under Phase 1.
+- [x] Draft complete `review_state` and `review_event` schemas with field
       names, types, required/optional status, enums, and example payloads.
-- [ ] Draft the local agent registry shape (`registry/agents.json`) with lane,
+      Verified 2026-03-28: Schema Draft section (lines 485-670) defines both
+      schemas with all required fields, types, required/optional markers,
+      enum values, and two example payloads (lines 672-760). Planning-review
+      extension fields included.
+- [x] Draft the local agent registry shape (`registry/agents.json`) with lane,
       capabilities, status, and session reference fields.
-- [ ] Define the primary ingestion path as `devctl review-channel --action post`
+      Verified 2026-03-28: Schema Draft `review_state.agents` array (lines
+      517-528) defines agent_id, display_name, role, status, capabilities,
+      lane, session_ref, last_seen_utc, assigned_job, job_status, waiting_on,
+      last_packet_id_seen/applied, script_profile, editable_fields.
+- [x] Define the primary ingestion path as `devctl review-channel --action post`
       with optional additive read-only MCP exposure later; do not add MCP write
       tools in Phase 0/1.
-- [ ] Freeze the exact `terminal_packet` sub-object contract to the current Rust
+      Verified 2026-03-28: Locked Decision 3 freezes devctl as canonical write
+      path; MCP read-only snapshots deferred to after Phase 2.
+- [x] Freeze the exact `terminal_packet` sub-object contract to the current Rust
       `DevTerminalPacket` fields (`packet_id`, `source_command`, `draft_text`,
       `auto_send`) so Phase 1 does not drift into an unbounded nested blob.
-- [ ] Define end-to-end data flow from agent post -> append-only event ->
+      Verified 2026-03-28: Schema Draft review_event.terminal_packet (line
+      660) freezes these 4 fields.
+- [x] Freeze the planning-review extension on that same packet model:
+      `plan_gap_review`, `plan_patch_review`, and `plan_ready_gate` plus
+      `target_kind`, `target_ref`, `target_revision`, `anchor_refs`,
+      `mutation_op`, and `intake_ref` must be part of the canonical schema
+      rather than a second plan-only side channel. `intake_ref`,
+      `target_ref`, `target_revision`, and `anchor_refs` are mandatory for
+      planning-review packets.
+      Verified 2026-03-28: Schema Draft review_event fields (lines 622-655)
+      include all planning-review fields with mandatory markers.
+- [x] Define end-to-end data flow from agent post -> append-only event ->
       reduced state -> projection bundle -> `devctl`/Rust render.
-- [ ] Define integrity semantics: atomic writes, idempotency, replay window,
+      Verified 2026-03-28: Contract Relationship section (lines 461-467)
+      defines event→state→projection flow; Canonical Artifact Layout (lines
+      433-457) maps the concrete file paths.
+- [x] Define integrity semantics: atomic writes, idempotency, replay window,
       crash recovery, and event-stream rotation.
-- [ ] Reuse the repo's existing JSONL rotation pattern where practical:
+      Verified 2026-03-28: Integrity Model section (lines 1010-1038) defines
+      all 11 integrity rules covering atomic writes, idempotency, replay,
+      crash recovery, and rotation.
+- [x] Reuse the repo's existing JSONL rotation pattern where practical:
       approximately 10 MB max file size with one rotated backup unless a
       documented review-channel-specific reason requires a different limit.
-- [ ] Define initial CLI signatures, outputs, and exit codes for
+      Verified 2026-03-28: Integrity Model item 7 specifies ~10 MB rotation
+      with one backup, matching the existing Rust memory JSONL pattern.
+- [x] Define initial CLI signatures, outputs, and exit codes for
       `post|status|watch|inbox|ack|history`.
-- [ ] Define the `control_plane_policy.json` extension for review-channel
+      Fixed 2026-03-28: Command Interface section updated to match live CLI —
+      removed stale `--view` and `--ack-state` flags, fixed duplicate `watch`
+      numbering, moved `promote` to Additional operational actions. Examples
+      now use only flags from the live parser. Exit codes: 0=success,
+      1=state/schema failure, 2=usage error/policy denial.
+- [x] Define the `control_plane_policy.json` extension for review-channel
       actor/target allowlists, ack/apply permissions, packet-staging rules, and
       the default prohibition on auto-send promotion in early phases.
-- [ ] Freeze the cross-plan interop contract for `context_pack_refs`,
+      Added 2026-03-28: Review-Channel Policy Extension section with concrete
+      JSON schema for actor/target allowlists, ack/apply permissions,
+      packet-staging rules (auto_send=false, auto_apply=false through Phase 2),
+      expiry window, and max pending packets per target.
+- [x] Freeze the cross-plan interop contract for `context_pack_refs`,
       memory-event bridge rules (`packet_posted|packet_acked|packet_dismissed|
       packet_applied`), and provider-profile selection so review routing reuses
       Memory Studio pack/rendering authority instead of inventing a second
       handoff channel.
+      Verified 2026-03-28: Cross-Plan Dependencies items 8-11 freeze the
+      interop contract. Schema Draft review_event includes context_pack_refs
+      (lines 693-699). Memory Studio canonical envelope (lines 864-871)
+      defines the normalization target. Progress log 2026-03-09 confirms
+      first attach-by-ref context_pack_refs slice landed.
 - [x] Keep the temporary markdown bridge machine-guarded until Phase 1 lands:
       add `check_review_channel_bridge.py`, wire it into the same
       tooling/release governance path as the other active-plan guards, and
-      require it to validate the `code_audit.md` bootstrap contract for fresh
+      require it to validate the `bridge.md` bootstrap contract for fresh
       Codex/Claude sessions.
 
 Acceptance:
@@ -901,21 +1179,162 @@ Acceptance:
       Terminal.app sessions, and fail closed once the markdown bridge is
       inactive so this launcher cannot outlive the transitional bridge by
       accident.
+- [x] Land the first typed current-session read-authority cutover for the live
+      bridge-backed loop: one `current_session` block in `ReviewState` /
+      `review_state.json` is now the canonical read-side current-status
+      authority for reviewer mode, instruction revision, reviewed hash, live
+      findings, and peer ACK state; `latest.md` and other current-status
+      markdown projections render from that typed block instead of reading
+      append-only `Claude Ack` / status history prose directly.
+- [x] Keep the transitional `bridge.md` compatibility projection push-safe
+      once typed `current_session` exists. `startup-context`,
+      `check_tandem_consistency`, and guarded push/checkpoint paths must not
+      block committed validated work merely because tracked bridge prose is
+      dirty; they should consume typed current-session / push-preflight /
+      liveness state, and any temporary bridge exclusion must live in repo
+      policy rather than operator habit or hidden hardcoded filtering.
+      Loop-control rule: once typed `push_enforcement` or other blocking
+      startup/guard state says the slice is over budget or not review-safe,
+      the review-channel controller must stop issuing new implementer work,
+      switch attention to checkpoint/review, and surface that state to the
+      operator without waiting for a human reminder in chat.
+      Verified 2026-03-28: `bridge.md` is in repo policy
+      `compatibility_projection_paths` (devctl_repo_policy.json:214).
+      `startup-context` reports `blockers=none` with dirty bridge.
+      `check_tandem_consistency` passes 7/7 — all checks prefer typed
+      `review_state.json` state via `typed_state` parameter, with bridge prose
+      as backward-compat fallback only. Push/checkpoint enforcement reads from
+      typed `PushEnforcement` via `push_state.py`, not bridge prose. Loop-
+      control: conductor prompts (generated by `review-channel --action launch`)
+      already include checkpoint/budget-aware directives via the post-edit
+      verification contract. Same-lane recovery now also re-reads the managed
+      latest push artifact through `PushEnforcement`, so a completed remote
+      publication does not regress back into "push still pending" when the
+      local push session or post-push follow-up is interrupted.
+- [x] Keep the temporary markdown-bridge validator semantically fail-closed
+      while `bridge.md` remains live: `check_review_channel_bridge.py`,
+      `review-channel status`, and mobile/review projections must flag
+      resolved/fixed bridge verdicts that do not promote the next scoped task,
+      so a reviewer-complete bridge cannot look healthy while implementer
+      routing state is stale. The same validator lane must now also reject
+      oversize compatibility bridges, duplicate/unsupported H2 sections,
+      transcript/ANSI contamination, and overgrown live owned sections
+      (`Claude Status`, `Claude Ack`) so a 4000-line mixed transcript cannot
+      masquerade as current reviewer authority.
+      Verified 2026-03-28: `bridge_hygiene_errors()` in bridge_sanitize.py
+      validates MAX_BRIDGE_LINES (400), MAX_BRIDGE_BYTES (24000), duplicate
+      H2 headings, unsupported H2 headings, ANSI escape sequences, control
+      characters, transcript/test-output lines, and per-section line limits
+      (Claude Status: 40, Claude Ack: 16, etc.). Guard integrated into
+      `check_review_channel_bridge.py` line 262. Promotion-state check in
+      tandem consistency (`check_promotion_state`) flags resolved verdicts
+      without next-task promotion.
+- [x] Keep bridge repair repo-owned while the compatibility projection still
+      exists: `review-channel --action render-bridge` should remain the
+      sanctioned rebuild path for `bridge.md`, regenerating the bounded
+      template plus sanitized live sections from repo-owned state instead of
+      relying on manual bridge surgery after a bad session.
+      Verified 2026-03-29: bridge-backed status projection now emits a typed
+      `bridge_projection` payload under `review_state.json`, `render-bridge`
+      rebuilds `bridge.md` only from that typed payload instead of reparsing
+      the live markdown body, fixed-section render rejects embedded markdown
+      headings fail-closed, and focused regression coverage proves duplicate
+      `## Context Recovery Packet` headings do not reappear after rerender.
+- [ ] Keep the markdown bridge portable if it survives the authority migration:
+      `bridge.md` should remain an optional repo-pack-owned frontend over the
+      same typed `review_state` / queue / registry backend so another repo can
+      enable the bridge surface without inheriting VoiceTerm-only runtime
+      assumptions or treating markdown as canonical state.
+- [ ] Remove VoiceTerm-local bridge assumptions from prompts, guards, and
+      projections while that migration is in flight: bridge path, review plan
+      path, promotion plan path, and status artifact roots must resolve
+      through `ProjectGovernance` / repo-pack state, and bootstrap text should
+      describe the bridge as a repo-pack-owned compatibility projection over
+      typed `review_state` rather than teaching agents to hardcode repo-root
+      `bridge.md`.
+- [ ] Promote continuation-budget / checkpoint gating to a first-class live
+      wait reason in the same typed attention/liveness contract. When
+      `push_enforcement.checkpoint_required` or
+      `push_enforcement.safe_to_continue_editing=false`, the bridge/runtime
+      surfaces should not collapse implementer state to generic
+      `waiting_on_peer`; they should emit an explicit checkpoint-gate pause
+      reason, keep reviewer/implementer ACK synchronization live, and carry
+      the same typed summary/recommended action through `review-channel
+      status`, `latest.md`, `review_state.json`, and bridge projections so
+      Claude can keep polling/ACKing without looking stalled or offline.
+      Partial: a bounded same-lane follow-up now also emits
+      `review_follow_up_required` when the implementer changes the live tree
+      under active reviewer supervision and `reviewed_hash_current=false`, so
+      reviewer-owned follow-up no longer degrades into a vague done-looking
+      stale state while Codex still owes a semantic review refresh.
+- [ ] Generalize that typed current-session and queue contract just far enough
+      for compatibility beyond the current named reviewer/implementer pair:
+      replace named queue counters (`pending_codex`, `pending_claude`,
+      `pending_cursor`, `pending_operator`) and `claude_*` / `codex_*`
+      bridge-state fields with per-agent or per-lane collections plus
+      compatibility projections during migration so the backend can represent
+      more than one implementer or reviewer without schema forks. Keep this
+      slice limited to compatibility collections/projections; full
+      registry-driven topology and native multi-item routing remain Phase 3.
+- [ ] Turn the live status projections into controller inputs, not only
+      display surfaces. Queue and attention already drive current-focus and
+      wait behavior, so the remaining gap is narrower: startup/work-intake
+      routing and reviewer/implementer scheduling must also consume
+      `agent_registry` plus the typed queue/attention state instead of routing
+      off `current_session` alone.
+- [ ] Separate live current status from history in the same slice: keep
+      append-only bridge/event history in trace/history projections only, and
+      make the markdown-authority demotion gate explicit for MP-355. The live
+      bridge is not retired until current-status readers stop depending on
+      mixed prose/history sections and can prove parity from typed current
+      session state alone.
 - [ ] Add `devctl review-channel` command + parser/handler wiring using the
       flat `--action` contract.
 - [ ] Register parser/command wiring in isolated files that do not further grow
-      `dev/scripts/devctl/cli_parser_reporting.py`; expected touchpoints include
+      `dev/scripts/devctl/cli_parser/reporting.py`; expected touchpoints include
       `dev/scripts/devctl/cli.py`, a dedicated review-channel parser module, and
       `dev/scripts/devctl/commands/listing.py`.
 - [ ] Implement `post`, `status`, `watch`, `inbox`, `ack`, `dismiss`,
       `apply`, and `history` actions.
+- [ ] Keep planning review on the same reducer/action path: plan-gap, plan-
+      patch, and ready-gate packets must use the same `post|status|watch|
+      inbox|ack|dismiss|apply|history` surface rather than a second plan-only
+      command family.
 - [ ] Expose the operator-facing typed action surface the thin GUI wrappers
       need: `ack|dismiss|apply` for packet decisions plus the typed
       pause/resume/stop/health hooks that future Operator Console buttons will
       call instead of writing desktop-only placeholder artifacts.
+- [ ] When `target_kind=plan`, resolve mutations through `PlanTargetRef` plus
+      `anchor_refs` and fail closed if the canonical target revision no longer
+      matches, the intake lease is missing/expired, or the first resolvable
+      anchor is ambiguous; do not patch plan markdown by approximate line-
+      number or surrounding-block matching.
+- [ ] Add a repo-owned reviewer heartbeat scheduler/write path for inactive
+      modes so `single_agent`, `tools_only`, `paused`, and `offline` stay
+      visibly current without mutating review truth. The later PyQt6/phone
+      controls should call the same typed action, not invent surface-local
+      liveness files.
+- [ ] Add repo-owned stale-bridge demotion/recovery so docs/process validation
+      is not blocked by abandoned live markdown state. When the bridge is
+      marked active but the writer lease/session proof is gone or
+      irrecoverably stale, the backend should emit a typed
+      `runtime_missing` / repair receipt and keep workflow mode unchanged
+      until an explicit reviewer or operator action pauses/offlines the
+      session, instead of requiring manual `bridge.md` edits before unrelated
+      validation can go green.
 - [ ] Emit projection files from the same reduced state source:
       `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, and
       `latest.md`.
+- [ ] Close the review-event durability backlog cluster from `issues.md` in
+      this phase: `ISS-011`, `ISS-015`, `ISS-021`, `ISS-027`, `ISS-039`,
+      `ISS-040`, `ISS-042`, `ISS-043`, `ISS-044`, `ISS-046`, and
+      `ISS-075` stay owned here until event/bridge writes are synchronized,
+      follow/watch loops handle shutdown cleanly, expired packets and callback
+      state are reaped, malformed or orphaned events surface typed degraded
+      state instead of looking healthy, event ids/rotation stay future-proof,
+      bridge-vs-event drift is detected explicitly, heartbeat freshness is
+      time-aware, daemon JSON parsing recovers safely, and terminal launch
+      failures degrade instead of crashing the session.
 - [ ] Add a terminal-packet projection for safe staging into a target PTY or
       overlay draft lane using the existing `DevTerminalPacket` shape.
 - [x] Allow packets to carry `context_pack_refs` for `task_pack`,
@@ -935,6 +1354,40 @@ Acceptance:
 - [ ] Emit a typed `registry/agents.json` view that includes current job,
       job-state, waiting-on, last-packet-seen/applied, and script-profile
       fields for each visible agent.
+- [ ] Replace hardcoded agent-routing tables in the packet/attention/handoff
+      path (`VALID_AGENT_IDS`, rollover ACK prefixes, attention-owner maps,
+      reviewer-only liveness helpers) with agent-registry / `TandemProfile` /
+      repo-policy-derived routing so MP-355 does not claim N-agent support
+      while the middle layer still rejects new agents.
+- [ ] Make the current compatibility-only middle layer explicit in the runtime
+      contract too: provider-shaped fields such as `pending_codex`,
+      `pending_claude`, `claude_ack`, and `codex_poll_state` may remain as
+      adapters during migration, but they must not widen into the canonical
+      agent-registry/multi-agent state surface.
+- [ ] Replace ad hoc bridge-section headers/markers with one typed section
+      registry shared by parser, writer, projection, mutation, and guard code.
+      `bridge.md` stays a compatibility projection, but section ids/names must
+      resolve from one canonical mapping instead of 8+ duplicated literals and
+      regex targets spread across the review-channel path.
+- [ ] Keep packet state honest until writeback exists: `packet_applied` /
+      `apply` is currently a queue/event transition, not proof that a plan
+      mutation executed. Do not treat review-channel `apply` as real plan
+      authority until repo-owned mutation handlers land with typed receipts.
+- [ ] Extend promotion from `first unchecked item -> one bridge instruction`
+      to multi-item extraction and lane assignment once typed current-session
+      / per-agent queue authority is in place. Until that lands, keep
+      multi-agent specialization conductor-coordinated and do not pretend the
+      backend already does parallel work routing.
+- [ ] Keep burning down the remaining review-channel Python hotspots instead of
+      freezing current size debt in place. Owner/phase: `MP-355` Phase 1
+      maintainability closure. Current live hotspots include
+      `event_reducer.py` (~497 lines), `handoff.py` (461), `core.py` (356),
+      and the giant `test_review_channel.py` suite; continue splitting by
+      reducer / projection / prompt / fixture responsibility, drive the
+      module family down toward a smaller stable review-channel core, and
+      split `test_review_channel.py` into feature-scoped suites before
+      MP-355 claims maintainability closure. (audit mapping:
+      `SYSTEM_AUDIT.md` A15, T1)
 - [ ] Extend `dev/scripts/devctl/reports_retention.py` protected paths for
       `dev/reports/review_channel/`.
 - [ ] Wire `check_review_channel.py` into `dev/scripts/devctl/bundle_registry.py`
@@ -947,6 +1400,12 @@ Acceptance:
       `dev/scripts/README.md`, `dev/guides/DEVCTL_AUTOGUIDE.md`,
       `.github/workflows/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`,
       `devctl list`, audit-event area mapping, and retention-policy updates.
+- [ ] Once the reducer-backed path is authoritative, run a clean-sheet
+      simplification pass on the review-channel implementation itself: collapse
+      follow/projection/attach-auth/command satellites into the smallest
+      readable module set that preserves the typed contract, and remove event /
+      CQRS-style indirection that does not buy present operational value for
+      the current two-agent shared-work problem.
 
 Acceptance:
 
@@ -983,7 +1442,7 @@ Expected Phase-1 tests:
       rather than bespoke overlay-only state.
 - [ ] Render both a parsed review state and a raw artifact view:
   - [ ] parsed current verdict/findings/instruction/ack/poll state
-  - [ ] raw `code_audit.md` / projection markdown view while the bridge is the
+  - [ ] raw `bridge.md` / projection markdown view while the bridge is the
         sanctioned temporary operator surface
 - [ ] Add polling-based refresh behavior that does not interfere with the
       standard VoiceTerm overlay lifecycle.
@@ -1039,6 +1498,17 @@ Expected Phase-2 tests:
 
 - [ ] Add per-target inbox filtering so packets can be routed to `codex`,
       `claude`, or `operator`.
+- [ ] Replace the fixed provider-shaped queue/current-session state with a
+      registry-driven topology: pending counts, heartbeat freshness, ACK
+      state, and lane ownership must derive from `TandemProfile` / the agent
+      registry instead of `pending_codex`, `pending_claude`, `claude_ack`,
+      and `codex_poll_state` remaining first-class runtime fields forever.
+      Keep compatibility projections while current consumers migrate.
+- [ ] Close the registry-driven multi-agent backlog cluster from `issues.md`
+      in this phase: `ISS-041` stays owned here until reducer/projection
+      logic stops hardcoding named agent ids and derives routing/state from
+      the same typed registry and profile contracts that Phase 3 already
+      intends to expose.
 - [ ] Add explicit `acked|dismissed|applied|expired` transitions and
       stale-packet watch behavior.
 - [ ] Add policy-aware action hints so packets can express `review_only`,
@@ -1094,6 +1564,16 @@ Expected Phase-2 tests:
       receiver-shaped pack projection while the canonical JSON pack stays
       unchanged.
 - [ ] Add conflict-resolution UX for competing agent recommendations.
+- [ ] Generalize agent validation and attention ownership from hardcoded
+      provider names to profile/policy-driven ids and roles: `VALID_AGENT_IDS`,
+      `ATTENTION_OWNER_ROLE`, rollover rules, and stale-peer attention should
+      stop assuming only Codex/Claude/Operator lanes once the typed
+      current-session path is ready.
+- [ ] Generalize promotion from one unchecked item -> one `Current Instruction
+      For Claude` rewrite into multi-item typed packet routing. Native N-agent
+      review should be able to promote distinct scoped items to different
+      target agents while bridge markdown becomes a projection over packet /
+      current-session authority rather than the only live routing surface.
 - [ ] Add typed agent-board actions so the operator can retask or tune agents
       from the shared surface without bypassing script/policy ownership:
   - [ ] `assign`
@@ -1158,7 +1638,7 @@ Coordination contract:
 1. `dev/active/review_channel.md` is the canonical static swarm plan: lane
    ownership, worktree/branch map, signoff template, and governance policy live
    here.
-2. `code_audit.md` is the only live cross-team coordination surface during the
+2. `bridge.md` is the only live cross-team coordination surface during the
    active 8+8 run. Codex lanes post findings, poll summaries, and next actions
    there; Claude lanes read it, acknowledge it, and code against it.
 3. `dev/active/MASTER_PLAN.md` remains the execution tracker for lane status.
@@ -1188,21 +1668,27 @@ Bootstrap workflow for the current live cycle:
      --format md
    ```
 
-3. The launched Codex conductor owns the `AGENT-1..AGENT-8` reviewer lanes and
-   Claude owns the `AGENT-9..AGENT-16` coding lanes. The conductors may fan out
-   specialist workers internally, but only the conductors update `code_audit.md`.
+3. The launched Codex conductor owns reviewer-lane capacity
+   (`AGENT-1..AGENT-8`) and Claude owns coding-lane capacity
+   (`AGENT-9..AGENT-16`). Exact lane roles should be derived from the active
+   `WorkIntakePacket` / `PlanExpectationPacket` slice instead of copied from a
+   historical table by habit. The conductors may fan out specialist workers
+   internally, but only the conductors update `bridge.md`. Missing listed
+   worktrees are not permission to improvise live-repo fallback workers; if a
+   lane worktree is unavailable, stay conductor-only for that lane until the
+   repo-owned worktree contract is repaired.
 4. Terminal.app launch defaults to the `auto-dark` profile selector on macOS so
    the conductor windows come up on a dark profile when a known one is
    available. Use `--terminal-profile default` only when you explicitly want to
    keep Terminal.app unchanged.
-5. Before either conductor hits compaction, the active threshold is 50%
+5. Before either conductor hits compaction, the active threshold is 20%
    remaining context. At or below that line, the current conductor finishes the
-   atomic step, updates its owned `code_audit.md` sections, and triggers:
+   atomic step, updates its owned `bridge.md` sections, and triggers:
 
    ```bash
    python3 dev/scripts/devctl.py review-channel \
      --action rollover \
-     --rollover-threshold-pct 50 \
+     --rollover-threshold-pct 20 \
      --await-ack-seconds 180 \
      --format md
    ```
@@ -1210,7 +1696,7 @@ Bootstrap workflow for the current live cycle:
 6. `--action rollover` writes a repo-visible handoff bundle under
    `dev/reports/review_channel/rollovers/`, relaunches fresh Codex/Claude
    conductor sessions, and requires the new sessions to write exact rollover
-   ACK lines into `code_audit.md` before the retiring session exits.
+   ACK lines into `bridge.md` before the retiring session exits.
 
 | Agent | Lane | Primary active docs | MP scope | Worktree | Branch |
 |---|---|---|---|---|---|
@@ -1235,7 +1721,7 @@ Bootstrap workflow for the current live cycle:
 
 All orchestrator-to-agent instructions must be logged here for governance, but
 the live reviewer/coder chatter and five-minute poll loop stay in
-`code_audit.md`.
+`bridge.md`.
 
 | UTC issued | Instruction ID | From | To | Summary | Due (UTC) | Ack token | Ack UTC | Status |
 |---|---|---|---|---|---|---|---|---|
@@ -1243,7 +1729,7 @@ the live reviewer/coder chatter and five-minute poll loop stay in
 ## 15) Shared Ledger (Append-Only)
 
 This ledger is the durable merge/readiness record for the swarm. Dynamic
-finding churn still belongs in `code_audit.md`.
+finding churn still belongs in `bridge.md`.
 
 | UTC | Actor | Area | Worktree | Branch | Commit | MP scope | Verification summary | Status | Reviewer token | Next action |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -1276,22 +1762,74 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-29T03:55:00Z` | `CODEX` | Closed the bounded MP-355 consumer splice for typed push cadence without redefining MP-377 ownership. `review-channel --action status` now consumes the same typed `PushDecisionState` and publication-backlog contract that startup uses, and the bridge-backed `review_state.json`, `full.json`, `compact.json`, and `latest.md` surfaces carry that cadence truth forward instead of leaving operators to infer push timing from the thinner `push_enforcement.recommended_action` string. | `partial-pass` | Keep the next review-channel slice bounded to consumer purity and writer/mutation authority: do not fold bridge recovery or broader continuation composition into a second review-owned push state machine. |
+| `2026-03-29T02:35:00Z` | `CODEX` | Closed the bounded bridge-projection purity slice without widening writer authority. Bridge-backed status projection now emits a typed `bridge_projection` payload, `review-channel --action render-bridge` consumes only that typed payload instead of reparsing `bridge.md`, and fixed-section render now rejects embedded markdown headings so duplicate `## Context Recovery Packet` blocks cannot leak back into `Current Instruction For Claude` or other flat bridge sections. Focused bridge/render/check regressions are green, including idempotent rerender proof. | `partial-pass` | Keep the broader migration open: do not claim bridge retirement or full typed writer cutover yet. Next same-lane work remains portable bridge-path authority, typed writer/mutation closure, and the checkpoint-gate/current-session consumer follow-ups already tracked below. |
+| `2026-03-28T14:55:00Z` | `CODEX` | Closed the next MP-355 consumer-side recovery blind spot without changing ownership. `review-channel` remains a consumer of MP-377 push/publication truth, but the repo now persists the latest typed push result under `dev/reports/push/latest.json` and startup/recovery surfaces read that artifact before classifying publication as pending. This keeps interrupted local push sessions from fooling the reviewer loop into asking for another push after `published_remote` is already settled. | `partial-pass` | Keep MP-355 bounded to surfacing owner truth: refresh/recover conductors from the persisted MP-377 push artifact, then continue the remaining event-backed controller-input closure instead of inventing a second push-state authority here. |
+| `2026-03-26T11:45:00Z` | `CODEX` | Audited the live tandem regression after Claude fell back to low-value polling/no-op wait behavior. The repo already had partial anti-stall teaching, but the contract was split across prompt surfaces and did not fail closed on two live shapes: active work plus `No change. Continuing.`-style implementer parking, and `active_dual_agent` with detached publisher/supervisor heartbeats but no repo-owned conductors. Closed that gap by sharing stall markers across review-channel runtime/checks, tightening bridge + generated `CLAUDE.md` + conductor prompt wording, hard-failing bridge validation on no-op implementer parking under active work, and making `status` surface the no-conductor state as a bridge-contract error instead of healthy loop freshness. Updated maintainer docs in the same slice so the repo teaches the same contract it now enforces. | `partial-pass` | Keep verifying live Claude deltas against code/docs, but now treat any future no-op polling or detached-daemon-only dual-agent state as contract errors to repair before trusting the loop. |
+| `2026-03-26T08:10:00Z` | `CODEX` | Restored the live architecture-audit operating mode after an interrupted session and an overly narrow reviewer instruction. Rewrote the reviewer-owned bridge/current-session instruction through the repo-owned `reviewer-checkpoint` path so Claude is again the primary broad whole-system finder, Codex stays the verifier/controller, and the shared audit ledger is `dev/audits/architecture_alignment.md` instead of a hidden chat state. Also verified that the typed `current_session` / push-decision split remains an MP-355 producer -> MP-377 consumer contract and promoted the missing dependency notes into this plan. | `partial-pass` | Keep reviewing Claude deltas against real code/docs, correct overbroad ledger claims before accepting them, and promote only verified findings into `MASTER_PLAN` plus the scoped owner plans. Do not reintroduce Codex-side broad audit swarms. |
+| `2026-03-28T13:52:00Z` | `CODEX` | Closed the remaining nested-heading instruction leak after the bridge-safe promotion fix. Event-backed queue/current-session projections were still building `derived_next_instruction` with raw `## Context Recovery Packet` markdown, which could reintroduce malformed nested headings in `latest.md`-style outputs even when `bridge.md` stayed clean. Switched the event-backed instruction path to the same compact no-H2 context summary used by promotion and kept the full packet only in source metadata for prompts/audit surfaces. | `partial-pass` | Re-run the focused review-channel projection tests plus governed tooling validation, then refresh reviewer/runtime state and push through the repo-owned path. |
+| `2026-03-26T05:05:00Z` | `CODEX` | Re-audited the live bridge/current-session lane against the portable-platform architecture after the latest startup/tandem bug fixes. The design direction remains correct: typed `review_state` is the live authority and `bridge.md` is already supposed to become a repo-pack-owned compatibility projection. The concrete remaining gap is mixed teaching and mixed consumers: some runtime/guard paths now resolve bridge/review state through governance, while prompts, templates, and a few guards still encode repo-root `bridge.md` or VoiceTerm plan-path assumptions directly. | `planned` | Keep the typed `current_session` cutover bounded, then remove literal bridge/path assumptions from prompts/guards/projections and add non-VoiceTerm fixture coverage before claiming the bridge path is portable. |
+| `2026-03-26T01:50:00Z` | `CODEX` | Closed the worst current markdown-bridge failure mode after the live bridge grew into a 4164-line mixed transcript with duplicate report headings and raw terminal/test output. Landed `review-channel --action render-bridge` as the repo-owned repair path, rebuilt the live `bridge.md` down to a bounded 117-line compatibility projection, expanded bridge hygiene enforcement so `check_review_channel_bridge.py` now rejects oversize bridges, duplicate/unsupported headings, transcript/ANSI contamination, and overgrown live sections, and tightened reviewer checkpoint contamination patterns so repo-owned reviewer writes reject obvious terminal/test output earlier. | `partial-pass` | Re-run the focused review-channel/tooling bundles on the cleaned bridge, keep the remaining stale-ACK state explicit, and continue the broader typed writer/mutation cutover so bridge repair becomes exceptional instead of routine. |
+| `2026-03-25T14:05:00Z` | `CODEX` | Closed the next live stale-implementer orchestration gap without widening bridge authority. Active attention now distinguishes `implementer_relaunch_required`, `review-channel --action recover --recover-provider claude` replaces only the stale Claude conductor, and reviewer-follow now escalates repeated unchanged stale-implementer state through that narrower repo-owned recovery path instead of full rollover or passive sleep-loop polling. The same slice also keeps startup gating honest: `launch|rollover` still fail closed on checkpoint-budget or real startup-authority errors, but they no longer fail solely because the reviewer loop is stale on the implementer side. | `partial-pass` | Run the focused runtime/review-channel proofs plus docs/guard bundles, then checkpoint the slice and exercise the live recover path against a stale Claude ACK session. |
+| `2026-03-25T04:45:00Z` | `CODEX` | Re-ran the focused MP-355 regression suite and reopened one exact bridge-contract guard. `test_check_review_channel_bridge.py` now shows that `check_review_channel_bridge.py` no longer flags resolved bridge verdicts without a promoted next task. The broader typed-current-session direction still holds, but the temporary fail-closed bridge validator regressed and can again let a semantically incomplete bridge read as healthy. | `planned` | Restore guard + projection parity so resolved/fixed bridge states require promoted next-task routing, then continue the typed `current_session` / `agent_registry` cutover without widening bridge authority. |
+| `2026-03-24T16:30:00Z` | `CODEX` | Folded the remaining aligned review-channel intake into canonical MP-355 state after re-checking it against live code. The correction is explicit: queue/attention are not wholly unread because current-focus and wait surfaces already use them; the actual missing consumer path is `agent_registry` plus wider typed review status not yet steering startup/work-intake routing or reviewer/implementer scheduling. | `planned` | Keep the typed current-session cutover bounded, then make startup/work-intake and scheduling consume `agent_registry` plus typed queue/attention state before claiming the review channel is a live routing surface rather than a display bundle. |
+| `2026-03-22T18:10:00Z` | `CODEX` | Finished the remaining `SYSTEM_AUDIT` mapping for the MP-355 lane. The previously unmapped structural-debt/test tranche is now explicit in canonical plan state: the review-channel family must keep collapsing toward a smaller stable core and `test_review_channel.py` must split into feature-scoped suites before MP-355 can claim maintainability closure. | `planned` | Keep the current-session/push-safe authority work bounded, then land the maintainability tranche in the same Phase-1 closure path instead of deferring it to another audit note. |
+| `2026-03-22T04:45:00Z` | `CODEX` | Landed the reviewer-side parity slice for the planned repo-owned wait path. `review-channel --action reviewer-wait` now exports typed wait attention fields plus state-specific timeout/unhealthy/update messages, markdown wait rendering handles reviewer-wait payloads instead of only implementer-wait, and the reviewer launch prompt now explicitly tells Codex to use `reviewer-wait` instead of ad-hoc sleep loops when parking on Claude-owned progress. This closes the immediate "stay watching Claude through repo-owned wait semantics" step without pretending semantic review is fully automated yet. | `partial-pass` | Keep the broader reviewer-worker/service blocker open: the next loop-hardening slice still needs repo-owned semantic re-review/checkpoint behavior instead of chat-prompted polling. |
+| `2026-03-22T04:15:00Z` | `CODEX` | Closed the next live-loop messaging gap after typed attention was already correct but the implementer-facing wait surface still printed generic "Holding for Codex review" text. `review-channel --action implementer-wait` now carries typed attention status/summary/recommended-action fields in its stable report, timeout/reviewer-update messages specialize for `review_follow_up_required` and `claude_ack_stale`, and the markdown wait projection renders the same attention context instead of a bare stop reason. Focused review-channel proof is green (`232` tests); full `devctl check --profile ci` is only waiting on the normal reviewer checkpoint hash refresh for the current tree. | `partial-pass` | Keep the checkpoint-gate pause projection follow-up open, then continue parity so every live wait surface exposes the same typed reason without making operators infer state from generic hold text. |
+| `2026-03-22T03:35:00Z` | `CODEX` | Closed the next bounded live-loop clarity gap after the reviewer bridge kept looking "done" whenever Claude changed the tree between polls. Active-dual-agent attention and implementer bridge-poll state now emit `review_follow_up_required` when `review_needed=true`, the reviewer supervisor is alive, and `reviewed_hash_current=false`; bridge-poll next-turn routing now points back to the reviewer explicitly instead of collapsing that state into generic stale/done-looking output. Focused review-channel proof is green (`231` tests) and `devctl check --profile ci` is green on the current local diff. | `partial-pass` | Keep the broader checkpoint-gate pause work open, then continue the remaining projection parity so the same typed wait/follow-up reasons stay aligned across `status`, `latest.md`, `review_state.json`, and bridge compatibility text. |
+| `2026-03-22T01:57:00Z` | `CODEX` | Promoted the live reviewer/implementer communication stall into tracked MP-355 state after the current dual-agent loop kept presenting a continuation-budget pause as generic `waiting_on_peer`. Runtime truth already raises `attention.status=checkpoint_required` with `safe_to_continue_editing=false`, but the bridge/liveness layer still makes Claude look like it is merely waiting on the peer instead of paused on a typed checkpoint gate. | `planned` | Land one bounded MP-355 follow-up that elevates checkpoint-gate/continuation-budget pause to a first-class typed wait reason across `review-channel status`, `latest.md`, `review_state.json`, and bridge projections so Codex/Claude can keep synchronized communication while edits are intentionally paused. |
+| `2026-03-22T01:20:00Z` | `CODEX` | Closed the repeated shell-mangling failure mode on reviewer checkpoints by adding one typed file-backed payload path to the repo-owned writer. `review-channel --action reviewer-checkpoint` now accepts `--checkpoint-payload-file` with `verdict`, `open_findings`, `instruction`, and `reviewed_scope_items`, the CLI/docs now prefer that path (or the existing per-section `--*-file` flags) over inline shell bodies for AI-generated markdown, and the maintained examples now also carry the live `--expected-instruction-revision` required for active dual-agent stale-write safety. | `partial-pass` | Keep future reviewer/controller writes on typed/file-backed payloads, then continue the broader writer/mutation cutover so bridge compatibility text stops sitting in the middle of machine authority. |
+| `2026-03-22T00:25:00Z` | `CODEX` | Reconfirmed the live reviewer-service/operator-notification gap against repo-owned runtime truth instead of chat impressions. In the current lane the reviewer supervisor stays alive and updates `review_needed` / `waiting_on_peer`, but publisher state can still sit at `detached_exit`, so bridge/runtime status knows Claude is stale or waiting without auto-surfacing that state to the operator. | `planned` | Treat sticky reviewer ownership plus live publisher/notification delivery as the same MP-355 blocker: the repo-owned reviewer worker/supervisor must poll, write checkpoints, and emit operator-visible updates without waiting for user prompts. |
+| `2026-03-21T23:59:00Z` | `CODEX` | Reconciled the latest cross-agent audit against live MP-355 plan state. The urgent push-safe bridge issue was already tracked, but two real review-channel follow-ups were still missing from the checklist: a typed bridge-section registry to kill magic-string section parsing/writes and an explicit maintainability burn-down item for the remaining review-channel Python hotspots instead of treating the current file sizes as invisible debt. | `planned` | Keep the current-session/push-safe authority work bounded, then land the bridge-section registry and continue shrinking the review-channel hotspots without widening bridge authority again. |
+| `2026-03-21T23:55:00Z` | `CODEX` | Recorded the newly-proved push-coupling bug after the typed `current_session` cutover. The read side is now healthier: current reviewer/implementer truth comes from typed review-state projections, but the guarded push path still blocks on raw tracked-file dirtiness, so live `bridge.md` compatibility writes can strand validated committed work even though push logic never actually consumes bridge prose. | `planned` | Keep `bridge.md` as a compatibility projection only, add the push-safe policy/preflight closure in `MP-377`, and do not let write/push paths keep treating bridge dirtiness as canonical authored state once typed current-session authority exists. |
+| `2026-03-21T23:40:00Z` | `CODEX` | Landed the first typed `current_session` authority cutover for MP-355 without widening into the full bridge replacement. `ReviewState` now carries a dedicated current-session block, both bridge-backed and event-backed projections populate it, `latest.md` / `compact.json` read it for live current-focus rendering, and the legacy bridge fields are still projected for compatibility. This keeps current-status readers off append-only bridge prose while preserving the existing runtime/reporting surfaces. | `partial-pass` | Finish the broader guard bundle for this slice, keep `bridge.md` out of the checkpoint, and then continue the remaining bridge-authority replacement through writer/mutation paths instead of re-expanding current-status reads. |
+| `2026-03-21T22:15:00Z` | `CODEX` | Re-ran the "is this already N-agent?" audit against the current MP-355 runtime instead of relying on older scratch conclusions. The answer is mixed: packet routing, `TandemProfile.implementers`, the event lane, and `autonomy-swarm` already support more than two workers, but the middle review-channel layer is still singular in the places that matter most for live authority (`pending_codex` / `pending_claude`, `claude_ack`, `codex_poll_state`, provider-name allowlists, and one `Current Instruction For Claude` promotion path). | `planned` | Keep the current 8+8 run conductor-managed for now, then generalize queue/current-session/attention/promotion to registry-driven N-agent state before claiming the backend itself is natively multi-agent. |
+| `2026-03-21T20:25:00Z` | `CODEX` | Landed the first stale-write containment on the live markdown bridge after the operator-visible regression where an older reviewer checkpoint replaced a newer in-flight instruction. Instruction-mutating bridge writes now carry an expected instruction revision precondition through the reviewer-checkpoint and promotion paths, and the write fails closed under the existing file lock if the live bridge revision no longer matches. Auto-promotion/scope paths now thread the live revision they validated, while active dual-agent reviewer checkpoints require an explicit expected revision instead of silently overwriting newer state. | `partial-pass` | Keep the bounded `UNKNOWN/DEFER` slice in place, then land the typed `current_session` authority cutover so current-status readers stop depending on append-only bridge prose for live instruction/ACK truth. |
+| `2026-03-21T16:35:00Z` | `CODEX` | Promoted the bridge-read authority cleanup into the active MP-355 lane after another operator-visible confusion round. The immediate bounded fix is to make one typed `current_session` block authoritative in `review_state.json`, render `latest.md` from that typed state instead of append-only `Claude Ack` prose, and keep history in trace/event surfaces instead of mixing it into current-status reads. This is the smallest same-repo slice that moves toward `CollaborationSession` authority without colliding with the current `context_graph` work. | `planned` | Land the typed `current_session` projection on both bridge-backed and event-backed review-state paths, switch `latest.md` / compact readers to that block, and keep append-only bridge/event history explicitly out of live current-status rendering before widening into full writer-authority replacement. |
+| `2026-03-21T15:50:00Z` | `CODEX` | Captured the round-duration operating constraint for the live dual-agent loop. Bounded rounds and restartable handoff state are already the architectural direction, but the plan now also treats roughly 30 minutes as the target fresh-session budget for reviewer/coder rounds so the controller prefers explicit rollover/restart over long-lived drifting sessions. | `planned` | Encode a concrete max-round-duration / rollover budget into the controller contract and keep handoff state rich enough that restarting is cheaper than letting one session go stale. |
+| `2026-03-21T21:35:00Z` | `CODEX` | Promoted the missing controller/handoff follow-up from discussion into tracked MP-355 state. The current bridge loop still polls passively even after the `runtime_missing` containment fix; the next reliability slice must switch to bounded rounds with fresh re-prompts, ACK deadlines, explicit no-progress circuit breaking, and rollover/session-restart behavior that uses repo-visible handoff state instead of hoping two long-lived sessions keep polling forever. The same follow-up must also enrich rollover/handoff bundles with the bounded context packet so fresh conductor sessions restart informed instead of blind. | `planned` | Land the round-based controller contract in the backend, keep `bridge.md` generated/truthful, and thread the same generated context packet into handoff bundles and restart prompts before widening into UI-only conveniences. |
+| `2026-03-21T18:40:00Z` | `CODEX` | Accepted the next bounded context-graph follow-up for MP-355 after the first conductor-path injection landed. The remaining high-value backend gaps are now explicit: repo-owned next-task promotion still emits plain text, event-backed `derived_next_instruction` is still summary-only, and the fresh `swarm_run` prompt path still starts blind. | `planned` | Keep the packet generated from the canonical graph, then widen it through promotion/event/startup prompt emitters with parity tests instead of inventing UI-local or chat-local context side channels. |
+| `2026-03-21T16:10:00Z` | `CODEX` | Landed the first bounded context-escalation policy for the live conductor path. `build_conductor_prompt()` now teaches the `context-graph --query` trigger rules explicitly (unread file/subsystem scope, repeated failed attempts, unclear blast radius) and preloads one small context packet for the active lane scopes instead of forcing either full cold-doc reads or blind guessing. | `partial-pass` | Keep the prompt policy bounded and honest, then reuse the same typed packet shape in other agent-control surfaces so context recovery is one reusable repo-owned behavior instead of prompt-by-prompt prose drift. |
+| `2026-03-21T13:25:00Z` | `CODEX` | Closed the stale-runtime authority bug in the live dual-agent loop. `review-channel status` was auto-demoting abandoned runtime state to `paused`, which suppressed pending review work even when Claude had already ACKed the live instruction and the tree had changed. The accepted containment path removes daemon-driven mode mutation, reports `runtime_missing` instead, and records the daemon boundary explicitly: publisher/supervisor processes publish runtime health only and must not change collaboration mode authority. | `partial-pass` | Keep the immediate containment green in tests/guards, then move the broader runtime/event-store reducer toward a single typed session authority so `bridge.md` can become a generated view instead of live state. The next daemon/controller slice should also switch from passive bridge polling to bounded round control: fresh agent invocations, ACK deadlines, and no-progress circuit breakers. |
+| `2026-03-20T06:20:00Z` | `CODEX` | Closed the next MP-355 packet-consumption gap in the live dual-agent loop. The event-backed Claude inbox proved real but unconsumed, so the repo-owned implementer wait path now includes the newest pending Claude-targeted packet in its wake token, and the shared Claude prompt contract now requires polling `inbox/watch` alongside bridge state on the same cadence. This keeps reviewer packets in the canonical reducer/projection path instead of relying on bridge-only coordination or operator chat relay. | `partial-pass` | Keep the direct packet lane honest in live use, then decide whether the next bounded follow-up is default-inbox view cleanup or a stricter Claude-side conductor bootstrap that proves packet polling is part of the normal repoll loop. |
+| `2026-03-19T22:15:00Z` | `CODEX` | Final architecture review reconciled the validated runtime slice with the broader proposal set for MP-355. The accepted backend contract keeps `CollaborationSession` as the long-term bridge/state projection over intake + review state, preserves intake-backed writer authority for canonical plan/session mutation, and treats revision/state-hash checks as stale-read protection rather than a substitute for ownership. Startup auto behavior is also now constrained at the plan level: resume one valid session and auto-demote stale abandoned state, but do not auto-guess plan scope or auto-enter dual-agent mode. | `in-progress` | Land the remaining runtime/reducer fields and guards so stale-read rejection, bridge demotion, and projection parity are enforced by backend state rather than operator habit. |
+| `2026-03-19T21:20:00Z` | `CODEX` | Captured the stale-bridge-validation issue as explicit MP-355 architecture work instead of leaving it as session trivia. The plan now requires repo-owned stale-bridge recovery so abandoned `bridge.md` heartbeats surface a typed `runtime_missing` / repair receipt without rewriting collaboration mode, rather than forcing manual bridge edits before unrelated docs/process validation can go green. | `in-progress` | Land that recovery path through the backend/guard surface so bridge freshness failures become self-healing or cleanly quarantined instead of recurring manual cleanup debt. |
+| `2026-03-19T21:05:00Z` | `CODEX` | Ran the first proof pass against the new planning-review protocol and tightened the spec where it was still underspecified. Planning-review packets now require intake-backed writer authority, `anchor_refs` now use a fail-closed registry-id grammar instead of loose strings, `plan_patch_review` is explicitly a proposed typed mutation rather than the canonical edit itself, and the schema now carries `mutation_op` so cross-repo adopters cannot claim support while mutating plan targets incompatibly. | `in-progress` | Keep the runtime slice honest: the next implementation step must make reducer/validation code reject planning packets with missing leases, ambiguous anchors, or unsupported mutation ops before claiming cross-repo portability. |
+| `2026-03-19T20:35:00Z` | `CODEX` | Extended MP-355 so the same review-channel transport can carry portable plan hardening instead of only code review. The schema/phase/protocol surfaces now reserve `plan_gap_review`, `plan_patch_review`, and `plan_ready_gate`, route plan targets through `PlanTargetRef` plus `WorkIntakePacket`, and state explicitly that mutable plan edits must bind to stable heading/checklist/progress anchors with target-revision checks rather than brittle surrounding-block matching. Canonical plan docs stay single-writer authority; packet/bridge state is proposal and coordination only. | `in-progress` | Prove the same packet path against the active `MP-377` plan loop, then land runtime resolution/guarding so planning review works on another repo without hard-coded VoiceTerm plan paths. |
+| `2026-03-17T03:20:00Z` | `CODEX` | Accepted the bounded daemon-event to runtime-state reducer slice in the Python `devctl/review_channel` seam. `review-channel ensure --follow` and `reviewer-heartbeat --follow` now append `daemon_started` / `daemon_heartbeat` / `daemon_stopped` rows through a dedicated daemon-events helper, bridge-backed `status` now derives both `runtime.daemons.publisher` and `runtime.daemons.reviewer_supervisor` from persisted lifecycle heartbeat truth instead of hard-coding an empty supervisor, `latest.md` renders the same runtime block, and auto event-backed status stays gated on materialized `state.json` so daemon-only event logs do not silently flip authority. Focused proof is green (`145` review-channel tests, `check_code_shape.py`, `check_parameter_count.py`, `check_python_dict_schema.py`, `check_facade_wrappers.py`, `check_function_duplication.py`). | `partial-pass` | Treat daemon-event runtime truth plus markdown runtime visibility as the accepted same-scope baseline, then promote the next bounded follow-up to the VoiceTerm-local action-brokerage retirement / shared-backend attachment path unless a fresh runtime-truth regression appears. |
+| `2026-03-17T02:14:01Z` | `CODEX` | Accepted the bounded post-`M69` service-identity plus attach/auth contract slice in the Python `devctl/review_channel` seam. Bridge-backed `status`, reviewer reports, `review_state.json`, `compact.json`, `full.json`, and `latest.md` now expose both repo/worktree-scoped `service_identity` and machine-readable `attach_auth_policy`, with caller-authority buckets sourced from the platform contract surface and the current backend policy fixed to repo/worktree-local attach over the filesystem markdown bridge (`off_lan_allowed=false`, `token_required=false`, `key_required=false`). Focused proof is green (`135` review-channel tests, `check_code_shape.py`, `check_parameter_count.py`, `check_python_dict_schema.py`, `check_facade_wrappers.py`, `check_review_channel_bridge.py`, `check_active_plan_sync.py`). Full `devctl check --profile ci` still lands only on the unrelated Rust failure `event_loop::tests::dev_panel_overlay::refresh_poll::memory_page_enter_refreshes_memory_cockpit_snapshot`. | `partial-pass` | Treat service identity/discovery and attach/auth semantics as accepted baselines on the current local diff, then promote the next bounded same-scope slice to the daemon-event to runtime-state reducer in the Python control-plane seam before widening into VoiceTerm-local action brokerage retirement or Rust/UI work. |
+| `2026-03-17T01:30:39Z` | `CODEX` | Accepted the bounded detached-heartbeat truth fix inside `M69`. Lifecycle heartbeats now persist both the canonical shared file and a per-PID variant, and lifecycle reads select the freshest live publisher/supervisor writer before falling back to the freshest stopped/dead record so a dead shared-file writer no longer masks an active follow loop. Focused proof is green (`133` review-channel tests, `check_code_shape.py`, `check_parameter_count.py`, `check_facade_wrappers.py`, `check_review_channel_bridge.py`). Full `devctl check --profile ci` is back to the existing unrelated Rust failure `event_loop::tests::dev_panel_overlay::refresh_poll::memory_page_enter_refreshes_memory_cockpit_snapshot`. | `partial-pass` | Treat `M69` as closed on the current local diff and promote the next bounded same-scope slice to repo/worktree-scoped service identity/discovery in the Python control-plane seam before widening into attach/auth semantics, reducer work, or Rust/VoiceTerm ownership. |
+| `2026-03-17T01:00:54Z` | `CODEX` | Re-reviewed the current `M69` local diff while Claude’s lifecycle/follow extraction was landing and found one new bounded regression in the extracted follow loops: `output_error` exits returned before they persisted final stopped publisher/supervisor heartbeat state. Fixed both follow paths, made lifecycle reads treat explicit `stop_reason` / `stopped_at_utc` records as not running even if the writer PID is still briefly alive, and added focused regression coverage for both publisher and reviewer-supervisor `output_error` exits. Current local proof is green (`129` review-channel tests, `check_code_shape.py`, `check_parameter_count.py`, `check_review_channel_bridge.py`, `check_active_plan_sync.py`). Full `devctl check --profile ci` is still blocked only by unrelated Rust tests (`banner::tests::logo_line_color_uses_single_theme_accent`, `event_loop::tests::dev_panel_overlay::refresh_poll::memory_page_enter_refreshes_memory_cockpit_snapshot`). | `partial-pass` | Keep `M69` active on detached reviewer-supervisor lifecycle/status truth, but treat the stop-state contract as part of the accepted baseline now; the next follow-up should widen only if a fresh detached-supervisor truth gap appears. |
+| `2026-03-17T00:52:09Z` | `CODEX` | Closed the open medium reviewer-worker regression on the current MP-355 local diff. Bridge-backed `status` and `_build_reviewer_state_report()` now reuse `status_snapshot.reviewer_worker` instead of re-running `check_review_needed()`, and the follow/lifecycle seams were split into focused helper modules so `check_code_shape.py` stays green after the fix. Current focused proof is green (`127` review-channel tests, `docs-check --strict-tooling`, `check_review_channel_bridge.py`, `check_active_plan_sync.py`, `check_code_shape.py`). Full `devctl check --profile ci` now fails only on the unrelated Rust test `event_loop::tests::dev_panel_overlay::refresh_poll::memory_page_enter_refreshes_memory_cockpit_snapshot`. | `partial-pass` | Keep `M69` active on detached reviewer-supervisor lifecycle/status truth, but do not reopen the reviewer-worker duplicate-hash path unless a fresh regression appears. |
+| `2026-03-17T00:06:42Z` | `CODEX` | Accepted the bounded `M68` report-only reviewer supervisor/watch slice. `reviewer-heartbeat --follow` now polls on cadence, refreshes reviewer heartbeat through the repo-owned Python `devctl/review_channel` seam, and emits operator-visible `reviewer_worker` frames without claiming semantic review completion. Current local re-review is green (`122` review-channel tests), and `check_review_channel_bridge.py` is green. | `partial-pass` | Promote the next bounded follow-up to `M69`: add repo-owned detached lifecycle/status truth for that supervisor path so it can stay alive and observable outside the current terminal/chat session before widening into semantic-review automation or Rust/VoiceTerm host ownership. |
+| `2026-03-16T23:55:00Z` | `CODEX` | Accepted the bounded `M67` reviewer-worker status seam. The repo-owned Python `devctl/review_channel` backend now emits machine-readable `reviewer_worker` state from `review-channel status`, `ensure`, `reviewer-heartbeat`, `reviewer-checkpoint`, and the bridge-backed `full.json` projection, while `ensure --follow` cadence frames also surface `review_needed` without claiming semantic review completion. Focused proof is green (`138` tests), `check_review_channel_bridge.py` is green, and `check_active_plan_sync.py` is green. | `partial-pass` | Keep the broader reviewer-worker blocker explicit, but promote the next bounded follow-up to a report-only supervisor/watch path that can keep polling and publishing operator-visible updates outside chat before widening into semantic-review automation or Rust/VoiceTerm ownership. |
+| `2026-03-16T23:05:00Z` | `CODEX` | Recorded the real reviewer-lane failure class explicitly after the long operator-observed stall: Claude can keep acting like a persistent worker in its own terminal session, but the Codex reviewer still is not a repo-owned persistent worker/service and still depends on this chat session staying alive. Heartbeat/checkpoint helpers exist, but semantic re-review/promotion still is not owned by an external reviewer worker yet. | `partial-pass` | Keep Claude on the current bounded `M66` coding slice, but treat the reviewer-worker/service implementation as a separate architecture blocker: add a repo-owned Codex reviewer worker/supervisor path that polls on cadence, writes reviewer checkpoints, and emits operator-visible updates without waiting for user prompts. |
+| `2026-03-16T23:00:00Z` | `CODEX` | Accepted the bounded `M65` detached publisher durability slice. The detached-start path now records `failed_start` when the spawned publisher is dead on arrival, and runtime reads now infer `detached_exit` when a previously started publisher dies before the next controller read. The focused review-channel/runtime bundle is green (`133` tests). | `partial-pass` | Promote the next bounded lifecycle follow-up to explicit publisher lifecycle attention: differentiate `failed_start` / `detached_exit` from generic `publisher_missing` in shared attention/runtime outputs before widening into auto-restart or broader cleanup semantics. |
+| `2026-03-16T12:55:00Z` | `CODEX` | Accepted the bounded `M64` clean-stop slice. Direct `review-channel ensure --follow` now emits explicit stop reasons (`timed_out`, `manual_stop`, `completed`, `output_error`), supports `--timeout-minutes`, and writes final publisher state with `stopped_at_utc`; the focused review-channel/runtime bundle is green (`131` tests). | `partial-pass` | Promote the next bounded lifecycle follow-up to the detached publisher durability seam: `--start-publisher-if-missing` must either keep the publisher alive under controller supervision or fail/write truthful stop state instead of leaving a dead heartbeat ambiguity. |
+| `2026-03-16T14:10:00Z` | `CODEX` | Tightened the markdown-bridge protocol so the live Claude/Codex loop is explicit instead of implied: in `active_dual_agent`, both sides now start polling immediately after bootstrap, Claude codes exactly one bounded slice before returning to wait/poll mode, Codex re-reviews and rewrites the bridge, and that back-and-forth repeats until the scoped plan is exhausted or a real blocker/approval boundary is hit. | `in-progress` | Keep the live bridge and conductor prompts aligned to this closed-loop rule, then preserve the same semantics when the markdown bridge is replaced by structured review-state/runtime authority. |
+| `2026-03-16T12:45:32Z` | `CODEX` | Accepted the bounded `M63` timeout-escalation slice. `review-channel status` now escalates stale reviewer heartbeat to `reviewer_overdue` above the configured threshold, the threshold is CLI-configurable, and the focused review-channel/runtime bundle is green (`129` tests). The current session still honestly shows `publisher_missing` because no controller-owned publisher is running; that is runtime truth, not a false-green code defect. | `partial-pass` | Promote the next bounded lifecycle follow-up to `M64`: land the first clean stop/shutdown contract for follow-backed controller runs with explicit stop reason, timeout budget, and final state write before widening into pause/resume or cleanup verification. |
+| `2026-03-16T12:16:30Z` | `CODEX` | Accepted the bounded `M55` lifecycle-truth slice. `review-channel ensure` now fails closed when the publisher is missing, shared status/runtime outputs emit `publisher_missing`, and the focused proof bundle is green. The current session still honestly shows `publisher_missing` because no controller-owned publisher is running; that is runtime truth, not a false-green code defect. | `partial-pass` | Promote the next bounded lifecycle follow-up to `M63`: add configurable overdue-timeout escalation to the shared review/controller path before tackling full stop/shutdown semantics. |
+| `2026-03-16T12:15:00Z` | `CODEX` | Recorded the live 5-hour Claude wait as a control-plane failure class instead of treating it as mere operator friction. The bridge/publisher path still allows an implementer to sit in a wait state when reviewer cadence does not advance, so timeout budgets, overdue escalation, and clean stop/cleanup semantics are now explicit requirements of the same controller-owned lifecycle slice. | `partial-pass` | Keep `M55` bounded to the active publisher/status truth fix, then land the next lifecycle follow-up as controller-owned timeout/escalation/stop semantics with cleanup verification. |
+| `2026-03-16T10:34:39Z` | `CODEX` | Re-reviewed the next `M55` lifecycle step after the new `--start-publisher-if-missing` seam landed. Focused tests are green and the backend can now spawn the follow publisher on demand, but the controller truth is still false-green because `review-channel ensure` continues to report healthy success when active dual-agent mode requires a publisher and none is running. | `partial-pass` | Keep `M55` open and land the smallest backend-only lifecycle truth patch next: thread publisher-missing state into attention/runtime projections and make `ensure` degrade unless auto-start actually recovers the publisher. |
+| `2026-03-16T06:57:00Z` | `CODEX` | Landed the first backend-owned reviewer publisher slice behind the current bridge-backed loop: `review-channel ensure --follow` now refreshes reviewer heartbeat on cadence, emits NDJSON status frames through the normal output contract, and has focused tests proving follow-lifetime/output behavior plus heartbeat metadata emission. | `partial-pass` | Keep this slice honest as a publisher path only, then land the next controller-owned ensure/watch supervision step so active dual-agent mode no longer depends on a manually started follow command. |
+| `2026-03-16T15:20:00Z` | `CODEX` | Landed the next MP-355 hotspot-cleanup tranche driven by the new code-shape probes. The publisher/reviewer-supervisor follow actions now share one repo-owned cadence/lifecycle runner instead of carrying duplicated heartbeat/output loops, and the bridge-backed status/projection builders now assemble from smaller helpers while preserving the existing `review_channel.state` compatibility exports used by downstream runtime/parser/test callers. Targeted `test_review_channel.py` coverage stayed green after the split. | `partial-pass` | Re-run the full `devctl check --profile ci` bundle, then use the refreshed probe output to decide whether the next cleanup should stay in review-channel state/event reducers or move to the remaining bridge-render command hubs. |
+| `2026-03-15T23:50:00Z` | `CODEX` | Re-audited the current bridge-backed loop after landing repo-owned reviewer heartbeat/checkpoint writes. Confirmed the correct direction is one shared backend with explicit inactive modes instead of a dev-only fork, recorded that human-facing aliases like `agents` / `developer` should normalize to canonical reviewer modes, and promoted the remaining gaps: persistent liveness emission, JSON-first authority, and final provider-specific cleanup in downstream clients/docs. | `partial-pass` | Keep the bridge contract honest for now, but move the live authority to typed JSON state/projections and route later desktop/mobile mode toggles through the same backend actions. |
 | `2026-03-08T00:00:00Z` | `CODEX` | Initialized dedicated review-channel/shared-screen execution plan from active user request; split this scope out from the broader control-plane plan and locked the initial phase model (canonical structured state first, shared screen second, guarded shared-session later). | `in-progress` | Wire this plan into `INDEX` + `MASTER_PLAN`, then iterate schema and phase details with the user before implementation. |
 | `2026-03-08T00:20:00Z` | `CODEX` | Wired the new plan into `INDEX`, `MASTER_PLAN`, and discovery docs (`AGENTS.md`, `DEV_INDEX.md`, `dev/README.md`); ran active-plan governance checks. | `partial-pass` | Iterate the plan content with the user, then clear the unrelated strict-tooling blocker caused by pre-existing bundle/workflow parity drift in the in-flight publication-sync governance changes before merge. |
 | `2026-03-08T01:35:00Z` | `CODEX` | Refined MP-355 from a scope/checklist draft into an implementation-grade plan: added Phase 0 schema/architecture work, explicit MP-340/ADR dependency ownership, concrete schema draft fields/examples, artifact layout, `devctl`-first command interface, polling/shared-screen design, keyboard contract, and integrity/guard expectations; also aligned the MCP note to the current repo rule that MCP remains additive/read-only. | `in-progress` | Back-reference the refined ownership split in `autonomous_control_plane.md` and `MASTER_PLAN`, then run plan-governance checks. |
-| `2026-03-08T04:27:00Z` | `CODEX` | Extended the temporary markdown-bridge protocol so reviewer activity stays visible to the operator as well as Claude: each meaningful reviewer write to `code_audit.md` now also owes a concise chat ping, and the bridge header now carries both UTC and local poll time for the current human-observed loop. | `in-progress` | Keep the live watcher and reviewer writes aligned to this operator-visible contract until the structured review-channel artifact path replaces the markdown bridge. |
-| `2026-03-08T02:07:11Z` | `CODEX` | Incorporated the current markdown-based Codex<->Claude operating loop into the canonical MP-355 plan as a sanctioned temporary bridge: `code_audit.md` is now explicitly treated as the interim coordination projection with ownership, polling cadence, hash-tracking, and sunset rules while the real `devctl review-channel` infrastructure is still being built. | `in-progress` | Keep using `code_audit.md` for the live loop now, then replace it with the structured `review_event` / `review_state` path as Phase 1 implementation lands. |
+| `2026-03-08T04:27:00Z` | `CODEX` | Extended the temporary markdown-bridge protocol so reviewer activity stays visible to the operator as well as Claude: each meaningful reviewer write to `bridge.md` now also owes a concise chat ping, and the bridge header now carries both UTC and local poll time for the current human-observed loop. | `in-progress` | Keep the live watcher and reviewer writes aligned to this operator-visible contract until the structured review-channel artifact path replaces the markdown bridge. |
+| `2026-03-08T02:07:11Z` | `CODEX` | Incorporated the current markdown-based Codex<->Claude operating loop into the canonical MP-355 plan as a sanctioned temporary bridge: `bridge.md` is now explicitly treated as the interim coordination projection with ownership, polling cadence, hash-tracking, and sunset rules while the real `devctl review-channel` infrastructure is still being built. | `in-progress` | Keep using `bridge.md` for the live loop now, then replace it with the structured `review_event` / `review_state` path as Phase 1 implementation lands. |
 | `2026-03-08T02:16:38Z` | `CODEX` | Promoted the stronger protocol framing for the current markdown bridge: the active shared markdown file is now explicitly treated as a lightweight coordination log with minimum required current-state fields (`owner`, reviewed hash, poll time, blockers, next action) rather than loose notes. | `in-progress` | Keep the temporary bridge disciplined now, then preserve the same state semantics when migrating to structured `review_event` / `review_state` artifacts. |
 | `2026-03-08T02:25:00Z` | `CODEX` | Ran a second architecture/guard review against the live repo surfaces and folded the useful scratch-audit findings back into this canonical plan: tightened the exact `terminal_packet` v1 schema, added repo wiring constraints (dedicated parser module, audit-area mapping, bundle/workflow parity, policy ownership, retention updates), and recorded MCP-extension + post-`cargo test` hygiene expectations. The temporary scratch audit file was retired after promotion. | `in-progress` | Keep MP-355 implementation scoped to these repo-native constraints and avoid reintroducing MCP-first or cross-plan-bus scope creep during code landing. |
-| `2026-03-08T02:31:00Z` | `CODEX` | Folded the latest markdown-loop architecture note back into the canonical plan: the temporary `code_audit.md` bridge is now explicitly modeled as a lightweight coordination-log state machine with named failure modes (stale reads, section clobber, blocker ambiguity, markdown/repo drift, context-loss drift), and the plan now states that the same review state must later compile into control-plane and memory handoff/survival artifacts instead of remaining a standalone side channel. | `in-progress` | Keep the live markdown bridge disciplined for current Claude/Codex work, then preserve the exact same state fields when reducing into `review_state`, `controller_state`, and memory handoff outputs. |
+| `2026-03-08T02:31:00Z` | `CODEX` | Folded the latest markdown-loop architecture note back into the canonical plan: the temporary `bridge.md` bridge is now explicitly modeled as a lightweight coordination-log state machine with named failure modes (stale reads, section clobber, blocker ambiguity, markdown/repo drift, context-loss drift), and the plan now states that the same review state must later compile into control-plane and memory handoff/survival artifacts instead of remaining a standalone side channel. | `in-progress` | Keep the live markdown bridge disciplined for current Claude/Codex work, then preserve the exact same state fields when reducing into `review_state`, `controller_state`, and memory handoff outputs. |
 | `2026-03-08T03:08:00Z` | `CODEX` | Reconciled the plan with Memory Studio and MP-340 after a cross-plan architecture pass: added a shared event-header contract, `context_pack_refs` for memory-backed handoffs, capture-active memory-event emission for review outcomes, provider-aware pack routing, and a deferred unified timeline/replay dependency so MP-355 no longer reads like an isolated side protocol. | `in-progress` | Mirror the same contract in `autonomous_control_plane.md`, `memory_studio.md`, `MASTER_PLAN.md`, and the developer index, then rerun active-plan governance checks. |
 | `2026-03-08T03:34:00Z` | `CODEX` | Re-ran plan/tooling governance after the interop alignment patch. `check_active_plan_sync`, `check_multi_agent_sync`, `docs-check --strict-tooling`, `check_agents_contract`, and `check_bundle_workflow_parity` all pass. The remaining red checks are repo-pre-existing and unrelated to MP-355 wording (`hygiene --strict-warnings` / `check_publication_sync` stale external publication drift, `check_code_shape.py` growth in `dev/scripts/devctl/process_sweep.py`, and Rust allow-attr debt growth in `rust/src/bin/voiceterm/theme/mod.rs`). | `partial-pass` | Keep MP-355 doc state as-is; resolve the unrelated publication/code-shape/lint debt in their owning scopes before claiming a full bundle.tooling green run. |
-| `2026-03-08T04:55:00Z` | `CODEX` | Closed the remaining bootstrap-enforcement gap for the temporary markdown bridge: added `check_review_channel_bridge.py` plus unit coverage, wired it into bundle/workflow governance, and tightened the `code_audit.md` start rules so a fresh Codex or Claude conversation knows exactly which authority files to read and which live sections to start from. | `in-progress` | Keep using the markdown bridge for today’s reviewer/coder loop, but treat the new guard as the floor so fresh-convo repeatability no longer depends on hidden memory or manual reminder prompts. |
+| `2026-03-08T04:55:00Z` | `CODEX` | Closed the remaining bootstrap-enforcement gap for the temporary markdown bridge: added `check_review_channel_bridge.py` plus unit coverage, wired it into bundle/workflow governance, and tightened the `bridge.md` start rules so a fresh Codex or Claude conversation knows exactly which authority files to read and which live sections to start from. | `in-progress` | Keep using the markdown bridge for today’s reviewer/coder loop, but treat the new guard as the floor so fresh-convo repeatability no longer depends on hidden memory or manual reminder prompts. |
 | `2026-03-08T06:12:00Z` | `CODEX` | Tightened the markdown-bridge autonomy protocol after an operator review of loop stalls: the bridge now explicitly forbids stopping at a resolved slice when scoped plan work remains, adds `resolved -> next_slice_selected -> coding` semantics, documents `completion stall` as a named failure mode, and points to `devctl swarm_run --continuous` as the repo-native fully hands-off progression path. | `in-progress` | Keep reviewer writes promoting the next unchecked scoped plan item instead of idling at "all green," and use `swarm_run --continuous` when the execution mode should be script-driven rather than chat-driven. |
 | `2026-03-08T07:05:00Z` | `CODEX` | Aligned MP-355 with the broader operator-cockpit direction: review packets now explicitly route `requested_action` through the same typed command catalog and policy engine as overlay buttons, with warning/approval/waiver results surfaced back into the lane instead of letting agents bypass policy through freeform shell/API text. | `in-progress` | Keep Phase 3 implementation typed-action-first so Git/GitHub/CI/memory requests remain auditable and approval-aware across both button clicks and AI-issued requests. |
-| `2026-03-08T18:10:00Z` | `CODEX` | Landed `ADR-0027` and `ADR-0028` from the active cross-plan backlog, so MP-355 now cites accepted architectural authority for the shared controller envelope and relay-packet protocol instead of a pending placeholder. The same cleanup also made the markdown-bridge guard conditional on `code_audit.md` being present, which keeps clean checkouts and unrelated branches push-safe while preserving guard coverage when the bridge is active. | `in-progress` | Keep Phase 0/1 implementation aligned to the accepted ADRs, and retire the markdown bridge once the structured `review_event` / `review_state` path replaces it. |
-| `2026-03-08T18:21:48Z` | `CODEX` | Merged the standalone multi-agent worktree runbook into this MP-355 execution plan so the current scale-out cycle uses one static markdown swarm plan here and one live coordination bridge in `code_audit.md`. Defined the 16-lane 8+8 Codex-reviewer/Claude-coder swarm, moved the instruction/ledger/signoff templates into this file, and retired the old separate runbook path. | `in-progress` | Start the 8+8 swarm from `code_audit.md`, keep five-minute reviewer poll updates flowing in chat, and let the merged sync guard enforce parity against this file instead of a second runbook. |
-| `2026-03-08T18:15:33Z` | `CODEX` | Tightened the live markdown-bridge operating model for the current multi-agent reviewer/coder loop: bridge writes are now explicitly conductor-owned, specialist workers are read-only against `code_audit.md`, the operator heartbeat is locked to a five-minute cadence while code is moving, and specialist wakeups are change-routed instead of every worker polling the full tree blindly. | `in-progress` | Keep the current bridge disciplined under this conductor/specialist model, then preserve the same ownership and wakeup semantics when Phase 1 replaces the markdown bridge with structured `review_event` / `review_state` artifacts. |
+| `2026-03-08T18:10:00Z` | `CODEX` | Landed `ADR-0027` and `ADR-0028` from the active cross-plan backlog, so MP-355 now cites accepted architectural authority for the shared controller envelope and relay-packet protocol instead of a pending placeholder. The same cleanup also made the markdown-bridge guard conditional on `bridge.md` being present, which keeps clean checkouts and unrelated branches push-safe while preserving guard coverage when the bridge is active. | `in-progress` | Keep Phase 0/1 implementation aligned to the accepted ADRs, and retire the markdown bridge once the structured `review_event` / `review_state` path replaces it. |
+| `2026-03-08T18:21:48Z` | `CODEX` | Merged the standalone multi-agent worktree runbook into this MP-355 execution plan so the current scale-out cycle uses one static markdown swarm plan here and one live coordination bridge in `bridge.md`. Defined the 16-lane 8+8 Codex-reviewer/Claude-coder swarm, moved the instruction/ledger/signoff templates into this file, and retired the old separate runbook path. | `in-progress` | Start the 8+8 swarm from `bridge.md`, keep five-minute reviewer poll updates flowing in chat, and let the merged sync guard enforce parity against this file instead of a second runbook. |
+| `2026-03-08T18:15:33Z` | `CODEX` | Tightened the live markdown-bridge operating model for the current multi-agent reviewer/coder loop: bridge writes are now explicitly conductor-owned, specialist workers are read-only against `bridge.md`, the operator heartbeat is locked to a five-minute cadence while code is moving, and specialist wakeups are change-routed instead of every worker polling the full tree blindly. | `in-progress` | Keep the current bridge disciplined under this conductor/specialist model, then preserve the same ownership and wakeup semantics when Phase 1 replaces the markdown bridge with structured `review_event` / `review_state` artifacts. |
 | `2026-03-08T18:46:05Z` | `CODEX` | Added the first bridge-gated `devctl review-channel` implementation slice: `--action launch` now reads the merged 8+8 lane table, emits Codex/Claude conductor launch scripts/prompts that explicitly route through `AGENTS.md` plus the repo-owned `devctl`/check surfaces, optionally opens local Terminal.app sessions, records a dedicated audit-events area mapping, and fails closed once the markdown bridge is inactive so the launcher cannot silently outlive the transitional bridge. | `in-progress` | Use the launcher for the current markdown swarm only, keep the retirement trigger explicit in backlog/docs, and evolve or remove it when overlay-native review launch becomes canonical. |
 | `2026-03-08T19:55:00Z` | `CODEX` | Hardened the launcher against context-loss drift: conductors now get a repo-owned `review-channel --action rollover` path with a 50% threshold, repo-visible handoff bundles, default dark Terminal.app profile selection, exact visible ACK lines for fresh Codex/Claude conductors, and structured failure reporting for terminal-launch errors. | `in-progress` | Exercise the live rollover loop in a real Codex/Claude session, then add the remaining peer-liveness and automatic next-task promotion guards tracked in `continuous_swarm.md`. |
 | `2026-03-09T05:40:00Z` | `CODEX` | Reconciled MP-355 wording with the current Memory Studio/runtime truth after a multi-agent docs/code audit: review-channel packets still only project bridge-era markdown/JSON handoff bundles today, so `context_pack_refs`, provider-shaped attachments, and packet-lifecycle memory ingest are now explicitly documented as not-landed until structured `review_state` / `controller_state` artifacts exist and are consumed by repo surfaces. | `in-progress` | Keep the bridge path explicit as transitional only, then prove the structured artifact path before counting memory-backed handoff attach-by-ref work as closed. |
@@ -1301,17 +1839,62 @@ Complete this table only after all active swarm lanes are merged.
 | `2026-03-09T05:12:00Z` | `CLAUDE` | Hardened the transitional launcher/bridge contract in the active dirty tree: `devctl review-channel` now rejects `--await-ack-seconds <= 0` for rollover so the fresh-session ACK path stays fail-closed, and `check_review_channel_bridge.py` now requires live `Last Reviewed Scope` plus a non-idle `Current Instruction For Claude` section whenever the markdown bridge is active. | `partial-pass` | Keep the bridge files tracked/staged when appropriate so the guard can move from expected-red untracked status to full green, then continue on the remaining bridge-contract and peer-freshness follow-up. |
 | `2026-03-09T05:46:00Z` | `CLAUDE` | Closed the remaining bounded Worker-A follow-up in the active dirty tree: `review-channel --action launch` now fails closed on untracked bridge files, stale reviewer poll state beyond the five-minute heartbeat contract, and idle/missing next-action bridge state; freshness now distinguishes `poll_due` vs `stale`; rollover ACK validation now requires the exact ACK line in the provider-owned section (`Poll Status` for Codex, `Claude Ack` for Claude) instead of raw substring search. `check_review_channel_bridge.py` now shares the same five-minute freshness limit, imports the shared live-state validator, and flags resolved verdicts that do not promote the next scoped task. | `partial-pass` | Keep the bridge files tracked/staged when appropriate so the direct launcher/guard proofs can move from expected-red untracked status to full green, then continue on the remaining governance-routing and Dev-panel/runtime honesty slices. |
 | `2026-03-09T06:05:00Z` | `CLAUDE` | Closed the bounded workflow-parity follow-up for the tooling lane: `check_bundle_workflow_parity.py` now parses per-job run scopes, requires the main tooling bundle sequence to stay in `docs-policy`, requires the operator-console pytest lane to stay in `operator-console-tests`, and fails on wrong-job or out-of-order regressions instead of only proving command text appears somewhere in YAML. | `partial-pass` | Keep the tooling workflow path filters and job split aligned with the canonical bundle shape, then continue on the remaining Dev-panel/runtime honesty and operator-console live-path proof slices. |
-| `2026-03-09T05:45:00Z` | `CODEX` | Landed the first bridge-backed read surface for MP-355: `devctl review-channel --action status` now writes repo-visible latest projections under `dev/reports/review_channel/latest/` (`review_state.json`, `compact.json`, `full.json`, `actions.json`, `latest.md`, `registry/agents.json`) from the current lane table + `code_audit.md`, and rollover ACK detection now normalizes markdown list items correctly so visible ACK lines are actually observed in live relaunch tests. | `partial-pass` | Keep the transitional `status` slice stable, then implement the remaining typed/event-backed `watch|inbox|ack|dismiss|apply|history` path without overstating Phase-3 completion. |
-| `2026-03-09T07:21:00Z` | `CODEX` | Re-ran the Python review-channel validation from the operator side in the current dirty tree: `python3 -m unittest dev.scripts.devctl.tests.test_review_channel -q` passed (`31` tests), `review-channel --action status --terminal none --format md` passed and wrote the latest projection bundle, and both `launch`/`rollover` dry-runs failed closed exactly as intended because `code_audit.md` and `dev/active/review_channel.md` are still untracked bridge files in this checkout. | `partial-pass` | Keep the bridge files tracked/staged when the launcher path needs a green fresh-bootstrap proof, then continue on the event-backed `watch|inbox|ack|dismiss|apply|history` implementation path. |
-| `2026-03-09T07:35:00Z` | `CODEX` | Ran a second live multi-agent re-review against the current dirty-tree bridge state and synced the results back into repo-visible plan state. The zero-second ACK bypass is genuinely closed, `status` projections are still landing correctly, and the bridge guard now enforces `Last Reviewed Scope` plus a non-idle instruction, but MP-355 remains open: `launch` still does not invoke the full bridge guard before bootstrap, freshness enforcement is still split between the five-minute heartbeat contract and a looser guard threshold, some handoff parsing paths still fall back to overly broad whole-file matching, generated rollover prompts still hardcode the default ACK timeout instead of threading the selected value end-to-end, and `test_review_channel.py` still has a duplicate test name that shadows intended coverage. | `in-progress` | Keep the bridge findings mirrored into `code_audit.md` plus this plan, then close the remaining launch/freshness/ACK/coverage gaps before counting the markdown-bridge hardening slice as green. |
+| `2026-03-09T05:45:00Z` | `CODEX` | Landed the first bridge-backed read surface for MP-355: `devctl review-channel --action status` now writes repo-visible latest projections under `dev/reports/review_channel/latest/` (`review_state.json`, `compact.json`, `full.json`, `actions.json`, `latest.md`, `registry/agents.json`) from the current lane table + `bridge.md`, and rollover ACK detection now normalizes markdown list items correctly so visible ACK lines are actually observed in live relaunch tests. | `partial-pass` | Keep the transitional `status` slice stable, then implement the remaining typed/event-backed `watch|inbox|ack|dismiss|apply|history` path without overstating Phase-3 completion. |
+| `2026-03-09T07:21:00Z` | `CODEX` | Re-ran the Python review-channel validation from the operator side in the current dirty tree: `python3 -m unittest dev.scripts.devctl.tests.test_review_channel -q` passed (`31` tests), `review-channel --action status --terminal none --format md` passed and wrote the latest projection bundle, and both `launch`/`rollover` dry-runs failed closed exactly as intended because `bridge.md` and `dev/active/review_channel.md` are still untracked bridge files in this checkout. | `partial-pass` | Keep the bridge files tracked/staged when the launcher path needs a green fresh-bootstrap proof, then continue on the event-backed `watch|inbox|ack|dismiss|apply|history` implementation path. |
+| `2026-03-09T07:35:00Z` | `CODEX` | Ran a second live multi-agent re-review against the current dirty-tree bridge state and synced the results back into repo-visible plan state. The zero-second ACK bypass is genuinely closed, `status` projections are still landing correctly, and the bridge guard now enforces `Last Reviewed Scope` plus a non-idle instruction, but MP-355 remains open: `launch` still does not invoke the full bridge guard before bootstrap, freshness enforcement is still split between the five-minute heartbeat contract and a looser guard threshold, some handoff parsing paths still fall back to overly broad whole-file matching, generated rollover prompts still hardcode the default ACK timeout instead of threading the selected value end-to-end, and `test_review_channel.py` still has a duplicate test name that shadows intended coverage. | `in-progress` | Keep the bridge findings mirrored into `bridge.md` plus this plan, then close the remaining launch/freshness/ACK/coverage gaps before counting the markdown-bridge hardening slice as green. |
 | `2026-03-09T09:04:05Z` | `CODEX` | Closed the next fail-closed bridge-status gap from the live re-review. `validate_launch_bridge_state()` now blocks fresh bootstrap when `Claude Status` or `Claude Ack` is missing, review-channel status projections/report payloads now set `ok: false` whenever bridge liveness is `waiting_on_peer` or `stale`, and the review/mobile consumer path no longer reports Claude as `active` just because the rendered bridge field holds the `"(missing)"` sentinel. | `partial-pass` | Keep the bridge files tracked/staged when operator-side dry-run proofs need a green launcher path, then continue on the remaining handoff-parser breadth and ACK-timeout threading follow-ups. |
 | `2026-03-09T10:10:00Z` | `CODEX` | Added the first real live-session projection bridge for the desktop shell without changing PTY ownership: `review-channel --action launch|rollover` now writes per-session metadata plus live-flushed conductor transcript logs under `dev/reports/review_channel/latest/sessions/`, with script-wrapped Terminal launches preserving the existing Codex/Claude flow while giving repo-visible session tails to downstream read-only consumers. | `partial-pass` | Keep the launcher Codex/Claude-specific for the current swarm contract, then decide later whether MP-355 should generalize the same session-artifact format for more providers after the current review/event action surface is fully closed. |
 | `2026-03-09T12:20:00Z` | `CODEX` | Closed the next live-launch blocker from operator testing: generated Claude conductor scripts now clear the inherited `CLAUDECODE` marker before exec so Terminal-launched `review-channel` sessions do not abort as forbidden nested Claude Code launches when started from a Claude-owned shell. | `partial-pass` | Re-run the live `terminal-app` launch path from the desktop shell and keep the Operator Console open so the new session-log tail panes can prove the fix end-to-end. |
-| `2026-03-09T13:06:00Z` | `CODEX` | Re-ran the bridge/tooling proof against the current dirty tree and reconciled plan state with the actual checkout. Focused `test_review_channel` coverage, `review-channel --action status`, and `mobile-status --view full` are green on the current worktree, and custom `--await-ack-seconds` threading is already covered by the live test pack, so the older ACK-timeout blocker is no longer part of MP-355's open set. The conductor queue has shifted to bridge-honesty/docs-state refresh plus the current operator-console/serde-guard findings mirrored in `code_audit.md`. | `partial-pass` | Keep the bridge current-state honest, sync the workflow/bridge docs to the fail-closed launcher contract, and close the remaining event-backed `watch|inbox|ack|dismiss|apply|history` path without re-introducing stale blocker text. |
+| `2026-03-09T13:06:00Z` | `CODEX` | Re-ran the bridge/tooling proof against the current dirty tree and reconciled plan state with the actual checkout. Focused `test_review_channel` coverage, `review-channel --action status`, and `mobile-status --view full` are green on the current worktree, and custom `--await-ack-seconds` threading is already covered by the live test pack, so the older ACK-timeout blocker is no longer part of MP-355's open set. The conductor queue has shifted to bridge-honesty/docs-state refresh plus the current operator-console/serde-guard findings mirrored in `bridge.md`. | `partial-pass` | Keep the bridge current-state honest, sync the workflow/bridge docs to the fail-closed launcher contract, and close the remaining event-backed `watch|inbox|ack|dismiss|apply|history` path without re-introducing stale blocker text. |
 | `2026-03-09T13:12:00Z` | `CODEX` | Live operator audit found the new Terminal launch can still self-stale even when both conductor windows are up: the Codex conductor can spend its first minutes spawning reviewer lanes and waiting on approval-bound subagent/tool prompts before it rewrites `Last Codex poll`, which leaves the bridge failing the five-minute freshness guard despite an active session log. Hardened the Codex conductor prompt so every fresh launch must stamp `Last Codex poll` / `Last non-audit worktree hash` / `Poll Status` before fan-out and must not sit on unanswered approval prompts without reflecting that blocked state in the bridge. | `partial-pass` | Re-run the live `terminal-app` launch path and confirm the reviewer heartbeat lands immediately on fresh bootstrap instead of aging out while the conductor is still gathering worker context. |
 | `2026-03-09T13:32:00Z` | `CODEX` | Fixed the next operator-facing launcher footgun after live desktop testing opened duplicate Codex/Claude windows. `review-channel --action launch --terminal terminal-app` now checks the repo-owned `dev/reports/review_channel/latest/sessions/*.json` / `*.log` artifacts before launch and fails closed when they still look active, instead of silently opening a second live pair that races on the same session-tail files. The command docs now say that explicitly. | `partial-pass` | Keep this duplicate-launch guard aligned with the session-artifact contract, then continue on the remaining event-backed `watch|inbox|ack|dismiss|apply|history` path plus any later headless/background-PTY replacement for Terminal.app. |
-| `2026-03-09T13:28:15Z` | `CODEX` | Landed the first overlay-side event-backed read path for MP-355 without changing default startup mode: the Rust Dev-panel review loader now prefers structured review-channel artifacts (`dev/reports/review_channel/projections/latest/full.json`, `state/latest.json`, or the older `latest/*.json` projections) whenever event-backed sentinels exist, parses those JSON projections into the existing `ReviewArtifact` shape, and falls back to `code_audit.md` only when structured state is absent. The review surface copy now reflects generic review artifacts/projections rather than only markdown, which keeps the current overlay honest while proving the long-term migration path. | `partial-pass` | Keep markdown as transitional fallback for now, then normalize the remaining event-backed `watch|inbox|ack|dismiss|apply|history` reducer/projection flow so all review/mobile/operator surfaces read the same structured authority. |
+| `2026-03-09T13:28:15Z` | `CODEX` | Landed the first overlay-side event-backed read path for MP-355 without changing default startup mode: the Rust Dev-panel review loader now prefers structured review-channel artifacts (`dev/reports/review_channel/projections/latest/full.json`, `state/latest.json`, or the older `latest/*.json` projections) whenever event-backed sentinels exist, parses those JSON projections into the existing `ReviewArtifact` shape, and falls back to `bridge.md` only when structured state is absent. The review surface copy now reflects generic review artifacts/projections rather than only markdown, which keeps the current overlay honest while proving the long-term migration path. | `partial-pass` | Keep markdown as transitional fallback for now, then normalize the remaining event-backed `watch|inbox|ack|dismiss|apply|history` reducer/projection flow so all review/mobile/operator surfaces read the same structured authority. |
 | `2026-03-09T15:05:00Z` | `CODEX` | Landed the first real attach-by-ref `context_pack_refs` slice without adding more MP-355-only state paths: event-backed `packet_posted|acked|applied` artifacts now preserve structured context-pack attachments, `actions.json` and `latest.md` project them, the Rust review-artifact reader/surface renders them, and the Operator Console approval path now round-trips the same refs in typed JSON/markdown artifacts. The work also started paying down the god-file problem by moving context-pack normalization/resolution into focused helper modules instead of growing `review_channel.py` or the giant review-channel test file further. | `partial-pass` | Keep the remaining open scope on packet-outcome ingest and broader `controller_state` parity, and continue decomposing the oversized review/operator files instead of feeding them more mixed concerns. |
+| `2026-03-10T02:00:00Z` | `CODEX` | Reduced MP-355 bridge-status red-noise without weakening the fail-closed launch path. `review-channel --action status` now honors the existing `--refresh-bridge-heartbeat-if-stale` self-heal path, so operator/read-only status refreshes can repair a stale `Last Codex poll` / worktree-hash heartbeat when the rest of the bridge contract is already valid. Added regression coverage and confirmed the real repo status command now refreshes the stale heartbeat and emits a green latest projection bundle instead of forcing a manual bridge edit first. | `partial-pass` | Keep the self-heal explicit to the typed flag, preserve fail-closed launch/rollover behavior, and continue on the remaining event-backed state/reducer closure. |
+| `2026-03-14T12:40:00Z` | `CODEX` | Closed the next Claude/Codex instruction-drift gap for MP-355. The review-channel conductor prompt now reads the same repo-pack post-edit verification intro/steps/done-criteria contract that generates `CLAUDE.md`, so live launcher scripts and local Claude bootstrap instructions share one blocking definition of when checks are required and what counts as done. Added regression coverage for prompt-level policy injection plus dry-run launcher script output. | `in-progress` | Keep the remaining architecture gap explicit: `AGENTS.md` itself is still only partially generated, so the next cross-AI portability step is to move more of the canonical instruction surface under the same repo-pack renderer/guard path instead of leaving only the bundle reference section generated. |
+| `2026-03-13T21:40:00Z` | `CODEX` | Closed the next live-launch honesty gap and the matching desktop read gap. `review-channel --action launch --terminal terminal-app` now waits for `Last Codex poll` to advance after launch and fails closed if a fresh reviewer heartbeat never appears, so opening Terminal windows no longer counts as a successful live reviewer loop by itself. The bridge-backed `review_state` projection now also emits a compact machine-readable `attention` contract (`status`, `owner`, `summary`, `recommended_action`, `recommended_command`) for stale reviewer / poll-due / waiting-on-peer states, and the Operator Console snapshot path now carries those structured warnings forward instead of silently dropping them after JSON load. | `partial-pass` | Keep the launch path fail-closed on real reviewer liveness, then extend the same typed attention contract into any later event-backed/state-store review path so restart/recovery/UI surfaces all read the same stale-peer truth. |
+| `2026-03-13T22:05:00Z` | `CODEX` | Followed that liveness slice through the repo-owned structure and the default desktop view. The bridge-attention policy now lives in `review_channel/attention.py`, bridge-backed payload assembly in `status_projection.py`, and Terminal.app launch behavior in `terminal_app.py`, which brings the review-channel state/launch path back under shape policy instead of leaving the honesty logic in crowded files. The PyQt6 follow-up now promotes non-healthy review attention into Codex/operator lane health plus session stats, so the default session-first layout goes visibly stale instead of burying the problem only in the warning list. | `partial-pass` | Keep future stale-peer recovery and event-backed review state on the same typed attention contract instead of reintroducing lane-specific heuristics or prompt-only reminders. |
+| `2026-03-27T08:50:00Z` | `CODEX` | Recorded the next architecture boundary failure immediately after the bounded consumer-refresh checkpoint. The repo briefly tried to answer `MP-355` / `MP-377` startup-review/operator-control churn by teaching it through VoiceTerm end-user docs, which is the wrong repair and the wrong product boundary. Pulled that AI-system/operator prose back out of the VoiceTerm guides, promoted the problem into the `MP-377` owner chain plus `dev/audits/architecture_alignment.md`, and added an explicit boundary rule here so future review-channel sessions route this class of change into plan/maintainer/generated surfaces first. | `in-progress` | Resume from the organization/docs-policy split, not another prose patch: classify product docs vs self-hosting/development docs vs portable adopter docs vs generated/compatibility surfaces, then land the policy/guard changes that stop review-channel/startup control-plane work from forcing VoiceTerm user-doc churn. |
+| `2026-03-27T05:10:00Z` | `CODEX` | Closed the bounded MP-355 producer -> MP-377 consumer freshness splice for the typed `current_session` lane. The shared review-state locator can now refresh the bridge-backed typed projection before startup/tandem consumers read it, so `startup-context`, `check_tandem_consistency`, and the governed push gate stop trusting stale `latest/review_state.json` snapshots while `bridge.md` remains a compatibility projection. Added focused regression proof for locator refresh, startup gate refresh, and tandem guard refresh. | `partial-pass` | Keep the remaining writer/mutation cutover bounded: stale-write preconditions, reviewer checkpoint/promotion paths, and the last bridge-text-only tandem checks still need typed/current-session or later collaboration-session authority before bridge prose can retire from live truth entirely. |
+| `2026-03-26T00:38:51Z` | `CODEX` | Live operator review found the conductor contract was still too loose in two concrete places: reviewer prompts allowed lane fanout without fail-closed worktree checks, and reviewer freshness/hash truth still absorbed advisory artifacts like `convo.md` and `dev/audits/**` into live follow-up scope. Tightened the runtime so non-audit reviewer hash comparisons ignore those advisory artifacts, the conductor prompt now stays conductor-only when listed lane worktrees are missing instead of improvising live-repo fallback lanes, and the default planned anti-compaction rollover threshold moved from 50% to 20% remaining context. | `in-progress` | Re-run focused review-channel proof plus tooling/docs governance, then confirm a fresh launch/rollover dry-run advertises the tightened worktree and rollover contract. |
+
+## Session Resume
+
+- Current status: this plan remains active; start from the highest-priority
+  open item in `## Execution Checklist` and the latest dated entry in
+  `## Progress Log`.
+- Boundary rule: if a review-channel/startup/current-session change seems to
+  require new prose in VoiceTerm end-user docs (`README`, `QUICK_START`,
+  `guides/USAGE`, `guides/CLI_FLAGS`, `guides/INSTALL`,
+  `guides/TROUBLESHOOTING`), stop and route that note into the `MP-377`
+  owner chain first. Those product docs are not the home for AI-system
+  self-hosting or control-plane authority.
+- Next action: keep the remaining writer/mutation side of the typed
+  `current_session` cutover bounded now that startup/tandem/push consumers
+  refresh the typed projection first. Stale-write preconditions,
+  reviewer-checkpoint/promotion paths, and the last bridge-text-only tandem
+  checks still need typed or later `CollaborationSession` authority before
+  `bridge.md` can stop acting like a live freshness source. The bounded
+  `render-bridge` purity repair is now in: bridge rebuilds consume typed
+  `review_state` compatibility payloads instead of reparsing markdown and the
+  duplicate-packet-heading leak is fail-closed in render tests. Keep the newly
+  mapped maintainability tranche explicit while doing that work: the phase is
+  not done until the review-channel module family is materially smaller and
+  `test_review_channel.py` has been split into feature-scoped suites. The
+  next controller-consumer splice is explicit too: startup/work-intake and
+  reviewer/implementer scheduling should stop reading `current_session` alone
+  and start consuming `agent_registry` plus the typed queue/attention bundle
+  that already powers the live status surfaces. The shared typed
+  `PushDecisionState` splice is now in, so the next same-lane slice must also stop
+  prompts/guards/projections from teaching repo-root `bridge.md` or VoiceTerm
+  plan paths as default authority while the bridge remains a compatibility
+  projection. For the active architecture-audit loop running through this
+  surface, keep Claude as the primary broad finder and Codex as the
+  verifier/controller; `dev/audits/architecture_alignment.md` is the shared
+  ledger, while `MASTER_PLAN` plus the scoped plans remain the execution
+  owners.
+- Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
+  load only the local sections needed for the active checklist item.
 
 ## Audit Evidence
 
@@ -1358,12 +1941,12 @@ Complete this table only after all active swarm lanes are merged.
   - `python3 dev/scripts/devctl.py hygiene --strict-warnings` -> blocked only
 - 2026-03-09 bridge-hardening evidence:
   - `python3 -m unittest dev.scripts.devctl.tests.test_check_review_channel_bridge dev.scripts.devctl.tests.test_review_channel -q` -> pass (`38` tests)
-  - `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format json` -> expected red while `code_audit.md` and `dev/active/review_channel.md` remain untracked in the active dirty tree
+  - `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format json` -> expected red while `bridge.md` and `dev/active/review_channel.md` remain untracked in the active dirty tree
   - `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short` -> pass (`26 passed`)
   - `python3 dev/scripts/devctl.py review-channel --action status --terminal none --dry-run --format json` -> pass
-  - `python3 dev/scripts/devctl.py review-channel --action rollover --terminal none --dry-run --format json` -> expected red in the current dirty tree because fresh conductor bootstrap fails closed while `code_audit.md` and `dev/active/review_channel.md` remain untracked; green rollover bundle generation stays covered by `python3 -m unittest dev.scripts.devctl.tests.test_review_channel -q`
+  - `python3 dev/scripts/devctl.py review-channel --action rollover --terminal none --dry-run --format json` -> expected red in the current dirty tree because fresh conductor bootstrap fails closed while `bridge.md` and `dev/active/review_channel.md` remain untracked; green rollover bundle generation stays covered by `python3 -m unittest dev.scripts.devctl.tests.test_review_channel -q`
   - `python3 dev/scripts/devctl.py review-channel --action rollover --terminal none --dry-run --await-ack-seconds 0 --format json` -> expected fail-closed (`--await-ack-seconds must be greater than zero for rollover...`)
-  - `python3 dev/scripts/checks/check_review_channel_bridge.py --format json` -> expected red while `code_audit.md` and `dev/active/review_channel.md` remain untracked in the active dirty tree
+  - `python3 dev/scripts/checks/check_review_channel_bridge.py --format json` -> expected red while `bridge.md` and `dev/active/review_channel.md` remain untracked in the active dirty tree
   - `python3 -m unittest dev.scripts.devctl.tests.test_check_bundle_workflow_parity -q` -> pass (`14` tests)
   - `python3 dev/scripts/checks/check_bundle_workflow_parity.py` -> pass
     by pre-existing external publication drift for `terminal-as-interface`
@@ -1376,7 +1959,7 @@ Complete this table only after all active swarm lanes are merged.
   - `python3 -m unittest dev.scripts.devctl.tests.test_review_channel -q` -> pass (`31` tests)
   - `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md` -> pass; writes `review_state.json`, `compact.json`, `full.json`, `actions.json`, `latest.md`, and `registry/agents.json` under `dev/reports/review_channel/latest/`
   - `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md` -> warning only: bridge liveness is `stale` because `Last Codex poll` is older than the five-minute heartbeat contract
-  - `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format json` -> expected red while `code_audit.md` and `dev/active/review_channel.md` remain untracked in the active dirty tree
+  - `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format json` -> expected red while `bridge.md` and `dev/active/review_channel.md` remain untracked in the active dirty tree
   - `python3 dev/scripts/devctl.py review-channel --action rollover --terminal none --dry-run --format json` -> expected red for the same untracked-bridge guard in the active dirty tree
 - 2026-03-09 bridge-status fail-closed follow-up evidence:
   - `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short` -> pass (`33 passed`; covers launch rejection on missing Claude ACK/status plus degraded `ok` status in review projections)

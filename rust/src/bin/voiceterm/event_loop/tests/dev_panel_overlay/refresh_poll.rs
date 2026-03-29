@@ -114,7 +114,10 @@ fn memory_page_enter_refreshes_memory_cockpit_snapshot() {
         .dev_panel_commands
         .memory_cockpit_snapshot()
         .expect("Memory Enter should build cockpit snapshot");
-    assert_eq!(cockpit.task_query_source, "review bridge");
+    assert_eq!(
+        cockpit.task_query_source, "boot pack",
+        "Memory Enter should derive task focus from the boot-pack handoff until a review artifact is loaded"
+    );
     assert!(cockpit.task_query.starts_with("MP-"));
     assert!(
         cockpit
@@ -239,7 +242,7 @@ fn handoff_direct_entry_loads_review_artifact_without_prior_tab_visits() {
     );
 
     // The Handoff path should have self-loaded the review artifact.
-    // code_audit.md exists in this repo, so load_review should succeed.
+    // bridge.md exists in this repo, so load_review should succeed.
     assert!(
         state.dev_panel_commands.review().artifact().is_some()
             || state.dev_panel_commands.review().load_error().is_some(),
@@ -262,7 +265,7 @@ fn handoff_direct_entry_loads_review_artifact_without_prior_tab_visits() {
         "controller metadata should be populated"
     );
     // If the artifact loaded successfully, instruction should be non-empty
-    // (code_audit.md in this repo has a Current Instruction section).
+    // (bridge.md in this repo has a Current Instruction section).
     // Review data is now read directly from the artifact, not from the snapshot.
     if let Some(artifact) = state.dev_panel_commands.review().artifact() {
         assert!(
@@ -665,7 +668,7 @@ fn background_review_poll_refreshes_handoff_when_handoff_tab_visible() {
         .dev_panel_commands
         .set_tab(crate::dev_command::DevPanelTab::Handoff);
 
-    // Pre-load with dummy content that differs from the real code_audit.md,
+    // Pre-load with dummy content that differs from the real bridge.md,
     // so the next poll_review sees a content change.
     state
         .dev_panel_commands

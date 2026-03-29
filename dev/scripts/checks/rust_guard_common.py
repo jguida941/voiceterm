@@ -10,6 +10,26 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
 
+try:
+    from dev.scripts.devctl.quality_scan_mode import (
+        is_adoption_base_ref,
+        is_worktree_head_ref,
+    )
+except ModuleNotFoundError:  # pragma: no cover
+    import sys
+
+    try:
+        from check_bootstrap import REPO_ROOT
+    except ModuleNotFoundError:
+        from dev.scripts.checks.check_bootstrap import REPO_ROOT
+    repo_root_str = str(REPO_ROOT)
+    if repo_root_str not in sys.path:
+        sys.path.insert(0, repo_root_str)
+    from dev.scripts.devctl.quality_scan_mode import (
+        is_adoption_base_ref,
+        is_worktree_head_ref,
+    )
+
 
 def run_git(
     repo_root: Path,
@@ -26,14 +46,14 @@ def run_git(
         check=False,
     )
     if check and result.returncode != 0:
-        raise RuntimeError(
-            (result.stderr or result.stdout).strip() or "git command failed"
-        )
+        raise RuntimeError((result.stderr or result.stdout).strip() or "git command failed")
     return result
 
 
 def validate_ref(run_git_fn, ref: str) -> None:
     """Ensure a ref resolves before commit-range checks run."""
+    if is_adoption_base_ref(ref) or is_worktree_head_ref(ref):
+        return
     run_git_fn(["git", "rev-parse", "--verify", ref], check=True)
 
 
@@ -41,12 +61,7 @@ def is_test_path(path: Path) -> bool:
     """Return True when a Rust path is test-only."""
     normalized = f"/{path.as_posix()}/"
     name = path.name
-    return (
-        "/tests/" in normalized
-        or name == "tests.rs"
-        or name.endswith("_test.rs")
-        or name.endswith("_tests.rs")
-    )
+    return "/tests/" in normalized or name == "tests.rs" or name.endswith("_test.rs") or name.endswith("_tests.rs")
 
 
 def list_changed_paths(
@@ -100,6 +115,10 @@ def normalize_changed_rust_paths(
 
 def read_text_from_ref(run_git_fn, path: Path, ref: str) -> str | None:
     """Read repo-relative file text from a git ref."""
+    if is_adoption_base_ref(ref):
+        return None
+    if is_worktree_head_ref(ref):
+        return read_text_from_worktree(Path.cwd(), path)
     spec = f"{ref}:{path.as_posix()}"
     result = run_git_fn(["git", "show", spec], check=False)
     if result.returncode == 0:
@@ -126,9 +145,7 @@ class GuardContext:
     def __init__(self, repo_root: Path) -> None:
         self.repo_root = repo_root
 
-    def run_git(
-        self, args: list[str], *, check: bool = True
-    ) -> subprocess.CompletedProcess[str]:
+    def run_git(self, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
         """Run git with this context's repo root."""
         return run_git(self.repo_root, args, check=check)
 
@@ -138,6 +155,8 @@ class GuardContext:
 
     def read_text_from_ref(self, path: Path, ref: str) -> str | None:
         """Read file text from a git ref."""
+        if is_worktree_head_ref(ref):
+            return read_text_from_worktree(self.repo_root, path)
         return read_text_from_ref(self.run_git, path, ref)
 
     def read_text_from_worktree(self, path: Path) -> str | None:

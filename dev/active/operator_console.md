@@ -88,6 +88,10 @@ This plan covers:
     diff/review, CI visibility, process hygiene, and optional terminal/shell
     views so the desktop app can evolve into a real dev-environment controller
     without bypassing repo-owned backends.
+23. A main-window decomposition pass that treats the current 12-mixin shell as
+    architecture debt: move duplicated lane builders and shared presentation
+    logic into explicit composition helpers so the window stays inspectable
+    instead of becoming a hidden-indirection pile.
 
 Out of scope for this tranche:
 
@@ -144,6 +148,10 @@ maintainable Python package shape:
 14. Workflow modes must remain repo-state-aware and should point the operator
     back to active-plan scope, changed-path risk class, and required check
     bundles rather than acting like a generic terminal dashboard.
+15. The main window must not accrete mixins faster than it accretes
+    composition boundaries: any duplicated lane builder or repeated panel
+    assembly logic should be extracted into a shared helper before the window
+    gets larger.
 
 ## Locked Decisions
 
@@ -232,7 +240,7 @@ maintainable Python package shape:
 - [x] Show three visible panes:
       Codex Bridge Monitor, Claude Bridge Monitor, and Operator Bridge State.
 - [x] Read current state from repo-visible files first:
-      `code_audit.md`, `dev/active/review_channel.md`, and optional future
+      `bridge.md`, `dev/active/review_channel.md`, and optional future
       `review_state` JSON if present.
 - [x] Add refresh polling that does not mutate the repo by default.
 - [x] Provide launch/rollover command buttons that wrap existing `devctl`
@@ -261,7 +269,7 @@ maintainable Python package shape:
       widgets that show key-value pairs at a glance with a "View Raw" toggle.
 - [x] Add toolbar status dots for Codex, Claude, and Operator with
       bridge-derived status hints (active/warning/stale/idle) and structured
-      `KeyValuePanel` lane cards showing parsed `code_audit.md` sections.
+      `KeyValuePanel` lane cards showing parsed `bridge.md` sections.
 - [x] Extend `theme.py` with QSS for all new widget types: status dots,
       KV rows, section headers, summary cards, role badges.
 - [x] Add 19 new tests covering all widget classes and structured lane builders.
@@ -689,6 +697,15 @@ Checklist:
       `review-channel` for the current 8+8 review swarm when that is the chosen
       lane, or `swarm_run` / `autonomy-swarm` when the broader autonomy path is
       the right fit.
+- [ ] Add a graph-backed scope pane for planner/handoff views: render the same
+      generated context packet / concept-view refs that AI uses so operators
+      can inspect blast radius, related plans/docs, and likely verification
+      scope without cold-reading the full doc stack.
+- [ ] Add an architecture-health panel sourced from the future
+      `architecture-review` payload: top risks, current health scores,
+      blast-radius links, and audience-mode projections should come from the
+      same canonical report the CLI/AI surfaces use instead of a
+      console-specific analyzer.
 - [ ] Persist planner outputs into repo-visible logs/artifacts so later AI runs
       and operators can see why a swarm size was selected.
 
@@ -714,6 +731,12 @@ Checklist:
 - [ ] Add an artifact browser for repo-visible logs, reports, review-channel
       outputs, operator decisions, and generated markdown so operators can
       inspect the current state without leaving the controller app.
+- [ ] Close the operator-console artifact portability and synchronization
+      backlog cluster from `issues.md` in this phase: `ISS-030` and
+      `ISS-045` stay owned here until polling/refresh paths read repo-owned
+      artifacts through synchronized snapshots instead of racing active
+      `devctl` writers, and console path discovery resolves through repo-pack
+      or governance authority instead of hardcoded `.voiceterm` assumptions.
 - [ ] Add quick jumps from workspace/artifact surfaces into the relevant
       playbook, command, AI-help prompt, or review lane.
 
@@ -890,13 +913,61 @@ progressive disclosure, and 8px base grid spacing.
 
 ## Progress Log
 
+- 2026-03-19: Closed the next MP-359 workflow-authority correction after the
+  live desktop audit found that `Run Loop` respected the selected workflow
+  preset but `Launch Review` / `Start Swarm` still launched a fixed
+  review-channel bootstrap. The Operator Console now freezes the selected
+  preset into `review-channel --action launch` through both `--scope` and
+  `--promotion-plan`, and the chained Start Swarm preflight/live path carries
+  the same typed launch target instead of silently falling back to the default
+  review plan. Extracted `ReviewLaunchTarget` / review-command completion
+  helpers so the UI mixin stays under code-shape limits, revalidated the
+  focused Operator Console launch tests, reran `check --profile ci`, and
+  confirmed the current follow-up architecture question explicitly: keep
+  subtree-local `AGENTS.md` docs only if they become part of a typed
+  instruction-authority registry; otherwise collapse local placement guidance
+  back into the package README / map docs to avoid doc-authority sprawl.
+- 2026-03-17: Accepted the next MP-359 architecture correction after a shared
+  backend/runtime review pass. The current desktop shell still treats the
+  markdown bridge and compatibility payload rebuilds as primary data sources
+  too often, and it still keeps repo/path/risk/CLI authority locally through
+  `VOICETERM_PATH_CONFIG`, local risk bucketing, and hard-coded review-channel
+  argv builders. The next bounded slice is now explicit: move the session and
+  snapshot builders to `review_state` / typed full projections / registry-
+  first reads, keep `bridge.md` as fallback-only when structured artifacts
+  are missing, and preserve the remaining path/risk/argv cleanup as follow-up
+  debt instead of mixing it into unrelated UI work.
+- 2026-03-11: Closed the next MP-359 presentation-state cleanup after the
+  guard-driven review pass narrowed the remaining Operator Console advisory
+  debt to one file. `app/operator_console/state/presentation/presentation_state.py`
+  no longer hides lane serialization, change-mix rendering, or CI KPI text
+  behind one-call helpers, the targeted presentation-state tests are green,
+  and the file drops out of both `probe_single_use_helpers` and the residual
+  low `probe_design_smells` formatter-helper hint set.
+- 2026-03-11: Revalidated the MP-359 desktop proof lane after the tooling
+  bundle exposed a help-dialog collection failure. The real import cycle was
+  package-init eager exports under `app/operator_console/views/layout/__init__.py`,
+  not the help-topic rendering path itself, so the layout package now lazy-loads
+  `WindowShellMixin`, `HAS_THEME_EDITOR`, and workbench helpers on demand.
+  That breaks the loop
+  `help_dialog -> layout.__init__ -> ui_window_shell -> help_dialog` without
+  changing the public package surface, and
+  `python3 -m pytest app/operator_console/tests/ -q --tb=short` is back to
+  green (`578 passed`).
+- 2026-03-10: Refactored the new watchdog readouts so the desktop shell now
+  consumes one shared typed watchdog summary artifact instead of re-parsing
+  JSON in multiple places. Snapshot loading is centralized under
+  `state/snapshots/watchdog_snapshot.py`, watchdog formatting moved into a
+  dedicated `state/watchdog_presenter.py`, and the Activity/Analytics surfaces
+  now stay orchestration-only rather than mixing schema parsing, metric
+  formatting, and report assembly in one long function.
 - 2026-03-09: Added a subtree-local `app/operator_console/AGENTS.md` so future
   agent work in the desktop shell sees package placement rules close to the
   code instead of only the repo-wide policy. Updated the main Operator Console
   README plus the `views/`, `theme/`, `state/`, and `tests/` package-map docs
   to explain the new responsibility-first layout in simpler language, and
-  linked those docs from `DEV_INDEX.md`, `dev/README.md`, and the in-app help
-  resource list so the cleanup is actually discoverable.
+  linked those docs from `dev/README.md` and the in-app help resource list so
+  the cleanup is actually discoverable.
 
 - 2026-03-09: Continued the visible tree cleanup for MP-359 by moving the
   workflow and layout view files out of the flat `views/` directory. Workflow
@@ -982,6 +1053,21 @@ progressive disclosure, and 8px base grid spacing.
   adds explicit View->Layout controls to reset to defaults, export a
   reproducible layout snapshot, and import that snapshot back into a live
   session, closing the recoverability half of the persisted-layout contract.
+- 2026-03-13: Closed the next honesty gap in the PyQt6 read model after the
+  failed live review-channel launch. The desktop snapshot path was already
+  loading structured `review_state`, but it was silently dropping the contract's
+  own warnings/error/attention payload and therefore could miss the real
+  "Codex reviewer stale / waiting on peer / poll due" reason even when the JSON
+  already knew it. The snapshot builder now carries forward structured review
+  warnings plus the new bridge-attention summary/command into the shared warning
+  surface, so Home/Activity/Monitor can surface the same repo-owned stale-peer
+  truth the launcher and runtime contracts see instead of looking green because
+  the file merely parsed.
+- 2026-03-13: Followed the same slice through the default session-first desktop
+  layout. Non-healthy review attention now also degrades the Codex/operator
+  lane health indicators and appears in session stats, so the workbench can
+  show "reviewer stale / poll due / waiting on peer" at a glance instead of
+  requiring the operator to notice the footer or drill into warnings first.
 - 2026-03-09: Closed the first reproducible layout-state slice for MP-359.
   The desktop shell now persists the selected layout mode plus workbench
   preset/tab/splitter state under
@@ -1150,7 +1236,7 @@ progressive disclosure, and 8px base grid spacing.
   `check_multi_agent_sync`, `docs-check --strict-tooling`,
   `process-cleanup --verify --format md`) is green alongside it.
 - 2026-03-09: Fixed the live-launch dead-end that made the desktop app feel
-  broken when `code_audit.md` aged past the five-minute reviewer heartbeat
+  broken when `bridge.md` aged past the five-minute reviewer heartbeat
   contract. The Operator Console now routes `Dry Run`, `Launch Live`,
   `Start Swarm`, and `Rollover` through the typed
   `--refresh-bridge-heartbeat-if-stale` backend path, so stale/missing
@@ -1379,7 +1465,7 @@ progressive disclosure, and 8px base grid spacing.
   existing Rust runtime and `devctl` launcher, not a replacement for them.
 - 2026-03-08: Landed the first scaffold under `app/operator_console/`:
   pure bridge/approval helpers with unit coverage, a PyQt6 main window that
-  reads `code_audit.md`, wraps existing `review-channel` launch/rollover
+  reads `bridge.md`, wraps existing `review-channel` launch/rollover
   commands, shows Codex/Claude/Review-Operator panes side by side, and records
   repo-visible operator `approve` / `deny` artifacts under
   `dev/reports/review_channel/operator_decisions/`. This first slice remains
@@ -1566,6 +1652,29 @@ progressive disclosure, and 8px base grid spacing.
   flippable card per provider. That keeps the terminal pane readable, removes
   the lower-right dead-space feeling, and lets operators flip between
   freshness/signal detail and full registry state without losing lane context.
+- 2026-03-11: Bundle-tooling unblock follow-up landed for the desktop shell.
+  `views/help_dialog.py` now defers the layout-registry import until the
+  `Controls` topic is rendered, which breaks the package-init cycle
+  `help_dialog -> layout.__init__ -> ui_window_shell -> help_dialog` and
+  restores `app/operator_console/tests/views/test_help_dialog.py` collection.
+  The same validation pass exposed a real phone snapshot regression too:
+  `dev/scripts/devctl/phone_status_views.py` was still calling removed
+  `_controller/_loop/_source_run/_terminal/_ralph` helpers, so the Operator
+  Console fell back to unavailable phone state. Routing those call sites back
+  through the existing `_section()` helper restored compact/mobile snapshot
+  projection, `test_phone_status_snapshot.py` is green again, and the full
+  operator-console suite is back to green in the canonical tooling bundle path.
+
+## Session Resume
+
+- Current status: this plan remains active; start from the highest-priority
+  open item in `## Execution Checklist` and the latest dated entry in
+  `## Progress Log`.
+- Next action: keep current-slice decisions and blockers in this file instead
+  of chat-only notes, then update this section when the promoted slice
+  changes.
+- Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
+  load only the local sections needed for the active checklist item.
 
 ## Audit Evidence
 
@@ -1610,7 +1719,7 @@ progressive disclosure, and 8px base grid spacing.
   - 2026-03-09 local run: pass (`406` passed) after preferring reconstructed
     screen text, trimming partial tail prefixes, and landing the flippable
     session detail card contract
-- `python3 -m py_compile dev/scripts/devctl/review_channel.py dev/scripts/devctl/review_channel_launch.py dev/scripts/devctl/commands/review_channel.py app/operator_console/state/session_trace_reader.py app/operator_console/state/session_builder.py app/operator_console/state/snapshot_builder.py app/operator_console/views/main_window.py app/operator_console/tests/state/test_state_modules.py dev/scripts/devctl/tests/test_review_channel.py`
+- `python3 -m py_compile dev/scripts/devctl/review_channel.py dev/scripts/devctl/review_channel/launch.py dev/scripts/devctl/commands/review_channel.py app/operator_console/state/session_trace_reader.py app/operator_console/state/session_builder.py app/operator_console/state/snapshot_builder.py app/operator_console/views/main_window.py app/operator_console/tests/state/test_state_modules.py dev/scripts/devctl/tests/test_review_channel.py`
   - 2026-03-09 local run: pass after wiring launcher-emitted session trace
     artifacts plus Operator Console live-tail preference
 - `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py app/operator_console/tests/state/test_state_modules.py -q --tb=short`
@@ -1726,7 +1835,7 @@ progressive disclosure, and 8px base grid spacing.
 - `python3 dev/scripts/checks/check_bundle_workflow_parity.py`
   - 2026-03-09 local run: pass after MP-359 theme-authority cleanup
 - `python3 dev/scripts/checks/check_review_channel_bridge.py`
-  - 2026-03-09 local run: expected red (`code_audit.md` and
+  - 2026-03-09 local run: expected red (`bridge.md` and
     `dev/active/review_channel.md` remain untracked in the active dirty tree)
 - `python3 dev/scripts/devctl.py review-channel --action launch --dry-run --format json`
   - 2026-03-09 local run: pass after MP-359 theme-authority cleanup
@@ -1886,3 +1995,10 @@ progressive disclosure, and 8px base grid spacing.
     `views/` into `actions/`, `workspaces/`, and `shared`, split `theme/` into
     `runtime/`, `editor/`, and `io/`, and removed the old root-level `state/`
     and theme shim clutter
+- `python3 -m pytest app/operator_console/tests/views/test_help_dialog.py app/operator_console/tests/state/test_phone_status_snapshot.py dev/scripts/devctl/tests/test_phone_status.py -q --tb=short`
+  - 2026-03-11 local run: pass (`8` tests; covers the lazy help-dialog import
+    fix plus restored phone/mobile snapshot projection fallback)
+- `python3 -m pytest app/operator_console/tests/ -q --tb=short`
+  - 2026-03-11 local run: pass (`578` tests; full operator-console suite back
+    to green after the help-dialog import-cycle break and phone snapshot
+    projection repair)

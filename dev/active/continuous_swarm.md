@@ -41,7 +41,7 @@ Out of scope until the local proof gate is green:
 1. Local proof comes first. Do not template the current loop before it works
    here with minimal operator babysitting.
 2. `dev/active/MASTER_PLAN.md` remains the canonical task tracker and
-   `code_audit.md` remains the current-state bridge while the markdown path is
+   `bridge.md` remains the current-state bridge while the markdown path is
    active.
 3. The continuous loop must keep going while scoped work remains:
    current blockers first, then the next unchecked scoped plan item, then the
@@ -55,6 +55,11 @@ Out of scope until the local proof gate is green:
 6. Use the current poll contract as the base behavior:
    Codex reviews the non-audit tree every 2-3 minutes while code is moving and
    emits operator-visible heartbeats every 5 minutes.
+6.1 When the structured review queue is available, Claude-side repolls and
+    bounded wait wakeups must consume both reviewer-owned bridge state and the
+    Claude-targeted `review-channel inbox/watch` surface on the same cadence.
+    The loop is not healthy if direct reviewer packets depend on user chat
+    relay to become visible.
 7. Context rotation triggers when estimated remaining context drops below 50%.
    The current atomic step must finish first, then the handoff write/launch/ack
    sequence runs, then the old terminals exit.
@@ -62,6 +67,36 @@ Out of scope until the local proof gate is green:
    handoff in repo-visible state.
 9. Any later template extraction must be carved from a modular, repo-proven
    core/profile boundary rather than from the current hardcoded VoiceTerm path.
+10. The transitional markdown bridge, generated skills/docs, PyQt6 launch
+    surfaces, and phone/mobile clients are all clients over the same
+    repo-owned loop/backend. MP-358 may harden the conductor and launcher, but
+    it may not fork task/plan authority into surface-local state.
+11. Solo-developer and single-agent operation must reuse the same backend and
+    validator path. The difference between "developer mode" and "agent mode"
+    is an honest `reviewer_mode` value plus UI affordances, not a second
+    backend or a different check stack.
+12. `MP-358` is not the product boundary. This loop is one local proof harness
+    inside the modular/callable platform tracked under `MP-377`, so loop work
+    is only valid when it preserves or improves the shared backend/runtime/
+    repo-pack boundary instead of deepening VoiceTerm-specific coupling.
+13. Codex is the sole conductor and final reviewer for the live loop. It owns
+    reviewer truth, next-slice promotion, and accept/rework decisions on
+    Claude output.
+14. Claude may fan out many bounded coding workers, but only behind one Claude
+    conductor. Claude workers do not self-promote scope, rewrite
+    reviewer-owned bridge/backend state, or bypass the active plan chain.
+14.1 Worker fan-out must be plan-derived and deterministic. Conductors assign
+    lanes from the active `WorkIntakePacket` / selected `PlanTargetRef` /
+    `PlanExpectationPacket`, and each worker receives one bounded scope:
+    role, owned target or issue cluster, owned worktree/path set, allowed
+    command family, required guards, and expected evidence.
+15. Every non-trivial runtime, tooling, or cross-surface slice must keep a
+    separate architecture-fit reviewer lane on the Codex side. Green checks
+    do not waive architecture drift; architecture-fit findings flow back
+    through the Codex conductor before acceptance.
+15.1 Lane-count capacity is not scope authority. An 8+8 swarm means the repo
+     can host up to that many bounded lanes under the shared bridge, not that
+     workers may widen into repo-wide scanning or self-assigned side quests.
 
 ## Cross-Plan Dependencies
 
@@ -77,6 +112,10 @@ Out of scope until the local proof gate is green:
    `survival_index` semantics used to survive compaction/restart boundaries.
 5. `AGENTS.md`, `dev/scripts/README.md`, and `dev/guides/DEVCTL_AUTOGUIDE.md`
    remain the policy/docs authority for command usage and guard expectations.
+6. `dev/active/ai_governance_platform.md` owns the full-system modular/callable
+   boundary. Any MP-358 slice that makes the loop cleaner locally but widens
+   direct VoiceTerm coupling, duplicates backend logic, or creates a separate
+   dev-only control plane is out of bounds.
 
 ## Execution Checklist
 
@@ -85,18 +124,77 @@ Out of scope until the local proof gate is green:
 - [x] Freeze the initial local-first operating contract for this loop:
       task promotion order, the 50% context-rotation threshold, and
       terminal-rotation ACK rules.
-- [ ] Extend that contract with explicit peer-heartbeat state names and
+- [x] Extend that contract with explicit peer-heartbeat state names and
       stale-peer handling so implementation does not invent them ad hoc.
-- [ ] Classify current issues into:
+      Landed in `dev/scripts/devctl/review_channel/peer_liveness.py` as
+      `CodexPollState`, `OverallLivenessState`, `AttentionStatus` StrEnums,
+      `CODEX_POLL_DUE_AFTER_SECONDS` / `CODEX_POLL_STALE_AFTER_SECONDS`
+      threshold constants, and `STALE_PEER_RECOVERY` contract mapping each
+      attention state to its guard behavior and recovery action. All string
+      literals in `handoff.py`, `state.py`, `attention.py`, and
+      `status_projection.py` now import from the canonical enums.
+- [x] Classify current issues into:
       `verified-current`, `field-report-intermittent`, or `obsolete`.
+      Classification completed 2026-03-13 against live code, 54 passing
+      review-channel tests, and verified CLI dry-runs.
+
+      **obsolete** (fixed with code + test evidence):
+      - "Five-minute heartbeat aged out so launcher just dies":
+        `--refresh-bridge-heartbeat-if-stale` refreshes stale heartbeat on
+        launch; real corruption still fails closed with structured error +
+        recovery command.
+      - "Two terminals exist masquerading as healthy loop": launcher now
+        waits for `Last Codex poll` to advance after opening terminals and
+        fails closed when reviewer heartbeat never appears.
+      - "Host hygiene: active conductors misclassified as stale at 600s":
+        `review_channel_conductor` match scope keeps supervised conductors
+        visible without tripping stale-process failures; `process-audit
+        --strict` shows `active_supervised_conductors` correctly.
+      - "Stale-peer detection not machine-readable": `attention` contract
+        in status projection provides `status`, `owner`,
+        `recommended_action`, and `recommended_command` for every attention
+        state. Auto-recovery is a separate Phase 2 deliverable.
+      - "Launcher doesn't prove full bridge guard before bootstrap":
+        launcher now requires green bridge guard before launch; fails
+        closed on stale bridge with structured error.
+      - "Zero-second ACK wait accepted silently": launcher rejects
+        zero-second ACK waits fail-closed; default is 180 seconds.
+
+      **field-report-intermittent** (mitigated, not fully proven):
+      - "Both conductors stopped after a summary": anti-stall supervision
+        (`restart-on-clean-exit`) relaunches on clean provider exit, and
+        bootstrap prompt explicitly forbids exiting on summary or
+        `waiting_on_peer`. Root cause (provider compliance) is
+        unverifiable by repo tools alone; stays in scope as regression
+        hardening per Locked Decision #4.
+
+      **verified-current** (genuine open work in later phases):
+      - Automatic next-task promotion not proven end-to-end: typed
+        `--action promote` works and refuses to overwrite active
+        instructions, but invocation still depends on conductor
+        discipline, not a repo-owned queue executor (Phase 2).
+      - Stale-peer auto-recovery: detection is machine-readable and
+        recovery commands are recommended, but no automatic relaunch of
+        the missing side (Phase 2).
+      - 2-3 min poll / five-minute heartbeat contract not fully enforced:
+        detection/reporting works via bridge guard + attention, but
+        enforcement depends on provider compliance — inherent
+        architectural boundary (Phase 2).
+      - Context rotation not auto-triggered at 50% threshold: manual
+        `--action rollover` works and produces structured handoff bundles,
+        but no automatic detection of remaining context (Phase 3).
 - [x] Record the current report-level stale-peer freshness threshold and
       bridge state names so implementation does not invent them ad hoc:
       `fresh | stale | waiting_on_peer`, with the Codex poll considered
-      stale after 600 seconds without a new reviewer heartbeat.
+      stale after 300 seconds (five-minute heartbeat window) without a new
+      reviewer heartbeat and poll-due after 180 seconds (2-3 minute
+      reviewer cadence). Canonical source:
+      `dev/scripts/devctl/review_channel/peer_liveness.py`.
 - [x] Define the minimum repo-visible handoff payload:
       current blocker set, next action, reviewed worktree hash, owned lanes,
       current atomic step, and launch ACK state. Landed in
-      `review_channel_handoff.py` as structured `resume_state` output inside
+      `dev/scripts/devctl/review_channel/handoff.py` as structured
+      `resume_state` output inside
       the rollover handoff bundle (`handoff.json` + `handoff.md`), with
       review-channel regression coverage.
 
@@ -111,22 +209,127 @@ Out of scope until the local proof gate is green:
       rendering.
 - [x] Add the remaining launch regression coverage for:
       missing CLI and terminal-profile fallback warnings.
-- [ ] Keep docstrings/comments/variable names simple and explicit; remove mixed
+- [x] Keep docstrings/comments/variable names simple and explicit; remove mixed
       responsibilities and duplicated path/prompt logic where possible.
+      Verified 2026-03-28: 7 oversized modules split into 14 focused modules
+      (MP-377 code-shape slice). Prompt logic cleanly separated across
+      prompt.py/prompt_sections.py/prompt_contract.py/prompt_guards.py.
+      Path constants resolved through repo-pack config in core.py.
+      attention.py priority chain reordered for correctness. No TODOs/FIXMEs
+      remain. Probe findings are identifier-density advisory only.
 
 ### Phase 2 - Continuous Loop Behavior
 
-- [ ] Implement automatic next-task promotion so the conductor does not stop
+- [x] Implement automatic next-task promotion so the conductor does not stop
       after one accepted slice while scoped work still exists.
-- [ ] Add peer-liveness guards:
+      Landed: `--auto-promote` flag wired into launch/status actions
+      (`review_channel_bridge_action_support.py`). When the bridge is in a
+      promotable state (accepted verdict, clear findings, idle instruction),
+      the next unchecked plan item is promoted into the bridge instruction
+      automatically. End-to-end proven with 2 focused tests (`5239d88`).
+- [x] Keep bridge truth synchronized when the reviewer heartbeat advances:
+      `bridge.md`, `latest.md`, and `review_state.json` must move the
+      reviewed hash, current verdict, open findings, plan alignment, and next
+      instruction together instead of advertising a fresh heartbeat on stale
+      review state or a completed task.
+      Re-audited 2026-03-28: repo-owned reviewer writes already couple this
+      path. `review-channel --action reviewer-checkpoint` atomically advances
+      reviewed hash, verdict, findings, instruction, and `Last Codex poll`,
+      while `review-channel --action promote` / instruction rewrites refresh
+      the same reviewer metadata in one transform. The remaining open gap is
+      not another writer primitive; it is fail-closed reviewer discipline and
+      guard coverage so Codex does not bypass those repo-owned paths with raw
+      `bridge.md` edits or other out-of-band reviewer-owned rewrites.
+      Partial: `reviewed_hash_current` is threaded through all surfaces
+      (liveness, attention, status, launch, handoff, review_state.json,
+      latest.md). Heartbeat refresh no longer advances the reviewed hash
+      (`8b72f30`) — only real reviews do. Auto-promote blocks on stale
+      hash (`6cfb670`). `REVIEWED_HASH_STALE` attention fires with
+      recovery guidance. 2026-03-22 bounded loop follow-up landed:
+      active-dual-agent attention/bridge-poll now emit
+      `review_follow_up_required` when implementer-owned tree changes make
+      reviewer state stale under a live reviewer supervisor, so the loop stops
+      looking generically "done" while Codex still owes a re-review pass.
+      Full verdict/findings/instruction synchronization (making those fields
+      move atomically with the hash) is still open — that requires Codex-owned
+      bridge write behavior, not tool-only changes.
+      Closed 2026-03-28: tool-side complete (reviewer-checkpoint atomic writes),
+      guard coverage in place (REVIEW_FOLLOW_UP_REQUIRED fires on stale reviewed
+      hash, check_review_channel_bridge validates metadata consistency, attention
+      priority fix ensures reviewer-turn outranks checkpoint). Remaining Codex-
+      side discipline gap is documented and enforced by detection, not prevention.
+- [x] Keep reviewer packet visibility synchronized with the same loop contract:
+      when the structured review queue is available, Claude-side
+      `implementer-wait` / repoll behavior must wake on fresh Claude-targeted
+      packets as well as bridge changes, and the conductor prompt/launcher
+      path must require inbox/watch polling on the same cadence so direct
+      reviewer packets are not lost behind bridge-only polling.
+      Closed 2026-03-28: conductor prompt contract (prompt_sections.py)
+      now requires inbox/watch polling on each repoll alongside bridge reads.
+      `bridge-poll` returns `next_turn_role` and `review_needed` for packet-
+      aware turn detection. Event-backed inbox/watch CLI actions are registered
+      in the parser and will operate over the same path once the reducer lands.
+- [ ] Add a repo-owned reviewer liveness emitter so inactive modes stay
+      current without faking review truth. `reviewer-heartbeat` and
+      `reviewer-checkpoint` are now separate writes, but the loop still lacks
+      a persistent timer/daemon/session-owned caller that keeps
+      `single_agent`, `tools_only`, `paused`, and `offline` visibly alive
+      without manual refreshes.
+- [ ] Expose one thin mode switch over the shared backend instead of a dev-only
+      fork. Human-facing controls may offer `agents` / `developer` shorthands
+      and later PyQt6/phone toggles, but they must normalize onto the same
+      canonical reviewer-mode contract and routed validation path.
+- [x] Add peer-liveness guards:
       Claude cannot start new coding work on stale Codex review state, and
       Codex cannot keep issuing new fix cycles on stale Claude state.
+      Landed: `_run_bridge_action` now checks `guard_behavior: block_launch`
+      from the `STALE_PEER_RECOVERY` contract and refuses to open sessions
+      when reviewer heartbeat is missing or stale (`b2e2101`).
 - [ ] Define and implement the stale-peer recovery path:
       mark the bridge as waiting on peer, relaunch or re-seed the missing side,
       and resume from the last confirmed bridge state.
-- [ ] Ensure the loop uses one master document chain:
-      `MASTER_PLAN` -> relevant active-plan checklist -> `code_audit.md`
+      Partial: `WAITING_ON_PEER` and `block_launch` are now enforced.
+      `--refresh-bridge-heartbeat-if-stale` is the bounded recovery path for
+      stale heartbeats. `STALE_PEER_RECOVERY` recommends relaunch commands.
+      `review-channel --action recover --recover-provider claude` is now the
+      bounded repo-owned stale-implementer replacement path, and
+      `reviewer-heartbeat --follow` auto-escalates repeated unchanged stale
+      implementer state through that single-side recovery path instead of
+      leaving the loop parked on polling prose forever. Generalized automatic
+      relaunch of whichever peer is missing still remains open Phase 3/4 work.
+- [x] Promote implementer completion-stall into shared backend attention state
+      instead of keeping it tandem-only. The same reducer that powers
+      `check_tandem_consistency.py` should also drive review-channel
+      `AttentionStatus`, status projections, and downstream VoiceTerm/PyQt6/
+      phone/CLI surfaces so "Claude parked on review/polling" is visible as
+      repo-owned runtime truth rather than only prompt text plus an on-demand
+      validator.
+      Verified 2026-03-28: `IMPLEMENTER_COMPLETION_STALL` is already an
+      `AttentionStatus` in attention.py, threaded through status_projection.py,
+      event_projection.py, peer_liveness.py, peer_recovery.py,
+      bridge_validation.py, and handoff.py/handoff_constants.py. The stall
+      flag flows from bridge liveness through the shared attention contract
+      to all downstream surfaces.
+- [x] Ensure the loop uses one master document chain:
+      `MASTER_PLAN` -> relevant active-plan checklist -> `bridge.md`
       current-state bridge.
+- [ ] Keep tracker/runbook truth aligned when launcher blockers change state:
+      `MASTER_PLAN`, `review_channel.md`, and `continuous_swarm.md` may not
+      simultaneously describe the same bridge-bootstrap blocker as both open
+      and obsolete/closed.
+- [x] Keep cadence and live-session metadata honest:
+      `poll_due` remains the 180-second reviewer cadence, `stale` remains the
+      300-second heartbeat window, the bridge prose must match those thresholds,
+      and `latest/sessions/*.json` plus `review-channel --action status` must
+      describe the actually active conductor instance or clearly report none.
+- [x] Add `--scope` / `--plan` flag to `review-channel --action launch` so
+      the launcher can re-scope `Current Instruction For Claude` automatically
+      from a named active-plan doc instead of requiring manual bridge edits
+      before every new task. Landed in `review_channel/promotion.py`
+      (`resolve_scope_plan_path`, `scope_bridge_instruction`) and
+      `commands/review_channel_bridge_support.py` (`apply_scope_if_requested`).
+      The launch report now returns the promotion candidate instead of `null`
+      when `--scope` is used.
 
 ### Phase 3 - Context Rotation And Handoff
 
@@ -155,6 +358,228 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-03-28: Re-audited the W1 bridge-truth-sync item against the actual
+  reviewer write paths after Claude flagged a likely overstatement in the
+  checklist text. Confirmed the repo-owned tooling side is already in place:
+  `review-channel --action reviewer-checkpoint` atomically rewrites reviewed
+  hash, verdict, findings, instruction, and `Last Codex poll`, and the
+  repo-owned promote/instruction-rewrite path also refreshes reviewer
+  metadata in the same transform. Narrowed the remaining open work
+  accordingly: keep Codex on repo-owned reviewer writes only, and add the
+  guard/prompt/contract coverage needed so raw `bridge.md` edits cannot
+  silently bypass that synchronized path.
+- 2026-03-25: Closed the next stale-implementer recovery gap without
+  overstating it into a full loop restart. Review attention now distinguishes
+  `implementer_relaunch_required`, `review-channel --action recover
+  --recover-provider claude` launches only a fresh Claude conductor for that
+  state, and `reviewer-heartbeat --follow` now auto-escalates repeated
+  unchanged stale-implementer progress through that narrower repo-owned
+  recovery path instead of invoking full rollover or sitting forever on raw
+  polling prose. Generalized stale-peer recovery and end-to-end local proof
+  still remain open.
+- 2026-03-22: Closed the next reviewer-to-Claude wait-surface gap in the live
+  local loop. `review-channel --action implementer-wait` now exposes typed
+  attention context directly in the stable wait report (`wait_attention_*`)
+  and specializes reviewer-update/timeout messages for
+  `review_follow_up_required` and `claude_ack_stale` instead of collapsing
+  everything into generic "Holding for Codex review" text. The markdown wait
+  projection renders the same typed context so `tail -5`, `latest.md`, and
+  other operator/implementer surfaces can see why the loop is paused without
+  guessing from stale prose.
+- 2026-03-22: Landed the reviewer-side parity step from the same loop-hardening
+  lane. `review-channel --action reviewer-wait` now exports the same typed
+  wait-attention surface and state-specific wake/timeout/unhealthy messages,
+  markdown wait rendering covers reviewer-wait payloads, and the reviewer
+  prompt contract now explicitly routes Codex onto `reviewer-wait` instead of
+  ad-hoc sleep loops when parked on Claude progress.
+- 2026-03-20: Closed the next reviewer-to-Claude visibility gap in the live
+  local loop. `review-channel --action implementer-wait` now folds the newest
+  pending Claude-targeted review packet into its wake token, so the repo-owned
+  bounded wait path wakes on fresh reviewer packets as well as reviewer-owned
+  bridge changes. The Claude prompt surface and bridge/test fixtures now
+  require packet inbox/watch polling alongside bridge polling on the same
+  cadence so the dual-agent loop no longer depends on human chat relay to make
+  reviewer packets visible.
+- 2026-03-19: Replaced the unsafe Claude-side raw bridge poller with a
+  repo-owned bounded wait path. `review-channel --action implementer-wait`
+  now polls on the normal review cadence, wakes only when reviewer-owned
+  bridge content changes, fails closed when the reviewer loop is unhealthy,
+  and times out after one hour by default instead of leaving a background
+  `sleep 300` shell loop behind. Prompt guidance and maintainer docs now
+  point the implementer lane at this command so the live loop can wait
+  safely without relying on later process cleanup.
+- 2026-03-19: Closed the next reviewer-loop honesty gap on the Codex-side
+  `ensure` auto-heal path. Reviewer-supervisor restarts now re-read status
+  after detached-start verification fails, so `ensure` reports the persisted
+  failed-start lifecycle instead of the stale pre-restart snapshot. The same
+  slice also moved that restart logic into
+  `commands/review_channel/_ensure_supervisor.py` to keep `ensure.py` under
+  the Python soft limit while preserving the repo-owned persistent reviewer
+  loop contract. Validation: `python3 -m pytest
+  dev/scripts/devctl/tests/test_review_channel.py -q`, `python3
+  dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy
+  --no-parallel`, and `python3 dev/scripts/devctl.py check --profile ci
+  --skip-fmt --skip-clippy --no-parallel`.
+- 2026-03-17: Clarified the many-agent operating model for `MP-358`. Codex
+  remains the sole conductor and final reviewer, Claude may fan out many
+  bounded coding workers only behind one Claude conductor, and every
+  non-trivial slice now requires a separate Codex-side architecture-fit
+  reviewer before acceptance. The loop direction stays one shared backend plus
+  conductor-owned bridge/state writes, not a second worker-owned control
+  plane.
+- 2026-03-27 plan-driven swarm-scoping follow-up: the many-agent model now
+  also freezes where worker scope comes from. Future swarms should compile
+  lane roles from active plan authority (`WorkIntakePacket`,
+  `PlanExpectationPacket`, owned issue cluster/target refs) so workers are
+  assigned exact roles, worktrees, command families, and evidence contracts
+  instead of "read the repo and help" prompts. Capacity stays 8+8, but the
+  role map is regenerated per plan slice rather than treated as a permanent
+  static table.
+- 2026-03-15: Closed the next scope-drift miss on the operator-docs path.
+  `DEVCTL_AUTOGUIDE.md` had durable system knowledge in prose but no
+  deterministic sync contract, so `docs-check --strict-tooling` could stay
+  green while the playbook silently omitted major control-plane surfaces. The
+  repo now has `check_guide_contract_sync.py`, wired into docs governance,
+  tooling/release workflows, and the shared bundle registry, plus a new
+  `System Coverage Map` section in `DEVCTL_AUTOGUIDE.md` that keeps
+  policy/contract/governance, launcher, mutation/compatibility, and
+  queue/device/recovery helpers in explicit scope for Codex, Claude, and
+  maintainers.
+- 2026-03-15: Hardened the new guide-contract guard after the first live audit.
+  The initial `check_guide_contract_sync.py` pass only verified whole-file
+  substrings, which meant the `System Coverage Map` could drift while the same
+  command names still existed elsewhere in `DEVCTL_AUTOGUIDE.md`. The repo
+  policy now supports section-scoped `required_sections`, the guard validates
+  heading-local coverage, and the autoguide contract now pins the shared
+  review/runtime/operator surfaces (`render-surfaces`, `review-channel`,
+  `tandem-validate`, `reviewer-heartbeat`, `reviewer-checkpoint`,
+  `swarm_run`, `mobile-status`, `phone-status`, `controller-action`,
+  `orchestrate-*`, `integrations-*`, `mcp`) instead of over-weighting only
+  VoiceTerm-local convenience wrappers.
+- 2026-03-15: Re-activated the markdown bridge as a live `active_dual_agent`
+  reviewer path through `review-channel --action reviewer-checkpoint` after it
+  had drifted back to `single_agent`, then finished the role-owned tandem
+  guard split so `dev/scripts/checks/tandem_consistency/checks.py` is a thin
+  compatibility facade over `reviewer_checks.py`,
+  `implementer_checks.py`, `operator_checks.py`, and
+  `system_checks.py`. Focused tandem/review-channel tests and bridge/docs
+  governance are green again. The same review pass also confirmed the next
+  real loop-hardening gap: completion-stall is now a hard tandem guard, but it
+  is still not a first-class review-channel attention signal that shared
+  backend clients can render consistently.
+- 2026-03-15: Closed the next real loop-stall gap by turning "Claude says the
+  slice is done / instruction unchanged / continuing to poll" into hard
+  enforcement instead of prose. `check_tandem_consistency.py` now includes an
+  `implementer_completion_stall` check that fails when Claude-owned
+  status/ack text parks on reviewer promotion/polling while the current bridge
+  instruction is still active and not in an explicit reviewer-owned wait
+  state. The repo-owned reviewer writer also now strips stale reviewer-mode
+  prose from `Poll Status`, and the bridge guard fails when `Poll Status`
+  contradicts header `Reviewer mode`, so the backup markdown bridge cannot
+  silently rot into conflicting live states. The shared Claude instruction
+  surface (`claude_instructions.template.md` -> `CLAUDE.md`) now mirrors the
+  same anti-stall rule.
+- 2026-03-15: Re-audited the current loop after landing the reviewer-state
+  writer split and the routed `tandem-validate` lane. Confirmed the core
+  direction is right, then recorded the remaining architectural truth:
+  inactive modes are now honest (`single_agent`, `tools_only`, `paused`,
+  `offline`) and share the same backend, but the repo still needs a
+  persistent reviewer-liveness emitter, a thin shared mode toggle surface, and
+  JSON-first authority so markdown no longer acts like the live source of
+  truth by accident.
+- 2026-03-15: Re-read the broader architecture plan after a scope audit and
+  tightened the local-proof framing. `MP-358` now explicitly records that it
+  is one proving lane inside the full-system modular/callable extraction under
+  `MP-377`, not the product boundary by itself. Future loop work must name the
+  shared backend/runtime contract it strengthens and must not justify new
+  VoiceTerm-embedded or dev-only control paths.
+- 2026-03-15: Landed repo-owned reviewer-state actions for the markdown bridge
+  and mode-aware stale handling. `review-channel --action reviewer-heartbeat`
+  now updates liveness plus `Reviewer mode` without faking a new reviewed hash,
+  while `review-channel --action reviewer-checkpoint` atomically advances
+  reviewed hash, verdict, findings, instruction, and reviewed scope after a
+  real review pass. The bridge and tandem guards now treat
+  `single_agent` / `tools_only` / `paused` / `offline` as honest inactive
+  modes instead of stale dual-agent failure, which gives developers and solo
+  AI runs the same backend without a second control plane.
+- 2026-03-15: Replaced the narrow hand-maintained tandem validation checklist
+  with a repo-owned `devctl tandem-validate` lane for MP-358. The command now
+  resolves the real AGENTS lane and risk add-ons through `check-router`,
+  executes that routed bundle, and reruns final `check_review_channel_bridge`
+  / `check_tandem_consistency` postflight checks so Codex/Claude sessions use
+  the same validation authority as maintainers instead of grepping for a small
+  custom command list. Maintainer docs (`dev/scripts/README.md`,
+  `dev/guides/DEVELOPMENT.md`) now point tandem sessions at that wrapper.
+- 2026-03-15: Landed tandem-consistency guard and role-profile seam (MP-358).
+  `runtime/role_profile.py` defines `TandemRole`, `RoleProfile`,
+  `TandemProfile`, and `role_for_provider()`. `check_tandem_consistency.py`
+  validates alignment across peer-liveness, event-reducer, status-projection,
+  launch, prompt, and handoff. Wired into `bundle.tooling`, CI workflows,
+  quality-policy presets, and `VOICETERM_ONLY_AI_GUARD_IDS`. Cursor agent entry
+  added to event-reducer and status-projection (3-agent roster becomes 4).
+  `pending_cursor` added to `ReviewQueueState` and queue output.
+- 2026-03-15: Made the launcher bridge-optional in auto execution mode.
+  `ensure_launcher_prereqs`, `bridge_launch_state`, heartbeat refresh,
+  `scope_bridge_instruction`, `promote_bridge_instruction`, bridge guard,
+  and auto-promote all gate bridge reads/writes behind `bridge_path.exists()`.
+  When the bridge is absent, the launcher falls through to lane parsing from
+  `review_channel.md` and constructs an empty `BridgeSnapshot`. Commits:
+  `7c9c901`, `89c6742`, `63a6c62`, `2e30bd6`, `37acd1b`.
+- 2026-03-15: Ran 8-lane audit. Key findings: no typed backend API layer,
+  `PhoneControlSnapshot`/`operator_decisions` are surface-local authority
+  leaks, `review_state` naming overloaded in `event_reducer.py` (defer
+  rename), plan set is healthy with one minor MP-376/377 boundary note.
+- 2026-03-15: Landed three bounded MP-358 slices:
+  1. Fixed `--scope` promotion bug: `apply_scope_if_requested()` now returns
+     the `PromotionCandidate`, launch report shows real `promotion` data
+     instead of `null`. Added `--auto-promote` CLI flag. (`86b902c`)
+  2. Wired `reviewed_hash_current` into live callers: `bridge_launch_state()`
+     and `refresh_status_snapshot()` compute current worktree hash and pass it
+     to `summarize_bridge_liveness()`. Status output shows `true/false`. (`0935dc8`)
+  3. Added `REVIEWED_HASH_STALE` attention signal: fires when all
+     higher-priority checks pass but the reviewed tree hash doesn't match the
+     current worktree. Recovery contract recommends Codex re-review. (`4ae9830`)
+- 2026-03-13: Validated the next bridge-truth drift after the Phase 0
+  classification write. The bridge header heartbeat/hash advanced to
+  `2026-03-14T02:17:03Z` / `95a196f52cce...`, but `bridge.md` still clears
+  reviewed hash `6d277...`, still points `Plan Alignment` at
+  `review_probes.md`, and still instructs Claude to rerun the already-complete
+  Phase 0 classification while `dev/reports/review_channel/latest/latest.md`
+  already derives the Phase 1 cleanup item. The same audit also confirmed live
+  session provenance drift: `latest/sessions/*.json` rewrote to a new
+  `review-channel-launch-gbh8czwt` temp dir while the still-running Codex
+  conductor process remained on the older `review-channel-launch-38a4x4q_`
+  script path and `review-channel --action status --format json` reported
+  `sessions: []`. Added Phase 2 follow-ups for bridge truth synchronization,
+  tracker/runbook closure parity, and cadence/session metadata honesty so these
+  regressions are tracked as loop-behavior debt instead of being mistaken for
+  fresh proof.
+- 2026-03-13: Completed the Phase 0 issue classification against live code,
+  54 passing review-channel tests, and verified CLI dry-runs. Result: 6
+  issues classified `obsolete` (heartbeat-aged-out launcher death,
+  two-terminals-masquerading-as-healthy, host-hygiene conductor
+  misclassification, stale-peer detection not machine-readable, launcher
+  missing bridge guard, zero-second ACK acceptance), 1 classified
+  `field-report-intermittent` (both-conductors-stopped-after-summary,
+  mitigated by anti-stall supervision but root cause is provider
+  compliance), and 4 classified `verified-current` (automatic next-task
+  promotion, stale-peer auto-recovery, heartbeat contract enforcement,
+  context rotation auto-trigger) which map to open Phase 2-3 checklist
+  items. Phase 0 contract and diagnostics items are now fully closed.
+- 2026-03-13: Closed the next proof-of-liveness gap exposed by the broken live
+  reviewer session. `review-channel --action launch --terminal terminal-app`
+  now waits for `Last Codex poll` to advance after the windows open and fails
+  closed when the reviewer heartbeat never appears, so "two terminals exist"
+  no longer masquerades as a healthy Codex/Claude loop. The same slice also
+  turns stale-peer detection into a machine-readable `attention` contract on
+  the bridge-backed `review_state` payload and carries that signal into the
+  PyQt6 Operator Console snapshot warnings, which gives the desktop shell a
+  repo-owned way to say "Codex is stale / Claude ACK is missing / poll is due"
+  instead of relying on provider memory or operator guesswork. A same-slice
+  follow-up split that attention/launch logic into dedicated review-channel
+  modules and now drives Codex/operator lane health plus session stats from the
+  same attention state, so the default desktop workbench shows the loop as
+  stale even before the operator opens a diagnostics report.
 - 2026-03-09: Closed the next launcher self-heal gap exposed by live Operator
   Console use. `review-channel --action launch` and `--action rollover` now
   accept `--refresh-bridge-heartbeat-if-stale`, which refreshes the
@@ -248,7 +673,7 @@ Out of scope until the local proof gate is green:
 - 2026-03-08: Added `dev/guides/AGENT_COLLABORATION_SYSTEM.md` as a
   plain-language explainer for the live Codex/Claude collaboration model. The
   guide maps the current bridge-gated `review-channel` bootstrap, the
-  `code_audit.md` conductor loop, `swarm_run`/`autonomy-swarm`/
+  `bridge.md` conductor loop, `swarm_run`/`autonomy-swarm`/
   `autonomy-loop` layering, artifact roots, and the current-versus-planned
   boundary so operators can inspect the whole system from one doc instead of
   stitching it together from plan files and command references. It also makes
@@ -272,11 +697,33 @@ Out of scope until the local proof gate is green:
   `--action rollover` command in their bootstrap prompt, the enforced
   threshold is now 50% remaining context, rollover writes a repo-visible
   handoff bundle under `dev/reports/review_channel/rollovers/`, fresh
-  conductors receive exact ACK lines they must write into `code_audit.md`, and
+  conductors receive exact ACK lines they must write into `bridge.md`, and
   the command can wait for those visible ACKs before the retiring session exits.
+
+## Session Resume
+
+- Current status: this plan remains active; start from the highest-priority
+  open item in `## Execution Checklist` and the latest dated entry in
+  `## Progress Log`.
+- Next action: keep current-slice decisions and blockers in this file instead
+  of chat-only notes, then update this section when the promoted slice
+  changes.
+- Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
+  load only the local sections needed for the active checklist item.
 
 ## Audit Evidence
 
+- `python3.11 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
+  - 2026-03-13 local run: stale after the 300-second heartbeat window; bridge
+    still advertises a stale Phase 0 instruction while the latest derived-next
+    projection has already advanced to Phase 1
+- `python3.11 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+  - 2026-03-13 local run: `sessions: []` even while repo-owned conductor
+    processes were still present
+- `ps -axo pid,ppid,etime,command | rg 'review-channel-launch-'`
+  - 2026-03-13 local run: live Codex conductor still running from the older
+    `review-channel-launch-38a4x4q_` script path while latest session metadata
+    pointed at `review-channel-launch-gbh8czwt`
 - `python3 dev/scripts/checks/check_review_channel_bridge.py --format md`
   - 2026-03-09 local run after heartbeat refresh: pass
 - `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format json`

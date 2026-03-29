@@ -5,7 +5,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 SOURCE_ROOTS = (
     REPO_ROOT / "rust" / "src" / "bin" / "voiceterm",
     REPO_ROOT / "rust" / "src" / "ipc",

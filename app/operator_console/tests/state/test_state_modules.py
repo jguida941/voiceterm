@@ -31,7 +31,6 @@ from app.operator_console.workflows import (
     build_swarm_run_command,
     build_triage_command,
     evaluate_orchestrate_status_report,
-    evaluate_review_channel_post,
     evaluate_review_channel_launch,
     evaluate_review_channel_rollover,
     evaluate_swarm_run_report,
@@ -88,7 +87,9 @@ from app.operator_console.workflows.workflow_presets import (
     available_workflow_presets,
     resolve_workflow_preset,
 )
-from app.operator_console.collaboration.timeline_builder import build_timeline_from_snapshot
+from app.operator_console.collaboration.timeline_builder import (
+    build_timeline_from_snapshot,
+)
 from app.operator_console.workflows.workflow_surface_state import (
     build_workflow_surface_state,
 )
@@ -97,7 +98,7 @@ from app.operator_console.workflows.workflow_surface_state import (
 def _bridge_text() -> str:
     return "\n".join(
         [
-            "# Code Audit Channel",
+            "# Review Bridge",
             "",
             "- Last Codex poll: `2026-03-08T20:00:00Z`",
             "- Last non-audit worktree hash: `abc123`",
@@ -147,7 +148,7 @@ def _review_state_json() -> dict[str, object]:
                 "requested_action": "git_push",
                 "approval_required": True,
                 "status": "pending",
-                "evidence_refs": ["code_audit.md#L1"],
+                "evidence_refs": ["bridge.md#L1"],
                 "context_pack_refs": [
                     {
                         "pack_kind": "task_pack",
@@ -159,6 +160,44 @@ def _review_state_json() -> dict[str, object]:
             }
         ]
     }
+
+
+def _write_watchdog_summary(root: Path) -> None:
+    summary_path = root / "dev/reports/data_science/latest/summary.json"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-03-10T03:00:00Z",
+                "trigger_command": "devctl:data-science",
+                "watchdog_stats": {
+                    "total_episodes": 3,
+                    "success_rate_pct": 66.67,
+                    "avg_time_to_green_seconds": 14.0,
+                    "p50_time_to_green_seconds": 12.0,
+                    "avg_guard_runtime_seconds": 5.0,
+                    "avg_retry_count": 1.33,
+                    "avg_escaped_findings": 0.33,
+                    "false_positive_rate_pct": 33.33,
+                    "known_provider_pct": 100.0,
+                    "providers": [
+                        {"provider": "codex", "episodes": 2},
+                        {"provider": "claude", "episodes": 1},
+                    ],
+                    "guard_families": [
+                        {
+                            "guard_family": "python",
+                            "episodes": 2,
+                            "success_rate_pct": 50.0,
+                            "avg_time_to_green_seconds": 14.0,
+                        }
+                    ],
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
 
 def _fresh_live_trace(provider: str) -> SessionTraceSnapshot:
@@ -214,7 +253,7 @@ class StateModuleTests(unittest.TestCase):
     def test_timeline_builder_includes_lane_and_operator_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
             events = build_timeline_from_snapshot(snapshot)
 
@@ -226,8 +265,10 @@ class StateModuleTests(unittest.TestCase):
     def test_timeline_builder_reads_rollover_handoff_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
-            handoff_root = root / "dev/reports/review_channel/rollovers/20260309T120000Z"
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
+            handoff_root = (
+                root / "dev/reports/review_channel/rollovers/20260309T120000Z"
+            )
             handoff_root.mkdir(parents=True, exist_ok=True)
             (handoff_root / "handoff.json").write_text(
                 json.dumps(
@@ -253,7 +294,7 @@ class StateModuleTests(unittest.TestCase):
     def test_workflow_surface_state_tracks_slice_and_footer_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -313,7 +354,9 @@ class StateModuleTests(unittest.TestCase):
     def test_find_review_state_path_prefers_canonical_projection_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            canonical = root / "dev/reports/review_channel/projections/latest/review_state.json"
+            canonical = (
+                root / "dev/reports/review_channel/projections/latest/review_state.json"
+            )
             legacy = root / "dev/reports/review_channel/latest/review_state.json"
             canonical.parent.mkdir(parents=True, exist_ok=True)
             legacy.parent.mkdir(parents=True, exist_ok=True)
@@ -338,10 +381,12 @@ class StateModuleTests(unittest.TestCase):
 
         self.assertEqual(resolved, canonical)
 
-    def test_build_operator_console_snapshot_combines_bridge_and_review_state(self) -> None:
+    def test_build_operator_console_snapshot_combines_bridge_and_review_state(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -400,15 +445,89 @@ class StateModuleTests(unittest.TestCase):
         self.assertEqual(snapshot.last_codex_poll, "2026-03-08T20:00:00Z")
         self.assertEqual(len(snapshot.pending_approvals), 1)
         self.assertIn("live_terminal: unavailable", snapshot.codex_session_text)
-        self.assertIn("AGENT-1 [active] Reviewing bridge hardening", snapshot.codex_session_registry_text)
-        self.assertIn("source: review-channel projection + markdown bridge", snapshot.codex_session_stats_text)
+        self.assertIn(
+            "AGENT-1 [active] Reviewing bridge hardening",
+            snapshot.codex_session_registry_text,
+        )
+        self.assertIn(
+            "source: review-channel projection + markdown bridge",
+            snapshot.codex_session_stats_text,
+        )
         self.assertIn("live_terminal: unavailable", snapshot.claude_session_text)
-        self.assertIn("AGENT-9 [assigned] Implementing UI follow-up", snapshot.claude_session_registry_text)
+        self.assertIn(
+            "AGENT-9 [assigned] Implementing UI follow-up",
+            snapshot.claude_session_registry_text,
+        )
 
-    def test_build_operator_console_snapshot_prefers_live_session_trace_when_available(self) -> None:
+    def test_build_operator_console_snapshot_reads_canonical_full_projection_shape(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
+            full_path = root / "dev/reports/review_channel/latest/full.json"
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "command": "review-channel",
+                        "action": "status",
+                        "timestamp": "2026-03-09T10:00:00Z",
+                        "ok": True,
+                        "review_state": {
+                            "review": {
+                                "surface_mode": "event-store",
+                                "session_id": "session-123",
+                                "active_lane": "review",
+                            },
+                            "packets": [
+                                {
+                                    "packet_id": "pkt-1",
+                                    "from_agent": "codex",
+                                    "to_agent": "operator",
+                                    "summary": "Approve guarded push",
+                                    "body": "Need operator approval before push.",
+                                    "policy_hint": "operator_approval_required",
+                                    "requested_action": "git_push",
+                                    "approval_required": True,
+                                    "status": "pending",
+                                }
+                            ],
+                        },
+                        "agent_registry": {
+                            "timestamp": "2026-03-09T10:05:00Z",
+                            "agents": [
+                                {
+                                    "agent_id": "AGENT-1",
+                                    "display_name": "AGENT-1",
+                                    "provider": "codex",
+                                    "lane": "codex",
+                                    "job_state": "active",
+                                    "current_job": "Reviewing bridge hardening",
+                                }
+                            ],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            snapshot = build_operator_console_snapshot(root)
+
+        self.assertEqual(len(snapshot.pending_approvals), 1)
+        self.assertIn("surface_mode: event-store", snapshot.codex_session_stats_text)
+        self.assertIn(
+            "AGENT-1 [active] Reviewing bridge hardening",
+            snapshot.codex_session_registry_text,
+        )
+
+    def test_build_operator_console_snapshot_prefers_live_session_trace_when_available(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -469,12 +588,76 @@ class StateModuleTests(unittest.TestCase):
         self.assertIn("review tail", snapshot.codex_session_text)
         self.assertIn("ready", snapshot.codex_session_text)
         self.assertNotIn("Script started on", snapshot.codex_session_text)
-        self.assertIn("source: review-channel projection + markdown bridge", snapshot.claude_session_stats_text)
+        self.assertIn(
+            "source: review-channel projection + markdown bridge",
+            snapshot.claude_session_stats_text,
+        )
 
-    def test_build_operator_console_snapshot_prefers_rendered_screen_over_history_noise(self) -> None:
+    def test_build_operator_console_snapshot_surfaces_review_attention_from_full_projection(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
+            full_path = root / "dev/reports/review_channel/latest/full.json"
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "command": "review-channel",
+                        "action": "status",
+                        "timestamp": "2026-03-09T10:00:00Z",
+                        "ok": False,
+                        "warnings": [
+                            "Bridge liveness is stale: the latest Codex poll timestamp is older than the five-minute heartbeat contract."
+                        ],
+                        "review_state": {
+                            "review": {
+                                "surface_mode": "markdown-bridge",
+                                "session_id": "markdown-bridge",
+                                "active_lane": "review",
+                            },
+                            "attention": {
+                                "status": "reviewer_heartbeat_stale",
+                                "owner": "codex",
+                                "summary": "Codex reviewer heartbeat is stale; do not treat the current review loop as live.",
+                                "recommended_action": "Relaunch or restore the reviewer lane.",
+                                "recommended_command": "python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json --refresh-bridge-heartbeat-if-stale",
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            snapshot = build_operator_console_snapshot(root)
+
+        self.assertIn(
+            "Codex reviewer heartbeat is stale; do not treat the current review loop as live.",
+            snapshot.warnings,
+        )
+        self.assertIn(
+            "Suggested review-channel command: python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json --refresh-bridge-heartbeat-if-stale",
+            snapshot.warnings,
+        )
+        self.assertEqual(snapshot.codex_lane.status_hint, "stale")
+        self.assertEqual(snapshot.operator_lane.status_hint, "stale")
+        self.assertEqual(
+            dict(snapshot.codex_lane.rows)["Attention"],
+            "Codex reviewer heartbeat is stale; do not treat the current review loop as live.",
+        )
+        self.assertIn(
+            "attention_status: reviewer_heartbeat_stale",
+            snapshot.codex_session_stats_text,
+        )
+
+    def test_build_operator_console_snapshot_prefers_rendered_screen_over_history_noise(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -513,10 +696,14 @@ class StateModuleTests(unittest.TestCase):
                 review_state_path=review_state_path,
             )
 
-        self.assertIn("This is a multi-agent conductor session", snapshot.codex_session_text)
+        self.assertIn(
+            "This is a multi-agent conductor session", snapshot.codex_session_text
+        )
         self.assertIn("⏺ Read 1 file (ctrl+o to expand)", snapshot.codex_session_text)
         self.assertIn("✻ Doing… (36s · ↓ 840 tokens)", snapshot.codex_session_text)
-        self.assertNotIn("⏺ Reading 1 file… (ctrl+o to expand)", snapshot.codex_session_text)
+        self.assertNotIn(
+            "⏺ Reading 1 file… (ctrl+o to expand)", snapshot.codex_session_text
+        )
         self.assertNotIn("✶ Doing… (35s · ↓ 839 tokens)", snapshot.codex_session_text)
 
     def test_load_live_session_trace_reconstructs_terminal_screen(self) -> None:
@@ -554,7 +741,9 @@ class StateModuleTests(unittest.TestCase):
         self.assertIsNotNone(snapshot)
         assert snapshot is not None
         self.assertIn("This is a multi-agent conductor session", snapshot.tail_text)
-        self.assertIn("Let me bootstrap by reading the required documents.", snapshot.tail_text)
+        self.assertIn(
+            "Let me bootstrap by reading the required documents.", snapshot.tail_text
+        )
         self.assertIn("⏺ Read 1 file (ctrl+o to expand)", snapshot.tail_text)
         self.assertIn("✻ Doing… (36s · ↓ 840 tokens)", snapshot.tail_text)
         self.assertIn("esc to interrupt", snapshot.tail_text)
@@ -563,7 +752,9 @@ class StateModuleTests(unittest.TestCase):
         self.assertIn("This is a multi-agent conductor session", snapshot.screen_text)
         self.assertIn("✻ Doing… (36s · ↓ 840 tokens)", snapshot.history_text)
 
-    def test_load_live_session_trace_filters_spinner_noise_and_private_csi(self) -> None:
+    def test_load_live_session_trace_filters_spinner_noise_and_private_csi(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             sessions_dir = root / "dev/reports/review_channel/latest/sessions"
@@ -586,7 +777,7 @@ class StateModuleTests(unittest.TestCase):
                 "Script started on 2026-03-09 12:24:29 +0000\n"
                 "\x1b[>7u"
                 "\x1b[2J"
-                "\x1b[1;1H⏺ Update(code_audit.md)"
+                "\x1b[1;1H⏺ Update(bridge.md)"
                 "\x1b[2;1HGood - the test file exists!"
                 "\x1b[3;1HContext left until auto-compact: 9%"
                 "\x1b[4;1H✢ thinking with high effort"
@@ -605,7 +796,9 @@ class StateModuleTests(unittest.TestCase):
         self.assertIn("Context left until auto-compact: 9%", snapshot.history_text)
         self.assertNotIn("thinking with high effort", snapshot.history_text.lower())
 
-    def test_load_live_session_trace_drops_partial_prefix_when_tail_is_truncated(self) -> None:
+    def test_load_live_session_trace_drops_partial_prefix_when_tail_is_truncated(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             sessions_dir = root / "dev/reports/review_channel/latest/sessions"
@@ -640,7 +833,9 @@ class StateModuleTests(unittest.TestCase):
         self.assertNotIn("partial-prefix-noise", snapshot.history_text)
         self.assertNotIn("partial-prefix-noise", snapshot.screen_text)
 
-    def test_record_operator_decision_writes_latest_and_timestamped_artifacts(self) -> None:
+    def test_record_operator_decision_writes_latest_and_timestamped_artifacts(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             approval = ApprovalRequest(
@@ -652,7 +847,7 @@ class StateModuleTests(unittest.TestCase):
                 policy_hint="operator_approval_required",
                 requested_action="git_push",
                 status="pending",
-                evidence_refs=("code_audit.md#L1",),
+                evidence_refs=("bridge.md#L1",),
                 context_pack_refs=(
                     ContextPackRef(
                         pack_kind="task_pack",
@@ -668,7 +863,9 @@ class StateModuleTests(unittest.TestCase):
                 note="Approved for this one push only.",
             )
 
-            latest = json.loads(Path(artifact.latest_json_path).read_text(encoding="utf-8"))
+            latest = json.loads(
+                Path(artifact.latest_json_path).read_text(encoding="utf-8")
+            )
             latest_markdown = Path(artifact.latest_markdown_path).read_text(
                 encoding="utf-8"
             )
@@ -732,12 +929,20 @@ class StructuredLaneTests(unittest.TestCase):
         self.assertEqual(dict(lane.rows)["Session"], "codex-conductor [live]")
 
     def test_claude_lane_warning_when_paused(self) -> None:
-        sections = {"Claude Status": "- coding paused", "Claude Questions": "", "Claude Ack": ""}
+        sections = {
+            "Claude Status": "- coding paused",
+            "Claude Questions": "",
+            "Claude Ack": "",
+        }
         lane = build_claude_lane(sections)
         self.assertEqual(lane.status_hint, "warning")
 
     def test_claude_lane_active_when_coding(self) -> None:
-        sections = {"Claude Status": "- coding in progress", "Claude Questions": "", "Claude Ack": ""}
+        sections = {
+            "Claude Status": "- coding in progress",
+            "Claude Questions": "",
+            "Claude Ack": "",
+        }
         lane = build_claude_lane(sections)
         self.assertEqual(lane.status_hint, "active")
 
@@ -773,9 +978,14 @@ class StructuredLaneTests(unittest.TestCase):
 
     def test_operator_lane_warning_when_approvals_pending(self) -> None:
         approval = ApprovalRequest(
-            packet_id="pkt-1", from_agent="codex", to_agent="operator",
-            summary="test", body="", policy_hint="required",
-            requested_action="push", status="pending",
+            packet_id="pkt-1",
+            from_agent="codex",
+            to_agent="operator",
+            summary="test",
+            body="",
+            policy_hint="required",
+            requested_action="push",
+            status="pending",
         )
         lane = build_operator_lane({}, (approval,), None)
         self.assertEqual(lane.status_hint, "warning")
@@ -790,7 +1000,7 @@ class StructuredLaneTests(unittest.TestCase):
     def test_snapshot_includes_structured_lanes(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         self.assertIsNotNone(snapshot.codex_lane)
@@ -916,7 +1126,7 @@ class CommandBuilderTests(unittest.TestCase):
             policy_hint="operator_approval_required",
             requested_action="git_push",
             status="pending",
-            evidence_refs=("code_audit.md#L1",),
+            evidence_refs=("bridge.md#L1",),
             context_pack_refs=(
                 ContextPackRef(
                     pack_kind="task_pack",
@@ -939,15 +1149,17 @@ class CommandBuilderTests(unittest.TestCase):
         approval_json = command[command.index("--approval-json") + 1]
         payload = json.loads(approval_json)
         self.assertEqual(payload["packet_id"], "pkt-1")
-        self.assertEqual(payload["evidence_refs"], ["code_audit.md#L1"])
+        self.assertEqual(payload["evidence_refs"], ["bridge.md#L1"])
         self.assertEqual(payload["context_pack_refs"][0]["pack_kind"], "task_pack")
 
     def test_render_command_returns_shell_string(self) -> None:
-        rendered = render_command(build_rollover_command(
-            threshold_pct=80,
-            await_ack_seconds=90,
-            live=False,
-        ))
+        rendered = render_command(
+            build_rollover_command(
+                threshold_pct=80,
+                await_ack_seconds=90,
+                live=False,
+            )
+        )
         self.assertIn("--rollover-threshold-pct 80", rendered)
         self.assertIn("--dry-run", rendered)
 
@@ -1085,9 +1297,13 @@ class CommandBuilderTests(unittest.TestCase):
 class WorkflowPresetTests(unittest.TestCase):
     def test_default_workflow_preset_is_operator_console(self) -> None:
         self.assertEqual(DEFAULT_WORKFLOW_PRESET_ID, "operator_console")
-        self.assertEqual(resolve_workflow_preset(DEFAULT_WORKFLOW_PRESET_ID).mp_scope, "MP-359")
+        self.assertEqual(
+            resolve_workflow_preset(DEFAULT_WORKFLOW_PRESET_ID).mp_scope, "MP-359"
+        )
 
-    def test_available_workflow_presets_include_multiple_active_plan_scopes(self) -> None:
+    def test_available_workflow_presets_include_multiple_active_plan_scopes(
+        self,
+    ) -> None:
         preset_ids = {preset.preset_id for preset in available_workflow_presets()}
         self.assertIn("operator_console", preset_ids)
         self.assertIn("continuous_swarm", preset_ids)
@@ -1103,7 +1319,7 @@ class WorkflowPresetTests(unittest.TestCase):
             policy_hint="operator_approval_required",
             requested_action="git_push",
             status="pending",
-            evidence_refs=("code_audit.md#L1",),
+            evidence_refs=("bridge.md#L1",),
             context_pack_refs=(
                 ContextPackRef(
                     pack_kind="task_pack",
@@ -1201,7 +1417,7 @@ class ActivityAssistTests(unittest.TestCase):
     def test_build_audit_draft_includes_observed_snapshot_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -1221,7 +1437,7 @@ class ActivityAssistTests(unittest.TestCase):
     def test_build_help_draft_mentions_operator_next_step(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         draft = build_assist_draft(snapshot, mode="help")
@@ -1232,7 +1448,7 @@ class ActivityAssistTests(unittest.TestCase):
     def test_build_assist_draft_rejects_unknown_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         with self.assertRaises(ValueError):
@@ -1241,7 +1457,7 @@ class ActivityAssistTests(unittest.TestCase):
     def test_build_summary_draft_targets_selected_provider_and_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         draft = build_summary_draft(
@@ -1259,7 +1475,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_overview_summarizes_next_step(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(snapshot, report_id="overview")
@@ -1270,7 +1486,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_technical_mode_keeps_signal_section(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(
@@ -1280,10 +1496,12 @@ class ActivityReportTests(unittest.TestCase):
         )
         self.assertIn("Signals used", report.body)
 
-    def test_build_activity_report_simple_mode_marks_plain_language_snapshot(self) -> None:
+    def test_build_activity_report_simple_mode_marks_plain_language_snapshot(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(
@@ -1297,7 +1515,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_approvals_mentions_queue(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -1315,7 +1533,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_summary_draft_respects_selected_audience_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         draft = build_summary_draft(
@@ -1329,7 +1547,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_quality_clean_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(snapshot, report_id="quality")
@@ -1341,11 +1559,13 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_quality_technical_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(
-            snapshot, report_id="quality", audience_mode="technical",
+            snapshot,
+            report_id="quality",
+            audience_mode="technical",
         )
         self.assertIn("Guard pipeline coverage", report.body)
         self.assertIn("code_shape", report.body)
@@ -1354,11 +1574,13 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_quality_simple_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             snapshot = build_operator_console_snapshot(root)
 
         report = build_activity_report(
-            snapshot, report_id="quality", audience_mode="simple",
+            snapshot,
+            report_id="quality",
+            audience_mode="simple",
         )
         self.assertIn("quality signals visible right now", report.body.lower())
         self.assertIn("devctl report command", report.body)
@@ -1402,7 +1624,9 @@ class ActivityReportTests(unittest.TestCase):
             ),
         )
 
-        report = build_activity_report(snapshot, report_id="quality", audience_mode="technical")
+        report = build_activity_report(
+            snapshot, report_id="quality", audience_mode="technical"
+        )
 
         self.assertIn("Guard failures: 3", report.body)
         self.assertIn("Top scored hotspots:", report.body)
@@ -1411,7 +1635,7 @@ class ActivityReportTests(unittest.TestCase):
     def test_build_activity_report_quality_with_warnings(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "code_audit.md").write_text(_bridge_text(), encoding="utf-8")
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
             review_state_path = root / "review_state.json"
             review_state_path.write_text(
                 json.dumps(_review_state_json()),
@@ -1425,6 +1649,34 @@ class ActivityReportTests(unittest.TestCase):
         report = build_activity_report(snapshot, report_id="quality")
         self.assertIn("quality signal", report.summary)
         self.assertIn("Recommended next step", report.body)
+
+    def test_build_activity_report_watchdog_uses_shared_summary_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
+            _write_watchdog_summary(root)
+            snapshot = build_operator_console_snapshot(root)
+
+        report = build_activity_report(
+            snapshot,
+            report_id="watchdog",
+            audience_mode="technical",
+        )
+
+        self.assertEqual(report.report_id, "watchdog")
+        self.assertEqual(report.title, "Watchdog Report")
+        self.assertEqual(
+            report.summary, "3 episodes | 67% accepted | 33% noisy/skipped"
+        )
+        self.assertIn("shared guarded-coding summary artifact", report.body)
+        self.assertIn("Provider split:", report.body)
+        self.assertIn("- codex: 2 episode(s)", report.body)
+        self.assertIn("Top guard families:", report.body)
+        self.assertIn(
+            "- python: 2 episode(s), 50% accepted, avg green 14.00s", report.body
+        )
+        self.assertIn("Artifact provenance:", report.body)
+        self.assertIn("Trigger command: devctl:data-science", report.body)
 
     def test_resolve_report_option_quality(self) -> None:
         option = resolve_report_option("quality")

@@ -19,10 +19,52 @@ class ScriptCatalogTests(unittest.TestCase):
         filenames = list(script_catalog.CHECK_SCRIPT_FILES.values())
         self.assertEqual(len(filenames), len(set(filenames)))
 
-    def test_legacy_rewrite_targets_match_relative_paths(self) -> None:
+    def test_all_probe_catalog_paths_exist(self) -> None:
+        for relative in script_catalog.PROBE_SCRIPT_RELATIVE_PATHS.values():
+            path = script_catalog.REPO_ROOT / relative
+            self.assertTrue(path.is_file(), f"missing probe script path: {path}")
+
+    def test_probe_script_files_have_unique_filenames(self) -> None:
+        filenames = list(script_catalog.PROBE_SCRIPT_FILES.values())
+        self.assertEqual(len(filenames), len(set(filenames)))
+
+    def test_probe_mixed_concerns_is_registered(self) -> None:
+        self.assertIn("probe_mixed_concerns", script_catalog.PROBE_SCRIPT_FILES)
+        self.assertEqual(
+            script_catalog.PROBE_SCRIPT_FILES["probe_mixed_concerns"],
+            "probe_mixed_concerns.py",
+        )
+        self.assertEqual(
+            script_catalog.probe_script_cmd("probe_mixed_concerns")[-1],
+            "dev/scripts/checks/probe_mixed_concerns.py",
+        )
+
+    def test_probe_term_consistency_is_registered(self) -> None:
+        self.assertIn("probe_term_consistency", script_catalog.PROBE_SCRIPT_FILES)
+        self.assertEqual(
+            script_catalog.PROBE_SCRIPT_FILES["probe_term_consistency"],
+            "probe_term_consistency.py",
+        )
+        self.assertEqual(
+            script_catalog.probe_script_cmd("probe_term_consistency")[-1],
+            "dev/scripts/checks/probe_term_consistency.py",
+        )
+
+    def test_legacy_check_rewrite_targets_match_relative_paths(self) -> None:
         expected_targets = set(script_catalog.CHECK_SCRIPT_RELATIVE_PATHS.values())
         rewrite_targets = set(script_catalog.LEGACY_CHECK_SCRIPT_REWRITES.values())
         self.assertEqual(rewrite_targets, expected_targets)
+
+    def test_legacy_entrypoint_rewrite_targets_exist(self) -> None:
+        for relative in script_catalog.LEGACY_ENTRYPOINT_SCRIPT_REWRITES.values():
+            path = script_catalog.REPO_ROOT / relative
+            self.assertTrue(path.is_file(), f"missing legacy entrypoint target: {path}")
+
+    def test_aggregate_legacy_rewrite_map_includes_checks_and_entrypoints(self) -> None:
+        expected_keys = set(script_catalog.LEGACY_CHECK_SCRIPT_REWRITES) | set(
+            script_catalog.LEGACY_ENTRYPOINT_SCRIPT_REWRITES
+        )
+        self.assertEqual(set(script_catalog.LEGACY_SCRIPT_PATH_REWRITES), expected_keys)
 
 
 if __name__ == "__main__":

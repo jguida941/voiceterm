@@ -15,19 +15,8 @@ from ..mobile_status_views import (
     view_payload,
     write_projection_bundle,
 )
-from ..review_channel.events import (
-    event_state_exists,
-    load_or_refresh_event_bundle,
-    resolve_artifact_paths,
-)
-from ..review_channel.event_store import (
-    build_bridge_status_fallback_warning,
-    summarize_review_state_errors,
-)
-from ..review_channel.state import (
-    projection_paths_to_dict,
-    refresh_status_snapshot,
-)
+from ..repo_packs.review_helpers import load_mobile_review_state
+from ..runtime import ControlStateContext, build_control_state
 
 
 def _iso_z(value: datetime) -> str:
@@ -65,7 +54,7 @@ def run(args) -> int:
     warnings: list[str] = []
     errors: list[str] = []
 
-    repo_root = REPO_ROOT.resolve()
+    repo_root = Path(getattr(args, "repo_root", None) or REPO_ROOT).resolve()
     phone_input_path = _resolve_path(str(args.phone_json))
     review_channel_path = _resolve_path(str(args.review_channel_path))
     bridge_path = _resolve_path(str(args.bridge_path))
@@ -79,75 +68,18 @@ def run(args) -> int:
         warnings.extend(load_errors)
         controller_payload = {}
 
-    review_payload: dict[str, Any] = {}
-    review_projection_files: dict[str, str] | None = None
-    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
     execution_mode = getattr(args, "execution_mode", "auto")
-    bridge_active = bridge_path.exists()
-    use_event_path = (
-        execution_mode != "markdown-bridge"
-        and not (execution_mode == "auto" and bridge_active)
-        and event_state_exists(artifact_paths)
+    review_result = load_mobile_review_state(
+        repo_root,
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        review_status_dir=review_status_dir,
+        execution_mode=execution_mode,
     )
-    fallback_warning: str | None = None
-    review_full_path: Path | None = None
-    if use_event_path:
-        try:
-            bundle = load_or_refresh_event_bundle(
-                repo_root=repo_root,
-                review_channel_path=review_channel_path,
-                artifact_paths=artifact_paths,
-            )
-        except (ValueError, OSError) as exc:
-            fallback_warning = build_bridge_status_fallback_warning(str(exc))
-        else:
-            state_errors = summarize_review_state_errors(bundle.review_state)
-            if state_errors is None:
-                warnings.extend(bundle.review_state.get("warnings", []))
-                review_projection_files = projection_paths_to_dict(
-                    bundle.projection_paths
-                )
-                review_full_path = Path(bundle.projection_paths.full_path)
-                review_payload, load_errors = _load_payload(
-                    review_full_path,
-                    label="review status projection",
-                )
-                if load_errors:
-                    review_payload = {}
-                    review_projection_files = None
-                    review_full_path = None
-                    fallback_warning = build_bridge_status_fallback_warning(
-                        "; ".join(load_errors)
-                    )
-            else:
-                fallback_warning = build_bridge_status_fallback_warning(state_errors)
-    if review_full_path is None:
-        try:
-            status_snapshot = refresh_status_snapshot(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
-                review_channel_path=review_channel_path,
-                output_root=review_status_dir,
-            )
-        except (ValueError, OSError) as exc:
-            if fallback_warning is not None:
-                errors.append(fallback_warning)
-                errors.append(f"Markdown-bridge fallback unavailable: {exc}")
-            else:
-                errors.append(str(exc))
-        else:
-            if fallback_warning is not None:
-                warnings.append(fallback_warning)
-            warnings.extend(status_snapshot.warnings)
-            review_projection_files = projection_paths_to_dict(
-                status_snapshot.projection_paths
-            )
-            review_full_path = Path(status_snapshot.projection_paths.full_path)
-            review_payload, load_errors = _load_payload(
-                review_full_path,
-                label="review status projection",
-            )
-            errors.extend(load_errors)
+    review_payload = review_result.review_payload
+    review_projection_files = review_result.review_projection_files
+    warnings.extend(review_result.warnings)
+    errors.extend(review_result.errors)
 
     if not controller_payload and not review_payload:
         errors.append(
@@ -157,19 +89,33 @@ def run(args) -> int:
     merged_payload: dict[str, Any] = {}
     if not errors:
         approval_mode = normalize_approval_mode(getattr(args, "approval_mode", None))
+        approval_policy = build_approval_policy_payload(approval_mode)
+        source_paths = {
+            "phone_input_path": str(phone_input_path),
+            "review_channel_path": str(review_channel_path),
+            "bridge_path": str(bridge_path),
+            "review_status_dir": str(review_status_dir),
+        }
+        control_state = build_control_state(
+            controller_payload=controller_payload,
+            review_payload=review_payload,
+            context=ControlStateContext(
+                approval_policy=approval_policy,
+                sources=source_paths,
+                timestamp=_iso_z(datetime.now(timezone.utc)),
+                warnings=tuple(warnings),
+                errors=tuple(errors),
+            ),
+        )
         merged_payload = {
             "schema_version": 1,
             "command": "mobile-status",
             "timestamp": _iso_z(datetime.now(timezone.utc)),
-            "approval_policy": build_approval_policy_payload(approval_mode),
-            "sources": {
-                "phone_input_path": str(phone_input_path),
-                "review_channel_path": str(review_channel_path),
-                "bridge_path": str(bridge_path),
-                "review_status_dir": str(review_status_dir),
-            },
+            "approval_policy": approval_policy,
+            "sources": source_paths,
             "controller_payload": controller_payload,
             "review_payload": review_payload,
+            "control_state": control_state.to_dict(),
         }
 
     selected_view = view_payload(merged_payload, str(args.view)) if not errors else {}

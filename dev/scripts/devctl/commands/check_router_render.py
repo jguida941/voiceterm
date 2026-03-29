@@ -23,6 +23,38 @@ def render_markdown(report: dict) -> str:
         lines.append("## Why This Lane")
         for reason in report["reasons"]:
             lines.append(f"- {reason}")
+    rule_summary = str(report.get("rule_summary") or "").strip()
+    if rule_summary:
+        lines.append("")
+        lines.append("## Rule Summary")
+        lines.append(f"- {rule_summary}")
+    match_evidence = report.get("match_evidence")
+    if isinstance(match_evidence, list) and match_evidence:
+        lines.append("")
+        lines.append("## Match Evidence")
+        for row in match_evidence:
+            if not isinstance(row, dict):
+                continue
+            lines.append(
+                f"- `{row.get('rule_id', 'rule')}`: {row.get('summary', '')}"
+            )
+            evidence = row.get("evidence")
+            if isinstance(evidence, list) and evidence:
+                lines.append(f"  evidence: {' | '.join(str(item) for item in evidence)}")
+    rejected_rule_traces = report.get("rejected_rule_traces")
+    if isinstance(rejected_rule_traces, list) and rejected_rule_traces:
+        lines.append("")
+        lines.append("## Rejected Rules")
+        for row in rejected_rule_traces:
+            if not isinstance(row, dict):
+                continue
+            lines.append(
+                f"- `{row.get('rule_id', 'rule')}`: {row.get('summary', '')}"
+            )
+            lines.append(f"  rejected_because: {row.get('rejected_because', '')}")
+            evidence = row.get("evidence")
+            if isinstance(evidence, list) and evidence:
+                lines.append(f"  evidence: {' | '.join(str(item) for item in evidence)}")
 
     if report["risk_addons"]:
         lines.append("")

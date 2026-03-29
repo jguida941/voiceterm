@@ -7,25 +7,54 @@ import argparse
 import json
 import re
 import sys
-from pathlib import Path
 
 try:
-    from dev.scripts.checks.active_plan_contract import (
+    from dev.scripts.checks.active_plan.contract import (
         EXECUTION_PLAN_MARKER,
         validate_execution_plan_contract,
     )
-    from dev.scripts.checks.active_plan_snapshot import (
+    from dev.scripts.checks.active_plan.sync_report import (
+        append_issue_message,
+        collect_active_doc_state,
+        collect_discovery_gaps,
+        collect_registry_state,
+        collect_spec_sync_issues,
+        parse_registry_rows,
+        validate_required_registry_rows,
+    )
+    from dev.scripts.checks.active_plan.snapshot import (
         latest_git_semver_tag,
+        parse_master_plan_snapshot,
         read_cargo_release_tag,
+        read_master_plan_text,
+        validate_snapshot_policy,
     )
 except ModuleNotFoundError:
-    from active_plan_contract import (
+    from active_plan.contract import (
         EXECUTION_PLAN_MARKER,
         validate_execution_plan_contract,
     )
-    from active_plan_snapshot import latest_git_semver_tag, read_cargo_release_tag
+    from active_plan.sync_report import (
+        append_issue_message,
+        collect_active_doc_state,
+        collect_discovery_gaps,
+        collect_registry_state,
+        collect_spec_sync_issues,
+        parse_registry_rows,
+        validate_required_registry_rows,
+    )
+    from active_plan.snapshot import (
+        latest_git_semver_tag,
+        parse_master_plan_snapshot,
+        read_cargo_release_tag,
+        read_master_plan_text,
+        validate_snapshot_policy,
+    )
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 ACTIVE_DIR = REPO_ROOT / "dev/active"
 INDEX_PATH = ACTIVE_DIR / "INDEX.md"
 MASTER_PLAN_PATH = ACTIVE_DIR / "MASTER_PLAN.md"
@@ -94,7 +123,6 @@ REQUIRED_REGISTRY_ROWS = {
 
 REQUIRED_DISCOVERY_REFERENCES = [
     {"path": "AGENTS.md", "tokens": ["dev/active/INDEX.md"]},
-    {"path": "DEV_INDEX.md", "tokens": ["dev/active/INDEX.md"]},
     {"path": "dev/README.md", "tokens": ["active/INDEX.md", "dev/active/INDEX.md"]},
 ]
 
@@ -125,79 +153,6 @@ PHASE_HEADING_PATTERN = re.compile(
     r"^##+\s+.*\bPhas(?:e|ed)\b", re.IGNORECASE | re.MULTILINE
 )
 
-
-def _strip_code_ticks(value: str) -> str:
-    value = value.strip()
-    if value.startswith("`") and value.endswith("`"):
-        return value[1:-1]
-    return value
-
-
-def _parse_registry_rows(index_text: str) -> list[dict]:
-    rows: list[dict] = []
-    for line in index_text.splitlines():
-        if not line.lstrip().startswith("|"):
-            continue
-        columns = [col.strip() for col in line.strip().split("|")[1:-1]]
-        if len(columns) < 5:
-            continue
-        first = columns[0].lower()
-        if first == "path" or set(first) <= {"-", ":"}:
-            continue
-        rows.append(
-            {
-                "path": _strip_code_ticks(columns[0]),
-                "role": _strip_code_ticks(columns[1]),
-                "authority": _strip_code_ticks(columns[2]),
-                "mp_scope": _strip_code_ticks(columns[3]),
-                "when_read": _strip_code_ticks(columns[4]),
-            }
-        )
-    return rows
-
-
-def _expand_mp_ranges(text: str) -> set[str]:
-    mp_ids: set[str] = set()
-    for value_s in re.findall(r"MP-(\d{3})", text):
-        mp_ids.add(f"MP-{value_s}")
-    for start_s, end_s in re.findall(r"MP-(\d{3})\.\.MP-(\d{3})", text):
-        start = int(start_s)
-        end = int(end_s)
-        if start > end:
-            start, end = end, start
-        for value in range(start, end + 1):
-            mp_ids.add(f"MP-{value:03d}")
-    return mp_ids
-
-
-def _extract_scope_section(text: str) -> str:
-    match = re.search(r"^## Scope\s*$([\s\S]*?)(?=^##\s)", text, re.MULTILINE)
-    if match is None:
-        return ""
-    return match.group(1)
-
-
-def _resolve_spec_range_ids(spec_text: str, *, index_scope_ids: set[str]) -> set[str]:
-    mirror_marker = "execution mirrored in `dev/active/MASTER_PLAN.md`"
-    mirror_line = next(
-        (line for line in spec_text.splitlines() if mirror_marker in line),
-        "",
-    )
-    spec_range_ids = _expand_mp_ranges(mirror_line)
-    if spec_range_ids:
-        return spec_range_ids
-
-    scope_section = _extract_scope_section(spec_text)
-    spec_range_ids = _expand_mp_ranges(scope_section)
-    if spec_range_ids:
-        return spec_range_ids
-
-    if EXECUTION_PLAN_MARKER in spec_text and index_scope_ids:
-        return set(index_scope_ids)
-
-    return _expand_mp_ranges(spec_text)
-
-
 def _build_report() -> dict:
     errors: list[str] = []
     warnings: list[str] = []
@@ -210,45 +165,23 @@ def _build_report() -> dict:
         }
 
     index_text = INDEX_PATH.read_text(encoding="utf-8")
-    registry_rows = _parse_registry_rows(index_text)
-
+    registry_rows = parse_registry_rows(index_text)
     if not registry_rows:
         errors.append("No registry rows found in dev/active/INDEX.md.")
-
-    registry_by_path: dict[str, dict] = {}
-    duplicate_paths: list[str] = []
-    invalid_role_paths: list[str] = []
-    invalid_authority_paths: list[str] = []
-    missing_registry_files: list[str] = []
-
-    for row in registry_rows:
-        path = row["path"]
-        if path in registry_by_path:
-            duplicate_paths.append(path)
-        registry_by_path[path] = row
-        if row["role"] not in ALLOWED_ROLES:
-            invalid_role_paths.append(f"{path} ({row['role']})")
-        if row["authority"] not in ALLOWED_AUTHORITIES:
-            invalid_authority_paths.append(f"{path} ({row['authority']})")
-        target = REPO_ROOT / path
-        if not target.exists():
-            missing_registry_files.append(path)
-
-    active_markdown_files = sorted(
-        str(path.relative_to(REPO_ROOT))
-        for path in ACTIVE_DIR.glob("*.md")
-        if path.name != "INDEX.md"
+    registry_state = collect_registry_state(
+        registry_rows,
+        repo_root=REPO_ROOT,
+        allowed_roles=ALLOWED_ROLES,
+        allowed_authorities=ALLOWED_AUTHORITIES,
     )
-    registry_paths = sorted(
-        path for path in registry_by_path if path != "dev/active/INDEX.md"
+    registry_by_path = registry_state["registry_by_path"]
+    active_doc_state = collect_active_doc_state(
+        repo_root=REPO_ROOT,
+        active_dir=ACTIVE_DIR,
+        registry_by_path=registry_by_path,
     )
-
-    unindexed_active_files = sorted(
-        path for path in active_markdown_files if path not in registry_by_path
-    )
-    registry_paths_not_active = sorted(
-        path for path in registry_paths if path not in active_markdown_files
-    )
+    active_markdown_files = active_doc_state["active_markdown_files"]
+    registry_paths = active_doc_state["registry_paths"]
 
     tracker_paths = sorted(
         row["path"] for row in registry_rows if row["role"] == "tracker"
@@ -258,27 +191,14 @@ def _build_report() -> dict:
             "Registry must declare exactly one tracker and it must be dev/active/MASTER_PLAN.md."
         )
 
-    missing_required_rows: list[str] = []
-    required_row_mismatches: list[str] = []
-    for path, expected in REQUIRED_REGISTRY_ROWS.items():
-        row = registry_by_path.get(path)
-        if not row:
-            missing_required_rows.append(path)
-            continue
-        for key, expected_value in expected.items():
-            actual_value = row.get(key)
-            if actual_value != expected_value:
-                required_row_mismatches.append(
-                    f"{path} expected {key}={expected_value}, found {actual_value}"
-                )
+    missing_required_rows, required_row_mismatches = validate_required_registry_rows(
+        registry_by_path,
+        required_registry_rows=REQUIRED_REGISTRY_ROWS,
+    )
+    master_plan_text, master_plan_errors = read_master_plan_text(MASTER_PLAN_PATH)
+    errors.extend(master_plan_errors)
 
-    if not MASTER_PLAN_PATH.exists():
-        errors.append("Missing dev/active/MASTER_PLAN.md.")
-        master_plan_text = ""
-    else:
-        master_plan_text = MASTER_PLAN_PATH.read_text(encoding="utf-8")
-
-    snapshot_values = {
+    snapshot_values: dict[str, str | None] = {
         "status_date": None,
         "last_tagged_release": None,
         "last_tagged_release_date": None,
@@ -286,281 +206,161 @@ def _build_report() -> dict:
         "active_development_branch": None,
         "release_branch": None,
     }
-    latest_git_tag = None
     cargo_release_tag = read_cargo_release_tag(REPO_ROOT / "rust/Cargo.toml")
-    snapshot_policy_warnings: list[str] = []
-
+    latest_git_tag = None
     if master_plan_text:
-        snapshot_patterns = [
-            (
-                "status_date",
-                r"^## Status Snapshot \(([0-9]{4}-[0-9]{2}-[0-9]{2})\)\s*$",
-                "MASTER_PLAN status snapshot heading is missing or malformed.",
-            ),
-            (
-                "last_tagged_release",
-                r"^-\s+Last tagged release:\s+`(v[0-9]+\.[0-9]+\.[0-9]+)`\s+\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)\s*$",
-                "MASTER_PLAN last tagged release line is missing or malformed.",
-            ),
-            (
-                "current_release_target",
-                r"^-\s+Current release target:\s+`([^`]+)`\s*$",
-                "MASTER_PLAN current release target line is missing or malformed.",
-            ),
-            (
-                "active_development_branch",
-                r"^-\s+Active development branch:\s+`([^`]+)`\s*$",
-                "MASTER_PLAN active development branch line is missing or malformed.",
-            ),
-            (
-                "release_branch",
-                r"^-\s+Release branch:\s+`([^`]+)`\s*$",
-                "MASTER_PLAN release branch line is missing or malformed.",
-            ),
-        ]
-        for key, pattern, message in snapshot_patterns:
-            match = re.search(pattern, master_plan_text, re.MULTILINE)
-            if not match:
-                errors.append(message)
-                continue
-            snapshot_values[key] = match.group(1)
-            if key == "last_tagged_release":
-                snapshot_values["last_tagged_release_date"] = match.group(2)
-
-        release_tag = snapshot_values["last_tagged_release"]
-        if release_tag and snapshot_values["current_release_target"]:
-            expected_target = f"post-{release_tag} planning"
-            if snapshot_values["current_release_target"] != expected_target:
-                errors.append(
-                    "MASTER_PLAN current release target must match "
-                    f"`{expected_target}` for snapshot release `{release_tag}`."
-                )
-
-        if snapshot_values["active_development_branch"] and (
-            snapshot_values["active_development_branch"]
-            != EXPECTED_ACTIVE_DEVELOPMENT_BRANCH
-        ):
-            errors.append(
-                "MASTER_PLAN active development branch must be "
-                f"`{EXPECTED_ACTIVE_DEVELOPMENT_BRANCH}`."
-            )
-        if (
-            snapshot_values["release_branch"]
-            and snapshot_values["release_branch"] != EXPECTED_RELEASE_BRANCH
-        ):
-            errors.append(
-                f"MASTER_PLAN release branch must be `{EXPECTED_RELEASE_BRANCH}`."
-            )
-
+        snapshot_values, snapshot_errors = parse_master_plan_snapshot(master_plan_text)
+        errors.extend(snapshot_errors)
         latest_git_tag, git_tag_error = latest_git_semver_tag(
             REPO_ROOT, SEMVER_TAG_PATTERN
         )
         if git_tag_error:
             warnings.append(f"Unable to read latest git release tag: {git_tag_error}")
-
-        valid_snapshot_tags = {
-            tag for tag in (latest_git_tag, cargo_release_tag) if tag
-        }
-        if (
-            release_tag
-            and valid_snapshot_tags
-            and release_tag not in valid_snapshot_tags
-        ):
-            errors.append(
-                "MASTER_PLAN last tagged release must match either the latest git semver tag "
-                "or the current Cargo release version: "
-                f"snapshot={release_tag}, latest_git={latest_git_tag or 'none'}, "
-                f"cargo={cargo_release_tag or 'none'}."
-            )
-        elif (
-            release_tag
-            and latest_git_tag
-            and cargo_release_tag
-            and release_tag == cargo_release_tag
-            and release_tag != latest_git_tag
-        ):
-            snapshot_policy_warnings.append(
-                "Snapshot release matches Cargo version but is ahead of latest git tag "
-                "(expected during release prep before tagging)."
-            )
-
-    spec_missing_mirror_markers: list[str] = []
-    spec_missing_ranges: list[str] = []
-    spec_range_drift: list[str] = []
-    index_scope_missing: list[str] = []
-    index_scope_drift: list[str] = []
-    spec_missing_phase_headings: list[str] = []
-    spec_missing_master_links: list[str] = []
-    mirror_marker = "execution mirrored in `dev/active/MASTER_PLAN.md`"
-
-    for relative in SPEC_RANGE_PATHS:
-        spec_path = REPO_ROOT / relative
-        if not spec_path.exists():
-            continue
-        spec_text = spec_path.read_text(encoding="utf-8")
-        if (
-            mirror_marker not in spec_text
-            and EXECUTION_PLAN_MARKER not in spec_text
-        ):
-            spec_missing_mirror_markers.append(relative)
-        if not PHASE_HEADING_PATTERN.search(spec_text):
-            spec_missing_phase_headings.append(relative)
-        if relative not in master_plan_text:
-            spec_missing_master_links.append(relative)
-
-        index_row = registry_by_path.get(relative)
-        index_scope_ids = (
-            _expand_mp_ranges(index_row.get("mp_scope", "")) if index_row else set()
+        snapshot_policy_errors, snapshot_policy_warnings = validate_snapshot_policy(
+            snapshot_values,
+            expected_active_development_branch=EXPECTED_ACTIVE_DEVELOPMENT_BRANCH,
+            expected_release_branch=EXPECTED_RELEASE_BRANCH,
+            latest_git_tag=latest_git_tag,
+            cargo_release_tag=cargo_release_tag,
         )
-        spec_range_ids = _resolve_spec_range_ids(
-            spec_text,
-            index_scope_ids=index_scope_ids,
-        )
-        if not spec_range_ids:
-            spec_missing_ranges.append(relative)
-            continue
-        missing_from_master = sorted(
-            mp_id for mp_id in spec_range_ids if mp_id not in master_plan_text
-        )
-        if missing_from_master:
-            spec_range_drift.append(
-                f"{relative} -> missing in MASTER_PLAN: {', '.join(missing_from_master)}"
-            )
+        errors.extend(snapshot_policy_errors)
+        warnings.extend(snapshot_policy_warnings)
 
-        if not index_row:
-            continue
-        if not index_scope_ids:
-            index_scope_missing.append(relative)
-            continue
-        if index_scope_ids != spec_range_ids:
-            spec_only = sorted(spec_range_ids - index_scope_ids)
-            index_only = sorted(index_scope_ids - spec_range_ids)
-            details = []
-            if spec_only:
-                details.append("missing_in_index=" + ",".join(spec_only))
-            if index_only:
-                details.append("index_extra=" + ",".join(index_only))
-            index_scope_drift.append(f"{relative} ({'; '.join(details)})")
+    spec_issues = collect_spec_sync_issues(
+        repo_root=REPO_ROOT,
+        spec_range_paths=SPEC_RANGE_PATHS,
+        registry_by_path=registry_by_path,
+        master_plan_text=master_plan_text,
+        execution_plan_marker=EXECUTION_PLAN_MARKER,
+        phase_heading_pattern=PHASE_HEADING_PATTERN,
+    )
 
     (
         execution_plan_missing_rows,
         execution_plan_missing_markers,
         execution_plan_missing_sections,
+        execution_plan_missing_metadata_headers,
     ) = validate_execution_plan_contract(
         repo_root=REPO_ROOT,
         active_markdown_files=active_markdown_files,
         registry_by_path=registry_by_path,
     )
 
-    missing_discovery_refs: list[str] = []
-    for ref in REQUIRED_DISCOVERY_REFERENCES:
-        path = REPO_ROOT / ref["path"]
-        if not path.exists():
-            missing_discovery_refs.append(f"{ref['path']} (file missing)")
-            continue
-        text = path.read_text(encoding="utf-8")
-        if not any(token in text for token in ref["tokens"]):
-            missing_discovery_refs.append(ref["path"])
+    missing_discovery_refs, agent_marker_gaps = collect_discovery_gaps(
+        repo_root=REPO_ROOT,
+        required_discovery_refs=REQUIRED_DISCOVERY_REFERENCES,
+        required_agent_markers=REQUIRED_AGENT_MARKERS,
+    )
 
-    agent_marker_gaps: list[str] = []
-    agents_path = REPO_ROOT / "AGENTS.md"
-    if agents_path.exists():
-        agents_text = agents_path.read_text(encoding="utf-8")
-        for marker in REQUIRED_AGENT_MARKERS:
-            if marker not in agents_text:
-                agent_marker_gaps.append(marker)
-    else:
-        missing_discovery_refs.append("AGENTS.md (file missing)")
-
-    if duplicate_paths:
-        errors.append(
-            f"Duplicate registry rows: {', '.join(sorted(set(duplicate_paths)))}"
-        )
-    if invalid_role_paths:
-        errors.append(
-            f"Invalid registry roles: {', '.join(sorted(invalid_role_paths))}"
-        )
-    if invalid_authority_paths:
-        errors.append(
-            f"Invalid registry authorities: {', '.join(sorted(invalid_authority_paths))}"
-        )
-    if missing_registry_files:
-        errors.append(
-            f"Registry references missing files: {', '.join(sorted(missing_registry_files))}"
-        )
-    if unindexed_active_files:
-        errors.append(
-            f"Active markdown files missing from registry: {', '.join(unindexed_active_files)}"
-        )
-    if registry_paths_not_active:
-        errors.append(
-            f"Registry includes non-active paths: {', '.join(registry_paths_not_active)}"
-        )
-    if missing_required_rows:
-        errors.append(
-            f"Missing required registry rows: {', '.join(missing_required_rows)}"
-        )
-    if required_row_mismatches:
-        errors.append(f"Required row mismatches: {'; '.join(required_row_mismatches)}")
-    if spec_missing_mirror_markers:
-        errors.append(
-            "Spec docs missing master-plan mirror marker or execution-plan contract marker: "
-            + ", ".join(spec_missing_mirror_markers)
-        )
-    if spec_missing_phase_headings:
-        errors.append(
-            "Spec docs missing phase-structured headings: "
-            + ", ".join(spec_missing_phase_headings)
-        )
-    if spec_missing_master_links:
-        errors.append(
-            "Spec docs missing explicit MASTER_PLAN links: "
-            + ", ".join(spec_missing_master_links)
-        )
-    if spec_missing_ranges:
-        warnings.append(
-            "Spec docs missing MP scope declarations: " + ", ".join(spec_missing_ranges)
-        )
-    if spec_range_drift:
-        errors.append(
-            "Spec MP ranges not found in MASTER_PLAN: " + " | ".join(spec_range_drift)
-        )
-    if index_scope_missing:
-        errors.append(
-            "INDEX rows missing MP ranges for spec docs: "
-            + ", ".join(index_scope_missing)
-        )
-    if index_scope_drift:
-        errors.append(
-            "INDEX MP scope drift vs spec docs: " + " | ".join(index_scope_drift)
-        )
-    if execution_plan_missing_rows:
-        errors.append(
-            "Required execution-plan docs missing from INDEX registry: "
-            + ", ".join(execution_plan_missing_rows)
-        )
-    if execution_plan_missing_markers:
-        errors.append(
-            "Execution-plan marker missing in required docs: "
-            + ", ".join(execution_plan_missing_markers)
-        )
-    if execution_plan_missing_sections:
-        errors.append(
-            "Execution-plan required sections missing: "
-            + " | ".join(sorted(set(execution_plan_missing_sections)))
-        )
-    if missing_discovery_refs:
-        errors.append(
-            "Missing active-index discovery references: "
-            + ", ".join(missing_discovery_refs)
-        )
-    if agent_marker_gaps:
-        errors.append(
-            "AGENTS active-plan onboarding markers missing: "
-            + ", ".join(agent_marker_gaps)
-        )
-    if snapshot_policy_warnings:
-        warnings.extend(snapshot_policy_warnings)
+    append_issue_message(
+        errors,
+        sorted(set(registry_state["duplicate_paths"])),
+        prefix="Duplicate registry rows: ",
+    )
+    append_issue_message(
+        errors,
+        sorted(registry_state["invalid_role_paths"]),
+        prefix="Invalid registry roles: ",
+    )
+    append_issue_message(
+        errors,
+        sorted(registry_state["invalid_authority_paths"]),
+        prefix="Invalid registry authorities: ",
+    )
+    append_issue_message(
+        errors,
+        sorted(registry_state["missing_registry_files"]),
+        prefix="Registry references missing files: ",
+    )
+    append_issue_message(
+        errors,
+        active_doc_state["unindexed_active_files"],
+        prefix="Active markdown files missing from registry: ",
+    )
+    append_issue_message(
+        errors,
+        active_doc_state["registry_paths_not_active"],
+        prefix="Registry includes non-active paths: ",
+    )
+    append_issue_message(
+        errors,
+        missing_required_rows,
+        prefix="Missing required registry rows: ",
+    )
+    append_issue_message(
+        errors,
+        required_row_mismatches,
+        prefix="Required row mismatches: ",
+        joiner="; ",
+    )
+    append_issue_message(
+        errors,
+        spec_issues["spec_missing_mirror_markers"],
+        prefix="Spec docs missing master-plan mirror marker or execution-plan contract marker: ",
+    )
+    append_issue_message(
+        errors,
+        spec_issues["spec_missing_phase_headings"],
+        prefix="Spec docs missing phase-structured headings: ",
+    )
+    append_issue_message(
+        errors,
+        spec_issues["spec_missing_master_links"],
+        prefix="Spec docs missing explicit MASTER_PLAN links: ",
+    )
+    append_issue_message(
+        warnings,
+        spec_issues["spec_missing_ranges"],
+        prefix="Spec docs missing MP scope declarations: ",
+    )
+    append_issue_message(
+        errors,
+        spec_issues["spec_range_drift"],
+        prefix="Spec MP ranges not found in MASTER_PLAN: ",
+        joiner=" | ",
+    )
+    append_issue_message(
+        errors,
+        spec_issues["index_scope_missing"],
+        prefix="INDEX rows missing MP ranges for spec docs: ",
+    )
+    append_issue_message(
+        errors,
+        spec_issues["index_scope_drift"],
+        prefix="INDEX MP scope drift vs spec docs: ",
+        joiner=" | ",
+    )
+    append_issue_message(
+        errors,
+        execution_plan_missing_rows,
+        prefix="Required execution-plan docs missing from INDEX registry: ",
+    )
+    append_issue_message(
+        errors,
+        execution_plan_missing_markers,
+        prefix="Execution-plan marker missing in required docs: ",
+    )
+    append_issue_message(
+        errors,
+        sorted(set(execution_plan_missing_sections)),
+        prefix="Execution-plan required sections missing: ",
+        joiner=" | ",
+    )
+    append_issue_message(
+        errors,
+        sorted(set(execution_plan_missing_metadata_headers)),
+        prefix="Execution-plan metadata headers missing: ",
+    )
+    append_issue_message(
+        errors,
+        missing_discovery_refs,
+        prefix="Missing active-index discovery references: ",
+    )
+    append_issue_message(
+        errors,
+        agent_marker_gaps,
+        prefix="AGENTS active-plan onboarding markers missing: ",
+    )
 
     return {
         "command": "check_active_plan_sync",

@@ -13,9 +13,7 @@ from .check_support import build_clippy_pedantic_collect_cmd
 
 
 def _maybe_refresh_pedantic(args) -> dict | None:
-    if not getattr(args, "pedantic", False) or not getattr(
-        args, "pedantic_refresh", False
-    ):
+    if not getattr(args, "pedantic", False) or not getattr(args, "pedantic_refresh", False):
         return None
     return run_cmd(
         "pedantic-refresh",
@@ -76,13 +74,16 @@ def run(args) -> int:
         rust_audit_head_ref=getattr(args, "head_ref", "HEAD"),
         include_quality_backlog=getattr(args, "quality_backlog", False),
         quality_backlog_top_n=getattr(args, "quality_backlog_top_n", 40),
-        quality_backlog_include_tests=getattr(
-            args, "quality_backlog_include_tests", False
-        ),
+        quality_backlog_include_tests=getattr(args, "quality_backlog_include_tests", False),
         include_python_guard_backlog=getattr(args, "python_guard_backlog", False),
         python_guard_backlog_top_n=getattr(args, "python_guard_backlog_top_n", 20),
         python_guard_since_ref=getattr(args, "since_ref", None),
         python_guard_head_ref=getattr(args, "head_ref", "HEAD"),
+        python_guard_policy_path=getattr(args, "quality_policy", None),
+        include_probe_report=getattr(args, "probe_report", False),
+        probe_since_ref=getattr(args, "since_ref", None),
+        probe_head_ref=getattr(args, "head_ref", "HEAD"),
+        probe_policy_path=getattr(args, "quality_policy", None),
         parallel=parallel_enabled,
     )
     pedantic_info = report.get("pedantic", {})

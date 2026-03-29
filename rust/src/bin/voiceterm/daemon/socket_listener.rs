@@ -14,7 +14,10 @@ use super::types::{ClientId, DaemonCommand};
 
 /// Tagged command from a specific client.
 pub(super) struct ClientCommand {
-    #[allow(dead_code, reason = "ClientId will be used for targeted per-client responses in follow-up work")]
+    #[allow(
+        dead_code,
+        reason = "ClientId will be used for targeted per-client responses in follow-up work"
+    )]
     pub client_id: ClientId,
     pub command: DaemonCommand,
 }
@@ -31,9 +34,17 @@ pub(super) async fn run_socket_listener(
             Ok((stream, _addr)) => {
                 let client_id = ClientId::new("unix");
                 let cmd_tx = cmd_tx.clone();
-                let event_rx = event_bus.subscribe();
+                let (event_rx, initial_event, initial_agent_list) =
+                    event_bus.subscribe_with_snapshot();
                 log_debug(&format!("daemon: client connected: {}", client_id.0));
-                tokio::spawn(handle_unix_client(stream, client_id, cmd_tx, event_rx));
+                tokio::spawn(handle_unix_client(
+                    stream,
+                    client_id,
+                    cmd_tx,
+                    event_rx,
+                    initial_event,
+                    initial_agent_list,
+                ));
             }
             Err(err) => {
                 log_debug(&format!("daemon: socket accept error: {err}"));
@@ -48,10 +59,24 @@ async fn handle_unix_client(
     client_id: ClientId,
     cmd_tx: mpsc::Sender<ClientCommand>,
     mut event_rx: tokio::sync::broadcast::Receiver<super::types::DaemonEvent>,
+    initial_event: Option<super::types::DaemonEvent>,
+    initial_agent_list: Option<super::types::DaemonEvent>,
 ) {
     let (reader, mut writer) = stream.into_split();
     let mut lines = BufReader::new(reader).lines();
     let cid = client_id.0.clone();
+
+    // Send lifecycle snapshot first, then agent roster, so late-attaching
+    // clients learn both daemon status and current agents.
+    for snapshot in [initial_event, initial_agent_list].into_iter().flatten() {
+        let snapshot_json = encode_event(&snapshot);
+        if writer.write_all(snapshot_json.as_bytes()).await.is_err() {
+            return;
+        }
+        if writer.write_all(b"\n").await.is_err() {
+            return;
+        }
+    }
 
     loop {
         tokio::select! {

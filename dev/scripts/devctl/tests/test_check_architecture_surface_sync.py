@@ -33,7 +33,6 @@ class CheckArchitectureSurfaceSyncTests(unittest.TestCase):
         self._write("dev/active/INDEX.md", "# index\n")
         self._write("dev/active/MASTER_PLAN.md", "# master plan\n")
         self._write("AGENTS.md", "# agents\n")
-        self._write("DEV_INDEX.md", "# dev index\n")
         self._write("dev/README.md", "# dev readme\n")
         self._write(
             "dev/scripts/devctl/script_catalog.py",
@@ -97,6 +96,19 @@ class CheckArchitectureSurfaceSyncTests(unittest.TestCase):
         self.assertTrue(report["ok"], report["violations"])
         self.assertEqual(report["violations"], [])
 
+    def test_check_script_allowlist_permits_intentionally_local_guard(self) -> None:
+        script_path = "dev/scripts/checks/check_command_source_validation.py"
+        self._write(script_path, "def main():\n    return 0\n")
+        self._write(
+            "dev/scripts/devctl/script_catalog.py",
+            'CHECK_SCRIPT_FILES = {"command_source_validation": "check_command_source_validation.py"}\n',
+        )
+
+        report = SCRIPT.build_report(repo_root=self.root, explicit_paths=[script_path])
+
+        self.assertTrue(report["ok"], report["violations"])
+        self.assertEqual(report["violations"], [])
+
     def test_devctl_command_requires_cli_listing_and_docs(self) -> None:
         command_path = "dev/scripts/devctl/commands/new_command.py"
         self._write(
@@ -109,6 +121,50 @@ class CheckArchitectureSurfaceSyncTests(unittest.TestCase):
         self.assertFalse(report["ok"])
         rules = {(item["zone"], item["rule"]) for item in report["violations"]}
         self.assertIn(("devctl-command", "missing-cli-import"), rules)
+        self.assertIn(("devctl-command", "missing-command-handler"), rules)
+
+    def test_nested_devctl_command_passes_with_alias_import_and_handler(self) -> None:
+        command_path = "dev/scripts/devctl/commands/governance/bootstrap.py"
+        self._write(command_path, "def run(args):\n    return 0\n")
+        self._write(
+            "dev/scripts/devctl/cli.py",
+            "from .commands.governance import (\n"
+            "    bootstrap as governance_bootstrap,\n"
+            ")\n\n"
+            "COMMAND_HANDLERS = {\n"
+            '    "governance-bootstrap": governance_bootstrap.run,\n'
+            "}\n",
+        )
+        self._write(
+            "dev/scripts/devctl/commands/listing.py",
+            'COMMANDS = ["governance-bootstrap"]\n',
+        )
+        self._write(
+            "dev/scripts/README.md",
+            "python3 dev/scripts/devctl.py governance-bootstrap --format md\n",
+        )
+
+        report = SCRIPT.build_report(repo_root=self.root, explicit_paths=[command_path])
+
+        self.assertTrue(report["ok"], report["violations"])
+        self.assertEqual(report["violations"], [])
+
+    def test_nested_devctl_command_alias_import_still_requires_handler(self) -> None:
+        command_path = "dev/scripts/devctl/commands/governance/bootstrap.py"
+        self._write(command_path, "def run(args):\n    return 0\n")
+        self._write(
+            "dev/scripts/devctl/cli.py",
+            "from .commands.governance import (\n"
+            "    bootstrap as governance_bootstrap,\n"
+            ")\n\n"
+            "COMMAND_HANDLERS = {}\n",
+        )
+
+        report = SCRIPT.build_report(repo_root=self.root, explicit_paths=[command_path])
+
+        self.assertFalse(report["ok"])
+        rules = {(item["zone"], item["rule"]) for item in report["violations"]}
+        self.assertNotIn(("devctl-command", "missing-cli-import"), rules)
         self.assertIn(("devctl-command", "missing-command-handler"), rules)
 
     def test_helper_command_module_without_run_entrypoint_is_skipped(self) -> None:

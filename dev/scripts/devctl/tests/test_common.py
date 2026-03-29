@@ -105,6 +105,34 @@ class RunWithLiveOutputTests(TestCase):
 
         terminate_mock.assert_called_once_with(process)
 
+    @patch("builtins.print")
+    @patch(
+        "dev.scripts.devctl.common._resolve_live_output_timeout_seconds",
+        return_value=0.5,
+    )
+    def test_parent_exit_does_not_wait_for_inherited_stdout_pipe(
+        self,
+        _timeout_mock,
+        _print_mock,
+    ) -> None:
+        script = "\n".join(
+            [
+                "import subprocess",
+                "import sys",
+                "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(2)'])",
+                "print('parent-exited', flush=True)",
+            ]
+        )
+
+        returncode, output_tail = common._run_with_live_output(
+            [sys.executable, "-c", script],
+            cwd=None,
+            env=None,
+        )
+
+        self.assertEqual(returncode, 0)
+        self.assertIn("parent-exited", output_tail)
+
 
 class FormatStepsMarkdownTests(TestCase):
     def test_format_steps_md_includes_failure_output_section(self) -> None:

@@ -11,27 +11,46 @@ import argparse
 import json
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 try:
     from check_bootstrap import (
+        REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         utc_timestamp,
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+        REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         utc_timestamp,
     )
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+if __package__:
+    from .mobile_relay_protocol.support import (
+        _DEFAULT_RUST_TYPES,
+        _DEFAULT_SWIFT_DAEMON,
+        _DEFAULT_SWIFT_RELAY,
+        compare_fields,
+        match_struct_pairs,
+        resolve_protocol_paths as _resolve_protocol_paths,
+    )
+else:
+    from mobile_relay_protocol.support import (
+        _DEFAULT_RUST_TYPES,
+        _DEFAULT_SWIFT_DAEMON,
+        _DEFAULT_SWIFT_RELAY,
+        compare_fields,
+        match_struct_pairs,
+        resolve_protocol_paths as _resolve_protocol_paths,
+    )
 
-RUST_TYPES_PATH = Path("rust/src/bin/voiceterm/daemon/types.rs")
-SWIFT_MODELS_PATH = Path(
-    "app/ios/VoiceTermMobile/Sources/VoiceTermMobileCore/MobileRelayModels.swift"
-)
+RUST_TYPES_PATH = Path(_DEFAULT_RUST_TYPES)
+SWIFT_MODELS_PATH = Path(_DEFAULT_SWIFT_RELAY)
+SWIFT_DAEMON_PATH = Path(_DEFAULT_SWIFT_DAEMON)
 
 # ---------------------------------------------------------------------------
 # Rust parsing
@@ -63,7 +82,6 @@ RUST_DERIVE_SERIALIZE_RE = re.compile(
     r"#\s*\[\s*derive\s*\((?P<body>.*?)\)\s*\]",
     re.DOTALL,
 )
-
 
 def _find_matching_brace(text: str, open_index: int) -> int | None:
     """Find the closing brace that matches the opening brace at open_index."""
@@ -119,7 +137,6 @@ def _find_matching_brace(text: str, open_index: int) -> int | None:
         index += 1
     return None
 
-
 def _prelude_text(text: str, match_start: int) -> str:
     """Extract attribute lines above a struct/enum declaration."""
     line_start = text.rfind("\n", 0, match_start)
@@ -136,14 +153,12 @@ def _prelude_text(text: str, match_start: int) -> str:
         block_start = prev_line_end
     return text[block_start:match_start]
 
-
 def _has_serialize_or_deserialize(prelude: str) -> bool:
     for m in RUST_DERIVE_SERIALIZE_RE.finditer(prelude):
         members = {tok.strip().rsplit("::", 1)[-1] for tok in m.group("body").split(",")}
         if "Serialize" in members or "Deserialize" in members:
             return True
     return False
-
 
 def parse_rust_structs(text: str) -> dict[str, dict]:
     """Extract serde-participating structs from Rust source text.
@@ -185,7 +200,6 @@ def parse_rust_structs(text: str) -> dict[str, dict]:
         structs[name] = {"fields": fields, "line": line}
 
     return structs
-
 
 def parse_rust_enum_variants(text: str) -> dict[str, dict]:
     """Extract serde-tagged enum variants and their struct fields.
@@ -244,7 +258,6 @@ def parse_rust_enum_variants(text: str) -> dict[str, dict]:
 
     return enums
 
-
 # ---------------------------------------------------------------------------
 # Swift parsing
 # ---------------------------------------------------------------------------
@@ -267,7 +280,6 @@ SWIFT_CODING_KEY_PLAIN_RE = re.compile(
 SWIFT_CODING_KEYS_BLOCK_RE = re.compile(
     r"enum\s+CodingKeys\s*:\s*String\s*,\s*CodingKey\s*\{",
 )
-
 
 def _find_swift_brace_end(text: str, open_index: int) -> int | None:
     """Find matching closing brace in Swift source."""
@@ -297,7 +309,6 @@ def _find_swift_brace_end(text: str, open_index: int) -> int | None:
                 return index
         index += 1
     return None
-
 
 def parse_swift_structs(text: str) -> dict[str, dict]:
     """Extract Codable structs from Swift source text.
@@ -352,7 +363,6 @@ def parse_swift_structs(text: str) -> dict[str, dict]:
 
     return structs
 
-
 # ---------------------------------------------------------------------------
 # Comparison logic
 # ---------------------------------------------------------------------------
@@ -360,64 +370,82 @@ def parse_swift_structs(text: str) -> dict[str, dict]:
 # Mapping from Rust struct name to expected Swift struct name. Only entries
 # where the names differ need to be listed; identical names are matched
 # automatically.
-RUST_TO_SWIFT_NAME_MAP: dict[str, str] = {}
-
-# Struct pairs that should be excluded from comparison (e.g. structs that
-# only exist on one side intentionally).
-IGNORED_STRUCTS: set[str] = {
-    "SessionId",
-    "ClientId",
-    "DaemonConfig",
-}
-
-
-def match_struct_pairs(
-    rust_structs: dict[str, dict],
-    swift_structs: dict[str, dict],
-) -> list[tuple[str, str]]:
-    """Return (rust_name, swift_name) pairs for structs present on both sides."""
-    pairs: list[tuple[str, str]] = []
-    for rust_name in sorted(rust_structs):
-        if rust_name in IGNORED_STRUCTS:
-            continue
-        swift_name = RUST_TO_SWIFT_NAME_MAP.get(rust_name, rust_name)
-        if swift_name in swift_structs:
-            pairs.append((rust_name, swift_name))
-    return pairs
-
-
-def compare_fields(
-    rust_fields: dict[str, str],
-    swift_fields: dict[str, str],
-) -> tuple[list[str], list[str]]:
-    """Compare wire-name sets between Rust and Swift.
-
-    Returns (rust_only, swift_only) lists of wire names present on only
-    one side.
-    """
-    rust_wires = set(rust_fields.keys())
-    swift_wires = set(swift_fields.keys())
-    return sorted(rust_wires - swift_wires), sorted(swift_wires - rust_wires)
-
-
 # ---------------------------------------------------------------------------
 # Report building
 # ---------------------------------------------------------------------------
 
-
 _UNSET = object()
 
 
-def build_report(
-    *,
-    repo_root: Path = REPO_ROOT,
-    rust_text: str | None | object = _UNSET,
-    swift_text: str | None | object = _UNSET,
-    mode: str = "full",
-    since_ref: str | None = None,
-    head_ref: str | None = None,
-    changed_paths: list[Path] | None = None,
+@dataclass(frozen=True)
+class ProtocolReportRequest:
+    repo_root: Path = REPO_ROOT
+    rust_text: str | None | object = _UNSET
+    swift_text: str | None | object = _UNSET
+    mode: str = "full"
+    since_ref: str | None = None
+    head_ref: str | None = None
+    changed_paths: list[Path] | None = None
+
+
+@dataclass(frozen=True)
+class ProtocolSourceRequest:
+    repo_root: Path
+    rust_path: Path
+    swift_path: Path
+    swift_daemon_path: Path
+    rust_text: str | None | object
+    swift_text: str | None | object
+    mode: str
+    since_ref: str | None
+    head_ref: str | None
+
+def _load_protocol_sources(
+    request: ProtocolSourceRequest,
+) -> tuple[str | None, str | None, dict | None]:
+    """Read Rust/Swift sources from disk when not provided. Return early-exit report if missing."""
+    rust_text = request.rust_text
+    swift_text = request.swift_text
+    if rust_text is _UNSET:
+        rust_file = request.repo_root / request.rust_path
+        rust_text = rust_file.read_text(encoding="utf-8") if rust_file.exists() else None
+    if swift_text is _UNSET:
+        swift_file = request.repo_root / request.swift_path
+        swift_text = swift_file.read_text(encoding="utf-8") if swift_file.exists() else None
+        daemon_file = request.repo_root / request.swift_daemon_path
+        if daemon_file.exists() and swift_text is not None:
+            daemon_text = daemon_file.read_text(encoding="utf-8")
+            swift_text = swift_text + "\n" + daemon_text
+    missing = []
+    if rust_text is None:
+        missing.append(request.rust_path.as_posix())
+    if swift_text is None:
+        missing.append(request.swift_path.as_posix())
+    if missing:
+        return None, None, {
+            "command": "check_mobile_relay_protocol", "timestamp": utc_timestamp(),
+            "ok": True, "mode": request.mode, "since_ref": request.since_ref, "head_ref": request.head_ref,
+            "skipped": True, "reason": f"protocol files not found: {', '.join(missing)}",
+            "violations": [],
+        }
+    return rust_text, swift_text, None
+
+
+def _field_mismatch(
+    rust_name: str, swift_name: str, wire: str,
+    *, field_value: str, side: str,
 ) -> dict:
+    """Build a single field-mismatch violation dict."""
+    if side == "rust_only":
+        reason = f"field '{wire}' exists in Rust `{rust_name}` but is missing from Swift `{swift_name}`"
+        return {"rust_struct": rust_name, "swift_struct": swift_name,
+                "wire_name": wire, "rust_field": field_value, "side": side, "reason": reason}
+    reason = f"field '{wire}' exists in Swift `{swift_name}` but is missing from Rust `{rust_name}`"
+    return {"rust_struct": rust_name, "swift_struct": swift_name,
+            "wire_name": wire, "swift_field": field_value, "side": side, "reason": reason}
+
+
+def build_report(request: ProtocolReportRequest | None = None) -> dict:
     """Build the protocol compatibility report.
 
     When ``changed_paths`` is provided (since-ref mode), only produce
@@ -426,114 +454,100 @@ def build_report(
     Pass ``rust_text``/``swift_text`` explicitly to override file reading.
     Pass ``None`` to simulate a missing file. Omit to read from disk.
     """
-    rust_path = RUST_TYPES_PATH
-    swift_path = SWIFT_MODELS_PATH
+    request = request or ProtocolReportRequest()
+    repo_root = request.repo_root
+    # Read protocol boundary config from repo policy
+    cfg_rust, cfg_swift_relay, cfg_swift_daemon, cfg_name_map, cfg_computed = (
+        _resolve_protocol_paths(repo_root) if repo_root else
+        (Path(_DEFAULT_RUST_TYPES), Path(_DEFAULT_SWIFT_RELAY), Path(_DEFAULT_SWIFT_DAEMON), {}, set())
+    )
+    rust_path = cfg_rust
+    swift_path = cfg_swift_relay
 
-    # Growth-based scoping: skip if neither protocol file changed
-    if changed_paths is not None:
-        changed_posix = {p.as_posix() for p in changed_paths}
-        if (
-            rust_path.as_posix() not in changed_posix
-            and swift_path.as_posix() not in changed_posix
-        ):
+    # Growth-based scoping: skip if no protocol file changed
+    protocol_paths = {rust_path.as_posix(), swift_path.as_posix(), cfg_swift_daemon.as_posix()}
+    if request.changed_paths is not None:
+        changed_posix = {p.as_posix() for p in request.changed_paths}
+        if not (protocol_paths & changed_posix):
             return {
                 "command": "check_mobile_relay_protocol",
                 "timestamp": utc_timestamp(),
                 "ok": True,
-                "mode": mode,
-                "since_ref": since_ref,
-                "head_ref": head_ref,
+                "mode": request.mode,
+                "since_ref": request.since_ref,
+                "head_ref": request.head_ref,
                 "skipped": True,
                 "reason": "neither protocol file was modified",
                 "violations": [],
             }
 
-    # Read source texts from disk only when not explicitly provided
-    if rust_text is _UNSET:
-        rust_file = repo_root / rust_path
-        rust_text = (
-            rust_file.read_text(encoding="utf-8") if rust_file.exists() else None
+    rust_text, swift_text, early_return = _load_protocol_sources(
+        ProtocolSourceRequest(
+            repo_root=repo_root,
+            rust_path=rust_path,
+            swift_path=swift_path,
+            swift_daemon_path=cfg_swift_daemon,
+            rust_text=request.rust_text,
+            swift_text=request.swift_text,
+            mode=request.mode,
+            since_ref=request.since_ref,
+            head_ref=request.head_ref,
         )
-    if swift_text is _UNSET:
-        swift_file = repo_root / swift_path
-        swift_text = (
-            swift_file.read_text(encoding="utf-8") if swift_file.exists() else None
-        )
-
-    missing_files: list[str] = []
-    if rust_text is None:
-        missing_files.append(rust_path.as_posix())
-    if swift_text is None:
-        missing_files.append(swift_path.as_posix())
-
-    if missing_files:
-        return {
-            "command": "check_mobile_relay_protocol",
-            "timestamp": utc_timestamp(),
-            "ok": True,
-            "mode": mode,
-            "since_ref": since_ref,
-            "head_ref": head_ref,
-            "skipped": True,
-            "reason": f"protocol files not found: {', '.join(missing_files)}",
-            "violations": [],
-        }
+    )
+    if early_return is not None:
+        return early_return
 
     rust_structs = parse_rust_structs(rust_text)
     swift_structs = parse_swift_structs(swift_text)
     rust_enum_variants = parse_rust_enum_variants(rust_text)
 
-    pairs = match_struct_pairs(rust_structs, swift_structs)
+    pairs = match_struct_pairs(rust_structs, swift_structs, name_map=cfg_name_map)
     violations: list[dict] = []
+
+    if not pairs and rust_structs and swift_structs:
+        violations.append(
+            {
+                "rust_struct": "",
+                "swift_struct": "",
+                "wire_name": "",
+                "side": "no_shared_structs",
+                "reason": (
+                    "Rust and Swift protocol models parsed successfully but no "
+                    "shared struct names matched; the compatibility map is empty."
+                ),
+            }
+        )
 
     for rust_name, swift_name in pairs:
         rust_fields = rust_structs[rust_name]["fields"]
         swift_fields = swift_structs[swift_name]["fields"]
-        rust_only, swift_only = compare_fields(rust_fields, swift_fields)
-
+        rust_only, swift_only = compare_fields(
+            rust_fields, swift_fields, computed_properties=cfg_computed,
+        )
         for wire in rust_only:
-            violations.append(
-                {
-                    "rust_struct": rust_name,
-                    "swift_struct": swift_name,
-                    "wire_name": wire,
-                    "rust_field": rust_fields[wire],
-                    "side": "rust_only",
-                    "reason": (
-                        f"field '{wire}' exists in Rust `{rust_name}` "
-                        f"but is missing from Swift `{swift_name}`"
-                    ),
-                }
-            )
+            violations.append(_field_mismatch(
+                rust_name, swift_name, wire,
+                field_value=rust_fields[wire], side="rust_only",
+            ))
         for wire in swift_only:
-            violations.append(
-                {
-                    "rust_struct": rust_name,
-                    "swift_struct": swift_name,
-                    "wire_name": wire,
-                    "swift_field": swift_fields[wire],
-                    "side": "swift_only",
-                    "reason": (
-                        f"field '{wire}' exists in Swift `{swift_name}` "
-                        f"but is missing from Rust `{rust_name}`"
-                    ),
-                }
-            )
+            violations.append(_field_mismatch(
+                rust_name, swift_name, wire,
+                field_value=swift_fields[wire], side="swift_only",
+            ))
 
     return {
         "command": "check_mobile_relay_protocol",
         "timestamp": utc_timestamp(),
         "ok": not violations,
-        "mode": mode,
-        "since_ref": since_ref,
-        "head_ref": head_ref,
+        "mode": request.mode,
+        "since_ref": request.since_ref,
+        "head_ref": request.head_ref,
         "rust_structs_parsed": len(rust_structs),
         "swift_structs_parsed": len(swift_structs),
         "rust_enum_variants_parsed": len(rust_enum_variants),
         "matched_pairs": len(pairs),
         "violations": violations,
     }
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_mobile_relay_protocol", ""]
@@ -565,10 +579,8 @@ def _render_md(report: dict) -> str:
             )
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -596,18 +608,19 @@ def main() -> int:
         )
 
     report = build_report(
-        repo_root=REPO_ROOT,
-        mode="commit-range" if args.since_ref else "full",
-        since_ref=args.since_ref,
-        head_ref=args.head_ref,
-        changed_paths=changed_paths,
+        ProtocolReportRequest(
+            repo_root=REPO_ROOT,
+            mode="commit-range" if args.since_ref else "full",
+            since_ref=args.since_ref,
+            head_ref=args.head_ref,
+            changed_paths=changed_paths,
+        )
     )
     if args.format == "json":
         print(json.dumps(report, indent=2))
     else:
         print(_render_md(report))
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

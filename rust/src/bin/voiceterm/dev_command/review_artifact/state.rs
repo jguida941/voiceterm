@@ -2,7 +2,9 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::time::Instant;
 
-use super::artifact::{parse_review_artifact, ReviewArtifact};
+#[cfg(test)]
+use super::artifact::parse_review_artifact;
+use super::artifact::ReviewArtifact;
 
 fn content_hash(content: &str) -> u64 {
     let mut hasher = DefaultHasher::new();

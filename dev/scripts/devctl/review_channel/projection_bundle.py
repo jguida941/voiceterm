@@ -6,11 +6,17 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from .attach_auth_render import append_attach_auth_policy_markdown
 from .core import LaneAssignment
 from .context_refs import (
     context_pack_ref_summary,
     normalize_context_pack_refs,
 )
+from .current_session_projection import (
+    append_current_session_markdown,
+    current_focus_line,
+)
+from .projection_markdown import append_push_markdown
 
 
 @dataclass(frozen=True)
@@ -141,13 +147,22 @@ def write_projection_bundle(
 def _build_compact_projection(review_state: dict[str, object]) -> dict[str, object]:
     queue = review_state.get("queue", {})
     bridge = review_state.get("bridge", {})
-    current_focus = bridge.get("current_instruction") or _current_focus_line(review_state)
+    current_session = review_state.get("current_session", {})
+    compat = review_state.get("_compat") or {}
+    service_identity = compat.get("service_identity")
+    attach_auth_policy = compat.get("attach_auth_policy")
+    push_decision = compat.get("push_decision")
+    current_focus = current_focus_line(review_state)
     return {
         "schema_version": 1,
         "command": "review-channel",
         "timestamp": review_state.get("timestamp"),
         "ok": review_state.get("ok"),
         "review": review_state.get("review"),
+        "current_session": current_session,
+        "service_identity": service_identity,
+        "attach_auth_policy": attach_auth_policy,
+        "push_decision": push_decision,
         "bridge": {
             "last_codex_poll_utc": bridge.get("last_codex_poll_utc"),
             "last_worktree_hash": bridge.get("last_worktree_hash"),
@@ -202,6 +217,13 @@ def _render_latest_markdown(
 ) -> str:
     queue = review_state.get("queue", {})
     bridge = review_state.get("bridge", {})
+    current_session = review_state.get("current_session", {})
+    md_compat = review_state.get("_compat") or {}
+    runtime = md_compat.get("runtime", {})
+    service_identity = md_compat.get("service_identity", {})
+    attach_auth_policy = md_compat.get("attach_auth_policy", {})
+    push_enforcement = md_compat.get("push_enforcement", {})
+    push_decision = md_compat.get("push_decision", {})
     agents = agent_registry.get("agents", [])
     packets = review_state.get("packets", [])
     lines = ["# review-channel status", ""]
@@ -215,9 +237,31 @@ def _render_latest_markdown(
     lines.append(
         f"- last_worktree_hash: {bridge.get('last_worktree_hash') or 'n/a'}"
     )
+    reviewed_hash_current = bridge.get("reviewed_hash_current")
+    if reviewed_hash_current is not None:
+        lines.append(f"- reviewed_hash_current: {reviewed_hash_current}")
+    if isinstance(service_identity, dict):
+        lines.append("")
+        lines.append("## Service Identity")
+        lines.append(f"- service_id: {service_identity.get('service_id') or 'n/a'}")
+        lines.append(f"- project_id: {service_identity.get('project_id') or 'n/a'}")
+        lines.append(f"- repo_root: {service_identity.get('repo_root') or 'n/a'}")
+        lines.append(
+            f"- worktree_root: {service_identity.get('worktree_root') or 'n/a'}"
+        )
+        lines.append(f"- bridge_path: {service_identity.get('bridge_path') or 'n/a'}")
+        lines.append(
+            "- review_channel_path: "
+            f"{service_identity.get('review_channel_path') or 'n/a'}"
+        )
+        lines.append(f"- status_root: {service_identity.get('status_root') or 'n/a'}")
+    append_attach_auth_policy_markdown(lines, attach_auth_policy)
+    _append_runtime_markdown(lines, runtime)
+    append_push_markdown(lines, push_enforcement, push_decision)
+    append_current_session_markdown(lines, current_session)
     lines.append("")
     lines.append("## Current Instruction")
-    lines.append(_current_focus_line(review_state))
+    lines.append(current_focus_line(review_state))
     derived_next_instruction = queue.get("derived_next_instruction")
     derived_source = queue.get("derived_next_instruction_source")
     if derived_next_instruction:
@@ -258,37 +302,27 @@ def _render_latest_markdown(
     return "\n".join(lines)
 
 
-def _current_focus_line(review_state: dict[str, object]) -> str:
-    bridge = review_state.get("bridge", {})
-    if isinstance(bridge, dict):
-        current_instruction = str(bridge.get("current_instruction") or "").strip()
-        if current_instruction:
-            return current_instruction
-    queue = review_state.get("queue", {})
-    if isinstance(queue, dict):
-        derived_next_instruction = str(
-            queue.get("derived_next_instruction") or ""
-        ).strip()
-        if derived_next_instruction:
-            return derived_next_instruction
-    packets = review_state.get("packets")
-    if not isinstance(packets, list):
-        return "(missing)"
-    pending_packet = next(
-        (
-            packet
-            for packet in packets
-            if isinstance(packet, dict) and packet.get("status") == "pending"
-        ),
-        None,
+def _append_runtime_markdown(lines: list[str], runtime: object) -> None:
+    if not isinstance(runtime, dict):
+        return
+    daemons = runtime.get("daemons")
+    lines.append("")
+    lines.append("## Runtime")
+    lines.append(f"- active_daemons: {runtime.get('active_daemons') or 0}")
+    lines.append(
+        f"- last_daemon_event_utc: {runtime.get('last_daemon_event_utc') or 'n/a'}"
     )
-    if isinstance(pending_packet, dict):
-        summary = str(pending_packet.get("summary") or "").strip()
-        if summary:
-            return summary
-    latest_packet = packets[0] if packets else None
-    if isinstance(latest_packet, dict):
-        summary = str(latest_packet.get("summary") or "").strip()
-        if summary:
-            return summary
-    return "(missing)"
+    if not isinstance(daemons, dict):
+        return
+    for daemon_kind in ("publisher", "reviewer_supervisor"):
+        daemon_state = daemons.get(daemon_kind)
+        if not isinstance(daemon_state, dict):
+            continue
+        lines.append(
+            f"- {daemon_kind}: "
+            f"running={bool(daemon_state.get('running'))} "
+            f"pid={int(daemon_state.get('pid', 0) or 0)} "
+            f"snapshots={int(daemon_state.get('snapshots_emitted', 0) or 0)} "
+            f"last_heartbeat_utc={daemon_state.get('last_heartbeat_utc') or 'n/a'} "
+            f"stop_reason={daemon_state.get('stop_reason') or 'n/a'}"
+        )

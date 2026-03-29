@@ -24,7 +24,10 @@ _expect_str_set = _core._expect_str_set
 _expect_dict_keys = _core._expect_dict_keys
 _extract_provider_label_tokens = _core._extract_provider_label_tokens
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 MATRIX_PATH = REPO_ROOT / "dev/config/compat/ide_provider_matrix.yaml"
 RUNTIME_COMPAT_PATH = REPO_ROOT / "rust/src/bin/voiceterm/runtime_compat.rs"
 BACKEND_REGISTRY_PATH = REPO_ROOT / "rust/src/backend/mod.rs"

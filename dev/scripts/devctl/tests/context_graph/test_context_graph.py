@@ -1,0 +1,675 @@
+"""Tests for devctl context-graph query surface."""
+
+from __future__ import annotations
+
+import json
+import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
+from dev.scripts.devctl.context_graph.builder import build_context_graph
+from dev.scripts.devctl.context_graph.query import (
+    build_bootstrap_context,
+    query_context_graph,
+)
+from dev.scripts.devctl.context_graph.concepts import build_concept_nodes
+from dev.scripts.devctl.context_graph.models import (
+    EDGE_KIND_CONTAINS,
+    EDGE_KIND_GUARDS,
+    EDGE_KIND_IMPORTS,
+    EDGE_KIND_RELATED_TO,
+    EDGE_KIND_ROUTES_TO,
+    EDGE_KIND_SCOPED_BY,
+    NODE_KIND_COMMAND,
+    NODE_KIND_CONCEPT,
+    NODE_KIND_GUARD,
+    NODE_KIND_PLAN,
+    NODE_KIND_PROBE,
+    NODE_KIND_SOURCE,
+    HotIndexSummary,
+    GraphEdge,
+    GraphNode,
+    QueryResult,
+)
+from dev.scripts.devctl.context_graph.render import render_query_result_markdown
+from dev.scripts.devctl.context_graph.render import render_bootstrap_markdown
+
+
+def _make_args(**overrides) -> SimpleNamespace:
+    defaults = {
+        "query": "",
+        "format": "json",
+        "output": None,
+        "pipe_command": None,
+        "pipe_args": None,
+    }
+    defaults.update(overrides)
+    return SimpleNamespace(**defaults)
+
+
+class TestContextGraphRegistration(unittest.TestCase):
+    """Verify context-graph is wired into devctl CLI."""
+
+    def test_parser_accepts_context_graph(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["context-graph", "--format", "md"])
+        self.assertEqual(args.command, "context-graph")
+        self.assertEqual(args.format, "md")
+
+    def test_parser_accepts_query_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["context-graph", "--query", "code_shape"])
+        self.assertEqual(args.query, "code_shape")
+
+    def test_parser_accepts_save_snapshot_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["context-graph", "--save-snapshot"])
+        self.assertTrue(args.save_snapshot)
+
+    def test_handler_registered(self) -> None:
+        self.assertIn("context-graph", COMMAND_HANDLERS)
+
+
+class TestContextGraphBuild(unittest.TestCase):
+    """Verify graph builds from live repo artifacts."""
+
+    def test_builds_without_error(self) -> None:
+        nodes, edges = build_context_graph()
+        self.assertGreater(len(nodes), 0)
+        self.assertGreater(len(edges), 0)
+
+    def test_contains_all_node_kinds(self) -> None:
+        nodes, _ = build_context_graph()
+        kinds = {n.node_kind for n in nodes}
+        for expected in (NODE_KIND_SOURCE, NODE_KIND_PLAN, NODE_KIND_GUARD, NODE_KIND_PROBE):
+            self.assertIn(expected, kinds, f"missing node kind: {expected}")
+
+    def test_every_node_has_required_fields(self) -> None:
+        nodes, _ = build_context_graph()
+        for node in nodes[:100]:
+            self.assertTrue(node.canonical_pointer_ref, f"{node.node_id} missing canonical_pointer_ref")
+            self.assertTrue(node.provenance_ref, f"{node.node_id} missing provenance_ref")
+            self.assertIsInstance(node.temperature, float)
+            self.assertGreaterEqual(node.temperature, 0.0)
+            self.assertLessEqual(node.temperature, 1.0)
+
+    def test_no_worktree_paths_in_source_nodes(self) -> None:
+        nodes, _ = build_context_graph()
+        for node in nodes:
+            if node.node_kind == NODE_KIND_SOURCE:
+                self.assertNotIn(
+                    ".claude/worktrees",
+                    node.canonical_pointer_ref,
+                    f"worktree path leaked into source nodes: {node.node_id}",
+                )
+
+    def test_no_worktree_paths_in_edges(self) -> None:
+        _, edges = build_context_graph()
+        for edge in edges:
+            self.assertNotIn(".claude/worktrees", edge.source_id)
+            self.assertNotIn(".claude/worktrees", edge.target_id)
+
+    def test_bootstrap_active_plans_exclude_reference_docs(self) -> None:
+        nodes, edges = build_context_graph()
+        ctx = build_bootstrap_context(nodes, edges)
+        for plan in ctx.active_plans:
+            role = plan.get("role", "")
+            self.assertIn(
+                role, {"tracker", "spec"},
+                f"bootstrap active_plans should only include tracker/spec, got role={role} for {plan.get('path')}",
+            )
+
+    def test_guard_nodes_route_to_source(self) -> None:
+        nodes, edges = build_context_graph()
+        guard_ids = {n.node_id for n in nodes if n.node_kind == NODE_KIND_GUARD}
+        routes = [e for e in edges if e.edge_kind == EDGE_KIND_ROUTES_TO and e.source_id in guard_ids]
+        self.assertGreater(len(routes), 0, "guard nodes should have routes_to edges to source files")
+
+    def test_active_guard_nodes_have_guard_scope_edges(self) -> None:
+        nodes, edges = build_context_graph()
+        guard_ids = {n.node_id for n in nodes if n.node_kind == NODE_KIND_GUARD}
+        guard_edges = [e for e in edges if e.edge_kind == EDGE_KIND_GUARDS and e.source_id in guard_ids]
+        self.assertGreater(len(guard_edges), 0, "active guard nodes should have guards edges to covered files")
+        self.assertTrue(
+            any(e.source_id == "guard:code_shape" for e in guard_edges),
+            "code_shape should have at least one guard coverage edge",
+        )
+
+    def test_plan_nodes_have_scoped_by_edges(self) -> None:
+        nodes, edges = build_context_graph()
+        plan_edges = [e for e in edges if e.edge_kind == EDGE_KIND_SCOPED_BY]
+        self.assertGreater(len(plan_edges), 0, "plan nodes should have scoped_by edges to relevant files")
+        self.assertTrue(
+            any(e.source_id == "plan:dev/active/ai_governance_platform.md" for e in plan_edges),
+            "ai_governance_platform plan should scope at least one source file",
+        )
+
+
+class TestContextGraphQuery(unittest.TestCase):
+    """Verify query returns targeted subgraphs with evidence."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.nodes, cls.edges = build_context_graph()
+
+    def test_empty_query_returns_hot_index(self) -> None:
+        result = query_context_graph("", self.nodes, self.edges)
+        self.assertEqual(len(result.matched_nodes), 20)
+        self.assertGreater(result.hot_index_summary.total_nodes, 0)
+        self.assertGreater(result.hot_index_summary.total_edges, 0)
+
+    def test_file_path_query(self) -> None:
+        result = query_context_graph("cli.py", self.nodes, self.edges)
+        matched_refs = [n.canonical_pointer_ref for n in result.matched_nodes]
+        self.assertTrue(
+            any("cli.py" in ref for ref in matched_refs),
+            "query for cli.py should match at least one cli.py file",
+        )
+        self.assertTrue(result.matched_nodes[0].metadata.get("match_summary"))
+        self.assertTrue(result.matched_nodes[0].metadata.get("ranking_summary"))
+
+    def test_mp_query_returns_plan_nodes(self) -> None:
+        result = query_context_graph("MP-377", self.nodes, self.edges)
+        plan_nodes = [n for n in result.matched_nodes if n.node_kind == NODE_KIND_PLAN]
+        self.assertGreater(len(plan_nodes), 0, "MP-377 query should find plan nodes")
+
+    def test_guard_query_returns_guard_and_source(self) -> None:
+        result = query_context_graph("code_shape", self.nodes, self.edges)
+        kinds = {n.node_kind for n in result.matched_nodes}
+        self.assertIn(NODE_KIND_GUARD, kinds, "code_shape query should find guard nodes")
+
+    def test_guard_query_returns_guard_coverage_edges(self) -> None:
+        result = query_context_graph("code_shape", self.nodes, self.edges)
+        self.assertTrue(
+            any(edge.edge_kind == EDGE_KIND_GUARDS for edge in result.edges),
+            "code_shape query should return at least one guards coverage edge",
+        )
+
+    def test_plan_query_returns_scoped_by_edges(self) -> None:
+        result = query_context_graph("ai_governance_platform", self.nodes, self.edges)
+        self.assertTrue(
+            any(edge.edge_kind == EDGE_KIND_SCOPED_BY for edge in result.edges),
+            "plan query should return scoped_by edges once plan->file coverage exists",
+        )
+
+    def test_result_evidence_is_populated(self) -> None:
+        result = query_context_graph("topology", self.nodes, self.edges)
+        self.assertGreater(len(result.evidence), 0)
+
+    def test_result_nodes_sorted_by_temperature(self) -> None:
+        result = query_context_graph("check", self.nodes, self.edges)
+        temps = [n.temperature for n in result.matched_nodes]
+        self.assertEqual(temps, sorted(temps, reverse=True))
+
+
+class TestContextGraphRender(unittest.TestCase):
+    """Verify markdown rendering produces valid output."""
+
+    def test_render_produces_markdown(self) -> None:
+        nodes = [
+            GraphNode(
+                node_id="src:foo.py",
+                node_kind=NODE_KIND_SOURCE,
+                label="foo.py",
+                canonical_pointer_ref="foo.py",
+                provenance_ref="test",
+                temperature=0.5,
+            ),
+        ]
+        result = QueryResult(
+            query="foo",
+            matched_nodes=nodes,
+            edges=[],
+            hot_index_summary=HotIndexSummary(total_nodes=1, total_edges=0, nodes_by_kind={}, edges_by_kind={}),
+            evidence=["matched 1 direct node(s)"],
+        )
+        md = render_query_result_markdown(result)
+        self.assertIn("# Context Graph", md)
+        self.assertIn("foo.py", md)
+        self.assertIn("0.500", md)
+        self.assertIn("Why Matched", md)
+
+
+class TestBootstrapContext(unittest.TestCase):
+    """Verify bootstrap mode produces a usable startup packet."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.nodes, cls.edges = build_context_graph()
+
+    def test_bootstrap_has_required_fields(self) -> None:
+        ctx = build_bootstrap_context(self.nodes, self.edges)
+        self.assertTrue(ctx.repo)
+        self.assertTrue(ctx.branch)
+        self.assertIsInstance(ctx.bridge_active, bool)
+        self.assertIsNotNone(ctx.graph_size)
+        self.assertIsNotNone(ctx.key_commands)
+        self.assertIsNotNone(ctx.bootstrap_links)
+        self.assertIsNotNone(ctx.quality_signals)
+        self.assertTrue(ctx.usage)
+
+    def test_bootstrap_has_plans(self) -> None:
+        ctx = build_bootstrap_context(self.nodes, self.edges)
+        self.assertGreater(len(ctx.active_plans), 0)
+
+    def test_bootstrap_has_hotspots(self) -> None:
+        ctx = build_bootstrap_context(self.nodes, self.edges)
+        self.assertGreater(len(ctx.hotspots), 0)
+        for h in ctx.hotspots:
+            self.assertIn("file", h)
+            self.assertIn("temperature", h)
+            self.assertIn("ranking_summary", h)
+
+    def test_bootstrap_token_budget(self) -> None:
+        """Bootstrap packet should stay under 5K tokens."""
+        from dataclasses import asdict
+        ctx = build_bootstrap_context(self.nodes, self.edges)
+        size = len(json.dumps(asdict(ctx)))
+        tokens = size // 4
+        self.assertLess(tokens, 5000, f"bootstrap packet too large: {tokens} tokens")
+
+    def test_parser_accepts_bootstrap_mode(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["context-graph", "--mode", "bootstrap"])
+        self.assertEqual(args.mode, "bootstrap")
+
+    @patch(
+        "dev.scripts.devctl.context_graph.query.load_bootstrap_quality_signals",
+        return_value={"probe_report": {"risk_hints": 3, "files_with_hints": 1}},
+    )
+    def test_bootstrap_includes_quality_signals(self, _signals_mock) -> None:
+        ctx = build_bootstrap_context(self.nodes, self.edges)
+        self.assertEqual(
+            (ctx.quality_signals.get("probe_report") or {}).get("risk_hints"),
+            3,
+        )
+
+    def test_render_bootstrap_markdown_includes_quality_signals(self) -> None:
+        md = render_bootstrap_markdown(
+            {
+                "repo": "codex-voice",
+                "branch": "develop",
+                "bridge_active": False,
+                "graph_size": {
+                    "source_files": 1,
+                    "guards": 2,
+                    "probes": 3,
+                    "active_plans": 4,
+                    "edges": 5,
+                },
+                "active_plans": [],
+                "hotspots": [],
+                "key_commands": {},
+                "bootstrap_links": {},
+                "push_enforcement": {},
+                "quality_signals": {
+                    "probe_report": {
+                        "generated_at": "2026-03-23T00:00:00Z",
+                        "risk_hints": 81,
+                        "files_with_hints": 14,
+                        "top_files": [
+                            {"file": "dev/scripts/devctl/context_graph/query.py", "hint_count": 10}
+                        ],
+                    },
+                    "governance_review": {
+                        "generated_at_utc": "2026-03-23T00:00:00Z",
+                        "total_findings": 95,
+                        "open_finding_count": 19,
+                        "fixed_count": 62,
+                        "cleanup_rate_pct": 65.26,
+                    },
+                    "guidance_hotspots": [
+                        {
+                            "file": "dev/scripts/devctl/context_graph/query.py",
+                            "hint_count": 10,
+                            "bounded_next_slice": "Extract the bootstrap quality-signal reader.",
+                            "guidance": [
+                                {
+                                    "probe": "probe_fan_out",
+                                    "symbol": "build_bootstrap_context",
+                                    "severity": "high",
+                                    "ai_instruction": "Split signal loading from packet assembly.",
+                                }
+                            ],
+                        }
+                    ],
+                    "watchdog": {
+                        "generated_at": "2026-03-23T00:00:00Z",
+                        "total_episodes": 27,
+                        "success_rate_pct": 11.11,
+                        "false_positive_rate_pct": 3.7,
+                        "top_guard_family": "tooling",
+                    },
+                    "command_reliability": {
+                        "generated_at": "2026-03-23T00:00:00Z",
+                        "total_events": 14525,
+                        "success_rate_pct": 85.14,
+                        "p95_duration_seconds": 22.6,
+                        "commands": [
+                            {
+                                "command": "probe-report",
+                                "success_rate_pct": 97.83,
+                                "avg_duration_seconds": 8.879,
+                            }
+                        ],
+                    },
+                },
+                "usage": "Use this packet first.",
+            }
+        )
+        self.assertIn("## Quality Signals", md)
+        self.assertIn("**probe-report**", md)
+        self.assertIn("guidance hotspot", md)
+        self.assertIn("command slice: `probe-report` 97.83%/8.879s", md)
+
+
+class TestConceptLayer(unittest.TestCase):
+    """Verify ZGraph-compatible concept nodes are derived correctly."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.nodes, cls.edges = build_context_graph()
+
+    def test_concept_nodes_exist(self) -> None:
+        concepts = [n for n in self.nodes if n.node_kind == NODE_KIND_CONCEPT]
+        self.assertGreater(len(concepts), 0, "should derive concept nodes from directory structure")
+
+    def test_concept_has_contains_edges(self) -> None:
+        contains = [e for e in self.edges if e.edge_kind == EDGE_KIND_CONTAINS]
+        self.assertGreater(len(contains), 0, "concepts should have contains edges to member files")
+
+    def test_concept_has_related_edges(self) -> None:
+        related = [e for e in self.edges if e.edge_kind == EDGE_KIND_RELATED_TO]
+        self.assertGreater(len(related), 0, "concepts with shared imports should have related_to edges")
+
+    def test_concept_resolves_to_canonical_directory(self) -> None:
+        concepts = [n for n in self.nodes if n.node_kind == NODE_KIND_CONCEPT]
+        for c in concepts:
+            self.assertTrue(c.canonical_pointer_ref, f"{c.node_id} missing canonical_pointer_ref")
+            self.assertEqual(c.provenance_ref, "directory_structure")
+
+    def test_concept_temperature_bounded(self) -> None:
+        concepts = [n for n in self.nodes if n.node_kind == NODE_KIND_CONCEPT]
+        for c in concepts:
+            self.assertGreaterEqual(c.temperature, 0.0)
+            self.assertLessEqual(c.temperature, 1.0)
+
+    def test_worktree_paths_excluded(self) -> None:
+        concepts = [n for n in self.nodes if n.node_kind == NODE_KIND_CONCEPT]
+        for c in concepts:
+            self.assertNotIn(".claude/worktrees", c.canonical_pointer_ref)
+
+    def test_query_returns_concepts(self) -> None:
+        result = query_context_graph("review_channel", self.nodes, self.edges)
+        concept_nodes = [n for n in result.matched_nodes if n.node_kind == NODE_KIND_CONCEPT]
+        self.assertGreater(len(concept_nodes), 0, "query should return concept nodes alongside source files")
+
+
+class TestConceptRenderers(unittest.TestCase):
+    """Verify mermaid and dot renderers produce valid output with canonical refs."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.nodes, cls.edges = build_context_graph()
+
+    def test_mermaid_renders_concept_nodes(self) -> None:
+        from dev.scripts.devctl.context_graph.render import render_concept_mermaid
+        output = render_concept_mermaid(self.nodes, self.edges)
+        self.assertIn("graph LR", output)
+        self.assertIn("files, temp", output)
+
+    def test_dot_renders_concept_nodes(self) -> None:
+        from dev.scripts.devctl.context_graph.render import render_concept_dot
+        output = render_concept_dot(self.nodes, self.edges)
+        self.assertIn("digraph ConceptGraph", output)
+        self.assertIn('rankdir="LR"', output)
+
+    def test_mermaid_has_no_worktree_refs(self) -> None:
+        from dev.scripts.devctl.context_graph.render import render_concept_mermaid
+        output = render_concept_mermaid(self.nodes, self.edges)
+        self.assertNotIn(".claude/worktrees", output)
+
+    def test_documented_by_edges_in_mermaid(self) -> None:
+        from dev.scripts.devctl.context_graph.render import render_concept_mermaid
+        output = render_concept_mermaid(self.nodes, self.edges)
+        # documented_by edges render as dotted arrows
+        self.assertIn("-.->", output)
+
+
+class TestGraphHonesty(unittest.TestCase):
+    """Verify the three graph honesty fixes."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.nodes, cls.edges = build_context_graph()
+
+    def test_bootstrap_commands_from_policy(self) -> None:
+        ctx = build_bootstrap_context(self.nodes, self.edges)
+        self.assertGreater(len(ctx.key_commands), 0, "commands should load from governance policy")
+
+    def test_bootstrap_links_from_policy(self) -> None:
+        ctx = build_bootstrap_context(self.nodes, self.edges)
+        self.assertIn("sdlc_policy", ctx.bootstrap_links)
+        self.assertIn("execution_state", ctx.bootstrap_links)
+
+    def test_bootstrap_links_follow_policy_context_paths(self) -> None:
+        policy = SimpleNamespace(
+            context={
+                "process_doc": "CONTRIBUTING.md",
+                "execution_tracker_doc": "docs/plans/MASTER_PLAN.md",
+                "active_registry_doc": "docs/plans/INDEX.md",
+            }
+        )
+        with patch(
+            "dev.scripts.devctl.context_graph.query.load_surface_policy",
+            return_value=policy,
+        ):
+            ctx = build_bootstrap_context(self.nodes, self.edges)
+        self.assertEqual(ctx.bootstrap_links["sdlc_policy"], "CONTRIBUTING.md")
+        self.assertEqual(
+            ctx.bootstrap_links["execution_state"],
+            "docs/plans/MASTER_PLAN.md",
+        )
+        self.assertEqual(
+            ctx.bootstrap_links["plan_registry"],
+            "docs/plans/INDEX.md",
+        )
+
+    def test_bootstrap_includes_push_enforcement_state(self) -> None:
+        ctx = build_bootstrap_context(self.nodes, self.edges)
+        self.assertIn("recommended_action", ctx.push_enforcement)
+        self.assertIn("worktree_dirty", ctx.push_enforcement)
+        self.assertIn("checkpoint_required", ctx.push_enforcement)
+        self.assertIn("safe_to_continue_editing", ctx.push_enforcement)
+
+    def test_plan_documented_by_edges_exist(self) -> None:
+        from dev.scripts.devctl.context_graph.models import EDGE_KIND_DOCUMENTED_BY
+        doc_edges = [e for e in self.edges if e.edge_kind == EDGE_KIND_DOCUMENTED_BY]
+        self.assertGreater(len(doc_edges), 0, "plans should have documented_by edges to concepts")
+
+    def test_mp377_query_has_connected_edges(self) -> None:
+        result = query_context_graph("MP-377", self.nodes, self.edges)
+        self.assertGreater(len(result.edges), 0, "MP-377 query should return connected edges")
+        plan_nodes = [n for n in result.matched_nodes if n.node_kind == NODE_KIND_PLAN]
+        self.assertGreater(len(plan_nodes), 0, "MP-377 query should find plan nodes")
+
+    def test_scope_text_is_clean(self) -> None:
+        plan_nodes = [n for n in self.nodes if n.node_kind == NODE_KIND_PLAN]
+        for p in plan_nodes:
+            scope = str(p.metadata.get("scope", ""))
+            self.assertNotIn("`", scope, f"scope has markdown backticks: {p.node_id}")
+
+
+class TestModeFormatDispatch(unittest.TestCase):
+    """Verify mode/format dispatch contract (M5/M6)."""
+
+    def test_concept_view_mode_accepted(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["context-graph", "--mode", "concept-view", "--format", "mermaid"])
+        self.assertEqual(args.mode, "concept-view")
+
+    def test_context_graph_in_devctl_list(self) -> None:
+        from dev.scripts.devctl.commands.listing import COMMANDS
+        self.assertIn("context-graph", COMMANDS)
+
+
+class TestCommandOwnership(unittest.TestCase):
+    """Verify command nodes wire to real handler modules."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.nodes, cls.edges = build_context_graph()
+
+    def test_context_graph_command_has_routes_to_edge(self) -> None:
+        cmd_node = next((n for n in self.nodes if n.node_id == "cmd:context-graph"), None)
+        self.assertIsNotNone(cmd_node, "context-graph command node should exist")
+        routes = [e for e in self.edges if e.source_id == "cmd:context-graph" and e.edge_kind == "routes_to"]
+        self.assertGreater(len(routes), 0, "context-graph should have routes_to edge to handler")
+
+    def test_check_command_has_routes_to_edge(self) -> None:
+        routes = [e for e in self.edges if e.source_id == "cmd:check" and e.edge_kind == "routes_to"]
+        self.assertGreater(len(routes), 0, "check command should have routes_to edge to handler")
+
+    def test_command_provenance_is_dispatch(self) -> None:
+        cmd_nodes = [n for n in self.nodes if n.node_kind == NODE_KIND_COMMAND]
+        for n in cmd_nodes[:5]:
+            self.assertEqual(n.provenance_ref, "cli.COMMAND_HANDLERS")
+
+
+class TestGraphHonestyFailClosed(unittest.TestCase):
+    """Verify orphan edges are suppressed and confidence is machine-readable."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.nodes, cls.edges = build_context_graph()
+
+    def test_no_orphan_documented_by_edges(self) -> None:
+        node_ids = {n.node_id for n in self.nodes}
+        from dev.scripts.devctl.context_graph.models import EDGE_KIND_DOCUMENTED_BY
+        for edge in self.edges:
+            if edge.edge_kind == EDGE_KIND_DOCUMENTED_BY:
+                self.assertIn(edge.source_id, node_ids, f"orphan source: {edge.source_id}")
+                self.assertIn(edge.target_id, node_ids, f"orphan target: {edge.target_id}")
+
+    def test_empty_query_has_confidence(self) -> None:
+        result = query_context_graph("", self.nodes, self.edges)
+        self.assertIn(result.confidence, ("high", "low_confidence", "no_match"))
+
+    def test_nonsense_query_returns_no_match(self) -> None:
+        result = query_context_graph("xyzzy_nonexistent_term_12345", self.nodes, self.edges)
+        self.assertEqual(result.confidence, "no_match")
+
+    def test_real_query_has_high_confidence(self) -> None:
+        result = query_context_graph("cli.py", self.nodes, self.edges)
+        self.assertEqual(result.confidence, "high")
+
+    def test_heuristic_only_edges_stay_low_confidence(self) -> None:
+        """A query whose neighborhood expands only through heuristic
+        documented_by edges must stay low_confidence, not surface as high.
+
+        Plan nodes typically connect to concept nodes only via documented_by
+        edges. A query that matches a plan node but no source/guard/probe
+        node with typed import/routes_to edges should be honest about the
+        weak evidence.
+        """
+        from dev.scripts.devctl.context_graph.models import EDGE_KIND_DOCUMENTED_BY, GraphNode, GraphEdge, NODE_KIND_PLAN
+
+        # Build a minimal graph: one plan node connected only via documented_by
+        plan_node = GraphNode(
+            node_id="plan:dev/active/test_plan.md",
+            node_kind=NODE_KIND_PLAN,
+            label="dev/active/test_plan.md",
+            canonical_pointer_ref="dev/active/test_plan.md",
+            provenance_ref="test",
+            temperature=0.3,
+            metadata={"role": "spec", "scope": "MP-999", "is_active_plan": True},
+        )
+        concept_node = GraphNode(
+            node_id="concept:dev/scripts/devctl/governance",
+            node_kind="concept",
+            label="dev/scripts/devctl/governance",
+            canonical_pointer_ref="dev/scripts/devctl/governance",
+            provenance_ref="test",
+            temperature=0.1,
+        )
+        heuristic_edge = GraphEdge(
+            source_id=plan_node.node_id,
+            target_id=concept_node.node_id,
+            edge_kind=EDGE_KIND_DOCUMENTED_BY,
+        )
+
+        nodes = [plan_node, concept_node]
+        edges = [heuristic_edge]
+        result = query_context_graph("test_plan", nodes, edges)
+
+        # Must be low_confidence because only documented_by edges exist
+        self.assertIn(result.confidence, ("low_confidence",))
+        self.assertGreater(len(result.matched_nodes), 0)
+
+
+class TestContextGraphQueryPayloadConfidence(unittest.TestCase):
+    """Verify the machine-emitted query payload carries a canonical confidence
+    string, not a float."""
+
+    def test_query_payload_confidence_is_canonical_string(self) -> None:
+        from dataclasses import asdict
+        from dev.scripts.devctl.context_graph.command import ContextGraphQueryPayload
+
+        nodes, edges = build_context_graph()
+        result = query_context_graph("cli.py", nodes, edges)
+        payload = ContextGraphQueryPayload(
+            query=result.query,
+            confidence=result.confidence,
+            matched_nodes=[asdict(n) for n in result.matched_nodes],
+            edges=[asdict(e) for e in result.edges],
+            hot_index_summary=asdict(result.hot_index_summary),
+            evidence=result.evidence,
+        )
+        payload_dict = asdict(payload)
+        self.assertIsInstance(payload_dict["confidence"], str)
+        self.assertIn(
+            payload_dict["confidence"],
+            ("high", "low_confidence", "no_match"),
+        )
+
+    def test_no_match_query_payload_confidence_string(self) -> None:
+        from dataclasses import asdict
+        from dev.scripts.devctl.context_graph.command import ContextGraphQueryPayload
+
+        nodes, edges = build_context_graph()
+        result = query_context_graph("xyzzy_nonexistent_12345", nodes, edges)
+        payload = ContextGraphQueryPayload(
+            query=result.query,
+            confidence=result.confidence,
+            matched_nodes=[asdict(n) for n in result.matched_nodes],
+            edges=[asdict(e) for e in result.edges],
+            hot_index_summary=asdict(result.hot_index_summary),
+            evidence=result.evidence,
+        )
+        payload_dict = asdict(payload)
+        self.assertEqual(payload_dict["confidence"], "no_match")
+        self.assertIsInstance(payload_dict["confidence"], str)
+
+
+    def test_no_match_render_suppresses_hot_index_summary(self) -> None:
+        from dev.scripts.devctl.context_graph.render import render_query_result_markdown
+
+        nodes, edges = build_context_graph()
+        result = query_context_graph("xyzzy_nonexistent_12345", nodes, edges)
+        md = render_query_result_markdown(result)
+        self.assertNotIn("## Hot Index Summary", md)
+        self.assertIn("**No matches found**", md)
+
+    def test_matched_query_render_includes_hot_index_summary(self) -> None:
+        from dev.scripts.devctl.context_graph.render import render_query_result_markdown
+
+        nodes, edges = build_context_graph()
+        result = query_context_graph("review_channel", nodes, edges)
+        md = render_query_result_markdown(result)
+        self.assertIn("## Hot Index Summary", md)
+        self.assertNotIn("**No matches found**", md)
+
+
+if __name__ == "__main__":
+    unittest.main()

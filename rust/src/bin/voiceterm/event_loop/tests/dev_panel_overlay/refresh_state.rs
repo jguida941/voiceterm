@@ -478,7 +478,7 @@ fn background_review_poll_emits_toast_on_changed_content() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
 
     // Pre-load with dummy content that definitely differs from the real
-    // code_audit.md on disk, so poll_review sees a content change.
+    // bridge.md on disk, so poll_review sees a content change.
     state
         .dev_panel_commands
         .review_mut()
@@ -492,7 +492,7 @@ fn background_review_poll_emits_toast_on_changed_content() {
 
     run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
 
-    // poll_review reads the real code_audit.md, content differs → toast fired.
+    // poll_review reads the real bridge.md, content differs → toast fired.
     assert!(
         state.toast_center.active_count() > toast_count_before,
         "toast must fire when background poll detects changed content"
@@ -545,7 +545,7 @@ fn review_poll_on_visible_review_tab_does_not_emit_toast() {
         .dev_panel_commands
         .set_tab(crate::dev_command::DevPanelTab::Review);
 
-    // Pre-load with dummy content that differs from the real code_audit.md.
+    // Pre-load with dummy content that differs from the real bridge.md.
     state
         .dev_panel_commands
         .review_mut()
@@ -574,7 +574,7 @@ fn review_poll_error_state_suppresses_toast_via_has_error_guard() {
     // the `!has_error` guard to suppress the toast.
     //
     // We can't trigger a real read error through run_periodic_tasks because
-    // code_audit.md always exists in the test repo. Instead we simulate the
+    // bridge.md always exists in the test repo. Instead we simulate the
     // post-poll error state and exercise the exact guard logic from
     // periodic_tasks.rs lines 144-148.
     let (mut state, _timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
@@ -587,9 +587,10 @@ fn review_poll_error_state_suppresses_toast_via_has_error_guard() {
     state.ui.overlay_mode = OverlayMode::None;
 
     // Simulate what poll_review does on a read error.
-    state.dev_panel_commands.review_mut().set_load_error(
-        "Failed to read code_audit.md: Permission denied (os error 13)".to_string(),
-    );
+    state
+        .dev_panel_commands
+        .review_mut()
+        .set_load_error("Failed to read bridge.md: Permission denied (os error 13)".to_string());
 
     // Exercise the exact guard from periodic_tasks: after poll_review
     // returns true with has_error set, the toast must NOT fire.

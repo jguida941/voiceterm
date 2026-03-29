@@ -21,6 +21,10 @@ This plan covers:
    using the same controller-state contract.
 7. Deterministic learning so repeated loop work is reused through
    artifact-backed playbooks instead of hidden memory.
+8. An overlay-native live guard watchdog that can observe Codex/Claude PTY
+   traffic plus typed repo actions, derive structured "what the agent is doing
+   now" state, and trigger the right repo guard bundle without giving the
+   overlay unsafe freeform write authority.
 
 Together with `dev/active/memory_studio.md` and
 `dev/active/review_channel.md`, this is one local-first operator system:
@@ -56,6 +60,16 @@ the Control Plane supplies execution surfaces plus governance.
 8. SSH is a valid read/debug transport, but it is not the push-notification
    system; true phone pings must ride on notifier adapters over the same
    shared payload the GUI clients render.
+9. Overlay-native guard enforcement is allowed only as a typed control-plane
+   action. The overlay may observe PTY/session tails, packet artifacts, repo
+   diffs, and guard outputs, but it must dispatch bounded `devctl` guard runs
+   or controller actions instead of injecting raw shell text into Codex/Claude
+   sessions.
+10. PTY interception is evidence, not authority. The system should infer
+    states such as "editing Python", "running tests", "idle", "awaiting
+    review", or "guard failed" from provider I/O plus repo-visible artifacts,
+    then project that state into `controller_state` / `review_state` rather
+    than treating scraped terminal text as the only source of truth.
 
 ## External Inputs
 
@@ -350,6 +364,234 @@ Scope for MVP:
 - [ ] Preserve overlay parity: phone controls and overlay controls must resolve
       through the same typed action router, policy engine, and audit trail.
 
+#### Overlay-Native Live Guard Watchdog Intake
+
+- [ ] Add a passive activity collector for Codex/Claude sessions that fuses PTY
+      output, repo-visible session artifacts, and typed action packets into one
+      structured `agent_activity` / `controller_state` view.
+- [ ] Define the first activity states the watchdog can classify without
+      guessing: `editing`, `running_guard`, `running_tests`, `waiting_on_peer`,
+      `awaiting_operator`, `idle`, `guard_failed`, `guard_passed`.
+- [ ] Add a deterministic guard router that maps those states plus changed-path
+      signals to the right repo guard family (`python`, `rust`, `docs`,
+      `tooling`, or focused single-check paths) instead of running the whole
+      bundle on every token.
+- [ ] Keep the first watchdog mode advisory/read-only: surface findings in the
+      overlay/review channel and require typed follow-up actions before any
+      automatic remediation or session interruption.
+- [ ] If/when automatic enforcement is promoted, route it through the same
+      allowlisted `devctl`/controller-action catalog and approval policy used
+      by Ralph/operator actions; no raw PTY command injection as the primary
+      enforcement path.
+- [ ] Record guard-trigger provenance in repo-visible artifacts: what activity
+      was observed, which guard ran, what files/scopes triggered it, and what
+      outcome was projected back to the overlay.
+- [ ] Prove the watchdog does not thrash: debounce repeated triggers, avoid
+      rerunning the same guard on unchanged state, and pause enforcement while
+      the same task/hash/command is already being validated.
+- [ ] Add a scientific impact-study protocol for the watchdog:
+  - [ ] capture matched before/after artifacts for each guarded coding episode:
+        prompt/task id, provider, files changed, guard family triggered,
+        pre-guard diff, post-guard diff, guard result, test result, and final
+        reviewer verdict
+  - [ ] define primary outcome metrics before implementation claims:
+        first-pass guard pass rate, time-to-green, escaped-review findings per
+        task, rework loops per task, mutation-score delta where available, and
+        duplicate/shape/guard violation counts before vs after watchdog action
+  - [ ] use paired/matched analysis by task or coding episode instead of
+        comparing unrelated sessions
+  - [ ] report effect size plus confidence interval, not only p-values
+  - [ ] prefer robust non-parametric analysis for small or non-normal samples
+        (for example probability of superiority or Cliff's delta with 95%
+        confidence intervals, plus Wilcoxon/Brunner-Munzel style hypothesis
+        tests when appropriate)
+  - [ ] set practical-significance thresholds up front so "statistically
+        significant but operationally tiny" results do not count as success
+  - [ ] require repeated runs across providers/tasks before promotion claims:
+        Codex-only, Claude-only, and shared review-channel loop episodes
+- [ ] Add a repo-owned analytics version of the watchdog study:
+  - [ ] define a canonical episode schema for `guarded_coding_episode.json`
+        / `.jsonl` rows with:
+        episode id, task id, provider, session id, reviewed hash, prompt
+        fingerprint, changed files, guard family, before/after diff stats,
+        terminal-derived timing metrics, guard/test outcomes, and reviewer
+        verdict
+  - [ ] capture terminal-derived speed/latency metrics when available:
+        time from first edit to first guard trigger, time from guard trigger to
+        result, time from first edit to green, idle gaps, retry count,
+        command/test/guard runtime, and review-to-fix turnaround
+  - [ ] capture code-shape/productivity metrics:
+        lines added/removed, files touched, diff churn, duplicate violations,
+        shape violations, lint/guard counts before vs after, and pass/fail
+        sequence count
+  - [ ] capture collaboration metrics for the shared Codex/Claude system:
+        reviewer findings per episode, coder rework loops, stale-peer pauses,
+        handoff count, and escaped findings found only after the coding episode
+        supposedly finished
+  - [ ] define dashboard/report outputs for the analytics layer:
+        speed delta, quality delta, guard-hit heatmaps, provider comparison,
+        per-guard win rate, false-positive rate, and time-to-green trend lines
+  - [ ] separate exploratory metrics from decision metrics:
+        only predeclared primary metrics can justify promotion claims; all
+        other pulled terminal signals stay exploratory until validated
+  - [ ] add a minimum-sample/power rule for claims:
+        do not ship "watchdog improves coding" claims from a tiny anecdotal
+        sample; keep a staged threshold for pilot, provisional, and promotion
+        evidence
+- [ ] Add a learning-corpus lane for future model/ranker work:
+  - [ ] store the matched before/after guarded episodes under a repo-visible
+        learning dataset root with provenance and privacy controls
+  - [ ] keep first-generation learning deterministic and retrieval-based
+        (fingerprint -> playbook -> confidence) before training any ML model
+  - [ ] treat ML as a later ranking/prediction layer over the same corpus:
+        predict likely guard family, likely failure mode, likely remediation
+        playbook, or expected time-to-green
+  - [ ] require offline evaluation against held-out episodes before any live ML
+        promotion, using the same primary outcome metrics and confidence
+        intervals as the deterministic watchdog study
+
+##### Guarded Coding Episode Schema Draft
+
+Repo-visible artifact roots:
+
+- `dev/reports/autonomy/watchdog/episodes/guarded_coding_episode.jsonl`
+- `dev/reports/autonomy/watchdog/episodes/<episode_id>/summary.json`
+- `dev/reports/autonomy/watchdog/episodes/<episode_id>/before.patch`
+- `dev/reports/autonomy/watchdog/episodes/<episode_id>/after.patch`
+- `dev/reports/autonomy/watchdog/analytics/latest/`
+
+Canonical row fields for `guarded_coding_episode.jsonl`:
+
+- `episode_id`
+- `task_id`
+- `plan_id`
+- `controller_run_id`
+- `provider`
+  Allowed values for v1: `unknown | codex | claude | shared`
+- `session_id`
+- `peer_session_id`
+- `reviewed_worktree_hash_before`
+- `reviewed_worktree_hash_after`
+- `prompt_fingerprint`
+- `activity_state_before`
+- `activity_state_after`
+- `guard_family`
+  Allowed values for v1: `python | rust | docs | tooling | mixed | targeted`
+- `guard_command_id`
+  Examples: `check_python_global_mutable`, `check_code_shape`,
+  `devctl check --profile quick`
+- `trigger_reason`
+  Examples: `python_edit_detected`, `review_finding_posted`,
+  `retry_after_guard_fail`, `pre_handoff_validation`
+- `files_changed`
+- `file_count`
+- `lines_added_before_guard`
+- `lines_removed_before_guard`
+- `lines_added_after_guard`
+- `lines_removed_after_guard`
+- `diff_churn_before_guard`
+- `diff_churn_after_guard`
+- `guard_started_at_utc`
+- `guard_finished_at_utc`
+- `episode_started_at_utc`
+- `episode_finished_at_utc`
+- `first_edit_at_utc`
+- `first_guard_failure_at_utc`
+- `first_green_at_utc`
+- `terminal_active_seconds`
+- `terminal_idle_seconds`
+- `guard_runtime_seconds`
+- `test_runtime_seconds`
+- `review_to_fix_seconds`
+- `time_to_green_seconds`
+- `retry_count`
+- `guard_fail_count_before_green`
+- `test_fail_count_before_green`
+- `review_findings_count`
+- `escaped_findings_count`
+- `handoff_count`
+- `stale_peer_pause_count`
+- `shape_violations_before`
+- `shape_violations_after`
+- `duplication_violations_before`
+- `duplication_violations_after`
+- `lint_or_guard_violations_before`
+- `lint_or_guard_violations_after`
+- `mutation_score_before`
+- `mutation_score_after`
+- `guard_result`
+  Allowed values for v1: `pass | fail | skipped | noisy`
+- `test_result`
+  Allowed values for v1: `pass | fail | not_run`
+- `reviewer_verdict`
+  Allowed values for v1: `accepted | accepted_with_followups | rejected | deferred`
+- `evidence_refs`
+- `notes`
+
+Derived metric formulas for reports/dashboards:
+
+- `diff_churn = lines_added + lines_removed`
+- `guard_latency_seconds = guard_started_at_utc - first_edit_at_utc`
+- `post_guard_settle_seconds = first_green_at_utc - guard_finished_at_utc`
+- `episode_cycle_seconds = episode_finished_at_utc - episode_started_at_utc`
+- `guard_failure_density = guard_fail_count_before_green / max(file_count, 1)`
+- `review_escape_rate = escaped_findings_count / max(review_findings_count + escaped_findings_count, 1)`
+- `rework_loop_rate = retry_count / max(1, file_count)`
+- `violation_reduction_abs = lint_or_guard_violations_before - lint_or_guard_violations_after`
+- `violation_reduction_pct = violation_reduction_abs / max(lint_or_guard_violations_before, 1)`
+- `shape_reduction_abs = shape_violations_before - shape_violations_after`
+- `duplication_reduction_abs = duplication_violations_before - duplication_violations_after`
+- `mutation_delta = mutation_score_after - mutation_score_before`
+- `productivity_to_green = diff_churn_after_guard / max(time_to_green_seconds, 1)`
+
+Primary promotion metrics for the watchdog:
+
+1. `time_to_green_seconds`
+2. `guard_fail_count_before_green`
+3. `escaped_findings_count`
+4. `lint_or_guard_violations_after`
+5. `reviewer_verdict` mapped to binary success:
+   `accepted | accepted_with_followups = success`, everything else = not success
+
+Secondary/exploratory metrics:
+
+- `terminal_idle_seconds`
+- `handoff_count`
+- `stale_peer_pause_count`
+- `productivity_to_green`
+- `mutation_delta`
+- provider-to-provider deltas
+- per-guard-family false-positive/noise rates
+
+Minimum evidence tiers for claims:
+
+1. `pilot`: at least `20` paired episodes, no release/publicity claims
+2. `provisional`: at least `50` paired episodes across `codex`, `claude`, and
+   `shared` episodes, with confidence intervals excluding zero for at least two
+   primary metrics
+3. `promotion`: at least `100` paired episodes with repeated wins across
+   providers/task classes and no major regression in any primary metric
+
+Decision rule for "watchdog helps":
+
+1. At least two primary metrics improve with predefined practical-significance
+   thresholds.
+2. No primary metric regresses materially.
+3. Confidence intervals support the direction of improvement.
+4. The result repeats across more than one provider/task family.
+
+Planned analytics outputs:
+
+- `watchdog_summary.json`
+- `watchdog_summary.md`
+- `speed_delta.json`
+- `quality_delta.json`
+- `provider_comparison.json`
+- `guard_family_heatmap.json`
+- `time_to_green_timeseries.json`
+- `false_positive_report.json`
+- later dashboard/chart renderers over the same artifacts
+
 #### Off-LAN / Cellular Remote Access
 
 - [ ] Support remote iPhone access when the Mac is online at home and the phone
@@ -461,13 +703,13 @@ Unified data contract backlog:
   - audit refs (`event_id`, `idempotency_key`, `nonce`, `expires_at`).
 - [ ] Keep MP-355 (`dev/active/review_channel.md`) as the review-focused schema
       slice of this contract rather than a parallel authority: MP-340 retains
-      umbrella `controller_state` naming/projection ownership plus the pending
-      `ADR-0027`/`ADR-0028` backlog, while MP-355 owns the concrete
+      umbrella `controller_state` naming/projection ownership plus the accepted
+      `ADR-0027`/`ADR-0028` authority, while MP-355 owns the concrete
       `review_event`/`review_state` packet details, inbox/ack/watch/history
       semantics, and shared-screen layout. Shared fields must stay name- and
       meaning-compatible across both plans.
 - [ ] Keep control-plane and review artifacts memory-compatible: the temporary
-      `code_audit.md` bridge today, and `review_state` / `controller_state`
+      `bridge.md` bridge today, and `review_state` / `controller_state`
       later, must compile into Memory `session_handoff` / compaction-survival
       inputs so current blockers, next action, and audit refs survive agent
       restart or context loss without hidden memory-only coordination.
@@ -518,7 +760,7 @@ Operator experience backlog:
         `phone-status` (`phase`, `reason`, unresolved count, next actions,
         branch/run URL, pause/resume state, latest action result).
   - [ ] Review page reads the sanctioned live review artifact for the current
-        phase: `code_audit.md` in the temporary bridge era, then
+        phase: `bridge.md` in the temporary bridge era, then
         `review_state`/`review_event` projections once MP-355 Phase 1 lands.
   - [x] Actions page exposes the existing safe operator verbs first
         (`refresh-status`, `pause-loop`, `resume-loop`, `dispatch-report-only`)
@@ -537,7 +779,7 @@ Operator experience backlog:
 - [ ] Add developer-facing visibility on top of the operator cockpit so `--dev`
       becomes a practical live-debug surface rather than only a command menu:
   - [ ] raw artifact inspector for current `controller_state`, `phone-status`,
-        `code_audit.md`, and later `review_state` payloads
+        `bridge.md`, and later `review_state` payloads
   - [ ] change badges/toasts when review or controller artifacts update
   - [ ] command/audit tail showing recent `devctl` actions, policy denials, and
         packet/apply outcomes
@@ -558,6 +800,12 @@ Operator experience backlog:
       it refreshes bridge-backed review-channel state, combines it with
       autonomy `phone-status`, and emits compact/full/alert/actions mobile
       projections for future phone UI and notifier clients.)
+- [ ] Keep `mobile-status` state taxonomy aligned with review/runtime truth
+      during this read-first phase: stale live-review sessions with known
+      bridge/controller context must render `stale` rather than collapsing to
+      `runtime_missing`, and compact/full/alert views plus focused tests
+      should prove the same typed distinction the review-channel backend
+      emits.
 - [ ] Add an explicit simulator/device proving harness around the same shared
       control contract so phone work stays testable and honest during the
       transition:
@@ -700,7 +948,7 @@ Implementation scope:
       state, and who is waiting on whom without leaving the shared surface.
 - [ ] Render both parsed and raw review artifacts:
   - [ ] parsed view for current verdict/findings/instruction/ack/poll status
-  - [ ] raw markdown view for the literal `code_audit.md` bridge while it
+  - [ ] raw markdown view for the literal `bridge.md` bridge while it
         remains the sanctioned temporary authority projection
 - [ ] Add controlled overlay editing only for bounded fields/actions:
   - [ ] rewrite `Current Instruction For Claude`
@@ -757,6 +1005,10 @@ Backlog:
         expectations
   - [ ] route execution through the existing Dev broker/packet path or a typed
         successor, not through freeform `python3 <anything>` entry
+  - [ ] close the current `Ops` snapshot bypass too: `ops_snapshot.rs`
+        `process-audit` / `triage` refresh should route through
+        `DevCommandBroker` or the shared typed action path so timeout,
+        cancellation, and command-audit semantics stay authoritative
   - [ ] preserve dry-run and audit logging for any mutating action
 - [ ] Add a memory proving lane that uses the shipped foundations before more
       advanced memory automation is turned on:
@@ -946,7 +1198,7 @@ Execution model:
   - [ ] run sync guards and post-run digest (`autonomy-report`).
   - [ ] enforce policy denials/stop conditions before any promote actions.
 - [ ] Require every worker instruction/ack/progress to land in the merged
-      `dev/active/review_channel.md` swarm tables and the live `code_audit.md`
+      `dev/active/review_channel.md` swarm tables and the live `bridge.md`
       bridge.
 - [ ] Treat any lane with missing ACK, stale updates, or failed required bundle
       as blocked until resolved.
@@ -1161,6 +1413,11 @@ Acceptance:
   - [ ] candidate manual tasks to automate next
 - [ ] Feed learned playbook suggestions back into `autonomy-loop` plan stage as
       ranked options (with evidence refs and confidence).
+- [ ] Feed generic `devctl triage` rollups and `triage-loop.backlog_items`
+      into the autonomy plan/context-recovery stage instead of treating only
+      the per-round `triage-loop` command as controller input; concrete file/
+      line backlog should shape plan selection, prompt context, and checkpoint
+      packets.
 
 Acceptance:
 
@@ -1184,9 +1441,127 @@ Acceptance:
 - [x] Governance docs updated (`AGENTS`, `DEV_INDEX`, `dev/README`).
 - [x] Guard checks updated and passing.
 - [ ] Handoff includes evidence and unresolved risks.
+- [ ] Add the watchdog coverage-hardening tranche on top of the current typed
+      episode/metrics contract. Owner/phase: `MP-340` watchdog validation
+      before wider product claims. Raise coverage for
+      `dev/scripts/devctl/watchdog/**` and adjacent autonomy consumers with
+      reducer, emitter, and failure-path cases so the repo can prove watchdog
+      behavior from tests instead of analytics happy paths only. (audit
+      mapping: `SYSTEM_AUDIT.md` T2)
+- [ ] Close the autonomy execution-hardening backlog cluster from `issues.md`:
+      `ISS-004`, `ISS-006`, `ISS-019`, `ISS-022`, `ISS-032`, `ISS-033`,
+      `ISS-068`, `ISS-069`, `ISS-070`, `ISS-071`, `ISS-072`, `ISS-077`, and
+      `ISS-080` stay owned here until improvement deltas influence loop
+      decisions with validated prior snapshots and baseline-vs-current
+      comparisons, fix/triage subprocesses gain bounded timeouts plus
+      mid-round hang detection, swarm writes are isolated or locked, checkpoint
+      writes are verified, policy hard caps include agent count and workflow
+      bridge maxima, GitHub API preflight handles rate limits explicitly,
+      concurrent autonomy runs are prevented, sizing logic stops oscillating,
+      and phone/mobile status records crash/failure state instead of silently
+      reading as healthy.
 
 ## Progress Log
 
+- 2026-03-25: Re-ran the focused control-plane regression suite and found one
+  live `MP-340` parity break: `test_mobile_status.py` now expects `stale` but
+  gets `runtime_missing` in two bridge-backed cases. The first merged phone
+  surface is still the right architecture, but its state mapping drifted from
+  the typed review/runtime semantics it is supposed to project.
+- 2026-03-25: Checked the latest deep-sweep claims against the Rust control
+  surface before promoting anything into plan state. The broad "one-directional
+  boundary" framing is mostly architecture description, but one concrete
+  `MP-340` miss is real: the Dev-panel `Ops` refresh path in
+  `ops_snapshot.rs` still shells out via raw `python3` and bypasses the
+  broker's timeout/cancellation/logging path, so the remaining broker
+  convergence work now records that exact closure instead of a vague boundary
+  complaint.
+- 2026-03-24: Accepted the next bounded autonomy-input closure from the deeper
+  architecture review after checking it against live code. `autonomy-loop`
+  already consumes `triage-loop` every round, so the broad claim that "triage
+  is unread" was too loose; the real miss is that generic `devctl triage`
+  rollups and structured `triage-loop.backlog_items` still do not steer plan
+  selection or context recovery. The new scope stays here under `MP-340`
+  rather than widening `MP-377`.
+- 2026-03-22: Finished the remaining `SYSTEM_AUDIT` mapping for the watchdog
+  lane. The audit's test-hardening ask is now explicit here instead of living
+  only in reference prose: before the repo makes stronger "watchdog improves
+  coding" claims, the typed watchdog emitter/reducer path needs materially
+  stronger regression coverage beyond today's analytics-oriented happy-path
+  cases.
+- 2026-03-21: Accepted the next bounded graph-injection follow-up for
+  `swarm_run`/autonomy. The carry-forward checkpoint packet is now real, but
+  fresh autonomy sessions still start from plain checklist text. The next
+  backend slice is to prepend the same bounded `context-graph` packet to the
+  generated `swarm_run` prompt and then measure repeated-failure scenarios
+  with and without the packet (retry count, wrong-file edits, and
+  check-selection accuracy) before widening to operator/mobile rendering.
+- 2026-03-21: Added the first repo-owned context recovery packet to the
+  bounded autonomy loop. `loop-packet` now derives small `context-graph`
+  packets from triage commands, issue summaries, and mutation hotspots, and
+  `build_checkpoint_packet()` carries that structured packet into the durable
+  autonomy inbox/checkpoint artifact instead of leaving recovery context as an
+  operator-only guess. Next: decide whether phone/overlay surfaces should
+  render the packet directly or stay summary-only while the controller loop is
+  still stabilizing.
+- 2026-03-17: Accepted the next mobile/backend architecture correction from a
+  focused iPhone/runtime review. The current mobile relay guard is not yet a
+  trustworthy live-seam guard: it compares Rust structs against bundle-only
+  Swift models, can still report `ok` with zero matched pairs, and does not
+  cover the live `DaemonWebSocketClient` path. The plan now explicitly
+  prioritizes a typed daemon-state/runtime contract plus an executable Rust ↔
+  Python ↔ Swift parity guard before more phone UI work, then projects that
+  typed daemon state through `mobile-status` so iPhone can move off
+  `controller_payload` / `review_payload` as primary inputs.
+- 2026-03-10: Refactored the first watchdog analytics slice onto a shared typed
+  package instead of letting `guard-run`, data-science reducers, and Operator
+  Console views each grow their own schema/parser logic. The canonical
+  watchdog contract now lives under `dev/scripts/devctl/watchdog/`
+  (`GuardedCodingEpisode`, `WatchdogMetrics`, `WatchdogSummaryArtifact`),
+  compatibility shims preserve the old import paths, and JSON serialization now
+  emits list-shaped provider/guard-family rows so chart/rendering consumers do
+  not silently diverge from the reducer's in-memory typed tuples.
+- 2026-03-10: Hardened the first `guard-run`-backed watchdog producer after a
+  self-review pass. The emitted episode rows now carry repo diff/file snapshots
+  before and after the guarded command, optional typed metadata overrides
+  (`provider`, `session_id`, `peer_session_id`, `trigger_reason`,
+  `retry_count`, `escaped_findings_count`, `guard_result`,
+  `reviewer_verdict`), and the reducer no longer lets failed/no-green episodes
+  artificially improve `time_to_green_seconds`. This keeps the initial MP-340
+  analytics slice honest enough for real pilot data instead of only synthetic
+  tests.
+- 2026-03-10: Landed the first repo-visible guarded-episode producer for the
+  watchdog study. `devctl guard-run` now emits canonical
+  `dev/reports/autonomy/watchdog/episodes/guarded_coding_episode.jsonl` rows
+  plus per-episode `summary.json` artifacts, which closes the reducer-only gap
+  in MP-340 and gives the analytics pipeline real episode input without waiting
+  for the full overlay activity collector. Initial producer scope is typed and
+  bounded to explicit `guard-run` sessions; richer provider/session/activity
+  attribution remains follow-up work under the same plan.
+- 2026-03-10: Added the analytics-specific follow-up for the watchdog study.
+  MP-340 now requires a repo-owned episode schema and dashboard/report layer so
+  the system can measure not just "better/worse" but speed, latency, churn,
+  retries, review escapes, per-guard win rate, provider differences, and other
+  terminal-derived signals we may need later. The plan also now separates
+  exploratory metrics from promotion metrics and requires minimum-sample/power
+  discipline before the project claims the guards materially improve AI coding.
+- 2026-03-10: Expanded the MP-340 watchdog intake into a scientific measurement
+  plan. The overlay-native guard system should not just "feel better"; it must
+  emit matched before/after guarded coding episodes and be evaluated with a
+  proper empirical protocol: predefined primary outcomes, paired analysis by
+  task, effect sizes with confidence intervals, and practical-significance
+  thresholds before any promotion claim. The same artifact corpus is also now
+  the planned substrate for later learning work, but the order stays strict:
+  deterministic retrieval/playbook learning first, offline ML/ranking later.
+- 2026-03-10: Recorded the overlay-native live guard-watchdog intake under
+  MP-340. The intended model is not "overlay scrapes text and blindly types
+  fixes back into Codex/Claude"; it is "overlay observes PTY/session-tail
+  activity plus typed packets, classifies what the agent is doing, routes the
+  matching repo guard through a bounded `devctl` action, and projects the
+  result back into `controller_state` / review surfaces." This keeps the
+  overlay in a real-time watchdog role while preserving the repo's typed
+  policy/approval boundary and avoiding raw freeform shell authority as the
+  default enforcement mechanism.
 - 2026-03-09: Expanded MP-340 to capture the post-simulator/mobile feedback
   explicitly before more implementation starts. The plan now locks backend
   ownership to Rust + `devctl` rather than PyQt6, treats SSH as read/debug and
@@ -1360,13 +1735,13 @@ Acceptance:
   handoff routing, and a deferred unified timeline/replay projection under the
   umbrella controller contract.
 - 2026-02-25: Implemented triage-loop fix execution parity with mutation policy
-  gates (new `triage_loop_policy.py`, `control_plane_policy.json`
+  gates (new `triage/loop_policy.py`, `control_plane_policy.json`
   `triage_loop.allowed_fix_command_prefixes`, workflow env wiring for
   `AUTONOMY_MODE`/`TRIAGE_LOOP_ALLOWED_PREFIXES`, and `fix_block_reason`
   propagation into dry-run/live reports).
 - 2026-02-25: Added review escalation flow for exhausted triage loops:
   `coderabbit_ralph_loop_core.py` now sets `escalation_needed=true` on
-  max-attempt exhaustion, `triage_loop_support.py` now upserts dedicated
+  max-attempt exhaustion, `triage/loop_support.py` now upserts dedicated
   escalation comments with a separate marker, and `devctl triage-loop` now
   publishes escalation comments when unresolved backlog remains.
 - 2026-02-24: Plan created under `dev/active/` with execution-contract marker,
@@ -1507,6 +1882,22 @@ Acceptance:
 - 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c08`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c08/summary.md`.
 - 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c09`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c09/summary.md`.
 - 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c10`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c10/summary.md`.
+## Session Resume
+
+- Current status: this plan remains active; start from the highest-priority
+  open item in `## Execution Checklist` and the latest dated entry in
+  `## Progress Log`.
+- Next action: keep current-slice decisions and blockers in this file instead
+  of chat-only notes, then update this section when the promoted slice
+  changes. The current mapped test-hardening slice is the watchdog coverage
+  tranche; keep it visible until emitter/reducer/failure-path coverage is
+  materially stronger. The next adjacent controller-input follow-up after that
+  is the newly mapped triage-artifact slice: generic `triage` rollups and
+  structured `backlog_items` should start shaping plan selection and context
+  recovery instead of remaining report-only.
+- Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
+  load only the local sections needed for the active checklist item.
+
 ## Audit Evidence
 
 | Check | Evidence | Status |
@@ -1548,7 +1939,7 @@ Acceptance:
 | `python3 -m unittest dev.scripts.devctl.tests.test_phone_status dev.scripts.devctl.tests.test_autonomy_report` | phone-status parser/command/projection bundle behavior covered and phone reason metric extraction fixed (`Ran 5 tests ... OK`, 2026-02-24 local run) | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_controller_action` | controller-action parser/guard/action behavior covered (`refresh-status`, allowlist-reject, allowlist dry-run dispatch, pause-loop mode-file write) (`Ran 5 tests ... OK`, 2026-02-24 local run) | done |
 | `python3 dev/scripts/checks/check_code_shape.py` | `ok: True` after autonomy-loop helper split (2026-02-24 local run) | done |
-| `python3 dev/scripts/checks/check_code_shape.py` | `ok: True` after guarded `swarm_run` split + `dev/scripts/mutants.py` compaction removed pre-existing growth-budget violation (2026-02-24 local run) | done |
+| `python3 dev/scripts/checks/check_code_shape.py` | `ok: True` after guarded `swarm_run` split + `dev/scripts/mutation/cli.py` compaction removed pre-existing growth-budget violation (2026-02-24 local run) | done |
 | `python3 dev/scripts/audits/audit_metrics.py --input dev/audits/templates/audit_events_template.jsonl --output-md /tmp/audit-metrics.md --output-json /tmp/audit-metrics.json --chart-dir /tmp/audit-metrics-charts` | summary + JSON + chart outputs emitted (2026-02-24 local run) | done |
 | `DEVCTL_AUDIT_CYCLE_ID=baseline-2026-02-24 DEVCTL_EXECUTION_SOURCE=script_only python3 dev/scripts/devctl.py list` | event row appended to `dev/reports/audits/devctl_events.jsonl` (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label autonomy-run-live-20260224-091724Z` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/autonomy-run-live-20260224-091724Z/summary.md` (2026-02-24 local run) | done |

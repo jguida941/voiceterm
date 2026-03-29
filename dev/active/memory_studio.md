@@ -1,12 +1,18 @@
 # Memory + Action Studio Plan (Semantic Memory + Agent Overlay)
 
 Date: 2026-02-19
-Status: Next primary product lane after Theme completion; active design/proof-path work is already underway for the operator-cockpit execution slice under `MP-233`, `MP-238`, and `MP-243` (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-230..MP-255)
+Status: Memory + Action Studio scoped lane; active design/proof-path work is already underway for the operator-cockpit execution slice under `MP-233`, `MP-238`, and `MP-243` (execution mirrored in `dev/active/MASTER_PLAN.md` as `MP-230..MP-255`). This is not the repo's top-level strategic lane while the extracted-platform work is active.
 Scope: Turn VoiceTerm memory from transcript snippets into a structured, AI-usable
 knowledge and action layer for Codex/Claude terminal workflows
 
 `dev/active/MASTER_PLAN.md` remains the canonical execution tracker. This file
 is the architecture/spec + quality gates for the Memory track.
+
+Execution coverage in this spec:
+`MP-230`, `MP-231`, `MP-232`, `MP-233`, `MP-234`, `MP-235`, `MP-236`,
+`MP-237`, `MP-238`, `MP-239`, `MP-240`, `MP-241`, `MP-242`, `MP-243`,
+`MP-244`, `MP-245`, `MP-246`, `MP-247`, `MP-248`, `MP-249`, `MP-250`,
+`MP-251`, `MP-252`, `MP-253`, `MP-254`, `MP-255`.
 
 ## Product Goal
 
@@ -70,7 +76,9 @@ structured memory substrate that is both human-auditable and machine-queryable.
   query/export surfaces are still missing.
 - The Rust operator cockpit now exposes a dedicated read-only Memory tab with refresh-on-visible-tab wiring plus memory-ingest/review/boot-pack/handoff preview sections, but broader query/export views and dedicated browser navigation are still missing.
 - Memory modes (`off`, `capture_only`, `assist`, `paused`, `incognito`) now restore from persistent config at startup, persist immediately from the dev-panel mode toggle path, and flow through runtime config snapshots, but broader trust/privacy controls and visible controls outside `--dev` remain incomplete.
-- Context-pack struct/output is present, but several required fields are still missing (`retrieval_plan`, `validation_report`, `source_mix`, contradiction metadata).
+- Context-pack struct/output is present and now carries retrieval-plan traces,
+  but several required fields are still missing (`validation_report`,
+  `source_mix`, contradiction metadata).
 - Review/control-plane interop is partially proven through the shared handoff prompt; pack exports plus event-backed attach-by-ref `context_pack_refs` are now wired through the current review/control proof path, but normalized packet-outcome ingestion and wider `controller_state` parity are not wired yet.
 - Action policy logic exists, but action execution/audit is not yet integrated into overlay runtime flows.
 
@@ -1526,7 +1534,7 @@ Integration requirement:
 - every `devctl` JSON output should map to canonical memory event types (`command_run`, `summary`, `decision`, `handoff`)
 - release-note artifacts must be stored as immutable artifact refs and linked to tasks/releases
 - change digests should emit both `*.json` (machine) and `*.md` (human) in `.voiceterm/memory/exports/`
-- temporary review/control-plane coordination must ingest cleanly too: today's `code_audit.md` bridge, and later `review_state` / `controller_state`, should compile into `session_handoff` and compaction-survival inputs so active blockers, decisions, and next action survive context compaction or agent handoff
+- temporary review/control-plane coordination must ingest cleanly too: today's `bridge.md` bridge, and later `review_state` / `controller_state`, should compile into `session_handoff` and compaction-survival inputs so active blockers, decisions, and next action survive context compaction or agent handoff
 
 ### Git History Compilers (New Memory Outputs)
 
@@ -1877,6 +1885,34 @@ python3 dev/scripts/checks/check_survival_index_recall.py  # Level 4-5 A/B recal
 
 ## Progress Log
 
+- 2026-03-17: Verified the Memory Studio substrate against the current code
+  before folding it into the broader startup/work-intake plan. The repo does
+  already have a working first-generation memory stack: deterministic retrieval
+  query APIs (`Recent`, `ByTopic`, `ByTask`, `TextSearch`, `Timeline`),
+  signal-routed context strategies, `ContextPack` builders with token budgets,
+  a real `SurvivalIndex`, JSONL persistence, and a staged SQLite schema
+  contract over the in-memory index. Accepted correction: the memory lane is
+  not "missing," but it is also not yet the finished shared startup authority.
+  Cross-plan direction is now explicit: governance/runtime evidence should
+  reach this lane through exported receipts / attach-by-ref contracts, and the
+  future `startup-context` surface should compose cached repo-intelligence,
+  governance evidence, and memory exports instead of forcing AI to reread the
+  full doc stack each session.
+- 2026-03-17 bridge task: add one concrete governance-to-memory bridge that
+  serializes findings, run records, and repo-intelligence snapshots into the
+  Rust memory substrate so `startup-context` and `master-report` can consume a
+  single bounded packet instead of stitching evidence together from separate
+  JSONL readers.
+- 2026-03-14: Corrected a partial MP-233/MP-234 overlay prototype so it
+  follows the active Memory Studio proving path instead of creating a parallel
+  executor/UI contract. The shared Memory Browser and Action Center overlays
+  remain valid VoiceTerm runtime surfaces, but the current proof opens them
+  from the Rust operator cockpit (`Memory` tab -> `b`, `Actions` tab -> `a`)
+  rather than intercepting global `Ctrl+B` / `Ctrl+A` bytes. The same sweep
+  removed the raw-shell Action Center executor, kept action execution on the
+  existing typed `dev_command` catalog/approval model, restored the test-harness
+  state shape, and extracted shared overlay helpers/submodules so the new code
+  stays under Rust shape/duplication guard thresholds.
 - 2026-03-09: Tightened the boot-pack proving substrate so summary fields stay
   provenance-aligned under token pressure. `generate_boot_pack()` now derives
   `active_tasks` and `recent_decisions` from the same budget-included evidence
@@ -1958,6 +1994,10 @@ failures remain tracked outside this spec.
 | `cargo test memory::survival_index:: -- --nocapture` | `5 passed`; verifies deterministic survival-index query planning, fallback retrieval behavior, task/decision extraction, and markdown rendering for compaction-recovery exports. | done |
 | `cargo test dev_panel_overlay::refresh_poll::memory_page_enter -- --nocapture` | `2 passed`; validates Memory cockpit Enter-refresh path and confirms `survival_index.json` includes structured `query_traces` + `evidence` payload keys. | done |
 | `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | passed after rerunning with host-process access when the initial guard-run follow-up hit sandboxed `ps`; final quick profile finished green. | done |
+| `cargo test --bin voiceterm` | `1799 passed`; validates the corrected Memory Browser / Action Center cockpit-entry path plus the supporting overlay/input/render refactors against the full VoiceTerm Rust suite. | done |
+| `python3 dev/scripts/checks/check_rust_security_footguns.py --format md` + `python3 dev/scripts/checks/check_rust_lint_debt.py --format md` + `python3 dev/scripts/checks/check_rust_test_shape.py --format md` + `python3 dev/scripts/checks/check_structural_complexity.py --format md` + `python3 dev/scripts/checks/check_rust_best_practices.py --format md` | all `ok: True` on 2026-03-14 after removing the raw-shell executor, restoring the `EventLoopState` fixture shape, and finishing the overlay refactor. | done |
+| `python3 dev/scripts/checks/check_function_duplication.py --format md` + `python3 dev/scripts/checks/check_structural_similarity.py --format md` + `python3 dev/scripts/checks/check_code_shape.py --format md` | Rust-side duplication/similarity/shape regressions from the overlay prototype were closed on 2026-03-14: `function_duplication` now only reports an unrelated Python duplicate, `structural_similarity` is green, and `code_shape` only reports unrelated Python soft-limit findings after extracting `overlay/memory_action_input.rs`. | done |
+| `python3 dev/scripts/devctl.py governance-review --record ...` | recorded the 2026-03-14 correction sweep in `dev/reports/governance/finding_reviews.jsonl`: fixed `rust-security-footguns-guard`, `code-shape-guard`, and `function-duplication-guard` rows for the memory-overlay slice, and deferred the unrelated dirty-tree Python shape/duplication findings encountered during validation. | done |
 
 ## Research References (2026-02-19)
 

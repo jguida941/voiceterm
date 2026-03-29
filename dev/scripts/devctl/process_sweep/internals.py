@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import os
+import signal
 from collections import defaultdict, deque
 from pathlib import Path
-import signal
 
 from .config import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
@@ -16,14 +16,7 @@ from .config import (
     SELF_HYGIENE_COMMAND_RE,
 )
 from .matching import (
-    command_executable_basename,
-    command_executable_token,
-    is_attached_noninteractive_repo_helper,
-    is_interactive_shell_command,
-    is_repo_background_candidate,
     normalize_repo_path,
-    path_is_under_repo,
-    row_looks_backgrounded,
 )
 
 
@@ -106,20 +99,24 @@ def build_skip_pid_set(rows: list[dict], *, this_pid: int, parent_pid: int) -> s
             break
         next_pid = parent_row["ppid"]
 
+    sibling_roots: list[int] = []
     for row in rows:
         if row["ppid"] != parent_pid:
             continue
         if SELF_HYGIENE_COMMAND_RE.search(row["command"]):
-            skip_pids.add(row["pid"])
+            sibling_roots.append(row["pid"])
+
+    for pid in sibling_roots:
+        skip_pids.add(pid)
+        for child_pid in _walk_process_tree(children_by_pid, children_by_pid.get(pid, [])):
+            skip_pids.add(child_pid)
 
     for pid in _walk_process_tree(children_by_pid, children_by_pid.get(this_pid, [])):
         skip_pids.add(pid)
     return skip_pids
 
 
-def collect_descendant_rows(
-    rows: list[dict], matched_pids: set[int], *, scope: str
-) -> dict[int, dict]:
+def collect_descendant_rows(rows: list[dict], matched_pids: set[int], *, scope: str) -> dict[int, dict]:
     """Return directly matched rows plus their descendant process tree."""
     rows_by_pid, children_by_pid = _build_process_tree_indexes(rows)
 
@@ -175,11 +172,7 @@ def split_orphaned_processes(
     rows: list[dict], *, min_age_seconds: int = DEFAULT_ORPHAN_MIN_AGE_SECONDS
 ) -> tuple[list[dict], list[dict]]:
     """Split rows into `orphaned` vs `active` using PPID=1 + minimum age."""
-    orphaned = [
-        row
-        for row in rows
-        if row["ppid"] == 1 and row["elapsed_seconds"] >= min_age_seconds
-    ]
+    orphaned = [row for row in rows if row["ppid"] == 1 and row["elapsed_seconds"] >= min_age_seconds]
     active = [row for row in rows if row not in orphaned]
     return orphaned, active
 
@@ -188,11 +181,7 @@ def split_stale_processes(
     rows: list[dict], *, min_age_seconds: int = DEFAULT_STALE_MIN_AGE_SECONDS
 ) -> tuple[list[dict], list[dict]]:
     """Split rows into `stale` vs `recent` using elapsed runtime age."""
-    stale = [
-        row
-        for row in rows
-        if row["elapsed_seconds"] >= 0 and row["elapsed_seconds"] >= min_age_seconds
-    ]
+    stale = [row for row in rows if row["elapsed_seconds"] >= 0 and row["elapsed_seconds"] >= min_age_seconds]
     recent = [row for row in rows if row not in stale]
     return stale, recent
 
@@ -276,9 +265,7 @@ def extend_process_row_markdown(
         lines.append(f"- ... {remaining} more {overflow_label}")
 
 
-def format_process_rows(
-    rows: list[dict], *, line_max_len: int = 180, row_limit: int = 8
-) -> str:
+def format_process_rows(rows: list[dict], *, line_max_len: int = 180, row_limit: int = 8) -> str:
     """Render short process summaries for human-readable warnings/errors."""
 
     def truncate(command: str) -> str:

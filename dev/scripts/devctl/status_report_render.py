@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from .python_guard_report import render_python_guard_markdown
-from .quality_backlog_report import render_quality_backlog_markdown
-from .rust_audit_report import render_rust_audit_markdown
+from .quality_backlog.report import render_quality_backlog_markdown
+from .rust_audit.report import render_rust_audit_markdown
+
+_PROBE_HOTSPOT_LIMIT = 3
 
 
 def render_project_markdown(
@@ -18,18 +20,45 @@ def render_project_markdown(
 ) -> str:
     """Render markdown once for both commands so wording stays aligned."""
     lines = [f"# {title}", ""]
-    _append_git_lines(lines, report.get("git", {}))
-    _append_mutation_lines(lines, report.get("mutants", {}))
-    _append_ci_lines(
+    git_info = report.get("git", {})
+    if not isinstance(git_info, dict):
+        lines.append("- Git: unavailable")
+    elif "error" in git_info:
+        lines.append(f"- Git: {git_info['error']}")
+    else:
+        lines.append(f"- Branch: {git_info.get('branch', 'unknown')}")
+        lines.append(f"- Changelog updated: {git_info.get('changelog_updated')}")
+        lines.append(f"- Master plan updated: {git_info.get('master_plan_updated')}")
+        lines.append(f"- Changed files: {len(git_info.get('changes', []))}")
+
+    append_mutation_lines(lines, report.get("mutants", {}))
+    append_ci_lines(
         lines,
         report.get("ci"),
         include_ci_details=include_ci_details,
         ci_details_limit=ci_details_limit,
     )
-    _append_dev_log_lines(lines, report.get("dev_logs"))
-    _append_pedantic_lines(lines, report.get("pedantic"))
-    _append_quality_backlog_lines(lines, report.get("quality_backlog"))
-    _append_python_guard_backlog_lines(lines, report.get("python_guard_backlog"))
+    append_dev_log_lines(lines, report.get("dev_logs"))
+    append_pedantic_lines(lines, report.get("pedantic"))
+    append_failure_packet_lines(lines, report.get("failure_packet"))
+
+    quality_backlog = report.get("quality_backlog")
+    if quality_backlog is not None:
+        if not isinstance(quality_backlog, dict):
+            lines.append("- Quality backlog: unavailable")
+        else:
+            lines.append("")
+            lines.extend(render_quality_backlog_markdown(quality_backlog))
+
+    python_guard_backlog = report.get("python_guard_backlog")
+    if python_guard_backlog is not None:
+        if not isinstance(python_guard_backlog, dict):
+            lines.append("- Python guard backlog: unavailable")
+        else:
+            lines.append("")
+            lines.extend(render_python_guard_markdown(python_guard_backlog))
+
+    append_probe_report_lines(lines, report.get("probe_report"))
 
     if "rust_audits" in report:
         rust_audits = report.get("rust_audits", {})
@@ -54,20 +83,7 @@ def render_project_markdown(
     return "\n".join(lines)
 
 
-def _append_git_lines(lines: list[str], git_info: Any) -> None:
-    if not isinstance(git_info, dict):
-        lines.append("- Git: unavailable")
-        return
-    if "error" in git_info:
-        lines.append(f"- Git: {git_info['error']}")
-        return
-    lines.append(f"- Branch: {git_info.get('branch', 'unknown')}")
-    lines.append(f"- Changelog updated: {git_info.get('changelog_updated')}")
-    lines.append(f"- Master plan updated: {git_info.get('master_plan_updated')}")
-    lines.append(f"- Changed files: {len(git_info.get('changes', []))}")
-
-
-def _append_mutation_lines(lines: list[str], mutants_info: Any) -> None:
+def append_mutation_lines(lines: list[str], mutants_info: Any) -> None:
     if not isinstance(mutants_info, dict):
         lines.append("- Mutation score: unavailable")
         return
@@ -91,7 +107,7 @@ def _append_mutation_lines(lines: list[str], mutants_info: Any) -> None:
         lines.append(f"- Mutation score note: {warning}")
 
 
-def _append_ci_lines(
+def append_ci_lines(
     lines: list[str],
     ci_info: Any,
     *,
@@ -117,7 +133,7 @@ def _append_ci_lines(
         lines.append(f"  - {run_title}: {status}/{conclusion}")
 
 
-def _append_dev_log_lines(lines: list[str], dev_info: Any) -> None:
+def append_dev_log_lines(lines: list[str], dev_info: Any) -> None:
     if dev_info is None:
         return
     if not isinstance(dev_info, dict):
@@ -128,9 +144,7 @@ def _append_dev_log_lines(lines: list[str], dev_info: Any) -> None:
         return
     lines.append(f"- Dev logs root: {dev_info.get('dev_root')}")
     lines.append(
-        "- Dev sessions scanned: "
-        f"{dev_info.get('sessions_scanned', 0)}/"
-        f"{dev_info.get('session_files_total', 0)}"
+        "- Dev sessions scanned: " f"{dev_info.get('sessions_scanned', 0)}/" f"{dev_info.get('session_files_total', 0)}"
     )
     lines.append(
         "- Dev events: "
@@ -147,7 +161,7 @@ def _append_dev_log_lines(lines: list[str], dev_info: Any) -> None:
     lines.append("- Dev latest event: " + (latest_iso if latest_iso else "none"))
 
 
-def _append_pedantic_lines(lines: list[str], pedantic_info: Any) -> None:
+def append_pedantic_lines(lines: list[str], pedantic_info: Any) -> None:
     if pedantic_info is None:
         return
     if not isinstance(pedantic_info, dict):
@@ -162,7 +176,7 @@ def _append_pedantic_lines(lines: list[str], pedantic_info: Any) -> None:
         warning = pedantic_info.get("warning")
         if warning:
             lines.append(f"- Pedantic advisory note: {warning}")
-        _append_pedantic_refresh_line(lines, refresh)
+        append_pedantic_refresh_line(lines, refresh)
         return
     lines.append(
         "- Pedantic advisory: "
@@ -183,42 +197,100 @@ def _append_pedantic_lines(lines: list[str], pedantic_info: Any) -> None:
     top_candidates = pedantic_info.get("top_promote_candidates", [])
     if isinstance(top_candidates, list) and top_candidates:
         formatted = ", ".join(
-            f"{row.get('lint')}={row.get('count')}"
-            for row in top_candidates[:3]
-            if isinstance(row, dict)
+            f"{row.get('lint')}={row.get('count')}" for row in top_candidates[:3] if isinstance(row, dict)
         )
         if formatted:
             lines.append(f"- Pedantic promote candidates: {formatted}")
-    _append_pedantic_refresh_line(lines, refresh)
+    append_pedantic_refresh_line(lines, refresh)
     policy_warnings = pedantic_info.get("policy_warnings", [])
     if isinstance(policy_warnings, list) and policy_warnings:
         lines.append(f"- Pedantic policy note: {policy_warnings[0]}")
 
 
-def _append_pedantic_refresh_line(lines: list[str], refresh: Any) -> None:
+def append_pedantic_refresh_line(lines: list[str], refresh: Any) -> None:
     if isinstance(refresh, dict):
-        lines.append(
-            "- Pedantic refresh: "
-            f"exit={refresh.get('returncode')} "
-            f"skipped={refresh.get('skipped')}"
+        lines.append("- Pedantic refresh: " f"exit={refresh.get('returncode')} " f"skipped={refresh.get('skipped')}")
+
+
+def append_failure_packet_lines(lines: list[str], failure_packet: Any) -> None:
+    if failure_packet is None:
+        return
+    if not isinstance(failure_packet, dict):
+        lines.append("- Failure packet: unavailable")
+        return
+    lines.append("")
+    lines.append("## Failure Packet")
+    lines.append(f"- source: {failure_packet.get('source', 'unknown')}")
+    lines.append(f"- runner: {failure_packet.get('runner', 'unknown')}")
+    lines.append(f"- status: {failure_packet.get('status', 'unknown')}")
+    lines.append(f"- total_tests: {failure_packet.get('total_tests', 0)}")
+    lines.append(f"- failed_tests: {failure_packet.get('failed_tests', 0)}")
+    lines.append(f"- error_tests: {failure_packet.get('error_tests', 0)}")
+    lines.append(f"- primary_test: {failure_packet.get('primary_test_id', '') or 'none'}")
+    primary_message = str(failure_packet.get("primary_message") or "").strip()
+    if primary_message:
+        lines.append(f"- primary_message: {primary_message}")
+    cases = failure_packet.get("cases")
+    if isinstance(cases, list) and cases:
+        for case in cases[:3]:
+            if not isinstance(case, dict):
+                continue
+            lines.append(
+                "- failure_case: "
+                + f"{case.get('test_id', 'unknown')} -> {case.get('message', 'no message')}"
+            )
+
+
+def append_probe_report_lines(lines: list[str], probe_report: Any) -> None:
+    if probe_report is None:
+        return
+    if not isinstance(probe_report, dict):
+        lines.append("- Review probes: unavailable")
+        return
+    if "error" in probe_report:
+        lines.append(f"- Review probes: error ({probe_report['error']})")
+        return
+
+    summary = probe_report.get("summary", {})
+    if not isinstance(summary, dict):
+        summary = {}
+    lines.append("")
+    lines.append("## Review Probes")
+    lines.append(f"- ok: {probe_report.get('ok')}")
+    lines.append(f"- mode: {probe_report.get('mode', 'unknown')}")
+    lines.append(f"- probes_run: {summary.get('probe_count', 0)}")
+    lines.append(f"- files_scanned: {summary.get('files_scanned', 0)}")
+    lines.append(f"- files_with_hints: {summary.get('files_with_hints', 0)}")
+    lines.append(f"- risk_hints: {summary.get('risk_hints', 0)}")
+
+    top_files = summary.get("top_files", [])
+    if isinstance(top_files, list) and top_files:
+        formatted = ", ".join(
+            f"{row.get('file')}={row.get('hint_count')}"
+            for row in top_files[:_PROBE_HOTSPOT_LIMIT]
+            if isinstance(row, dict)
         )
+        if formatted:
+            lines.append(f"- top_files: {formatted}")
 
+    priority_hotspots = summary.get("priority_hotspots", [])
+    if isinstance(priority_hotspots, list) and priority_hotspots:
+        formatted = ", ".join(
+            (f"{row.get('file')}=" f"{row.get('priority_score')}")
+            for row in priority_hotspots[:_PROBE_HOTSPOT_LIMIT]
+            if isinstance(row, dict)
+        )
+        if formatted:
+            lines.append(f"- priority_hotspots: {formatted}")
 
-def _append_quality_backlog_lines(lines: list[str], backlog: Any) -> None:
-    if backlog is None:
-        return
-    if not isinstance(backlog, dict):
-        lines.append("- Quality backlog: unavailable")
-        return
-    lines.append("")
-    lines.extend(render_quality_backlog_markdown(backlog))
+    topology = summary.get("topology", {})
+    if isinstance(topology, dict):
+        lines.append(f"- topology_edges: {topology.get('edge_count', 0)}")
+        lines.append(f"- changed_hint_files: {topology.get('changed_hint_files', 0)}")
 
-
-def _append_python_guard_backlog_lines(lines: list[str], backlog: Any) -> None:
-    if backlog is None:
-        return
-    if not isinstance(backlog, dict):
-        lines.append("- Python guard backlog: unavailable")
-        return
-    lines.append("")
-    lines.extend(render_python_guard_markdown(backlog))
+    warnings = probe_report.get("warnings", [])
+    if isinstance(warnings, list) and warnings:
+        lines.append(f"- warnings: {warnings[0]}")
+    errors = probe_report.get("errors", [])
+    if isinstance(errors, list) and errors:
+        lines.append(f"- errors: {errors[0]}")

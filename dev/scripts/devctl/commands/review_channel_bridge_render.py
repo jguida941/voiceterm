@@ -5,12 +5,26 @@ from __future__ import annotations
 import json
 
 from ..approval_mode import normalize_approval_mode
+from ..review_channel.attach_auth_render import append_attach_auth_policy_markdown
 from ..review_channel.core import REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE
 from ..review_channel.handoff import handoff_bundle_to_dict
 from ..review_channel.heartbeat import bridge_heartbeat_refresh_to_dict
 from ..review_channel.promotion import promotion_candidate_to_dict
+from ..review_channel.peer_liveness import OverallLivenessState
+from ..review_channel.reviewer_state import reviewer_state_write_to_dict
 from ..review_channel.state import projection_paths_to_dict
 from ..time_utils import utc_timestamp
+from .review_channel.bridge_wait_render import append_wait_state_markdown
+from .review_channel_bridge_render_sections import (
+    _append_handoff_bundle,
+    _append_promotion,
+    _append_attention,
+    _append_service_identity,
+    _append_bridge_heartbeat_refresh,
+    _append_reviewer_state_write,
+    _append_bridge_render,
+    _append_sessions,
+)
 
 
 def render_bridge_md(
@@ -56,7 +70,13 @@ def render_bridge_md(
     append_common_report_sections(lines, report)
     _append_handoff_bundle(lines, report.get("handoff_bundle"))
     _append_promotion(lines, report.get("promotion"))
+    _append_attention(lines, report.get("attention"))
+    append_wait_state_markdown(lines, report.get("wait_state"))
+    _append_service_identity(lines, report.get("service_identity"))
+    append_attach_auth_policy_markdown(lines, report.get("attach_auth_policy"))
     _append_bridge_heartbeat_refresh(lines, report.get("bridge_heartbeat_refresh"))
+    _append_reviewer_state_write(lines, report.get("reviewer_state_write"))
+    _append_bridge_render(lines, report.get("bridge_render"))
     _append_sessions(lines, report.get("sessions"))
     return "\n".join(lines)
 
@@ -65,6 +85,8 @@ def build_bridge_success_report(
     *,
     args,
     bridge_liveness: dict[str, object],
+    attention: dict[str, object],
+    reviewer_worker: dict[str, object] | None,
     codex_lanes: list,
     claude_lanes: list,
     terminal_profile_applied: str | None,
@@ -77,10 +99,14 @@ def build_bridge_success_report(
     handoff_ack_observed: dict[str, bool] | None,
     promotion=None,
     bridge_heartbeat_refresh=None,
+    reviewer_state_write=None,
     execution_mode_override: str | None = None,
 ) -> tuple[dict, int]:
     """Assemble the bridge-action success report dict."""
-    report_ok = str(bridge_liveness.get("overall_state") or "unknown") == "fresh"
+    report_ok = str(bridge_liveness.get("overall_state") or "unknown") in {
+        OverallLivenessState.FRESH,
+        OverallLivenessState.INACTIVE,
+    }
     report = {
         "command": "review-channel",
         "timestamp": utc_timestamp(),
@@ -121,16 +147,29 @@ def build_bridge_success_report(
         "sessions": sessions,
         "handoff_bundle": handoff_bundle_to_dict(handoff_bundle),
         "bridge_liveness": bridge_liveness,
+        "attention": attention,
+        "reviewer_worker": reviewer_worker,
         "projection_paths": projection_paths_to_dict(projection_paths),
         "promotion": promotion_candidate_to_dict(promotion),
         "bridge_heartbeat_refresh": bridge_heartbeat_refresh_to_dict(
             bridge_heartbeat_refresh
         ),
+        "reviewer_state_write": reviewer_state_write_to_dict(reviewer_state_write),
     }
+    if isinstance(reviewer_worker, dict):
+        report["review_needed"] = bool(reviewer_worker.get("review_needed"))
     if bridge_heartbeat_refresh is not None:
         report["warnings"].append(
             "Auto-refreshed the markdown-bridge reviewer heartbeat before "
             f"{args.action} so the live launch contract could proceed."
+        )
+    if (
+        reviewer_state_write is not None
+        and getattr(reviewer_state_write, "reason", "") == "auto-demote-stale-bridge"
+    ):
+        report["warnings"].append(
+            "Auto-demoted the stale markdown bridge to `paused` because no live "
+            "reviewer runtime owner was detected."
         )
     if handoff_ack_required and handoff_ack_observed is not None:
         missing = [
@@ -204,60 +243,3 @@ def append_common_report_sections(lines: list[str], report: dict) -> None:
         lines.append(
             f"- agent_registry_path: {projection_paths['agent_registry_path']}"
         )
-
-
-def _append_handoff_bundle(lines: list[str], handoff_bundle: object) -> None:
-    if not isinstance(handoff_bundle, dict):
-        return
-    lines.append("")
-    lines.append("## Handoff Bundle")
-    lines.append(f"- bundle_dir: {handoff_bundle['bundle_dir']}")
-    lines.append(f"- markdown_path: {handoff_bundle['markdown_path']}")
-    lines.append(f"- json_path: {handoff_bundle['json_path']}")
-    lines.append(f"- generated_at: {handoff_bundle['generated_at']}")
-    lines.append(f"- rollover_id: {handoff_bundle['rollover_id']}")
-    lines.append(f"- trigger: {handoff_bundle['trigger']}")
-    lines.append(f"- threshold_pct: {handoff_bundle['threshold_pct']}")
-
-
-def _append_promotion(lines: list[str], promotion: object) -> None:
-    if not isinstance(promotion, dict):
-        return
-    lines.append("")
-    lines.append("## Promotion")
-    lines.append(f"- instruction: {promotion.get('instruction')}")
-    lines.append(f"- source_path: {promotion.get('source_path')}")
-    if promotion.get("phase_heading"):
-        lines.append(f"- phase_heading: {promotion.get('phase_heading')}")
-    lines.append(f"- checklist_item: {promotion.get('checklist_item')}")
-
-
-def _append_bridge_heartbeat_refresh(lines: list[str], refresh: object) -> None:
-    if not isinstance(refresh, dict):
-        return
-    lines.append("")
-    lines.append("## Bridge Heartbeat Refresh")
-    lines.append(f"- bridge_path: {refresh.get('bridge_path')}")
-    lines.append(f"- reason: {refresh.get('reason')}")
-    lines.append(f"- last_codex_poll_utc: {refresh.get('last_codex_poll_utc')}")
-    lines.append(f"- last_codex_poll_local: {refresh.get('last_codex_poll_local')}")
-    lines.append(f"- last_worktree_hash: {refresh.get('last_worktree_hash')}")
-
-
-def _append_sessions(lines: list[str], sessions: object) -> None:
-    if not isinstance(sessions, list) or not sessions:
-        return
-    lines.append("")
-    lines.append("## Sessions")
-    for session in sessions:
-        lines.append(f"### {session['session_name']}")
-        lines.append(f"- provider: {session['provider']}")
-        lines.append(f"- worker_budget: {session['worker_budget']}")
-        lines.append(f"- lane_count: {session['lane_count']}")
-        lines.append(f"- script_path: {session['script_path']}")
-        lines.append(f"- launch_command: {session['launch_command']}")
-        for lane in session["lanes"]:
-            lines.append(
-                f"- lane: {lane['agent_id']} | {lane['lane']} | "
-                f"{lane['worktree']} | {lane['branch']}"
-            )

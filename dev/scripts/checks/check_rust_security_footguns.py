@@ -12,6 +12,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -19,6 +20,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -32,7 +34,6 @@ GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_test_path = import_attr("rust_guard_common", "is_test_path")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 TODO_MACRO_RE = re.compile(r"\btodo!\s*\(")
@@ -67,7 +68,6 @@ HOT_PATH_PREFIXES = (
     "rust/src/ipc/",
 )
 
-
 def _window_after_statement(text: str, start_index: int) -> str:
     remaining = text[start_index:]
     blank_line_index = remaining.find("\n\n")
@@ -75,7 +75,6 @@ def _window_after_statement(text: str, start_index: int) -> str:
         remaining = remaining[:blank_line_index]
     lines = remaining.splitlines()
     return "\n".join(lines[:20])
-
 
 def _count_sign_unsafe_syscall_casts(text: str) -> int:
     findings = 0
@@ -97,7 +96,6 @@ def _count_sign_unsafe_syscall_casts(text: str) -> int:
         findings += 1
     return findings
 
-
 def _count_pid_signed_wrap_casts(text: str) -> int:
     return (
         len(CHILD_ID_SIGNED_CAST_RE.findall(text))
@@ -105,13 +103,11 @@ def _count_pid_signed_wrap_casts(text: str) -> int:
         + len(GETPID_BLOCK_SIGNED_CAST_RE.findall(text))
     )
 
-
 def _is_hot_runtime_path(path: Path | None) -> bool:
     if path is None:
         return False
     relative = path.as_posix()
     return any(relative.startswith(prefix) for prefix in HOT_PATH_PREFIXES)
-
 
 def _count_unreachable_hot_path_calls(text: str | None, *, path: Path | None) -> int:
     if text is None or not _is_hot_runtime_path(path):
@@ -125,7 +121,6 @@ def _count_unreachable_hot_path_calls(text: str | None, *, path: Path | None) ->
         code = STRING_LITERAL_RE.sub('""', code)
         count += len(UNREACHABLE_MACRO_RE.findall(code))
     return count
-
 
 def _count_metrics(text: str | None, *, path: Path | None = None) -> dict[str, int]:
     if text is None:
@@ -158,14 +153,11 @@ def _count_metrics(text: str | None, *, path: Path | None = None) -> dict[str, i
         "sign_unsafe_syscall_casts": _count_sign_unsafe_syscall_casts(text),
     }
 
-
 def _growth(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
     return {key: current[key] - base[key] for key in base}
 
-
 def _has_positive_growth(growth: dict[str, int]) -> bool:
     return any(value > 0 for value in growth.values())
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_rust_security_footguns", ""]
@@ -215,10 +207,8 @@ def _render_md(report: dict) -> str:
             lines.append(f"- `{item['path']}`: {', '.join(growth_bits)}")
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -325,7 +315,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

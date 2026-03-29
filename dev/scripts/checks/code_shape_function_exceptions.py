@@ -4,13 +4,17 @@ from __future__ import annotations
 
 try:
     from code_shape_shared import FunctionShapeException, FunctionShapePolicy
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.code_shape_shared import (
-        FunctionShapeException,
-        FunctionShapePolicy,
-    )
+except ModuleNotFoundError:  # pragma: no cover - script/package fallback
+    try:
+        from checks.code_shape_shared import (
+            FunctionShapeException,
+            FunctionShapePolicy,
+        )
+    except ModuleNotFoundError:  # pragma: no cover - repo-package fallback
+        from dev.scripts.checks.code_shape_shared import (
+            FunctionShapeException,
+            FunctionShapePolicy,
+        )
 
 
 FUNCTION_LANGUAGE_DEFAULTS: dict[str, FunctionShapePolicy] = {
@@ -75,7 +79,7 @@ FUNCTION_POLICY_EXCEPTIONS: dict[str, FunctionShapeException] = {
         follow_up_mp="MP-347 Phase 3",
         reason="Cross-doc board/instruction/ledger reconciliation remains consolidated pending extraction.",
     ),
-    "dev/scripts/devctl/cli_parser_release.py::add_release_parsers": FunctionShapeException(
+    "dev/scripts/devctl/cli_parser/release.py::add_release_parsers": FunctionShapeException(
         max_lines=175,
         owner="MP-347",
         expires_on="2026-05-15",
@@ -151,6 +155,21 @@ FUNCTION_POLICY_EXCEPTIONS: dict[str, FunctionShapeException] = {
         expires_on="2026-05-15",
         follow_up_mp="MP-340 mobile-status decomposition",
         reason="Mobile status run path still combines projection refresh, merge, and emit flows before final helper extraction.",
+    ),
+    # ── Guard script exceptions (25-agent architecture audit 2026-03-17) ──
+    "dev/scripts/checks/coderabbit_ralph_loop_core.py::execute_loop": FunctionShapeException(
+        max_lines=230,
+        owner="25-agent-audit",
+        expires_on="2026-06-17",
+        follow_up_mp="function-decomposition-backlog",
+        reason="execute_loop (222 lines): bounded Ralph remediation loop; extract wait/parse/fix phases.",
+    ),
+    "dev/scripts/checks/coderabbit_gate_core.py::build_report": FunctionShapeException(
+        max_lines=185,
+        owner="25-agent-audit",
+        expires_on="2026-06-17",
+        follow_up_mp="function-decomposition-backlog",
+        reason="build_report (175 lines): CodeRabbit gate report builder; extract section renderers.",
     ),
     # ── Rust function exceptions (code-quality-audit 2026-03-09) ──────────
     # 39 existing oversized Rust functions grandfathered with tracked budgets.

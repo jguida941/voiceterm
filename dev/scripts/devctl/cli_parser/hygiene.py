@@ -1,6 +1,6 @@
 """Parser registration helpers for process-hygiene commands.
 
-Extracted from cli_parser_reporting.py to keep that module under the
+Extracted from cli_parser/reporting.py to keep that module under the
 code-shape soft limit. Covers the process-audit/process-cleanup/process-watch
 subcommands that inspect/clean/watch repo-related host process trees.
 """
@@ -100,6 +100,45 @@ def add_process_hygiene_parsers(sub: argparse._SubParsersAction) -> None:
         "--dry-run",
         action="store_true",
         help="Print the guarded command and follow-up without executing them",
+    )
+    guard_run_cmd.add_argument(
+        "--provider",
+        choices=["unknown", "codex", "claude", "shared"],
+        help="Optional watchdog provider tag for the emitted episode artifact",
+    )
+    guard_run_cmd.add_argument(
+        "--session-id",
+        help="Optional watchdog session id for the emitted episode artifact",
+    )
+    guard_run_cmd.add_argument(
+        "--peer-session-id",
+        help="Optional peer session id for shared-loop watchdog artifacts",
+    )
+    guard_run_cmd.add_argument(
+        "--trigger-reason",
+        help="Optional typed trigger reason for the emitted watchdog episode",
+    )
+    guard_run_cmd.add_argument(
+        "--retry-count",
+        type=int,
+        default=0,
+        help="Optional retry count metadata for the emitted watchdog episode",
+    )
+    guard_run_cmd.add_argument(
+        "--escaped-findings-count",
+        type=int,
+        default=0,
+        help="Optional escaped-review findings count for the emitted watchdog episode",
+    )
+    guard_run_cmd.add_argument(
+        "--guard-result",
+        choices=["pass", "fail", "skipped", "noisy"],
+        help="Optional explicit watchdog guard result override",
+    )
+    guard_run_cmd.add_argument(
+        "--reviewer-verdict",
+        choices=["accepted", "accepted_with_followups", "rejected", "deferred"],
+        help="Optional explicit reviewer verdict override for the emitted watchdog episode",
     )
     add_standard_output_arguments(guard_run_cmd)
     guard_run_cmd.add_argument(

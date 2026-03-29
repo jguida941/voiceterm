@@ -18,6 +18,7 @@ jobs:
   publish:
     name: publish-release-binaries (${{ matrix.package_os }}-${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     if: startsWith(github.event.release.tag_name, 'v')
     strategy:
       fail-fast: false
@@ -117,7 +118,7 @@ jobs:
           VERSION="${TAG#v}"
           ARCHIVE="voiceterm-${VERSION}-${PACKAGE_OS}-${PACKAGE_ARCH}.tar.gz"
           tar -czf "${ARCHIVE}" -C rust/target/release voiceterm
-          python3 dev/scripts/write_sha256_checksum.py --input "${ARCHIVE}"
+          python3 dev/scripts/artifacts/sha256.py --input "${ARCHIVE}"
           echo "archive=${ARCHIVE}" >> "${GITHUB_OUTPUT}"
           echo "checksum=${ARCHIVE}.sha256" >> "${GITHUB_OUTPUT}"
 

@@ -7,7 +7,7 @@ by:
 - `dev/active/INDEX.md`
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/review_channel.md`
-- `code_audit.md`
+- `bridge.md`
 
 Developers changing this file should keep the generated prompts aligned with
 the repo-owned `devctl` guidance in `dev/scripts/README.md` and
@@ -18,25 +18,25 @@ the repo-owned `devctl` guidance in `dev/scripts/README.md` and
 from __future__ import annotations
 
 import importlib.util
-import json
 import re
-import shutil
-import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 
 from ..config import REPO_ROOT
+from ..repo_packs import active_path_config
 from .launch import (
     list_terminal_profiles,
     resolve_terminal_profile_name,
 )
+from .service_identity import project_id_for_repo
 
-DEFAULT_REVIEW_CHANNEL_REL = "dev/active/review_channel.md"
-DEFAULT_BRIDGE_REL = "code_audit.md"
+# Backward-compat aliases sourced from the frozen path config
+DEFAULT_BRIDGE_REL = active_path_config().bridge_rel
+DEFAULT_REVIEW_CHANNEL_REL = active_path_config().review_channel_rel
+
 DEFAULT_TERMINAL_PROFILE = "auto-dark"
-DEFAULT_ROLLOVER_DIR_REL = "dev/reports/review_channel/rollovers"
-DEFAULT_ROLLOVER_THRESHOLD_PCT = 50
+DEFAULT_ROLLOVER_DIR_REL = active_path_config().rollover_root_rel
+DEFAULT_ROLLOVER_THRESHOLD_PCT = 20
 DEFAULT_ROLLOVER_ACK_WAIT_SECONDS = 180
 BRIDGE_GUARD_SCRIPT_PATH = (
     Path(__file__).resolve().parents[2] / "checks/check_review_channel_bridge.py"
@@ -48,7 +48,13 @@ REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE = (
     "launcher becomes canonical."
 )
 AUTO_DARK_TERMINAL_PROFILES = ("Pro", "Homebrew", "Clear Dark")
-ACTIVE_SESSION_FRESHNESS_SECONDS = 120
+from .session_probe import (  # noqa: E402, F401
+    ActiveSessionConflict,
+    ACTIVE_SESSION_FRESHNESS_SECONDS,
+    active_conductor_providers,
+    detect_active_session_conflicts,
+    summarize_active_session_conflicts,
+)
 
 LANE_ROW_RE = re.compile(
     r"^\|\s*`(?P<agent>AGENT-\d+)`\s*\|"
@@ -73,145 +79,14 @@ class LaneAssignment:
     branch: str
 
 
-@dataclass(frozen=True)
-class ActiveSessionConflict:
-    """One repo-visible session artifact that still looks live."""
-
-    provider: str
-    session_name: str
-    metadata_path: str
-    log_path: str | None
-    age_seconds: int | None
-    reason: str
-
-
 def load_text(path: Path) -> str:
     """Read UTF-8 text from disk."""
     return path.read_text(encoding="utf-8")
 
 
-def detect_active_session_conflicts(
-    *,
-    session_output_root: Path,
-    freshness_seconds: int = ACTIVE_SESSION_FRESHNESS_SECONDS,
-) -> tuple[ActiveSessionConflict, ...]:
-    """Return live-looking session artifacts that should block a second launch."""
-    session_dir = session_output_root / "sessions"
-    if not session_dir.exists():
-        return ()
-
-    conflicts: list[ActiveSessionConflict] = []
-    for provider in ("codex", "claude", "cursor"):
-        metadata_path = session_dir / f"{provider}-conductor.json"
-        if not metadata_path.exists():
-            continue
-        metadata = _load_session_metadata(metadata_path)
-        if metadata is None:
-            continue
-        session_name = _session_metadata_text(metadata, "session_name") or f"{provider}-conductor"
-        log_path_text = _session_metadata_text(metadata, "log_path")
-        script_path_text = _session_metadata_text(metadata, "script_path")
-        process_running = _probe_script_running(script_path_text)
-        if process_running is True:
-            conflicts.append(
-                ActiveSessionConflict(
-                    provider=provider,
-                    session_name=session_name,
-                    metadata_path=str(metadata_path),
-                    log_path=log_path_text,
-                    age_seconds=_log_age_seconds(log_path_text),
-                    reason="existing conductor script process is still running",
-                )
-            )
-            continue
-        if process_running is False:
-            continue
-        age_seconds = _log_age_seconds(log_path_text)
-        if age_seconds is None or age_seconds > freshness_seconds:
-            continue
-        conflicts.append(
-            ActiveSessionConflict(
-                provider=provider,
-                session_name=session_name,
-                metadata_path=str(metadata_path),
-                log_path=log_path_text,
-                age_seconds=age_seconds,
-                reason=(
-                    "session trace was updated "
-                    f"{age_seconds}s ago and the script process could not be probed"
-                ),
-            )
-        )
-    return tuple(conflicts)
-
-
-def summarize_active_session_conflicts(
-    conflicts: tuple[ActiveSessionConflict, ...],
-) -> str:
-    """Render one concise duplicate-launch blocker message."""
-    if not conflicts:
-        return "none"
-    parts: list[str] = []
-    for conflict in conflicts:
-        detail = f"{conflict.provider}: {conflict.reason}"
-        if conflict.log_path:
-            detail += f" (log: {conflict.log_path})"
-        parts.append(detail)
-    return "; ".join(parts)
-
-
 def bridge_is_active(review_channel_text: str) -> bool:
     """Return True when the transitional markdown bridge remains active."""
     return TRANSITIONAL_BRIDGE_HEADING in review_channel_text
-
-
-def _load_session_metadata(path: Path) -> dict[str, object] | None:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, json.JSONDecodeError):
-        return None
-    if not isinstance(payload, dict):
-        return None
-    return payload
-
-
-def _session_metadata_text(payload: dict[str, object], key: str) -> str | None:
-    value = payload.get(key)
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _probe_script_running(script_path_text: str | None) -> bool | None:
-    if not script_path_text or shutil.which("pgrep") is None:
-        return None
-    try:
-        result = subprocess.run(
-            ["pgrep", "-f", script_path_text],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if result.returncode == 0 and result.stdout.strip():
-        return True
-    if result.returncode == 1:
-        return False
-    return None
-
-
-def _log_age_seconds(log_path_text: str | None) -> int | None:
-    if not log_path_text:
-        return None
-    log_path = Path(log_path_text)
-    if not log_path.exists():
-        return None
-    modified = datetime.fromtimestamp(log_path.stat().st_mtime, tz=timezone.utc)
-    age = datetime.now(tz=timezone.utc) - modified
-    return max(0, int(age.total_seconds()))
 
 
 def parse_lane_assignments(review_channel_text: str) -> list[LaneAssignment]:
@@ -241,6 +116,7 @@ def parse_lane_assignments(review_channel_text: str) -> list[LaneAssignment]:
 
 
 def _provider_from_lane(*, lane: str, agent_id: str) -> str:
+    """Infer the provider name from a lane assignment's lane title prefix."""
     lowered = lane.lower()
     if lowered.startswith("codex "):
         return "codex"
@@ -266,7 +142,13 @@ def ensure_launcher_prereqs(
     bridge_path: Path,
     execution_mode: str,
 ) -> tuple[str, list[LaneAssignment]]:
-    """Validate transitional-launch prerequisites and return parsed state."""
+    """Validate transitional-launch prerequisites and return parsed state.
+
+    When ``execution_mode`` is ``"auto"`` and the markdown bridge is inactive
+    or missing, the function still succeeds if ``review_channel.md`` exists
+    and contains lane assignments. This allows the launcher to operate from
+    event-backed state without a live ``bridge.md`` bridge.
+    """
     if execution_mode == "overlay":
         raise ValueError(
             "Overlay-native launch is not implemented yet. This launcher is "
@@ -275,13 +157,14 @@ def ensure_launcher_prereqs(
     if not review_channel_path.exists():
         raise ValueError(f"Missing review-channel plan: {review_channel_path}")
     review_channel_text = load_text(review_channel_path)
-    if not bridge_is_active(review_channel_text):
-        raise ValueError(
-            "The transitional markdown bridge is inactive in review_channel.md. "
-            "Retire or migrate this launcher instead of using it against a "
-            "structured/overlay-native checkout."
-        )
-    if not bridge_path.exists():
+    bridge_active = bridge_is_active(review_channel_text) and bridge_path.exists()
+    if not bridge_active and execution_mode == "markdown-bridge":
+        if not bridge_is_active(review_channel_text):
+            raise ValueError(
+                "The transitional markdown bridge is inactive in review_channel.md. "
+                "Retire or migrate this launcher instead of using it against a "
+                "structured/overlay-native checkout."
+            )
         raise ValueError(
             f"Bridge mode is active but the live bridge file is missing: {bridge_path}"
         )
@@ -311,7 +194,7 @@ def build_bridge_guard_report(
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.REPO_ROOT = repo_root
-    module.CODE_AUDIT_PATH = bridge_path
+    module.BRIDGE_PATH = bridge_path
     module.REVIEW_CHANNEL_PATH = review_channel_path
     if not (repo_root / ".git").exists():
         module._is_tracked_by_git = lambda _path: True
@@ -321,7 +204,7 @@ def build_bridge_guard_report(
 def summarize_bridge_guard_failures(report: dict[str, object]) -> str:
     """Reduce a bridge-guard report into a compact human-readable error string."""
     issues: list[str] = []
-    for key in ("code_audit", "review_channel"):
+    for key in ("bridge", "review_channel"):
         section = report.get(key)
         if not isinstance(section, dict):
             continue
@@ -342,4 +225,3 @@ def summarize_bridge_guard_failures(report: dict[str, object]) -> str:
         if isinstance(state_errors, list):
             issues.extend(f"{path}: {error}" for error in state_errors)
     return "; ".join(issues) if issues else "bridge guard reported unknown errors"
-

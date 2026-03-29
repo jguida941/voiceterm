@@ -1,0 +1,1 @@
+"""Tandem-consistency guard subpackage."""

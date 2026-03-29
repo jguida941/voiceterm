@@ -12,9 +12,9 @@ from datetime import date, datetime
 from pathlib import Path
 
 try:
-    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 
 scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
 list_changed_paths_with_base_map = import_attr(
@@ -27,7 +27,6 @@ _normalize_changed_paths = import_attr(
 )
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 SOURCE_ROOT = REPO_ROOT / "rust" / "src"
 
@@ -37,13 +36,11 @@ FOR_RE = re.compile(r"\bfor\b")
 WHILE_RE = re.compile(r"\bwhile\b")
 LOOP_RE = re.compile(r"\bloop\b")
 
-
 @dataclass(frozen=True)
 class ComplexityPolicy:
     max_score: int
     max_branch_points: int
     max_nesting_depth: int
-
 
 @dataclass(frozen=True)
 class ComplexityException:
@@ -55,7 +52,6 @@ class ComplexityException:
     follow_up_mp: str
     reason: str
 
-
 DEFAULT_POLICY = ComplexityPolicy(
     max_score=90,
     max_branch_points=85,
@@ -65,17 +61,14 @@ DEFAULT_POLICY = ComplexityPolicy(
 # Keep empty by default. Add entries only for approved temporary waivers.
 FUNCTION_COMPLEXITY_EXCEPTIONS: dict[str, ComplexityException] = {}
 
-
 def _path_for_report(path: Path) -> str:
     return path.relative_to(REPO_ROOT).as_posix()
-
 
 def _parse_exception_expiry(raw_value: str) -> date | None:
     try:
         return date.fromisoformat(raw_value)
     except ValueError:
         return None
-
 
 def _count_branch_points(text: str) -> int:
     return (
@@ -89,7 +82,6 @@ def _count_branch_points(text: str) -> int:
         + text.count("?")
     )
 
-
 def _max_nesting_depth(text: str) -> int:
     depth = 0
     max_depth = 0
@@ -101,7 +93,6 @@ def _max_nesting_depth(text: str) -> int:
         elif char == "}":
             depth = max(0, depth - 1)
     return max_depth
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_structural_complexity", ""]
@@ -135,7 +126,6 @@ def _render_md(report: dict) -> str:
 
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since-ref", help="Compare against this git ref")
@@ -149,7 +139,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -297,7 +286,6 @@ def main() -> int:
     else:
         print(_render_md(report))
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

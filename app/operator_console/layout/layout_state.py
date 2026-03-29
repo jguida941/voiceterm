@@ -6,11 +6,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from dev.scripts.devctl.repo_packs import VOICETERM_PATH_CONFIG
+
 from ..state.core.value_coercion import safe_int, safe_text
 
-_DEFAULT_LAYOUT_STATE_REL_PATH = Path(
-    "dev/reports/review_channel/operator_console/layout_state.json"
-)
+_DEFAULT_LAYOUT_STATE_REL_PATH = Path(VOICETERM_PATH_CONFIG.layout_state_rel)
 
 
 @dataclass(frozen=True)

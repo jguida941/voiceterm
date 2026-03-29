@@ -98,7 +98,7 @@ def add_autonomy_loop_parser(sub) -> None:
         help="Maximum terminal/action trace lines attached per checkpoint packet",
     )
     loop_cmd.add_argument("--dry-run", action="store_true")
-    loop_cmd.add_argument("--format", choices=["md", "json"], default="json")
+    loop_cmd.add_argument("--format", choices=["json", "md"], default="md")
     loop_cmd.add_argument("--output")
     loop_cmd.add_argument("--json-output", help="Optional secondary JSON report path")
     loop_cmd.add_argument("--pipe-command", help="Pipe report output to a command")

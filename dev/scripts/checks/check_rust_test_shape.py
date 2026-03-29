@@ -12,6 +12,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -19,6 +20,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -31,9 +33,7 @@ list_changed_paths_with_base_map = import_attr(
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_test_path = import_attr("rust_guard_common", "is_test_path")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
-
 
 @dataclass(frozen=True)
 class TestShapePolicy:
@@ -41,7 +41,6 @@ class TestShapePolicy:
     hard_limit: int
     oversize_growth_limit: int
     hard_lock_growth_limit: int
-
 
 DEFAULT_POLICY = TestShapePolicy(
     soft_limit=1200,
@@ -76,19 +75,16 @@ TEST_SHAPE_AUDIT_GUIDANCE = (
     "instead of extending one broad `tests.rs` surface."
 )
 
-
 def _count_lines(text: str | None) -> int:
     if not text:
         return 0
     return len(text.splitlines())
-
 
 def _policy_for_path(path: Path) -> tuple[TestShapePolicy, str]:
     override = PATH_POLICY_OVERRIDES.get(path.as_posix())
     if override is not None:
         return override, f"path_override:{path.as_posix()}"
     return DEFAULT_POLICY, "rust_test_default"
-
 
 def _evaluate(
     base_lines: int, current_lines: int, policy: TestShapePolicy
@@ -106,7 +102,6 @@ def _evaluate(
         return "exceeded_oversize_growth_limit"
 
     return None
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_rust_test_shape", ""]
@@ -136,10 +131,8 @@ def _render_md(report: dict) -> str:
             )
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -229,7 +222,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

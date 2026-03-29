@@ -1,7 +1,7 @@
 # Voice Input
 
-Use VoiceTerm's standalone capture path when the operator wants one-shot voice
-input without the full overlay.
+Use VoiceTerm's standalone capture path when the operator wants one-shot
+voice input without the full overlay.
 
 ## Command
 

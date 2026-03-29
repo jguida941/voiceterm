@@ -9,6 +9,7 @@ from typing import Dict
 
 from ..common import confirm_or_abort, run_cmd
 from ..config import REPO_ROOT
+from ..governance.push_policy import load_push_policy
 from .ship_common import (
     changelog_has_version,
     make_step,
@@ -22,6 +23,9 @@ def run_tag_step(args, context: Dict) -> Dict:
     """Create/push a release tag with branch and clean-tree safety checks."""
     version = context["version"]
     tag = context["tag"]
+    push_policy = load_push_policy()
+    release_branch = push_policy.release_branch
+    remote_name = push_policy.default_remote
 
     rc, branch = run_checked(["git", "rev-parse", "--abbrev-ref", "HEAD"])
     if rc != 0:
@@ -31,12 +35,12 @@ def run_tag_step(args, context: Dict) -> Dict:
             rc or 2,
             details={"reason": branch or "failed to resolve branch"},
         )
-    if branch != "master":
+    if branch != release_branch:
         return make_step(
             "tag",
             False,
             2,
-            details={"reason": f"must run on master (current={branch})"},
+            details={"reason": f"must run on {release_branch} (current={branch})"},
         )
 
     try:
@@ -79,7 +83,7 @@ def run_tag_step(args, context: Dict) -> Dict:
 
     pull = run_cmd(
         "git-pull",
-        ["git", "pull", "--ff-only", "origin", "master"],
+        ["git", "pull", "--ff-only", remote_name, release_branch],
         cwd=REPO_ROOT,
         dry_run=args.dry_run,
     )
@@ -112,7 +116,7 @@ def run_tag_step(args, context: Dict) -> Dict:
 
     push = run_cmd(
         "git-push-tag",
-        ["git", "push", "origin", tag],
+        ["git", "push", remote_name, tag],
         cwd=REPO_ROOT,
         dry_run=args.dry_run,
     )

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import io
 import importlib.util
 import sys
 from datetime import date
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
 
 from dev.scripts.devctl.config import REPO_ROOT
 
@@ -36,6 +39,52 @@ class CheckCodeShapeGuidanceTests(TestCase):
             hard_lock_growth_limit=0,
         )
 
+    def _override_warning(
+        self,
+        *,
+        path: str = "rust/src/bin/voiceterm/example.rs",
+        soft_ratio: float = 3.11,
+        hard_ratio: float = 2.14,
+        override_soft: int = 2800,
+        override_hard: int = 3000,
+        triggered_caps: list[str] | None = None,
+    ) -> dict[str, object]:
+        return {
+            "path": path,
+            "language_suffix": ".rs",
+            "override_soft": override_soft,
+            "override_hard": override_hard,
+            "language_soft": 900,
+            "language_hard": 1400,
+            "soft_ratio": soft_ratio,
+            "hard_ratio": hard_ratio,
+            "triggered_caps": triggered_caps or ["soft_limit", "hard_limit"],
+            "detail": "override over cap",
+        }
+
+    def _mixed_concern_source(self) -> str:
+        return "\n".join(
+            [
+                "def alpha():",
+                "    beta()",
+                "",
+                "def beta():",
+                "    alpha()",
+                "",
+                "def gamma():",
+                "    delta()",
+                "",
+                "def delta():",
+                "    gamma()",
+                "",
+                "def epsilon():",
+                "    zeta()",
+                "",
+                "def zeta():",
+                "    epsilon()",
+            ]
+        )
+
     def test_python_violation_guidance_includes_docs_and_audit_directive(self) -> None:
         violation = self.script._violation(
             path=Path("dev/scripts/example.py"),
@@ -43,8 +92,7 @@ class CheckCodeShapeGuidanceTests(TestCase):
             guidance="Refactor into smaller modules before crossing the soft limit.",
             policy=self.policy,
             policy_source="language_default:.py",
-            base_lines=300,
-            current_lines=360,
+            lines=(300, 360),
         )
         self.assertIn("shape audit", violation["guidance"])
         self.assertIn("modularization or consolidation", violation["guidance"])
@@ -58,8 +106,7 @@ class CheckCodeShapeGuidanceTests(TestCase):
             guidance="Refactor into smaller modules before crossing the soft limit.",
             policy=self.policy,
             policy_source="language_default:.rs",
-            base_lines=850,
-            current_lines=910,
+            lines=(850, 910),
         )
         self.assertIn("https://doc.rust-lang.org/book/", violation["guidance"])
         self.assertIn(
@@ -73,8 +120,7 @@ class CheckCodeShapeGuidanceTests(TestCase):
             guidance="File is missing in current tree; rerun after resolving rename/delete state.",
             policy=self.policy,
             policy_source="language_default:.py",
-            base_lines=20,
-            current_lines=0,
+            lines=(20, 0),
         )
         self.assertNotIn("shape audit", violation["guidance"])
 
@@ -178,8 +224,7 @@ class CheckCodeShapeGuidanceTests(TestCase):
             language_default_policy=language_default,
             policy_source="path_override:rust/src/bin/voiceterm/example.rs",
             current_lines=555,
-            review_window_days=30,
-            review_window_line_counts=[555, 560, 575],
+            review_window=(30, [555, 560, 575]),
         )
         self.assertIsNotNone(violation)
         self.assertEqual(
@@ -207,8 +252,7 @@ class CheckCodeShapeGuidanceTests(TestCase):
             language_default_policy=language_default,
             policy_source="path_override:rust/src/bin/voiceterm/example.rs",
             current_lines=555,
-            review_window_days=30,
-            review_window_line_counts=[555, 910],
+            review_window=(30, [555, 910]),
         )
         self.assertIsNone(violation)
 
@@ -233,8 +277,7 @@ class CheckCodeShapeGuidanceTests(TestCase):
             language_default_policy=language_default,
             policy_source="path_override:rust/src/bin/voiceterm/example.rs",
             current_lines=555,
-            review_window_days=30,
-            review_window_line_counts=[555, 560],
+            review_window=(30, [555, 560]),
         )
         self.assertIsNone(violation)
 
@@ -277,6 +320,204 @@ class CheckCodeShapeGuidanceTests(TestCase):
         self.assertEqual([item["name"] for item in functions], ["alpha", "beta"])
         self.assertEqual(functions[0]["line_count"], 3)
         self.assertEqual(functions[1]["line_count"], 4)
+
+    def test_main_renders_override_cap_warnings(self) -> None:
+        warning = self._override_warning()
+        warning["detail"] = (
+            "Override soft_limit (2800) is 3.11x the .rs default (900). "
+            "Override hard_limit (3000) is 2.14x the .rs default (1400). "
+            "Operator intent keeps path overrides under 3.0x the soft cap "
+            "and under 2.0x the hard cap."
+        )
+
+        with patch.object(
+            self.script,
+            "validate_override_caps",
+            return_value=[warning],
+        ), patch.object(
+            self.script,
+            "_load_override_cap_baseline_records",
+            return_value=[warning],
+        ), patch.object(self.script, "list_changed_paths", return_value=[]), patch.object(
+            self.script,
+            "PATH_POLICY_OVERRIDES",
+            {},
+        ), patch.object(
+            sys,
+            "argv",
+            ["check_code_shape.py"],
+        ):
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                rc = self.script.main()
+
+        self.assertEqual(rc, 0)
+        output = buffer.getvalue()
+        self.assertIn("## Warnings", output)
+        self.assertIn("Operator intent keeps path overrides under 3.0x the soft cap", output)
+        self.assertIn("warnings: 1", output)
+
+    def test_evaluate_override_cap_violations_flags_touched_file(self) -> None:
+        warning = self._override_warning(
+            path="app/operator_console/views/ui_refresh.py",
+        )
+        violations = self.script._evaluate_override_cap_violations(
+            mode="working-tree",
+            changed_paths=[Path("app/operator_console/views/ui_refresh.py")],
+            current_records=[warning],
+            baseline_records=[warning],
+            docs=self.script._DocsContext(
+                best_practice_docs=self.script.BEST_PRACTICE_DOCS,
+                shape_audit_guidance=self.script.SHAPE_AUDIT_GUIDANCE,
+            ),
+        )
+
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(
+            violations[0]["reason"],
+            "override_cap_exceeded_on_touched_file",
+        )
+
+    def test_evaluate_override_cap_violations_flags_new_policy_entry(self) -> None:
+        warning = self._override_warning()
+        violations = self.script._evaluate_override_cap_violations(
+            mode="working-tree",
+            changed_paths=[],
+            current_records=[warning],
+            baseline_records=[],
+            docs=self.script._DocsContext(
+                best_practice_docs=self.script.BEST_PRACTICE_DOCS,
+                shape_audit_guidance=self.script.SHAPE_AUDIT_GUIDANCE,
+            ),
+        )
+
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(
+            violations[0]["reason"],
+            "override_cap_new_above_threshold",
+        )
+
+    def test_evaluate_override_cap_violations_flags_worsened_ratio(self) -> None:
+        current = self._override_warning(
+            soft_ratio=3.50,
+            hard_ratio=2.30,
+            override_soft=3150,
+            override_hard=3220,
+        )
+        baseline = self._override_warning(
+            soft_ratio=3.11,
+            hard_ratio=2.14,
+        )
+        violations = self.script._evaluate_override_cap_violations(
+            mode="working-tree",
+            changed_paths=[],
+            current_records=[current],
+            baseline_records=[baseline],
+            docs=self.script._DocsContext(
+                best_practice_docs=self.script.BEST_PRACTICE_DOCS,
+                shape_audit_guidance=self.script.SHAPE_AUDIT_GUIDANCE,
+            ),
+        )
+
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(
+            violations[0]["reason"],
+            "override_cap_ratio_worsened",
+        )
+
+    def test_main_fails_on_touched_file_with_over_cap_override(self) -> None:
+        warning = self._override_warning()
+
+        with patch.object(
+            self.script,
+            "validate_override_caps",
+            return_value=[warning],
+        ), patch.object(
+            self.script,
+            "_load_override_cap_baseline_records",
+            return_value=[warning],
+        ), patch.object(
+            self.script,
+            "list_changed_paths",
+            return_value=[Path(warning["path"])],
+        ), patch.object(
+            self.script,
+            "policy_for_path",
+            return_value=(self.policy, f"path_override:{warning['path']}"),
+        ), patch.object(
+            self.script,
+            "function_policy_for_path",
+            return_value=(None, None),
+        ), patch.object(
+            self.script.guard,
+            "read_text_from_ref",
+            return_value="fn demo() {}\n",
+        ), patch.object(
+            self.script.guard,
+            "read_text_from_worktree",
+            return_value="fn demo() {}\n",
+        ), patch.object(
+            self.script,
+            "PATH_POLICY_OVERRIDES",
+            {},
+        ), patch.object(
+            sys,
+            "argv",
+            ["check_code_shape.py"],
+        ):
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                rc = self.script.main()
+
+        self.assertEqual(rc, 1)
+        output = buffer.getvalue()
+        self.assertIn("override_cap_exceeded_on_touched_file", output)
+        self.assertIn("violations: 1", output)
+
+    def test_main_fails_on_touched_file_with_mixed_concerns(self) -> None:
+        source = self._mixed_concern_source()
+
+        with patch.object(
+            self.script,
+            "validate_override_caps",
+            return_value=[],
+        ), patch.object(
+            self.script,
+            "_load_override_cap_baseline_records",
+            return_value=[],
+        ), patch.object(
+            self.script,
+            "list_changed_paths",
+            return_value=[Path("dev/scripts/devctl/sample.py")],
+        ), patch.object(
+            self.script,
+            "policy_for_path",
+            return_value=(self.policy, "language_default:.py"),
+        ), patch.object(
+            self.script,
+            "function_policy_for_path",
+            return_value=(None, None),
+        ), patch.object(
+            self.script.guard,
+            "read_text_from_ref",
+            return_value=source,
+        ), patch.object(
+            self.script.guard,
+            "read_text_from_worktree",
+            return_value=source,
+        ), patch.object(
+            sys,
+            "argv",
+            ["check_code_shape.py"],
+        ):
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                rc = self.script.main()
+
+        self.assertEqual(rc, 1)
+        output = buffer.getvalue()
+        self.assertIn("mixed_concern_violations: 1", output)
+        self.assertIn("mixed_concerns_on_touched_file", output)
 
     def test_should_skip_test_path_true_without_override_policy(self) -> None:
         should_skip = self.script._should_skip_test_path(

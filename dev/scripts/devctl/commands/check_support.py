@@ -2,76 +2,53 @@
 
 from __future__ import annotations
 
-import subprocess
+import tempfile
 from pathlib import Path
 
-from ..config import REPO_ROOT
-from ..script_catalog import check_script_cmd
-
-AI_GUARD_CHECKS = (
-    ("code-shape-guard", "code_shape", ()),
-    ("python-broad-except-guard", "python_broad_except", ()),
-    ("python-subprocess-policy-guard", "python_subprocess_policy", ()),
-    ("duplicate-types-guard", "duplicate_types", ()),
-    ("structural-complexity-guard", "structural_complexity", ()),
-    ("rust-test-shape-guard", "rust_test_shape", ()),
-    (
-        "ide-provider-isolation-guard",
-        "ide_provider_isolation",
-        ("--fail-on-violations",),
-    ),
-    ("compat-matrix-guard", "compat_matrix", ()),
-    ("compat-matrix-smoke-guard", "compat_matrix_smoke", ()),
-    ("naming-consistency-guard", "naming_consistency", ()),
-    (
-        "rust-lint-debt-guard",
-        "rust_lint_debt",
-        ("--report-dead-code", "--dead-code-report-limit", "120"),
-    ),
-    ("rust-best-practices-guard", "rust_best_practices", ()),
-    ("serde-compatibility-guard", "serde_compatibility", ()),
-    ("rust-runtime-panic-policy-guard", "rust_runtime_panic_policy", ()),
-    ("rust-audit-patterns-guard", "rust_audit_patterns", ()),
-    ("rust-security-footguns-guard", "rust_security_footguns", ()),
-    ("function-duplication-guard", "function_duplication", ()),
-    ("god-class-guard", "god_class", ()),
-    ("nesting-depth-guard", "nesting_depth", ()),
-    ("parameter-count-guard", "parameter_count", ()),
-    ("python-dict-schema-guard", "python_dict_schema", ()),
-    ("python-global-mutable-guard", "python_global_mutable", ()),
-    ("structural-similarity-guard", "structural_similarity", ()),
-    ("facade-wrappers-guard", "facade_wrappers", ()),
+from ..config import REPO_ROOT, get_repo_root, resolve_src_dir
+from ..quality_policy import (
+    DEFAULT_AI_GUARD_CHECKS,
+    DEFAULT_REVIEW_PROBE_CHECKS,
+    ai_guard_supports_commit_range,
+    review_probe_supports_commit_range,
 )
+from ..script_catalog import check_script_cmd, probe_script_cmd
 
-AI_GUARD_STEP_NAMES = {name for name, _script_id, _extra_args in AI_GUARD_CHECKS}
-AI_GUARD_COMMIT_RANGE_SCRIPT_IDS = frozenset(
-    {
-        "code_shape",
-        "python_broad_except",
-        "python_subprocess_policy",
-        "duplicate_types",
-        "structural_complexity",
-        "rust_test_shape",
-        "rust_lint_debt",
-        "rust_best_practices",
-        "serde_compatibility",
-        "rust_runtime_panic_policy",
-        "rust_audit_patterns",
-        "rust_security_footguns",
-        "function_duplication",
-        "god_class",
-        "nesting_depth",
-        "parameter_count",
-        "python_dict_schema",
-        "python_global_mutable",
-        "structural_similarity",
-        "facade_wrappers",
-    }
-)
+AI_GUARD_CHECKS = DEFAULT_AI_GUARD_CHECKS
+REVIEW_PROBE_CHECKS = DEFAULT_REVIEW_PROBE_CHECKS
 
-CLIPPY_HIGH_SIGNAL_LINTS_PATH = REPO_ROOT / "dev/reports/check/clippy-lints.json"
-CLIPPY_PEDANTIC_SUMMARY_PATH = REPO_ROOT / "dev/reports/check/clippy-pedantic-summary.json"
-CLIPPY_PEDANTIC_LINTS_PATH = REPO_ROOT / "dev/reports/check/clippy-pedantic-lints.json"
+
+def _repo_check_reports_root() -> Path:
+    return get_repo_root() / "dev" / "reports" / "check"
+
+
+def _clippy_high_signal_lints_path() -> Path:
+    return _repo_check_reports_root() / "clippy-lints.json"
+
+
+def _clippy_pedantic_summary_path() -> Path:
+    return _repo_check_reports_root() / "clippy-pedantic-summary.json"
+
+
+def _clippy_pedantic_lints_path() -> Path:
+    return _repo_check_reports_root() / "clippy-pedantic-lints.json"
+
+
+def build_probe_cmd(
+    script_id: str,
+    *,
+    since_ref: str | None,
+    head_ref: str,
+    adoption_scan: bool = False,
+    extra_args: tuple[str, ...] = (),
+) -> list[str]:
+    """Build one review-probe command with optional commit-range refs."""
+    cmd = probe_script_cmd(script_id, *extra_args)
+    if adoption_scan and review_probe_supports_commit_range(script_id):
+        cmd.extend(["--since-ref", since_ref or "", "--head-ref", head_ref])
+    elif since_ref and review_probe_supports_commit_range(script_id):
+        cmd.extend(["--since-ref", since_ref, "--head-ref", head_ref])
+    return cmd
 
 
 def build_ai_guard_cmd(
@@ -79,39 +56,32 @@ def build_ai_guard_cmd(
     *,
     since_ref: str | None,
     head_ref: str,
+    adoption_scan: bool = False,
     extra_args: tuple[str, ...] = (),
 ) -> list[str]:
     """Build one AI-guard command with optional commit-range refs."""
     cmd = check_script_cmd(script_id, *extra_args)
-    if since_ref and script_id in AI_GUARD_COMMIT_RANGE_SCRIPT_IDS:
+    if adoption_scan and ai_guard_supports_commit_range(script_id):
+        cmd.extend(["--since-ref", since_ref or "", "--head-ref", head_ref])
+    elif since_ref and ai_guard_supports_commit_range(script_id):
         cmd.extend(["--since-ref", since_ref, "--head-ref", head_ref])
     return cmd
 
 
 def resolve_perf_log_path() -> str:
     """Return the expected perf log file path used by the verifier script."""
-    try:
-        return subprocess.check_output(
-            [
-                "python3",
-                "-c",
-                "import os, tempfile; print(os.path.join(tempfile.gettempdir(), 'voiceterm_tui.log'))",
-            ],
-            text=True,
-        ).strip()
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise RuntimeError(f"failed to resolve perf log path ({exc})") from exc
+    return str(Path(tempfile.gettempdir()) / "voiceterm_tui.log")
 
 
 def build_clippy_high_signal_collect_cmd() -> list[str]:
     """Build the strict clippy lint-histogram collection command."""
     return [
         "python3",
-        "dev/scripts/collect_clippy_warnings.py",
+        "dev/scripts/rust_tools/collect_clippy_warnings.py",
         "--working-directory",
-        "rust",
+        str(resolve_src_dir(get_repo_root())),
         "--output-lints-json",
-        str(CLIPPY_HIGH_SIGNAL_LINTS_PATH),
+        str(_clippy_high_signal_lints_path()),
         "--deny-warnings",
         "--quiet-json-stream",
         "--propagate-exit-code",
@@ -123,7 +93,7 @@ def build_clippy_high_signal_guard_cmd() -> list[str]:
     return check_script_cmd(
         "clippy_high_signal",
         "--input-lints-json",
-        str(CLIPPY_HIGH_SIGNAL_LINTS_PATH),
+        str(_clippy_high_signal_lints_path()),
         "--format",
         "md",
     )
@@ -135,13 +105,13 @@ def build_clippy_pedantic_collect_cmd(
     lints_path: str | Path | None = None,
 ) -> list[str]:
     """Build the pedantic clippy collection command."""
-    resolved_summary_path = str(summary_path or CLIPPY_PEDANTIC_SUMMARY_PATH)
-    resolved_lints_path = str(lints_path or CLIPPY_PEDANTIC_LINTS_PATH)
+    resolved_summary_path = str(summary_path or _clippy_pedantic_summary_path())
+    resolved_lints_path = str(lints_path or _clippy_pedantic_lints_path())
     return [
         "python3",
-        "dev/scripts/collect_clippy_warnings.py",
+        "dev/scripts/rust_tools/collect_clippy_warnings.py",
         "--working-directory",
-        "rust",
+        str(resolve_src_dir(get_repo_root())),
         "--output-json",
         resolved_summary_path,
         "--output-lints-json",
@@ -161,18 +131,14 @@ def maybe_emit_ai_guard_scaffold(
     already_emitted: bool,
     failed_results: list[dict],
     run_cmd_fn,
-    repo_root: Path,
     dry_run: bool,
+    ai_guard_step_names: set[str] | frozenset[str],
 ) -> tuple[bool, dict | None]:
     """Create an audit scaffold when AI-guard checks fail."""
     if not with_ai_guard or already_emitted:
         return already_emitted, None
 
-    failed_guard_steps = [
-        result["name"]
-        for result in failed_results
-        if result["name"] in AI_GUARD_STEP_NAMES
-    ]
+    failed_guard_steps = [result["name"] for result in failed_results if result["name"] in ai_guard_step_names]
     if not failed_guard_steps:
         return already_emitted, None
 
@@ -191,7 +157,7 @@ def maybe_emit_ai_guard_scaffold(
     scaffold_result = run_cmd_fn(
         "audit-scaffold-auto",
         scaffold_cmd,
-        cwd=repo_root,
+        cwd=REPO_ROOT,
         dry_run=dry_run,
     )
     return True, scaffold_result

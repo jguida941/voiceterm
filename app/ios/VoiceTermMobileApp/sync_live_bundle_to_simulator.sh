@@ -12,9 +12,13 @@ trap cleanup EXIT
 
 cd "$ROOT_DIR"
 
+# Canonical source: dev/scripts/devctl/repo_packs/voiceterm.py::RepoPathConfig
+PHONE_STATUS_REL="dev/reports/autonomy/queue/phone/latest.json"
+REVIEW_STATUS_DIR_REL="dev/reports/review_channel/latest"
+
 python3 dev/scripts/devctl.py mobile-status \
-  --phone-json dev/reports/autonomy/queue/phone/latest.json \
-  --review-status-dir dev/reports/review_channel/latest \
+  --phone-json "$PHONE_STATUS_REL" \
+  --review-status-dir "$REVIEW_STATUS_DIR_REL" \
   --emit-projections "$TMP_DIR" \
   --format md >/dev/null
 

@@ -10,9 +10,10 @@ import sys
 from pathlib import Path
 
 try:
-    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         emit_runtime_error,
         import_attr,
         utc_timestamp,
@@ -24,7 +25,6 @@ list_changed_paths_with_base_map = import_attr(
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_test_path = import_attr("rust_guard_common", "is_test_path")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 DEFAULT_WORKING_DIRECTORY = Path("rust")
 DEFAULT_CARGO_COMMAND = [
@@ -36,7 +36,6 @@ DEFAULT_CARGO_COMMAND = [
     "--no-run",
     "--message-format=json",
 ]
-
 
 def _list_all_rust_paths(*, include_tests: bool) -> set[str]:
     tracked = guard.run_git(["git", "ls-files"]).stdout.splitlines()
@@ -53,7 +52,6 @@ def _list_all_rust_paths(*, include_tests: bool) -> set[str]:
         normalized.add(path.as_posix())
     return normalized
 
-
 def _normalize_target_paths(
     changed_paths: list[Path],
     *,
@@ -67,7 +65,6 @@ def _normalize_target_paths(
             continue
         normalized.add(path.as_posix())
     return normalized
-
 
 def _normalize_warning_path(file_name: str, working_directory: Path) -> str | None:
     raw = file_name.strip()
@@ -87,7 +84,6 @@ def _normalize_warning_path(file_name: str, working_directory: Path) -> str | No
     if working_prefix:
         return f"{working_prefix}/{raw}"
     return raw
-
 
 def _warning_path_and_line(message: dict, working_directory: Path) -> tuple[str | None, int | None]:
     spans = message.get("spans")
@@ -113,7 +109,6 @@ def _warning_path_and_line(message: dict, working_directory: Path) -> tuple[str 
         if span.get("is_primary"):
             return normalized, line_number
     return fallback_path, fallback_line
-
 
 def collect_warning_records(
     lines: list[str],
@@ -165,7 +160,6 @@ def collect_warning_records(
     )
     return warnings
 
-
 def run_cargo_warning_scan(working_directory: Path) -> tuple[list[str], int, list[str]]:
     process = subprocess.Popen(
         DEFAULT_CARGO_COMMAND,
@@ -181,7 +175,6 @@ def run_cargo_warning_scan(working_directory: Path) -> tuple[list[str], int, lis
     for line in process.stdout:
         captured_lines.append(line)
     return captured_lines, process.wait(), list(DEFAULT_CARGO_COMMAND)
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_rust_compiler_warnings", ""]
@@ -208,7 +201,6 @@ def _render_md(report: dict) -> str:
                 location = f"{location}:{item['line']}"
             lines.append(f"- `{location}` `{item['code']}` {item['message']}")
     return "\n".join(lines)
-
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -240,7 +232,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -333,7 +324,6 @@ def main() -> int:
     else:
         print(_render_md(report))
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "portable-governance/portable_governance_finding_review.schema.json",
+  "title": "Portable Governance Finding Review",
+  "description": "Canonical v2 row shape for adjudicated guard/probe/audit findings used to measure false-positive and cleanup rates over time while recording systemic disposition.",
+  "type": "object",
+  "required": [
+    "finding_id",
+    "timestamp_utc",
+    "schema_version",
+    "contract_id",
+    "repo_name",
+    "repo_path",
+    "signal_type",
+    "check_id",
+    "verdict",
+    "file_path",
+    "finding_class",
+    "recurrence_risk",
+    "prevention_surface"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "prevention_surface": { "const": "none" }
+        },
+        "required": ["prevention_surface"]
+      },
+      "then": {
+        "required": ["waiver_reason"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "enum": ["waived", "deferred"]
+          }
+        },
+        "required": ["verdict"]
+      },
+      "then": {
+        "required": ["waiver_reason"]
+      }
+    }
+  ],
+  "properties": {
+    "finding_id": { "type": "string", "minLength": 1 },
+    "timestamp_utc": { "type": "string", "minLength": 1 },
+    "schema_version": { "type": "integer", "const": 2 },
+    "contract_id": { "type": "string", "const": "FindingReview" },
+    "repo_name": { "type": "string", "minLength": 1 },
+    "repo_path": { "type": "string", "minLength": 1 },
+    "signal_type": {
+      "type": "string",
+      "enum": ["guard", "probe", "audit"]
+    },
+    "check_id": { "type": "string", "minLength": 1 },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "confirmed_issue",
+        "false_positive",
+        "fixed",
+        "waived",
+        "deferred",
+        "unknown"
+      ]
+    },
+    "file_path": { "type": "string", "minLength": 1 },
+    "symbol": { "type": "string" },
+    "line": { "type": "integer", "minimum": 1 },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "finding_class": {
+      "type": "string",
+      "enum": [
+        "local_defect",
+        "contract_mismatch",
+        "missing_guard",
+        "missing_probe",
+        "rule_quality",
+        "authority_boundary",
+        "workflow_gap",
+        "docs_drift",
+        "unknown"
+      ]
+    },
+    "recurrence_risk": {
+      "type": "string",
+      "enum": ["one_off", "localized", "recurring", "systemic", "unknown"]
+    },
+    "prevention_surface": {
+      "type": "string",
+      "enum": [
+        "guard",
+        "probe",
+        "contract",
+        "authority_rule",
+        "parity_check",
+        "regression_test",
+        "docs_only",
+        "repo_policy",
+        "none"
+      ]
+    },
+    "guidance_id": { "type": "string", "minLength": 1 },
+    "guidance_followed": { "type": "boolean" },
+    "waiver_reason": { "type": "string", "minLength": 1 },
+    "risk_type": { "type": "string" },
+    "source_command": { "type": "string" },
+    "scan_mode": {
+      "type": "string",
+      "enum": [
+        "working-tree",
+        "commit-range",
+        "adoption-scan",
+        "absolute",
+        "external"
+      ]
+    },
+    "notes": { "type": "string" }
+  }
+}

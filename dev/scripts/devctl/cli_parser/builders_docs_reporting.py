@@ -10,11 +10,15 @@ from ..common import add_standard_output_arguments
 def add_docs_check_parser(sub: argparse._SubParsersAction) -> None:
     """Register the `docs-check` parser."""
     docs_cmd = sub.add_parser("docs-check", help="Verify user-facing docs are updated")
+    docs_cmd.add_argument("--user-facing", action="store_true", help="Enforce user-facing doc updates")
+    docs_cmd.add_argument("--strict", action="store_true", help="Require all user docs when --user-facing")
     docs_cmd.add_argument(
-        "--user-facing", action="store_true", help="Enforce user-facing doc updates"
-    )
-    docs_cmd.add_argument(
-        "--strict", action="store_true", help="Require all user docs when --user-facing"
+        "--strict-release",
+        action="store_true",
+        help=(
+            "Require all user docs on the release branch and on other branches "
+            "only when the release-style user-doc signal fires"
+        ),
     )
     docs_cmd.add_argument(
         "--strict-tooling",
@@ -30,6 +34,13 @@ def add_docs_check_parser(sub: argparse._SubParsersAction) -> None:
         default="HEAD",
         help="Range-mode head ref used with --since-ref (default: HEAD)",
     )
+    docs_cmd.add_argument(
+        "--quality-policy",
+        help=(
+            "Optional repo policy JSON file used to resolve repo-governance docs rules "
+            "(defaults to dev/config/devctl_repo_policy.json or DEVCTL_QUALITY_POLICY)."
+        ),
+    )
     add_standard_output_arguments(docs_cmd)
 
 
@@ -40,9 +51,7 @@ def add_status_parser(
 ) -> None:
     """Register the `status` parser."""
     status_cmd = sub.add_parser("status", help="Summarize git + mutation status")
-    status_cmd.add_argument(
-        "--ci", action="store_true", help="Include recent GitHub runs"
-    )
+    status_cmd.add_argument("--ci", action="store_true", help="Include recent GitHub runs")
     status_cmd.add_argument("--ci-limit", type=int, default=default_ci_limit)
     status_cmd.add_argument(
         "--require-ci",
@@ -69,6 +78,19 @@ def add_status_parser(
         action="store_true",
         help="Run collection probes sequentially instead of in parallel",
     )
+    status_cmd.add_argument(
+        "--probe-report",
+        action="store_true",
+        help="Include aggregated review-probe summary for the current worktree",
+    )
+    status_cmd.add_argument(
+        "--quality-policy",
+        help=(
+            "Optional repo policy JSON file used by --probe-report "
+            "(defaults to dev/config/devctl_repo_policy.json or "
+            "DEVCTL_QUALITY_POLICY)."
+        ),
+    )
     add_standard_output_arguments(
         status_cmd,
         format_choices=("json", "md", "text"),
@@ -83,9 +105,7 @@ def add_report_parser(
 ) -> None:
     """Register the `report` parser."""
     report_cmd = sub.add_parser("report", help="Generate a JSON/MD report")
-    report_cmd.add_argument(
-        "--ci", action="store_true", help="Include recent GitHub runs"
-    )
+    report_cmd.add_argument("--ci", action="store_true", help="Include recent GitHub runs")
     report_cmd.add_argument("--ci-limit", type=int, default=default_ci_limit)
     report_cmd.add_argument(
         "--dev-logs",
@@ -194,6 +214,19 @@ def add_report_parser(
         type=int,
         default=20,
         help="Maximum ranked Python guard hotspots to include when --python-guard-backlog",
+    )
+    report_cmd.add_argument(
+        "--probe-report",
+        action="store_true",
+        help="Include aggregated review-probe summary (uses --since-ref/--head-ref when provided)",
+    )
+    report_cmd.add_argument(
+        "--quality-policy",
+        help=(
+            "Optional repo policy JSON file used by --probe-report "
+            "(defaults to dev/config/devctl_repo_policy.json or "
+            "DEVCTL_QUALITY_POLICY)."
+        ),
     )
     report_cmd.add_argument(
         "--no-parallel",

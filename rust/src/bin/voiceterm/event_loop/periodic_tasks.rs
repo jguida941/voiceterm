@@ -70,6 +70,8 @@ fn reconcile_terminal_geometry(
         OverlayMode::Settings => render_settings_overlay_for_state(state, deps),
         OverlayMode::TranscriptHistory => render_transcript_history_overlay_for_state(state, deps),
         OverlayMode::ToastHistory => render_toast_history_overlay_for_state(state, deps),
+        OverlayMode::MemoryBrowser => render_memory_browser_overlay_for_state(state, deps),
+        OverlayMode::ActionCenter => render_action_center_overlay_for_state(state, deps),
         OverlayMode::None => {}
     }
 }

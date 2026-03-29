@@ -1,5 +1,6 @@
 # Loop Chat Bridge Runbook
 
+**Status**: active reference runbook  |  **Last updated**: 2026-03-21 | **Owner:** Control-plane/operator handoff
 Execution plan contract: required
 
 ## Scope
@@ -23,6 +24,17 @@ Execution plan contract: required
 |---|---|---|---|---|
 | `2026-02-24T00:00:00Z` | `ORCHESTRATOR` | Initialized loop-to-chat runbook and governance linkage (`INDEX`/`MASTER_PLAN`/discovery docs). | `in-progress` | Validate with strict-tooling checks and begin first dry-run packet capture. |
 | `2026-02-24T05:03:00Z` | `ORCHESTRATOR` | Ran dry-run smoke for `triage-loop` + `mutation-loop` in `report-only` mode for `jguida941/voiceterm` on `develop`. | `passed (dry-run)` | Restore GitHub auth/token, run one live `workflow_dispatch`, and log run URL + suggestion packet. |
+
+## Session Resume
+
+- Current status: this plan remains active; start from the highest-priority
+  open item in `## Execution Checklist` and the latest dated entry in
+  `## Progress Log`.
+- Next action: keep current-slice decisions and blockers in this file instead
+  of chat-only notes, then update this section when the promoted slice
+  changes.
+- Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
+  load only the local sections needed for the active checklist item.
 
 ## Audit Evidence
 

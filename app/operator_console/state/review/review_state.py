@@ -5,18 +5,19 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from dev.scripts.devctl.repo_packs import VOICETERM_PATH_CONFIG
+from dev.scripts.devctl.runtime import (
+    ReviewPacketState,
+    ReviewState,
+    review_state_from_payload,
+)
+
 from ...collaboration.context_pack_refs import parse_context_pack_refs
 from ..core.models import ApprovalRequest
 
-DEFAULT_REVIEW_STATE_CANDIDATES = (
-    "dev/reports/review_channel/projections/latest/review_state.json",
-    "dev/reports/review_channel/latest/review_state.json",
-    "dev/reports/review_channel/review_state.json",
-)
-DEFAULT_REVIEW_FULL_CANDIDATES = (
-    "dev/reports/review_channel/projections/latest/full.json",
-    "dev/reports/review_channel/latest/full.json",
-)
+# Backward-compat aliases — canonical values live in VOICETERM_PATH_CONFIG.
+DEFAULT_REVIEW_STATE_CANDIDATES = VOICETERM_PATH_CONFIG.review_state_candidates
+DEFAULT_REVIEW_FULL_CANDIDATES = VOICETERM_PATH_CONFIG.review_full_candidates
 
 
 def find_review_state_path(repo_root: Path) -> Path | None:
@@ -45,43 +46,67 @@ def load_json_object(path: Path) -> dict[str, object]:
     return payload
 
 
+def load_review_contract(review_path: Path) -> ReviewState:
+    """Load one review-channel JSON artifact into the shared runtime contract."""
+    return parse_review_contract(load_json_object(review_path))
+
+
+def load_review_packets(review_path: Path) -> tuple[ReviewPacketState, ...]:
+    """Load typed review packets from a review-channel artifact path."""
+    return load_review_contract(review_path).packets
+
+
 def load_pending_approvals(review_state_path: Path) -> tuple[ApprovalRequest, ...]:
     """Load pending approval packets from a structured `review_state` JSON file."""
-    payload = load_json_object(review_state_path)
-    return parse_pending_approvals(payload)
+    return _approval_requests(load_review_packets(review_state_path))
 
 
 def parse_pending_approvals(payload: dict[str, object]) -> tuple[ApprovalRequest, ...]:
     """Extract pending approval packets from a parsed review-state payload."""
-    packets = payload.get("packets")
-    if not isinstance(packets, list):
-        raise ValueError("review_state JSON is missing a packets list")
+    return _approval_requests(parse_review_packets(payload))
 
+
+def parse_review_contract(payload: dict[str, object]) -> ReviewState:
+    """Normalize review-channel JSON into the shared runtime contract."""
+    contract = review_state_from_payload(payload)
+    if contract is None:
+        raise ValueError("review_state JSON is missing review-state fields")
+    return contract
+
+
+def parse_review_packets(payload: dict[str, object]) -> tuple[ReviewPacketState, ...]:
+    """Extract typed review packets from a parsed review-channel payload."""
+    return parse_review_contract(payload).packets
+
+
+def _approval_requests(
+    packets: tuple[ReviewPacketState, ...],
+) -> tuple[ApprovalRequest, ...]:
     approvals: list[ApprovalRequest] = []
     for packet in packets:
-        if not isinstance(packet, dict):
-            continue
-        if not packet.get("approval_required"):
-            continue
-        if packet.get("status") != "pending":
+        if not packet.requires_operator_approval():
             continue
         approvals.append(
             ApprovalRequest(
-                packet_id=str(packet.get("packet_id", "(missing-packet-id)")),
-                from_agent=str(packet.get("from_agent", "(unknown)")),
-                to_agent=str(packet.get("to_agent", "(unknown)")),
-                summary=str(packet.get("summary", "(no summary)")),
-                body=str(packet.get("body", "")),
-                policy_hint=str(packet.get("policy_hint", "(unknown)")),
-                requested_action=str(packet.get("requested_action", "(unknown)")),
-                status=str(packet.get("status", "(unknown)")),
-                evidence_refs=tuple(
-                    str(item)
-                    for item in packet.get("evidence_refs", [])
-                    if isinstance(item, str)
-                ),
+                packet_id=packet.packet_id or "(missing-packet-id)",
+                from_agent=packet.from_agent or "(unknown)",
+                to_agent=packet.to_agent or "(unknown)",
+                summary=packet.summary or "(no summary)",
+                body=packet.body,
+                policy_hint=packet.policy_hint or "(unknown)",
+                requested_action=packet.requested_action or "(unknown)",
+                status=packet.status or "(unknown)",
+                evidence_refs=packet.evidence_refs,
                 context_pack_refs=parse_context_pack_refs(
-                    packet.get("context_pack_refs")
+                    [
+                        {
+                            "pack_kind": ref.pack_kind,
+                            "pack_ref": ref.pack_ref,
+                            "adapter_profile": ref.adapter_profile,
+                            "generated_at_utc": ref.generated_at_utc,
+                        }
+                        for ref in packet.context_pack_refs
+                    ]
                 ),
             )
         )

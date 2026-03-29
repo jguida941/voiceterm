@@ -1,0 +1,319 @@
+{
+  "schema_version": 1,
+  "repo_name": "VoiceTerm",
+  "extends": [
+    "portable_python_rust.json"
+  ],
+  "enabled_ai_guard_ids": [
+    "ide_provider_isolation",
+    "compat_matrix",
+    "compat_matrix_smoke",
+    "naming_consistency",
+    "platform_layer_boundaries",
+    "python_typed_seams",
+    "platform_contract_closure",
+    "platform_contract_sync",
+    "tandem_consistency"
+  ],
+  "guard_configs": {
+    "package_layout": {
+      "flat_root_rules": [
+        {
+          "root": "dev/scripts/checks",
+          "include_globs": [
+            "*.py"
+          ],
+          "allowed_new_globs": [
+            "check_*.py",
+            "probe_*.py",
+            "run_*.py",
+            "__init__.py"
+          ],
+          "guidance": "Keep `dev/scripts/checks/` root reserved for public runnable entrypoints. New helper modules belong in an existing family directory or in a newly documented subpackage with a README."
+        }
+      ],
+      "namespace_family_rules": [
+        {
+          "root": "dev/scripts/devctl",
+          "flat_prefix": "review_channel_",
+          "namespace_subdir": "review_channel",
+          "min_family_size": 8,
+          "enforcement_mode": "strict"
+        },
+        {
+          "root": "dev/scripts/devctl/commands",
+          "flat_prefix": "check_",
+          "namespace_subdir": "check",
+          "min_family_size": 6,
+          "enforcement_mode": "strict",
+          "guidance": "The `devctl` command check family is crowded. New flat `check_*` command modules should move into `dev/scripts/devctl/commands/check/` and leave only thin public wrappers at the root when a stable command entrypoint still needs one."
+        },
+        {
+          "root": "dev/scripts/devctl/commands",
+          "flat_prefix": "autonomy_",
+          "namespace_subdir": "autonomy",
+          "min_family_size": 6,
+          "enforcement_mode": "strict",
+          "guidance": "The `devctl` autonomy command family is crowded. Add new autonomy implementation under `dev/scripts/devctl/commands/autonomy/` instead of growing the flat command root."
+        },
+        {
+          "root": "dev/scripts/devctl/commands",
+          "flat_prefix": "docs_",
+          "namespace_subdir": "docs",
+          "min_family_size": 5,
+          "enforcement_mode": "strict",
+          "guidance": "The `devctl` docs-check command family is crowded. Keep root command files thin and move new docs implementation into `dev/scripts/devctl/commands/docs/`."
+        },
+        {
+          "root": "dev/scripts/devctl/commands",
+          "flat_prefix": "review_channel_",
+          "namespace_subdir": "review_channel",
+          "min_family_size": 4,
+          "enforcement_mode": "strict",
+          "guidance": "The review-channel command helpers should consolidate under `dev/scripts/devctl/commands/review_channel/` so root-level command modules stop accumulating bridge/event/support helpers."
+        },
+        {
+          "root": "dev/scripts/devctl/commands",
+          "flat_prefix": "release_",
+          "namespace_subdir": "release",
+          "min_family_size": 4,
+          "enforcement_mode": "strict",
+          "guidance": "Release command helpers belong under `dev/scripts/devctl/commands/release/` once the flat family is crowded."
+        },
+        {
+          "root": "dev/scripts/devctl/commands",
+          "flat_prefix": "ship_",
+          "namespace_subdir": "release",
+          "min_family_size": 4,
+          "enforcement_mode": "strict",
+          "guidance": "Shipping/release command helpers should share the `dev/scripts/devctl/commands/release/` namespace instead of extending the flat command root."
+        },
+        {
+          "root": "dev/scripts/devctl/commands",
+          "flat_prefix": "governance_",
+          "namespace_subdir": "governance",
+          "min_family_size": 3,
+          "enforcement_mode": "strict",
+          "guidance": "Governance command helpers should consolidate under `dev/scripts/devctl/commands/governance/`."
+        },
+        {
+          "root": "dev/scripts/devctl/commands",
+          "flat_prefix": "process_",
+          "namespace_subdir": "process",
+          "min_family_size": 3,
+          "enforcement_mode": "strict",
+          "guidance": "Process command helpers should consolidate under `dev/scripts/devctl/commands/process/`."
+        },
+        {
+          "root": "app/operator_console/views",
+          "flat_prefix": "ui_",
+          "namespace_subdir": "actions",
+          "min_family_size": 6
+        }
+      ],
+      "namespace_docs_sync_rules": [
+        {
+          "namespace_root": "dev/scripts/devctl/review_channel",
+          "required_docs": [
+            "AGENTS.md",
+            "dev/scripts/README.md",
+            "dev/guides/DEVELOPMENT.md",
+            "dev/active/MASTER_PLAN.md"
+          ],
+          "required_token": "dev/scripts/devctl/review_channel"
+        },
+        {
+          "namespace_root": "app/operator_console/views/actions",
+          "required_docs": [
+            "app/operator_console/README.md",
+            "app/operator_console/views/README.md",
+            "dev/active/operator_console.md"
+          ],
+          "required_token": "app/operator_console/views/actions"
+        }
+      ],
+      "directory_crowding_rules": [
+        {
+          "root": "dev/scripts/checks",
+          "include_globs": [
+            "*.py"
+          ],
+          "max_files": 40,
+          "enforcement_mode": "strict",
+          "recommended_subdir": "package_layout",
+          "shim_contains_all": [
+            "dev/scripts/checks/"
+          ],
+          "shim_max_nonblank_lines": 6,
+          "shim_required_metadata_fields": [
+            "owner",
+            "reason",
+            "expiry",
+            "target"
+          ],
+          "guidance": "Keep `dev/scripts/checks/` self-hosting: once the public check root is crowded, do not add more flat files there. Move implementation into focused subpackages and keep only stable wrappers at the root."
+        },
+        {
+          "root": "dev/scripts/devctl",
+          "include_globs": [
+            "*.py"
+          ],
+          "max_files": 60,
+          "enforcement_mode": "strict",
+          "guidance": "Keep `dev/scripts/devctl/` root reserved for stable public modules and compatibility seams. New implementation code belongs in topical subpackages such as `commands/`, `runtime/`, `review_channel/`, or later extracted platform layers."
+        },
+        {
+          "root": "dev/scripts/devctl/commands",
+          "include_globs": [
+            "*.py"
+          ],
+          "max_files": 48,
+          "enforcement_mode": "strict",
+          "guidance": "The `devctl` command surface is already crowded. Add new command logic under topical command packages and keep root-level command modules from growing further."
+        },
+        {
+          "root": "dev/scripts/devctl/tests",
+          "include_globs": [
+            "test_*.py"
+          ],
+          "max_files": 72,
+          "enforcement_mode": "strict",
+          "guidance": "Mirror `devctl` package topology in tests once the flat test root is crowded. New tests should land under topic-aligned test packages instead of the root test directory."
+        }
+      ]
+    },
+    "platform_layer_boundaries": {
+      "rules": [
+        {
+          "rule_id": "operator_console_frontend_no_devctl_orchestration",
+          "include_globs": [
+            "app/operator_console/*.py",
+            "app/operator_console/**/*.py"
+          ],
+          "exclude_globs": [
+            "app/operator_console/tests/**"
+          ],
+          "forbidden_import_prefixes": [
+            "dev.scripts.devctl.commands",
+            "dev.scripts.devctl.review_channel",
+            "dev.scripts.devctl.config",
+            "dev.scripts.checks"
+          ],
+          "guidance": "Operator Console must consume stable runtime/snapshot contracts, not devctl command handlers, review-channel orchestrators, or raw guard entrypoints."
+        },
+        {
+          "rule_id": "review_channel_backend_no_surface_imports",
+          "include_globs": [
+            "dev/scripts/devctl/review_channel/*.py",
+            "dev/scripts/devctl/review_channel/**/*.py"
+          ],
+          "forbidden_import_prefixes": [
+            "app.operator_console",
+            "app.ios"
+          ],
+          "guidance": "Review-channel backend code must not import UI/mobile surface layers; keep surfaces as clients of shared backend truth."
+        }
+      ]
+    },
+    "python_typed_seams": {
+      "rules": [
+        {
+          "rule_id": "runtime_helpers_no_object_getattr_bags",
+          "include_globs": [
+            "dev/scripts/devctl/runtime/*.py",
+            "dev/scripts/devctl/runtime/**/*.py"
+          ],
+          "min_object_getattr_calls": 1,
+          "guidance": "Portable runtime helpers must convert fixed-shape boundary data into typed contracts before field access. Replace `param: object` plus `getattr(param, 'field')` with a dataclass, TypedDict, or Protocol-backed seam."
+        }
+      ]
+    },
+    "probe_compatibility_shims": {
+      "allowed_public_shims": [
+        {
+          "glob": "dev/scripts/checks/check_*.py",
+          "reason": "Public guard entrypoints stay stable root scripts while implementation moves into package-owned modules."
+        },
+        {
+          "glob": "dev/scripts/checks/probe_*.py",
+          "reason": "Public review-probe entrypoints stay stable root scripts while implementation lives under `package_layout` or other focused helper packages."
+        },
+        {
+          "glob": "dev/scripts/checks/run_*.py",
+          "reason": "Public report/runner entrypoints stay stable root scripts while helper logic moves into owned subpackages."
+        }
+      ],
+      "root_rules": [
+        {
+          "root": "dev/scripts/devctl",
+          "include_globs": [
+            "*.py"
+          ],
+          "shim_max_nonblank_lines": 12,
+          "required_metadata_fields": [
+            "owner",
+            "reason",
+            "expiry",
+            "target"
+          ],
+          "max_shims": 12,
+          "guidance": "Keep `dev/scripts/devctl/` compatibility seams auditable. Stable wrappers are allowed during staged module splits, but they should carry owner/reason/expiry/target metadata and should not accumulate indefinitely at the root."
+        }
+      ],
+      "usage_scan_exclude_roots": [
+        "dev/reports"
+      ]
+    },
+    "probe_term_consistency": {
+      "include_globs": [
+        "dev/scripts/devctl/**/*.py",
+        "dev/scripts/README.md",
+        "dev/guides/AGENT_COLLABORATION_SYSTEM.md",
+        "dev/guides/DEVCTL_ARCHITECTURE.md"
+      ],
+      "exclude_globs": [
+        "dev/scripts/devctl/tests/**",
+        "dev/reports/**",
+        "dev/archive/**"
+      ],
+      "rules": [
+        {
+          "id": "bridge_name",
+          "canonical": "bridge",
+          "aliases": [
+            "code_audit",
+            "code audit",
+            "Code Audit Channel"
+          ],
+          "severity": "medium",
+          "match_mode": "prefer_canonical",
+          "ai_instruction": "Use `bridge` / `Review Bridge` as the canonical transport name. Retire legacy `code_audit` wording from code, docs, and generated surfaces so the bridge contract stays easy to follow."
+        },
+        {
+          "id": "review_implementer",
+          "canonical": "implementer",
+          "aliases": [
+            "coder"
+          ],
+          "severity": "medium",
+          "match_mode": "prefer_canonical",
+          "include_globs": [
+            "dev/scripts/devctl/review_channel/**/*.py",
+            "dev/scripts/devctl/commands/review_channel/**/*.py",
+            "dev/scripts/README.md",
+            "dev/guides/AGENT_COLLABORATION_SYSTEM.md"
+          ],
+          "ai_instruction": "Use `implementer` for the Claude-side role. Retire `coder` from review-channel code and maintainer docs so one role keeps one name."
+        }
+      ]
+    },
+    "python_cyclic_imports": {
+      "ignored_cycles": [
+        [
+          "app/operator_console/views/help_dialog.py",
+          "app/operator_console/views/layout/ui_window_shell.py"
+        ]
+      ]
+    }
+  }
+}

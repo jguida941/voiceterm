@@ -24,8 +24,14 @@ from .events import (
     DEFAULT_REVIEW_PROJECTIONS_DIR_REL,
     DEFAULT_REVIEW_STATE_JSON_REL,
 )
-from .promotion import DEFAULT_PROMOTION_PLAN_REL
+from .parser_argument_groups import (
+    build_event_context_arguments,
+    build_packet_arguments,
+    build_query_arguments,
+)
+from .parser_bridge_controls import build_bridge_control_arguments
 from .state import DEFAULT_REVIEW_STATUS_DIR_REL
+from .peer_liveness import REVIEWER_MODE_CLI_CHOICES, ReviewerMode
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +44,14 @@ AGENT_CHOICES = ("codex", "claude", "operator", "system")
 REVIEW_ACTION_CHOICES = (
     "launch",
     "rollover",
+    "recover",
     "status",
+    "implementer-wait",
+    "reviewer-wait",
+    "ensure",
+    "stop",
+    "reviewer-heartbeat",
+    "reviewer-checkpoint",
     "promote",
     "post",
     "watch",
@@ -47,6 +60,8 @@ REVIEW_ACTION_CHOICES = (
     "dismiss",
     "apply",
     "history",
+    "bridge-poll",
+    "render-bridge",
 )
 
 
@@ -88,11 +103,8 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
     ),
     _arg(
         "--promotion-plan",
-        default=DEFAULT_PROMOTION_PLAN_REL,
-        help=(
-            "Active-plan checklist used for repo-owned next-task promotion and "
-            "derived queue projections"
-        ),
+        default=None,
+        help=("Active-plan checklist used for repo-owned next-task promotion and " "derived queue projections"),
     ),
     _arg(
         "--artifact-root",
@@ -113,10 +125,7 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         "--rollover-threshold-pct",
         type=int,
         default=DEFAULT_ROLLOVER_THRESHOLD_PCT,
-        help=(
-            "Context-remaining percentage that should trigger a planned self-relaunch "
-            "before compaction"
-        ),
+        help=("Context-remaining percentage that should trigger a planned self-relaunch " "before compaction"),
     ),
     _arg(
         "--rollover-trigger",
@@ -129,9 +138,10 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         type=int,
         default=DEFAULT_ROLLOVER_ACK_WAIT_SECONDS,
         help=(
-            "How long a live rollover should wait for visible Codex/Claude ACK lines "
-            "from the fresh conductor sessions before failing closed. "
-            "Must be greater than zero for rollover."
+            "How long a live launch should wait for a fresh Codex reviewer "
+            "heartbeat, and how long a live rollover should wait for visible "
+            "Codex/Claude ACK lines from the fresh conductor sessions before "
+            "failing closed. Must be greater than zero for rollover."
         ),
     ),
     _arg("--codex-workers", type=int, default=8, help="Requested Codex reviewer-worker budget"),
@@ -156,110 +166,56 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
             "`claude --dangerously-skip-permissions`)"
         ),
     ),
+    _arg(
+        "--scope",
+        default=None,
+        help=(
+            "Active-plan doc to auto-scope the launch. Rewrites "
+            "`Current Instruction For Claude` from the plan's first unchecked "
+            "execution-checklist item before launching conductors. Accepts a "
+            "plan filename (e.g. `review_probes`), a full relative path "
+            "(e.g. `dev/active/review_probes.md`), or an MP id (e.g. `MP-368`)."
+        ),
+    ),
+    _arg(
+        "--recover-provider",
+        choices=["claude"],
+        default="claude",
+        help=(
+            "Provider conductor to replace during `review-channel --action recover`."
+        ),
+    ),
+    _arg(
+        "--daemon-kind",
+        choices=["publisher", "reviewer_supervisor", "all"],
+        default="all",
+        help="Daemon target for repo-owned review-channel stop actions.",
+    ),
+    _arg(
+        "--stop-grace-seconds",
+        type=float,
+        default=5.0,
+        help=(
+            "How long `review-channel --action stop` should wait for a daemon "
+            "to record stopped lifecycle state after SIGINT."
+        ),
+    ),
     _arg("--script-dir", help="Optional directory for generated conductor launch scripts"),
     _arg(
         "--dry-run",
         action="store_true",
         help="Build the launch bundle without opening Terminal.app windows",
     ),
-    _arg(
-        "--refresh-bridge-heartbeat-if-stale",
-        action="store_true",
-        help=(
-            "When the markdown bridge is otherwise launchable but reviewer heartbeat "
-            "metadata is stale or missing, refresh it before launch continues."
-        ),
+    *build_bridge_control_arguments(
+        _arg,
+        reviewer_mode_choices=REVIEWER_MODE_CLI_CHOICES,
+        default_reviewer_mode=ReviewerMode.ACTIVE_DUAL_AGENT,
     ),
 ]
 
-PACKET_ARGUMENTS: list[ArgumentDef] = [
-    _arg("--from-agent", choices=AGENT_CHOICES, help="Posting agent for packet writes"),
-    _arg("--to-agent", choices=AGENT_CHOICES, help="Target agent for packet writes"),
-    _arg(
-        "--kind",
-        choices=[
-            "finding",
-            "question",
-            "draft",
-            "action_request",
-            "approval_request",
-            "decision",
-            "system_notice",
-        ],
-        help="Review packet kind for `--action post`",
-    ),
-    _arg("--summary", help="Short packet summary for post/watch/history views"),
-    _arg("--body", help="Inline packet body for `--action post`"),
-    _arg("--body-file", help="Optional UTF-8 markdown/text file used as the packet body"),
-    _arg("--evidence-ref", action="append", default=[], help="Repeatable evidence reference"),
-    _arg("--confidence", type=float, default=1.0, help="Packet confidence between 0.0 and 1.0"),
-    _arg("--requested-action", default="review_only", help="Requested action on a packet"),
-    _arg(
-        "--policy-hint",
-        choices=["review_only", "stage_draft", "operator_approval_required", "safe_auto_apply"],
-        default="review_only",
-        help="Policy hint attached to a packet",
-    ),
-    _arg(
-        "--approval-required",
-        action="store_true",
-        help="Mark packet as requiring explicit operator approval",
-    ),
-    _arg(
-        "--context-pack-ref",
-        action="append",
-        default=[],
-        help=(
-            "Repeatable attached memory-pack ref in kind:path form, for example "
-            "`task_pack:.voiceterm/memory/exports/task_pack.json`"
-        ),
-    ),
-    _arg(
-        "--context-pack-adapter-profile",
-        choices=["canonical", "codex", "claude", "gemini"],
-        default="canonical",
-        help="Adapter profile recorded on attached context-pack refs",
-    ),
-]
-
-QUERY_ARGUMENTS: list[ArgumentDef] = [
-    _arg("--packet-id", help="Packet id for ack/dismiss/apply or explicit post id override"),
-    _arg("--trace-id", help="Trace id for history queries or explicit post trace override"),
-    _arg("--actor", choices=AGENT_CHOICES, help="Actor applying an ack/dismiss/apply transition"),
-    _arg("--target", choices=AGENT_CHOICES, help="Target agent filter for inbox/watch"),
-    _arg(
-        "--status",
-        choices=["pending", "acked", "dismissed", "applied", "expired"],
-        help="Packet status filter for inbox/watch",
-    ),
-    _arg("--limit", type=int, default=20, help="Limit rows returned by inbox/history/watch"),
-    _arg(
-        "--follow",
-        action="store_true",
-        help="Request a watch/follow view; current CLI emits one snapshot per run",
-    ),
-    _arg("--stale-minutes", type=int, default=30, help="Staleness threshold for watch views"),
-]
-
-EVENT_CONTEXT_ARGUMENTS: list[ArgumentDef] = [
-    _arg(
-        "--session-id",
-        default=DEFAULT_REVIEW_CHANNEL_SESSION_ID,
-        help="Stable session id for event-backed packet writes",
-    ),
-    _arg(
-        "--plan-id",
-        default=DEFAULT_REVIEW_CHANNEL_PLAN_ID,
-        help="Plan id recorded on event-backed packet writes",
-    ),
-    _arg("--controller-run-id", help="Optional controller run id on packet writes"),
-    _arg(
-        "--expires-in-minutes",
-        type=int,
-        default=DEFAULT_PACKET_TTL_MINUTES,
-        help="Expiry horizon for newly posted packets",
-    ),
-]
+PACKET_ARGUMENTS: list[ArgumentDef] = build_packet_arguments(_arg)
+QUERY_ARGUMENTS: list[ArgumentDef] = build_query_arguments(_arg)
+EVENT_CONTEXT_ARGUMENTS: list[ArgumentDef] = build_event_context_arguments(_arg)
 
 
 def _register_arguments(cmd: argparse.ArgumentParser, arguments: list[ArgumentDef]) -> None:

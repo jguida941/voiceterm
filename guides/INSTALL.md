@@ -49,12 +49,8 @@ voiceterm --login --codex
 voiceterm --login --claude
 ```
 
-Provider scope note:
-
-- Runtime overlay backends include `codex`, `claude`, `gemini` (experimental),
-  `aider` (untested), `opencode` (untested), and custom commands.
-- JSON IPC mode supports only `codex` and `claude`; `gemini`, `aider`,
-  `opencode`, and `custom` are overlay-only non-IPC backends.
+Need backend details or experimental-backend status?
+See [USAGE.md - Backend Support](USAGE.md#backend-support).
 
 **Other requirements:**
 
@@ -74,6 +70,9 @@ Provider scope note:
 | Full local control | **From source** | Build and edit from this repo |
 | Finder launch on macOS | **macOS App** | Pick folder and launch without shell setup |
 | No install | **Manual run** | Run repo scripts directly |
+
+If you only want the fastest path, stop here and use
+[Quick Start](../QUICK_START.md).
 
 ## Option A: Homebrew (recommended)
 
@@ -125,16 +124,8 @@ After upgrading, run `voiceterm --version` to confirm.
 
 Daily usage is in [USAGE.md](USAGE.md). Install/runtime issues are in
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
-If you use Cursor terminal, VoiceTerm keeps mouse mode on for HUD clicks while
-potentially blocking wheel/touchpad history scrolling (`Mouse: ON`); the
-scrollbar can still be dragged, or set `Mouse` to `OFF` in Settings.
-If Codex/Claude approval or input rows look clipped, use the occlusion guidance in
-[TROUBLESHOOTING.md](TROUBLESHOOTING.md#codex-or-claude-approval-prompts-are-occluded).
-Claude on JetBrains terminals is fully supported. Rare host-specific edge case:
-after very long parallel tool calls or parallel web-search turns, temporary
-HUD/transcript overlap can appear when the turn ends. Quick workaround: resize
-the terminal once (even by 1 row/column). Details:
-[TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output](TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output).
+For IDE-specific caveats, prompt occlusion help, or mouse/scroll behavior, use
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 </details>
 
@@ -174,6 +165,9 @@ PyPI launcher notes:
 - Bootstrap requires `git` and `cargo` on PATH.
 - If you already have a native binary installed, set:
   `VOICETERM_NATIVE_BIN=/absolute/path/to/voiceterm`.
+
+If you want the optional Operator Console or iPhone/iPad companion, use a
+source checkout instead of a PyPI-only install.
 
 </details>
 
@@ -287,8 +281,11 @@ Use a Linux environment in WSL2:
 ## Optional: Operator Console (source checkout)
 
 This optional PyQt6 desktop wrapper is available from a source checkout only.
-It does not replace the Rust runtime or `devctl`; it is a thin shared-screen
-view over the current review-channel workflow.
+It does not replace the Rust runtime or `devctl`.
+
+Use it when you want one repo-backed desktop surface for current
+review/control state, guarded `Dry Run` preflight, and the `Start Swarm` /
+`Launch Live` workflow from the same checkout.
 
 From the repo root:
 
@@ -299,6 +296,10 @@ From the repo root:
 
 If `PyQt6` is missing, the script attempts to install it for the current
 Python interpreter before launching the app.
+
+The matching iPhone/iPad companion uses the same repo-visible live bundle from
+the source checkout. See [app/ios/README.md](../app/ios/README.md) if you want
+the mobile surface as well.
 
 ## After install: run in your project
 
@@ -315,14 +316,15 @@ To target Claude instead of Codex:
 voiceterm --claude
 ```
 
-First-run control notes:
+First-run basics:
 
-- `Ctrl+R` starts/stops recording.
-- `Ctrl+E` finalizes active recording early in `insert` mode and stages text (no Enter send).
-- In `insert` mode, say `send` / `send message` / `submit` (or `hey codex send`) to submit staged text hands-free.
-- `Ctrl+Y` opens Theme Studio; use `Tab` / `Shift+Tab` to switch pages.
-- If you use `VOICETERM_STYLE_PACK_JSON`, `components.overlay_border` styles overlays and `components.hud_border` styles Full HUD when border mode is `theme`.
-- Use `--theme-file <PATH>` (or `VOICETERM_THEME_FILE`) to load a TOML theme file.
+- `Ctrl+R` starts voice capture.
+- `Ctrl+E` ends capture early and keeps the text in the input box.
+- In `insert` mode, say `send` / `submit` to send without touching the keyboard.
+- `Ctrl+Y` opens Theme Studio.
+
+For the full controls list, theme-file behavior, and advanced customization,
+see [USAGE.md](USAGE.md) and [CLI_FLAGS.md](CLI_FLAGS.md).
 
 ## Optional: Macro Wizard
 

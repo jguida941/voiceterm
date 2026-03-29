@@ -47,6 +47,7 @@ PROFILE_PRESETS: dict[str, dict[str, object]] = {
         "with_ai_guard": True,
         "with_clippy_high_signal": True,
         "with_ci_release_gate": False,
+        "with_review_probes": True,
     },
     "prepush": {
         "with_perf": True,
@@ -55,6 +56,7 @@ PROFILE_PRESETS: dict[str, dict[str, object]] = {
         "with_ai_guard": True,
         "with_clippy_high_signal": True,
         "with_ci_release_gate": False,
+        "with_review_probes": True,
     },
     "release": {
         "with_mutation_score": True,
@@ -136,6 +138,7 @@ BOOLEAN_FLAG_DEFAULTS: dict[str, bool] = {
     "with_ai_guard": False,
     "with_mutants": False,
     "with_mutation_score": False,
+    "with_review_probes": False,
     "no_parallel": False,
     "keep_going": False,
 }
@@ -155,6 +158,7 @@ def resolve_profile_settings(args) -> tuple[dict, list[str]]:
         "with_ai_guard": args.with_ai_guard,
         "with_clippy_high_signal": False,
         "with_ci_release_gate": False,
+        "with_review_probes": getattr(args, "with_review_probes", False),
     }
     clippy_cmd = [
         "cargo",

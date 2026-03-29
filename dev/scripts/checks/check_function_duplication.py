@@ -16,9 +16,10 @@ import sys
 from pathlib import Path
 
 try:
-    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from check_bootstrap import REPO_ROOT, emit_runtime_error, import_attr, utc_timestamp
 except ModuleNotFoundError:  # pragma: no cover
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         emit_runtime_error,
         import_attr,
         utc_timestamp,
@@ -31,7 +32,6 @@ scan_python_functions = import_attr(
     "code_shape_function_policy", "scan_python_functions"
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 MIN_BODY_LINES = 6
@@ -43,7 +43,6 @@ _RS_LINE_COMMENT = re.compile(r"//.*$", re.MULTILINE)
 _PY_LINE_COMMENT = re.compile(r"#.*$", re.MULTILINE)
 _WHITESPACE_RUN = re.compile(r"\s+")
 
-
 def _normalize_body(text: str, ext: str) -> str:
     """Strip comments, collapse whitespace for stable hashing."""
     if ext == ".rs":
@@ -52,11 +51,9 @@ def _normalize_body(text: str, ext: str) -> str:
         text = _PY_LINE_COMMENT.sub("", text)
     return _WHITESPACE_RUN.sub(" ", text).strip()
 
-
 def _body_hash(text: str, ext: str) -> str:
     normalized = _normalize_body(text, ext)
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
-
 
 def _extract_function_hashes(
     source_text: str | None, ext: str, *, min_lines: int = MIN_BODY_LINES
@@ -88,7 +85,6 @@ def _extract_function_hashes(
         )
     return results
 
-
 def _list_all_source_paths(ext: str) -> list[Path]:
     """List all tracked + untracked source files with the given extension."""
     paths: set[Path] = set()
@@ -101,7 +97,6 @@ def _list_all_source_paths(ext: str) -> list[Path]:
             if p.suffix == ext:
                 paths.add(p)
     return sorted(paths)
-
 
 def _build_global_hash_index(
     ext: str, *, exclude_paths: set[str], min_lines: int = MIN_BODY_LINES
@@ -117,7 +112,6 @@ def _build_global_hash_index(
                 (path.as_posix(), fn_info["name"])
             )
     return index
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_function_duplication", ""]
@@ -144,7 +138,6 @@ def _render_md(report: dict) -> str:
             )
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since-ref", help="Compare against this git ref")
@@ -159,7 +152,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Minimum function body lines to consider for duplication",
     )
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -282,7 +274,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

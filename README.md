@@ -20,10 +20,17 @@
 </p>
 
 Low-latency Rust terminal overlay for Codex and Claude Code with local Whisper
-STT, PTY passthrough, wake words, macros, memory tools, and a customizable HUD.
+STT, PTY passthrough, wake words, macros, and a customizable HUD.
 
 Whisper runs locally by default — no cloud API keys required.
 Release history: [CHANGELOG](dev/CHANGELOG.md).
+
+If you are new, use this path:
+
+1. [Quick Start](QUICK_START.md)
+2. [Install Guide](guides/INSTALL.md)
+3. [Usage Guide](guides/USAGE.md)
+4. [Troubleshooting](guides/TROUBLESHOOTING.md)
 
 ## Quick Nav
 
@@ -114,28 +121,15 @@ If you are running from source while developing, run:
 python3 dev/scripts/devctl.py check --profile ci
 ```
 
-Optional desktop review-channel console from the same checkout:
+Optional advanced tools from the same checkout:
 
-```bash
-./scripts/operator_console.sh --dev-log
-```
+- [Operator Console README](app/operator_console/README.md)
+- [iOS README](app/ios/README.md)
+- [Install Guide: optional source-only tools](guides/INSTALL.md#optional-operator-console-source-checkout)
 
-Optional iPhone/iPad companion from the same checkout:
-
-```bash
-python3 dev/scripts/devctl.py mobile-app --action simulator-demo --format md
-python3 dev/scripts/devctl.py mobile-app --action device-install --development-team <TEAM_ID> --format md
-```
-
-That companion reads the same `mobile-status` bundle as the desktop console and
-can now fall back to real review-channel live data even when the autonomy
-`phone-status` artifact is missing.
-It also includes a read-only mobile `Terminal` view with split/combined Codex,
-Claude, and Operator lane panels.
-
-Details: [Operator Console README](app/operator_console/README.md),
-[iOS README](app/ios/README.md), and
-[Install Guide](guides/INSTALL.md#optional-operator-console-source-checkout).
+These companion surfaces are optional source-checkout workflow tools. They read
+repo-visible live review/control state and do not replace the normal VoiceTerm
+overlay path.
 
 </details>
 
@@ -212,12 +206,12 @@ VoiceTerm is optimized for Codex and Claude Code.
 For full backend status and setup details, see
 [Usage Guide — Backend Support](guides/USAGE.md#backend-support).
 
-### Codex
-
-Use the same workflow and controls documented in
-[guides/USAGE.md](guides/USAGE.md#backend-support).
-
-### Claude Code
+| Backend | Status | Notes |
+|---|---|---|
+| Codex | Supported | Default backend |
+| Claude Code | Supported | Full support on current releases |
+| Gemini CLI | Experimental | Not working in current releases |
+| Other/custom backends | Experimental | See the usage guide for current limits |
 
 ![Claude Backend](img/claude-backend.png)
 
@@ -226,7 +220,7 @@ Use the same workflow and controls documented in
 | IDE host | Codex | Claude Code | Notes |
 |---|---|---|---|
 | Cursor terminal | Fully supported | Fully supported | Recommended host |
-| JetBrains terminals (IntelliJ, PyCharm, WebStorm, CLion) | Fully supported | Working | Claude may need a one-time terminal resize after long outputs — see [Troubleshooting](guides/TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output) |
+| JetBrains terminals (IntelliJ, PyCharm, WebStorm, CLion) | Fully supported | Fully supported | Claude may need a one-time terminal resize after long outputs — see [Troubleshooting](guides/TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output) |
 | AntiGravity | Not yet supported | Not yet supported | Not available in current releases |
 | Other IDE terminals | Unverified | Unverified | Treat as experimental |
 
@@ -291,22 +285,26 @@ Setup and examples: [Project Voice Macros](guides/USAGE.md#project-voice-macros)
 
 ## Documentation
 
+Start with the shortest useful doc for your goal:
+
 | Audience | Document |
 |---|---|
 | User | [Quick Start](QUICK_START.md) |
 | User | [Guides Index](guides/README.md) |
 | User | [Install Guide](guides/INSTALL.md) |
-| User | [Operator Console (optional PyQt6 app)](app/operator_console/README.md) |
 | User | [Usage Guide](guides/USAGE.md) |
 | User | [CLI Flags](guides/CLI_FLAGS.md) |
 | User | [Troubleshooting](guides/TROUBLESHOOTING.md) |
+| Advanced | [Operator Console (optional PyQt6 app)](app/operator_console/README.md) |
+| Advanced | [iPhone/iPad companion app](app/ios/README.md) |
 
 ## Contributing
 
 PRs welcome. See [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 Before opening a PR, run:
 
-- `python3 dev/scripts/devctl.py check --profile prepush`
+- `python3 dev/scripts/devctl.py check --profile ci`
+- `python3 dev/scripts/devctl.py docs-check --user-facing`
 - `python3 dev/scripts/devctl.py hygiene`
 
 ## For Developers

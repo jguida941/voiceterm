@@ -23,10 +23,7 @@ from ..autonomy.run_helpers import collect_next_steps, derive_prompt
 from ..common import emit_output, pipe_output, write_output
 from ..numeric import to_float, to_int
 
-try:
-    from dev.scripts.checks.coderabbit_ralph_loop_core import resolve_repo
-except ModuleNotFoundError:
-    from checks.coderabbit_ralph_loop_core import resolve_repo
+from ..repo_packs.process_helpers import resolve_repo
 
 
 def _timestamp_utc() -> str:

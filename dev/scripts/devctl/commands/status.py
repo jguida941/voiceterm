@@ -19,6 +19,8 @@ def run(args) -> int:
         include_dev_logs=getattr(args, "dev_logs", False),
         dev_root=getattr(args, "dev_root", None),
         dev_sessions_limit=getattr(args, "dev_sessions_limit", 5),
+        include_probe_report=getattr(args, "probe_report", False),
+        probe_policy_path=getattr(args, "quality_policy", None),
         parallel=parallel_enabled,
     )
 

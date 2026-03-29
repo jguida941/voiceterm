@@ -6,6 +6,9 @@ minimal manual intervention.
 Use this with:
 
 - `AGENTS.md` for policy, required bundles, and release SOP
+- `dev/guides/DEVCTL_ARCHITECTURE.md` for the plain-language whole-system map,
+  stable command language, portable naming-contract guard direction, and
+  future `map` command shape
 - `dev/guides/DEVELOPMENT.md` for lifecycle flow and verification matrix
 - `dev/guides/AGENT_COLLABORATION_SYSTEM.md` for the current Codex/Claude collaboration flowchart and command-stack map
 - `dev/scripts/README.md` for full command inventory
@@ -14,7 +17,7 @@ Use this with:
 
 `devctl` is the maintainer entrypoint for:
 
-1. Quality gates (`check`, `docs-check`, `hygiene`, security guards)
+1. Quality gates (`check`, `docs-check`, `render-surfaces`, `hygiene`, security guards)
    plus host-process/report-retention cleanup (`process-cleanup`,
    `reports-cleanup`)
 2. Triage and reporting (`status`, `report`, `data-science`, `triage`, `triage-loop`, `mutation-loop`, `swarm_run`, `autonomy-report`, `phone-status`, `mobile-status`, `controller-action`, `review-channel`, `autonomy-swarm`, `autonomy-benchmark`)
@@ -31,7 +34,8 @@ plan-scoped swarm pipeline.
 ### Normal push path
 
 ```bash
-python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute
+python3 dev/scripts/devctl.py push
+python3 dev/scripts/devctl.py push --execute
 # Optional local-only sanity lane while iterating
 python3 dev/scripts/devctl.py check --profile fast
 # Run this when hygiene warns about stale report growth
@@ -39,13 +43,17 @@ python3 dev/scripts/devctl.py reports-cleanup --dry-run
 python3 dev/scripts/devctl.py triage --ci --format md
 ```
 
-`check-router` executes lane commands from
-`dev/scripts/devctl/bundle_registry.py` and escalates unknown paths to the
-stricter tooling lane.
+`push` is the canonical branch-push surface: it resolves branch/remote rules
+from `repo_governance.push`, runs the configured preflight path, defaults to
+non-mutating validation, and only performs the real push when `--execute` is
+present. The default preflight still routes through `check-router`, which
+executes lane commands from `dev/scripts/devctl/bundle_registry.py` and
+escalates unknown paths to the stricter tooling lane.
 
 ### Tooling/process/CI path
 
 ```bash
+python3 dev/scripts/devctl.py render-surfaces --format md
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py orchestrate-status --format md
 python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
@@ -53,9 +61,17 @@ python3 dev/scripts/devctl.py triage --ci --no-cihub --emit-bundle \
   --bundle-dir .cihub/coderabbit --bundle-prefix tooling-pass --format md
 ```
 
+If the slice changes repo-pack templates or starter-surface policy context,
+run `python3 dev/scripts/devctl.py render-surfaces --write --format md` before
+`docs-check --strict-tooling` so generated instruction/starter outputs stay in
+sync.
+
 ### Current review swarm bootstrap
 
 ```bash
+# Read the live reviewer/coder state first
+python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json
+
 # Dry-run first: validate the bridge is active and inspect generated launch scripts
 # while auto-repairing stale/missing reviewer heartbeat metadata when that is
 # the only blocker.
@@ -63,6 +79,10 @@ python3 dev/scripts/devctl.py review-channel --action launch --terminal none --d
 
 # Read the current bridge-backed review status and refresh latest projections
 python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md
+
+# Claude-side bounded wait path after a completed slice; exits on reviewer-owned
+# bridge changes or timeout instead of leaving a raw shell sleep loop behind.
+python3 dev/scripts/devctl.py review-channel --action implementer-wait --terminal none --format json
 
 # Promote the next repo-owned active-plan item into Current Instruction For Claude
 python3 dev/scripts/devctl.py review-channel --action promote --terminal none --format md
@@ -72,12 +92,25 @@ python3 dev/scripts/devctl.py review-channel --action launch --format md --refre
 
 # Planned anti-compaction rollover: relaunch fresh conductors before context gets bad
 python3 dev/scripts/devctl.py review-channel --action rollover --rollover-threshold-pct 50 --await-ack-seconds 180 --format md
+
+# Canonical tandem post-edit validator once code changes land
+python3 dev/scripts/devctl.py tandem-validate --format md
+
+# Honest solo-mode liveness writes when only one agent or tools are active
+python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md
+
+# Reviewer-owned truth update after a real accepted review pass
+python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --terminal none --format md
 ```
+
+Use a JSON payload file for reviewer checkpoints when AI-generated markdown or
+backticks are involved. The payload must define `verdict`, `open_findings`,
+`instruction`, and `reviewed_scope_items`.
 
 Use this only for the current markdown-bridge cycle:
 
 1. It reads `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`,
-   `dev/active/review_channel.md`, and `code_audit.md`.
+   `dev/active/review_channel.md`, and `bridge.md`.
 2. Codex is the reviewer conductor for `AGENT-1..AGENT-8`.
 3. Claude is the coding conductor for `AGENT-9..AGENT-16`.
 4. Terminal.app launch defaults to `--terminal-profile auto-dark`, which picks
@@ -95,13 +128,31 @@ Use this only for the current markdown-bridge cycle:
 8. `--action rollover` writes a handoff bundle under
    `dev/reports/review_channel/rollovers/`, relaunches fresh conductors, and
    waits up to the configured `--await-ack-seconds` window for visible rollover
-   ACK lines in `code_audit.md`.
+   ACK lines in `bridge.md`.
 9. The launcher fails closed if `review_channel.md` no longer marks the
    markdown bridge as the active operating mode.
 10. Live `--action launch` sessions now auto-relaunch on clean provider exits so
    a conductor that posts one summary and quits is restarted from repo state in
    the same terminal; non-zero exits still stop fail-closed so real CLI/auth
    failures remain visible.
+11. After code edits in the dual-agent lane, `tandem-validate` is the
+    canonical validator. Do not replace it with an ad hoc subset unless you
+    are debugging one known failing command and then returning to the routed
+    validator.
+12. In `single_agent` or `tools_only`, keep the same backend/check flow and
+    write the honest mode via `reviewer-heartbeat`; do not pretend the bridge
+    is stale just because a second live agent is absent.
+13. After a real reviewer acceptance pass, use `reviewer-checkpoint` to move
+    reviewed hash, verdict, findings, and instruction together instead of
+    hand-editing partial reviewer state. Prefer one typed
+    `--checkpoint-payload-file` for AI-generated or shell-sensitive markdown,
+    or the per-section `--*-file` flags when the bodies intentionally stay
+    split; reserve inline body flags for short plain strings.
+14. Implementer polling is full-section, not fixed-offset: read `Last Codex poll`
+    / `Poll Status` first, then reread `Current Verdict`, `Open Findings`, and
+    `Current Instruction For Claude` together. If those reviewer-owned sections
+    are unchanged after the current bounded work is done, that is a live wait
+    state; wait on cadence instead of hammering one unchanged line range.
 
 ### Release path
 
@@ -115,6 +166,86 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --
 release-preflight, Ralph loop) before publish/tag flow. `ship --verify`
 aggregates its independent verify subchecks in parallel and then applies the
 same declared substep order when deciding the first failure to surface.
+
+## System Coverage Map
+
+`DEVCTL_AUTOGUIDE.md` is the operator playbook, not the full command reference.
+Keep `dev/scripts/README.md` authoritative for the exhaustive inventory and use
+this section to keep the whole system in scope when you are steering VoiceTerm,
+the PyQt6 console, phone/mobile flows, or agent-only/dev-only modes.
+
+This guide is also protected by `python3 dev/scripts/checks/check_guide_contract_sync.py`
+so the core system surfaces below cannot silently disappear from the operator
+playbook when the control plane grows.
+
+### Policy, contract, and portability surfaces
+
+Use these when the task is about understanding or exporting the platform, not
+only running one local guard bundle:
+
+- `python3 dev/scripts/devctl.py render-surfaces --format md`
+- `python3 dev/scripts/devctl.py quality-policy --format md`
+- `python3 dev/scripts/devctl.py platform-contracts --format md`
+- `python3 dev/scripts/checks/check_platform_contract_closure.py`
+- `python3 dev/scripts/devctl.py probe-report --format md`
+- `python3 dev/scripts/devctl.py governance-export --format md`
+- `python3 dev/scripts/devctl.py governance-bootstrap --help`
+- `python3 dev/scripts/devctl.py governance-import-findings --help`
+- `python3 dev/scripts/devctl.py governance-review --format md`
+- `python3 dev/scripts/devctl.py launcher-check --help`
+- `python3 dev/scripts/devctl.py launcher-probes --help`
+- `python3 dev/scripts/devctl.py launcher-policy --help`
+
+Use `quality-policy` as the canonical live inventory of the enabled
+guards/probes, and use `render-surfaces` right after policy/template changes
+to confirm the AI/dev instruction surfaces still describe the same system.
+When the shared platform blueprint, runtime contract models, durable
+probe/report schema constants, or startup-surface routing text changes, pair
+`platform-contracts --format md` with
+`python3 dev/scripts/checks/check_platform_contract_closure.py`.
+
+### Review, runtime, and operator loop surfaces
+
+These are the shared backend/operator commands that keep the same review,
+queue, and attention signals visible across VoiceTerm, the PyQt6 console,
+phone/mobile clients, and agent-only or developer-only flows:
+
+- `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
+- `python3 dev/scripts/devctl.py tandem-validate --format md`
+- `python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md`
+- `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --terminal none --format md`
+- `python3 dev/scripts/devctl.py swarm_run --help`
+- `python3 dev/scripts/devctl.py phone-status --help`
+- `python3 dev/scripts/devctl.py mobile-status --help`
+- `python3 dev/scripts/devctl.py controller-action --help`
+- `python3 dev/scripts/devctl.py orchestrate-status --format md`
+- `python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md`
+- `python3 dev/scripts/devctl.py integrations-sync --status-only --format md`
+- `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md`
+- `python3 dev/scripts/devctl.py mcp --format md`
+
+### Mutation, compatibility, and publication helpers
+
+These are still part of the same system even when the current task is focused
+on review-channel or tandem work:
+
+- `python3 dev/scripts/devctl.py mutants --help`
+- `python3 dev/scripts/devctl.py mutation-score --help`
+- `python3 dev/scripts/devctl.py compat-matrix --format md`
+- `python3 dev/scripts/devctl.py publication-sync --help`
+- `python3 dev/scripts/devctl.py release-notes --help`
+- `python3 dev/scripts/devctl.py ralph-status --help`
+
+### Queue, device, and recovery helpers
+
+These keep the queue/controller/device side of the platform in scope:
+
+- `python3 dev/scripts/devctl.py loop-packet --help`
+- `python3 dev/scripts/devctl.py mobile-app --help`
+- `python3 dev/scripts/devctl.py cihub-setup --help`
+- `python3 dev/scripts/devctl.py failure-cleanup --help`
+- `python3 dev/scripts/devctl.py path-audit --help`
+- `python3 dev/scripts/devctl.py path-rewrite --help`
 
 ## Check Profile Picker
 
@@ -496,6 +627,8 @@ Guard behavior:
    `dev/config/control_plane_policy.json`
 2. All write actions are blocked when `AUTONOMY_MODE=off`
 3. `--dry-run` shows intended remote command without executing it
+4. JSON/markdown reports include a stable `typed_action` contract for agent and
+   frontend consumers
 
 ## Adaptive Swarm (Metadata + Budget)
 

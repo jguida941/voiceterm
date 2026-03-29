@@ -3,40 +3,90 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 
+from dataclasses import asdict
+
 from ..common import display_path
-from .core import load_text, parse_lane_assignments
+from ..runtime.review_state_models import (
+    ReviewBridgeState,
+    ReviewCurrentSessionState,
+    ReviewSessionState,
+    ReviewState,
+)
+from ..runtime.role_profile import role_for_provider
+from .core import DEFAULT_BRIDGE_REL, load_text, parse_lane_assignments
 from .context_refs import normalize_context_pack_refs
+from .event_models import ReviewAgentRow, ReviewChannelEventBundle, ReviewPacketRow
+from .event_packet_rows import (
+    apply_packet_transition,
+    packet_from_event,
+    summarize_packets,
+)
+from .event_projection import (
+    build_event_queue_state,
+    build_event_queue_summary,
+    enrich_event_review_state,
+)
 from .event_store import (
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
     ReviewChannelArtifactPaths,
     load_agent_registry,
     load_events,
-    parse_utc,
     write_legacy_projection_mirror,
 )
 from .state import (
-    ReviewChannelProjectionPaths,
     build_agent_registry_from_lanes,
     project_id_for_repo,
     write_projection_bundle,
 )
+from .daemon_reducer import (
+    DAEMON_EVENT_TYPES,
+    DaemonSnapshot,
+    build_runtime_state,
+    reduce_daemon_event,
+)
 from ..time_utils import utc_timestamp
 
+# Placeholder bridge state used during event reduction; the enrichment
+# step replaces this with real values from bridge_liveness.
+_PLACEHOLDER_BRIDGE = ReviewBridgeState(
+    overall_state="unknown", codex_poll_state="missing",
+    reviewer_freshness="missing",
+    reviewer_mode="tools_only", last_codex_poll_utc="",
+    last_codex_poll_age_seconds=0, last_worktree_hash="",
+    current_instruction="", open_findings="", claude_status="",
+    claude_ack="", claude_ack_current=False,
+    current_instruction_revision="", claude_ack_revision="",
+    last_reviewed_scope="",
+)
 
-@dataclass(frozen=True)
-class ReviewChannelEventBundle:
-    """One reduced view of the current event-backed review state."""
+_PLACEHOLDER_CURRENT_SESSION = ReviewCurrentSessionState(
+    current_instruction="",
+    current_instruction_revision="",
+    implementer_status="",
+    implementer_ack="",
+    implementer_ack_revision="",
+    implementer_ack_state="unknown",
+    open_findings="",
+    last_reviewed_scope="",
+)
 
-    artifact_paths: ReviewChannelArtifactPaths
-    projection_paths: ReviewChannelProjectionPaths
-    review_state: dict[str, object]
-    agent_registry: dict[str, object]
-    events: list[dict[str, object]]
+_ROLE_JOB_STATE: dict[str, str] = {
+    "reviewer": "reviewing",
+    "implementer": "implementing",
+    "operator": "waiting",
+}
+
+
+def _agent_capabilities(agent_id: str) -> list[str]:
+    """Return the declared capabilities for a known agent provider."""
+    if agent_id == "codex":
+        return ["review", "planning", "coordination"]
+    if agent_id == "operator":
+        return ["approval", "dispatch", "triage"]
+    return ["implementation", "fixes", "handoff"]
 
 
 def load_or_refresh_event_bundle(
@@ -61,9 +111,18 @@ def load_or_refresh_event_bundle(
     try:
         review_state = json.loads(state_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid review-channel state JSON: {exc}") from exc
+        raise ValueError(
+            "Invalid review-channel state JSON at "
+            f"{display_path(state_path, repo_root=repo_root)}: {exc}"
+        ) from exc
     if not isinstance(review_state, dict):
         raise ValueError("Invalid review-channel state JSON: expected top-level object")
+    review_state, full_extras = enrich_event_review_state(
+        review_state=review_state,
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+        projections_root=Path(artifact_paths.projections_root),
+    )
     agent_registry = load_agent_registry(Path(artifact_paths.projections_root))
     projection_paths = write_projection_bundle(
         output_root=Path(artifact_paths.projections_root),
@@ -71,6 +130,7 @@ def load_or_refresh_event_bundle(
         agent_registry=agent_registry,
         action="status",
         trace_events=[],
+        full_extras=full_extras,
     )
     return ReviewChannelEventBundle(
         artifact_paths=artifact_paths,
@@ -96,6 +156,12 @@ def refresh_event_bundle(
         review_channel_path=review_channel_path,
         lanes=lanes,
     )
+    review_state, full_extras = enrich_event_review_state(
+        review_state=review_state,
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+        projections_root=Path(artifact_paths.projections_root),
+    )
     state_path = Path(artifact_paths.state_path)
     state_path.parent.mkdir(parents=True, exist_ok=True)
     state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
@@ -105,6 +171,7 @@ def refresh_event_bundle(
         agent_registry=agent_registry,
         action="status",
         trace_events=events,
+        full_extras=full_extras,
     )
     write_legacy_projection_mirror(
         repo_root=repo_root,
@@ -130,15 +197,25 @@ def reduce_events(
     lanes: list | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Reduce the append-only event log into the latest packet/state snapshot."""
-    packets_by_id: dict[str, dict[str, object]] = {}
+    packets_by_id: dict[str, ReviewPacketRow] = {}
     warnings: list[str] = []
     errors: list[str] = []
     latest_timestamp = utc_timestamp()
     latest_session_id = DEFAULT_REVIEW_CHANNEL_SESSION_ID
     latest_plan_id = DEFAULT_REVIEW_CHANNEL_PLAN_ID
     latest_controller_run_id = None
-    provider_state = {"codex": {}, "claude": {}, "operator": {}}
+    provider_state = {"codex": {}, "claude": {}, "cursor": {}, "operator": {}}
+    daemon_snapshots: dict[str, DaemonSnapshot] = {}
+    last_daemon_event_utc = ""
     for event in events:
+        event_type = str(event.get("event_type") or "").strip()
+        if event_type in DAEMON_EVENT_TYPES:
+            reduce_daemon_event(daemon_snapshots, event)
+            last_daemon_event_utc = str(
+                event.get("timestamp_utc") or last_daemon_event_utc
+            )
+            latest_timestamp = str(event.get("timestamp_utc") or latest_timestamp)
+            continue
         packet_id = str(event.get("packet_id") or "").strip()
         if not packet_id:
             errors.append("Encountered review event without packet_id.")
@@ -147,9 +224,8 @@ def reduce_events(
         latest_session_id = str(event.get("session_id") or latest_session_id)
         latest_plan_id = str(event.get("plan_id") or latest_plan_id)
         latest_controller_run_id = event.get("controller_run_id")
-        event_type = str(event.get("event_type") or "").strip()
         if event_type == "packet_posted":
-            packets_by_id[packet_id] = _packet_from_event(event)
+            packets_by_id[packet_id] = packet_from_event(event)
         elif event_type in {"packet_acked", "packet_dismissed", "packet_applied"}:
             packet = packets_by_id.get(packet_id)
             if packet is None:
@@ -157,7 +233,7 @@ def reduce_events(
                     f"Encountered {event_type} before packet_posted for {packet_id}."
                 )
                 continue
-            packets_by_id[packet_id] = _apply_transition(packet, event)
+            packets_by_id[packet_id] = apply_packet_transition(packet, event)
         elif event_type == "packet_expired":
             packet = packets_by_id.get(packet_id)
             if packet is None:
@@ -170,7 +246,7 @@ def reduce_events(
             expired_packet["status"] = "expired"
             packets_by_id[packet_id] = expired_packet
         _record_provider_packet_state(provider_state, event, packet_id)
-    packet_rows, pending_counts, stale_packet_count = _summarize_packets(packets_by_id)
+    packet_rows, pending_counts, stale_packet_count = summarize_packets(packets_by_id)
     if stale_packet_count:
         warnings.append(
             "One or more pending review packets are past their expiry timestamp."
@@ -181,32 +257,52 @@ def reduce_events(
         timestamp=latest_timestamp,
         provider_state=provider_state,
     )
-    review_state = {
-        "schema_version": 1,
-        "command": "review-channel",
+    runtime = build_runtime_state(daemon_snapshots, last_daemon_event_utc)
+    bridge_path = repo_root / DEFAULT_BRIDGE_REL
+    legacy_agents = _build_agents(packet_rows, latest_timestamp)
+
+    # Build typed sub-models so the reducer proves contract conformance
+    # at construction time. Bridge and attention are placeholder defaults
+    # here; the enrichment step replaces them with real values.
+    typed_state = ReviewState(
+        schema_version=1,
+        contract_id="ReviewState",
+        command="review-channel",
+        action="status",
+        timestamp=latest_timestamp,
+        ok=not errors,
+        review=ReviewSessionState(
+            plan_id=latest_plan_id,
+            controller_run_id=str(latest_controller_run_id or ""),
+            session_id=latest_session_id,
+            surface_mode="event-backed",
+            active_lane="review",
+            refresh_seq=len(events),
+            bridge_path=display_path(bridge_path, repo_root=repo_root),
+            review_channel_path=display_path(review_channel_path, repo_root=repo_root),
+        ),
+        queue=build_event_queue_state(pending_counts, stale_packet_count, packet_rows),
+        current_session=_PLACEHOLDER_CURRENT_SESSION,
+        bridge=_PLACEHOLDER_BRIDGE,
+        attention=None,
+        packets=(),
+        registry=registry,
+        warnings=tuple(warnings),
+        errors=tuple(errors),
+    )
+    review_state: dict[str, object] = asdict(typed_state)
+    # Compatibility boundary: raw packet rows carry richer data than the
+    # typed ReviewPacketState (e.g. _sort_timestamp, trace metadata). The
+    # canonical ReviewState model uses ReviewPacketState for the typed
+    # contract, but emitted projections still carry the raw rows so
+    # downstream consumers don't lose evidence. The closure guard
+    # validates that raw rows are a superset of ReviewPacketState fields.
+    review_state["packets"] = packet_rows
+    # Compatibility extras kept separate from the canonical contract.
+    review_state["_compat"] = {
         "project_id": project_id_for_repo(repo_root),
-        "timestamp": latest_timestamp,
-        "ok": not errors,
-        "review": {
-            "plan_id": latest_plan_id,
-            "controller_run_id": latest_controller_run_id,
-            "session_id": latest_session_id,
-            "surface_mode": "event-backed",
-            "active_lane": "review",
-            "refresh_seq": len(events),
-            "review_channel_path": display_path(review_channel_path, repo_root=repo_root),
-        },
-        "agents": _build_agents(packet_rows, latest_timestamp),
-        "packets": packet_rows,
-        "queue": {
-            "pending_total": sum(pending_counts.values()),
-            "pending_codex": pending_counts["codex"],
-            "pending_claude": pending_counts["claude"],
-            "pending_operator": pending_counts["operator"],
-            "stale_packet_count": stale_packet_count,
-        },
-        "warnings": warnings,
-        "errors": errors,
+        "agents": legacy_agents,
+        "runtime": runtime,
     }
     return review_state, registry
 
@@ -218,17 +314,32 @@ def filter_inbox_packets(
     status: str | None = None,
     limit: int | None = None,
 ) -> list[dict[str, object]]:
-    """Filter the reduced packet list into one target/status inbox view."""
+    """Filter the reduced packet list into one target/status inbox view.
+
+    When filtering by status=pending, expired packets are excluded so the
+    inbox matches pending_total, per-agent counts, and derived_next_instruction.
+    """
+    from datetime import datetime, timezone
+    from .event_store import parse_utc
+
     packets = review_state.get("packets")
     if not isinstance(packets, list):
         return []
-    filtered = [
-        packet
-        for packet in packets
-        if isinstance(packet, dict)
-        and (not target or packet.get("to_agent") == target)
-        and (not status or packet.get("status") == status)
-    ]
+    now_utc = datetime.now(timezone.utc)
+    filtered = []
+    for packet in packets:
+        if not isinstance(packet, dict):
+            continue
+        if target and packet.get("to_agent") != target:
+            continue
+        if status and packet.get("status") != status:
+            continue
+        # Exclude expired packets from pending results
+        if status == "pending":
+            expires_at = parse_utc(packet.get("expires_at_utc"))
+            if expires_at is not None and expires_at <= now_utc:
+                continue
+        filtered.append(packet)
     if limit is not None and limit >= 0:
         return filtered[:limit]
     return filtered
@@ -289,61 +400,32 @@ def _record_provider_packet_state(
             provider_state[actor]["last_packet_applied"] = packet_id
 
 
-def _summarize_packets(
-    packets_by_id: dict[str, dict[str, object]],
-) -> tuple[list[dict[str, object]], dict[str, int], int]:
-    now_utc = datetime.now(timezone.utc)
-    stale_packet_count = 0
-    packet_rows: list[dict[str, object]] = []
-    pending_counts = {"codex": 0, "claude": 0, "operator": 0}
-    for packet in sorted(
-        packets_by_id.values(),
-        key=lambda item: str(item.get("_sort_timestamp") or ""),
-        reverse=True,
-    ):
-        expires_at = parse_utc(packet.get("expires_at_utc"))
-        if packet.get("status") == "pending":
-            target = str(packet.get("to_agent") or "").strip()
-            if target in pending_counts:
-                pending_counts[target] += 1
-            if expires_at is not None and expires_at <= now_utc:
-                stale_packet_count += 1
-        clean_packet = dict(packet)
-        clean_packet.pop("_sort_timestamp", None)
-        packet_rows.append(clean_packet)
-    return packet_rows, pending_counts, stale_packet_count
-
-
 def _hydrate_provider_job_state(
     provider_state: dict[str, dict[str, object]],
     pending_counts: dict[str, int],
 ) -> None:
-    provider_state["codex"].setdefault(
-        "job_state",
-        "reviewing" if pending_counts["codex"] else "assigned",
-    )
-    provider_state["claude"].setdefault(
-        "job_state",
-        "implementing" if pending_counts["claude"] else "assigned",
-    )
-    provider_state["operator"].setdefault(
-        "job_state",
-        "waiting" if pending_counts["operator"] else "assigned",
-    )
+    for provider in provider_state:
+        role = role_for_provider(provider)
+        active_label = _ROLE_JOB_STATE.get(role.value, "waiting")
+        provider_state[provider].setdefault(
+            "job_state",
+            active_label if pending_counts.get(provider, 0) else "assigned",
+        )
     for provider, count in pending_counts.items():
-        if count:
+        if count and provider in provider_state:
             provider_state[provider]["waiting_on"] = provider
 
 
 def _build_agents(
     packets: list[dict[str, object]],
     latest_timestamp: str,
-) -> list[dict[str, object]]:
+) -> list[ReviewAgentRow]:
     pending_targets = {
         str(packet.get("to_agent") or "").strip()
         for packet in packets
         if packet.get("status") == "pending"
     }
+    agent_ids = ("codex", "claude", "cursor", "operator")
     latest_packet_by_target = {
         agent_id: next(
             (
@@ -354,33 +436,18 @@ def _build_agents(
             ),
             None,
         )
-        for agent_id in ("codex", "claude", "operator")
+        for agent_id in agent_ids
     }
     return [
         _agent_row(
-            agent_id="codex",
-            display_name="Codex",
-            role="reviewer",
-            pending=bool("codex" in pending_targets),
-            latest_packet=latest_packet_by_target["codex"],
+            agent_id=agent_id,
+            display_name=agent_id.title(),
+            role=str(role_for_provider(agent_id)),
+            pending=bool(agent_id in pending_targets),
+            latest_packet=latest_packet_by_target[agent_id],
             latest_timestamp=latest_timestamp,
-        ),
-        _agent_row(
-            agent_id="claude",
-            display_name="Claude",
-            role="implementer",
-            pending=bool("claude" in pending_targets),
-            latest_packet=latest_packet_by_target["claude"],
-            latest_timestamp=latest_timestamp,
-        ),
-        _agent_row(
-            agent_id="operator",
-            display_name="Operator",
-            role="approver",
-            pending=bool("operator" in pending_targets),
-            latest_packet=latest_packet_by_target["operator"],
-            latest_timestamp=latest_timestamp,
-        ),
+        )
+        for agent_id in agent_ids
     ]
 
 
@@ -390,95 +457,40 @@ def _agent_row(
     display_name: str,
     role: str,
     pending: bool,
-    latest_packet: dict[str, object] | None,
+    latest_packet: ReviewPacketRow | dict[str, object] | None,
     latest_timestamp: str,
-) -> dict[str, object]:
-    if agent_id == "codex" and pending:
-        job_status = "reviewing"
-    elif agent_id == "claude" and pending:
-        job_status = "implementing"
-    elif pending:
-        job_status = "waiting"
+) -> ReviewAgentRow:
+    role_label = str(role_for_provider(agent_id))
+    active_label = _ROLE_JOB_STATE.get(role_label, "waiting")
+    if pending:
+        job_status = active_label
     elif latest_packet is not None:
         job_status = "done"
     else:
         job_status = "waiting"
-    return {
-        "agent_id": agent_id,
-        "display_name": display_name,
-        "role": role,
-        "status": "active" if pending else "idle",
-        "capabilities": {
-            "codex": ["review", "planning", "coordination"],
-            "claude": ["implementation", "fixes", "handoff"],
-            "operator": ["approval", "dispatch", "triage"],
-        }[agent_id],
-        "lane": agent_id,
-        "last_seen_utc": latest_timestamp if latest_packet is not None else None,
-        "assigned_job": latest_packet.get("summary") if latest_packet else None,
-        "job_status": job_status,
-        "waiting_on": (
+    return ReviewAgentRow(
+        agent_id=agent_id,
+        display_name=display_name,
+        role=role,
+        status="active" if pending else "idle",
+        capabilities=_agent_capabilities(agent_id),
+        lane=agent_id,
+        last_seen_utc=latest_timestamp if latest_packet is not None else None,
+        assigned_job=latest_packet.get("summary") if latest_packet else None,
+        job_status=job_status,
+        waiting_on=(
             latest_packet.get("from_agent")
             if latest_packet is not None and latest_packet.get("to_agent") == agent_id
             else None
         ),
-        "last_packet_id_seen": latest_packet.get("packet_id") if latest_packet else None,
-        "last_packet_id_applied": (
+        last_packet_id_seen=latest_packet.get("packet_id") if latest_packet else None,
+        last_packet_id_applied=(
             latest_packet.get("packet_id")
             if latest_packet is not None and latest_packet.get("status") == "applied"
             else None
         ),
-        "script_profile": "review-channel-event",
-    }
-
-
-def _packet_from_event(event: dict[str, object]) -> dict[str, object]:
-    return {
-        "packet_id": event.get("packet_id"),
-        "trace_id": event.get("trace_id"),
-        "latest_event_id": event.get("event_id"),
-        "from_agent": event.get("from_agent"),
-        "to_agent": event.get("to_agent"),
-        "kind": event.get("kind"),
-        "summary": event.get("summary"),
-        "body": event.get("body"),
-        "evidence_refs": list(event.get("evidence_refs") or []),
-        "context_pack_refs": normalize_context_pack_refs(
-            event.get("context_pack_refs")
-        ),
-        "confidence": float(event.get("confidence") or 0.0),
-        "requested_action": event.get("requested_action"),
-        "policy_hint": event.get("policy_hint"),
-        "approval_required": bool(event.get("approval_required")),
-        "status": event.get("status"),
-        "acked_by": None,
-        "acked_at_utc": None,
-        "applied_at_utc": None,
-        "expires_at_utc": event.get("expires_at_utc"),
-        "_sort_timestamp": event.get("timestamp_utc"),
-    }
-
-
-def _apply_transition(
-    packet: dict[str, object],
-    event: dict[str, object],
-) -> dict[str, object]:
-    next_packet = dict(packet)
-    event_type = str(event.get("event_type") or "").strip()
-    next_packet["latest_event_id"] = event.get("event_id")
-    next_packet["_sort_timestamp"] = event.get("timestamp_utc")
-    next_packet["status"] = event.get("status")
-    if event.get("context_pack_refs") is not None or packet.get("context_pack_refs"):
-        next_packet["context_pack_refs"] = normalize_context_pack_refs(
-            event.get("context_pack_refs") or packet.get("context_pack_refs")
-        )
-    actor = str((event.get("metadata") or {}).get("actor") or "").strip()
-    if event_type == "packet_acked":
-        next_packet["acked_by"] = actor or packet.get("to_agent")
-        next_packet["acked_at_utc"] = event.get("timestamp_utc")
-    if event_type == "packet_applied":
-        next_packet["applied_at_utc"] = event.get("timestamp_utc")
-    return next_packet
+        script_profile="review-channel-event",
+    )
 
 
 def _load_lane_assignments(review_channel_path: Path) -> list:
