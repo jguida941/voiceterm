@@ -50,11 +50,13 @@ def write_status_projection_bundle(
     payload: StatusProjectionPayload,
 ) -> ReviewChannelProjectionPaths:
     """Write bridge-backed status projections for operator/read-only consumers."""
-    snapshot = extract_bridge_snapshot(context.bridge_path.read_text(encoding="utf-8"))
+    bridge_text = context.bridge_path.read_text(encoding="utf-8")
+    snapshot = extract_bridge_snapshot(bridge_text)
     timestamp = utc_timestamp()
     review_state = _build_status_review_state(
         context=context,
         payload=payload,
+        bridge_text=bridge_text,
         snapshot=snapshot,
         timestamp=timestamp,
     )
@@ -73,6 +75,7 @@ def _build_status_review_state(
     *,
     context: StatusProjectionContext,
     payload: StatusProjectionPayload,
+    bridge_text: str,
     snapshot,
     timestamp: str,
 ) -> dict[str, object]:
@@ -88,6 +91,7 @@ def _build_status_review_state(
             repo_root=context.repo_root,
             bridge_path=context.bridge_path,
             review_channel_path=context.review_channel_path,
+            bridge_text=bridge_text,
             project_id=project_id_for_repo(context.repo_root),
             timestamp=timestamp,
             service_identity=payload.service_identity,

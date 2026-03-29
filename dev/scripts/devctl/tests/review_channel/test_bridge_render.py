@@ -20,6 +20,8 @@ from dev.scripts.devctl.review_channel.bridge_sanitize import (
 )
 from dev.scripts.devctl.review_channel.bridge_projection import (
     bridge_hygiene_errors,
+    bridge_projection_state_to_dict,
+    build_bridge_projection_state,
     render_bridge_projection,
 )
 from dev.scripts.devctl.review_channel.promotion_support import (
@@ -153,6 +155,18 @@ def _bridge_text() -> str:
     )
 
 
+def _typed_review_state(bridge_text: str) -> dict[str, object]:
+    projection_state = build_bridge_projection_state(
+        bridge_text=bridge_text,
+        bridge_liveness={},
+    )
+    return {
+        "_compat": {
+            "bridge_projection": bridge_projection_state_to_dict(projection_state),
+        }
+    }
+
+
 def test_sanitize_bridge_sections_rewrites_live_state_sections() -> None:
     sections = {
         "Claude Status": "\n".join(
@@ -182,7 +196,7 @@ def test_sanitize_bridge_sections_rewrites_live_state_sections() -> None:
 
 def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() -> None:
     rendered, result = render_bridge_projection(
-        bridge_text=_bridge_text(),
+        review_state=_typed_review_state(_bridge_text()),
         last_worktree_hash="b" * 64,
     )
 
@@ -196,6 +210,37 @@ def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() ->
     assert "Prior slice:" not in rendered
     assert "Session 44 / historical item" not in rendered
     assert bridge_hygiene_errors(rendered) == []
+
+
+def test_render_bridge_projection_drops_duplicate_packet_heading_and_stays_idempotent() -> None:
+    dirty_bridge = _bridge_text().replace(
+        "## Last Reviewed Scope",
+        "\n".join(
+            [
+                "## Context Recovery Packet",
+                "",
+                "- Trigger: `review-channel-promotion`",
+                "",
+                "## Last Reviewed Scope",
+            ]
+        ),
+        1,
+    )
+
+    rendered_once, result_once = render_bridge_projection(
+        review_state=_typed_review_state(dirty_bridge),
+        last_worktree_hash="b" * 64,
+    )
+    rendered_twice, result_twice = render_bridge_projection(
+        review_state=_typed_review_state(rendered_once),
+        last_worktree_hash="b" * 64,
+    )
+
+    assert "Context Recovery Packet" in result_once.dropped_headings
+    assert "## Context Recovery Packet" not in rendered_once
+    assert rendered_twice == rendered_once
+    assert "Context Recovery Packet" not in result_twice.dropped_headings
+    assert bridge_hygiene_errors(rendered_twice) == []
 
 
 def test_find_embedded_markdown_headings_detects_flat_bridge_contract_violation() -> None:
@@ -233,6 +278,28 @@ def test_instruction_rewrite_rejects_embedded_markdown_headings() -> None:
         )
 
 
+def test_render_bridge_projection_rejects_embedded_markdown_headings_in_typed_sections() -> None:
+    review_state = _typed_review_state(_bridge_text())
+    review_state["_compat"]["bridge_projection"]["sections"][
+        "Current Instruction For Claude"
+    ] = "\n".join(
+        [
+            "- Next scoped task.",
+            "## Context Recovery Packet",
+            "- Trigger: `review-channel-promotion`",
+        ]
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="embedded markdown headings in fixed sections",
+    ):
+        render_bridge_projection(
+            review_state=review_state,
+            last_worktree_hash="b" * 64,
+        )
+
+
 def test_review_channel_render_bridge_action_rewrites_live_bridge(tmp_path: Path) -> None:
     root = tmp_path
     review_channel_path = root / "dev/active/review_channel.md"
@@ -240,6 +307,12 @@ def test_review_channel_render_bridge_action_rewrites_live_bridge(tmp_path: Path
     review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
     bridge_path = root / "bridge.md"
     bridge_path.write_text(_bridge_text(), encoding="utf-8")
+    status_dir = root / "dev/reports/review_channel/latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    (status_dir / "review_state.json").write_text(
+        json.dumps(_typed_review_state(_bridge_text()), indent=2),
+        encoding="utf-8",
+    )
     output_path = root / "report.json"
 
     parser = build_parser()

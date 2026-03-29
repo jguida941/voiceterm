@@ -307,7 +307,15 @@
   queue/current-session instruction-shaped projections now use the same flat
   no-H2 context summary as bridge-safe promotion text, while full context
   packets stay in source metadata/prompt surfaces instead of reappearing as
-  nested headings in compatibility outputs.
+  nested headings in compatibility outputs. 2026-03-29 follow-up closed the
+  bounded bridge-projection purity slice too: bridge-backed status projection
+  now emits a typed `bridge_projection` payload, `review-channel --action
+  render-bridge` rebuilds `bridge.md` only from that typed payload instead of
+  reparsing live markdown, and fixed-section render rejects embedded markdown
+  headings so duplicate `## Context Recovery Packet` blocks do not leak back
+  into the compatibility projection on rerender. This does not retire the
+  bridge or finish the full typed writer cutover; those broader MP-355 /
+  MP-377 closures remain open.
 - Current runtime-baseline correction after the 2026-03-21 architecture audit:
   Phase 1 closure must keep five runtime-behind-docs gaps explicit instead of
   treating them as background drift. Portability is still blocked first by

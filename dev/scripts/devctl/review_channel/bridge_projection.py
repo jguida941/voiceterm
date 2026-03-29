@@ -2,21 +2,18 @@
 
 from __future__ import annotations
 
-import hashlib
-import re
 from dataclasses import asdict, dataclass
 
-from .bridge_sanitize import (
-    BRIDGE_ALLOWED_H2,
-    BRIDGE_SECTION_LINE_LIMITS,
-    bridge_hygiene_errors as _bridge_hygiene_errors,
-    sanitize_bridge_sections,
+from .bridge_projection_state import (
+    BRIDGE_SECTION_ORDER,
+    bridge_projection_metadata_lines,
+    bridge_projection_state_from_review_state,
+    bridge_projection_state_to_dict,
+    build_bridge_projection_state,
 )
-from .handoff import extract_bridge_snapshot
+from .bridge_sanitize import bridge_hygiene_errors as _bridge_hygiene_errors
 
 bridge_hygiene_errors = _bridge_hygiene_errors
-
-_H2_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
 
 _START_RULES_BODY = """If this file is attached at the start of a new Codex or Claude conversation,
 treat these rules as active workflow instructions immediately.
@@ -115,16 +112,15 @@ def bridge_render_result_to_dict(
 
 def render_bridge_projection(
     *,
-    bridge_text: str,
+    review_state,
     last_worktree_hash: str,
 ) -> tuple[str, BridgeRenderResult]:
-    """Rebuild the compatibility bridge from the tracked live state."""
-    snapshot = extract_bridge_snapshot(bridge_text)
-    sections, sanitized_sections = sanitize_bridge_sections(
-        snapshot.sections,
-        section_line_limits=BRIDGE_SECTION_LINE_LIMITS,
+    """Rebuild the compatibility bridge from typed review-channel state."""
+    projection_state = bridge_projection_state_from_review_state(review_state)
+    metadata = bridge_projection_metadata_lines(
+        projection_state,
+        last_worktree_hash=last_worktree_hash,
     )
-    metadata = _metadata_from_snapshot(snapshot, sections, last_worktree_hash=last_worktree_hash)
     rendered = "\n".join(
         [
             "# Review Bridge",
@@ -145,39 +141,23 @@ def render_bridge_projection(
             "",
             _SWARM_MODE_BODY,
             "",
-            *_render_section_pairs(sections),
+            *_render_section_pairs(projection_state.sections),
         ]
     ).rstrip() + "\n"
     result = BridgeRenderResult(
-        lines_before=len(bridge_text.splitlines()),
+        lines_before=projection_state.lines_before,
         lines_after=len(rendered.splitlines()),
-        bytes_before=len(bridge_text.encode("utf-8")),
+        bytes_before=projection_state.bytes_before,
         bytes_after=len(rendered.encode("utf-8")),
-        dropped_headings=tuple(
-            heading
-            for heading in _ordered_unique(
-                match.group(1).strip() for match in _H2_RE.finditer(bridge_text)
-            )
-            if heading not in BRIDGE_ALLOWED_H2
-        ),
-        sanitized_sections=tuple(sanitized_sections),
+        dropped_headings=projection_state.dropped_headings,
+        sanitized_sections=projection_state.sanitized_sections,
     )
     return rendered, result
 
 
 def _render_section_pairs(sections: dict[str, str]) -> list[str]:
-    ordered = (
-        "Poll Status",
-        "Current Verdict",
-        "Open Findings",
-        "Claude Status",
-        "Claude Questions",
-        "Claude Ack",
-        "Current Instruction For Claude",
-        "Last Reviewed Scope",
-    )
     lines: list[str] = []
-    for heading in ordered:
+    for heading in BRIDGE_SECTION_ORDER:
         lines.extend(
             [
                 f"## {heading}",
@@ -187,37 +167,3 @@ def _render_section_pairs(sections: dict[str, str]) -> list[str]:
             ]
         )
     return lines[:-1]
-
-
-def _metadata_from_snapshot(
-    snapshot,
-    sections: dict[str, str],
-    *,
-    last_worktree_hash: str,
-) -> list[str]:
-    metadata = snapshot.metadata
-    current_instruction = sections["Current Instruction For Claude"]
-    current_revision = metadata.get("current_instruction_revision", "").strip()
-    if not current_revision and current_instruction.strip():
-        current_revision = hashlib.sha256(
-            current_instruction.strip().encode("utf-8")
-        ).hexdigest()[:12]
-    return [
-        f"- Last Codex poll: `{metadata.get('last_codex_poll_utc', '')}`",
-        "- Last Codex poll (Local America/New_York): "
-        f"`{metadata.get('last_codex_poll_local', '')}`",
-        f"- Reviewer mode: `{metadata.get('reviewer_mode', 'active_dual_agent')}`",
-        f"- Last non-audit worktree hash: `{last_worktree_hash}`",
-        f"- Current instruction revision: `{current_revision}`",
-    ]
-
-
-def _ordered_unique(values) -> list[str]:
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        ordered.append(value)
-    return ordered

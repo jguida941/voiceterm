@@ -213,9 +213,12 @@ Three quality layers matter in practice:
     fresh heartbeat line. If the bridge drifts into transcript/history junk or
     unsupported headings, repair it with
     `python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format md`
-    instead of hand-editing `bridge.md`; the bridge guard now fails closed on
-    oversize bridges, duplicate/unsupported sections, transcript/ANSI
-    contamination, and overgrown live `Claude Status` / `Claude Ack` blocks.
+    instead of hand-editing `bridge.md`; that repair path now rebuilds from
+    the typed `review_state` compatibility payload (`_compat.bridge_projection`)
+    rather than reparsing the live markdown body, and the bridge guard now
+    fails closed on oversize bridges, duplicate/unsupported sections,
+    transcript/ANSI contamination, embedded markdown headings inside fixed
+    flat sections, and overgrown live `Claude Status` / `Claude Ack` blocks.
   - `review-channel --action status|ensure|reviewer-heartbeat|reviewer-checkpoint`
     now emit machine-readable `reviewer_worker` state, and
     `review-channel --action ensure --follow` cadence frames carry the same

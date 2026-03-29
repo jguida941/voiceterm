@@ -1413,6 +1413,13 @@ blocker or exception in plan state before skipping the declared order.
   recovery so later sessions treat `published_remote` as settled even when
   the prior local push session ended before post-push verification turned
   green.
+- 2026-03-29 bounded compatibility-projection closure: the live bridge repair
+  path now rebuilds `bridge.md` from typed `review_state` compatibility data
+  instead of reparsing the markdown body, and fixed bridge sections reject
+  embedded markdown headings fail-closed during render. Treat this as a
+  narrow projection-purity repair only; the remaining `MP-377` closure is
+  still the writer/mutation authority cutover plus repo-pack/path portability,
+  not "bridge retired."
 - 2026-03-27 sequencing correction: the dirty branch already carries part of
   the docs-authority / publish-truth tranche ahead of the blocker queue.
   Treat that as a bounded out-of-order exception only: checkpoint and
@@ -1744,6 +1751,15 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-03-29: Closed one bounded `MP-377` / `MP-355` compatibility-projection
+  leak without widening authority claims. Bridge-backed status projection now
+  emits a typed `bridge_projection` payload and the repo-owned
+  `render-bridge` repair path consumes that typed payload instead of
+  reparsing `bridge.md`; fixed-section render also rejects embedded markdown
+  headings so duplicate packet H2 blocks cannot re-enter the compatibility
+  projection on rerender. The remaining authority-loop work is still the
+  broader writer/path consumer closure and repo-pack portability, not bridge
+  retirement.
 - 2026-03-28: Closed the next bounded push-recovery truth gap without
   widening branch-push execution. `devctl push` now persists the latest typed
   push result at `dev/reports/push/latest.json`, `PushEnforcement` carries

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from ...review_channel.bridge_file import rewrite_bridge_markdown
@@ -52,12 +53,13 @@ def run_render_bridge_action(
         repo_root=repo_root,
         excluded_rel_paths=("bridge.md",),
     )
+    typed_review_state = _load_typed_review_state(status_dir)
     render_result = None
 
-    def transform(bridge_text: str) -> str:
+    def transform(_bridge_text: str) -> str:
         nonlocal render_result
         rendered, render_result = render_bridge_projection(
-            bridge_text=bridge_text,
+            review_state=typed_review_state,
             last_worktree_hash=worktree_hash,
         )
         hygiene_errors = bridge_hygiene_errors(rendered)
@@ -76,7 +78,7 @@ def run_render_bridge_action(
         promotion_plan_path=promotion_plan_path,
         execution_mode=args.execution_mode,
         warnings=[
-            "Re-rendered `bridge.md` from the bounded compatibility projection template and sanitized live sections."
+            "Re-rendered `bridge.md` from typed review-state compatibility projection data."
         ],
         errors=[],
     )
@@ -112,3 +114,26 @@ def run_render_bridge_action(
         service_identity=service_identity,
     )
     return report, exit_code
+
+
+def _load_typed_review_state(status_dir: Path) -> dict[str, object]:
+    review_state_path = status_dir / "review_state.json"
+    try:
+        payload = json.loads(review_state_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValueError(
+            "Missing typed review-state projection for `render-bridge`: "
+            f"`{review_state_path}`. Refresh repo-owned review status before "
+            "rebuilding `bridge.md`."
+        ) from exc
+    except (OSError, ValueError) as exc:
+        raise ValueError(
+            "Unable to load typed review-state projection for `render-bridge`: "
+            f"`{review_state_path}`."
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ValueError(
+            "Typed review-state projection must be a JSON object before "
+            "rebuilding `bridge.md`."
+        )
+    return payload

@@ -1229,11 +1229,17 @@ Acceptance:
       `check_review_channel_bridge.py` line 262. Promotion-state check in
       tandem consistency (`check_promotion_state`) flags resolved verdicts
       without next-task promotion.
-- [ ] Keep bridge repair repo-owned while the compatibility projection still
+- [x] Keep bridge repair repo-owned while the compatibility projection still
       exists: `review-channel --action render-bridge` should remain the
       sanctioned rebuild path for `bridge.md`, regenerating the bounded
       template plus sanitized live sections from repo-owned state instead of
       relying on manual bridge surgery after a bad session.
+      Verified 2026-03-29: bridge-backed status projection now emits a typed
+      `bridge_projection` payload under `review_state.json`, `render-bridge`
+      rebuilds `bridge.md` only from that typed payload instead of reparsing
+      the live markdown body, fixed-section render rejects embedded markdown
+      headings fail-closed, and focused regression coverage proves duplicate
+      `## Context Recovery Packet` headings do not reappear after rerender.
 - [ ] Keep the markdown bridge portable if it survives the authority migration:
       `bridge.md` should remain an optional repo-pack-owned frontend over the
       same typed `review_state` / queue / registry backend so another repo can
@@ -1756,6 +1762,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-03-29T02:35:00Z` | `CODEX` | Closed the bounded bridge-projection purity slice without widening writer authority. Bridge-backed status projection now emits a typed `bridge_projection` payload, `review-channel --action render-bridge` consumes only that typed payload instead of reparsing `bridge.md`, and fixed-section render now rejects embedded markdown headings so duplicate `## Context Recovery Packet` blocks cannot leak back into `Current Instruction For Claude` or other flat bridge sections. Focused bridge/render/check regressions are green, including idempotent rerender proof. | `partial-pass` | Keep the broader migration open: do not claim bridge retirement or full typed writer cutover yet. Next same-lane work remains portable bridge-path authority, typed writer/mutation closure, and the checkpoint-gate/current-session consumer follow-ups already tracked below. |
 | `2026-03-28T14:55:00Z` | `CODEX` | Closed the next MP-355 consumer-side recovery blind spot without changing ownership. `review-channel` remains a consumer of MP-377 push/publication truth, but the repo now persists the latest typed push result under `dev/reports/push/latest.json` and startup/recovery surfaces read that artifact before classifying publication as pending. This keeps interrupted local push sessions from fooling the reviewer loop into asking for another push after `published_remote` is already settled. | `partial-pass` | Keep MP-355 bounded to surfacing owner truth: refresh/recover conductors from the persisted MP-377 push artifact, then continue the remaining event-backed controller-input closure instead of inventing a second push-state authority here. |
 | `2026-03-26T11:45:00Z` | `CODEX` | Audited the live tandem regression after Claude fell back to low-value polling/no-op wait behavior. The repo already had partial anti-stall teaching, but the contract was split across prompt surfaces and did not fail closed on two live shapes: active work plus `No change. Continuing.`-style implementer parking, and `active_dual_agent` with detached publisher/supervisor heartbeats but no repo-owned conductors. Closed that gap by sharing stall markers across review-channel runtime/checks, tightening bridge + generated `CLAUDE.md` + conductor prompt wording, hard-failing bridge validation on no-op implementer parking under active work, and making `status` surface the no-conductor state as a bridge-contract error instead of healthy loop freshness. Updated maintainer docs in the same slice so the repo teaches the same contract it now enforces. | `partial-pass` | Keep verifying live Claude deltas against code/docs, but now treat any future no-op polling or detached-daemon-only dual-agent state as contract errors to repair before trusting the loop. |
 | `2026-03-26T08:10:00Z` | `CODEX` | Restored the live architecture-audit operating mode after an interrupted session and an overly narrow reviewer instruction. Rewrote the reviewer-owned bridge/current-session instruction through the repo-owned `reviewer-checkpoint` path so Claude is again the primary broad whole-system finder, Codex stays the verifier/controller, and the shared audit ledger is `dev/audits/architecture_alignment.md` instead of a hidden chat state. Also verified that the typed `current_session` / push-decision split remains an MP-355 producer -> MP-377 consumer contract and promoted the missing dependency notes into this plan. | `partial-pass` | Keep reviewing Claude deltas against real code/docs, correct overbroad ledger claims before accepting them, and promote only verified findings into `MASTER_PLAN` plus the scoped owner plans. Do not reintroduce Codex-side broad audit swarms. |
@@ -1866,7 +1873,10 @@ Complete this table only after all active swarm lanes are merged.
   refresh the typed projection first. Stale-write preconditions,
   reviewer-checkpoint/promotion paths, and the last bridge-text-only tandem
   checks still need typed or later `CollaborationSession` authority before
-  `bridge.md` can stop acting like a live freshness source. Keep the newly
+  `bridge.md` can stop acting like a live freshness source. The bounded
+  `render-bridge` purity repair is now in: bridge rebuilds consume typed
+  `review_state` compatibility payloads instead of reparsing markdown and the
+  duplicate-packet-heading leak is fail-closed in render tests. Keep the newly
   mapped maintainability tranche explicit while doing that work: the phase is
   not done until the review-channel module family is materially smaller and
   `test_review_channel.py` has been split into feature-scoped suites. The

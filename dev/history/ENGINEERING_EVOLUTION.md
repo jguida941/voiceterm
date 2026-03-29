@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-28
+**Last Updated:** 2026-03-29
 
 ## At a Glance
 
@@ -51,6 +51,27 @@ Closed that gap by switching event-backed instruction-shaped fields to the same
 compact no-H2 context summary used by bridge-safe promotion text, while keeping
 the full structured packet only in source metadata for prompt/audit consumers
 that actually need the full packet body.
+
+### 2026-03-29 - `render-bridge` now rebuilds the compatibility bridge from typed state instead of reparsing markdown
+
+The earlier bridge-hardening slices still left one structural flaw in place:
+`review-channel --action render-bridge` sanitized and rewrote `bridge.md`, but
+it still treated the live markdown body as both source and output. That meant a
+polluted bridge could keep acting like its own repair input and repeated
+duplicate packet headings could survive until another writer path overwrote
+them.
+
+Closed the bounded purity slice by making bridge-backed status projection emit a
+typed `_compat.bridge_projection` payload inside `review_state.json` and making
+`render-bridge` consume only that typed payload when rebuilding `bridge.md`.
+The fixed bridge sections now also reject embedded markdown headings fail-
+closed during render, and focused rerender coverage proves duplicate
+`## Context Recovery Packet` headings do not reappear after repair.
+
+This is intentionally narrower than full bridge retirement. `bridge.md`
+remains a compatibility projection, and the broader typed writer/mutation
+cutover plus repo-pack/path portability work stays open under `MP-355` /
+`MP-377`.
 
 ## Term Quick Reference
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
 
 from ..common import display_path
 from ..runtime.review_state_models import (
@@ -19,20 +18,19 @@ from ..runtime.review_state_models import (
     AgentRegistryState,
     ReviewAttentionState,
     ReviewBridgeState,
-    ReviewCurrentSessionState,
     ReviewQueueState,
     ReviewSessionState,
     ReviewState,
 )
 from ..runtime.role_profile import TandemRole
-from .attach_auth_projection import (
-    build_attach_auth_policy_state,
-    build_service_identity_state,
-)
 from .current_session_projection import build_bridge_current_session
 from .handoff import BridgeSnapshot
 from .peer_liveness import OverallLivenessState
 from .promotion import PromotionCandidate, promotion_candidate_to_dict
+from .status_projection_compat import (
+    CompatProjectionInputs,
+    build_bridge_compat_projection,
+)
 
 
 @dataclass(frozen=True)
@@ -42,6 +40,7 @@ class ReviewStateContext:
     repo_root: Path
     bridge_path: Path
     review_channel_path: Path
+    bridge_text: str
     project_id: str
     timestamp: str
     service_identity: dict[str, object]
@@ -71,7 +70,7 @@ def build_bridge_review_state(
         ok=_projection_ok(overall_state, context.errors),
         review=_build_review_session(context),
         queue=_build_queue_state(promotion_candidate),
-        current_session=_build_current_session(snapshot, bridge_liveness),
+        current_session=build_bridge_current_session(snapshot, bridge_liveness),
         bridge=_build_bridge_state(snapshot, bridge_liveness, overall_state),
         attention=_build_attention(attention),
         packets=(),
@@ -99,20 +98,14 @@ def build_bridge_review_state(
         entry["capabilities"] = []
         legacy_agents.append(entry)
 
-    result["_compat"] = {
-        "project_id": context.project_id,
-        "runtime": _build_bridge_runtime(bridge_liveness, reduced_runtime),
-        "service_identity": build_service_identity_state(
-            context.service_identity
-        ),
-        "attach_auth_policy": build_attach_auth_policy_state(
-            context.attach_auth_policy
-        ),
-        "agents": legacy_agents,
-    }
+    result["_compat"] = _build_compat_projection(
+        context=context,
+        bridge_liveness=bridge_liveness,
+        reduced_runtime=reduced_runtime,
+        legacy_agents=legacy_agents,
+    )
 
     return result
-
 
 def _projection_ok(overall_state: str, errors: tuple[str, ...]) -> bool:
     if errors:
@@ -122,6 +115,24 @@ def _projection_ok(overall_state: str, errors: tuple[str, ...]) -> bool:
         OverallLivenessState.INACTIVE,
     )
 
+def _build_compat_projection(
+    *,
+    context: ReviewStateContext,
+    bridge_liveness: dict[str, object],
+    reduced_runtime: dict[str, object] | None,
+    legacy_agents: list[dict[str, object]],
+) -> dict[str, object]:
+    return build_bridge_compat_projection(
+        inputs=CompatProjectionInputs(
+            project_id=context.project_id,
+            bridge_text=context.bridge_text,
+            bridge_liveness=bridge_liveness,
+            reduced_runtime=reduced_runtime,
+            service_identity=context.service_identity,
+            attach_auth_policy=context.attach_auth_policy,
+            legacy_agents=legacy_agents,
+        ),
+    )
 
 def _build_review_session(context: ReviewStateContext) -> ReviewSessionState:
     return ReviewSessionState(
@@ -269,7 +280,7 @@ def _build_bridge_state(
     bridge_liveness: dict[str, object],
     overall_state: str,
 ) -> ReviewBridgeState:
-    current_session = _build_current_session(snapshot, bridge_liveness)
+    current_session = build_bridge_current_session(snapshot, bridge_liveness)
     return ReviewBridgeState(
         overall_state=overall_state,
         codex_poll_state=str(bridge_liveness.get("codex_poll_state") or "unknown"),
@@ -312,15 +323,6 @@ def _compute_review_accepted(snapshot: BridgeSnapshot) -> bool:
         return bridge_review_accepted(snapshot)
     except (ImportError, ValueError):
         return False
-
-
-def _build_current_session(
-    snapshot: BridgeSnapshot,
-    bridge_liveness: dict[str, object],
-) -> ReviewCurrentSessionState:
-    return build_bridge_current_session(snapshot, bridge_liveness)
-
-
 def _build_attention(attention: dict[str, object]) -> ReviewAttentionState | None:
     if not attention:
         return None

@@ -8,6 +8,16 @@ from __future__ import annotations
 
 import re
 
+from .bridge_section_validation import find_embedded_markdown_headings
+from .bridge_text_cleanup import (
+    collapse_blank_lines,
+    find_transcript_lines,
+    has_ansi_escape,
+    has_control_chars,
+    is_transcript_line,
+    strip_terminal_bytes,
+    strip_transcript_lines,
+)
 from .handoff import extract_bridge_snapshot
 
 BRIDGE_ALLOWED_H2 = (
@@ -50,23 +60,6 @@ MAX_BRIDGE_LINES = 400
 MAX_BRIDGE_BYTES = 24_000
 
 _H2_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
-ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
-
-TRANSCRIPT_LINE_PATTERNS = (
-    re.compile(r"(?i)^test .+\.\.\. ok$"),
-    re.compile(r"(?i)^running \d+ tests$"),
-    re.compile(r"(?i)^test result:"),
-    re.compile(r"(?i)^compiling "),
-    re.compile(r"(?i)^finished "),
-    re.compile(r"(?i)^doc-tests "),
-    re.compile(r"(?i)^\s*running tests/"),
-    re.compile(r"(?i)^\[process-sweep-post\]"),
-    re.compile(r"(?i)^last login:"),
-    re.compile(r"(?i)^/bin/zsh "),
-    re.compile(r"(?i)^❯ "),
-    re.compile(r"(?i)^⏺ "),
-)
 
 _STATUS_HISTORY_MARKERS = (
     "prior slice",
@@ -103,12 +96,12 @@ def bridge_hygiene_errors(text: str) -> list[str]:
             + ", ".join(sorted(set(unknown)))
         )
 
-    if ANSI_ESCAPE_RE.search(text):
+    if has_ansi_escape(text):
         errors.append("Bridge contains ANSI escape sequences or terminal control output.")
-    if CONTROL_CHAR_RE.search(text):
+    if has_control_chars(text):
         errors.append("Bridge contains raw control characters.")
 
-    transcript_hits = _find_transcript_lines(text)
+    transcript_hits = find_transcript_lines(text)
     if transcript_hits:
         errors.append(
             "Bridge contains transcript/test-output lines: "
@@ -124,6 +117,12 @@ def bridge_hygiene_errors(text: str) -> list[str]:
         if lines > limit:
             errors.append(
                 f"`{heading}` exceeds the {limit}-line live-state limit ({lines} lines)."
+            )
+        heading_hits = find_embedded_markdown_headings(body)
+        if heading_hits:
+            errors.append(
+                f"`{heading}` contains embedded markdown headings: "
+                + "; ".join(f"`{line}`" for line in heading_hits)
             )
     return errors
 
@@ -187,34 +186,6 @@ def sanitize_bridge_sections(
         if body != (previous or body):
             mutated.append(heading)
     return sanitized, mutated
-
-
-def is_transcript_line(line: str) -> bool:
-    """Return True when a stripped line matches a known transcript/test-output pattern."""
-    if not line:
-        return False
-    return any(pattern.search(line) for pattern in TRANSCRIPT_LINE_PATTERNS)
-
-
-def collapse_blank_lines(lines: list[str]) -> list[str]:
-    """Collapse consecutive blank lines into a single blank line."""
-    collapsed: list[str] = []
-    previous_blank = False
-    for raw in lines:
-        blank = not raw.strip()
-        if blank and previous_blank:
-            continue
-        collapsed.append(raw)
-        previous_blank = blank
-    return collapsed
-
-
-def strip_terminal_bytes(text: str) -> str:
-    """Remove ANSI escapes and control characters from text."""
-    without_ansi = ANSI_ESCAPE_RE.sub("", text)
-    return CONTROL_CHAR_RE.sub("", without_ansi)
-
-
 def _sanitize_simple_section(
     raw: str,
     *,
@@ -260,27 +231,16 @@ def _sanitize_claude_ack(raw: str, *, max_lines: int) -> str:
 def _sanitize_blocks(blocks: list[str]) -> list[str]:
     cleaned: list[str] = []
     for block in blocks:
-        normalized = _strip_transcript_lines(strip_terminal_bytes(block)).strip()
+        normalized = strip_transcript_lines(strip_terminal_bytes(block)).strip()
         if not normalized:
             continue
         if any(
-            pattern.search(line.strip())
+            is_transcript_line(line.strip())
             for line in normalized.splitlines()
-            for pattern in TRANSCRIPT_LINE_PATTERNS
         ):
             continue
         cleaned.append(normalized)
     return cleaned
-
-
-def _strip_transcript_lines(text: str) -> str:
-    kept = [
-        line.rstrip()
-        for line in text.splitlines()
-        if not is_transcript_line(line.strip())
-    ]
-    return "\n".join(collapse_blank_lines(kept)).strip()
-
 
 def _split_markdown_items(text: str) -> list[str]:
     lines = collapse_blank_lines(strip_terminal_bytes(text).splitlines())
@@ -321,19 +281,6 @@ def _take_blocks(
         kept.append(block)
         used_lines += block_lines
     return kept
-
-
-def _find_transcript_lines(text: str) -> list[str]:
-    hits: list[str] = []
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line or not is_transcript_line(line):
-            continue
-        if line not in hits:
-            hits.append(line)
-    return hits
-
-
 def _duplicate_headings(headings: list[str]) -> list[str]:
     seen: set[str] = set()
     duplicates: list[str] = []
