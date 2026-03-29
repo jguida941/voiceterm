@@ -244,6 +244,7 @@ class ProjectGovernance:
     docs_authority: str = ""
     workflow_profiles: tuple[str, ...] = ()
     command_routing_defaults: dict[str, object] | None = None
+    product_thesis: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)

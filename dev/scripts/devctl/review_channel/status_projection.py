@@ -45,6 +45,7 @@ class ReviewStateContext:
     timestamp: str
     service_identity: dict[str, object]
     attach_auth_policy: dict[str, object]
+    plan_id: str = ""
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
 
@@ -78,6 +79,7 @@ def build_bridge_review_state(
             overall_state=overall_state,
             bridge_liveness=bridge_liveness,
             timestamp=context.timestamp,
+            plan_id=context.plan_id,
         ),
         warnings=context.warnings,
         errors=context.errors,
@@ -136,7 +138,7 @@ def _build_compat_projection(
 
 def _build_review_session(context: ReviewStateContext) -> ReviewSessionState:
     return ReviewSessionState(
-        plan_id="MP-355",
+        plan_id=context.plan_id,
         controller_run_id="",
         session_id="markdown-bridge",
         surface_mode="markdown-bridge",
@@ -155,6 +157,7 @@ def _build_agent_registry(
     overall_state: str,
     bridge_liveness: dict[str, object],
     timestamp: str,
+    plan_id: str = "",
 ) -> AgentRegistryState:
     claude_status = _claude_agent_status(bridge_liveness)
     operator_status = _operator_status(overall_state)
@@ -171,7 +174,7 @@ def _build_agent_registry(
             last_packet_seen="",
             last_packet_applied="",
             script_profile="markdown-bridge-conductor",
-            mp_scope="MP-355",
+            mp_scope=plan_id,
             worktree="",
             branch="",
             updated_at=timestamp,
@@ -188,7 +191,7 @@ def _build_agent_registry(
             last_packet_seen="",
             last_packet_applied="",
             script_profile="markdown-bridge-conductor",
-            mp_scope="MP-355",
+            mp_scope=plan_id,
             worktree="",
             branch="",
             updated_at=timestamp,

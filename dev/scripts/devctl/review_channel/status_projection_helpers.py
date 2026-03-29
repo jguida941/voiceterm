@@ -166,6 +166,17 @@ def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:
         ]
     if not claude_conductor_active:
         return []
+    if codex_conductor_active and bool(
+        bridge_liveness.get("poll_status_automation_only")
+    ):
+        reason = str(bridge_liveness.get("poll_status_reason") or "unknown")
+        return [
+            "Repo-owned Codex conductor sessions are present, but the latest "
+            "reviewer poll still comes from automation-only heartbeat refresh "
+            f"(`{reason}`) rather than a reviewer-owned turn. Do not treat the "
+            "live loop as started until `Poll Status` advances through a real "
+            "Codex reviewer action."
+        ]
     if codex_conductor_active:
         return []
     return [

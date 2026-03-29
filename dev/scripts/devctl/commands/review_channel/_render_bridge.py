@@ -49,9 +49,10 @@ def run_render_bridge_action(
     assert isinstance(bridge_path, Path)
     assert isinstance(status_dir, Path)
 
+    bridge_rel = str(bridge_path.relative_to(repo_root))
     worktree_hash = compute_non_audit_worktree_hash(
         repo_root=repo_root,
-        excluded_rel_paths=("bridge.md",),
+        excluded_rel_paths=(bridge_rel,),
     )
     typed_review_state = _load_typed_review_state(status_dir)
     render_result = None

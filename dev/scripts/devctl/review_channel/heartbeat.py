@@ -131,12 +131,12 @@ def refresh_bridge_heartbeat(
         now_utc = datetime.now(timezone.utc)
         last_codex_poll_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         last_codex_poll_local = _format_new_york_timestamp(now_utc)
-        # Recompute the worktree hash so the bridge always advertises the current
-        # tree state. This lets the reviewer detect drift even when no semantic
-        # review has occurred — without it, the bridge can look "fresh" while
-        # the reviewed baseline is stale.
+        reviewed_hash = snapshot.metadata.get("last_non_audit_worktree_hash") or ""
+        # Refresh the heartbeat timestamp without advancing the reviewed hash.
+        # Heartbeat/ensure flows are liveness-only; they must not claim that the
+        # current tree has been semantically reviewed.
         try:
-            current_hash = compute_non_audit_worktree_hash(
+            observed_hash = compute_non_audit_worktree_hash(
                 repo_root=repo_root,
                 excluded_rel_paths=bridge_excluded_rel_paths(
                     repo_root=repo_root,
@@ -144,7 +144,9 @@ def refresh_bridge_heartbeat(
                 ),
             )
         except (ValueError, OSError):
-            current_hash = snapshot.metadata.get("last_non_audit_worktree_hash") or ""
+            observed_hash = reviewed_hash
+        if not reviewed_hash:
+            reviewed_hash = observed_hash
 
         updated_text = bridge_text
         updated_text = _replace_or_insert_metadata_line(
@@ -160,16 +162,12 @@ def refresh_bridge_heartbeat(
                 f"`{last_codex_poll_local}`"
             ),
         )
-        updated_text = _replace_or_insert_metadata_line(
-            updated_text,
-            pattern=LAST_WORKTREE_HASH_RE,
-            replacement=f"- Last non-audit worktree hash: `{current_hash}`",
-        )
         updated_text = _rewrite_poll_status(
             updated_text,
             note=(
                 f"{AUTO_REFRESH_PREFIX} `{last_codex_poll_utc}` "
-                f"(reason: {reason}; reviewed-tree: {current_hash[:12]})."
+                f"(reason: {reason}; observed-tree: {observed_hash[:12]}; "
+                f"reviewed-tree: {reviewed_hash[:12]})."
             ),
         )
         refresh = BridgeHeartbeatRefresh(
@@ -177,7 +175,7 @@ def refresh_bridge_heartbeat(
             reason=reason,
             last_codex_poll_utc=last_codex_poll_utc,
             last_codex_poll_local=last_codex_poll_local,
-            last_worktree_hash=current_hash,
+            last_worktree_hash=reviewed_hash,
         )
         return updated_text
 

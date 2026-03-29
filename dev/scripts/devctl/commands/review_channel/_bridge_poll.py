@@ -20,7 +20,6 @@ from ...runtime.role_profile import TandemRole
 from ...time_utils import utc_timestamp
 from ..review_channel_command import RuntimePaths, _coerce_runtime_paths
 
-_BRIDGE_HASH_EXCLUDED_PATHS = ("bridge.md",)
 _ACK_ONLY_ERROR_PREFIXES = (
     "Live `Claude Ack` must include `instruction-rev:",
     "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
@@ -127,7 +126,9 @@ def run_bridge_poll_action(
     errors = _bridge_poll_errors(snapshot)
     payload = build_bridge_poll_result(
         bridge_text,
-        current_worktree_hash=_current_worktree_hash(repo_root),
+        current_worktree_hash=_current_worktree_hash(
+            repo_root, bridge_rel=str(bridge_path.relative_to(repo_root)),
+        ),
     )
     exit_code = 1 if errors else 0
     report: dict[str, object] = {}
@@ -160,11 +161,11 @@ def _section_text(snapshot: BridgeSnapshot, section_name: str) -> str:
     return snapshot.sections.get(section_name, "").strip()
 
 
-def _current_worktree_hash(repo_root: Path) -> str | None:
+def _current_worktree_hash(repo_root: Path, *, bridge_rel: str) -> str | None:
     try:
         return compute_non_audit_worktree_hash(
             repo_root=repo_root,
-            excluded_rel_paths=_BRIDGE_HASH_EXCLUDED_PATHS,
+            excluded_rel_paths=(bridge_rel,),
         )
     except (OSError, ValueError):
         return None

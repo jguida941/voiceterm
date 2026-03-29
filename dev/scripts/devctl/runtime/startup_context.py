@@ -63,6 +63,7 @@ class StartupContext:
     rule_summary: str = ""
     match_evidence: tuple[RuleMatchEvidenceRecord, ...] = ()
     rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...] = ()
+    product_thesis: str = ""
     work_intake: WorkIntakePacket | None = None
     quality_signals: dict[str, object] = field(default_factory=dict)
 
@@ -82,6 +83,8 @@ class StartupContext:
         d["reviewer_gate"] = asdict(self.reviewer_gate)
         d["push_decision"] = self.push_decision.to_dict()
         d["quality_signals"] = dict(self.quality_signals)
+        if self.product_thesis:
+            d["product_thesis"] = self.product_thesis
         if self.governance is not None:
             d["governance"] = _startup_governance_dict(self.governance)
         if self.work_intake is not None:
@@ -251,6 +254,7 @@ def build_startup_context(
         rule_summary=advisory.rule_summary,
         match_evidence=advisory.match_evidence,
         rejected_rule_traces=advisory.rejected_rule_traces,
+        product_thesis=governance.product_thesis if governance else "",
         work_intake=work_intake,
         quality_signals=quality_signals,
     )

@@ -22,6 +22,7 @@ from .handoff import (
     BridgeSnapshot,
     extract_bridge_snapshot,
 )
+from .peer_liveness import REVIEWER_WAIT_STATE_MARKERS
 from .promotion_support import (
     InstructionRewriteContext,
     instruction_needs_plan_promotion,
@@ -36,6 +37,7 @@ SECTION_RE = re.compile(r"^##\s+")
 SUBSECTION_RE = re.compile(r"^###\s+(?P<title>.+?)\s*$")
 PROMOTABLE_INSTRUCTION_MARKERS = (
     *IDLE_NEXT_ACTION_MARKERS,
+    *REVIEWER_WAIT_STATE_MARKERS,
     *RESOLVED_VERDICT_MARKERS,
     "next unchecked",
     "continue checklist",

@@ -129,6 +129,17 @@ def _scan_memory_roots(repo_root: Path) -> MemoryRoots:
     )
 
 
+def _load_product_thesis(repo_root: Path) -> str:
+    """Load product thesis from ``dev/config/why_stack.md`` if it exists."""
+    thesis_path = repo_root / "dev" / "config" / "why_stack.md"
+    if not thesis_path.is_file():
+        return ""
+    try:
+        return thesis_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
 def _load_policy(
     repo_root: Path,
     *,
@@ -216,6 +227,7 @@ def scan_repo_governance(
             repo_root=repo_root,
             resolved_policy_path=resolved_policy_path,
         ),
+        product_thesis=_load_product_thesis(repo_root),
     )
 
 

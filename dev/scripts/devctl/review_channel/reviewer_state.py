@@ -93,7 +93,7 @@ def write_reviewer_checkpoint(
 ) -> ReviewerStateWrite:
     """Atomically advance reviewer truth and heartbeat for a real review pass."""
     normalized_mode = normalize_reviewer_mode(reviewer_mode)
-    current_hash = compute_non_audit_worktree_hash(
+    observed_hash = compute_non_audit_worktree_hash(
         repo_root=repo_root,
         excluded_rel_paths=bridge_excluded_rel_paths(
             repo_root=repo_root,
@@ -101,6 +101,7 @@ def write_reviewer_checkpoint(
         ),
         excluded_prefixes=NON_AUDIT_HASH_EXCLUDED_PREFIXES,
     )
+    preserve_reviewed_hash = reason.strip().lower() == "next-plan-item"
     reviewed_scope_body = _format_markdown_list(checkpoint.reviewed_scope_items)
     validate_reviewer_checkpoint_sections(
         current_verdict=checkpoint.current_verdict.strip(),
@@ -117,6 +118,13 @@ def write_reviewer_checkpoint(
             expected_instruction_revision=checkpoint.expected_instruction_revision,
             action="reviewer-checkpoint",
         )
+        preserved_hash = current_reviewed_hash(bridge_text)
+        if preserve_reviewed_hash and not preserved_hash:
+            raise ValueError(
+                "Reviewer checkpoint with reason `next-plan-item` requires an "
+                "existing reviewed hash to preserve."
+            )
+        effective_hash = preserved_hash if preserve_reviewed_hash else observed_hash
         previous_instruction_revision = current_instruction_revision_from_bridge_text(
             bridge_text
         )
@@ -138,11 +146,19 @@ def write_reviewer_checkpoint(
                 reviewer_mode=normalized_mode,
                 reason=reason,
                 action="reviewer-checkpoint",
-                worktree_hash=current_hash,
+                worktree_hash=effective_hash,
                 current_instruction_revision=instruction_revision,
                 poll_note=(
-                    "Reviewer checkpoint updated through repo-owned tooling "
-                    f"(mode: {normalized_mode}; reason: {reason}; tree: {current_hash[:12]}; instruction-rev: {effective_instruction_revision})."
+                    (
+                        "Reviewer checkpoint preserved reviewed baseline through "
+                        "repo-owned tooling "
+                        if preserve_reviewed_hash
+                        else "Reviewer checkpoint updated through repo-owned tooling "
+                    )
+                    + f"(mode: {normalized_mode}; reason: {reason}; "
+                    f"observed-tree: {observed_hash[:12]}; "
+                    f"reviewed-tree: {effective_hash[:12]}; "
+                    f"instruction-rev: {effective_instruction_revision})."
                 ),
             ),
         )

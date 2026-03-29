@@ -94,6 +94,9 @@ class BridgeLiveness:
     reviewed_hash_current: bool | None = None
     implementer_completion_stall: bool = False
     reviewer_freshness: str = ""
+    poll_status_action: str = ""
+    poll_status_reason: str = ""
+    poll_status_automation_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -146,8 +149,18 @@ def summarize_bridge_liveness(
     current_instruction = snapshot.sections.get("Current Instruction For Claude", "").strip()
     open_findings = snapshot.sections.get("Open Findings", "").strip()
     last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
+    poll_status = snapshot.sections.get("Poll Status", "").strip()
     claude_status = snapshot.sections.get("Claude Status", "").strip()
     claude_ack = snapshot.sections.get("Claude Ack", "").strip()
+    from .bridge_validation import (
+        extract_poll_status_write_context,
+        poll_status_is_automation_only_refresh,
+    )
+
+    poll_status_action, poll_status_reason = extract_poll_status_write_context(
+        poll_status
+    )
+    poll_status_automation_only = poll_status_is_automation_only_refresh(poll_status)
     reviewer_mode = normalize_reviewer_mode(snapshot.metadata.get("reviewer_mode"))
     last_codex_poll_utc = snapshot.metadata.get("last_codex_poll_utc")
     last_codex_poll_age_seconds = _timestamp_age_seconds(
@@ -229,6 +242,9 @@ def summarize_bridge_liveness(
         reviewed_hash_current=reviewed_hash_current,
         implementer_completion_stall=implementer_stalled,
         reviewer_freshness=freshness,
+        poll_status_action=poll_status_action,
+        poll_status_reason=poll_status_reason,
+        poll_status_automation_only=poll_status_automation_only,
     )
 
 
@@ -399,24 +415,41 @@ def wait_for_codex_poll_refresh(
     *,
     bridge_path: Path,
     previous_poll_utc: str | None,
+    previous_poll_status: str | None,
     timeout_seconds: int,
     poll_interval_seconds: float = 2.0,
 ) -> dict[str, object]:
     """Wait for a fresh Codex reviewer heartbeat after live launch."""
+    from .bridge_validation import poll_status_is_automation_only_refresh
+
     deadline = time.monotonic() + max(timeout_seconds, 0)
+    previous_poll_status_text = _normalize_inline_markdown(previous_poll_status or "")
     while True:
         snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
         current_poll_utc = snapshot.metadata.get("last_codex_poll_utc")
-        observed = _codex_poll_advanced(
+        current_poll_status = snapshot.sections.get("Poll Status", "")
+        current_poll_status_text = _normalize_inline_markdown(current_poll_status)
+        poll_advanced = _codex_poll_advanced(
             previous_poll_utc=previous_poll_utc,
             current_poll_utc=current_poll_utc,
         )
+        poll_status_changed = current_poll_status_text != previous_poll_status_text
+        poll_status_automation_only = poll_status_is_automation_only_refresh(
+            current_poll_status
+        )
+        observed = poll_advanced and poll_status_changed and not poll_status_automation_only
         if observed or time.monotonic() >= deadline:
             liveness = summarize_bridge_liveness(snapshot)
             return {
                 "observed": observed,
                 "last_codex_poll_utc": current_poll_utc,
                 "codex_poll_state": liveness.codex_poll_state,
+                "poll_advanced": poll_advanced,
+                "poll_status": current_poll_status_text,
+                "poll_status_changed": poll_status_changed,
+                "poll_status_action": liveness.poll_status_action,
+                "poll_status_reason": liveness.poll_status_reason,
+                "poll_status_automation_only": liveness.poll_status_automation_only,
             }
         time.sleep(max(poll_interval_seconds, 0.1))
 

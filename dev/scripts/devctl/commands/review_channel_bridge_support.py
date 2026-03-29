@@ -89,9 +89,10 @@ def bridge_launch_state(
     else:
         from ..review_channel.handoff import BridgeSnapshot
         bridge_snapshot = BridgeSnapshot(metadata={}, sections={})
+    bridge_rel = str(context.bridge_path.relative_to(context.repo_root))
     try:
         current_hash = compute_non_audit_worktree_hash(
-            repo_root=context.repo_root, excluded_rel_paths=("bridge.md",)
+            repo_root=context.repo_root, excluded_rel_paths=(bridge_rel,)
         )
     except (ValueError, OSError):
         current_hash = None
@@ -238,9 +239,10 @@ def prepare_rollover_bundle(
     """Write a rollover handoff bundle if the action is rollover."""
     if args.action != "rollover":
         return None, []
+    rollover_bridge_rel = str(bridge_path.relative_to(repo_root))
     try:
         rollover_hash = compute_non_audit_worktree_hash(
-            repo_root=repo_root, excluded_rel_paths=("bridge.md",)
+            repo_root=repo_root, excluded_rel_paths=(rollover_bridge_rel,)
         )
     except (ValueError, OSError):
         rollover_hash = None
@@ -285,9 +287,11 @@ def launch_sessions_if_requested(
     launched = False
     handoff_ack_required = False
     handoff_ack_observed = None
-    prelaunch_poll_utc = extract_bridge_snapshot(
+    prelaunch_snapshot = extract_bridge_snapshot(
         bridge_path.read_text(encoding="utf-8")
-    ).metadata.get("last_codex_poll_utc")
+    )
+    prelaunch_poll_utc = prelaunch_snapshot.metadata.get("last_codex_poll_utc")
+    prelaunch_poll_status = prelaunch_snapshot.sections.get("Poll Status", "")
     if args.action in {"launch", "rollover"} and args.terminal == "terminal-app" and not args.dry_run:
         launch_terminal_sessions_fn(
             sessions,
@@ -300,6 +304,7 @@ def launch_sessions_if_requested(
             launch_poll = wait_for_codex_poll_refresh(
                 bridge_path=bridge_path,
                 previous_poll_utc=prelaunch_poll_utc,
+                previous_poll_status=prelaunch_poll_status,
                 timeout_seconds=args.await_ack_seconds,
             )
             if not bool(launch_poll.get("observed")):
@@ -307,11 +312,30 @@ def launch_sessions_if_requested(
                     launch_poll.get("last_codex_poll_utc") or "missing"
                 )
                 previous_poll_display = prelaunch_poll_utc or "missing"
+                poll_status_detail = []
+                if bool(launch_poll.get("poll_advanced")):
+                    poll_status_detail.append(
+                        f"`Last Codex poll` advanced to {latest_poll_utc}"
+                    )
+                else:
+                    poll_status_detail.append(
+                        f"`Last Codex poll` stayed at {latest_poll_utc}"
+                    )
+                if bool(launch_poll.get("poll_status_automation_only")):
+                    poll_reason = str(launch_poll.get("poll_status_reason") or "unknown")
+                    poll_status_detail.append(
+                        "`Poll Status` only showed an automation heartbeat "
+                        f"(reason: {poll_reason})"
+                    )
+                elif not bool(launch_poll.get("poll_status_changed")):
+                    poll_status_detail.append(
+                        "`Poll Status` did not change from the pre-launch reviewer state"
+                    )
                 raise ValueError(
                     "Live review-channel launch did not produce a fresh Codex "
-                    f"reviewer heartbeat within {args.await_ack_seconds}s. "
-                    f"`Last Codex poll` stayed at {latest_poll_utc} "
-                    f"(pre-launch {previous_poll_display})."
+                    f"reviewer turn within {args.await_ack_seconds}s. "
+                    + "; ".join(poll_status_detail)
+                    + f" (pre-launch poll {previous_poll_display})."
                 )
         if args.action == "rollover" and handoff_bundle is not None and args.await_ack_seconds > 0:
             handoff_ack_required = True

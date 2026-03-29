@@ -30,6 +30,7 @@ class StatusProjectionContext:
     lanes: list[LaneAssignment]
     bridge_liveness: dict[str, object]
     attention: dict[str, object]
+    plan_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,7 @@ def _build_status_review_state(
             timestamp=timestamp,
             service_identity=payload.service_identity,
             attach_auth_policy=payload.attach_auth_policy,
+            plan_id=context.plan_id,
             warnings=tuple(payload.warnings),
             errors=tuple(payload.errors),
         ),

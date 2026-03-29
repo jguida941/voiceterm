@@ -69,6 +69,13 @@ def render_markdown(ctx_dict: dict) -> str:
     )
     lines.append("")
 
+    thesis = str(ctx_dict.get("product_thesis") or "").strip()
+    if thesis:
+        lines.append("## Why Stack")
+        lines.append("")
+        lines.append(thesis)
+        lines.append("")
+
     gate = ctx_dict.get("reviewer_gate", {})
     lines.append("## Reviewer Gate")
     lines.append(f"- bridge_active: {gate.get('bridge_active', False)}")

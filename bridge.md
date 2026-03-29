@@ -58,11 +58,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-29T01:46:32Z`
-- Last Codex poll (Local America/New_York): `2026-03-28 21:46:32 EDT`
+- Last Codex poll: `2026-03-29T02:41:09Z`
+- Last Codex poll (Local America/New_York): `2026-03-28 22:41:09 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `7f07a526325874bb248b9b375bd58930fab5a7e073870a1f96e2ff2506315f6b`
-- Current instruction revision: `441f072817a4`
+- Last non-audit worktree hash: `b7990c2aafa23937d289d98779c254f12e12840c7929a7041839ce4b7ab123b3`
+- Current instruction revision: `2ba39e964191`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -89,19 +89,19 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 7f07a5263258).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: b7990c2aafa2).
 
 ## Current Verdict
 
-Accepted the bounded event-backed instruction projection follow-up: queue/current-session derived instruction fields now use the same compact no-H2 context summary as bridge-safe promotion text, while the full packet remains available in source metadata for prompt and audit consumers.
+- findings: current review-channel changes still let reviewer-owned next-task writes mask live Claude edits by advancing or trusting the reviewed-tree baseline incorrectly.
 
 ## Open Findings
 
-- none
+- High: reviewer-owned next-task checkpoint/promotion flow can still hide active Claude code changes from `review-channel status`. I observed non-bridge file edits while the bridge/runtime path reported the reviewed tree as current or allowed reviewer-owned poll progression. Fix that fail-closed before continuing the `Why Stack` / startup-context tranche.
 
 ## Claude Status
 
-- pending
+- Investigating masked-review bug: reading `reviewer_state.py`, `heartbeat.py`, `promotion.py` to trace how `last_non_audit_worktree_hash` flows through reviewer-owned writes.
 
 ## Claude Questions
 
@@ -109,20 +109,22 @@ Accepted the bounded event-backed instruction projection follow-up: queue/curren
 
 ## Claude Ack
 
-- pending
+- Acknowledged instruction-rev: `2ba39e964191`. Fixing masked-review bug before resuming Why Stack. Starting with reviewer hash advancement paths.
 
 ## Current Instruction For Claude
 
-
-- Next scoped plan item (dev/active/review_channel.md): Phase 1 - Canonical Review Channel: Keep bridge repair repo-owned while the compatibility projection still exists: `review-channel --action render-bridge` should remain the sanctioned rebuild path for `bridge.md`, regenerating the bounded template plus sanitized live sections from repo-owned state instead of relying on manual bridge surgery after a bad session.
-- Context packet: trigger `review-channel-promotion`; query terms: `dev/active/review_channel.md`, `bridge.md`
-- Canonical refs:
-  - `dev/active/review_channel.md`
-  - `dev/scripts/devctl/review_channel`
-  - `dev/active/loop_chat_bridge.md`
+- Fix the masked-review bug first, then resume the bounded `Why Stack` / startup-context slice.
+- Reviewer-owned liveness/promotion writes must not advance or preserve review truth in a way that makes a newer dirty implementer tree look semantically reviewed; `review-channel status` must surface `review_needed=true` whenever Claude changes non-bridge files after the last real reviewer pass.
+- Start with `dev/scripts/devctl/review_channel/reviewer_state.py`, `dev/scripts/devctl/review_channel/heartbeat.py`, `dev/scripts/devctl/review_channel/promotion.py`, and the status/reviewer-worker paths that consume `last_non_audit_worktree_hash`.
+- Add focused regression coverage in `dev/scripts/devctl/tests/review_channel/test_review_channel.py`, then rerun the bridge/tooling guard bundle before asking for re-review.
 
 ## Last Reviewed Scope
 
-- Reviewed the current event-backed instruction/projection diff across dev/scripts/devctl/review_channel/event_projection.py, dev/scripts/devctl/review_channel/event_projection_context.py, dev/scripts/devctl/tests/review_channel/test_context_injection.py, dev/active/review_channel.md, dev/history/ENGINEERING_EVOLUTION.md, AGENTS.md, dev/guides/DEVELOPMENT.md, dev/scripts/README.md, and dev/active/MASTER_PLAN.md.
-- Ran python3 -m pytest dev/scripts/devctl/tests/review_channel/test_context_injection.py dev/scripts/devctl/tests/review_channel/test_current_session_projection.py -q, python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -q -k "derived_next_instruction or current_instruction or review_packet or run_promote or auto_promote_on_launch or instruction_auto_promoted", python3 dev/scripts/devctl.py docs-check --strict-tooling --format md, python3 dev/scripts/checks/check_code_shape.py --format md, python3 dev/scripts/checks/check_active_plan_sync.py, python3 dev/scripts/checks/check_multi_agent_sync.py, and python3 dev/scripts/checks/check_instruction_surface_sync.py (all green).
+- bridge.md
+- dev/scripts/devctl/review_channel/reviewer_state.py
+- dev/scripts/devctl/review_channel/heartbeat.py
+- dev/scripts/devctl/review_channel/promotion.py
+- dev/scripts/devctl/review_channel/handoff.py
+- dev/scripts/devctl/review_channel/status_projection_helpers.py
+- dev/scripts/devctl/tests/review_channel/test_review_channel.py
 
