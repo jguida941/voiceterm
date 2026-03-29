@@ -116,6 +116,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_startup_authority_contract.py",
     "python3 dev/scripts/checks/check_tandem_consistency.py",
     "python3 dev/scripts/checks/check_governance_closure.py",
+    "python3 dev/scripts/checks/check_package_layout.py --fail-on-baseline-debt --baseline-debt-root dev/scripts/devctl/commands",
 )
 
 # Orchestration status commands used by tooling, release, and post-push bundles.

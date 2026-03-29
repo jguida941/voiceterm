@@ -1156,6 +1156,7 @@ python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_startup_authority_contract.py
 python3 dev/scripts/checks/check_tandem_consistency.py
 python3 dev/scripts/checks/check_governance_closure.py
+python3 dev/scripts/checks/check_package_layout.py --fail-on-baseline-debt --baseline-debt-root dev/scripts/devctl/commands
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
@@ -1219,6 +1220,7 @@ python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_startup_authority_contract.py
 python3 dev/scripts/checks/check_tandem_consistency.py
 python3 dev/scripts/checks/check_governance_closure.py
+python3 dev/scripts/checks/check_package_layout.py --fail-on-baseline-debt --baseline-debt-root dev/scripts/devctl/commands
 python3 dev/scripts/checks/check_publication_sync.py --release-branch-aware
 CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
 CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master

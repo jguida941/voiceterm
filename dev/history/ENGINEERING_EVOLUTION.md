@@ -6643,3 +6643,28 @@ Evidence: `dev/scripts/devctl/commands/docs/policy_runtime.py`,
 `AGENTS.md`,
 `dev/guides/DEVELOPMENT.md`,
 `dev/scripts/README.md`.
+
+### 2026-03-29 - Baseline layout debt now hard-fails in tooling and release lanes for crowded commands/
+
+Fact: `check_package_layout.py` already detected crowded directories and
+namespace families as baseline debt, but in commit-range and working-tree modes
+the guard exited 0 whenever no individual changed files landed in the crowded
+root. This meant `dev/scripts/devctl/commands/` (92 files, max 48; 7 crowded
+families) silently passed every default CI run. Two new flags close the gap:
+`--fail-on-baseline-debt` promotes baseline debt to a hard failure, and
+`--baseline-debt-root` filters enforcement to specific directories so only
+targeted roots block. The tooling and release bundles now include
+`check_package_layout.py --fail-on-baseline-debt --baseline-debt-root
+dev/scripts/devctl/commands`, with matching steps in
+`tooling_control_plane.yml` and `release_preflight.yml`. Existing tests use
+`SimpleNamespace` args without the new flags, so `command.py` reads them via
+`getattr` with safe defaults instead of direct attribute access.
+
+Evidence: `dev/scripts/checks/package_layout/command.py`,
+`dev/scripts/devctl/bundles/registry.py`,
+`.github/workflows/tooling_control_plane.yml`,
+`.github/workflows/release_preflight.yml`,
+`dev/scripts/devctl/tests/checks/package_layout/test_check_package_layout.py`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`AGENTS.md`.

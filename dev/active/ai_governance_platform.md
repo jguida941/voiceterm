@@ -4172,6 +4172,18 @@ working on `MP-377`.
   class-level rule is "governance scans may be expensive, but path predicates
   must consume one resolved contract instead of rescanning authority inside
   loops."
+- 2026-03-29 package-layout baseline-debt enforcement: `check_package_layout`
+  now supports `--fail-on-baseline-debt` with optional `--baseline-debt-root`
+  filtering. The tooling and release bundles enforce
+  `dev/scripts/devctl/commands` as a hard-blocking root, closing the gap where
+  92 files (max 48) and 7 crowded families silently passed default CI. The
+  same guard uses `getattr` with safe defaults so compatibility callers and
+  existing mock-based tests are not broken by the new flag surface. Focused
+  tests cover targeted-root enforcement, non-matching-root passthrough,
+  flag-disabled passthrough, unfiltered all-roots enforcement, and rendered
+  markdown output. This completes the ratchet path described in `MASTER_PLAN`
+  2026-03-27: truthful baseline-debt reporting now drives hard enforcement on
+  the primary self-hosting hotspot.
 - 2026-03-27 scope-capture follow-up: preserve the external architecture
   intake in repo-visible plan state instead of letting it live only in chat or
   ad hoc markdown. The same-lane additions are now explicit: keep

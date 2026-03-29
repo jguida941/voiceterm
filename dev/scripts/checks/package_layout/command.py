@@ -67,6 +67,21 @@ def _layout_status(*, violations: list[dict], crowded_directories: list[dict], c
     return "clean"
 
 
+def _filter_baseline_debt_by_roots(
+    crowded_directories: list[dict],
+    crowded_namespace_families: list[dict],
+    roots: list[str],
+) -> tuple[list[dict], list[dict]]:
+    """Return only crowded entries whose root matches one of the filter roots."""
+    filtered_dirs = [
+        d for d in crowded_directories if d["root"] in roots
+    ]
+    filtered_families = [
+        f for f in crowded_namespace_families if f["root"] in roots
+    ]
+    return filtered_dirs, filtered_families
+
+
 def _render_md(report: dict) -> str:
     lines = ["# check_package_layout", ""]
     lines.append(f"- status: {report['status']}")
@@ -109,6 +124,8 @@ def _render_md(report: dict) -> str:
         f"- compatibility_redirects_detected: {len(report['compatibility_redirects'])}"
     )
     lines.append(f"- violations: {len(report['violations'])}")
+    if report.get("baseline_debt_enforced"):
+        lines.append("- baseline_debt_enforced: True")
     if report.get("since_ref"):
         lines.append(f"- since_ref: {report['since_ref']}")
     if report.get("head_ref"):
@@ -150,6 +167,23 @@ def _render_md(report: dict) -> str:
                 f"- `{redirect['path']}` -> `{redirect['target']}`{resolved_suffix}"
             )
 
+    if report.get("enforced_crowded_directories") or report.get("enforced_crowded_namespace_families"):
+        lines.append("")
+        lines.append("## Enforced Baseline Debt (blocking)")
+        for crowded in report.get("enforced_crowded_directories", []):
+            lines.append(
+                f"- `{crowded['root']}`: {crowded['current_files']} files "
+                f"(max {crowded['max_files']}, mode `{crowded['enforcement_mode']}`"
+                f"{_crowding_suffix(crowded)})"
+            )
+        for crowded in report.get("enforced_crowded_namespace_families", []):
+            lines.append(
+                f"- `{crowded['root']}` + `{crowded['flat_prefix']}*`: "
+                f"{crowded['current_files']} files "
+                f"(threshold {crowded['min_family_size']}, mode `{crowded['enforcement_mode']}`"
+                f"{_crowding_suffix(crowded)})"
+            )
+
     if report["violations"]:
         lines.append("")
         lines.append("## Violations")
@@ -162,7 +196,20 @@ def _render_md(report: dict) -> str:
 
 
 def main() -> int:
-    args = build_since_ref_format_parser(__doc__ or "").parse_args()
+    parser = build_since_ref_format_parser(__doc__ or "")
+    parser.add_argument(
+        "--fail-on-baseline-debt",
+        action="store_true",
+        help="Exit non-zero when baseline layout debt is detected, even without per-file violations.",
+    )
+    parser.add_argument(
+        "--baseline-debt-root",
+        action="append",
+        dest="baseline_debt_roots",
+        metavar="PATH",
+        help="Only enforce baseline-debt failure for this root (repeatable). If omitted, all crowded roots fail.",
+    )
+    args = parser.parse_args()
     report_mode = (
         "adoption-scan"
         if is_adoption_scan(since_ref=args.since_ref, head_ref=args.head_ref)
@@ -231,6 +278,25 @@ def main() -> int:
     baseline_layout_debt_detected = bool(
         crowded_directories or crowded_namespace_families
     )
+
+    baseline_debt_enforced = False
+    enforced_dirs: list[dict] = []
+    enforced_families: list[dict] = []
+    fail_on_baseline_debt = getattr(args, "fail_on_baseline_debt", False)
+    baseline_debt_roots = getattr(args, "baseline_debt_roots", None)
+    if fail_on_baseline_debt and baseline_layout_debt_detected:
+        if baseline_debt_roots:
+            enforced_dirs, enforced_families = _filter_baseline_debt_by_roots(
+                crowded_directories,
+                crowded_namespace_families,
+                baseline_debt_roots,
+            )
+        else:
+            enforced_dirs = crowded_directories
+            enforced_families = crowded_namespace_families
+        baseline_debt_enforced = bool(enforced_dirs or enforced_families)
+
+    ok = len(violations) == 0 and not baseline_debt_enforced
     report = {
         "command": "check_package_layout",
         "timestamp": utc_timestamp(),
@@ -238,9 +304,10 @@ def main() -> int:
         "mode": report_mode,
         "since_ref": None if report_mode == "adoption-scan" else args.since_ref,
         "head_ref": None if report_mode == "adoption-scan" else args.head_ref,
-        "ok": len(violations) == 0,
+        "ok": ok,
         "layout_clean": status == "clean",
         "baseline_layout_debt_detected": baseline_layout_debt_detected,
+        "baseline_debt_enforced": baseline_debt_enforced,
         "files_changed": len(changed_paths),
         "flat_root_candidates_scanned": flat_root_candidates_scanned,
         "flat_root_violations": len(flat_root_violations),
@@ -255,6 +322,9 @@ def main() -> int:
         "compatibility_redirects": compatibility_redirects,
         "violations": violations,
     }
+    if baseline_debt_enforced:
+        report["enforced_crowded_directories"] = enforced_dirs
+        report["enforced_crowded_namespace_families"] = enforced_families
 
     if args.format == "json":
         print(json.dumps(report, indent=2))

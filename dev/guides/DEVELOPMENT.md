@@ -157,8 +157,12 @@ Three quality layers matter in practice:
   `check_package_layout.py` also distinguishes blocking layout violations from
   baseline organization debt, so freeze-mode crowded roots/families still read
   as not clean even when the current edit did not add a new flat file there.
-  Repo policy may ratchet those known crowded areas to `strict` so touched
-  files must keep decomposing into owned packages or approved thin shims. When
+  The `--fail-on-baseline-debt` flag (with optional `--baseline-debt-root`
+  filter) promotes baseline debt to a hard failure for targeted roots; the
+  tooling and release bundles use this to enforce convergence on
+  `dev/scripts/devctl/commands`. Repo policy may ratchet those known crowded
+  areas to `strict` so touched files must keep decomposing into owned packages
+  or approved thin shims. When
   a move keeps a compatibility wrapper, the same report should emit
   `compatibility_redirects` from `shim-target` so the next AI/human session can
   see the canonical destination path directly.

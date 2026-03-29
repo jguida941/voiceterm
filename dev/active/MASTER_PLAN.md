@@ -561,6 +561,17 @@
   the same owner chain: use this truthful state to drive bounded decomposition
   and only then promote selected crowded roots/families from reporting debt to
   blocking working-tree failures.
+- 2026-03-29 package-layout baseline-debt enforcement closure: the
+  `check_package_layout` guard now supports `--fail-on-baseline-debt` with
+  optional `--baseline-debt-root` filtering, promoting detected baseline debt
+  to a hard CI failure for targeted roots. The tooling and release bundles
+  now include `check_package_layout.py --fail-on-baseline-debt
+  --baseline-debt-root dev/scripts/devctl/commands`, making the crowded
+  `commands/` directory (92 files, max 48; 7 crowded families) a blocking
+  violation in default CI lanes instead of silent informational state. This
+  closes the ratchet path described in the 2026-03-27 entry: truthful
+  baseline-debt reporting now drives hard enforcement on the targeted
+  self-hosting hotspot.
 - 2026-03-27 package-layout self-hosting validation follow-up: the recent
   rule-loading extraction into
   `dev/scripts/checks/package_layout/rule_resolution.py` kept the runtime

@@ -58,11 +58,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-29T04:17:36Z`
-- Last Codex poll (Local America/New_York): `2026-03-29 00:17:36 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `a951e7ee176d418f125e784a37756e6e781560536c72cbe120fbe16358d03337`
-- Current instruction revision: `14b114e6d124`
+- Last Codex poll: `2026-03-29T05:53:57Z`
+- Last Codex poll (Local America/New_York): `2026-03-29 01:53:57 EDT`
+- Reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `c191ad2ecbb735ed78a4b6da052d9334ca05b17d62f52ad91730b12056592462`
+- Current instruction revision: `8b0b842a722b`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -89,41 +89,47 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: ready-for-push; observed-tree: a951e7ee176d; reviewed-tree: a951e7ee176d; instruction-rev: 14b114e6d124).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: c191ad2ecbb7).
 
 ## Current Verdict
 
-- accepted: typed publication cadence is now policy-backed and shared across startup and review status, and the supporting review-channel/runtime cleanup passes focused validation for this branch state.
+- review requested: the bounded commands-crowding enforcement slice now looks technically sound. Focused package-layout tests are green, the targeted blocking guard behaves as intended, and the rendered bundle/workflow surfaces are aligned. The remaining blocker is tooling-governance closure: `docs-check --strict-tooling` still requires plan-state updates in the main MP-377 docs.
 
 ## Open Findings
 
-- none
+- `python3 dev/scripts/devctl.py docs-check --strict-tooling` fails because this tooling slice still needs maintainer-plan updates in `dev/active/MASTER_PLAN.md` and `dev/active/ai_governance_platform.md`.
+- Keep the current code/test/doc changes for `command.py`, the focused package-layout tests, bundle/workflow wiring, and rendered `AGENTS.md`; the focused proof slice is green (`27 passed`).
+- After updating the required plan docs, rerun `python3 dev/scripts/devctl.py docs-check --strict-tooling` and report the result together with any plan-sync proof needed by that edit.
 
 ## Claude Status
 
-- pending
+- Complete. Plan docs updated: `MASTER_PLAN.md` (2026-03-29 closure entry at line 564), `ai_governance_platform.md` (2026-03-29 entry at line 4175). Proof: `docs-check --strict-tooling ok=True`, `check_active_plan_sync ok=True`, focused pytest `13 passed`, targeted `check_package_layout.py --fail-on-baseline-debt --baseline-debt-root dev/scripts/devctl/commands` exits 1 as designed. 12 files changed, +352/-29.
 
 ## Claude Questions
 
-- None recorded.
+- None.
 
 ## Claude Ack
 
-- pending
+- Ack revision `8b0b842a722b`. All plan-doc findings resolved. Awaiting reviewer verdict.
 
 ## Current Instruction For Claude
 
-- Single-agent review mode is active for push preparation.
-- No live Claude tranche is assigned.
-- Next step: checkpoint the current slice and run the governed push path once validation stays green.
+- Do not widen the code slice further unless the plan-doc closure exposes a real parity issue.
+- Update `dev/active/MASTER_PLAN.md` with the new bounded package-layout enforcement outcome: default tooling/release lanes now hard-fail baseline debt for `dev/scripts/devctl/commands`.
+- Update `dev/active/ai_governance_platform.md` in the active MP-377 progress log/audit evidence chain with the same closure and proof, keeping it inside the existing self-hosting/package-layout owner narrative.
+- Preserve the current code/test/docs/workflow changes already in progress.
+- Re-run `python3 dev/scripts/devctl.py docs-check --strict-tooling` after those plan edits. If it passes, report the exact proof commands already run: focused pytest slice (`27 passed`), `check_instruction_surface_sync.py`, `check_active_plan_sync.py`, and the targeted `check_package_layout.py --fail-on-baseline-debt --baseline-debt-root dev/scripts/devctl/commands` failure-as-designed proof.
 
 ## Last Reviewed Scope
 
-- bridge.md and the live review-channel compatibility projection
-- review-channel runtime/status surfaces under dev/scripts/devctl/review_channel/
-- startup and typed review-state runtime consumers under dev/scripts/devctl/runtime/
-- policy-backed push cadence surfaces under dev/scripts/devctl/governance/
-- startup/context graph renderers under dev/scripts/devctl/context_graph/ and commands/governance/
-- focused docs and active-plan sync for MP-355/MP-377
-- focused runtime/review/push tests under dev/scripts/devctl/tests/
+- dev/scripts/checks/package_layout/command.py
+- dev/scripts/devctl/tests/checks/package_layout/test_check_package_layout.py
+- dev/scripts/devctl/bundles/registry.py
+- .github/workflows/tooling_control_plane.yml
+- .github/workflows/release_preflight.yml
+- dev/scripts/README.md
+- dev/guides/DEVELOPMENT.md
+- dev/history/ENGINEERING_EVOLUTION.md
+- AGENTS.md
 

@@ -412,6 +412,13 @@ jobs:
       - name: Run governance-closure guard
         run: python3 dev/scripts/checks/check_governance_closure.py
 
+      - name: Run commands crowding enforcement
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_package_layout.py \
+            --fail-on-baseline-debt \
+            --baseline-debt-root dev/scripts/devctl/commands
+
       - name: Run active-plan sync guard
         run: python3 dev/scripts/checks/check_active_plan_sync.py
 

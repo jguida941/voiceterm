@@ -64,10 +64,13 @@ docs coverage, crowded-family baseline/adoption reporting, and crowded-directory
 freeze/baseline reporting instead of relying on informal cleanup norms. The
 same report now distinguishes blocking violations from baseline organization
 debt, so freeze-mode crowded roots cannot be misread as a clean layout just
-because no new flat file was added in the current edit. Repo policy can also
-ratchet known crowded roots/families from `freeze` to `strict` when a
-self-hosting repo needs touched flat-root files to stop behaving like normal
-healthy edits. The same report now also emits `compatibility_redirects` from
+because no new flat file was added in the current edit. The
+`--fail-on-baseline-debt` flag promotes baseline debt to a hard failure; the
+optional `--baseline-debt-root` filter scopes enforcement to specific
+directories (the tooling and release bundles currently enforce
+`dev/scripts/devctl/commands`). Repo policy can also ratchet known crowded
+roots/families from `freeze` to `strict` when a self-hosting repo needs
+touched flat-root files to stop behaving like normal healthy edits. The same report now also emits `compatibility_redirects` from
 valid `shim-target` metadata so agents can follow moved entrypoints through
 one repo-owned surface instead of inferring the new path ad hoc.
 Compatibility shims inside that layout surface are now governed too: the
