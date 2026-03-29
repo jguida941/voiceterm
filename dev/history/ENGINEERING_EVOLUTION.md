@@ -6668,3 +6668,19 @@ Evidence: `dev/scripts/checks/package_layout/command.py`,
 `dev/guides/DEVELOPMENT.md`,
 `dev/scripts/README.md`,
 `AGENTS.md`.
+
+### 2026-03-29 - Ensure-action probe-guided refactor splits orchestration from data mapping
+
+Fact: `dev/scripts/devctl/commands/review_channel/ensure.py` had three
+functions exceeding 50 unique identifiers (`run_ensure_action` at 69,
+`assess_publisher_lifecycle` at 62, `build_ensure_detail` at 56). The
+identifier-density probe correctly flagged these as hard to hold in working
+memory. The fix extracts heartbeat refresh, supervisor-restart detail,
+recommended-command selection, and report construction into
+`_ensure_helpers.py`, and splits publisher start-attempt and stop-reason
+mapping into focused helpers. Target function densities dropped 18-30%.
+Remaining density comes from typed field mapping in data-bridge functions
+where the identifier vocabulary is driven by the dataclass field surface.
+
+Evidence: `dev/scripts/devctl/commands/review_channel/ensure.py`,
+`dev/scripts/devctl/commands/review_channel/_ensure_helpers.py`.

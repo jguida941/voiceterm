@@ -561,6 +561,11 @@
   the same owner chain: use this truthful state to drive bounded decomposition
   and only then promote selected crowded roots/families from reporting debt to
   blocking working-tree failures.
+- 2026-03-29 ensure-action probe-guided refactor: `ensure.py` orchestration
+  split into `_ensure_helpers.py` (heartbeat refresh, detail assembly, report
+  construction) and focused publisher lifecycle helpers. Target function
+  identifier density reduced 18-30% (max 69→51). Remaining density is
+  from typed field mapping in data-bridge functions.
 - 2026-03-29 package-layout baseline-debt enforcement closure: the
   `check_package_layout` guard now supports `--fail-on-baseline-debt` with
   optional `--baseline-debt-root` filtering, promoting detected baseline debt

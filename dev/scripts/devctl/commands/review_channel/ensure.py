@@ -7,14 +7,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from ...review_channel.peer_liveness import REVIEW_CHANNEL_REVIEWER_FOLLOW_COMMAND
 from ..review_channel_command import (
-    EnsureActionReport,
     EnsureBridgeStatus,
     PublisherLifecycleAssessment,
     RuntimePaths,
     PUBLISHER_FOLLOW_COMMAND,
     _coerce_runtime_paths,
+)
+from ._ensure_helpers import (
+    build_ensure_detail,
+    build_ensure_report,
+    try_refresh_heartbeat,
 )
 from ._ensure_supervisor import EnsureStatusSnapshot, try_restart_reviewer_supervisor
 
@@ -97,6 +100,52 @@ def read_ensure_status(
     return report, build_ensure_bridge_status(report)
 
 
+def _try_start_publisher(
+    *,
+    args,
+    repo_root: Path,
+    paths: RuntimePaths,
+    publisher_state: dict[str, object],
+    deps: EnsureActionDeps,
+) -> tuple[dict[str, object], bool, str, int | None, str | None, list[str]]:
+    """Attempt to spawn the publisher and wait for it to confirm running."""
+    details: list[str] = []
+
+    started, pid, log_path = deps.spawn_follow_publisher_fn(
+        args=args, repo_root=repo_root, paths=paths,
+    )
+    start_status = "started" if started else "failed"
+    running = False
+
+    if started:
+        for _ in range(10):
+            deps.sleep_fn(0.1)
+            publisher_state = deps.read_publisher_state_safe_fn(paths)
+            if bool(publisher_state.get("running")):
+                running = True
+                break
+
+        if not running:
+            start_status = deps.verify_detached_start_fn(pid=pid, paths=paths)
+
+        details.append("Persistent publisher start was requested.")
+    else:
+        details.append(
+            "Persistent publisher start failed before launch confirmation."
+        )
+
+    return publisher_state, running, start_status, pid, log_path, details
+
+
+def _stopped_publisher_attention(stop_reason: str) -> str:
+    """Map a publisher stop reason to an attention override label."""
+    if stop_reason == "failed_start":
+        return "publisher_failed_start"
+    if stop_reason == "detached_exit":
+        return "publisher_detached_exit"
+    return "publisher_missing"
+
+
 def assess_publisher_lifecycle(
     *,
     args,
@@ -121,41 +170,20 @@ def assess_publisher_lifecycle(
             ),
         )
 
-    publisher_start_status = "not_attempted"
-    publisher_pid: int | None = None
-    publisher_log_path: str | None = None
+    start_status = "not_attempted"
+    pid: int | None = None
+    log_path: str | None = None
     details: list[str] = []
 
-    if (
-        not publisher_running
-        and bool(getattr(args, "start_publisher_if_missing", False))
+    if not publisher_running and bool(
+        getattr(args, "start_publisher_if_missing", False)
     ):
-        started, publisher_pid, publisher_log_path = deps.spawn_follow_publisher_fn(
-            args=args,
-            repo_root=repo_root,
-            paths=runtime_paths,
-        )
-        publisher_start_status = "started" if started else "failed"
-
-        if started:
-            for _ in range(10):
-                deps.sleep_fn(0.1)
-                publisher_state = deps.read_publisher_state_safe_fn(runtime_paths)
-                if bool(publisher_state.get("running")):
-                    publisher_running = True
-                    break
-
-            if not publisher_running:
-                publisher_start_status = deps.verify_detached_start_fn(
-                    pid=publisher_pid,
-                    paths=runtime_paths,
-                )
-
-            details.append("Persistent publisher start was requested.")
-        else:
-            details.append(
-                "Persistent publisher start failed before launch confirmation."
+        publisher_state, publisher_running, start_status, pid, log_path, details = (
+            _try_start_publisher(
+                args=args, repo_root=repo_root, paths=runtime_paths,
+                publisher_state=publisher_state, deps=deps,
             )
+        )
 
     if publisher_running:
         return PublisherLifecycleAssessment(
@@ -163,23 +191,16 @@ def assess_publisher_lifecycle(
             publisher_running=True,
             publisher_required=True,
             publisher_status="running",
-            publisher_start_status=publisher_start_status,
-            publisher_pid=publisher_pid,
-            publisher_log_path=publisher_log_path,
+            publisher_start_status=start_status,
+            publisher_pid=pid,
+            publisher_log_path=log_path,
             details=tuple(details + ["Persistent publisher is running."]),
         )
 
-    stop_reason = str(publisher_state.get("stop_reason", ""))
-    if stop_reason == "failed_start":
-        attention_override = "publisher_failed_start"
-    elif stop_reason == "detached_exit":
-        attention_override = "publisher_detached_exit"
-    else:
-        attention_override = "publisher_missing"
-
-    recommended_command = None
-    if publisher_start_status != "started":
-        recommended_command = PUBLISHER_FOLLOW_COMMAND
+    attention_override = _stopped_publisher_attention(
+        str(publisher_state.get("stop_reason", ""))
+    )
+    recommended_command = PUBLISHER_FOLLOW_COMMAND if start_status != "started" else None
 
     details.append("Persistent publisher is not running; start the follow publisher.")
     return PublisherLifecycleAssessment(
@@ -187,9 +208,9 @@ def assess_publisher_lifecycle(
         publisher_running=False,
         publisher_required=True,
         publisher_status="not_running",
-        publisher_start_status=publisher_start_status,
-        publisher_pid=publisher_pid,
-        publisher_log_path=publisher_log_path,
+        publisher_start_status=start_status,
+        publisher_pid=pid,
+        publisher_log_path=log_path,
         recommended_command=recommended_command,
         attention_override=attention_override,
         details=tuple(details),
@@ -214,48 +235,24 @@ def run_ensure_action(
         )
 
     report, bridge_state = read_ensure_status(
-        args=args,
-        repo_root=repo_root,
-        paths=runtime_paths,
-        deps=deps,
+        args=args, repo_root=repo_root, paths=runtime_paths, deps=deps,
     )
-    refreshed = False
-    refresh_detail = None
 
-    if bridge_state.codex_poll_state in ("stale", "missing"):
-        if runtime_paths.bridge_path is not None and runtime_paths.bridge_path.exists():
-            try:
-                refresh_result = deps.refresh_bridge_heartbeat_fn(
-                    repo_root=repo_root,
-                    bridge_path=runtime_paths.bridge_path,
-                    reason="ensure",
-                )
-                refreshed = True
-                refresh_detail = (
-                    f"Heartbeat refreshed at {refresh_result.last_codex_poll_utc}"
-                )
-
-                report, bridge_state = read_ensure_status(
-                    args=args,
-                    repo_root=repo_root,
-                    paths=runtime_paths,
-                    deps=deps,
-                )
-            except (ValueError, OSError) as exc:
-                refresh_detail = f"Heartbeat refresh failed: {exc}"
+    hb = try_refresh_heartbeat(
+        args=args, repo_root=repo_root, paths=runtime_paths,
+        bridge_state=bridge_state, report=report, deps=deps,
+        read_ensure_status_fn=read_ensure_status,
+    )
+    report, bridge_state = hb.report, hb.bridge_state
 
     restart_attempt = try_restart_reviewer_supervisor(
         args=args,
         repo_root=repo_root,
         paths=runtime_paths,
         deps=deps,
-        snapshot=EnsureStatusSnapshot(
-            report=report,
-            bridge_state=bridge_state,
-        ),
+        snapshot=EnsureStatusSnapshot(report=report, bridge_state=bridge_state),
         read_ensure_status_fn=read_ensure_status,
     )
-    reviewer_supervisor_restarted = restart_attempt.restarted
     report = restart_attempt.report
     bridge_state = restart_attempt.bridge_state
 
@@ -269,68 +266,26 @@ def run_ensure_action(
     attention_status = pub.attention_override or bridge_state.attention_status
     ensure_ok = (
         bridge_state.heartbeat_ok
-        and (bridge_state.reviewer_supervisor_ok or reviewer_supervisor_restarted)
+        and (bridge_state.reviewer_supervisor_ok or restart_attempt.restarted)
         and not (pub.publisher_required and not pub.publisher_running)
     )
 
-    detail_parts: list[str] = []
-
-    if reviewer_supervisor_restarted:
-        detail_parts.append("Reviewer supervisor was dead; auto-restarted.")
-    elif restart_attempt.attempted and restart_attempt.start_status == "spawn_failed":
-        detail_parts.append(
-            "Reviewer supervisor auto-restart failed before launch confirmation."
-        )
-    elif restart_attempt.attempted and restart_attempt.start_status != "not_attempted":
-        detail_parts.append(
-            "Reviewer supervisor auto-restart failed before heartbeat confirmation."
-        )
-    if ensure_ok:
-        detail_parts.append("Reviewer loop is healthy.")
-    else:
-        detail_parts.append(
-            f"Reviewer loop needs attention: {attention_status} "
-            f"(poll={bridge_state.codex_poll_state})."
-        )
-
-    if refresh_detail:
-        detail_parts.append(refresh_detail)
-
-    if not bridge_state.reviewer_supervisor_ok and not reviewer_supervisor_restarted:
-        detail_parts.append(
-            "reviewer supervisor follow loop is required while review is pending."
-        )
-
-    detail_parts.extend(pub.details)
-
-    recommended_command = pub.recommended_command
-    if not bridge_state.reviewer_supervisor_ok and not reviewer_supervisor_restarted:
-        recommended_command = REVIEW_CHANNEL_REVIEWER_FOLLOW_COMMAND
-    elif pub.publisher_required and not pub.publisher_running:
-        recommended_command = PUBLISHER_FOLLOW_COMMAND
-
-    ensure_report = EnsureActionReport(
-        command="review-channel",
-        action="ensure",
-        ok=ensure_ok,
-        reviewer_mode=bridge_state.reviewer_mode,
-        codex_poll_state=bridge_state.codex_poll_state,
-        reviewer_freshness=bridge_state.reviewer_freshness,
-        heartbeat_age_seconds=bridge_state.heartbeat_age_seconds,
+    detail, recommended_command = build_ensure_detail(
+        restart_attempt=restart_attempt,
+        ensure_ok=ensure_ok,
         attention_status=attention_status,
-        refreshed=refreshed,
-        publisher=pub.publisher_state,
-        publisher_required=pub.publisher_required,
-        publisher_status=pub.publisher_status,
-        publisher_start_status=pub.publisher_start_status,
-        reviewer_worker=bridge_state.reviewer_worker,
-        reviewer_supervisor=bridge_state.reviewer_supervisor,
-        service_identity=bridge_state.service_identity,
-        attach_auth_policy=bridge_state.attach_auth_policy,
-        detail=" ".join(detail_parts),
-        review_needed=bridge_state.review_needed,
-        publisher_pid=pub.publisher_pid,
-        publisher_log_path=pub.publisher_log_path,
+        bridge_state=bridge_state,
+        refresh_detail=hb.detail,
+        pub=pub,
+    )
+
+    report_dict = build_ensure_report(
+        ensure_ok=ensure_ok,
+        bridge_state=bridge_state,
+        attention_status=attention_status,
+        hb=hb,
+        pub=pub,
+        detail=detail,
         recommended_command=recommended_command,
     )
-    return ensure_report.to_report(), 0 if ensure_ok else 1
+    return report_dict, 0 if ensure_ok else 1

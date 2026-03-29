@@ -227,6 +227,9 @@ Three quality layers matter in practice:
     now emit machine-readable `reviewer_worker` state, and
     `review-channel --action ensure --follow` cadence frames carry the same
     `review_needed` signal without pretending semantic review completion.
+    The ensure orchestration in `ensure.py` delegates heartbeat refresh,
+    detail assembly, and report construction to `_ensure_helpers.py` so each
+    function stays focused on one concern.
     Keep instruction-shaped review-channel fields flat: bridge/current-session
     instructions and queue `derived_next_instruction` should use compact
     summary text only, while full `Context Recovery Packet` markdown stays in

@@ -246,7 +246,10 @@ Portability note:
   `review_needed` signal without claiming semantic review completion.
   `ensure --follow` also reclaims a missing detached reviewer supervisor when
   dual-agent mode is still active, so the recovery loop is corrective instead
-  of status-only. Repo-owned reviewer writes also keep `bridge.md`
+  of status-only. The ensure orchestration delegates heartbeat refresh,
+  supervisor-restart detail, recommended-command selection, and report
+  construction to `_ensure_helpers.py`, keeping the main `run_ensure_action`
+  focused on the phase sequence. Repo-owned reviewer writes also keep `bridge.md`
   current-state-only by replacing stale reviewer `Poll Status` prose on each
   write instead of stacking new notes over old revision bullets. Detached
   repo-owned `ensure --follow` and `reviewer-heartbeat --follow` launches now pin
