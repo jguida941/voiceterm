@@ -214,9 +214,11 @@
   owns remote/default-branch/protected-branch rules plus preflight, post-push,
   and policy-gated bypass routing, `devctl push` now emits typed push-stage
   truth (`validation_ready`, `published_remote`, `post_push_green`), persists
-  the managed latest push artifact at `dev/reports/push/latest.json`, and
-  legacy `sync` / release helpers now read the same policy instead of
-  hardcoding GitHub push defaults.
+  the managed latest push artifact at `dev/reports/push/latest.json`, writes
+  a `published_remote` snapshot as soon as `git push` succeeds, records the
+  current branch/HEAD in that artifact so startup can override stale local
+  upstream divergence during recovery, and legacy `sync` / release helpers
+  now read the same policy instead of hardcoding GitHub push defaults.
 - Current checkpoint-intake follow-up inside that same lane: startup surfaces
   must expose not only whether a push is policy-guarded, but whether the
   current worktree is still within the repo-pack-defined continuation budget.

@@ -11,16 +11,17 @@ from ...common import emit_output, pipe_output, run_cmd, write_output
 from ...config import REPO_ROOT
 from ...governance.push_policy import build_post_push_commands, load_push_policy
 from ...governance.push_routing import PushRefRoutingState, build_preflight_shell_command
-from ...governance.push_state import current_upstream_ref
-from ...runtime import ActionResult, TypedAction
+from ...governance.push_state import current_head_commit_sha, current_upstream_ref
+from ...runtime import TypedAction
 from ...runtime.startup_context import build_startup_context
 from ...runtime.vcs import branch_divergence, remote_branch_exists, remote_exists
-from .push_flow import PushFlowOutcome, execute_push_flow_with_dependencies
+from .push_flow import execute_push_flow_with_dependencies
 from .push_artifact import latest_push_report_relpath, serialize_push_report
-from .push_report import (
-    PushReportInputs,
-    build_push_report,
-    render_push_report,
+from .push_report import render_push_report
+from .push_snapshot import (
+    PushReportContext,
+    build_push_report_payload,
+    persist_published_remote_snapshot,
 )
 
 REQUESTED_BY = "devctl.push"
@@ -188,17 +189,6 @@ def _record_divergence(state: PushRunState, remote: str, branch: str) -> bool:
         return False
     return True
 
-
-def _execute_push_flow(state: PushRunState, policy, args) -> PushFlowOutcome:
-    return execute_push_flow_with_dependencies(
-        state,
-        policy,
-        args,
-        run_cmd_fn=run_cmd,
-        build_post_push_commands_fn=build_post_push_commands,
-    )
-
-
 def _summarize_dirty_paths(
     changes: list[dict[str, object]],
     *,
@@ -231,8 +221,7 @@ def run(args) -> int:
     """Validate and optionally execute a guarded push for the current branch."""
     policy = load_push_policy(policy_path=getattr(args, "quality_policy", None))
     state = _load_run_state(policy, args)
-    _run_fetch_and_preflight(state, policy, args)
-    outcome = _execute_push_flow(state, policy, args)
+    head_commit = current_head_commit_sha()
     typed_action = asdict(
         _build_typed_action(
             repo_pack_id=policy.repo_pack_id,
@@ -242,39 +231,31 @@ def run(args) -> int:
         )
     )
     artifact_path = latest_push_report_relpath()
-    action_result = ActionResult(
-        schema_version=1,
-        contract_id="ActionResult",
-        action_id="vcs.push",
-        ok=outcome.ok,
-        status=outcome.status,
-        reason=outcome.reason,
-        retryable=not outcome.ok,
-        partial_progress=outcome.partial_progress,
-        operator_guidance=outcome.operator_guidance,
-        warnings=tuple(state.warnings),
-        artifact_paths=(artifact_path,),
-    ).to_dict()
-    report_inputs = PushReportInputs(
+    report_context = PushReportContext(
         policy=policy,
-        branch=state.branch,
-        remote=state.remote,
-        execute=bool(args.execute),
-        skip_preflight=bool(args.skip_preflight),
-        skip_post_push=bool(args.skip_post_push),
-        dirty_paths=state.dirty_paths,
-        fetch_step=state.fetch_step,
-        preflight_step=state.preflight_step,
-        push_step=state.push_step,
-        post_push_steps=state.post_push_steps,
-        push_stages=outcome.stages,
+        state=state,
+        args=args,
+        head_commit=head_commit,
         typed_action=typed_action,
-        action_result=action_result,
-        warnings=state.warnings,
-        errors=state.errors,
         artifact_path=artifact_path,
     )
-    report = build_push_report(report_inputs)
+    _run_fetch_and_preflight(state, policy, args)
+    outcome = execute_push_flow_with_dependencies(
+        state,
+        policy,
+        args,
+        run_cmd_fn=run_cmd,
+        build_post_push_commands_fn=build_post_push_commands,
+        published_remote_snapshot_fn=lambda reason, operator_guidance, partial_progress: (
+            persist_published_remote_snapshot(
+                report_context,
+                reason=reason,
+                operator_guidance=operator_guidance,
+                partial_progress=partial_progress,
+            )
+        ),
+    )
+    report = build_push_report_payload(report_context, outcome=outcome)
     report_json = serialize_push_report(report)
     output = report_json if args.format == "json" else render_push_report(report)
     pipe_rc = emit_output(

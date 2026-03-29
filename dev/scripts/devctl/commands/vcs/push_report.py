@@ -34,6 +34,7 @@ class PushReportInputs:
     policy: PushPolicy
     branch: str
     remote: str
+    head_commit: str
     execute: bool
     skip_preflight: bool
     skip_post_push: bool
@@ -61,6 +62,7 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     report["policy_path"] = inputs.policy.policy_path
     report["branch"] = inputs.branch
     report["remote"] = inputs.remote
+    report["head_commit"] = inputs.head_commit
     report["execute"] = inputs.execute
     report["skip_preflight"] = inputs.skip_preflight
     report["skip_post_push"] = inputs.skip_post_push
@@ -88,6 +90,7 @@ def render_push_report(report: dict[str, Any]) -> str:
     lines.append(f"- reason: {report.get('reason')}")
     lines.append(f"- branch: {report.get('branch')}")
     lines.append(f"- remote: {report.get('remote')}")
+    lines.append(f"- head_commit: {report.get('head_commit')}")
     lines.append(f"- execute: {report.get('execute')}")
     lines.append(f"- policy_path: {report.get('policy_path')}")
     warnings = report.get("warnings") or []

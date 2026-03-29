@@ -16,6 +16,8 @@ from .push_policy import PushCheckpointPolicy, PushPolicy
 class PushEnforcementSnapshot:
     """Typed snapshot of the repo-owned push/checkpoint state."""
 
+    current_branch: str
+    current_head_commit: str
     default_remote: str
     development_branch: str
     release_branch: str
@@ -35,10 +37,15 @@ class PushEnforcementSnapshot:
     worktree_clean: bool
     recommended_action: str
     latest_push_report_path: str = ""
+    latest_push_report_branch: str = ""
+    latest_push_report_remote: str = ""
+    latest_push_report_head_commit: str = ""
     latest_push_report_status: str = ""
     latest_push_report_reason: str = ""
     latest_push_report_published_remote: bool = False
     latest_push_report_post_push_green: bool = False
+    latest_push_report_matches_current_branch: bool = False
+    latest_push_report_matches_current_head: bool = False
 
 
 def detect_push_enforcement_state(
@@ -53,6 +60,8 @@ def detect_push_enforcement_state(
         if hook_path_text
         else (repo_root / ".git" / "hooks" / "pre-push")
     )
+    current_branch = _git_stdout(repo_root, "rev-parse", "--abbrev-ref", "HEAD")
+    current_head_commit = current_head_commit_sha(repo_root=repo_root)
     hook_installed = hook_path.is_file()
     raw_guarded = hook_installed and os.access(hook_path, os.X_OK)
     upstream_ref = current_upstream_ref(repo_root=repo_root)
@@ -77,6 +86,30 @@ def detect_push_enforcement_state(
     )
     safe_to_continue_editing = not checkpoint_required
     checkpoint_reason = "clean_worktree"
+    latest_push_report = load_latest_push_report(repo_root=repo_root) or {}
+    push_stages = latest_push_report.get("push_stages")
+    if not isinstance(push_stages, dict):
+        push_stages = {}
+    latest_push_report_branch = str(latest_push_report.get("branch") or "").strip()
+    latest_push_report_remote = str(latest_push_report.get("remote") or "").strip()
+    latest_push_report_head_commit = str(
+        latest_push_report.get("head_commit") or ""
+    ).strip()
+    latest_push_report_matches_current_branch = bool(
+        current_branch
+        and latest_push_report_branch
+        and current_branch == latest_push_report_branch
+    )
+    latest_push_report_matches_current_head = bool(
+        current_head_commit
+        and latest_push_report_head_commit
+        and current_head_commit == latest_push_report_head_commit
+    )
+    recorded_remote_publication_for_current_head = (
+        bool(push_stages.get("published_remote"))
+        and latest_push_report_matches_current_branch
+        and latest_push_report_matches_current_head
+    )
     if checkpoint_required:
         recommended_action = "checkpoint_before_continue"
         checkpoint_reason = _checkpoint_reason(
@@ -87,15 +120,13 @@ def detect_push_enforcement_state(
     elif worktree_dirty:
         recommended_action = "commit_before_push"
         checkpoint_reason = "within_dirty_budget"
-    elif ahead == 0 and upstream_ref:
+    elif recorded_remote_publication_for_current_head or (ahead == 0 and upstream_ref):
         recommended_action = "no_push_needed"
     else:
         recommended_action = "use_devctl_push"
-    latest_push_report = load_latest_push_report(repo_root=repo_root) or {}
-    push_stages = latest_push_report.get("push_stages")
-    if not isinstance(push_stages, dict):
-        push_stages = {}
     snapshot = PushEnforcementSnapshot(
+        current_branch=current_branch,
+        current_head_commit=current_head_commit,
         default_remote=policy.default_remote,
         development_branch=policy.development_branch,
         release_branch=policy.release_branch,
@@ -119,10 +150,17 @@ def detect_push_enforcement_state(
         worktree_clean=worktree_clean,
         recommended_action=recommended_action,
         latest_push_report_path=latest_push_report_relpath(repo_root=repo_root),
+        latest_push_report_branch=latest_push_report_branch,
+        latest_push_report_remote=latest_push_report_remote,
+        latest_push_report_head_commit=latest_push_report_head_commit,
         latest_push_report_status=str(latest_push_report.get("status") or "").strip(),
         latest_push_report_reason=str(latest_push_report.get("reason") or "").strip(),
         latest_push_report_published_remote=bool(push_stages.get("published_remote")),
         latest_push_report_post_push_green=bool(push_stages.get("post_push_green")),
+        latest_push_report_matches_current_branch=(
+            latest_push_report_matches_current_branch
+        ),
+        latest_push_report_matches_current_head=latest_push_report_matches_current_head,
     )
     return asdict(snapshot)
 
@@ -136,6 +174,11 @@ def current_upstream_ref(*, repo_root: Path = REPO_ROOT) -> str:
         "--symbolic-full-name",
         "@{u}",
     )
+
+
+def current_head_commit_sha(*, repo_root: Path = REPO_ROOT) -> str:
+    """Return the current HEAD commit SHA, or empty when unavailable."""
+    return _git_stdout(repo_root, "rev-parse", "HEAD")
 
 
 def _git_stdout(repo_root: Path, *cmd: str) -> str:

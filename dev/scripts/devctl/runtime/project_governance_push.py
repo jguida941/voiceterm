@@ -12,6 +12,8 @@ from .value_coercion import coerce_bool, coerce_int, coerce_string
 class PushEnforcement:
     """Repo-owned push/checkpoint posture for the current worktree."""
 
+    current_branch: str = ""
+    current_head_commit: str = ""
     default_remote: str = "origin"
     development_branch: str = "main"
     release_branch: str = "main"
@@ -31,10 +33,15 @@ class PushEnforcement:
     worktree_clean: bool = True
     recommended_action: str = "use_devctl_push"
     latest_push_report_path: str = ""
+    latest_push_report_branch: str = ""
+    latest_push_report_remote: str = ""
+    latest_push_report_head_commit: str = ""
     latest_push_report_status: str = ""
     latest_push_report_reason: str = ""
     latest_push_report_published_remote: bool = False
     latest_push_report_post_push_green: bool = False
+    latest_push_report_matches_current_branch: bool = False
+    latest_push_report_matches_current_head: bool = False
 
 
 def push_enforcement_from_mapping(
@@ -54,6 +61,8 @@ def push_enforcement_from_mapping(
     else:
         worktree_clean = coerce_bool(worktree_clean_raw)
     return PushEnforcement(
+        current_branch=coerce_string(payload.get("current_branch")),
+        current_head_commit=coerce_string(payload.get("current_head_commit")),
         default_remote=coerce_string(payload.get("default_remote")) or "origin",
         development_branch=coerce_string(payload.get("development_branch"))
         or "main",
@@ -84,6 +93,11 @@ def push_enforcement_from_mapping(
         recommended_action=coerce_string(payload.get("recommended_action"))
         or "use_devctl_push",
         latest_push_report_path=coerce_string(payload.get("latest_push_report_path")),
+        latest_push_report_branch=coerce_string(payload.get("latest_push_report_branch")),
+        latest_push_report_remote=coerce_string(payload.get("latest_push_report_remote")),
+        latest_push_report_head_commit=coerce_string(
+            payload.get("latest_push_report_head_commit")
+        ),
         latest_push_report_status=coerce_string(payload.get("latest_push_report_status")),
         latest_push_report_reason=coerce_string(payload.get("latest_push_report_reason")),
         latest_push_report_published_remote=coerce_bool(
@@ -91,5 +105,11 @@ def push_enforcement_from_mapping(
         ),
         latest_push_report_post_push_green=coerce_bool(
             payload.get("latest_push_report_post_push_green")
+        ),
+        latest_push_report_matches_current_branch=coerce_bool(
+            payload.get("latest_push_report_matches_current_branch")
+        ),
+        latest_push_report_matches_current_head=coerce_bool(
+            payload.get("latest_push_report_matches_current_head")
         ),
     )

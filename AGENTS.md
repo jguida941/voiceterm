@@ -430,9 +430,13 @@ checklist plus chat memory.
     `startup_order`, typed plan continuity, and routing defaults travel
     through one startup-family surface instead of staying report-only.
     Startup recovery now also reads the managed latest-push artifact at
-    `dev/reports/push/latest.json`: if it records `published_remote=true`
-    while `post_push_green=false`, the next action is post-push repair/status
-    work, not another push attempt.
+    `dev/reports/push/latest.json`: `devctl push --execute` writes a
+    `published_remote` snapshot as soon as `git push` succeeds, keyed to the
+    current branch and HEAD commit, and startup treats that persisted
+    current-HEAD publication record as canonical even if local upstream
+    divergence still looks stale until the next fetch. So
+    `published_remote=true` plus a matching current HEAD means post-push
+    repair/status work, not another push attempt.
 4.7 Treat governed-markdown authority the same way: prefer typed
     `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
     parsed `plan_registry` entries when those projections are available, but

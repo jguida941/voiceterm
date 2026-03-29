@@ -6457,6 +6457,17 @@ publication truth even if the local command later exits non-zero because the
 post-push bundle failed or the terminal session was interrupted; the next
 step is post-push repair/status verification, not a second push attempt.
 
+### 2026-03-28 - Startup push recovery now trusts current-HEAD publication snapshots
+
+Fact: persisting the final push report was still too late for the live failure
+mode. A real `git push` could succeed, the post-push bundle could keep
+running, and recovery would still look at a stale local `ahead 1` upstream
+view and recommend pushing again. `devctl push --execute` now writes a
+`published_remote` snapshot immediately after `git push` succeeds, records the
+published branch/HEAD in that artifact, and startup recovery treats a matching
+current-HEAD artifact as canonical remote-publication truth even before the
+next fetch refreshes the tracking ref.
+
 ### 2026-03-27 - Python architecture learning and AI explainability are now one tracked MP-377 concern
 
 Fact: the latest architecture discussion exposed a real usability gap in the

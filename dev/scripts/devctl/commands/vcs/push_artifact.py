@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -38,3 +39,15 @@ def load_latest_push_report(*, repo_root: Path = REPO_ROOT) -> dict[str, Any] | 
 def serialize_push_report(report: dict[str, Any]) -> str:
     """Render the canonical persisted JSON payload for the latest-push artifact."""
     return json.dumps(report, indent=2) + "\n"
+
+
+def persist_latest_push_report(
+    report: Mapping[str, Any],
+    *,
+    repo_root: Path = REPO_ROOT,
+) -> str:
+    """Write the managed latest-push artifact and return its repo-relative path."""
+    path = resolve_push_report_artifact_path(repo_root=repo_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(serialize_push_report(dict(report)), encoding="utf-8")
+    return display_path(path, repo_root=repo_root)

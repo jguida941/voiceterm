@@ -47,6 +47,7 @@ def execute_push_flow_with_dependencies(
     *,
     run_cmd_fn: Callable[..., dict[str, object]],
     build_post_push_commands_fn: Callable[..., list[str]],
+    published_remote_snapshot_fn: Callable[[str, str, bool], None] | None = None,
 ) -> PushFlowOutcome:
     if state.errors:
         return PushFlowOutcome(
@@ -93,6 +94,15 @@ def execute_push_flow_with_dependencies(
                 "`devctl push --execute`."
             ),
             stages=PushStageTruth(validation_ready=True),
+        )
+    if published_remote_snapshot_fn is not None:
+        published_remote_snapshot_fn(
+            "post_push_bundle_pending",
+            (
+                "Push completed and remote publication is recorded. The post-push "
+                "bundle still needs to finish before the slice is fully green."
+            ),
+            True,
         )
     if args.skip_post_push:
         return PushFlowOutcome(

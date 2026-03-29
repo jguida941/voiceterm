@@ -341,19 +341,28 @@ class TestCLIRegistration(unittest.TestCase):
             rendered,
         )
 
-    def test_push_decision_recovers_remote_published_post_push_failure(self) -> None:
+    def test_push_decision_recovers_remote_published_post_push_failure_for_current_head(
+        self,
+    ) -> None:
         governance = _minimal_governance(
+            current_branch="feature/x",
+            current_head_commit="abc123",
             upstream_ref="origin/feature/x",
-            ahead_of_upstream_commits=0,
+            ahead_of_upstream_commits=1,
             worktree_clean=True,
             worktree_dirty=False,
             checkpoint_required=False,
             safe_to_continue_editing=True,
             latest_push_report_path="dev/reports/push/latest.json",
+            latest_push_report_branch="feature/x",
+            latest_push_report_remote="origin",
+            latest_push_report_head_commit="abc123",
             latest_push_report_status="published_remote",
             latest_push_report_reason="post_push_bundle_failed",
             latest_push_report_published_remote=True,
             latest_push_report_post_push_green=False,
+            latest_push_report_matches_current_branch=True,
+            latest_push_report_matches_current_head=True,
         )
 
         decision = _derive_push_decision(

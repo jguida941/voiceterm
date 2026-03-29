@@ -4240,6 +4240,13 @@ working on `MP-377`.
   policy now gates skip-flag bypasses, and `devctl push` emits typed stage
   truth that distinguishes validation readiness, remote publication, and
   post-push green instead of collapsing them into one generic success claim.
+- 2026-03-28 governed-push recovery follow-up: stage separation alone was not
+  enough. The platform also needs eager publication evidence plus stale-view
+  override rules, because a successful remote push can leave local upstream
+  divergence looking ahead until the next fetch. `devctl push --execute` now
+  writes a `published_remote` snapshot immediately after `git push` succeeds
+  and startup recovery treats a matching current-branch/current-HEAD artifact
+  as canonical publication truth while post-push follow-up finishes.
 - 2026-03-27 repo-entrance and dev-loop correction: keep the current repo
   split by audience instead of trying to make one README do two jobs. The
   root `README.md` remains the VoiceTerm product entrypoint while `MP-377`

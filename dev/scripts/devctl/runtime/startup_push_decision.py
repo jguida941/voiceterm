@@ -11,6 +11,10 @@ from .startup_push_models import (
     PushDecisionState,
     project_push_decision as _project_push_decision,
 )
+from .startup_push_recovery import (
+    artifact_publication_recovery_decision,
+    artifact_records_current_head_publish,
+)
 
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
@@ -30,11 +34,13 @@ def derive_push_decision(
 ) -> PushDecisionState:
     """Return the next governed push action for AI-facing startup surfaces."""
     pe = governance.push_enforcement
+    remote_publication_is_current = artifact_records_current_head_publish(governance)
     inputs = PushDecisionInputs(
         worktree_clean=bool(pe.worktree_clean),
         review_gate_allows_push=bool(gate.review_gate_allows_push),
         has_remote_work_to_push=not (
-            pe.upstream_ref and pe.ahead_of_upstream_commits == 0
+            remote_publication_is_current
+            or (pe.upstream_ref and pe.ahead_of_upstream_commits == 0)
         ),
     )
     local_readiness = _local_readiness_decision(inputs, pe)
@@ -43,52 +49,10 @@ def derive_push_decision(
     review_decision = _review_state_decision(inputs, gate)
     if review_decision is not None:
         return review_decision
+    artifact_recovery = artifact_publication_recovery_decision(inputs, governance)
+    if artifact_recovery is not None:
+        return artifact_recovery
     if not inputs.has_remote_work_to_push:
-        published_remote = bool(pe.latest_push_report_published_remote)
-        post_push_green = bool(pe.latest_push_report_post_push_green)
-        if published_remote and not post_push_green:
-            artifact_path = str(pe.latest_push_report_path or "").strip()
-            artifact_hint = (
-                f" Review the latest push artifact at `{artifact_path}` and repair the "
-                "failed post-push follow-up instead of pushing again."
-                if artifact_path
-                else " Repair the failed post-push follow-up instead of pushing again."
-            )
-            return _project_push_decision(
-                inputs,
-                PushDecisionSpec(
-                    action="no_push_needed",
-                    reason="remote_publish_recorded_post_push_pending",
-                    next_step_summary=(
-                        "Remote publication already succeeded for this branch."
-                        + artifact_hint
-                    ),
-                    rule_summary=(
-                        "No governed push is needed because the branch already matches "
-                        "upstream and the latest persisted push report shows the remote "
-                        "publish succeeded even though the post-push bundle did not "
-                        "finish green."
-                    ),
-                    match_evidence=(
-                        rule_match_evidence(
-                            "startup_push.remote_publish_recorded_post_push_pending",
-                            "Startup recovered a persisted remote-published push result.",
-                            "worktree_clean=True",
-                            "review_gate_allows_push=True",
-                            "ahead_of_upstream_commits=0",
-                            f"latest_push_report_published_remote={published_remote}",
-                            f"latest_push_report_post_push_green={post_push_green}",
-                        ),
-                    ),
-                    rejected_rule_traces=(
-                        rejected_rule_trace(
-                            "startup_push.run_devctl_push",
-                            "Run the governed push path immediately.",
-                            "The latest push artifact already recorded remote publication.",
-                        ),
-                    ),
-                ),
-            )
         return _project_push_decision(
             inputs,
             PushDecisionSpec(

@@ -686,9 +686,11 @@ Workflow permissions note:
    `--skip-post-push` only work when repo policy explicitly allows those
    bypasses. The managed latest-push artifact at
    `dev/reports/push/latest.json` preserves that stage truth for later
-   startup/recovery, so `published_remote=true` plus
-   `post_push_green=false` means "repair the post-push follow-up" rather
-   than "push again."
+   startup/recovery, writes a `published_remote` snapshot immediately after
+   `git push` succeeds, and matches that artifact against the current HEAD so
+   stale local `ahead 1` tracking refs do not trigger a second push.
+   `published_remote=true` plus `post_push_green=false` means "repair the
+   post-push follow-up" rather than "push again."
    The shared `devctl` command runner now follows the parent push/post-push
    command lifetime instead of waiting forever on inherited descendant stdout
    pipes after the governed push has already completed.

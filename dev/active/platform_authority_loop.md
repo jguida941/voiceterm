@@ -1874,6 +1874,14 @@ blocker or exception in plan state before skipping the declared order.
   defaults. This keeps "remote updated" distinct from "post-push green" in
   the canonical branch-push surface instead of overloading one generic
   success state.
+- 2026-03-28: Closed the next governed-push recovery miss. `devctl push` now
+  writes a `published_remote` artifact snapshot immediately after `git push`
+  succeeds, records the pushed branch/HEAD in that artifact, and startup push
+  authority now trusts that current-HEAD publication record even when local
+  upstream divergence is still stale until the next fetch. That closes the
+  exact "push already happened but recovery still recommends pushing again"
+  failure mode the repo just hit in live use.
+  success state.
 - 2026-03-26: Rechecked the authority-loop scope against the user's repo-
   neutral bar. The current runtime can honor alternate authority/doc roots
   once governance is already correct, but it is still not fail-closed or
