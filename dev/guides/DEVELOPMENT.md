@@ -282,7 +282,10 @@ Three quality layers matter in practice:
     `current_session` block in `dev/reports/review_channel/latest/review_state.json`
     and `compact.json`; prefer that contract for live instruction /
     implementer ACK reads instead of scraping append-only prose from
-    `bridge.md`.
+    `bridge.md`. The same typed `bridge` block now carries
+    `reviewed_hash_current` and `review_needed`, so review freshness should
+    come from the persisted typed projection rather than a bridge-text hash
+    compare or a status-only side channel.
   - `startup-context` is the typed startup packet for those same sessions.
     It should read reviewer acceptance from typed `bridge.review_accepted`
     state; `bridge.md` remains a compatibility projection and handoff

@@ -2524,7 +2524,10 @@ Still open before `P0` closes:
       blocker summary, and live reviewer/ack state), while `bridge.md`,
       `latest.md`, chat packets, CLI status, and operator views remain
       projections over that typed state rather than carrying independent
-      current truth.
+      current truth. Adjacent review-freshness booleans such as
+      `bridge.reviewed_hash_current` / `bridge.review_needed` should live in
+      the same typed `ReviewState` artifact instead of surviving only in the
+      ephemeral CLI status envelope.
 - [ ] Add one minimal `explain-latest` read surface over the same owner chain:
       it should load `current_session` plus the latest `DecisionTrace` and
       render what changed, why the system chose continue/checkpoint/review/

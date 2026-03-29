@@ -404,7 +404,11 @@ checklist plus chat memory.
     projection and handoff surface, not the preferred source for current-
     status reads. Startup/tandem/push consumers that read live freshness from
     that projection must refresh the bridge-backed typed snapshot through the
-    repo-owned status path before trusting `current_session` fields.
+    repo-owned status path before trusting `current_session` fields. The same
+    typed artifact now carries reviewer hash truth in `bridge` too:
+    `bridge.reviewed_hash_current` / `bridge.review_needed` are the canonical
+    booleans for "does Codex still owe review?" while `current_session`
+    remains intentionally narrow to instruction / ACK state.
 4.6 Treat `startup-context` the same way: prefer typed
     `review_state.json` fields such as `bridge.review_accepted` as the
     canonical startup reviewer-gate authority. `bridge.md` is now a

@@ -59,6 +59,8 @@ class ReviewBridgeState:
     current_instruction_revision: str
     claude_ack_revision: str
     last_reviewed_scope: str
+    reviewed_hash_current: bool | None = None
+    review_needed: bool | None = None
     review_accepted: bool = False
     """Reviewer-owned acceptance gate: True only when verdict shows
     accepted/all-green/resolved AND findings are clear/none.  Populated by

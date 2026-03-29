@@ -213,6 +213,10 @@ def _build_event_bridge_state(
     bridge_state["last_reviewed_scope"] = str(
         current_session.get("last_reviewed_scope") or ""
     )
+    bridge_state["reviewed_hash_current"] = bridge_liveness.get(
+        "reviewed_hash_current"
+    )
+    bridge_state["review_needed"] = bridge_liveness.get("review_needed")
     # Event-backed projections do not yet carry reviewer verdict semantics, so
     # keep the transitional acceptance gate fail-closed instead of inventing a
     # non-reviewer-owned proxy signal.

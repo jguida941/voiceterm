@@ -315,7 +315,11 @@
   headings so duplicate `## Context Recovery Packet` blocks do not leak back
   into the compatibility projection on rerender. This does not retire the
   bridge or finish the full typed writer cutover; those broader MP-355 /
-  MP-377 closures remain open.
+  MP-377 closures remain open. Latest same-lane follow-up (2026-03-29): the
+  persisted typed `review_state.json` bridge block now carries
+  `reviewed_hash_current` and `review_needed` directly, so saved typed review
+  state no longer drops the core reviewer-hash truth while `current_session`
+  stays intentionally limited to instruction / ACK state.
 - Current runtime-baseline correction after the 2026-03-21 architecture audit:
   Phase 1 closure must keep five runtime-behind-docs gaps explicit instead of
   treating them as background drift. Portability is still blocked first by

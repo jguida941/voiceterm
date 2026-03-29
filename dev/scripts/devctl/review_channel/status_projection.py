@@ -284,6 +284,8 @@ def _build_bridge_state(
     overall_state: str,
 ) -> ReviewBridgeState:
     current_session = build_bridge_current_session(snapshot, bridge_liveness)
+    reviewed_hash_current = bridge_liveness.get("reviewed_hash_current")
+    review_needed = bridge_liveness.get("review_needed")
     return ReviewBridgeState(
         overall_state=overall_state,
         codex_poll_state=str(bridge_liveness.get("codex_poll_state") or "unknown"),
@@ -310,6 +312,12 @@ def _build_bridge_state(
         current_instruction_revision=current_session.current_instruction_revision,
         claude_ack_revision=current_session.implementer_ack_revision,
         last_reviewed_scope=current_session.last_reviewed_scope,
+        reviewed_hash_current=(
+            None
+            if reviewed_hash_current is None
+            else bool(reviewed_hash_current)
+        ),
+        review_needed=None if review_needed is None else bool(review_needed),
         review_accepted=_compute_review_accepted(snapshot),
         implementer_completion_stall=bool(
             bridge_liveness.get("implementer_completion_stall")

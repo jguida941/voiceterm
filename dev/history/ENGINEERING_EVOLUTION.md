@@ -73,6 +73,20 @@ remains a compatibility projection, and the broader typed writer/mutation
 cutover plus repo-pack/path portability work stays open under `MP-355` /
 `MP-377`.
 
+### 2026-03-29 - Persisted typed review-state now keeps reviewer hash truth
+
+The next follow-up exposed a smaller but important contract hole: the live
+`review-channel --action status` payload already knew whether Codex still owed
+review (`reviewer_worker.review_needed`, `reviewed_hash_current`), but the
+persisted `review_state.json` artifact dropped that truth and kept only the
+instruction/ACK-focused `current_session` block.
+
+Closed that gap by extending the canonical typed `ReviewState.bridge` payload
+with `reviewed_hash_current` and `review_needed`, while keeping
+`current_session` intentionally narrow to live instruction and implementer ACK
+state. Event-backed parity stays fail-closed by emitting `null` when those
+booleans are not yet knowable from structured events.
+
 ## Term Quick Reference
 
 - PTY: pseudo-terminal session used to keep CLI context alive.

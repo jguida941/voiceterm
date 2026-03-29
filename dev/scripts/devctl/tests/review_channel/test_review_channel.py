@@ -5031,6 +5031,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 review_state["bridge"]["reviewer_mode"],
                 "active_dual_agent",
             )
+            self.assertTrue(review_state["bridge"]["reviewed_hash_current"])
+            self.assertFalse(review_state["bridge"]["review_needed"])
             self.assertEqual(rs_compat.get("service_identity"), service_identity)
             self.assertEqual(rs_compat.get("attach_auth_policy"), attach_auth_policy)
             self.assertEqual(compact["queue"]["pending_total"], 0)
@@ -5456,6 +5458,13 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(payload["attention"]["status"], "runtime_missing")
             self.assertEqual(payload["reviewer_worker"]["state"], "review_needed")
             self.assertTrue(payload["reviewer_worker"]["review_needed"])
+            review_state = json.loads(
+                Path(payload["projection_paths"]["review_state_path"]).read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertFalse(review_state["bridge"]["reviewed_hash_current"])
+            self.assertTrue(review_state["bridge"]["review_needed"])
             self.assertTrue(
                 any("Reviewer runtime is missing" in warning for warning in payload["warnings"])
             )

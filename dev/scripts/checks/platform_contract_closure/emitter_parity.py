@@ -24,6 +24,8 @@ _BRIDGE_STATE_EXPECTED_TYPES: dict[str, type] = {
     "current_instruction_revision": str,
     "claude_ack_revision": str,
     "last_reviewed_scope": str,
+    "reviewed_hash_current": bool,
+    "review_needed": bool,
     "review_accepted": bool,
     "implementer_completion_stall": bool,
     "publisher_running": bool,
