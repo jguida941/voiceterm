@@ -596,6 +596,13 @@
   guidance. The next same-lane follow-up stays scoped to generated bootstrap
   surfaces: make the client-vs-core boundary equally explicit in starter
   instructions/docs instead of implying it from VoiceTerm defaults.
+- 2026-03-30 startup auto-repair closure: repo-owned `startup-context --repair` now
+  reads typed `startup-context`, startup-authority, and bridge-backed
+  `review-channel status`, classifies approval-boundary vs safe-local-repair
+  vs manual-follow-up state, applies only bounded repo-owned safe fixes, and
+  refreshes the managed startup receipt after each pass. This closes the first
+  local repair-controller slice without pretending the wider graph-backed
+  architecture-trigger work is finished.
 - 2026-03-29 package-layout baseline-debt enforcement closure: the
   `check_package_layout` guard now supports `--fail-on-baseline-debt` with
   optional `--baseline-debt-root` filtering, promoting detected baseline debt
@@ -3956,6 +3963,11 @@ become the main product surface.
     global architecture review: repeated churn or policy-declared coupling
     deltas should be able to promote a slice from local guidance to a wider
     architecture pass without making full-graph reasoning the default.
+    Current partial proof: `startup-context --repair` now gives startup one typed local
+    repair controller over approval-boundary vs safe-local-repair vs manual-
+    follow-up state and refreshes startup receipts after bounded repo-owned
+    fixes, but it does not yet promote recurring churn into graph-backed
+    architecture review automatically.
   - [ ] Unify the current startup systems behind one canonical
     `startup-context` / `WorkIntakePacket` path so bootstrap instructions,
     governed-plan `Session Resume`, repo memory, and recent episode evidence

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from . import startup_repair as startup_repair_flow
 from ...common_io import display_path
 from ...common import add_standard_output_arguments
 from .startup_context_render import (
@@ -112,6 +113,24 @@ def add_parser(subparsers) -> None:
         default=False,
         help="Allow reviewer to proceed with implementation in active_dual_agent.",
     )
+    sc_cmd.add_argument(
+        "--repair",
+        action="store_true",
+        default=False,
+        help=(
+            "Classify startup blockers and emit the bounded startup repair report "
+            "instead of the normal startup receipt."
+        ),
+    )
+    sc_cmd.add_argument(
+        "--apply-safe-fixes",
+        action="store_true",
+        default=False,
+        help=(
+            "Only valid with --repair. Apply repo-owned safe local fixes while "
+            "still failing closed on approval-boundary work."
+        ),
+    )
     add_standard_output_arguments(sc_cmd, format_choices=("json", "md", "summary"))
 
 
@@ -169,6 +188,9 @@ def _machine_summary(
 
 def run(args) -> int:
     """Emit the typed startup-context packet."""
+    if getattr(args, "repair", False) or getattr(args, "apply_safe_fixes", False):
+        return startup_repair_flow.run_startup_repair(args)
+
     ctx = build_startup_context()
     governance = ctx.governance
     authority_report = build_startup_authority_report()

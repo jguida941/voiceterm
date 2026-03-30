@@ -384,7 +384,13 @@ Three quality layers matter in practice:
     same consumers now refresh the bridge-backed typed projection through the
     repo-owned review status path before reading live `current_session` /
     freshness fields, so stale saved snapshots do not outrank the status
-    writer.
+    writer. When `startup-context` exits non-zero but the state is still
+    locally repairable, prefer
+    `python3 dev/scripts/devctl.py startup-context --repair --apply-safe-fixes --format md`
+    before operator escalation. That startup-family command classifies the
+    current state from typed startup/review data, applies only bounded safe
+    repo-owned repairs, refreshes the managed startup receipt after each pass,
+    and still fails closed on checkpoint/publish/launch approval boundaries.
   - Reviewer/implementer launch commands plus explicit reviewer takeover are
     runtime-owned `ConductorCapabilityState` facts now, not prompt-local text.
     Prompt/bootstrap/bridge projection surfaces must render from that typed

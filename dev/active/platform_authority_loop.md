@@ -1399,9 +1399,22 @@ blocker or exception in plan state before skipping the declared order.
       coupling-delta spikes, or other policy-declared graph drift signals
       should be able to promote a slice from file-local guidance to a wider
       architecture pass without making full-graph reasoning the default path.
+      Current partial proof: `startup-context --repair` now gives the startup-family one
+      typed local repair controller that classifies approval-boundary vs
+      safe-local-repair vs manual-follow-up state and refreshes the managed
+      startup receipt after bounded repo-owned repairs, but it does not yet
+      promote repeated churn into graph-backed architecture review by itself.
 
 ## Session Resume
 
+- 2026-03-30 startup repair closure: `startup-context --repair` is now the bounded
+  repo-owned Step 0 repair companion to `startup-context`. It reads typed
+  startup authority plus bridge-backed review status, classifies issues as
+  approval-boundary vs safe-local-repair vs manual-follow-up, applies only the
+  bounded repo-owned repair actions that already exist under `review-channel`,
+  and refreshes the managed startup receipt after each pass. The next same-lane
+  follow-up is not another local controller: it is the broader architecture
+  trigger from repeated repair churn into bounded graph-backed review.
 - 2026-03-29 typed push-cadence landed: repo policy now owns publication
   thresholds, `PushEnforcement` computes the typed publication backlog once,
   and `PushDecisionState` projects that same cadence truth into
@@ -1760,6 +1773,15 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-03-30: Closed the first bounded startup auto-repair slice in the active
+  `MP-377` authority-loop lane. New repo-owned `startup-context --repair` now reads
+  typed `startup-context`, startup-authority, and bridge-backed
+  `review-channel status`, classifies current state into approval-boundary vs
+  safe-local-repair vs manual-follow-up, can apply only bounded safe repairs
+  (`ensure`, `render-bridge`, `reset-implementer-state`), and refreshes the
+  managed startup receipt after each pass so later repo-owned launchers stop
+  depending on operator chat nudges for obvious local fixes. The broader graph-
+  backed architecture-trigger follow-up remains open.
 - 2026-03-29: Closed the policy-backed typed publication-cadence slice in the
   active `MP-377` authority-loop lane. Repo policy now owns backlog thresholds
   (`recommend_after_ahead_commits`, `urgent_after_ahead_commits`),

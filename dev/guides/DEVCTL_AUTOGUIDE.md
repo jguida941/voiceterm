@@ -69,6 +69,11 @@ sync.
 ### Current review swarm bootstrap
 
 ```bash
+# Step 0 bootstrap repair when startup-context is red but the state is still
+# locally repairable.
+python3 dev/scripts/devctl.py startup-context --repair --format md
+python3 dev/scripts/devctl.py startup-context --repair --apply-safe-fixes --format md
+
 # Read the live reviewer/coder state first
 python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json
 

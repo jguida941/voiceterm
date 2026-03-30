@@ -145,6 +145,25 @@ startup-authority/runtime rule that blocks those modules from importing
 prompt-level shortcut fails in CI instead of quietly becoming a second source
 of truth.
 
+### 2026-03-30 - Startup repair now has one repo-owned bounded auto-triage path
+
+The next self-hosting follow-up closed the obvious operator-babysitting gap
+left after `startup-context` became a fail-closed Step 0 receipt. The system
+could already tell whether the repo was over checkpoint budget, whether the
+bridge runtime was repairable, and which repo-owned review-channel fix matched
+the current attention state, but operators still had to translate that typed
+state into the next command by hand.
+
+Closed that gap by adding `startup-context --repair`, a bounded repo-owned controller
+that reads typed `startup-context`, startup-authority, and bridge-backed
+review status, classifies issues as approval-boundary vs safe-local-repair vs
+manual-follow-up, applies only bounded safe repairs (`ensure`,
+`render-bridge`, `reset-implementer-state`), and refreshes the managed
+startup receipt after each pass. The command deliberately orchestrates the
+existing repo-owned `review-channel` repair actions instead of re-implementing
+their mutation logic in another package, so the platform keeps one owner for
+bridge mutation while startup gets one canonical repair surface.
+
 ## Term Quick Reference
 
 - PTY: pseudo-terminal session used to keep CLI context alive.

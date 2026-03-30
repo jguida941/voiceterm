@@ -179,8 +179,12 @@ Run this sequence for every task. Do not skip steps.
    receipt for AI bootstrap; the typed JSON receipt/artifacts still write
    silently under the repo-owned reports root. If it exits non-zero,
    checkpoint or repair the repo state before editing files or starting
-   guarded launcher/mutation commands. User summaries, stale chat continuity,
-   or remembered prior state are not a substitute for this Step 0 receipt.
+   guarded launcher/mutation commands. Use
+   `python3 dev/scripts/devctl.py startup-context --repair --apply-safe-fixes --format md`
+   for repo-owned safe local repair before escalating to operator prompts; it
+   still fails closed on checkpoint/publish/launch approval boundaries. User
+   summaries, stale chat continuity, or remembered prior state are not a
+   substitute for this Step 0 receipt.
    Do not replay bootstrap packets into chat by default; keep any chat
    acknowledgement to blocker state plus next step unless the user asks for
    the detailed packet.

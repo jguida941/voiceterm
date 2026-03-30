@@ -5103,6 +5103,14 @@ Execution order for this section:
   `dev.scripts.devctl.review_channel` orchestration directly. That keeps the
   platform thesis honest: if the system already knows a fact in typed state,
   projections consume it instead of re-declaring policy in local strings.
+- 2026-03-30: Closed the first bounded startup auto-repair controller slice in
+  the same self-hosting lane. `startup-context --repair` now consumes typed startup and
+  review status instead of asking the operator to manually translate those
+  surfaces into the next repair command, and it keeps repair ownership honest
+  by orchestrating the existing repo-owned `review-channel` repair actions
+  rather than copying that logic into another runtime package. The remaining
+  architecture thesis work is the wider promotion path from repeated local
+  repair churn into graph-backed architecture review, not more prompt glue.
 - 2026-03-29: Closed the bounded startup-thesis checklist item for `MP-377`.
   `dev/config/why_stack.md` now feeds `startup-context` with a concise
   repo/product thesis ahead of SOP/router detail, and the rendered startup
