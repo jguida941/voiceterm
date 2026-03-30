@@ -135,7 +135,7 @@ def refresh_status_snapshot(
         reviewer_supervisor_state=reviewer_supervisor_state,
     )
 
-    projection_paths = write_status_projection_bundle(
+    bundle_result = write_status_projection_bundle(
         context=StatusProjectionContext(
             repo_root=repo_root,
             bridge_path=bridge_path,
@@ -156,6 +156,9 @@ def refresh_status_snapshot(
             reduced_runtime=reduced_runtime,
         ),
     )
+    from ..runtime.review_state_parser import review_state_from_payload
+
+    review_state = review_state_from_payload(bundle_result.review_state)
 
     return ReviewChannelStatusSnapshot(
         lanes=lanes,
@@ -163,11 +166,12 @@ def refresh_status_snapshot(
         attention=attention,
         warnings=merged_warnings,
         errors=merged_errors,
-        projection_paths=projection_paths,
+        projection_paths=bundle_result.projection_paths,
         reviewer_worker=reviewer_worker,
         push_decision=push_decision,
         service_identity=service_identity,
         attach_auth_policy=attach_auth_policy,
+        review_state=review_state,
     )
 
 

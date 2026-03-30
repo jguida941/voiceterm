@@ -156,13 +156,14 @@ state into the next command by hand.
 
 Closed that gap by adding `startup-context --repair`, a bounded repo-owned controller
 that reads typed `startup-context`, startup-authority, and bridge-backed
-review status, classifies issues as approval-boundary vs safe-local-repair vs
-manual-follow-up, applies only bounded safe repairs (`ensure`,
-`render-bridge`, `reset-implementer-state`), and refreshes the managed
-startup receipt after each pass. The command deliberately orchestrates the
-existing repo-owned `review-channel` repair actions instead of re-implementing
-their mutation logic in another package, so the platform keeps one owner for
-bridge mutation while startup gets one canonical repair surface.
+review status. The deeper follow-up closed the owner seam too: startup repair
+now reads the same typed `ReviewState` contract that repo-owned
+`review-channel` status refresh already produces, calls the existing
+repo-owned repair actions directly instead of shelling out through CLI JSON,
+and applies one bounded safe repair (`ensure`, `render-bridge`,
+`reset-implementer-state`) per invocation before rereading typed state. The
+platform keeps one owner for bridge mutation while startup gets one canonical,
+conservative repair surface.
 
 ## Term Quick Reference
 

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .core import LaneAssignment
     from .projection_bundle import ReviewChannelProjectionPaths
+    from ..runtime.review_state_models import ReviewState
 
 
 @dataclass(frozen=True)
@@ -24,3 +25,4 @@ class ReviewChannelStatusSnapshot:
     push_decision: dict[str, object] | None = None
     service_identity: dict[str, object] | None = None
     attach_auth_policy: dict[str, object] | None = None
+    review_state: "ReviewState | None" = None

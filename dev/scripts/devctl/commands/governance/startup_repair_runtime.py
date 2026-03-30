@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 from pathlib import Path
-import subprocess
-import sys
+from types import SimpleNamespace
 
 from ...common_io import display_path
+from ...runtime.review_state_models import ReviewState
 from ...runtime.startup_authority import build_startup_authority_report
 from ...runtime.startup_context import build_startup_context
 from ...runtime.startup_receipt import build_startup_receipt, write_startup_receipt
@@ -17,26 +16,21 @@ from ...runtime.startup_repair import (
     StartupRepairResult,
     build_startup_repair_result,
 )
+from ...runtime.startup_repair_models import StartupRepairActionId
 
-_TRACKED_STATE_ACTIONS = {"render_bridge", "reset_implementer_state"}
-_ACTION_RUNTIME_COMMANDS = {
-    "ensure_runtime": ("ensure", ["--start-publisher-if-missing"]),
-    "render_bridge": ("render-bridge", []),
-    "reset_implementer_state": (
-        "reset-implementer-state",
-        ["--reviewer-mode", "active_dual_agent", "--reason", "startup-context-repair"],
-    ),
+_TRACKED_STATE_ACTIONS = {
+    StartupRepairActionId.RENDER_BRIDGE.value,
+    StartupRepairActionId.RESET_IMPLEMENTER_STATE.value,
 }
 
 
 @dataclass(frozen=True, slots=True)
 class ReviewRuntimePaths:
-    """Bounded runtime paths for review-channel CLI orchestration."""
+    """Bounded runtime paths needed by startup repair."""
 
     review_channel_path: Path
     bridge_path: Path
     status_dir: Path
-    promotion_plan_path: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,7 +48,7 @@ def collect_state(
 ) -> CollectedStartupRepairState:
     ctx = build_startup_context(repo_root=repo_root)
     authority_report = build_startup_authority_report(repo_root=repo_root)
-    review_report, review_error, runtime_paths = _read_review_state(
+    review_state, review_error, runtime_paths = _read_review_state(
         repo_root=repo_root,
         ctx=ctx,
     )
@@ -67,7 +61,7 @@ def collect_state(
         ctx=ctx,
         authority_report=authority_report,
         startup_receipt_path=receipt_path,
-        review_report=review_report,
+        review_state=review_state,
         review_error=review_error,
         applied_actions=applied_actions,
     )
@@ -85,26 +79,16 @@ def apply_safe_repair_action(
             action_id,
             "Review-channel runtime paths were unavailable for the requested repair action.",
         )
-    action = _ACTION_RUNTIME_COMMANDS.get(action_id)
-    if action is None:
-        return _failed_action_record(
-            action_id,
-            f"Unsupported startup-context repair action: {action_id}",
-        )
-
     try:
-        report, exit_code, error_text = _run_review_channel_json(
+        report, exit_code = _run_review_channel_action(
+            action_id=action_id,
             repo_root=repo_root,
             runtime_paths=runtime_paths,
-            action=action[0],
-            extra_args=action[1],
         )
-    except OSError as exc:
-        return _failed_action_record(action_id, str(exc))
-    if report is None:
+    except (OSError, ValueError) as exc:
         return _failed_action_record(
             action_id,
-            error_text or "review-channel action did not emit JSON output.",
+            str(exc),
         )
     return _action_record(action_id=action_id, report=report, exit_code=exit_code)
 
@@ -113,7 +97,7 @@ def _read_review_state(
     *,
     repo_root: Path,
     ctx,
-) -> tuple[dict[str, object] | None, str | None, ReviewRuntimePaths | None]:
+) -> tuple[ReviewState | None, str | None, ReviewRuntimePaths | None]:
     runtime_paths = _resolve_review_runtime_paths(repo_root=repo_root, ctx=ctx)
     if runtime_paths is None:
         if not ctx.reviewer_gate.bridge_active:
@@ -125,18 +109,32 @@ def _read_review_state(
             None,
         )
 
-    report, _exit_code, error_text = _run_review_channel_json(
-        repo_root=repo_root,
-        runtime_paths=runtime_paths,
-        action="status",
-    )
-    if report is None:
+    try:
+        from ...review_channel.state import refresh_status_snapshot
+
+        snapshot = refresh_status_snapshot(
+            repo_root=repo_root,
+            bridge_path=runtime_paths.bridge_path,
+            review_channel_path=runtime_paths.review_channel_path,
+            output_root=runtime_paths.status_dir,
+            promotion_plan_path=None,
+            execution_mode="markdown-bridge",
+            warnings=[],
+            errors=[],
+        )
+    except (OSError, ValueError) as exc:
         return (
             None,
-            error_text or "review-channel status did not emit JSON output.",
+            str(exc) or "review-channel status refresh failed.",
             runtime_paths,
         )
-    return report, None, runtime_paths
+    if snapshot.review_state is None:
+        return (
+            None,
+            "review-channel status refresh did not yield a typed ReviewState payload.",
+            runtime_paths,
+        )
+    return snapshot.review_state, None, runtime_paths
 
 
 def _resolve_review_runtime_paths(
@@ -180,67 +178,69 @@ def _write_current_startup_receipt(
     return display_path(path)
 
 
-def _run_review_channel_json(
+def _run_review_channel_action(
     *,
+    action_id: str,
     repo_root: Path,
     runtime_paths: ReviewRuntimePaths,
-    action: str,
-    extra_args: list[str] | None = None,
-) -> tuple[dict[str, object] | None, int, str]:
-    argv = [
-        sys.executable,
-        "dev/scripts/devctl.py",
-        "review-channel",
-        "--action",
-        action,
-        "--review-channel-path",
-        _repo_relative_arg(runtime_paths.review_channel_path, repo_root=repo_root),
-        "--bridge-path",
-        _repo_relative_arg(runtime_paths.bridge_path, repo_root=repo_root),
-        "--status-dir",
-        _repo_relative_arg(runtime_paths.status_dir, repo_root=repo_root),
-        "--terminal",
-        "none",
-        "--format",
-        "json",
-        "--execution-mode",
-        "markdown-bridge",
-    ]
-    if runtime_paths.promotion_plan_path is not None:
-        argv.extend(
-            [
-                "--promotion-plan",
-                _repo_relative_arg(runtime_paths.promotion_plan_path, repo_root=repo_root),
-            ]
+) -> tuple[dict[str, object], int]:
+    path_mapping = {
+        "review_channel_path": runtime_paths.review_channel_path,
+        "bridge_path": runtime_paths.bridge_path,
+        "status_dir": runtime_paths.status_dir,
+        "promotion_plan_path": None,
+    }
+    if action_id == StartupRepairActionId.ENSURE_RUNTIME.value:
+        from ..review_channel._follow_runtime import (
+            run_ensure_action as _run_ensure_action,
         )
-    if extra_args:
-        argv.extend(extra_args)
 
-    completed = subprocess.run(
-        argv,
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    stdout = completed.stdout.strip()
-    stderr = completed.stderr.strip()
-    if not stdout:
-        return None, completed.returncode, stderr
-    try:
-        payload = json.loads(stdout)
-    except ValueError:
-        return None, completed.returncode, stderr or stdout
-    if not isinstance(payload, dict):
-        return None, completed.returncode, stderr or stdout
-    return payload, completed.returncode, stderr
+        args = SimpleNamespace(
+            action="ensure",
+            execution_mode="markdown-bridge",
+            follow=False,
+            start_publisher_if_missing=True,
+            reviewer_overdue_seconds=None,
+        )
+        return _run_ensure_action(
+            args=args,
+            repo_root=repo_root,
+            paths=path_mapping,
+        )
+    if action_id == StartupRepairActionId.RENDER_BRIDGE.value:
+        from ..review_channel._render_bridge import (
+            run_render_bridge_action as _run_render_bridge_action,
+        )
 
+        args = SimpleNamespace(
+            action="render-bridge",
+            execution_mode="markdown-bridge",
+        )
+        return _run_render_bridge_action(
+            args=args,
+            repo_root=repo_root,
+            paths=path_mapping,
+        )
+    if action_id == StartupRepairActionId.RESET_IMPLEMENTER_STATE.value:
+        from ..review_channel._reset_implementer import (
+            run_reset_implementer_state_action as _run_reset_implementer_state_action,
+        )
+        from ..review_channel.status import _run_status_action
 
-def _repo_relative_arg(path: Path, *, repo_root: Path) -> str:
-    try:
-        return str(path.relative_to(repo_root))
-    except ValueError:
-        return str(path)
+        args = SimpleNamespace(
+            action="reset-implementer-state",
+            reason="startup-context-repair",
+            reviewer_mode="active_dual_agent",
+            execution_mode="markdown-bridge",
+            reviewer_overdue_seconds=None,
+        )
+        return _run_reset_implementer_state_action(
+            args=args,
+            repo_root=repo_root,
+            paths=path_mapping,
+            run_status_action_fn=_run_status_action,
+        )
+    raise ValueError(f"Unsupported startup-context repair action: {action_id}")
 
 
 def _action_record(

@@ -4,6 +4,16 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+from .enum_compat import StrEnum
+
+
+class StartupRepairActionId(StrEnum):
+    """Canonical action ids for bounded startup repair."""
+
+    ENSURE_RUNTIME = "ensure_runtime"
+    RENDER_BRIDGE = "render_bridge"
+    RESET_IMPLEMENTER_STATE = "reset_implementer_state"
+
 
 @dataclass(frozen=True, slots=True)
 class StartupRepairIssue:

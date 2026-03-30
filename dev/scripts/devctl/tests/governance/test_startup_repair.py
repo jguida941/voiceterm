@@ -35,6 +35,15 @@ from dev.scripts.devctl.runtime.project_governance import (
     RepoIdentity,
     RepoPackRef,
 )
+from dev.scripts.devctl.runtime.review_state_models import (
+    AgentRegistryState,
+    ReviewAttentionState,
+    ReviewBridgeState,
+    ReviewCurrentSessionState,
+    ReviewQueueState,
+    ReviewSessionState,
+    ReviewState,
+)
 from dev.scripts.devctl.runtime.startup_context import ReviewerGateState, StartupContext
 
 
@@ -83,6 +92,75 @@ def _ctx(
     )
 
 
+def _review_state(
+    *,
+    status: str,
+    owner: str,
+    summary: str,
+    recommended_action: str,
+    recommended_command: str,
+) -> ReviewState:
+    return ReviewState(
+        schema_version=1,
+        contract_id="ReviewState",
+        command="review-channel",
+        action="status",
+        timestamp="2026-03-30T00:00:00Z",
+        ok=True,
+        review=ReviewSessionState(
+            plan_id="MP-377",
+            controller_run_id="",
+            session_id="markdown-bridge",
+            surface_mode="markdown-bridge",
+            active_lane="review",
+        ),
+        queue=ReviewQueueState(
+            pending_total=0,
+            pending_codex=0,
+            pending_claude=0,
+            pending_cursor=0,
+            pending_operator=0,
+            stale_packet_count=0,
+            derived_next_instruction="",
+            derived_next_instruction_source={},
+        ),
+        current_session=ReviewCurrentSessionState(
+            current_instruction="",
+            current_instruction_revision="",
+            implementer_status="",
+            implementer_ack="",
+            implementer_ack_revision="",
+            implementer_ack_state="unknown",
+        ),
+        bridge=ReviewBridgeState(
+            overall_state="fresh",
+            codex_poll_state="fresh",
+            reviewer_freshness="fresh",
+            reviewer_mode="active_dual_agent",
+            last_codex_poll_utc="2026-03-30T00:00:00Z",
+            last_codex_poll_age_seconds=0,
+            last_worktree_hash="",
+            current_instruction="",
+            open_findings="",
+            claude_status="",
+            claude_ack="",
+            claude_ack_current=False,
+            current_instruction_revision="",
+            claude_ack_revision="",
+            last_reviewed_scope="",
+        ),
+        attention=ReviewAttentionState(
+            status=status,
+            owner=owner,
+            summary=summary,
+            recommended_action=recommended_action,
+            recommended_command=recommended_command,
+        ),
+        packets=(),
+        registry=AgentRegistryState(timestamp="2026-03-30T00:00:00Z", agents=()),
+    )
+
+
 class StartupRepairContractTests(unittest.TestCase):
     def test_parser_accepts_startup_context_repair_mode(self) -> None:
         args = cli.build_parser().parse_args(
@@ -102,15 +180,13 @@ class StartupRepairContractTests(unittest.TestCase):
             ctx=_ctx(),
             authority_report={"ok": True, "errors": [], "warnings": []},
             startup_receipt_path="dev/reports/startup/latest/receipt.json",
-            review_report={
-                "attention": {
-                    "status": "publisher_missing",
-                    "owner": "system",
-                    "summary": "Persistent heartbeat publisher is missing.",
-                    "recommended_action": "Start the publisher.",
-                    "recommended_command": "python3 dev/scripts/devctl.py review-channel --action ensure --start-publisher-if-missing --terminal none --format json",
-                }
-            },
+            review_state=_review_state(
+                status="publisher_missing",
+                owner="system",
+                summary="Persistent heartbeat publisher is missing.",
+                recommended_action="Start the publisher.",
+                recommended_command="python3 dev/scripts/devctl.py review-channel --action ensure --start-publisher-if-missing --terminal none --format json",
+            ),
         )
 
         self.assertFalse(result.ok)
@@ -129,15 +205,13 @@ class StartupRepairContractTests(unittest.TestCase):
             ),
             authority_report={"ok": False, "errors": ["checkpoint required"], "warnings": []},
             startup_receipt_path="dev/reports/startup/latest/receipt.json",
-            review_report={
-                "attention": {
-                    "status": "implementer_state_reset_required",
-                    "owner": "codex",
-                    "summary": "Stale implementer state must be reset.",
-                    "recommended_action": "Reset implementer state.",
-                    "recommended_command": "python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --reviewer-mode active_dual_agent --reason stale-implementer-launch-block --terminal none --format json",
-                }
-            },
+            review_state=_review_state(
+                status="implementer_state_reset_required",
+                owner="codex",
+                summary="Stale implementer state must be reset.",
+                recommended_action="Reset implementer state.",
+                recommended_command="python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --reviewer-mode active_dual_agent --reason stale-implementer-launch-block --terminal none --format json",
+            ),
         )
 
         self.assertEqual(result.next_action, "approval_required")
@@ -166,15 +240,13 @@ class StartupRepairContractTests(unittest.TestCase):
                 "warnings": [],
             },
             startup_receipt_path="dev/reports/startup/latest/receipt.json",
-            review_report={
-                "attention": {
-                    "status": "bridge_contract_error",
-                    "owner": "codex",
-                    "summary": "Bridge contract is inconsistent.",
-                    "recommended_action": "Re-render the bridge.",
-                    "recommended_command": "python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format json",
-                }
-            },
+            review_state=_review_state(
+                status="bridge_contract_error",
+                owner="codex",
+                summary="Bridge contract is inconsistent.",
+                recommended_action="Re-render the bridge.",
+                recommended_command="python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format json",
+            ),
         )
 
         self.assertEqual(result.issue_count, 1)
@@ -256,7 +328,7 @@ class StartupRepairCommandTests(unittest.TestCase):
                 side_effect=[first_state, second_state],
             ), patch(
                 "dev.scripts.devctl.commands.governance.startup_repair.select_safe_repair_action",
-                side_effect=["ensure_runtime", None],
+                side_effect=["ensure_runtime"],
             ), patch(
                 "dev.scripts.devctl.commands.governance.startup_repair._apply_safe_repair_action",
                 return_value=StartupRepairActionRecord(
@@ -272,6 +344,20 @@ class StartupRepairCommandTests(unittest.TestCase):
         self.assertEqual(payload["command"], "startup-context")
         self.assertTrue(payload["ok"])
         self.assertEqual(len(payload["applied_actions"]), 1)
+
+    def test_apply_safe_fixes_requires_repair_flag(self) -> None:
+        args = cli.build_parser().parse_args(
+            [
+                "startup-context",
+                "--apply-safe-fixes",
+                "--format",
+                "json",
+            ]
+        )
+
+        rc = cli.COMMAND_HANDLERS[args.command](args)
+
+        self.assertNotEqual(rc, 0)
 
 
 if __name__ == "__main__":

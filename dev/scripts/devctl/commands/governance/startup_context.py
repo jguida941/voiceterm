@@ -5,6 +5,7 @@ from __future__ import annotations
 from . import startup_repair as startup_repair_flow
 from ...common_io import display_path
 from ...common import add_standard_output_arguments
+from .common import render_governance_value_error
 from .startup_context_render import (
     publication_backlog_count,
     publication_backlog_guidance,
@@ -188,7 +189,11 @@ def _machine_summary(
 
 def run(args) -> int:
     """Emit the typed startup-context packet."""
-    if getattr(args, "repair", False) or getattr(args, "apply_safe_fixes", False):
+    if getattr(args, "apply_safe_fixes", False) and not getattr(args, "repair", False):
+        return render_governance_value_error(
+            ValueError("startup-context --apply-safe-fixes requires --repair.")
+        )
+    if getattr(args, "repair", False):
         return startup_repair_flow.run_startup_repair(args)
 
     ctx = build_startup_context()

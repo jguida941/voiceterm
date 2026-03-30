@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from .review_state_models import ReviewState
 from .startup_context import StartupContext
 from .startup_repair_models import (
     StartupRepairActionRecord,
+    StartupRepairActionId,
     StartupRepairIssue,
     StartupRepairResult,
 )
@@ -20,9 +22,9 @@ REVIEW_STATUS_COMMAND = (
     "--terminal none --format json"
 )
 _SAFE_FIX_PRIORITY = (
-    "ensure_runtime",
-    "render_bridge",
-    "reset_implementer_state",
+    StartupRepairActionId.ENSURE_RUNTIME.value,
+    StartupRepairActionId.RENDER_BRIDGE.value,
+    StartupRepairActionId.RESET_IMPLEMENTER_STATE.value,
 )
 
 
@@ -31,7 +33,7 @@ def build_startup_repair_result(
     ctx: StartupContext,
     authority_report: dict[str, object],
     startup_receipt_path: str,
-    review_report: dict[str, object] | None = None,
+    review_state: ReviewState | None = None,
     review_error: str | None = None,
     applied_actions: tuple[StartupRepairActionRecord, ...] = (),
 ) -> StartupRepairResult:
@@ -41,11 +43,11 @@ def build_startup_repair_result(
     issues = _classified_issues(
         ctx=ctx,
         authority_report=authority_report,
-        review_report=review_report,
+        review_state=review_state,
         review_error=review_error,
         approval_boundary_active=approval_boundary_active,
     )
-    review_attention = _review_attention(review_report=review_report, review_error=review_error)
+    review_attention = _review_attention(review_state=review_state, review_error=review_error)
     next_action, next_reason, next_command = _next_step(
         ctx=ctx,
         issues=issues,
@@ -112,7 +114,7 @@ def _classified_issues(
     *,
     ctx: StartupContext,
     authority_report: dict[str, object],
-    review_report: dict[str, object] | None,
+    review_state: ReviewState | None,
     review_error: str | None,
     approval_boundary_active: bool,
 ) -> tuple[StartupRepairIssue, ...]:
@@ -121,7 +123,7 @@ def _classified_issues(
         issues.append(_approval_boundary_issue(ctx))
 
     review_issue = _review_issue(
-        review_report=review_report,
+        review_state=review_state,
         review_error=review_error,
         approval_boundary_active=approval_boundary_active,
     )
@@ -140,15 +142,15 @@ def _classified_issues(
 
 def _review_attention(
     *,
-    review_report: dict[str, object] | None,
+    review_state: ReviewState | None,
     review_error: str | None,
 ) -> tuple[str, str, str]:
-    attention = review_report.get("attention") if isinstance(review_report, dict) else None
-    if isinstance(attention, dict):
+    attention = review_state.attention if review_state is not None else None
+    if attention is not None:
         return (
-            str(attention.get("status") or "").strip() or "unknown",
-            str(attention.get("owner") or "").strip() or "system",
-            str(attention.get("summary") or "").strip(),
+            str(attention.status or "").strip() or "unknown",
+            str(attention.owner or "").strip() or "system",
+            str(attention.summary or "").strip(),
         )
     if review_error:
         return ("status_unavailable", "system", review_error)
@@ -176,7 +178,7 @@ def _approval_boundary_issue(ctx: StartupContext) -> StartupRepairIssue:
 
 def _review_issue(
     *,
-    review_report: dict[str, object] | None,
+    review_state: ReviewState | None,
     review_error: str | None,
     approval_boundary_active: bool,
 ) -> StartupRepairIssue | None:
@@ -190,14 +192,14 @@ def _review_issue(
             detail=review_error,
             recommended_command=REVIEW_STATUS_COMMAND,
         )
-    if not isinstance(review_report, dict):
+    if review_state is None:
         return None
 
-    attention = review_report.get("attention")
-    if not isinstance(attention, dict):
+    attention = review_state.attention
+    if attention is None:
         return None
 
-    status = str(attention.get("status") or "").strip()
+    status = str(attention.status or "").strip()
     if status in {"", "healthy", "checkpoint_required"}:
         return None
 
@@ -208,10 +210,10 @@ def _review_issue(
         issue_id=status,
         issue_class="safe_local_repair" if action is not None else "manual_follow_up",
         source="review_channel",
-        owner=str(attention.get("owner") or "").strip() or "system",
-        summary=str(attention.get("summary") or "").strip() or status.replace("_", " "),
-        detail=str(attention.get("recommended_action") or "").strip(),
-        recommended_command=str(attention.get("recommended_command") or "").strip(),
+        owner=str(attention.owner or "").strip() or "system",
+        summary=str(attention.summary or "").strip() or status.replace("_", " "),
+        detail=str(attention.recommended_action or "").strip(),
+        recommended_command=str(attention.recommended_command or "").strip(),
         repairable=action is not None,
         safe_to_apply_now=action is not None and not blocked_by_approval_boundary,
         apply_action=action[0] if action is not None else "",
@@ -228,11 +230,11 @@ def _attention_safe_fix(status: str) -> tuple[str, bool] | None:
         "publisher_detached_exit",
         "reviewer_supervisor_required",
     }:
-        return ("ensure_runtime", False)
+        return (StartupRepairActionId.ENSURE_RUNTIME.value, False)
     if status == "bridge_contract_error":
-        return ("render_bridge", True)
+        return (StartupRepairActionId.RENDER_BRIDGE.value, True)
     if status == "implementer_state_reset_required":
-        return ("reset_implementer_state", True)
+        return (StartupRepairActionId.RESET_IMPLEMENTER_STATE.value, True)
     return None
 
 

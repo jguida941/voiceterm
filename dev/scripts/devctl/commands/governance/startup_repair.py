@@ -11,8 +11,6 @@ from .startup_repair_runtime import (
 )
 from .startup_repair_runtime import collect_state as _collect_state
 
-_MAX_SAFE_FIX_ATTEMPTS = 3
-
 
 def _render_markdown(result: StartupRepairResult) -> str:
     lines = ["# devctl startup-context --repair", ""]
@@ -125,23 +123,22 @@ def _run_repair_pass(
     if not apply_safe_fixes:
         return state
 
-    for _ in range(_MAX_SAFE_FIX_ATTEMPTS):
-        action_id = select_safe_repair_action(
-            state.result,
-            attempted_actions=tuple(attempted_actions),
-        )
-        if action_id is None:
-            return state
-        attempted_actions.append(action_id)
-        applied_actions.append(
-            _apply_safe_repair_action(
-                action_id=action_id,
-                repo_root=repo_root,
-                runtime_paths=state.runtime_paths,
-            )
-        )
-        state = _collect_state(
+    action_id = select_safe_repair_action(
+        state.result,
+        attempted_actions=tuple(attempted_actions),
+    )
+    if action_id is None:
+        return state
+    attempted_actions.append(action_id)
+    applied_actions.append(
+        _apply_safe_repair_action(
+            action_id=action_id,
             repo_root=repo_root,
-            applied_actions=tuple(applied_actions),
+            runtime_paths=state.runtime_paths,
         )
+    )
+    state = _collect_state(
+        repo_root=repo_root,
+        applied_actions=tuple(applied_actions),
+    )
     return state

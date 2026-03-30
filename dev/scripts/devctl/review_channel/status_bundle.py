@@ -46,11 +46,19 @@ class StatusProjectionPayload:
     reduced_runtime: dict[str, object] | None = None
 
 
+@dataclass(frozen=True)
+class StatusProjectionBundleResult:
+    """Written projection paths plus the canonical in-memory ReviewState payload."""
+
+    projection_paths: ReviewChannelProjectionPaths
+    review_state: dict[str, object]
+
+
 def write_status_projection_bundle(
     *,
     context: StatusProjectionContext,
     payload: StatusProjectionPayload,
-) -> ReviewChannelProjectionPaths:
+) -> StatusProjectionBundleResult:
     """Write bridge-backed status projections for operator/read-only consumers."""
     bridge_text = context.bridge_path.read_text(encoding="utf-8")
     snapshot = extract_bridge_snapshot(bridge_text)
@@ -63,13 +71,17 @@ def write_status_projection_bundle(
         timestamp=timestamp,
     )
     agent_registry = _build_status_agent_registry(context=context, timestamp=timestamp)
-    return write_projection_bundle(
+    projection_paths = write_projection_bundle(
         output_root=context.output_root,
         review_state=review_state,
         agent_registry=agent_registry,
         action="status",
         trace_events=[],
         full_extras=_status_full_extras(context=context, payload=payload),
+    )
+    return StatusProjectionBundleResult(
+        projection_paths=projection_paths,
+        review_state=review_state,
     )
 
 
