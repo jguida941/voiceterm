@@ -209,6 +209,13 @@ Three quality layers matter in practice:
     `active_dual_agent`, always pass the live
     `--expected-instruction-revision` from `review-channel --action status` or
     `bridge-poll`.
+  - Keep the implementer ACK contract identical across prompts, validators,
+    and typed status reads. In `Claude Ack`, acknowledge the current
+    instruction revision with one machine-readable line such as
+    `- acknowledged current instruction revision: <rev>` or
+    `- acknowledged; instruction-rev: <rev>`. `current_session`,
+    `bridge-poll`, and live bridge validation now share that same parser; do
+    not invent a repo-local third phrasing rule.
   - In VoiceTerm today the live compatibility bridge file is repo-root
     `bridge.md`, but review-channel roots should be understood as governed
     repo-pack/project-governance state and typed `review_state` remains the
@@ -295,7 +302,9 @@ Three quality layers matter in practice:
     `bridge.md`. The same typed `bridge` block now carries
     `reviewed_hash_current` and `review_needed`, so review freshness should
     come from the persisted typed projection rather than a bridge-text hash
-    compare or a status-only side channel.
+    compare or a status-only side channel. `review-channel --action bridge-poll`
+    now follows that same rule by refreshing and preferring the typed
+    `review_state` projection before deciding live ACK freshness.
   - `startup-context` is the typed startup packet for those same sessions.
     It should read reviewer acceptance from typed `bridge.review_accepted`
     state; `bridge.md` remains a compatibility projection and handoff

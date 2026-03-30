@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .ack_contract import ACK_REVISION_REQUIREMENT_PREFIX
 from .peer_liveness import (
     AttentionStatus,
     CODEX_POLL_OVERDUE_AFTER_SECONDS,
@@ -18,12 +19,12 @@ from .peer_liveness import (
 )
 
 _NON_REVIEWER_CONTRACT_ERROR_PREFIXES = (
-    "Live `Claude Ack` must include `instruction-rev:",
+    ACK_REVISION_REQUIREMENT_PREFIX,
     "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
     "Claude Status/Ack show implementer completion-stall language while ",
 )
 _RESETTABLE_IMPLEMENTER_ERROR_PREFIXES = (
-    "Live `Claude Ack` must include `instruction-rev:",
+    ACK_REVISION_REQUIREMENT_PREFIX,
     "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
     "Claude Status/Ack show implementer completion-stall language while ",
     "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present.",

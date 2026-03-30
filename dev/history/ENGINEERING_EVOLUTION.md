@@ -6696,3 +6696,36 @@ Evidence: `dev/scripts/devctl/commands/review_channel/ensure.py`,
   unrelated dirty diffs vs targeted-root diffs, and updated maintainer docs so
   the `dev/scripts/devctl/commands` ratchet is still explicit without making
   every bridge-only tooling pass permanently red on unrelated baseline debt.
+
+### 2026-03-29 - Semantic Claude ACK wording now flows through typed review-state authority
+
+Fact: the review-channel runtime already had typed `current_session` fields for
+instruction revision, implementer ACK revision, and ACK state, but the live
+bridge-backed path still derived those machine decisions from one markdown-only
+`instruction-rev:` token. A real failure escaped through that gap: Claude wrote
+`Acknowledged instruction revision <rev>`, the bridge parser treated it as
+missing, and the reviewer loop incorrectly concluded that Claude had not ACKed
+the current instruction. The fix keeps the migration bounded but moves the
+decision point onto typed authority. A new shared review-channel ACK helper now
+accepts both semantic acknowledgements and the legacy `instruction-rev:` form;
+bridge-backed `current_session` computes instruction revision / ACK revision /
+ACK state from that shared parser; `review-channel --action bridge-poll`
+refreshes and prefers the typed `review_state` projection before deciding live
+ACK freshness; and compatibility bridge rerendering now prefers typed
+current-session fields for machine-deciding live sections instead of raw bridge
+prose. This closes the false-stale ACK bug without pretending the broader
+writer-authority cutover is finished: reviewer-authored prose (`Poll Status`,
+`Current Verdict`, `Claude Questions`) and richer wait/block reasons still need
+the planned `DecisionTrace` + typed writer-authority slice.
+
+Evidence: `dev/scripts/devctl/review_channel/ack_contract.py`,
+`dev/scripts/devctl/review_channel/current_session_projection.py`,
+`dev/scripts/devctl/review_channel/status_projection.py`,
+`dev/scripts/devctl/review_channel/bridge_projection_state.py`,
+`dev/scripts/devctl/commands/review_channel/_bridge_poll.py`,
+`dev/scripts/devctl/tests/review_channel/test_ack_contract.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.

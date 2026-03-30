@@ -222,6 +222,13 @@ Portability note:
   reserve inline body flags for short plain strings. In `active_dual_agent`,
   pass the live `--expected-instruction-revision` from `review-channel
   --action status` or `bridge-poll`.
+- Keep the implementer ACK contract identical across prompts, validators, and
+  typed status reads. In `Claude Ack`, acknowledge the current instruction
+  revision with one machine-readable line such as
+  `- acknowledged current instruction revision: <rev>` or
+  `- acknowledged; instruction-rev: <rev>`. Bridge-backed `current_session`,
+  live bridge validation, and `review-channel --action bridge-poll` now share
+  that same parser.
 - `review-channel --action stop --daemon-kind <publisher|reviewer_supervisor|all>`
   is the repo-owned daemon reclaim path. Use it when detached follow daemons
   must be replaced by fresh repo-owned runtime, instead of sending raw shell
@@ -287,7 +294,9 @@ Portability note:
   `current_session` block in `dev/reports/review_channel/latest/review_state.json`
   and `compact.json`; prefer it for live current instruction / implementer ACK
   reads while the bridge migration remains in progress. `latest.md` renders
-  its current-session section from that typed state.
+  its current-session section from that typed state. `review-channel --action
+  bridge-poll` now follows the same rule by refreshing and preferring that
+  typed `review_state` projection before deciding live ACK freshness.
 - For reviewer-owned automation, treat the `status` report shape honestly:
   live read APIs expose `bridge_liveness` plus projection paths, and typed
   `current_session` comes from the generated `review_state.json` projection

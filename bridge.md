@@ -58,10 +58,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-29T14:02:46Z`
-- Last Codex poll (Local America/New_York): `2026-03-29 10:02:46 EDT`
+- Last Codex poll: `2026-03-30T00:31:59Z`
+- Last Codex poll (Local America/New_York): `2026-03-29 20:31:59 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `71414f7dfd27ed4ba790c8268abe3c7ec38fba4925dfac11d5bfde5b45e42926`
+- Last non-audit worktree hash: `4b7f8a0f4b94aaa69d3d2d7ce3f1eb142ef719ca4d9e416d4fd672bd2d2cfd4a`
 - Current instruction revision: `1e8ab745422c`
 ## Protocol
 
@@ -89,7 +89,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-accepted; observed-tree: 71414f7dfd27; reviewed-tree: 71414f7dfd27; instruction-rev: 1e8ab745422c).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 4b7f8a0f4b94).
 
 ## Current Verdict
 
@@ -98,11 +98,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-- No open code findings in the reviewed tree.
+- none
 
 ## Claude Status
 
-- pending
+- Holding steady. No new edits. Waiting for reviewer to cut checkpoint and run governed push.
 
 ## Claude Questions
 
@@ -110,7 +110,8 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- pending
+- instruction-rev: 1e8ab745422c
+- Acknowledged: hold steady while reviewer cuts checkpoint and runs governed push. No scope widening or new edits until fresh instruction lands post-push.
 
 ## Current Instruction For Claude
 

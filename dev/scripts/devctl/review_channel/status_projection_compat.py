@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Mapping
 
 from .attach_auth_projection import (
     build_attach_auth_policy_state,
@@ -24,6 +25,8 @@ class CompatProjectionInputs:
     service_identity: dict[str, object]
     attach_auth_policy: dict[str, object]
     legacy_agents: list[dict[str, object]]
+    current_session: object
+    bridge_state: object
 
 
 def build_bridge_compat_projection(
@@ -47,7 +50,13 @@ def build_bridge_compat_projection(
         build_bridge_projection_state(
             bridge_text=inputs.bridge_text,
             bridge_liveness=inputs.bridge_liveness,
+            current_session=_mapping(inputs.current_session),
+            bridge_state=_mapping(inputs.bridge_state),
         )
     )
     compat["agents"] = inputs.legacy_agents
     return compat
+
+
+def _mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}

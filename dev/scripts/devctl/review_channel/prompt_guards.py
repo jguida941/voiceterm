@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .ack_contract import ack_contract_prompt_line
 from ..runtime.role_profile import role_for_provider
 
 
@@ -83,6 +84,7 @@ def provider_bootstrap_guard_lines(
             "instruction revision changed; it does not tell you whether the "
             "reviewer owns the next turn on a changed tree."
         ),
+        ack_contract_prompt_line(),
         (
             "- If `Current Instruction For Claude` still contains active work and "
             "the reviewer has not written an explicit wait state, do not say "

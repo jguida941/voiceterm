@@ -57,11 +57,16 @@ def build_bridge_projection_state(
     *,
     bridge_text: str,
     bridge_liveness: Mapping[str, object],
+    current_session: Mapping[str, object] | None = None,
+    bridge_state: Mapping[str, object] | None = None,
 ) -> BridgeProjectionState:
     """Capture the typed bridge payload needed for a pure compatibility render."""
     snapshot = extract_bridge_snapshot(bridge_text)
     sections, sanitized_sections = sanitize_bridge_sections(
-        _tracked_sections(snapshot.sections),
+        _projection_sections(
+            snapshot.sections,
+            current_session=_mapping(current_session),
+        ),
         section_line_limits=BRIDGE_SECTION_LINE_LIMITS,
     )
     _validate_flat_bridge_sections(sections)
@@ -70,6 +75,8 @@ def build_bridge_projection_state(
             snapshot=snapshot,
             bridge_liveness=bridge_liveness,
             sections=sections,
+            current_session=_mapping(current_session),
+            bridge_state=_mapping(bridge_state),
         ),
         sections=sections,
         lines_before=len(bridge_text.splitlines()),
@@ -143,10 +150,14 @@ def _projection_metadata(
     snapshot,
     bridge_liveness: Mapping[str, object],
     sections: Mapping[str, str],
+    current_session: Mapping[str, object],
+    bridge_state: Mapping[str, object],
 ) -> dict[str, str]:
     current_instruction = str(sections.get("Current Instruction For Claude", "")).strip()
     current_revision = str(
-        bridge_liveness.get("current_instruction_revision")
+        current_session.get("current_instruction_revision")
+        or bridge_state.get("current_instruction_revision")
+        or bridge_liveness.get("current_instruction_revision")
         or snapshot.metadata.get("current_instruction_revision")
         or ""
     ).strip()
@@ -172,11 +183,45 @@ def _projection_metadata(
     }
 
 
+def _projection_sections(
+    raw_sections: Mapping[str, str],
+    *,
+    current_session: Mapping[str, object],
+) -> dict[str, str]:
+    sections = _tracked_sections(raw_sections)
+    typed_overrides = {
+        "Open Findings": _typed_section_override(
+            current_session.get("open_findings")
+        ),
+        "Claude Status": _typed_section_override(
+            current_session.get("implementer_status")
+        ),
+        "Claude Ack": _typed_section_override(current_session.get("implementer_ack")),
+        "Current Instruction For Claude": _typed_section_override(
+            current_session.get("current_instruction")
+        ),
+        "Last Reviewed Scope": _typed_section_override(
+            current_session.get("last_reviewed_scope")
+        ),
+    }
+    for heading, value in typed_overrides.items():
+        if value:
+            sections[heading] = value
+    return sections
+
+
 def _tracked_sections(raw_sections: Mapping[str, str]) -> dict[str, str]:
     return {
         heading: str(raw_sections.get(heading, ""))
         for heading in BRIDGE_SECTION_ORDER
     }
+
+
+def _typed_section_override(value: object) -> str:
+    text = str(value or "").strip()
+    if text == "(missing)":
+        return ""
+    return text
 
 
 def _validate_flat_bridge_sections(sections: Mapping[str, str]) -> None:

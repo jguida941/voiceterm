@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict
+from hashlib import sha256
 from typing import Any
 
+from .ack_contract import extract_implementer_ack_revision
 from ..runtime.review_state_semantics import classify_implementer_ack_state
 from ..runtime.review_state_models import ReviewCurrentSessionState
 from .handoff import BridgeSnapshot
@@ -19,21 +21,30 @@ def build_bridge_current_session(
     bridge_liveness: Mapping[str, object],
 ) -> ReviewCurrentSessionState:
     """Build typed current-session state from bridge sections."""
+    current_instruction = _section_text(snapshot, "Current Instruction For Claude")
     implementer_status = _section_text(snapshot, "Claude Status")
     implementer_ack = _section_text(snapshot, "Claude Ack")
+    current_instruction_revision = _current_instruction_revision(
+        snapshot=snapshot,
+        bridge_liveness=bridge_liveness,
+        current_instruction=current_instruction,
+    )
+    implementer_ack_revision = extract_implementer_ack_revision(implementer_ack)
+    ack_current = _is_substantive_text(implementer_ack) and (
+        not current_instruction_revision
+        or implementer_ack_revision == current_instruction_revision
+    )
     claude_hint = provider_session_state_hint(dict(bridge_liveness), provider="claude")
     return ReviewCurrentSessionState(
-        current_instruction=_section_text(snapshot, "Current Instruction For Claude"),
-        current_instruction_revision=str(
-            bridge_liveness.get("current_instruction_revision") or ""
-        ),
+        current_instruction=current_instruction,
+        current_instruction_revision=current_instruction_revision,
         implementer_status=implementer_status,
         implementer_ack=implementer_ack,
-        implementer_ack_revision=str(bridge_liveness.get("claude_ack_revision") or ""),
+        implementer_ack_revision=implementer_ack_revision,
         implementer_ack_state=classify_implementer_ack_state(
             implementer_status=implementer_status,
             implementer_ack=implementer_ack,
-            ack_current=bool(bridge_liveness.get("claude_ack_current")),
+            ack_current=ack_current,
             stale_label="stale",
             is_substantive_text=_is_substantive_text,
         ),
@@ -225,6 +236,26 @@ def event_agent_status(
 def _section_text(snapshot: BridgeSnapshot, section: str) -> str:
     raw = snapshot.sections.get(section, "")
     return clean_section(raw)
+
+
+def _current_instruction_revision(
+    *,
+    snapshot: BridgeSnapshot,
+    bridge_liveness: Mapping[str, object],
+    current_instruction: str,
+) -> str:
+    revision = str(bridge_liveness.get("current_instruction_revision") or "").strip()
+    if revision:
+        return revision
+    revision = str(snapshot.metadata.get("current_instruction_revision") or "").strip()
+    if revision:
+        return revision
+    normalized_instruction = current_instruction.strip()
+    if normalized_instruction == "(missing)":
+        return ""
+    if not normalized_instruction:
+        return ""
+    return sha256(normalized_instruction.encode("utf-8")).hexdigest()[:12]
 
 
 def _mapping(value: object) -> Mapping[str, Any]:

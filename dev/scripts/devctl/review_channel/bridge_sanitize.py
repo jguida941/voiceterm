@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from .ack_contract import extract_implementer_ack_revision
 from .bridge_section_validation import find_embedded_markdown_headings
 from .bridge_text_cleanup import (
     collapse_blank_lines,
@@ -219,7 +220,7 @@ def _sanitize_claude_ack(raw: str, *, max_lines: int) -> str:
     kept = [blocks[0]]
     for block in blocks[1:]:
         lowered = block.lower()
-        if "instruction-rev:" in lowered:
+        if "instruction-rev:" in lowered or extract_implementer_ack_revision(block):
             break
         if any(marker in lowered for marker in _STATUS_HISTORY_MARKERS):
             break

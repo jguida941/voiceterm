@@ -330,7 +330,17 @@
   persisted typed `review_state.json` bridge block now carries
   `reviewed_hash_current` and `review_needed` directly, so saved typed review
   state no longer drops the core reviewer-hash truth while `current_session`
-  stays intentionally limited to instruction / ACK state.
+  stays intentionally limited to instruction / ACK state. Same-day authority
+  follow-up also closed the live semantic ACK false-stale bug: the
+  review-channel path now shares one ACK parser/validator/prompt contract,
+  typed `current_session` owns instruction/ACK machine state, bridge-backed
+  `bridge-poll` refreshes and prefers the typed `review_state` snapshot for
+  live ACK authority, and compatibility bridge rendering prefers typed
+  current-session sections for machine-deciding live fields instead of raw
+  bridge prose. Remaining follow-up stays broader than ACK wording:
+  reviewer-owned prose / wait-reason state still needs the planned
+  `DecisionTrace` + typed writer-authority cutover before markdown stops being
+  any part of the live authoring path.
 - Current runtime-baseline correction after the 2026-03-21 architecture audit:
   Phase 1 closure must keep five runtime-behind-docs gaps explicit instead of
   treating them as background drift. Portability is still blocked first by

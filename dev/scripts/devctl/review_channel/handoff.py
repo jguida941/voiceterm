@@ -15,7 +15,6 @@ Governing docs for this slice:
 from __future__ import annotations
 
 import json
-import re
 import time
 from hashlib import sha256
 from dataclasses import asdict, dataclass
@@ -26,6 +25,7 @@ from ..common import display_path
 from ..markdown_sections import parse_markdown_sections as extract_bridge_sections
 from ..runtime.role_profile import role_for_provider
 from ..time_utils import utc_timestamp
+from .ack_contract import extract_implementer_ack_revision
 from .handoff_constants import (
     BRIDGE_LIVENESS_KEYS,
     BRIDGE_METADATA_PATTERNS,
@@ -110,12 +110,6 @@ class HandoffBundle:
     rollover_id: str
     trigger: str
     threshold_pct: int
-
-
-_CLAUDE_ACK_REVISION_RE = re.compile(
-    r"(?i)\binstruction(?:[-_ ]rev(?:ision)?)?\s*:\s*`?(?P<value>[a-f0-9]{8,64})`?"
-)
-
 
 def extract_bridge_snapshot(bridge_text: str) -> BridgeSnapshot:
     """Parse tracked metadata and live sections from `bridge.md`."""
@@ -258,15 +252,13 @@ def _instruction_revision(text: str) -> str:
 def _extract_claude_ack_revision(text: str) -> str:
     """Extract the latest Claude ACK revision from the Claude Ack section.
 
-    Contract: the FIRST instruction-rev match is the current/latest ACK.
+    Contract: the FIRST recognized instruction-revision reference is the
+    current/latest ACK.
     Claude should rewrite the current ACK at the top of the section and keep
-    stale historical instruction-rev lines out of the live bridge so the first
-    regex match stays equal to the true current revision.
+    stale historical revision references out of the live bridge so the first
+    recognized match stays equal to the true current revision.
     """
-    match = _CLAUDE_ACK_REVISION_RE.search(text or "")
-    if match is None:
-        return ""
-    return match.group("value").lower()
+    return extract_implementer_ack_revision(text or "")
 
 
 def bridge_liveness_to_dict(liveness: BridgeLiveness) -> dict[str, object]:

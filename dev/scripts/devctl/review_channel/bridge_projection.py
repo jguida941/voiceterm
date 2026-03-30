@@ -35,6 +35,7 @@ treat these rules as active workflow instructions immediately.
 5. Start from the live sections in this file:
    - Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.
    - Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.
+   - `Claude Ack` must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.
    - Claude must read `Last Codex poll` / `Poll Status` first on each repoll.
 6. Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while
    code is moving.

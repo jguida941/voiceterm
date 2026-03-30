@@ -4096,6 +4096,22 @@ working on `MP-377`.
   Keep the next step narrower than a general recovery merge: broader bridge,
   checkpoint, and review recovery composition should build on top of this
   contract in a later continuation-decision slice.
+- 2026-03-29 review-channel authority follow-up landed in the same owner
+  chain: the real Claude ACK false-stale failure is now closed on a typed
+  contract instead of one bridge-only token. A new shared review-channel ACK
+  helper accepts semantic phrasings such as `Acknowledged instruction revision
+  <rev>` alongside the legacy `instruction-rev:` form, bridge-backed
+  `current_session` now computes instruction revision / ACK revision /
+  ACK-state from that shared parser instead of taking those machine fields
+  downstream from ad hoc bridge liveness text, bridge-backed `bridge-poll`
+  refreshes and prefers the typed `review_state` snapshot for live
+  instruction/ACK authority, and compatibility bridge rendering now prefers
+  typed current-session sections for machine-deciding live fields instead of
+  reparsing the old bridge section bodies. Remaining same-lane follow-up is
+  still broader than ACK wording: reviewer-owned prose sections
+  (`Poll Status`, `Current Verdict`, `Claude Questions`) and richer wait/block
+  reasons still need the planned `DecisionTrace` / typed writer-authority
+  cutover before bridge prose fully stops being the live authoring surface.
 - 2026-03-27 startup-model discoverability follow-up landed: the compiler-
   style governance framing that had been buried here and in local scratch
   notes is now carried by tracked first-hop dev/agent surfaces too.
@@ -6959,6 +6975,22 @@ Execution order for this section:
   fit-gap without forcing a larger controller redesign in the same slice and
   moves the next extraction target to governance evidence path ownership plus
   autonomy default-profile ownership.
+- 2026-03-29: Closed the bounded MP-377 review-channel authority slice for
+  semantic implementer ACK handling. The live path now shares one ACK parser,
+  one validator contract, and one implementer prompt contract, bridge-backed
+  `current_session` is the authoritative typed source for instruction/ACK
+  machine state, `bridge-poll` re-reads the refreshed typed `review_state`
+  snapshot before deciding current ACK freshness, and compatibility bridge
+  rerendering now prefers typed current-session fields over raw bridge prose
+  for machine-deciding live sections. Focused validation is green:
+  `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_ack_contract.py -q --tb=short`,
+  `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_current_session_projection.py -q --tb=short`,
+  `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_bridge_poll.py -q --tb=short`,
+  and `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_bridge_render.py -q --tb=short`.
+  Remaining follow-up stays explicit here: the broader writer-authority cutover
+  still needs typed reviewer-owned prose / wait-reason state and the planned
+  `DecisionTrace` chain so bridge markdown can shrink to projection/handoff
+  only instead of still hosting some reviewer-authored narrative fields.
 
 ## Audit Evidence
 

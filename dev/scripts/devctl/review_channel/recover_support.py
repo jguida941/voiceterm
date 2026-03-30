@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..approval_mode import normalize_approval_mode
 from ..time_utils import utc_timestamp
+from .ack_contract import ACK_REVISION_REQUIREMENT_PREFIX
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
 from .peer_liveness import AttentionStatus, reviewer_mode_is_active
 
@@ -17,7 +18,7 @@ _RECOVERABLE_ATTENTION_STATUSES = frozenset(
     }
 )
 _RECOVERABLE_ERROR_PREFIXES = (
-    "Live `Claude Ack` must include `instruction-rev:",
+    ACK_REVISION_REQUIREMENT_PREFIX,
     "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
     "Claude Status/Ack show implementer completion-stall language while ",
 )
