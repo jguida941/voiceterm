@@ -121,6 +121,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             ),
             claude_ack_revision=_string(bridge.get("claude_ack_revision")),
             last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
+            launch_truth=_string(bridge.get("launch_truth")),
             implementer_state_hash=_string(bridge.get("implementer_state_hash")),
             reviewed_hash_current=(
                 _bool(bridge.get("reviewed_hash_current"))
@@ -135,6 +136,8 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             review_accepted=_bool(bridge.get("review_accepted")),
             implementer_completion_stall=bool(bridge.get("implementer_completion_stall")),
             publisher_running=bool(bridge.get("publisher_running")),
+            codex_conductor_active=_bool(bridge.get("codex_conductor_active")),
+            claude_conductor_active=_bool(bridge.get("claude_conductor_active")),
             reviewer_capability=conductor_capability_state_from_payload(
                 bridge.get("reviewer_capability") or bridge_liveness.get("reviewer_capability")
             ),

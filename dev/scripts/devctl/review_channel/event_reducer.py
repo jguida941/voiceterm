@@ -60,6 +60,9 @@ _PLACEHOLDER_BRIDGE = ReviewBridgeState(
     claude_ack="", claude_ack_current=False,
     current_instruction_revision="", claude_ack_revision="",
     last_reviewed_scope="",
+    launch_truth="",
+    codex_conductor_active=False,
+    claude_conductor_active=False,
 )
 
 _PLACEHOLDER_CURRENT_SESSION = ReviewCurrentSessionState(

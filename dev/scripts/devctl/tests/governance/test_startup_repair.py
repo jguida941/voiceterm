@@ -99,7 +99,28 @@ def _review_state(
     summary: str,
     recommended_action: str,
     recommended_command: str,
+    bridge_overrides: dict[str, object] | None = None,
+    errors: tuple[str, ...] = (),
 ) -> ReviewState:
+    bridge_kwargs: dict[str, object] = {
+        "overall_state": "fresh",
+        "codex_poll_state": "fresh",
+        "reviewer_freshness": "fresh",
+        "reviewer_mode": "active_dual_agent",
+        "last_codex_poll_utc": "2026-03-30T00:00:00Z",
+        "last_codex_poll_age_seconds": 0,
+        "last_worktree_hash": "",
+        "current_instruction": "",
+        "open_findings": "",
+        "claude_status": "",
+        "claude_ack": "",
+        "claude_ack_current": False,
+        "current_instruction_revision": "",
+        "claude_ack_revision": "",
+        "last_reviewed_scope": "",
+    }
+    if bridge_overrides:
+        bridge_kwargs.update(bridge_overrides)
     return ReviewState(
         schema_version=1,
         contract_id="ReviewState",
@@ -132,23 +153,7 @@ def _review_state(
             implementer_ack_revision="",
             implementer_ack_state="unknown",
         ),
-        bridge=ReviewBridgeState(
-            overall_state="fresh",
-            codex_poll_state="fresh",
-            reviewer_freshness="fresh",
-            reviewer_mode="active_dual_agent",
-            last_codex_poll_utc="2026-03-30T00:00:00Z",
-            last_codex_poll_age_seconds=0,
-            last_worktree_hash="",
-            current_instruction="",
-            open_findings="",
-            claude_status="",
-            claude_ack="",
-            claude_ack_current=False,
-            current_instruction_revision="",
-            claude_ack_revision="",
-            last_reviewed_scope="",
-        ),
+        bridge=ReviewBridgeState(**bridge_kwargs),
         attention=ReviewAttentionState(
             status=status,
             owner=owner,
@@ -158,6 +163,7 @@ def _review_state(
         ),
         packets=(),
         registry=AgentRegistryState(timestamp="2026-03-30T00:00:00Z", agents=()),
+        errors=errors,
     )
 
 
@@ -251,6 +257,53 @@ class StartupRepairContractTests(unittest.TestCase):
 
         self.assertEqual(result.issue_count, 1)
         self.assertEqual(result.issues[0].issue_id, "bridge_contract_error")
+
+    def test_bridge_contract_error_without_live_conductors_requires_manual_follow_up(
+        self,
+    ) -> None:
+        result = build_startup_repair_result(
+            ctx=_ctx(
+                reviewer_gate=ReviewerGateState(
+                    bridge_active=True,
+                    reviewer_mode="active_dual_agent",
+                    review_accepted=False,
+                    implementation_blocked=True,
+                    implementation_block_reason="review_loop_relaunch_required",
+                )
+            ),
+            authority_report={
+                "ok": False,
+                "errors": [
+                    "Reviewer loop blocks a new implementation slice: review_loop_relaunch_required"
+                ],
+                "warnings": [],
+            },
+            startup_receipt_path="dev/reports/startup/latest/receipt.json",
+            review_state=_review_state(
+                status="review_loop_relaunch_required",
+                owner="codex",
+                summary="Bridge contract is inconsistent.",
+                recommended_action="Inspect the live review status.",
+                recommended_command="python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json",
+                bridge_overrides={
+                    "codex_conductor_active": False,
+                    "claude_conductor_active": False,
+                },
+                errors=(
+                    "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present.",
+                ),
+            ),
+        )
+
+        self.assertEqual(result.issue_count, 1)
+        self.assertEqual(result.next_action, "manual_follow_up")
+        self.assertEqual(result.safe_fix_available_count, 0)
+        issue = result.issues[0]
+        self.assertEqual(issue.issue_class, "manual_follow_up")
+        self.assertEqual(issue.issue_id, "review_loop_relaunch_required")
+        self.assertFalse(issue.repairable)
+        self.assertEqual(issue.apply_action, "")
+        self.assertIn("no live repo-owned Codex or Claude conductor sessions", issue.detail)
 
     def test_select_safe_repair_action_uses_priority_order(self) -> None:
         result = StartupRepairResult(

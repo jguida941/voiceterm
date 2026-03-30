@@ -190,17 +190,34 @@ def _run_review_channel_action(
         "status_dir": runtime_paths.status_dir,
         "promotion_plan_path": None,
     }
+
+    def action_args(**overrides: object) -> SimpleNamespace:
+        namespace = SimpleNamespace(
+            action="",
+            execution_mode="markdown-bridge",
+            terminal="none",
+            terminal_profile=None,
+            approval_mode=None,
+            dangerous=False,
+            rollover_threshold_pct=50,
+            await_ack_seconds=180,
+            codex_workers=0,
+            claude_workers=0,
+            reviewer_overdue_seconds=None,
+        )
+        for key, value in overrides.items():
+            setattr(namespace, key, value)
+        return namespace
+
     if action_id == StartupRepairActionId.ENSURE_RUNTIME.value:
         from ..review_channel._follow_runtime import (
             run_ensure_action as _run_ensure_action,
         )
 
-        args = SimpleNamespace(
+        args = action_args(
             action="ensure",
-            execution_mode="markdown-bridge",
             follow=False,
             start_publisher_if_missing=True,
-            reviewer_overdue_seconds=None,
         )
         return _run_ensure_action(
             args=args,
@@ -212,9 +229,8 @@ def _run_review_channel_action(
             run_render_bridge_action as _run_render_bridge_action,
         )
 
-        args = SimpleNamespace(
+        args = action_args(
             action="render-bridge",
-            execution_mode="markdown-bridge",
         )
         return _run_render_bridge_action(
             args=args,
@@ -227,12 +243,10 @@ def _run_review_channel_action(
         )
         from ..review_channel.status import _run_status_action
 
-        args = SimpleNamespace(
+        args = action_args(
             action="reset-implementer-state",
             reason="startup-context-repair",
             reviewer_mode="active_dual_agent",
-            execution_mode="markdown-bridge",
-            reviewer_overdue_seconds=None,
         )
         return _run_reset_implementer_state_action(
             args=args,

@@ -203,16 +203,23 @@ def _review_issue(
     if status in {"", "healthy", "checkpoint_required"}:
         return None
 
-    action = _attention_safe_fix(status)
+    action = _attention_safe_fix(status, review_state=review_state)
     changes_tracked_state = action[1] if action is not None else False
     blocked_by_approval_boundary = approval_boundary_active and changes_tracked_state
+    summary = str(attention.summary or "").strip() or status.replace("_", " ")
+    detail = str(attention.recommended_action or "").strip()
+    if action is None and status in {
+        "bridge_contract_error",
+        "review_loop_relaunch_required",
+    } and review_state.errors:
+        detail = str(review_state.errors[0]).strip() or detail
     return StartupRepairIssue(
         issue_id=status,
         issue_class="safe_local_repair" if action is not None else "manual_follow_up",
         source="review_channel",
         owner=str(attention.owner or "").strip() or "system",
-        summary=str(attention.summary or "").strip() or status.replace("_", " "),
-        detail=str(attention.recommended_action or "").strip(),
+        summary=summary,
+        detail=detail,
         recommended_command=str(attention.recommended_command or "").strip(),
         repairable=action is not None,
         safe_to_apply_now=action is not None and not blocked_by_approval_boundary,
@@ -222,7 +229,11 @@ def _review_issue(
     )
 
 
-def _attention_safe_fix(status: str) -> tuple[str, bool] | None:
+def _attention_safe_fix(
+    status: str,
+    *,
+    review_state: ReviewState,
+) -> tuple[str, bool] | None:
     if status in {
         "runtime_missing",
         "publisher_missing",
@@ -232,6 +243,11 @@ def _attention_safe_fix(status: str) -> tuple[str, bool] | None:
     }:
         return (StartupRepairActionId.ENSURE_RUNTIME.value, False)
     if status == "bridge_contract_error":
+        if (
+            not review_state.bridge.codex_conductor_active
+            and not review_state.bridge.claude_conductor_active
+        ):
+            return None
         return (StartupRepairActionId.RENDER_BRIDGE.value, True)
     if status == "implementer_state_reset_required":
         return (StartupRepairActionId.RESET_IMPLEMENTER_STATE.value, True)

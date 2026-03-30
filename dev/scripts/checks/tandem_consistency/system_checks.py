@@ -8,6 +8,8 @@ from dev.scripts.devctl.review_channel.handoff import (
 )
 from dev.scripts.devctl.review_channel.peer_liveness import (
     CODEX_POLL_STALE_AFTER_SECONDS,
+    LaunchTruthState,
+    classify_launch_truth,
     reviewer_mode_is_active,
 )
 
@@ -30,6 +32,7 @@ def check_launch_truth(
     """
     bridge_block = (typed_state or {}).get("bridge") or {}
     typed_overall = str(bridge_block.get("overall_state") or "").strip()
+    typed_launch_truth = str(bridge_block.get("launch_truth") or "").strip()
 
     if typed_overall:
         overall_state = typed_overall
@@ -42,6 +45,20 @@ def check_launch_truth(
             str(bridge_block.get("claude_ack") or "").strip()
         )
         age = bridge_block.get("last_codex_poll_age_seconds")
+        launch_truth = typed_launch_truth or classify_launch_truth(
+            {
+                "reviewer_mode": reviewer_mode,
+                "publisher_running": bridge_block.get("publisher_running"),
+                "reviewer_supervisor_running": bridge_block.get(
+                    "reviewer_supervisor_running"
+                ),
+                "codex_conductor_active": bridge_block.get("codex_conductor_active"),
+                "claude_conductor_active": bridge_block.get("claude_conductor_active"),
+                "poll_status_automation_only": bridge_block.get(
+                    "poll_status_automation_only"
+                ),
+            }
+        ).value
     else:
         snapshot = extract_bridge_snapshot(bridge_text)
         liveness = summarize_bridge_liveness(snapshot)
@@ -51,6 +68,7 @@ def check_launch_truth(
         claude_status_present = liveness.claude_status_present
         claude_ack_present = liveness.claude_ack_present
         age = liveness.last_codex_poll_age_seconds
+        launch_truth = ""
 
     if not reviewer_mode_is_active(reviewer_mode):
         return {
@@ -58,6 +76,7 @@ def check_launch_truth(
             "role": "system",
             "ok": True,
             "overall_state": overall_state,
+            "launch_truth": launch_truth,
             "reviewer_mode": reviewer_mode,
             "codex_poll_state": codex_poll_state,
             "claude_status_present": claude_status_present,
@@ -80,12 +99,19 @@ def check_launch_truth(
         issues.append("Implementer status is not visible in bridge.")
     if not claude_ack_present:
         issues.append("Implementer ACK is not visible in bridge.")
+    if launch_truth == LaunchTruthState.DETACHED_RUNTIME_ONLY.value:
+        issues.append("No live repo-owned Codex or Claude conductor sessions are present.")
+    elif launch_truth == LaunchTruthState.HYBRID_CLAUDE_ONLY.value:
+        issues.append("Only the Claude conductor is live; relaunch the repo-owned conductor pair.")
+    elif launch_truth == LaunchTruthState.AUTOMATION_ONLY.value:
+        issues.append("Reviewer poll still comes from automation-only heartbeat refresh.")
 
     return {
         "check": "launch_truth",
         "role": "system",
         "ok": len(issues) == 0,
         "overall_state": overall_state,
+        "launch_truth": launch_truth,
         "codex_poll_state": codex_poll_state,
         "claude_status_present": claude_status_present,
         "claude_ack_present": claude_ack_present,

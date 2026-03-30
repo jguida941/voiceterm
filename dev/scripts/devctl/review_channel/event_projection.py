@@ -9,6 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 
 from ..runtime.conductor_capability import build_conductor_capability_state
+from .peer_liveness import classify_launch_truth
 from ..runtime.review_state_models import ReviewQueueState
 from .attention import derive_bridge_attention
 from .attach_auth_policy import build_attach_auth_policy
@@ -126,6 +127,7 @@ def _build_event_bridge_liveness(review_state: Mapping[str, object]) -> dict[str
     runtime = _mapping(compat.get("runtime"))
     daemons = _mapping(runtime.get("daemons"))
     publisher = _mapping(daemons.get("publisher"))
+    reviewer_supervisor = _mapping(daemons.get("reviewer_supervisor"))
     queue = _mapping(review_state.get("queue"))
     claude_status = event_agent_status(review_state, "claude")
     claude_ack = event_claude_ack(queue)
@@ -154,6 +156,9 @@ def _build_event_bridge_liveness(review_state: Mapping[str, object]) -> dict[str
         reviewer_mode=reviewer_mode,
     )
     bridge_liveness["publisher_running"] = bool(publisher.get("running"))
+    bridge_liveness["reviewer_supervisor_running"] = bool(
+        reviewer_supervisor.get("running")
+    )
     bridge_liveness["publisher_stop_reason"] = str(publisher.get("stop_reason") or "")
     instruction_text = event_current_instruction(review_state)
     instruction_rev = (
@@ -168,6 +173,7 @@ def _build_event_bridge_liveness(review_state: Mapping[str, object]) -> dict[str
     bridge_liveness["current_instruction_revision"] = instruction_rev
     bridge_liveness["claude_ack_revision"] = ""
     bridge_liveness["claude_ack_current"] = False
+    bridge_liveness["launch_truth"] = classify_launch_truth(bridge_liveness).value
     return bridge_liveness
 
 
@@ -214,6 +220,7 @@ def _build_event_bridge_state(
     bridge_state["last_reviewed_scope"] = str(
         current_session.get("last_reviewed_scope") or ""
     )
+    bridge_state["launch_truth"] = str(bridge_liveness.get("launch_truth") or "")
     bridge_state["implementer_state_hash"] = str(
         current_session.get("implementer_state_hash") or ""
     )
@@ -225,6 +232,12 @@ def _build_event_bridge_state(
     # keep the transitional acceptance gate fail-closed instead of inventing a
     # non-reviewer-owned proxy signal.
     bridge_state["review_accepted"] = False
+    bridge_state["codex_conductor_active"] = bool(
+        bridge_liveness.get("codex_conductor_active")
+    )
+    bridge_state["claude_conductor_active"] = bool(
+        bridge_liveness.get("claude_conductor_active")
+    )
     bridge_state["reviewer_capability"] = asdict(
         build_conductor_capability_state(
             provider="codex",

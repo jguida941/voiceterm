@@ -313,6 +313,25 @@ class TestLaunchTruth:
         assert result["ok"] is True
         assert result["overall_state"] == "inactive"
 
+    def test_typed_launch_truth_reports_missing_live_conductors(self):
+        text = _bridge()
+        result = check_launch_truth(
+            text,
+            typed_state={
+                "bridge": {
+                    "overall_state": "fresh",
+                    "reviewer_mode": "active_dual_agent",
+                    "codex_poll_state": "fresh",
+                    "claude_status": "- waiting",
+                    "claude_ack": "- acknowledged",
+                    "launch_truth": "detached_runtime_only",
+                }
+            },
+        )
+        assert result["ok"] is False
+        assert result["launch_truth"] == "detached_runtime_only"
+        assert any("No live repo-owned Codex or Claude conductor sessions" in issue for issue in result["issues"])
+
 
 def _mock_hash_matching():
     """Mock the worktree hash computation to return the default test hash."""

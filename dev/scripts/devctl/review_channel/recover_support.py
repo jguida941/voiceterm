@@ -97,6 +97,12 @@ def validate_recoverable_state(
             "review-channel recover refused because reviewer-owned bridge state is inconsistent. "
             "Repair reviewer sections before replacing Claude."
         )
+    if attention_status == AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED.value:
+        return (
+            "review-channel recover refused because the live dual-agent loop itself is not "
+            "trusted. Relaunch the repo-owned Codex and Claude conductors instead of "
+            "replacing Claude only."
+        )
     if attention_status in _RECOVERABLE_ATTENTION_STATUSES:
         return None
     return (

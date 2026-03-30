@@ -158,6 +158,17 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         ),
         "recommended_command": REVIEW_CHANNEL_IMPLEMENTER_RECOVER_COMMAND,
     }),
+    ("review_loop_relaunch_required", {
+        "guard_behavior": "warn",
+        "owner": "system",
+        "summary": (
+            "The declared dual-agent review loop is not actually live; relaunch the repo-owned conductor pair before trusting the bridge."
+        ),
+        "recovery": (
+            "Relaunch the repo-owned review loop with `launch` or `rollover`. Do not treat detached publisher/supervisor heartbeats or Claude-only presence as live reviewer authority."
+        ),
+        "recommended_command": REVIEW_CHANNEL_LIVE_RELAUNCH_COMMAND,
+    }),
     ("reviewer_supervisor_required", {
         "guard_behavior": "block_loop",
         "owner": "codex",

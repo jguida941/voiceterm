@@ -11,6 +11,7 @@ from ..runtime.review_state_models import (
     ReviewCurrentSessionState,
 )
 from ..runtime.conductor_capability import build_conductor_capability_state
+from .peer_liveness import classify_launch_truth
 from .handoff import BridgeSnapshot
 
 
@@ -34,6 +35,9 @@ def build_typed_bridge_liveness(
     typed["claude_ack_current"] = current_session.implementer_ack_state == "current"
     typed["implementer_ack_state"] = current_session.implementer_ack_state
     typed["implementer_state_hash"] = current_session.implementer_state_hash
+    typed["launch_truth"] = str(
+        typed.get("launch_truth") or classify_launch_truth(typed).value
+    )
     typed["reviewer_capability"] = asdict(reviewer_capability)
     typed["implementer_capability"] = asdict(implementer_capability)
     typed["implementer_state_pending"] = is_pending_implementer_state(
@@ -78,6 +82,7 @@ def build_review_bridge_state(
         current_instruction_revision=current_session.current_instruction_revision,
         claude_ack_revision=current_session.implementer_ack_revision,
         last_reviewed_scope=current_session.last_reviewed_scope,
+        launch_truth=str(bridge_liveness.get("launch_truth") or ""),
         implementer_state_hash=current_session.implementer_state_hash,
         reviewed_hash_current=(
             None if reviewed_hash_current is None else bool(reviewed_hash_current)
@@ -88,6 +93,8 @@ def build_review_bridge_state(
             bridge_liveness.get("implementer_completion_stall")
         ),
         publisher_running=bool(bridge_liveness.get("publisher_running")),
+        codex_conductor_active=bool(bridge_liveness.get("codex_conductor_active")),
+        claude_conductor_active=bool(bridge_liveness.get("claude_conductor_active")),
         reviewer_capability=build_conductor_capability_state(
             provider="codex",
             reviewer_mode=reviewer_mode,

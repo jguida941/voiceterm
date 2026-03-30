@@ -15,13 +15,16 @@ from .attention_helpers import (
     claude_session_hint_state,
     implementer_state_pending,
     is_resettable_implementer_error,
+    relaunch_required_contract_error,
 )
 from .peer_liveness import (
     AttentionStatus,
     CODEX_POLL_OVERDUE_AFTER_SECONDS,
     CodexPollState,
+    LaunchTruthState,
     OverallLivenessState,
     ReviewerFreshness,
+    classify_launch_truth,
     reviewer_mode_is_active,
 )
 
@@ -46,6 +49,7 @@ class BridgeAttentionContext:
     overdue_threshold: object
     checkpoint_required: bool
     safe_to_continue_editing: bool
+    launch_truth: str
     publisher_running: bool
     reviewer_runtime_running: bool
     resettable_error_seen: bool
@@ -117,6 +121,10 @@ def extract_attention_context(
     checkpoint_required, safe_to_edit = _bridge_push_checkpoint_state(
         bridge_liveness, push_state=push_state,
     )
+    launch_truth = str(
+        bridge_liveness.get("launch_truth") or classify_launch_truth(bridge_liveness).value
+    )
+    bridge_liveness["launch_truth"] = launch_truth
 
     return BridgeAttentionContext(
         overall_state=str(bridge_liveness.get("overall_state") or "unknown"),
@@ -139,6 +147,7 @@ def extract_attention_context(
         ),
         checkpoint_required=checkpoint_required,
         safe_to_continue_editing=safe_to_edit,
+        launch_truth=launch_truth,
         publisher_running=publisher_running,
         reviewer_runtime_running=supervisor_running or publisher_running,
         resettable_error_seen=any(
@@ -237,6 +246,12 @@ def classify_attention_status(
     freshness = _classify_reviewer_freshness(ctx)
     if freshness is not None:
         return freshness
+
+    if ctx.launch_truth in {
+        LaunchTruthState.DETACHED_RUNTIME_ONLY.value,
+        LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
+    } or relaunch_required_contract_error(ctx.active_contract_errors):
+        return AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED
 
     if blocking_contract_errors(
         ctx.active_contract_errors,

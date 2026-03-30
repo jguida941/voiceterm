@@ -2561,8 +2561,8 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(attention["status"], "bridge_contract_error")
-        self.assertIn("contract", attention["summary"].lower())
+        self.assertEqual(attention["status"], "review_loop_relaunch_required")
+        self.assertIn("launch", attention["recommended_command"])
 
     def test_launch_attention_blocks_checkpoint_required(self) -> None:
         from dev.scripts.devctl.review_channel.bridge_runtime_state import (
@@ -2711,7 +2711,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             liveness,
             contract_errors=["Poll Status is missing reviewer-owned content."],
         )
-        self.assertEqual(attention["status"], "bridge_contract_error")
+        self.assertEqual(attention["status"], "review_loop_relaunch_required")
 
     def test_attention_treats_pending_implementer_reset_as_waiting_on_peer(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
@@ -2774,7 +2774,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present."
             ],
         )
-        self.assertEqual(attention["status"], "bridge_contract_error")
+        self.assertEqual(attention["status"], "review_loop_relaunch_required")
 
     def test_attention_requires_reviewer_supervisor_when_review_is_pending(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
@@ -2818,7 +2818,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present."
             ],
         )
-        self.assertEqual(attention["status"], "bridge_contract_error")
+        self.assertEqual(attention["status"], "review_loop_relaunch_required")
 
     def test_attention_reports_review_follow_up_required_when_review_is_pending_and_supervisor_is_running(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
@@ -5457,7 +5457,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 )
             )
 
-        self.assertEqual(status_snapshot.attention["status"], "bridge_contract_error")
+        self.assertEqual(
+            status_snapshot.attention["status"], "review_loop_relaunch_required"
+        )
         self.assertTrue(status_snapshot.bridge_liveness["push_enforcement"]["checkpoint_required"])
         self.assertFalse(
             status_snapshot.bridge_liveness["push_enforcement"]["safe_to_continue_editing"]
@@ -5811,6 +5813,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertTrue(payload["bridge_liveness"]["claude_conductor_active"])
             self.assertFalse(payload["bridge_liveness"]["codex_conductor_active"])
+            self.assertEqual(
+                payload["attention"]["status"], "review_loop_relaunch_required"
+            )
             self.assertTrue(
                 any("Hybrid chat/terminal review loops are not trusted" in error for error in payload["errors"])
             )
@@ -5929,7 +5934,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertFalse(payload["bridge_liveness"]["claude_conductor_active"])
             self.assertFalse(payload["bridge_liveness"]["codex_conductor_active"])
-            self.assertEqual(payload["attention"]["status"], "bridge_contract_error")
+            self.assertEqual(
+                payload["attention"]["status"], "review_loop_relaunch_required"
+            )
             self.assertTrue(
                 any(
                     "no live repo-owned Codex or Claude conductor sessions are present"
@@ -5993,7 +6000,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload["attention"]["status"], "bridge_contract_error")
+            self.assertEqual(
+                payload["attention"]["status"], "review_loop_relaunch_required"
+            )
             self.assertTrue(
                 payload["bridge_liveness"]["push_enforcement"]["checkpoint_required"]
             )
@@ -7711,6 +7720,22 @@ class ReviewChannelCommandTests(unittest.TestCase):
         )
         self.assertIsNotNone(error)
         self.assertIn("reviewer-owned bridge state", error)
+
+    def test_validate_recoverable_state_refuses_review_loop_relaunch_required(self) -> None:
+        from dev.scripts.devctl.review_channel.recover_support import (
+            validate_recoverable_state,
+        )
+
+        error = validate_recoverable_state(
+            bridge_liveness={
+                "reviewer_mode": "active_dual_agent",
+                "claude_ack_current": False,
+                "implementer_completion_stall": True,
+            },
+            attention={"status": "review_loop_relaunch_required"},
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("Relaunch the repo-owned Codex and Claude conductors", error)
 
     def test_run_recover_refuses_when_claude_ack_is_current(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

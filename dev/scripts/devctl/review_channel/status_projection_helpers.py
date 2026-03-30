@@ -8,9 +8,11 @@ from pathlib import Path
 from .daemon_reducer import DaemonSnapshot, empty_daemon_state
 from .core import active_conductor_providers
 from .peer_liveness import (
+    LaunchTruthState,
     CodexPollState,
     OverallLivenessState,
     ReviewerFreshness,
+    classify_launch_truth,
     reviewer_mode_is_active,
 )
 from .session_state_hints import provider_session_state_hint
@@ -146,23 +148,18 @@ def attach_conductor_session_state(
     bridge_liveness["active_conductor_providers"] = list(active_providers)
     bridge_liveness["codex_conductor_active"] = "codex" in active_providers
     bridge_liveness["claude_conductor_active"] = "claude" in active_providers
+    bridge_liveness["launch_truth"] = classify_launch_truth(bridge_liveness).value
 
 
 def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:
     reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
     if not reviewer_mode_is_active(reviewer_mode):
         return []
-    codex_conductor_active = bool(bridge_liveness.get("codex_conductor_active"))
-    claude_conductor_active = bool(bridge_liveness.get("claude_conductor_active"))
-    publisher_running = bool(bridge_liveness.get("publisher_running"))
-    reviewer_supervisor_running = bool(
-        bridge_liveness.get("reviewer_supervisor_running")
+    launch_truth = str(
+        bridge_liveness.get("launch_truth") or classify_launch_truth(bridge_liveness).value
     )
-    if (
-        not codex_conductor_active
-        and not claude_conductor_active
-        and (publisher_running or reviewer_supervisor_running)
-    ):
+    bridge_liveness["launch_truth"] = launch_truth
+    if launch_truth == LaunchTruthState.DETACHED_RUNTIME_ONLY.value:
         return [
             "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or "
             "Claude conductor sessions are present. Do not trust detached "
@@ -170,11 +167,7 @@ def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:
             "relaunch with `review-channel --action launch` or "
             "`review-channel --action rollover` before continuing."
         ]
-    if not claude_conductor_active:
-        return []
-    if codex_conductor_active and bool(
-        bridge_liveness.get("poll_status_automation_only")
-    ):
+    if launch_truth == LaunchTruthState.AUTOMATION_ONLY.value:
         reason = str(bridge_liveness.get("poll_status_reason") or "unknown")
         return [
             "Repo-owned Codex conductor sessions are present, but the latest "
@@ -183,8 +176,8 @@ def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:
             "live loop as started until `Poll Status` advances through a real "
             "Codex reviewer action."
         ]
-    if codex_conductor_active:
-        return []
-    return [
-        "Repo-owned Claude conductor is active but no live repo-owned Codex conductor session is present. Hybrid chat/terminal review loops are not trusted; relaunch with `review-channel --action launch` or `review-channel --action rollover` instead of relying on Claude-only recover."
-    ]
+    if launch_truth == LaunchTruthState.HYBRID_CLAUDE_ONLY.value:
+        return [
+            "Repo-owned Claude conductor is active but no live repo-owned Codex conductor session is present. Hybrid chat/terminal review loops are not trusted; relaunch with `review-channel --action launch` or `review-channel --action rollover` instead of relying on Claude-only recover."
+        ]
+    return []

@@ -16,6 +16,10 @@ _RESETTABLE_IMPLEMENTER_ERROR_PREFIXES = (
     "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present.",
     "Repo-owned Codex conductor sessions are present, but the latest reviewer poll still comes from automation-only heartbeat refresh",
 )
+_RELAUNCH_REQUIRED_ERROR_PREFIXES = (
+    "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present.",
+    "Repo-owned Claude conductor is active but no live repo-owned Codex conductor session is present.",
+)
 RESETTABLE_IMPLEMENTER_SESSION_STATES = frozenset(
     {"interrupt_prompt", "waiting_for_user_input"}
 )
@@ -48,6 +52,18 @@ def blocking_contract_errors(
         return True
     return not all(
         is_resettable_implementer_error(error) for error in active_contract_errors
+    )
+
+
+def relaunch_required_contract_error(
+    active_contract_errors: list[str] | None,
+) -> bool:
+    """Return True when contract errors explicitly require loop relaunch."""
+    if not active_contract_errors:
+        return False
+    return any(
+        str(error).startswith(_RELAUNCH_REQUIRED_ERROR_PREFIXES)
+        for error in active_contract_errors
     )
 
 

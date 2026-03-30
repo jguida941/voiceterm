@@ -75,6 +75,7 @@ class ReviewBridgeState:
     current_instruction_revision: str
     claude_ack_revision: str
     last_reviewed_scope: str
+    launch_truth: str = ""
     implementer_state_hash: str = ""
     reviewed_hash_current: bool | None = None
     review_needed: bool | None = None
@@ -85,6 +86,8 @@ class ReviewBridgeState:
     ``bridge_validation.bridge_review_accepted()``."""
     implementer_completion_stall: bool = False
     publisher_running: bool = False
+    codex_conductor_active: bool = False
+    claude_conductor_active: bool = False
     reviewer_capability: ConductorCapabilityState | None = None
     implementer_capability: ConductorCapabilityState | None = None
 
