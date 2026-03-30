@@ -13,6 +13,9 @@ import pytest
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import review_channel as review_channel_command
 from dev.scripts.devctl.commands.review_channel_command.helpers import _validate_args
+from dev.scripts.devctl.review_channel.current_session_projection import (
+    compute_implementer_state_hash,
+)
 from dev.scripts.devctl.review_channel.reviewer_state import (
     ReviewerCheckpointUpdate,
     write_reviewer_checkpoint,
@@ -142,6 +145,11 @@ def _reviewer_args() -> SimpleNamespace:
         reviewer_mode="active_dual_agent",
         reason="test-review",
         expected_instruction_revision="56bcd5d01510",
+        expected_implementer_state_hash=compute_implementer_state_hash(
+            implementer_status="- waiting",
+            implementer_questions="- none",
+            implementer_ack="- acknowledged; instruction-rev: `56bcd5d01510`",
+        ),
         verdict=None,
         verdict_file=None,
         open_findings=None,
@@ -193,6 +201,20 @@ def test_validate_args_rejects_missing_expected_instruction_revision() -> None:
     with pytest.raises(
         ValueError,
         match="--expected-instruction-revision",
+    ):
+        _validate_args(args)
+
+
+def test_validate_args_rejects_missing_expected_implementer_state_hash() -> None:
+    args = _reviewer_args()
+    args.expected_implementer_state_hash = None
+    args.verdict = "- accepted"
+    args.open_findings_file = "findings.md"
+    args.instruction_file = "instruction.md"
+
+    with pytest.raises(
+        ValueError,
+        match="--expected-implementer-state-hash",
     ):
         _validate_args(args)
 
@@ -272,6 +294,8 @@ def test_run_reviewer_checkpoint_reads_file_backed_markdown_fields(
             str(instruction_path.relative_to(root)),
             "--expected-instruction-revision",
             "56bcd5d01510",
+            "--expected-implementer-state-hash",
+            _reviewer_args().expected_implementer_state_hash,
             "--reviewed-scope-item",
             "dev/scripts/devctl/commands/review_channel/_reviewer.py",
             "--output",
@@ -285,6 +309,7 @@ def test_run_reviewer_checkpoint_reads_file_backed_markdown_fields(
             review_channel_command,
             "_ensure_reviewer_supervisor_running",
             return_value={"attempted": False, "started": False, "reason": "already_running"},
+            create=True,
         ),
     ):
         rc = review_channel_command.run(args)
@@ -359,6 +384,8 @@ def test_run_reviewer_checkpoint_reads_typed_payload_file(
             str(payload_path.relative_to(root)),
             "--expected-instruction-revision",
             "56bcd5d01510",
+            "--expected-implementer-state-hash",
+            _reviewer_args().expected_implementer_state_hash,
             "--output",
             str(output_path),
         ]
@@ -370,6 +397,7 @@ def test_run_reviewer_checkpoint_reads_typed_payload_file(
             review_channel_command,
             "_ensure_reviewer_supervisor_running",
             return_value={"attempted": False, "started": False, "reason": "already_running"},
+            create=True,
         ),
     ):
         rc = review_channel_command.run(args)
@@ -491,5 +519,44 @@ def test_write_reviewer_checkpoint_rejects_stale_expected_instruction_revision(
                 current_instruction="- next task",
                 reviewed_scope_items=("bridge.md",),
                 expected_instruction_revision="deadbeefcafe",
+            ),
+        )
+
+
+def test_write_reviewer_checkpoint_rejects_stale_implementer_state_hash(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    review_channel_path = root / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
+    bridge_path = root / "bridge.md"
+    bridge_path.write_text(
+        _build_bridge_text().replace(
+            "## Claude Questions\n\n- none",
+            "## Claude Questions\n\n- new blocker",
+        ),
+        encoding="utf-8",
+    )
+
+    with (
+        patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot"),
+        pytest.raises(ValueError, match="expected implementer state hash"),
+    ):
+        write_reviewer_checkpoint(
+            repo_root=root,
+            bridge_path=bridge_path,
+            reviewer_mode="active_dual_agent",
+            reason="stale-implementer-state",
+            checkpoint=ReviewerCheckpointUpdate(
+                current_verdict="- accepted",
+                open_findings="- none",
+                current_instruction="- next task",
+                reviewed_scope_items=("bridge.md",),
+                expected_implementer_state_hash=compute_implementer_state_hash(
+                    implementer_status="- waiting",
+                    implementer_questions="- none",
+                    implementer_ack="- acknowledged; instruction-rev: `56bcd5d01510`",
+                ),
             ),
         )

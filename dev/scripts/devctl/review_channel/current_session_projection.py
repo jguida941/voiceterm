@@ -16,6 +16,32 @@ from .session_state_hints import provider_session_state_hint
 from .status_projection_helpers import clean_section
 
 
+def compute_implementer_state_hash(
+    *,
+    implementer_status: str,
+    implementer_questions: str = "",
+    implementer_ack: str,
+) -> str:
+    """Return a stable digest for Claude-owned live bridge state."""
+    normalized = (
+        clean_section(implementer_status),
+        clean_section(implementer_questions),
+        clean_section(implementer_ack),
+    )
+    if not any(normalized):
+        return ""
+    return sha256("\0".join(normalized).encode("utf-8")).hexdigest()
+
+
+def bridge_implementer_state_hash(snapshot: BridgeSnapshot) -> str:
+    """Return the implementer-state digest for one bridge snapshot."""
+    return compute_implementer_state_hash(
+        implementer_status=_section_text(snapshot, "Claude Status"),
+        implementer_questions=_section_text(snapshot, "Claude Questions"),
+        implementer_ack=_section_text(snapshot, "Claude Ack"),
+    )
+
+
 def build_bridge_current_session(
     snapshot: BridgeSnapshot,
     bridge_liveness: Mapping[str, object],
@@ -23,6 +49,7 @@ def build_bridge_current_session(
     """Build typed current-session state from bridge sections."""
     current_instruction = _section_text(snapshot, "Current Instruction For Claude")
     implementer_status = _section_text(snapshot, "Claude Status")
+    implementer_questions = _section_text(snapshot, "Claude Questions")
     implementer_ack = _section_text(snapshot, "Claude Ack")
     current_instruction_revision = _current_instruction_revision(
         snapshot=snapshot,
@@ -47,6 +74,11 @@ def build_bridge_current_session(
             ack_current=ack_current,
             stale_label="stale",
             is_substantive_text=_is_substantive_text,
+        ),
+        implementer_state_hash=compute_implementer_state_hash(
+            implementer_status=implementer_status,
+            implementer_questions=implementer_questions,
+            implementer_ack=implementer_ack,
         ),
         implementer_session_state=str(claude_hint.get("state") or ""),
         implementer_session_hint=str(claude_hint.get("summary") or ""),
@@ -78,6 +110,10 @@ def build_event_current_session(
             ack_current=bool(bridge_liveness.get("claude_ack_current")),
             stale_label="unknown",
             is_substantive_text=_is_substantive_text,
+        ),
+        implementer_state_hash=compute_implementer_state_hash(
+            implementer_status=implementer_status,
+            implementer_ack=implementer_ack,
         ),
         implementer_session_state="",
         implementer_session_hint="",

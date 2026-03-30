@@ -207,8 +207,9 @@ Three quality layers matter in practice:
     `--instruction-file` flags when you intentionally keep bodies split, and
     reserve inline body flags for short plain strings only. In
     `active_dual_agent`, always pass the live
-    `--expected-instruction-revision` from `review-channel --action status` or
-    `bridge-poll`.
+    `--expected-instruction-revision` and
+    `--expected-implementer-state-hash` from `review-channel --action status`
+    or `bridge-poll`.
   - Keep the implementer ACK contract identical across prompts, validators,
     and typed status reads. In `Claude Ack`, acknowledge the current
     instruction revision with one machine-readable line such as

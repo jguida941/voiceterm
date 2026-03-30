@@ -22,6 +22,7 @@ def build_typed_bridge_liveness(
     typed["claude_ack_revision"] = current_session.implementer_ack_revision
     typed["claude_ack_current"] = current_session.implementer_ack_state == "current"
     typed["implementer_ack_state"] = current_session.implementer_ack_state
+    typed["implementer_state_hash"] = current_session.implementer_state_hash
     typed["implementer_state_pending"] = is_pending_implementer_state(
         implementer_status=current_session.implementer_status,
         implementer_ack=current_session.implementer_ack,
@@ -63,6 +64,7 @@ def build_review_bridge_state(
         current_instruction_revision=current_session.current_instruction_revision,
         claude_ack_revision=current_session.implementer_ack_revision,
         last_reviewed_scope=current_session.last_reviewed_scope,
+        implementer_state_hash=current_session.implementer_state_hash,
         reviewed_hash_current=(
             None if reviewed_hash_current is None else bool(reviewed_hash_current)
         ),

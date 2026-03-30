@@ -114,6 +114,13 @@ def _validate_reviewer_checkpoint_args(args) -> None:
                 "--expected-instruction-revision in active_dual_agent mode. "
                 "Use the live `current_instruction_revision` from bridge-poll/status.",
             )
+            _require_present(
+                args,
+                "expected_implementer_state_hash",
+                "review-channel reviewer-checkpoint requires "
+                "--expected-implementer-state-hash in active_dual_agent mode. "
+                "Use the live `implementer_state_hash` from bridge-poll/status.",
+            )
         return
 
     _require_exactly_one(
@@ -152,6 +159,13 @@ def _validate_reviewer_checkpoint_args(args) -> None:
             "review-channel reviewer-checkpoint requires "
             "--expected-instruction-revision in active_dual_agent mode. "
             "Use the live `current_instruction_revision` from bridge-poll/status.",
+        )
+        _require_present(
+            args,
+            "expected_implementer_state_hash",
+            "review-channel reviewer-checkpoint requires "
+            "--expected-implementer-state-hash in active_dual_agent mode. "
+            "Use the live `implementer_state_hash` from bridge-poll/status.",
         )
 
 

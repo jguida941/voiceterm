@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
+from .current_session_projection import bridge_implementer_state_hash
 from .handoff import BridgeSnapshot, extract_bridge_snapshot, summarize_bridge_liveness
 from .promotion import derive_promotion_candidate, validate_promotion_ready
 
@@ -67,6 +68,7 @@ def maybe_auto_promote_next_task(
         expected_instruction_revision=str(
             snapshot.metadata.get("current_instruction_revision") or ""
         ),
+        expected_implementer_state_hash=bridge_implementer_state_hash(snapshot),
     )
     return promoted, [f"Auto-promoted next task: {candidate.checklist_item}"]
 

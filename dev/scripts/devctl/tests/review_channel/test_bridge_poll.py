@@ -16,6 +16,9 @@ from dev.scripts.devctl.commands.review_channel._bridge_poll import (
 from dev.scripts.devctl.commands.review_channel._wait_support import (
     build_typed_reviewer_token,
 )
+from dev.scripts.devctl.review_channel.current_session_projection import (
+    compute_implementer_state_hash,
+)
 from dev.scripts.devctl.review_channel.reviewer_state import (
     write_reviewer_heartbeat,
 )
@@ -186,6 +189,11 @@ def test_bridge_poll_reports_unchanged_ack_state(tmp_path: Path) -> None:
     assert payload["current_instruction_revision"] == "c5d49df4cfd1"
     assert payload["claude_ack_current"] is True
     assert payload["changed_since_last_ack"] is False
+    assert payload["implementer_state_hash"] == compute_implementer_state_hash(
+        implementer_status="- waiting for reviewer poll",
+        implementer_questions="- none",
+        implementer_ack="- acknowledged; instruction-rev: `c5d49df4cfd1`",
+    )
     assert payload["reviewer_mode"] == "active_dual_agent"
     assert payload["reviewer_freshness"] == "fresh"
     assert payload["reviewed_hash_current"] is False
@@ -213,6 +221,7 @@ def test_bridge_poll_reports_changed_since_last_ack(tmp_path: Path) -> None:
     assert payload["poll_status"] == "- active reviewer loop"
     assert payload["current_verdict"] == "- reviewer accepted prior slice"
     assert payload["open_findings"] == "- keep this slice limited to bridge-poll"
+    assert payload["implementer_state_hash"]
     assert payload["next_turn_required"] is True
     assert payload["next_turn_role"] == "implementer"
     assert payload["next_turn_reason"] == "implementer_ack_stale"

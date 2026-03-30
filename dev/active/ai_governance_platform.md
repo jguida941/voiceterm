@@ -5082,6 +5082,16 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-30: Closed one smaller but important self-hosting stale-reader gap
+  in the bridge-era review lane without redefining the long-term platform
+  boundary. The live compatibility bridge still is not canonical authority,
+  but the repo now exposes a typed `implementer_state_hash` alongside
+  `current_instruction_revision` on review-channel status/poll surfaces and
+  requires that hash on active-dual-agent reviewer checkpoints. This keeps the
+  compiler-style contract honest while markdown compatibility remains live:
+  stale readers fail closed on Claude-owned state drift instead of silently
+  trusting an older poll, and the same pattern stays typed and repo-owned
+  rather than turning back into "reread the bridge and hope" chat lore.
 - 2026-03-29: Closed the bounded startup-thesis checklist item for `MP-377`.
   `dev/config/why_stack.md` now feeds `startup-context` with a concise
   repo/product thesis ahead of SOP/router detail, and the rendered startup

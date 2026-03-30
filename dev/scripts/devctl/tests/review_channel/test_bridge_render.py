@@ -14,6 +14,10 @@ from dev.scripts.devctl.commands import review_channel as review_channel_command
 from dev.scripts.devctl.review_channel.bridge_section_validation import (
     find_embedded_markdown_headings,
 )
+from dev.scripts.devctl.review_channel.current_session_projection import (
+    bridge_implementer_state_hash,
+)
+from dev.scripts.devctl.review_channel.handoff import extract_bridge_snapshot
 from dev.scripts.devctl.review_channel.bridge_sanitize import (
     BRIDGE_SECTION_LINE_LIMITS,
     sanitize_bridge_sections,
@@ -274,6 +278,31 @@ def test_instruction_rewrite_rejects_embedded_markdown_headings() -> None:
                 bridge_path=Path("/tmp/repo/bridge.md"),
                 reviewer_mode="active_dual_agent",
                 reason="next-plan-item",
+            ),
+        )
+
+
+def test_instruction_rewrite_rejects_stale_implementer_state_hash() -> None:
+    baseline_bridge = _bridge_text()
+
+    with pytest.raises(
+        ValueError,
+        match="expected implementer state hash",
+    ):
+        rewrite_instruction_and_metadata(
+            bridge_text=baseline_bridge.replace(
+                "## Claude Questions\n\n- None recorded.",
+                "## Claude Questions\n\n- New blocker from Claude.",
+            ),
+            instruction="- Next scoped task.",
+            context=InstructionRewriteContext(
+                repo_root=Path("/tmp/repo"),
+                bridge_path=Path("/tmp/repo/bridge.md"),
+                reviewer_mode="active_dual_agent",
+                reason="next-plan-item",
+                expected_implementer_state_hash=bridge_implementer_state_hash(
+                    extract_bridge_snapshot(baseline_bridge)
+                ),
             ),
         )
 

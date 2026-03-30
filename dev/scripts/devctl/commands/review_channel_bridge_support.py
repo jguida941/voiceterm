@@ -13,6 +13,7 @@ from ..review_channel.core import (
     filter_provider_lanes,
     summarize_bridge_guard_failures,
 )
+from ..review_channel.current_session_projection import bridge_implementer_state_hash
 from ..review_channel.bridge_validation import validate_launch_bridge_state
 from ..review_channel.bridge_runtime_state import (
     BridgeStateContext,
@@ -181,15 +182,30 @@ def apply_scope_if_requested(*, args, repo_root: Path, bridge_path: Path) -> obj
         "expected_instruction_revision",
         None,
     )
-    if not expected_instruction_revision and bridge_path.exists():
-        expected_instruction_revision = current_instruction_revision_from_bridge_text(
-            bridge_path.read_text(encoding="utf-8")
-        )
+    expected_implementer_state_hash = getattr(
+        args,
+        "expected_implementer_state_hash",
+        None,
+    )
+    if (
+        (not expected_instruction_revision or not expected_implementer_state_hash)
+        and bridge_path.exists()
+    ):
+        bridge_text = bridge_path.read_text(encoding="utf-8")
+        if not expected_instruction_revision:
+            expected_instruction_revision = current_instruction_revision_from_bridge_text(
+                bridge_text
+            )
+        if not expected_implementer_state_hash:
+            expected_implementer_state_hash = bridge_implementer_state_hash(
+                extract_bridge_snapshot(bridge_text)
+            )
     return scope_bridge_instruction(
         repo_root=repo_root,
         bridge_path=bridge_path,
         scope_plan_path=scope_plan_path,
         expected_instruction_revision=expected_instruction_revision,
+        expected_implementer_state_hash=expected_implementer_state_hash,
     )
 
 

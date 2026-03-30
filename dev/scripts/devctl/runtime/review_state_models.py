@@ -38,6 +38,7 @@ class ReviewCurrentSessionState:
     implementer_ack: str
     implementer_ack_revision: str
     implementer_ack_state: str
+    implementer_state_hash: str = ""
     implementer_session_state: str = ""
     implementer_session_hint: str = ""
     open_findings: str = ""
@@ -61,6 +62,7 @@ class ReviewBridgeState:
     current_instruction_revision: str
     claude_ack_revision: str
     last_reviewed_scope: str
+    implementer_state_hash: str = ""
     reviewed_hash_current: bool | None = None
     review_needed: bool | None = None
     review_accepted: bool = False

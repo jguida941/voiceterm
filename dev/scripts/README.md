@@ -122,7 +122,7 @@ python3 dev/scripts/devctl.py probe-report --format md
 python3 dev/scripts/devctl.py quality-policy --format md
 python3 dev/scripts/devctl.py tandem-validate --format md
 python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md
-python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --terminal none --format md
+python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --expected-implementer-state-hash <live-implementer-state-hash> --terminal none --format md
 python3 dev/scripts/devctl.py launcher-check
 python3 dev/scripts/devctl.py launcher-probes
 python3 dev/scripts/devctl.py launcher-policy
@@ -220,8 +220,9 @@ Portability note:
   sensitive body, use `--verdict-file` / `--open-findings-file` /
   `--instruction-file` only when you intentionally keep the bodies split, and
   reserve inline body flags for short plain strings. In `active_dual_agent`,
-  pass the live `--expected-instruction-revision` from `review-channel
-  --action status` or `bridge-poll`.
+  pass the live `--expected-instruction-revision` plus
+  `--expected-implementer-state-hash` from `review-channel --action status`
+  or `bridge-poll`.
 - Keep the implementer ACK contract identical across prompts, validators, and
   typed status reads. In `Claude Ack`, acknowledge the current instruction
   revision with one machine-readable line such as

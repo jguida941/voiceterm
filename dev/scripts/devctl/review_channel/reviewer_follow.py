@@ -12,6 +12,7 @@ from .follow_loop import (
     build_claude_progress_token,
     run_configured_follow_action,
 )
+from .current_session_projection import bridge_implementer_state_hash
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
 from .heartbeat import bridge_excluded_rel_paths, compute_non_audit_worktree_hash
 from .lifecycle_state import (
@@ -230,6 +231,7 @@ def _maybe_auto_promote(
         expected_instruction_revision=str(
             snapshot.metadata.get("current_instruction_revision") or ""
         ),
+        expected_implementer_state_hash=bridge_implementer_state_hash(snapshot),
     )
     return {
         "attempted": True,

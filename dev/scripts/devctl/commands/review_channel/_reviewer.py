@@ -171,6 +171,11 @@ def run_reviewer_state_action(
                     "expected_instruction_revision",
                     None,
                 ),
+                expected_implementer_state_hash=getattr(
+                    args,
+                    "expected_implementer_state_hash",
+                    None,
+                ),
             ),
         )
 

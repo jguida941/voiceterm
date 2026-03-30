@@ -2679,6 +2679,12 @@ become the main product surface.
   --action status` now treats `active_dual_agent` without repo-owned
   conductors as a bridge-contract error instead of healthy detached-daemon
   freshness.
+  A 2026-03-30 stale-reader follow-up closed the next same-lane write-safety
+  gap: bridge-backed `status` / `bridge-poll` now emit a typed
+  `implementer_state_hash`, active-dual-agent `reviewer-checkpoint` writes
+  require that hash alongside the expected instruction revision, and repo-
+  owned promotion/scope rewrites thread the same hash when they act on a
+  previously validated bridge snapshot.
   The next narrowed runtime-consumer splice is also explicit: queue and
   attention already drive current-focus and wait projections, but startup/
   work-intake routing and reviewer/implementer scheduling still ignore

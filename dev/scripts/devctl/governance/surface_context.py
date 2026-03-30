@@ -133,7 +133,7 @@ def render_key_commands_block() -> str:
         ),
         (
             "Reviewer checkpoint",
-            "python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --terminal none --format md",
+            "python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --expected-implementer-state-hash <live-implementer-state-hash> --terminal none --format md",
         ),
         (
             "Implementer wait",

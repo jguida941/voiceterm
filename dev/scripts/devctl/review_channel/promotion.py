@@ -151,6 +151,7 @@ def promote_bridge_instruction(
     bridge_path: Path,
     promotion_plan_path: Path,
     expected_instruction_revision: str | None = None,
+    expected_implementer_state_hash: str | None = None,
 ) -> PromotionCandidate:
     """Promote the next unchecked plan item into the live bridge instruction."""
     candidate = derive_promotion_candidate(
@@ -174,6 +175,7 @@ def promote_bridge_instruction(
                 reviewer_mode=snapshot.metadata.get("reviewer_mode"),
                 reason="next-plan-item",
                 expected_instruction_revision=expected_instruction_revision,
+                expected_implementer_state_hash=expected_implementer_state_hash,
             ),
         )
 
@@ -308,6 +310,7 @@ def scope_bridge_instruction(
     bridge_path: Path,
     scope_plan_path: Path,
     expected_instruction_revision: str | None = None,
+    expected_implementer_state_hash: str | None = None,
 ) -> PromotionCandidate:
     """Rewrite the bridge instruction from a scoped active-plan doc.
 
@@ -337,6 +340,7 @@ def scope_bridge_instruction(
                     reviewer_mode=snapshot.metadata.get("reviewer_mode"),
                     reason=f"scope:{source}",
                     expected_instruction_revision=expected_instruction_revision,
+                    expected_implementer_state_hash=expected_implementer_state_hash,
                 ),
             )
 

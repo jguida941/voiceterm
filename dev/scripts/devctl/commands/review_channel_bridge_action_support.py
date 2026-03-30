@@ -15,6 +15,7 @@ from ..review_channel.core import (
     detect_active_session_conflicts,
     summarize_active_session_conflicts,
 )
+from ..review_channel.current_session_projection import bridge_implementer_state_hash
 from ..review_channel.event_store import ReviewChannelArtifactPaths, event_state_exists
 from ..review_channel.events import post_packet
 from ..review_channel.bridge_runtime_state import BridgeStateContext
@@ -183,18 +184,32 @@ def resolve_promotion_and_terminal_state(
         "expected_instruction_revision",
         None,
     )
-    if not expected_instruction_revision and context.bridge_path.exists():
+    expected_implementer_state_hash = getattr(
+        args,
+        "expected_implementer_state_hash",
+        None,
+    )
+    if (
+        (not expected_instruction_revision or not expected_implementer_state_hash)
+        and context.bridge_path.exists()
+    ):
         snapshot = extract_bridge_snapshot(
             context.bridge_path.read_text(encoding="utf-8")
         )
-        expected_instruction_revision = str(
-            snapshot.metadata.get("current_instruction_revision") or ""
-        )
+        if not expected_instruction_revision:
+            expected_instruction_revision = str(
+                snapshot.metadata.get("current_instruction_revision") or ""
+            )
+        if not expected_implementer_state_hash:
+            expected_implementer_state_hash = bridge_implementer_state_hash(
+                snapshot
+            )
     promotion = promote_bridge_instruction_fn(
         repo_root=context.repo_root,
         bridge_path=context.bridge_path,
         promotion_plan_path=context.promotion_plan_path,
         expected_instruction_revision=expected_instruction_revision,
+        expected_implementer_state_hash=expected_implementer_state_hash,
     )
     bridge_launch_state_fn(
         args=args,

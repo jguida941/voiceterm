@@ -111,6 +111,23 @@ This still does not make the launcher ignore repo policy. Fresh `launch` /
 checkpoint-clean worktree, so a dirty slice still has to checkpoint before the
 next live relaunch can start.
 
+### 2026-03-30 - Reviewer checkpoints now fail closed on stale Claude-owned bridge state
+
+The next same-lane follow-up addressed a narrower but still important gap in
+the bridge-era stale-write story. Earlier hardening already required
+instruction-mutating reviewer writes to carry an expected instruction
+revision, but that still left one reviewer-side blind spot: a conductor could
+read bridge state, Claude could update its owned `Status`/`Questions`/`Ack`
+blocks, and the reviewer could still write a new checkpoint without proving it
+had seen the latest implementer state.
+
+Closed that gap by emitting a typed `implementer_state_hash` from
+bridge-backed `status` and `bridge-poll`, then requiring active-dual-agent
+`reviewer-checkpoint` writes to pass that hash alongside the expected
+instruction revision. Promotion/scope rewrites that reuse a previously
+validated bridge snapshot now thread the same hash too, so the compatibility
+bridge keeps one repo-owned compare-and-swap seam while markdown remains live.
+
 ## Term Quick Reference
 
 - PTY: pseudo-terminal session used to keep CLI context alive.

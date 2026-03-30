@@ -15,7 +15,10 @@ from .reviewer_state_support import (
     current_instruction_revision_from_bridge_text,
     write_reviewer_metadata,
 )
-from .write_preconditions import assert_expected_instruction_revision
+from .write_preconditions import (
+    assert_expected_implementer_state_hash,
+    assert_expected_instruction_revision,
+)
 
 CURRENT_INSTRUCTION_SECTION = "Current Instruction For Claude"
 CURRENT_INSTRUCTION_SECTION_RE = re.compile(
@@ -40,6 +43,7 @@ class InstructionRewriteContext:
     reviewer_mode: str | None
     reason: str
     expected_instruction_revision: str | None = None
+    expected_implementer_state_hash: str | None = None
 
 
 def instruction_needs_plan_promotion(instruction: str) -> bool:
@@ -91,6 +95,11 @@ def rewrite_instruction_and_metadata(
     assert_expected_instruction_revision(
         bridge_text=bridge_text,
         expected_instruction_revision=context.expected_instruction_revision,
+        action="instruction-rewrite",
+    )
+    assert_expected_implementer_state_hash(
+        bridge_text=bridge_text,
+        expected_implementer_state_hash=context.expected_implementer_state_hash,
         action="instruction-rewrite",
     )
     previous_instruction_revision = current_instruction_revision_from_bridge_text(

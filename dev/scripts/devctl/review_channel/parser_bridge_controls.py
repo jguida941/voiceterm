@@ -110,6 +110,15 @@ def build_bridge_control_arguments(
             ),
         ),
         arg_builder(
+            "--expected-implementer-state-hash",
+            help=(
+                "Fail-closed precondition for reviewer writes that depend on "
+                "Claude-owned bridge state. Use `implementer_state_hash` from "
+                "`review-channel --action bridge-poll --format json` or "
+                "`bridge_liveness.implementer_state_hash` from `status`."
+            ),
+        ),
+        arg_builder(
             "--reviewed-scope-item",
             action="append",
             default=[],

@@ -8,6 +8,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 
+from ...review_channel.current_session_projection import bridge_implementer_state_hash
 from ...review_channel.handoff import (
     BridgeLiveness,
     BridgeSnapshot,
@@ -37,6 +38,7 @@ class BridgePollResult:
     reviewer_freshness: str
     claude_ack_revision: str
     claude_ack_current: bool
+    implementer_state_hash: str
     changed_since_last_ack: bool
     reviewed_hash_current: bool | None
     review_needed: bool | None
@@ -55,6 +57,7 @@ class _BridgePollAuthority:
     current_instruction_revision: str
     claude_ack_revision: str
     claude_ack_current: bool
+    implementer_state_hash: str
     reviewed_hash_current: bool | None
     review_needed: bool | None
 
@@ -98,6 +101,7 @@ def build_bridge_poll_result(
         reviewer_freshness=liveness.reviewer_freshness,
         claude_ack_revision=authority.claude_ack_revision,
         claude_ack_current=authority.claude_ack_current,
+        implementer_state_hash=authority.implementer_state_hash,
         changed_since_last_ack=bool(authority.current_instruction_revision)
         and authority.current_instruction_revision != authority.claude_ack_revision,
         reviewed_hash_current=authority.reviewed_hash_current,
@@ -163,6 +167,13 @@ def _bridge_poll_authority(
     review_needed = _typed_bool(bridge_state, "review_needed")
     if review_needed is None:
         review_needed = _review_needed(liveness)
+    implementer_state_hash = str(
+        current_session.get("implementer_state_hash")
+        or bridge_state.get("implementer_state_hash")
+        or ""
+    ).strip()
+    if not implementer_state_hash:
+        implementer_state_hash = bridge_implementer_state_hash(snapshot)
     return _BridgePollAuthority(
         current_instruction=(
             str(current_session.get("current_instruction") or "").strip()
@@ -177,6 +188,7 @@ def _bridge_poll_authority(
             or liveness.claude_ack_revision
         ),
         claude_ack_current=claude_ack_current,
+        implementer_state_hash=implementer_state_hash,
         reviewed_hash_current=reviewed_hash_current,
         review_needed=review_needed,
     )
@@ -273,6 +285,7 @@ def _build_turn_state_token(
             authority.current_instruction_revision,
             liveness.reviewer_mode,
             _optional_bool_token(authority.claude_ack_current),
+            authority.implementer_state_hash,
             _optional_bool_token(authority.reviewed_hash_current),
             _optional_bool_token(authority.review_needed),
             next_turn.role,

@@ -100,7 +100,7 @@ python3 dev/scripts/devctl.py tandem-validate --format md
 python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md
 
 # Reviewer-owned truth update after a real accepted review pass
-python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --terminal none --format md
+python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --expected-implementer-state-hash <live-implementer-state-hash> --terminal none --format md
 ```
 
 Use a JSON payload file for reviewer checkpoints when AI-generated markdown or
@@ -213,7 +213,7 @@ phone/mobile clients, and agent-only or developer-only flows:
 - `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
 - `python3 dev/scripts/devctl.py tandem-validate --format md`
 - `python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md`
-- `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --terminal none --format md`
+- `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --expected-implementer-state-hash <live-implementer-state-hash> --terminal none --format md`
 - `python3 dev/scripts/devctl.py swarm_run --help`
 - `python3 dev/scripts/devctl.py phone-status --help`
 - `python3 dev/scripts/devctl.py mobile-status --help`
