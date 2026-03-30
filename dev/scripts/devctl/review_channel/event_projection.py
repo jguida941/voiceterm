@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 
+from ..runtime.conductor_capability import build_conductor_capability_state
 from ..runtime.review_state_models import ReviewQueueState
 from .attention import derive_bridge_attention
 from .attach_auth_policy import build_attach_auth_policy
@@ -175,15 +177,14 @@ def _build_event_bridge_state(
     bridge_liveness: Mapping[str, object],
 ) -> dict[str, object]:
     current_session = current_session_mapping(review_state)
+    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "tools_only")
     bridge_state: dict[str, object] = {}
     bridge_state["overall_state"] = str(bridge_liveness.get("overall_state") or "unknown")
     bridge_state["codex_poll_state"] = str(bridge_liveness.get("codex_poll_state") or "missing")
     bridge_state["reviewer_freshness"] = str(
         bridge_liveness.get("reviewer_freshness") or "missing"
     )
-    bridge_state["reviewer_mode"] = str(
-        bridge_liveness.get("reviewer_mode") or "tools_only"
-    )
+    bridge_state["reviewer_mode"] = reviewer_mode
     bridge_state["last_codex_poll_utc"] = str(review_state.get("timestamp") or "")
     bridge_state["last_codex_poll_age_seconds"] = int(
         bridge_liveness.get("last_codex_poll_age_seconds") or 0
@@ -213,6 +214,9 @@ def _build_event_bridge_state(
     bridge_state["last_reviewed_scope"] = str(
         current_session.get("last_reviewed_scope") or ""
     )
+    bridge_state["implementer_state_hash"] = str(
+        current_session.get("implementer_state_hash") or ""
+    )
     bridge_state["reviewed_hash_current"] = bridge_liveness.get(
         "reviewed_hash_current"
     )
@@ -221,6 +225,18 @@ def _build_event_bridge_state(
     # keep the transitional acceptance gate fail-closed instead of inventing a
     # non-reviewer-owned proxy signal.
     bridge_state["review_accepted"] = False
+    bridge_state["reviewer_capability"] = asdict(
+        build_conductor_capability_state(
+            provider="codex",
+            reviewer_mode=reviewer_mode,
+        )
+    )
+    bridge_state["implementer_capability"] = asdict(
+        build_conductor_capability_state(
+            provider="claude",
+            reviewer_mode=reviewer_mode,
+        )
+    )
     return bridge_state
 
 

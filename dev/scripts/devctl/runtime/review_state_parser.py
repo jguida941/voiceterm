@@ -5,6 +5,11 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from .control_state import _int, _mapping, _string, _string_rows
+from .review_state_parse_support import (
+    _bool,
+    bridge_ack_state,
+    conductor_capability_state_from_payload,
+)
 from .review_state_models import (
     AgentRegistryEntryState,
     AgentRegistryState,
@@ -17,15 +22,6 @@ from .review_state_models import (
     ReviewSessionState,
     ReviewState,
 )
-from .review_state_semantics import is_pending_implementer_state
-
-
-def _bool(value: object) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
-    return bool(value)
 
 
 def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | None:
@@ -125,6 +121,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             ),
             claude_ack_revision=_string(bridge.get("claude_ack_revision")),
             last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
+            implementer_state_hash=_string(bridge.get("implementer_state_hash")),
             reviewed_hash_current=(
                 _bool(bridge.get("reviewed_hash_current"))
                 if "reviewed_hash_current" in bridge
@@ -138,6 +135,13 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             review_accepted=_bool(bridge.get("review_accepted")),
             implementer_completion_stall=bool(bridge.get("implementer_completion_stall")),
             publisher_running=bool(bridge.get("publisher_running")),
+            reviewer_capability=conductor_capability_state_from_payload(
+                bridge.get("reviewer_capability") or bridge_liveness.get("reviewer_capability")
+            ),
+            implementer_capability=conductor_capability_state_from_payload(
+                bridge.get("implementer_capability")
+                or bridge_liveness.get("implementer_capability")
+            ),
         ),
         attention=_attention_state_from_mapping(attention),
         packets=_packet_states_from_value(review_payload.get("packets")),
@@ -171,6 +175,9 @@ def _current_session_state_from_payload(
                 current_session.get("implementer_ack_state")
             )
             or "unknown",
+            implementer_state_hash=_string(
+                current_session.get("implementer_state_hash")
+            ),
             implementer_session_state=_string(
                 current_session.get("implementer_session_state")
             ),
@@ -188,25 +195,16 @@ def _current_session_state_from_payload(
         implementer_status=_string(bridge.get("claude_status")),
         implementer_ack=implementer_ack,
         implementer_ack_revision=_string(bridge.get("claude_ack_revision")),
-        implementer_ack_state=_bridge_ack_state(bridge, implementer_ack),
+        implementer_ack_state=bridge_ack_state(
+            bridge=bridge,
+            implementer_ack=implementer_ack,
+        ),
+        implementer_state_hash=_string(bridge.get("implementer_state_hash")),
         implementer_session_state="",
         implementer_session_hint="",
         open_findings=_string(bridge.get("open_findings")),
         last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
     )
-
-
-def _bridge_ack_state(bridge: Mapping[str, object], implementer_ack: str) -> str:
-    if is_pending_implementer_state(
-        implementer_status=_string(bridge.get("claude_status")),
-        implementer_ack=implementer_ack,
-    ):
-        return "pending"
-    if not implementer_ack:
-        return "missing"
-    if _bool(bridge.get("claude_ack_current")):
-        return "current"
-    return "stale"
 
 
 def _attention_state_from_mapping(

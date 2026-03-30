@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
+from .conductor_capability import normalize_reviewer_mode
 from .governance_scan import scan_repo_governance_safely
 from .project_governance import ProjectGovernance
 from .reviewer_gate_logic import reviewer_loop_block_state
@@ -116,46 +117,41 @@ def _detect_reviewer_gate_from_typed_state(
     state = load_current_review_state(repo_root, governance=governance)
     if state is None:
         return None
-    try:
-        from ..review_channel.peer_liveness import reviewer_mode_is_active
-
-        mode = state.bridge.reviewer_mode
-        active = reviewer_mode_is_active(mode)
-        if not active:
-            return ReviewerGateState(
-                bridge_active=False,
-                reviewer_mode=mode,
-                review_accepted=True,
-                required_checks_status="unknown",
-                checkpoint_permitted=True,
-                review_gate_allows_push=True,
-            )
-
-        implementation_blocked, implementation_block_reason = reviewer_loop_block_state(
-            reviewer_mode=mode,
-            claude_ack_current=state.bridge.claude_ack_current,
-            attention_status=(
-                str(state.attention.status).strip()
-                if state.attention is not None
-                else ""
-            ),
-            implementer_status=state.current_session.implementer_status.strip(),
-            implementer_ack=state.current_session.implementer_ack.strip(),
-            implementer_ack_state=state.current_session.implementer_ack_state.strip(),
-        )
-
+    mode = state.bridge.reviewer_mode
+    active = normalize_reviewer_mode(mode) == "active_dual_agent"
+    if not active:
         return ReviewerGateState(
-            bridge_active=True,
+            bridge_active=False,
             reviewer_mode=mode,
-            review_accepted=state.bridge.review_accepted,
+            review_accepted=True,
             required_checks_status="unknown",
             checkpoint_permitted=True,
-            review_gate_allows_push=state.bridge.review_accepted,
-            implementation_blocked=implementation_blocked,
-            implementation_block_reason=implementation_block_reason,
+            review_gate_allows_push=True,
         )
-    except ImportError:
-        return None
+
+    implementation_blocked, implementation_block_reason = reviewer_loop_block_state(
+        reviewer_mode=mode,
+        claude_ack_current=state.bridge.claude_ack_current,
+        attention_status=(
+            str(state.attention.status).strip()
+            if state.attention is not None
+            else ""
+        ),
+        implementer_status=state.current_session.implementer_status.strip(),
+        implementer_ack=state.current_session.implementer_ack.strip(),
+        implementer_ack_state=state.current_session.implementer_ack_state.strip(),
+    )
+
+    return ReviewerGateState(
+        bridge_active=True,
+        reviewer_mode=mode,
+        review_accepted=state.bridge.review_accepted,
+        required_checks_status="unknown",
+        checkpoint_permitted=True,
+        review_gate_allows_push=state.bridge.review_accepted,
+        implementation_blocked=implementation_blocked,
+        implementation_block_reason=implementation_block_reason,
+    )
 
 
 def _detect_reviewer_gate_without_typed_state(

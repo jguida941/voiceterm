@@ -46,6 +46,19 @@ class ReviewCurrentSessionState:
 
 
 @dataclass(frozen=True, slots=True)
+class ConductorCapabilityState:
+    provider: str
+    role: str
+    startup_context_command: str
+    may_edit_repo: bool
+    requires_explicit_takeover: bool
+    worker_unavailable_policy: str
+    queue_policy: str
+    takeover_command: str = ""
+    status_summary: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class ReviewBridgeState:
     overall_state: str
     codex_poll_state: str
@@ -72,6 +85,8 @@ class ReviewBridgeState:
     ``bridge_validation.bridge_review_accepted()``."""
     implementer_completion_stall: bool = False
     publisher_running: bool = False
+    reviewer_capability: ConductorCapabilityState | None = None
+    implementer_capability: ConductorCapabilityState | None = None
 
 
 @dataclass(frozen=True, slots=True)

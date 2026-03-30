@@ -128,6 +128,23 @@ instruction revision. Promotion/scope rewrites that reuse a previously
 validated bridge snapshot now thread the same hash too, so the compatibility
 bridge keeps one repo-owned compare-and-swap seam while markdown remains live.
 
+### 2026-03-30 - Startup authority and conductor capability now fail closed on review-channel orchestration drift
+
+The next self-hosting follow-up fixed a different review-channel regression:
+the system already knew reviewer vs implementer role truth, but prompt and
+bootstrap layers could still drift by re-stating that policy locally. That is
+how a reviewer session can end up optimizing for a local patch instead of the
+owner contract.
+
+Closed the gap by moving reviewer/implementer startup commands plus explicit
+reviewer takeover into a runtime-owned `ConductorCapabilityState`, then making
+review-channel prompt/bridge bootstrap surfaces render from that typed
+contract. Repo policy now also extends `platform_layer_boundaries` with a
+startup-authority/runtime rule that blocks those modules from importing
+`dev.scripts.devctl.review_channel` orchestration directly, so the next
+prompt-level shortcut fails in CI instead of quietly becoming a second source
+of truth.
+
 ## Term Quick Reference
 
 - PTY: pseudo-terminal session used to keep CLI context alive.

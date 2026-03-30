@@ -5092,6 +5092,17 @@ Execution order for this section:
   stale readers fail closed on Claude-owned state drift instead of silently
   trusting an older poll, and the same pattern stays typed and repo-owned
   rather than turning back into "reread the bridge and hope" chat lore.
+- 2026-03-30: Closed the next ownership-boundary gap in that same review lane.
+  The problem was not missing information; it was that prompt/bootstrap
+  surfaces could still restate policy locally instead of consuming the typed
+  owner contract. Reviewer vs implementer startup commands plus explicit
+  reviewer takeover now live in runtime-owned `ConductorCapabilityState`,
+  review-channel prompt/bridge bootstrap surfaces render from that typed
+  contract, and repo policy now teaches `platform_layer_boundaries` to fail
+  closed if startup-authority/runtime capability modules import
+  `dev.scripts.devctl.review_channel` orchestration directly. That keeps the
+  platform thesis honest: if the system already knows a fact in typed state,
+  projections consume it instead of re-declaring policy in local strings.
 - 2026-03-29: Closed the bounded startup-thesis checklist item for `MP-377`.
   `dev/config/why_stack.md` now feeds `startup-context` with a concise
   repo/product thesis ahead of SOP/router detail, and the rendered startup

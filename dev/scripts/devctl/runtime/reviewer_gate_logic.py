@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .conductor_capability import normalize_reviewer_mode
 from .review_state_semantics import is_pending_implementer_state
 
 
@@ -15,9 +16,7 @@ def reviewer_loop_block_state(
     implementer_ack_state: str = "",
 ) -> tuple[bool, str]:
     """Return whether the active reviewer loop is blocked on implementer state."""
-    from ..review_channel.peer_liveness import reviewer_mode_is_active
-
-    if not reviewer_mode_is_active(reviewer_mode):
+    if normalize_reviewer_mode(reviewer_mode) != "active_dual_agent":
         return False, ""
     if claude_ack_current:
         return False, ""

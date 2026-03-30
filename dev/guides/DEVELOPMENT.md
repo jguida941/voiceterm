@@ -385,6 +385,12 @@ Three quality layers matter in practice:
     repo-owned review status path before reading live `current_session` /
     freshness fields, so stale saved snapshots do not outrank the status
     writer.
+  - Reviewer/implementer launch commands plus explicit reviewer takeover are
+    runtime-owned `ConductorCapabilityState` facts now, not prompt-local text.
+    Prompt/bootstrap/bridge projection surfaces must render from that typed
+    owner contract, and `check_platform_layer_boundaries.py` now blocks
+    startup-authority/runtime capability modules from importing
+    `dev.scripts.devctl.review_channel` orchestration directly.
   - Treat that startup/governance path as the portable authority rule for new
     work too: reusable runtime/tooling layers should resolve docs, plans,
     artifact roots, and review-channel state through `ProjectGovernance` /

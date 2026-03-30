@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 from .ack_contract import ack_contract_prompt_line
-from ..runtime.role_profile import role_for_provider
+from ..runtime.review_state_models import ConductorCapabilityState
 
 
 def provider_bootstrap_guard_lines(
     *,
+    capability: ConductorCapabilityState,
     provider_name: str,
     promote_command: str,
 ) -> list[str]:
     """Return role-driven guardrails for unattended conductor sessions."""
-    if role_for_provider(provider_name) == "reviewer":
+    if capability.role == "reviewer":
         return [
             (
                 "- First action after bootstrap on every fresh launch: refresh "
@@ -37,6 +38,14 @@ def provider_bootstrap_guard_lines(
                 "fresh diff to review, use the repo-owned `review-channel --action "
                 "reviewer-wait` path instead of ad-hoc shell sleep loops, and "
                 "resume the review pass as soon as implementer-owned state changes."
+            ),
+            (
+                "- In `active_dual_agent`, reviewer mode is review-only by default. "
+                "Missing worker worktrees, absent fanout, or a promising fix are "
+                "not permission to code locally. Use the repo-owned "
+                "review/promote/wait paths unless the workflow explicitly switches "
+                "to takeover with `reviewer_mode=single_agent` or "
+                f"`{capability.takeover_command}`."
             ),
             (
                 "- If Claude reports a slice complete and scoped work still remains, "

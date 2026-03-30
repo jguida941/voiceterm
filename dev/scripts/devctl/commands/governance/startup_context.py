@@ -17,6 +17,7 @@ from ...runtime.startup_receipt import (
     build_startup_receipt,
     write_startup_receipt,
 )
+from ...runtime.conductor_capability import reviewer_local_implementation_allowed
 from ...runtime.startup_authority import build_startup_authority_report
 from ...runtime.startup_context import build_startup_context, blocks_new_implementation
 
@@ -189,10 +190,9 @@ def run(args) -> int:
     caller_role = getattr(args, "role", None)
     reviewer_override = getattr(args, "reviewer_override", False)
     reviewer_blocked = False
-    if (
-        caller_role == "reviewer"
-        and ctx.reviewer_gate.reviewer_mode == "active_dual_agent"
-        and not reviewer_override
+    if caller_role == "reviewer" and not reviewer_local_implementation_allowed(
+        reviewer_mode=ctx.reviewer_gate.reviewer_mode,
+        reviewer_override=reviewer_override,
     ):
         reviewer_blocked = True
         blocked = True

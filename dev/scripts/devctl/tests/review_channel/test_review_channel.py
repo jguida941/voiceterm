@@ -181,7 +181,7 @@ def _build_bridge_text(
             "",
             "Codex is the reviewer. Claude is the coder.",
             "At conversation start, both agents must bootstrap repo authority in this order before acting: `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/review_channel.md`.",
-            "Run `python3 dev/scripts/devctl.py startup-context --format summary` first before coding or relaunching conductor work.",
+            "Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first before coding or relaunching conductor work.",
             "Then run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for slim startup context.",
             "Keep chat bootstrap acknowledgements concise: blocker state plus next step, not a replay of the packet, unless the operator asks for the detail.",
             "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
@@ -191,7 +191,7 @@ def _build_bridge_text(
             "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
             "When the structured review queue is available, Claude must also poll `review-channel --action inbox --target claude --status pending --format json` or the equivalent watch surface on the same cadence so Codex-targeted packets are not missed.",
             "Claude must read `Last Codex poll` / `Poll Status` first on each repoll. If the reviewer-owned timestamp and the reviewer-owned sections are unchanged after Claude already finished the current bounded work, treat that as a live wait state, wait on cadence, and reread the full reviewer-owned block instead of hammering one fixed offset/line.",
-            "When `Reviewer mode` is `active_dual_agent`, this file is the live reviewer/coder authority. Claude must keep polling it instead of waiting for the operator to restate the process in chat.",
+            "When `Reviewer mode` is `active_dual_agent`, this file is the live reviewer/coder authority. Codex stays reviewer-only by default: missing worker worktrees, absent fanout, or a promising fix are not permission to start local implementation. Claude must keep polling it instead of waiting for the operator to restate the process in chat.",
             "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`, Claude must not assume a live Codex review loop. Treat this file as context unless a reviewer-owned section explicitly reactivates the bridge or the operator asks for dual-agent mode.",
             'When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
             "If `Current Instruction For Claude` or `Poll Status` says `hold steady`, `waiting for reviewer promotion`, `Codex committing/pushing`, or similar wait-state language, Claude must not mine plan docs for side work or self-promote the next slice. Keep polling until a reviewer-owned section changes.",
@@ -968,9 +968,16 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
     def test_bootstrap_ordering_puts_repo_authority_before_handoff_bundle(self) -> None:
         from dev.scripts.devctl.review_channel.prompt import _bootstrap_files
+        from dev.scripts.devctl.runtime.conductor_capability import (
+            build_conductor_capability_state,
+        )
 
         root = Path("/fake/repo")
         files = _bootstrap_files(
+            capability=build_conductor_capability_state(
+                provider="codex",
+                reviewer_mode="active_dual_agent",
+            ),
             repo_root=root,
             review_channel_path=root / "dev/active/review_channel.md",
             bridge_path=root / "bridge.md",
@@ -1080,6 +1087,24 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
+            "python3 dev/scripts/devctl.py startup-context --role reviewer --format summary",
+            prompt,
+        )
+        self.assertIn(
+            "reviewer mode is review-only by default",
+            prompt,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py startup-context --role reviewer "
+            "--reviewer-override --format summary",
+            prompt,
+        )
+        self.assertNotIn(
+            "If worker fanout is unavailable, stay in conductor mode and keep "
+            "executing the loop yourself.",
+            prompt,
+        )
+        self.assertIn(
             f"When the interface shows {DEFAULT_ROLLOVER_THRESHOLD_PCT}% context remaining "
             "or lower",
             prompt,
@@ -1147,6 +1172,10 @@ class ReviewChannelHelperTests(unittest.TestCase):
             "`waiting_on_peer` means the loop stays live while you keep polling "
             "for the next bridge change; it does not mean the conductor should "
             "exit or park silently.",
+            prompt,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py startup-context --role implementer --format summary",
             prompt,
         )
         self.assertIn(

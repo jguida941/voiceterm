@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..runtime.role_profile import role_for_provider
+from ..runtime.review_state_models import ConductorCapabilityState
 from .prompt_guards import provider_bootstrap_guard_lines
 from .prompt_contract import shared_post_edit_verification_lines
 
 
 def operating_contract_lines(
     *,
+    capability: ConductorCapabilityState,
     provider_name: str,
     repo_root: Path,
     approval_mode: str,
@@ -21,8 +22,20 @@ def operating_contract_lines(
     owned_sections = (
         "`Poll Status`, `Current Verdict`, `Open Findings`, "
         "`Current Instruction For Claude`"
-        if role_for_provider(provider_name) == "reviewer"
+        if capability.role == "reviewer"
         else "`Claude Status`, `Claude Questions`, `Claude Ack`"
+    )
+    queue_progress_line = (
+        "- Read the active queue from `bridge.md`, keep the review loop live, "
+        "and continue reviewing, promoting, or waiting until the scoped plan work "
+        "is exhausted or a real blocker/approval boundary is hit. In "
+        "`active_dual_agent`, do not start local implementation unless the repo-"
+        "owned workflow explicitly enters takeover (`reviewer_mode=single_agent` "
+        f"or `{capability.takeover_command}`)."
+        if capability.queue_policy == "review_only"
+        else "- Read the active queue from `bridge.md`, keep the 8+8 swarm "
+        "moving, and continue until the scoped plan work is exhausted or a real "
+        "blocker/approval boundary is hit."
     )
     return [
         "- `dev/active/review_channel.md` is the static swarm plan.",
@@ -56,11 +69,7 @@ def operating_contract_lines(
             "explicitly scopes them. Do not let them redefine the active lane "
             "or `Last Reviewed Scope` by default."
         ),
-        (
-            "- Read the active queue from `bridge.md`, keep the 8+8 swarm "
-            "moving, and continue until the scoped plan work is exhausted or a "
-            "real blocker/approval boundary is hit."
-        ),
+        queue_progress_line,
         (
             "- If a context packet or downstream packet carries `## Probe "
             "Guidance`, treat it as the default repair/delegation plan unless "
@@ -103,5 +112,9 @@ def operating_contract_lines(
             "or lower, finish the current atomic step, update your owned bridge "
             "state, and trigger a planned rollover before compaction."
         ),
-        *provider_bootstrap_guard_lines(provider_name=provider_name, promote_command=promote_command),
+        *provider_bootstrap_guard_lines(
+            capability=capability,
+            provider_name=provider_name,
+            promote_command=promote_command,
+        ),
     ]

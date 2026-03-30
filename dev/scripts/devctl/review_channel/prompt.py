@@ -13,7 +13,9 @@ from ..context_graph.escalation import (
     collect_query_terms,
     normalize_query_terms,
 )
+from ..runtime.conductor_capability import build_conductor_capability_state
 from ..runtime.role_profile import role_for_provider
+from ..runtime.review_state_models import ConductorCapabilityState
 from .handoff import BRIDGE_LIVENESS_KEYS, expected_rollover_ack_line, expected_rollover_ack_section
 from .prompt_sections import operating_contract_lines
 
@@ -43,6 +45,10 @@ def build_conductor_prompt(
     handoff_bundle: dict[str, str] | None = None,
 ) -> str:
     """Render the initial conductor prompt for Codex or Claude."""
+    capability = _resolve_conductor_capability(
+        provider=provider,
+        bridge_liveness=bridge_liveness,
+    )
     provider_worker_budget = codex_workers if role_for_provider(provider) == "reviewer" else claude_workers
     rollover_ack_line, rollover_ack_section = _rollover_ack_details(
         provider=provider,
@@ -64,6 +70,7 @@ def build_conductor_prompt(
             *[
                 f"- {item}"
                 for item in _bootstrap_files(
+                    capability=capability,
                     repo_root=repo_root,
                     review_channel_path=review_channel_path,
                     bridge_path=bridge_path,
@@ -73,6 +80,7 @@ def build_conductor_prompt(
             "",
             "Operating contract:",
             *operating_contract_lines(
+                capability=capability,
                 provider_name=provider_name,
                 repo_root=repo_root,
                 approval_mode=approval_mode,
@@ -93,6 +101,7 @@ def build_conductor_prompt(
             ),
             "",
             *_worker_budget_lines(
+                capability=capability,
                 provider_name=provider_name,
                 provider_worker_budget=provider_worker_budget,
             ),
@@ -139,6 +148,7 @@ def _opening_line(
 
 def _bootstrap_files(
     *,
+    capability: ConductorCapabilityState,
     repo_root: Path,
     review_channel_path: Path,
     bridge_path: Path,
@@ -146,7 +156,7 @@ def _bootstrap_files(
 ) -> list[str]:
     files: list[str] = [
         (
-            "Run `python3 dev/scripts/devctl.py startup-context --format summary` first. "
+            f"Run `{capability.startup_context_command}` first. "
             "If it exits non-zero, checkpoint or repair the repo state before coding "
             "or relaunching conductor work. Then run "
             "`python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` "
@@ -156,6 +166,8 @@ def _bootstrap_files(
             "Do not echo the startup packet back into chat by default; keep any "
             "bootstrap acknowledgement to blocker state plus next step unless the "
             "operator asks for more detail. "
+            + _reviewer_takeover_note(capability)
+            + " "
             "Then follow deep links when task scope requires full authority: "
             "`AGENTS.md` (SDLC policy), `dev/active/INDEX.md` (plan registry), "
             "`dev/active/MASTER_PLAN.md` (execution state). "
@@ -172,6 +184,16 @@ def _bootstrap_files(
             ]
         )
     return files
+
+
+def _reviewer_takeover_note(capability: ConductorCapabilityState) -> str:
+    if not capability.requires_explicit_takeover:
+        return ""
+    return (
+        "Reviewer startup is fail-closed in `active_dual_agent`; do not add "
+        "`--reviewer-override` unless you are intentionally taking implementation "
+        "ownership."
+    )
 
 
 def _rollover_ack_details(
@@ -228,25 +250,54 @@ def _rollover_ack_lines(
 
 def _worker_budget_lines(
     *,
+    capability: ConductorCapabilityState,
     provider_name: str,
     provider_worker_budget: int,
 ) -> list[str]:
+    worker_fallback = (
+        "assignments below. If worker fanout is unavailable, stay in reviewer-only "
+        "conductor mode, keep the review loop alive yourself, and do not start "
+        "local implementation unless the workflow explicitly switches to takeover "
+        "(`reviewer_mode=single_agent` or "
+        f"`{capability.takeover_command}`)."
+        if capability.worker_unavailable_policy == "stay_reviewer_only"
+        else "assignments below. If worker fanout is unavailable, stay in conductor "
+        "mode and keep executing the loop yourself."
+    )
+    missing_lane_fallback = (
+        "Before worker fanout, verify each assigned lane worktree exists and "
+        "is usable. If a listed worktree is missing or unavailable, do not "
+        "substitute a live-repo or read-only fallback lane; skip that lane, stay "
+        "reviewer-only, and use repo-owned review/promote/wait paths until the "
+        "repo-owned worktree contract is repaired."
+        if capability.worker_unavailable_policy == "stay_reviewer_only"
+        else "Before worker fanout, verify each assigned lane worktree exists and "
+        "is usable. If a listed worktree is missing or unavailable, do not "
+        "substitute a live-repo or read-only fallback lane; skip that lane "
+        "and stay conductor-only until the repo-owned worktree contract is "
+        "repaired."
+    )
     return [
         f"Worker budget target: {provider_worker_budget}",
         (
             f"If this interface supports worker/sub-agent fanout, launch up to "
             f"{provider_worker_budget} {provider_name} worker lanes matching the "
-            "assignments below. If worker fanout is unavailable, stay in conductor "
-            "mode and keep executing the loop yourself."
+            f"{worker_fallback}"
         ),
-        (
-            "Before worker fanout, verify each assigned lane worktree exists and "
-            "is usable. If a listed worktree is missing or unavailable, do not "
-            "substitute a live-repo or read-only fallback lane; skip that lane "
-            "and stay conductor-only until the repo-owned worktree contract is "
-            "repaired."
-        ),
+        (missing_lane_fallback),
     ]
+
+
+def _resolve_conductor_capability(
+    *,
+    provider: str,
+    bridge_liveness: dict[str, object] | None,
+) -> ConductorCapabilityState:
+    reviewer_mode = str((bridge_liveness or {}).get("reviewer_mode") or "active_dual_agent")
+    return build_conductor_capability_state(
+        provider=provider,
+        reviewer_mode=reviewer_mode,
+    )
 
 
 def _context_escalation_lines(*, lanes: list["LaneAssignment"]) -> list[str]:

@@ -73,7 +73,7 @@ def _build_bridge_text(
             "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
             "When the structured review queue is available, Claude must also poll `review-channel --action inbox --target claude --status pending --format json` or the equivalent watch surface on the same cadence so Codex-targeted packets are not missed.",
             "Claude must read `Last Codex poll` / `Poll Status` first on each repoll.",
-            "When `Reviewer mode` is `active_dual_agent`, this file is the live reviewer/coder authority.",
+            "When `Reviewer mode` is `active_dual_agent`, this file is the live reviewer/coder authority. Codex stays reviewer-only by default: missing worker worktrees, absent fanout, or a promising fix are not permission to start local implementation.",
             "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`, Claude must not assume a live Codex review loop.",
             'When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
             "If `Current Instruction For Claude` or `Poll Status` says `hold steady`, `waiting for reviewer promotion`, `Codex committing/pushing`, or similar wait-state language, Claude must not mine plan docs for side work or self-promote the next slice. Keep polling until a reviewer-owned section changes.",

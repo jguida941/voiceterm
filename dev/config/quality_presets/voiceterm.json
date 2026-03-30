@@ -212,6 +212,19 @@
             "app.ios"
           ],
           "guidance": "Review-channel backend code must not import UI/mobile surface layers; keep surfaces as clients of shared backend truth."
+        },
+        {
+          "rule_id": "startup_authority_runtime_no_review_channel_orchestration",
+          "include_globs": [
+            "dev/scripts/devctl/runtime/conductor_capability.py",
+            "dev/scripts/devctl/runtime/reviewer_gate_logic.py",
+            "dev/scripts/devctl/runtime/startup_context.py",
+            "dev/scripts/devctl/commands/governance/startup_context.py"
+          ],
+          "forbidden_import_prefixes": [
+            "dev.scripts.devctl.review_channel"
+          ],
+          "guidance": "Startup authority and typed conductor capability must consume runtime-owned role/capability contracts, not review-channel prompt, bridge, or orchestration modules."
         }
       ]
     },

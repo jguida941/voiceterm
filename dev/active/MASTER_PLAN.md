@@ -2685,6 +2685,13 @@ become the main product surface.
   require that hash alongside the expected instruction revision, and repo-
   owned promotion/scope rewrites thread the same hash when they act on a
   previously validated bridge snapshot.
+  A second 2026-03-30 architecture follow-up closed the reviewer-drift gap
+  too: reviewer vs implementer startup commands plus explicit reviewer
+  takeover now live in runtime-owned `ConductorCapabilityState`, review-
+  channel prompt/bridge bootstrap surfaces render from that typed capability,
+  and the `platform_layer_boundaries` guard now blocks startup-authority/
+  runtime capability modules from importing `review_channel` orchestration
+  directly.
   The next narrowed runtime-consumer splice is also explicit: queue and
   attention already drive current-focus and wait projections, but startup/
   work-intake routing and reviewer/implementer scheduling still ignore

@@ -23,6 +23,23 @@ def _rules() -> tuple[command.BoundaryRule, ...]:
                         "dev.scripts.devctl.config",
                     ],
                     "guidance": "Use runtime contracts instead of orchestration imports.",
+                },
+                {
+                    "rule_id": "startup_authority_runtime_no_review_channel_orchestration",
+                    "include_globs": [
+                        "dev/scripts/devctl/runtime/conductor_capability.py",
+                        "dev/scripts/devctl/runtime/reviewer_gate_logic.py",
+                        "dev/scripts/devctl/runtime/startup_context.py",
+                        "dev/scripts/devctl/commands/governance/startup_context.py",
+                    ],
+                    "forbidden_import_prefixes": [
+                        "dev.scripts.devctl.review_channel",
+                    ],
+                    "guidance": (
+                        "Startup authority and typed conductor capability must "
+                        "consume runtime-owned contracts, not review-channel "
+                        "orchestration."
+                    ),
                 }
             ]
         }
@@ -95,6 +112,54 @@ class PlatformLayerBoundaryTests(unittest.TestCase):
         self.assertEqual(
             violations[0]["import_name"],
             "dev.scripts.devctl.commands",
+        )
+
+    def test_collect_boundary_violations_flags_startup_runtime_import_leak(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            target = root / "dev/scripts/devctl/runtime/startup_context.py"
+            target.parent.mkdir(parents=True)
+            target.write_text(
+                "from dev.scripts.devctl.review_channel.prompt import build_conductor_prompt\n",
+                encoding="utf-8",
+            )
+
+            violations, scanned = command.collect_boundary_violations(
+                repo_root=root,
+                candidate_paths=[Path("dev/scripts/devctl/runtime/startup_context.py")],
+                rules=_rules(),
+                read_text=lambda path: (root / path).read_text(encoding="utf-8"),
+            )
+
+        self.assertEqual(scanned, 1)
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(
+            violations[0]["import_name"],
+            "dev.scripts.devctl.review_channel.prompt.build_conductor_prompt",
+        )
+        self.assertEqual(
+            violations[0]["rule_id"],
+            "startup_authority_runtime_no_review_channel_orchestration",
+        )
+
+    def test_repo_policy_includes_startup_runtime_boundary_rule(self) -> None:
+        rules = command.coerce_boundary_rules(
+            command.resolve_guard_config(
+                "platform_layer_boundaries",
+                repo_root=command.REPO_ROOT,
+            )
+        )
+
+        by_id = {rule.rule_id: rule for rule in rules}
+        self.assertIn(
+            "startup_authority_runtime_no_review_channel_orchestration",
+            by_id,
+        )
+        self.assertEqual(
+            by_id[
+                "startup_authority_runtime_no_review_channel_orchestration"
+            ].forbidden_import_prefixes,
+            ("dev.scripts.devctl.review_channel",),
         )
 
 
