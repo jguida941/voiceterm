@@ -340,7 +340,16 @@
   bridge prose. Remaining follow-up stays broader than ACK wording:
   reviewer-owned prose / wait-reason state still needs the planned
   `DecisionTrace` + typed writer-authority cutover before markdown stops being
-  any part of the live authoring path.
+  any part of the live authoring path. 2026-03-30 live-proof follow-up closed
+  the next repo-owned conductor contract gaps too: generated Claude prompts no
+  longer hardcode stale MP-355/VoiceTerm wording, `review-channel --action
+  reset-implementer-state` is now a real repair action for canonical pending
+  implementer sections, reviewer heartbeat refresh preserves a real reviewer
+  checkpoint `Poll Status`, and Claude-side wait treats reviewer-owned hold-
+  steady / checkpoint / governed-push-pending state as valid wait posture
+  instead of bouncing the operator into manual menu selection. Remaining live
+  proof now depends on cutting a checkpoint-clean slice so startup/launch can
+  permit a fresh repo-owned relaunch.
 - Current runtime-baseline correction after the 2026-03-21 architecture audit:
   Phase 1 closure must keep five runtime-behind-docs gaps explicit instead of
   treating them as background drift. Portability is still blocked first by

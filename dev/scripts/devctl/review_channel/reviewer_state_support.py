@@ -17,8 +17,8 @@ from .heartbeat import (
     LAST_WORKTREE_HASH_RE,
     _format_new_york_timestamp,
     _replace_or_insert_metadata_line,
-    _rewrite_poll_status,
 )
+from .poll_status import rewrite_poll_status as _rewrite_poll_status
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
 from .bridge_section_validation import find_embedded_markdown_headings
 from .handoff_constants import find_suspicious_bridge_text_lines

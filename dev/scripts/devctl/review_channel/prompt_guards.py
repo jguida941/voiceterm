@@ -66,6 +66,13 @@ def provider_bootstrap_guard_lines(
             "targeted review packet changes."
         ),
         (
+            "- If the reviewer still owns the next turn (`hold steady`, push in "
+            "progress, promotion pending, or equivalent wait state), do not ask "
+            "the operator to choose between polling, push, or side work. Keep "
+            "polling repo-owned state until the reviewer-owned instruction or "
+            "packet set changes."
+        ),
+        (
             "- On each repoll, read `Last Codex poll` / `Poll Status` first, then "
             "re-read `Current Verdict`, `Open Findings`, and `Current Instruction "
             "For Claude` together. On the same cadence, also poll the Claude-"

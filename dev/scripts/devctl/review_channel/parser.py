@@ -52,6 +52,7 @@ REVIEW_ACTION_CHOICES = (
     "stop",
     "reviewer-heartbeat",
     "reviewer-checkpoint",
+    "reset-implementer-state",
     "promote",
     "post",
     "watch",

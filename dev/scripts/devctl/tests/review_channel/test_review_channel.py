@@ -453,6 +453,29 @@ class ReviewChannelParserTests(unittest.TestCase):
         self.assertEqual(args.action, "reviewer-checkpoint")
         self.assertTrue(args.rotate_instruction_revision)
 
+    def test_cli_accepts_reset_implementer_state_action(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "review-channel",
+                "--action",
+                "reset-implementer-state",
+                "--reviewer-mode",
+                "active_dual_agent",
+                "--reason",
+                "stale-implementer-launch-block",
+                "--terminal",
+                "none",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.command, "review-channel")
+        self.assertEqual(args.action, "reset-implementer-state")
+        self.assertEqual(args.reviewer_mode, "active_dual_agent")
+        self.assertEqual(args.reason, "stale-implementer-launch-block")
+
     def test_cli_defaults_follow_cadence_settings(self) -> None:
         parser = build_parser()
         args = parser.parse_args(
@@ -1145,6 +1168,10 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
+            "do not ask the operator to choose between polling, push, or side work.",
+            prompt,
+        )
+        self.assertIn(
             "also poll the Claude-targeted packet inbox/watch surface",
             prompt,
         )
@@ -1182,6 +1209,11 @@ class ReviewChannelHelperTests(unittest.TestCase):
             "Done means the required guards/tests passed.",
             prompt,
         )
+        self.assertIn(
+            "active review-channel markdown-bridge loop",
+            prompt,
+        )
+        self.assertNotIn("MP-355 markdown-bridge swarm", prompt)
 
     @patch(
         "dev.scripts.devctl.review_channel.prompt_contract.load_repo_governance_section",
@@ -2651,8 +2683,40 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             contract_errors=["Poll Status is missing reviewer-owned content."],
         )
         self.assertEqual(attention["status"], "bridge_contract_error")
-        self.assertEqual(attention["owner"], "codex")
-        self.assertIn("Do not replace Claude", attention["recommended_action"])
+
+    def test_attention_treats_pending_implementer_reset_as_waiting_on_peer(self) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "waiting_on_peer",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": False,
+            "claude_ack_present": False,
+            "claude_ack_current": False,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "implementer_state_pending": True,
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "reviewer_freshness": "fresh",
+            "current_instruction_revision": "abcd1234ef56",
+            "last_reviewed_scope_present": True,
+            "poll_status_automation_only": True,
+            "claude_conductor_active": True,
+            "session_state_hints": {
+                "claude": {"state": "waiting_for_user_input"}
+            },
+        }
+        attention = derive_bridge_attention(
+            liveness,
+            contract_errors=[
+                "Repo-owned Codex conductor sessions are present, but the latest reviewer poll still comes from automation-only heartbeat refresh (`reviewer-follow`) rather than a reviewer-owned turn. Do not treat the live loop as started until `Poll Status` advances through a real Codex reviewer action."
+            ],
+        )
+        self.assertEqual(attention["status"], "waiting_on_peer")
+        self.assertEqual(attention["owner"], "system")
 
     def test_attention_prioritizes_bridge_contract_error_over_checkpoint_required(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
@@ -3999,6 +4063,90 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertEqual(wait_report["wait_attention_status"], "reviewed_hash_stale")
         self.assertIn("Timed out waiting", wait_report["errors"][0])
 
+    def test_implementer_wait_honors_reviewer_wait_state_when_review_is_accepted(self) -> None:
+        bridge_states = [
+            _build_bridge_text(
+                current_instruction="- hold steady while Codex committing/pushing current tree",
+                current_verdict="- accepted",
+                open_findings="- none",
+                claude_ack="- acknowledged; instruction-rev: `aaaaaaaaaaaa`",
+            ).replace("56bcd5d01510", "aaaaaaaaaaaa"),
+            _build_bridge_text(
+                current_instruction=(
+                    "- Edit dev/scripts/devctl/review_channel/prompt.py to "
+                    "remove stale MP-355 launch wording."
+                ),
+                current_verdict="- accepted",
+                open_findings="- none",
+                claude_ack="- acknowledged; instruction-rev: `aaaaaaaaaaaa`",
+            ).replace("56bcd5d01510", "bbbbbbbbbbbb"),
+        ]
+        reports = [
+            (
+                {
+                    "command": "review-channel",
+                    "action": "status",
+                    "ok": True,
+                    "warnings": [],
+                    "errors": [],
+                    "bridge_liveness": {
+                        "reviewer_mode": "active_dual_agent",
+                        "claude_ack_current": True,
+                        "current_instruction_revision": "aaaaaaaaaaaa",
+                    },
+                    "attention": {"status": "waiting_on_peer"},
+                    "review_needed": False,
+                },
+                0,
+            ),
+            (
+                {
+                    "command": "review-channel",
+                    "action": "status",
+                    "ok": True,
+                    "warnings": [],
+                    "errors": [],
+                    "bridge_liveness": {
+                        "reviewer_mode": "active_dual_agent",
+                        "claude_ack_current": False,
+                        "current_instruction_revision": "bbbbbbbbbbbb",
+                    },
+                    "attention": {"status": "claude_ack_stale"},
+                    "review_needed": False,
+                },
+                0,
+            ),
+        ]
+        poll_index = {"value": 0}
+        monotonic_values = iter((0.0, 1.0))
+        deps = review_channel_wait_mod.ImplementerWaitDeps(
+            run_status_action_fn=lambda **_: reports[poll_index["value"]],
+            read_bridge_text_fn=lambda path: bridge_states[poll_index["value"]],
+            monotonic_fn=lambda: next(monotonic_values),
+            sleep_fn=lambda seconds: poll_index.__setitem__("value", 1),
+        )
+        args = SimpleNamespace(
+            action="implementer-wait",
+            follow_interval_seconds=150,
+            timeout_minutes=0,
+        )
+        paths = {
+            "bridge_path": Path("/tmp/bridge.md"),
+            "review_channel_path": Path("/tmp/dev/active/review_channel.md"),
+            "status_dir": Path("/tmp/dev/reports/review_channel/latest"),
+        }
+
+        report, rc = review_channel_wait_mod.run_implementer_wait_action(
+            args=args,
+            repo_root=Path("/tmp/repo"),
+            paths=paths,
+            deps=deps,
+        )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(report["wait_state"]["stop_reason"], "reviewer_update_observed")
+        self.assertEqual(report["wait_state"]["polls_observed"], 1)
+
     def test_implementer_wait_timeout_surfaces_review_follow_up_required_reason(self) -> None:
         report = {
             "command": "review-channel",
@@ -4158,6 +4306,45 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertEqual(report["wait_state"]["stop_reason"], "reviewer_unhealthy")
         self.assertEqual(report["wait_state"]["polls_observed"], 0)
         self.assertIn("reviewer loop is unhealthy", report["errors"][0])
+
+    def test_write_reviewer_heartbeat_preserves_real_checkpoint_poll_status(self) -> None:
+        from dev.scripts.devctl.review_channel.reviewer_state import write_reviewer_heartbeat
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text().replace(
+                    "- active reviewer loop",
+                    "- Reviewer checkpoint updated through repo-owned tooling "
+                    "(mode: active_dual_agent; reason: test-checkpoint; "
+                    "observed-tree: aaaaaaaaaaaa; reviewed-tree: aaaaaaaaaaaa; "
+                    "instruction-rev: 56bcd5d01510).",
+                ),
+                encoding="utf-8",
+            )
+
+            with patch(
+                "dev.scripts.devctl.review_channel.reviewer_state._refresh_projections_after_checkpoint"
+            ):
+                write_reviewer_heartbeat(
+                    repo_root=root,
+                    bridge_path=bridge_path,
+                    reviewer_mode="active_dual_agent",
+                    reason="reviewer-follow",
+                )
+
+            updated_bridge = bridge_path.read_text(encoding="utf-8")
+            self.assertIn(
+                "- Reviewer checkpoint updated through repo-owned tooling "
+                "(mode: active_dual_agent; reason: test-checkpoint;",
+                updated_bridge,
+            )
+            self.assertNotIn(
+                "- Reviewer heartbeat refreshed through repo-owned tooling "
+                "(mode: active_dual_agent; reason: reviewer-follow;",
+                updated_bridge,
+            )
 
     def _reviewer_checkpoint_args(
         self,

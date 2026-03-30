@@ -41,6 +41,8 @@ class ImplementerWaitSnapshot:
     review_needed: bool
     claude_ack_current: bool
     current_instruction_revision: str
+    next_turn_role: str
+    next_turn_reason: str
     attention_status: str
     attention_summary: str
     attention_recommended_action: str
@@ -145,6 +147,8 @@ def _capture_wait_snapshot(
         review_needed=bool(report.get("review_needed")),
         claude_ack_current=runtime_state.poll_result.claude_ack_current,
         current_instruction_revision=runtime_state.poll_result.current_instruction_revision,
+        next_turn_role=runtime_state.poll_result.next_turn_role,
+        next_turn_reason=runtime_state.poll_result.next_turn_reason,
         attention_status=runtime_state.attention.status,
         attention_summary=runtime_state.attention.summary,
         attention_recommended_action=runtime_state.attention.recommended_action,
@@ -165,6 +169,13 @@ def _reviewer_unhealthy(snapshot: ImplementerWaitSnapshot) -> bool:
 
 def _reviewer_update_ready(snapshot: ImplementerWaitSnapshot) -> bool:
     return (not snapshot.review_needed) and (not snapshot.claude_ack_current)
+
+
+def _reviewer_wait_state(snapshot: ImplementerWaitSnapshot) -> bool:
+    return (
+        snapshot.next_turn_role == "reviewer"
+        and snapshot.next_turn_reason == "reviewer_wait_state"
+    )
 
 
 def _wait_timeout_seconds(args) -> int:
@@ -204,6 +215,9 @@ def _baseline_wait_outcome(
             exit_code=0,
             wait_config=wait_config,
         )
+
+    if _reviewer_wait_state(snapshot):
+        return None
 
     if not snapshot.review_needed:
         return _wait_outcome(

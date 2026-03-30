@@ -86,6 +86,7 @@ class ReviewChannelAction(StrEnum):
     STOP = "stop"
     REVIEWER_HEARTBEAT = "reviewer-heartbeat"
     REVIEWER_CHECKPOINT = "reviewer-checkpoint"
+    RESET_IMPLEMENTER_STATE = "reset-implementer-state"
     PROMOTE = "promote"
     POST = "post"
     WATCH = "watch"

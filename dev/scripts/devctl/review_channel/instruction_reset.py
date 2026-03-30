@@ -11,6 +11,20 @@ _IMPLEMENTER_RESET_BODIES = (
 )
 
 
+def reset_implementer_sections(
+    bridge_text: str,
+) -> str:
+    """Rewrite implementer-owned live sections to the canonical pending state."""
+    updated_text = bridge_text
+    for heading, body in _IMPLEMENTER_RESET_BODIES:
+        updated_text = _replace_section(
+            updated_text,
+            heading=heading,
+            body=body,
+        )
+    return updated_text
+
+
 def reset_implementer_sections_on_instruction_change(
     bridge_text: str,
     *,
@@ -23,11 +37,4 @@ def reset_implementer_sections_on_instruction_change(
         or next_instruction_revision == previous_instruction_revision
     ):
         return bridge_text
-    updated_text = bridge_text
-    for heading, body in _IMPLEMENTER_RESET_BODIES:
-        updated_text = _replace_section(
-            updated_text,
-            heading=heading,
-            body=body,
-        )
-    return updated_text
+    return reset_implementer_sections(bridge_text)

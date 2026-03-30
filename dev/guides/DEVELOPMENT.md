@@ -224,7 +224,9 @@ Three quality layers matter in practice:
     bridge file under a lock and treat `Poll Status` as current-state-only
     reviewer authority: stale reviewer-owned status prose is replaced on each
     repo-owned write instead of accumulating old revision/ACK bullets under a
-    fresh heartbeat line. If the bridge drifts into transcript/history junk or
+    fresh heartbeat line, and automation-only heartbeat refresh must preserve
+    a real reviewer checkpoint `Poll Status` instead of downgrading it. If
+    the bridge drifts into transcript/history junk or
     unsupported headings, repair it with
     `python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format md`
     instead of hand-editing `bridge.md`; that repair path now rebuilds from
@@ -274,7 +276,15 @@ Three quality layers matter in practice:
     files, subsystems, findings, or one concrete blocker/question. `No
     change. Continuing.`, `instruction unchanged`, `Codex should review`,
     and raw shell `sleep` loops are contract failures now, not harmless
-    polling prose.
+    polling prose. Reviewer-owned hold-steady / checkpoint / governed-push-
+    pending bridge state counts as that same valid wait posture, so Claude
+    conductors should keep polling repo-owned wait/status paths instead of
+    asking the operator to choose between polling, pushing, or side work.
+  - `review-channel --action reset-implementer-state` is the repo-owned
+    repair path when live status/attention says implementer-owned bridge
+    sections must return to canonical pending state. It rewrites `Claude
+    Status`, `Claude Questions`, and `Claude Ack` to `- pending` and then
+    refreshes the typed review-channel projection.
   - `review-channel --action status` also projects repo-governance
     `push_enforcement` state (`checkpoint_required`,
     `safe_to_continue_editing`, `raw_git_push_guarded`,

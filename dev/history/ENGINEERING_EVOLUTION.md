@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-29
+**Last Updated:** 2026-03-30
 
 ## At a Glance
 
@@ -86,6 +86,30 @@ with `reviewed_hash_current` and `review_needed`, while keeping
 `current_session` intentionally narrow to live instruction and implementer ACK
 state. Event-backed parity stays fail-closed by emitting `null` when those
 booleans are not yet knowable from structured events.
+
+### 2026-03-30 - Live review-channel proof closed the next conductor contract gaps
+
+The next repo-owned live proof did not expose a new architecture direction. It
+found four concrete contract mismatches in the current bridge-era launcher
+surface: generated Claude prompts still hardcoded stale `VoiceTerm MP-355
+markdown-bridge swarm` wording, reviewer-owned hold-steady / push-pending
+state was not treated as a valid Claude-side wait posture, reviewer heartbeat
+refresh could overwrite a real checkpoint `Poll Status` with automation-only
+text, and status/attention could recommend an implementer reset action that
+the CLI did not actually implement.
+
+Closed that bounded slice by making generated conductor prompts use generic
+review-channel wording, teaching Claude-side wait logic to honor reviewer-owned
+hold-steady / checkpoint / governed-push-pending state, preserving real
+reviewer checkpoint `Poll Status` through later heartbeat refreshes, and
+landing a repo-owned `review-channel --action reset-implementer-state` repair
+path that rewrites `Claude Status`, `Claude Questions`, and `Claude Ack` to
+canonical pending state before refreshing the typed projection.
+
+This still does not make the launcher ignore repo policy. Fresh `launch` /
+`rollover` work remains gated on a current `startup-context` receipt and a
+checkpoint-clean worktree, so a dirty slice still has to checkpoint before the
+next live relaunch can start.
 
 ## Term Quick Reference
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from ..runtime.review_state_semantics import is_pending_implementer_state
 from ..runtime.review_state_models import (
     ReviewBridgeState,
     ReviewCurrentSessionState,
@@ -20,6 +21,12 @@ def build_typed_bridge_liveness(
     typed["current_instruction_revision"] = current_session.current_instruction_revision
     typed["claude_ack_revision"] = current_session.implementer_ack_revision
     typed["claude_ack_current"] = current_session.implementer_ack_state == "current"
+    typed["implementer_ack_state"] = current_session.implementer_ack_state
+    typed["implementer_state_pending"] = is_pending_implementer_state(
+        implementer_status=current_session.implementer_status,
+        implementer_ack=current_session.implementer_ack,
+        implementer_ack_state=current_session.implementer_ack_state,
+    )
     return typed
 
 

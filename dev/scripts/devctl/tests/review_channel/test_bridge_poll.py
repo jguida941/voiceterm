@@ -219,6 +219,28 @@ def test_bridge_poll_reports_changed_since_last_ack(tmp_path: Path) -> None:
     assert payload["turn_state_token"]
 
 
+def test_bridge_poll_reports_reviewer_wait_state_when_hold_steady_is_acked() -> None:
+    result = build_bridge_poll_result(
+        _build_bridge_text(
+            current_instruction=(
+                "- Hold steady while Codex commits/pushes the current tree."
+            ),
+            current_verdict="- accepted",
+            open_findings="- none",
+            claude_ack_revision="56bcd5d01510",
+        ),
+        current_worktree_hash="a" * 64,
+    )
+
+    assert result.claude_ack_current is True
+    assert result.reviewed_hash_current is True
+    assert result.review_needed is False
+    assert result.next_turn_required is True
+    assert result.next_turn_role == "reviewer"
+    assert result.next_turn_reason == "reviewer_wait_state"
+    assert result.turn_state_token
+
+
 def test_write_reviewer_heartbeat_rewrites_poll_status_immediately_under_heading(
     tmp_path: Path,
 ) -> None:

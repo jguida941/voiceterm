@@ -14,7 +14,11 @@ from ...review_channel.handoff import (
     extract_bridge_snapshot,
     summarize_bridge_liveness,
 )
-from ...review_channel.peer_liveness import CodexPollState, reviewer_mode_is_active
+from ...review_channel.peer_liveness import (
+    CodexPollState,
+    REVIEWER_WAIT_STATE_MARKERS,
+    reviewer_mode_is_active,
+)
 from ...review_channel.state import refresh_status_snapshot
 from ...runtime.role_profile import TandemRole
 from ..review_channel_command import RuntimePaths
@@ -79,7 +83,11 @@ def build_bridge_poll_result(
         liveness=liveness,
         typed_review_state=typed_review_state,
     )
-    next_turn = _derive_next_turn_state(liveness=liveness, authority=authority)
+    next_turn = _derive_next_turn_state(
+        snapshot=snapshot,
+        liveness=liveness,
+        authority=authority,
+    )
     return BridgePollResult(
         poll_status=_section_text(snapshot, "Poll Status"),
         current_verdict=_section_text(snapshot, "Current Verdict"),
@@ -183,6 +191,7 @@ def _review_needed(liveness: BridgeLiveness) -> bool | None:
 
 def _derive_next_turn_state(
     *,
+    snapshot: BridgeSnapshot,
     liveness: BridgeLiveness,
     authority: _BridgePollAuthority,
 ) -> _BridgeTurnState:
@@ -224,7 +233,29 @@ def _derive_next_turn_state(
             TandemRole.REVIEWER.value,
             "review_follow_up_required",
         )
+    if _reviewer_wait_state(snapshot=snapshot, authority=authority):
+        return _BridgeTurnState(
+            True,
+            TandemRole.REVIEWER.value,
+            "reviewer_wait_state",
+        )
     return _BridgeTurnState(False, "", "up_to_date")
+
+
+def _reviewer_wait_state(
+    *,
+    snapshot: BridgeSnapshot,
+    authority: _BridgePollAuthority,
+) -> bool:
+    if not authority.claude_ack_current:
+        return False
+    haystack = "\n".join(
+        [
+            authority.current_instruction,
+            _section_text(snapshot, "Poll Status"),
+        ]
+    ).lower()
+    return any(marker in haystack for marker in REVIEWER_WAIT_STATE_MARKERS)
 
 
 def _build_turn_state_token(

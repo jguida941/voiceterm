@@ -127,12 +127,13 @@ def _opening_line(
 ) -> str:
     if handoff_bundle is not None:
         return (
-            f"You are the fresh {provider_name} conductor for a planned VoiceTerm "
-            "markdown-bridge rollover. Resume the existing conductor role exactly."
+            f"You are the fresh {provider_name} conductor for a planned "
+            "review-channel markdown-bridge rollover. Resume the existing "
+            "conductor role exactly."
         )
     return (
-        f"You are the {provider_name} conductor for the active VoiceTerm "
-        "MP-355 markdown-bridge swarm."
+        f"You are the {provider_name} conductor for the active review-channel "
+        "markdown-bridge loop."
     )
 
 

@@ -18,6 +18,7 @@ from .bridge_validation import (
     validate_launch_bridge_state,
 )
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
+from .poll_status import AUTO_REFRESH_PREFIX, rewrite_poll_status as _rewrite_poll_status
 
 LAST_CODEX_POLL_RE = re.compile(r"(?m)^- Last Codex poll:\s*`.*?`\s*$")
 LAST_CODEX_POLL_LOCAL_RE = re.compile(
@@ -29,13 +30,6 @@ LAST_WORKTREE_HASH_RE = re.compile(
 CURRENT_INSTRUCTION_REVISION_RE = re.compile(
     r"(?m)^- Current instruction revision:\s*`.*?`\s*$"
 )
-POLL_STATUS_SECTION_RE = re.compile(
-    # Keep trailing spaces on the heading line, but do not let blank padding
-    # after the heading get absorbed into the section prefix.
-    r"(^## Poll Status[ \t]*$\n)(.*?)(?=^##\s+|\Z)",
-    re.MULTILINE | re.DOTALL,
-)
-AUTO_REFRESH_PREFIX = "- Auto-refreshed reviewer heartbeat:"
 _REPO_OWNED_POLL_STATUS_PREFIXES = (
     AUTO_REFRESH_PREFIX,
     "- Reviewer checkpoint updated through repo-owned tooling",
@@ -202,20 +196,6 @@ def _replace_or_insert_metadata_line(
     if marker not in text:
         raise ValueError("Unable to locate the markdown-bridge metadata block.")
     return text.replace(marker, f"\n{replacement}{marker}", 1)
-
-
-def _rewrite_poll_status(text: str, *, note: str) -> str:
-    def replace_section(match: re.Match[str]) -> str:
-        # `Poll Status` is current-state-only reviewer authority. Repo-owned
-        # heartbeat/checkpoint writes must replace stale reviewer prose instead
-        # of stacking a fresh note on top of older revisions.
-        body = note.strip()
-        return f"{match.group(1)}\n{body}\n\n"
-
-    rewritten, count = POLL_STATUS_SECTION_RE.subn(replace_section, text, count=1)
-    if count != 1:
-        raise ValueError("Unable to locate the `Poll Status` section in the bridge.")
-    return rewritten
 
 
 def _should_strip_poll_status_line(line: str) -> bool:

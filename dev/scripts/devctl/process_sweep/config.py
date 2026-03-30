@@ -55,8 +55,8 @@ REVIEW_CHANNEL_CONDUCTOR_SCRIPT_RE = re.compile(
 )
 REVIEW_CHANNEL_CONDUCTOR_PROMPT_RE = re.compile(
     r"You are the (?:fresh )?(?:Codex|Claude) conductor for "
-    r"(?:a planned VoiceTerm markdown-bridge rollover|the active VoiceTerm "
-    r"MP-355 markdown-bridge swarm)\."
+    r"(?:a planned [^.]*markdown-bridge rollover|the active [^.]*markdown-bridge "
+    r"(?:swarm|loop))\."
 )
 REPO_TOOLING_CWD_CANDIDATE_RE = re.compile(
     r"(?:^|/|\s)(?:bash|zsh|sh)\s+-[^\s]*c(?:\s|$)|"
