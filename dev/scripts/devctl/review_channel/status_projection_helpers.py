@@ -7,12 +7,11 @@ from pathlib import Path
 
 from .daemon_reducer import DaemonSnapshot, empty_daemon_state
 from .core import active_conductor_providers
+from .launch_truth import LaunchTruthState, classify_launch_truth, effective_reviewer_mode
 from .peer_liveness import (
-    LaunchTruthState,
     CodexPollState,
     OverallLivenessState,
     ReviewerFreshness,
-    classify_launch_truth,
     reviewer_mode_is_active,
 )
 from .session_state_hints import provider_session_state_hint
@@ -149,6 +148,9 @@ def attach_conductor_session_state(
     bridge_liveness["codex_conductor_active"] = "codex" in active_providers
     bridge_liveness["claude_conductor_active"] = "claude" in active_providers
     bridge_liveness["launch_truth"] = classify_launch_truth(bridge_liveness).value
+    bridge_liveness["effective_reviewer_mode"] = effective_reviewer_mode(
+        bridge_liveness
+    )
 
 
 def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:

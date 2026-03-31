@@ -37,6 +37,7 @@ class ReviewerGateState:
 
     bridge_active: bool = False
     reviewer_mode: str = "single_agent"
+    effective_reviewer_mode: str = "single_agent"
     review_accepted: bool = False
     required_checks_status: str = "unknown"
     checkpoint_permitted: bool = True
@@ -118,19 +119,40 @@ def _detect_reviewer_gate_from_typed_state(
     if state is None:
         return None
     mode = state.bridge.reviewer_mode
-    active = normalize_reviewer_mode(mode) == "active_dual_agent"
-    if not active:
+    effective_mode = (
+        str(state.bridge.effective_reviewer_mode or "").strip() or mode
+    )
+    declared_active = normalize_reviewer_mode(mode) == "active_dual_agent"
+    effective_active = normalize_reviewer_mode(effective_mode) == "active_dual_agent"
+    if not declared_active:
         return ReviewerGateState(
             bridge_active=False,
             reviewer_mode=mode,
+            effective_reviewer_mode=effective_mode,
             review_accepted=True,
             required_checks_status="unknown",
             checkpoint_permitted=True,
             review_gate_allows_push=True,
         )
+    if not effective_active:
+        return ReviewerGateState(
+            bridge_active=True,
+            reviewer_mode=mode,
+            effective_reviewer_mode=effective_mode,
+            review_accepted=state.bridge.review_accepted,
+            required_checks_status="unknown",
+            checkpoint_permitted=True,
+            review_gate_allows_push=state.bridge.review_accepted,
+            implementation_blocked=True,
+            implementation_block_reason=(
+                str(state.attention.status).strip()
+                if state.attention is not None
+                else "review_loop_not_live"
+            ),
+        )
 
     implementation_blocked, implementation_block_reason = reviewer_loop_block_state(
-        reviewer_mode=mode,
+        reviewer_mode=effective_mode,
         claude_ack_current=state.bridge.claude_ack_current,
         attention_status=(
             str(state.attention.status).strip()
@@ -145,6 +167,7 @@ def _detect_reviewer_gate_from_typed_state(
     return ReviewerGateState(
         bridge_active=True,
         reviewer_mode=mode,
+        effective_reviewer_mode=effective_mode,
         review_accepted=state.bridge.review_accepted,
         required_checks_status="unknown",
         checkpoint_permitted=True,
@@ -175,6 +198,7 @@ def _detect_reviewer_gate_without_typed_state(
     return ReviewerGateState(
         bridge_active=True,
         reviewer_mode="unknown",
+        effective_reviewer_mode="unknown",
         review_accepted=False,
         checkpoint_permitted=True,
         review_gate_allows_push=False,

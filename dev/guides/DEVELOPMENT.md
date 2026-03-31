@@ -313,7 +313,12 @@ Three quality layers matter in practice:
     `bridge.md`. The same typed `bridge` block now carries
     `reviewed_hash_current` and `review_needed`, so review freshness should
     come from the persisted typed projection rather than a bridge-text hash
-    compare or a status-only side channel. `review-channel --action bridge-poll`
+    compare or a status-only side channel. For live-authority decisions,
+    prefer `bridge.effective_reviewer_mode` over the declared bridge
+    `reviewer_mode`: the declared mode stays provenance, while the effective
+    field demotes dead `active_dual_agent` runtime to an inactive read-only
+    state for startup/wait consumers.
+    `review-channel --action bridge-poll`
     now follows that same rule by refreshing and preferring the typed
     `review_state` projection before deciding live ACK freshness.
   - `startup-context` is the typed startup packet for those same sessions.

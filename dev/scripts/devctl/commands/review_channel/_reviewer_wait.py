@@ -194,7 +194,8 @@ def _capture_reviewer_snapshot(
             attention.get("recommended_action") or ""
         ),
         reviewer_mode=str(
-            bridge_liveness.get("reviewer_mode")
+            bridge_liveness.get("effective_reviewer_mode")
+            or bridge_liveness.get("reviewer_mode")
             or reviewer_worker.get("reviewer_mode")
             or ""
         ),

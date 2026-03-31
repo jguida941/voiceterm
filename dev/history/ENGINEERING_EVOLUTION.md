@@ -6807,3 +6807,38 @@ Evidence: `dev/scripts/devctl/review_channel/ack_contract.py`,
 `dev/scripts/README.md`,
 `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`.
+
+### 2026-03-31 - Typed review-state now separates declared reviewer mode from live authority
+
+Fact: the bridge-backed review loop already exposed declared
+`reviewer_mode=active_dual_agent` plus typed `launch_truth`, but several
+startup/wait consumers were still reading the declared mode as if it proved
+the loop was live. A dead or detached dual-agent runtime could therefore keep
+advertising reviewer/implementer loop authority long after `launch_truth`
+showed `runtime_missing` or another degraded state. The fix keeps provenance
+and live authority separate in one typed contract: bridge-backed and
+event-backed `ReviewState.bridge` projections now carry
+`effective_reviewer_mode` beside the declared bridge `reviewer_mode`,
+downgrading the effective mode to an inactive read-only state whenever typed
+`launch_truth` proves the loop is not actually live. Startup reviewer-gate
+detection plus the bounded reviewer/implementer wait helpers now consume that
+effective mode first, while the declared mode remains intact for bridge
+provenance and review-gate semantics.
+
+Evidence: `dev/scripts/devctl/review_channel/launch_truth.py`,
+`dev/scripts/devctl/review_channel/status_projection_bridge_state.py`,
+`dev/scripts/devctl/review_channel/status_projection_helpers.py`,
+`dev/scripts/devctl/review_channel/event_projection.py`,
+`dev/scripts/devctl/runtime/review_state_models.py`,
+`dev/scripts/devctl/runtime/review_state_parser.py`,
+`dev/scripts/devctl/runtime/startup_context.py`,
+`dev/scripts/devctl/commands/review_channel/_wait.py`,
+`dev/scripts/devctl/commands/review_channel/_reviewer_wait.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.

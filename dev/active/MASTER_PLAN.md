@@ -114,6 +114,11 @@
   router still widens to `bundle.release` because existing branch history
   includes release-sensitive workflow changes; the remaining blocker there is
   the `master` CodeRabbit release gate, not a new local code failure.
+- Latest same-lane closure on 2026-03-31: typed review-channel status now
+  carries `effective_reviewer_mode` beside declared bridge `reviewer_mode` so
+  startup/wait consumers can demote dead `active_dual_agent` runtime to an
+  inactive read-only authority state without mutating the bridge metadata or
+  review-gate provenance.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

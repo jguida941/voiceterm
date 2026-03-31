@@ -3,7 +3,7 @@
 Orchestrates bridge-backed and event-backed review-channel actions. The
 heavy rendering and execution logic lives in the dedicated handler modules:
 
-- review_channel_bridge_handler: launch, rollover, promote, status (bridge)
+- review_channel.bridge_handler: launch, rollover, promote, status (bridge)
 - review_channel_event_handler: post, watch, inbox, ack, dismiss, apply, history
 - review_channel_status: status action, status-context attachers, lifecycle reads
 """
@@ -20,7 +20,7 @@ from ...review_channel.context_refs import resolve_context_pack_refs
 from ...review_channel.events import event_state_exists
 from ...review_channel.lifecycle_state import read_reviewer_supervisor_state
 from ...review_channel.state import refresh_status_snapshot
-from ..review_channel_bridge_handler import BRIDGE_ACTIONS, _run_bridge_action
+from .bridge_handler import BRIDGE_ACTIONS, _run_bridge_action
 from ..review_channel_command import (
     EVENT_ACTION_SET,
     REVIEWER_STATE_ACTION_SET,

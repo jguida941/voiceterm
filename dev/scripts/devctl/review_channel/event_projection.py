@@ -9,7 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 
 from ..runtime.conductor_capability import build_conductor_capability_state
-from .peer_liveness import classify_launch_truth
+from .launch_truth import classify_launch_truth, effective_reviewer_mode
 from ..runtime.review_state_models import ReviewQueueState
 from .attention import derive_bridge_attention
 from .attach_auth_policy import build_attach_auth_policy
@@ -174,6 +174,7 @@ def _build_event_bridge_liveness(review_state: Mapping[str, object]) -> dict[str
     bridge_liveness["claude_ack_revision"] = ""
     bridge_liveness["claude_ack_current"] = False
     bridge_liveness["launch_truth"] = classify_launch_truth(bridge_liveness).value
+    bridge_liveness["effective_reviewer_mode"] = effective_reviewer_mode(bridge_liveness)
     return bridge_liveness
 
 
@@ -184,6 +185,7 @@ def _build_event_bridge_state(
 ) -> dict[str, object]:
     current_session = current_session_mapping(review_state)
     reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "tools_only")
+    effective_mode = str(bridge_liveness.get("effective_reviewer_mode") or reviewer_mode)
     bridge_state: dict[str, object] = {}
     bridge_state["overall_state"] = str(bridge_liveness.get("overall_state") or "unknown")
     bridge_state["codex_poll_state"] = str(bridge_liveness.get("codex_poll_state") or "missing")
@@ -221,12 +223,11 @@ def _build_event_bridge_state(
         current_session.get("last_reviewed_scope") or ""
     )
     bridge_state["launch_truth"] = str(bridge_liveness.get("launch_truth") or "")
+    bridge_state["effective_reviewer_mode"] = effective_mode
     bridge_state["implementer_state_hash"] = str(
         current_session.get("implementer_state_hash") or ""
     )
-    bridge_state["reviewed_hash_current"] = bridge_liveness.get(
-        "reviewed_hash_current"
-    )
+    bridge_state["reviewed_hash_current"] = bridge_liveness.get("reviewed_hash_current")
     bridge_state["review_needed"] = bridge_liveness.get("review_needed")
     # Event-backed projections do not yet carry reviewer verdict semantics, so
     # keep the transitional acceptance gate fail-closed instead of inventing a
@@ -241,13 +242,13 @@ def _build_event_bridge_state(
     bridge_state["reviewer_capability"] = asdict(
         build_conductor_capability_state(
             provider="codex",
-            reviewer_mode=reviewer_mode,
+            reviewer_mode=effective_mode,
         )
     )
     bridge_state["implementer_capability"] = asdict(
         build_conductor_capability_state(
             provider="claude",
-            reviewer_mode=reviewer_mode,
+            reviewer_mode=effective_mode,
         )
     )
     return bridge_state

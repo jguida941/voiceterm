@@ -4112,6 +4112,15 @@ working on `MP-377`.
   (`Poll Status`, `Current Verdict`, `Claude Questions`) and richer wait/block
   reasons still need the planned `DecisionTrace` / typed writer-authority
   cutover before bridge prose fully stops being the live authoring surface.
+- 2026-03-31 live-authority follow-up landed in the same owner chain: typed
+  review-channel status now carries `effective_reviewer_mode` beside declared
+  bridge `reviewer_mode`, demoting dead `active_dual_agent` runtime to a
+  read-only inactive authority state when typed `launch_truth` proves the
+  loop is no longer live. Startup reviewer-gate detection plus the bounded
+  reviewer/implementer wait helpers now consume that effective mode first,
+  while the declared bridge mode stays intact for provenance and review-gate
+  semantics. The next same-lane follow-up is widening remaining live-authority
+  consumers away from declared bridge mode where they still read it directly.
 - 2026-03-27 startup-model discoverability follow-up landed: the compiler-
   style governance framing that had been buried here and in local scratch
   notes is now carried by tracked first-hop dev/agent surfaces too.

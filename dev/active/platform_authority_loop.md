@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-03-29 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-31 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1409,6 +1409,25 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-03-31 follow-loop authority follow-up: reviewer follow stale-
+  implementer auto-recovery now consumes typed
+  `bridge_liveness.effective_reviewer_mode` before the declared bridge
+  `reviewer_mode`, so a dead dual-agent runtime no longer triggers repo-owned
+  Claude recovery just because stale bridge metadata still declares
+  `active_dual_agent`. The next same-lane follow-up is to keep widening
+  other live-authority recovery/poll consumers onto the same validated field
+  without rewriting provenance-bearing declared mode.
+- 2026-03-31 effective-reviewer-mode closure: typed review-channel status now
+  carries `effective_reviewer_mode` alongside the declared bridge
+  `reviewer_mode`. When `active_dual_agent` is declared but typed
+  `launch_truth` shows the loop is no longer live, status/review-state now
+  demote the effective mode to an inactive read-only state instead of letting
+  downstream consumers treat stale bridge metadata as live conductor
+  authority. Startup reviewer-gate detection and the bounded reviewer/
+  implementer wait paths now consume that effective mode first, while the
+  declared mode remains intact for provenance and review-gate truth. The next
+  same-lane follow-up is to keep widening live-authority consumers onto that
+  typed field where they currently still read declared bridge mode directly.
 - 2026-03-30 startup repair closure: `startup-context --repair` is now the bounded
   repo-owned Step 0 repair companion to `startup-context`. It reads typed
   startup authority plus the typed `ReviewState` owner produced by
@@ -1776,6 +1795,25 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-03-31: Closed the next bounded live-authority consumer in the active
+  `MP-377` authority-loop lane. Reviewer follow stale-implementer recovery
+  now prefers typed `effective_reviewer_mode` over declared bridge
+  `reviewer_mode`, which keeps repo-owned Claude recovery fail-closed when
+  the typed bridge/runtime projection has already demoted a dead
+  `active_dual_agent` loop to inactive authority. Added a reviewer-follow
+  regression proving `implementer_relaunch_required` no longer triggers
+  auto-recovery when the effective mode is `tools_only`.
+- 2026-03-31: Closed one bounded live-authority truth gap in the active
+  `MP-377` authority-loop lane. Bridge-backed status/review-state projections
+  now carry `effective_reviewer_mode` beside the declared bridge
+  `reviewer_mode`, downgrading the effective mode to a read-only inactive
+  state when `launch_truth` proves the declared `active_dual_agent` loop is
+  no longer live. The same slice now routes startup reviewer-gate detection
+  and the bounded implementer/reviewer wait helpers through that validated
+  field so they stop treating dead dual-agent runtime as live authority while
+  still preserving the declared bridge mode for provenance and review-gate
+  semantics. Focused review-channel and startup-context regressions covering
+  runtime-missing / dead-loop cases are green.
 - 2026-03-30: Closed the first bounded startup auto-repair slice in the active
   `MP-377` authority-loop lane. New repo-owned `startup-context --repair` now reads
   typed `startup-context`, startup-authority, and the canonical typed

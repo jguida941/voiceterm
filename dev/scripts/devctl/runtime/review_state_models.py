@@ -76,6 +76,7 @@ class ReviewBridgeState:
     claude_ack_revision: str
     last_reviewed_scope: str
     launch_truth: str = ""
+    effective_reviewer_mode: str = ""
     implementer_state_hash: str = ""
     reviewed_hash_current: bool | None = None
     review_needed: bool | None = None

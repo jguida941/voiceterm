@@ -21,12 +21,11 @@ from .peer_liveness import (
     AttentionStatus,
     CODEX_POLL_OVERDUE_AFTER_SECONDS,
     CodexPollState,
-    LaunchTruthState,
     OverallLivenessState,
     ReviewerFreshness,
-    classify_launch_truth,
     reviewer_mode_is_active,
 )
+from .launch_truth import LaunchTruthState, classify_launch_truth
 
 
 @dataclass(frozen=True, slots=True)

@@ -16,9 +16,10 @@ from __future__ import annotations
 
 import json
 import time
-from hashlib import sha256
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 
 from ..common import display_path
@@ -410,6 +411,7 @@ def wait_for_codex_poll_refresh(
     previous_poll_status: str | None,
     timeout_seconds: int,
     poll_interval_seconds: float = 2.0,
+    observe_launch_state_fn: Callable[[], dict[str, object]] | None = None,
 ) -> dict[str, object]:
     """Wait for a fresh Codex reviewer heartbeat after live launch."""
     from .bridge_validation import poll_status_is_automation_only_refresh
@@ -429,7 +431,21 @@ def wait_for_codex_poll_refresh(
         poll_status_automation_only = poll_status_is_automation_only_refresh(
             current_poll_status
         )
-        observed = poll_advanced and poll_status_changed and not poll_status_automation_only
+        launch_state = (
+            dict(observe_launch_state_fn())
+            if observe_launch_state_fn is not None
+            else {}
+        )
+        typed_live_ready = (
+            str(launch_state.get("launch_truth") or "").strip() == "live"
+            and bool(launch_state.get("codex_conductor_active"))
+            and bool(launch_state.get("claude_conductor_active"))
+        )
+        observed = (
+            poll_advanced
+            and not poll_status_automation_only
+            and (poll_status_changed or typed_live_ready)
+        )
         if observed or time.monotonic() >= deadline:
             liveness = summarize_bridge_liveness(snapshot)
             return {
@@ -442,6 +458,13 @@ def wait_for_codex_poll_refresh(
                 "poll_status_action": liveness.poll_status_action,
                 "poll_status_reason": liveness.poll_status_reason,
                 "poll_status_automation_only": liveness.poll_status_automation_only,
+                "launch_truth": str(launch_state.get("launch_truth") or ""),
+                "codex_conductor_active": bool(
+                    launch_state.get("codex_conductor_active")
+                ),
+                "claude_conductor_active": bool(
+                    launch_state.get("claude_conductor_active")
+                ),
             }
         time.sleep(max(poll_interval_seconds, 0.1))
 

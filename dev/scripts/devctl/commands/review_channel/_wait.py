@@ -164,7 +164,13 @@ def _reviewer_unhealthy(snapshot: ImplementerWaitSnapshot) -> bool:
     bridge_liveness = snapshot.report.get("bridge_liveness")
     if not isinstance(bridge_liveness, dict):
         return True
-    return not reviewer_mode_is_active(str(bridge_liveness.get("reviewer_mode") or ""))
+    return not reviewer_mode_is_active(
+        str(
+            bridge_liveness.get("effective_reviewer_mode")
+            or bridge_liveness.get("reviewer_mode")
+            or ""
+        )
+    )
 
 
 def _reviewer_update_ready(snapshot: ImplementerWaitSnapshot) -> bool:

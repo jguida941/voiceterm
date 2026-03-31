@@ -428,6 +428,12 @@ checklist plus chat memory.
     `bridge.reviewed_hash_current` / `bridge.review_needed` are the canonical
     booleans for "does Codex still owe review?" while `current_session`
     remains intentionally narrow to instruction / ACK state. The same typed
+    `bridge` block now also carries `effective_reviewer_mode` for live-
+    authority consumers: keep the declared bridge `reviewer_mode` for
+    provenance, but prefer `bridge.effective_reviewer_mode` when deciding
+    whether `active_dual_agent` is actually live enough to grant reviewer/
+    implementer loop authority.
+    The same typed
     contract now owns semantic implementer ACK parsing too: accepted
     `Claude Ack` phrasings include both legacy `instruction-rev:` bullets and
     semantic forms such as `Acknowledged instruction revision <rev>`, but live

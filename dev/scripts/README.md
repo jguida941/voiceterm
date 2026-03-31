@@ -306,7 +306,11 @@ Portability note:
   reads while the bridge migration remains in progress. `latest.md` renders
   its current-session section from that typed state. `review-channel --action
   bridge-poll` now follows the same rule by refreshing and preferring that
-  typed `review_state` projection before deciding live ACK freshness.
+  typed `review_state` projection before deciding live ACK freshness. The same
+  typed `bridge` block now also carries `effective_reviewer_mode`; use that
+  field for live-authority decisions when declared bridge `reviewer_mode`
+  still says `active_dual_agent` but typed `launch_truth` has already demoted
+  the loop to an inactive read-only state.
 - For reviewer-owned automation, treat the `status` report shape honestly:
   live read APIs expose `bridge_liveness` plus projection paths, and typed
   `current_session` comes from the generated `review_state.json` projection

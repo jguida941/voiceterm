@@ -54,7 +54,12 @@ def maybe_auto_recover_stale_implementer(
             recovery_input.progress_token,
         )
         return None
-    if not reviewer_mode_is_active(str(bridge_liveness.get("reviewer_mode") or "")):
+    reviewer_mode = str(
+        bridge_liveness.get("effective_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or ""
+    )
+    if not reviewer_mode_is_active(reviewer_mode):
         _refresh_recovery_progress(
             recovery_input.recovery_state,
             recovery_input.progress_token,

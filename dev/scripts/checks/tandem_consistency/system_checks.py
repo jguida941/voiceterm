@@ -6,10 +6,12 @@ from dev.scripts.devctl.review_channel.handoff import (
     extract_bridge_snapshot,
     summarize_bridge_liveness,
 )
-from dev.scripts.devctl.review_channel.peer_liveness import (
-    CODEX_POLL_STALE_AFTER_SECONDS,
+from dev.scripts.devctl.review_channel.launch_truth import (
     LaunchTruthState,
     classify_launch_truth,
+)
+from dev.scripts.devctl.review_channel.peer_liveness import (
+    CODEX_POLL_STALE_AFTER_SECONDS,
     reviewer_mode_is_active,
 )
 

@@ -20,9 +20,9 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import review_channel as review_channel_command
-from dev.scripts.devctl.commands import review_channel_bridge_action_support
-from dev.scripts.devctl.commands import review_channel_bridge_handler
 from dev.scripts.devctl.commands.review_channel import ensure as review_channel_ensure_mod
+from dev.scripts.devctl.commands.review_channel import bridge_action_support as review_channel_bridge_action_support
+from dev.scripts.devctl.commands.review_channel import bridge_handler as review_channel_bridge_handler
 from dev.scripts.devctl.commands import review_channel_event_handler
 from dev.scripts.devctl.commands.review_channel import status as review_channel_status_mod
 from dev.scripts.devctl.commands.review_channel import _wait as review_channel_wait_mod
@@ -35,6 +35,7 @@ from dev.scripts.devctl.review_channel.core import (
     ActiveSessionConflict,
     LaneAssignment,
     bridge_is_active,
+    build_bridge_guard_report,
     detect_active_session_conflicts,
     parse_lane_assignments,
     resolve_terminal_profile_name,
@@ -85,6 +86,7 @@ from dev.scripts.devctl.review_channel.handoff import (
     extract_bridge_snapshot,
     observe_rollover_ack_state,
     summarize_bridge_liveness,
+    wait_for_codex_poll_refresh,
 )
 from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
 from dev.scripts.devctl.review_channel.heartbeat import (
@@ -2231,6 +2233,51 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             self.assertEqual(recovery_args.action, "recover")
             self.assertEqual(recovery_args.terminal, "terminal-app")
 
+    def test_reviewer_follow_recovery_skips_inactive_effective_mode(self) -> None:
+        from dev.scripts.devctl.review_channel.follow_loop import STALL_ESCALATION_POLLS
+        from dev.scripts.devctl.review_channel.reviewer_follow_recovery import (
+            ReviewerFollowRecoveryInput,
+            ReviewerFollowRecoveryState,
+            maybe_auto_recover_stale_implementer,
+        )
+
+        recovery_calls: list[dict[str, object]] = []
+
+        def fake_recovery(**kwargs) -> tuple[dict[str, object], int]:
+            recovery_calls.append(kwargs)
+            return {"launched": True}, 0
+
+        recovery_state = ReviewerFollowRecoveryState()
+        report = {
+            "review_needed": False,
+            "bridge_liveness": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "tools_only",
+                "current_instruction_revision": "feedfacecafe",
+            },
+            "attention": {
+                "status": "implementer_relaunch_required",
+                "summary": "Claude looks stuck on stale reviewer state.",
+            },
+        }
+
+        result = None
+        for _ in range(STALL_ESCALATION_POLLS + 2):
+            result = maybe_auto_recover_stale_implementer(
+                recovery_fn=fake_recovery,
+                recovery_input=ReviewerFollowRecoveryInput(
+                    args=SimpleNamespace(),
+                    repo_root=Path("."),
+                    paths={},
+                    report=report,
+                    progress_token="stalled-progress-token",
+                    recovery_state=recovery_state,
+                ),
+            )
+
+        self.assertIsNone(result)
+        self.assertEqual(recovery_calls, [])
+
     def test_reviewer_follow_appends_daemon_lifecycle_events(self) -> None:
         from dev.scripts.devctl.review_channel.event_store import load_events, resolve_artifact_paths
 
@@ -4336,6 +4383,54 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertEqual(report["wait_state"]["polls_observed"], 0)
         self.assertIn("reviewer loop is unhealthy", report["errors"][0])
 
+    def test_implementer_wait_uses_effective_reviewer_mode_when_present(self) -> None:
+        deps = review_channel_wait_mod.ImplementerWaitDeps(
+            run_status_action_fn=lambda **_: (
+                {
+                    "command": "review-channel",
+                    "action": "status",
+                    "ok": False,
+                    "warnings": [],
+                    "errors": [],
+                    "bridge_liveness": {
+                        "reviewer_mode": "active_dual_agent",
+                        "effective_reviewer_mode": "tools_only",
+                        "claude_ack_current": True,
+                        "current_instruction_revision": "aaaaaaaaaaaa",
+                    },
+                    "attention": {"status": "runtime_missing"},
+                    "review_needed": True,
+                },
+                0,
+            ),
+            read_bridge_text_fn=lambda path: _build_bridge_text(
+                current_instruction="- keep waiting",
+                claude_ack="- acknowledged; instruction-rev: `aaaaaaaaaaaa`",
+            ).replace("56bcd5d01510", "aaaaaaaaaaaa"),
+            monotonic_fn=lambda: 0.0,
+            sleep_fn=lambda seconds: None,
+        )
+        args = SimpleNamespace(
+            action="implementer-wait",
+            follow_interval_seconds=150,
+            timeout_minutes=0,
+        )
+        paths = {
+            "bridge_path": Path("/tmp/bridge.md"),
+            "review_channel_path": Path("/tmp/dev/active/review_channel.md"),
+            "status_dir": Path("/tmp/dev/reports/review_channel/latest"),
+        }
+
+        report, rc = review_channel_wait_mod.run_implementer_wait_action(
+            args=args,
+            repo_root=Path("/tmp/repo"),
+            paths=paths,
+            deps=deps,
+        )
+
+        self.assertEqual(rc, 1)
+        self.assertEqual(report["wait_state"]["stop_reason"], "reviewer_unhealthy")
+
     def test_write_reviewer_heartbeat_preserves_real_checkpoint_poll_status(self) -> None:
         from dev.scripts.devctl.review_channel.reviewer_state import write_reviewer_heartbeat
 
@@ -5672,6 +5767,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 "active_dual_agent",
             )
             self.assertEqual(
+                payload["bridge_liveness"]["effective_reviewer_mode"],
+                "tools_only",
+            )
+            self.assertEqual(
                 payload["bridge_liveness"]["overall_state"],
                 "runtime_missing",
             )
@@ -5685,6 +5784,14 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertFalse(review_state["bridge"]["reviewed_hash_current"])
             self.assertTrue(review_state["bridge"]["review_needed"])
+            self.assertEqual(
+                review_state["bridge"]["effective_reviewer_mode"],
+                "tools_only",
+            )
+            self.assertEqual(
+                review_state["bridge"]["implementer_capability"]["queue_policy"],
+                "inactive",
+            )
             self.assertTrue(
                 any("Reviewer runtime is missing" in warning for warning in payload["warnings"])
             )
@@ -8741,6 +8848,84 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertIn("bridge.md", payload["errors"][0])
             self.assertIn("dev/active/review_channel.md", payload["errors"][0])
+
+    def test_build_bridge_guard_report_loads_runtime_report_module(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+
+            report = build_bridge_guard_report(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                bridge_path=bridge_path,
+            )
+
+            self.assertEqual(report["command"], "check_review_channel_bridge")
+            self.assertIn("bridge", report)
+            self.assertIn("review_channel", report)
+            self.assertEqual(report["bridge"]["path"], "bridge.md")
+            self.assertEqual(
+                report["review_channel"]["path"],
+                "dev/active/review_channel.md",
+            )
+
+    def test_wait_for_codex_poll_refresh_accepts_typed_live_launch_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            initial_poll = _fresh_utc_z(seconds_offset=-30)
+            refreshed_poll = _fresh_utc_z(seconds_offset=-5)
+            bridge_path = root / "bridge.md"
+            unchanged_poll_status = "- reviewer still waiting on launch bootstrap"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    last_codex_poll=initial_poll,
+                    poll_status=unchanged_poll_status,
+                ),
+                encoding="utf-8",
+            )
+
+            launch_state = {
+                "launch_truth": "runtime_missing",
+                "codex_conductor_active": False,
+                "claude_conductor_active": False,
+            }
+
+            def _observe_launch_state() -> dict[str, object]:
+                return dict(launch_state)
+
+            bridge_path.write_text(
+                _build_bridge_text(
+                    last_codex_poll=refreshed_poll,
+                    poll_status=unchanged_poll_status,
+                ),
+                encoding="utf-8",
+            )
+            launch_state.update(
+                launch_truth="live",
+                codex_conductor_active=True,
+                claude_conductor_active=True,
+            )
+
+            result = wait_for_codex_poll_refresh(
+                bridge_path=bridge_path,
+                previous_poll_utc=initial_poll,
+                previous_poll_status=unchanged_poll_status,
+                timeout_seconds=0,
+                observe_launch_state_fn=_observe_launch_state,
+            )
+
+            self.assertTrue(result["observed"])
+            self.assertFalse(result["poll_status_changed"])
+            self.assertEqual(result["launch_truth"], "live")
+            self.assertTrue(result["codex_conductor_active"])
+            self.assertTrue(result["claude_conductor_active"])
 
     def test_run_launch_fails_closed_when_live_session_artifacts_are_active(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

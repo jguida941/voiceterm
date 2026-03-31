@@ -9,7 +9,7 @@ from ...approval_mode import normalize_approval_mode
 from ...review_channel.events import resolve_artifact_paths
 from ...review_channel.follow_stream import validate_follow_json_format
 from ...review_channel.peer_liveness import reviewer_mode_is_active
-from ..review_channel_bridge_handler import _render_bridge_md
+from ..review_channel.bridge_handler import _render_bridge_md
 from ..review_channel_event_handler import _render_event_md
 from .constants import CLI_RUNTIME_PATH_ARGS
 from .constants import COMMON_NONNEGATIVE_LIMITS

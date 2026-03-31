@@ -30,7 +30,7 @@ from ...review_channel.state import (
     refresh_status_snapshot,
     build_service_identity,
 )
-from ..review_channel_bridge_handler import _run_bridge_action
+from .bridge_handler import _run_bridge_action
 from ..review_channel_command import (
     RuntimePaths,
     _coerce_runtime_paths,
