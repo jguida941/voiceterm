@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-03-28 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-03-31 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -4121,6 +4121,14 @@ working on `MP-377`.
   while the declared bridge mode stays intact for provenance and review-gate
   semantics. The next same-lane follow-up is widening remaining live-authority
   consumers away from declared bridge mode where they still read it directly.
+- 2026-03-31 startup-repair parity follow-up landed in that same owner chain:
+  the repo-owned `startup-context --repair` adapter now carries the governed
+  review-channel `rollover_dir` sibling when it dispatches safe local
+  review-channel actions, so the refactored bridge-backed status/ensure path
+  no longer crashes on missing runtime paths before it can classify a
+  `runtime_missing` loop. This keeps the repair controller on the typed
+  runtime-authority path instead of reopening manual operator translation as
+  the de facto fallback.
 - 2026-03-27 startup-model discoverability follow-up landed: the compiler-
   style governance framing that had been buried here and in local scratch
   notes is now carried by tracked first-hop dev/agent surfaces too.
@@ -5091,6 +5099,16 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-03-31: Closed the next startup-repair/runtime parity gap in the active
+  `MP-377` self-hosting lane. The refactored review-channel bridge path had
+  picked up a required `rollover_dir`, but `startup-context --repair` still
+  forwarded only bridge/review/status roots into its bounded repair adapter,
+  which made the repo-owned repair path crash on an assertion before it could
+  classify or repair `runtime_missing`. Repair runtime resolution now derives
+  the governed rollover sibling from the review root and forwards it through
+  the same bounded adapter, with regressions proving the repair controller
+  stays coherent as review-channel command plumbing keeps moving under the
+  broader extraction effort.
 - 2026-03-30: Closed one smaller but important self-hosting stale-reader gap
   in the bridge-era review lane without redefining the long-term platform
   boundary. The live compatibility bridge still is not canonical authority,

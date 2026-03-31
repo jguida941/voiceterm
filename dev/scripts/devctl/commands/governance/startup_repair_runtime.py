@@ -31,6 +31,7 @@ class ReviewRuntimePaths:
     review_channel_path: Path
     bridge_path: Path
     status_dir: Path
+    rollover_dir: Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,10 +153,12 @@ def _resolve_review_runtime_paths(
     review_root_rel = str(governance.artifact_roots.review_root or "").strip()
     if not bridge_rel or not review_channel_rel or not review_root_rel:
         return None
+    status_dir = (repo_root / review_root_rel).resolve()
     return ReviewRuntimePaths(
         review_channel_path=(repo_root / review_channel_rel).resolve(),
         bridge_path=(repo_root / bridge_rel).resolve(),
-        status_dir=(repo_root / review_root_rel).resolve(),
+        status_dir=status_dir,
+        rollover_dir=(status_dir.parent / "rollovers").resolve(),
     )
 
 
@@ -184,12 +187,17 @@ def _run_review_channel_action(
     repo_root: Path,
     runtime_paths: ReviewRuntimePaths,
 ) -> tuple[dict[str, object], int]:
-    path_mapping = {
-        "review_channel_path": runtime_paths.review_channel_path,
-        "bridge_path": runtime_paths.bridge_path,
-        "status_dir": runtime_paths.status_dir,
-        "promotion_plan_path": None,
-    }
+    from ..review_channel_command import RuntimePaths
+
+    command_paths = RuntimePaths(
+        review_channel_path=runtime_paths.review_channel_path,
+        bridge_path=runtime_paths.bridge_path,
+        rollover_dir=runtime_paths.rollover_dir,
+        status_dir=runtime_paths.status_dir,
+        promotion_plan_path=None,
+        script_dir=None,
+        artifact_paths=None,
+    )
 
     def action_args(**overrides: object) -> SimpleNamespace:
         namespace = SimpleNamespace(
@@ -222,7 +230,7 @@ def _run_review_channel_action(
         return _run_ensure_action(
             args=args,
             repo_root=repo_root,
-            paths=path_mapping,
+            paths=command_paths,
         )
     if action_id == StartupRepairActionId.RENDER_BRIDGE.value:
         from ..review_channel._render_bridge import (
@@ -235,7 +243,7 @@ def _run_review_channel_action(
         return _run_render_bridge_action(
             args=args,
             repo_root=repo_root,
-            paths=path_mapping,
+            paths=command_paths,
         )
     if action_id == StartupRepairActionId.RESET_IMPLEMENTER_STATE.value:
         from ..review_channel._reset_implementer import (
@@ -251,7 +259,7 @@ def _run_review_channel_action(
         return _run_reset_implementer_state_action(
             args=args,
             repo_root=repo_root,
-            paths=path_mapping,
+            paths=command_paths,
             run_status_action_fn=_run_status_action,
         )
     raise ValueError(f"Unsupported startup-context repair action: {action_id}")

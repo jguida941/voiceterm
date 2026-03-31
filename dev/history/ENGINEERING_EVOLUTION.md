@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-30
+**Last Updated:** 2026-03-31
 
 ## At a Glance
 
@@ -164,6 +164,22 @@ and applies one bounded safe repair (`ensure`, `render-bridge`,
 `reset-implementer-state`) per invocation before rereading typed state. The
 platform keeps one owner for bridge mutation while startup gets one canonical,
 conservative repair surface.
+
+### 2026-03-31 - Startup repair runtime adapter now carries governed rollover context
+
+The next self-hosting follow-up came from a real repo-owned repair run, not a
+new product-direction debate. `startup-context --repair` had already moved to
+typed startup/review authority and direct repo-owned review-channel actions,
+but the refactored bridge-backed status/ensure path now expected one more
+runtime path: the governed review-channel `rollover_dir`.
+
+The repair adapter was still forwarding only bridge/review/status roots, so a
+safe local `ensure_runtime` repair could crash on an assertion before it
+classified the real runtime state. Closed that gap by deriving the rollover
+sibling from the managed review root and forwarding it through the bounded
+repair adapter. Startup repair now reaches the actual manual-follow-up answer
+(`review_loop_relaunch_required`) instead of failing on missing path context
+when review-channel command packaging moves underneath it.
 
 ## Term Quick Reference
 

@@ -1409,6 +1409,14 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-03-31 startup-repair adapter follow-up: repo-owned
+  `startup-context --repair` was crashing in the refactored review-channel
+  command path because its bounded runtime adapter no longer supplied the
+  governed `rollover_dir` required by bridge-backed status/ensure reads.
+  Repair-path runtime resolution now derives that sibling path from the
+  governed review root and carries it through the repair action adapter so
+  safe local repair can classify/runtime-check the loop again instead of
+  failing on an assertion before attention routing runs.
 - 2026-03-31 follow-loop authority follow-up: reviewer follow stale-
   implementer auto-recovery now consumes typed
   `bridge_liveness.effective_reviewer_mode` before the declared bridge
@@ -1795,6 +1803,14 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-03-31: Fixed the next `MP-377` startup-authority blocker exposed by
+  the repo-owned repair path. `startup-context --repair` now resolves and
+  forwards the governed review-channel `rollover_dir` sibling alongside
+  bridge/review/status roots when it dispatches safe local repair actions,
+  which keeps the refactored bridge-backed status/ensure path from asserting
+  on missing runtime paths before it can classify `runtime_missing`. Added
+  startup-repair regressions proving the bounded runtime adapter derives and
+  forwards that path.
 - 2026-03-31: Closed the next bounded live-authority consumer in the active
   `MP-377` authority-loop lane. Reviewer follow stale-implementer recovery
   now prefers typed `effective_reviewer_mode` over declared bridge

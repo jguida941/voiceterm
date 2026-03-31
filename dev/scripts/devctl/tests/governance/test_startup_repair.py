@@ -337,6 +337,59 @@ class StartupRepairContractTests(unittest.TestCase):
 
 
 class StartupRepairCommandTests(unittest.TestCase):
+    def test_review_runtime_paths_derive_rollover_dir_from_review_root(self) -> None:
+        from dev.scripts.devctl.commands.governance import startup_repair_runtime
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            paths = startup_repair_runtime._resolve_review_runtime_paths(
+                repo_root=root,
+                ctx=_ctx(),
+            )
+
+        self.assertIsNotNone(paths)
+        assert paths is not None
+        self.assertEqual(
+            paths.status_dir,
+            (root / "dev/reports/review_channel/latest").resolve(),
+        )
+        self.assertEqual(
+            paths.rollover_dir,
+            (root / "dev/reports/review_channel/rollovers").resolve(),
+        )
+
+    def test_review_channel_repair_action_passes_rollover_dir_to_ensure(self) -> None:
+        from dev.scripts.devctl.commands.governance import startup_repair_runtime
+
+        runtime_paths = startup_repair_runtime.ReviewRuntimePaths(
+            review_channel_path=Path("/tmp/review_channel.md"),
+            bridge_path=Path("/tmp/bridge.md"),
+            status_dir=Path("/tmp/latest"),
+            rollover_dir=Path("/tmp/rollovers"),
+        )
+        captured_paths: dict[str, object] = {}
+
+        def fake_run_ensure_action(*, args, repo_root, paths):
+            captured_paths["rollover_dir"] = paths.rollover_dir
+            return {"ok": True}, 0
+
+        with patch(
+            "dev.scripts.devctl.commands.review_channel._follow_runtime.run_ensure_action",
+            side_effect=fake_run_ensure_action,
+        ):
+            report, exit_code = startup_repair_runtime._run_review_channel_action(
+                action_id="ensure_runtime",
+                repo_root=Path("/tmp/repo"),
+                runtime_paths=runtime_paths,
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(report["ok"])
+        self.assertEqual(
+            captured_paths["rollover_dir"],
+            Path("/tmp/rollovers"),
+        )
+
     def test_apply_safe_fixes_dispatch_emits_machine_output(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             output_path = Path(tempdir) / "startup-repair.json"

@@ -186,6 +186,10 @@ Run this sequence for every task. Do not skip steps.
    applies at most one deterministic safe fix per invocation. User summaries,
    stale chat continuity, or remembered prior state are not a substitute for
    this Step 0 receipt.
+   The same repair path now resolves the governed review-channel
+   `rollover_dir` sibling from the managed review root before dispatching
+   repo-owned review-channel repair actions, so command-package refactors do
+   not strand startup repair on missing runtime-path assertions.
    Do not replay bootstrap packets into chat by default; keep any chat
    acknowledgement to blocker state plus next step unless the user asks for
    the detailed packet.

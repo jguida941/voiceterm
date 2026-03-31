@@ -396,7 +396,10 @@ Three quality layers matter in practice:
     current state from the typed startup/review owner contracts, applies at
     most one bounded safe repo-owned repair per invocation, refreshes the
     managed startup receipt after each pass, and still fails closed on
-    checkpoint/publish/launch approval boundaries.
+    checkpoint/publish/launch approval boundaries. The bounded repair adapter
+    also resolves the governed review-channel `rollover_dir` sibling from the
+    managed review root before dispatching repo-owned review-channel actions,
+    so review-channel command splits do not silently break startup repair.
   - Reviewer/implementer launch commands plus explicit reviewer takeover are
     runtime-owned `ConductorCapabilityState` facts now, not prompt-local text.
     Prompt/bootstrap/bridge projection surfaces must render from that typed

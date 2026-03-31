@@ -609,6 +609,13 @@
   the managed startup receipt after each pass. This closes the first local
   repair-controller slice without pretending the wider graph-backed
   architecture-trigger work is finished.
+- 2026-03-31 startup repair-path parity follow-up: the bounded
+  `startup-context --repair` runtime adapter now forwards the governed
+  review-channel `rollover_dir` sibling derived from the managed review root
+  when it dispatches repo-owned review-channel actions. That closes the
+  immediate refactor regression where bridge-backed status/ensure repair
+  crashed on missing runtime-path context before it could classify
+  `runtime_missing` or surface the real relaunch boundary.
 - 2026-03-29 package-layout baseline-debt enforcement closure: the
   `check_package_layout` guard now supports `--fail-on-baseline-debt` with
   optional `--baseline-debt-root` filtering, promoting detected baseline debt
