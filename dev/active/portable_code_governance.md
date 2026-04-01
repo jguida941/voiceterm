@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-03-27 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-04-01 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -156,6 +156,22 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       directories, naming, boundaries, and exceptions. Additional scoped plan
       docs should be an escalation path for larger execution slices, not the
       mandatory baseline shape for every adopting repo.
+- [ ] Define the portable package-role contract under that same repo-shape
+      policy: `public_entrypoint`, `compat_shim`, `implementation_package`,
+      `support_module`, `generated_artifact`, and `doc_authority` roles should
+      declare allowed roots, flat-root allowances, import/export rules,
+      naming/location constraints, and the expected owner surface for
+      exceptions.
+- [ ] Add a role-aware organization-review / package-cohesion surface on top
+      of `package_layout`: detect helper-drawer roots, mixed-role directories,
+      suffix-heavy helper families (`*_parser`, `*_support`, `*_policy`,
+      `*_report`, `*_render`, `*_views`) outside approved packages, and roots
+      where "green" only means budget-edge compliance instead of real
+      structure convergence.
+- [ ] Make that same organization contract report raw file volume separately
+      from implementation density and shim/public-entrypoint density so adopters
+      can see when a root still looks flat or helper-heavy even if only one
+      density slice is currently blocking.
 - [ ] Explicitly align that structural-readability tranche with the existing
       metric research: identifier density, cognitive complexity, Halstead
       volume, and later entropy/cohesion probes should provide portable
@@ -477,6 +493,17 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-04-01: Re-reviewed self-hosting organization after the latest
+  package-layout cleanup and locked the missing contract more precisely. The
+  current `package_layout` / shim system is useful but still too growth-based:
+  `check_package_layout` can report clean while the live tree still presents a
+  helper-drawer root (`dev/scripts/devctl` currently has `80` root Python
+  files, `20` shim-tagged wrappers, `60` non-shim files, and `13` non-shim
+  `*_parser` modules). That means the next portable tranche is not another
+  count tweak. It is a role-aware repo-shape contract layered onto the same
+  engine: package roles, package-cohesion review, mixed-role/root-helper drift
+  detection, and raw-vs-implementation-vs-shim density reporting so a repo can
+  distinguish "no new drift" from "actually organized."
 - 2026-03-27: Clarified the owner split for the next cross-repo organization
   decision instead of leaving it in ad hoc chat/backlog discussion. The
   portable baseline should stay small: one process doc, one execution
@@ -1251,6 +1278,16 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Session Resume
 
+- 2026-04-01 organization-contract correction: do not treat current
+  `package_layout` green as architecture completion. The next portable slice is
+  package-role and semantic package-cohesion authority on top of the existing
+  `package_layout` engine, not a second unrelated topology framework and not
+  another one-off cleanup memo.
+- 2026-04-01 immediate execution order: 1) freeze the repo-pack-owned package
+  role schema, 2) ship an advisory organization-review / package-cohesion
+  report against the self-hosting tree, 3) use that output to burn down the
+  `dev/scripts/devctl` helper-drawer root, and 4) only then promote the
+  reliable subset to blocking policy.
 - 2026-03-27 baseline-contract clarification: do not use `backlog.md` as the
   decision log for core architecture. Keep the shared backlog empty until
   there is real queued work. The next organization/convention slice belongs in

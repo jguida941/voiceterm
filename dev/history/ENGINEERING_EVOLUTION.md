@@ -78,6 +78,29 @@ This still is not native worker execution. The review backend can now describe
 runtime truth more honestly, but real delegated worker sessions and the last
 fixed-provider recovery knobs remain open follow-up work.
 
+### 2026-04-01 - Repo organization is now tracked as a package-role and package-cohesion problem, not just a file-budget problem
+
+The self-hosting package-layout work improved truthfulness, but the repo still
+had an obvious architecture gap: a green `check_package_layout` receipt could
+coexist with a visually noisy helper-drawer root because the current contract
+mostly reasons about crowding, namespace families, and compatibility-shim
+budgets. That is useful for freezing drift, but it is not the same thing as
+semantic organization.
+
+The owner plans now record the stronger requirement explicitly. The next
+portable organization tranche is a repo-pack-owned package-role contract
+(`public_entrypoint`, `compat_shim`, `implementation_package`,
+`support_module`, `generated_artifact`, `doc_authority`) plus a role-aware
+package-cohesion review surface that can flag mixed-role directories,
+suffix-heavy helper roots, and "green but still looks flat" cases. The
+platform lane also now owns projecting that structure truth into startup/work-
+intake so agents stop reading a budget-green layout receipt as proof that the
+repo is well organized.
+
+Evidence: `dev/active/portable_code_governance.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/MASTER_PLAN.md`.
+
 The first bridge-hardening pass closed the direct `bridge.md` pollution path by
 flattening promotion/checkpoint instruction text and rejecting embedded
 markdown headings in reviewer-owned live sections. One sibling path remained:

@@ -2659,10 +2659,16 @@ Still open before `P0` closes:
       authoritative, lifecycle-managed, and consistent across repos.
 - [ ] Extend the existing package-layout / compatibility-shim governance into
       one broader repo-owned structure policy for the governance engine
-      itself: `devctl` root-file budgets, approved parser/command locations,
-      subsystem file-count budgets, source-of-truth ownership, active-doc
-      lifecycle, and shim expiry should be policy-backed instead of left as
-      reviewer memory.
+      itself: package roles (`public_entrypoint`, `compat_shim`,
+      `implementation_package`, `support_module`, `generated_artifact`,
+      `doc_authority`), `devctl` root-file budgets, approved parser/command
+      locations, subsystem file-count budgets, source-of-truth ownership,
+      active-doc lifecycle, and shim expiry should be policy-backed instead of
+      left as reviewer memory.
+- [ ] Project that same structure policy into one startup/AI-readable
+      organization surface so agents see declared package roles, allowed
+      exceptions, and live layout debt instead of treating a green budget
+      receipt as proof that the repo is semantically organized.
 - [ ] Define one repo-pack-owned documentation contract (`DocPolicy`) over
       governed markdown/doc surfaces: doc classes
       (`tracker`, `spec`, `runbook`, `guide`, `reference`,
@@ -4066,6 +4072,14 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-04-01 self-hosting organization correction: the current guard contract
+  is honest about drift but it is still not semantic organization. The live
+  tree can report `check_package_layout` clean while `dev/scripts/devctl`
+  still holds `80` root Python files, `60` non-shim implementation files, and
+  `13` non-shim `*_parser` modules. The next closure is therefore explicit:
+  `MP-376` owns the portable package-role/package-cohesion policy and report
+  surface, while `MP-377` owns projecting that truth into startup/work-intake
+  so agents stop confusing budget compliance with architecture completion.
 - 2026-04-01 runtime-contract follow-up continued in the same owner chain:
   review-channel launch/session metadata now derives from typed provider/lane
   specs, event-backed packet validation resolves actor/target ids from typed
@@ -5119,6 +5133,14 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-01: Re-audited self-hosting organization against the live tree and
+  corrected the next `MP-377` closure accordingly. The current package-layout
+  contract is good at freezing drift and tracking compatibility wrappers, but
+  it still lets a root stay visually and semantically noisy while the guard is
+  green. The immediate plan is now explicit: keep extending the existing
+  `package_layout` / shim path rather than inventing a second framework, but
+  promote it from crowding-only governance into a repo-pack-owned structure
+  policy with package roles plus an AI-readable organization surface.
 - 2026-04-01: Landed the next self-hosting package-layout closure in the
   active `MP-377` extraction lane. The crowded `dev/scripts/devctl/commands`
   families now decompose under topical command packages (`check/`,

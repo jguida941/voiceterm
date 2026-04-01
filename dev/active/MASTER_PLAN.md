@@ -3364,8 +3364,12 @@ become the main product surface.
     `dev/scripts/devctl` flat-root burn-down under the same policy-backed
     report surface. The same tranche now explicitly includes custom
     docs-authority / tracker / registry naming proof so portability does not
-    depend on `AGENTS.md` / `MASTER_PLAN.md` / `INDEX.md` clones. (evidence:
-    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 29, Part 40)
+    depend on `AGENTS.md` / `MASTER_PLAN.md` / `INDEX.md` clones. The same
+    follow-up now explicitly includes a package-role / package-cohesion
+    contract so repos can distinguish public entrypoints, temporary shims,
+    implementation packages, support modules, generated artifacts, and docs
+    authority instead of treating "within file budget" as semantic
+    organization. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 29, Part 40)
   - [ ] Keep tandem/review infrastructure opt-in in portable presets and setup
     until an adopter explicitly enables that enforcement, and make the enable
     point obvious in bootstrap/setup surfaces. (evidence:
@@ -3507,7 +3511,11 @@ become the main product surface.
   `devctl` itself plus baseline/adoption layout scanning so external repos can
   receive the same organization contract agents use here, including crowded
   flat-family namespace reporting for `devctl/commands` and other high-density
-  roots. It also owns the context-budget architecture for AI-facing runs:
+  roots. The same lane now also owns the AI-facing projection of that
+  structure truth: startup/work-intake should expose declared package roles,
+  approved exceptions, and live layout debt instead of teaching agents that a
+  green crowding receipt means the repo is well organized. It also owns the
+  context-budget architecture for AI-facing runs:
   typed context packs, repo-pack-tunable budget profiles, usage telemetry,
   overflow/fallback behavior, and future operator/adopter guidance so better
   code quality does not depend on hidden prompt bloat. This scope also now
