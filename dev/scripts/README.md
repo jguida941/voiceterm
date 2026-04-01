@@ -159,6 +159,13 @@ Compatibility note:
   `check_review_channel_bridge.py` freshness output, because that guard
   intentionally relaxes live heartbeat enforcement on `GITHUB_ACTIONS=true`
   runners.
+- Keep review-channel runtime truth portable too: conductor launch now derives
+  session specs from a typed provider/lane map and writes role-tagged session
+  metadata, packet actor validation resolves against typed
+  collaboration/runtime state or repo-owned session metadata instead of parser
+  choices, and `check_multi_agent_sync.py` now blocks planned `AGENT-*` rows
+  from leaking back into runtime truth when a typed `review_state` snapshot
+  exists.
 - Treat moved public scripts and compatibility shims as entrypoint smoke/
   integration coverage too: when script mode, package mode, or root-entrypoint
   routing changes, do not rely only on direct module unit tests.

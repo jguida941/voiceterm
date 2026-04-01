@@ -100,7 +100,7 @@ def _build_participants(
             agent_id=record.provider,
             provider=record.provider,
             display_name=record.provider_name,
-            role=role_for_provider(record.provider).value,
+            role=record.role or role_for_provider(record.provider).value,
             session_name=record.session_name,
             live=record.live,
             status="live" if record.live else "configured",
@@ -418,7 +418,7 @@ def _provider_for_role(
     role: TandemRole,
 ) -> str | None:
     for record in session_records:
-        if role_for_provider(record.provider) == role:
+        if _record_role(record) == role:
             return record.provider
     return None
 
@@ -430,9 +430,20 @@ def _providers_for_role(
     return tuple(
         record.provider
         for record in session_records
-        if role_for_provider(record.provider) == role
+        if _record_role(record) == role
     )
 
 
 def _text(value: object) -> str:
     return str(value or "").strip()
+
+
+def _record_role(record: ConductorSessionRecord) -> TandemRole:
+    role_text = _text(record.role)
+    if role_text == TandemRole.REVIEWER.value:
+        return TandemRole.REVIEWER
+    if role_text == TandemRole.OPERATOR.value:
+        return TandemRole.OPERATOR
+    if role_text == TandemRole.IMPLEMENTER.value:
+        return TandemRole.IMPLEMENTER
+    return role_for_provider(record.provider)

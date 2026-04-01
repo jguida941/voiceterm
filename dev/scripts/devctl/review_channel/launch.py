@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
-import json
 import os
 import shlex
 import shutil
 import sys
 import tempfile
-from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE, normalize_approval_mode
-from ..runtime.role_profile import role_for_provider
+from ..time_utils import utc_timestamp
+from .launch_records import (
+    LaunchSessionRequest,
+    PreparedSessionRecord,
+    legacy_provider_lane_map,
+    session_output_paths,
+)
+from .launch_topology import build_conductor_launch_specs
 from .launch_script import build_session_script
 from .prompt import build_conductor_prompt
 from .terminal_app import (
@@ -22,7 +27,6 @@ from .terminal_app import (
     list_terminal_profiles as list_terminal_profiles,
     resolve_terminal_profile_name as resolve_terminal_profile_name,
 )
-from ..time_utils import utc_timestamp
 
 if TYPE_CHECKING:
     from .core import LaneAssignment
@@ -90,153 +94,113 @@ def build_promote_command(
 
 def build_launch_sessions(
     *,
-    repo_root: Path,
-    review_channel_path: Path,
-    bridge_path: Path,
-    codex_lanes: list["LaneAssignment"],
-    claude_lanes: list["LaneAssignment"],
-    codex_workers: int,
-    claude_workers: int,
-    rollover_threshold_pct: int,
-    await_ack_seconds: int,
-    default_terminal_profile: str,
-    retirement_note: str,
-    promotion_plan_rel: str,
-    approval_mode: str = DEFAULT_APPROVAL_MODE,
-    dangerous: bool = False,
-    bridge_liveness: dict[str, object] | None = None,
-    handoff_bundle: dict[str, str] | None = None,
-    script_dir: Path | None = None,
-    session_output_root: Path | None = None,
-    cursor_lanes: list["LaneAssignment"] | None = None,
-    cursor_workers: int = 0,
-    providers_to_launch: tuple[str, ...] | None = None,
+    request: LaunchSessionRequest,
     build_conductor_prompt_fn: Callable[..., str] = build_conductor_prompt,
     resolve_cli_path_fn: Callable[[str], str] = resolve_cli_path,
 ) -> list[dict[str, object]]:
     """Create conductor launch scripts and return session metadata."""
     effective_script_dir = (
-        script_dir
-        if script_dir is not None
+        request.script_dir
+        if request.script_dir is not None
         else Path(tempfile.mkdtemp(prefix="review-channel-launch-"))
     )
     sessions: list[dict[str, object]] = []
     rollover_command = build_rollover_command(
-        approval_mode=approval_mode,
-        dangerous=dangerous,
-        rollover_threshold_pct=rollover_threshold_pct,
-        await_ack_seconds=await_ack_seconds,
+        approval_mode=request.approval_mode,
+        dangerous=request.dangerous,
+        rollover_threshold_pct=request.rollover_threshold_pct,
+        await_ack_seconds=request.await_ack_seconds,
     )
     resolved_approval_mode = normalize_approval_mode(
-        approval_mode,
-        dangerous=dangerous,
+        request.approval_mode,
+        dangerous=request.dangerous,
     )
     promote_command = build_promote_command(
-        promotion_plan_rel=promotion_plan_rel,
+        promotion_plan_rel=request.promotion_plan_rel,
     )
     session_dir = (
-        (session_output_root / "sessions")
-        if session_output_root is not None
+        (request.session_output_root / "sessions")
+        if request.session_output_root is not None
         else None
     )
     prepared_at = utc_timestamp()
-    provider_roster: list[tuple[str, str, str, list, int, str]] = [
-        ("codex", "Codex", "Claude", codex_lanes, codex_workers, str(role_for_provider("codex"))),
-        ("claude", "Claude", "Codex", claude_lanes, claude_workers, str(role_for_provider("claude"))),
-    ]
-    if cursor_lanes:
-        provider_roster.append(
-            ("cursor", "Cursor", "Claude", cursor_lanes, cursor_workers, str(role_for_provider("cursor"))),
-        )
-    if providers_to_launch is not None:
-        selected = set(providers_to_launch)
-        provider_roster = [
-            row for row in provider_roster if row[0] in selected
-        ]
-    for provider, provider_name, other_name, lanes, requested_worker_budget, _role in provider_roster:
+    launch_specs = build_conductor_launch_specs(
+        provider_lane_map=request.provider_lane_map
+        or legacy_provider_lane_map(
+            codex_lanes=request.codex_lanes,
+            claude_lanes=request.claude_lanes,
+            cursor_lanes=request.cursor_lanes,
+        ),
+        requested_worker_budgets=request.requested_worker_budgets
+        or {
+            "codex": request.codex_workers,
+            "claude": request.claude_workers,
+            "cursor": request.cursor_workers,
+        },
+        providers_to_launch=request.providers_to_launch,
+    )
+    for spec in launch_specs:
+        provider = spec.provider
+        provider_name = spec.provider_name
+        other_name = spec.counterpart_name
+        lanes = list(spec.lanes)
+        requested_worker_budget = spec.requested_worker_budget
         session_name = f"{provider}-conductor"
-        log_path = None if session_dir is None else session_dir / f"{session_name}.log"
-        metadata_path = (
-            None if session_dir is None else session_dir / f"{session_name}.json"
+        log_path, metadata_path = session_output_paths(
+            session_dir=session_dir,
+            session_name=session_name,
         )
         prompt = build_conductor_prompt_fn(
             provider=provider,
             provider_name=provider_name,
             other_name=other_name,
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            bridge_path=bridge_path,
+            repo_root=request.repo_root,
+            review_channel_path=request.review_channel_path,
+            bridge_path=request.bridge_path,
             lanes=lanes,
-            codex_workers=codex_workers,
-            claude_workers=claude_workers,
+            codex_workers=request.codex_workers,
+            claude_workers=request.claude_workers,
             approval_mode=resolved_approval_mode,
-            dangerous=dangerous,
-            rollover_threshold_pct=rollover_threshold_pct,
-            await_ack_seconds=await_ack_seconds,
-            retirement_note=retirement_note,
+            dangerous=request.dangerous,
+            rollover_threshold_pct=request.rollover_threshold_pct,
+            await_ack_seconds=request.await_ack_seconds,
+            retirement_note=request.retirement_note,
             rollover_command=rollover_command,
             promote_command=promote_command,
-            bridge_liveness=bridge_liveness,
-            handoff_bundle=handoff_bundle,
+            bridge_liveness=request.bridge_liveness,
+            handoff_bundle=request.handoff_bundle,
         )
         script_name = f"{provider}-conductor.sh"
         script_path = effective_script_dir / script_name
         launch_command = f"/bin/zsh {shlex.quote(str(script_path))}"
-        if metadata_path is not None and log_path is not None:
-            _write_session_metadata(
-                metadata_path=metadata_path,
-                payload={
-                    "provider": provider,
-                    "provider_name": provider_name,
-                    "session_name": session_name,
-                    "capture_mode": "terminal-script",
-                    "prepared_at": prepared_at,
-                    "repo_root": str(repo_root),
-                    "script_path": str(script_path),
-                    "log_path": str(log_path),
-                    "launch_command": launch_command,
-                    "supervision_mode": "restart-on-clean-exit",
-                    "approval_mode": resolved_approval_mode,
-                    "planned_lane_count": len(lanes),
-                    "requested_worker_budget": requested_worker_budget,
-                    "planned_lanes": [asdict(lane) for lane in lanes],
-                },
-            )
+        session_record = PreparedSessionRecord(
+            session_name=session_name,
+            provider=provider,
+            provider_name=provider_name,
+            role=spec.role,
+            approval_mode=resolved_approval_mode,
+            planned_lanes=lanes,
+            requested_worker_budget=requested_worker_budget,
+            repo_root=request.repo_root,
+            script_path=script_path,
+            launch_command=launch_command,
+            prepared_at=prepared_at,
+            log_path=log_path,
+            metadata_path=metadata_path,
+        )
+        session_record.write_metadata()
         script_path = build_session_script(
             provider=provider,
-            repo_root=repo_root,
+            repo_root=request.repo_root,
             prompt=prompt,
             approval_mode=resolved_approval_mode,
-            dangerous=dangerous,
+            dangerous=request.dangerous,
             script_path=script_path,
             log_path=log_path,
             resolve_cli_path_fn=resolve_cli_path_fn,
         )
+        session_record.script_path = script_path
         sessions.append(
-            {
-                "session_name": session_name,
-                "provider": provider,
-                "requested_worker_budget": requested_worker_budget,
-                "approval_mode": resolved_approval_mode,
-                "planned_lane_count": len(lanes),
-                "planned_lanes": [asdict(lane) for lane in lanes],
-                "script_path": str(script_path),
-                "launch_command": launch_command,
-                "log_path": str(log_path) if log_path is not None else None,
-                "supervision_mode": "restart-on-clean-exit",
-                "metadata_path": (
-                    str(metadata_path) if metadata_path is not None else None
-                ),
-                "capture_mode": "terminal-script" if log_path is not None else None,
-            }
+            session_record.report_payload()
         )
     return sessions
-
-
-def _write_session_metadata(
-    *,
-    metadata_path: Path,
-    payload: dict[str, object],
-) -> None:
-    metadata_path.parent.mkdir(parents=True, exist_ok=True)
-    metadata_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

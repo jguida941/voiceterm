@@ -10,7 +10,6 @@ from pathlib import Path
 from ...approval_mode import normalize_approval_mode
 from ...common import display_path
 from ...review_channel.core import (
-    DEFAULT_TERMINAL_PROFILE,
     REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
     detect_active_session_conflicts,
     summarize_active_session_conflicts,
@@ -26,6 +25,7 @@ from ...review_channel.launch import (
     resolve_cli_path,
     resolve_terminal_profile_name,
 )
+from ...review_channel.launch_records import LaunchSessionRequest
 from ...review_channel.promotion import promote_bridge_instruction
 from ...review_channel.bridge_promotion import (
     maybe_auto_promote_next_task,
@@ -249,33 +249,36 @@ def build_bridge_sessions(
     if resolve_cli_path_fn is resolve_cli_path:
         effective_resolve_cli_path = _resolve_cli_path_or_provider_name
     return build_launch_sessions_fn(
-        repo_root=context.repo_root,
-        review_channel_path=context.review_channel_path,
-        bridge_path=context.bridge_path,
-        codex_lanes=context.codex_lanes,
-        claude_lanes=context.claude_lanes,
-        codex_workers=min(args.codex_workers, len(context.codex_lanes)),
-        claude_workers=min(args.claude_workers, len(context.claude_lanes)),
-        cursor_lanes=effective_cursor_lanes,
-        cursor_workers=min(
-            getattr(args, "cursor_workers", len(effective_cursor_lanes)),
-            len(effective_cursor_lanes),
-        ),
-        approval_mode=approval_mode,
-        dangerous=bool(args.dangerous),
-        rollover_threshold_pct=args.rollover_threshold_pct,
-        await_ack_seconds=args.await_ack_seconds,
-        default_terminal_profile=DEFAULT_TERMINAL_PROFILE,
-        retirement_note=REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
-        promotion_plan_rel=promotion_plan_rel_for_session(
-            promotion_plan_path=context.promotion_plan_path,
+        request=LaunchSessionRequest(
             repo_root=context.repo_root,
-            display_path_fn=display_path,
+            review_channel_path=context.review_channel_path,
+            bridge_path=context.bridge_path,
+            codex_lanes=context.codex_lanes,
+            claude_lanes=context.claude_lanes,
+            codex_workers=min(args.codex_workers, len(context.codex_lanes)),
+            claude_workers=min(args.claude_workers, len(context.claude_lanes)),
+            cursor_lanes=effective_cursor_lanes,
+            cursor_workers=min(
+                getattr(args, "cursor_workers", len(effective_cursor_lanes)),
+                len(effective_cursor_lanes),
+            ),
+            approval_mode=approval_mode,
+            dangerous=bool(args.dangerous),
+            rollover_threshold_pct=args.rollover_threshold_pct,
+            await_ack_seconds=args.await_ack_seconds,
+            retirement_note=REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+            promotion_plan_rel=promotion_plan_rel_for_session(
+                promotion_plan_path=context.promotion_plan_path,
+                repo_root=context.repo_root,
+                display_path_fn=display_path,
+            ),
+            bridge_liveness=context.bridge_liveness,
+            handoff_bundle=handoff_bundle_to_dict(context.handoff_bundle),
+            script_dir=context.script_dir
+            if isinstance(context.script_dir, Path)
+            else None,
+            session_output_root=context.status_dir,
         ),
-        bridge_liveness=context.bridge_liveness,
-        handoff_bundle=handoff_bundle_to_dict(context.handoff_bundle),
-        script_dir=context.script_dir if isinstance(context.script_dir, Path) else None,
-        session_output_root=context.status_dir,
         resolve_cli_path_fn=effective_resolve_cli_path,
     )
 

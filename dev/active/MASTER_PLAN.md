@@ -124,6 +124,16 @@
   startup/wait consumers can demote dead `active_dual_agent` runtime to an
   inactive read-only authority state without mutating the bridge metadata or
   review-gate provenance.
+- Latest same-lane closure on 2026-04-01: the next review-channel runtime
+  truth follow-up landed behind that `CollaborationSession` contract. Launch
+  session metadata now derives from typed provider/lane specs and records
+  conductor roles, event-backed packet actors/targets validate against typed
+  collaboration/runtime state or repo-owned session metadata instead of
+  parser-hardcoded provider ids, and `check_multi_agent_sync.py` now blocks
+  planned `AGENT-*` rows from leaking into runtime truth when typed
+  `review_state` exists. The remaining honest gap is native worker-session /
+  delegated-work execution, plus the last recovery/CLI surfaces that still
+  assume a fixed implementer provider.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

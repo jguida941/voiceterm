@@ -18,8 +18,8 @@ from .packet_contract import (
 
 def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
     return [
-        arg_builder("--from-agent", choices=("codex", "claude", "operator", "system"), help="Posting agent for packet writes"),
-        arg_builder("--to-agent", choices=("codex", "claude", "operator", "system"), help="Target agent for packet writes"),
+        arg_builder("--from-agent", help="Posting agent id for packet writes; validated against typed collaboration/runtime state"),
+        arg_builder("--to-agent", help="Target agent id for packet writes; validated against typed collaboration/runtime state"),
         arg_builder(
             "--kind",
             choices=sorted(VALID_PACKET_KINDS),
@@ -89,8 +89,8 @@ def build_query_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
     return [
         arg_builder("--packet-id", help="Packet id for ack/dismiss/apply or explicit post id override"),
         arg_builder("--trace-id", help="Trace id for history queries or explicit post trace override"),
-        arg_builder("--actor", choices=("codex", "claude", "operator", "system"), help="Actor applying an ack/dismiss/apply transition"),
-        arg_builder("--target", choices=("codex", "claude", "operator", "system"), help="Target agent filter for inbox/watch"),
+        arg_builder("--actor", help="Actor id applying an ack/dismiss/apply transition; validated against typed collaboration/runtime state"),
+        arg_builder("--target", help="Target agent id filter for inbox/watch"),
         arg_builder(
             "--status",
             choices=["pending", "acked", "dismissed", "applied", "expired"],

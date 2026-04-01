@@ -59,6 +59,25 @@ carry fixed provider ids and the blocking planned-topology/runtime-truth guard
 is still open, but the repo now has the first real runtime contract the plan
 was calling for instead of only bridge-era compatibility projections.
 
+### 2026-04-01 - Launch, packet validation, and multi-agent sync now consume typed runtime truth
+
+The first `CollaborationSession` slice exposed the next honest gap immediately:
+launch metadata, packet validation, and one of the coordination guards still
+carried bridge-era fixed provider assumptions even though runtime truth was now
+typed.
+
+Closed the next bounded follow-up by deriving conductor launch sessions from a
+typed provider/lane map, persisting conductor role metadata in session
+artifacts, validating event-backed packet actors/targets against typed
+collaboration/runtime state or repo-owned session metadata instead of parser
+hardcodes, and extending `check_multi_agent_sync.py` so it also fails closed
+when planned `AGENT-*` rows leak into live collaboration participants or the
+runtime registry without live delegated-worker receipts.
+
+This still is not native worker execution. The review backend can now describe
+runtime truth more honestly, but real delegated worker sessions and the last
+fixed-provider recovery knobs remain open follow-up work.
+
 The first bridge-hardening pass closed the direct `bridge.md` pollution path by
 flattening promotion/checkpoint instruction text and rejecting embedded
 markdown headings in reviewer-owned live sections. One sibling path remained:

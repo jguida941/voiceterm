@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from .event_store import (
@@ -10,8 +11,9 @@ from .event_store import (
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
 )
+from .packet_agents import default_packet_agent_ids
 
-VALID_AGENT_IDS = {"codex", "claude", "cursor", "operator", "system"}
+VALID_AGENT_IDS = frozenset(default_packet_agent_ids())
 VALID_PACKET_KINDS = {
     "finding",
     "question",
@@ -146,13 +148,18 @@ class PacketTransitionRequest:
     controller_run_id: str | None = None
 
 
-def validate_post_request(request: PacketPostRequest) -> None:
+def validate_post_request(
+    request: PacketPostRequest,
+    *,
+    valid_agent_ids: Iterable[str] | None = None,
+) -> None:
     """Fail closed when one packet post request violates the contract."""
-    if request.from_agent not in VALID_AGENT_IDS:
+    allowed_agent_ids = _resolve_valid_agent_ids(valid_agent_ids)
+    if request.from_agent not in allowed_agent_ids:
         raise ValueError(
             f"Unsupported review-channel from-agent: {request.from_agent}"
         )
-    if request.to_agent not in VALID_AGENT_IDS:
+    if request.to_agent not in allowed_agent_ids:
         raise ValueError(f"Unsupported review-channel to-agent: {request.to_agent}")
     if request.kind not in VALID_PACKET_KINDS:
         raise ValueError(f"Unsupported review-channel packet kind: {request.kind}")
@@ -232,3 +239,16 @@ def _normalize_string_rows(value: object) -> list[str]:
         if text:
             rows.append(text)
     return rows
+
+
+def _resolve_valid_agent_ids(
+    valid_agent_ids: Iterable[str] | None,
+) -> set[str]:
+    if valid_agent_ids is None:
+        return set(VALID_AGENT_IDS)
+    normalized = {
+        str(agent_id).strip()
+        for agent_id in valid_agent_ids
+        if str(agent_id).strip()
+    }
+    return normalized or set(VALID_AGENT_IDS)

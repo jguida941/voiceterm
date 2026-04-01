@@ -29,6 +29,7 @@ class ConductorSessionRecord:
     """Normalized repo-owned conductor-session metadata."""
 
     provider: str
+    role: str
     provider_name: str
     session_name: str
     capture_mode: str
@@ -158,6 +159,7 @@ def load_conductor_sessions(
         records.append(
             ConductorSessionRecord(
                 provider=provider,
+                role=_session_metadata_text(metadata, "role") or "",
                 provider_name=_session_metadata_text(metadata, "provider_name")
                 or provider.title(),
                 session_name=_session_metadata_text(metadata, "session_name")

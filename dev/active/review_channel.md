@@ -1783,6 +1783,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-04-01T04:28:07Z` | `CODEX` | Closed the next architecture-honesty follow-up on top of the new `CollaborationSession` slice. Review-channel launch now derives conductor sessions from a typed provider/lane map and persists conductor role metadata, event-backed packet post/transition validation resolves actor and target ids from typed collaboration/runtime state or repo-owned session metadata instead of parser-hardcoded provider ids, and `check_multi_agent_sync.py` now also blocks planned `AGENT-*` rows from leaking into runtime truth without live delegated-worker receipts. Focused launch/packet/guard/projection tests are green. | `partial-pass` | Keep MP-355 honest about the remaining end-state gap: delegated workers are still planned receipts rather than native runtime sessions, and the remaining recovery/worker-budget CLI surfaces still assume fixed providers. |
 | `2026-04-01T03:45:00Z` | `CODEX` | Landed the first native `CollaborationSession` slice under the live review-channel runtime. `ReviewState` now carries a typed collaboration/session block, live conductor participants are sourced from repo-owned session metadata, delegated AGENT-lane receipts stay explicitly planned instead of pretending to be runtime workers, and `registry/agents.json` now projects from that typed collaboration contract rather than rebuilding provider state separately in bridge-backed and event-backed paths. Focused runtime/review-channel/platform-contract tests are green. | `partial-pass` | Keep MP-355 honest about the remaining architecture gap: launch and packet routing still hardcode provider ids, launch still does not create native worker sessions, and the missing planned-topology/runtime-truth guard still has to land before the static AGENT-* regime can retire. |
 | `2026-04-01T02:00:00Z` | `CODEX` | Re-ran the architecture pass against the live launcher/status stack after the operator caught the prompt still advertising a hardcoded 8+8 swarm. The finding is now explicit in canonical plan state: the typed `ReviewState` direction was correct, but bridge-backed `registry/agents.json`, session metadata, and launch prompts were still leaking static markdown lane tables as if they were live runtime truth. Closed the bounded truth split by making runtime participant registry provider/session-backed again, moving the lane table into a typed planned-topology compatibility surface, and defaulting requested worker fanout to zero unless a launch explicitly asks for more. The bridge path is still compatibility mode, not a finished native worker/session architecture. | `partial-pass` | Keep MP-355 honest about the remaining gap: finish migrating queue/current-session/attention/promotion onto registry-driven state, then land native `CollaborationSession` / delegated-worker receipts before claiming the backend itself is architecture-complete or truly N-agent. |
 | `2026-03-30T01:55:00Z` | `CODEX` | Closed the next bounded stale-reader gap in the live markdown-bridge loop without widening bridge authority. Bridge-backed `status` / `bridge-poll` now emit a typed `implementer_state_hash`, active-dual-agent `reviewer-checkpoint` writes require that hash alongside the expected instruction revision, and the same compare-and-swap guard now threads through repo-owned promotion/scope rewrites when they act on a previously validated bridge snapshot. Focused bridge/reviewer regressions are green, and the maintainer surfaces now teach the same two-part stale-write contract they enforce. | `partial-pass` | Keep the broader writer/mutation cutover bounded: while `bridge.md` stays live, use typed hashes/revisions as the temporary fail-closed seam, then continue moving live mutation/current-session authority into typed contracts instead of deeper markdown coupling. |
@@ -1885,13 +1886,13 @@ Complete this table only after all active swarm lanes are merged.
 ## Session Resume
 
 - Next action: keep following the same architecture-closure order the operator
-  called out. `CollaborationSession` is now real runtime state, so the next
-  bounded slice is no longer "make the registry typed"; it is to remove the
-  remaining fixed provider ids from packet/launch/routing surfaces, compile
-  delegated worker scope from the typed session/intake contract, and add the
-  blocking guard that proves static planned topology cannot leak back into
-  runtime truth. Until those land, `bridge.md` and the static AGENT table stay
-  compatibility projections only.
+  called out. `CollaborationSession` is now real runtime state, launch/packet
+  routing plus the blocking planned/runtime truth guard now consume that typed
+  contract, and the next bounded slice is narrower: turn delegated worker
+  receipts into native runtime sessions/contracts and remove the remaining
+  recovery/worker-budget surfaces that still assume fixed provider ids. Until
+  that lands, `bridge.md` and the static AGENT table stay compatibility
+  projections only.
 - Current status: this plan remains active; start from the highest-priority
   open item in `## Execution Checklist` and the latest dated entry in
   `## Progress Log`.

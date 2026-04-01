@@ -17,6 +17,7 @@ from ...review_channel.launch import (
     list_terminal_profiles,
     resolve_terminal_profile_name,
 )
+from ...review_channel.launch_records import LaunchSessionRequest
 from ...review_channel.projection_bundle import projection_paths_to_dict
 from ...review_channel.recover_support import (
     RecoverReportInput,
@@ -240,31 +241,35 @@ def _build_recover_sessions(
         status_snapshot.bridge_liveness.get("current_instruction_revision") or ""
     )
     sessions = build_launch_sessions(
-        repo_root=repo_root,
-        review_channel_path=review_channel_path,
-        bridge_path=bridge_path,
-        codex_lanes=codex_lanes,
-        claude_lanes=claude_lanes,
-        codex_workers=min(int(getattr(args, "codex_workers", 0) or 0), len(codex_lanes)),
-        claude_workers=min(
-            int(getattr(args, "claude_workers", len(claude_lanes)) or len(claude_lanes)),
-            len(claude_lanes),
+        request=LaunchSessionRequest(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            bridge_path=bridge_path,
+            codex_lanes=codex_lanes,
+            claude_lanes=claude_lanes,
+            codex_workers=min(
+                int(getattr(args, "codex_workers", 0) or 0),
+                len(codex_lanes),
+            ),
+            claude_workers=min(
+                int(getattr(args, "claude_workers", len(claude_lanes)) or len(claude_lanes)),
+                len(claude_lanes),
+            ),
+            rollover_threshold_pct=int(getattr(args, "rollover_threshold_pct", 50)),
+            await_ack_seconds=int(getattr(args, "await_ack_seconds", 180)),
+            retirement_note=(
+                "Recovery launcher: replace the stale Claude conductor from repo state "
+                "and wait for a current ACK before trusting the loop again."
+            ),
+            promotion_plan_rel="dev/active/review_channel.md",
+            approval_mode=getattr(args, "approval_mode", None),
+            dangerous=bool(getattr(args, "dangerous", False)),
+            bridge_liveness=status_snapshot.bridge_liveness,
+            handoff_bundle=None,
+            script_dir=runtime_paths.script_dir,
+            session_output_root=status_dir,
+            providers_to_launch=("claude",),
         ),
-        rollover_threshold_pct=int(getattr(args, "rollover_threshold_pct", 50)),
-        await_ack_seconds=int(getattr(args, "await_ack_seconds", 180)),
-        default_terminal_profile=DEFAULT_TERMINAL_PROFILE,
-        retirement_note=(
-            "Recovery launcher: replace the stale Claude conductor from repo state and "
-            "wait for a current ACK before trusting the loop again."
-        ),
-        promotion_plan_rel="dev/active/review_channel.md",
-        approval_mode=getattr(args, "approval_mode", None),
-        dangerous=bool(getattr(args, "dangerous", False)),
-        bridge_liveness=status_snapshot.bridge_liveness,
-        handoff_bundle=None,
-        script_dir=runtime_paths.script_dir,
-        session_output_root=status_dir,
-        providers_to_launch=("claude",),
     )
     return terminal_profile_applied, current_instruction_revision, sessions
 

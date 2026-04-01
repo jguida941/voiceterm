@@ -4066,6 +4066,15 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-04-01 runtime-contract follow-up continued in the same owner chain:
+  review-channel launch/session metadata now derives from typed provider/lane
+  specs, event-backed packet validation resolves actor/target ids from typed
+  collaboration/runtime state or repo-owned session metadata instead of
+  parser hardcodes, and `check_multi_agent_sync.py` now blocks
+  planned-topology/runtime-truth leakage when typed `review_state` exists.
+  The architecture gap is narrower but still open: native delegated worker
+  execution and the last fixed-provider recovery/worker-budget seams are not
+  done yet.
 - 2026-04-01 runtime-contract follow-up landed in the same owner chain:
   `ReviewState` now carries a typed `CollaborationSession` block instead of
   leaving live collaboration truth split between bridge/provider hints and
@@ -5110,6 +5119,15 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-01: Landed the next `MP-377` runtime-truth closure on top of the
+  new `CollaborationSession` contract. Launch/session metadata now derives
+  from a typed provider/lane map and persists conductor role truth, packet
+  actor/target validation now resolves from typed collaboration/runtime state
+  or repo-owned session metadata instead of parser-coded provider ids, and
+  the multi-agent sync guard now fails closed when planned `AGENT-*` rows
+  leak into runtime truth. This keeps the architecture honest about the
+  remaining gap: delegated workers are still receipts, not native runtime
+  sessions, and a few recovery/budget surfaces still assume fixed providers.
 - 2026-04-01: Landed the next shared runtime contract in the active
   `MP-377` extraction lane. `dev/scripts/devctl/runtime/ReviewState` now
   includes a typed `CollaborationSession` contract, bridge-backed and

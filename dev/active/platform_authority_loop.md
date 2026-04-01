@@ -1409,6 +1409,15 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-01 launch/packet/runtime-truth guard follow-up landed on top of the
+  new `CollaborationSession` seam. Conductor launch metadata now derives from
+  typed provider/lane specs and persists conductor role metadata, event-backed
+  packet actors/targets validate against typed collaboration/runtime or
+  session metadata instead of parser-hardcoded provider ids, and
+  `check_multi_agent_sync.py` now blocks planned `AGENT-*` rows from leaking
+  into runtime truth without live delegated-worker receipts. The remaining
+  same-lane honest gap is native delegated-worker execution plus the last
+  recovery/CLI surfaces that still assume a fixed implementer provider.
 - 2026-04-01 `CollaborationSession` landed as the next bounded `MP-377`
   authority seam inside review-channel runtime. Bridge-backed and event-backed
   `ReviewState` now materialize one typed collaboration/session block that
@@ -1816,6 +1825,17 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-01: Closed the next architecture-honesty follow-up in the active
+  `MP-377` authority-loop lane. Review-channel launch now derives conductor
+  session specs from a typed provider/lane map, repo-owned session metadata
+  now records conductor role truth, event-backed packet validation reads typed
+  collaboration/runtime or session metadata instead of parser-coded provider
+  ids, and `check_multi_agent_sync.py` now doubles as the blocking
+  planned-topology/runtime-truth guard when typed `review_state` exists.
+  Focused guard/packet/launch tests are green. Remaining same-lane work is
+  narrower now: replace planned delegated-work receipts with native worker
+  execution/runtime registry truth and remove the last fixed-provider
+  recovery/worker-budget seams.
 - 2026-04-01: Closed the first real `CollaborationSession` runtime slice in
   the active `MP-377` authority-loop lane. `ReviewState` now carries a typed
   collaboration/session contract with role assignments, peer-review state,

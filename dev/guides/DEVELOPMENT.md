@@ -58,6 +58,9 @@ Use docs like this:
   typed state, default requested worker fanout is zero unless explicitly
   requested, and `bridge.md` remains a compatibility projection until native
   `CollaborationSession` worker topology lands.
+- Packet actor/target CLI fields are intentionally parser-loose now: repo-owned
+  validation resolves legal ids from typed collaboration/runtime state or
+  repo-owned session metadata instead of a fixed provider-choice list.
 - Closed execution plans move to `dev/archive/` only after their scoped work is
   complete and `dev/active/INDEX.md` plus discovery docs are updated in the
   same change. If a plan doc still holds unfinished or deferred backlog, keep
@@ -194,6 +197,11 @@ Three quality layers matter in practice:
   risk add-ons through `check-router`, executes that routed plan, and then
   reruns final bridge/tandem guards so Codex/Claude sessions validate against
   the real repo surface instead of a stale mini-checklist.
+- `python3 dev/scripts/checks/check_multi_agent_sync.py` now has a second
+  runtime-honesty role beyond markdown-lane parity: when typed
+  `review_state` exists, it must also prove planned `AGENT-*` rows have not
+  leaked into live collaboration participants or runtime registry entries
+  without live delegated-worker receipts.
 - Keep one workflow, not a dev-vs-agent fork:
   - `active_dual_agent` is the fully enforced Codex/Claude loop. Use
     `python3 dev/scripts/devctl.py tandem-validate --format md` after code edits.

@@ -40,8 +40,11 @@ from ..time_utils import utc_timestamp
 from .packet_contract import (
     PacketPostRequest,
     PacketTransitionRequest,
-    VALID_AGENT_IDS,
     validate_post_request,
+)
+from .packet_agents import (
+    packet_agent_ids_from_review_state,
+    packet_agent_ids_from_session_output,
 )
 TRANSITION_EVENT_TYPES = {
     "ack": "packet_acked",
@@ -58,8 +61,26 @@ def post_packet(
     request: PacketPostRequest,
 ) -> tuple[ReviewChannelEventBundle, dict[str, object]]:
     """Append one packet_posted event and refresh the reduced state."""
-    validate_post_request(request)
-    existing_events = load_events(Path(artifact_paths.event_log_path))
+    existing_bundle = _load_existing_bundle(
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+        artifact_paths=artifact_paths,
+    )
+    existing_events = (
+        existing_bundle.events
+        if existing_bundle is not None
+        else load_events(Path(artifact_paths.event_log_path))
+    )
+    validate_post_request(
+        request,
+        valid_agent_ids=(
+            packet_agent_ids_from_review_state(existing_bundle.review_state)
+            if existing_bundle is not None
+            else packet_agent_ids_from_session_output(
+                Path(artifact_paths.projections_root)
+            )
+        ),
+    )
     next_packet = request.packet_id or next_packet_id(existing_events)
     next_trace = request.trace_id or next_trace_id(
         existing_events,
@@ -129,13 +150,14 @@ def transition_packet(
         raise ValueError(
             f"Unsupported packet transition action: {request.action}"
         )
-    if request.actor not in VALID_AGENT_IDS:
-        raise ValueError(f"Unsupported review-channel actor: {request.actor}")
     bundle = load_or_refresh_event_bundle(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
         artifact_paths=artifact_paths,
     )
+    valid_agent_ids = set(packet_agent_ids_from_review_state(bundle.review_state))
+    if request.actor not in valid_agent_ids:
+        raise ValueError(f"Unsupported review-channel actor: {request.actor}")
     packet = packet_by_id(bundle.review_state, request.packet_id)
     if packet is None:
         raise ValueError(f"Unknown review packet: {request.packet_id}")
@@ -227,3 +249,19 @@ def _validate_transition(
         raise ValueError(
             f"Packet {packet['packet_id']} can only be applied by {to_agent} or operator."
         )
+
+
+def _load_existing_bundle(
+    *,
+    repo_root: Path,
+    review_channel_path: Path,
+    artifact_paths: ReviewChannelArtifactPaths,
+) -> ReviewChannelEventBundle | None:
+    try:
+        return load_or_refresh_event_bundle(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=artifact_paths,
+        )
+    except ValueError:
+        return None
