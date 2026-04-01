@@ -1,0 +1,604 @@
+"""Shared policies for check_code_shape."""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+
+try:
+    from check_bootstrap import REPO_ROOT
+    from code_shape_function_exceptions import (
+        FUNCTION_LANGUAGE_DEFAULTS,
+        FUNCTION_POLICY_EXCEPTIONS,
+        FUNCTION_POLICY_OVERRIDES,
+    )
+    from code_shape_shared import FunctionShapePolicy, ShapePolicy
+except ModuleNotFoundError:  # pragma: no cover - script/package fallback
+    try:
+        from checks.check_bootstrap import REPO_ROOT
+        from checks.code_shape.code_shape_function_exceptions import (
+            FUNCTION_LANGUAGE_DEFAULTS,
+            FUNCTION_POLICY_EXCEPTIONS,
+            FUNCTION_POLICY_OVERRIDES,
+        )
+        from checks.code_shape.code_shape_shared import FunctionShapePolicy, ShapePolicy
+    except ModuleNotFoundError:  # pragma: no cover - repo-package fallback
+        from dev.scripts.checks.check_bootstrap import REPO_ROOT
+        from dev.scripts.checks.code_shape.code_shape_function_exceptions import (
+            FUNCTION_LANGUAGE_DEFAULTS,
+            FUNCTION_POLICY_EXCEPTIONS,
+            FUNCTION_POLICY_OVERRIDES,
+        )
+        from dev.scripts.checks.code_shape.code_shape_shared import (
+            FunctionShapePolicy,
+            ShapePolicy,
+        )
+
+try:
+    from package_layout.compatibility_redirects import collect_compatibility_redirects
+except ModuleNotFoundError:  # pragma: no cover - script/package fallback
+    try:
+        from checks.package_layout.compatibility_redirects import (
+            collect_compatibility_redirects,
+        )
+    except ModuleNotFoundError:  # pragma: no cover - repo-package fallback
+        from dev.scripts.checks.package_layout.compatibility_redirects import (
+            collect_compatibility_redirects,
+        )
+
+
+LANGUAGE_POLICIES: dict[str, ShapePolicy] = {
+    # Existing Rust runtime has a few legacy oversized files; this guard is
+    # intentionally non-regressive and blocks new oversize growth.
+    ".rs": ShapePolicy(
+        soft_limit=900,
+        hard_limit=1400,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    ".py": ShapePolicy(
+        soft_limit=350,
+        hard_limit=650,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+}
+
+BEST_PRACTICE_DOCS: dict[str, tuple[str, ...]] = {
+    ".rs": (
+        "https://doc.rust-lang.org/book/",
+        "https://rust-lang.github.io/api-guidelines/",
+    ),
+    ".py": (
+        "https://docs.python.org/3/",
+        "https://peps.python.org/pep-0008/",
+    ),
+}
+
+SHAPE_AUDIT_GUIDANCE = (
+    "Run a shape audit before merge: identify modularization or consolidation opportunities. "
+    "Do not bypass shape limits with readability-reducing code-golf edits."
+)
+
+# MP-346 hotspot budgets: staged decomposition files use explicit path budgets.
+PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
+    # High-signal integration tests with heavy scenario matrices are governed by
+    # explicit budgets instead of being fully excluded from shape controls.
+    "rust/src/bin/voiceterm/event_loop/tests.rs": ShapePolicy(
+        soft_limit=6500,
+        hard_limit=7000,
+        oversize_growth_limit=150,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/writer/state/tests.rs": ShapePolicy(
+        soft_limit=1750,
+        hard_limit=1950,
+        oversize_growth_limit=80,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/status_line/format/tests.rs": ShapePolicy(
+        soft_limit=1370,
+        hard_limit=1500,
+        oversize_growth_limit=80,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/status_line/buttons/tests.rs": ShapePolicy(
+        soft_limit=1300,
+        hard_limit=1450,
+        oversize_growth_limit=80,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/ipc/tests.rs": ShapePolicy(
+        soft_limit=1850,
+        hard_limit=2100,
+        oversize_growth_limit=80,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/writer/state.rs": ShapePolicy(
+        soft_limit=500,
+        hard_limit=600,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/writer/state/dispatch.rs": ShapePolicy(
+        soft_limit=600,
+        hard_limit=700,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/writer/state/redraw.rs": ShapePolicy(
+        soft_limit=500,
+        hard_limit=600,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/writer/state/policy.rs": ShapePolicy(
+        soft_limit=450,
+        hard_limit=550,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs": ShapePolicy(
+        soft_limit=650,
+        hard_limit=700,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/prompt/claude_prompt_detect.rs": ShapePolicy(
+        soft_limit=600,
+        hard_limit=600,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/theme/style_pack.rs": ShapePolicy(
+        soft_limit=400,
+        hard_limit=500,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/main.rs": ShapePolicy(
+        soft_limit=950,
+        hard_limit=1050,
+        oversize_growth_limit=30,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/transcript_history.rs": ShapePolicy(
+        soft_limit=750,
+        hard_limit=950,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/dev_command/broker/mod.rs": ShapePolicy(
+        soft_limit=400,
+        hard_limit=450,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/dev_command/command_state.rs": ShapePolicy(soft_limit=500, hard_limit=550, oversize_growth_limit=0, hard_lock_growth_limit=0),
+    "dev/scripts/checks/check_code_shape.py": ShapePolicy(
+        soft_limit=675,
+        hard_limit=725,
+        oversize_growth_limit=30,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_active_plan_sync.py": ShapePolicy(
+        soft_limit=650,
+        hard_limit=700,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_multi_agent_sync.py": ShapePolicy(
+        soft_limit=520,
+        hard_limit=700,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_structural_complexity.py": ShapePolicy(
+        soft_limit=400,
+        hard_limit=650,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/compat_matrix_smoke.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=650,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_rust_lint_debt.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=650,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_rust_best_practices.py": ShapePolicy(
+        soft_limit=525,
+        hard_limit=650,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_bundle_workflow_parity.py": ShapePolicy(
+        soft_limit=675,
+        hard_limit=750,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_duplication_audit.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=550,
+        oversize_growth_limit=30,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_duplication_audit_support.py": ShapePolicy(
+        soft_limit=550,
+        hard_limit=650,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_architecture_surface_sync.py": ShapePolicy(
+        soft_limit=650,
+        hard_limit=725,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/code_shape_function_exceptions.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=525,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/code_shape_policy.py": ShapePolicy(
+        soft_limit=875,
+        hard_limit=950,
+        oversize_growth_limit=80,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/coderabbit_ralph_loop_core.py": ShapePolicy(
+        soft_limit=360,
+        hard_limit=500,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/naming_consistency_core.py": ShapePolicy(
+        soft_limit=370,
+        hard_limit=500,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/collect.py": ShapePolicy(
+        soft_limit=360,
+        hard_limit=500,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/commands/autonomy_run.py": ShapePolicy(
+        soft_limit=370,
+        hard_limit=500,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/commands/sync.py": ShapePolicy(
+        soft_limit=360,
+        hard_limit=500,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/cli_parser/reporting.py": ShapePolicy(
+        soft_limit=300,
+        hard_limit=400,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/commands/check_phases.py": ShapePolicy(
+        soft_limit=400,
+        hard_limit=550,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/commands/hygiene.py": ShapePolicy(
+        soft_limit=380,
+        hard_limit=550,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/commands/review_channel.py": ShapePolicy(
+        soft_limit=900,
+        hard_limit=1000,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/tests/test_review_channel_context_refs.py": ShapePolicy(
+        soft_limit=220,
+        hard_limit=300,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/review_channel/peer_liveness.py": ShapePolicy(
+        soft_limit=220,
+        hard_limit=300,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/review_channel/event_reducer.py": ShapePolicy(
+        soft_limit=545,
+        hard_limit=600,
+        oversize_growth_limit=30,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/review_channel/launch.py": ShapePolicy(
+        soft_limit=325,
+        hard_limit=425,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/review_channel/handoff.py": ShapePolicy(
+        soft_limit=675,
+        hard_limit=775,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/review_channel/state.py": ShapePolicy(
+        soft_limit=325,
+        hard_limit=425,
+        oversize_growth_limit=30,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/state/activity/activity_reports.py": ShapePolicy(
+        soft_limit=675,
+        hard_limit=750,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/tests/collaboration/test_context_pack_refs.py": ShapePolicy(
+        soft_limit=220,
+        hard_limit=300,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/state/presentation/presentation_state.py": ShapePolicy(
+        soft_limit=550,
+        hard_limit=650,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/colors.py": ShapePolicy(
+        soft_limit=425,
+        hard_limit=500,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/qss/qss_panels.py": ShapePolicy(
+        soft_limit=425,
+        hard_limit=500,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/qss/qss_controls.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=525,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/editor/theme_editor.py": ShapePolicy(
+        soft_limit=1400,
+        hard_limit=1500,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/runtime/theme_engine.py": ShapePolicy(
+        soft_limit=500,
+        hard_limit=575,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/editor/theme_preview.py": ShapePolicy(
+        soft_limit=550,
+        hard_limit=625,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/workspaces/activity_workspace.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=550,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/state/bridge/lane_builder.py": ShapePolicy(
+        soft_limit=400,
+        hard_limit=475,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_mobile_relay_protocol.py": ShapePolicy(
+        soft_limit=650,
+        hard_limit=725,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_python_broad_except.py": ShapePolicy(
+        soft_limit=425,
+        hard_limit=500,
+        oversize_growth_limit=30,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/mobile_status_views.py": ShapePolicy(
+        soft_limit=375,
+        hard_limit=450,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/workspaces/home_workspace.py": ShapePolicy(
+        soft_limit=475,
+        hard_limit=550,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/main_window.py": ShapePolicy(
+        soft_limit=900,
+        hard_limit=1000,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/ui_pages.py": ShapePolicy(
+        soft_limit=850,
+        hard_limit=950,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/ui_refresh.py": ShapePolicy(
+        soft_limit=1150,
+        hard_limit=1250,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+}
+
+PATH_POLICY_PREFIX_OVERRIDES: dict[str, ShapePolicy] = {
+    "rust/src/bin/voiceterm/dev_command/": ShapePolicy(
+        soft_limit=360,
+        hard_limit=450,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+}
+
+
+# Override escalation: untouched legacy debt stays visible as a warning, but
+# check_code_shape ratchets new/worsened/touched over-cap overrides into real
+# violations. Operator intent is to keep overrides under 3x the language soft
+# cap and under 2x the language hard cap so large files still get decomposed
+# instead of being exempted by policy drift.
+OVERRIDE_SOFT_WARNING_MULTIPLIER = 3.0
+OVERRIDE_HARD_WARNING_MULTIPLIER = 2.0
+
+
+def collect_override_cap_records(
+    *,
+    overrides: dict[str, ShapePolicy] | None = None,
+    language_policies: dict[str, ShapePolicy] | None = None,
+) -> list[dict[str, object]]:
+    """Return override-cap records for the provided policy set."""
+    effective_overrides = PATH_POLICY_OVERRIDES if overrides is None else overrides
+    effective_language_policies = (
+        LANGUAGE_POLICIES if language_policies is None else language_policies
+    )
+    warnings: list[dict[str, object]] = []
+    for path_str, override in effective_overrides.items():
+        suffix = Path(path_str).suffix
+        lang_default = effective_language_policies.get(suffix)
+        if lang_default is None:
+            continue
+        soft_ratio = override.soft_limit / lang_default.soft_limit
+        hard_ratio = override.hard_limit / lang_default.hard_limit
+        triggered_caps: list[str] = []
+        if soft_ratio > OVERRIDE_SOFT_WARNING_MULTIPLIER:
+            triggered_caps.append("soft_limit")
+        if hard_ratio > OVERRIDE_HARD_WARNING_MULTIPLIER:
+            triggered_caps.append("hard_limit")
+        if not triggered_caps:
+            continue
+
+        detail_parts = [
+            f"Operator intent keeps path overrides under {OVERRIDE_SOFT_WARNING_MULTIPLIER:.1f}x the soft cap",
+            f"and under {OVERRIDE_HARD_WARNING_MULTIPLIER:.1f}x the hard cap.",
+        ]
+        if "soft_limit" in triggered_caps:
+            detail_parts.insert(
+                0,
+                (
+                    f"Override soft_limit ({override.soft_limit}) is "
+                    f"{soft_ratio:.2f}x the {suffix} default ({lang_default.soft_limit})."
+                ),
+            )
+        if "hard_limit" in triggered_caps:
+            detail_parts.insert(
+                1 if "soft_limit" in triggered_caps else 0,
+                (
+                    f"Override hard_limit ({override.hard_limit}) is "
+                    f"{hard_ratio:.2f}x the {suffix} default ({lang_default.hard_limit})."
+                ),
+            )
+        warnings.append(
+            {
+                "path": path_str,
+                "language_suffix": suffix,
+                "override_soft": override.soft_limit,
+                "override_hard": override.hard_limit,
+                "language_soft": lang_default.soft_limit,
+                "language_hard": lang_default.hard_limit,
+                "soft_ratio": soft_ratio,
+                "hard_ratio": hard_ratio,
+                "triggered_caps": triggered_caps,
+                "detail": " ".join(detail_parts),
+            }
+        )
+    return warnings
+
+
+def validate_override_caps() -> list[dict[str, object]]:
+    """Return advisory warnings for path overrides that exceed the operator caps."""
+    return collect_override_cap_records()
+
+
+@lru_cache(maxsize=1)
+def _compatibility_redirect_targets() -> dict[str, str]:
+    redirects: dict[str, str] = {}
+    for redirect in collect_compatibility_redirects(repo_root=REPO_ROOT):
+        wrapper_path = str(redirect.get("path") or "").strip()
+        target_path = str(
+            redirect.get("resolved_target") or redirect.get("target") or ""
+        ).strip()
+        if not wrapper_path or not target_path:
+            continue
+        redirects[target_path] = wrapper_path
+    return redirects
+
+
+def canonical_shape_policy_path(path: Path) -> Path:
+    """Resolve package-extracted implementation paths back to stable shim paths."""
+    stable_path = _compatibility_redirect_targets().get(path.as_posix())
+    return Path(stable_path) if stable_path else path
+
+
+def build_function_exception_key(path: Path, function_name: str) -> str:
+    """Build the canonical function-exception key for a path/function pair."""
+    canonical_path = canonical_shape_policy_path(path)
+    return f"{canonical_path.as_posix()}::{function_name}"
+
+
+def policy_for_path(path: Path) -> tuple[ShapePolicy | None, str | None]:
+    """Return path-specific policy and source label."""
+    path_str = canonical_shape_policy_path(path).as_posix()
+    override = PATH_POLICY_OVERRIDES.get(path_str)
+    if override is not None:
+        return override, f"path_override:{path_str}"
+    prefix_override = max(
+        (
+            (prefix, policy)
+            for prefix, policy in PATH_POLICY_PREFIX_OVERRIDES.items()
+            if path_str.startswith(prefix)
+        ),
+        key=lambda item: len(item[0]),
+        default=None,
+    )
+    if prefix_override is not None:
+        prefix, policy = prefix_override
+        return policy, f"path_prefix_override:{prefix}"
+    policy = LANGUAGE_POLICIES.get(path.suffix)
+    if policy is None:
+        return None, None
+    return policy, f"language_default:{path.suffix}"
+
+
+def function_policy_for_path(
+    path: Path,
+) -> tuple[FunctionShapePolicy | None, str | None]:
+    """Return path-specific or language-default function-size policy and source label."""
+    canonical_path = canonical_shape_policy_path(path)
+    policy = FUNCTION_POLICY_OVERRIDES.get(canonical_path.as_posix())
+    if policy is not None:
+        return policy, f"function_path_override:{canonical_path.as_posix()}"
+    lang_default = FUNCTION_LANGUAGE_DEFAULTS.get(path.suffix)
+    if lang_default is not None:
+        return lang_default, f"function_language_default:{path.suffix}"
+    return None, None

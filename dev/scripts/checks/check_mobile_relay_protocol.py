@@ -38,6 +38,10 @@ if __package__:
         match_struct_pairs,
         resolve_protocol_paths as _resolve_protocol_paths,
     )
+    from .rust_analysis.mobile_relay_rust_parser import (
+        _has_serialize_or_deserialize,
+        _prelude_text,
+    )
 else:
     from mobile_relay_protocol.support import (
         _DEFAULT_RUST_TYPES,
@@ -46,6 +50,10 @@ else:
         compare_fields,
         match_struct_pairs,
         resolve_protocol_paths as _resolve_protocol_paths,
+    )
+    from rust_analysis.mobile_relay_rust_parser import (
+        _has_serialize_or_deserialize,
+        _prelude_text,
     )
 
 RUST_TYPES_PATH = Path(_DEFAULT_RUST_TYPES)
@@ -136,29 +144,6 @@ def _find_matching_brace(text: str, open_index: int) -> int | None:
                 return index
         index += 1
     return None
-
-def _prelude_text(text: str, match_start: int) -> str:
-    """Extract attribute lines above a struct/enum declaration."""
-    line_start = text.rfind("\n", 0, match_start)
-    if line_start < 0:
-        line_start = 0
-    block_start = line_start
-    while block_start > 0:
-        prev_line_end = text.rfind("\n", 0, block_start - 1)
-        if prev_line_end < 0:
-            prev_line_end = 0
-        line = text[prev_line_end:block_start].strip()
-        if not line or (not line.startswith("#") and not line.startswith("//")):
-            break
-        block_start = prev_line_end
-    return text[block_start:match_start]
-
-def _has_serialize_or_deserialize(prelude: str) -> bool:
-    for m in RUST_DERIVE_SERIALIZE_RE.finditer(prelude):
-        members = {tok.strip().rsplit("::", 1)[-1] for tok in m.group("body").split(",")}
-        if "Serialize" in members or "Deserialize" in members:
-            return True
-    return False
 
 def parse_rust_structs(text: str) -> dict[str, dict]:
     """Extract serde-participating structs from Rust source text.

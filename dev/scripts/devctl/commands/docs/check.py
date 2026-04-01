@@ -20,11 +20,11 @@ from .check_runtime import (
     evaluate_docs_state,
 )
 from .release_user_gate import should_run_strict_release_user_docs_gate
-from ..docs_check_policy import (
+from .policy import (
     resolve_docs_check_policy,
 )
-from ..docs_check_render import render_markdown_report
-from ..docs_check_support import (
+from .render import render_markdown_report
+from .support import (
     build_failure_reasons,
     build_next_actions,
     scan_deprecated_references,

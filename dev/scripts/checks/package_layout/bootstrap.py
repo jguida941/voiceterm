@@ -18,16 +18,28 @@ try:
 except ModuleNotFoundError as exc:  # pragma: no cover - package-style import fallback
     if exc.name != "check_bootstrap":
         raise
-    from dev.scripts.checks.check_bootstrap import (
-        REPO_ROOT,
-        build_since_ref_format_parser,
-        emit_runtime_error,
-        import_attr,
-        import_local_or_repo_module,
-        import_repo_module,
-        resolve_guard_config,
-        utc_timestamp,
-    )
+    try:
+        from checks.check_bootstrap import (
+            REPO_ROOT,
+            build_since_ref_format_parser,
+            emit_runtime_error,
+            import_attr,
+            import_local_or_repo_module,
+            import_repo_module,
+            resolve_guard_config,
+            utc_timestamp,
+        )
+    except ModuleNotFoundError:
+        from dev.scripts.checks.check_bootstrap import (
+            REPO_ROOT,
+            build_since_ref_format_parser,
+            emit_runtime_error,
+            import_attr,
+            import_local_or_repo_module,
+            import_repo_module,
+            resolve_guard_config,
+            utc_timestamp,
+        )
 
 _rules_module = import_local_or_repo_module(
     "package_layout.rules",

@@ -39,10 +39,9 @@
 - `dev/active/code_shape_expansion.md` is the research/calibration companion for future code-shape additions under `MP-378`; promotion into implementation still flows through `dev/active/review_probes.md` once Phase 5b evidence gates pass.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-03-27)
-
-- Last tagged release: `v1.1.1` (2026-03-06)
-- Current release target: `post-v1.1.1 planning`
+## Status Snapshot (2026-04-01)
+- Last tagged release: `v1.2.3` (2026-04-01)
+- Current release target: `post-v1.2.3 planning`
 - Active development branch: `develop`
 - Current `MP-377` execution branch: `feature/governance-quality-sweep`
 - Release branch: `master`

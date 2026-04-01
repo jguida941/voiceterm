@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from dev.scripts.devctl.tests.conftest import load_repo_module, override_module_attrs
 
 SCRIPT = load_repo_module(
     "code_shape_policy",
-    "dev/scripts/checks/code_shape_policy.py",
+    "dev/scripts/checks/code_shape/code_shape_policy.py",
 )
 
 
@@ -65,6 +67,59 @@ class CodeShapePolicyTests(unittest.TestCase):
         )
         self.assertGreater(warning_by_path["rust/src/bin/voiceterm/hard.rs"]["hard_ratio"], 2.0)
         self.assertIn("2.0x the hard cap", warning_by_path["rust/src/bin/voiceterm/hard.rs"]["detail"])
+
+    def test_policy_for_path_uses_stable_wrapper_override_for_package_target(self) -> None:
+        wrapper = "dev/scripts/checks/check_code_shape.py"
+        target = Path("dev/scripts/checks/code_shape/check_code_shape.py")
+        overrides = {
+            wrapper: SCRIPT.ShapePolicy(
+                soft_limit=675,
+                hard_limit=725,
+                oversize_growth_limit=30,
+                hard_lock_growth_limit=0,
+            )
+        }
+
+        override_module_attrs(self, SCRIPT, PATH_POLICY_OVERRIDES=overrides)
+        SCRIPT._compatibility_redirect_targets.cache_clear()
+        self.addCleanup(SCRIPT._compatibility_redirect_targets.cache_clear)
+
+        with patch.object(
+            SCRIPT,
+            "collect_compatibility_redirects",
+            return_value=[
+                {
+                    "path": wrapper,
+                    "resolved_target": target.as_posix(),
+                }
+            ],
+        ):
+            policy, source = SCRIPT.policy_for_path(target)
+
+        self.assertIsNotNone(policy)
+        self.assertEqual(source, f"path_override:{wrapper}")
+        self.assertEqual(policy.soft_limit, 675)
+
+    def test_build_function_exception_key_uses_stable_wrapper_path(self) -> None:
+        wrapper = "dev/scripts/checks/check_code_shape.py"
+        target = Path("dev/scripts/checks/code_shape/check_code_shape.py")
+
+        SCRIPT._compatibility_redirect_targets.cache_clear()
+        self.addCleanup(SCRIPT._compatibility_redirect_targets.cache_clear)
+
+        with patch.object(
+            SCRIPT,
+            "collect_compatibility_redirects",
+            return_value=[
+                {
+                    "path": wrapper,
+                    "resolved_target": target.as_posix(),
+                }
+            ],
+        ):
+            key = SCRIPT.build_function_exception_key(target, "main")
+
+        self.assertEqual(key, f"{wrapper}::main")
 
 
 if __name__ == "__main__":

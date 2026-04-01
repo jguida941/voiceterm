@@ -11,7 +11,7 @@ from unittest import mock
 import pytest
 
 import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[5]))
 
 from dev.scripts.checks.tandem_consistency.report import build_report, render_md
 from dev.scripts.checks.tandem_consistency.checks import (

@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import autonomy_loop
+from dev.scripts.devctl.watchdog.probe_gate import ProbeScanResult
 
 
 def make_args(**overrides) -> SimpleNamespace:
@@ -149,8 +150,13 @@ class AutonomyLoopCommandTests(unittest.TestCase):
         return_value="owner/repo",
     )
     @patch("dev.scripts.devctl.commands.autonomy_loop._load_policy", return_value={})
+    @patch(
+        "dev.scripts.devctl.commands.autonomy_loop_rounds.run_probe_scan",
+        return_value=ProbeScanResult(),
+    )
     def test_run_emits_round_packets_and_resolves(
         self,
+        _probe_scan_mock,
         _policy_mock,
         _resolve_repo_mock,
     ) -> None:
@@ -236,8 +242,13 @@ class AutonomyLoopCommandTests(unittest.TestCase):
         return_value="owner/repo",
     )
     @patch("dev.scripts.devctl.commands.autonomy_loop._load_policy", return_value={})
+    @patch(
+        "dev.scripts.devctl.commands.autonomy_loop_rounds.run_probe_scan",
+        return_value=ProbeScanResult(),
+    )
     def test_checkpoint_packet_carries_context_packet(
         self,
+        _probe_scan_mock,
         _policy_mock,
         _resolve_repo_mock,
     ) -> None:
@@ -307,8 +318,13 @@ class AutonomyLoopCommandTests(unittest.TestCase):
         return_value="owner/repo",
     )
     @patch("dev.scripts.devctl.commands.autonomy_loop._load_policy", return_value={})
+    @patch(
+        "dev.scripts.devctl.commands.autonomy_loop_rounds.run_probe_scan",
+        return_value=ProbeScanResult(),
+    )
     def test_non_operate_mode_forces_report_only(
         self,
+        _probe_scan_mock,
         _policy_mock,
         _resolve_repo_mock,
     ) -> None:

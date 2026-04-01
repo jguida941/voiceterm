@@ -1,23 +1,7 @@
-"""Tests for `devctl check` support helpers."""
+"""Backward-compat shim -- use tests.commands.check.test_check_support instead."""
+# shim-owner: tooling/devctl
+# shim-reason: preserve the stable check-support test path during the test-package split
+# shim-expiry: 2026-09-30
+# shim-target: dev/scripts/devctl/tests/commands/check/test_check_support.py
 
-from __future__ import annotations
-
-import tempfile
-from pathlib import Path
-from unittest import TestCase
-
-from dev.scripts.devctl.commands import check_support
-
-
-class ResolvePerfLogPathTests(TestCase):
-    def test_resolve_perf_log_path_uses_tempdir(self) -> None:
-        path = Path(check_support.resolve_perf_log_path())
-
-        self.assertEqual(path.name, "voiceterm_tui.log")
-        self.assertEqual(path.parent, Path(tempfile.gettempdir()))
-
-
-if __name__ == "__main__":
-    import unittest
-
-    unittest.main()
+from dev.scripts.devctl.tests.commands.check.test_check_support import *

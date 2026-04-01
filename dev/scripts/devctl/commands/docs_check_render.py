@@ -1,23 +1,13 @@
-"""Markdown rendering helpers for docs-check output."""
+"""Backward-compat shim -- use `devctl.commands.docs.render` instead."""
+# shim-owner: tooling/devctl
+# shim-reason: preserve the stable docs-check render helper path during package split
+# shim-expiry: 2026-09-30
+# shim-target: dev/scripts/devctl/commands/docs/render.py
 
-from .docs.render_sections import (
-    append_deprecated_references,
-    append_evolution_gate,
-    append_failure_sections,
-    append_header,
-    append_strict_tooling_sections,
-    append_tooling_summary,
-)
+from __future__ import annotations
 
+import sys
 
-def render_markdown_report(report: dict) -> str:
-    """Render docs-check report payload in markdown format."""
-    lines = ["# devctl docs-check", ""]
-    append_header(lines, report)
-    append_tooling_summary(lines, report)
-    append_evolution_gate(lines, report)
-    append_strict_tooling_sections(lines, report)
-    append_deprecated_references(lines, report)
-    append_failure_sections(lines, report)
-    lines.append(f"- ok: {report.get('ok')}")
-    return "\n".join(lines)
+from .docs import render as _impl
+
+sys.modules[__name__] = _impl

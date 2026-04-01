@@ -80,7 +80,11 @@ Compatibility shims inside that layout surface are now governed too: the
 portable engine validates shim wrapper shape structurally, repo policy can
 require metadata such as `owner`/`reason`/`expiry`/`target`, and crowded-root
 reports can exclude approved shims from implementation density while still
-surfacing the shim count explicitly.
+surfacing the shim count explicitly. Valid shim wrappers include thin re-export
+modules and thin module-alias wrappers that keep legacy import/monkeypatch
+paths resolving to the moved implementation; once a wrapper stops being that
+thin, it should move back into a real package module instead of hiding extra
+logic at the crowded root.
 
 Engineering quality rule:
 

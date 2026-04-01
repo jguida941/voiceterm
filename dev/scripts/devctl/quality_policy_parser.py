@@ -1,28 +1,7 @@
-"""Parser wiring for `devctl quality-policy`."""
+"""Backward-compat shim -- use `devctl.quality_policy.parser` instead."""
+# shim-owner: tooling/devctl
+# shim-reason: preserve the stable quality-policy parser path during package extraction
+# shim-expiry: 2026-09-30
+# shim-target: dev/scripts/devctl/quality_policy/parser.py
 
-from __future__ import annotations
-
-import argparse
-
-from .common_io import add_standard_output_arguments
-
-
-def add_quality_policy_parser(sub: argparse._SubParsersAction) -> None:
-    """Register the `quality-policy` parser."""
-    quality_policy_cmd = sub.add_parser(
-        "quality-policy",
-        help="Resolve and render the active quality-policy configuration",
-    )
-    quality_policy_cmd.add_argument(
-        "--quality-policy",
-        help=(
-            "Optional repo policy JSON file to resolve "
-            "(defaults to dev/config/devctl_repo_policy.json or "
-            "DEVCTL_QUALITY_POLICY)."
-        ),
-    )
-    add_standard_output_arguments(
-        quality_policy_cmd,
-        format_choices=("json", "md"),
-        default_format="md",
-    )
+from .quality_policy.parser import *

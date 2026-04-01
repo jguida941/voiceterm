@@ -9,7 +9,7 @@ from dev.scripts.devctl.tests.conftest import init_python_guard_repo_root, load_
 
 SCRIPT = load_repo_module(
     "probe_exception_quality",
-    "dev/scripts/checks/probe_exception_quality.py",
+    "dev/scripts/checks/review_probes/probe_exception_quality.py",
 )
 
 

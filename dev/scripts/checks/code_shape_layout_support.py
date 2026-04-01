@@ -1,31 +1,7 @@
-"""Backward-compatible re-export surface for package-layout support."""
+"""Backward-compat shim -- use `code_shape.code_shape_layout_support`."""
+# shim-owner: tooling/code-governance
+# shim-reason: preserve the stable code-shape layout-support import surface during package extraction
+# shim-expiry: 2026-09-30
+# shim-target: dev/scripts/checks/code_shape/code_shape_layout_support.py
 
-from __future__ import annotations
-
-try:
-    from package_layout.support import (
-        FlatRootRule,
-        NamespaceDocsSyncRule,
-        NamespaceFamilyRule,
-        collect_flat_root_violations,
-        collect_namespace_docs_sync_violations,
-        collect_namespace_layout_violations,
-    )
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.package_layout.support import (
-        FlatRootRule,
-        NamespaceDocsSyncRule,
-        NamespaceFamilyRule,
-        collect_flat_root_violations,
-        collect_namespace_docs_sync_violations,
-        collect_namespace_layout_violations,
-    )
-
-__all__ = [
-    "FlatRootRule",
-    "NamespaceDocsSyncRule",
-    "NamespaceFamilyRule",
-    "collect_flat_root_violations",
-    "collect_namespace_docs_sync_violations",
-    "collect_namespace_layout_violations",
-]
+from code_shape.code_shape_layout_support import *

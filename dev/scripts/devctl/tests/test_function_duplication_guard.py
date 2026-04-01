@@ -14,7 +14,7 @@ from conftest import load_repo_module
 
 SCRIPT = load_repo_module(
     "check_function_duplication_script",
-    "dev/scripts/checks/check_function_duplication.py",
+    "dev/scripts/checks/code_shape/check_function_duplication.py",
 )
 
 

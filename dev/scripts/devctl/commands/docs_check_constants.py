@@ -1,53 +1,13 @@
-"""Compatibility exports for docs-check policy constants.
-
-`docs_check_policy.py` is the single source of truth for docs-check path/policy
-constants. This module intentionally re-exports that surface for legacy imports.
-"""
+"""Backward-compat shim -- use `devctl.commands.docs.check_constants` instead."""
+# shim-owner: tooling/devctl
+# shim-reason: preserve the stable docs-check constants helper path during package split
+# shim-expiry: 2026-09-30
+# shim-target: dev/scripts/devctl/commands/docs/check_constants.py
 
 from __future__ import annotations
 
-from .docs_check_policy import (
-    ACTIVE_PLAN_SYNC_SCRIPT_REL,
-    AGENTS_BUNDLE_RENDER_SCRIPT_REL,
-    BUNDLE_WORKFLOW_PARITY_SCRIPT_REL,
-    DEPRECATED_REFERENCE_PATTERNS,
-    DEPRECATED_REFERENCE_TARGETS,
-    EVOLUTION_CHANGE_EXACT,
-    EVOLUTION_CHANGE_PREFIXES,
-    EVOLUTION_DOC,
-    INSTRUCTION_SURFACE_SYNC_SCRIPT_REL,
-    MARKDOWN_METADATA_HEADER_SCRIPT_REL,
-    MULTI_AGENT_SYNC_SCRIPT_REL,
-    TOOLING_CHANGE_EXACT,
-    TOOLING_CHANGE_PREFIXES,
-    TOOLING_REQUIRED_DOC_ALIASES,
-    TOOLING_REQUIRED_DOCS,
-    USER_DOCS,
-    WORKFLOW_SHELL_HYGIENE_SCRIPT_REL,
-    is_tooling_change,
-    requires_evolution_update,
-    scan_deprecated_references,
-)
+import sys
 
-__all__ = [
-    "ACTIVE_PLAN_SYNC_SCRIPT_REL",
-    "AGENTS_BUNDLE_RENDER_SCRIPT_REL",
-    "BUNDLE_WORKFLOW_PARITY_SCRIPT_REL",
-    "DEPRECATED_REFERENCE_PATTERNS",
-    "DEPRECATED_REFERENCE_TARGETS",
-    "EVOLUTION_CHANGE_EXACT",
-    "EVOLUTION_CHANGE_PREFIXES",
-    "EVOLUTION_DOC",
-    "INSTRUCTION_SURFACE_SYNC_SCRIPT_REL",
-    "MARKDOWN_METADATA_HEADER_SCRIPT_REL",
-    "MULTI_AGENT_SYNC_SCRIPT_REL",
-    "TOOLING_CHANGE_EXACT",
-    "TOOLING_CHANGE_PREFIXES",
-    "TOOLING_REQUIRED_DOC_ALIASES",
-    "TOOLING_REQUIRED_DOCS",
-    "USER_DOCS",
-    "WORKFLOW_SHELL_HYGIENE_SCRIPT_REL",
-    "is_tooling_change",
-    "requires_evolution_update",
-    "scan_deprecated_references",
-]
+from .docs import check_constants as _impl
+
+sys.modules[__name__] = _impl

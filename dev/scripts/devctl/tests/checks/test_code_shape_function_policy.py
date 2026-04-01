@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import unittest
 
-from dev.scripts.checks.code_shape_function_policy import scan_python_functions
+from dev.scripts.checks.code_shape.code_shape_function_policy import (
+    scan_python_functions,
+)
 
 
 class ScanPythonFunctionsTests(unittest.TestCase):

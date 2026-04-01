@@ -348,6 +348,51 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             "changed_flat_namespace_module_in_crowded_family",
         )
 
+    def test_namespace_family_strict_allows_valid_alias_shim_edit(self) -> None:
+        for idx in range(4):
+            self._write(f"dev/scripts/devctl/commands/check_guard_{idx}.py")
+        self._write(
+            "dev/scripts/devctl/commands/check_guard_alias.py",
+            (
+                '"""Backward-compat shim -- use `devctl.commands.check.guard_alias` instead."""\n'
+                "# shim-owner: tooling/devctl\n"
+                "# shim-reason: staged split\n"
+                "# shim-expiry: 2026-12-31\n"
+                "# shim-target: dev/scripts/devctl/commands/check/guard_alias.py\n"
+                "from __future__ import annotations\n"
+                "import sys\n"
+                "from .check import guard_alias as _impl\n"
+                "sys.modules[__name__] = _impl\n"
+            ),
+        )
+        family_rules = (
+            SCRIPT.NamespaceFamilyRule(
+                root=Path("dev/scripts/devctl/commands"),
+                flat_prefix="check_",
+                namespace_subdir="check",
+                min_family_size=4,
+                enforcement_mode="strict",
+            ),
+        )
+
+        def _read_text_from_ref(path: Path, ref: str) -> str | None:
+            del ref
+            if path.as_posix() == "dev/scripts/devctl/commands/check_guard_alias.py":
+                return "existing content\n"
+            return None
+
+        violations, crowded_families, scanned = SCRIPT.collect_namespace_layout_violations(
+            repo_root=self.root,
+            changed_paths=[Path("dev/scripts/devctl/commands/check_guard_alias.py")],
+            read_text_from_ref=_read_text_from_ref,
+            since_ref=None,
+            family_rules=family_rules,
+        )
+
+        self.assertEqual(scanned, 0)
+        self.assertEqual(len(crowded_families), 1)
+        self.assertEqual(violations, [])
+
     def test_namespace_family_strict_allows_deleted_file(self) -> None:
         for idx in range(6):
             self._write(f"dev/scripts/devctl/commands/check_guard_{idx}.py")
@@ -563,7 +608,7 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(scanned, 1)
+        self.assertEqual(scanned, 0)
         self.assertEqual(len(crowded_directories), 1)
         self.assertEqual(violations, [])
 
@@ -598,7 +643,7 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(scanned, 1)
+        self.assertEqual(scanned, 0)
         self.assertEqual(len(crowded_directories), 1)
         self.assertEqual(violations, [])
 
@@ -642,7 +687,7 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(scanned, 1)
+        self.assertEqual(scanned, 0)
         self.assertEqual(len(crowded_directories), 1)
         self.assertEqual(violations, [])
 
@@ -815,6 +860,52 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
         self.assertEqual(len(crowded_directories), 1)
         self.assertEqual(len(violations), 1)
         self.assertEqual(violations[0]["reason"], "changed_file_in_crowded_directory")
+
+    def test_directory_crowding_strict_allows_valid_alias_shim_edit(self) -> None:
+        for idx in range(5):
+            self._write(f"dev/scripts/checks/check_guard_{idx}.py")
+        self._write(
+            "dev/scripts/checks/check_guard_alias.py",
+            (
+                '"""Backward-compat shim -- use `package_layout.guard_alias`."""\n'
+                "# shim-owner: tooling/code-governance\n"
+                "# shim-reason: staged split\n"
+                "# shim-expiry: 2026-12-31\n"
+                "# shim-target: dev/scripts/checks/package_layout/guard_alias.py\n"
+                "from __future__ import annotations\n"
+                "import sys\n"
+                "from package_layout import guard_alias as _impl\n"
+                "sys.modules[__name__] = _impl\n"
+            ),
+        )
+        crowding_rules = (
+            SCRIPT.DirectoryCrowdingRule(
+                root=Path("dev/scripts/checks"),
+                include_globs=("*.py",),
+                max_files=4,
+                enforcement_mode="strict",
+            ),
+        )
+
+        def _read_text_from_ref(path: Path, ref: str) -> str | None:
+            del ref
+            if path.as_posix() == "dev/scripts/checks/check_guard_alias.py":
+                return "existing content\n"
+            return None
+
+        violations, crowded_directories, scanned = (
+            SCRIPT.collect_directory_crowding_violations(
+                repo_root=self.root,
+                changed_paths=[Path("dev/scripts/checks/check_guard_alias.py")],
+                read_text_from_ref=_read_text_from_ref,
+                since_ref=None,
+                crowding_rules=crowding_rules,
+            )
+        )
+
+        self.assertEqual(scanned, 0)
+        self.assertEqual(len(crowded_directories), 1)
+        self.assertEqual(violations, [])
 
     def test_directory_crowding_strict_allows_deleted_file(self) -> None:
         for idx in range(6):

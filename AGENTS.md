@@ -67,6 +67,12 @@ Package-layout truth rule:
   diff touches one of those selected roots; clean-worktree and adoption-scan
   runs still enforce the targeted roots globally so release/self-hosting truth
   does not silently degrade.
+- When decomposing a crowded flat root or namespace family, keep required
+  compatibility files as explicit thin shims only. Accepted shim shapes include
+  direct re-export wrappers and module-alias wrappers that preserve stable
+  import/patch paths, but they must stay metadata-bearing, auditable, and small
+  enough for package-layout validation to count them as compatibility seams
+  rather than fresh implementation growth.
 
 Top-level enforcement rule: every time an agent creates a file or edits an
 existing file, it must run the relevant repo guard/check scripts before

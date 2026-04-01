@@ -7,6 +7,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-04-01
 ### Runtime Hardening
 
 - Refactored Theme Studio input handling into page-scoped helpers so keyboard

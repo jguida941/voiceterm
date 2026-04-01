@@ -176,7 +176,10 @@ Three quality layers matter in practice:
   or approved thin shims. When
   a move keeps a compatibility wrapper, the same report should emit
   `compatibility_redirects` from `shim-target` so the next AI/human session can
-  see the canonical destination path directly.
+  see the canonical destination path directly. Thin re-export shims and thin
+  module-alias shims are both acceptable when they keep stable import/patch
+  paths pointed at the moved implementation without turning the crowded root
+  back into a second implementation surface.
 - `dev/config/devctl_repo_policy.json` is the repo-local switchboard for which
   built-in guards/probes are active by default; keep enablement there instead
   of hard-coding repo behavior into `check` or `probe-report`.
@@ -550,7 +553,10 @@ the concrete minimum inventory after edits:
    - For staged `devctl` or check-module splits, keep compatibility
      re-exports or aliases in the old module until every repo importer, test,
      workflow, and pre-commit path has been updated; do not remove those
-     seams unless the whole import surface moves together.
+     seams unless the whole import surface moves together. If old tests or
+     downstream monkeypatch paths must keep targeting the moved module, prefer
+     a tiny module-alias shim over a facade that copies the old symbols into a
+     disconnected wrapper module.
    - For review-channel / triage-loop / similar control-plane commands, keep
      dry-run, report-only, and simulated-launch paths portable on CI runners:
      those flows should not require provider CLIs or GitHub API reachability

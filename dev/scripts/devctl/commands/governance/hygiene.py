@@ -11,8 +11,8 @@ from ...governance.push_policy import load_push_policy
 from ...process_sweep.core import scan_repo_hygiene_process_tree
 from ...reports_retention import build_reports_hygiene_guard
 from ...time_utils import utc_timestamp
-from .. import hygiene_audits
-from ..hygiene_render import render_md
+from . import hygiene_audits
+from .hygiene_render import render_md
 from . import hygiene_support
 
 REPO_ROOT = CONFIG_REPO_ROOT

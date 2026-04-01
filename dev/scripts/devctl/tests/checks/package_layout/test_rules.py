@@ -219,6 +219,28 @@ class CompatibilityShimRuleTests(unittest.TestCase):
 
         self.assertTrue(result.is_valid)
 
+    def test_detect_compatibility_shim_allows_module_alias_shape(self) -> None:
+        path = self._write(
+            "check_guard.py",
+            (
+                '"""Backward-compat shim -- use `package_layout.command`."""\n'
+                f"{_shim_metadata()}"
+                "from __future__ import annotations\n"
+                "import sys\n"
+                "from package_layout import command as _impl\n"
+                "sys.modules[__name__] = _impl\n"
+            ),
+        )
+
+        result = detect_compatibility_shim(
+            path,
+            namespace_subdir="package_layout",
+            shim_max_nonblank_lines=3,
+            shim_required_metadata_fields=STANDARD_SHIM_METADATA_FIELDS,
+        )
+
+        self.assertTrue(result.is_valid)
+
 
 if __name__ == "__main__":
     unittest.main()

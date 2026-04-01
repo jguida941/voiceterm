@@ -36,7 +36,7 @@ except ModuleNotFoundError:  # pragma: no cover
         import_attr,
         resolve_quality_scope_roots,
     )
-    from dev.scripts.checks.probe_bootstrap import (
+    from dev.scripts.checks.probe_support.bootstrap import (
         ProbeReport,
         RiskHint,
         build_probe_parser,

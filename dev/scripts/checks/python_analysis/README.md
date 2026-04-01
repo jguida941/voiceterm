@@ -1,7 +1,12 @@
-# Python Analysis Helpers
+# Python Analysis
 
-Internal helper package for Python-only structural guards.
+Implementation package for Python-focused guards and shared helpers.
 
+- `check_python_*.py`: canonical implementation modules for the Python
+  broad-except, cyclic-imports, design-complexity, dict-schema,
+  global-mutable, subprocess-policy, and suppression-debt guards.
+- `python_default_trap_core.py`: shared AST helpers for default-state and
+  global-mutable scans.
 - `cyclic_imports_core.py`: shared graph/report logic for
   `check_python_cyclic_imports.py`.
 - `cyclic_imports_graph.py`: import-graph construction and SCC traversal.
@@ -12,6 +17,6 @@ Internal helper package for Python-only structural guards.
   relocation detection over the changed-file set.
 
 Layout rule:
-- Keep the runnable guard entrypoints at the `checks/` root.
-- Keep reusable Python-analysis internals here so the root stays flatter and
-  easier to scan.
+- Keep the stable public entrypoints at the `checks/` root as thin wrappers.
+- Keep the real Python-analysis implementation here so the root stays flatter
+  and easier to scan.

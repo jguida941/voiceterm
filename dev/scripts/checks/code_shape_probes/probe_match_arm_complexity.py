@@ -34,7 +34,7 @@ except ModuleNotFoundError:  # pragma: no cover
         is_under_target_roots,
         resolve_quality_scope_roots,
     )
-    from dev.scripts.checks.probe_bootstrap import (
+    from dev.scripts.checks.probe_support.bootstrap import (
         ProbeReport,
         RiskHint,
         build_probe_parser,

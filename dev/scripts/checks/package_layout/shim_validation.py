@@ -77,6 +77,33 @@ def _is_export_list_assignment(stmt: ast.stmt) -> bool:
     )
 
 
+def _is_sys_import(stmt: ast.stmt) -> bool:
+    if not isinstance(stmt, ast.Import) or len(stmt.names) != 1:
+        return False
+    alias = stmt.names[0]
+    return alias.name == "sys"
+
+
+def _is_module_alias_assignment(stmt: ast.stmt) -> bool:
+    if not isinstance(stmt, ast.Assign) or len(stmt.targets) != 1:
+        return False
+    target = stmt.targets[0]
+    if not isinstance(target, ast.Subscript):
+        return False
+    modules_attr = target.value
+    if not isinstance(modules_attr, ast.Attribute) or modules_attr.attr != "modules":
+        return False
+    modules_root = modules_attr.value
+    if not isinstance(modules_root, ast.Name) or modules_root.id not in {"sys", "_sys"}:
+        return False
+    slice_value = target.slice
+    if isinstance(slice_value, ast.Index):  # pragma: no cover - py<3.9 compatibility
+        slice_value = slice_value.value
+    if not isinstance(slice_value, ast.Name) or slice_value.id != "__name__":
+        return False
+    return isinstance(stmt.value, ast.Name)
+
+
 def _has_supported_shim_shape(module: ast.Module) -> bool:
     body = _trim_module_docstring(module.body)
     if not body:
@@ -85,6 +112,10 @@ def _has_supported_shim_shape(module: ast.Module) -> bool:
     for stmt in body:
         if isinstance(stmt, ast.ImportFrom) and stmt.module is not None:
             saw_import = True
+            continue
+        if _is_sys_import(stmt):
+            continue
+        if _is_module_alias_assignment(stmt):
             continue
         if _is_export_list_assignment(stmt):
             continue
@@ -114,6 +145,10 @@ def _count_shim_nonblank_lines(text: str) -> int:
         if line.startswith("#!"):
             continue
         if _SHIM_METADATA_PATTERN.match(line):
+            continue
+        if line == "from __future__ import annotations":
+            continue
+        if line in {"import sys", "import sys as _sys"}:
             continue
         count += 1
     return count

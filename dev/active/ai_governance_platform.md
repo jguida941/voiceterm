@@ -5119,6 +5119,17 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-01: Landed the next self-hosting package-layout closure in the
+  active `MP-377` extraction lane. The crowded `dev/scripts/devctl/commands`
+  families now decompose under topical command packages (`check/`,
+  `autonomy/`, `docs/`, `process/`, `release/`, `governance/`) while the flat
+  root keeps only compatibility shims. The important closure detail is that
+  those root files are no longer facade copies: package-layout shim validation
+  now accepts thin module-alias wrappers, so legacy import/patch paths still
+  resolve to the moved implementation and crowded-root density counts stay
+  honest. The remaining follow-up is not to undo the extraction; it is to
+  checkpoint the slice and then burn down the inherited code-shape debt on the
+  moved implementation modules under their new package paths.
 - 2026-04-01: Landed the next `MP-377` runtime-truth closure on top of the
   new `CollaborationSession` contract. Launch/session metadata now derives
   from a typed provider/lane map and persists conductor role truth, packet
@@ -7103,6 +7114,10 @@ Execution order for this section:
   integrations, AGENTS/memory conversion ideas, and related proof chains.
   They are useful implementation/review companions in this workspace, but the
   tracked plan chain remains the canonical execution authority.
+- `dev/scripts/checks/package_layout/shim_validation.py`
+- `dev/scripts/checks/package_layout/directory_crowding.py`
+- `dev/scripts/devctl/tests/checks/package_layout/test_rules.py`
+- `dev/scripts/devctl/tests/checks/package_layout/test_support.py`
 - `dev/scripts/devctl/governance/push_publication.py`
 - `dev/scripts/devctl/runtime/startup_push_decision.py`
 - `dev/scripts/devctl/review_channel/state.py`

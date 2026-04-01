@@ -6791,6 +6791,37 @@ Evidence: `dev/scripts/devctl/commands/docs/policy_runtime.py`,
 `dev/guides/DEVELOPMENT.md`,
 `dev/scripts/README.md`.
 
+### 2026-04-01 - Crowded `devctl` command families now decompose through namespace packages plus alias shims
+
+Fact: the `dev/scripts/devctl/commands/` ratchet was correctly forcing crowded
+flat families into topical packages, but the first migration pass still left a
+real contract gap. Star-import wrappers kept some old imports alive, yet tests
+and runtime monkeypatch paths against flat modules such as `check_steps`,
+`process_cleanup`, and `ship_steps` were mutating facade copies instead of the
+real moved modules. The fix keeps the package extraction real instead of
+rolling it back: crowded command families now live under package roots such as
+`commands/check/`, `commands/autonomy/`, `commands/docs/`,
+`commands/process/`, `commands/release/`, and `commands/governance/`, while
+the surviving flat files are thin compatibility shims that alias the moved
+module rather than duplicating its symbols. Package-layout shim validation and
+crowded-directory accounting now accept that alias-wrapper shape as a valid
+shim, so density counts stay honest without breaking stable import/patch
+contracts during staged migration.
+
+Evidence: `dev/scripts/checks/package_layout/shim_validation.py`,
+`dev/scripts/checks/package_layout/directory_crowding.py`,
+`dev/scripts/devctl/commands/check_steps.py`,
+`dev/scripts/devctl/commands/process_cleanup.py`,
+`dev/scripts/devctl/commands/ship_steps.py`,
+`dev/scripts/devctl/tests/checks/package_layout/test_rules.py`,
+`dev/scripts/devctl/tests/checks/package_layout/test_support.py`,
+`dev/scripts/devctl/tests/test_check.py`,
+`dev/scripts/devctl/tests/test_ship.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/ai_governance_platform.md`.
+
 ### 2026-03-29 - Baseline layout debt now hard-fails in tooling and release lanes for crowded commands/
 
 Fact: `check_package_layout.py` already detected crowded directories and

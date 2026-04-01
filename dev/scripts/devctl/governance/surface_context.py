@@ -6,13 +6,15 @@ from pathlib import Path
 from typing import Mapping
 
 try:
-    from dev.scripts.checks.code_shape_function_exceptions import (
+    from dev.scripts.checks.code_shape.code_shape_function_exceptions import (
         FUNCTION_LANGUAGE_DEFAULTS,
     )
-    from dev.scripts.checks.code_shape_policy import LANGUAGE_POLICIES
+    from dev.scripts.checks.code_shape.code_shape_policy import LANGUAGE_POLICIES
 except ImportError:  # pragma: no cover - script-package fallback
-    from checks.code_shape_function_exceptions import FUNCTION_LANGUAGE_DEFAULTS
-    from checks.code_shape_policy import LANGUAGE_POLICIES
+    from checks.code_shape.code_shape_function_exceptions import (
+        FUNCTION_LANGUAGE_DEFAULTS,
+    )
+    from checks.code_shape.code_shape_policy import LANGUAGE_POLICIES
 
 from .task_router_contract import render_task_router_table_markdown
 

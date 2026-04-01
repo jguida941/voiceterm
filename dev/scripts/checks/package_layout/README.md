@@ -14,6 +14,31 @@ Helper logic for `check_package_layout.py`.
   `dev/scripts/checks/code_shape_probes/` while the public
   `probe_{cognitive_complexity,identifier_density,fan_out,side_effect_mixing,match_arm_complexity,tuple_return_complexity,...}.py`
   entrypoints stay as thin wrappers in the root.
+- Keep the code-shape guard family under `dev/scripts/checks/code_shape/`
+  while the public `check_{code_shape,function_duplication,god_class,nesting_depth,parameter_count,structural_complexity,structural_similarity}.py`
+  entrypoints and `code_shape_*.py` helper surfaces stay as thin wrappers in
+  the root.
+- Keep the Python-analysis guard family under
+  `dev/scripts/checks/python_analysis/` while the public
+  `check_python_{broad_except,cyclic_imports,design_complexity,dict_schema,global_mutable,subprocess_policy,suppression_debt}.py`
+  entrypoints plus `python_default_trap_core.py` stay as thin wrappers in the
+  root.
+- Keep the Rust-analysis guard family under
+  `dev/scripts/checks/rust_analysis/` while the public Rust guard entrypoints
+  and shared helper surfaces (`rust_guard_common.py`,
+  `rust_check_text_utils.py`, `mobile_relay_rust_parser.py`) stay as thin
+  wrappers in the root.
+- Keep compatibility-matrix implementation under
+  `dev/scripts/checks/compat_matrix/` while
+  `check_compat_matrix.py`, `compat_matrix_smoke.py`, and
+  `yaml_json_loader.py` stay as thin wrappers in the root.
+- Keep the remaining advisory review-probe family under
+  `dev/scripts/checks/review_probes/` while the public `probe_*.py` entrypoints
+  and `probe_path_filters.py` stay as thin wrappers in the root.
+- Keep the probe-report renderer implementation under
+  `dev/scripts/checks/probe_report/render.py` while
+  `dev/scripts/checks/probe_report_render.py` stays a thin wrapper in the
+  root.
 - Keep the term-consistency probe implementation under
   `dev/scripts/checks/term_consistency/` while
   `dev/scripts/checks/probe_term_consistency.py` stays a thin wrapper in the

@@ -9,7 +9,7 @@ from dev.scripts.devctl.tests.conftest import load_repo_module
 
 SCRIPT = load_repo_module(
     "probe_design_smells_script",
-    "dev/scripts/checks/probe_design_smells.py",
+    "dev/scripts/checks/review_probes/probe_design_smells.py",
 )
 
 

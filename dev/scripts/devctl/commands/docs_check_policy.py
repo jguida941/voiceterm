@@ -1,63 +1,13 @@
-"""Docs-check defaults plus repo-policy resolution helpers."""
+"""Backward-compat shim -- use `devctl.commands.docs.policy` instead."""
+# shim-owner: tooling/devctl
+# shim-reason: preserve the stable docs-check policy helper path during package split
+# shim-expiry: 2026-09-30
+# shim-target: dev/scripts/devctl/commands/docs/policy.py
 
 from __future__ import annotations
 
-from .docs.policy_defaults import (
-    ACTIVE_PLAN_SYNC_SCRIPT_REL,
-    AGENTS_BUNDLE_RENDER_SCRIPT_REL,
-    BUNDLE_WORKFLOW_PARITY_SCRIPT_REL,
-    DEPRECATED_REFERENCE_PATTERNS,
-    DEPRECATED_REFERENCE_TARGETS,
-    EVOLUTION_CHANGE_EXACT,
-    EVOLUTION_CHANGE_PREFIXES,
-    EVOLUTION_DOC,
-    GUIDE_CONTRACT_SYNC_SCRIPT_REL,
-    INSTRUCTION_SURFACE_SYNC_SCRIPT_REL,
-    MARKDOWN_METADATA_HEADER_SCRIPT_REL,
-    MULTI_AGENT_SYNC_SCRIPT_REL,
-    TOOLING_CHANGE_EXACT,
-    TOOLING_CHANGE_PREFIXES,
-    TOOLING_REQUIRED_DOC_ALIASES,
-    TOOLING_REQUIRED_DOCS,
-    USER_DOCS,
-    WORKFLOW_SHELL_HYGIENE_SCRIPT_REL,
-    DeprecatedReferencePattern,
-    DocsCheckPolicy,
-    ToolingDocRequirementRule,
-)
-from .docs.policy_runtime import (
-    is_tooling_change,
-    requires_evolution_update,
-    resolve_docs_check_policy,
-    resolve_tooling_doc_requirements,
-    scan_deprecated_references,
-)
+import sys
 
-__all__ = [
-    "ACTIVE_PLAN_SYNC_SCRIPT_REL",
-    "AGENTS_BUNDLE_RENDER_SCRIPT_REL",
-    "BUNDLE_WORKFLOW_PARITY_SCRIPT_REL",
-    "DEPRECATED_REFERENCE_PATTERNS",
-    "DEPRECATED_REFERENCE_TARGETS",
-    "EVOLUTION_CHANGE_EXACT",
-    "EVOLUTION_CHANGE_PREFIXES",
-    "EVOLUTION_DOC",
-    "GUIDE_CONTRACT_SYNC_SCRIPT_REL",
-    "INSTRUCTION_SURFACE_SYNC_SCRIPT_REL",
-    "MARKDOWN_METADATA_HEADER_SCRIPT_REL",
-    "MULTI_AGENT_SYNC_SCRIPT_REL",
-    "TOOLING_CHANGE_EXACT",
-    "TOOLING_CHANGE_PREFIXES",
-    "TOOLING_REQUIRED_DOC_ALIASES",
-    "TOOLING_REQUIRED_DOCS",
-    "USER_DOCS",
-    "WORKFLOW_SHELL_HYGIENE_SCRIPT_REL",
-    "DeprecatedReferencePattern",
-    "DocsCheckPolicy",
-    "ToolingDocRequirementRule",
-    "is_tooling_change",
-    "requires_evolution_update",
-    "resolve_docs_check_policy",
-    "resolve_tooling_doc_requirements",
-    "scan_deprecated_references",
-]
+from .docs import policy as _impl
+
+sys.modules[__name__] = _impl

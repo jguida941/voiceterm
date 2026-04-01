@@ -17,7 +17,7 @@ try:
     from probe_bootstrap import ProbeReport, build_probe_parser, emit_probe_report
 except ModuleNotFoundError:  # pragma: no cover
     from dev.scripts.checks.check_bootstrap import REPO_ROOT, import_attr
-    from dev.scripts.checks.probe_bootstrap import (
+    from dev.scripts.checks.probe_support.bootstrap import (
         ProbeReport,
         build_probe_parser,
         emit_probe_report,

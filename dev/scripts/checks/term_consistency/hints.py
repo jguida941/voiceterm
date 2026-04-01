@@ -5,7 +5,7 @@ from __future__ import annotations
 try:
     from probe_bootstrap import RiskHint
 except ModuleNotFoundError:  # pragma: no cover
-    from dev.scripts.checks.probe_bootstrap import RiskHint
+    from dev.scripts.checks.probe_support.bootstrap import RiskHint
 
 if __package__:
     from .config import TermRule
