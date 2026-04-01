@@ -37,7 +37,6 @@ from .event_store import (
     write_legacy_projection_mirror,
 )
 from .state import (
-    build_agent_registry_from_lanes,
     project_id_for_repo,
     write_projection_bundle,
 )
@@ -47,6 +46,7 @@ from .daemon_reducer import (
     build_runtime_state,
     reduce_daemon_event,
 )
+from .topology import build_planned_topology, build_runtime_agent_registry
 from ..time_utils import utc_timestamp
 
 # Placeholder bridge state used during event reduction; the enrichment
@@ -207,7 +207,7 @@ def reduce_events(
     latest_session_id = DEFAULT_REVIEW_CHANNEL_SESSION_ID
     latest_plan_id = DEFAULT_REVIEW_CHANNEL_PLAN_ID
     latest_controller_run_id = None
-    provider_state = {"codex": {}, "claude": {}, "cursor": {}, "operator": {}}
+    provider_state = _initial_provider_state(lanes)
     daemon_snapshots: dict[str, DaemonSnapshot] = {}
     last_daemon_event_utc = ""
     for event in events:
@@ -255,14 +255,19 @@ def reduce_events(
             "One or more pending review packets are past their expiry timestamp."
         )
     _hydrate_provider_job_state(provider_state, pending_counts)
-    registry = build_agent_registry_from_lanes(
-        list(lanes or []),
+    registry_state = build_runtime_agent_registry(
         timestamp=latest_timestamp,
+        plan_id=latest_plan_id,
+        lanes=list(lanes or []),
         provider_state=provider_state,
     )
     runtime = build_runtime_state(daemon_snapshots, last_daemon_event_utc)
     bridge_path = repo_root / DEFAULT_BRIDGE_REL
-    legacy_agents = _build_agents(packet_rows, latest_timestamp)
+    legacy_agents = _build_agents(
+        packets=packet_rows,
+        latest_timestamp=latest_timestamp,
+        providers=_legacy_agent_ids(lanes, packet_rows),
+    )
 
     # Build typed sub-models so the reducer proves contract conformance
     # at construction time. Bridge and attention are placeholder defaults
@@ -289,7 +294,7 @@ def reduce_events(
         bridge=_PLACEHOLDER_BRIDGE,
         attention=None,
         packets=(),
-        registry=registry,
+        registry=registry_state,
         warnings=tuple(warnings),
         errors=tuple(errors),
     )
@@ -306,8 +311,14 @@ def reduce_events(
         "project_id": project_id_for_repo(repo_root),
         "agents": legacy_agents,
         "runtime": runtime,
+        "planned_topology": build_planned_topology(
+            lanes=list(lanes or []),
+            timestamp=latest_timestamp,
+            plan_id=latest_plan_id,
+            source_path=display_path(review_channel_path, repo_root=repo_root),
+        ).to_dict(),
     }
-    return review_state, registry
+    return review_state, review_state.get("registry", {})
 
 
 def filter_inbox_packets(
@@ -393,6 +404,10 @@ def _record_provider_packet_state(
 ) -> None:
     provider_from = str(event.get("from_agent") or "").strip()
     provider_to = str(event.get("to_agent") or "").strip()
+    if _is_runtime_provider(provider_from):
+        provider_state.setdefault(provider_from, {})
+    if _is_runtime_provider(provider_to):
+        provider_state.setdefault(provider_to, {})
     if provider_from in provider_state:
         provider_state[provider_from]["last_packet_seen"] = packet_id
     if provider_to in provider_state:
@@ -420,15 +435,16 @@ def _hydrate_provider_job_state(
 
 
 def _build_agents(
+    *,
     packets: list[dict[str, object]],
     latest_timestamp: str,
+    providers: tuple[str, ...],
 ) -> list[ReviewAgentRow]:
     pending_targets = {
         str(packet.get("to_agent") or "").strip()
         for packet in packets
         if packet.get("status") == "pending"
     }
-    agent_ids = ("codex", "claude", "cursor", "operator")
     latest_packet_by_target = {
         agent_id: next(
             (
@@ -439,7 +455,7 @@ def _build_agents(
             ),
             None,
         )
-        for agent_id in agent_ids
+        for agent_id in providers
     }
     return [
         _agent_row(
@@ -450,8 +466,38 @@ def _build_agents(
             latest_packet=latest_packet_by_target[agent_id],
             latest_timestamp=latest_timestamp,
         )
-        for agent_id in agent_ids
+        for agent_id in providers
     ]
+
+
+def _initial_provider_state(lanes: list | None) -> dict[str, dict[str, object]]:
+    providers = {str(lane.provider) for lane in (lanes or []) if getattr(lane, "provider", "")}
+    providers.update({"codex", "claude", "operator"})
+    return {provider: {} for provider in sorted(providers)}
+
+
+def _legacy_agent_ids(
+    lanes: list | None,
+    packets: list[dict[str, object]],
+) -> tuple[str, ...]:
+    ordered: list[str] = []
+    for lane in lanes or []:
+        provider = str(getattr(lane, "provider", "")).strip()
+        if provider and provider not in ordered:
+            ordered.append(provider)
+    for packet in packets:
+        for field in ("from_agent", "to_agent"):
+            provider = str(packet.get(field) or "").strip()
+            if _is_runtime_provider(provider) and provider not in ordered:
+                ordered.append(provider)
+    for provider in ("codex", "claude", "operator"):
+        if provider not in ordered:
+            ordered.append(provider)
+    return tuple(ordered)
+
+
+def _is_runtime_provider(provider: str) -> bool:
+    return provider in {"codex", "claude", "cursor", "operator", "human"}
 
 
 def _agent_row(

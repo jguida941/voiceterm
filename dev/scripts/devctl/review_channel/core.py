@@ -69,7 +69,7 @@ LANE_ROW_RE = re.compile(
 
 @dataclass(frozen=True)
 class LaneAssignment:
-    """One parsed lane assignment from the review-channel swarm table."""
+    """One parsed planned-lane assignment from the review-channel plan."""
 
     agent_id: str
     provider: str
@@ -91,7 +91,7 @@ def bridge_is_active(review_channel_text: str) -> bool:
 
 
 def parse_lane_assignments(review_channel_text: str) -> list[LaneAssignment]:
-    """Parse the merged 8+8 lane table from review_channel markdown."""
+    """Parse the static planned lane table from review_channel markdown."""
     lanes: list[LaneAssignment] = []
     for line in review_channel_text.splitlines():
         match = LANE_ROW_RE.match(line.strip())

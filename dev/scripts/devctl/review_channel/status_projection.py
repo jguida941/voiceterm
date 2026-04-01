@@ -14,7 +14,6 @@ from pathlib import Path
 
 from ..common import display_path
 from ..runtime.review_state_models import (
-    AgentRegistryEntryState,
     AgentRegistryState,
     ReviewAttentionState,
     ReviewQueueState,
@@ -34,6 +33,7 @@ from .status_projection_compat import (
     CompatProjectionInputs,
     build_bridge_compat_projection,
 )
+from .topology import build_runtime_agent_registry
 
 
 @dataclass(frozen=True)
@@ -90,7 +90,6 @@ def build_bridge_review_state(
         attention=_build_attention(attention),
         packets=(),
         registry=_build_agent_registry(
-            overall_state=overall_state,
             bridge_liveness=typed_bridge_liveness,
             timestamp=context.timestamp,
             plan_id=context.plan_id,
@@ -177,107 +176,98 @@ def _build_review_session(context: ReviewStateContext) -> ReviewSessionState:
 
 def _build_agent_registry(
     *,
-    overall_state: str,
     bridge_liveness: dict[str, object],
     timestamp: str,
     plan_id: str = "",
 ) -> AgentRegistryState:
-    claude_status = _claude_agent_status(bridge_liveness)
-    operator_status = _operator_status(overall_state)
-    agents = (
-        AgentRegistryEntryState(
-            agent_id="codex",
-            provider="codex",
-            display_name="Codex",
-            lane="codex",
-            lane_title="Reviewer",
-            current_job=TandemRole.REVIEWER,
-            job_state=overall_state,
-            waiting_on="",
-            last_packet_seen="",
-            last_packet_applied="",
-            script_profile="markdown-bridge-conductor",
-            mp_scope=plan_id,
-            worktree="",
-            branch="",
-            updated_at=timestamp,
-        ),
-        AgentRegistryEntryState(
-            agent_id="claude",
-            provider="claude",
-            display_name="Claude",
-            lane="claude",
-            lane_title="Implementer",
-            current_job=TandemRole.IMPLEMENTER,
-            job_state=claude_status,
-            waiting_on="",
-            last_packet_seen="",
-            last_packet_applied="",
-            script_profile="markdown-bridge-conductor",
-            mp_scope=plan_id,
-            worktree="",
-            branch="",
-            updated_at=timestamp,
-        ),
-        AgentRegistryEntryState(
-            agent_id="cursor",
-            provider="cursor",
-            display_name="Cursor",
-            lane="cursor",
-            lane_title="Implementer",
-            current_job=TandemRole.IMPLEMENTER,
-            job_state="idle",
-            waiting_on="",
-            last_packet_seen="",
-            last_packet_applied="",
-            script_profile="",
-            mp_scope="",
-            worktree="",
-            branch="",
-            updated_at=timestamp,
-        ),
-        AgentRegistryEntryState(
-            agent_id="operator",
-            provider="operator",
-            display_name="Operator",
-            lane="operator",
-            lane_title="Approver",
-            current_job="approver",
-            job_state=operator_status,
-            waiting_on="",
-            last_packet_seen="",
-            last_packet_applied="",
-            script_profile="",
-            mp_scope="",
-            worktree="",
-            branch="",
-            updated_at=timestamp,
+    active_providers = bridge_liveness.get("active_conductor_providers")
+    return build_runtime_agent_registry(
+        timestamp=timestamp,
+        plan_id=plan_id,
+        provider_state=_bridge_runtime_provider_state(bridge_liveness),
+        active_conductor_providers=(
+            tuple(str(item) for item in active_providers)
+            if isinstance(active_providers, list)
+            else ()
         ),
     )
-    return AgentRegistryState(timestamp=timestamp, agents=agents)
 
 
-def _claude_agent_status(bridge_liveness: dict[str, object]) -> str:
+def _bridge_runtime_provider_state(
+    bridge_liveness: dict[str, object],
+) -> dict[str, dict[str, object]]:
+    effective_mode = str(
+        bridge_liveness.get("effective_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or "tools_only"
+    )
+    return {
+        "codex": {
+            "current_job": TandemRole.REVIEWER.value,
+            "job_state": _reviewer_job_state(bridge_liveness),
+            "waiting_on": (
+                "implementer"
+                if bridge_liveness.get("overall_state") == OverallLivenessState.WAITING_ON_PEER
+                else ""
+            ),
+            "script_profile": "markdown-bridge-conductor",
+        },
+        "claude": {
+            "current_job": TandemRole.IMPLEMENTER.value,
+            "job_state": _claude_job_state(bridge_liveness),
+            "waiting_on": _claude_waiting_on(bridge_liveness),
+            "script_profile": "markdown-bridge-conductor",
+        },
+        "operator": {
+            "current_job": TandemRole.OPERATOR.value,
+            "job_state": "waiting" if effective_mode == "active_dual_agent" else "idle",
+        },
+    }
+
+
+def _reviewer_job_state(bridge_liveness: dict[str, object]) -> str:
+    effective_mode = str(
+        bridge_liveness.get("effective_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or "tools_only"
+    )
+    if effective_mode != "active_dual_agent":
+        return "inactive"
+    if bridge_liveness.get("review_needed"):
+        return "review_needed"
+    return "reviewing"
+
+
+def _claude_job_state(bridge_liveness: dict[str, object]) -> str:
+    session_hints = bridge_liveness.get("session_state_hints")
+    if isinstance(session_hints, dict):
+        claude_hint = session_hints.get("claude")
+        if isinstance(claude_hint, dict):
+            state = str(claude_hint.get("state") or "").strip()
+            if state:
+                return state
     if (
         bool(bridge_liveness.get("claude_status_present"))
         and bool(bridge_liveness.get("claude_ack_present"))
         and bool(bridge_liveness.get("claude_ack_current"))
     ):
-        return "active"
-    return "waiting"
+        return "implementing"
+    if bridge_liveness.get("claude_status_present"):
+        return "waiting_for_ack"
+    return "inactive"
 
 
-def _operator_status(overall_state: str) -> str:
-    if overall_state == OverallLivenessState.WAITING_ON_PEER:
-        return "waiting"
-    if overall_state in {
-        OverallLivenessState.STALE,
-        OverallLivenessState.RUNTIME_MISSING,
-    }:
-        return "warning"
-    if overall_state == OverallLivenessState.INACTIVE:
-        return "idle"
-    return "active"
+def _claude_waiting_on(bridge_liveness: dict[str, object]) -> str:
+    session_hints = bridge_liveness.get("session_state_hints")
+    if isinstance(session_hints, dict):
+        claude_hint = session_hints.get("claude")
+        if isinstance(claude_hint, dict):
+            state = str(claude_hint.get("state") or "").strip()
+            if state:
+                return state
+    if bridge_liveness.get("review_needed"):
+        return "reviewer"
+    return ""
 
 
 def _build_queue_state(

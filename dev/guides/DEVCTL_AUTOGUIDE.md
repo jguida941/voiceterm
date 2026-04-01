@@ -82,6 +82,10 @@ python3 dev/scripts/devctl.py review-channel --action status --terminal none --f
 # the only blocker.
 python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md --refresh-bridge-heartbeat-if-stale
 
+# The launch prompt now treats the markdown lane table as planned topology only.
+# Live participant truth comes from typed runtime registry state, and requested
+# worker fanout defaults to zero unless a launch explicitly asks for more.
+
 # Read the current bridge-backed review status and refresh latest projections
 python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md
 

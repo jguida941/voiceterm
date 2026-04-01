@@ -103,11 +103,12 @@ def build_conductor_prompt(
             *_worker_budget_lines(
                 capability=capability,
                 provider_name=provider_name,
+                planned_lane_count=len(lanes),
                 provider_worker_budget=provider_worker_budget,
             ),
             *context_lines,
             "",
-            f"{provider_name} lane assignments:",
+            f"{provider_name} planned lane assignments:",
             *lane_lines,
             "",
             "Execution reminders:",
@@ -252,17 +253,18 @@ def _worker_budget_lines(
     *,
     capability: ConductorCapabilityState,
     provider_name: str,
+    planned_lane_count: int,
     provider_worker_budget: int,
 ) -> list[str]:
     worker_fallback = (
-        "assignments below. If worker fanout is unavailable, stay in reviewer-only "
-        "conductor mode, keep the review loop alive yourself, and do not start "
-        "local implementation unless the workflow explicitly switches to takeover "
+        "If worker fanout is unavailable, stay in reviewer-only conductor "
+        "mode, keep the review loop alive yourself, and do not start local "
+        "implementation unless the workflow explicitly switches to takeover "
         "(`reviewer_mode=single_agent` or "
         f"`{capability.takeover_command}`)."
         if capability.worker_unavailable_policy == "stay_reviewer_only"
-        else "assignments below. If worker fanout is unavailable, stay in conductor "
-        "mode and keep executing the loop yourself."
+        else "If worker fanout is unavailable, stay in conductor mode and keep "
+        "executing the loop yourself."
     )
     missing_lane_fallback = (
         "Before worker fanout, verify each assigned lane worktree exists and "
@@ -277,15 +279,27 @@ def _worker_budget_lines(
         "and stay conductor-only until the repo-owned worktree contract is "
         "repaired."
     )
-    return [
-        f"Worker budget target: {provider_worker_budget}",
-        (
-            f"If this interface supports worker/sub-agent fanout, launch up to "
-            f"{provider_worker_budget} {provider_name} worker lanes matching the "
-            f"{worker_fallback}"
-        ),
-        (missing_lane_fallback),
+    lines = [
+        f"Static planned lane count: {planned_lane_count}",
+        f"Requested worker fanout budget: {provider_worker_budget}",
     ]
+    if provider_worker_budget > 0:
+        lines.append(
+            "If this interface supports worker/sub-agent fanout, you may launch "
+            f"up to {provider_worker_budget} additional {provider_name} worker "
+            "lanes from the planned assignments below. Treat those assignments "
+            "as planned scope, not proof that repo-owned worker sessions "
+            f"already exist. {worker_fallback}"
+        )
+    else:
+        lines.append(
+            "No additional worker fanout is requested by default. Treat the "
+            "assignments below as planned lane scope and stay conductor-owned "
+            "unless an explicit runtime capability or later typed packet says "
+            f"otherwise. {worker_fallback}"
+        )
+    lines.append(missing_lane_fallback)
+    return lines
 
 
 def _resolve_conductor_capability(

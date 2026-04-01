@@ -314,11 +314,23 @@ def post_session_lifecycle_event(
     label = "rollover" if action == "rollover" else "launch"
     summary = f"Session {label}: {', '.join(provider_names)} conductors started"
     lane_counts = [
-        f"{session.get('provider', '?')}: {session.get('lane_count', 0)} lanes" for session in context.sessions
+        (
+            f"{session.get('provider', '?')}: "
+            f"{session.get('planned_lane_count', 0)} planned lanes"
+        )
+        for session in context.sessions
+    ]
+    worker_budgets = [
+        (
+            f"{session.get('provider', '?')}: "
+            f"{session.get('requested_worker_budget', 0)} requested fanout"
+        )
+        for session in context.sessions
     ]
     body = (
         f"The operator {label}ed {len(context.sessions)} conductor session(s). "
-        f"Lane allocation: {'; '.join(lane_counts)}."
+        f"Planned topology: {'; '.join(lane_counts)}. "
+        f"Requested fanout budget: {'; '.join(worker_budgets)}."
     )
     with contextlib.suppress(OSError, ValueError):
         post_packet_fn(

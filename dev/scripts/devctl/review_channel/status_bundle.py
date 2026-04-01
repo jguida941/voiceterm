@@ -5,16 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..common import display_path
 from .core import LaneAssignment, project_id_for_repo
 from .handoff import extract_bridge_snapshot
-from .peer_liveness import OverallLivenessState
 from .projection_bundle import (
     ReviewChannelProjectionPaths,
-    build_agent_registry_from_lanes,
     write_projection_bundle,
 )
 from .promotion import derive_promotion_candidate
 from .status_projection import ReviewStateContext, build_bridge_review_state
+from .topology import build_planned_topology
 from ..time_utils import utc_timestamp
 
 
@@ -70,7 +70,7 @@ def write_status_projection_bundle(
         snapshot=snapshot,
         timestamp=timestamp,
     )
-    agent_registry = _build_status_agent_registry(context=context, timestamp=timestamp)
+    agent_registry = _status_agent_registry(review_state)
     projection_paths = write_projection_bundle(
         output_root=context.output_root,
         review_state=review_state,
@@ -122,6 +122,15 @@ def _build_status_review_state(
     )
     compat = review_state.get("_compat")
     if isinstance(compat, dict):
+        compat["planned_topology"] = build_planned_topology(
+            lanes=context.lanes,
+            timestamp=timestamp,
+            plan_id=context.plan_id,
+            source_path=display_path(
+                context.review_channel_path,
+                repo_root=context.repo_root,
+            ),
+        ).to_dict()
         push_enforcement = context.bridge_liveness.get("push_enforcement")
         if isinstance(push_enforcement, dict):
             compat["push_enforcement"] = push_enforcement
@@ -130,47 +139,16 @@ def _build_status_review_state(
     return review_state
 
 
-def _build_status_agent_registry(
-    *,
-    context: StatusProjectionContext,
-    timestamp: str,
-) -> list[dict[str, object]]:
-    return build_agent_registry_from_lanes(
-        context.lanes,
-        timestamp=timestamp,
-        provider_state=_status_provider_state(context.bridge_liveness),
-    )
-
-
-def _status_provider_state(
-    bridge_liveness: dict[str, object],
-) -> dict[str, dict[str, object]]:
-    overall_state = str(bridge_liveness.get("overall_state") or "unknown")
-    session_hints = bridge_liveness.get("session_state_hints")
-    claude_hint = (
-        session_hints.get("claude")
-        if isinstance(session_hints, dict) and isinstance(session_hints.get("claude"), dict)
-        else {}
-    )
-    return {
-        "codex": {
-            "job_state": overall_state,
-            "waiting_on": (
-                "peer"
-                if overall_state == OverallLivenessState.WAITING_ON_PEER
-                else None
-            ),
-        },
-        "claude": {
-            "job_state": (
-                "assigned"
-                if bool(bridge_liveness.get("claude_status_present"))
-                and bool(bridge_liveness.get("claude_ack_present"))
-                else "waiting"
-            ),
-            "waiting_on": str(claude_hint.get("state") or "") or None,
-        },
-    }
+def _status_agent_registry(review_state: dict[str, object]) -> dict[str, object]:
+    registry = review_state.get("registry")
+    if not isinstance(registry, dict):
+        return {
+            "schema_version": 1,
+            "command": "review-channel",
+            "timestamp": review_state.get("timestamp"),
+            "agents": [],
+        }
+    return registry
 
 
 def _status_full_extras(

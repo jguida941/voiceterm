@@ -24,7 +24,6 @@ from .peer_liveness import (
     reviewer_mode_is_active,
 )
 from .projection_bundle import (
-    build_agent_registry_from_lanes,
     projection_paths_to_dict as projection_paths_to_dict,
     write_projection_bundle as write_projection_bundle,
 )

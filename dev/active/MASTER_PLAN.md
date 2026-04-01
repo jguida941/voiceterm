@@ -15,6 +15,11 @@
   contract slice for MP-355 plus the temporary markdown-swarm operating mode
   used by the current Codex/Claude cycle; implementation tasks stay in that
   file under MP-355 and must preserve the broader shared-backend boundary.
+- Within that MP-355 slice, the markdown lane table is planned topology only;
+  the live participant registry is provider/session-backed typed state, the
+  default requested worker fanout is zero unless explicitly requested, and
+  `bridge.md` remains a compatibility projection until native
+  `CollaborationSession` topology lands.
 - `dev/active/ralph_guardrail_control_plane.md` is the Ralph guardrail control plane execution spec; implementation tasks stay in this file under `MP-360..MP-367`.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption

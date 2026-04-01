@@ -117,12 +117,17 @@ def _append_sessions(lines: list[str], sessions: object) -> None:
     for session in sessions:
         lines.append(f"### {session['session_name']}")
         lines.append(f"- provider: {session['provider']}")
-        lines.append(f"- worker_budget: {session['worker_budget']}")
-        lines.append(f"- lane_count: {session['lane_count']}")
+        lines.append(
+            "- requested_worker_budget: "
+            f"{session.get('requested_worker_budget', 0)}"
+        )
+        lines.append(
+            f"- planned_lane_count: {session.get('planned_lane_count', 0)}"
+        )
         lines.append(f"- script_path: {session['script_path']}")
         lines.append(f"- launch_command: {session['launch_command']}")
-        for lane in session["lanes"]:
+        for lane in session.get("planned_lanes", []):
             lines.append(
-                f"- lane: {lane['agent_id']} | {lane['lane']} | "
+                f"- planned_lane: {lane['agent_id']} | {lane['lane']} | "
                 f"{lane['worktree']} | {lane['branch']}"
             )

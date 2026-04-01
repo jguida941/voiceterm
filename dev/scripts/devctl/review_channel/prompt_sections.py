@@ -33,12 +33,12 @@ def operating_contract_lines(
         "owned workflow explicitly enters takeover (`reviewer_mode=single_agent` "
         f"or `{capability.takeover_command}`)."
         if capability.queue_policy == "review_only"
-        else "- Read the active queue from `bridge.md`, keep the 8+8 swarm "
+        else "- Read the active queue from `bridge.md`, keep the conductor loop "
         "moving, and continue until the scoped plan work is exhausted or a real "
         "blocker/approval boundary is hit."
     )
     return [
-        "- `dev/active/review_channel.md` is the static swarm plan.",
+        "- `dev/active/review_channel.md` is the static review plan and planned lane table.",
         "- `bridge.md` is the only live cross-team coordination surface.",
         (
             "- Do not rely on automatic context compaction or recovery summaries "

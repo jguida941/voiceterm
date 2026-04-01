@@ -153,7 +153,7 @@ def build_launch_sessions(
         provider_roster = [
             row for row in provider_roster if row[0] in selected
         ]
-    for provider, provider_name, other_name, lanes, worker_budget, _role in provider_roster:
+    for provider, provider_name, other_name, lanes, requested_worker_budget, _role in provider_roster:
         session_name = f"{provider}-conductor"
         log_path = None if session_dir is None else session_dir / f"{session_name}.log"
         metadata_path = (
@@ -197,9 +197,9 @@ def build_launch_sessions(
                     "launch_command": launch_command,
                     "supervision_mode": "restart-on-clean-exit",
                     "approval_mode": resolved_approval_mode,
-                    "lane_count": len(lanes),
-                    "worker_budget": worker_budget,
-                    "lanes": [asdict(lane) for lane in lanes],
+                    "planned_lane_count": len(lanes),
+                    "requested_worker_budget": requested_worker_budget,
+                    "planned_lanes": [asdict(lane) for lane in lanes],
                 },
             )
         script_path = build_session_script(
@@ -216,10 +216,10 @@ def build_launch_sessions(
             {
                 "session_name": session_name,
                 "provider": provider,
-                "worker_budget": worker_budget,
+                "requested_worker_budget": requested_worker_budget,
                 "approval_mode": resolved_approval_mode,
-                "lane_count": len(lanes),
-                "lanes": [asdict(lane) for lane in lanes],
+                "planned_lane_count": len(lanes),
+                "planned_lanes": [asdict(lane) for lane in lanes],
                 "script_path": str(script_path),
                 "launch_command": launch_command,
                 "log_path": str(log_path) if log_path is not None else None,

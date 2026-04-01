@@ -52,10 +52,20 @@ def render_bridge_md(
     lines.append(f"- bridge_active: {report.get('bridge_active', False)}")
     lines.append(f"- launched: {report.get('launched', False)}")
     lines.append(f"- handoff_ack_required: {report.get('handoff_ack_required', False)}")
-    lines.append(f"- codex_lane_count: {report.get('codex_lane_count', 0)}")
-    lines.append(f"- claude_lane_count: {report.get('claude_lane_count', 0)}")
-    lines.append(f"- codex_workers_requested: {report.get('codex_workers_requested', 0)}")
-    lines.append(f"- claude_workers_requested: {report.get('claude_workers_requested', 0)}")
+    lines.append(
+        f"- codex_planned_lane_count: {report.get('codex_planned_lane_count', 0)}"
+    )
+    lines.append(
+        f"- claude_planned_lane_count: {report.get('claude_planned_lane_count', 0)}"
+    )
+    lines.append(
+        "- codex_requested_worker_budget: "
+        f"{report.get('codex_requested_worker_budget', 0)}"
+    )
+    lines.append(
+        "- claude_requested_worker_budget: "
+        f"{report.get('claude_requested_worker_budget', 0)}"
+    )
     lines.append(f"- retirement_note: {report.get('retirement_note')}")
     _append_bridge_liveness_lines(
         lines,
@@ -137,10 +147,10 @@ def build_bridge_success_report(
         "launched": launched,
         "handoff_ack_required": handoff_ack_required,
         "handoff_ack_observed": handoff_ack_observed,
-        "codex_lane_count": len(codex_lanes),
-        "claude_lane_count": len(claude_lanes),
-        "codex_workers_requested": args.codex_workers,
-        "claude_workers_requested": args.claude_workers,
+        "codex_planned_lane_count": len(codex_lanes),
+        "claude_planned_lane_count": len(claude_lanes),
+        "codex_requested_worker_budget": args.codex_workers,
+        "claude_requested_worker_budget": args.claude_workers,
         "retirement_note": REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
         "warnings": warnings,
         "errors": [],

@@ -53,6 +53,11 @@ Use docs like this:
 - **`dev/active/ide_provider_modularization.md`** -- host/provider adapter modularization and compatibility plan (`MP-346`).
 - **`dev/active/loop_chat_bridge.md`** -- loop output to chat runbook (`MP-338`).
 - **`dev/active/review_channel.md`** -- shared review-channel plan, merged markdown-swarm lane map, and multi-agent coordination contract for the current Codex/Claude cycle.
+- Review-channel docs and launch surfaces now distinguish planned lane topology
+  from live participant truth: the runtime registry is provider/session-backed
+  typed state, default requested worker fanout is zero unless explicitly
+  requested, and `bridge.md` remains a compatibility projection until native
+  `CollaborationSession` worker topology lands.
 - Closed execution plans move to `dev/archive/` only after their scoped work is
   complete and `dev/active/INDEX.md` plus discovery docs are updated in the
   same change. If a plan doc still holds unfinished or deferred backlog, keep

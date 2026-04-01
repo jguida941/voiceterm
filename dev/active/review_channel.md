@@ -135,6 +135,12 @@ contract, not the long-term product boundary.
     authority decides who may mutate canonical plan/session state, while
     `expected_revision`, `version_counter`, and `state_hash` style checks
     decide when a stale reader must re-read before acting.
+14. The live participant registry must be provider/session-backed typed state
+    (`ReviewState.registry` / `registry/agents.json`), not the static markdown
+    lane table. The lane table is planned topology only, default requested
+    worker fanout is zero unless explicitly requested, and `bridge.md`
+    remains a compatibility projection until native `CollaborationSession`
+    worker topology lands.
 
 ## Cross-Plan Dependencies
 
@@ -449,7 +455,9 @@ Phase-1 artifact layout should live under `dev/reports/review_channel/`:
 6. `projections/latest/actions.json`
 7. `projections/latest/latest.md`
 8. `registry/agents.json`
-   local review-lane agent registry snapshot and script-backed job-board state.
+   local provider/session-backed runtime participant registry snapshot; the
+   planned lane table stays in the compatibility projection as planned
+   topology only.
 9. `history/<timestamp-or-label>/...`
    optional dated replay bundles for debugging/demo evidence.
 
@@ -1174,11 +1182,11 @@ Acceptance:
 
 - [x] Land the first bridge-gated `devctl review-channel` surface as
       `--action launch` for the current markdown-swarm cycle: read the merged
-      8+8 lane table, generate Codex/Claude conductor prompts that restate the
-      repo's `AGENTS.md`/`devctl` policy path, optionally open local
+      planned lane table, generate Codex/Claude conductor prompts that restate
+      the repo's `AGENTS.md`/`devctl` policy path, optionally open local
       Terminal.app sessions, and fail closed once the markdown bridge is
       inactive so this launcher cannot outlive the transitional bridge by
-      accident.
+      accident. Runtime participant truth stays provider/session-backed.
 - [x] Land the first typed current-session read-authority cutover for the live
       bridge-backed loop: one `current_session` block in `ReviewState` /
       `review_state.json` is now the canonical read-side current-status
@@ -1244,7 +1252,10 @@ Acceptance:
       `bridge.md` should remain an optional repo-pack-owned frontend over the
       same typed `review_state` / queue / registry backend so another repo can
       enable the bridge surface without inheriting VoiceTerm-only runtime
-      assumptions or treating markdown as canonical state.
+      assumptions or treating markdown as canonical state. The live registry is
+      provider/session-backed; the markdown lane table is planned topology only
+      and default requested worker fanout remains zero unless explicitly
+      requested.
 - [ ] Remove VoiceTerm-local bridge assumptions from prompts, guards, and
       projections while that migration is in flight: bridge path, review plan
       path, promotion plan path, and status artifact roots must resolve
@@ -1503,7 +1514,12 @@ Expected Phase-2 tests:
       state, and lane ownership must derive from `TandemProfile` / the agent
       registry instead of `pending_codex`, `pending_claude`, `claude_ack`,
       and `codex_poll_state` remaining first-class runtime fields forever.
-      Keep compatibility projections while current consumers migrate.
+      Keep compatibility projections while current consumers migrate. The
+      static markdown lane table must stay a planned-topology surface only:
+      launch prompts, status projections, `latest.md`, and any exported
+      `registry/agents.json` view must not publish `AGENT-*` lane rows as
+      proof of live worker sessions before native `CollaborationSession` /
+      delegated-worker receipts exist.
 - [ ] Close the registry-driven multi-agent backlog cluster from `issues.md`
       in this phase: `ISS-041` stays owned here until reducer/projection
       logic stops hardcoding named agent ids and derives routing/state from
@@ -1636,17 +1652,22 @@ runbook for the current markdown-swarm cycle.
 Coordination contract:
 
 1. `dev/active/review_channel.md` is the canonical static swarm plan: lane
-   ownership, worktree/branch map, signoff template, and governance policy live
-   here.
+   ownership, planned lane topology, worktree/branch map, signoff template,
+   and governance policy live here.
 2. `bridge.md` is the only live cross-team coordination surface during the
-   active 8+8 run. Codex lanes post findings, poll summaries, and next actions
-   there; Claude lanes read it, acknowledge it, and code against it.
+   active markdown-bridge run. Codex and Claude conductor sessions post
+   findings, poll summaries, and next actions there; the AGENT lane labels in
+   this section are planned topology only, not proof of live worker sessions.
 3. `dev/active/MASTER_PLAN.md` remains the execution tracker for lane status.
-4. `AGENT-1..AGENT-8` are the Codex reviewer/auditor swarm.
-5. `AGENT-9..AGENT-16` are the Claude coding/fix swarm.
-6. When no fresh diff is ready for review, the Codex integration lane polls
-   every 5 minutes, reports status in chat, and resumes review as soon as
-   Claude work advances.
+4. `ReviewState.registry` and `registry/agents.json` are the live runtime
+   participant registry and must stay provider/session-backed.
+5. `AGENT-1..AGENT-8` and `AGENT-9..AGENT-16` are planned topology lanes in
+   this compatibility mode, not proof that 16 live worker sessions exist.
+6. Default requested worker fanout is zero unless the launch explicitly asks
+   for more.
+7. When no fresh diff is ready for review, the Codex integration lane polls
+    every 5 minutes, reports status in chat, and resumes review as soon as
+    Claude work advances.
 
 Bootstrap workflow for the current live cycle:
 
@@ -1762,6 +1783,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-04-01T02:00:00Z` | `CODEX` | Re-ran the architecture pass against the live launcher/status stack after the operator caught the prompt still advertising a hardcoded 8+8 swarm. The finding is now explicit in canonical plan state: the typed `ReviewState` direction was correct, but bridge-backed `registry/agents.json`, session metadata, and launch prompts were still leaking static markdown lane tables as if they were live runtime truth. Closed the bounded truth split by making runtime participant registry provider/session-backed again, moving the lane table into a typed planned-topology compatibility surface, and defaulting requested worker fanout to zero unless a launch explicitly asks for more. The bridge path is still compatibility mode, not a finished native worker/session architecture. | `partial-pass` | Keep MP-355 honest about the remaining gap: finish migrating queue/current-session/attention/promotion onto registry-driven state, then land native `CollaborationSession` / delegated-worker receipts before claiming the backend itself is architecture-complete or truly N-agent. |
 | `2026-03-30T01:55:00Z` | `CODEX` | Closed the next bounded stale-reader gap in the live markdown-bridge loop without widening bridge authority. Bridge-backed `status` / `bridge-poll` now emit a typed `implementer_state_hash`, active-dual-agent `reviewer-checkpoint` writes require that hash alongside the expected instruction revision, and the same compare-and-swap guard now threads through repo-owned promotion/scope rewrites when they act on a previously validated bridge snapshot. Focused bridge/reviewer regressions are green, and the maintainer surfaces now teach the same two-part stale-write contract they enforce. | `partial-pass` | Keep the broader writer/mutation cutover bounded: while `bridge.md` stays live, use typed hashes/revisions as the temporary fail-closed seam, then continue moving live mutation/current-session authority into typed contracts instead of deeper markdown coupling. |
 | `2026-03-29T03:55:00Z` | `CODEX` | Closed the bounded MP-355 consumer splice for typed push cadence without redefining MP-377 ownership. `review-channel --action status` now consumes the same typed `PushDecisionState` and publication-backlog contract that startup uses, and the bridge-backed `review_state.json`, `full.json`, `compact.json`, and `latest.md` surfaces carry that cadence truth forward instead of leaving operators to infer push timing from the thinner `push_enforcement.recommended_action` string. | `partial-pass` | Keep the next review-channel slice bounded to consumer purity and writer/mutation authority: do not fold bridge recovery or broader continuation composition into a second review-owned push state machine. |
 | `2026-03-29T02:35:00Z` | `CODEX` | Closed the bounded bridge-projection purity slice without widening writer authority. Bridge-backed status projection now emits a typed `bridge_projection` payload, `review-channel --action render-bridge` consumes only that typed payload instead of reparsing `bridge.md`, and fixed-section render now rejects embedded markdown headings so duplicate `## Context Recovery Packet` blocks cannot leak back into `Current Instruction For Claude` or other flat bridge sections. Focused bridge/render/check regressions are green, including idempotent rerender proof. | `partial-pass` | Keep the broader migration open: do not claim bridge retirement or full typed writer cutover yet. Next same-lane work remains portable bridge-path authority, typed writer/mutation closure, and the checkpoint-gate/current-session consumer follow-ups already tracked below. |

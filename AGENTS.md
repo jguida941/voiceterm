@@ -28,6 +28,11 @@ Portable-platform rule:
   names, fixed `dev/active/*` / `dev/reports/*` paths, `bridge.md`, or
   `VOICETERM_PATH_CONFIG` fallbacks as universal truth; resolve authority
   through `ProjectGovernance` / repo-pack state or fail closed.
+- Review-channel launch surfaces must treat the markdown lane table as planned
+  topology only. The runtime participant registry is provider/session-backed
+  typed state, and the default requested worker fanout is zero unless a launch
+  explicitly requests more. `bridge.md` stays a compatibility projection until
+  native `CollaborationSession` / worker-topology authority lands.
 
 Documentation-boundary rule:
 - Keep VoiceTerm product docs (`README.md`, `QUICK_START.md`, `guides/*`)

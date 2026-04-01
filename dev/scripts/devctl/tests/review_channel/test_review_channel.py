@@ -2758,7 +2758,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             liveness,
             contract_errors=["Poll Status is missing reviewer-owned content."],
         )
-        self.assertEqual(attention["status"], "review_loop_relaunch_required")
+        self.assertEqual(attention["status"], "bridge_contract_error")
 
     def test_attention_treats_pending_implementer_reset_as_waiting_on_peer(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
@@ -2780,6 +2780,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "current_instruction_revision": "abcd1234ef56",
             "last_reviewed_scope_present": True,
             "poll_status_automation_only": True,
+            "codex_conductor_active": True,
             "claude_conductor_active": True,
             "session_state_hints": {
                 "claude": {"state": "waiting_for_user_input"}
@@ -4921,8 +4922,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(payload["terminal_profile_applied"], "Pro")
             self.assertEqual(payload["bridge_liveness"]["overall_state"], "fresh")
             self.assertTrue(payload["bridge_liveness"]["claude_ack_present"])
-            self.assertEqual(payload["codex_lane_count"], 8)
-            self.assertEqual(payload["claude_lane_count"], 8)
+            self.assertEqual(payload["codex_planned_lane_count"], 8)
+            self.assertEqual(payload["claude_planned_lane_count"], 8)
             self.assertTrue(payload["bridge_liveness"]["claude_status_present"])
             self.assertTrue(payload["bridge_liveness"]["open_findings_present"])
             self.assertEqual(len(payload["sessions"]), 2)
@@ -5104,7 +5105,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(metadata["provider"], "codex")
             self.assertEqual(metadata["capture_mode"], "terminal-script")
             self.assertEqual(metadata["supervision_mode"], "restart-on-clean-exit")
-            self.assertEqual(metadata["worker_budget"], 8)
+            self.assertEqual(metadata["requested_worker_budget"], 8)
 
     def test_run_status_writes_projection_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -5325,7 +5326,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 )
             )
             rs_compat = review_state.get("_compat", {})
-            self.assertEqual(len(rs_compat.get("agents", [])), 4)
+            self.assertEqual(len(rs_compat.get("agents", [])), 3)
             self.assertEqual(
                 review_state["current_session"]["current_instruction"],
                 "- stop at a safe boundary and relaunch before compaction",
@@ -5361,8 +5362,15 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 compact["queue"]["current_focus"],
                 "- stop at a safe boundary and relaunch before compaction",
             )
-            self.assertEqual(len(agent_registry["agents"]), 16)
-            self.assertEqual(agent_registry["agents"][0]["agent_id"], "AGENT-1")
+            planned_topology = rs_compat.get("planned_topology", {})
+            self.assertEqual(len(agent_registry["agents"]), 3)
+            self.assertEqual(agent_registry["agents"][0]["agent_id"], "codex")
+            self.assertEqual(planned_topology.get("contract_id"), "ReviewPlannedTopology")
+            self.assertEqual(len(planned_topology.get("providers", [])), 2)
+            self.assertEqual(
+                planned_topology["providers"][0]["planned_lane_count"],
+                8,
+            )
             self.assertEqual(actions["actions"], [])
             self.assertIn(
                 "## Current Session",
@@ -5370,6 +5378,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertIn(
                 "## Current Instruction",
+                latest_markdown_path.read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "## Planned Topology",
                 latest_markdown_path.read_text(encoding="utf-8"),
             )
             self.assertIn(
@@ -10187,8 +10199,16 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
                 projections_root="/tmp/repo/dev/reports/review_channel/latest",
             ),
             sessions=[
-                {"provider": "codex", "lane_count": 8},
-                {"provider": "claude", "lane_count": 8},
+                {
+                    "provider": "codex",
+                    "planned_lane_count": 8,
+                    "requested_worker_budget": 0,
+                },
+                {
+                    "provider": "claude",
+                    "planned_lane_count": 8,
+                    "requested_worker_budget": 0,
+                },
             ],
         )
 

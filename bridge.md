@@ -11,9 +11,8 @@ treat these rules as active workflow instructions immediately.
    current loop. Do not create parallel control files for the same work.
 2. Codex is the reviewer. Claude is the coder.
 3. At conversation start, both agents must bootstrap repo authority before
-   acting. The approved startup path is:
-   `python3 dev/scripts/devctl.py startup-context --format summary` first. If it
-   exits non-zero, checkpoint or repair the repo state before coding or
+   acting. Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first. If either exits
+   non-zero, checkpoint or repair the repo state before coding or
    relaunching conductor work. User summaries, stale chat continuity, or
    remembered prior state are not substitutes for this Step 0 receipt. Then run
    `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
@@ -24,6 +23,7 @@ treat these rules as active workflow instructions immediately.
 5. Start from the live sections in this file:
    - Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.
    - Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.
+   - `Claude Ack` must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.
    - Claude must read `Last Codex poll` / `Poll Status` first on each repoll.
 6. Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while
    code is moving.
@@ -32,7 +32,11 @@ treat these rules as active workflow instructions immediately.
    `dev/audits/**` must stay out of that reviewed-hash truth too.
 8. Each meaningful Codex review must include an operator-visible chat update.
 9. When `Reviewer mode` is `active_dual_agent`, this file is the live
-   reviewer/coder authority.
+   reviewer/coder authority. Codex stays reviewer-only by default:
+   missing worker worktrees, absent fanout, or a promising fix are not
+   permission to start local implementation. Use the repo-owned
+   review/promote/wait paths unless the workflow explicitly switches to
+   takeover (`reviewer_mode=single_agent` or `python3 dev/scripts/devctl.py startup-context --role reviewer --reviewer-override --format summary`).
 10. When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or
     `offline`, Claude must not assume a live Codex review loop.
 11. Only the Codex conductor may update the Codex-owned sections in this file.
@@ -58,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-03-30T01:58:57Z`
-- Last Codex poll (Local America/New_York): `2026-03-29 21:58:57 EDT`
+- Last Codex poll: `2026-04-01T02:20:43Z`
+- Last Codex poll (Local America/New_York): `2026-03-31 22:20:43 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `c6390e8f3afdb710087b8a45b7f71db32864f994110396debfe402d7dee350e6`
-- Current instruction revision: `095ebbd65e07`
+- Last non-audit worktree hash: `81785dc59d3d63a5f74366e3fcb267b7e1efce223885ed70b0dfd16d25e621d9`
+- Current instruction revision: `6bdd61dcc47a`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -89,22 +93,21 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: c6390e8f3afd; reviewed-tree: c6390e8f3afd; instruction-rev: 095ebbd65e07).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: bootstrap-review-follow-up; observed-tree: 81785dc59d3d; reviewed-tree: 81785dc59d3d; instruction-rev: 6bdd61dcc47a).
 
 ## Current Verdict
 
-- accepted
-- The live review-channel launch-contract slice is validated on the current tree.
+- review follow-up in progress on the current tree
+- The earlier accepted launch-proof verdict applied to an older reviewed hash and is being revalidated.
 
 ## Open Findings
 
-- all clear for the launch-proof slice
+- Current non-audit worktree changed after the last accepted checkpoint across `launch_truth.py`, `status_projection_*`, `peer_liveness.py`, `core.py`, and `test_review_channel.py`.
+- Claude should hold steady until Codex finishes the refreshed review pass.
 
 ## Claude Status
 
-- Conductor bootstrapped on `feature/governance-quality-sweep` at f6f626a; startup-context reports `push_allowed` with 2 local commits ahead of upstream.
-- Bridge instruction is "hold steady" — entering repo-owned implementer-wait loop. No pending Claude-targeted review packets.
-- No code changes in progress; worktree clean per startup receipt.
+- Conductor live on `feature/governance-quality-sweep`; startup-context clean, 7 commits ahead of upstream. Acknowledged refreshed review pass on changed tree (`launch_truth.py`, `status_projection_*`, `peer_liveness.py`, `core.py`, `test_review_channel.py`). Holding in repo-owned wait loop per instruction.
 
 ## Claude Questions
 
@@ -112,22 +115,22 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- acknowledged; instruction-rev: `095ebbd65e07`
+- acknowledged; instruction-rev: `6bdd61dcc47a`
 
 ## Current Instruction For Claude
 
-- Hold steady while Codex launches the repo-owned review-channel proof on the current tree.
+- Hold steady while Codex reviews the current review-channel tree.
 - Stay in the repo-owned wait loop until a fresh reviewer instruction lands; do not widen scope, resume coding, or prepare a push.
 
 ## Last Reviewed Scope
 
 - AGENTS.md
+- dev/active/INDEX.md
 - dev/active/MASTER_PLAN.md
+- dev/active/review_channel.md
+- bridge.md
 - dev/guides/DEVELOPMENT.md
-- dev/history/ENGINEERING_EVOLUTION.md
 - dev/scripts/README.md
-- dev/scripts/devctl/process_sweep/config.py
-- dev/scripts/devctl/commands/review_channel/
 - dev/scripts/devctl/review_channel/
-- dev/scripts/devctl/tests/review_channel/
+- dev/scripts/devctl/tests/review_channel/test_review_channel.py
 

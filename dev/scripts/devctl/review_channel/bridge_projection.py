@@ -33,8 +33,8 @@ _PROTOCOL_BODY = """1. Claude should poll this file periodically while coding.
    evidence or one concrete blocker/question; low-information polling notes are
    not valid bridge authority."""
 
-_SWARM_MODE_BODY = """- Current scale-out mode is `8+8`.
-- `dev/active/review_channel.md` contains the static swarm plan and lane map.
+_SWARM_MODE_BODY = """- `dev/active/review_channel.md` contains the static planned lane table for this compatibility mode.
+- Those planned lanes are capacity/scope hints, not proof that repo-owned worker sessions already exist.
 - This file is the only live cross-team coordination surface during execution.
 - Keep `bridge.md` current-state only; do not turn it into a transcript dump.
 - Keep the active markdown bridge disciplined until the structured `review-channel` / overlay-native path replaces it."""

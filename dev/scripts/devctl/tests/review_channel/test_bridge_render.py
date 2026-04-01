@@ -107,7 +107,7 @@ def _bridge_text() -> str:
             "",
             "## Swarm Mode",
             "",
-            "- 8+8 lanes active.",
+            "- Planned lanes are capacity hints, not proof of live worker sessions.",
             "",
             "## Poll Status",
             "",

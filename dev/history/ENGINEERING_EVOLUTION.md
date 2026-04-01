@@ -111,6 +111,20 @@ This still does not make the launcher ignore repo policy. Fresh `launch` /
 checkpoint-clean worktree, so a dirty slice still has to checkpoint before the
 next live relaunch can start.
 
+### 2026-03-31 - Review-channel docs now separate planned topology from live participant truth
+
+The review-channel docs and maintainer guidance needed one more policy-level
+clarification after the launcher/runtime cutover: the markdown lane table is
+planned topology only, the live participant registry must stay
+provider/session-backed typed state, requested worker fanout defaults to zero
+unless a launch explicitly asks for more, and `bridge.md` remains a
+compatibility projection until native `CollaborationSession` worker topology
+lands.
+
+Recorded that contract in the active plan, maintainer guide, AGENTS policy,
+and devctl docs reference so the bootstrap surfaces stop implying that the
+markdown lane table itself is the runtime registry.
+
 ### 2026-03-30 - Reviewer checkpoints now fail closed on stale Claude-owned bridge state
 
 The next same-lane follow-up addressed a narrower but still important gap in

@@ -145,8 +145,18 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
             "failing closed. Must be greater than zero for rollover."
         ),
     ),
-    _arg("--codex-workers", type=int, default=8, help="Requested Codex reviewer-worker budget"),
-    _arg("--claude-workers", type=int, default=8, help="Requested Claude coding-worker budget"),
+    _arg(
+        "--codex-workers",
+        type=int,
+        default=0,
+        help="Requested optional Codex worker-fanout budget (0 keeps the launcher conductor-only)",
+    ),
+    _arg(
+        "--claude-workers",
+        type=int,
+        default=0,
+        help="Requested optional Claude worker-fanout budget (0 keeps the launcher conductor-only)",
+    ),
     _arg(
         "--approval-mode",
         choices=list(APPROVAL_MODE_CHOICES),

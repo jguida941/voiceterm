@@ -7,7 +7,6 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .attach_auth_render import append_attach_auth_policy_markdown
-from .core import LaneAssignment
 from .context_refs import (
     context_pack_ref_summary,
     normalize_context_pack_refs,
@@ -40,48 +39,6 @@ def projection_paths_to_dict(
     if paths is None:
         return None
     return asdict(paths)
-
-
-def build_agent_registry_from_lanes(
-    lanes: list[LaneAssignment],
-    *,
-    timestamp: str,
-    provider_state: dict[str, dict[str, object]] | None = None,
-) -> dict[str, object]:
-    """Build the typed lane registry shared by review projections."""
-    provider_state = provider_state or {}
-    registry_agents: list[dict[str, object]] = []
-    for lane in lanes:
-        state = provider_state.get(lane.provider, {})
-        registry_agents.append(
-            {
-                "agent_id": lane.agent_id,
-                "provider": lane.provider,
-                "display_name": lane.agent_id,
-                "current_job": lane.lane,
-                "job_state": state.get("job_state", "assigned"),
-                "waiting_on": state.get("waiting_on"),
-                "last_packet_seen": state.get("last_packet_seen"),
-                "last_packet_applied": state.get("last_packet_applied"),
-                "script_profile": state.get(
-                    "script_profile",
-                    "markdown-bridge-conductor",
-                ),
-                "lane": lane.provider,
-                "lane_title": lane.lane,
-                "mp_scope": lane.mp_scope,
-                "worktree": lane.worktree,
-                "branch": lane.branch,
-                "updated_at": timestamp,
-            }
-        )
-    return {
-        "schema_version": 1,
-        "command": "review-channel",
-        "timestamp": timestamp,
-        "agents": registry_agents,
-    }
-
 
 def write_projection_bundle(
     *,
@@ -222,6 +179,7 @@ def _render_latest_markdown(
     runtime = md_compat.get("runtime", {})
     service_identity = md_compat.get("service_identity", {})
     attach_auth_policy = md_compat.get("attach_auth_policy", {})
+    planned_topology = md_compat.get("planned_topology", {})
     push_enforcement = md_compat.get("push_enforcement", {})
     push_decision = md_compat.get("push_decision", {})
     agents = agent_registry.get("agents", [])
@@ -274,6 +232,7 @@ def _render_latest_markdown(
             )
             if derived_source.get("phase_heading"):
                 lines.append(f"- phase: {derived_source['phase_heading']}")
+    _append_planned_topology_markdown(lines, planned_topology)
     lines.append("")
     lines.append("## Agents")
     if isinstance(agents, list):
@@ -282,7 +241,7 @@ def _render_latest_markdown(
                 continue
             lines.append(
                 f"- {agent.get('agent_id')}: {agent.get('job_state')} | "
-                f"{agent.get('lane_title')} | {agent.get('branch')}"
+                f"{agent.get('lane_title')} | {agent.get('branch') or 'n/a'}"
             )
     if isinstance(packets, list) and packets:
         lines.append("")
@@ -325,4 +284,28 @@ def _append_runtime_markdown(lines: list[str], runtime: object) -> None:
             f"snapshots={int(daemon_state.get('snapshots_emitted', 0) or 0)} "
             f"last_heartbeat_utc={daemon_state.get('last_heartbeat_utc') or 'n/a'} "
             f"stop_reason={daemon_state.get('stop_reason') or 'n/a'}"
+        )
+
+
+def _append_planned_topology_markdown(
+    lines: list[str],
+    planned_topology: object,
+) -> None:
+    if not isinstance(planned_topology, dict):
+        return
+    providers = planned_topology.get("providers")
+    if not isinstance(providers, (list, tuple)) or not providers:
+        return
+    lines.append("")
+    lines.append("## Planned Topology")
+    for provider in providers:
+        if not isinstance(provider, dict):
+            continue
+        requested_budget = provider.get("requested_worker_budget")
+        budget_text = "n/a" if requested_budget is None else str(requested_budget)
+        lines.append(
+            f"- {provider.get('provider')}: "
+            f"role={provider.get('role') or 'unknown'} | "
+            f"planned_lane_count={provider.get('planned_lane_count') or 0} | "
+            f"requested_worker_budget={budget_text}"
         )
