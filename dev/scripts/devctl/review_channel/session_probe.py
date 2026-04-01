@@ -24,6 +24,29 @@ class ActiveSessionConflict:
     reason: str
 
 
+@dataclass(frozen=True)
+class ConductorSessionRecord:
+    """Normalized repo-owned conductor-session metadata."""
+
+    provider: str
+    provider_name: str
+    session_name: str
+    capture_mode: str
+    prepared_at: str
+    repo_root: str
+    script_path: str
+    log_path: str
+    launch_command: str
+    supervision_mode: str
+    approval_mode: str
+    planned_lane_count: int
+    requested_worker_budget: int | None
+    planned_lanes: tuple[dict[str, str], ...]
+    metadata_path: str
+    live: bool
+    age_seconds: int | None
+
+
 def detect_active_session_conflicts(
     *,
     session_output_root: Path,
@@ -100,11 +123,69 @@ def active_conductor_providers(
     freshness_seconds: int = ACTIVE_SESSION_FRESHNESS_SECONDS,
 ) -> tuple[str, ...]:
     """Return provider ids with live-looking repo-owned conductor sessions."""
-    conflicts = detect_active_session_conflicts(
+    sessions = load_conductor_sessions(
         session_output_root=session_output_root,
         freshness_seconds=freshness_seconds,
     )
-    return tuple(sorted({conflict.provider for conflict in conflicts}))
+    return tuple(sorted({session.provider for session in sessions if session.live}))
+
+
+def load_conductor_sessions(
+    *,
+    session_output_root: Path,
+    freshness_seconds: int = ACTIVE_SESSION_FRESHNESS_SECONDS,
+) -> tuple[ConductorSessionRecord, ...]:
+    """Return normalized conductor-session metadata with live/runtime truth."""
+    session_dir = session_output_root / "sessions"
+    if not session_dir.exists():
+        return ()
+
+    records: list[ConductorSessionRecord] = []
+    for metadata_path in sorted(session_dir.glob("*-conductor.json")):
+        metadata = _load_session_metadata(metadata_path)
+        if metadata is None:
+            continue
+        provider = _session_metadata_text(metadata, "provider") or metadata_path.stem.removesuffix(
+            "-conductor"
+        )
+        provider = provider.strip().lower()
+        if not provider:
+            continue
+        planned_lanes = tuple(_planned_lane_rows(metadata.get("planned_lanes")))
+        script_path_text = _session_metadata_text(metadata, "script_path")
+        log_path_text = _session_metadata_text(metadata, "log_path")
+        age_seconds = _log_age_seconds(log_path_text)
+        records.append(
+            ConductorSessionRecord(
+                provider=provider,
+                provider_name=_session_metadata_text(metadata, "provider_name")
+                or provider.title(),
+                session_name=_session_metadata_text(metadata, "session_name")
+                or f"{provider}-conductor",
+                capture_mode=_session_metadata_text(metadata, "capture_mode") or "",
+                prepared_at=_session_metadata_text(metadata, "prepared_at") or "",
+                repo_root=_session_metadata_text(metadata, "repo_root") or "",
+                script_path=script_path_text or "",
+                log_path=log_path_text or "",
+                launch_command=_session_metadata_text(metadata, "launch_command") or "",
+                supervision_mode=_session_metadata_text(metadata, "supervision_mode")
+                or "",
+                approval_mode=_session_metadata_text(metadata, "approval_mode") or "",
+                planned_lane_count=_session_metadata_int(metadata, "planned_lane_count"),
+                requested_worker_budget=_session_metadata_optional_int(
+                    metadata, "requested_worker_budget"
+                ),
+                planned_lanes=planned_lanes,
+                metadata_path=str(metadata_path),
+                live=_metadata_is_live(
+                    script_path_text=script_path_text,
+                    age_seconds=age_seconds,
+                    freshness_seconds=freshness_seconds,
+                ),
+                age_seconds=age_seconds,
+            )
+        )
+    return tuple(records)
 
 
 def _load_session_metadata(path: Path) -> dict[str, object] | None:
@@ -125,6 +206,50 @@ def _session_metadata_text(payload: dict[str, object], key: str) -> str | None:
     return text or None
 
 
+def _session_metadata_int(payload: dict[str, object], key: str) -> int:
+    try:
+        return int(payload.get(key) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _session_metadata_optional_int(
+    payload: dict[str, object],
+    key: str,
+) -> int | None:
+    value = payload.get(key)
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _planned_lane_rows(value: object) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    rows: list[dict[str, str]] = []
+    for row in value:
+        if not isinstance(row, dict):
+            continue
+        rows.append(
+            {
+                key: _normalize_session_text(item)
+                for key, item in row.items()
+                if _normalize_session_text(item)
+            }
+        )
+    return rows
+
+
+def _normalize_session_text(value: object) -> str:
+    text = str(value or "").strip()
+    if text.startswith("`") and text.endswith("`") and len(text) >= 2:
+        text = text[1:-1].strip()
+    return text
+
+
 def _probe_script_running(script_path_text: str | None) -> bool | None:
     if not script_path_text or shutil.which("pgrep") is None:
         return None
@@ -143,6 +268,20 @@ def _probe_script_running(script_path_text: str | None) -> bool | None:
     if result.returncode == 1:
         return False
     return None
+
+
+def _metadata_is_live(
+    *,
+    script_path_text: str | None,
+    age_seconds: int | None,
+    freshness_seconds: int,
+) -> bool:
+    process_running = _probe_script_running(script_path_text)
+    if process_running is True:
+        return True
+    if process_running is False:
+        return False
+    return age_seconds is not None and age_seconds <= freshness_seconds
 
 
 def _log_age_seconds(log_path_text: str | None) -> int | None:

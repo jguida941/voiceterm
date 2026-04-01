@@ -360,6 +360,7 @@ def test_emitted_artifact_review_state_matches_contract() -> None:
         write_projection_bundle,
     )
     from dev.scripts.devctl.runtime.review_state_models import (
+        CollaborationSessionState,
         ReviewBridgeState,
         ReviewCurrentSessionState,
     )
@@ -405,6 +406,26 @@ def test_emitted_artifact_review_state_matches_contract() -> None:
     assert not extra_current_session, (
         "Artifact review_state.json current_session has extra: "
         f"{extra_current_session}"
+    )
+
+    collaboration_fields = {f.name for f in dc_fields(CollaborationSessionState)}
+    artifact_collaboration = on_disk.get("collaboration", {})
+    assert isinstance(
+        artifact_collaboration, dict
+    ), "collaboration must be a dict on disk"
+    missing_collaboration = sorted(
+        collaboration_fields - set(artifact_collaboration.keys())
+    )
+    extra_collaboration = sorted(
+        set(artifact_collaboration.keys()) - collaboration_fields
+    )
+    assert not missing_collaboration, (
+        "Artifact review_state.json collaboration missing: "
+        f"{missing_collaboration}"
+    )
+    assert not extra_collaboration, (
+        "Artifact review_state.json collaboration has extra: "
+        f"{extra_collaboration}"
     )
 
     # Validate bridge contract fields on the artifact

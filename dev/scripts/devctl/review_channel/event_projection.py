@@ -32,6 +32,7 @@ from .event_projection_context import (
     build_event_context_packet,
     build_instruction_source,
 )
+from .collaboration_session import build_collaboration_session
 from .peer_liveness import (
     IMPLEMENTER_STALL_MARKERS,
     REVIEWER_WAIT_STATE_MARKERS,
@@ -100,8 +101,18 @@ def enrich_event_review_state(
         review_state=review_state,
         bridge_liveness=bridge_liveness,
     )
-    review_state["current_session"] = current_session_payload(current_session)
     attention = derive_bridge_attention(bridge_liveness)
+    collaboration = build_collaboration_session(
+        timestamp=str(review_state.get("timestamp") or ""),
+        plan_id=str(_mapping(review_state.get("review")).get("plan_id") or ""),
+        session_id=str(_mapping(review_state.get("review")).get("session_id") or ""),
+        bridge_liveness=bridge_liveness,
+        current_session=current_session,
+        attention=attention,
+        session_output_root=projections_root,
+    )
+    review_state["current_session"] = current_session_payload(current_session)
+    review_state["collaboration"] = asdict(collaboration)
     review_state["bridge"] = _build_event_bridge_state(
         review_state=review_state,
         bridge_liveness=bridge_liveness,
@@ -184,8 +195,19 @@ def _build_event_bridge_state(
     bridge_liveness: Mapping[str, object],
 ) -> dict[str, object]:
     current_session = current_session_mapping(review_state)
+    collaboration = _mapping(review_state.get("collaboration"))
     reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "tools_only")
     effective_mode = str(bridge_liveness.get("effective_reviewer_mode") or reviewer_mode)
+    reviewer_provider = _collaboration_provider(
+        collaboration,
+        role_id="review_agent",
+        default="codex",
+    )
+    implementer_provider = _collaboration_provider(
+        collaboration,
+        role_id="coding_agent",
+        default="claude",
+    )
     bridge_state: dict[str, object] = {}
     bridge_state["overall_state"] = str(bridge_liveness.get("overall_state") or "unknown")
     bridge_state["codex_poll_state"] = str(bridge_liveness.get("codex_poll_state") or "missing")
@@ -241,17 +263,36 @@ def _build_event_bridge_state(
     )
     bridge_state["reviewer_capability"] = asdict(
         build_conductor_capability_state(
-            provider="codex",
+            provider=reviewer_provider,
             reviewer_mode=effective_mode,
         )
     )
     bridge_state["implementer_capability"] = asdict(
         build_conductor_capability_state(
-            provider="claude",
+            provider=implementer_provider,
             reviewer_mode=effective_mode,
         )
     )
     return bridge_state
+
+
+def _collaboration_provider(
+    collaboration: Mapping[str, object],
+    *,
+    role_id: str,
+    default: str,
+) -> str:
+    assignments = collaboration.get("role_assignments")
+    if not isinstance(assignments, list):
+        return default
+    for row in assignments:
+        assignment = _mapping(row)
+        if _string(assignment.get("role_id")) != role_id:
+            continue
+        provider = _string(assignment.get("provider"))
+        if provider:
+            return provider
+    return default
 
 
 def _event_reviewer_mode(runtime: Mapping[str, object]) -> str:

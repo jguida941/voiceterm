@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-03-31 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-01 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -4066,6 +4066,17 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-04-01 runtime-contract follow-up landed in the same owner chain:
+  `ReviewState` now carries a typed `CollaborationSession` block instead of
+  leaving live collaboration truth split between bridge/provider hints and
+  synthetic registry rows. The review backend now records live conductor
+  participants from repo-owned session metadata, keeps delegated planned-lane
+  receipts separate from those live participants, and projects
+  `registry/agents.json` from that runtime contract instead of rebuilding
+  provider state ad hoc in each emitter. This closes the first native session
+  contract seam the architecture plan called for, but launch and packet
+  routing still carry fixed provider ids and the typed worker-topology guard
+  is still outstanding.
 - Current blocking separation tranche:
 
 | Outcome | Owner doc | Exit condition |
@@ -5099,6 +5110,18 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-01: Landed the next shared runtime contract in the active
+  `MP-377` extraction lane. `dev/scripts/devctl/runtime/ReviewState` now
+  includes a typed `CollaborationSession` contract, bridge-backed and
+  event-backed review-channel emitters both materialize it, and the runtime
+  agent registry now projects from that collaboration object instead of
+  synthesizing provider rows separately in status and reducer code. The new
+  contract is sourced from repo-owned conductor session metadata plus current
+  typed review state, which makes the backend honest about the current gap:
+  live participants are real, delegated lane receipts are planned-only, and
+  the launcher still is not a native worker/session runtime yet. The next
+  bounded follow-up remains packet/launch hardcode removal plus the explicit
+  planned-topology/runtime-truth guard.
 - 2026-03-31: Closed the next startup-repair/runtime parity gap in the active
   `MP-377` self-hosting lane. The refactored review-channel bridge path had
   picked up a required `rollover_dir`, but `startup-context --repair` still

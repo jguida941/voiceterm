@@ -105,6 +105,7 @@ def _build_status_review_state(
             repo_root=context.repo_root,
             bridge_path=context.bridge_path,
             review_channel_path=context.review_channel_path,
+            output_root=context.output_root,
             bridge_text=bridge_text,
             project_id=project_id_for_repo(context.repo_root),
             timestamp=timestamp,

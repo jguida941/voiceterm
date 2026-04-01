@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from .control_state import _int, _mapping, _string, _string_rows
+from .review_state_collaboration_parse import collaboration_state_from_payload
 from .review_state_parse_support import (
     _bool,
     bridge_ack_state,
@@ -54,6 +55,70 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
     queue = _mapping(review_payload.get("queue"))
     bridge = _mapping(review_payload.get("bridge"))
     current_session = _mapping(review_payload.get("current_session"))
+    current_session_state = _current_session_state_from_payload(
+        current_session=current_session,
+        bridge=bridge,
+    )
+    bridge_state = ReviewBridgeState(
+        overall_state=_string(bridge_liveness.get("overall_state")) or "unknown",
+        codex_poll_state=_string(bridge_liveness.get("codex_poll_state"))
+        or "unknown",
+        reviewer_freshness=_string(bridge_liveness.get("reviewer_freshness"))
+        or "unknown",
+        reviewer_mode=_string(bridge.get("reviewer_mode")) or "single_agent",
+        last_codex_poll_utc=_string(bridge.get("last_codex_poll_utc")),
+        last_codex_poll_age_seconds=_int(
+            bridge_liveness.get("last_codex_poll_age_seconds")
+        ),
+        last_worktree_hash=_string(bridge.get("last_worktree_hash")),
+        current_instruction=_string(bridge.get("current_instruction")),
+        open_findings=_string(bridge.get("open_findings")),
+        claude_status=_string(bridge.get("claude_status")),
+        claude_ack=_string(bridge.get("claude_ack")),
+        claude_ack_current=_bool(bridge.get("claude_ack_current")),
+        current_instruction_revision=_string(
+            bridge.get("current_instruction_revision")
+        ),
+        claude_ack_revision=_string(bridge.get("claude_ack_revision")),
+        last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
+        launch_truth=_string(bridge.get("launch_truth")),
+        effective_reviewer_mode=_string(bridge.get("effective_reviewer_mode")),
+        implementer_state_hash=_string(bridge.get("implementer_state_hash")),
+        reviewed_hash_current=(
+            _bool(bridge.get("reviewed_hash_current"))
+            if "reviewed_hash_current" in bridge
+            else None
+        ),
+        review_needed=(
+            _bool(bridge.get("review_needed"))
+            if "review_needed" in bridge
+            else None
+        ),
+        review_accepted=_bool(bridge.get("review_accepted")),
+        implementer_completion_stall=bool(bridge.get("implementer_completion_stall")),
+        publisher_running=bool(bridge.get("publisher_running")),
+        codex_conductor_active=_bool(bridge.get("codex_conductor_active")),
+        claude_conductor_active=_bool(bridge.get("claude_conductor_active")),
+        reviewer_capability=conductor_capability_state_from_payload(
+            bridge.get("reviewer_capability") or bridge_liveness.get("reviewer_capability")
+        ),
+        implementer_capability=conductor_capability_state_from_payload(
+            bridge.get("implementer_capability")
+            or bridge_liveness.get("implementer_capability")
+        ),
+    )
+    registry_state = AgentRegistryState(
+        timestamp=_string(registry_payload.get("timestamp"))
+        or _string(registry_payload.get("updated_at")),
+        agents=_registry_agents_from_value(registry_payload.get("agents")),
+    )
+    collaboration_state = collaboration_state_from_payload(
+        collaboration=_mapping(review_payload.get("collaboration")),
+        review=review,
+        current_session=current_session_state,
+        bridge=bridge_state,
+        registry=registry_state,
+    )
 
     return ReviewState(
         schema_version=_int(payload.get("schema_version"))
@@ -95,65 +160,12 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
                 _mapping(queue.get("derived_next_instruction_source"))
             ),
         ),
-        current_session=_current_session_state_from_payload(
-            current_session=current_session,
-            bridge=bridge,
-        ),
-        bridge=ReviewBridgeState(
-            overall_state=_string(bridge_liveness.get("overall_state")) or "unknown",
-            codex_poll_state=_string(bridge_liveness.get("codex_poll_state"))
-            or "unknown",
-            reviewer_freshness=_string(bridge_liveness.get("reviewer_freshness"))
-            or "unknown",
-            reviewer_mode=_string(bridge.get("reviewer_mode")) or "single_agent",
-            last_codex_poll_utc=_string(bridge.get("last_codex_poll_utc")),
-            last_codex_poll_age_seconds=_int(
-                bridge_liveness.get("last_codex_poll_age_seconds")
-            ),
-            last_worktree_hash=_string(bridge.get("last_worktree_hash")),
-            current_instruction=_string(bridge.get("current_instruction")),
-            open_findings=_string(bridge.get("open_findings")),
-            claude_status=_string(bridge.get("claude_status")),
-            claude_ack=_string(bridge.get("claude_ack")),
-            claude_ack_current=_bool(bridge.get("claude_ack_current")),
-            current_instruction_revision=_string(
-                bridge.get("current_instruction_revision")
-            ),
-            claude_ack_revision=_string(bridge.get("claude_ack_revision")),
-            last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
-            launch_truth=_string(bridge.get("launch_truth")),
-            effective_reviewer_mode=_string(bridge.get("effective_reviewer_mode")),
-            implementer_state_hash=_string(bridge.get("implementer_state_hash")),
-            reviewed_hash_current=(
-                _bool(bridge.get("reviewed_hash_current"))
-                if "reviewed_hash_current" in bridge
-                else None
-            ),
-            review_needed=(
-                _bool(bridge.get("review_needed"))
-                if "review_needed" in bridge
-                else None
-            ),
-            review_accepted=_bool(bridge.get("review_accepted")),
-            implementer_completion_stall=bool(bridge.get("implementer_completion_stall")),
-            publisher_running=bool(bridge.get("publisher_running")),
-            codex_conductor_active=_bool(bridge.get("codex_conductor_active")),
-            claude_conductor_active=_bool(bridge.get("claude_conductor_active")),
-            reviewer_capability=conductor_capability_state_from_payload(
-                bridge.get("reviewer_capability") or bridge_liveness.get("reviewer_capability")
-            ),
-            implementer_capability=conductor_capability_state_from_payload(
-                bridge.get("implementer_capability")
-                or bridge_liveness.get("implementer_capability")
-            ),
-        ),
+        current_session=current_session_state,
+        collaboration=collaboration_state,
+        bridge=bridge_state,
         attention=_attention_state_from_mapping(attention),
         packets=_packet_states_from_value(review_payload.get("packets")),
-        registry=AgentRegistryState(
-            timestamp=_string(registry_payload.get("timestamp"))
-            or _string(registry_payload.get("updated_at")),
-            agents=_registry_agents_from_value(registry_payload.get("agents")),
-        ),
+        registry=registry_state,
         warnings=warnings,
         errors=errors,
     )
@@ -224,7 +236,6 @@ def _attention_state_from_mapping(
         recommended_command=_string(mapping.get("recommended_command")),
     )
 
-
 def _packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         return ()
@@ -278,7 +289,6 @@ def _packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
             )
         )
     return tuple(packets)
-
 
 def _context_pack_refs_from_value(value: object) -> tuple[ContextPackRefState, ...]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):

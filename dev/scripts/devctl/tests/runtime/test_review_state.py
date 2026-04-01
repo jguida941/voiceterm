@@ -24,6 +24,41 @@ class ReviewStateTests(unittest.TestCase):
                         "active_lane": "review",
                     },
                     "queue": {"pending_total": 1},
+                    "collaboration": {
+                        "schema_version": 1,
+                        "contract_id": "CollaborationSession",
+                        "session_id": "session-1",
+                        "plan_id": "MP-355",
+                        "status": "live",
+                        "reviewer_mode": "tools_only",
+                        "operator_mode": "manual",
+                        "lead_agent": "codex",
+                        "review_agent": "codex",
+                        "coding_agent": "claude",
+                        "current_slice": "continue",
+                        "peer_review": {
+                            "current_instruction": "continue",
+                            "current_instruction_revision": "",
+                            "open_findings": "",
+                            "implementer_status": "active",
+                            "implementer_ack": "",
+                            "implementer_ack_state": "unknown",
+                        },
+                        "arbitration": {
+                            "status": "clear",
+                            "summary": "",
+                            "owner": "",
+                        },
+                        "restart": {
+                            "status": "live",
+                            "resumable": True,
+                            "source": "session_metadata",
+                        },
+                        "ready_gates": [],
+                        "role_assignments": [],
+                        "participants": [],
+                        "delegated_work": [],
+                    },
                     "bridge": {
                         "reviewer_mode": "tools_only",
                         "last_codex_poll_utc": "2026-03-12T00:00:00Z",
@@ -79,6 +114,8 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.review.session_id, "session-1")
         self.assertEqual(state.queue.pending_total, 1)
         self.assertEqual(state.current_session.current_instruction, "continue")
+        self.assertEqual(state.collaboration.contract_id, "CollaborationSession")
+        self.assertEqual(state.collaboration.review_agent, "codex")
         self.assertEqual(state.bridge.overall_state, "fresh")
         self.assertEqual(state.bridge.reviewer_mode, "tools_only")
         self.assertEqual(state.attention.status, "healthy")
@@ -385,6 +422,8 @@ class ReviewStateTests(unittest.TestCase):
         self.assertIsNotNone(event_state)
         assert bridge_state is not None
         assert event_state is not None
+        self.assertEqual(bridge_state.collaboration.review_agent, "codex")
+        self.assertEqual(event_state.collaboration.review_agent, "codex")
         self.assertEqual(bridge_state.queue.pending_total, event_state.queue.pending_total)
         self.assertEqual(
             bridge_state.queue.derived_next_instruction,

@@ -84,6 +84,11 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Typed current instruction and implementer ACK state used by current-status readers.",
             ),
             ContractField(
+                "collaboration",
+                "CollaborationSessionState",
+                "Typed collaboration/session contract separating live participants from delegated planned work.",
+            ),
+            ContractField(
                 "bridge",
                 "ReviewBridgeState",
                 "Review bridge lifecycle and freshness state.",

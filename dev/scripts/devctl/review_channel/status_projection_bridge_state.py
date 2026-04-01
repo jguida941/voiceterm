@@ -7,6 +7,7 @@ from collections.abc import Mapping
 
 from ..runtime.review_state_semantics import is_pending_implementer_state
 from ..runtime.review_state_models import (
+    CollaborationSessionState,
     ReviewBridgeState,
     ReviewCurrentSessionState,
 )
@@ -19,6 +20,7 @@ def build_typed_bridge_liveness(
     *,
     bridge_liveness: Mapping[str, object],
     current_session: ReviewCurrentSessionState,
+    collaboration: CollaborationSessionState | None = None,
 ) -> dict[str, object]:
     typed = dict(bridge_liveness)
     reviewer_mode = str(typed.get("reviewer_mode") or "active_dual_agent")
@@ -34,15 +36,25 @@ def build_typed_bridge_liveness(
         typed.get("effective_reviewer_mode") or effective_reviewer_mode(typed)
     )
     effective_mode = str(typed.get("effective_reviewer_mode") or reviewer_mode)
+    reviewer_provider = _collaboration_provider(
+        collaboration,
+        role_id="review_agent",
+        default="codex",
+    )
+    implementer_provider = _collaboration_provider(
+        collaboration,
+        role_id="coding_agent",
+        default="claude",
+    )
     typed["reviewer_capability"] = asdict(
         build_conductor_capability_state(
-            provider="codex",
+            provider=reviewer_provider,
             reviewer_mode=effective_mode,
         )
     )
     typed["implementer_capability"] = asdict(
         build_conductor_capability_state(
-            provider="claude",
+            provider=implementer_provider,
             reviewer_mode=effective_mode,
         )
     )
@@ -60,12 +72,23 @@ def build_review_bridge_state(
     bridge_liveness: Mapping[str, object],
     overall_state: str,
     current_session: ReviewCurrentSessionState,
+    collaboration: CollaborationSessionState | None = None,
 ) -> ReviewBridgeState:
     reviewed_hash_current = bridge_liveness.get("reviewed_hash_current")
     review_needed = bridge_liveness.get("review_needed")
     reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "active_dual_agent")
     effective_mode = str(
         bridge_liveness.get("effective_reviewer_mode") or reviewer_mode
+    )
+    reviewer_provider = _collaboration_provider(
+        collaboration,
+        role_id="review_agent",
+        default="codex",
+    )
+    implementer_provider = _collaboration_provider(
+        collaboration,
+        role_id="coding_agent",
+        default="claude",
     )
     return ReviewBridgeState(
         overall_state=overall_state,
@@ -106,11 +129,11 @@ def build_review_bridge_state(
         codex_conductor_active=bool(bridge_liveness.get("codex_conductor_active")),
         claude_conductor_active=bool(bridge_liveness.get("claude_conductor_active")),
         reviewer_capability=build_conductor_capability_state(
-            provider="codex",
+            provider=reviewer_provider,
             reviewer_mode=effective_mode,
         ),
         implementer_capability=build_conductor_capability_state(
-            provider="claude",
+            provider=implementer_provider,
             reviewer_mode=effective_mode,
         ),
     )
@@ -124,3 +147,17 @@ def _compute_review_accepted(snapshot: BridgeSnapshot) -> bool:
         return bridge_review_accepted(snapshot)
     except (ImportError, ValueError):
         return False
+
+
+def _collaboration_provider(
+    collaboration: CollaborationSessionState | None,
+    *,
+    role_id: str,
+    default: str,
+) -> str:
+    if collaboration is None:
+        return default
+    for assignment in collaboration.role_assignments:
+        if assignment.role_id == role_id and assignment.provider:
+            return assignment.provider
+    return default

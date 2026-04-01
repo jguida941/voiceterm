@@ -5,9 +5,11 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 
+from .collaboration_registry import build_runtime_agent_registry_from_collaboration
 from ..runtime.review_state_models import (
     AgentRegistryEntryState,
     AgentRegistryState,
+    CollaborationSessionState,
 )
 from ..runtime.role_profile import (
     TandemRole,
@@ -53,6 +55,7 @@ def build_runtime_agent_registry(
     *,
     timestamp: str,
     plan_id: str = "",
+    collaboration: CollaborationSessionState | None = None,
     lanes: Sequence[LaneAssignment] = (),
     provider_state: Mapping[str, Mapping[str, object]] | None = None,
     active_conductor_providers: Sequence[str] = (),
@@ -63,6 +66,12 @@ def build_runtime_agent_registry(
     markdown lane plan. Planned lane capacity remains a separate topology
     surface until `CollaborationSession` grows a first-class worker registry.
     """
+    if collaboration is not None:
+        return build_runtime_agent_registry_from_collaboration(
+            collaboration=collaboration,
+            timestamp=timestamp,
+            plan_id=plan_id,
+        )
 
     normalized_state = {
         _normalize_provider(provider): state
@@ -110,7 +119,6 @@ def build_runtime_agent_registry(
         )
     )
     return AgentRegistryState(timestamp=timestamp, agents=agents)
-
 
 def build_planned_topology(
     *,
@@ -213,7 +221,6 @@ def _first_provider_for_role(
         ),
         default,
     )
-
 
 def _registry_entry(
     *,

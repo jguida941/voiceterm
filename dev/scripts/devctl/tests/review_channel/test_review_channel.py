@@ -5343,6 +5343,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 review_state["bridge"]["reviewer_mode"],
                 "active_dual_agent",
             )
+            collaboration = review_state["collaboration"]
+            self.assertEqual(collaboration["contract_id"], "CollaborationSession")
+            self.assertEqual(collaboration["review_agent"], "codex")
+            self.assertEqual(collaboration["coding_agent"], "claude")
             self.assertTrue(review_state["bridge"]["reviewed_hash_current"])
             self.assertFalse(review_state["bridge"]["review_needed"])
             self.assertEqual(rs_compat.get("service_identity"), service_identity)

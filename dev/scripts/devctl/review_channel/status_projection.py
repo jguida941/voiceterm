@@ -20,7 +20,7 @@ from ..runtime.review_state_models import (
     ReviewSessionState,
     ReviewState,
 )
-from ..runtime.role_profile import TandemRole
+from .collaboration_session import build_collaboration_session
 from .current_session_projection import build_bridge_current_session
 from .handoff import BridgeSnapshot
 from .peer_liveness import OverallLivenessState
@@ -43,6 +43,7 @@ class ReviewStateContext:
     repo_root: Path
     bridge_path: Path
     review_channel_path: Path
+    output_root: Path
     bridge_text: str
     project_id: str
     timestamp: str
@@ -65,15 +66,26 @@ def build_bridge_review_state(
     """Build a canonical ReviewState dict from bridge markdown state."""
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
     current_session = build_bridge_current_session(snapshot, bridge_liveness)
+    collaboration = build_collaboration_session(
+        timestamp=context.timestamp,
+        plan_id=context.plan_id,
+        session_id="markdown-bridge",
+        bridge_liveness=bridge_liveness,
+        current_session=current_session,
+        attention=attention,
+        session_output_root=context.output_root,
+    )
     typed_bridge_liveness = build_typed_bridge_liveness(
         bridge_liveness=bridge_liveness,
         current_session=current_session,
+        collaboration=collaboration,
     )
     bridge_state = build_review_bridge_state(
         snapshot=snapshot,
         bridge_liveness=typed_bridge_liveness,
         overall_state=overall_state,
         current_session=current_session,
+        collaboration=collaboration,
     )
 
     review_state = ReviewState(
@@ -86,13 +98,14 @@ def build_bridge_review_state(
         review=_build_review_session(context),
         queue=_build_queue_state(promotion_candidate),
         current_session=current_session,
+        collaboration=collaboration,
         bridge=bridge_state,
         attention=_build_attention(attention),
         packets=(),
         registry=_build_agent_registry(
-            bridge_liveness=typed_bridge_liveness,
             timestamp=context.timestamp,
             plan_id=context.plan_id,
+            collaboration=collaboration,
         ),
         warnings=context.warnings,
         errors=context.errors,
@@ -176,98 +189,15 @@ def _build_review_session(context: ReviewStateContext) -> ReviewSessionState:
 
 def _build_agent_registry(
     *,
-    bridge_liveness: dict[str, object],
     timestamp: str,
+    collaboration,
     plan_id: str = "",
 ) -> AgentRegistryState:
-    active_providers = bridge_liveness.get("active_conductor_providers")
     return build_runtime_agent_registry(
         timestamp=timestamp,
         plan_id=plan_id,
-        provider_state=_bridge_runtime_provider_state(bridge_liveness),
-        active_conductor_providers=(
-            tuple(str(item) for item in active_providers)
-            if isinstance(active_providers, list)
-            else ()
-        ),
+        collaboration=collaboration,
     )
-
-
-def _bridge_runtime_provider_state(
-    bridge_liveness: dict[str, object],
-) -> dict[str, dict[str, object]]:
-    effective_mode = str(
-        bridge_liveness.get("effective_reviewer_mode")
-        or bridge_liveness.get("reviewer_mode")
-        or "tools_only"
-    )
-    return {
-        "codex": {
-            "current_job": TandemRole.REVIEWER.value,
-            "job_state": _reviewer_job_state(bridge_liveness),
-            "waiting_on": (
-                "implementer"
-                if bridge_liveness.get("overall_state") == OverallLivenessState.WAITING_ON_PEER
-                else ""
-            ),
-            "script_profile": "markdown-bridge-conductor",
-        },
-        "claude": {
-            "current_job": TandemRole.IMPLEMENTER.value,
-            "job_state": _claude_job_state(bridge_liveness),
-            "waiting_on": _claude_waiting_on(bridge_liveness),
-            "script_profile": "markdown-bridge-conductor",
-        },
-        "operator": {
-            "current_job": TandemRole.OPERATOR.value,
-            "job_state": "waiting" if effective_mode == "active_dual_agent" else "idle",
-        },
-    }
-
-
-def _reviewer_job_state(bridge_liveness: dict[str, object]) -> str:
-    effective_mode = str(
-        bridge_liveness.get("effective_reviewer_mode")
-        or bridge_liveness.get("reviewer_mode")
-        or "tools_only"
-    )
-    if effective_mode != "active_dual_agent":
-        return "inactive"
-    if bridge_liveness.get("review_needed"):
-        return "review_needed"
-    return "reviewing"
-
-
-def _claude_job_state(bridge_liveness: dict[str, object]) -> str:
-    session_hints = bridge_liveness.get("session_state_hints")
-    if isinstance(session_hints, dict):
-        claude_hint = session_hints.get("claude")
-        if isinstance(claude_hint, dict):
-            state = str(claude_hint.get("state") or "").strip()
-            if state:
-                return state
-    if (
-        bool(bridge_liveness.get("claude_status_present"))
-        and bool(bridge_liveness.get("claude_ack_present"))
-        and bool(bridge_liveness.get("claude_ack_current"))
-    ):
-        return "implementing"
-    if bridge_liveness.get("claude_status_present"):
-        return "waiting_for_ack"
-    return "inactive"
-
-
-def _claude_waiting_on(bridge_liveness: dict[str, object]) -> str:
-    session_hints = bridge_liveness.get("session_state_hints")
-    if isinstance(session_hints, dict):
-        claude_hint = session_hints.get("claude")
-        if isinstance(claude_hint, dict):
-            state = str(claude_hint.get("state") or "").strip()
-            if state:
-                return state
-    if bridge_liveness.get("review_needed"):
-        return "reviewer"
-    return ""
 
 
 def _build_queue_state(

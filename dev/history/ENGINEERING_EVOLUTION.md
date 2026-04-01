@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-03-31
+**Last Updated:** 2026-04-01
 
 ## At a Glance
 
@@ -38,6 +38,26 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Developer Path (15 min)](#developer-path-15-min)
 
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
+
+### 2026-04-01 - `ReviewState` now carries a typed `CollaborationSession` instead of rebuilding live collaboration truth per surface
+
+The review-channel runtime had reached an awkward midpoint: `ReviewState` was
+typed, but bridge-backed status, event-backed reduction, and registry
+projection still rebuilt "live participants" from fixed provider assumptions.
+That made the lane table look too close to runtime truth and kept the first
+native session contract from actually existing in code.
+
+Closed the next bounded `MP-377` / `MP-355` architecture seam by adding a
+typed `CollaborationSession` block to `ReviewState`, sourcing live conductor
+participants from repo-owned session metadata, and keeping delegated AGENT-lane
+receipts explicitly separate from those live participants. `registry/agents.json`
+now projects from that typed collaboration contract instead of each emitter
+rebuilding provider state locally.
+
+This is still not the end-state worker runtime. Launch and packet routing still
+carry fixed provider ids and the blocking planned-topology/runtime-truth guard
+is still open, but the repo now has the first real runtime contract the plan
+was calling for instead of only bridge-era compatibility projections.
 
 The first bridge-hardening pass closed the direct `bridge.md` pollution path by
 flattening promotion/checkpoint instruction text and rejecting embedded

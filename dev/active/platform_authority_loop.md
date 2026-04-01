@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-03-31 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-01 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1409,6 +1409,19 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-01 `CollaborationSession` landed as the next bounded `MP-377`
+  authority seam inside review-channel runtime. Bridge-backed and event-backed
+  `ReviewState` now materialize one typed collaboration/session block that
+  separates live conductor participants from delegated planned-lane receipts,
+  `registry/agents.json` now projects from that typed collaboration contract
+  instead of per-surface provider synthesis, and real conductor-session
+  metadata now feeds the runtime model directly. This closes the first
+  repo-owned runtime contract for the architecture gap the operator flagged,
+  but it does not yet remove fixed provider ids from packet routing or launch
+  surfaces. The next same-lane closure is to move packet/launch parser
+  authority and recovery guards onto this session contract, then add the
+  blocking planned-topology/runtime-truth guard before claiming native worker
+  topology is complete.
 - 2026-03-31 startup-repair adapter follow-up: repo-owned
   `startup-context --repair` was crashing in the refactored review-channel
   command path because its bounded runtime adapter no longer supplied the
@@ -1803,6 +1816,20 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-01: Closed the first real `CollaborationSession` runtime slice in
+  the active `MP-377` authority-loop lane. `ReviewState` now carries a typed
+  collaboration/session contract with role assignments, peer-review state,
+  restart/readiness gates, live conductor participants sourced from repo-owned
+  session metadata, and delegated planned-lane receipts sourced from conductor
+  launch metadata instead of being re-synthesized differently in each surface.
+  Bridge-backed and event-backed review-state emitters now materialize that
+  same contract, and the runtime agent registry now projects from the typed
+  collaboration model rather than hardcoding provider state in status/reducer
+  helpers. Focused runtime/review-channel/platform-contract tests are green.
+  The remaining same-lane work is explicit: packet/launch routing still has
+  fixed provider ids, launch still does not create native worker sessions, and
+  the blocking guard for planned-topology/runtime-truth separation still needs
+  to land before the static AGENT-* regime can retire honestly.
 - 2026-03-31: Fixed the next `MP-377` startup-authority blocker exposed by
   the repo-owned repair path. `startup-context --repair` now resolves and
   forwards the governed review-channel `rollover_dir` sibling alongside
