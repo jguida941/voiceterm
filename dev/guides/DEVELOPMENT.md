@@ -498,6 +498,11 @@ Three quality layers matter in practice:
   smoke/integration surfaces, not pure unit seams: direct module tests are not
   enough when script mode, package mode, and public CLI/root-entrypoint
   reachability are part of the contract.
+- For `dev/scripts/checks/**` package extractions, rerun the legacy root
+  `check_*.py` / `probe_*.py` entrypoint directly after the move, not only the
+  package module or unit tests. The public root shim is still part of the
+  contract, and broken direct-script imports can survive until the full
+  `devctl check --profile ci` bundle if you only test package mode.
 
 ## After file edits
 

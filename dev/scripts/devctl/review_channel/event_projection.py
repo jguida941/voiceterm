@@ -4,12 +4,8 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from collections.abc import Mapping
-from datetime import datetime, timezone
-from hashlib import sha256
 from pathlib import Path
 
-from ..runtime.conductor_capability import build_conductor_capability_state
-from .launch_truth import classify_launch_truth, effective_reviewer_mode
 from ..runtime.review_state_models import ReviewQueueState
 from .attention import derive_bridge_attention
 from .attach_auth_policy import build_attach_auth_policy
@@ -20,12 +16,7 @@ from .attach_auth_projection import (
 from .core import DEFAULT_BRIDGE_REL
 from .current_session_projection import (
     build_event_current_session,
-    current_session_mapping,
     current_session_payload,
-    event_agent_status,
-    event_claude_ack,
-    event_current_instruction,
-    event_open_findings,
 )
 from .event_projection_context import (
     append_event_instruction_context,
@@ -33,9 +24,15 @@ from .event_projection_context import (
     build_instruction_source,
 )
 from .collaboration_session import build_collaboration_session
-from .peer_liveness import (
-    IMPLEMENTER_STALL_MARKERS,
-    REVIEWER_WAIT_STATE_MARKERS,
+from .event_projection_bridge import (
+    build_event_bridge_liveness_projection,
+    build_event_bridge_state_projection,
+    detect_event_implementer_stall,
+)
+from .event_projection_queue import (
+    derive_event_next_instruction,
+    derive_event_next_instruction_bundle,
+    derive_event_next_instruction_source,
 )
 from .service_identity import build_service_identity
 
@@ -47,7 +44,12 @@ def build_event_queue_summary(
     packets: list[dict[str, object]],
 ) -> dict[str, object]:
     """Build the event-backed queue summary plus derived next-step hint."""
-    derived_instruction, derived_source = _derived_next_instruction_bundle(packets)
+    derived_instruction, derived_source = derive_event_next_instruction_bundle(
+        packets,
+        build_event_context_packet_fn=build_event_context_packet,
+        append_event_instruction_context_fn=append_event_instruction_context,
+        build_instruction_source_fn=build_instruction_source,
+    )
     summary: dict[str, object] = {
         "pending_total": sum(pending_counts.values()),
         "derived_next_instruction": derived_instruction,
@@ -65,7 +67,12 @@ def build_event_queue_state(
     packet_rows: list[dict[str, object]],
 ) -> ReviewQueueState:
     """Build a typed ReviewQueueState from event reduction outputs."""
-    derived_instruction, derived_source = _derived_next_instruction_bundle(packet_rows)
+    derived_instruction, derived_source = derive_event_next_instruction_bundle(
+        packet_rows,
+        build_event_context_packet_fn=build_event_context_packet,
+        append_event_instruction_context_fn=append_event_instruction_context,
+        build_instruction_source_fn=build_instruction_source,
+    )
     return ReviewQueueState(
         pending_total=sum(pending_counts.values()),
         pending_codex=pending_counts.get("codex", 0),
@@ -96,7 +103,7 @@ def enrich_event_review_state(
     raw_attach_auth_policy = build_attach_auth_policy(
         service_identity=raw_service_identity
     )
-    bridge_liveness = _build_event_bridge_liveness(review_state)
+    bridge_liveness = build_event_bridge_liveness_projection(review_state)
     current_session = build_event_current_session(
         review_state=review_state,
         bridge_liveness=bridge_liveness,
@@ -113,7 +120,7 @@ def enrich_event_review_state(
     )
     review_state["current_session"] = current_session_payload(current_session)
     review_state["collaboration"] = asdict(collaboration)
-    review_state["bridge"] = _build_event_bridge_state(
+    review_state["bridge"] = build_event_bridge_state_projection(
         review_state=review_state,
         bridge_liveness=bridge_liveness,
     )
@@ -131,253 +138,5 @@ def enrich_event_review_state(
         "service_identity": raw_service_identity,
         "attach_auth_policy": raw_attach_auth_policy,
     }
-
-
-def _build_event_bridge_liveness(review_state: Mapping[str, object]) -> dict[str, object]:
-    compat = _mapping(review_state.get("_compat"))
-    runtime = _mapping(compat.get("runtime"))
-    daemons = _mapping(runtime.get("daemons"))
-    publisher = _mapping(daemons.get("publisher"))
-    reviewer_supervisor = _mapping(daemons.get("reviewer_supervisor"))
-    queue = _mapping(review_state.get("queue"))
-    claude_status = event_agent_status(review_state, "claude")
-    claude_ack = event_claude_ack(queue)
-    reviewer_mode = _event_reviewer_mode(runtime)
-    bridge_liveness: dict[str, object] = {}
-    bridge_liveness["overall_state"] = (
-        "stale" if review_state.get("errors") else "fresh"
-    )
-    bridge_liveness["codex_poll_state"] = (
-        "fresh" if review_state.get("timestamp") else "missing"
-    )
-    bridge_liveness["reviewer_freshness"] = (
-        "fresh" if review_state.get("timestamp") else "missing"
-    )
-    bridge_liveness["reviewer_mode"] = reviewer_mode
-    bridge_liveness["last_codex_poll_age_seconds"] = 0
-    bridge_liveness["claude_status_present"] = bool(claude_status)
-    bridge_liveness["claude_ack_present"] = bool(claude_ack)
-    bridge_liveness["open_findings_present"] = bool(event_open_findings(queue))
-    bridge_liveness["reviewed_hash_current"] = None
-    bridge_liveness["implementer_completion_stall"] = _detect_implementer_stall(
-        claude_status=claude_status,
-        claude_ack=claude_ack,
-        instruction=event_current_instruction(review_state),
-        poll_status=str(queue.get("derived_next_instruction") or ""),
-        reviewer_mode=reviewer_mode,
-    )
-    bridge_liveness["publisher_running"] = bool(publisher.get("running"))
-    bridge_liveness["reviewer_supervisor_running"] = bool(
-        reviewer_supervisor.get("running")
-    )
-    bridge_liveness["publisher_stop_reason"] = str(publisher.get("stop_reason") or "")
-    instruction_text = event_current_instruction(review_state)
-    instruction_rev = (
-        sha256(instruction_text.strip().encode("utf-8")).hexdigest()[:12]
-        if instruction_text.strip()
-        else ""
-    )
-    # The event-backed path cannot verify the real Claude ACK revision token
-    # (it lives in bridge markdown, not in structured events). Report the
-    # instruction revision for reference, but mark ACK freshness as unknown
-    # so consumers don't false-green on queue-derived shortcuts.
-    bridge_liveness["current_instruction_revision"] = instruction_rev
-    bridge_liveness["claude_ack_revision"] = ""
-    bridge_liveness["claude_ack_current"] = False
-    bridge_liveness["launch_truth"] = classify_launch_truth(bridge_liveness).value
-    bridge_liveness["effective_reviewer_mode"] = effective_reviewer_mode(bridge_liveness)
-    return bridge_liveness
-
-
-def _build_event_bridge_state(
-    *,
-    review_state: Mapping[str, object],
-    bridge_liveness: Mapping[str, object],
-) -> dict[str, object]:
-    current_session = current_session_mapping(review_state)
-    collaboration = _mapping(review_state.get("collaboration"))
-    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "tools_only")
-    effective_mode = str(bridge_liveness.get("effective_reviewer_mode") or reviewer_mode)
-    reviewer_provider = _collaboration_provider(
-        collaboration,
-        role_id="review_agent",
-        default="codex",
-    )
-    implementer_provider = _collaboration_provider(
-        collaboration,
-        role_id="coding_agent",
-        default="claude",
-    )
-    bridge_state: dict[str, object] = {}
-    bridge_state["overall_state"] = str(bridge_liveness.get("overall_state") or "unknown")
-    bridge_state["codex_poll_state"] = str(bridge_liveness.get("codex_poll_state") or "missing")
-    bridge_state["reviewer_freshness"] = str(
-        bridge_liveness.get("reviewer_freshness") or "missing"
-    )
-    bridge_state["reviewer_mode"] = reviewer_mode
-    bridge_state["last_codex_poll_utc"] = str(review_state.get("timestamp") or "")
-    bridge_state["last_codex_poll_age_seconds"] = int(
-        bridge_liveness.get("last_codex_poll_age_seconds") or 0
-    )
-    bridge_state["last_worktree_hash"] = ""
-    bridge_state["implementer_completion_stall"] = bool(
-        bridge_liveness.get("implementer_completion_stall")
-    )
-    bridge_state["publisher_running"] = bool(bridge_liveness.get("publisher_running"))
-    bridge_state["open_findings"] = str(current_session.get("open_findings") or "")
-    bridge_state["current_instruction"] = str(
-        current_session.get("current_instruction") or ""
-    )
-    bridge_state["claude_status"] = str(
-        current_session.get("implementer_status") or ""
-    )
-    bridge_state["claude_ack"] = str(current_session.get("implementer_ack") or "")
-    bridge_state["claude_ack_current"] = bool(
-        bridge_liveness.get("claude_ack_current")
-    )
-    bridge_state["current_instruction_revision"] = str(
-        current_session.get("current_instruction_revision") or ""
-    )
-    bridge_state["claude_ack_revision"] = str(
-        current_session.get("implementer_ack_revision") or ""
-    )
-    bridge_state["last_reviewed_scope"] = str(
-        current_session.get("last_reviewed_scope") or ""
-    )
-    bridge_state["launch_truth"] = str(bridge_liveness.get("launch_truth") or "")
-    bridge_state["effective_reviewer_mode"] = effective_mode
-    bridge_state["implementer_state_hash"] = str(
-        current_session.get("implementer_state_hash") or ""
-    )
-    bridge_state["reviewed_hash_current"] = bridge_liveness.get("reviewed_hash_current")
-    bridge_state["review_needed"] = bridge_liveness.get("review_needed")
-    # Event-backed projections do not yet carry reviewer verdict semantics, so
-    # keep the transitional acceptance gate fail-closed instead of inventing a
-    # non-reviewer-owned proxy signal.
-    bridge_state["review_accepted"] = False
-    bridge_state["codex_conductor_active"] = bool(
-        bridge_liveness.get("codex_conductor_active")
-    )
-    bridge_state["claude_conductor_active"] = bool(
-        bridge_liveness.get("claude_conductor_active")
-    )
-    bridge_state["reviewer_capability"] = asdict(
-        build_conductor_capability_state(
-            provider=reviewer_provider,
-            reviewer_mode=effective_mode,
-        )
-    )
-    bridge_state["implementer_capability"] = asdict(
-        build_conductor_capability_state(
-            provider=implementer_provider,
-            reviewer_mode=effective_mode,
-        )
-    )
-    return bridge_state
-
-
-def _collaboration_provider(
-    collaboration: Mapping[str, object],
-    *,
-    role_id: str,
-    default: str,
-) -> str:
-    assignments = collaboration.get("role_assignments")
-    if not isinstance(assignments, list):
-        return default
-    for row in assignments:
-        assignment = _mapping(row)
-        if _string(assignment.get("role_id")) != role_id:
-            continue
-        provider = _string(assignment.get("provider"))
-        if provider:
-            return provider
-    return default
-
-
-def _event_reviewer_mode(runtime: Mapping[str, object]) -> str:
-    daemons = _mapping(runtime.get("daemons"))
-    for daemon_name in ("publisher", "reviewer_supervisor"):
-        daemon_state = _mapping(daemons.get(daemon_name))
-        reviewer_mode = str(daemon_state.get("reviewer_mode") or "").strip()
-        if reviewer_mode:
-            return reviewer_mode
-    return "tools_only"
-
-
-def _derived_next_instruction(packets: list[dict[str, object]]) -> str:
-    return _derived_next_instruction_bundle(packets)[0]
-
-
-def _derived_next_instruction_bundle(
-    packets: list[dict[str, object]],
-) -> tuple[str, dict[str, object]]:
-    now_utc = datetime.now(timezone.utc)
-    for packet in packets:
-        if packet.get("status") != "pending":
-            continue
-        if _is_expired(packet, now_utc):
-            continue
-        summary = str(packet.get("summary") or "").strip()
-        if summary:
-            context_packet = build_event_context_packet(packet)
-            instruction = append_event_instruction_context(summary, context_packet)
-            return instruction, build_instruction_source(packet, context_packet)
-    return "", {}
-
-
-def _derived_next_instruction_source(
-    packets: list[dict[str, object]],
-) -> dict[str, object]:
-    return _derived_next_instruction_bundle(packets)[1]
-
-
-def _is_expired(packet: dict[str, object], now_utc: datetime) -> bool:
-    """Return True if the packet's expires_at_utc is in the past."""
-    from .event_store import parse_utc
-
-    expires_at = parse_utc(packet.get("expires_at_utc"))
-    return expires_at is not None and expires_at <= now_utc
-
-
 def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
-
-
-# Stall detection markers (shared contract with tandem_consistency checks).
-_STALL_MARKERS = IMPLEMENTER_STALL_MARKERS
-_REVIEWER_WAIT_MARKERS = REVIEWER_WAIT_STATE_MARKERS
-
-
-def _detect_implementer_stall(
-    *,
-    claude_status: str,
-    claude_ack: str,
-    instruction: str,
-    poll_status: str,
-    reviewer_mode: str,
-) -> bool:
-    """Detect implementer completion stall from event-backed state.
-
-    Returns True when the implementer appears parked on reviewer promotion
-    while the current instruction is still active and no reviewer-owned
-    wait-state marker is present in the instruction content.
-
-    The event-backed path does not own a separate ``Poll Status`` bridge
-    section, so wait-state detection uses only the instruction text and
-    reviewer mode — evidence the event path actually owns.
-    """
-    from .peer_liveness import reviewer_mode_is_active
-
-    combined = f"{claude_status}\n{claude_ack}".lower()
-    if not any(marker in combined for marker in _STALL_MARKERS):
-        return False
-    # Only check instruction for wait markers — event path does not own Poll Status
-    instruction_lower = instruction.lower()
-    if any(m in instruction_lower for m in _REVIEWER_WAIT_MARKERS):
-        return False
-    # If reviewer mode is not active but implementer claims waiting → stalled
-    if not reviewer_mode_is_active(reviewer_mode):
-        return True
-    # Active mode, no wait marker in instruction, stall markers in status/ack → stalled
-    return True

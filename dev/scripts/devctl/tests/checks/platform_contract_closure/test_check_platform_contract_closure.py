@@ -266,7 +266,7 @@ def test_emitter_parity_catches_missing_bridge_state_key() -> None:
     """Guard must fail if event-backed bridge_state drops a ReviewBridgeState field."""
     from dev.scripts.devctl.review_channel import event_projection
 
-    original = event_projection._build_event_bridge_state
+    original = event_projection.build_event_bridge_state_projection
 
     def _drop_ack_current(*, review_state: dict[str, object], bridge_liveness: dict[str, object]) -> dict[str, object]:
         bridge_state = dict(
@@ -275,7 +275,11 @@ def test_emitter_parity_catches_missing_bridge_state_key() -> None:
         del bridge_state["claude_ack_current"]
         return bridge_state
 
-    with patch.object(event_projection, "_build_event_bridge_state", _drop_ack_current):
+    with patch.object(
+        event_projection,
+        "build_event_bridge_state_projection",
+        _drop_ack_current,
+    ):
         results = _check_review_state_emitter_parity()
 
     violation = next(
@@ -292,7 +296,7 @@ def test_emitter_parity_catches_type_drift() -> None:
     """Guard must fail if a bridge_state field has the wrong type."""
     from dev.scripts.devctl.review_channel import event_projection
 
-    original = event_projection._build_event_bridge_state
+    original = event_projection.build_event_bridge_state_projection
 
     def _type_drift(*, review_state: dict[str, object], bridge_liveness: dict[str, object]) -> dict[str, object]:
         bridge_state = dict(
@@ -301,7 +305,11 @@ def test_emitter_parity_catches_type_drift() -> None:
         bridge_state["last_codex_poll_age_seconds"] = 0.5
         return bridge_state
 
-    with patch.object(event_projection, "_build_event_bridge_state", _type_drift):
+    with patch.object(
+        event_projection,
+        "build_event_bridge_state_projection",
+        _type_drift,
+    ):
         results = _check_review_state_emitter_parity()
 
     violation = next(
@@ -312,6 +320,40 @@ def test_emitter_parity_catches_type_drift() -> None:
     assert violation is not None
     assert violation["rule"] == "emitter-type-drift"
     assert "last_codex_poll_age_seconds" in violation["detail"]
+
+
+def test_emitter_parity_catches_parser_roundtrip_drift() -> None:
+    """Guard must fail if emitted bridge fields drift from parser-owned truth."""
+    from dev.scripts.devctl.review_channel import event_projection
+
+    original = event_projection.build_event_bridge_state_projection
+
+    def _roundtrip_drift(
+        *,
+        review_state: dict[str, object],
+        bridge_liveness: dict[str, object],
+    ) -> dict[str, object]:
+        bridge_state = dict(
+            original(review_state=review_state, bridge_liveness=bridge_liveness)
+        )
+        bridge_state["overall_state"] = "synthetic-drift"
+        return bridge_state
+
+    with patch.object(
+        event_projection,
+        "build_event_bridge_state_projection",
+        _roundtrip_drift,
+    ):
+        results = _check_review_state_emitter_parity()
+
+    violation = next(
+        violation
+        for coverage, violation in results
+        if coverage["check"] == "bridge_state_parser_roundtrip"
+    )
+    assert violation is not None
+    assert violation["rule"] == "bridge-parser-roundtrip-drift"
+    assert "overall_state" in violation["detail"]
 
 
 def test_emitter_parity_catches_compat_gap() -> None:
@@ -353,8 +395,8 @@ def test_emitted_artifact_review_state_matches_contract() -> None:
         _BRIDGE_STATE_EXPECTED_TYPES,
     )
     from dev.scripts.devctl.review_channel.event_projection import (
-        _build_event_bridge_liveness,
-        _build_event_bridge_state,
+        build_event_bridge_liveness_projection,
+        build_event_bridge_state_projection,
     )
     from dev.scripts.devctl.review_channel.projection_bundle import (
         write_projection_bundle,
@@ -366,8 +408,8 @@ def test_emitted_artifact_review_state_matches_contract() -> None:
     )
 
     synthetic = _build_synthetic_review_state()
-    liveness = _build_event_bridge_liveness(synthetic)
-    bridge_state = _build_event_bridge_state(
+    liveness = build_event_bridge_liveness_projection(synthetic)
+    bridge_state = build_event_bridge_state_projection(
         review_state=synthetic, bridge_liveness=liveness,
     )
     synthetic["bridge"] = bridge_state

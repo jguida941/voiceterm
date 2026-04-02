@@ -17,6 +17,16 @@ def _bool(value: object) -> bool:
     return bool(value)
 
 
+def _optional_bool(mapping: Mapping[str, object], key: str) -> bool | None:
+    """Preserve explicit unknown booleans instead of coercing them to False."""
+    if key not in mapping:
+        return None
+    value = mapping.get(key)
+    if value is None:
+        return None
+    return _bool(value)
+
+
 def bridge_ack_state(
     *,
     bridge: Mapping[str, object],

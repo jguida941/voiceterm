@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-01
+**Last Updated:** 2026-04-02
 
 ## At a Glance
 
@@ -38,6 +38,23 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Developer Path (15 min)](#developer-path-15-min)
 
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
+
+### 2026-04-02 - `dev/scripts/checks` package extractions now have to prove the legacy root entrypoint, not just the moved package
+
+The next self-hosting cleanup pass exposed a subtle failure mode in the
+checks-root modularization work. The repo had moved several crowded-root
+helpers into documented packages and the targeted package/layout guards were
+green, but one legacy root entrypoint (`check_naming_consistency.py`) still
+failed in direct script mode because the package import fallback was too broad
+and the moved package no longer carried its local YAML/JSON loader seam.
+
+That changed the process rule, not just the files. Public
+`dev/scripts/checks/check_*.py` and `probe_*.py` root shims are now treated as
+part of the maintained contract surface, so package moves have to prove the
+legacy root entrypoint directly instead of assuming package imports or unit
+tests are enough. The repo also recorded that rule in maintainer docs and then
+proved it with a green full `python3 dev/scripts/devctl.py check --profile ci`
+run on the same dirty branch.
 
 ### 2026-04-01 - External integration analysis now has to land as owner-plan deltas, not shadow roadmap prose
 

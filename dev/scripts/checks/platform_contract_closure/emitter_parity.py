@@ -5,222 +5,60 @@ from __future__ import annotations
 from dataclasses import fields
 from pathlib import Path
 
-_EXPECTED_COMPAT_KEYS = frozenset({
-    "project_id", "runtime", "service_identity", "attach_auth_policy", "agents",
-})
-
-_BRIDGE_STATE_EXPECTED_TYPES: dict[str, type] = {
-    "overall_state": str,
-    "codex_poll_state": str,
-    "reviewer_mode": str,
-    "last_codex_poll_utc": str,
-    "last_codex_poll_age_seconds": int,
-    "last_worktree_hash": str,
-    "current_instruction": str,
-    "open_findings": str,
-    "claude_status": str,
-    "claude_ack": str,
-    "claude_ack_current": bool,
-    "current_instruction_revision": str,
-    "claude_ack_revision": str,
-    "last_reviewed_scope": str,
-    "reviewed_hash_current": bool,
-    "review_needed": bool,
-    "review_accepted": bool,
-    "implementer_completion_stall": bool,
-    "publisher_running": bool,
-}
-
-
-def _build_synthetic_review_state() -> dict[str, object]:
-    """Minimal synthetic review_state for probing emitter output shape."""
-    return {
-        "timestamp": "2026-01-01T00:00:00Z",
-        "ok": True,
-        "review": {"plan_id": "test"},
-        "queue": {"pending_total": 0, "pending_claude": 0},
-        "current_session": {
-            "current_instruction": "keep the slice bounded",
-            "current_instruction_revision": "abc123def456",
-            "implementer_status": "active",
-            "implementer_ack": "acknowledged",
-            "implementer_ack_revision": "abc123def456",
-            "implementer_ack_state": "current",
-            "implementer_state_hash": "",
-            "implementer_session_state": "",
-            "implementer_session_hint": "",
-            "open_findings": "none",
-            "last_reviewed_scope": "MP-355",
-        },
-        "collaboration": {
-            "schema_version": 1,
-            "contract_id": "CollaborationSession",
-            "session_id": "synthetic-session",
-            "plan_id": "test",
-            "status": "handoff_only",
-            "reviewer_mode": "tools_only",
-            "operator_mode": "manual",
-            "lead_agent": "codex",
-            "review_agent": "codex",
-            "coding_agent": "claude",
-            "current_slice": "keep the slice bounded",
-            "peer_review": {
-                "current_instruction": "keep the slice bounded",
-                "current_instruction_revision": "abc123def456",
-                "open_findings": "none",
-                "implementer_status": "active",
-                "implementer_ack": "acknowledged",
-                "implementer_ack_state": "current",
-            },
-            "arbitration": {
-                "status": "clear",
-                "summary": "",
-                "owner": "",
-            },
-            "restart": {
-                "status": "handoff_only",
-                "resumable": True,
-                "source": "review_state",
-            },
-            "ready_gates": [],
-            "role_assignments": [],
-            "participants": [],
-            "delegated_work": [],
-        },
-        "packets": [],
-        "errors": [],
-        "_compat": {
-            "project_id": "synthetic",
-            "runtime": {"daemons": {"publisher": {}}},
-            "service_identity": {},
-            "attach_auth_policy": {},
-            "agents": [],
-        },
-    }
+from .emitter_parity_contract_checks import (
+    _BRIDGE_STATE_EXPECTED_TYPES,
+    build_synthetic_review_state as _build_synthetic_review_state,
+    check_bridge_field_authority_taxonomy,
+    check_bridge_state_keys,
+    check_bridge_state_types,
+    check_compat_field_coverage,
+    review_bridge_contract_fields,
+)
+from .emitter_parity_roundtrip import check_bridge_state_parser_roundtrip
 
 
 def check_review_state_emitter_parity() -> list[tuple[dict[str, object], dict[str, object] | None]]:
     """Verify event-backed emitter produces parity with ReviewBridgeState contract."""
-    from dev.scripts.devctl.runtime.review_state_models import ReviewBridgeState
     from dev.scripts.devctl.review_channel.event_projection import (
-        _build_event_bridge_liveness,
-        _build_event_bridge_state,
-        enrich_event_review_state,
+        build_event_bridge_liveness_projection,
+        build_event_bridge_state_projection,
     )
 
+    repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
     results: list[tuple[dict[str, object], dict[str, object] | None]] = []
-    contract_fields = frozenset(f.name for f in fields(ReviewBridgeState))
+    contract_fields = review_bridge_contract_fields()
     synthetic = _build_synthetic_review_state()
-    liveness = _build_event_bridge_liveness(synthetic)
-    bridge_state = _build_event_bridge_state(
+    liveness = build_event_bridge_liveness_projection(synthetic)
+    bridge_state = build_event_bridge_state_projection(
         review_state=synthetic,
         bridge_liveness=liveness,
     )
 
-    # Check 1: field key parity
-    emitted_fields = frozenset(bridge_state.keys())
-    missing = sorted(contract_fields - emitted_fields)
-    extra = sorted(emitted_fields - contract_fields)
-    key_ok = not missing and not extra
-    key_coverage: dict[str, object] = {
-        "kind": "emitter_parity",
-        "contract_id": "ReviewState",
-        "check": "bridge_state_keys",
-        "ok": key_ok,
-    }
-    if key_ok:
-        key_coverage["detail"] = "Event-backed bridge_state keys match ReviewBridgeState."
-        results.append((key_coverage, None))
-    else:
-        detail = f"bridge_state key drift: missing={missing or 'none'} extra={extra or 'none'}"
-        key_coverage["detail"] = detail
-        results.append((key_coverage, {
-            "kind": "emitter_parity",
-            "contract_id": "ReviewState",
-            "rule": "emitter-field-gap",
-            "detail": detail,
-        }))
-
-    # Check 2: field value types
-    type_errors: list[str] = []
-    for field_name, expected_type in _BRIDGE_STATE_EXPECTED_TYPES.items():
-        value = bridge_state.get(field_name)
-        if value is not None and not isinstance(value, expected_type):
-            type_errors.append(
-                f"{field_name}: expected {expected_type}, got {type(value).__name__}"
-            )
-    type_ok = not type_errors
-    type_coverage: dict[str, object] = {
-        "kind": "emitter_parity",
-        "contract_id": "ReviewState",
-        "check": "bridge_state_types",
-        "ok": type_ok,
-    }
-    if type_ok:
-        type_coverage["detail"] = "Event-backed bridge_state value types match contract."
-        results.append((type_coverage, None))
-    else:
-        detail = f"bridge_state type drift: {'; '.join(type_errors)}"
-        type_coverage["detail"] = detail
-        results.append((type_coverage, {
-            "kind": "emitter_parity",
-            "contract_id": "ReviewState",
-            "rule": "emitter-type-drift",
-            "detail": detail,
-        }))
-
-    # Check 3: _compat transitional field coverage
-    repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
-    review_channel_path = repo_root / "dev" / "active" / "review_channel.md"
-    projections_root = repo_root / "dev" / "reports" / "review_channel" / "projections" / "latest"
-    try:
-        enriched, _ = enrich_event_review_state(
-            review_state=dict(synthetic),
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            projections_root=projections_root,
+    for coverage, violation in (
+        check_bridge_state_keys(
+            bridge_state=bridge_state,
+            contract_fields=contract_fields,
+        ),
+        check_bridge_state_types(bridge_state),
+        check_bridge_field_authority_taxonomy(contract_fields=contract_fields),
+    ):
+        results.append((coverage, violation))
+    results.extend(
+        check_bridge_state_parser_roundtrip(
+            synthetic=synthetic,
+            bridge_state=bridge_state,
+            bridge_liveness=liveness,
+            contract_fields=contract_fields,
         )
-    except (OSError, ValueError, KeyError) as exc:
-        compat_coverage_err: dict[str, object] = {
-            "kind": "emitter_parity",
-            "contract_id": "ReviewState",
-            "check": "compat_field_coverage",
-            "ok": False,
-            "detail": f"enrich_event_review_state crashed: {exc}",
-        }
-        results.append((compat_coverage_err, {
-            "kind": "emitter_parity",
-            "contract_id": "ReviewState",
-            "rule": "compat-enrichment-crash",
-            "detail": f"enrich_event_review_state raised {type(exc).__name__}: {exc}",
-        }))
-        return results
-    compat = enriched.get("_compat")
-    compat_keys = frozenset(compat.keys()) if isinstance(compat, dict) else frozenset()
-    compat_missing = sorted(_EXPECTED_COMPAT_KEYS - compat_keys)
-    compat_ok = not compat_missing
-    compat_coverage: dict[str, object] = {
-        "kind": "emitter_parity",
-        "contract_id": "ReviewState",
-        "check": "compat_field_coverage",
-        "ok": compat_ok,
-        "expected_compat_keys": sorted(_EXPECTED_COMPAT_KEYS),
-        "emitted_compat_keys": sorted(compat_keys),
-    }
-    if compat_ok:
-        compat_coverage["detail"] = "Event-backed _compat carries all transitional fields."
-        results.append((compat_coverage, None))
-    else:
-        detail = f"_compat missing keys: {compat_missing}"
-        compat_coverage["detail"] = detail
-        results.append((compat_coverage, {
-            "kind": "emitter_parity",
-            "contract_id": "ReviewState",
-            "rule": "compat-field-gap",
-            "detail": detail,
-        }))
+    )
+    results.append(
+        check_compat_field_coverage(
+            synthetic=synthetic,
+            repo_root=repo_root,
+        )
+    )
 
-    # Checks 4-6: on-disk artifact parity.
+    # Checks 6-8: on-disk artifact parity.
     # Only run when the latest artifact was produced by the event-backed path
     # (surface_mode == "event-backed"). Artifacts from bridge-backed heartbeats
     # use a different bridge shape and are not emitter-parity failures.

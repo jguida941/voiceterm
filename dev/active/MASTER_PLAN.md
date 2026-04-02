@@ -39,7 +39,7 @@
 - `dev/active/code_shape_expansion.md` is the research/calibration companion for future code-shape additions under `MP-378`; promotion into implementation still flows through `dev/active/review_probes.md` once Phase 5b evidence gates pass.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-04-01)
+## Status Snapshot (2026-04-02)
 - Last tagged release: `v1.2.3` (2026-04-01)
 - Current release target: `post-v1.2.3 planning`
 - Active development branch: `develop`
@@ -146,6 +146,14 @@
   `review_state` exists. The remaining honest gap is native worker-session /
   delegated-work execution, plus the last recovery/CLI surfaces that still
   assume a fixed implementer provider.
+- Latest same-lane closure on 2026-04-02: the dirty-branch
+  `dev/scripts/checks/**` modularization/layout blocker is closed. The
+  remaining flat helpers for bundle workflow parity, duplication audit,
+  naming consistency, and mutation Ralph loop now live behind documented
+  package seams with compatibility shims at the root entrypoints, the
+  `coderabbit_gate_core` package now re-exports through a legacy-module loader
+  instead of duplicating helpers, and the branch-wide
+  `python3 dev/scripts/devctl.py check --profile ci` bundle is green again.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

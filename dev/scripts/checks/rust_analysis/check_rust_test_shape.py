@@ -51,8 +51,8 @@ DEFAULT_POLICY = TestShapePolicy(
 
 PATH_POLICY_OVERRIDES: dict[str, TestShapePolicy] = {
     "rust/src/bin/voiceterm/event_loop/tests.rs": TestShapePolicy(
-        soft_limit=6200,
-        hard_limit=7000,
+        soft_limit=1300,
+        hard_limit=1500,
         oversize_growth_limit=80,
         hard_lock_growth_limit=0,
     ),

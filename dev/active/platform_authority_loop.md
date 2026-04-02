@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-04-01 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-02 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1027,6 +1027,21 @@ blocker or exception in plan state before skipping the declared order.
       fields. `bridge.md`, `latest.md`, chat packets, CLI status, and
       operator views must project from that typed state instead of carrying
       independent current truth.
+- [ ] Freeze the projection-authority rule explicitly in this same lane:
+      if a projection emits typed contract fields or policy summaries
+      (`ReviewBridgeState`, capability state, launch/reviewer-mode summaries,
+      startup/push guidance, or similar), the owning runtime contract must
+      also be the source of those fields. Compatibility-only synthetic values
+      must be labeled fail-closed/non-canonical, cross-module helpers that
+      become real seams must graduate into admitted public APIs, and parser +
+      contract tests must prove round-trip fidelity before the projection is
+      considered closed.
+- [ ] Add one seam-promotion guard in that same closure tranche:
+      portable/runtime/projection modules must not import underscore-prefixed
+      helpers across module boundaries unless the seam is explicitly declared
+      compatibility-only. If another module/test depends on the helper, the
+      author must either promote it into a named public API or move the shared
+      logic behind a contract/helper module with clear ownership before merge.
 - [ ] Add one repo-owned `explain-latest` surface over the same owner chain:
       load `current_session` plus the latest `DecisionTrace`, then render what
       changed, why the system chose continue/checkpoint/review/push, which
@@ -1438,6 +1453,18 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-02 `dev/scripts/checks` crowded-root closure is now green on the
+  working tree. The remaining flat helpers for bundle workflow parity,
+  duplication audit, naming consistency, and mutation Ralph loop were moved
+  behind documented package seams with compatibility shims, the
+  `coderabbit_gate_core` package now re-exports through a legacy-module loader
+  instead of duplicating root helpers, startup-authority import-atomicity now
+  passes typed context objects instead of high-arity helper arguments, and the
+  `naming_consistency` package import boundary now works in both package and
+  script execution modes. The next same-lane work is no longer this
+  modularization/layout cluster; it is checkpointing the dirty slice and then
+  deciding whether to burn down remaining temporary shim callers or move on to
+  the next authority-loop runtime closure.
 - 2026-04-01 launch/packet/runtime-truth guard follow-up landed on top of the
   new `CollaborationSession` seam. Conductor launch metadata now derives from
   typed provider/lane specs and persists conductor role metadata, event-backed
@@ -1854,6 +1881,41 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-02: Closed the live `dev/scripts/checks/**` modularization/layout
+  blocker that had kept the branch-wide `python3 dev/scripts/devctl.py check
+  --profile ci` bundle red after the bridge-field-authority/runtime-contract
+  slice. The remaining flat helpers moved behind documented package seams for
+  `bundle_workflow_parity`, `duplication_audit`, `naming_consistency`, and
+  `mutation_ralph_loop`; the old root entrypoints now stay as compatibility
+  shims only; `coderabbit_gate_core` stopped duplicating root helpers and now
+  re-exports through a legacy-module loader to avoid the package/root import
+  cycle; and startup-authority `runtime_import_atomicity` now collapses the
+  staged/committed file-index parameters into one typed context object. A
+  follow-up fix in `naming_consistency` tightened package-vs-script imports
+  and added a local YAML/JSON loader wrapper so the moved package executes
+  cleanly through the legacy `check_naming_consistency.py` shim. Validation is
+  now green for `check_naming_consistency.py`,
+  `check_package_layout.py --format md`,
+  `check_python_cyclic_imports.py --format md`,
+  `python3 -m compileall dev/scripts/checks/naming_consistency
+  dev/scripts/checks/check_naming_consistency.py`, and the full
+  `python3 dev/scripts/devctl.py check --profile ci` bundle.
+- 2026-04-01: Tightened the active `MP-377` projection-vs-authority rule after
+  review of the review-channel refactor. Event-backed bridge helpers are being
+  promoted into admitted public seams instead of leaking underscore helpers
+  across modules, compatibility-only synthetic bridge fields are now called out
+  as fail-closed/non-canonical, and the platform-contract-closure guard now
+  proves event-backed `ReviewBridgeState` emission round-trips through the
+  typed parser instead of stopping at key/type shape parity. The explicit rule
+  is now part of this plan: if a projection emits typed contract fields or
+  policy summaries, the owning runtime contract must also source them and
+  parser/contract tests must prove round-trip fidelity.
+- 2026-04-01: Recorded the prevention gap that let this drift escape earlier.
+  The old system checked emitter key/type parity but not field-authority
+  taxonomy or parser round-trip, and it had no guard that treated
+  underscore-prefixed cross-module imports as a contract leak. The field
+  taxonomy and round-trip proof now exist in runtime/guard code; the remaining
+  system follow-up is the explicit seam-promotion guard tracked above.
 - 2026-04-01: Absorbed the accepted external integration review into the live
   authority-loop plan instead of leaving it in `dev/intrgrate_analysis.md`.
   The meaningful additions are now explicit in canonical phase order: startup
@@ -2782,6 +2844,16 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Audit Evidence
 
+- `dev/scripts/checks` modularization closure verification (2026-04-02):
+  direct guard reruns `python3 dev/scripts/checks/check_naming_consistency.py`,
+  `python3 dev/scripts/checks/check_package_layout.py --format md`,
+  `python3 dev/scripts/checks/check_python_cyclic_imports.py --format md`, and
+  `python3 -m compileall dev/scripts/checks/naming_consistency
+  dev/scripts/checks/check_naming_consistency.py` all passed after the final
+  import-boundary fix. The full repo-owned validation bundle
+  `python3 dev/scripts/devctl.py check --profile ci` also passed on the same
+  working tree; remaining output at the end of that run is advisory
+  compatibility-shim probe debt rather than a blocking guard failure.
 - Guard-governance closure audit (2026-03-21): supporting research may exist
   outside tracked execution state, but the execution-affecting conclusions
   promoted from that audit are kept here and in `MASTER_PLAN`: cheap

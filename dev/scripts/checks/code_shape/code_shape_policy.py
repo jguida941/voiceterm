@@ -85,9 +85,9 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
     # High-signal integration tests with heavy scenario matrices are governed by
     # explicit budgets instead of being fully excluded from shape controls.
     "rust/src/bin/voiceterm/event_loop/tests.rs": ShapePolicy(
-        soft_limit=6500,
-        hard_limit=7000,
-        oversize_growth_limit=150,
+        soft_limit=1300,
+        hard_limit=1400,
+        oversize_growth_limit=80,
         hard_lock_growth_limit=0,
     ),
     "rust/src/bin/voiceterm/writer/state/tests.rs": ShapePolicy(

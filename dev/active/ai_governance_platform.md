@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-01 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-02 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -5455,6 +5455,19 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-02: Closed the next self-hosting `MP-377` checks-root extraction
+  blocker without inventing a second package-layout regime. The remaining flat
+  helpers behind `check_bundle_workflow_parity.py`,
+  `check_duplication_audit.py`, `check_naming_consistency.py`, and
+  `mutation_ralph_loop_core.py` now live in documented family packages with
+  compatibility shims at the root, the `coderabbit_gate_core` package avoids
+  root/package duplication by re-exporting through a legacy-module loader, and
+  the `naming_consistency` move now proves both package imports and direct
+  root-entrypoint script mode. The important product-level closure is that the
+  branch-wide `python3 dev/scripts/devctl.py check --profile ci` bundle is
+  green again after the package move, so the active extraction lane can move on
+  from this crowded-root cluster instead of treating it as permanent
+  branch-local debt.
 - 2026-04-01: Absorbed the external integration-analysis tranche into the
   canonical `MP-377` owner chain rather than mirroring it as a second roadmap.
   Accepted deltas are now explicit in plan authority: repo-pack-owned

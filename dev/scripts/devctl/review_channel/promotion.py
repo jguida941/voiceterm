@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 
 from ..common import display_path
@@ -27,6 +27,10 @@ from .promotion_support import (
     InstructionRewriteContext,
     instruction_needs_plan_promotion,
     rewrite_instruction_and_metadata,
+)
+from .promotion_context import (
+    build_promotion_context_packet as _build_promotion_context_packet_impl,
+    promotion_candidate_to_dict,
 )
 
 # Backward-compat alias sourced from the frozen path config
@@ -63,14 +67,21 @@ class PromotionCandidate:
     checklist_item: str
     context_packet: ContextEscalationPacket | None = None
 
-def promotion_candidate_to_dict(
-    candidate: PromotionCandidate | None,
-) -> dict[str, object] | None:
-    """Convert a promotion candidate into JSON-friendly data."""
-    if candidate is None:
-        return None
-    return asdict(candidate)
 
+def build_promotion_context_packet(
+    *,
+    source_path: str,
+    phase_heading: str | None,
+    checklist_item: str,
+) -> ContextEscalationPacket | None:
+    """Build promotion context through the public promotion module seam."""
+    return _build_promotion_context_packet_impl(
+        source_path=source_path,
+        phase_heading=phase_heading,
+        checklist_item=checklist_item,
+        build_context_escalation_packet_fn=build_context_escalation_packet,
+        collect_query_terms_fn=collect_query_terms,
+    )
 
 def derive_promotion_candidate(
     *,
@@ -98,7 +109,7 @@ def derive_promotion_candidate(
     phase_heading, checklist_item = candidate_item
     phase_prefix = f"{phase_heading}: " if phase_heading else ""
     source_path = display_path(promotion_plan_path, repo_root=repo_root)
-    context_packet = _build_promotion_context_packet(
+    context_packet = build_promotion_context_packet(
         source_path=source_path,
         phase_heading=phase_heading,
         checklist_item=checklist_item,
@@ -237,23 +248,6 @@ def _iter_unchecked_checklist_items(
 
 def _normalize_item_text(lines: list[str]) -> str:
     return " ".join(part.strip() for part in lines if part.strip())
-
-
-def _build_promotion_context_packet(
-    *,
-    source_path: str,
-    phase_heading: str | None,
-    checklist_item: str,
-) -> ContextEscalationPacket | None:
-    query_terms = collect_query_terms(
-        [source_path, phase_heading, checklist_item],
-        max_terms=4,
-    )
-    return build_context_escalation_packet(
-        trigger="review-channel-promotion",
-        query_terms=query_terms,
-        options={"max_chars": 700},
-    )
 
 
 def resolve_scope_plan_path(

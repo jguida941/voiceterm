@@ -259,6 +259,32 @@ class ReviewStateTests(unittest.TestCase):
         assert state is not None
         self.assertTrue(state.bridge.implementer_completion_stall)
 
+    def test_optional_review_flags_preserve_unknown_state(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-03-16T02:05:00Z",
+                "ok": True,
+                "review_state": {
+                    "review": {"session_id": "session-optional-flags"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {
+                        "reviewer_mode": "active_dual_agent",
+                        "reviewed_hash_current": None,
+                        "review_needed": None,
+                    },
+                    "packets": [],
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertIsNone(state.bridge.reviewed_hash_current)
+        self.assertIsNone(state.bridge.review_needed)
+
     def test_event_backed_full_projection_parses_same_shared_contract_fields(self) -> None:
         bridge_state = review_state_from_payload(
             {

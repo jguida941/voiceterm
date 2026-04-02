@@ -2,26 +2,14 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
+import importlib
 from unittest import TestCase
 from unittest.mock import patch
 
-from dev.scripts.devctl.config import REPO_ROOT
-
-SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/mutation_ralph_loop_core.py"
-
-
 def _load_script_module():
-    spec = importlib.util.spec_from_file_location(
-        "mutation_ralph_loop_core_script", SCRIPT_PATH
+    return importlib.import_module(
+        "dev.scripts.checks.mutation_ralph_loop.core"
     )
-    if spec is None or spec.loader is None:
-        raise RuntimeError("unable to load mutation_ralph_loop_core.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 class MutationRalphLoopCoreTests(TestCase):
@@ -45,10 +33,9 @@ class MutationRalphLoopCoreTests(TestCase):
                     None,
                 ),
             ),
-            patch.object(self.script, "download_run_artifacts", return_value=None),
             patch.object(
                 self.script,
-                "aggregate_outcomes",
+                "load_attempt_outcome",
                 return_value=(
                     {
                         "score": 0.62,
@@ -62,6 +49,7 @@ class MutationRalphLoopCoreTests(TestCase):
                         "hotspots": [{"path": "src/foo.rs", "survivors": 4}],
                         "freshness": [],
                     },
+                    None,
                     None,
                 ),
             ),
@@ -99,10 +87,9 @@ class MutationRalphLoopCoreTests(TestCase):
                     None,
                 ),
             ),
-            patch.object(self.script, "download_run_artifacts", return_value=None),
             patch.object(
                 self.script,
-                "aggregate_outcomes",
+                "load_attempt_outcome",
                 return_value=(
                     {
                         "score": 0.50,
@@ -116,6 +103,7 @@ class MutationRalphLoopCoreTests(TestCase):
                         "hotspots": [],
                         "freshness": [],
                     },
+                    None,
                     None,
                 ),
             ),

@@ -8,6 +8,7 @@ from .control_state import _int, _mapping, _string, _string_rows
 from .review_state_collaboration_parse import collaboration_state_from_payload
 from .review_state_parse_support import (
     _bool,
+    _optional_bool,
     bridge_ack_state,
     conductor_capability_state_from_payload,
 )
@@ -84,16 +85,8 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         launch_truth=_string(bridge.get("launch_truth")),
         effective_reviewer_mode=_string(bridge.get("effective_reviewer_mode")),
         implementer_state_hash=_string(bridge.get("implementer_state_hash")),
-        reviewed_hash_current=(
-            _bool(bridge.get("reviewed_hash_current"))
-            if "reviewed_hash_current" in bridge
-            else None
-        ),
-        review_needed=(
-            _bool(bridge.get("review_needed"))
-            if "review_needed" in bridge
-            else None
-        ),
+        reviewed_hash_current=_optional_bool(bridge, "reviewed_hash_current"),
+        review_needed=_optional_bool(bridge, "review_needed"),
         review_accepted=_bool(bridge.get("review_accepted")),
         implementer_completion_stall=bool(bridge.get("implementer_completion_stall")),
         publisher_running=bool(bridge.get("publisher_running")),

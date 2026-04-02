@@ -76,6 +76,12 @@ Package-layout truth rule:
   import/patch paths, but they must stay metadata-bearing, auditable, and small
   enough for package-layout validation to count them as compatibility seams
   rather than fresh implementation growth.
+- When a public `dev/scripts/checks/check_*.py`, `probe_*.py`, or `run_*.py`
+  entrypoint moves behind a package seam, keep the legacy root shim executable
+  in direct script mode as well as import/package mode. Treat that shim path as
+  part of the contract and rerun the root entrypoint plus the owning bundle
+  before handoff so package-only unit coverage does not hide broken script
+  imports.
 
 Top-level enforcement rule: every time an agent creates a file or edits an
 existing file, it must run the relevant repo guard/check scripts before

@@ -173,6 +173,11 @@ Compatibility note:
 - Treat moved public scripts and compatibility shims as entrypoint smoke/
   integration coverage too: when script mode, package mode, or root-entrypoint
   routing changes, do not rely only on direct module unit tests.
+- For `dev/scripts/checks/**` package moves, keep the legacy root
+  `check_*.py` / `probe_*.py` shim runnable in direct script mode and rerun it
+  explicitly before trusting the move. Package imports and unit tests can stay
+  green while the public root entrypoint still has broken relative-import
+  fallback.
 - When a tooling/docs workflow invokes compile-time Rust guards, install the
   repo Rust toolchain and required Linux headers in that job first; the main
   Rust CI lane’s setup does not carry over automatically to `tooling_control_plane.yml`.
