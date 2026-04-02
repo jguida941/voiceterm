@@ -2971,7 +2971,7 @@ become the main product surface.
   packet through the existing review-channel event path instead of pretending
   detached automation is live reviewer work. The bounded phone/client
   integration follow-up for that wrapper, operator-lane projection, and
-  rollover reuse now lives in `dev/active/remote_orchestration.md`.
+  rollover reuse is tracked under `dev/active/continuous_swarm.md` (MP-358).
   The next closure slice is now explicit too: keep one backend for developers
   and agents, add a repo-owned inactive-mode liveness emitter, expose only
   thin mode toggles/aliases (`agents` / `developer`) over that same contract

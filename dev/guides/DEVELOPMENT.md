@@ -580,6 +580,9 @@ the concrete minimum inventory after edits:
      dry-run, report-only, and simulated-launch paths portable on CI runners:
      those flows should not require provider CLIs or GitHub API reachability
      unless they are actually executing the live action.
+   - The `reviewer_follow_guard` suppresses automation heartbeats when a review
+     follow-up is pending and queues `restore_reviewer_turn` packets. Dedupe is
+     disk-based so dismissed packets allow re-queuing without process restart.
    - If a guard intentionally suppresses live reviewer-heartbeat freshness on
      `GITHUB_ACTIONS=true` runners, stale-bridge auto-refresh logic must still
      consult direct bridge liveness before `status` / `launch`; do not key

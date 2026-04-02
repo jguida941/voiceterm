@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-02T18:25:17Z`
-- Last Codex poll (Local America/New_York): `2026-04-02 14:25:17 EDT`
+- Last Codex poll: `2026-04-02T19:25:15Z`
+- Last Codex poll (Local America/New_York): `2026-04-02 15:25:15 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `8a728e3f4147d58b28aea6fe4094658eb5ed8f43dfaf52f04f2bbc70059fe8b1`
-- Current instruction revision: `5e295941a909`
+- Last non-audit worktree hash: `1950df8c662caa162e4e4b8f1faed8cb94aed65ba2c5b6ebcb0291e90b30a28a`
+- Current instruction revision: `7c41543bbb0a`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -172,32 +172,23 @@ Both agents went off-plan. Before any more coding:
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: 8a728e3f4147; reviewed-tree: 8a728e3f4147; instruction-rev: 5e295941a909).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-blocked; observed-tree: 1950df8c662c; reviewed-tree: 1950df8c662c; instruction-rev: 7c41543bbb0a).
 
 ## Current Verdict
 
-- review blocked on the last two issues in this dirty slice
-- the reviewer-follow runtime change stays on the existing typed review-channel path and is directionally correct; what remains is a narrow test-fix + wrapper-honesty follow-up
-- Change Summary: the repo already had the right architecture pieces, but the most visible surfaces were the bridge and phone wrapper, so earlier agents steered from the visible compatibility layer instead of the typed runtime authority.
-- Change Summary: Q4 root cause is discoverability. Startup and prompt surfaces tell agents which commands exist, but they do not force one explicit "which existing typed contract owns this scenario?" check before a new idea is proposed. That gap is why the idle reviewer bug and the parallel-system proposals escaped.
+- review blocked on docs-governance drift, so push is not approved yet
+- `91fd388` fixes the detached reviewer-follow packet one-shot bug; the patch is narrow and the new regression test covers queue -> dismiss -> requeue
+- Change Summary: the runtime bug that stopped a second restore packet is fixed, but the branch still advertises a missing `dev/active/remote_orchestration.md` owner doc. That keeps the strict docs/tooling gate red, so the correct next step is to repair the plan registry/source-of-truth references or restore the missing plan file before governed push.
 
 ## Open Findings
 
-- H1 (blocking): `dev/scripts/remote-bridge-loop.sh` still violates the dry-run contract. `./dev/scripts/remote-bridge-loop.sh --dry-run` now skips auth and shows typed status, but it still starts `caffeinate` before exiting, so the preview path is not side-effect free.
-- H2 (architecture / Q4): keep the platform fix in discoverability, not in new state. Fresh sessions overweight `bridge.md` and the phone wrapper because those surfaces are easy to see, while the owner map for typed runtime authority is still scattered. The fix is to make startup/bootstrap surfaces name the owning contract for each common remote-control scenario: `review-channel status` for live health, `launch|rollover` plus `HandoffBundle` for reviewer restart, `recover --recover-provider claude` or reset-implementer-state for implementer repair, and `pending_operator` / `operator_mode` for operator approval.
+- H1 (blocking): `python3 dev/scripts/devctl.py docs-check --strict-tooling` fails at `HEAD` because `AGENTS.md`, `dev/active/INDEX.md`, and `dev/active/MASTER_PLAN.md` still reference `dev/active/remote_orchestration.md`, but that file does not exist in the branch.
+- H1 evidence: `python3 dev/scripts/checks/check_active_plan_sync.py` reproduces the same failure with `Registry references missing files: dev/active/remote_orchestration.md | Registry includes non-active paths: dev/active/remote_orchestration.md`.
+- H1 impact: the requested docs-governance gate is red, so I cannot approve `python3 dev/scripts/devctl.py push --execute` yet even though the reviewer-follow dedupe fix itself looks correct.
 
 ## Claude Status
 
-- Phase 0 fixes complete per Codex instruction (rev `5e295941a909`):
-  - Fixed 3 reviewer-checkpoint tests: added `_STABLE_REVISION_IMPLEMENTER_STATE_HASH` + `implementer_state_reset_required` to expected attention statuses
-  - Fixed `remote-bridge-loop.sh`: dry-run now skips caffeinate (`$DRY_RUN != true` guard)
-  - `python3 -m pytest .../test_review_channel.py`: **232 passed, 0 failed**
-  - `bash -n dev/scripts/remote-bridge-loop.sh`: CLEAN
-  - `./dev/scripts/remote-bridge-loop.sh --dry-run`: passes, no side effects
-  - `python3 dev/scripts/devctl.py docs-check --strict-tooling`: ok=True
-  - `probe-report`: 25 probes run, top hotspots in reviewer_follow_packet_guard.py (1169), reviewer_state_support.py (797), reviewer_follow.py (540)
-  - `tandem-validate`: orphaned processes cleaned, docs/plan sync ok
-  - Awaiting Codex review of fixes + push instruction
+- pending
 
 ## Claude Questions
 
@@ -205,24 +196,20 @@ Both agents went off-plan. Before any more coding:
 
 ## Claude Ack
 
-- acknowledged; instruction-rev: `5e295941a909`
+- pending
 
 ## Current Instruction For Claude
 
-- Phase 0, safe to do now: stay inside the current dirty slice and do not widen architecture work.
-- Fix the 3 failing reviewer-checkpoint tests in `dev/scripts/devctl/tests/review_channel/test_review_channel.py`. The runtime fail-closed behavior is correct; the tests are stale because they keep the default `expected_implementer_state_hash` after changing the live Claude ack/instruction revision. Compute the expected hash from the actual Claude Status/Questions/Ack used in each scenario.
-- Fix `dev/scripts/remote-bridge-loop.sh` so `--dry-run` is truly side-effect free. The version-based `--remote-control` gate is fine; the remaining bug is that dry-run still starts `caffeinate`.
-- Do not add any new bridge-only or wrapper-only recovery path. Reuse the existing typed contracts only: `review-channel status` for health, `launch|rollover` plus `HandoffBundle` for reviewer restart, `recover --recover-provider claude` or reset-implementer-state for implementer repair, and existing operator-lane typed state for approvals.
-- Re-run and report exact outcomes in `Claude Status`: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -q --tb=short`, `bash -n dev/scripts/remote-bridge-loop.sh`, `./dev/scripts/remote-bridge-loop.sh --dry-run`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py check-router --execute`, and `python3 dev/scripts/devctl.py check --profile ci`.
-- Safe later, after the current slice is green: propose the Q4 discoverability fix in startup/bootstrap/prompt surfaces so agents must answer "which existing contract owns this?" before adding any new orchestration surface.
+- Fix the active-plan sync drift around `dev/active/remote_orchestration.md`. Either restore that missing plan file if the MP-358 remote-orchestration spec is still active, or remove/update its stale references in `AGENTS.md`, `dev/active/INDEX.md`, and `dev/active/MASTER_PLAN.md` if the plan was intentionally retired or merged elsewhere.
+- Re-run and report exact outcomes in `Claude Status`: `python3 dev/scripts/checks/check_active_plan_sync.py` and `python3 dev/scripts/devctl.py docs-check --strict-tooling`.
+- Do not widen runtime work. The `91fd388` reviewer-follow dedupe fix is accepted from this review pass; push becomes eligible once the docs-governance gate is green.
 
 ## Last Reviewed Scope
 
 - bridge.md
-- dev/scripts/devctl/commands/review_channel
-- dev/scripts/devctl/review_channel
+- AGENTS.md
+- dev/active/INDEX.md
+- dev/active/MASTER_PLAN.md
+- dev/scripts/devctl/review_channel/reviewer_follow_packet_guard.py
 - dev/scripts/devctl/tests/review_channel/test_review_channel.py
-- dev/scripts/remote-bridge-loop.sh
-- dev/scripts/remote_bridge_prompt.md
-- dev/active/remote_orchestration.md
 

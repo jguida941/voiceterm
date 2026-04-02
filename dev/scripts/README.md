@@ -227,6 +227,11 @@ Portability note:
   lane and risk add-ons through `check-router`, runs the routed bundle, then
   re-runs final bridge/tandem guards so Codex/Claude sessions do not rely on a
   hand-maintained checklist.
+- The `reviewer_follow_guard` module suppresses automation heartbeats when a
+  real review follow-up is pending and queues typed `restore_reviewer_turn`
+  packets through the existing `PacketPostRequest` pipeline. The dedupe is
+  disk-based (`_existing_pending_trigger_packet_id`) so dismissed/applied
+  packets allow re-queuing without a process restart.
 - `review-channel --action reviewer-heartbeat` is the repo-owned liveness write
   for solo-dev / tools-only / paused tandem states. It updates heartbeat and
   mode metadata without claiming a new reviewed hash, and it now rewrites

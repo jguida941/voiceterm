@@ -7047,6 +7047,28 @@ Evidence: `dev/scripts/devctl/commands/docs/policy_runtime.py`,
 `dev/guides/DEVELOPMENT.md`,
 `dev/scripts/README.md`.
 
+### 2026-04-02 - Reviewer-follow guard stops fake heartbeats and fixes one-shot dedupe
+
+The ensure --follow daemon was unconditionally refreshing reviewer heartbeats
+even when no real reviewer was doing work, masking stale state. The
+`reviewer_follow_guard` now suppresses automation heartbeats when
+`review_needed` is True and queues typed `restore_reviewer_turn` packets
+through the existing `PacketPostRequest` pipeline. The in-process dedupe latch
+was removed because it prevented re-queuing after a dismissed packet — the
+disk-based `_existing_pending_trigger_packet_id` provides correct dedupe.
+
+Also fixes `remote-bridge-loop.sh` dry-run contract (skips auth and caffeinate)
+and version probe (uses semver comparison instead of `--help` exit code).
+
+Updated:
+`dev/scripts/devctl/review_channel/reviewer_follow_guard.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow_packet_guard.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow_heartbeat_guard.py`,
+`dev/scripts/devctl/review_channel/follow_controller.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow.py`,
+`dev/scripts/devctl/commands/review_channel/_follow_runtime.py`,
+`dev/scripts/remote-bridge-loop.sh`.
+
 ### 2026-04-01 - Crowded `devctl` command families now decompose through namespace packages plus alias shims
 
 Fact: the `dev/scripts/devctl/commands/` ratchet was correctly forcing crowded
