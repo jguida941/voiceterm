@@ -67,13 +67,6 @@ def maybe_queue_reviewer_follow_packet(
     if context is None:
         trigger_state.last_trigger_key = ""
         return None
-    if context.trigger_key == trigger_state.last_trigger_key:
-        return _trigger_response(
-            attempted=True,
-            queued=False,
-            reason="already_queued_in_process",
-            trigger_key=context.trigger_key,
-        )
     if context.review_channel_path is None:
         return _trigger_response(
             attempted=True,

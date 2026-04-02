@@ -2407,6 +2407,95 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             )
             self.assertIn("review_trigger_key", packets[0]["body"])
 
+    def test_reviewer_follow_requeues_trigger_after_dismissed_packet(self) -> None:
+        """After a restore_reviewer_turn packet is dismissed, a second call with
+        the same trigger key must queue a fresh packet instead of returning
+        already_queued_in_process."""
+        from dev.scripts.devctl.review_channel.reviewer_follow_packet_guard import (
+            ReviewerFollowPacketDeps,
+            ReviewerFollowPacketRequest,
+            ReviewerFollowTriggerState,
+            maybe_queue_reviewer_follow_packet,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+            trigger_state = ReviewerFollowTriggerState()
+            report = {
+                "review_needed": True,
+                "bridge_liveness": {
+                    "reviewer_mode": "active_dual_agent",
+                    "effective_reviewer_mode": "active_dual_agent",
+                    "launch_truth": "detached_runtime_only",
+                    "poll_status_automation_only": True,
+                    "current_instruction_revision": "feedfacecafe",
+                },
+                "attention": {
+                    "status": "review_loop_relaunch_required",
+                    "recommended_command": "python3 dev/scripts/devctl.py review-channel --action launch",
+                },
+                "reviewer_worker": {
+                    "state": "review_needed",
+                    "review_needed": True,
+                    "current_hash": "b" * 64,
+                    "reviewed_hash": "a" * 64,
+                },
+                "service_identity": {"service_id": "review-channel:test"},
+            }
+            request = ReviewerFollowPacketRequest(
+                args=SimpleNamespace(
+                    session_id="test-session",
+                    plan_id="MP-355",
+                    expires_in_minutes=30,
+                ),
+                repo_root=root,
+                paths={"review_channel_path": review_channel_path},
+                report=report,
+            )
+
+            # First call: should queue a packet
+            result1 = maybe_queue_reviewer_follow_packet(
+                request=request,
+                trigger_state=trigger_state,
+            )
+            self.assertIsNotNone(result1)
+            self.assertTrue(result1["queued"])
+            first_packet_id = result1["packet_id"]
+
+            # Build a fake bundle loader that returns the packet as dismissed
+            bundle = load_or_refresh_event_bundle(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+            )
+            dismissed_state = json.loads(json.dumps(bundle.review_state))
+            for packet in dismissed_state["packets"]:
+                if packet.get("packet_id") == first_packet_id:
+                    packet["status"] = "dismissed"
+
+            def load_with_dismissed(**_kwargs):
+                return SimpleNamespace(review_state=dismissed_state)
+
+            # Second call with same trigger key: should queue again, not suppress
+            result2 = maybe_queue_reviewer_follow_packet(
+                request=request,
+                trigger_state=trigger_state,
+                deps=ReviewerFollowPacketDeps(load_bundle_fn=load_with_dismissed),
+            )
+            self.assertIsNotNone(result2)
+            self.assertTrue(
+                result2["queued"],
+                f"Expected second packet to be queued after first was dismissed, "
+                f"got reason={result2.get('reason')}",
+            )
+
     def test_reviewer_follow_recovery_skips_inactive_effective_mode(self) -> None:
         from dev.scripts.devctl.review_channel.follow_loop import STALL_ESCALATION_POLLS
         from dev.scripts.devctl.review_channel.reviewer_follow_recovery import (
