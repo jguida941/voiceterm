@@ -953,7 +953,11 @@ Routine helper:
   publication as settled and repair the post-push follow-up instead of
   pushing again. Interactive runs now also emit stderr progress when remote
   publication is recorded and before each post-push step so a long post-push
-  bundle does not look like "push still unresolved" to humans or AI.
+  bundle does not look like "push still unresolved" to humans or AI. If a
+  later rerun fetches the tracked branch and proves `ahead == 0`, `devctl
+  push` now exits with the existing `branch_already_pushed` /
+  `published_remote` receipt before router preflight so a clean already-
+  published branch cannot be misclassified into a zero-diff docs lane.
 - Shared `devctl` command execution now follows the parent command lifetime:
   inherited stdout pipes from detached descendants must not keep a completed
   governed push session open after the parent push/post-push step exits.

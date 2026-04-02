@@ -1881,6 +1881,16 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-02: Closed the post-publication governed-push receipt gap. A clean
+  branch that already matched its tracked remote could still reroute through
+  zero-diff `check-router` preflight and die in the docs lane, which made the
+  saved latest-push receipt look blocked even though publication had already
+  succeeded. `devctl push` now short-circuits after fetch/divergence once
+  `ahead == 0` is proven for the tracked branch, so the command emits the
+  existing `branch_already_pushed` / `published_remote` receipt without
+  running router preflight or fabricating docs-governance debt. Focused push
+  regressions now prove both validation and `--execute` reruns stay truthful
+  on already-published branches.
 - 2026-04-02: Closed the next startup-authority self-governance miss after a
   local checkpoint could still coexist with a green `python3
   dev/scripts/devctl.py check --profile ci` run. The startup-authority

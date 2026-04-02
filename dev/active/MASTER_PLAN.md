@@ -4118,6 +4118,12 @@ become the main product surface.
     and the worktree is dirty again, and the VoiceTerm quality-policy preset
     now enables that guard in the default `check --profile ci` lane so the
     branch-local dirty-after-checkpoint state goes red before governed push.
+    Latest follow-up (2026-04-02): post-publication governed push receipts now
+    also stop at the fetched divergence boundary. When the tracked branch is
+    already at `ahead == 0`, `devctl push` skips router preflight entirely and
+    returns the existing `branch_already_pushed` / `published_remote` truth
+    instead of defaulting zero changed paths into the docs lane and saving a
+    fabricated blocked receipt.
     Current follow-up after the 2026-03-23 closure pass: `startup-context`
     itself is now the documented Step 0 gate, it persists a managed
     `StartupReceipt` under the repo-owned reports root derived from live

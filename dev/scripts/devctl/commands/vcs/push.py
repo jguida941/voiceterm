@@ -154,6 +154,8 @@ def _run_fetch_and_preflight(state: PushRunState, policy, args) -> None:
     state.branch_has_remote = remote_branch_exists(state.remote, state.branch)
     if state.branch_has_remote and not _record_divergence(state, state.remote, state.branch):
         return
+    if state.branch_has_remote and state.ahead == 0:
+        return
     if args.skip_preflight:
         return
 

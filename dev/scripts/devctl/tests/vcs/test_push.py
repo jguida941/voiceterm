@@ -384,6 +384,112 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(payload["typed_action"]["action_id"], "vcs.push")
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+        return_value={"behind": 0, "ahead": 0, "error": None},
+    )
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    def test_push_skips_preflight_when_branch_is_already_published(
+        self,
+        build_startup_context_mock,
+        collect_git_status_mock,
+        load_policy_mock,
+        _remote_exists_mock,
+        _remote_branch_exists_mock,
+        _branch_divergence_mock,
+        run_cmd_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_policy_mock.return_value = make_policy()
+        build_startup_context_mock.return_value = _startup_context(action="no_push_needed")
+        run_cmd_mock.side_effect = [
+            {
+                "name": "git-fetch",
+                "cmd": ["git", "fetch", "origin"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+        ]
+
+        rc = push.run(make_args())
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            [call.args[1] for call in run_cmd_mock.call_args_list],
+            [["git", "fetch", "origin"]],
+        )
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["status"], "published_remote")
+        self.assertEqual(payload["reason"], "branch_already_pushed")
+        self.assertIsNone(payload["preflight_step"])
+        self.assertIsNone(payload["push_step"])
+        self.assertEqual(
+            payload["push_stages"],
+            {
+                "validation_ready": True,
+                "published_remote": True,
+                "post_push_green": False,
+            },
+        )
+
+    @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+        return_value={"behind": 0, "ahead": 0, "error": None},
+    )
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    def test_push_execute_noops_when_branch_is_already_published(
+        self,
+        build_startup_context_mock,
+        collect_git_status_mock,
+        load_policy_mock,
+        _remote_exists_mock,
+        _remote_branch_exists_mock,
+        _branch_divergence_mock,
+        run_cmd_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_policy_mock.return_value = make_policy()
+        build_startup_context_mock.return_value = _startup_context(action="no_push_needed")
+        run_cmd_mock.side_effect = [
+            {
+                "name": "git-fetch",
+                "cmd": ["git", "fetch", "origin"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+        ]
+
+        rc = push.run(make_args(execute=True))
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            [call.args[1] for call in run_cmd_mock.call_args_list],
+            [["git", "fetch", "origin"]],
+        )
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["status"], "published_remote")
+        self.assertEqual(payload["reason"], "branch_already_pushed")
+        self.assertIsNone(payload["preflight_step"])
+        self.assertIsNone(payload["push_step"])
+
+    @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch(
         "dev.scripts.devctl.commands.vcs.push.build_post_push_commands",
         return_value=["git status", "git log --oneline --decorate -n 10"],

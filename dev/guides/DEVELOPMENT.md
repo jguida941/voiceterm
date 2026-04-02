@@ -784,7 +784,10 @@ Workflow permissions note:
    post-push follow-up" rather than "push again." Interactive runs also emit
    progress notices when publication is recorded and before each post-push
    command so a slow post-push bundle is visibly "published but still
-   auditing," not "still waiting to push."
+   auditing," not "still waiting to push." If a later rerun fetches the
+   tracked branch and proves `ahead == 0`, `devctl push` now returns the
+   existing already-published receipt before router preflight instead of
+   defaulting zero changed paths into the docs lane.
    The shared `devctl` command runner now follows the parent push/post-push
    command lifetime instead of waiting forever on inherited descendant stdout
    pipes after the governed push has already completed.

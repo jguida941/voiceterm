@@ -57,6 +57,20 @@ VoiceTerm quality preset explicitly re-enables both
 checkpoint state into a visible quality failure before push time and adds a
 repo-policy regression test so the preset cannot silently narrow again.
 
+### 2026-04-02 - Post-publication `devctl push` reruns now stop at divergence truth instead of fabricating docs-lane failures
+
+The next escaped defect was not in publication itself. The branch was already
+on remote, and `startup-context` correctly said `no_push_needed`. The problem
+was that a later `devctl push` rerun still marched into router preflight,
+`check-router` saw zero changed paths, defaulted to the docs lane, and the
+saved latest-push receipt looked blocked by unrelated docs requirements.
+
+The contract is tighter now. `devctl push` still fetches first, but once the
+tracked branch proves `ahead == 0` it stops before router preflight and emits
+the existing `branch_already_pushed` / `published_remote` receipt. That keeps
+the no-op push answer attached to push-state truth instead of teaching the
+router about a special post-publication exception.
+
 ### 2026-04-02 - `dev/scripts/checks` package extractions now have to prove the legacy root entrypoint, not just the moved package
 
 The next self-hosting cleanup pass exposed a subtle failure mode in the
