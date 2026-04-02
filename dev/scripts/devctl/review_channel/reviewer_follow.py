@@ -33,7 +33,10 @@ from .reviewer_follow_guard import (
 from .reviewer_follow_recovery import (
     ReviewerFollowRecoveryInput,
     ReviewerFollowRecoveryState,
+    ReviewerFollowRolloverInput,
+    ReviewerFollowRolloverState,
     maybe_auto_recover_stale_implementer,
+    maybe_auto_trigger_rollover_on_stale_codex,
 )
 
 
@@ -43,6 +46,7 @@ class ReviewerFollowDeps:
     build_reviewer_state_report_fn: Callable[..., tuple[dict, int]]
     reviewer_state_write_to_dict_fn: Callable[..., dict[str, object] | None]
     run_recovery_action_fn: Callable[..., tuple[dict, int]] | None
+    run_rollover_action_fn: Callable[..., tuple[dict, int]] | None
     emit_follow_ndjson_frame_fn: Callable[..., int]
     reset_follow_output_fn: Callable[..., None]
     build_follow_completion_report_fn: Callable[..., dict[str, object]]
@@ -52,10 +56,22 @@ class ReviewerFollowDeps:
     sleep_fn: Callable[[float], None]
 
 
+@dataclass
+class ReviewerFollowLoopState:
+    """Mutable reviewer-follow state carried across loop iterations."""
+
+    recovery: ReviewerFollowRecoveryState
+    rollover: ReviewerFollowRolloverState
+    trigger: ReviewerFollowTriggerState
+
+
 def run_reviewer_follow_action(*, args, repo_root: Path, paths: dict[str, object], deps: ReviewerFollowDeps) -> tuple[dict, int]:
     """Poll reviewer-worker state on cadence and emit NDJSON frames."""
-    recovery_state = ReviewerFollowRecoveryState()
-    trigger_state = ReviewerFollowTriggerState()
+    loop_state = ReviewerFollowLoopState(
+        recovery=ReviewerFollowRecoveryState(),
+        rollover=ReviewerFollowRolloverState(),
+        trigger=ReviewerFollowTriggerState(),
+    )
     return run_configured_follow_action(
         args=args, repo_root=repo_root, paths=paths, deps_source=deps,
         action=_reviewer_follow_action_shape(deps),
@@ -64,8 +80,7 @@ def run_reviewer_follow_action(*, args, repo_root: Path, paths: dict[str, object
             repo_root=repo_root,
             paths=paths,
             deps=deps,
-            recovery_state=recovery_state,
-            trigger_state=trigger_state,
+            loop_state=loop_state,
         ),
     )
 
@@ -88,8 +103,7 @@ def _build_reviewer_follow_tick(
     repo_root: Path,
     paths: dict[str, object],
     deps: ReviewerFollowDeps,
-    recovery_state: ReviewerFollowRecoveryState,
-    trigger_state: ReviewerFollowTriggerState,
+    loop_state: ReviewerFollowLoopState,
 ) -> FollowLoopTick:
     bridge_path = paths["bridge_path"]
     assert isinstance(bridge_path, Path)
@@ -136,7 +150,7 @@ def _build_reviewer_follow_tick(
             paths=paths,
             report=report,
             progress_token=progress_token,
-            recovery_state=recovery_state,
+            recovery_state=loop_state.recovery,
         ),
     )
     if auto_recovery is not None:
@@ -152,6 +166,29 @@ def _build_reviewer_follow_tick(
                 repo_root=repo_root,
                 bridge_path=bridge_path,
             )
+    auto_rollover = maybe_auto_trigger_rollover_on_stale_codex(
+        rollover_fn=deps.run_rollover_action_fn,
+        rollover_input=ReviewerFollowRolloverInput(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+            report=report,
+            rollover_state=loop_state.rollover,
+        ),
+    )
+    if auto_rollover is not None:
+        report["auto_rollover"] = auto_rollover
+        if bool(auto_rollover.get("rolled_over")):
+            report, frame_exit_code = deps.build_reviewer_state_report_fn(
+                args=args,
+                repo_root=repo_root,
+                paths=paths,
+            )
+            report["auto_rollover"] = auto_rollover
+            progress_token = build_claude_progress_token(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+            )
     review_trigger = maybe_queue_reviewer_follow_packet(
         request=ReviewerFollowPacketRequest(
             args=args,
@@ -159,7 +196,7 @@ def _build_reviewer_follow_tick(
             paths=paths,
             report=report,
         ),
-        trigger_state=trigger_state,
+        trigger_state=loop_state.trigger,
     )
     if review_trigger is not None:
         report["review_trigger"] = review_trigger

@@ -2315,6 +2315,100 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             self.assertEqual(recovery_args.action, "recover")
             self.assertEqual(recovery_args.terminal, "terminal-app")
 
+    def test_reviewer_follow_auto_triggers_rollover_for_stale_reviewer(self) -> None:
+        args = self._build_reviewer_follow_args(max_follow_snapshots=7)
+        frames: list[dict[str, object]] = []
+        ensure_result = EnsureHeartbeatResult(
+            refreshed=True,
+            reviewer_mode="active_dual_agent",
+            reason="reviewer-follow",
+            state_write=None,
+            error=None,
+        )
+        status_report = {
+            "command": "review-channel",
+            "action": "reviewer-heartbeat",
+            "ok": True,
+            "errors": [],
+            "review_needed": False,
+            "bridge_liveness": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "current_instruction_revision": "feedfacecafe",
+                "launch_truth": "detached_runtime_only",
+                "poll_status_automation_only": True,
+            },
+            "attention": {
+                "status": "review_loop_relaunch_required",
+                "summary": "The declared dual-agent review loop is not actually live.",
+            },
+            "reviewer_worker": {
+                "state": "up_to_date",
+                "review_needed": False,
+                "semantic_review_claimed": False,
+            },
+        }
+        rollover_report = {
+            "launched": True,
+            "handoff_ack_observed": {"observed": True},
+            "handoff_bundle": {"rollover_id": "rollover-123"},
+            "errors": [],
+        }
+
+        def fake_emit(payload: dict[str, object], *, args) -> int:
+            frames.append(payload)
+            return 0
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            with (
+                patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+                patch.object(review_channel_follow_runtime, "_build_reviewer_state_report", return_value=(status_report, 0)),
+                patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", side_effect=fake_emit),
+                patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
+                patch.object(review_channel_follow_runtime, "_run_bridge_action", return_value=(rollover_report, 0)) as mocked_rollover,
+                patch.object(review_channel_command.time, "sleep", return_value=None),
+            ):
+                report, rc = review_channel_command._run_reviewer_follow_action(
+                    args=args,
+                    repo_root=root,
+                    paths={
+                        "bridge_path": bridge_path,
+                        "review_channel_path": review_channel_path,
+                        "rollover_dir": root / "dev/reports/review_channel/rollovers",
+                        "status_dir": root / "dev/reports/review_channel/latest",
+                    },
+                )
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(report["snapshots_emitted"], 7)
+            self.assertEqual(len(frames), 7)
+            rollover_frames = [
+                frame for frame in frames if frame.get("auto_rollover")
+            ]
+            self.assertEqual(len(rollover_frames), 1)
+            self.assertTrue(rollover_frames[0]["auto_rollover"]["rolled_over"])
+            self.assertTrue(
+                rollover_frames[0]["auto_rollover"]["handoff_ack_observed"]["observed"]
+            )
+            self.assertEqual(
+                rollover_frames[0]["auto_rollover"]["handoff_bundle"]["rollover_id"],
+                "rollover-123",
+            )
+            mocked_rollover.assert_called_once()
+            rollover_args = mocked_rollover.call_args.kwargs["args"]
+            self.assertEqual(rollover_args.action, "rollover")
+            self.assertEqual(rollover_args.terminal, "terminal-app")
+            self.assertEqual(rollover_args.rollover_trigger, "peer-stale")
+
     def test_reviewer_follow_queues_claude_trigger_when_relaunch_is_required(self) -> None:
         args = self._build_reviewer_follow_args(max_follow_snapshots=1)
         frames: list[dict[str, object]] = []
@@ -2540,6 +2634,51 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
 
         self.assertIsNone(result)
         self.assertEqual(recovery_calls, [])
+
+    def test_reviewer_follow_rollover_skips_inactive_effective_mode(self) -> None:
+        from dev.scripts.devctl.review_channel.follow_loop import STALL_ESCALATION_POLLS
+        from dev.scripts.devctl.review_channel.reviewer_follow_recovery import (
+            ReviewerFollowRolloverInput,
+            ReviewerFollowRolloverState,
+            maybe_auto_trigger_rollover_on_stale_codex,
+        )
+
+        rollover_calls: list[dict[str, object]] = []
+
+        def fake_rollover(**kwargs) -> tuple[dict[str, object], int]:
+            rollover_calls.append(kwargs)
+            return {"launched": True}, 0
+
+        rollover_state = ReviewerFollowRolloverState()
+        report = {
+            "bridge_liveness": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "tools_only",
+                "current_instruction_revision": "feedfacecafe",
+                "launch_truth": "detached_runtime_only",
+                "poll_status_automation_only": True,
+            },
+            "attention": {
+                "status": "review_loop_relaunch_required",
+                "summary": "The declared dual-agent review loop is not actually live.",
+            },
+        }
+
+        result = None
+        for _ in range(STALL_ESCALATION_POLLS + 2):
+            result = maybe_auto_trigger_rollover_on_stale_codex(
+                rollover_fn=fake_rollover,
+                rollover_input=ReviewerFollowRolloverInput(
+                    args=SimpleNamespace(await_ack_seconds=180),
+                    repo_root=Path("."),
+                    paths={},
+                    report=report,
+                    rollover_state=rollover_state,
+                ),
+            )
+
+        self.assertIsNone(result)
+        self.assertEqual(rollover_calls, [])
 
     def test_reviewer_follow_appends_daemon_lifecycle_events(self) -> None:
         from dev.scripts.devctl.review_channel.event_store import load_events, resolve_artifact_paths

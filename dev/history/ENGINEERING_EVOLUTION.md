@@ -79,6 +79,22 @@ honest: detached daemon freshness no longer masquerades as a real review pass,
 and the next remote-orchestration work can build on an explicit "restore the
 reviewer turn" signal instead of passive status churn.
 
+### 2026-04-02 - Reviewer-side stale-peer recovery now reuses the existing rollover contract
+
+The next gap was not a missing handoff system. The repo already had
+`HandoffBundle`, rollover ACK lines, launch records, and the repo-owned
+`review-channel --action rollover` path. The miss was that the detached
+reviewer follow loop still had no automatic way to use that contract when the
+reviewer side itself went stale or disappeared.
+
+That slice is closed now. `reviewer-heartbeat --follow` detects repeated
+unchanged stale reviewer/runtime states and auto-triggers the existing
+repo-owned rollover path instead of relying on manual phone-side Codex
+restarts. The important architectural detail is what did not change: the fix
+did not add a new remote-control control plane. It reuses the same handoff
+bundle, launch records, and visible rollover ACK contract that already owned
+planned round/context rotation.
+
 ### 2026-04-02 - Dirty work after a local checkpoint now fails the normal CI quality lane, not just startup/push
 
 The repo already had the right startup truth for this class of mistake:

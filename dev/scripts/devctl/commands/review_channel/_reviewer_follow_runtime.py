@@ -23,6 +23,7 @@ def _build_reviewer_follow_deps() -> ReviewerFollowDeps:
         build_reviewer_state_report_fn=compat_runtime._build_reviewer_state_report,
         reviewer_state_write_to_dict_fn=compat_runtime.reviewer_state_write_to_dict,
         run_recovery_action_fn=compat_runtime._run_recover_action,
+        run_rollover_action_fn=compat_runtime._run_bridge_action,
         emit_follow_ndjson_frame_fn=compat_runtime.emit_follow_ndjson_frame,
         reset_follow_output_fn=compat_runtime.reset_follow_output,
         build_follow_completion_report_fn=(

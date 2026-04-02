@@ -284,8 +284,12 @@ Three quality layers matter in practice:
     implementer state instead of waiting forever on raw shell sleep loops or
     operator chat nudges. That recovery replaces only the stale Claude
     conductor, and it now fails closed unless a live repo-owned Codex
-    conductor session is already present. If the reviewer side is not
-    already live, use full `launch|rollover` instead of creating a hybrid
+    conductor session is already present. Repeated unchanged stale
+    reviewer/runtime states now also auto-trigger the repo-owned
+    `review-channel --action rollover` path so stale Codex-side remote-
+    control recovery reuses the structured handoff bundle plus visible
+    rollover ACK contract instead of ad hoc restarts. If the reviewer side is
+    not already live, use full `launch|rollover` instead of creating a hybrid
     "Claude in Terminal, Codex in chat" loop. Full `rollover` remains the
     bounded round/context-rotation restart path.
   - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:

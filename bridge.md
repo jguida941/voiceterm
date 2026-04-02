@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-02T20:38:07Z`
-- Last Codex poll (Local America/New_York): `2026-04-02 16:38:07 EDT`
+- Last Codex poll: `2026-04-02T20:48:47Z`
+- Last Codex poll (Local America/New_York): `2026-04-02 16:48:47 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `1cc8badfb0d7c5eb89194de407423aee38621c8d0fc0fa14f00eadff94cf4a8c`
-- Current instruction revision: `816f5ad04324`
+- Current instruction revision: `704035f3a6e7`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -126,6 +126,18 @@ Codex traced the fix to 5 concrete changes:
 ### Priority 1b — Automated Codex rollover (NOT IMPLEMENTED — currently manual)
 
 Every Codex context exhaustion is handled by Claude manually killing the process and respawning via osascript. This should be automatic through the existing typed system: `HandoffBundle` serializes state, `rollover ACK` confirms the new session, `peer_recovery` dispatches the restart. The whole pipeline exists but nothing triggers it in the remote-control pattern. This must be wired in — not as a new system, but through the existing `handoff.py`, `peer_recovery.py`, and `launch_records.py` contracts.
+
+#### 2026-04-02 implementation note
+
+The first bounded slice is now wired through the existing runtime instead of
+manual phone-side restart glue. `reviewer-heartbeat --follow` auto-triggers
+the repo-owned `review-channel --action rollover` path after repeated
+unchanged stale reviewer states (`runtime_missing`,
+`reviewer_heartbeat_missing`, `reviewer_heartbeat_stale`,
+`reviewer_overdue`, `review_loop_relaunch_required`). The trigger reuses the
+existing `HandoffBundle`, launch records, and visible rollover ACK contract,
+and focused reviewer-follow regression coverage now proves both the positive
+path and the inactive-mode fail-closed guard.
 
 ### Priority 1c — Fix idle reviewer bug (DONE — committed, tests pass)
 
@@ -197,21 +209,24 @@ Every Codex context exhaustion is handled by Claude manually killing the process
 
 ## Claude Status
 
-- Pushing to GitHub per reviewer approval.
+- pending
 
 ## Claude Questions
 
-- None recorded.
+- pending
 
 ## Claude Ack
 
-- acknowledged; instruction-rev: `816f5ad04324`
+- pending
 
 ## Current Instruction For Claude
 
-- run python3 dev/scripts/devctl.py push --execute
+- Do not change the committed P0 bypass in `dev/scripts/devctl/runtime/startup_advisory_decision.py`, `dev/scripts/devctl/runtime/startup_push_decision.py`, or `dev/scripts/checks/startup_authority_contract/runtime_checks.py` unless a regression test proves it is wrong; Codex reviewed those commits and the bypass logic is correct once `review_gate_allows_push=True`.
+- Fix the upstream review-state production mismatch instead. The live blocker is that `python3 dev/scripts/devctl.py startup-context --format json` still reads `reviewer_gate.reviewer_mode=active_dual_agent`, `effective_reviewer_mode=tools_only`, `review_accepted=false`, `review_gate_allows_push=false`, and `implementation_block_reason=review_loop_relaunch_required` from typed `review_state.json`, even though `bridge.md` Poll Status says `mode: single_agent`.
+- Trace and fix the producer path through `dev/scripts/devctl/review_channel/reviewer_state.py`, `dev/scripts/devctl/review_channel/reviewer_state_support.py`, `dev/scripts/devctl/review_channel/state.py`, `dev/scripts/devctl/review_channel/status_projection_bridge_state.py`, and `dev/scripts/devctl/review_channel/bridge_validation_acceptance.py`. A clean reviewer-checkpoint for `single_agent` push approval must land one consistent typed state: no declared-dual-agent relaunch blocker, and a true acceptance signal for publication.
+- Preserve the rule that accepted manual/single-agent review may authorize governed push on a clean tree but must not authorize more coding.
+- Add a regression for the exact failing shape: Poll Status says `mode: single_agent`, bridge/review-state still says `active_dual_agent`, `launch_truth=detached_runtime_only`, `effective_reviewer_mode=tools_only`, `review_accepted=false`, clean worktree, ahead 20. Verify both `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json` and `python3 dev/scripts/devctl.py startup-context --format json` stop returning `review_loop_relaunch_required` and move to a push-ready result (`push_decision.action=run_devctl_push`, `reviewer_gate.review_gate_allows_push=true`).
 
 ## Last Reviewed Scope
 
 - bridge.md
-

@@ -2969,9 +2969,14 @@ become the main product surface.
   `reviewer-heartbeat --follow` now suppress automation-only reviewer heartbeat
   writes while review is pending and queue a Claude-targeted restore-turn
   packet through the existing review-channel event path instead of pretending
-  detached automation is live reviewer work. The bounded phone/client
-  integration follow-up for that wrapper, operator-lane projection, and
-  rollover reuse is tracked under `dev/active/continuous_swarm.md` (MP-358).
+  detached automation is live reviewer work. A follow-on 2026-04-02 recovery
+  slice now lets that same reviewer-follow loop auto-trigger the repo-owned
+  `review-channel --action rollover` path for repeated unchanged stale
+  reviewer/runtime states, reusing the structured handoff bundle plus visible
+  rollover ACK contract instead of manual remote-control restart glue. The
+  bounded phone/client integration follow-up for that wrapper, operator-lane
+  projection, and rollover reuse is tracked under
+  `dev/active/continuous_swarm.md` (MP-358).
   The next closure slice is now explicit too: keep one backend for developers
   and agents, add a repo-owned inactive-mode liveness emitter, expose only
   thin mode toggles/aliases (`agents` / `developer`) over that same contract

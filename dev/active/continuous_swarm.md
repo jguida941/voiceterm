@@ -295,8 +295,13 @@ Out of scope until the local proof gate is green:
       bounded repo-owned stale-implementer replacement path, and
       `reviewer-heartbeat --follow` auto-escalates repeated unchanged stale
       implementer state through that single-side recovery path instead of
-      leaving the loop parked on polling prose forever. Generalized automatic
-      relaunch of whichever peer is missing still remains open Phase 3/4 work.
+      leaving the loop parked on polling prose forever. The same
+      reviewer-follow loop now auto-escalates repeated unchanged stale
+      reviewer/runtime states through the existing repo-owned
+      `review-channel --action rollover` path, reusing the structured
+      handoff bundle plus visible rollover-ACK contract instead of relying on
+      manual remote-control restarts. Generalized automatic relaunch of
+      whichever peer is missing still remains open Phase 3/4 work.
 - [x] Promote implementer completion-stall into shared backend attention state
       instead of keeping it tandem-only. The same reducer that powers
       `check_tandem_consistency.py` should also drive review-channel
@@ -358,6 +363,16 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-04-02: Closed the first reviewer-side stale-peer auto-recovery slice
+  for the phone-steered loop without inventing a new remote-control path.
+  `reviewer-heartbeat --follow` now detects repeated unchanged stale reviewer
+  states (`runtime_missing`, stale/missing/overdue reviewer heartbeat, and
+  `review_loop_relaunch_required`) and triggers the existing repo-owned
+  `review-channel --action rollover` flow directly. The trigger reuses the
+  structured `HandoffBundle`, visible rollover ACK contract, and launch
+  records already owned by the review-channel runtime; focused reviewer-follow
+  regression coverage now proves both the positive trigger and the inactive-
+  mode fail-closed case.
 - 2026-04-02: Hardened the phone-steered remote-control wrapper for the local
   loop without pretending the missing reviewer-runtime architecture already
   exists. `dev/scripts/remote-bridge-loop.sh` now syncs the project-local
