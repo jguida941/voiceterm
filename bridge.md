@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-02T19:25:15Z`
-- Last Codex poll (Local America/New_York): `2026-04-02 15:25:15 EDT`
+- Last Codex poll: `2026-04-02T19:32:48Z`
+- Last Codex poll (Local America/New_York): `2026-04-02 15:32:48 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `1950df8c662caa162e4e4b8f1faed8cb94aed65ba2c5b6ebcb0291e90b30a28a`
-- Current instruction revision: `7c41543bbb0a`
+- Last non-audit worktree hash: `a74de4cf36b0464598873aae0d322f37d8309cf96006b05cb155b0187d87c45e`
+- Current instruction revision: `ab29f33860b7`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -172,19 +172,17 @@ Both agents went off-plan. Before any more coding:
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-blocked; observed-tree: 1950df8c662c; reviewed-tree: 1950df8c662c; instruction-rev: 7c41543bbb0a).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: a74de4cf36b0; reviewed-tree: a74de4cf36b0; instruction-rev: ab29f33860b7).
 
 ## Current Verdict
 
-- review blocked on docs-governance drift, so push is not approved yet
-- `91fd388` fixes the detached reviewer-follow packet one-shot bug; the patch is narrow and the new regression test covers queue -> dismiss -> requeue
-- Change Summary: the runtime bug that stopped a second restore packet is fixed, but the branch still advertises a missing `dev/active/remote_orchestration.md` owner doc. That keeps the strict docs/tooling gate red, so the correct next step is to repair the plan registry/source-of-truth references or restore the missing plan file before governed push.
+- accepted for push
+- `python3 dev/scripts/devctl.py docs-check --strict-tooling`: ok=True
+- `python3 dev/scripts/checks/check_active_plan_sync.py`: ok=True
 
 ## Open Findings
 
-- H1 (blocking): `python3 dev/scripts/devctl.py docs-check --strict-tooling` fails at `HEAD` because `AGENTS.md`, `dev/active/INDEX.md`, and `dev/active/MASTER_PLAN.md` still reference `dev/active/remote_orchestration.md`, but that file does not exist in the branch.
-- H1 evidence: `python3 dev/scripts/checks/check_active_plan_sync.py` reproduces the same failure with `Registry references missing files: dev/active/remote_orchestration.md | Registry includes non-active paths: dev/active/remote_orchestration.md`.
-- H1 impact: the requested docs-governance gate is red, so I cannot approve `python3 dev/scripts/devctl.py push --execute` yet even though the reviewer-follow dedupe fix itself looks correct.
+- none
 
 ## Claude Status
 
@@ -200,9 +198,7 @@ Both agents went off-plan. Before any more coding:
 
 ## Current Instruction For Claude
 
-- Fix the active-plan sync drift around `dev/active/remote_orchestration.md`. Either restore that missing plan file if the MP-358 remote-orchestration spec is still active, or remove/update its stale references in `AGENTS.md`, `dev/active/INDEX.md`, and `dev/active/MASTER_PLAN.md` if the plan was intentionally retired or merged elsewhere.
-- Re-run and report exact outcomes in `Claude Status`: `python3 dev/scripts/checks/check_active_plan_sync.py` and `python3 dev/scripts/devctl.py docs-check --strict-tooling`.
-- Do not widen runtime work. The `91fd388` reviewer-follow dedupe fix is accepted from this review pass; push becomes eligible once the docs-governance gate is green.
+- run `python3 dev/scripts/devctl.py push --execute`
 
 ## Last Reviewed Scope
 
@@ -210,6 +206,6 @@ Both agents went off-plan. Before any more coding:
 - AGENTS.md
 - dev/active/INDEX.md
 - dev/active/MASTER_PLAN.md
-- dev/scripts/devctl/review_channel/reviewer_follow_packet_guard.py
-- dev/scripts/devctl/tests/review_channel/test_review_channel.py
+- python3 dev/scripts/devctl.py docs-check --strict-tooling
+- python3 dev/scripts/checks/check_active_plan_sync.py
 
