@@ -66,6 +66,8 @@ def collect_reviewer_loop_block_errors(repo_root: Path, gov) -> list[str]:
         gate = _detect_reviewer_gate(repo_root)
     if not gate.implementation_blocked:
         return []
+    if gate.review_gate_allows_push:
+        return []
     reason = gate.implementation_block_reason or "reviewer_loop_blocked"
     return [
         "Reviewer loop blocks a new implementation slice: "
