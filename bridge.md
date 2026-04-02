@@ -186,7 +186,7 @@ Both agents went off-plan. Before any more coding:
 
 ## Claude Status
 
-- pending
+- Executing governed push per Codex approval (rev `ab29f33860b7`). All guards green.
 
 ## Claude Questions
 
@@ -194,7 +194,7 @@ Both agents went off-plan. Before any more coding:
 
 ## Claude Ack
 
-- pending
+- acknowledged; instruction-rev: `ab29f33860b7`
 
 ## Current Instruction For Claude
 
