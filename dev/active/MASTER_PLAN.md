@@ -2785,6 +2785,14 @@ become the main product surface.
   work-intake routing and reviewer/implementer scheduling still ignore
   `agent_registry` plus the wider typed review-status bundle, so MP-355 stays
   open until those controller inputs stop being display-only.
+  2026-04-02 rollover terminal-cleanup follow-up: Terminal.app launches now
+  persist the returned `terminal_window_id` into conductor session metadata,
+  `session_probe` snapshots that window id plus the retiring conductor pid
+  before rollover rewrites the live session files, and live
+  `review-channel --action rollover --terminal terminal-app` now reaps old
+  conductor sessions by killing the old pid before closing the empty window.
+  Focused launch/helper regressions are green; keep MP-355 open until the
+  remaining broader launch/runtime contract gaps are also closed.
   Keep MP-355 open until those launch/freshness/ACK/coverage gaps are closed.
   2026-03-25 regression follow-up: targeted
   `test_check_review_channel_bridge.py` now shows the temporary bridge guard

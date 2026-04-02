@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -24,6 +25,10 @@ from dev.scripts.devctl.commands.review_channel import _follow_runtime as review
 from dev.scripts.devctl.commands.review_channel import ensure as review_channel_ensure_mod
 from dev.scripts.devctl.commands.review_channel import bridge_action_support as review_channel_bridge_action_support
 from dev.scripts.devctl.commands.review_channel import bridge_handler as review_channel_bridge_handler
+from dev.scripts.devctl.commands.review_channel.bridge_launch_control import (
+    LaunchSessionRequest as BridgeLaunchSessionRequest,
+    launch_sessions_if_requested,
+)
 from dev.scripts.devctl.commands import review_channel_event_handler
 from dev.scripts.devctl.commands.review_channel import status as review_channel_status_mod
 from dev.scripts.devctl.commands.review_channel import _wait as review_channel_wait_mod
@@ -112,6 +117,14 @@ from dev.scripts.devctl.review_channel.heartbeat import (
 from dev.scripts.devctl.review_channel.reviewer_state import (
     EnsureHeartbeatResult,
     ReviewerStateWrite,
+)
+from dev.scripts.devctl.review_channel.session_probe import (
+    ConductorSessionRecord,
+    load_conductor_sessions,
+)
+from dev.scripts.devctl.review_channel.terminal_app import (
+    cleanup_terminal_session,
+    launch_terminal_sessions as terminal_app_launch_sessions,
 )
 from dev.scripts.devctl.time_utils import utc_timestamp
 
@@ -323,6 +336,36 @@ def _write_active_conductor_session(status_dir: Path, *, provider: str) -> None:
             }
         ),
         encoding="utf-8",
+    )
+
+
+def _conductor_session_record(
+    *,
+    provider: str = "codex",
+    terminal_window_id: int | None = None,
+    session_pid: int | None = None,
+) -> ConductorSessionRecord:
+    return ConductorSessionRecord(
+        provider=provider,
+        role="reviewer" if provider == "codex" else "implementer",
+        provider_name=provider.title(),
+        session_name=f"{provider}-conductor",
+        capture_mode="terminal-script",
+        prepared_at=_fresh_utc_z(seconds_offset=-30),
+        repo_root="/tmp/repo",
+        script_path=f"/tmp/{provider}-conductor.sh",
+        log_path=f"/tmp/{provider}-conductor.log",
+        launch_command=f"/bin/zsh /tmp/{provider}-conductor.sh",
+        supervision_mode="restart-on-clean-exit",
+        approval_mode="balanced",
+        planned_lane_count=1,
+        requested_worker_budget=0,
+        terminal_window_id=terminal_window_id,
+        session_pid=session_pid,
+        planned_lanes=(),
+        metadata_path=f"/tmp/{provider}-conductor.json",
+        live=True,
+        age_seconds=0,
     )
 
 
@@ -648,13 +691,18 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(lines[2], 'do script ""')
         self.assertEqual(
             lines[3],
-            'set current settings of selected tab of front window to settings set "Pro"',
+            "set launched_window_id to id of front window",
         )
         self.assertEqual(
             lines[4],
+            'set current settings of selected tab of front window to settings set "Pro"',
+        )
+        self.assertEqual(
+            lines[5],
             'do script "/bin/zsh /tmp/claude-conductor.sh" in selected tab of front window',
         )
-        self.assertEqual(lines[5], "end tell")
+        self.assertEqual(lines[6], "return launched_window_id as text")
+        self.assertEqual(lines[7], "end tell")
 
     def test_build_terminal_launch_lines_uses_direct_launch_without_profile(self) -> None:
         lines = _build_terminal_launch_lines(
@@ -666,7 +714,192 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(lines[0], 'tell application "Terminal"')
         self.assertEqual(lines[1], "activate")
         self.assertEqual(lines[2], 'do script "/bin/zsh /tmp/codex-conductor.sh"')
-        self.assertEqual(lines[3], "end tell")
+        self.assertEqual(lines[3], "set launched_window_id to id of front window")
+        self.assertEqual(lines[4], "return launched_window_id as text")
+        self.assertEqual(lines[5], "end tell")
+
+    def test_launch_terminal_sessions_records_terminal_window_id_in_session_metadata(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metadata_path = Path(tmpdir) / "codex-conductor.json"
+            metadata_path.write_text(
+                json.dumps({"provider": "codex", "terminal_window_id": None}, indent=2),
+                encoding="utf-8",
+            )
+            session = {
+                "launch_command": "/bin/zsh /tmp/codex-conductor.sh",
+                "metadata_path": str(metadata_path),
+                "terminal_window_id": None,
+            }
+            completed = subprocess.CompletedProcess(
+                ["osascript"],
+                0,
+                stdout="window id 501\n",
+                stderr="",
+            )
+
+            with (
+                patch("dev.scripts.devctl.review_channel.terminal_app.sys.platform", "darwin"),
+                patch(
+                    "dev.scripts.devctl.review_channel.terminal_app.shutil.which",
+                    return_value="/usr/bin/osascript",
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.terminal_app.list_terminal_profiles",
+                    return_value=["Pro"],
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.terminal_app.subprocess.run",
+                    return_value=completed,
+                ) as mocked_run,
+            ):
+                terminal_app_launch_sessions(
+                    [session],
+                    terminal_profile="auto-dark",
+                    default_terminal_profile="auto-dark",
+                    auto_dark_terminal_profiles=("Pro",),
+                )
+
+            self.assertEqual(session["terminal_window_id"], 501)
+            self.assertEqual(
+                json.loads(metadata_path.read_text(encoding="utf-8"))["terminal_window_id"],
+                501,
+            )
+            self.assertEqual(mocked_run.call_count, 1)
+
+    def test_cleanup_terminal_session_stops_pid_before_closing_window(self) -> None:
+        session = _conductor_session_record(
+            terminal_window_id=901,
+            session_pid=4242,
+        )
+        pid_alive = {"value": True}
+        kill_calls: list[tuple[int, int]] = []
+
+        def _fake_kill(pid: int, sig: int) -> None:
+            kill_calls.append((pid, sig))
+            pid_alive["value"] = False
+
+        def _fake_pid_is_alive(pid: int) -> bool:
+            self.assertEqual(pid, 4242)
+            return pid_alive["value"]
+
+        with (
+            patch("dev.scripts.devctl.review_channel.terminal_app.sys.platform", "darwin"),
+            patch(
+                "dev.scripts.devctl.review_channel.terminal_app.shutil.which",
+                return_value="/usr/bin/osascript",
+            ),
+            patch(
+                "dev.scripts.devctl.review_channel.terminal_app.os.kill",
+                side_effect=_fake_kill,
+            ),
+            patch(
+                "dev.scripts.devctl.review_channel.terminal_app._pid_is_alive",
+                side_effect=_fake_pid_is_alive,
+            ),
+            patch(
+                "dev.scripts.devctl.review_channel.terminal_app.time.sleep",
+                return_value=None,
+            ),
+            patch(
+                "dev.scripts.devctl.review_channel.terminal_app.subprocess.run",
+                return_value=subprocess.CompletedProcess(["osascript"], 0, stdout="", stderr=""),
+            ) as mocked_run,
+        ):
+            warnings = cleanup_terminal_session(session)
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(kill_calls, [(4242, signal.SIGTERM)])
+        close_command = mocked_run.call_args.args[0]
+        self.assertTrue(
+            any("close window id 901" in str(part) for part in close_command)
+        )
+
+    def test_load_conductor_sessions_reads_terminal_window_id_and_pid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            status_dir = Path(tmpdir)
+            sessions_dir = status_dir / "sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            metadata_path = sessions_dir / "codex-conductor.json"
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "provider": "codex",
+                        "provider_name": "Codex",
+                        "session_name": "codex-conductor",
+                        "capture_mode": "terminal-script",
+                        "prepared_at": _fresh_utc_z(seconds_offset=-20),
+                        "repo_root": str(status_dir),
+                        "script_path": "/tmp/codex-conductor.sh",
+                        "log_path": str(sessions_dir / "codex-conductor.log"),
+                        "launch_command": "/bin/zsh /tmp/codex-conductor.sh",
+                        "supervision_mode": "restart-on-clean-exit",
+                        "approval_mode": "balanced",
+                        "role": "reviewer",
+                        "planned_lane_count": 1,
+                        "requested_worker_budget": 0,
+                        "terminal_window_id": 777,
+                        "planned_lanes": [],
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            (sessions_dir / "codex-conductor.log").write_text("live\n", encoding="utf-8")
+
+            with patch(
+                "dev.scripts.devctl.review_channel.session_probe._probe_script_pid",
+                return_value=31337,
+            ):
+                sessions = load_conductor_sessions(session_output_root=status_dir)
+
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(sessions[0].terminal_window_id, 777)
+        self.assertEqual(sessions[0].session_pid, 31337)
+
+    def test_launch_sessions_if_requested_cleans_retired_rollover_sessions_after_ack(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bridge_path = Path(tmpdir) / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            cleanup_calls: list[str] = []
+            retired_session = _conductor_session_record(
+                terminal_window_id=222,
+                session_pid=111,
+            )
+
+            with patch(
+                "dev.scripts.devctl.commands.review_channel.bridge_launch_control.wait_for_rollover_ack",
+                return_value={"codex": True, "claude": True},
+            ):
+                launched, ack_required, ack_observed, cleanup_warnings = launch_sessions_if_requested(
+                    BridgeLaunchSessionRequest(
+                        args=SimpleNamespace(
+                            action="rollover",
+                            terminal="terminal-app",
+                            dry_run=False,
+                            await_ack_seconds=1,
+                        ),
+                        sessions=[{"launch_command": "/bin/zsh /tmp/new-codex.sh"}],
+                        bridge_path=bridge_path,
+                        handoff_bundle=SimpleNamespace(rollover_id="rollover-123"),
+                        terminal_profile_applied="Pro",
+                        launch_terminal_sessions_fn=lambda *args, **kwargs: None,
+                        retired_sessions=(retired_session,),
+                        cleanup_terminal_session_fn=lambda session: cleanup_calls.append(
+                            session.session_name
+                        )
+                        or [],
+                    )
+                )
+
+        self.assertTrue(launched)
+        self.assertTrue(ack_required)
+        self.assertEqual(ack_observed, {"codex": True, "claude": True})
+        self.assertEqual(cleanup_warnings, [])
+        self.assertEqual(cleanup_calls, ["codex-conductor"])
 
     def test_summarize_bridge_liveness_marks_fresh_bridge_state(self) -> None:
         snapshot = extract_bridge_snapshot(_build_bridge_text())

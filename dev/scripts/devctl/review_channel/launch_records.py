@@ -52,6 +52,7 @@ class PreparedSessionRecord:
     script_path: Path
     launch_command: str
     prepared_at: str
+    terminal_window_id: int | None = None
     log_path: Path | None = None
     metadata_path: Path | None = None
 
@@ -82,6 +83,7 @@ class PreparedSessionRecord:
                 role=self.role,
                 planned_lane_count=len(self.planned_lanes),
                 requested_worker_budget=self.requested_worker_budget,
+                terminal_window_id=self.terminal_window_id,
                 planned_lanes=[asdict(lane) for lane in self.planned_lanes],
             )
         )
@@ -104,6 +106,7 @@ class PreparedSessionRecord:
                     str(self.metadata_path) if self.metadata_path is not None else None
                 ),
                 capture_mode="terminal-script" if self.log_path is not None else None,
+                terminal_window_id=self.terminal_window_id,
             )
         )
 
@@ -124,6 +127,7 @@ class SessionMetadataPayload:
     role: str
     planned_lane_count: int
     requested_worker_budget: int
+    terminal_window_id: int | None
     planned_lanes: list[dict[str, object]]
 
 
@@ -142,6 +146,7 @@ class SessionReportPayload:
     supervision_mode: str
     metadata_path: str | None
     capture_mode: str | None
+    terminal_window_id: int | None
 
 
 def legacy_provider_lane_map(

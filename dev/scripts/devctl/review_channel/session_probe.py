@@ -42,6 +42,8 @@ class ConductorSessionRecord:
     approval_mode: str
     planned_lane_count: int
     requested_worker_budget: int | None
+    terminal_window_id: int | None
+    session_pid: int | None
     planned_lanes: tuple[dict[str, str], ...]
     metadata_path: str
     live: bool
@@ -155,6 +157,7 @@ def load_conductor_sessions(
         planned_lanes = tuple(_planned_lane_rows(metadata.get("planned_lanes")))
         script_path_text = _session_metadata_text(metadata, "script_path")
         log_path_text = _session_metadata_text(metadata, "log_path")
+        session_pid = _probe_script_pid(script_path_text)
         age_seconds = _log_age_seconds(log_path_text)
         records.append(
             ConductorSessionRecord(
@@ -177,6 +180,10 @@ def load_conductor_sessions(
                 requested_worker_budget=_session_metadata_optional_int(
                     metadata, "requested_worker_budget"
                 ),
+                terminal_window_id=_session_metadata_optional_int(
+                    metadata, "terminal_window_id"
+                ),
+                session_pid=session_pid,
                 planned_lanes=planned_lanes,
                 metadata_path=str(metadata_path),
                 live=_metadata_is_live(
@@ -253,6 +260,9 @@ def _normalize_session_text(value: object) -> str:
 
 
 def _probe_script_running(script_path_text: str | None) -> bool | None:
+    pid = _probe_script_pid(script_path_text)
+    if pid is not None:
+        return True
     if not script_path_text or shutil.which("pgrep") is None:
         return None
     try:
@@ -265,11 +275,30 @@ def _probe_script_running(script_path_text: str | None) -> bool | None:
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
-    if result.returncode == 0 and result.stdout.strip():
-        return True
     if result.returncode == 1:
         return False
     return None
+
+
+def _probe_script_pid(script_path_text: str | None) -> int | None:
+    if not script_path_text or shutil.which("pgrep") is None:
+        return None
+    try:
+        result = subprocess.run(
+            ["pgrep", "-fo", script_path_text],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        return int(result.stdout.strip().splitlines()[0])
+    except (IndexError, TypeError, ValueError):
+        return None
 
 
 def _metadata_is_live(

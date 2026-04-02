@@ -170,6 +170,11 @@ Compatibility note:
   choices, and `check_multi_agent_sync.py` now blocks planned `AGENT-*` rows
   from leaking back into runtime truth when a typed `review_state` snapshot
   exists.
+- Keep Terminal-host cleanup on the same repo-owned contract: live
+  `review-channel` launch records the returned `terminal_window_id` in session
+  metadata, and rollover cleanup must snapshot the retiring session pid plus
+  that window id before the new launch rewrites the live metadata files so the
+  old conductor is killed before its empty Terminal window is closed.
 - Treat moved public scripts and compatibility shims as entrypoint smoke/
   integration coverage too: when script mode, package mode, or root-entrypoint
   routing changes, do not rely only on direct module unit tests.

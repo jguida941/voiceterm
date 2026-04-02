@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ...review_channel.core import (
     AUTO_DARK_TERMINAL_PROFILES,
@@ -18,6 +19,10 @@ from ...review_channel.handoff import (
 )
 from ...review_channel.heartbeat import compute_non_audit_worktree_hash
 from ...review_channel.launch import launch_terminal_sessions
+from ...review_channel.terminal_app import cleanup_terminal_session
+
+if TYPE_CHECKING:
+    from ...review_channel.session_probe import ConductorSessionRecord
 
 
 @dataclass(frozen=True)
@@ -30,6 +35,8 @@ class LaunchSessionRequest:
     handoff_bundle: object
     terminal_profile_applied: str | None
     launch_terminal_sessions_fn: Callable[..., None] = launch_terminal_sessions
+    retired_sessions: tuple["ConductorSessionRecord", ...] = ()
+    cleanup_terminal_session_fn: Callable[..., list[str]] = cleanup_terminal_session
     observe_launch_state_fn: Callable[[], dict[str, object]] | None = None
 
 
@@ -71,12 +78,13 @@ def prepare_rollover_bundle(
 
 def launch_sessions_if_requested(
     request: LaunchSessionRequest,
-) -> tuple[bool, bool, dict[str, bool] | None]:
+) -> tuple[bool, bool, dict[str, bool] | None, list[str]]:
     """Open Terminal.app windows and optionally wait for rollover ACK."""
     args = request.args
     launched = False
     handoff_ack_required = False
     handoff_ack_observed = None
+    cleanup_warnings: list[str] = []
     prelaunch_snapshot = extract_bridge_snapshot(
         request.bridge_path.read_text(encoding="utf-8")
     )
@@ -114,7 +122,23 @@ def launch_sessions_if_requested(
                 rollover_id=request.handoff_bundle.rollover_id,
                 timeout_seconds=args.await_ack_seconds,
             )
-    return launched, handoff_ack_required, handoff_ack_observed
+        if (
+            args.action == "rollover"
+            and request.retired_sessions
+            and (
+                not handoff_ack_required
+                or (
+                    isinstance(handoff_ack_observed, dict)
+                    and bool(handoff_ack_observed)
+                    and all(bool(value) for value in handoff_ack_observed.values())
+                )
+            )
+        ):
+            for retired_session in request.retired_sessions:
+                cleanup_warnings.extend(
+                    request.cleanup_terminal_session_fn(retired_session)
+                )
+    return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
 
 
 def _lane_assignment_dict(lane) -> dict[str, object]:

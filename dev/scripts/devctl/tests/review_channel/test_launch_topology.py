@@ -87,6 +87,8 @@ class LaunchTopologyTests(unittest.TestCase):
             self.assertEqual(metadata["provider"], "codex")
             self.assertEqual(metadata["role"], "reviewer")
             self.assertEqual(metadata["planned_lane_count"], 1)
+            self.assertIsNone(metadata["terminal_window_id"])
+            self.assertIsNone(sessions[0]["terminal_window_id"])
 
 
 if __name__ == "__main__":

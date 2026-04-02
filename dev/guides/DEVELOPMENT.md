@@ -291,7 +291,10 @@ Three quality layers matter in practice:
     rollover ACK contract instead of ad hoc restarts. If the reviewer side is
     not already live, use full `launch|rollover` instead of creating a hybrid
     "Claude in Terminal, Codex in chat" loop. Full `rollover` remains the
-    bounded round/context-rotation restart path.
+    bounded round/context-rotation restart path. Live Terminal.app launch now
+    records the returned `terminal_window_id` in conductor session metadata,
+    and rollover cleanup uses the retiring session snapshot to kill the old
+    conductor pid before closing the old Terminal window.
   - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:
     `review-channel --action implementer-wait` is the Claude-side bounded
     wait path, and `review-channel --action reviewer-wait` is the symmetric

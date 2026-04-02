@@ -18,6 +18,7 @@ from ...review_channel.launch import (
     list_terminal_profiles,
     resolve_cli_path,
 )
+from ...review_channel.session_probe import load_conductor_sessions
 from ...review_channel.state import (
     build_attach_auth_policy,
     build_service_identity,
@@ -32,7 +33,11 @@ from .bridge_action_support import (
     resolve_promotion_and_terminal_state,
     validate_live_launch_conflicts,
 )
-from .bridge_contexts import BridgeReportContext, LaunchRefreshContext
+from .bridge_contexts import (
+    BridgeReportContext,
+    LaunchExecutionContext,
+    LaunchRefreshContext,
+)
 from .bridge_launch_control import (
     LaunchSessionRequest,
     launch_sessions_if_requested,
@@ -101,17 +106,14 @@ def _launch_and_refresh(
     *,
     args,
     context: LaunchRefreshContext,
-    sessions: list[dict[str, object]],
-    handoff_bundle,
-    terminal_profile_applied: str | None,
-    status_snapshot,
+    execution: LaunchExecutionContext,
 ) -> tuple[bool, bool, dict[str, bool] | None, "ReviewChannelStatusSnapshot"]:
     """Launch sessions when requested and refresh the status snapshot afterward."""
     def _observe_launch_state() -> dict[str, object]:
         bridge_liveness = _refresh_snapshot(
             args=args,
             context=context,
-            warnings=status_snapshot.warnings,
+            warnings=execution.status_snapshot.warnings,
         ).bridge_liveness
         return {
             "launch_truth": bridge_liveness.get("launch_truth"),
@@ -119,32 +121,43 @@ def _launch_and_refresh(
             "claude_conductor_active": bridge_liveness.get("claude_conductor_active"),
         }
 
-    launched, handoff_ack_required, handoff_ack_observed = launch_sessions_if_requested(
+    (
+        launched,
+        handoff_ack_required,
+        handoff_ack_observed,
+        cleanup_warnings,
+    ) = launch_sessions_if_requested(
         LaunchSessionRequest(
             args=args,
-            sessions=sessions,
+            sessions=execution.sessions,
             bridge_path=context.bridge_path,
-            handoff_bundle=handoff_bundle,
-            terminal_profile_applied=terminal_profile_applied,
+            handoff_bundle=execution.handoff_bundle,
+            terminal_profile_applied=execution.terminal_profile_applied,
             launch_terminal_sessions_fn=launch_terminal_sessions,
+            retired_sessions=tuple(execution.retired_sessions),
             observe_launch_state_fn=_observe_launch_state,
         )
     )
     if not launched:
-        return launched, handoff_ack_required, handoff_ack_observed, status_snapshot
+        return (
+            launched,
+            handoff_ack_required,
+            handoff_ack_observed,
+            execution.status_snapshot,
+        )
     post_session_lifecycle_event(
         action=args.action,
         context=BridgeLifecycleEventContext(
             repo_root=context.repo_root,
             review_channel_path=context.review_channel_path,
             artifact_paths=context.artifact_paths,
-            sessions=sessions,
+            sessions=execution.sessions,
         ),
     )
     refreshed_snapshot = _refresh_snapshot(
         args=args,
         context=context,
-        warnings=status_snapshot.warnings,
+        warnings=[*execution.status_snapshot.warnings, *cleanup_warnings],
     )
     return launched, handoff_ack_required, handoff_ack_observed, refreshed_snapshot
 
@@ -280,6 +293,9 @@ def _run_bridge_action(
         context=launch_context,
         warnings=warnings,
     )
+    retired_sessions = ()
+    if args.action == "rollover" and args.terminal == "terminal-app" and not args.dry_run:
+        retired_sessions = load_conductor_sessions(session_output_root=status_dir)
     sessions = build_bridge_sessions(
         args=args,
         context=BridgeSessionContext(
@@ -301,10 +317,13 @@ def _run_bridge_action(
     launched, handoff_ack_required, handoff_ack_observed, status_snapshot = _launch_and_refresh(
         args=args,
         context=launch_context,
-        sessions=sessions,
-        handoff_bundle=handoff_bundle,
-        terminal_profile_applied=terminal_profile_applied,
-        status_snapshot=status_snapshot,
+        execution=LaunchExecutionContext(
+            sessions=sessions,
+            handoff_bundle=handoff_bundle,
+            terminal_profile_applied=terminal_profile_applied,
+            status_snapshot=status_snapshot,
+            retired_sessions=tuple(retired_sessions),
+        ),
     )
     return _build_bridge_report(
         args=args,

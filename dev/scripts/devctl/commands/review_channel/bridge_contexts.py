@@ -19,6 +19,17 @@ class LaunchRefreshContext:
 
 
 @dataclass(frozen=True)
+class LaunchExecutionContext:
+    """Grouped launch-time session inputs for one bridge-backed action."""
+
+    sessions: list[dict[str, object]]
+    handoff_bundle: object
+    terminal_profile_applied: str | None
+    status_snapshot: object
+    retired_sessions: tuple[object, ...] = ()
+
+
+@dataclass(frozen=True)
 class BridgeReportContext:
     """Grouped bridge-report inputs used by the final bridge-backed render path."""
 

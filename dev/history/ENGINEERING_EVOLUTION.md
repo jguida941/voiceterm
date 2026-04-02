@@ -39,6 +39,23 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
 
+### 2026-04-02 - Review-channel rollover now cleans up old Terminal.app sessions through the existing session metadata contract
+
+The repo already had Terminal-backed conductor launch, repo-visible session
+metadata, and the structured rollover/handoff path. The missed piece was the
+cleanup seam. Terminal.app windows were launched but never tracked, rollover
+rewrote the live session metadata before any old-window cleanup could happen,
+and ad hoc `osascript close window` calls were still prone to confirmation
+prompts when the foreground conductor process was alive.
+
+That gap is closed now. Live Terminal.app launch returns the created window id
+and stores it as `terminal_window_id` in the conductor session metadata/report
+payloads, `session_probe` snapshots the retiring session pid plus that window
+id before rollover rewrites the live files, and the rollover path now kills the
+old conductor first and only then closes the old Terminal window. The outcome
+stays inside the existing MP-355 runtime contract instead of adding a second
+terminal-lifecycle side channel.
+
 ### 2026-04-02 - Phone-steered Claude remote control now stays on top of the real review-channel authority instead of inventing a fake Codex self-heal
 
 The repo already had most of the right pieces for phone-driven local control:
