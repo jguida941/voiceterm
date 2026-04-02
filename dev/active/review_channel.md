@@ -141,6 +141,11 @@ contract, not the long-term product boundary.
     worker fanout is zero unless explicitly requested, and `bridge.md`
     remains a compatibility projection until native `CollaborationSession`
     worker topology lands.
+15. Tandem mutation authority stays singular by default: one reviewer
+    authority and one active writer authority own canonical state at a time.
+    Additional provider/worker lanes may research, draft, or recommend, but
+    they do not gain concurrent reviewer-owned mutation rights until typed
+    arbitration and receipt rules prove the broader safety case.
 
 ## Cross-Plan Dependencies
 
@@ -277,10 +282,11 @@ Rules for the markdown bridge:
 6.2.2.1 When the loop widens beyond one reviewer and one coder, conductors
     must derive lane assignments from the selected `WorkIntakePacket` /
     `PlanExpectationPacket`, not from ad hoc "scan the repo and help"
-    instructions. Every worker lane needs one conductor-issued scope packet
-    naming role, owned plan target or issue cluster, owned worktree/path
-    scope, allowed command families, required validators/guards, expected
-    artifacts, and the return-to-conductor receipt path.
+    instructions. Every worker lane needs one conductor-issued
+    `DelegatedWorkPacket` naming role, owned plan target or issue cluster,
+    owned worktree/path scope, allowed command families, required
+    validators/guards, expected artifacts, and the return-to-conductor
+    receipt path.
 6.2.2.2 The 8+8 lane map is capacity planning, not permanent role truth.
     Future runs may assign lanes to foundation wiring, contract/workflow
     hardening, verification review, pattern aggregation, or report-only
@@ -1525,6 +1531,25 @@ Expected Phase-2 tests:
       logic stops hardcoding named agent ids and derives routing/state from
       the same typed registry and profile contracts that Phase 3 already
       intends to expose.
+- [ ] Introduce an explicit `ProviderAdapter` seam for the live review path:
+      launch args, prompt/bootstrap shaping, role-owned bridge/projection
+      labels, heartbeat/ack parsing, session-health probes, and capability
+      flags (`supports_worker_fanout`, `supports_takeover`,
+      `supports_noninteractive_wait`) must move out of hardcoded
+      Codex/Claude branches and into adapter-owned contracts.
+- [ ] Migrate the compatibility bridge to role-owned naming while preserving
+      current provider compatibility: `Current Instruction For Implementer`,
+      `Implementer Status`, `Implementer Ack`, and reviewer-owned poll state
+      should become the canonical section/field intent, with provider-specific
+      labels retained only as adapters/projections during migration.
+- [ ] Add a `TerminalHostAdapter` seam beside provider adapters so launch and
+      recovery can target Terminal.app, headless, or later terminal hosts
+      without hardcoding one macOS launcher path into the review runtime.
+- [ ] Sequence provider generalization conservatively: keep Codex reviewer /
+      Claude implementer as the first stable path, add optional secondary
+      implementer/provider lanes next, and only then generalize reviewer
+      provider selection once the registry/adapter/current-session contracts
+      stay green.
 - [ ] Add explicit `acked|dismissed|applied|expired` transitions and
       stale-packet watch behavior.
 - [ ] Add policy-aware action hints so packets can express `review_only`,
@@ -1783,6 +1808,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-04-01T01:55:00Z` | `CODEX` | Absorbed the accepted multi-provider integration analysis into canonical MP-355 plan state instead of leaving it in `dev/intrgrate_analysis.md`. The new tracked closures are explicit: singular reviewer/writer mutation authority, provider adapters for launch/prompt/heartbeat/ACK/session-health behavior, role-owned bridge naming, a parallel terminal-host adapter, and conservative phasing for broader provider generalization. | `planned` | Land the adapter/runtime slices only after the current registry/current-session honesty work stays green; do not claim provider-neutral tandem until the middle layer stops hardcoding provider names. |
 | `2026-04-01T04:28:07Z` | `CODEX` | Closed the next architecture-honesty follow-up on top of the new `CollaborationSession` slice. Review-channel launch now derives conductor sessions from a typed provider/lane map and persists conductor role metadata, event-backed packet post/transition validation resolves actor and target ids from typed collaboration/runtime state or repo-owned session metadata instead of parser-hardcoded provider ids, and `check_multi_agent_sync.py` now also blocks planned `AGENT-*` rows from leaking into runtime truth without live delegated-worker receipts. Focused launch/packet/guard/projection tests are green. | `partial-pass` | Keep MP-355 honest about the remaining end-state gap: delegated workers are still planned receipts rather than native runtime sessions, and the remaining recovery/worker-budget CLI surfaces still assume fixed providers. |
 | `2026-04-01T03:45:00Z` | `CODEX` | Landed the first native `CollaborationSession` slice under the live review-channel runtime. `ReviewState` now carries a typed collaboration/session block, live conductor participants are sourced from repo-owned session metadata, delegated AGENT-lane receipts stay explicitly planned instead of pretending to be runtime workers, and `registry/agents.json` now projects from that typed collaboration contract rather than rebuilding provider state separately in bridge-backed and event-backed paths. Focused runtime/review-channel/platform-contract tests are green. | `partial-pass` | Keep MP-355 honest about the remaining architecture gap: launch and packet routing still hardcode provider ids, launch still does not create native worker sessions, and the missing planned-topology/runtime-truth guard still has to land before the static AGENT-* regime can retire. |
 | `2026-04-01T02:00:00Z` | `CODEX` | Re-ran the architecture pass against the live launcher/status stack after the operator caught the prompt still advertising a hardcoded 8+8 swarm. The finding is now explicit in canonical plan state: the typed `ReviewState` direction was correct, but bridge-backed `registry/agents.json`, session metadata, and launch prompts were still leaking static markdown lane tables as if they were live runtime truth. Closed the bounded truth split by making runtime participant registry provider/session-backed again, moving the lane table into a typed planned-topology compatibility surface, and defaulting requested worker fanout to zero unless a launch explicitly asks for more. The bridge path is still compatibility mode, not a finished native worker/session architecture. | `partial-pass` | Keep MP-355 honest about the remaining gap: finish migrating queue/current-session/attention/promotion onto registry-driven state, then land native `CollaborationSession` / delegated-worker receipts before claiming the backend itself is architecture-complete or truly N-agent. |

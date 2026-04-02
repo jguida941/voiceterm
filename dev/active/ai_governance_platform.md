@@ -110,6 +110,64 @@ reusable product:
    VoiceTerm-specific packaging and UX, treated as a consumer/integration layer
    over the reusable platform rather than the canonical home of every feature.
 
+## Execution Surface Ownership
+
+Use one repo-pack-owned ownership map for routing and boundary enforcement over
+the extracted platform:
+
+1. `voiceterm_client`
+   Rust app/runtime UX, HUD/overlay, app-local UI, and other product-client
+   surfaces.
+2. `governance_engine`
+   portable/runtime/control-plane contracts, guards, probes, policy,
+   startup/work-intake, evidence, and shared backend logic.
+3. `integration`
+   the thin seam where a product consumes the engine: repo packs, generated
+   bootstrap surfaces, adapter wiring, bridge/debug projections, and other
+   client-vs-core glue.
+
+Rules:
+
+1. The ownership map is repo-pack/policy-owned, not a one-repo hardcoded path
+   table inside the core router.
+2. Startup/work-intake, check routing, and review posture should surface the
+   classified ownership slice explicitly so mixed-surface changes can trigger a
+   stricter review posture without pretending they are one homogeneous lane.
+3. Import-boundary and authority-boundary guards must derive from the same
+   ownership map so the platform does not keep a second, inconsistent notion of
+   "client vs core vs integration".
+4. While the self-hosting repo is still converging, this classification is a
+   routing/boundary contract first, not a license to widen one mixed commit
+   across the whole monorepo.
+
+## Monorepo Discipline
+
+While the platform and VoiceTerm still share one repo, keep the discipline
+explicit instead of relying on reviewer taste.
+
+1. Scoped branch strategy: branch and checkpoint work as
+   `voiceterm_client`, `governance_engine`, or `integration` first. Mixed
+   slices are allowed when necessary, but they should be smaller, more
+   explicit, and reviewed more strictly than single-surface slices.
+2. Development-vs-runtime documentation separation: contribution/test/release
+   instructions are maintainer development surfaces; startup authority,
+   runtime contracts, action permissions, and AI enforcement rules are runtime
+   governance surfaces. Do not mix them casually or ask AI to infer which
+   rules are live from prose tone.
+3. Agent namespacing for external repos: keep adopter repo agents and runtime
+   governance agents namespaced from engine-maintenance agents so one repo's
+   worker contract or bridge labels cannot silently overwrite another repo's
+   authority or telemetry semantics.
+4. Diff-audit rule:
+   `GOOD` when a diff replaces prose/fallback authority with typed authority,
+   resolves repo policy once and passes it explicitly, injects repo-pack state
+   instead of ambient assumptions, or adds fixture proof that custom-layout or
+   no-bridge repos still work.
+   `PARTIAL` when it only wraps the old behavior, keeps `REPO_ROOT` /
+   VoiceTerm-default fallback alive, captures repo state at import time, or
+   moves bridge/provider-shaped fields around without separating compatibility
+   projection from canonical runtime truth.
+
 ## Compiler-Pass Framing
 
 Use one compiler-style explanatory model when describing the platform, without
@@ -138,6 +196,179 @@ The current maturity gap is not missing sensors; it is actuator closure:
 dynamic failure rules, structured output constraints, convergence proof, and
 session-level decision auditability.
 
+## Architecture Principles
+
+Use these rules whenever new platform scope is proposed or existing runtime
+surfaces are evaluated.
+
+1. The repo defines the protocol; the agent is a participant. Repo-owned typed
+   authority decides what is true, what is allowed, and what must be recorded.
+   AI runtime behavior is a consumer of that governed spine, not a second
+   control plane with independent truth.
+2. Make context a projection, not a crawler. Startup/work-intake should emit
+   the bounded approved context slice first; graph/query/helper surfaces reduce
+   search space over that authority instead of teaching agents to rediscover
+   repo state from scattered file reads on every run.
+3. Preserve same truth, different projections. `startup-context`,
+   `WorkIntakePacket`, `CollaborationSession`, review projections, graphs, UI
+   views, and generated docs may expose different bounded slices, but they must
+   project one shared typed truth and must not become independent stores.
+4. Keep AI helper surfaces cheap and disposable; keep authority typed and
+   repo-owned. Graph packets, escalation hints, hot indexes, probe summaries,
+   and other navigation aids are generated-only, reversible, and safe to
+   delete. They may explain or compress canonical state, never replace it.
+5. Facts compile, judgment stays live. Deterministic routing, ownership,
+   capabilities, boundaries, and schema knowledge should move into typed
+   contracts, generated artifacts, repo-pack policy, and guards; AI judgment
+   remains for the unresolved remainder after those cheaper layers have run.
+6. Hold a governance-weight budget. Overhead that costs more than it saves is
+   a product failure: avoid brittle compiled artifacts, expensive invalidation,
+   stale indices, oversized IR/catalog layers, and ceremony that makes humans
+   or agents bypass the governed path.
+7. VoiceTerm is one adopter and self-hosting client of the platform, not the
+   platform's identity. Platform doctrine must survive repos that do not ship
+   the VoiceTerm app or its paths, workflows, or terminology.
+
+## Runtime Adoption Checklist
+
+Adopt from agent-first runtimes where it strengthens the governed system:
+
+1. richer session/runtime UX
+2. better tool orchestration and execution-mode clarity
+3. explicit `plan` / `default` / `auto` style operating modes
+4. plugin/MCP-style extensibility
+5. delegation/subagent patterns
+6. broader environment/tool integration
+
+Do not adopt the parts that would fork authority away from the repo:
+
+1. raw crawler-style context gathering as startup authority
+2. prompt-local instructions as the primary policy source
+3. runtime permission systems that can disagree with repo governance
+
+## Compiler Roadmap
+
+Use one explicit four-stage roadmap when discussing "compiler-assisted
+governance" so the method is not left as scattered checklist items.
+
+1. `Stage 1: Close truth`
+   authority, identity, canonical contracts, stable finding ids, and
+   projection-vs-authority boundaries.
+2. `Stage 2: Honest routing`
+   typed edges, trigger tables, reducer receipts, capability derivation,
+   bounded inference, and explicit low-confidence states.
+3. `Stage 3: Portable packaging`
+   repo-pack resolution, onboarding/ratification, installable engine,
+   generated setup surfaces, and second-repo/no-core-patch proof.
+4. `Stage 4: Compile stable structure`
+   precomputed deterministic artifacts that reduce live search space without
+   replacing canonical authority.
+
+Stage-4 compile candidates:
+
+1. repo topology indexing
+2. import/export graph construction
+3. typed contract extraction
+4. rule registries
+5. file classification
+6. change-lane classification
+7. allowed boundary maps
+8. generated command/check plans
+9. stable finding identities
+10. schema validation tables
+11. adapter/config codegen
+12. prebuilt context indices
+13. precomputed dependency and ownership maps
+
+Target intermediate representations:
+
+1. `GraphIR`
+2. `ContractIR`
+3. `AuthorityIR`
+4. `BoundaryIR`
+5. `CheckPlanIR`
+6. `ContextIndexIR`
+
+Over-compilation failure modes to avoid:
+
+1. brittle build products
+2. expensive invalidation
+3. stale indices
+4. overcomplicated IRs
+5. too much ceremony for fast-changing work
+
+Language strategy:
+
+1. Rust is strongest for closed-world typed modeling, fast graph/index builds,
+   reproducible artifacts, and deterministic IR/schema closure.
+2. Python is strongest for orchestration, glue, rapid rule development, CLI
+   surfaces, and flexible policy/report plumbing.
+3. End-state: Rust owns more of the deterministic semantic/compiler core while
+   Python remains the orchestration and tooling shell over those compiled
+   artifacts plus live deltas.
+
+## Packaging And Distribution Model
+
+The deployment target is three layers, not "copy the whole `dev/` tree into
+another repo."
+
+1. `portable engine`
+   install once; owns `devctl`, guard/probe runners, policy resolution,
+   startup/work-intake, report/render, and typed contracts.
+2. `repo-local pack`
+   small adopter-owned authority layer: repo policy, approved governance
+   contract, generated surfaces, local report/cache roots, and exceptions.
+3. `runtime/client layer`
+   optional local shells and integrations such as CLI, VoiceTerm, PyQt6,
+   phone/mobile, or later MCP/plugin adapters.
+
+Engine-owned resources such as presets, templates, and setup assets may ship
+with the engine. Adopter authority such as docs roots, plan/backlog ownership,
+review mode, report roots, and path authority must remain repo-owned and
+overridable.
+
+## Memory Architecture
+
+Use one three-tier memory model for the platform's reusable memory/retrieval
+story:
+
+1. `exact memory`
+   "I have seen this exact case before." Governance equivalent: exact finding,
+   fix, or decision fingerprints that let the system skip re-diagnosis.
+2. `pattern memory`
+   "I have seen this class of behavior before." Governance equivalent:
+   recurring repair strategies, reviewed rule-quality history, and repo-local
+   pattern hits that bias the next route or fix strategy.
+3. `control memory`
+   "I have learned how aggressive to be." Governance equivalent: autonomy
+   depth, trust weighting, rejection thresholds, and caution levels tuned from
+   prior revert/waiver/failure evidence.
+
+Use memory to avoid work. Use deterministic rules to avoid stupid work even
+before memory or search fires.
+
+## ZGraph Integration Roadmap
+
+Treat ZGraph as the repo's generated search-space-reduction / memory /
+dispatch substrate, not just a graph file format. The integration order is:
+
+1. Scope definition: keep the doctrine explicit in startup/bootstrap surfaces.
+2. Startup/work-intake: carry route tiers, reducer receipts, memory hits,
+   dispatch reason, and graph snapshot refs in `WorkIntakePacket`.
+3. Query stack: move from substring-first lookup to exact/canonical match,
+   concept expansion, typed-relation walks, bounded multi-hop inference, then
+   fail-closed fallback.
+4. Graph widening: add richer node/edge families such as finding, contract,
+   test, workflow, config, producer, consumer, and obligation edges.
+5. Memory-guided routing: reuse graph snapshots/deltas, fix history, and
+   reliability/decision summaries as reusable route bias.
+6. Evidence receipts: carry graph/memory route receipts through finding ->
+   decision -> run -> outcome so memory remains helpful but non-authoritative.
+
+Implementation order stays the same as the list above. Do not jump to a Rust
+compiler core first; make the current authority loop carry the full method
+explicitly before hardening or reimplementing it.
+
 ## Shared Contracts
 
 Frontends and repo integrations should converge on one explicit backend
@@ -160,10 +391,22 @@ contract set:
   repo knowledge: repo roots, artifact/report roots, plan/docs authority
   paths, memory roots, and review/bridge paths should be separable so callers
   only depend on the slice they actually need.
+- `OnboardingContract`: typed adoption/onboarding envelope that records repo
+  identity, discovered capabilities, inferred policy payload, path roots,
+  required human-authority decisions, onboarding mode
+  (`auto|assisted|locked_down`), ratification state, and the reviewed
+  contract/artifact refs that future startup surfaces can consume instead of
+  repeating first-run setup inference.
+- `InferenceProvenance`: per-field explanation for onboarding/draft inference:
+  field name, inferred value, source artifact, reason text, confidence, and
+  whether the field remains unresolved for human authority.
 - `ContextPack`: bounded AI-input bundle with source refs, summaries,
   prioritization metadata, and estimated size/cost fields.
 - `ContextBudgetPolicy`: repo-pack-defined limits and fallback behavior for
   bootstrap, adoption-scan, focused-fix, review, and remediation-loop modes.
+- `SurfaceOwnershipMap`: repo-pack-owned mapping from path or subsystem slices
+  to `voiceterm_client|governance_engine|integration`, consumed by startup,
+  routing, and boundary guards instead of ambient path-prefix lore.
 - `ControlState`: canonical machine-readable state for runs, findings, sessions,
   approvals, and queue status.
 - `TypedAction`: explicit command contract for check, probe, bootstrap, fix,
@@ -223,7 +466,11 @@ contract set:
   durable sinks where accepted findings/decisions/progress must be recorded.
   It also carries role-routing defaults for later conductor fan-out so the
   plan-selected target, allowed command families, and expected writeback sinks
-  stay repo-owned even when multiple agents participate.
+  stay repo-owned even when multiple agents participate. The first stable form
+  must also carry deterministic route-selection evidence such as route tier,
+  dispatch reason, reducer receipt refs, graph snapshot refs, and bounded
+  memory/pattern hits so startup can explain why this slice was selected
+  without reintroducing prompt-local crawler logic.
   This is the universal ingestion surface for AI agents, human operators, and
   automation loops. Bootstrap must materialize at least one reviewed
   governance contract, one active-plan registry, one exported `PlanTargetRef`
@@ -233,6 +480,16 @@ contract set:
   family; it now emits the packet while returning non-zero when checkpoint
   budget says another implementation slice must stop and cut a checkpoint
   first.
+- `DerivedCapabilityContract`: startup/session capability projection derived
+  from `ProjectGovernance`, current execution mode, reviewer gate state, and
+  repo-pack policy. Required first fields: allowed/denied/ask-first tool
+  families, autonomy mode/scope, publish/network/worktree permissions,
+  subagent allowance, session TTL, and the rule/provenance refs that explain
+  why those capabilities were granted.
+- `SessionCapabilityPacket`: bounded runtime/startup projection of
+  `DerivedCapabilityContract` for one live session, including the capability
+  decision source, expiry/refresh semantics, and the approval-requiring
+  actions for the active mode.
 - `SharedBacklogDoc`: repo-pack-configured governed backlog/intake surface
   that startup/work-intake may surface as warm context and an accepted
   writeback sink for humans and AI. It stays shared intake rather than plan
@@ -271,7 +528,14 @@ contract set:
 - `ArtifactStore`: stable path/retention interface for reports, snapshots,
   review packets, cached repo-map state, query indexes, and benchmark evidence.
 - `ProviderAdapter`: abstraction over Codex, Claude, or later providers so
-  runtime loops do not hard-code one CLI.
+  runtime loops do not hard-code one CLI. The adapter boundary must also own
+  provider-specific launch args, prompt/bootstrap shaping, role-owned bridge or
+  projection labels, heartbeat/ack parsing, session-health probes, and declared
+  capability flags such as worker fanout, takeover support, and noninteractive
+  wait semantics.
+- `TerminalHostAdapter`: abstraction over Terminal.app, Terminus, headless, or
+  later session hosts so review/runtime launchers do not hard-code one local
+  terminal implementation.
 - `WorkflowAdapter`: abstraction over GitHub/CI/local workflow execution so
   Ralph-style or mutation loops stay reusable.
 
@@ -2458,6 +2722,27 @@ Still open before `P0` closes:
   PyQt6/operator-console seam cleanup are accepted follow-ups, but they remain
   `P1` work unless a specific `P0` contract closure step blocks on them
 
+## Proof Gates
+
+Do not describe the platform as "ready" by elapsed time or by packaging work
+alone. Use these proof gates:
+
+1. `Gate 1: Self-hosting honest`
+   The repo can run the governed stack on itself without hidden VoiceTerm
+   defaults, shadow authority, or bridge-only truth claims.
+2. `Gate 2: POC ready`
+   A second repo can bootstrap, run `startup-context`, emit at least one
+   governed finding/evidence path, and stay green on the same core without
+   core-engine patches between adoptions.
+3. `Gate 3: Early release ready`
+   Install/update/bootstrap flow, reviewed setup guidance, lightweight
+   adoption docs, and portable proof artifacts are good enough to ship a
+   narrow public POC.
+4. `Gate 4: Productizing`
+   Packaging polish, broader adapters/frontends, release-artifact governance,
+   replay/recovery/observability, and support expectations are strong enough
+   for sustained external use rather than one proof demo.
+
 ## Execution Checklist
 
 - [x] Consolidate the repo-grounded architecture review, boundary analysis, and
@@ -2833,6 +3118,13 @@ Still open before `P0` closes:
       startup flows should summarize the detected repo shape, ask for the few
       human-only adjustments, and then write the reviewed contract instead of
       dropping users into raw config editing.
+- [ ] Freeze `OnboardingContract` as a first-class shared contract instead of
+      leaving onboarding spread across bootstrap helpers and starter-policy
+      dicts. Required first fields: onboarding mode
+      (`auto|assisted|locked_down`), ratification status, inferred policy
+      payload, path roots, unresolved authority questions, and field-level
+      `InferenceProvenance` so adopters can see what the system inferred and
+      what still needs human approval.
 - [ ] Add an evolution path for that contract: when the live repo scan no
       longer matches the approved governance document (new layers, roots,
       workflows, or boundary shapes), surface suggested updates or explicit
@@ -2856,6 +3148,13 @@ Still open before `P0` closes:
       and emit one bounded intake/resume packet. Startup must not guess among
       multiple active plans, auto-launch conductor loops, or escalate into
       `active_dual_agent` without explicit operator/policy choice.
+- [ ] Derive session/runtime permissions from the same repo-owned authority
+      chain instead of from provider-local defaults: materialize one
+      `DerivedCapabilityContract` from `ProjectGovernance`, current execution
+      mode, reviewer gate state, and repo-pack policy; attach it to startup/
+      session surfaces; and require wrappers/launchers to respect it before
+      tool execution, worktree creation, remote access, publish, or subagent
+      fanout occurs.
 - [ ] Define the execution-mode matrix in one place: for
       `active_dual_agent`, `single_agent`, `tools_only`, `paused`, and
       `offline`, record allowed actions, required heartbeats, stale semantics,
@@ -2868,6 +3167,11 @@ Still open before `P0` closes:
       `agents` / `developer` / `refactor` / `audit` wrappers, and
       provider-facing skills/hooks/docs that point at the same commands instead
       of inventing provider-local rules.
+- [ ] Define an executable surface-ownership map on top of the layer model so
+      routing/review posture/push semantics can distinguish
+      `voiceterm_client`, `governance_engine`, and `integration` changes.
+      The same map should feed boundary guards and a later Boundary IR instead
+      of leaving path ownership as ambient directory lore.
 - [x] Land the first repo-pack-owned VCS command-routing slice through the
       same policy chain: `repo_governance.push` now owns remote/default-branch/
       protected-branch rules plus preflight/post-push routing, `devctl push`
@@ -2891,6 +3195,11 @@ Still open before `P0` closes:
       names, default bundles, visible modes, and generated skills/slash
       surfaces should be editable by developers/adopters without patching the
       portable core or forking provider prompts.
+- [ ] Add publish/release artifact governance to the same shared pipeline
+      before broader release claims: `release` / `ship` must respect startup
+      gating, publish a typed receipt, and validate built artifacts for
+      forbidden contents and transitive references to internal infrastructure
+      instead of trusting source-governance alone.
 - [ ] Keep Codex/Claude startup parity explicit: generated instruction
       surfaces, bridge/runbook bootstrap, and routed validation commands must
       point both providers at the same repo-owned flow by default. Any
@@ -4043,6 +4352,11 @@ Still open before `P0` closes:
       work alone: architecture boundary, pipeline parity, reviewed evidence
       quality, replay coverage, telemetry trust, and cross-repo adoption all
       need explicit closure criteria.
+- [ ] Materialize the proof-gate surface itself so the gates above are not
+      prose-only: add one repo-owned maturity/proof readout that can report
+      current gate status, missing evidence, and the specific checklist items
+      blocking `Gate 2` second-repo proof or later release/productizing
+      claims.
 - [ ] Establish a standing pattern-mining program for Python and Rust first:
       repeated scans over this repo plus external adopters should keep feeding
       new low-noise probe/guard candidates, with adjudication evidence used to
@@ -4072,6 +4386,14 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-04-01 integration-analysis absorption: the accepted missing closures are
+  now explicit in canonical plan authority instead of living in
+  `dev/intrgrate*.md`. `MP-377` already carried most of the direction, so this
+  pass tightened the owner chain around execution-surface ownership routing,
+  typed onboarding provenance/ratification, session capability projection, and
+  proof-gate language. Release-artifact and supply-chain governance remain
+  accepted too, but stay sequenced after the current authority-loop and
+  second-repo proof bars instead of pretending to be active `P0`.
 - 2026-04-01 self-hosting organization correction: the current guard contract
   is honest about drift but it is still not semantic organization. The live
   tree can report `check_package_layout` clean while `dev/scripts/devctl`
@@ -5133,6 +5455,15 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-01: Absorbed the external integration-analysis tranche into the
+  canonical `MP-377` owner chain rather than mirroring it as a second roadmap.
+  Accepted deltas are now explicit in plan authority: repo-pack-owned
+  execution-surface ownership routing, typed onboarding with inference
+  provenance and ratification, `DerivedCapabilityContract` plus
+  `SessionCapabilityPacket`, and proof-gate language for public readiness
+  claims. The same pass kept sequence honest: release-artifact governance and
+  supply-chain trust are real scope, but later than the current
+  startup-authority / second-repo portability closures.
 - 2026-04-01: Landed the first executable organization-role surface under the
   existing `package_layout` seam instead of inventing a second framework.
   `check_package_layout` now loads repo-pack-owned root-role rules, classifies

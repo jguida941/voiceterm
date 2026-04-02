@@ -134,6 +134,11 @@ intended execution order is:
 - [ ] Define the machine-readable companion contract for that surface
       (`project.governance.json` or a generated equivalent) and make runtime
       consume the machine form rather than prose.
+- [ ] Freeze the fail-closed authority rule for startup/onboarding explicitly:
+      when repo-owned authority roots, reviewed governance contract, or active
+      repo-pack state cannot be resolved, runtime must stop with typed
+      unresolved-authority output instead of inheriting VoiceTerm defaults,
+      checkout-root guesses, or partial payload fallbacks.
 - [ ] Define the `ProjectGovernance` schema fields explicitly:
       repo identity, repo-pack id/version, startup order, path roots, active
       plan registry, tracker doc, workflow profiles, artifact roots, memory
@@ -141,6 +146,16 @@ intended execution order is:
       doc-class/lifecycle rules, hot/warm/cold context budgets,
       startup-token budget, active-plan count budget, and command-routing
       defaults.
+- [ ] Define `OnboardingContract` as the typed first-run companion to
+      `ProjectGovernance`: onboarding mode (`auto|assisted|locked_down`),
+      ratification status, inferred policy payload, path roots, unresolved
+      human-authority fields, and per-field `InferenceProvenance` should be
+      part of the same reviewed startup-authority chain instead of living only
+      in starter-policy helpers or generated prose.
+- [ ] Add a repo-owned ratification path on top of that onboarding contract:
+      deterministic draft first, human approval/customization second, then
+      `governance-bootstrap` / startup consumes only the approved contract
+      state rather than free-edit starter files with no typed approval record.
 - [x] Land the first repo-pack-owned VCS command-routing default: a push policy
       that defines default remote, development/release branches, protected
       branches, preflight command, and post-push bundle, then consume it from
@@ -207,7 +222,17 @@ intended execution order is:
       designated canonical-write authority,
       writer lease metadata (`writer_id`, lease epoch, expiry, stale-writer
       recovery), role-routing defaults, accepted-outcome sinks, restart packet
-      metadata, ready-gate state, and cache invalidation / refresh rules.
+      metadata, ready-gate state, cache invalidation / refresh rules, and the
+      first deterministic reducer fields (`route_tier`, `dispatch_reason`,
+      reducer receipt refs, graph snapshot refs, and bounded memory/pattern
+      hits) so intake can explain why it narrowed scope before an agent starts
+      crawling the repo again.
+- [ ] Derive a `DerivedCapabilityContract` from that same startup path before
+      mutable execution begins: allowed/denied/ask-first tool families,
+      autonomy scope, publish/network/worktree permissions, subagent/fanout
+      allowance, and session TTL must be projected from repo-owned governance
+      and current review/mode state instead of being inferred ad hoc by the
+      provider runtime.
 - [ ] Compile the selected `PlanTargetRef` / `WorkIntakePacket` into one typed
       `PlanExpectationPacket` before mutation or validation begins:
       required artifacts, forbidden states, invariants, validation commands,
@@ -1067,6 +1092,10 @@ blocker or exception in plan state before skipping the declared order.
       and model version data where available, and both
       `check_evidence_identity_closure.py` and
       `check_platform_contract_closure.py` are green with focused tests.
+- [ ] Freeze the first portability-safe finding identity rule in that same
+      evidence tranche: durable finding ids must be derived from stable repo
+      identity plus repo-relative target path/span. Checkout-absolute paths
+      and machine-local roots are prohibited in canonical finding identity.
 
 ### Phase 6 - ContextPack And Memory Boundary
 
@@ -1825,6 +1854,16 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-01: Absorbed the accepted external integration review into the live
+  authority-loop plan instead of leaving it in `dev/intrgrate_analysis.md`.
+  The meaningful additions are now explicit in canonical phase order: startup
+  needs a fail-closed `OnboardingContract` plus ratification/provenance,
+  `WorkIntakePacket` needs reducer receipts and deterministic route evidence so
+  context stays a projection rather than a crawler, runtime permissions must
+  be derived through a typed `DerivedCapabilityContract`, and evidence closure
+  now freezes repo-relative finding identity instead of allowing checkout-local
+  path drift. This preserves the current `P0` sequence while capturing the
+  right missing contracts from the analysis doc.
 - 2026-04-01: Closed the next architecture-honesty follow-up in the active
   `MP-377` authority-loop lane. Review-channel launch now derives conductor
   session specs from a typed provider/lane map, repo-owned session metadata

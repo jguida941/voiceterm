@@ -53,6 +53,24 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 | Startup authority, `DocPolicy` / `DocRegistry`, fail-closed defaults, push packet truth | `dev/active/platform_authority_loop.md` | prove the contract works on adopters instead of redefining it |
 | Custom-layout proof, optional-capability proof, organization proof, and adopter-facing push semantics | `dev/active/portable_code_governance.md` | this file owns the external-adopter proof and portability evidence |
 
+## Second-Repo Proof Ladder
+
+Portable claims should graduate through this ladder, not through self-hosting
+confidence alone.
+
+1. Empty-repo bootstrap succeeds from repo-pack/policy inputs.
+2. Custom-layout repo with non-VoiceTerm authority filenames/roots stays
+   fail-closed and green without core patches.
+3. Existing mixed-language repo can draft/ratify governance and run the routed
+   base checks from the same engine.
+4. Repo with tandem/review disabled stays green without inheriting
+   bridge/review-only assumptions.
+5. One real external repo runs the same bootstrap/startup/check path and emits
+   reviewed evidence.
+6. No core-engine patches are required between adoptions.
+7. Drift guards and portability fixtures remain green after each additional
+   adopter or layout proof.
+
 ## Execution Checklist
 
 - [x] Move built-in guard/probe capability metadata into portable resolver code.
@@ -94,6 +112,16 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 - [x] Add a first-class onboarding/full-surface scan mode so `check`,
       `probe-report`, and `governance-export` can evaluate a repo before a
       trustworthy baseline ref exists.
+- [ ] Freeze a typed onboarding/adoption contract for external repos:
+      `OnboardingContract` should capture onboarding mode, inferred policy
+      payload, path roots, unresolved authority fields, ratification state,
+      and per-field `InferenceProvenance` so adopters do not have to infer
+      what the engine guessed from starter JSON or generated prose.
+- [ ] Add repo-owned onboarding modes and ratification flow on top of that
+      contract: `auto`, `assisted`, and `locked_down` should be explicit
+      adoption modes; deterministic discovery stays automatic, but human
+      authority over policy/runtime decisions should be recorded through one
+      reviewed ratification surface instead of manual starter-file edits.
 - [x] Add copied-repo bootstrap support so pilot repos with broken submodule
       `.git` indirection can be normalized without manual git surgery.
 - [x] Promote compatibility shims into a portable governance primitive with
@@ -262,6 +290,20 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       fails, and support opt-in clean-slate rounds for autonomy experiments.
       Keep this explicit and policy-owned; do not silently replace the current
       bounded escalation model with unbounded auto-regeneration.
+- [ ] Add portable release-artifact governance before stronger adopter release
+      claims: `release` / `ship` surfaces must fail closed until
+      `check_release_artifact_contents.py` (or a repo-pack-declared
+      equivalent) passes, the forbidden-file policy proves no internal-only
+      files or internal-infrastructure references leak through published
+      artifacts, and `publish_receipt.py` emits a typed published-boundary
+      receipt consumable by startup/status/report surfaces.
+- [ ] Add supply-chain trust as planned portable work instead of hand-waving
+      it into later polish: repo packs should be able to declare dependency/
+      source trust policy, SBOM and attestation requirements, and language-
+      specific verifier adapters (`cargo-vet`, `cargo-auditable`, or repo-
+      appropriate equivalents) so another repo can say whether published
+      artifacts are structurally clean and provenance-reviewed, not just
+      layout-clean.
 - [ ] Add one deterministic reproducibility integration test for the portable
       engine: run the same repo snapshot + policy twice through the
       deterministic layers and assert identical canonical findings, packets,
@@ -301,6 +343,15 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       outside approved compatibility adapters. Start report-only, then promote
       low-noise subsets into blocking guards once the current fallback backlog
       is burned down.
+- [ ] Land the first explicit authority-drift guards from that scan: implement
+      `check_repo_pack_activation.py` for hidden VoiceTerm-default resolution
+      and `check_frozen_path_config_imports.py` for import-time path-config
+      capture so the second-repo proof can fail on the real portability leaks
+      instead of review prose alone.
+- [ ] Add a repo-pack-owned surface-ownership map for adopters that classifies
+      paths into product client, governance engine, and thin integration seams;
+      route review posture, boundary checks, and later push/default bundles
+      from that map instead of ambient directory naming.
 - [ ] Add a multi-repo portability fixture matrix that exercises the governed
       startup/adoption path on at least four shapes with no core patching:
       empty repo bootstrap, custom docs/layout repo with non-VoiceTerm
@@ -309,6 +360,10 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       `governance-bootstrap`, `startup-context`, routed base checks, and
       generated instruction surfaces work through repo policy / repo-pack
       inputs instead of VoiceTerm defaults.
+- [ ] Treat that fixture matrix as a permanent benchmark suite, not a one-off
+      audit. Keep a fixed minimal set of portability fixtures plus at least one
+      real external repo so regressions in adoption honesty are caught by the
+      same governed startup/check path over time.
 - [ ] Make generated AI instruction/setup surfaces part of the portability
       proof, not only a docs nicety: starter `CLAUDE.md`, setup guides, and
       related bootstrap renders must explain the platform purpose, the target
@@ -372,6 +427,16 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
       a later `governance-init`, and adoption scans should suggest contract
       updates when repo structure drifts instead of letting starter docs rot
       silently.
+- [ ] Freeze typed onboarding modes plus ratification/provenance on top of
+      that same contract: support `auto`, `assisted`, and `locked_down`
+      flows, emit field-level inference provenance plus unresolved-authority
+      prompts, and add one repo-owned `governance-ratify` path so first-run
+      approval is durable typed state instead of an edited starter file only.
+- [ ] Keep engine-owned resources separate from adopter authority in that same
+      onboarding/productization lane: packaged presets, templates, and setup
+      assets may ship with the engine, but docs authority, plan/backlog
+      ownership, review mode, report roots, and path authority must remain
+      repo-owned and overridable by the adopter contract.
 - [ ] Absorb the architecture-alignment Pass 1 portability cluster into the
       portable engine contract: `governance-draft` / surface discovery must
       not fall back to `AGENTS.md` / `MASTER_PLAN.md` / `INDEX.md`,
@@ -493,6 +558,14 @@ external-repo rollout, and export/snapshot packaging for off-repo analysis.
 
 ## Progress Log
 
+- 2026-04-01: Absorbed the useful parts of `dev/intrgrate_analysis.md` into
+  the portable adoption lane instead of leaving another shadow roadmap on the
+  tree. The accepted additions are narrower than the source dump: explicit
+  second-repo proof ladder, typed onboarding/ratification/provenance contract,
+  real authority-drift guards for repo-pack activation and frozen path-config
+  capture, a repo-pack-owned surface-ownership map for adopters, and a
+  permanent portability benchmark suite. This keeps `MP-376` focused on
+  adopter proof rather than duplicating the whole `MP-377` product plan.
 - 2026-04-01: Re-reviewed self-hosting organization after the latest
   package-layout cleanup and locked the missing contract more precisely. The
   current `package_layout` / shim system is useful but still too growth-based:

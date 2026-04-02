@@ -39,6 +39,28 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
 
+### 2026-04-01 - External integration analysis now has to land as owner-plan deltas, not shadow roadmap prose
+
+The repo accepted a useful external architecture review in
+`dev/intrgrate_analysis.md`, but the important process correction was not the
+raw content. It was the absorption rule.
+
+This repo now treats that kind of analysis as candidate evidence only. If the
+ideas are valid, they must be rewritten into the canonical owner plans with
+real phase placement, contract ownership, and proof bars instead of being left
+behind as a second unofficial roadmap.
+
+The 2026-04-01 absorption pass tightened five concrete areas in plan authority:
+typed onboarding plus inference provenance/ratification, derived
+session-capability projection, explicit second-repo proof gates, portable
+surface-ownership routing, and review-channel provider/terminal-host adapter
+work under singular reviewer/writer mutation authority.
+
+That change matters because it keeps the architecture executable. The repo no
+longer has to link a scratch analysis doc to remember the real plan, and new
+evidence now has a clear rule: absorb, reject, or leave as reference, but do
+not let it linger as shadow execution state.
+
 ### 2026-04-01 - `ReviewState` now carries a typed `CollaborationSession` instead of rebuilding live collaboration truth per surface
 
 The review-channel runtime had reached an awkward midpoint: `ReviewState` was

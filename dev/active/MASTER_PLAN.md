@@ -60,11 +60,24 @@
   `ProjectGovernance -> RepoPack -> PlanRegistry -> PlanTargetRef ->
   WorkIntakePacket -> TypedAction -> ActionResult / RunRecord / Finding ->
   ContextPack`.
+- Current 2026-04-01 architecture-absorption follow-up inside that same lane:
+  fold the accepted external integration review into canonical owner plans
+  instead of carrying `dev/intrgrate_analysis.md` as shadow authority. The
+  absorbed gaps are now explicit and phased: typed onboarding/ratification +
+  inference provenance, derived session capability projection, surface-
+  ownership routing for product-vs-engine-vs-integration changes, explicit
+  second-repo proof gates, and review-channel provider/terminal-host
+  abstraction under singular reviewer/writer authority.
 - Current same-lane focus inside that `MP-377` execution spec: keep push
   publication cadence on one typed contract
   (`PushEnforcement` -> `PushDecisionState`) shared by startup and
   review/status consumers, then widen into broader continuation/recovery
   composition only after that cadence lane is validated.
+- Current proof-gate framing for `MP-377`: self-hosting honesty is necessary
+  but not sufficient; `Gate 2` remains the real POC bar and requires a
+  second-repo governed bootstrap/startup/check path with no core-engine
+  patches between adoptions before broader packaging or productizing claims
+  count.
 - Current owner chain for the blocking separation tranche:
 
 | Concern | Owner doc | Why |
@@ -966,6 +979,13 @@
   guard blocked-change count, reviewed false-positive rate, quality/cost per
   successful fix, and whether a second repo works without core-engine
   patches.
+- Proof-gate rule: keep four named maturity gates explicit across `MP-376` /
+  `MP-377`. `Gate 1: not ready` means self-hosting only; `Gate 2: POC ready`
+  means one second-repo bootstrap/startup/guard/finding path works with no
+  core-engine patches; `Gate 3: early release` adds the installable
+  entrypoint plus reviewed setup/onboarding flow and repeatable adopter proof;
+  `Gate 4: productizing` adds broader adapters, release-artifact governance,
+  richer runtime UX, and benchmarked collaboration/value proof.
 - Next coherence-layer follow-up after the current `P0` blockers: widen the
   existing naming-consistency seed into a portable, repo-policy-backed
   naming/organization enforcement layer that can catch cross-file naming
@@ -3386,6 +3406,29 @@ become the main product surface.
     portable engine so the same repo snapshot + policy can be replayed
     through deterministic layers twice and produce identical canonical
     findings/packets/receipts aside from allowed volatile fields.
+  - [ ] Treat first-run / second-run convergence as a real onboarding proof
+    bar for adopters: running `governance-bootstrap`, `startup-context`, and
+    the first routed intake on the same repo snapshot twice should converge
+    to the same canonical onboarding packet, `WorkIntakePacket`, and advisory
+    routing outputs modulo approved volatile fields before portability claims
+    graduate past provisional proof.
+  - [ ] Freeze portable onboarding modes plus ratification/provenance on top
+    of the reviewed governance contract: support `auto`, `assisted`, and
+    `locked_down` flows, emit field-level inference provenance plus
+    unresolved-authority prompts, and record approval through a repo-owned
+    ratification path instead of leaving first-run setup spread across starter
+    policy files and chat.
+  - [ ] Promote the current portability fixture matrix into a permanent
+    benchmark suite: empty repo, custom-layout repo, mixed-language repo, and
+    tandem-disabled repo should remain green on
+    `governance-bootstrap`/`startup-context`/routed base checks with no
+    core-engine patches between adoptions, and regressions on previously-green
+    fixtures should block stronger portability claims.
+  - [ ] Keep engine-owned resources separate from adopter authority through
+    that same productization path: packaged presets/templates/setup assets may
+    ship with the engine, but docs authority, plan/backlog ownership, review
+    mode, report roots, and path authority must remain repo-owned and
+    overridable in adopter state.
   - [ ] Add one explicit absorption-before-archive pass for the repo's own
     reference markdown: no root evidence companion or `dev/active`
     reference/bridge doc should move until its accepted conclusions are
@@ -3446,6 +3489,11 @@ become the main product surface.
   `ci-cd-hub` probe findings were recorded into the governance-review ledger
   as `confirmed_issue` evidence. Remaining external coverage gap:
   non-Python/Rust repos still need JS/TS/Java guard/probe packs. Latest
+  integration-analysis follow-up (2026-04-01): portable proof now also
+  explicitly includes a typed onboarding contract with inference provenance and
+  ratification, the seven-step second-repo proof ladder as a permanent
+  benchmark suite, and first-run / second-run convergence as part of the real
+  adopter bar instead of a one-time bootstrap demo. Latest
   structural-readability follow-up (2026-03-20): the first repo-policy-backed
   naming advisory probe now exists. `probe_term_consistency.py` is wired into
   the shared script catalog and quality-policy registry, VoiceTerm policy now
@@ -3550,6 +3598,13 @@ become the main product surface.
   canonical execution authority and all accepted conclusions must be mirrored
   into tracked plan state here plus the `MP-377` spec chain before
   implementation or review.
+  Latest synthesis follow-up (2026-04-01): keep the remaining architecture
+  deltas in the existing owner chain rather than another memo. `MP-377` owns
+  surface-ownership routing, capability projection, release-artifact
+  governance, and proof-gate maturity; `MP-376` owns onboarding
+  ratification/provenance and the permanent portability benchmark suite; and
+  `MP-355` owns role-owned multi-provider plus terminal-host abstraction over
+  the same `CollaborationSession` backend.
   Do not treat this
   scope as complete when the repo is merely split or packaged; closure requires
   architecture boundary proof, pipeline parity, telemetry trust, replayable
@@ -3754,7 +3809,10 @@ become the main product surface.
     finding-scoped validator proof as the autonomy gate. Keep advisory
     test-quality probes distinct from blocking contract-test guards, and keep
     selectors/thresholds repo-policy-owned rather than hardcoded repo-wide
-    coverage rules.
+    coverage rules. The underlying rule is testability from typed contracts:
+    the same governed input state should yield the same bounded packet and
+    validator route, so onboarding and remediation proof can be regression-
+    tested instead of prose-reviewed.
   - [ ] Keep the next swarm implementation order foundation-first even when
     fan-out capacity exists. The near-term bounded lanes are
     `validation_plan` execution and contract/workflow hardening, pattern
@@ -3937,6 +3995,16 @@ become the main product surface.
     record quality deltas, diminishing-returns thresholds, worsening
     detection, and stop reasons in `RunRecord` and operator/startup
     projections so bounded loops can prove why they stopped.
+  - [ ] Add one explicit improvement-proof lane over AI-touched changes:
+    keep a typed improvement ledger plus recurrence index so each governed fix
+    records before/after guards, validator deltas, changed contracts or
+    artifacts, recurrence ids, and one five-way fix classification
+    (`real_debt_removed`, `debt_relocated`, `policy_only_cleanup`,
+    `behavior_preserving_simplification`, `unknown_outcome`). Use that same
+    ledger to separate real semantic improvement from guard-only motion
+    before claiming governance quality gains, and later extend it with
+    changed-file validation expectations plus contract/golden snapshot parity
+    as semantic-regression evidence.
   - [ ] Finish the first graph-routing expansion by emitting live
     `EDGE_KIND_GUARDS` / `EDGE_KIND_SCOPED_BY` edges, land the guard-edge
     quick win first, add the missing node families (`test`, `workflow`,
