@@ -50,7 +50,7 @@ def _summary_blockers(ctx_dict: dict) -> str:
     reviewer_gate = ctx_dict.get("reviewer_gate")
     if isinstance(reviewer_gate, dict) and bool(
         reviewer_gate.get("implementation_blocked", False)
-    ):
+    ) and not bool(reviewer_gate.get("review_gate_allows_push", False)):
         block_reason = str(
             reviewer_gate.get("implementation_block_reason") or ""
         ).strip()

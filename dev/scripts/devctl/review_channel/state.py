@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .attention import derive_bridge_attention
-from .bridge_validation import validate_live_bridge_contract
+from .bridge_validation import bridge_review_accepted, validate_live_bridge_contract
 from .core import (
     LaneAssignment,
     ensure_launcher_prereqs,
@@ -94,6 +94,7 @@ def refresh_status_snapshot(
         bridge_text=bridge_text,
     )
     bridge_liveness["review_needed"] = bool(reviewer_worker.get("review_needed"))
+    bridge_liveness["review_accepted"] = bridge_review_accepted(bridge_snapshot)
     merged_errors.extend(validate_live_bridge_contract(bridge_snapshot))
     publisher_state, reviewer_supervisor_state = _load_lifecycle_states(output_root)
     _apply_lifecycle_bridge_liveness(

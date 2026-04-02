@@ -259,9 +259,13 @@ def build_startup_context(
 
 
 def blocks_new_implementation(ctx: StartupContext) -> bool:
-    """Return whether the typed startup receipt blocks another edit slice."""
+    """Return whether the typed startup receipt blocks another edit slice.
+
+    Implementation is blocked when the reviewer runtime is not live, but
+    publication may still proceed when the reviewer acceptance is valid.
+    """
     if ctx.reviewer_gate.implementation_blocked:
-        return True
+        return not ctx.reviewer_gate.review_gate_allows_push
     governance = ctx.governance
     if governance is None:
         return False

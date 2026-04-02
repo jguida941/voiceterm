@@ -35,7 +35,7 @@ def derive_advisory_decision(
         return _checkpoint_required_decision(push)
     if not push.safe_to_continue_editing:
         return _budget_exceeded_decision(push)
-    if gate.implementation_blocked:
+    if gate.implementation_blocked and not gate.review_gate_allows_push:
         return _blocked_loop_decision(gate)
     if gate.bridge_active and not gate.review_accepted:
         return _pending_review_decision(

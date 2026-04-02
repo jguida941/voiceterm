@@ -220,7 +220,7 @@ def _review_state_decision(
     implementation_blocked: bool,
     implementation_block_reason: str,
 ) -> PushDecisionState | None:
-    if implementation_blocked:
+    if implementation_blocked and not inputs.review_gate_allows_push:
         block_reason = implementation_block_reason or "reviewer_loop_blocked"
         return _project_push_decision(
             inputs,
