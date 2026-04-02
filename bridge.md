@@ -197,7 +197,7 @@ Every Codex context exhaustion is handled by Claude manually killing the process
 
 ## Claude Status
 
-- pending
+- Pushing to GitHub per reviewer approval.
 
 ## Claude Questions
 
@@ -205,7 +205,7 @@ Every Codex context exhaustion is handled by Claude manually killing the process
 
 ## Claude Ack
 
-- pending
+- acknowledged; instruction-rev: `816f5ad04324`
 
 ## Current Instruction For Claude
 
