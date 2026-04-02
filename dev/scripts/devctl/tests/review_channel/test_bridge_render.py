@@ -109,6 +109,14 @@ def _bridge_text() -> str:
             "",
             "- Planned lanes are capacity hints, not proof of live worker sessions.",
             "",
+            "## Operator Direction",
+            "",
+            "Owner: operator (human). Both agents read this section. Do not modify.",
+            "",
+            "### ROLE ENFORCEMENT (read first, every session)",
+            "",
+            "Codex stays reviewer-only unless the operator explicitly authorizes takeover.",
+            "",
             "## Poll Status",
             "",
             "- Reviewer heartbeat refreshed through repo-owned tooling.",
@@ -213,6 +221,8 @@ def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() ->
     assert "olderrev123456" not in rendered
     assert "Prior slice:" not in rendered
     assert "Session 44 / historical item" not in rendered
+    assert "## Operator Direction" in rendered
+    assert "### ROLE ENFORCEMENT (read first, every session)" in rendered
     assert bridge_hygiene_errors(rendered) == []
 
 

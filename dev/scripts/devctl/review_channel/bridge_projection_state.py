@@ -18,6 +18,7 @@ from .bridge_sanitize import (
 from .handoff import extract_bridge_snapshot
 
 BRIDGE_SECTION_ORDER = (
+    "Operator Direction",
     "Poll Status",
     "Current Verdict",
     "Open Findings",
@@ -26,6 +27,9 @@ BRIDGE_SECTION_ORDER = (
     "Claude Ack",
     "Current Instruction For Claude",
     "Last Reviewed Scope",
+)
+_FLAT_BRIDGE_SECTION_ORDER = tuple(
+    heading for heading in BRIDGE_SECTION_ORDER if heading != "Operator Direction"
 )
 
 _H2_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
@@ -100,12 +104,16 @@ def bridge_projection_state_from_review_state(
     projection = _mapping(compat.get("bridge_projection"))
     metadata = _string_mapping(projection.get("metadata"))
     sections = _string_mapping(projection.get("sections"))
-    missing = [heading for heading in BRIDGE_SECTION_ORDER if heading not in sections]
+    missing = [
+        heading for heading in _FLAT_BRIDGE_SECTION_ORDER if heading not in sections
+    ]
     if missing:
         raise ValueError(
             "Typed bridge projection is missing fixed sections: "
             + ", ".join(f"`{heading}`" for heading in missing)
         )
+    for heading in BRIDGE_SECTION_ORDER:
+        sections.setdefault(heading, "")
     state = BridgeProjectionState(
         metadata=metadata,
         sections=sections,
@@ -226,7 +234,7 @@ def _typed_section_override(value: object) -> str:
 
 def _validate_flat_bridge_sections(sections: Mapping[str, str]) -> None:
     errors: list[str] = []
-    for heading in BRIDGE_SECTION_ORDER:
+    for heading in _FLAT_BRIDGE_SECTION_ORDER:
         heading_hits = find_embedded_markdown_headings(str(sections.get(heading, "")))
         if not heading_hits:
             continue

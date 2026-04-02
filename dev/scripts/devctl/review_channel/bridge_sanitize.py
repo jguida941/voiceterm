@@ -138,6 +138,9 @@ def sanitize_bridge_sections(
     sanitized: dict[str, str] = {}
     mutated: list[str] = []
 
+    sanitized["Operator Direction"] = _sanitize_operator_direction(
+        sections.get("Operator Direction", "")
+    )
     sanitized["Poll Status"] = _sanitize_simple_section(
         sections.get("Poll Status", ""),
         default="- Reviewer state unavailable.",
@@ -188,6 +191,11 @@ def sanitize_bridge_sections(
         if body != (previous or body):
             mutated.append(heading)
     return sanitized, mutated
+
+
+def _sanitize_operator_direction(raw: str) -> str:
+    """Preserve the operator-owned section verbatim during compatibility rebuilds."""
+    return str(raw).strip()
 def _sanitize_simple_section(
     raw: str,
     *,

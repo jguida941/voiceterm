@@ -24,6 +24,7 @@ BRIDGE_METADATA_PATTERNS = {
     ),
 }
 TRACKED_BRIDGE_SECTIONS = (
+    "Operator Direction",
     "Poll Status",
     "Current Verdict",
     "Open Findings",
