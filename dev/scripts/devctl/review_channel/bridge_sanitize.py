@@ -25,6 +25,7 @@ BRIDGE_ALLOWED_H2 = (
     "Start-Of-Conversation Rules",
     "Protocol",
     "Swarm Mode",
+    "Operator Direction",
     "Poll Status",
     "Current Verdict",
     "Open Findings",
