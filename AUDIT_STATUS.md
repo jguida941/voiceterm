@@ -141,10 +141,52 @@ Key open findings:
 | Platform contracts | `dev/scripts/devctl/platform/contracts.py` |
 | Contract rows | `dev/scripts/devctl/platform/runtime_*_contract_rows.py` |
 
+## ChatGPT Pro Final Architectural Direction (latest review ~7:30pm EDT)
+
+**Verdict: "You have enough mechanisms now. What you still lack is one owner."**
+
+The landed work (rollover, terminal cleanup, push gate, bridge projection) is real and on-architecture. But it's still behavioral patches around a missing contract seam. The next move is NOT more recovery logic — it's creating the admitted owner.
+
+### What to implement next (in order)
+
+**1. ReviewerRuntimeContract (the missing owner)**
+
+Not another helper file. The admitted typed owner of reviewer runtime truth. Must own:
+- reviewer mode + freshness + stale reason
+- rollover state + pending ACK
+- last poll freshness
+- session/terminal ownership
+- recovery action currently allowed
+- publish-clear condition
+
+Add as ContractSpec in `runtime_state_contract_rows.py` (~15 lines, 5 fields).
+
+**2. Demote bridge_review_accepted() from authority to projection**
+
+Currently `bridge_review_accepted()` regex-parses bridge prose to determine push eligibility. That's markdown-driven authority, not typed-runtime authority. Refactor: 4-5 files need to read from typed `ReviewBridgeState.review_accepted` instead of calling `bridge_review_accepted(BridgeSnapshot)`.
+
+Files: `status_projection_bridge_state.py:142`, `state.py:97`, `bridge_validation.py:108`, `handoff.py`, tests.
+
+**3. Doctor surface as PROJECTION over the contract**
+
+Do NOT make doctor another independent analyzer. Make it a projection over ReviewerRuntimeContract + ReviewerGateState + session truth. One surface, one source of truth.
+
+**4. Startup ownership metadata**
+
+Populate `startup_surface_tokens` on all 14 ContractSpec rows (2-3 tokens each, one-line per contract). Add `contract_ownership_map` to StartupContext so agents get ownership metadata at bootstrap, not by reading prose.
+
+### Design rule
+
+> typed state is authority, bridge is projection
+> one owner per lifecycle, not distributed fragments
+> doctor projects from the owner, doesn't independently analyze
+> startup tells agents what exists, not just what's allowed
+
 ## Next Steps
 
-1. Build doctor surface (`review-channel --action doctor`)
-2. Populate startup contract ownership map
-3. Continue reducing 47 open governance findings
-4. Prove one clean end-to-end cycle: launch → review → ACK → push
-5. Prove one rescue cycle: stale reviewer → auto-rollover → recovery → green
+1. Create ReviewerRuntimeContract ContractSpec (~15 lines)
+2. Refactor bridge acceptance to typed state (4-5 files)
+3. Build doctor as projection over the contract
+4. Populate startup_surface_tokens on all 14 contracts
+5. Prove clean path: launch → review → ACK → push (typed, no bridge prose)
+6. Prove rescue path: stale reviewer → auto-rollover → recovery → green
