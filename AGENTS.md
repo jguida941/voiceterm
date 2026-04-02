@@ -81,7 +81,9 @@ Package-layout truth rule:
   in direct script mode as well as import/package mode. Treat that shim path as
   part of the contract and rerun the root entrypoint plus the owning bundle
   before handoff so package-only unit coverage does not hide broken script
-  imports.
+  imports. That same contract includes repo-package imports such as
+  `dev.scripts.checks.<shim>` too; a shim that only works when
+  `dev/scripts/checks` happens to be on `sys.path` is still broken.
 
 Top-level enforcement rule: every time an agent creates a file or edits an
 existing file, it must run the relevant repo guard/check scripts before

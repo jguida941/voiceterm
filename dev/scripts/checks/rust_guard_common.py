@@ -4,4 +4,7 @@
 # shim-expiry: 2026-09-30
 # shim-target: dev/scripts/checks/rust_analysis/rust_guard_common.py
 
-from rust_analysis.rust_guard_common import *
+try:
+    from rust_analysis.rust_guard_common import *
+except ModuleNotFoundError:  # pragma: no cover - repo-package fallback
+    from dev.scripts.checks.rust_analysis.rust_guard_common import *

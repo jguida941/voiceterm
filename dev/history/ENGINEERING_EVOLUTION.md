@@ -88,6 +88,23 @@ tests are enough. The repo also recorded that rule in maintainer docs and then
 proved it with a green full `python3 dev/scripts/devctl.py check --profile ci`
 run on the same dirty branch.
 
+### 2026-04-02 - Legacy check shims now have to prove repo-package fallback, not only direct script mode
+
+The same package-extraction closure turned up one more miss as soon as the full
+self-hosting bundle reran on the next dirty slice. A new shared helper move had
+added `code_shape/python_function_scan.py`, but the root compatibility seam was
+missing and several older root shims still only worked when
+`dev/scripts/checks` itself happened to be on `sys.path`. That meant direct
+script runs could stay green while packaged checks loaded through
+`check_bootstrap.import_attr()` still failed in repo-package mode.
+
+That seam is closed now. `python_function_scan.py` exists as an explicit root
+shim, and the affected `code_shape_*` / `rust_*` root shims now fall back to
+`dev.scripts.checks...` package imports when the top-level checks root is not
+available. The proof also changed: targeted regression coverage now exercises
+the legacy root import path and the packaged `check_structural_complexity`
+loading path so future package moves have to keep both modes working.
+
 ### 2026-04-02 - Cross-repo proof now catches real engine portability bugs before they masquerade as adopter findings
 
 The next important miss only showed up once the governance stack was pointed at

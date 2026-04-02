@@ -4,4 +4,7 @@
 # shim-expiry: 2026-09-30
 # shim-target: dev/scripts/checks/rust_analysis/rust_check_text_utils.py
 
-from rust_analysis.rust_check_text_utils import *
+try:
+    from rust_analysis.rust_check_text_utils import *
+except ModuleNotFoundError:  # pragma: no cover - repo-package fallback
+    from dev.scripts.checks.rust_analysis.rust_check_text_utils import *

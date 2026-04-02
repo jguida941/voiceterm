@@ -164,6 +164,13 @@
   target repo. Remaining honest `Gate 2` gap: `startup-context` still needs a
   target-local/exported governance stack for Step-0 proof because it has no
   `--repo-path` mode yet.
+- Latest same-lane closure on 2026-04-02: the follow-on self-hosting proof for
+  that same portability slice exposed one more compatibility-seam miss. The
+  new `python_function_scan` root shim now exists, and the affected
+  `code_shape_*` / `rust_*` root shims now fall back cleanly in repo-package
+  mode as well as direct script mode, so packaged guards loaded through
+  `check_bootstrap.import_attr()` no longer depend on `dev/scripts/checks`
+  being on `sys.path`.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

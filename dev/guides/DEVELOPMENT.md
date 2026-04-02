@@ -507,7 +507,9 @@ Three quality layers matter in practice:
   `check_*.py` / `probe_*.py` entrypoint directly after the move, not only the
   package module or unit tests. The public root shim is still part of the
   contract, and broken direct-script imports can survive until the full
-  `devctl check --profile ci` bundle if you only test package mode.
+  `devctl check --profile ci` bundle if you only test package mode. Also prove
+  the repo-package import path (`dev.scripts.checks.<shim>`) when a packaged
+  check loads root shims through `check_bootstrap.import_attr()`.
 
 ## After file edits
 

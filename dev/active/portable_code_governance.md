@@ -558,6 +558,17 @@ confidence alone.
 
 ## Progress Log
 
+- 2026-04-02: The immediate self-hosting rerun after the honest cross-repo
+  proof surfaced one more portability seam in the package-extraction layer.
+  `check_structural_complexity` could still fail in repo-package mode because
+  moved shared helpers/root shims only worked when `dev/scripts/checks` was on
+  `sys.path`. Closed that follow-on gap in the same lane: the new shared
+  `python_function_scan` helper now has an explicit root shim, the affected
+  `code_shape_*` / `rust_*` root shims now fall back cleanly in repo-package
+  mode, and regression coverage now proves both the root import surface and
+  packaged `check_structural_complexity` load path. Keep the proof rule
+  explicit: do not treat direct-script green as full portability closure when
+  packaged guards still import through root compatibility seams.
 - 2026-04-02: Re-ran real cross-repo proof on disposable local clones of
   `ci-cd-hub` and `adaptive-hashmap-studio` instead of treating self-hosting
   green as portability proof. `governance-bootstrap`, `render-surfaces`,
@@ -1367,6 +1378,10 @@ confidence alone.
 
 ## Session Resume
 
+- 2026-04-02 follow-on proof rule: keep the current portability lane on
+  closure, not corpus growth. After any future shared-helper/package move,
+  rerun both the legacy root shim surface and the packaged check load path
+  before widening external repo proof again.
 - 2026-04-02 portable proof is now honest on two real repos for engine-run
   `check --repo-path` and `probe-report --repo-path`. The next portable slice
   is not another self-hosting cleanup memo. It is to finish the adopter

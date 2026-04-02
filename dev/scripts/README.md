@@ -177,7 +177,10 @@ Compatibility note:
   `check_*.py` / `probe_*.py` shim runnable in direct script mode and rerun it
   explicitly before trusting the move. Package imports and unit tests can stay
   green while the public root entrypoint still has broken relative-import
-  fallback.
+  fallback. The same shim also needs a repo-package fallback for
+  `dev.scripts.checks.<shim>` imports, because packaged checks can load root
+  helpers through `check_bootstrap.import_attr()` without `dev/scripts/checks`
+  itself sitting on `sys.path`.
 - When a tooling/docs workflow invokes compile-time Rust guards, install the
   repo Rust toolchain and required Linux headers in that job first; the main
   Rust CI lane’s setup does not carry over automatically to `tooling_control_plane.yml`.

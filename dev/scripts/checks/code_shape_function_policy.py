@@ -4,4 +4,7 @@
 # shim-expiry: 2026-09-30
 # shim-target: dev/scripts/checks/code_shape/code_shape_function_policy.py
 
-from code_shape.code_shape_function_policy import *
+try:
+    from code_shape.code_shape_function_policy import *
+except ModuleNotFoundError:  # pragma: no cover - repo-package fallback
+    from dev.scripts.checks.code_shape.code_shape_function_policy import *

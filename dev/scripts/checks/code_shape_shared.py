@@ -4,4 +4,7 @@
 # shim-expiry: 2026-09-30
 # shim-target: dev/scripts/checks/code_shape/code_shape_shared.py
 
-from code_shape.code_shape_shared import *
+try:
+    from code_shape.code_shape_shared import *
+except ModuleNotFoundError:  # pragma: no cover - repo-package fallback
+    from dev.scripts.checks.code_shape.code_shape_shared import *
