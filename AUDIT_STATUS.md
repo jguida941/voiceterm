@@ -141,25 +141,32 @@ Key open findings:
 | Platform contracts | `dev/scripts/devctl/platform/contracts.py` |
 | Contract rows | `dev/scripts/devctl/platform/runtime_*_contract_rows.py` |
 
-## ChatGPT Pro Final Architectural Direction (latest review ~7:30pm EDT)
+## ChatGPT Pro Architectural Direction (updated ~8:00pm EDT)
 
 **Verdict: "You have enough mechanisms now. What you still lack is one owner."**
 
-The landed work (rollover, terminal cleanup, push gate, bridge projection) is real and on-architecture. But it's still behavioral patches around a missing contract seam. The next move is NOT more recovery logic — it's creating the admitted owner.
+ChatGPT Pro reviewed the branch 3 times. Consistent finding each time: the landed work is real and on-architecture, but it's behavioral patches around a missing contract seam. The system is improving operationally but the architectural seam is still open.
+
+**Key correction from latest review:** The proposed 5-field ReviewerRuntimeContract (review_accepted, current_verdict, open_findings, verdict_accepted_at_utc, findings_clear_count) is TOO SMALL. Those are bridge/verdict state only. The real lifecycle owner also needs: reviewer freshness, stale reason, rollover/ACK state, poll freshness, and session ownership. Without those, you just create a typed acceptance object while leaving the lifecycle fragmented.
 
 ### What to implement next (in order)
 
-**1. ReviewerRuntimeContract (the missing owner)**
+**1. ReviewerRuntimeContract (the missing owner — FULL lifecycle, not just acceptance)**
 
-Not another helper file. The admitted typed owner of reviewer runtime truth. Must own:
-- reviewer mode + freshness + stale reason
-- rollover state + pending ACK
-- last poll freshness
-- session/terminal ownership
-- recovery action currently allowed
-- publish-clear condition
+Not another helper file. The admitted typed owner of ALL reviewer runtime truth. Must own:
+- reviewer mode + effective mode
+- reviewer freshness (fresh/poll_due/stale/overdue/missing)
+- stale reason (which attention state triggered)
+- rollover state (rollover_id, pending ACK, trigger reason)
+- last poll freshness (UTC timestamp + age)
+- session/terminal ownership (PID, window_id, script_path)
+- recovery action currently allowed (from peer_recovery dispatch)
+- review acceptance (verdict + findings state)
+- publish-clear condition (all of the above must be green)
 
-Add as ContractSpec in `runtime_state_contract_rows.py` (~15 lines, 5 fields).
+Add as ContractSpec in `runtime_state_contract_rows.py` with ~10 fields.
+Create companion dataclass as the runtime model.
+This replaces the current fragmentation across 5+ modules.
 
 **2. Demote bridge_review_accepted() from authority to projection**
 
