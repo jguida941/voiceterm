@@ -1,14 +1,43 @@
 # Remote Orchestration Audit Status
 
 **Branch:** `feature/governance-quality-sweep`
-**Last updated:** 2026-04-02 ~5:30pm EDT
+**Last updated:** 2026-04-02 ~7:00pm EDT
 **Purpose:** Temporary file for ChatGPT Pro review. Delete when done.
 
 ## Summary
 
-24 commits pushed. 235+ tests passing. Guards green.
-Started with 0 fixes, ended with 10 landed and pushed.
+25 commits pushed. 235+ tests passing. Guards green.
+Started with 0 fixes, ended with 12 landed and pushed.
 115 governance findings tracked: 68 fixed, 47 open.
+
+## Latest Verification Round (6 agents, ~7pm EDT)
+
+ChatGPT Pro's latest review verified against pushed code:
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Bridge still active gate | **CONFIRMED** | `bridge_review_accepted()` regex-parses prose, no typed-only path |
+| No ReviewerRuntimeContract | **CONFIRMED** | Lifecycle distributed across 87+ modules, no ContractSpec row |
+| Startup ownership empty | **CONFIRMED** | All 14 ContractSpec have `startup_surface_tokens=()` |
+| Rollover is behavioral patch | **REJECTED** | Rollover delegates through HandoffBundle/ACK, uses typed AttentionStatus enum |
+| Terminal cleanup not contract-backed | **CONFIRMED** | Standalone helper, returns untracked `list[str]`, no typed state persisted |
+
+ChatGPT Pro was right on 4 of 5 claims. The rollover IS real contract-backed work, not a patch.
+
+## Concrete Next Steps (from 6-agent implementation assessment)
+
+**Priority: Create ReviewerRuntimeContract + startup ownership, then make bridge a projection**
+
+1. **Add ReviewerRuntimeContract** (~15 lines) to `runtime_state_contract_rows.py` with 5 fields: `review_accepted`, `current_verdict`, `open_findings`, `verdict_accepted_at_utc`, `findings_clear_count`
+
+2. **Refactor bridge acceptance to typed state** (4-5 files):
+   - `status_projection_bridge_state.py:142-149` — read from typed state
+   - `state.py:97` — replace `bridge_review_accepted(bridge_snapshot)` with typed field
+   - `bridge_validation.py:108` — typed field as source-of-truth
+   - `handoff.py` — propagate typed `review_accepted`
+   - Tests — verify typed path works
+
+3. **Populate startup_surface_tokens** on all 14 contracts (one-line per contract, 2-3 field names each)
 
 ## What Was Fixed and Pushed Today
 
