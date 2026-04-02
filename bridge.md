@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-02T20:20:42Z`
-- Last Codex poll (Local America/New_York): `2026-04-02 16:20:42 EDT`
+- Last Codex poll: `2026-04-02T20:30:02Z`
+- Last Codex poll (Local America/New_York): `2026-04-02 16:30:02 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `a74de4cf36b0464598873aae0d322f37d8309cf96006b05cb155b0187d87c45e`
-- Current instruction revision: `11e034e2f406`
+- Last non-audit worktree hash: `7996c88b3dfdc4f0a7b0252e1796b4fb014f25690f8e470a84467a9a9770e597`
+- Current instruction revision: `6a754ea6cb55`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -185,22 +185,16 @@ Every Codex context exhaustion is handled by Claude manually killing the process
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: a74de4cf36b0; reviewed-tree: a74de4cf36b0; instruction-rev: 11e034e2f406).
+- Reviewer checkpoint updated through repo-owned tooling (mode: tools_only; reason: review-pass; observed-tree: 7996c88b3dfd; reviewed-tree: 7996c88b3dfd; instruction-rev: 6a754ea6cb55).
 
 ## Current Verdict
 
-- Changes requested before governed push.
-- Change Summary: the typed review state already marks this slice accepted for push, but the startup and status code paths still collapse detached reviewer runtime into a universal blocker. This slice must separate "no more coding" from "push may proceed" and then restore reviewer recovery/contract discoverability through existing typed surfaces.
+- Accepted for governed push.
+- Verified current HEAD 443874f3b59c4674791b0b1fb659f8f9816faba8 with the required startup-context pytest target and strict tooling docs check.
 
 ## Open Findings
 
-- Confirmed P0: `dev/scripts/devctl/runtime/startup_advisory_decision.py:38` returns `_blocked_loop_decision` on `implementation_blocked` before it checks `review_gate_allows_push`, so clean worktree + accepted review still reports a blocked loop.
-- Confirmed P0: `dev/scripts/devctl/runtime/startup_push_decision.py:223` has the same precedence bug and blocks `run_devctl_push` even when `review_gate_allows_push=True`.
-- Confirmed P0: `dev/scripts/devctl/review_channel/state.py:81-97` never copies `review_accepted` into `bridge_liveness`, even though `dev/scripts/devctl/review_channel/status_projection_bridge_state.py:124` computes it for the typed `bridge` block. `_build_status_push_decision()` then reads a missing key at `state.py:295` and forces `review_gate_allows_push=False`.
-- Additional escaped P0: `dev/scripts/devctl/runtime/startup_context.py:261-269` and `dev/scripts/devctl/commands/governance/startup_context.py:50-57,214-226` still treat `implementation_blocked` as a universal startup failure, so `startup-context` stays red even when the next safe action is governed push.
-- Confirmed P1: `dev/scripts/devctl/review_channel/reviewer_follow.py:131-155` only auto-recovers stale Claude state. There is no reviewer-side stale/runtime-missing rollover path using the existing handoff/rollover contract.
-- Confirmed P1: `dev/scripts/devctl/review_channel/terminal_app.py:1-121` only launches Terminal.app sessions. There is no cleanup helper, and current launch/session metadata does not carry terminal cleanup state.
-- P2 refined: `dev/scripts/devctl/runtime/startup_context.py:49-71` has no startup ownership/discoverability projection, but there is also no existing `StartupContext` platform `ContractSpec` row in `dev/scripts/devctl/platform/runtime_identity_contract_rows.py` or `dev/scripts/devctl/platform/runtime_state_contract_rows.py`, so the proposed fix needs a broader contract decision.
+- None.
 
 ## Claude Status
 
@@ -216,34 +210,12 @@ Every Codex context exhaustion is handled by Claude manually killing the process
 
 ## Current Instruction For Claude
 
-- Phase 0: fix the push gate first. Update `dev/scripts/devctl/runtime/startup_advisory_decision.py:38` and `dev/scripts/devctl/runtime/startup_push_decision.py:223` so reviewer-runtime-only implementation blocks do not override `review_gate_allows_push=True`.
-- Phase 0: in `dev/scripts/devctl/review_channel/state.py`, copy the computed typed acceptance signal into `bridge_liveness` before `_build_status_push_decision()` runs, then add regression coverage that proves `review-channel --action status` emits `push_decision.action=run_devctl_push` for clean worktree + `bridge.review_accepted=true` even when attention is `runtime_missing`.
-- Phase 0: close the remaining startup-command conflation. Make `startup-context` stay red for new implementation, but green when publication is the next safe action. Add a full-path test that covers `review_accepted=true`, `implementation_blocked=true`, `attention.status=runtime_missing`, clean worktree, and unpublished commits.
-- Phase 1: add reviewer-side automatic rollover using the existing typed path, not raw osascript. Mirror the stale-implementer helper with a bounded/deduped reviewer-staleness helper that reacts to reviewer-side stale states (`runtime_missing`, `reviewer_heartbeat_missing`, `reviewer_heartbeat_stale`, `reviewer_overdue`, and any `review_loop_relaunch_required` case that should relaunch the pair) and drives the existing `review-channel --action rollover` / handoff ACK flow.
-- Phase 1: add typed Terminal cleanup support needed by that rollover. `terminal_app.py` needs a `cleanup_terminal_session()` path that kills the tracked process first and then closes the Terminal window/tab. Thread any required metadata through the existing launch/recover records instead of inventing an ad hoc shell-only cleanup path.
-- Phase 2: fix startup discoverability honestly. Either add a real `StartupContext` shared contract row to the platform blueprint and expose a bounded ownership/contract map in the startup packet, or emit a packet-local ownership map and document why full platform-contract parity is not landed yet. Do not claim an existing `StartupContext` ContractSpec if one does not exist.
-- Validation: start with targeted tests for startup-context, review-channel status, reviewer-follow recovery, and any new terminal cleanup helpers. Then run `python3 dev/scripts/devctl.py check --profile ci` and `python3 dev/scripts/devctl.py docs-check --strict-tooling` before asking for re-review.
+- Review acceptance recorded for HEAD 443874f3b59c4674791b0b1fb659f8f9816faba8.
+- Governed push may proceed.
 
 ## Last Reviewed Scope
 
-- bridge.md
-- dev/active/INDEX.md
-- dev/active/MASTER_PLAN.md
-- dev/active/review_channel.md
-- dev/scripts/devctl/runtime/startup_advisory_decision.py
-- dev/scripts/devctl/runtime/startup_push_decision.py
-- dev/scripts/devctl/runtime/startup_context.py
-- dev/scripts/devctl/commands/governance/startup_context.py
-- dev/scripts/devctl/review_channel/state.py
-- dev/scripts/devctl/review_channel/status_projection_bridge_state.py
-- dev/scripts/devctl/review_channel/reviewer_follow.py
-- dev/scripts/devctl/review_channel/reviewer_follow_recovery.py
-- dev/scripts/devctl/review_channel/terminal_app.py
-- dev/scripts/devctl/review_channel/launch.py
-- dev/scripts/devctl/review_channel/launch_records.py
-- dev/scripts/devctl/review_channel/peer_recovery.py
-- dev/scripts/devctl/platform/contracts.py
-- dev/scripts/devctl/platform/runtime_identity_contract_rows.py
-- dev/scripts/devctl/platform/runtime_state_contract_rows.py
-- dev/scripts/devctl/runtime/review_state_parser.py
+- HEAD 443874f3b59c4674791b0b1fb659f8f9816faba8
+- python3 -m pytest dev/scripts/devctl/tests/runtime/test_startup_context.py -q --tb=short
+- python3 dev/scripts/devctl.py docs-check --strict-tooling
 
