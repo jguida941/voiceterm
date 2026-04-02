@@ -476,14 +476,18 @@ def collect_override_cap_records(
     *,
     overrides: dict[str, ShapePolicy] | None = None,
     language_policies: dict[str, ShapePolicy] | None = None,
+    repo_root: Path | None = None,
 ) -> list[dict[str, object]]:
     """Return override-cap records for the provided policy set."""
     effective_overrides = PATH_POLICY_OVERRIDES if overrides is None else overrides
     effective_language_policies = (
         LANGUAGE_POLICIES if language_policies is None else language_policies
     )
+    effective_repo_root = REPO_ROOT if repo_root is None else repo_root
     warnings: list[dict[str, object]] = []
     for path_str, override in effective_overrides.items():
+        if not (effective_repo_root / path_str).exists():
+            continue
         suffix = Path(path_str).suffix
         lang_default = effective_language_policies.get(suffix)
         if lang_default is None:
@@ -535,9 +539,9 @@ def collect_override_cap_records(
     return warnings
 
 
-def validate_override_caps() -> list[dict[str, object]]:
+def validate_override_caps(*, repo_root: Path | None = None) -> list[dict[str, object]]:
     """Return advisory warnings for path overrides that exceed the operator caps."""
-    return collect_override_cap_records()
+    return collect_override_cap_records(repo_root=repo_root)
 
 
 @lru_cache(maxsize=1)

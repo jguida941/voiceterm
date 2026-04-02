@@ -102,6 +102,7 @@ def load_override_cap_baseline_records(
     return collect_override_cap_records(
         overrides=overrides,
         language_policies=language_policies,
+        repo_root=repo_root,
     )
 
 

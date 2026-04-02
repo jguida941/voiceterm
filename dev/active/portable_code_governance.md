@@ -558,6 +558,22 @@ confidence alone.
 
 ## Progress Log
 
+- 2026-04-02: Re-ran real cross-repo proof on disposable local clones of
+  `ci-cd-hub` and `adaptive-hashmap-studio` instead of treating self-hosting
+  green as portability proof. `governance-bootstrap`, `render-surfaces`,
+  `probe-report --repo-path --adoption-scan`, and `check --profile ci
+  --repo-path --adoption-scan` now run on both repos without core-engine
+  crashes, and the two escaped engine defects were closed in the same slice:
+  `scan_python_functions()` now handles valid Python headers with inline
+  comments and indented method signatures, and `check_code_shape` now scopes
+  override-cap/stale-override self-hosting debt to files that actually exist
+  in the target repo so external scans stop reporting VoiceTerm-only
+  `app/operator_console/**` budgets. Imported cross-repo findings are now
+  logged under `dev/reports/governance/external_pilot_findings.jsonl`
+  (`882` rows across the two pilot runs). The remaining honest adopter gap is
+  startup/push proof: `startup-context` still has no `--repo-path` mode, so
+  true Step-0 proof must run from a target-local/exported governance stack
+  rather than from the engine checkout.
 - 2026-04-01: Absorbed the useful parts of `dev/intrgrate_analysis.md` into
   the portable adoption lane instead of leaving another shadow roadmap on the
   tree. The accepted additions are narrower than the source dump: explicit
@@ -1351,6 +1367,13 @@ confidence alone.
 
 ## Session Resume
 
+- 2026-04-02 portable proof is now honest on two real repos for engine-run
+  `check --repo-path` and `probe-report --repo-path`. The next portable slice
+  is not another self-hosting cleanup memo. It is to finish the adopter
+  startup contract: either install/export the governance stack into pilot repos
+  as the default proof path or add a repo-path-aware startup receipt surface,
+  then start adjudicating the imported `882` external findings instead of only
+  collecting them.
 - 2026-04-01 organization-contract correction: do not treat current
   `package_layout` green as architecture completion. The next portable slice is
   package-role and semantic package-cohesion authority on top of the existing

@@ -8,6 +8,7 @@ from pathlib import Path
 
 try:
     from code_shape_shared import FunctionShapeException, FunctionShapePolicy
+    from code_shape.python_function_scan import scan_python_functions
 except (
     ModuleNotFoundError
 ):  # pragma: no cover - import fallback for package-style test loading
@@ -16,14 +17,17 @@ except (
             FunctionShapeException,
             FunctionShapePolicy,
         )
+        from checks.code_shape.python_function_scan import scan_python_functions
     except ModuleNotFoundError:  # pragma: no cover - repo-package fallback
         from dev.scripts.checks.code_shape.code_shape_shared import (
             FunctionShapeException,
             FunctionShapePolicy,
         )
+        from dev.scripts.checks.code_shape.python_function_scan import (
+            scan_python_functions,
+        )
 
 RUST_FN_PATTERN = re.compile(r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)\b")
-PYTHON_DEF_PATTERN = re.compile(r"^(\s*)def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 
 
 def _strip_inline_comment(raw_line: str) -> str:
@@ -88,55 +92,6 @@ def scan_rust_functions(text: str | None) -> list[dict]:
                 "start_line": start_line,
                 "end_line": end_line,
                 "line_count": end_line - start_line + 1,
-            }
-        )
-
-    return functions
-
-
-def scan_python_functions(text: str | None) -> list[dict]:
-    """Scan Python source for top-level and method-level def blocks."""
-    if not text:
-        return []
-
-    functions: list[dict] = []
-    lines = text.splitlines()
-    i = 0
-    while i < len(lines):
-        match = PYTHON_DEF_PATTERN.match(lines[i])
-        if not match:
-            i += 1
-            continue
-        def_indent = len(match.group(1))
-        name = match.group(2)
-        start_line = i + 1
-        signature_end = i
-        while signature_end < len(lines):
-            if lines[signature_end].rstrip().endswith(":"):
-                break
-            signature_end += 1
-        i = signature_end + 1
-        while i < len(lines):
-            raw = lines[i]
-            stripped = raw.strip()
-            if stripped == "" or stripped.startswith("#"):
-                i += 1
-                continue
-            line_indent = len(raw) - len(raw.lstrip())
-            if line_indent <= def_indent:
-                break
-            i += 1
-        end_line = i  # line after the function body (exclusive), so use i
-        # back up to last non-blank line in the body
-        actual_end = i
-        while actual_end > start_line and lines[actual_end - 1].strip() == "":
-            actual_end -= 1
-        functions.append(
-            {
-                "name": name,
-                "start_line": start_line,
-                "end_line": actual_end,
-                "line_count": actual_end - start_line + 1,
             }
         )
 

@@ -88,6 +88,30 @@ tests are enough. The repo also recorded that rule in maintainer docs and then
 proved it with a green full `python3 dev/scripts/devctl.py check --profile ci`
 run on the same dirty branch.
 
+### 2026-04-02 - Cross-repo proof now catches real engine portability bugs before they masquerade as adopter findings
+
+The next important miss only showed up once the governance stack was pointed at
+other repos instead of itself. A pilot `probe-report --repo-path` run against
+`adaptive-hashmap-studio` crashed inside the shared Python function scanner on
+perfectly valid headers such as `def main() -> None:  # pragma: no cover`, and
+the later `check --repo-path` proof showed a second portability leak:
+`check_code_shape` was still evaluating VoiceTerm-only `PATH_POLICY_OVERRIDES`
+for files like `app/operator_console/**` even when those files did not exist in
+the target repo, so external scans could report self-hosting override debt as
+if it were adopter debt.
+
+Both defects are closed now. `scan_python_functions()` uses token-aware Python
+header closure, handles indented method signatures correctly, and clamps
+end-of-file fallthrough instead of crashing; `check_code_shape` now scopes
+override-cap and stale-override self-hosting checks to files that actually
+exist under the active repo root. The real proof result matters more than the
+patches: cross-repo `probe-report --repo-path --adoption-scan` and
+`check --repo-path --adoption-scan` are now honest on both `ci-cd-hub` and
+`adaptive-hashmap-studio`, and the imported pilot ledger records `882`
+external findings across those two runs. The remaining truthful gap is Step 0:
+`startup-context` still has no `--repo-path` mode, so real adopter startup/push
+proof still requires the governance stack to exist in the target repo checkout.
+
 ### 2026-04-01 - External integration analysis now has to land as owner-plan deltas, not shadow roadmap prose
 
 The repo accepted a useful external architecture review in

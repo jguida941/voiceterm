@@ -482,6 +482,48 @@ class CheckCodeShapeGuidanceTests(TestCase):
         self.assertIn("override_cap_exceeded_on_touched_file", output)
         self.assertIn("violations: 1", output)
 
+    def test_main_skips_missing_override_targets_during_stale_review(self) -> None:
+        missing_override = self.script.ShapePolicy(
+            soft_limit=1400,
+            hard_limit=1500,
+            oversize_growth_limit=40,
+            hard_lock_growth_limit=0,
+        )
+
+        with patch.object(
+            self.script,
+            "validate_override_caps",
+            return_value=[],
+        ), patch.object(
+            self.script,
+            "_load_override_cap_baseline_records",
+            return_value=[],
+        ), patch.object(
+            self.script,
+            "list_changed_paths_with_base_map",
+            return_value=([], {}),
+        ), patch.object(
+            self.script,
+            "PATH_POLICY_OVERRIDES",
+            {"missing/external_only.py": missing_override},
+        ), patch.object(
+            self.script.guard,
+            "read_text_from_worktree",
+            side_effect=AssertionError("missing override target should be skipped"),
+        ), patch.object(
+            sys,
+            "argv",
+            ["check_code_shape.py"],
+        ):
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                rc = self.script.main()
+
+        self.assertEqual(rc, 0)
+        output = buffer.getvalue()
+        self.assertIn("stale_override_candidates_skipped: 1", output)
+        self.assertIn("violations: 0", output)
+
     def test_main_fails_on_touched_file_with_mixed_concerns(self) -> None:
         source = self._mixed_concern_source()
 

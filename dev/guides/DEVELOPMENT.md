@@ -1270,6 +1270,7 @@ For substantive sessions, include this in the PR description or handoff summary:
 ### Structured telemetry / ledger updates
 
 - `devctl` commands run this session (auto-emitted to `devctl_events.jsonl`):
+- `governance-import-findings` runs or summary roots updated this session:
 - `governance-review --record` rows added this session:
 - `false_positive` rows added this session and their root-cause follow-ups:
 - Deferred findings left open in the ledger:
@@ -1314,6 +1315,33 @@ Structured audit/event ledgers are separate from that handoff surface:
   guard/probe outcomes through `python3 dev/scripts/devctl.py governance-review`.
 - Use those ledgers for metrics, runtime evidence, later database indexing,
   and ML/ranking inputs, not for narrative "left off here" session state.
+- For external-adopter pilots, keep the ledgers split by role:
+  - raw imported findings belong in the managed
+    `dev/reports/governance/external_*.jsonl` stream plus refreshed external
+    summary roots produced by `governance-import-findings`;
+  - raw target-repo findings belong in `governance-import-findings` output,
+    not hand-written notes;
+  - adjudicated outcomes (`fixed`, `confirmed_issue`, `false_positive`,
+    `deferred`, `waived`) belong in `governance-review`;
+  - accuracy / policy-signal review belongs in
+    `python3 dev/scripts/devctl.py governance-quality-feedback --format md`,
+    not in ad hoc chat summaries;
+  - active-plan markdown owns the closure loop and next actions.
+- External portability work should follow this order every time:
+  1. `governance-bootstrap` the copied target repo if needed.
+  2. Run `probe-report` / `check --profile ci` with `--repo-path --adoption-scan`.
+  3. If the run crashes, leaks VoiceTerm-only paths, or otherwise proves the
+     engine is not repo-agnostic yet, fix that here first and rerun before
+     importing adopter debt.
+     Do not widen the repo corpus while the current proof set still exposes
+     unfixed engine bugs unless the deferral plus exit criteria are written
+     into the owning active plan.
+  4. Once the run is honest, import the target findings with
+     `governance-import-findings`, then adjudicate important outcomes with
+     `governance-review --record`.
+  5. If startup/push proof still requires a target-local exported stack,
+     track that as a workflow/authority gap in the active plan instead of
+     mislabeling it as an adopter finding.
 - Practical operator rule:
   - use `devctl` commands whenever the work should land in command telemetry;
   - before handoff, append `governance-review --record` rows for any findings

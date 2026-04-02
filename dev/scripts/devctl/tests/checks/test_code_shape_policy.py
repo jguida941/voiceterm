@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from dev.scripts.devctl.tests.conftest import load_repo_module, override_module_attrs
@@ -46,12 +47,20 @@ class CodeShapePolicyTests(unittest.TestCase):
             LANGUAGE_POLICIES=language_policies,
         )
 
-        warnings = SCRIPT.validate_override_caps()
-        warning_by_path = {warning["path"]: warning for warning in warnings}
-        explicit_records = SCRIPT.collect_override_cap_records(
-            overrides=overrides,
-            language_policies=language_policies,
-        )
+        with TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            for relative in overrides:
+                target = repo_root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("// present\n", encoding="utf-8")
+
+            warnings = SCRIPT.validate_override_caps(repo_root=repo_root)
+            warning_by_path = {warning["path"]: warning for warning in warnings}
+            explicit_records = SCRIPT.collect_override_cap_records(
+                overrides=overrides,
+                language_policies=language_policies,
+                repo_root=repo_root,
+            )
 
         self.assertEqual(len(warnings), 2)
         self.assertEqual(explicit_records, warnings)
@@ -99,6 +108,44 @@ class CodeShapePolicyTests(unittest.TestCase):
         self.assertIsNotNone(policy)
         self.assertEqual(source, f"path_override:{wrapper}")
         self.assertEqual(policy.soft_limit, 675)
+
+    def test_collect_override_cap_records_skips_missing_paths(self) -> None:
+        overrides = {
+            "pkg/existing.py": SCRIPT.ShapePolicy(
+                soft_limit=1400,
+                hard_limit=1500,
+                oversize_growth_limit=0,
+                hard_lock_growth_limit=0,
+            ),
+            "pkg/missing.py": SCRIPT.ShapePolicy(
+                soft_limit=1400,
+                hard_limit=1500,
+                oversize_growth_limit=0,
+                hard_lock_growth_limit=0,
+            ),
+        }
+        language_policies = {
+            ".py": SCRIPT.ShapePolicy(
+                soft_limit=350,
+                hard_limit=650,
+                oversize_growth_limit=25,
+                hard_lock_growth_limit=0,
+            )
+        }
+
+        with TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            existing = repo_root / "pkg" / "existing.py"
+            existing.parent.mkdir(parents=True)
+            existing.write_text("print('ok')\n", encoding="utf-8")
+
+            warnings = SCRIPT.collect_override_cap_records(
+                overrides=overrides,
+                language_policies=language_policies,
+                repo_root=repo_root,
+            )
+
+        self.assertEqual([warning["path"] for warning in warnings], ["pkg/existing.py"])
 
     def test_build_function_exception_key_uses_stable_wrapper_path(self) -> None:
         wrapper = "dev/scripts/checks/check_code_shape.py"

@@ -128,6 +128,7 @@ python3 dev/scripts/devctl.py probe-report --adoption-scan --format md
 python3 dev/scripts/devctl.py governance-export --adoption-scan --format md
 
 # Or run the scan from the engine checkout without `cd`:
+python3 /path/to/engine/dev/scripts/devctl.py check --profile ci --repo-path /path/to/copied-repo --adoption-scan --format md
 python3 /path/to/engine/dev/scripts/devctl.py probe-report --repo-path /path/to/copied-repo --adoption-scan --format md
 ```
 
@@ -159,6 +160,14 @@ Why these steps exist:
   when that typed contract says the governed push path is ready.
 - `--adoption-scan` treats the full current worktree as the baseline when the
   repo has no trusted historical ref for growth-only checks yet.
+- `check` and `probe-report` support `--repo-path` from the engine checkout, so
+  first-pass adoption proof can stay outside the target repo while still
+  writing the report artifacts under the target repo's governed report root.
+- `startup-context` and governed `push` do not currently accept `--repo-path`.
+  For a real adopter startup/push proof, the governance stack must exist in
+  the target repo checkout (for example via export/install) so
+  `python3 dev/scripts/devctl.py startup-context --format md` runs target-local
+  authority instead of reading the engine checkout.
 - `probe-report` should usually run in the same onboarding mode so the first
   packet ranks the whole repo instead of only a meaningless empty diff.
 - When `probe-report` is driven from the engine repo with `--repo-path`, the

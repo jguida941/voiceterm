@@ -841,6 +841,32 @@ Portable policy note:
 - `check`, `probe-report`, and `governance-export` accept `--adoption-scan`
   for full current-worktree onboarding scans when a repo has no trustworthy
   baseline yet.
+- External-adopter proof is a closure loop, not a one-pass findings dump:
+  bootstrap the copied repo, run `probe-report` / `check` with
+  `--repo-path --adoption-scan`, and classify the first failure before
+  widening scope. If the run crashes, leaks this repo's paths, or assumes
+  VoiceTerm-only policy/layout, treat that as a governance-engine bug and fix
+  it here before importing adopter debt. After the run is honest, import raw
+  target-repo findings with `governance-import-findings`, record adjudicated
+  outcomes with `governance-review --record`, and keep closure ordering in the
+  owning active plan so "engine bug", "confirmed adopter issue", "false
+  positive", and "workflow gap" do not collapse into one backlog bucket.
+  Do not widen the pilot corpus while the current proof set still exposes
+  unfixed engine bugs unless the deferral plus exit criteria are written into
+  the owning active plan.
+- Keep the external-adopter evidence surfaces split by role:
+  `governance-import-findings` owns the append-only raw import stream under
+  managed `dev/reports/governance/external_*.jsonl` / summary roots,
+  `governance-review` owns adjudicated verdicts for the findings that were
+  actually reviewed, and `governance-quality-feedback` is the rollup surface
+  that tells us whether imported findings are becoming accurate policy signal
+  instead of a growing pile of unreviewed rows.
+- `startup-context` and governed `push` are still target-local authority
+  surfaces today, not generic `--repo-path` scans. When external proof needs
+  honest startup/push validation, run it from a target repo that contains the
+  exported governance stack (or explicitly track the missing adopter-startup
+  contract in the active plan) instead of pretending an engine-checkout
+  `startup-context` receipt proved the target repo.
 - `check`, `probe-report`, `status --probe-report`, `report --probe-report`,
   `triage --probe-report`, and `render-surfaces` accept
   `--quality-policy <path>`, and

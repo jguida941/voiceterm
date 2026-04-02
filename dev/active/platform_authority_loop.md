@@ -1453,6 +1453,18 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-02 external proof moved from assumption to measured state. On local
+  clones of `ci-cd-hub` and `adaptive-hashmap-studio`, engine-run
+  `probe-report --repo-path --adoption-scan` and `check --profile ci
+  --repo-path --adoption-scan` now stay on the target repos instead of
+  crashing on valid Python signatures or leaking VoiceTerm-only
+  `app/operator_console/**` code-shape override debt into adopter findings.
+  The remaining honest `Gate 2` gap is startup authority itself:
+  `startup-context` still has no `--repo-path` mode, so true adopter Step-0
+  proof still requires a target-local/exported governance stack. The next
+  same-lane closure should decide whether that becomes a repo-path-capable
+  startup surface or an explicitly required export/install step, then record
+  adjudications against the imported external-finding log.
 - 2026-04-02 `dev/scripts/checks` crowded-root closure is now green on the
   working tree. The remaining flat helpers for bundle workflow parity,
   duplication audit, naming consistency, and mutation Ralph loop were moved
@@ -1881,6 +1893,21 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-02: Closed the next real cross-repo proof misses behind the current
+  `MP-377` authority loop. The first pilot rerun on
+  `adaptive-hashmap-studio` found a shared Python signature-parser bug in
+  `scan_python_functions()` that crashed `probe-report` on valid headers with
+  inline comments and indented method signatures; the second proof pass showed
+  `check --repo-path` was still importing VoiceTerm-only code-shape override
+  debt because `check_code_shape` evaluated self-hosting `PATH_POLICY_OVERRIDES`
+  even when those files did not exist in the target repo. Both are now fixed:
+  token-aware signature closure plus end-line clamping keep probe scanners on
+  valid Python, and override-cap/stale-override checks now scope themselves to
+  files that actually exist under the active repo root. Cross-repo proof is
+  now honest on two repos for `probe-report` and `check --repo-path`, the
+  imported pilot ledger holds `882` findings, and the remaining honest
+  contract gap is that `startup-context` still needs a target-local/exported
+  stack for real Step-0 adopter proof because it has no `--repo-path` mode.
 - 2026-04-02: Closed the post-publication governed-push receipt gap. A clean
   branch that already matched its tracked remote could still reroute through
   zero-diff `check-router` preflight and die in the docs lane, which made the

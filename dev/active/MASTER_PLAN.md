@@ -154,6 +154,16 @@
   `coderabbit_gate_core` package now re-exports through a legacy-module loader
   instead of duplicating helpers, and the branch-wide
   `python3 dev/scripts/devctl.py check --profile ci` bundle is green again.
+- Latest same-lane closure on 2026-04-02: cross-repo proof is now honest on
+  two real adopters for engine-run `probe-report --repo-path` and
+  `check --repo-path`. The authority-loop lane closed two escaped portability
+  defects in the same slice: valid Python headers with inline comments or
+  indented method signatures no longer crash the shared function scanner, and
+  external code-shape runs no longer import VoiceTerm-only
+  `app/operator_console/**` override debt when those files do not exist in the
+  target repo. Remaining honest `Gate 2` gap: `startup-context` still needs a
+  target-local/exported governance stack for Step-0 proof because it has no
+  `--repo-path` mode yet.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

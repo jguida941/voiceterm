@@ -200,7 +200,7 @@ def main() -> int:
     stale_override_review_window_days = max(args.stale_override_review_window_days, 0)
     stale_override_candidates_scanned = 0
     stale_override_candidates_skipped = 0
-    override_cap_warnings = validate_override_caps()
+    override_cap_warnings = validate_override_caps(repo_root=REPO_ROOT)
     baseline_override_cap_records = _load_override_cap_baseline_records(
         args.since_ref if args.since_ref else "HEAD"
     )
@@ -296,6 +296,9 @@ def main() -> int:
                 path = Path(override_path)
                 default_policy = LANGUAGE_POLICIES.get(path.suffix)
                 if default_policy is None:
+                    stale_override_candidates_skipped += 1
+                    continue
+                if not (REPO_ROOT / path).exists():
                     stale_override_candidates_skipped += 1
                     continue
                 if override_policy.soft_limit <= default_policy.soft_limit:
