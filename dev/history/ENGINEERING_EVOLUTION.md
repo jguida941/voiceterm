@@ -71,6 +71,25 @@ the existing `branch_already_pushed` / `published_remote` receipt. That keeps
 the no-op push answer attached to push-state truth instead of teaching the
 router about a special post-publication exception.
 
+### 2026-04-02 - Corpus-first portability proof now keeps anchor and wave state in the owner docs, not in chat memory
+
+The proof-standard correction for portable governance was already right:
+two repos can expose real engine bugs, but they do not prove broad
+portability. The remaining process miss was restartability. A fresh session
+could know "run the corpus" without knowing which repos were the fixed
+anchors, which ones were in the current wave, or whether the last failures
+were engine bugs or honest adopter findings.
+
+That state is durable now. `dev/active/portable_code_governance.md` and the
+mirrored `dev/active/MASTER_PLAN.md` now record the fixed v1 Python anchor
+corpus, the bounded five-repo Wave 1 order, and the completed Wave 1 outcome.
+`zgraph-scientific-package`, `mkgui`, `requests`, `interactions.py`, and
+`pre-commit-hooks` all completed the governed
+`governance-bootstrap -> probe-report -> check` path without a new engine bug
+and are explicitly classified as adopter-finding runs, while `vector_space`,
+`yamllint`, and `MemLite` remain the seeded reserve set for the next clean
+checkpoint.
+
 ### 2026-04-02 - `dev/scripts/checks` package extractions now have to prove the legacy root entrypoint, not just the moved package
 
 The next self-hosting cleanup pass exposed a subtle failure mode in the

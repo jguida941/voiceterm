@@ -3419,21 +3419,32 @@ become the main product surface.
     `3-5` repo waves, stop on the first new `engine_bug`, rerun all green
     anchors after each engine fix, and switch to the owner `MP-377` blocker
     if the remaining failures collapse to Step-0/startup or governed push.
-  - [ ] Seed the first fixed Python anchor corpus for that execution order:
+  - [x] Seed the first fixed Python anchor corpus for that execution order:
     `3-4` maintainer-source repos, `3-4` external mainstream repos, `1-2`
     external adversarial/weird repos, plus the two existing regression
-    anchors already proven in `MP-376`.
-  - [ ] Run Wave 1 of that corpus-first proof program on `3-5` repos and keep
-    widening only after the full green-anchor rerun passes again.
+    anchors already proven in `MP-376`. Seeded 2026-04-02 set:
+    maintainer `zgraph-scientific-package`, `vector_space`, `mkgui` with
+    `MemLite` reserved as the fourth maintainer anchor; external mainstream
+    `requests`, `interactions.py`, `yamllint`; external adversarial/weird
+    `pre-commit-hooks`.
+  - [x] Run Wave 1 of that corpus-first proof program on `3-5` repos and keep
+    widening only after the full green-anchor rerun passes again. Wave 1
+    completed on `zgraph-scientific-package`, `mkgui`, `requests`,
+    `interactions.py`, and `pre-commit-hooks` with no new `engine_bug`; all
+    five runs are currently classified as `adopter_finding`.
   - [ ] Keep the external Python adopter corpus explicit and honest in the
     active plan chain: two real repos are enough to expose engine defects and
     seed regression anchors, but not enough to claim broad portability. Run
     the same governed bootstrap/probe/check path on every new repo and keep
-    the matrix current in `dev/active/portable_code_governance.md`.
+    the matrix current in `dev/active/portable_code_governance.md`. The fixed
+    seeded reserves behind Wave 1 are `vector_space`, `yamllint`, and
+    `MemLite`.
   - [ ] Classify every external-repo failure as `engine_bug` or
     `adopter_finding`, rerun the newly failing repo plus every previously
     tested repo after each engine fix, and only import/adjudicate adopter
-    findings once the engine path is clean on that repo.
+    findings once the engine path is clean on that repo. Wave 1 classifications
+    so far are all `adopter_finding`; no new `engine_bug` or
+    `already_planned_architecture_gap` surfaced.
   - [ ] Surface self-hosting governance completeness as portable meta-findings
     so low test/guard/subsystem coverage becomes measured engine evidence, not
     audit-only prose. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 34)

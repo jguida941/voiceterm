@@ -105,6 +105,14 @@ honest with one governed external Python corpus loop:
 |---|---|---|---|---|
 | `ci-cd-hub` | `/tmp/ci-cd-hub-governance-proof` | `governance-bootstrap`, `probe-report --repo-path --adoption-scan`, and `check --profile ci --repo-path --adoption-scan` complete without new core patches after the latest reruns. | None unique in the latest rerun; keep as a regression anchor after future engine fixes. | Step-0 `startup-context` and governed push still require target-local/exported authority proof. |
 | `adaptive-hashmap-studio` | `/tmp/adaptive-hashmap-studio-governance-proof` | Same engine-run path is now honest after the latest fixes and reruns. | Valid Python signature scan crash and VoiceTerm-only code-shape override leakage fixed in `19ca688`; packaged-check/root-shim portability break fixed in `52ed830`. | Same Step-0 `startup-context` and governed push blocker. |
+| `zgraph-scientific-package` | `/tmp/zgraph-scientific-package-governance-proof` | Wave 1 complete: `governance-bootstrap`, `probe-report`, and `check` all ran; `268` probe hints across `28` files. Classified as `adopter_finding`. | None new; governed path stayed target-local for the full run. | No engine-side blocker. Optional next work is adopter finding import/adjudication for code shape, broad exceptions, subprocess policy, and large-file topology debt. |
+| `vector_space` | `/tmp/vector-space-governance-proof` | Seeded clean clone; held as the first maintainer reserve behind Wave 1. | None yet; governed path not run. | Wave 1 capacity intentionally capped at five repos. |
+| `mkgui` | `/tmp/mkgui-governance-proof` | Wave 1 complete: `governance-bootstrap`, `probe-report`, and `check` all ran; `155` probe hints across `16` files. Classified as `adopter_finding`. | None new; governed path stayed target-local for the full run. | No engine-side blocker. Optional next work is adopter finding import/adjudication for code shape, broad exceptions, subprocess policy, and inspector/CLI complexity debt. |
+| `MemLite` | `/tmp/memlite-governance-proof` | Seeded clean clone; held as the second maintainer reserve. | None yet; governed path not run. | Wave 1 capacity intentionally capped at five repos. |
+| `requests` | `/tmp/requests-governance-proof` | Wave 1 complete: `governance-bootstrap`, `probe-report`, and `check` all ran; `154` probe hints across `11` files. Classified as `adopter_finding`. | None new; governed path stayed target-local for the full run. | No engine-side blocker. Optional next work is adopter finding import/adjudication for code shape, broad exceptions, suppression debt, and facade wrappers. |
+| `interactions.py` | `/tmp/interactions-py-governance-proof` | Wave 1 complete: `governance-bootstrap`, `probe-report`, and `check` all ran; `508` probe hints across `79` files. Classified as `adopter_finding`. | None new; governed path stayed target-local for the full run. | No engine-side blocker. Optional next work is adopter finding import/adjudication for code shape, broad exceptions, parameter-count pressure, and facade-wrapper/cyclic-import debt. |
+| `yamllint` | `/tmp/yamllint-governance-proof` | Seeded clean clone; held as the next external mainstream reserve. | None yet; governed path not run. | Wave 1 capacity intentionally capped at five repos. |
+| `pre-commit-hooks` | `/tmp/pre-commit-hooks-governance-proof` | Wave 1 complete: `governance-bootstrap`, `probe-report`, and `check` all ran; `75` probe hints across `33` files. Classified as `adopter_finding`. | None new; governed path stayed target-local for the full run. | No engine-side blocker. Optional next work is adopter finding import/adjudication for duplication, nesting, dict-schema, and structural-similarity debt. |
 
 Do not treat the two rows above as generality proof. They are the current
 adversarial samples and regression anchors for the next corpus expansion.
@@ -138,6 +146,16 @@ Build one fixed Python anchor corpus before the exploratory queue grows:
 | External adversarial/weird Python repos | `1-2` | Force unusual layouts, docs roots, test roots, or mixed tooling assumptions to surface quickly. |
 | Existing regression anchors | `2` | Keep `ci-cd-hub` and `adaptive-hashmap-studio` in every rerun set after engine fixes. |
 
+Seeded 2026-04-02 anchor set:
+
+| Bucket | Selected repos | Why this seed is useful |
+|---|---|---|
+| Maintainer-source Python repos | `zgraph-scientific-package`, `vector_space`, `mkgui` | Covers a requirements-only package, an app/docs/scripts repo, and a `src/` layout package without depending on VoiceTerm-specific authority. |
+| Maintainer-source reserve | `MemLite` | Keep one fourth maintainer repo ready if the first three miss a shape that matters before broader widening. |
+| External mainstream Python repos | `requests`, `interactions.py`, `yamllint` | Covers a classic `src/` package, a larger docs/tests-heavy library, and a real lint/tooling repo that does not share the maintainer's repo-pack history. |
+| External adversarial/weird Python repos | `pre-commit-hooks` | Deliberately exercises a hook-script repo with many small entrypoints and detached-head cache provenance. |
+| Existing regression anchors | `ci-cd-hub`, `adaptive-hashmap-studio` | Preserve the already-proven adversarial samples as the rerun set after any new engine fix. |
+
 Selection rule:
 
 1. Do not overfit the first anchor set to one owner or one repo shape.
@@ -154,16 +172,38 @@ Fill these slots before widening into a larger exploratory queue:
 |---|---|---|---|---|
 | `anchor-existing-01` | existing regression anchor | `ci-cd-hub` | `/tmp/ci-cd-hub-governance-proof` | active anchor |
 | `anchor-existing-02` | existing regression anchor | `adaptive-hashmap-studio` | `/tmp/adaptive-hashmap-studio-governance-proof` | active anchor |
-| `anchor-maintainer-01` | maintainer-source Python | pending selection | pending clone path | seed next |
-| `anchor-maintainer-02` | maintainer-source Python | pending selection | pending clone path | seed next |
-| `anchor-maintainer-03` | maintainer-source Python | pending selection | pending clone path | seed next |
-| `anchor-maintainer-04` | maintainer-source Python | optional pending selection | pending clone path | add if needed for shape coverage |
-| `anchor-external-01` | external mainstream Python | pending selection | pending clone path | seed next |
-| `anchor-external-02` | external mainstream Python | pending selection | pending clone path | seed next |
-| `anchor-external-03` | external mainstream Python | pending selection | pending clone path | seed next |
-| `anchor-external-04` | external mainstream Python | optional pending selection | pending clone path | add if needed for shape coverage |
-| `anchor-adversarial-01` | external adversarial/weird Python | pending selection | pending clone path | seed next |
-| `anchor-adversarial-02` | external adversarial/weird Python | optional pending selection | pending clone path | add if needed for shape coverage |
+| `anchor-maintainer-01` | maintainer-source Python | `zgraph-scientific-package` | `/tmp/zgraph-scientific-package-governance-proof` | seeded clean clone; Wave 1 order `1` |
+| `anchor-maintainer-02` | maintainer-source Python | `vector_space` | `/tmp/vector-space-governance-proof` | seeded clean clone; reserve behind Wave 1 |
+| `anchor-maintainer-03` | maintainer-source Python | `mkgui` | `/tmp/mkgui-governance-proof` | seeded clean clone; Wave 1 order `2` |
+| `anchor-maintainer-04` | maintainer-source Python | `MemLite` | `/tmp/memlite-governance-proof` | seeded clean clone; optional reserve |
+| `anchor-external-01` | external mainstream Python | `requests` | `/tmp/requests-governance-proof` | seeded clean clone; Wave 1 order `3` |
+| `anchor-external-02` | external mainstream Python | `interactions.py` | `/tmp/interactions-py-governance-proof` | seeded clean clone; Wave 1 order `4` |
+| `anchor-external-03` | external mainstream Python | `yamllint` | `/tmp/yamllint-governance-proof` | seeded clean clone; reserve behind Wave 1 |
+| `anchor-external-04` | external mainstream Python | no fourth mainstream repo selected in fixed v1 corpus | slot intentionally held open | add only if the current three mainstream anchors miss a clear shape |
+| `anchor-adversarial-01` | external adversarial/weird Python | `pre-commit-hooks` | `/tmp/pre-commit-hooks-governance-proof` | seeded clean clone; Wave 1 order `5` |
+| `anchor-adversarial-02` | external adversarial/weird Python | no second weird repo selected in fixed v1 corpus | slot intentionally held open | add only if the current weird anchor misses a clear shape |
+
+## Wave 1 Setup
+
+Wave 1 is intentionally capped at five repos so a new `engine_bug` stops the
+slice quickly instead of turning the first portability pass into open-ended
+noise.
+
+| Order | Repo | Source bucket | Local path | Why it is in Wave 1 | Current status |
+|---|---|---|---|---|---|
+| `1` | `zgraph-scientific-package` | maintainer-source Python | `/tmp/zgraph-scientific-package-governance-proof` | Requirements-driven maintainer repo with docs/tests but no `pyproject.toml`. | completed; classified `adopter_finding` |
+| `2` | `mkgui` | maintainer-source Python | `/tmp/mkgui-governance-proof` | `src/` layout maintainer package with tests and packaging metadata. | completed; classified `adopter_finding` |
+| `3` | `requests` | external mainstream Python | `/tmp/requests-governance-proof` | Mainstream external `src/` package with docs/tests and no maintainer-local history. | completed; classified `adopter_finding` |
+| `4` | `interactions.py` | external mainstream Python | `/tmp/interactions-py-governance-proof` | Larger external library to pressure-test docs/tests-heavy assumptions. | completed; classified `adopter_finding` |
+| `5` | `pre-commit-hooks` | external adversarial/weird Python | `/tmp/pre-commit-hooks-governance-proof` | Weird hook-script topology with many small entrypoints. | completed; classified `adopter_finding` |
+
+Wave 1 result (2026-04-02): no new `engine_bug`. All five repos completed the
+governed bootstrap/probe/check path and surfaced only `adopter_finding`
+results.
+
+Keep `vector_space`, `yamllint`, and `MemLite` as the seeded next-wave reserve
+set. Checkpoint before widening into them so the next wave starts from clean
+authority state.
 
 ## Failure Triage For Corpus Waves
 
@@ -243,14 +283,14 @@ Use one deterministic triage on every failing repo before widening again:
       plan chain: fixed anchors plus exploratory queue, `3-5` repo waves,
       stop-on-first-`engine_bug`, full-anchor reruns after each engine fix,
       and explicit failure triage.
-- [ ] Seed the first fixed Python anchor corpus:
+- [x] Seed the first fixed Python anchor corpus:
       `3-4` maintainer-source repos, `3-4` external mainstream repos, `1-2`
       external adversarial/weird repos, plus the two existing regression
       anchors already proven in this lane.
-- [ ] Record the first anchor corpus directly in this plan's repo matrix with
+- [x] Record the first anchor corpus directly in this plan's repo matrix with
       repo class, source bucket, local path, and current run state so the same
       rerun set survives across sessions.
-- [ ] Run Wave 1 of the corpus-first proof program on `3-5` newly seeded
+- [x] Run Wave 1 of the corpus-first proof program on `3-5` newly seeded
       repos, stop on the first new `engine_bug`, and rerun all green anchors
       after each engine fix before widening again.
 - [ ] Keep corpus widening subordinate to blocker honesty: if the current wave
@@ -699,6 +739,27 @@ Use one deterministic triage on every failing repo before widening again:
 
 ## Progress Log
 
+- 2026-04-02: Completed Wave 1 on `zgraph-scientific-package`, `mkgui`,
+  `requests`, `interactions.py`, and `pre-commit-hooks`. All five repos
+  completed `governance-bootstrap`, `probe-report --repo-path --adoption-scan`,
+  and `check --profile ci --repo-path --adoption-scan` without a new
+  `engine_bug`, wrong-repo write, or VoiceTerm-specific fallback leak. Every
+  failing `check` in this wave is currently classified as `adopter_finding`:
+  `zgraph-scientific-package` (`268` hints / `9` failing guard families),
+  `mkgui` (`155` / `9`), `requests` (`154` / `9`), `interactions.py`
+  (`508` / `13`), and `pre-commit-hooks` (`75` / `5`). The next widened wave
+  should start from the seeded reserve set `vector_space`, `yamllint`, and
+  `MemLite` after a clean checkpoint rather than reopening Wave 1.
+- 2026-04-02: Seeded the first fixed Python anchor corpus into clean `/tmp`
+  clones and locked Wave 1 ordering before widening further. Maintainer-side
+  seeds are `zgraph-scientific-package`, `vector_space`, and `mkgui`, with
+  `MemLite` held as the fourth maintainer reserve. External mainstream seeds
+  are `requests`, `interactions.py`, and `yamllint`, with `pre-commit-hooks`
+  as the first adversarial/weird anchor. Wave 1 is capped at five repos in
+  this order: `zgraph-scientific-package`, `mkgui`, `requests`,
+  `interactions.py`, `pre-commit-hooks`. Keep `vector_space`, `yamllint`, and
+  `MemLite` seeded but out of the first wave until either Wave 1 stays clear
+  or a new engine fix requires broader reruns.
 - 2026-04-02: Promoted corpus-first proof from review advice into the active
   `MP-376` execution order. This lane now explicitly says to checkpoint the
   current slice, seed a fixed Python anchor corpus, run waves of `3-5` repos,
@@ -1535,6 +1596,14 @@ Use one deterministic triage on every failing repo before widening again:
 
 ## Session Resume
 
+- 2026-04-02 Wave 1 result: no new `engine_bug` across the first five seeded
+  repos. `zgraph-scientific-package`, `mkgui`, `requests`, `interactions.py`,
+  and `pre-commit-hooks` all completed the governed
+  bootstrap/probe/check path and are currently classified as
+  `adopter_finding`, not `engine_bug` or `already_planned_architecture_gap`.
+  Resume from a clean checkpoint, then widen into the seeded reserves
+  `vector_space`, `yamllint`, and `MemLite` or start importer/adjudication
+  work if that becomes the next active slice.
 - 2026-04-02 priority lock: do the corpus-first proof setup before broader
   portability widening. Immediate order is: 1) checkpoint the current plan
   slice, 2) seed the first fixed Python anchor corpus, 3) run Wave 1 on
