@@ -165,9 +165,11 @@ Three quality layers matter in practice:
   `check_package_layout.py` also distinguishes blocking layout violations from
   baseline organization debt, so freeze-mode crowded roots/families still read
   as not clean even when the current edit did not add a new flat file there.
-  The `--fail-on-baseline-debt` flag (with optional `--baseline-debt-root`
-  filter) promotes baseline debt to a hard failure for targeted roots; the
-  tooling and release bundles use this to enforce convergence on
+  It now also emits advisory organization-role debt for configured roots, so a
+  flat helper drawer can stay visible even when the current crowding threshold
+  is technically satisfied. The `--fail-on-baseline-debt` flag (with optional
+  `--baseline-debt-root` filter) promotes baseline debt to a hard failure for
+  targeted roots; the tooling and release bundles use this to enforce convergence on
   `dev/scripts/devctl/commands`. When root filters are present, dirty
   working-tree and commit-range runs only hard-fail if the current diff
   touches one of those roots; clean-worktree and adoption-scan runs still

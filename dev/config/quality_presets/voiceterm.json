@@ -180,6 +180,51 @@
           "enforcement_mode": "strict",
           "guidance": "Mirror `devctl` package topology in tests once the flat test root is crowded. New tests should land under topic-aligned test packages instead of the root test directory."
         }
+      ],
+      "root_role_rules": [
+        {
+          "root": "dev/scripts/devctl",
+          "include_globs": [
+            "*.py"
+          ],
+          "public_entrypoint_globs": [
+            "__init__.py",
+            "approval_mode.py",
+            "bundle_registry.py",
+            "cli.py",
+            "clippy_pedantic.py",
+            "collect.py",
+            "collect_dev_logs.py",
+            "common.py",
+            "common_io.py",
+            "config.py",
+            "script_catalog.py"
+          ],
+          "support_suffixes": [
+            "_artifacts",
+            "_mode",
+            "_parser",
+            "_policy",
+            "_projection",
+            "_render",
+            "_report",
+            "_retention",
+            "_status",
+            "_support",
+            "_utils",
+            "_views"
+          ],
+          "max_support_modules": 8,
+          "max_implementation_modules": 12,
+          "shim_max_nonblank_lines": 12,
+          "shim_required_metadata_fields": [
+            "owner",
+            "reason",
+            "expiry",
+            "target"
+          ],
+          "guidance": "Keep `dev/scripts/devctl/` root limited to stable public entrypoints and temporary compatibility seams. Parser/support/policy/report/view helpers belong in topical packages, and uncategorized implementation modules should keep burning down instead of collecting at the root."
+        }
       ]
     },
     "platform_layer_boundaries": {

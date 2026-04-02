@@ -1022,6 +1022,89 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
             ],
         )
 
+    def test_root_role_findings_report_helper_drawer_root(self) -> None:
+        self._write("dev/scripts/devctl/cli.py", "def main() -> None:\n    pass\n")
+        self._write(
+            "dev/scripts/devctl/compat_alias.py",
+            '"""Backward-compat shim -- use `devctl.runtime.impl`."""\n'
+            "# shim-owner: tooling/code-governance\n"
+            "# shim-reason: preserve a stable import during package split\n"
+            "# shim-expiry: 2026-06-30\n"
+            "# shim-target: dev/scripts/devctl/runtime/impl.py\n"
+            "from devctl.runtime.impl import main\n",
+        )
+        self._write(
+            "dev/scripts/devctl/governance_status_parser.py",
+            "def parse_status() -> str:\n    return 'ok'\n",
+        )
+        self._write("dev/scripts/devctl/script_catalog.py", "CATALOG = []\n")
+        role_rules = (
+            SCRIPT.RootRoleRule(
+                root=Path("dev/scripts/devctl"),
+                include_globs=("*.py",),
+                public_entrypoint_globs=("cli.py",),
+                support_suffixes=("_parser", "_support", "_policy", "_report"),
+                max_support_modules=0,
+                max_implementation_modules=0,
+                shim_max_nonblank_lines=12,
+                shim_required_metadata_fields=("owner", "reason", "expiry", "target"),
+                guidance="move helper modules into topical packages",
+            ),
+        )
+
+        findings, scanned = SCRIPT.collect_root_role_findings(
+            repo_root=self.root,
+            root_role_rules=role_rules,
+        )
+
+        self.assertEqual(scanned, 1)
+        self.assertEqual(len(findings), 1)
+        finding = findings[0]
+        self.assertEqual(finding["compat_shim_files"], 1)
+        self.assertEqual(finding["public_entrypoint_files"], 1)
+        self.assertEqual(finding["support_module_files"], 1)
+        self.assertEqual(finding["implementation_module_files"], 1)
+        self.assertIn(
+            "dev/scripts/devctl/governance_status_parser.py",
+            finding["support_examples"],
+        )
+        self.assertIn(
+            "dev/scripts/devctl/script_catalog.py",
+            finding["implementation_examples"],
+        )
+
+    def test_root_role_findings_allow_clean_public_root(self) -> None:
+        self._write("dev/scripts/devctl/cli.py", "def main() -> None:\n    pass\n")
+        self._write(
+            "dev/scripts/devctl/compat_alias.py",
+            '"""Backward-compat shim -- use `devctl.runtime.impl`."""\n'
+            "# shim-owner: tooling/code-governance\n"
+            "# shim-reason: preserve a stable import during package split\n"
+            "# shim-expiry: 2026-06-30\n"
+            "# shim-target: dev/scripts/devctl/runtime/impl.py\n"
+            "from devctl.runtime.impl import main\n",
+        )
+        role_rules = (
+            SCRIPT.RootRoleRule(
+                root=Path("dev/scripts/devctl"),
+                include_globs=("*.py",),
+                public_entrypoint_globs=("cli.py",),
+                support_suffixes=("_parser",),
+                max_support_modules=0,
+                max_implementation_modules=0,
+                shim_max_nonblank_lines=12,
+                shim_required_metadata_fields=("owner", "reason", "expiry", "target"),
+            ),
+        )
+
+        findings, scanned = SCRIPT.collect_root_role_findings(
+            repo_root=self.root,
+            root_role_rules=role_rules,
+        )
+
+        self.assertEqual(scanned, 1)
+        self.assertEqual(findings, [])
+
 
 if __name__ == "__main__":
     unittest.main()

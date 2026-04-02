@@ -12,6 +12,7 @@ if __package__:
         FlatRootRule,
         NamespaceDocsSyncRule,
         NamespaceFamilyRule,
+        RootRoleRule,
         detect_compatibility_shim,
         docs_contain_tokens,
         is_under_root,
@@ -24,13 +25,15 @@ if __package__:
     from .namespace_family import (
         collect_namespace_family_violations_from_rules,
     )
-    from .rule_resolution import resolve_layout_rules
+    from .root_role_review import collect_root_role_findings_from_rules
+    from .rule_resolution import resolve_layout_rules, resolve_root_role_rules
 else:  # pragma: no cover - standalone script fallback
     from bootstrap import (
         DirectoryCrowdingRule,
         FlatRootRule,
         NamespaceDocsSyncRule,
         NamespaceFamilyRule,
+        RootRoleRule,
         detect_compatibility_shim,
         docs_contain_tokens,
         is_under_root,
@@ -43,7 +46,8 @@ else:  # pragma: no cover - standalone script fallback
     from namespace_family import (
         collect_namespace_family_violations_from_rules,
     )
-    from rule_resolution import resolve_layout_rules
+    from root_role_review import collect_root_role_findings_from_rules
+    from rule_resolution import resolve_layout_rules, resolve_root_role_rules
 
 
 def _shim_metadata_guidance(missing_fields: tuple[str, ...]) -> str:
@@ -245,4 +249,19 @@ def collect_directory_crowding_violations(
         read_text_from_ref=read_text_from_ref,
         since_ref=since_ref,
         crowding_rules=active_rules,
+    )
+
+
+def collect_root_role_findings(
+    *,
+    repo_root: Path,
+    root_role_rules: tuple | None = None,
+) -> tuple[list[dict], int]:
+    """Return advisory root-role findings for configured flat roots."""
+    active_rules = root_role_rules
+    if active_rules is None:
+        active_rules = resolve_root_role_rules(repo_root)
+    return collect_root_role_findings_from_rules(
+        repo_root=repo_root,
+        root_role_rules=active_rules,
     )

@@ -56,6 +56,7 @@ DirectoryCrowdingRule = _rules_module.DirectoryCrowdingRule
 FlatRootRule = _rules_module.FlatRootRule
 NamespaceDocsSyncRule = _rules_module.NamespaceDocsSyncRule
 NamespaceFamilyRule = _rules_module.NamespaceFamilyRule
+RootRoleRule = _rules_module.RootRoleRule
 STANDARD_SHIM_METADATA_FIELDS = _rules_module.STANDARD_SHIM_METADATA_FIELDS
 detect_compatibility_shim = _rules_module.detect_compatibility_shim
 docs_contain_tokens = _rules_module.docs_contain_tokens
@@ -65,6 +66,7 @@ load_directory_crowding_rules = _rules_module.load_directory_crowding_rules
 load_flat_root_rules = _rules_module.load_flat_root_rules
 load_namespace_docs_sync_rules = _rules_module.load_namespace_docs_sync_rules
 load_namespace_family_rules = _rules_module.load_namespace_family_rules
+load_root_role_rules = _rules_module.load_root_role_rules
 recommended_namespace_path = _rules_module.recommended_namespace_path
 resolve_shim_target_path = _rules_module.resolve_shim_target_path
 is_adoption_scan = _quality_scan_mode_module.is_adoption_scan
@@ -76,6 +78,7 @@ __all__ = [
     "NamespaceDocsSyncRule",
     "NamespaceFamilyRule",
     "REPO_ROOT",
+    "RootRoleRule",
     "STANDARD_SHIM_METADATA_FIELDS",
     "build_since_ref_format_parser",
     "detect_compatibility_shim",
@@ -89,6 +92,7 @@ __all__ = [
     "load_flat_root_rules",
     "load_namespace_docs_sync_rules",
     "load_namespace_family_rules",
+    "load_root_role_rules",
     "recommended_namespace_path",
     "resolve_shim_target_path",
     "resolve_guard_config",

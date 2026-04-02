@@ -33,6 +33,12 @@ collect_directory_crowding_violations = import_attr(
     "package_layout.support",
     "collect_directory_crowding_violations",
 )
+collect_root_role_findings = import_attr(
+    "package_layout.support",
+    "collect_root_role_findings",
+)
+layout_status = import_attr("package_layout.render", "layout_status")
+render_md = import_attr("package_layout.render", "render_md")
 collect_compatibility_redirects = import_attr(
     "package_layout.compatibility_redirects",
     "collect_compatibility_redirects",
@@ -57,135 +63,8 @@ list_changed_paths = import_attr("rust_guard_common", "list_changed_paths")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
 guard = GuardContext(REPO_ROOT)
-
-
-def _crowding_suffix(crowded: dict) -> str:
-    shim_files = int(crowded.get("shim_files", 0) or 0)
-    total_files = int(crowded.get("total_files", crowded["current_files"]) or 0)
-    if shim_files <= 0:
-        return ""
-    return f", {shim_files} approved shims excluded, {total_files} total files"
-
-
-def _layout_status(*, violations: list[dict], crowded_directories: list[dict], crowded_namespace_families: list[dict]) -> str:
-    if violations:
-        return "violations_present"
-    if crowded_directories or crowded_namespace_families:
-        return "baseline_debt_detected"
-    return "clean"
-
-
-def _render_md(report: dict) -> str:
-    lines = ["# check_package_layout", ""]
-    lines.append(f"- status: {report['status']}")
-    lines.append(f"- mode: {report['mode']}")
-    lines.append(f"- ok: {report['ok']}")
-    lines.append(f"- layout_clean: {report['layout_clean']}")
-    lines.append(
-        f"- baseline_layout_debt_detected: {report['baseline_layout_debt_detected']}"
-    )
-    lines.append(f"- files_changed: {report['files_changed']}")
-    lines.append(
-        f"- flat_root_candidates_scanned: {report['flat_root_candidates_scanned']}"
-    )
-    lines.append(f"- flat_root_violations: {report['flat_root_violations']}")
-    lines.append(
-        f"- namespace_layout_candidates_scanned: {report['namespace_layout_candidates_scanned']}"
-    )
-    lines.append(
-        f"- namespace_layout_violations: {report['namespace_layout_violations']}"
-    )
-    lines.append(
-        f"- crowded_namespace_families_detected: {len(report['crowded_namespace_families'])}"
-    )
-    lines.append(
-        f"- namespace_docs_candidates_scanned: {report['namespace_docs_candidates_scanned']}"
-    )
-    lines.append(
-        f"- namespace_docs_violations: {report['namespace_docs_violations']}"
-    )
-    lines.append(
-        f"- crowded_directory_candidates_scanned: {report['crowded_directory_candidates_scanned']}"
-    )
-    lines.append(
-        f"- crowded_directory_violations: {report['crowded_directory_violations']}"
-    )
-    lines.append(
-        f"- crowded_directories_detected: {len(report['crowded_directories'])}"
-    )
-    lines.append(
-        f"- compatibility_redirects_detected: {len(report['compatibility_redirects'])}"
-    )
-    lines.append(f"- violations: {len(report['violations'])}")
-    if report.get("baseline_debt_enforced"):
-        lines.append("- baseline_debt_enforced: True")
-    if report.get("since_ref"):
-        lines.append(f"- since_ref: {report['since_ref']}")
-    if report.get("head_ref"):
-        lines.append(f"- head_ref: {report['head_ref']}")
-
-    if report["crowded_directories"]:
-        lines.append("")
-        lines.append("## Crowded Directories")
-        for crowded in report["crowded_directories"]:
-            lines.append(
-                f"- `{crowded['root']}`: {crowded['current_files']} files "
-                f"(max {crowded['max_files']}, mode `{crowded['enforcement_mode']}`"
-                f"{_crowding_suffix(crowded)})"
-            )
-
-    if report["crowded_namespace_families"]:
-        lines.append("")
-        lines.append("## Crowded Namespace Families")
-        for crowded in report["crowded_namespace_families"]:
-            lines.append(
-                f"- `{crowded['root']}` + `{crowded['flat_prefix']}*`: "
-                f"{crowded['current_files']} files "
-                f"(threshold {crowded['min_family_size']}, mode `{crowded['enforcement_mode']}`, "
-                f"target `{crowded['root']}/{crowded['namespace_subdir']}`"
-                f"{_crowding_suffix(crowded)})"
-            )
-
-    if report["compatibility_redirects"]:
-        lines.append("")
-        lines.append("## Compatibility Redirects")
-        for redirect in report["compatibility_redirects"]:
-            resolved_suffix = ""
-            if (
-                redirect["resolved_target"]
-                and redirect["resolved_target"] != redirect["target"]
-            ):
-                resolved_suffix = f" (resolved to `{redirect['resolved_target']}`)"
-            lines.append(
-                f"- `{redirect['path']}` -> `{redirect['target']}`{resolved_suffix}"
-            )
-
-    if report.get("enforced_crowded_directories") or report.get("enforced_crowded_namespace_families"):
-        lines.append("")
-        lines.append("## Enforced Baseline Debt (blocking)")
-        for crowded in report.get("enforced_crowded_directories", []):
-            lines.append(
-                f"- `{crowded['root']}`: {crowded['current_files']} files "
-                f"(max {crowded['max_files']}, mode `{crowded['enforcement_mode']}`"
-                f"{_crowding_suffix(crowded)})"
-            )
-        for crowded in report.get("enforced_crowded_namespace_families", []):
-            lines.append(
-                f"- `{crowded['root']}` + `{crowded['flat_prefix']}*`: "
-                f"{crowded['current_files']} files "
-                f"(threshold {crowded['min_family_size']}, mode `{crowded['enforcement_mode']}`"
-                f"{_crowding_suffix(crowded)})"
-            )
-
-    if report["violations"]:
-        lines.append("")
-        lines.append("## Violations")
-        for violation in report["violations"]:
-            lines.append(
-                f"- `{violation['path']}` ({violation['reason']}): "
-                f"{violation['guidance']} [policy: {violation['policy_source']}]"
-            )
-    return "\n".join(lines)
+_layout_status = layout_status
+_render_md = render_md
 
 
 def main() -> int:
@@ -253,6 +132,9 @@ def main() -> int:
                 since_ref=args.since_ref,
             )
         )
+        root_role_findings, root_role_rules_scanned = collect_root_role_findings(
+            repo_root=REPO_ROOT
+        )
         compatibility_redirects = collect_compatibility_redirects(repo_root=REPO_ROOT)
     except RuntimeError as exc:
         return emit_runtime_error("check_package_layout", args.format, str(exc))
@@ -313,6 +195,10 @@ def main() -> int:
         "crowded_directory_candidates_scanned": crowded_directory_candidates_scanned,
         "crowded_directory_violations": len(crowding_violations),
         "crowded_directories": crowded_directories,
+        "organization_review_clean": not root_role_findings,
+        "organization_role_debt_detected": bool(root_role_findings),
+        "root_role_rules_scanned": root_role_rules_scanned,
+        "root_role_findings": root_role_findings,
         "compatibility_redirects": compatibility_redirects,
         "violations": violations,
     }

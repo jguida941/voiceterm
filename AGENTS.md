@@ -58,8 +58,11 @@ Package-layout truth rule:
   namespace families are still active organization debt and must not be
   described as structurally clean. Maintain the explicit report state
   (`status`, `layout_clean`, `baseline_layout_debt_detected`) so the repo does
-  not confuse "no new drift in this edit" with "the layout is healthy." When
-  compatibility shims carry `shim-target`, keep the emitted
+  not confuse "no new drift in this edit" with "the layout is healthy." The
+  same guard now also emits advisory organization-role state
+  (`organization_review_clean`, `organization_role_debt_detected`) so a root
+  can still report helper-drawer debt even when current crowding budgets stay
+  green. When compatibility shims carry `shim-target`, keep the emitted
   `compatibility_redirects` map truthful too so agents can see where moved
   entrypoints now resolve without guessing from stale paths. When
   `--fail-on-baseline-debt` is scoped with `--baseline-debt-root`, dirty

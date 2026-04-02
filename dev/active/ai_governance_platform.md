@@ -5133,6 +5133,16 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-01: Landed the first executable organization-role surface under the
+  existing `package_layout` seam instead of inventing a second framework.
+  `check_package_layout` now loads repo-pack-owned root-role rules, classifies
+  files in configured flat roots as compatibility shims, public entrypoints,
+  support-module helpers, or uncategorized root implementation, and emits an
+  advisory organization section (`organization_review_clean`,
+  `organization_role_debt_detected`) beside the existing crowding/baseline
+  state. The first self-hosting rule targets `dev/scripts/devctl`, and the
+  live report now says the quiet part out loud: no new crowding violation, but
+  the root still has too many flat helper files to describe as organized.
 - 2026-04-01: Re-audited self-hosting organization against the live tree and
   corrected the next `MP-377` closure accordingly. The current package-layout
   contract is good at freezing drift and tracking compatibility wrappers, but

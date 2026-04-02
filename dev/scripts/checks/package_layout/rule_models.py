@@ -60,6 +60,23 @@ class DirectoryCrowdingRule:
 
 
 @dataclass(frozen=True)
+class RootRoleRule:
+    """Describe which flat-root file roles are allowed under one root."""
+
+    root: Path
+    include_globs: tuple[str, ...]
+    public_entrypoint_globs: tuple[str, ...] = ()
+    generated_artifact_globs: tuple[str, ...] = ()
+    doc_authority_globs: tuple[str, ...] = ()
+    support_suffixes: tuple[str, ...] = ()
+    max_support_modules: int = 0
+    max_implementation_modules: int = 0
+    guidance: str = ""
+    shim_max_nonblank_lines: int = 0
+    shim_required_metadata_fields: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class CompatibilityShimValidation:
     """Validation result for one compatibility shim candidate."""
 
@@ -74,4 +91,5 @@ __all__ = [
     "FlatRootRule",
     "NamespaceDocsSyncRule",
     "NamespaceFamilyRule",
+    "RootRoleRule",
 ]

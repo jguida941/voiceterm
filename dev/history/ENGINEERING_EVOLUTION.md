@@ -97,6 +97,15 @@ platform lane also now owns projecting that structure truth into startup/work-
 intake so agents stop reading a budget-green layout receipt as proof that the
 repo is well organized.
 
+The first executable slice of that contract is now live too. The existing
+`check_package_layout.py` surface still owns blocking flat-root/crowding truth,
+but it now also emits advisory organization-role state for configured roots,
+classifying current files as compatibility shims, public entrypoints,
+support-module helpers, or uncategorized root implementation. The first live
+self-hosting rule targets `dev/scripts/devctl`, which means the repo can now
+say "this root is still a helper drawer" in machine-readable output instead of
+waiting for another crowding-budget breach to make the debt visible.
+
 Evidence: `dev/active/portable_code_governance.md`,
 `dev/active/ai_governance_platform.md`,
 `dev/active/MASTER_PLAN.md`.

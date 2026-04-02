@@ -9,6 +9,7 @@ if __package__:
         FlatRootRule,
         NamespaceDocsSyncRule,
         NamespaceFamilyRule,
+        RootRoleRule,
     )
     from .rule_parsing import (
         docs_contain_tokens,
@@ -17,6 +18,7 @@ if __package__:
         load_flat_root_rules,
         load_namespace_docs_sync_rules,
         load_namespace_family_rules,
+        load_root_role_rules,
         recommended_namespace_path,
     )
     from .shim_validation import (
@@ -32,6 +34,7 @@ else:  # pragma: no cover - standalone script fallback
         FlatRootRule,
         NamespaceDocsSyncRule,
         NamespaceFamilyRule,
+        RootRoleRule,
     )
     from rule_parsing import (
         docs_contain_tokens,
@@ -40,6 +43,7 @@ else:  # pragma: no cover - standalone script fallback
         load_flat_root_rules,
         load_namespace_docs_sync_rules,
         load_namespace_family_rules,
+        load_root_role_rules,
         recommended_namespace_path,
     )
     from shim_validation import (
@@ -55,6 +59,7 @@ __all__ = [
     "FlatRootRule",
     "NamespaceDocsSyncRule",
     "NamespaceFamilyRule",
+    "RootRoleRule",
     "STANDARD_SHIM_METADATA_FIELDS",
     "detect_compatibility_shim",
     "docs_contain_tokens",
@@ -64,6 +69,7 @@ __all__ = [
     "load_flat_root_rules",
     "load_namespace_docs_sync_rules",
     "load_namespace_family_rules",
+    "load_root_role_rules",
     "recommended_namespace_path",
     "resolve_shim_target_path",
 ]

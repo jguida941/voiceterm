@@ -3355,7 +3355,11 @@ become the main product surface.
   opt-in clarity for adopters so quick-start flows do not silently assume
   `bridge.md`, and continued burn-down of the crowded `dev/scripts/devctl`
   flat root behind the same policy-backed organization contract. Latest
-  tracked follow-ups from that intake:
+  landed follow-up (2026-04-01): `check_package_layout` now emits advisory
+  root-role debt for configured helper-drawer roots, so self-hosting can
+  report "`dev/scripts/devctl` is still semantically noisy" without needing a
+  blocking crowding violation first. Latest tracked follow-ups from that
+  intake:
   - [ ] Surface self-hosting governance completeness as portable meta-findings
     so low test/guard/subsystem coverage becomes measured engine evidence, not
     audit-only prose. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 34)

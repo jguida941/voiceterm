@@ -53,15 +53,23 @@ Helper logic for `check_package_layout.py`.
   not each grow their own repo-root/path-repair logic.
 - Keep `package_layout.rules` and `package_layout.probe_compatibility_shims`
   as stable import surfaces even when internal helpers are split further.
+- Keep role-aware root-organization review under
+  `dev/scripts/checks/package_layout/root_role_review.py` so package-layout can
+  distinguish public entrypoints, compatibility shims, support-module helper
+  families, and uncategorized root implementation files without turning that
+  policy into another ad hoc repo script.
 - Current internal split keeps focused helpers in `rule_models.py`,
   `rule_parsing.py`, `shim_validation.py`, `probe_compatibility_rules.py`,
-  `probe_compatibility_scan.py`, and `probe_compatibility_hints.py`.
+  `probe_compatibility_scan.py`, `probe_compatibility_hints.py`, and
+  `root_role_review.py`.
 - Keep repo-policy rule parsing and layout enforcement helpers here so the
   `checks/` root stays reserved for runnable surfaces.
 - Current rule families cover flat-root placement, crowded-family namespace
   moves plus crowded-family baseline/adoption blocking, docs sync for new
-  namespace roots, and crowded-directory freeze/baseline reporting for
-  self-hosting organization governance.
+  namespace roots, crowded-directory freeze/baseline reporting for self-hosting
+  organization governance, and role-aware root organization review so a root
+  can report helper-drawer debt even when it is technically within current
+  crowding thresholds.
 - Compatibility shims are now a first-class policy concept here: wrapper shape
   is AST-validated, metadata fields can be required by repo policy, and
   approved shims are tracked separately from real implementation density during

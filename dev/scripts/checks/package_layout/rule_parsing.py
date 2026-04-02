@@ -11,6 +11,7 @@ if __package__:
         FlatRootRule,
         NamespaceDocsSyncRule,
         NamespaceFamilyRule,
+        RootRoleRule,
     )
 else:  # pragma: no cover - standalone script fallback
     from rule_models import (
@@ -18,6 +19,7 @@ else:  # pragma: no cover - standalone script fallback
         FlatRootRule,
         NamespaceDocsSyncRule,
         NamespaceFamilyRule,
+        RootRoleRule,
     )
 
 
@@ -191,6 +193,56 @@ def load_directory_crowding_rules(config: object) -> tuple[DirectoryCrowdingRule
     return tuple(rules)
 
 
+def load_root_role_rules(config: object) -> tuple[RootRoleRule, ...]:
+    """Load flat-root role-contract rules from a resolved guard config payload."""
+    if not isinstance(config, list):
+        return ()
+    rules: list[RootRoleRule] = []
+    for item in config:
+        if not isinstance(item, dict):
+            continue
+        root = _coerce_path(item.get("root"))
+        include_globs = _coerce_str_tuple(item.get("include_globs")) or ("*.py",)
+        public_entrypoint_globs = _coerce_str_tuple(
+            item.get("public_entrypoint_globs")
+        )
+        generated_artifact_globs = _coerce_str_tuple(
+            item.get("generated_artifact_globs")
+        )
+        doc_authority_globs = _coerce_str_tuple(item.get("doc_authority_globs"))
+        support_suffixes = _coerce_str_tuple(item.get("support_suffixes"))
+        guidance = str(item.get("guidance") or "").strip()
+        shim_required_metadata_fields = _coerce_str_tuple(
+            item.get("shim_required_metadata_fields")
+        )
+        try:
+            max_support_modules = int(item.get("max_support_modules", 0))
+            max_implementation_modules = int(
+                item.get("max_implementation_modules", 0)
+            )
+            shim_max_nonblank_lines = int(item.get("shim_max_nonblank_lines", 0))
+        except (TypeError, ValueError):
+            continue
+        if root is None or max_support_modules < 0 or max_implementation_modules < 0:
+            continue
+        rules.append(
+            RootRoleRule(
+                root=root,
+                include_globs=include_globs,
+                public_entrypoint_globs=public_entrypoint_globs,
+                generated_artifact_globs=generated_artifact_globs,
+                doc_authority_globs=doc_authority_globs,
+                support_suffixes=support_suffixes,
+                max_support_modules=max_support_modules,
+                max_implementation_modules=max_implementation_modules,
+                guidance=guidance,
+                shim_max_nonblank_lines=shim_max_nonblank_lines,
+                shim_required_metadata_fields=shim_required_metadata_fields,
+            )
+        )
+    return tuple(rules)
+
+
 def recommended_namespace_path(path: Path, rule: NamespaceFamilyRule) -> Path:
     """Return the namespace path a crowded-family module should use."""
     suffix = path.name[len(rule.flat_prefix) :] or path.name
@@ -222,5 +274,6 @@ __all__ = [
     "load_flat_root_rules",
     "load_namespace_docs_sync_rules",
     "load_namespace_family_rules",
+    "load_root_role_rules",
     "recommended_namespace_path",
 ]

@@ -10,10 +10,12 @@ if __package__:
         FlatRootRule,
         NamespaceDocsSyncRule,
         NamespaceFamilyRule,
+        RootRoleRule,
         load_directory_crowding_rules,
         load_flat_root_rules,
         load_namespace_docs_sync_rules,
         load_namespace_family_rules,
+        load_root_role_rules,
         resolve_guard_config,
     )
 else:  # pragma: no cover - standalone script fallback
@@ -22,10 +24,12 @@ else:  # pragma: no cover - standalone script fallback
         FlatRootRule,
         NamespaceDocsSyncRule,
         NamespaceFamilyRule,
+        RootRoleRule,
         load_directory_crowding_rules,
         load_flat_root_rules,
         load_namespace_docs_sync_rules,
         load_namespace_family_rules,
+        load_root_role_rules,
         resolve_guard_config,
     )
 
@@ -52,3 +56,9 @@ def resolve_layout_rules(
         package_layout.get("directory_crowding_rules")
     ) or load_directory_crowding_rules(code_shape.get("directory_crowding_rules"))
     return flat_rules, family_rules, docs_sync_rules, crowding_rules
+
+
+def resolve_root_role_rules(repo_root: Path) -> tuple[RootRoleRule, ...]:
+    """Load the active root-role rules from package-layout policy."""
+    package_layout = resolve_guard_config("package_layout", repo_root=repo_root)
+    return load_root_role_rules(package_layout.get("root_role_rules"))

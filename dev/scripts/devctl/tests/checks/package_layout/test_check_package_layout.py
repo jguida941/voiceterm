@@ -57,6 +57,32 @@ class CheckPackageLayoutCommandTests(unittest.TestCase):
         ),
     )
     @patch(
+        "dev.scripts.checks.package_layout.command.collect_root_role_findings",
+        return_value=(
+            [
+                {
+                    "root": "dev/scripts/devctl",
+                    "total_files": 80,
+                    "compat_shim_files": 20,
+                    "public_entrypoint_files": 7,
+                    "support_module_files": 21,
+                    "implementation_module_files": 12,
+                    "max_support_modules": 8,
+                    "max_implementation_modules": 12,
+                    "support_examples": [
+                        "dev/scripts/devctl/governance_status_parser.py"
+                    ],
+                    "implementation_examples": [
+                        "dev/scripts/devctl/script_catalog.py"
+                    ],
+                    "guidance": "move helper modules into packages",
+                    "policy_source": "root_role:dev/scripts/devctl",
+                }
+            ],
+            1,
+        ),
+    )
+    @patch(
         "dev.scripts.checks.package_layout.command.collect_compatibility_redirects",
         return_value=[
             {
@@ -71,6 +97,7 @@ class CheckPackageLayoutCommandTests(unittest.TestCase):
     def test_main_reports_adoption_scan_without_ref_fields(
         self,
         _mock_redirects,
+        _mock_role_findings,
         _mock_crowding,
         _mock_docs_sync,
         _mock_namespace,
@@ -100,6 +127,9 @@ class CheckPackageLayoutCommandTests(unittest.TestCase):
         self.assertEqual(payload["mode"], "adoption-scan")
         self.assertFalse(payload["layout_clean"])
         self.assertTrue(payload["baseline_layout_debt_detected"])
+        self.assertFalse(payload["organization_review_clean"])
+        self.assertTrue(payload["organization_role_debt_detected"])
+        self.assertEqual(payload["root_role_rules_scanned"], 1)
         self.assertEqual(
             payload["compatibility_redirects"][0]["path"],
             "dev/scripts/checks/check_package_layout.py",
@@ -117,6 +147,9 @@ class CheckPackageLayoutCommandTests(unittest.TestCase):
             "ok": True,
             "layout_clean": False,
             "baseline_layout_debt_detected": True,
+            "organization_review_clean": False,
+            "organization_role_debt_detected": True,
+            "root_role_rules_scanned": 1,
             "files_changed": 0,
             "flat_root_candidates_scanned": 0,
             "flat_root_violations": 0,
@@ -139,6 +172,25 @@ class CheckPackageLayoutCommandTests(unittest.TestCase):
             "crowded_directory_candidates_scanned": 0,
             "crowded_directory_violations": 0,
             "crowded_directories": [],
+            "root_role_findings": [
+                {
+                    "root": "dev/scripts/devctl",
+                    "total_files": 80,
+                    "compat_shim_files": 20,
+                    "public_entrypoint_files": 7,
+                    "support_module_files": 21,
+                    "implementation_module_files": 12,
+                    "max_support_modules": 8,
+                    "max_implementation_modules": 12,
+                    "support_examples": [
+                        "dev/scripts/devctl/governance_status_parser.py"
+                    ],
+                    "implementation_examples": [
+                        "dev/scripts/devctl/script_catalog.py"
+                    ],
+                    "guidance": "move helper modules into packages",
+                }
+            ],
             "compatibility_redirects": [
                 {
                     "path": "dev/scripts/checks/check_package_layout.py",
@@ -156,6 +208,10 @@ class CheckPackageLayoutCommandTests(unittest.TestCase):
         self.assertIn("- status: baseline_debt_detected", rendered)
         self.assertIn("- layout_clean: False", rendered)
         self.assertIn("- baseline_layout_debt_detected: True", rendered)
+        self.assertIn("- organization_review_clean: False", rendered)
+        self.assertIn("- organization_role_debt_detected: True", rendered)
+        self.assertIn("## Organization Role Debt (advisory)", rendered)
+        self.assertIn("support modules (max 8)", rendered)
         self.assertIn("## Compatibility Redirects", rendered)
         self.assertIn(
             "`dev/scripts/checks/check_package_layout.py` -> `dev/scripts/checks/package_layout/command.py`",
@@ -218,6 +274,10 @@ class BaselineDebtEnforcementTests(unittest.TestCase):
         "dev.scripts.checks.package_layout.command.collect_directory_crowding_violations",
     )
     @patch(
+        "dev.scripts.checks.package_layout.command.collect_root_role_findings",
+        return_value=([], 0),
+    )
+    @patch(
         "dev.scripts.checks.package_layout.command.collect_compatibility_redirects",
         return_value=[],
     )
@@ -225,6 +285,7 @@ class BaselineDebtEnforcementTests(unittest.TestCase):
         self,
         args_ns,
         _mock_redirects,
+        _mock_role_findings,
         mock_crowding,
         _mock_docs_sync,
         mock_namespace,
@@ -357,6 +418,9 @@ class BaselineDebtEnforcementTests(unittest.TestCase):
             "ok": False,
             "layout_clean": False,
             "baseline_layout_debt_detected": True,
+            "organization_review_clean": True,
+            "organization_role_debt_detected": False,
+            "root_role_rules_scanned": 0,
             "baseline_debt_enforced": True,
             "files_changed": 0,
             "flat_root_candidates_scanned": 0,
@@ -369,6 +433,7 @@ class BaselineDebtEnforcementTests(unittest.TestCase):
             "crowded_directory_candidates_scanned": 0,
             "crowded_directory_violations": 0,
             "crowded_directories": self._CROWDED_DIRS,
+            "root_role_findings": [],
             "compatibility_redirects": [],
             "violations": [],
             "enforced_crowded_directories": [self._CROWDED_DIRS[0]],
