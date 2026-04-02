@@ -7,7 +7,7 @@ import re
 from .handoff_constants import MARKDOWN_ITEM_RE
 
 _ACCEPTED_VERDICT_PREFIX_RE = re.compile(
-    r"^(?:reviewer[- ]accepted|accepted|all\s+green|resolved)\b",
+    r"^(?:reviewer[- ]accepted|accepted|push\s+approved|all\s+green|resolved)\b",
     re.IGNORECASE,
 )
 _CLEAR_FINDINGS_PREFIX_RE = re.compile(
