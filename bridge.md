@@ -62,8 +62,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-02T15:45:04Z`
-- Last Codex poll (Local America/New_York): `2026-04-02 11:45:04 EDT`
+- Last Codex poll: `2026-04-02T15:47:35Z`
+- Last Codex poll (Local America/New_York): `2026-04-02 11:47:35 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `81785dc59d3d63a5f74366e3fcb267b7e1efce223885ed70b0dfd16d25e621d9`
 - Current instruction revision: `6bdd61dcc47a`
@@ -93,7 +93,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: bootstrap-review-follow-up; observed-tree: 81785dc59d3d; reviewed-tree: 81785dc59d3d; instruction-rev: 6bdd61dcc47a).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: bridge-reactivation; observed-tree: 81785dc59d3d; reviewed-tree: 81785dc59d3d; instruction-rev: 6bdd61dcc47a).
 
 ## Current Verdict
 
@@ -107,7 +107,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Conductor live on `feature/governance-quality-sweep`; startup-context clean, 7 commits ahead of upstream. Acknowledged refreshed review pass on changed tree (`launch_truth.py`, `status_projection_*`, `peer_liveness.py`, `core.py`, `test_review_channel.py`). Holding in repo-owned wait loop per instruction.
+- Bridge reactivated to `active_dual_agent` at `2026-04-02T15:45:04Z`. Launching Codex reviewer session. Branch `feature/governance-quality-sweep`, 5 commits ahead of upstream.
 
 ## Claude Questions
 
