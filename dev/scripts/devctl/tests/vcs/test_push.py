@@ -838,6 +838,95 @@ class PushCommandTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "published_remote")
 
+    def test_execute_push_flow_emits_publication_and_post_push_progress_notices(self) -> None:
+        state = push.PushRunState(
+            branch="feature/demo",
+            remote="origin",
+            branch_has_remote=False,
+        )
+        policy = make_policy()
+        args = make_args(execute=True)
+        progress_messages: list[str] = []
+
+        outcome = push.execute_push_flow_with_dependencies(
+            state,
+            policy,
+            args,
+            push.PushFlowDependencies(
+                run_cmd_fn=lambda name, cmd, cwd=None: {
+                    "name": name,
+                    "cmd": cmd,
+                    "cwd": str(cwd or "."),
+                    "returncode": 0,
+                    "duration_s": 0.1,
+                    "skipped": False,
+                },
+                build_post_push_commands_fn=lambda _policy, quality_policy_path=None: [
+                    "git status",
+                    "git log --oneline --decorate -n 10",
+                ],
+                published_remote_snapshot_fn=lambda reason, operator_guidance, partial_progress: None,
+                progress_notice_fn=progress_messages.append,
+            ),
+        )
+
+        self.assertTrue(outcome.ok)
+        self.assertEqual(
+            progress_messages[0],
+            "Remote publication recorded for the current HEAD; running post-push bundle.",
+        )
+        self.assertEqual(progress_messages[1], "Post-push step 1/2: git status")
+        self.assertEqual(
+            progress_messages[2],
+            "Post-push step 2/2: git log --oneline --decorate -n 10",
+        )
+
+    def test_execute_push_flow_emits_failure_progress_notice(self) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        args = make_args(execute=True)
+        progress_messages: list[str] = []
+
+        outcome = push.execute_push_flow_with_dependencies(
+            state,
+            policy,
+            args,
+            push.PushFlowDependencies(
+                run_cmd_fn=lambda name, cmd, cwd=None: {
+                    "name": name,
+                    "cmd": cmd,
+                    "cwd": str(cwd or "."),
+                    "returncode": 1 if name == "push-post-02" else 0,
+                    "duration_s": 0.1,
+                    "skipped": False,
+                },
+                build_post_push_commands_fn=lambda _policy, quality_policy_path=None: [
+                    "git status",
+                    "git log --oneline --decorate -n 10",
+                ],
+                published_remote_snapshot_fn=lambda reason, operator_guidance, partial_progress: None,
+                progress_notice_fn=progress_messages.append,
+            ),
+        )
+
+        self.assertFalse(outcome.ok)
+        self.assertEqual(
+            progress_messages[0],
+            "Remote publication recorded for the current HEAD; running post-push bundle.",
+        )
+        self.assertEqual(
+            progress_messages[1],
+            "Post-push step 1/2: git status",
+        )
+        self.assertEqual(
+            progress_messages[2],
+            "Post-push step 2/2: git log --oneline --decorate -n 10",
+        )
+        self.assertEqual(
+            progress_messages[3],
+            "Post-push step 2/2 failed with rc=1.",
+        )
+
     def test_build_preflight_shell_command_prefers_remote_branch_when_it_exists(self) -> None:
         policy = make_policy()
 

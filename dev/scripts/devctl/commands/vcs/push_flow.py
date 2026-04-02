@@ -30,13 +30,23 @@ class PushFlowOutcome:
         return self.stages.highest_stage()
 
 
+@dataclass(frozen=True, slots=True)
+class PushFlowDependencies:
+    run_cmd_fn: Callable[..., dict[str, object]]
+    build_post_push_commands_fn: Callable[..., list[str]]
+    published_remote_snapshot_fn: Callable[[str, str, bool], None] | None = None
+    progress_notice_fn: Callable[[str], None] | None = None
+
+
 def execute_push_flow(state: "PushRunState", policy, args) -> PushFlowOutcome:
     return execute_push_flow_with_dependencies(
         state,
         policy,
         args,
-        run_cmd_fn=run_cmd,
-        build_post_push_commands_fn=build_post_push_commands,
+        PushFlowDependencies(
+            run_cmd_fn=run_cmd,
+            build_post_push_commands_fn=build_post_push_commands,
+        ),
     )
 
 
@@ -44,10 +54,7 @@ def execute_push_flow_with_dependencies(
     state: "PushRunState",
     policy,
     args,
-    *,
-    run_cmd_fn: Callable[..., dict[str, object]],
-    build_post_push_commands_fn: Callable[..., list[str]],
-    published_remote_snapshot_fn: Callable[[str, str, bool], None] | None = None,
+    dependencies: PushFlowDependencies,
 ) -> PushFlowOutcome:
     if state.errors:
         return PushFlowOutcome(
@@ -84,7 +91,7 @@ def execute_push_flow_with_dependencies(
     push_cmd = ["git", "push", state.remote, state.branch]
     if not state.branch_has_remote:
         push_cmd = ["git", "push", "--set-upstream", state.remote, state.branch]
-    state.push_step = run_cmd_fn("git-push", push_cmd, cwd=REPO_ROOT)
+    state.push_step = dependencies.run_cmd_fn("git-push", push_cmd, cwd=REPO_ROOT)
     if state.push_step["returncode"] != 0:
         return PushFlowOutcome(
             ok=False,
@@ -95,14 +102,18 @@ def execute_push_flow_with_dependencies(
             ),
             stages=PushStageTruth(validation_ready=True),
         )
-    if published_remote_snapshot_fn is not None:
-        published_remote_snapshot_fn(
+    if dependencies.published_remote_snapshot_fn is not None:
+        dependencies.published_remote_snapshot_fn(
             "post_push_bundle_pending",
             (
                 "Push completed and remote publication is recorded. The post-push "
                 "bundle still needs to finish before the slice is fully green."
             ),
             True,
+        )
+    if dependencies.progress_notice_fn is not None:
+        dependencies.progress_notice_fn(
+            "Remote publication recorded for the current HEAD; running post-push bundle."
         )
     if args.skip_post_push:
         return PushFlowOutcome(
@@ -122,8 +133,9 @@ def execute_push_flow_with_dependencies(
         state,
         policy,
         quality_policy_path=getattr(args, "quality_policy", None),
-        run_cmd_fn=run_cmd_fn,
-        build_post_push_commands_fn=build_post_push_commands_fn,
+        run_cmd_fn=dependencies.run_cmd_fn,
+        build_post_push_commands_fn=dependencies.build_post_push_commands_fn,
+        progress_notice_fn=dependencies.progress_notice_fn,
     ):
         return PushFlowOutcome(
             ok=True,
@@ -157,11 +169,15 @@ def run_post_push_bundle(
     quality_policy_path: str | None,
     run_cmd_fn: Callable[..., dict[str, object]],
     build_post_push_commands_fn: Callable[..., list[str]],
+    progress_notice_fn: Callable[[str], None] | None = None,
 ) -> bool:
-    for index, command in enumerate(
-        build_post_push_commands_fn(policy, quality_policy_path=quality_policy_path),
-        start=1,
-    ):
+    commands = build_post_push_commands_fn(policy, quality_policy_path=quality_policy_path)
+    total_commands = len(commands)
+    for index, command in enumerate(commands, start=1):
+        if progress_notice_fn is not None:
+            progress_notice_fn(
+                f"Post-push step {index}/{total_commands}: {command}"
+            )
         step = run_cmd_fn(
             f"push-post-{index:02d}",
             ["bash", "-lc", command],
@@ -169,5 +185,9 @@ def run_post_push_bundle(
         )
         state.post_push_steps.append(step)
         if step["returncode"] != 0:
+            if progress_notice_fn is not None:
+                progress_notice_fn(
+                    f"Post-push step {index}/{total_commands} failed with rc={step['returncode']}."
+                )
             return False
     return True

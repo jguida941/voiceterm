@@ -692,6 +692,12 @@
   settled; repair the follow-up" instead of "push unresolved". Remaining
   MP-377 closure is the fuller branch/tree-hash `PushPreflightPacket`, not a
   second push authority.
+- 2026-04-02 governed-push operator-visibility follow-up: keep the same typed
+  publication truth, but make long post-push bundles visibly honest in live
+  terminals too. `devctl push --execute` now emits explicit progress notices
+  when remote publication is recorded and before each post-push step so
+  humans/agents stop inferring "maybe nothing pushed yet" from a quiet audit
+  window while the same `published_remote` artifact already proves otherwise.
 - 2026-03-27 repo-entrance/dev-loop adjudication: accepted two additional
   same-lane follow-ups without widening the product roadmap. First, keep the
   root repo entrance split by audience: `README.md` remains the VoiceTerm

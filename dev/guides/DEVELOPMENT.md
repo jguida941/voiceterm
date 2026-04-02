@@ -771,7 +771,10 @@ Workflow permissions note:
    `git push` succeeds, and matches that artifact against the current HEAD so
    stale local `ahead 1` tracking refs do not trigger a second push.
    `published_remote=true` plus `post_push_green=false` means "repair the
-   post-push follow-up" rather than "push again."
+   post-push follow-up" rather than "push again." Interactive runs also emit
+   progress notices when publication is recorded and before each post-push
+   command so a slow post-push bundle is visibly "published but still
+   auditing," not "still waiting to push."
    The shared `devctl` command runner now follows the parent push/post-push
    command lifetime instead of waiting forever on inherited descendant stdout
    pipes after the governed push has already completed.

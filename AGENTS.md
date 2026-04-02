@@ -945,7 +945,9 @@ Routine helper:
   same state as post-push green. When the persisted artifact says
   `published_remote=true` and `post_push_green=false`, treat remote
   publication as settled and repair the post-push follow-up instead of
-  pushing again.
+  pushing again. Interactive runs now also emit stderr progress when remote
+  publication is recorded and before each post-push step so a long post-push
+  bundle does not look like "push still unresolved" to humans or AI.
 - Shared `devctl` command execution now follows the parent command lifetime:
   inherited stdout pipes from detached descendants must not keep a completed
   governed push session open after the parent push/post-push step exits.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -15,7 +16,7 @@ from ...governance.push_state import current_head_commit_sha, current_upstream_r
 from ...runtime import TypedAction
 from ...runtime.startup_context import build_startup_context
 from ...runtime.vcs import branch_divergence, remote_branch_exists, remote_exists
-from .push_flow import execute_push_flow_with_dependencies
+from .push_flow import PushFlowDependencies, execute_push_flow_with_dependencies
 from .push_artifact import latest_push_report_relpath, serialize_push_report
 from .push_report import render_push_report
 from .push_snapshot import (
@@ -217,6 +218,11 @@ def _matches_allowed_prefixes(branch: str, prefixes: tuple[str, ...]) -> bool:
     return any(branch.startswith(prefix) for prefix in prefixes)
 
 
+def _emit_push_progress_notice(message: str) -> None:
+    """Emit an interactive progress notice without corrupting stdout reports."""
+    print(f"[devctl push] {message}", file=sys.stderr, flush=True)
+
+
 def run(args) -> int:
     """Validate and optionally execute a guarded push for the current branch."""
     policy = load_push_policy(policy_path=getattr(args, "quality_policy", None))
@@ -244,15 +250,18 @@ def run(args) -> int:
         state,
         policy,
         args,
-        run_cmd_fn=run_cmd,
-        build_post_push_commands_fn=build_post_push_commands,
-        published_remote_snapshot_fn=lambda reason, operator_guidance, partial_progress: (
-            persist_published_remote_snapshot(
-                report_context,
-                reason=reason,
-                operator_guidance=operator_guidance,
-                partial_progress=partial_progress,
-            )
+        PushFlowDependencies(
+            run_cmd_fn=run_cmd,
+            build_post_push_commands_fn=build_post_push_commands,
+            published_remote_snapshot_fn=lambda reason, operator_guidance, partial_progress: (
+                persist_published_remote_snapshot(
+                    report_context,
+                    reason=reason,
+                    operator_guidance=operator_guidance,
+                    partial_progress=partial_progress,
+                )
+            ),
+            progress_notice_fn=_emit_push_progress_notice,
         ),
     )
     report = build_push_report_payload(report_context, outcome=outcome)

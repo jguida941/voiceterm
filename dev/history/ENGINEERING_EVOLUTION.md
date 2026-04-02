@@ -6740,6 +6740,20 @@ published branch/HEAD in that artifact, and startup recovery treats a matching
 current-HEAD artifact as canonical remote-publication truth even before the
 next fetch refreshes the tracking ref.
 
+### 2026-04-02 - Governed push now exposes publication-stage progress during long post-push audits
+
+Fact: the typed publication truth was right, but the live operator experience
+still looked wrong. Once `devctl push --execute` had pushed and persisted the
+`published_remote` snapshot, a long post-push bundle could leave the terminal
+quiet enough that humans or AI inferred "maybe it never pushed" until they
+checked GitHub or reran startup.
+
+Change: interactive governed pushes now emit explicit stderr progress when
+remote publication is recorded and before each post-push step. That keeps the
+existing typed truth model intact, but makes the live phase boundary obvious:
+"published, still auditing" instead of a silent window that looks like
+unresolved push state.
+
 ### 2026-03-27 - Python architecture learning and AI explainability are now one tracked MP-377 concern
 
 Fact: the latest architecture discussion exposed a real usability gap in the
