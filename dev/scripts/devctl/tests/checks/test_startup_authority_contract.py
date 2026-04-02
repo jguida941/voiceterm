@@ -50,8 +50,17 @@ def _fake_governance(
     checkpoint_required: bool = False,
     safe_to_continue_editing: bool = True,
     checkpoint_reason: str = "clean_worktree",
+    worktree_dirty: bool | None = None,
+    worktree_clean: bool | None = None,
+    ahead_of_upstream_commits: int | None = 1,
+    dirty_path_count: int = 0,
+    untracked_path_count: int = 0,
+    recommended_action: str = "use_devctl_push",
 ):
-    worktree_clean = safe_to_continue_editing and not checkpoint_required
+    if worktree_clean is None:
+        worktree_clean = safe_to_continue_editing and not checkpoint_required
+    if worktree_dirty is None:
+        worktree_dirty = not worktree_clean
     return SimpleNamespace(
         docs_authority="AGENTS.md",
         plan_registry=SimpleNamespace(
@@ -69,8 +78,12 @@ def _fake_governance(
             safe_to_continue_editing=safe_to_continue_editing,
             checkpoint_reason=checkpoint_reason,
             worktree_clean=worktree_clean,
+            worktree_dirty=worktree_dirty,
             upstream_ref="origin/main",
-            ahead_of_upstream_commits=1,
+            ahead_of_upstream_commits=ahead_of_upstream_commits,
+            dirty_path_count=dirty_path_count,
+            untracked_path_count=untracked_path_count,
+            recommended_action=recommended_action,
         ),
     )
 
@@ -201,6 +214,80 @@ def test_startup_authority_fails_when_checkpoint_budget_is_exceeded(
     assert report["checkpoint_required"] is True
     assert report["safe_to_continue_editing"] is False
     assert any("over budget" in error for error in report["errors"])
+
+
+def test_startup_authority_fails_when_local_checkpoint_leaves_dirty_worktree(
+    tmp_path: Path,
+) -> None:
+    _setup_full_layout(tmp_path)
+    fake_module = SimpleNamespace(
+        scan_repo_governance=lambda _root: _fake_governance(
+            tmp_path,
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            checkpoint_reason="within_dirty_budget",
+            worktree_clean=False,
+            worktree_dirty=True,
+            ahead_of_upstream_commits=1,
+            dirty_path_count=2,
+            untracked_path_count=1,
+            recommended_action="commit_before_push",
+        )
+    )
+
+    with (
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.import_repo_module",
+            return_value=fake_module,
+        ),
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            return_value=([], []),
+        ),
+    ):
+        report = _build_report(repo_root=tmp_path)
+
+    assert report["ok"] is False
+    assert any(
+        "dirty worktree after a local checkpoint" in error for error in report["errors"]
+    )
+
+
+def test_startup_authority_allows_pre_checkpoint_dirty_worktree(
+    tmp_path: Path,
+) -> None:
+    _setup_full_layout(tmp_path)
+    fake_module = SimpleNamespace(
+        scan_repo_governance=lambda _root: _fake_governance(
+            tmp_path,
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            checkpoint_reason="within_dirty_budget",
+            worktree_clean=False,
+            worktree_dirty=True,
+            ahead_of_upstream_commits=0,
+            dirty_path_count=2,
+            untracked_path_count=1,
+            recommended_action="commit_before_push",
+        )
+    )
+
+    with (
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.import_repo_module",
+            return_value=fake_module,
+        ),
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            return_value=([], []),
+        ),
+    ):
+        report = _build_report(repo_root=tmp_path)
+
+    assert report["ok"] is True
+    assert not any(
+        "dirty worktree after a local checkpoint" in error for error in report["errors"]
+    )
 
 
 @patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)

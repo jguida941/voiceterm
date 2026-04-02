@@ -1258,7 +1258,10 @@ Use this profile for fast guard-focused iteration; run your target full profile
   as a reason to skip follow-up.
 - `quality-policy --format md` is the canonical live inventory of which
   guards/probes are enabled for the current repo policy or a supplied portable
-  policy override.
+  policy override. On this repo, that resolved inventory now includes
+  `startup_authority_contract`, so a branch with local unpublished commits and
+  fresh dirty worktree state fails the normal `check --profile ci` quality lane
+  instead of surfacing only at startup/push time.
 - `probe_compatibility_shims.py` is now part of that pack. It uses the same
   portable shim primitive as package-layout to surface missing metadata,
   expired wrappers, broken shim-target convergence, and shim-heavy roots or

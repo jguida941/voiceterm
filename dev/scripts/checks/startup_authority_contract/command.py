@@ -15,6 +15,7 @@ from pathlib import Path
 from .runtime_checks import (
     collect_checkpoint_budget_errors,
     collect_import_index_atomicity_findings,
+    collect_post_checkpoint_dirty_worktree_errors,
     collect_push_decision_contract_errors,
     collect_reviewer_loop_block_errors,
 )
@@ -122,7 +123,15 @@ def _build_report(repo_root: Path | None = None) -> dict:
     else:
         checks_passed += 1
 
-    # --- 9. active reviewer loop cannot start a fresh implementation slice when stale ---
+    # --- 9. a local checkpoint cannot coexist with fresh dirty worktree state ---
+    checks_run += 1
+    post_checkpoint_dirty_errors = collect_post_checkpoint_dirty_worktree_errors(gov)
+    if post_checkpoint_dirty_errors:
+        errors.extend(post_checkpoint_dirty_errors)
+    else:
+        checks_passed += 1
+
+    # --- 10. active reviewer loop cannot start a fresh implementation slice when stale ---
     checks_run += 1
     reviewer_loop_errors = collect_reviewer_loop_block_errors(root, gov)
     if reviewer_loop_errors:
@@ -130,7 +139,7 @@ def _build_report(repo_root: Path | None = None) -> dict:
     else:
         checks_passed += 1
 
-    # --- 10. repo-local Python imports resolve in the git index, not only on disk ---
+    # --- 11. repo-local Python imports resolve in the git index, not only on disk ---
     checks_run += 1
     import_atomicity_errors, import_atomicity_warnings = (
         collect_import_index_atomicity_findings(root)
@@ -141,7 +150,7 @@ def _build_report(repo_root: Path | None = None) -> dict:
     else:
         checks_passed += 1
 
-    # --- 11. startup push decision must emit a coherent next-step contract ---
+    # --- 12. startup push decision must emit a coherent next-step contract ---
     checks_run += 1
     push_contract_errors = collect_push_decision_contract_errors(root, gov)
     if push_contract_errors:

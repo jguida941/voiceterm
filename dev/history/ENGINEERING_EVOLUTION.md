@@ -39,6 +39,24 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
 
+### 2026-04-02 - Dirty work after a local checkpoint now fails the normal CI quality lane, not just startup/push
+
+The repo already had the right startup truth for this class of mistake:
+`startup-context` and governed `push` could see "you have a local checkpoint
+and then dirtied the tree again." The miss was narrower and more important
+than that. VoiceTerm's repo preset had accidentally dropped
+`startup_authority_contract` from the resolved `check --profile ci` guard
+surface, so the normal quality bundle could still go green while the
+push/startup gate was red.
+
+That is closed now. The startup-authority contract itself fails when
+`ahead_of_upstream_commits > 0` and the worktree is dirty again, and the
+VoiceTerm quality preset explicitly re-enables both
+`startup_authority_contract` and the previously omitted
+`command_source_validation` guard. That turns the branch-local dirty-after-
+checkpoint state into a visible quality failure before push time and adds a
+repo-policy regression test so the preset cannot silently narrow again.
+
 ### 2026-04-02 - `dev/scripts/checks` package extractions now have to prove the legacy root entrypoint, not just the moved package
 
 The next self-hosting cleanup pass exposed a subtle failure mode in the

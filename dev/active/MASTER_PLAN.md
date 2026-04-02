@@ -4113,6 +4113,11 @@ become the main product surface.
     imports only resolve from worktree-only modules instead of the git index,
     while separately validating committed importer content against `HEAD`
     without treating a legitimate staged atomic split as broken.
+    Latest follow-up (2026-04-02): the same startup-authority contract now
+    also fails when a local checkpoint exists (`ahead_of_upstream_commits > 0`)
+    and the worktree is dirty again, and the VoiceTerm quality-policy preset
+    now enables that guard in the default `check --profile ci` lane so the
+    branch-local dirty-after-checkpoint state goes red before governed push.
     Current follow-up after the 2026-03-23 closure pass: `startup-context`
     itself is now the documented Step 0 gate, it persists a managed
     `StartupReceipt` under the repo-owned reports root derived from live

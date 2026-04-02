@@ -5,6 +5,7 @@
     "portable_python_rust.json"
   ],
   "enabled_ai_guard_ids": [
+    "command_source_validation",
     "ide_provider_isolation",
     "compat_matrix",
     "compat_matrix_smoke",
@@ -13,6 +14,7 @@
     "python_typed_seams",
     "platform_contract_closure",
     "platform_contract_sync",
+    "startup_authority_contract",
     "tandem_consistency"
   ],
   "guard_configs": {

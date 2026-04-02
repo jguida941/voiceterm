@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -62,6 +63,80 @@ _FALLBACK_CATEGORY_TO_ARCH: dict[str, str] = {
     "infra": "python-devctl",
 }
 
+_GIT_REF_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
+_REPO_SLUG_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+
+
+def _validated_attempt(raw_value: str) -> int:
+    try:
+        attempt = int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError("RALPH_ATTEMPT must be an integer.") from exc
+    if attempt < 1:
+        raise RuntimeError("RALPH_ATTEMPT must be >= 1.")
+    return attempt
+
+
+def _validated_backlog_count(raw_value: str) -> int:
+    try:
+        backlog_count = int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError("RALPH_BACKLOG_COUNT must be an integer.") from exc
+    if backlog_count < 0:
+        raise RuntimeError("RALPH_BACKLOG_COUNT must be >= 0.")
+    return backlog_count
+
+
+def _validated_repo_slug(raw_value: str) -> str:
+    value = raw_value.strip()
+    if not value:
+        return ""
+    if not _REPO_SLUG_RE.fullmatch(value):
+        raise RuntimeError("RALPH_REPO must be an owner/repo slug.")
+    return value
+
+
+def _validated_branch(raw_value: str) -> str:
+    value = raw_value.strip()
+    if not value:
+        return ""
+    if value.startswith("-") or value.endswith("/") or value.endswith(".lock"):
+        raise RuntimeError("RALPH_BRANCH must be a normal branch or commit-like ref.")
+    if (
+        ".." in value
+        or "//" in value
+        or "@{" in value
+        or any(char.isspace() for char in value)
+        or not _GIT_REF_RE.fullmatch(value)
+    ):
+        raise RuntimeError("RALPH_BRANCH contains unsupported characters.")
+    return value
+
+
+def _validated_backlog_dir(raw_value: str) -> str:
+    value = raw_value.strip()
+    if not value:
+        return ""
+    if "\x00" in value:
+        raise RuntimeError("RALPH_BACKLOG_DIR must not contain NUL bytes.")
+    return str(Path(value).expanduser())
+
+
+def _validated_approval_mode(raw_value: str | None) -> str:
+    return normalize_approval_mode(raw_value or DEFAULT_APPROVAL_MODE)
+
+
+def _validated_architectures(architectures: set[str]) -> tuple[str, ...]:
+    validated: list[str] = []
+    for architecture in sorted(architectures):
+        if architecture not in ARCH_CHECKS:
+            raise RuntimeError(
+                "Unknown Ralph architecture bucket "
+                f"`{architecture}`; update ARCH_CHECKS before executing validation."
+            )
+        validated.append(architecture)
+    return tuple(validated)
+
 
 def build_backlog_context_packet(items: list[dict]):
     """Compatibility wrapper that preserves old patch points during the module split."""
@@ -85,11 +160,19 @@ def load_backlog(backlog_dir: str) -> list[dict]:
     return items
 
 
-def invoke_claude(prompt: str) -> ClaudeRunResult:
+def invoke_claude(
+    prompt: str,
+    *,
+    approval_mode: str | None = None,
+) -> ClaudeRunResult:
     """Invoke Claude Code CLI to evaluate and fix findings."""
-    approval_mode = normalize_approval_mode(os.environ.get("RALPH_APPROVAL_MODE", DEFAULT_APPROVAL_MODE))
+    resolved_approval_mode = approval_mode
+    if resolved_approval_mode is None:
+        resolved_approval_mode = _validated_approval_mode(
+            os.environ.get("RALPH_APPROVAL_MODE", DEFAULT_APPROVAL_MODE)
+        )
     cmd = ["claude", "--print", "--max-turns", "30"]
-    if approval_mode == "trusted":
+    if resolved_approval_mode == "trusted":
         cmd.append("--dangerously-skip-permissions")
     else:
         cmd.extend(["--permission-mode", "auto"])
@@ -176,11 +259,20 @@ def _emit_report(report: dict, backlog_dir: str) -> str:
 
 
 def main() -> int:
-    attempt = int(os.environ.get("RALPH_ATTEMPT", "1"))
-    repo = os.environ.get("RALPH_REPO", "")
-    branch = os.environ.get("RALPH_BRANCH", "")
-    backlog_dir = os.environ.get("RALPH_BACKLOG_DIR", "")
-    backlog_count = int(os.environ.get("RALPH_BACKLOG_COUNT", "0"))
+    try:
+        attempt = _validated_attempt(os.environ.get("RALPH_ATTEMPT", "1"))
+        repo = _validated_repo_slug(os.environ.get("RALPH_REPO", ""))
+        branch = _validated_branch(os.environ.get("RALPH_BRANCH", ""))
+        backlog_dir = _validated_backlog_dir(os.environ.get("RALPH_BACKLOG_DIR", ""))
+        backlog_count = _validated_backlog_count(
+            os.environ.get("RALPH_BACKLOG_COUNT", "0")
+        )
+        approval_mode = _validated_approval_mode(
+            os.environ.get("RALPH_APPROVAL_MODE", DEFAULT_APPROVAL_MODE)
+        )
+    except RuntimeError as exc:
+        print(f"[ralph-ai-fix] {exc}", file=sys.stderr)
+        return 2
 
     if not backlog_dir:
         print("[ralph-ai-fix] RALPH_BACKLOG_DIR not set", file=sys.stderr)
@@ -211,7 +303,9 @@ def main() -> int:
         guardrails_config,
         context_packet=context_packet,
     )
-    claude_result = _normalize_claude_result(invoke_claude(prompt))
+    claude_result = _normalize_claude_result(
+        invoke_claude(prompt, approval_mode=approval_mode)
+    )
     guidance_summary = _extract_guidance_summary(claude_result.output_text)
     if claude_result.returncode != 0:
         print(
@@ -233,7 +327,7 @@ def main() -> int:
         _emit_report(report, backlog_dir)
         return 0
 
-    archs = detect_architectures(items, guardrails_config)
+    archs = _validated_architectures(detect_architectures(items, guardrails_config))
     print(f"[ralph-ai-fix] validating architectures: {', '.join(sorted(archs))}")
     checks_passed = run_arch_checks(archs)
 

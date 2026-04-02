@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import os
-import platform
 import re
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as package_version
-from pathlib import Path
+
+from . import bootstrap_paths as _bootstrap_paths
+from . import bootstrap_release as _bootstrap_release
+from . import bootstrap_version as _bootstrap_version
 
 DEFAULT_REPO_URL = "https://github.com/jguida941/voiceterm"
 DEFAULT_RELEASE_OWNER_REPO = "jguida941/voiceterm"
@@ -19,15 +19,7 @@ GIT_REF_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 
 
 def _launcher_version() -> str:
-    try:
-        return package_version("voiceterm")
-    except PackageNotFoundError:
-        try:
-            from . import __version__
-
-            return __version__
-        except Exception:
-            return "unknown"
+    return _bootstrap_version._launcher_version()
 
 
 def _default_repo_ref() -> str:
@@ -40,18 +32,23 @@ def _default_repo_ref() -> str:
     return f"v{version}"
 
 
-def _native_root() -> Path:
-    configured = os.environ.get("VOICETERM_PY_NATIVE_ROOT")
-    if configured:
-        return Path(configured).expanduser()
-    return Path.home() / ".local" / "share" / "voiceterm" / "native"
+def _native_root():
+    return _bootstrap_paths._native_root()
 
 
-def _native_bin() -> Path:
-    configured = os.environ.get("VOICETERM_NATIVE_BIN")
-    if configured:
-        return Path(configured).expanduser()
-    return _native_root() / "bin" / "voiceterm"
+def _native_bin():
+    return _bootstrap_paths._native_bin()
+
+
+def _target_platform_triplet() -> tuple[str, str]:
+    return _bootstrap_release._target_platform_triplet()
+
+
+def _release_asset_names(version: str) -> tuple[str, str]:
+    os_name, arch = _target_platform_triplet()
+    archive = f"voiceterm-{version}-{os_name}-{arch}.tar.gz"
+    checksum = f"{archive}.sha256"
+    return archive, checksum
 
 
 def _bootstrap_mode() -> str:
@@ -64,27 +61,6 @@ def _bootstrap_mode() -> str:
     return mode
 
 
-def _target_platform_triplet() -> tuple[str, str]:
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-    os_name_map = {"linux": "linux", "darwin": "darwin"}
-    arch_map = {
-        "x86_64": "amd64",
-        "amd64": "amd64",
-        "aarch64": "arm64",
-        "arm64": "arm64",
-    }
-    os_name = os_name_map.get(system)
-    arch = arch_map.get(machine)
-    if os_name is None or arch is None:
-        raise RuntimeError(
-            "Unsupported platform for release binary bootstrap: "
-            f"{platform.system()}/{platform.machine()}. "
-            "Set VOICETERM_NATIVE_BIN or VOICETERM_BOOTSTRAP_MODE=source-only."
-        )
-    return os_name, arch
-
-
 def _release_base_url() -> str:
     configured = os.environ.get("VOICETERM_RELEASE_BASE_URL")
     if configured:
@@ -93,13 +69,6 @@ def _release_base_url() -> str:
         "VOICETERM_RELEASE_OWNER_REPO", DEFAULT_RELEASE_OWNER_REPO
     )
     return f"https://github.com/{owner_repo}/releases/download"
-
-
-def _release_asset_names(version: str) -> tuple[str, str]:
-    os_name, arch = _target_platform_triplet()
-    archive = f"voiceterm-{version}-{os_name}-{arch}.tar.gz"
-    checksum = f"{archive}.sha256"
-    return archive, checksum
 
 
 def _validated_repo_url(raw_value: str) -> str:

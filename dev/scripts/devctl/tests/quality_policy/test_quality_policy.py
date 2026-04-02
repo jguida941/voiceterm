@@ -473,6 +473,14 @@ class QualityPolicyTests(unittest.TestCase):
             namespace_rules[("dev/scripts/devctl/commands", "process_")], "strict"
         )
 
+    def test_repo_policy_keeps_startup_and_command_source_guards_enabled(self) -> None:
+        resolved = quality_policy.resolve_quality_policy(repo_root=REPO_ROOT)
+
+        script_ids = {spec.script_id for spec in resolved.ai_guard_checks}
+
+        self.assertIn("command_source_validation", script_ids)
+        self.assertIn("startup_authority_contract", script_ids)
+
     def test_resolve_quality_policy_uses_runtime_repo_root_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

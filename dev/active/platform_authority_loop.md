@@ -1881,6 +1881,16 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-02: Closed the next startup-authority self-governance miss after a
+  local checkpoint could still coexist with a green `python3
+  dev/scripts/devctl.py check --profile ci` run. The startup-authority
+  contract now fails when `ahead_of_upstream_commits > 0` and the worktree is
+  dirty again, and the VoiceTerm quality-policy preset now explicitly enables
+  both `startup_authority_contract` and the previously omitted
+  `command_source_validation` guard so repo policy matches the intended
+  Python enforcement surface. Focused startup-authority plus policy tests are
+  green, and the branch-local dirty-after-checkpoint state now turns the
+  normal quality lane red before governed push.
 - 2026-04-02: Closed the live `dev/scripts/checks/**` modularization/layout
   blocker that had kept the branch-wide `python3 dev/scripts/devctl.py check
   --profile ci` bundle red after the bridge-field-authority/runtime-contract
@@ -2844,6 +2854,17 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Audit Evidence
 
+- Startup-authority preset closure verification (2026-04-02):
+  `python3 -m pytest
+  dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
+  dev/scripts/devctl/tests/quality_policy/test_quality_policy.py -q` passed,
+  `python3 dev/scripts/devctl.py quality-policy --format md` now lists both
+  `command-source-validation-guard` and
+  `startup-authority-contract-guard`, and the current dirty-after-checkpoint
+  worktree now fails both
+  `python3 dev/scripts/checks/check_startup_authority_contract.py` and
+  `python3 dev/scripts/devctl.py check --profile ci` instead of staying green
+  until push-time startup gating.
 - `dev/scripts/checks` modularization closure verification (2026-04-02):
   direct guard reruns `python3 dev/scripts/checks/check_naming_consistency.py`,
   `python3 dev/scripts/checks/check_package_layout.py --format md`,

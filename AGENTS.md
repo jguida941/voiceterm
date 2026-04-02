@@ -968,6 +968,11 @@ Routine helper:
   that `push_decision` exactly: wait if it says `await_review`, run
   `python3 dev/scripts/devctl.py push --execute` only when it says
   `run_devctl_push`, and stop when it says `no_push_needed`.
+- The default repo quality lane now mirrors that same checkpoint discipline:
+  VoiceTerm's resolved `python3 dev/scripts/devctl.py check --profile ci`
+  policy includes `check_startup_authority_contract.py`, so once a local
+  checkpoint exists (`ahead_of_upstream_commits > 0`), fresh dirty-worktree
+  state is a blocking guard failure instead of a push-only surprise.
 - Repo policy may also declare non-authoritative scratch/reference paths such
   as `convo.md` so local advisory context does not keep a reviewed branch from
   reaching the governed push path.

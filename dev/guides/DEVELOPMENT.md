@@ -460,6 +460,11 @@ Three quality layers matter in practice:
   active policy, scopes, and warnings; use `--quality-policy <path>` or
   `DEVCTL_QUALITY_POLICY` when validating another repo or preset file. The same
   override now flows through probe-backed `status`, `report`, and `triage`.
+  On VoiceTerm, treat that inventory as the proof of whether startup-authority
+  enforcement is really in the normal CI lane: the resolved repo policy should
+  include `startup_authority_contract` so a dirty worktree after a local
+  checkpoint fails `check --profile ci`, not only `startup-context` or
+  `devctl push`.
 - The six-row AGENTS router table and the generated `CLAUDE.md` task-router
   quick map both render from the typed router authority in
   `dev/scripts/devctl/governance/task_router_contract.py`. When the touched

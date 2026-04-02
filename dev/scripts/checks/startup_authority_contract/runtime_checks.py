@@ -41,6 +41,23 @@ def collect_checkpoint_budget_errors(gov) -> list[str]:
     return []
 
 
+def collect_post_checkpoint_dirty_worktree_errors(gov) -> list[str]:
+    """Return fail-closed errors when a local checkpoint exists but the worktree is dirty again."""
+    push = gov.push_enforcement
+    ahead = getattr(push, "ahead_of_upstream_commits", None)
+    if not isinstance(ahead, int) or ahead <= 0:
+        return []
+    if not getattr(push, "worktree_dirty", False):
+        return []
+    return [
+        "Startup authority detected a dirty worktree after a local checkpoint: "
+        f"ahead_of_upstream_commits={ahead}, "
+        f"dirty_path_count={getattr(push, 'dirty_path_count', 0)}, "
+        f"untracked_path_count={getattr(push, 'untracked_path_count', 0)}, "
+        f"recommended_action={getattr(push, 'recommended_action', '') or 'checkpoint_before_continue'}."
+    ]
+
+
 def collect_reviewer_loop_block_errors(repo_root: Path, gov) -> list[str]:
     """Return fail-closed errors when the active reviewer loop blocks implementation."""
     try:

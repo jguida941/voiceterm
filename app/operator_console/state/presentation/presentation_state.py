@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 
-from ..snapshots.analytics_snapshot import RepoAnalyticsSnapshot
 from ..core.models import AgentLaneData, OperatorConsoleSnapshot
-from .quality_text import build_quality_text
-from ..snapshots.phone_status_snapshot import PhoneControlSnapshot
 from ..core.readability import audience_mode_label, resolve_audience_mode
 from ..repo.repo_state import RepoStateSnapshot
+from ..snapshots.analytics_snapshot import RepoAnalyticsSnapshot
+from ..snapshots.phone_status_snapshot import PhoneControlSnapshot
 from ..watchdog_presenter import watchdog_summary_line
+from .activity_text import build_activity_text
+from .quality_text import build_quality_text
+from .repo_text import _build_repo_text, _ratio_bar
+from .snapshot_digest import _present_lanes, snapshot_digest
 
 _RISK_HIGH_KEYWORDS = frozenset(
     {"critical", "security", "destructive", "dangerous", "force", "delete"}
@@ -138,40 +140,6 @@ def build_system_banner_state(snapshot: OperatorConsoleSnapshot) -> SystemBanner
     )
 
 
-def build_activity_text(snapshot: OperatorConsoleSnapshot) -> str:
-    """Render the Activity page text from the current snapshot."""
-    lines: list[str] = []
-
-    for label, lane in _lane_sections(snapshot):
-        lines.append("─" * 40)
-        lines.append(f"  {label}")
-        if lane is None:
-            lines.append("  Status: no data")
-        else:
-            lines.append(f"  Status: {lane.status_hint}")
-            for key, value in lane.rows:
-                lines.append(f"    {key}: {value}")
-        lines.append("")
-
-    if snapshot.warnings:
-        lines.append("─" * 40)
-        lines.append("  Warnings")
-        for warning in snapshot.warnings:
-            lines.append(f"    ⚠ {warning}")
-        lines.append("")
-
-    lines.append("─" * 40)
-    lines.append("  Bridge File")
-    if snapshot.review_state_path:
-        lines.append(f"    Path: {snapshot.review_state_path}")
-    if snapshot.last_worktree_hash:
-        lines.append(f"    Worktree: {snapshot.last_worktree_hash}")
-    if snapshot.last_codex_poll:
-        lines.append(f"    Last poll: {snapshot.last_codex_poll}")
-
-    return "\n".join(lines)
-
-
 def build_analytics_view_state(
     snapshot: OperatorConsoleSnapshot,
     *,
@@ -245,42 +213,6 @@ def build_analytics_view_state(
     )
 
 
-def snapshot_digest(snapshot: OperatorConsoleSnapshot) -> str:
-    """Return a digest that changes when visible snapshot state changes."""
-    lane_signatures: list[str] = []
-    for lane in _present_lanes(snapshot):
-        lane_signatures.append(
-            "|".join(
-                [
-                    lane.provider_name,
-                    lane.lane_title,
-                    lane.role_label,
-                    lane.status_hint,
-                    lane.state_label,
-                    lane.risk_label or "",
-                    lane.confidence_label or "",
-                    ";".join(f"{key}={value}" for key, value in lane.rows),
-                    lane.raw_text,
-                ]
-            )
-        )
-    payload = "\n".join(
-        [
-            snapshot.codex_panel_text,
-            snapshot.claude_panel_text,
-            snapshot.operator_panel_text,
-            snapshot.raw_bridge_text,
-            snapshot.last_codex_poll or "",
-            snapshot.last_worktree_hash or "",
-            snapshot.review_state_path or "",
-            "|".join(snapshot.warnings),
-            "|".join(approval.packet_id for approval in snapshot.pending_approvals),
-            "|".join(lane_signatures),
-        ]
-    )
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-
 def classify_approval_risk(policy_hint: str) -> str:
     """Derive approval severity from a policy-hint string."""
     lower = policy_hint.lower()
@@ -291,69 +223,6 @@ def classify_approval_risk(policy_hint: str) -> str:
     if any(keyword in lower for keyword in ("info", "advisory", "notice")):
         return "low"
     return "unknown"
-
-
-def _build_repo_text(repo_analytics: RepoAnalyticsSnapshot | None) -> str:
-    lines = ["WORKING TREE & HOTSPOTS", ""]
-    if repo_analytics is None:
-        lines.append("- Repo analytics are unavailable in this view.")
-        return "\n".join(lines)
-    if repo_analytics.collection_note:
-        lines.append(f"- Repo analytics note: {repo_analytics.collection_note}")
-        return "\n".join(lines)
-
-    lines.append(f"- Branch: {repo_analytics.branch or 'unknown'}")
-    lines.append(
-        "- Dirty files: "
-        f"{repo_analytics.changed_files} total "
-        f"(A{repo_analytics.added_files} "
-        f"M{repo_analytics.modified_files} "
-        f"D{repo_analytics.deleted_files} "
-        f"R{repo_analytics.renamed_files} "
-        f"?{repo_analytics.untracked_files} "
-        f"U{repo_analytics.conflicted_files})"
-    )
-    change_mix_total = max(
-        1,
-        repo_analytics.added_files
-        + repo_analytics.modified_files
-        + repo_analytics.deleted_files
-        + repo_analytics.untracked_files
-        + repo_analytics.conflicted_files,
-    )
-    lines.append(
-        "- Change mix: "
-        + (
-            f"A{_ratio_bar(repo_analytics.added_files, change_mix_total, width=4)} "
-            f"M{_ratio_bar(repo_analytics.modified_files, change_mix_total, width=4)} "
-            f"D{_ratio_bar(repo_analytics.deleted_files, change_mix_total, width=4)} "
-            f"?{_ratio_bar(repo_analytics.untracked_files, change_mix_total, width=4)} "
-            f"U{_ratio_bar(repo_analytics.conflicted_files, change_mix_total, width=4)}"
-        )
-    )
-    lines.append(
-        "- Governance touchpoints: "
-        + (
-            "MASTER_PLAN touched"
-            if repo_analytics.master_plan_updated
-            else "MASTER_PLAN unchanged"
-        )
-        + " | "
-        + (
-            "CHANGELOG touched"
-            if repo_analytics.changelog_updated
-            else "CHANGELOG unchanged"
-        )
-    )
-    lines.append("- Hotspots:")
-    if repo_analytics.top_paths:
-        for path in repo_analytics.top_paths:
-            lines.append(f"  - {path}")
-    else:
-        lines.append("  - none")
-    return "\n".join(lines)
-
-
 def _build_quality_text(
     snapshot: OperatorConsoleSnapshot,
     repo_analytics: RepoAnalyticsSnapshot | None,
@@ -437,46 +306,10 @@ def _format_percent_value(value: float | None) -> str:
     if value is None:
         return "\u2014"
     return f"{value:.0f}%"
-
-
-def _ratio_bar(value: float, total: float, width: int = 10) -> str:
-    if total <= 0:
-        return "[..........]"
-    ratio = max(0.0, min(1.0, float(value) / float(total)))
-    filled = int(round(ratio * width))
-    return "[" + ("#" * filled) + ("." * max(0, width - filled)) + "]"
-
-
 def _title_case(value: str | None) -> str:
     if value is None or not value.strip():
         return "\u2014"
     return value.replace("_", " ").title()
-
-
-def _present_lanes(snapshot: OperatorConsoleSnapshot) -> list[AgentLaneData]:
-    return [
-        lane
-        for lane in (
-            snapshot.codex_lane,
-            snapshot.operator_lane,
-            snapshot.claude_lane,
-            snapshot.cursor_lane,
-        )
-        if lane is not None
-    ]
-
-
-def _lane_sections(
-    snapshot: OperatorConsoleSnapshot,
-) -> tuple[tuple[str, AgentLaneData | None], ...]:
-    return (
-        ("Codex - Reviewer", snapshot.codex_lane),
-        ("Claude - Implementer", snapshot.claude_lane),
-        ("Cursor - Editor", snapshot.cursor_lane),
-        ("Operator - Bridge State", snapshot.operator_lane),
-    )
-
-
 def _system_health(
     snapshot: OperatorConsoleSnapshot,
     lanes: list[AgentLaneData],
