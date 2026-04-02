@@ -15,6 +15,7 @@ from .follow_loop import (
 from .lifecycle_state import (
     PublisherHeartbeat,
 )
+from .reviewer_follow_guard import maybe_refresh_automation_reviewer_heartbeat
 
 
 @dataclass(frozen=True)
@@ -67,10 +68,11 @@ def _build_ensure_follow_tick(
         repo_root=repo_root,
         bridge_path=bridge_path,
     )
-    ensure_result = deps.ensure_reviewer_heartbeat_fn(
+    ensure_result = maybe_refresh_automation_reviewer_heartbeat(
         repo_root=repo_root,
         bridge_path=bridge_path,
         reason="ensure-follow",
+        ensure_reviewer_heartbeat_fn=deps.ensure_reviewer_heartbeat_fn,
     )
     report, exit_code = deps.run_status_action_fn(
         args=args,
@@ -106,6 +108,7 @@ def _build_ensure_follow_tick(
         )
     if isinstance(status_dir, Path):
         report["publisher"] = deps.read_publisher_state_fn(status_dir)
+    report["reviewer_heartbeat_suppressed"] = ensure_result.suppressed
     return FollowLoopTick(
         report=report,
         exit_code=exit_code,

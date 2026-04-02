@@ -358,6 +358,22 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-04-02: Hardened the phone-steered remote-control wrapper for the local
+  loop without pretending the missing reviewer-runtime architecture already
+  exists. `dev/scripts/remote-bridge-loop.sh` now syncs the project-local
+  `/project:bridge-loop` slash command from the tracked
+  `dev/scripts/remote_bridge_prompt.md` source, fails early on `claude auth
+  status`, surfaces typed `review-channel --action status` health before
+  opening remote control, can optionally relaunch the sanctioned
+  `review-channel --action launch` pair when the loop is inactive, and cleans
+  up `caffeinate` on exit instead of leaking a stray keep-awake process. The
+  paired prompt now treats typed review-channel status as canonical for live
+  health, relays `bridge.md` Codex state to the phone user, and only uses the
+  sanctioned `launch`, `ensure`, and `recover --recover-provider claude`
+  recovery paths instead of an invented Codex-only recover command. Next step:
+  prove one live remote-control loop end-to-end and decide whether this stays
+  a repo-local compatibility wrapper or graduates into a repo-owned `devctl`
+  surface.
 - 2026-03-28: Re-audited the W1 bridge-truth-sync item against the actual
   reviewer write paths after Claude flagged a likely overstatement in the
   checklist text. Confirmed the repo-owned tooling side is already in place:
@@ -707,7 +723,10 @@ Out of scope until the local proof gate is green:
   `## Progress Log`.
 - Next action: keep current-slice decisions and blockers in this file instead
   of chat-only notes, then update this section when the promoted slice
-  changes.
+  changes. The newest local slice is the remote-control wrapper hardening:
+  verify one live phone-driven relaunch/report cycle against the sanctioned
+  `review-channel` runtime, then decide whether the wrapper should remain
+  repo-local glue or move behind a repo-owned command surface.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

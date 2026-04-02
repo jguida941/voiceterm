@@ -67,6 +67,7 @@ class EnsureHeartbeatResult:
     reason: str
     state_write: ReviewerStateWrite | None
     error: str | None
+    suppressed: bool = False
 
 
 def reviewer_state_write_to_dict(

@@ -147,6 +147,8 @@ Release-governance note:
 | How do we run the current parallel Codex/Claude markdown swarm cycle? | `dev/active/review_channel.md` |
 | Where is the local-first continuous swarm execution contract (next-task promotion, peer liveness, context rotation)? | `dev/active/continuous_swarm.md` |
 | Where are `devctl` command semantics and examples? | `dev/scripts/README.md` |
+| Where is the repo-local phone-steered Claude remote-control bridge wrapper documented? | `dev/scripts/README.md` for wrapper usage/limits, plus `dev/active/continuous_swarm.md` for the live `MP-358` execution state |
+| Where is the bounded remote-control / operator-orchestration client plan for that loop? | `dev/active/remote_orchestration.md` |
 | Where is the plain-language `devctl` system architecture map, including portable naming/map direction? | `dev/guides/DEVCTL_ARCHITECTURE.md` |
 | Where is the devctl automation playbook? | `dev/guides/DEVCTL_AUTOGUIDE.md` |
 | Where is MCP-to-devctl architecture alignment and extension policy? | `dev/guides/MCP_DEVCTL_ALIGNMENT.md` |

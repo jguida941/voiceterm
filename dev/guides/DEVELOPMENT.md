@@ -58,6 +58,11 @@ Use docs like this:
   typed state, default requested worker fanout is zero unless explicitly
   requested, and `bridge.md` remains a compatibility projection until native
   `CollaborationSession` worker topology lands.
+- `dev/scripts/remote-bridge-loop.sh` is only a repo-local wrapper over that
+  same review-channel runtime. It syncs the tracked `/project:bridge-loop`
+  prompt, checks `claude auth status`, prints typed review-channel health, and
+  can relaunch the sanctioned pair, but it does not create a separate Codex
+  backend or a private "recover codex" path.
 - Packet actor/target CLI fields are intentionally parser-loose now: repo-owned
   validation resolves legal ids from typed collaboration/runtime state or
   repo-owned session metadata instead of a fixed provider-choice list.

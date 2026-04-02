@@ -39,6 +39,46 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
 
+### 2026-04-02 - Phone-steered Claude remote control now stays on top of the real review-channel authority instead of inventing a fake Codex self-heal
+
+The repo already had most of the right pieces for phone-driven local control:
+Claude remote control on the Mac, the markdown bridge for human-facing state,
+and repo-owned `review-channel` launch/recovery commands. The miss was in the
+glue. The first wrapper/prompt pass acted as if shared-state alone could
+respawn Codex, even though the real runtime still only supports full
+`launch`/`rollover` relaunch for a dead reviewer side and the narrow
+`recover --recover-provider claude` path for a stale implementer when Codex is
+already live.
+
+That wrapper is honest now. `dev/scripts/remote-bridge-loop.sh` syncs the
+project-local `/project:bridge-loop` slash command from the tracked prompt
+source, fails early on `claude auth status`, prints typed
+`review-channel --action status` health before opening the phone session, can
+optionally bootstrap the sanctioned Codex+Claude pair, and no longer leaks a
+stray `caffeinate` process on exit. The paired remote prompt now treats typed
+review-channel status as canonical for live health, relays what Codex last
+wrote in `bridge.md`, and only teaches sanctioned `launch`, `ensure`, and
+`recover --recover-provider claude` paths instead of a nonexistent Codex-only
+recover command.
+
+### 2026-04-02 - Reviewer follow no longer pretends detached automation is a live review loop
+
+The repo already had a reviewer supervisor, typed `review_needed` state, and
+stale-peer attention. The miss was narrower and nastier: the repo-owned follow
+daemons were only publishing reviewer heartbeat, not reviewer work. That let an
+automation-only `ensure --follow` / `reviewer-heartbeat --follow` path keep
+refreshing `Last Codex poll` even while `review_needed=true`,
+`reviewed_hash_current=false`, and the real reviewer loop had gone detached.
+
+That false-freshness gap is closed now. The follow paths suppress
+automation-only reviewer heartbeat writes when review is still pending, and the
+same state machine now queues a Claude-targeted restore-turn packet through the
+existing review-channel event path whenever pending review collides with
+detached/automation-only reviewer truth. The outcome is stricter and more
+honest: detached daemon freshness no longer masquerades as a real review pass,
+and the next remote-orchestration work can build on an explicit "restore the
+reviewer turn" signal instead of passive status churn.
+
 ### 2026-04-02 - Dirty work after a local checkpoint now fails the normal CI quality lane, not just startup/push
 
 The repo already had the right startup truth for this class of mistake:

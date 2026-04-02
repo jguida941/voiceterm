@@ -2959,6 +2959,19 @@ become the main product surface.
   replace stale reviewer-owned `Poll Status` prose instead of stacking a fresh
   note on older revision/ACK bullets, so the markdown bridge stays current-
   state-only when the typed session state advances.
+  Latest 2026-04-02 follow-up: the repo-local remote-control wrapper now syncs
+  its project slash command from the tracked prompt source, fails early on
+  `claude auth status`, surfaces typed review-channel health before opening the
+  phone session, and the paired prompt only uses sanctioned `launch`,
+  `ensure`, and `recover --recover-provider claude` recovery paths instead of
+  an invented Codex-only recover command. The same 2026-04-02 review pass also
+  closed the false-fresh reviewer daemon gap: `ensure --follow` and
+  `reviewer-heartbeat --follow` now suppress automation-only reviewer heartbeat
+  writes while review is pending and queue a Claude-targeted restore-turn
+  packet through the existing review-channel event path instead of pretending
+  detached automation is live reviewer work. The bounded phone/client
+  integration follow-up for that wrapper, operator-lane projection, and
+  rollover reuse now lives in `dev/active/remote_orchestration.md`.
   The next closure slice is now explicit too: keep one backend for developers
   and agents, add a repo-owned inactive-mode liveness emitter, expose only
   thin mode toggles/aliases (`agents` / `developer`) over that same contract

@@ -24,6 +24,12 @@ from .promotion import (
     promote_bridge_instruction,
     validate_promotion_ready,
 )
+from .reviewer_follow_guard import (
+    ReviewerFollowPacketRequest,
+    ReviewerFollowTriggerState,
+    maybe_queue_reviewer_follow_packet,
+    maybe_refresh_automation_reviewer_heartbeat,
+)
 from .reviewer_follow_recovery import (
     ReviewerFollowRecoveryInput,
     ReviewerFollowRecoveryState,
@@ -49,6 +55,7 @@ class ReviewerFollowDeps:
 def run_reviewer_follow_action(*, args, repo_root: Path, paths: dict[str, object], deps: ReviewerFollowDeps) -> tuple[dict, int]:
     """Poll reviewer-worker state on cadence and emit NDJSON frames."""
     recovery_state = ReviewerFollowRecoveryState()
+    trigger_state = ReviewerFollowTriggerState()
     return run_configured_follow_action(
         args=args, repo_root=repo_root, paths=paths, deps_source=deps,
         action=_reviewer_follow_action_shape(deps),
@@ -58,6 +65,7 @@ def run_reviewer_follow_action(*, args, repo_root: Path, paths: dict[str, object
             paths=paths,
             deps=deps,
             recovery_state=recovery_state,
+            trigger_state=trigger_state,
         ),
     )
 
@@ -81,6 +89,7 @@ def _build_reviewer_follow_tick(
     paths: dict[str, object],
     deps: ReviewerFollowDeps,
     recovery_state: ReviewerFollowRecoveryState,
+    trigger_state: ReviewerFollowTriggerState,
 ) -> FollowLoopTick:
     bridge_path = paths["bridge_path"]
     assert isinstance(bridge_path, Path)
@@ -88,11 +97,12 @@ def _build_reviewer_follow_tick(
         repo_root=repo_root,
         bridge_path=bridge_path,
     )
-    ensure_result = deps.ensure_reviewer_heartbeat_fn(
+    ensure_result = maybe_refresh_automation_reviewer_heartbeat(
         repo_root=repo_root,
         bridge_path=bridge_path,
         reason="reviewer-follow",
         requested_reviewer_mode=getattr(args, "reviewer_mode", None),
+        ensure_reviewer_heartbeat_fn=deps.ensure_reviewer_heartbeat_fn,
     )
     report, frame_exit_code = deps.build_reviewer_state_report_fn(
         args=args,
@@ -142,7 +152,19 @@ def _build_reviewer_follow_tick(
                 repo_root=repo_root,
                 bridge_path=bridge_path,
             )
+    review_trigger = maybe_queue_reviewer_follow_packet(
+        request=ReviewerFollowPacketRequest(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+            report=report,
+        ),
+        trigger_state=trigger_state,
+    )
+    if review_trigger is not None:
+        report["review_trigger"] = review_trigger
     report["reviewer_heartbeat_refreshed"] = ensure_result.refreshed
+    report["reviewer_heartbeat_suppressed"] = ensure_result.suppressed
     _append_follow_error(report, ensure_result.error)
     if ensure_result.state_write is not None:
         report["reviewer_state_write"] = deps.reviewer_state_write_to_dict_fn(

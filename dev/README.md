@@ -50,6 +50,7 @@ The main starting points are:
 - Autonomy/mobile control plane: [`dev/active/autonomous_control_plane.md`](active/autonomous_control_plane.md)
 - Shared review workflow: [`dev/active/review_channel.md`](active/review_channel.md)
 - Continuous Codex/Claude loop: [`dev/active/continuous_swarm.md`](active/continuous_swarm.md)
+- Remote-control / operator orchestration client: [`dev/active/remote_orchestration.md`](active/remote_orchestration.md)
 - Host process cleanup/audit: [`dev/active/host_process_hygiene.md`](active/host_process_hygiene.md)
 - Optional operator console: [`dev/active/operator_console.md`](active/operator_console.md)
 - Ralph guardrail loop: [`dev/active/ralph_guardrail_control_plane.md`](active/ralph_guardrail_control_plane.md)

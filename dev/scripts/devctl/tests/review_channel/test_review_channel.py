@@ -20,6 +20,7 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import review_channel as review_channel_command
+from dev.scripts.devctl.commands.review_channel import _follow_runtime as review_channel_follow_runtime
 from dev.scripts.devctl.commands.review_channel import ensure as review_channel_ensure_mod
 from dev.scripts.devctl.commands.review_channel import bridge_action_support as review_channel_bridge_action_support
 from dev.scripts.devctl.commands.review_channel import bridge_handler as review_channel_bridge_handler
@@ -69,6 +70,9 @@ from dev.scripts.devctl.review_channel.follow_loop import (
     build_claude_progress_token,
     run_follow_loop,
 )
+from dev.scripts.devctl.review_channel.current_session_projection import (
+    compute_implementer_state_hash,
+)
 from dev.scripts.devctl.review_channel.projection_bundle import (
     ReviewChannelProjectionPaths,
 )
@@ -77,6 +81,19 @@ from dev.scripts.devctl.review_channel.status_models import (
 )
 
 from dev.scripts.devctl.review_channel.handoff_constants import _is_substantive_text
+
+
+_DEFAULT_IMPLEMENTER_STATE_HASH = compute_implementer_state_hash(
+    implementer_status="- coding handoff fixes",
+    implementer_questions="- none",
+    implementer_ack="- acknowledged; instruction-rev: `56bcd5d01510`",
+)
+
+_STABLE_REVISION_IMPLEMENTER_STATE_HASH = compute_implementer_state_hash(
+    implementer_status="- coding handoff fixes",
+    implementer_questions="- none",
+    implementer_ack="- acknowledged; instruction-rev: `feedfacecafe`",
+)
 from dev.scripts.devctl.review_channel.bridge_validation import (
     validate_launch_bridge_state,
     validate_live_bridge_contract,
@@ -1669,12 +1686,12 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         publisher_state = {"running": True, "pid": 42, "stale": False}
 
         with (
-            patch.object(review_channel_command, "ensure_reviewer_heartbeat", return_value=ensure_result),
-            patch.object(review_channel_command, "_run_status_action", return_value=(status_report, 0)),
-            patch.object(review_channel_command, "emit_follow_ndjson_frame", side_effect=fake_emit_follow_ndjson_frame),
-            patch.object(review_channel_command, "reset_follow_output", return_value=None),
-            patch.object(review_channel_command, "write_publisher_heartbeat", return_value=Path("/tmp")),
-            patch.object(review_channel_command, "read_publisher_state", return_value=publisher_state),
+            patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+            patch.object(review_channel_follow_runtime, "_run_status_action", return_value=(status_report, 0)),
+            patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", side_effect=fake_emit_follow_ndjson_frame),
+            patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
+            patch.object(review_channel_follow_runtime, "write_publisher_heartbeat", return_value=Path("/tmp")),
+            patch.object(review_channel_follow_runtime, "read_publisher_state", return_value=publisher_state),
             patch.object(review_channel_command.time, "sleep", return_value=None),
         ):
             report, rc = review_channel_command._run_ensure_action(
@@ -1753,28 +1770,28 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
 
         with (
             patch.object(
-                review_channel_command,
+                review_channel_follow_runtime,
                 "ensure_reviewer_heartbeat",
                 return_value=ensure_result,
             ),
             patch.object(
-                review_channel_command,
+                review_channel_follow_runtime,
                 "_run_status_action",
                 side_effect=[(status_reports[0], 0), (status_reports[1], 0)],
             ),
             patch.object(
-                review_channel_command,
+                review_channel_follow_runtime,
                 "_ensure_reviewer_supervisor_running",
                 return_value=auto_start,
             ) as ensure_supervisor,
             patch.object(
-                review_channel_command,
+                review_channel_follow_runtime,
                 "emit_follow_ndjson_frame",
                 side_effect=fake_emit,
             ),
-            patch.object(review_channel_command, "reset_follow_output", return_value=None),
-            patch.object(review_channel_command, "write_publisher_heartbeat", return_value=Path("/tmp")),
-            patch.object(review_channel_command, "read_publisher_state", return_value={"running": True, "pid": 42, "stale": False}),
+            patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
+            patch.object(review_channel_follow_runtime, "write_publisher_heartbeat", return_value=Path("/tmp")),
+            patch.object(review_channel_follow_runtime, "read_publisher_state", return_value={"running": True, "pid": 42, "stale": False}),
             patch.object(review_channel_command.time, "sleep", return_value=None),
         ):
             report, rc = review_channel_command._run_ensure_action(
@@ -1822,12 +1839,12 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         publisher_state = {"running": True, "pid": 42, "stale": False}
 
         with (
-            patch.object(review_channel_command, "ensure_reviewer_heartbeat", return_value=inactive_result),
-            patch.object(review_channel_command, "_run_status_action", return_value=(status_report, 0)),
-            patch.object(review_channel_command, "emit_follow_ndjson_frame", side_effect=fake_emit),
-            patch.object(review_channel_command, "reset_follow_output", return_value=None),
-            patch.object(review_channel_command, "write_publisher_heartbeat", return_value=Path("/tmp")),
-            patch.object(review_channel_command, "read_publisher_state", return_value=publisher_state),
+            patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=inactive_result),
+            patch.object(review_channel_follow_runtime, "_run_status_action", return_value=(status_report, 0)),
+            patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", side_effect=fake_emit),
+            patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
+            patch.object(review_channel_follow_runtime, "write_publisher_heartbeat", return_value=Path("/tmp")),
+            patch.object(review_channel_follow_runtime, "read_publisher_state", return_value=publisher_state),
             patch.object(review_channel_command.time, "sleep", return_value=None),
         ):
             report, rc = review_channel_command._run_ensure_action(
@@ -1874,10 +1891,10 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             artifact_paths = resolve_artifact_paths(repo_root=root)
             status_dir = root / "dev/reports/review_channel/latest"
             with (
-                patch.object(review_channel_command, "ensure_reviewer_heartbeat", return_value=ensure_result),
-                patch.object(review_channel_command, "_run_status_action", return_value=(status_report, 0)),
-                patch.object(review_channel_command, "emit_follow_ndjson_frame", return_value=0),
-                patch.object(review_channel_command, "reset_follow_output", return_value=None),
+                patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+                patch.object(review_channel_follow_runtime, "_run_status_action", return_value=(status_report, 0)),
+                patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", return_value=0),
+                patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
                 patch.object(review_channel_command.time, "sleep", return_value=None),
             ):
                 report, rc = review_channel_command._run_ensure_action(
@@ -1948,10 +1965,10 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             return json.loads(json.dumps(status_report)), 0
 
         with (
-            patch.object(review_channel_command, "ensure_reviewer_heartbeat", return_value=ensure_result),
-            patch.object(review_channel_command, "_build_reviewer_state_report", side_effect=fake_build_report),
-            patch.object(review_channel_command, "emit_follow_ndjson_frame", side_effect=fake_emit),
-            patch.object(review_channel_command, "reset_follow_output", return_value=None),
+            patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+            patch.object(review_channel_follow_runtime, "_build_reviewer_state_report", side_effect=fake_build_report),
+            patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", side_effect=fake_emit),
+            patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
             patch.object(review_channel_command.time, "sleep", return_value=None),
         ):
             report, rc = review_channel_command._run_reviewer_follow_action(
@@ -1975,6 +1992,71 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(frames[0]["reviewer_worker"]["state"], "review_needed")
         self.assertTrue(frames[0]["review_needed"])
         self.assertFalse(frames[0]["reviewer_worker"]["semantic_review_claimed"])
+        self.assertFalse(frames[0]["reviewer_heartbeat_suppressed"])
+
+    def test_reviewer_follow_suppresses_automation_heartbeat_while_review_pending(self) -> None:
+        args = self._build_reviewer_follow_args(max_follow_snapshots=1)
+        frames: list[dict[str, object]] = []
+        status_report = {
+            "command": "review-channel",
+            "action": "reviewer-heartbeat",
+            "ok": True,
+            "errors": [],
+            "review_needed": True,
+            "bridge_liveness": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "launch_truth": "live",
+                "poll_status_automation_only": False,
+            },
+            "attention": {"status": "review_follow_up_required"},
+            "reviewer_worker": {
+                "state": "review_needed",
+                "review_needed": True,
+                "current_hash": "b" * 64,
+                "reviewed_hash": "a" * 64,
+                "semantic_review_claimed": False,
+            },
+        }
+
+        def fake_emit(payload: dict[str, object], *, args) -> int:
+            frames.append(payload)
+            return 0
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            with (
+                patch.object(
+                    review_channel_follow_runtime,
+                    "_build_reviewer_state_report",
+                    return_value=(status_report, 0),
+                ),
+                patch.object(
+                    review_channel_follow_runtime,
+                    "emit_follow_ndjson_frame",
+                    side_effect=fake_emit,
+                ),
+                patch.object(
+                    review_channel_follow_runtime,
+                    "reset_follow_output",
+                    return_value=None,
+                ),
+                patch.object(review_channel_command.time, "sleep", return_value=None),
+            ):
+                report, rc = review_channel_command._run_reviewer_follow_action(
+                    args=args,
+                    repo_root=root,
+                    paths={"bridge_path": bridge_path},
+                )
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(report["snapshots_emitted"], 1)
+            self.assertEqual(len(frames), 1)
+            self.assertFalse(frames[0]["reviewer_heartbeat_refreshed"])
+            self.assertTrue(frames[0]["reviewer_heartbeat_suppressed"])
+            self.assertNotIn("reviewer_state_write", frames[0])
 
     def test_reviewer_follow_reactivates_paused_bridge_when_requested_active(self) -> None:
         args = self._build_reviewer_follow_args(max_follow_snapshots=1)
@@ -2014,17 +2096,17 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             )
             with (
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "_build_reviewer_state_report",
                     return_value=(status_report, 0),
                 ),
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "emit_follow_ndjson_frame",
                     side_effect=fake_emit,
                 ),
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "reset_follow_output",
                     return_value=None,
                 ),
@@ -2110,10 +2192,10 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 encoding="utf-8",
             )
             with (
-                patch.object(review_channel_command, "ensure_reviewer_heartbeat", return_value=ensure_result),
-                patch.object(review_channel_command, "_build_reviewer_state_report", return_value=(status_report, 0)),
-                patch.object(review_channel_command, "emit_follow_ndjson_frame", side_effect=fake_emit),
-                patch.object(review_channel_command, "reset_follow_output", return_value=None),
+                patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+                patch.object(review_channel_follow_runtime, "_build_reviewer_state_report", return_value=(status_report, 0)),
+                patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", side_effect=fake_emit),
+                patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
                 patch(
                     "dev.scripts.devctl.review_channel.reviewer_follow.compute_non_audit_worktree_hash",
                     return_value="a" * 64,
@@ -2201,11 +2283,11 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 encoding="utf-8",
             )
             with (
-                patch.object(review_channel_command, "ensure_reviewer_heartbeat", return_value=ensure_result),
-                patch.object(review_channel_command, "_build_reviewer_state_report", return_value=(status_report, 0)),
-                patch.object(review_channel_command, "emit_follow_ndjson_frame", side_effect=fake_emit),
-                patch.object(review_channel_command, "reset_follow_output", return_value=None),
-                patch.object(review_channel_command, "_run_recover_action", return_value=(recovery_report, 0)) as mocked_recovery,
+                patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+                patch.object(review_channel_follow_runtime, "_build_reviewer_state_report", return_value=(status_report, 0)),
+                patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", side_effect=fake_emit),
+                patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
+                patch.object(review_channel_follow_runtime, "_run_recover_action", return_value=(recovery_report, 0)) as mocked_recovery,
                 patch.object(review_channel_command.time, "sleep", return_value=None),
             ):
                 report, rc = review_channel_command._run_reviewer_follow_action(
@@ -2232,6 +2314,98 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             recovery_args = mocked_recovery.call_args.kwargs["args"]
             self.assertEqual(recovery_args.action, "recover")
             self.assertEqual(recovery_args.terminal, "terminal-app")
+
+    def test_reviewer_follow_queues_claude_trigger_when_relaunch_is_required(self) -> None:
+        args = self._build_reviewer_follow_args(max_follow_snapshots=1)
+        frames: list[dict[str, object]] = []
+        status_report = {
+            "command": "review-channel",
+            "action": "reviewer-heartbeat",
+            "ok": True,
+            "errors": [],
+            "review_needed": True,
+            "service_identity": {"service_id": "review-channel:test"},
+            "bridge_liveness": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "launch_truth": "detached_runtime_only",
+                "poll_status_automation_only": True,
+                "poll_status_reason": "reviewer-follow",
+                "current_instruction_revision": "feedfacecafe",
+            },
+            "attention": {
+                "status": "review_loop_relaunch_required",
+                "recommended_command": "python3 dev/scripts/devctl.py review-channel --action launch",
+            },
+            "reviewer_worker": {
+                "state": "review_needed",
+                "review_needed": True,
+                "current_hash": "b" * 64,
+                "reviewed_hash": "a" * 64,
+                "semantic_review_claimed": False,
+            },
+        }
+
+        def fake_emit(payload: dict[str, object], *, args) -> int:
+            frames.append(payload)
+            return 0
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+            with (
+                patch.object(
+                    review_channel_follow_runtime,
+                    "_build_reviewer_state_report",
+                    return_value=(status_report, 0),
+                ),
+                patch.object(
+                    review_channel_follow_runtime,
+                    "emit_follow_ndjson_frame",
+                    side_effect=fake_emit,
+                ),
+                patch.object(
+                    review_channel_follow_runtime,
+                    "reset_follow_output",
+                    return_value=None,
+                ),
+                patch.object(review_channel_command.time, "sleep", return_value=None),
+            ):
+                report, rc = review_channel_command._run_reviewer_follow_action(
+                    args=args,
+                    repo_root=root,
+                    paths={
+                        "bridge_path": bridge_path,
+                        "review_channel_path": review_channel_path,
+                    },
+                )
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(report["snapshots_emitted"], 1)
+            self.assertEqual(len(frames), 1)
+            self.assertTrue(frames[0]["review_trigger"]["queued"])
+            self.assertEqual(frames[0]["review_trigger"]["to_agent"], "claude")
+            bundle = load_or_refresh_event_bundle(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+            )
+            packets = bundle.review_state["packets"]
+            self.assertEqual(len(packets), 1)
+            self.assertEqual(packets[0]["to_agent"], "claude")
+            self.assertEqual(
+                packets[0]["requested_action"],
+                "restore_reviewer_turn",
+            )
+            self.assertIn("review_trigger_key", packets[0]["body"])
 
     def test_reviewer_follow_recovery_skips_inactive_effective_mode(self) -> None:
         from dev.scripts.devctl.review_channel.follow_loop import STALL_ESCALATION_POLLS
@@ -2305,10 +2479,10 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             root = Path(tmpdir)
             artifact_paths = resolve_artifact_paths(repo_root=root)
             with (
-                patch.object(review_channel_command, "ensure_reviewer_heartbeat", return_value=ensure_result),
-                patch.object(review_channel_command, "_build_reviewer_state_report", return_value=(status_report, 0)),
-                patch.object(review_channel_command, "emit_follow_ndjson_frame", return_value=0),
-                patch.object(review_channel_command, "reset_follow_output", return_value=None),
+                patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+                patch.object(review_channel_follow_runtime, "_build_reviewer_state_report", return_value=(status_report, 0)),
+                patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", return_value=0),
+                patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
                 patch.object(review_channel_command.time, "sleep", return_value=None),
             ):
                 report, rc = review_channel_command._run_reviewer_follow_action(
@@ -2383,7 +2557,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         publisher_state = {"running": False, "detail": "No publisher heartbeat file found"}
 
         with (
-            patch.object(review_channel_command, "_run_status_action", return_value=(status_report, 0)),
+            patch.object(review_channel_follow_runtime, "_run_status_action", return_value=(status_report, 0)),
             patch.object(review_channel_status_mod, "read_publisher_state", return_value=publisher_state),
         ):
             report, rc = review_channel_command._run_ensure_action(
@@ -2421,7 +2595,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         publisher_state = {"running": True, "pid": 42, "stale": False}
 
         with (
-            patch.object(review_channel_command, "_run_status_action", return_value=(status_report, 0)),
+            patch.object(review_channel_follow_runtime, "_run_status_action", return_value=(status_report, 0)),
             patch.object(review_channel_status_mod, "read_publisher_state", return_value=publisher_state),
         ):
             report, rc = review_channel_command._run_ensure_action(
@@ -2459,9 +2633,9 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         process = SimpleNamespace(pid=4242)
 
         with (
-            patch.object(review_channel_command, "_run_status_action", return_value=(status_report, 0)),
-            patch.object(review_channel_command, "_read_publisher_state_safe", side_effect=publisher_states),
-            patch.object(review_channel_command, "_spawn_follow_publisher", return_value=(True, 4242, "/tmp/publisher.log")),
+            patch.object(review_channel_follow_runtime, "_run_status_action", return_value=(status_report, 0)),
+            patch.object(review_channel_follow_runtime, "_read_publisher_state_safe", side_effect=publisher_states),
+            patch.object(review_channel_follow_runtime, "_spawn_follow_publisher", return_value=(True, 4242, "/tmp/publisher.log")),
             patch.object(review_channel_command.time, "sleep", return_value=None),
         ):
             report, rc = review_channel_command._run_ensure_action(
@@ -3040,12 +3214,12 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             return real_monotonic() + 120
 
         with (
-            patch.object(review_channel_command, "ensure_reviewer_heartbeat", return_value=ensure_result),
-            patch.object(review_channel_command, "_run_status_action", return_value=(status_report, 0)),
-            patch.object(review_channel_command, "emit_follow_ndjson_frame", side_effect=fake_emit),
-            patch.object(review_channel_command, "reset_follow_output", return_value=None),
-            patch.object(review_channel_command, "write_publisher_heartbeat", return_value=Path("/tmp")),
-            patch.object(review_channel_command, "read_publisher_state", return_value=publisher_state),
+            patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+            patch.object(review_channel_follow_runtime, "_run_status_action", return_value=(status_report, 0)),
+            patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", side_effect=fake_emit),
+            patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
+            patch.object(review_channel_follow_runtime, "write_publisher_heartbeat", return_value=Path("/tmp")),
+            patch.object(review_channel_follow_runtime, "read_publisher_state", return_value=publisher_state),
             patch.object(review_channel_command.time, "sleep", return_value=None),
             patch.object(review_channel_command.time, "monotonic", side_effect=fake_monotonic),
         ):
@@ -3082,12 +3256,12 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             return 0
 
         with (
-            patch.object(review_channel_command, "ensure_reviewer_heartbeat", return_value=ensure_result),
-            patch.object(review_channel_command, "_run_status_action", return_value=(status_report, 0)),
-            patch.object(review_channel_command, "emit_follow_ndjson_frame", side_effect=fake_emit),
-            patch.object(review_channel_command, "reset_follow_output", return_value=None),
-            patch.object(review_channel_command, "write_publisher_heartbeat", return_value=Path("/tmp")),
-            patch.object(review_channel_command, "read_publisher_state", return_value=publisher_state),
+            patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+            patch.object(review_channel_follow_runtime, "_run_status_action", return_value=(status_report, 0)),
+            patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", side_effect=fake_emit),
+            patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
+            patch.object(review_channel_follow_runtime, "write_publisher_heartbeat", return_value=Path("/tmp")),
+            patch.object(review_channel_follow_runtime, "read_publisher_state", return_value=publisher_state),
             patch.object(review_channel_command.time, "sleep", side_effect=[None, KeyboardInterrupt()]),
         ):
             report, rc = review_channel_command._run_ensure_action(
@@ -3126,22 +3300,22 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             status_dir = Path(tmpdir)
             with (
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "ensure_reviewer_heartbeat",
                     return_value=ensure_result,
                 ),
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "_run_status_action",
                     return_value=(status_report, 0),
                 ),
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "emit_follow_ndjson_frame",
                     return_value=7,
                 ),
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "reset_follow_output",
                     return_value=None,
                 ),
@@ -3619,22 +3793,22 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             status_dir = Path(tmpdir)
             with (
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "ensure_reviewer_heartbeat",
                     return_value=ensure_result,
                 ),
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "_build_reviewer_state_report",
                     return_value=(status_report, 0),
                 ),
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "emit_follow_ndjson_frame",
                     return_value=9,
                 ),
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "reset_follow_output",
                     return_value=None,
                 ),
@@ -4486,6 +4660,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
         promotion_plan: str | None = "dev/active/continuous_swarm.md",
         rotate_instruction_revision: bool = False,
         expected_instruction_revision: str = "56bcd5d01510",
+        expected_implementer_state_hash: str = _DEFAULT_IMPLEMENTER_STATE_HASH,
     ) -> SimpleNamespace:
         return SimpleNamespace(
             action="reviewer-checkpoint",
@@ -4509,6 +4684,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             reviewer_mode="agents",
             reason="review-pass",
             expected_instruction_revision=expected_instruction_revision,
+            expected_implementer_state_hash=expected_implementer_state_hash,
             verdict=verdict,
             open_findings=open_findings,
             instruction=instruction,
@@ -4675,7 +4851,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
 
         with (
             patch.object(
-                review_channel_command,
+                review_channel_follow_runtime,
                 "_run_status_action",
                 return_value=(status_report, 0),
             ),
@@ -4753,17 +4929,17 @@ class ReviewChannelCommandTests(unittest.TestCase):
 
         with (
             patch.object(
-                review_channel_command,
+                review_channel_follow_runtime,
                 "_run_status_action",
                 side_effect=status_side_effect,
             ),
             patch.object(
-                review_channel_command,
+                review_channel_follow_runtime,
                 "_spawn_reviewer_supervisor",
                 return_value=(True, 99999, "/tmp/supervisor.log"),
             ),
             patch.object(
-                review_channel_command,
+                review_channel_follow_runtime,
                 "_verify_reviewer_supervisor_start",
                 return_value="started",
             ),
@@ -4824,17 +5000,17 @@ class ReviewChannelCommandTests(unittest.TestCase):
 
         with (
             patch.object(
-                review_channel_command,
+                review_channel_follow_runtime,
                 "_run_status_action",
                 side_effect=status_side_effect,
             ),
             patch.object(
-                review_channel_command,
+                review_channel_follow_runtime,
                 "_spawn_reviewer_supervisor",
                 return_value=(True, 99999, "/tmp/supervisor.log"),
             ),
             patch.object(
-                review_channel_command,
+                review_channel_follow_runtime,
                 "_verify_reviewer_supervisor_start",
                 return_value="failed_start",
             ),
@@ -6267,6 +6443,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 reviewer_mode="agents",
                 reason="review-pass",
                 expected_instruction_revision="56bcd5d01510",
+                expected_implementer_state_hash=_DEFAULT_IMPLEMENTER_STATE_HASH,
                 verdict="- reviewer accepted with follow-up",
                 open_findings="- M1 closed\n- M2 deferred",
                 instruction="- continue with the next scoped slice",
@@ -6443,6 +6620,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 reviewer_mode="agents",
                 reason="review-pass",
                 expected_instruction_revision="56bcd5d01510",
+                expected_implementer_state_hash=_DEFAULT_IMPLEMENTER_STATE_HASH,
                 verdict="- reviewer accepted",
                 open_findings="- none",
                 instruction="- next scoped task",
@@ -6458,7 +6636,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             with (
                 patch.object(review_channel_command, "REPO_ROOT", root),
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "_ensure_reviewer_supervisor_running",
                     return_value={
                         "attempted": True,
@@ -6523,6 +6701,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 reviewer_mode="agents",
                 reason="next-plan-item",
                 expected_instruction_revision="56bcd5d01510",
+                expected_implementer_state_hash=_DEFAULT_IMPLEMENTER_STATE_HASH,
                 verdict="- accepted",
                 open_findings="- none",
                 instruction="- Next scoped plan item (dev/active/continuous_swarm.md): Continue forward.",
@@ -6541,7 +6720,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             with (
                 patch.object(review_channel_command, "REPO_ROOT", root),
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "_ensure_reviewer_supervisor_running",
                     return_value={
                         "attempted": False,
@@ -6631,6 +6810,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 reviewer_mode="active_dual_agent",
                 reason="test-checkpoint",
                 expected_instruction_revision="56bcd5d01510",
+                expected_implementer_state_hash=_DEFAULT_IMPLEMENTER_STATE_HASH,
                 verdict="- accepted",
                 open_findings="- none",
                 instruction="- next task",
@@ -6647,7 +6827,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             with (
                 patch.object(review_channel_command, "REPO_ROOT", root),
                 patch.object(
-                    review_channel_command,
+                    review_channel_follow_runtime,
                     "_ensure_reviewer_supervisor_running",
                     return_value={
                         "attempted": True,
@@ -6882,6 +7062,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "dev/scripts/devctl/commands/review_channel.py",
                 ],
                 expected_instruction_revision=stable_revision,
+                expected_implementer_state_hash=_STABLE_REVISION_IMPLEMENTER_STATE_HASH,
             )
 
             with patch.object(review_channel_command, "REPO_ROOT", root):
@@ -6953,6 +7134,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "dev/scripts/devctl/commands/review_channel.py",
                 ],
                 expected_instruction_revision=stable_revision,
+                expected_implementer_state_hash=_STABLE_REVISION_IMPLEMENTER_STATE_HASH,
             )
 
             with patch.object(review_channel_command, "REPO_ROOT", root):
@@ -6974,6 +7156,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "claude_ack_stale",
                     "bridge_contract_error",
                     "claude_status_missing",
+                    "implementer_state_reset_required",
                 },
             )
             updated_bridge = bridge_path.read_text(encoding="utf-8")
@@ -7032,6 +7215,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 ],
                 rotate_instruction_revision=True,
                 expected_instruction_revision=stable_revision,
+                expected_implementer_state_hash=_STABLE_REVISION_IMPLEMENTER_STATE_HASH,
             )
 
             with patch.object(review_channel_command, "REPO_ROOT", root):
@@ -7051,6 +7235,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "claude_ack_stale",
                     "bridge_contract_error",
                     "claude_status_missing",
+                    "implementer_state_reset_required",
                 },
             )
             self.assertIn(
@@ -7394,7 +7579,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertIn(
                 payload["attention"]["status"],
-                {"claude_ack_stale", "runtime_missing", "review_follow_up_required"},
+                {
+                    "claude_ack_stale",
+                    "runtime_missing",
+                    "review_loop_relaunch_required",
+                    "review_follow_up_required",
+                },
             )
             updated_bridge = bridge_path.read_text(encoding="utf-8")
             self.assertIn(
@@ -7688,11 +7878,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "bridge_contract_error",
                     "claude_ack_stale",
                     "runtime_missing",
+                    "review_loop_relaunch_required",
                     "review_follow_up_required",
                 },
             )
 
-    def test_run_recover_builds_claude_only_session_for_stale_implementer(self) -> None:
+    def test_run_recover_refuses_when_stale_implementer_state_must_be_reset(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             review_channel_path = root / "dev/active/review_channel.md"
@@ -7755,17 +7946,22 @@ class ReviewChannelCommandTests(unittest.TestCase):
             ):
                 rc = review_channel_command.run(args)
 
-            self.assertEqual(rc, 0)
+            self.assertEqual(rc, 1)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertTrue(payload["ok"])
+            self.assertFalse(payload["ok"])
             self.assertEqual(payload["recover_provider"], "claude")
-            self.assertFalse(payload["launched"])
+            self.assertNotIn("launched", payload)
             self.assertEqual(
                 payload["attention"]["status"],
-                "implementer_relaunch_required",
+                "implementer_state_reset_required",
             )
-            self.assertEqual(len(payload["sessions"]), 1)
-            self.assertEqual(payload["sessions"][0]["provider"], "claude")
+            self.assertEqual(payload["sessions"], [])
+            self.assertTrue(
+                any(
+                    "requires `implementer_relaunch_required`" in error
+                    for error in payload["errors"]
+                )
+            )
 
     def test_run_recover_refuses_without_live_codex_conductor(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
