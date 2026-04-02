@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-02T20:33:58Z`
-- Last Codex poll (Local America/New_York): `2026-04-02 16:33:58 EDT`
+- Last Codex poll: `2026-04-02T20:38:07Z`
+- Last Codex poll (Local America/New_York): `2026-04-02 16:38:07 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `7996c88b3dfdc4f0a7b0252e1796b4fb014f25690f8e470a84467a9a9770e597`
-- Current instruction revision: `6a754ea6cb55`
+- Last non-audit worktree hash: `1cc8badfb0d7c5eb89194de407423aee38621c8d0fc0fa14f00eadff94cf4a8c`
+- Current instruction revision: `816f5ad04324`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -185,16 +185,15 @@ Every Codex context exhaustion is handled by Claude manually killing the process
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: tools_only; reason: review-pass; observed-tree: 7996c88b3dfd; reviewed-tree: 7996c88b3dfd; instruction-rev: 6a754ea6cb55).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: clean-push-single-agent; observed-tree: 1cc8badfb0d7; reviewed-tree: 1cc8badfb0d7; instruction-rev: 816f5ad04324).
 
 ## Current Verdict
 
-- Accepted for governed push.
-- Verified current HEAD 443874f3b59c4674791b0b1fb659f8f9816faba8 with the required startup-context pytest target and strict tooling docs check.
+- Push approved. Switching to single_agent for clean push.
 
 ## Open Findings
 
-- None.
+- none
 
 ## Claude Status
 
@@ -210,12 +209,9 @@ Every Codex context exhaustion is handled by Claude manually killing the process
 
 ## Current Instruction For Claude
 
-- Review acceptance recorded for HEAD 443874f3b59c4674791b0b1fb659f8f9816faba8.
-- Governed push may proceed.
+- run python3 dev/scripts/devctl.py push --execute
 
 ## Last Reviewed Scope
 
-- HEAD 443874f3b59c4674791b0b1fb659f8f9816faba8
-- python3 -m pytest dev/scripts/devctl/tests/runtime/test_startup_context.py -q --tb=short
-- python3 dev/scripts/devctl.py docs-check --strict-tooling
+- bridge.md
 
