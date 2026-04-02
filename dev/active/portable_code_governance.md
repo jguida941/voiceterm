@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-04-01 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-04-02 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -71,6 +71,121 @@ confidence alone.
 7. Drift guards and portability fixtures remain green after each additional
    adopter or layout proof.
 
+## External Python Corpus Protocol
+
+Two repos are enough to expose real engine bugs and seed regression anchors.
+They are not enough to claim "works on any repo." Keep the portability proof
+honest with one governed external Python corpus loop:
+
+1. Keep a visible external Python repo matrix in this plan instead of relying
+   on one-off chat notes or memory.
+2. Run the same adoption path on every repo:
+   - `python3 dev/scripts/devctl.py governance-bootstrap --target-repo <path> --force-starter-policy --format md`
+   - `python3 dev/scripts/devctl.py probe-report --repo-path <path> --adoption-scan --format json`
+   - `python3 dev/scripts/devctl.py check --profile ci --repo-path <path> --adoption-scan --format json`
+3. Classify every failure before importing findings:
+   - `engine_bug`: crash, VoiceTerm path/policy leakage, wrong-repo writes,
+     repo-layout dependence, or other core-engine portability miss.
+   - `adopter_finding`: the engine run is honest and the result is about the
+     target repo's code, policy, or layout.
+4. Fix engine bugs here immediately, then rerun the newly failing repo plus
+   every previously tested repo in the matrix before widening portability
+   claims.
+5. Only import or adjudicate adopter findings after the engine path is clean
+   on that repo:
+   - raw findings -> `governance-import-findings`
+   - adjudicated outcomes -> `governance-review --record`
+6. If the remaining failures reduce to Step 0/startup or governed push, treat
+   them as blocking architecture work under `MP-377`, not as "portable
+   enough."
+
+## External Python Repo Matrix
+
+| Repo | Local path | Current honest run state | Engine defects exposed here | Remaining blocker |
+|---|---|---|---|---|
+| `ci-cd-hub` | `/tmp/ci-cd-hub-governance-proof` | `governance-bootstrap`, `probe-report --repo-path --adoption-scan`, and `check --profile ci --repo-path --adoption-scan` complete without new core patches after the latest reruns. | None unique in the latest rerun; keep as a regression anchor after future engine fixes. | Step-0 `startup-context` and governed push still require target-local/exported authority proof. |
+| `adaptive-hashmap-studio` | `/tmp/adaptive-hashmap-studio-governance-proof` | Same engine-run path is now honest after the latest fixes and reruns. | Valid Python signature scan crash and VoiceTerm-only code-shape override leakage fixed in `19ca688`; packaged-check/root-shim portability break fixed in `52ed830`. | Same Step-0 `startup-context` and governed push blocker. |
+
+Do not treat the two rows above as generality proof. They are the current
+adversarial samples and regression anchors for the next corpus expansion.
+
+## Current Corpus-First Execution Order
+
+For the current portability slice, do this before widening broader product or
+architecture work that is not needed to interpret corpus failures:
+
+1. Checkpoint the current plan/docs slice so startup authority stops failing on
+   dirty-after-checkpoint state.
+2. Seed the first fixed Python anchor corpus and record it in the repo matrix.
+3. Run the corpus in waves of `3-5` new repos at a time.
+4. Stop the wave immediately on the first new `engine_bug`.
+5. Fix that engine bug here, rerun the failing repo plus every previously green
+   anchor repo, and only then resume widening.
+6. If the remaining failures reduce to Step-0/startup or governed push, stop
+   adding repos and close those `MP-377` blockers before widening again.
+7. Only after `2-3` consecutive waves add no new engine-bug class and all
+   current anchors still rerun clean should this lane describe the engine as
+   "broadly working so far." Do not call that universal proof.
+
+## Initial Anchor-Corpus Shape
+
+Build one fixed Python anchor corpus before the exploratory queue grows:
+
+| Bucket | Target count | Why it exists |
+|---|---:|---|
+| Maintainer-source Python repos | `3-4` | Useful seed corpus and likely to expose repeated assumptions shared across the maintainer's own repos. |
+| External mainstream Python repos | `3-4` | Pressure-test the engine against repos that do not share local conventions or repo-pack history. |
+| External adversarial/weird Python repos | `1-2` | Force unusual layouts, docs roots, test roots, or mixed tooling assumptions to surface quickly. |
+| Existing regression anchors | `2` | Keep `ci-cd-hub` and `adaptive-hashmap-studio` in every rerun set after engine fixes. |
+
+Selection rule:
+
+1. Do not overfit the first anchor set to one owner or one repo shape.
+2. Prefer repos that are real enough to have layout/documentation/test
+   conventions, not only tiny toy samples.
+3. Keep an exploratory queue outside the fixed anchors, but do not widen into
+   it while the current wave still has an unfixed `engine_bug`.
+
+## Anchor Corpus Seed Queue
+
+Fill these slots before widening into a larger exploratory queue:
+
+| Slot | Source bucket | Repo | Local path | Current status |
+|---|---|---|---|---|
+| `anchor-existing-01` | existing regression anchor | `ci-cd-hub` | `/tmp/ci-cd-hub-governance-proof` | active anchor |
+| `anchor-existing-02` | existing regression anchor | `adaptive-hashmap-studio` | `/tmp/adaptive-hashmap-studio-governance-proof` | active anchor |
+| `anchor-maintainer-01` | maintainer-source Python | pending selection | pending clone path | seed next |
+| `anchor-maintainer-02` | maintainer-source Python | pending selection | pending clone path | seed next |
+| `anchor-maintainer-03` | maintainer-source Python | pending selection | pending clone path | seed next |
+| `anchor-maintainer-04` | maintainer-source Python | optional pending selection | pending clone path | add if needed for shape coverage |
+| `anchor-external-01` | external mainstream Python | pending selection | pending clone path | seed next |
+| `anchor-external-02` | external mainstream Python | pending selection | pending clone path | seed next |
+| `anchor-external-03` | external mainstream Python | pending selection | pending clone path | seed next |
+| `anchor-external-04` | external mainstream Python | optional pending selection | pending clone path | add if needed for shape coverage |
+| `anchor-adversarial-01` | external adversarial/weird Python | pending selection | pending clone path | seed next |
+| `anchor-adversarial-02` | external adversarial/weird Python | optional pending selection | pending clone path | add if needed for shape coverage |
+
+## Failure Triage For Corpus Waves
+
+Use one deterministic triage on every failing repo before widening again:
+
+1. `engine_bug`
+   crash, wrong-repo write, VoiceTerm path/policy leakage, repo-layout
+   assumption, broken `--repo-path` behavior, or other core-engine portability
+   miss. Fix immediately in this repo.
+2. `already_planned_architecture_gap`
+   Step-0/startup authority, governed push, repo-pack activation, onboarding
+   ratification/provenance, docs-authority fallback, or other failure already
+   owned by `MP-376` / `MP-377`. Keep it explicit in the owner plan; do not
+   keep rediscovering it as if it were a fresh mystery.
+3. `adopter_finding`
+   Honest engine run succeeded and the result is about the target repo's code,
+   policy, or layout. Import/adjudicate it only after the engine path is clean
+   on that repo.
+4. `ambiguous_signal`
+   The current output is too noisy to classify confidently. Tighten the
+   contract or automation before widening the corpus.
+
 ## Execution Checklist
 
 - [x] Move built-in guard/probe capability metadata into portable resolver code.
@@ -124,6 +239,24 @@ confidence alone.
       reviewed ratification surface instead of manual starter-file edits.
 - [x] Add copied-repo bootstrap support so pilot repos with broken submodule
       `.git` indirection can be normalized without manual git surgery.
+- [x] Freeze the corpus-first portability execution protocol in the active
+      plan chain: fixed anchors plus exploratory queue, `3-5` repo waves,
+      stop-on-first-`engine_bug`, full-anchor reruns after each engine fix,
+      and explicit failure triage.
+- [ ] Seed the first fixed Python anchor corpus:
+      `3-4` maintainer-source repos, `3-4` external mainstream repos, `1-2`
+      external adversarial/weird repos, plus the two existing regression
+      anchors already proven in this lane.
+- [ ] Record the first anchor corpus directly in this plan's repo matrix with
+      repo class, source bucket, local path, and current run state so the same
+      rerun set survives across sessions.
+- [ ] Run Wave 1 of the corpus-first proof program on `3-5` newly seeded
+      repos, stop on the first new `engine_bug`, and rerun all green anchors
+      after each engine fix before widening again.
+- [ ] Keep corpus widening subordinate to blocker honesty: if the current wave
+      bottoms out into only Step-0/startup or governed-push failures, stop
+      adding repos and close those `MP-377` blockers before resuming corpus
+      expansion.
 - [x] Promote compatibility shims into a portable governance primitive with
       structural validation and policy-owned metadata requirements instead of
       leaving wrapper exceptions as repo-specific layout hacks.
@@ -360,6 +493,14 @@ confidence alone.
       `governance-bootstrap`, `startup-context`, routed base checks, and
       generated instruction surfaces work through repo policy / repo-pack
       inputs instead of VoiceTerm defaults.
+- [ ] Keep the governed external Python repo matrix explicit and honest:
+      two real repos are enough to expose engine defects and seed regression
+      anchors, but not enough to claim broad portability. Expand the matrix
+      before making any "works on arbitrary repos" claim.
+- [ ] Record every corpus run as `engine_bug` or `adopter_finding`, rerun the
+      failing repo plus every previously tested matrix repo after each engine
+      fix, and only import/adjudicate adopter findings once the engine path is
+      clean on that repo.
 - [ ] Treat that fixture matrix as a permanent benchmark suite, not a one-off
       audit. Keep a fixed minimal set of portability fixtures plus at least one
       real external repo so regressions in adoption honesty are caught by the
@@ -558,6 +699,22 @@ confidence alone.
 
 ## Progress Log
 
+- 2026-04-02: Promoted corpus-first proof from review advice into the active
+  `MP-376` execution order. This lane now explicitly says to checkpoint the
+  current slice, seed a fixed Python anchor corpus, run waves of `3-5` repos,
+  stop on the first new `engine_bug`, rerun all anchors after each fix, and
+  treat Step-0/startup or governed-push failures as `MP-377` blocker work
+  rather than excuses to keep widening the corpus. That keeps repo pressure
+  testing aggressive without letting the lane collapse into open-ended
+  anecdotal bug-chasing.
+- 2026-04-02: Tightened the portability-proof standard after the first honest
+  external Python reruns. `ci-cd-hub` and `adaptive-hashmap-studio` were
+  enough to expose real core-engine defects and are now useful regression
+  anchors, but they are still only two adversarial samples, not a generality
+  proof. This plan now locks the governed external-Python corpus protocol,
+  failure classification (`engine_bug` vs `adopter_finding`), and visible repo
+  matrix into the active plan chain so future claims expand the same honest
+  adoption path instead of relying on one-off reruns.
 - 2026-04-02: The immediate self-hosting rerun after the honest cross-repo
   proof surfaced one more portability seam in the package-extraction layer.
   `check_structural_complexity` could still fail in repo-package mode because
@@ -1378,6 +1535,18 @@ confidence alone.
 
 ## Session Resume
 
+- 2026-04-02 priority lock: do the corpus-first proof setup before broader
+  portability widening. Immediate order is: 1) checkpoint the current plan
+  slice, 2) seed the first fixed Python anchor corpus, 3) run Wave 1 on
+  `3-5` repos, 4) stop on the first new `engine_bug`, and 5) if the failures
+  collapse to Step-0/startup or governed push, switch to the owner `MP-377`
+  blocker instead of adding more repos.
+- 2026-04-02 proof-standard correction: do not describe the current state as
+  "portable" or "fixed" from two repos alone. The honest read is narrower:
+  two real Python repos found core-engine portability bugs and now serve as
+  regression anchors, but broader proof still requires a growing governed
+  corpus on the same bootstrap/probe/check path plus target-local/exported
+  Step-0 and governed-push authority closure.
 - 2026-04-02 follow-on proof rule: keep the current portability lane on
   closure, not corpus growth. After any future shared-helper/package move,
   rerun both the legacy root shim surface and the packaged check load path
@@ -1524,6 +1693,12 @@ confidence alone.
 
 ## Audit Evidence
 
+- External Python corpus loop:
+  `python3 dev/scripts/devctl.py governance-bootstrap --target-repo <path> --force-starter-policy --format md`
+  `python3 dev/scripts/devctl.py probe-report --repo-path <path> --adoption-scan --format json`
+  `python3 dev/scripts/devctl.py check --profile ci --repo-path <path> --adoption-scan --format json`
+  `python3 dev/scripts/devctl.py governance-import-findings --input <raw-findings.jsonl> --repo-name <repo> --repo-path <path> --scan-mode external --format md`
+  `python3 dev/scripts/devctl.py governance-review --record --repo-name <repo> --repo-path <path> --scan-mode external --signal-type <guard|probe|audit> --check-id <id> --verdict <verdict> --finding-class <class> --recurrence-risk <risk> --prevention-surface <surface> --path <repo-relative-path> --format md`
 - Portable resolver inspection: `python3 dev/scripts/devctl.py quality-policy --format md`
 - Probe packet + hotspot report: `python3 dev/scripts/devctl.py probe-report --format md`
 - First-run onboarding scan:

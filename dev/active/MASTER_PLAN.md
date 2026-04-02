@@ -156,13 +156,16 @@
   `python3 dev/scripts/devctl.py check --profile ci` bundle is green again.
 - Latest same-lane closure on 2026-04-02: cross-repo proof is now honest on
   two real adopters for engine-run `probe-report --repo-path` and
-  `check --repo-path`. The authority-loop lane closed two escaped portability
-  defects in the same slice: valid Python headers with inline comments or
-  indented method signatures no longer crash the shared function scanner, and
-  external code-shape runs no longer import VoiceTerm-only
+  `check --repo-path`, but that is still only an adversarial sample, not a
+  broad portability claim. The authority-loop lane closed two escaped
+  portability defects in the same slice: valid Python headers with inline
+  comments or indented method signatures no longer crash the shared function
+  scanner, and external code-shape runs no longer import VoiceTerm-only
   `app/operator_console/**` override debt when those files do not exist in the
-  target repo. Remaining honest `Gate 2` gap: `startup-context` still needs a
-  target-local/exported governance stack for Step-0 proof because it has no
+  target repo. `MP-376` now keeps an explicit external Python repo matrix plus
+  failure-classification/rerun protocol so future claims widen the same honest
+  adoption path. Remaining honest `Gate 2` gap: `startup-context` still needs
+  a target-local/exported governance stack for Step-0 proof because it has no
   `--repo-path` mode yet.
 - Latest same-lane closure on 2026-04-02: the follow-on self-hosting proof for
   that same portability slice exposed one more compatibility-seam miss. The
@@ -3411,6 +3414,26 @@ become the main product surface.
   report "`dev/scripts/devctl` is still semantically noisy" without needing a
   blocking crowding violation first. Latest tracked follow-ups from that
   intake:
+  - [x] Freeze corpus-first proof as the immediate `MP-376` execution order:
+    checkpoint the current slice, seed a fixed Python anchor corpus, run
+    `3-5` repo waves, stop on the first new `engine_bug`, rerun all green
+    anchors after each engine fix, and switch to the owner `MP-377` blocker
+    if the remaining failures collapse to Step-0/startup or governed push.
+  - [ ] Seed the first fixed Python anchor corpus for that execution order:
+    `3-4` maintainer-source repos, `3-4` external mainstream repos, `1-2`
+    external adversarial/weird repos, plus the two existing regression
+    anchors already proven in `MP-376`.
+  - [ ] Run Wave 1 of that corpus-first proof program on `3-5` repos and keep
+    widening only after the full green-anchor rerun passes again.
+  - [ ] Keep the external Python adopter corpus explicit and honest in the
+    active plan chain: two real repos are enough to expose engine defects and
+    seed regression anchors, but not enough to claim broad portability. Run
+    the same governed bootstrap/probe/check path on every new repo and keep
+    the matrix current in `dev/active/portable_code_governance.md`.
+  - [ ] Classify every external-repo failure as `engine_bug` or
+    `adopter_finding`, rerun the newly failing repo plus every previously
+    tested repo after each engine fix, and only import/adjudicate adopter
+    findings once the engine path is clean on that repo.
   - [ ] Surface self-hosting governance completeness as portable meta-findings
     so low test/guard/subsystem coverage becomes measured engine evidence, not
     audit-only prose. (evidence: `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 34)

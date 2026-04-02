@@ -129,6 +129,45 @@ external findings across those two runs. The remaining truthful gap is Step 0:
 `startup-context` still has no `--repo-path` mode, so real adopter startup/push
 proof still requires the governance stack to exist in the target repo checkout.
 
+### 2026-04-02 - External-repo proof now uses a governed corpus standard instead of two-repo anecdotes
+
+The next process correction was about proof language, not another code patch.
+Two external Python repos were enough to expose real engine portability bugs
+and seed regression anchors, but they were not enough to justify a broad
+"works on any repo" claim.
+
+The owner-plan chain now makes that standard explicit. `MP-376` carries a
+governed external Python repo matrix plus one fixed adoption path
+(`governance-bootstrap`, `probe-report --repo-path --adoption-scan`, and
+`check --profile ci --repo-path --adoption-scan`), records every failure as
+either `engine_bug` or `adopter_finding`, and requires rerunning the newly
+failing repo plus all previously tested matrix repos after each engine fix.
+Raw external findings still flow through `governance-import-findings`, and
+adjudicated outcomes still flow through `governance-review --record`, but only
+after the engine run is honest on that repo.
+
+That matters because it keeps the portable claim tied to repeatable evidence
+instead of clean anecdotes. The same plan update also keeps the remaining
+startup/push gap explicit: Step 0 `startup-context` and governed push are still
+blocking architecture work until the target-local/exported authority path
+works without new core patches.
+
+### 2026-04-02 - Corpus-first portability proof is now the immediate execution order, not just a review recommendation
+
+The next correction was about execution order. It was not enough to say "keep
+testing more repos" and leave the rest in chat memory. The active plan chain
+now makes corpus-first proof the next concrete `MP-376` lane: checkpoint the
+current slice, seed a fixed Python anchor corpus, run waves of `3-5` repos,
+stop on the first new `engine_bug`, rerun all green anchors after each fix,
+and only keep widening when the rerun set stays clean.
+
+That also makes the stop condition explicit instead of fuzzy. If a corpus wave
+reduces to Step-0/startup authority or governed-push failures, the process is
+to stop adding repos and switch to the owner `MP-377` blocker. More samples do
+not close that architecture gap. This matters because it keeps the repo using
+external-repo pressure as a disciplined proof harness for the plan rather than
+letting the plan dissolve into unbounded reactive bug-chasing.
+
 ### 2026-04-01 - External integration analysis now has to land as owner-plan deltas, not shadow roadmap prose
 
 The repo accepted a useful external architecture review in

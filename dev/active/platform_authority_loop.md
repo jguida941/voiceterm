@@ -1453,6 +1453,18 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-02 corpus-first handoff rule: `MP-376` now treats external-repo
+  corpus waves as the immediate proof harness, but this lane remains the stop
+  point for the same program. If a wave bottoms out into only Step-0/startup
+  or governed-push failures, stop widening the corpus and close the owner
+  blocker here before returning to more repo samples.
+- 2026-04-02 proof-standard correction: the two current adopter repos are
+  regression anchors, not a generality proof. Treat the engine as honest on
+  two adversarial samples for `probe-report --repo-path` and
+  `check --repo-path`, keep widening the governed external Python matrix under
+  `MP-376`, and do not describe Step-0 `startup-context` or governed push as
+  portable until the target-local/exported authority path works without new
+  core patches.
 - 2026-04-02 external proof moved from assumption to measured state. On local
   clones of `ci-cd-hub` and `adaptive-hashmap-studio`, engine-run
   `probe-report --repo-path --adoption-scan` and `check --profile ci
@@ -1893,6 +1905,12 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-02: Locked the cross-repo proof readout to avoid overclaiming. The
+  current honest state is "two external Python repos are enough to expose and
+  regression-test engine bugs," not "the engine now works on any repo." The
+  growing corpus protocol and repo matrix now live in `MP-376`, while this
+  lane keeps the remaining Step-0/startup and governed-push portability gap
+  explicit as blocking architecture work.
 - 2026-04-02: Closed the next real cross-repo proof misses behind the current
   `MP-377` authority loop. The first pilot rerun on
   `adaptive-hashmap-studio` found a shared Python signature-parser bug in
