@@ -236,14 +236,34 @@ Populate `startup_surface_tokens` on all 14 ContractSpec rows (2-3 tokens each, 
 
 ## Commit-Level Proof (for ChatGPT Pro — verify against commits, not file pages)
 
-| What | Commit | Proof command |
-|---|---|---|
-| ReviewerRuntimeContract exists | `7e4d1c2` | `git show 7e4d1c2:dev/scripts/devctl/platform/runtime_state_contract_rows.py \| grep ReviewerRuntimeContract` |
-| Doctor surface exists | `7e4d1c2` | `git show 7e4d1c2:dev/scripts/devctl/review_channel/reviewer_runtime_doctor.py \| head -5` |
-| Bridge checks typed state first | `7e4d1c2` | `git show 7e4d1c2:dev/scripts/devctl/review_channel/bridge_validation_acceptance.py \| grep _runtime_review_accepted` |
-| startup_surface_tokens populated | `7e4d1c2` | `git show 7e4d1c2:dev/scripts/devctl/platform/runtime_identity_contract_rows.py \| grep startup_surface_tokens` |
-| Push uses publish_clear not bridge | `7e4d1c2` | `state.py` line 297: `review_gate_allows_push=bool(reviewer_runtime.publish_clear)` |
-| Audit file matches code | `85be0aa` | This file corrected to reflect actual branch state |
+### Implemented and pushed — with file:line proof
+
+| # | What | Commit | File | Lines | Proof |
+|---|---|---|---|---|---|
+| 1 | ReviewerRuntimeContract ContractSpec | `7e4d1c2` | `dev/scripts/devctl/platform/runtime_state_contract_rows.py` | 131-193 | 10-field ContractSpec with `contract_id="ReviewerRuntimeContract"` |
+| 2 | ReviewerRuntimeContract dataclass | `7e4d1c2` | `dev/scripts/devctl/runtime/reviewer_runtime_models.py` | 37-52 | Fields: reviewer_mode, freshness, stale_reason, last_poll, rollover, session_owner, recovery, acceptance, publish_clear |
+| 3 | Contract builder | `7e4d1c2` | `dev/scripts/devctl/review_channel/reviewer_runtime_contract.py` | 1-* | `build_reviewer_runtime_contract()` assembles from bridge_liveness + attention + session |
+| 4 | Doctor projection | `7e4d1c2` | `dev/scripts/devctl/review_channel/reviewer_runtime_doctor.py` | 1-* | 18-field health surface projecting from the contract |
+| 5 | Session owner | `7e4d1c2` | `dev/scripts/devctl/review_channel/reviewer_runtime_session_owner.py` | 1-* | Terminal PID + window_id ownership |
+| 6 | Rollover state owner | `7e4d1c2` | `dev/scripts/devctl/review_channel/reviewer_runtime_rollover.py` | 1-* | rollover_id, ack_pending, trigger reason |
+| 7 | Bridge acceptance demoted | `7e4d1c2` | `dev/scripts/devctl/review_channel/bridge_validation_acceptance.py` | 50-58 | `_runtime_review_accepted()` checks typed state FIRST, prose is fallback |
+| 8 | Push reads from contract | `7e4d1c2` | `dev/scripts/devctl/review_channel/state.py` | 130-133, 297 | `review_accepted` from `reviewer_runtime.review_acceptance`, push uses `reviewer_runtime.publish_clear` |
+| 9 | Startup reads from contract | `7e4d1c2` | `dev/scripts/devctl/runtime/startup_context.py` | 125-126, 145 | `review_accepted` and `publish_clear` from `state.reviewer_runtime` |
+| 10 | startup_surface_tokens populated | `7e4d1c2` | All 4 contract row files | Various | All 15 ContractSpec rows have 3 tokens each |
+| 11 | Automated reviewer rollover | `09349aa` | `dev/scripts/devctl/review_channel/reviewer_follow_recovery.py` | 159-236 | `maybe_auto_trigger_rollover_on_stale_codex()` with 5 attention states |
+| 12 | Terminal cleanup | `37f683d` | `dev/scripts/devctl/review_channel/terminal_app.py` | 146-219 | `cleanup_terminal_session()` with SIGTERM + window close |
+| 13 | Audit matches code | `85be0aa` | `AUDIT_STATUS.md` | All | Corrected to reflect actual branch state |
+
+### NOT yet implemented — what remains
+
+| # | What | Status | Where it goes | Est. size |
+|---|---|---|---|---|
+| A | Daemon auto-start in launch | NOT CODED | `bridge_launch_control.py` | ~10 lines |
+| B | launchd plist for crash restart | NOT CODED | `dev/config/` or `dev/scripts/` | ~20 lines |
+| C | Register doctor in parser | NOT CODED | `parser.py` + `__init__.py` | ~5 lines |
+| D | contract_ownership_map in StartupContext | NOT CODED | `startup_context.py` | ~15 lines |
+| E | Prove clean end-to-end path | NOT TESTED | Integration test | TBD |
+| F | Prove rescue end-to-end path | NOT TESTED | Integration test | TBD |
 
 ## Next Steps (from ChatGPT Pro's latest review)
 
