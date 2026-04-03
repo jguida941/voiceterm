@@ -24,6 +24,7 @@ from ..review_channel_command import (
 from ..review_channel_command.reviewer_support import resolve_checkpoint_instruction
 from ..review_channel_command.reviewer_support import resolve_checkpoint_body
 from ..review_channel_command.reviewer_support import resolve_checkpoint_payload_file
+from .reviewer_runtime_snapshot import attach_reviewer_runtime_snapshot
 from .status import _attach_backend_contract
 
 
@@ -72,6 +73,11 @@ def build_reviewer_state_report(
     )
 
     _attach_backend_contract(report, repo_root=repo_root, paths=runtime_paths)
+    attach_reviewer_runtime_snapshot(
+        report,
+        review_state=status_snapshot.review_state,
+        attention=status_snapshot.attention,
+    )
     if args.action in {"reviewer-heartbeat", "reviewer-checkpoint"}:
         report["ok"] = True
         report["exit_ok"] = True

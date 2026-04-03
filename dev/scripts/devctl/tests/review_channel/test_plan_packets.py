@@ -41,6 +41,9 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     summary="Apply accepted planning patch",
                     body="Patch the canonical plan progress log and ready gate.",
                     evidence_refs=("dev/active/platform_authority_loop.md#L412",),
+                    guidance_refs=(
+                        "probe_design_smells@dev/active/platform_authority_loop.md:412",
+                    ),
                     context_pack_refs=(),
                     confidence=1.0,
                     requested_action="patch_plan",
@@ -83,14 +86,26 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             ["progress:proof_pass", "checklist:phase_1"],
         )
         self.assertEqual(
+            bundle.review_state["packets"][0]["guidance_refs"],
+            ["probe_design_smells@dev/active/platform_authority_loop.md:412"],
+        )
+        self.assertEqual(
             bundle.review_state["packets"][0]["mutation_op"],
             "append_progress_log",
         )
         self.assertEqual(packet["target_revision"], "sha256:abc123")
         self.assertEqual(packet["intake_ref"], "intake://session-2026-03-19")
         self.assertEqual(
+            packet["guidance_refs"],
+            ["probe_design_smells@dev/active/platform_authority_loop.md:412"],
+        )
+        self.assertEqual(
             apply_event["anchor_refs"],
             ["progress:proof_pass", "checklist:phase_1"],
+        )
+        self.assertEqual(
+            apply_event["guidance_refs"],
+            ["probe_design_smells@dev/active/platform_authority_loop.md:412"],
         )
         self.assertEqual(apply_event["mutation_op"], "append_progress_log")
 

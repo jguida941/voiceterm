@@ -1,0 +1,171 @@
+"""Typed reviewer-runtime contract builders and projections."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+from ..runtime.review_state_models import (
+    CollaborationSessionState,
+    ReviewCurrentSessionState,
+)
+from ..runtime.reviewer_runtime_models import (
+    ReviewerAcceptanceState,
+    ReviewerLastPollState,
+    ReviewerRuntimeContract,
+)
+from .bridge_validation_acceptance import review_acceptance_projection
+from .handoff import BridgeSnapshot
+from .peer_liveness import reviewer_mode_is_active
+from .peer_recovery import STALE_PEER_RECOVERY
+from .reviewer_runtime_doctor import build_reviewer_doctor_surface
+from .reviewer_runtime_rollover import resolve_reviewer_rollover_state
+from .reviewer_runtime_session_owner import resolve_reviewer_session_owner
+
+
+@dataclass(frozen=True)
+class ReviewerRuntimeInputs:
+    """Grouped inputs for building the reviewer-runtime authority contract."""
+
+    snapshot: BridgeSnapshot | None
+    bridge_liveness: Mapping[str, object]
+    current_session: ReviewCurrentSessionState
+    attention: Mapping[str, object] | None = None
+    collaboration: CollaborationSessionState | None = None
+    session_output_root: Path | None = None
+    rollover_dir: Path | None = None
+    bridge_text: str | None = None
+    rollover_state_override: Mapping[str, object] | None = None
+    recovery_action_override: str | None = None
+
+
+def reviewer_runtime_contract_to_dict(
+    contract: ReviewerRuntimeContract | None,
+) -> dict[str, object] | None:
+    """Convert a reviewer-runtime contract into report-friendly JSON."""
+    if contract is None:
+        return None
+    return asdict(contract)
+
+
+def build_reviewer_runtime_contract(
+    inputs: ReviewerRuntimeInputs,
+) -> ReviewerRuntimeContract:
+    """Build the reviewer lifecycle owner from typed review-channel inputs."""
+    bridge_liveness = inputs.bridge_liveness
+    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "single_agent")
+    effective_mode = str(
+        bridge_liveness.get("effective_reviewer_mode") or reviewer_mode
+    )
+    reviewer_freshness = str(
+        bridge_liveness.get("reviewer_freshness") or "unknown"
+    )
+    stale_reason = _stale_reason(inputs.attention)
+    review_acceptance = _review_acceptance_state(
+        snapshot=inputs.snapshot,
+        bridge_liveness=bridge_liveness,
+        current_session=inputs.current_session,
+    )
+    rollover = resolve_reviewer_rollover_state(
+        rollover_dir=inputs.rollover_dir,
+        bridge_text=inputs.bridge_text,
+        attention=inputs.attention,
+        override=inputs.rollover_state_override,
+    )
+    return ReviewerRuntimeContract(
+        reviewer_mode=reviewer_mode,
+        effective_reviewer_mode=effective_mode,
+        reviewer_freshness=reviewer_freshness,
+        stale_reason=stale_reason,
+        last_poll=ReviewerLastPollState(
+            last_codex_poll_utc=str(bridge_liveness.get("last_codex_poll_utc") or ""),
+            last_codex_poll_age_seconds=int(
+                bridge_liveness.get("last_codex_poll_age_seconds") or 0
+            ),
+        ),
+        rollover=rollover,
+        session_owner=resolve_reviewer_session_owner(
+            collaboration=inputs.collaboration,
+            session_output_root=inputs.session_output_root,
+        ),
+        recovery_action_allowed=_recovery_action_allowed(
+            attention=inputs.attention,
+            override=inputs.recovery_action_override,
+        ),
+        review_acceptance=review_acceptance,
+        publish_clear=_publish_clear(
+            reviewer_mode=reviewer_mode,
+            effective_reviewer_mode=effective_mode,
+            reviewer_freshness=reviewer_freshness,
+            stale_reason=stale_reason,
+            rollover=rollover,
+            review_accepted=review_acceptance.review_accepted,
+        ),
+    )
+
+
+def _review_acceptance_state(
+    *,
+    snapshot: BridgeSnapshot | None,
+    bridge_liveness: Mapping[str, object],
+    current_session: ReviewCurrentSessionState,
+) -> ReviewerAcceptanceState:
+    if snapshot is not None:
+        current_verdict, open_findings, review_accepted = review_acceptance_projection(
+            snapshot
+        )
+        return ReviewerAcceptanceState(
+            current_verdict=current_verdict,
+            open_findings=open_findings,
+            review_accepted=review_accepted,
+        )
+    open_findings = (
+        current_session.open_findings
+        or str(bridge_liveness.get("open_findings") or "")
+    )
+    return ReviewerAcceptanceState(
+        current_verdict="",
+        open_findings=open_findings,
+        review_accepted=bool(bridge_liveness.get("review_accepted")),
+    )
+def _recovery_action_allowed(
+    *,
+    attention: Mapping[str, object] | None,
+    override: str | None,
+) -> str:
+    if override is not None:
+        return override.strip()
+    attention_status = str((attention or {}).get("status") or "").strip()
+    recovery = STALE_PEER_RECOVERY.get(attention_status)
+    if not isinstance(recovery, dict):
+        return ""
+    return str(recovery.get("recommended_command") or "").strip()
+
+
+def _publish_clear(
+    *,
+    reviewer_mode: str,
+    effective_reviewer_mode: str,
+    reviewer_freshness: str,
+    stale_reason: str,
+    review_accepted: bool,
+    rollover: ReviewerRolloverState,
+) -> bool:
+    if not reviewer_mode_is_active(reviewer_mode):
+        return True
+    if not reviewer_mode_is_active(effective_reviewer_mode):
+        return False
+    return (
+        review_accepted
+        and reviewer_freshness == "fresh"
+        and not stale_reason
+        and not rollover.ack_pending
+    )
+
+
+def _stale_reason(attention: Mapping[str, object] | None) -> str:
+    status = str((attention or {}).get("status") or "").strip()
+    if status in {"", "healthy"}:
+        return ""
+    return status

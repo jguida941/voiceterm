@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
+
+from .reviewer_runtime_models import (
+    ReviewerAcceptanceState,
+    ReviewerLastPollState,
+    ReviewerRolloverState,
+    ReviewerRuntimeContract,
+    ReviewerSessionOwnerState,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,10 +197,7 @@ class ReviewBridgeState:
     reviewed_hash_current: bool | None = None
     review_needed: bool | None = None
     review_accepted: bool = False
-    """Reviewer-owned acceptance gate: True only when verdict shows
-    accepted/all-green/resolved AND findings are clear/none.  Populated by
-    the projection layer using the same semantics as
-    ``bridge_validation.bridge_review_accepted()``."""
+    """Compatibility projection over ``ReviewerRuntimeContract.review_acceptance``."""
     implementer_completion_stall: bool = False
     publisher_running: bool = False
     codex_conductor_active: bool = False
@@ -293,6 +298,9 @@ class ReviewState:
     attention: ReviewAttentionState | None
     packets: tuple[ReviewPacketState, ...]
     registry: AgentRegistryState
+    reviewer_runtime: ReviewerRuntimeContract = field(
+        default_factory=ReviewerRuntimeContract
+    )
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
 

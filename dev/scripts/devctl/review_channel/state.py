@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .attention import derive_bridge_attention
-from .bridge_validation import bridge_review_accepted, validate_live_bridge_contract
+from .bridge_validation import validate_live_bridge_contract
 from .core import (
     LaneAssignment,
     ensure_launcher_prereqs,
@@ -30,6 +30,7 @@ from .projection_bundle import (
 from .current_session_projection import build_bridge_current_session
 from .reviewer_worker import check_review_needed, reviewer_worker_tick_to_dict
 from .status_models import ReviewChannelStatusSnapshot
+from .status_push_decision import build_status_push_decision
 from .status_bundle import (
     StatusProjectionContext,
     StatusProjectionPayload,
@@ -42,6 +43,10 @@ from .status_projection_helpers import (
     hybrid_loop_errors,
 )
 from .session_state_hints import detect_session_state_hints, session_state_hints_to_dict
+from .reviewer_runtime_contract import (
+    ReviewerRuntimeInputs,
+    build_reviewer_runtime_contract,
+)
 from .lifecycle_state import (
     DEFAULT_REVIEW_STATUS_DIR_REL,
     PublisherHeartbeat,
@@ -53,9 +58,6 @@ from .lifecycle_state import (
 )
 from .attach_auth_policy import build_attach_auth_policy
 from .service_identity import build_service_identity
-from ..runtime.project_governance_push import push_enforcement_from_mapping
-from ..runtime.reviewer_gate_logic import reviewer_loop_block_state
-from ..runtime.startup_push_decision import derive_push_decision
 
 
 def refresh_status_snapshot(
@@ -94,7 +96,6 @@ def refresh_status_snapshot(
         bridge_text=bridge_text,
     )
     bridge_liveness["review_needed"] = bool(reviewer_worker.get("review_needed"))
-    bridge_liveness["review_accepted"] = bridge_review_accepted(bridge_snapshot)
     merged_errors.extend(validate_live_bridge_contract(bridge_snapshot))
     publisher_state, reviewer_supervisor_state = _load_lifecycle_states(output_root)
     _apply_lifecycle_bridge_liveness(
@@ -114,14 +115,30 @@ def refresh_status_snapshot(
         )
     merged_warnings.extend(bridge_liveness_warnings(bridge_liveness))
     merged_errors.extend(hybrid_loop_errors(bridge_liveness))
+    current_session = build_bridge_current_session(bridge_snapshot, bridge_liveness)
     attention = derive_bridge_attention(
         bridge_liveness, contract_errors=merged_errors,
     )
-    current_session = build_bridge_current_session(bridge_snapshot, bridge_liveness)
-    push_decision = _build_status_push_decision(
+    reviewer_runtime = build_reviewer_runtime_contract(
+        ReviewerRuntimeInputs(
+            snapshot=bridge_snapshot,
+            bridge_liveness=bridge_liveness,
+            current_session=current_session,
+            attention=attention,
+            session_output_root=output_root,
+            rollover_dir=output_root.parent / "rollovers",
+            bridge_text=bridge_text,
+        )
+    )
+    bridge_liveness["review_accepted"] = (
+        reviewer_runtime.review_acceptance.review_accepted
+    )
+    bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
+    push_decision = build_status_push_decision(
         bridge_liveness=bridge_liveness,
         attention=attention,
         current_session=current_session,
+        reviewer_runtime=reviewer_runtime,
     )
     service_identity = build_service_identity(
         repo_root=repo_root,
@@ -271,34 +288,6 @@ def _build_reviewer_worker_snapshot(
             ),
         )
     )
-
-
-def _build_status_push_decision(
-    *,
-    bridge_liveness: dict[str, object],
-    attention: dict[str, object],
-    current_session,
-) -> dict[str, object]:
-    push_enforcement_payload = bridge_liveness.get("push_enforcement")
-    if not isinstance(push_enforcement_payload, dict):
-        return {}
-    push_enforcement = push_enforcement_from_mapping(push_enforcement_payload)
-    implementation_blocked, implementation_block_reason = reviewer_loop_block_state(
-        reviewer_mode=str(bridge_liveness.get("reviewer_mode") or ""),
-        claude_ack_current=bool(bridge_liveness.get("claude_ack_current")),
-        attention_status=str(attention.get("status") or ""),
-        implementer_status=str(current_session.implementer_status or "").strip(),
-        implementer_ack=str(current_session.implementer_ack or "").strip(),
-        implementer_ack_state=str(current_session.implementer_ack_state or "").strip(),
-    )
-    return derive_push_decision(
-        push_enforcement,
-        review_gate_allows_push=bool(bridge_liveness.get("review_accepted")),
-        implementation_blocked=implementation_blocked,
-        implementation_block_reason=implementation_block_reason,
-    ).to_dict()
-
-
 def _build_reduced_runtime(
     *,
     publisher_state: dict[str, object],

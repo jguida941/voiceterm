@@ -21,6 +21,7 @@ class ReviewPacketRow(TypedDict):
     summary: object
     body: object
     evidence_refs: list[object]
+    guidance_refs: list[object]
     context_pack_refs: list[dict[str, object]]
     confidence: float
     requested_action: object

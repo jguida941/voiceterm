@@ -24,6 +24,7 @@ from .review_state_models import (
     ReviewSessionState,
     ReviewState,
 )
+from .reviewer_runtime_parser import reviewer_runtime_state_from_payload
 
 
 def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | None:
@@ -112,6 +113,13 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         bridge=bridge_state,
         registry=registry_state,
     )
+    reviewer_runtime_state = reviewer_runtime_state_from_payload(
+        reviewer_runtime=_mapping(review_payload.get("reviewer_runtime")),
+        bridge=bridge,
+        bridge_liveness=bridge_liveness,
+        current_session=current_session_state,
+        attention=attention,
+    )
 
     return ReviewState(
         schema_version=_int(payload.get("schema_version"))
@@ -159,6 +167,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         attention=_attention_state_from_mapping(attention),
         packets=_packet_states_from_value(review_payload.get("packets")),
         registry=registry_state,
+        reviewer_runtime=reviewer_runtime_state,
         warnings=warnings,
         errors=errors,
     )

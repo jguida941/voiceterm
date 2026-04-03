@@ -56,6 +56,23 @@ old conductor first and only then closes the old Terminal window. The outcome
 stays inside the existing MP-355 runtime contract instead of adding a second
 terminal-lifecycle side channel.
 
+### 2026-04-02 - Reviewer lifecycle truth now has one typed owner instead of split bridge/status heuristics
+
+The repo already had typed review-state projections, status surfaces, and
+bridge-derived acceptance signals, but reviewer truth was still spread across
+bridge fields, doctor/status render helpers, and follow/recovery heuristics.
+That made `review_accepted` look typed while the deeper lifecycle still lived
+in projections.
+
+That split is closed now. `ReviewState` carries a dedicated
+`reviewer_runtime` contract that owns reviewer mode/effective mode, freshness,
+stale reason, last poll, rollover state, session owner, allowed recovery
+action, review acceptance, and publish-clear state. `bridge_review_accepted()`,
+doctor output, and startup/status projections now read from that contract
+instead of acting like parallel authority, and the current 14 implemented
+platform contract rows all declare `startup_surface_tokens` so bootstrap
+surfaces expose the same contract inventory the closure guard validates.
+
 ### 2026-04-02 - Phone-steered Claude remote control now stays on top of the real review-channel authority instead of inventing a fake Codex self-heal
 
 The repo already had most of the right pieces for phone-driven local control:

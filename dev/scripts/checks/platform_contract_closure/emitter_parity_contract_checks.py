@@ -14,6 +14,7 @@ _EXPECTED_COMPAT_KEYS = frozenset({
     "runtime",
     "service_identity",
     "attach_auth_policy",
+    "doctor",
     "agents",
 })
 

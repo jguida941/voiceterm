@@ -9,6 +9,11 @@ from typing import Callable
 
 from .follow_loop import STALL_ESCALATION_POLLS
 from .peer_liveness import AttentionStatus, reviewer_mode_is_active
+from .reviewer_follow_runtime import (
+    reviewer_progress_token,
+    reviewer_runtime_mapping,
+    reviewer_runtime_text,
+)
 
 _AUTO_RECOVERY_ATTENTION_STATUSES = frozenset(
     {
@@ -76,6 +81,7 @@ def maybe_auto_recover_stale_implementer(
     """Return one recovery payload when the implementer side is stale."""
     if recovery_fn is None:
         return None
+    reviewer_runtime = reviewer_runtime_mapping(recovery_input.report)
     bridge_liveness = recovery_input.report.get("bridge_liveness")
     attention = recovery_input.report.get("attention")
     if not isinstance(bridge_liveness, dict) or not isinstance(attention, dict):
@@ -86,7 +92,8 @@ def maybe_auto_recover_stale_implementer(
         )
         return None
     reviewer_mode = str(
-        bridge_liveness.get("effective_reviewer_mode")
+        reviewer_runtime_text(reviewer_runtime, "effective_reviewer_mode")
+        or bridge_liveness.get("effective_reviewer_mode")
         or bridge_liveness.get("reviewer_mode")
         or ""
     )
@@ -110,9 +117,20 @@ def maybe_auto_recover_stale_implementer(
         recovery_input.progress_token,
         key_attr="last_recovery_key",
     )
-    attention_status = str(attention.get("status") or "")
+    attention_status = (
+        reviewer_runtime_text(reviewer_runtime, "stale_reason")
+        or str(attention.get("status") or "")
+    )
+    recovery_action_allowed = reviewer_runtime_text(
+        reviewer_runtime,
+        "recovery_action_allowed",
+    )
     if (
         attention_status not in _AUTO_RECOVERY_ATTENTION_STATUSES
+        or (
+            recovery_action_allowed
+            and "review-channel --action recover" not in recovery_action_allowed
+        )
         or unchanged_polls < STALL_ESCALATION_POLLS
     ):
         return None
@@ -164,6 +182,7 @@ def maybe_auto_trigger_rollover_on_stale_codex(
     """Return one rollover payload when the reviewer side stays stale."""
     if rollover_fn is None:
         return None
+    reviewer_runtime = reviewer_runtime_mapping(rollover_input.report)
     bridge_liveness = rollover_input.report.get("bridge_liveness")
     attention = rollover_input.report.get("attention")
     if not isinstance(bridge_liveness, dict) or not isinstance(attention, dict):
@@ -174,27 +193,32 @@ def maybe_auto_trigger_rollover_on_stale_codex(
         )
         return None
 
-    attention_status = str(attention.get("status") or "")
-    reviewer_progress_token = _reviewer_progress_token(
+    attention_status = (
+        reviewer_runtime_text(reviewer_runtime, "stale_reason")
+        or str(attention.get("status") or "")
+    )
+    reviewer_progress = reviewer_progress_token(
+        reviewer_runtime=reviewer_runtime,
         bridge_liveness=bridge_liveness,
         attention_status=attention_status,
     )
     reviewer_mode = str(
-        bridge_liveness.get("effective_reviewer_mode")
+        reviewer_runtime_text(reviewer_runtime, "effective_reviewer_mode")
+        or bridge_liveness.get("effective_reviewer_mode")
         or bridge_liveness.get("reviewer_mode")
         or ""
     )
     if not reviewer_mode_is_active(reviewer_mode):
         _refresh_stall_progress(
             rollover_input.rollover_state,
-            reviewer_progress_token,
+            reviewer_progress,
             key_attr="last_rollover_key",
         )
         return None
 
     unchanged_polls = _refresh_stall_progress(
         rollover_input.rollover_state,
-        reviewer_progress_token,
+        reviewer_progress,
         key_attr="last_rollover_key",
     )
     if (
@@ -203,7 +227,7 @@ def maybe_auto_trigger_rollover_on_stale_codex(
     ):
         return None
 
-    rollover_key = "\0".join((attention_status, reviewer_progress_token)).strip("\0")
+    rollover_key = "\0".join((attention_status, reviewer_progress)).strip("\0")
     if rollover_key and rollover_key == rollover_input.rollover_state.last_rollover_key:
         return None
 
@@ -250,40 +274,6 @@ def _refresh_stall_progress(
         return 0
     state.unchanged_progress_polls += 1
     return state.unchanged_progress_polls
-
-
-def _reviewer_progress_token(
-    *,
-    bridge_liveness: dict[str, object],
-    attention_status: str,
-) -> str:
-    reviewer_mode = str(
-        bridge_liveness.get("effective_reviewer_mode")
-        or bridge_liveness.get("reviewer_mode")
-        or ""
-    ).strip()
-    launch_truth = str(bridge_liveness.get("launch_truth") or "").strip()
-    current_instruction_revision = str(
-        bridge_liveness.get("current_instruction_revision") or ""
-    ).strip()
-    reviewer_turn_token = ""
-    if not bool(bridge_liveness.get("poll_status_automation_only")):
-        reviewer_turn_token = str(bridge_liveness.get("last_codex_poll_utc") or "").strip()
-    payload = "\0".join(
-        field
-        for field in (
-            attention_status,
-            reviewer_mode,
-            launch_truth,
-            str(bool(bridge_liveness.get("codex_conductor_active"))),
-            reviewer_turn_token,
-            current_instruction_revision,
-        )
-        if field
-    )
-    return payload.strip("\0")
-
-
 def _build_recover_action_args(args) -> SimpleNamespace:
     payload = vars(args).copy()
     payload.update(

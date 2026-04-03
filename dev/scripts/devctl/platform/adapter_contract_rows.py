@@ -26,6 +26,7 @@ ADAPTER_CONTRACTS: tuple[ContractSpec, ...] = (
                 "How the adapter executes typed actions for the provider.",
             ),
         ),
+        startup_surface_tokens=("provider_id", "capabilities", "launch_mode"),
     ),
     ContractSpec(
         contract_id="WorkflowAdapter",
@@ -47,6 +48,7 @@ ADAPTER_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Allowlisted workflow actions exposed through the adapter.",
             ),
         ),
+        startup_surface_tokens=("adapter_id", "transport", "allowed_actions"),
     ),
 )
 

@@ -31,12 +31,14 @@ from ...review_channel.state import (
     build_service_identity,
 )
 from .bridge_handler import _run_bridge_action
+from .reviewer_runtime_snapshot import attach_reviewer_runtime_snapshot
 from ..review_channel_command import (
     RuntimePaths,
     _coerce_runtime_paths,
     _event_report_error_detail,
 )
 from ..review_channel_event_handler import _run_event_action
+from .status_support import merge_status_messages, resolve_bridge_refresh_paths
 
 
 def _read_publisher_state_safe(
@@ -197,7 +199,7 @@ def _refresh_bridge_status_report(
 ) -> None:
     """Refresh the on-disk bridge-backed projection bundle for status reads."""
     bridge_path = paths.bridge_path if isinstance(paths.bridge_path, Path) else None
-    review_channel_path, status_dir = _resolve_bridge_refresh_paths(
+    review_channel_path, status_dir = resolve_bridge_refresh_paths(
         repo_root=repo_root,
         paths=paths,
     )
@@ -226,11 +228,16 @@ def _refresh_bridge_status_report(
     report["reviewer_worker"] = snapshot.reviewer_worker
     report["push_decision"] = snapshot.push_decision
     report["projection_paths"] = projection_paths_to_dict(snapshot.projection_paths)
-    report["warnings"] = _merge_status_messages(
+    attach_reviewer_runtime_snapshot(
+        report,
+        review_state=snapshot.review_state,
+        attention=snapshot.attention,
+    )
+    report["warnings"] = merge_status_messages(
         report.get("warnings"),
         snapshot.warnings,
     )
-    report["errors"] = _merge_status_messages(
+    report["errors"] = merge_status_messages(
         report.get("errors"),
         snapshot.errors,
     )
@@ -238,37 +245,6 @@ def _refresh_bridge_status_report(
         report["review_needed"] = bool(snapshot.reviewer_worker.get("review_needed"))
     if report.get("errors"):
         report["ok"] = False
-
-
-def _resolve_bridge_refresh_paths(
-    *,
-    repo_root: Path,
-    paths: RuntimePaths,
-) -> tuple[Path | None, Path | None]:
-    """Resolve canonical refresh paths when callers pass partial runtime-path bundles."""
-    config = active_path_config()
-    review_channel_path = paths.review_channel_path
-    if not isinstance(review_channel_path, Path):
-        review_channel_path = repo_root / config.review_channel_rel
-    status_dir = paths.status_dir
-    if not isinstance(status_dir, Path):
-        status_dir = repo_root / config.review_status_dir_rel
-    return review_channel_path, status_dir
-
-
-def _merge_status_messages(
-    base_messages: object,
-    refreshed_messages: list[str],
-) -> list[str]:
-    merged: list[str] = []
-    if isinstance(base_messages, list):
-        merged.extend(str(message) for message in base_messages)
-    for message in refreshed_messages:
-        if message not in merged:
-            merged.append(message)
-    return merged
-
-
 def _auto_mode_prefers_markdown_bridge(paths: RuntimePaths) -> bool:
     """Prefer bridge-backed status when the transitional bridge is active."""
     bridge_path = paths.bridge_path

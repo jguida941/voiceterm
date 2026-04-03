@@ -2488,6 +2488,35 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 "status": "implementer_relaunch_required",
                 "summary": "Claude looks stuck on stale reviewer state.",
             },
+            "reviewer_runtime": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "reviewer_freshness": "fresh",
+                "stale_reason": "implementer_relaunch_required",
+                "last_poll": {
+                    "last_codex_poll_utc": "2026-04-02T00:00:00Z",
+                    "last_codex_poll_age_seconds": 15,
+                },
+                "rollover": {
+                    "rollover_id": "",
+                    "ack_pending": False,
+                    "trigger": "",
+                },
+                "session_owner": {
+                    "provider": "codex",
+                    "session_name": "codex-review",
+                    "session_pid": 42,
+                    "terminal_window_id": 7,
+                    "script_path": "/tmp/codex-review.sh",
+                },
+                "recovery_action_allowed": "python3 dev/scripts/devctl.py review-channel --action recover --recover-provider claude --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale",
+                "review_acceptance": {
+                    "current_verdict": "Needs-review.",
+                    "open_findings": "- implementer stale",
+                    "review_accepted": False,
+                },
+                "publish_clear": False,
+            },
             "reviewer_worker": {
                 "state": "up_to_date",
                 "review_needed": False,
@@ -2543,6 +2572,11 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             self.assertTrue(
                 recovery_frames[0]["auto_recovery"]["recover_ack_observed"]["observed"]
             )
+            self.assertEqual(
+                frames[0]["reviewer_runtime"]["stale_reason"],
+                "implementer_relaunch_required",
+            )
+            self.assertEqual(frames[0]["doctor"]["status"], "implementer_relaunch_required")
             mocked_recovery.assert_called_once()
             recovery_args = mocked_recovery.call_args.kwargs["args"]
             self.assertEqual(recovery_args.action, "recover")
@@ -2574,6 +2608,35 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "attention": {
                 "status": "review_loop_relaunch_required",
                 "summary": "The declared dual-agent review loop is not actually live.",
+            },
+            "reviewer_runtime": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "reviewer_freshness": "stale",
+                "stale_reason": "review_loop_relaunch_required",
+                "last_poll": {
+                    "last_codex_poll_utc": "2026-04-02T00:00:00Z",
+                    "last_codex_poll_age_seconds": 400,
+                },
+                "rollover": {
+                    "rollover_id": "",
+                    "ack_pending": False,
+                    "trigger": "",
+                },
+                "session_owner": {
+                    "provider": "codex",
+                    "session_name": "codex-review",
+                    "session_pid": 42,
+                    "terminal_window_id": 7,
+                    "script_path": "/tmp/codex-review.sh",
+                },
+                "recovery_action_allowed": "python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale",
+                "review_acceptance": {
+                    "current_verdict": "Needs-review.",
+                    "open_findings": "- runtime missing",
+                    "review_accepted": False,
+                },
+                "publish_clear": False,
             },
             "reviewer_worker": {
                 "state": "up_to_date",
@@ -2635,6 +2698,14 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             self.assertEqual(
                 rollover_frames[0]["auto_rollover"]["handoff_bundle"]["rollover_id"],
                 "rollover-123",
+            )
+            self.assertEqual(
+                frames[0]["reviewer_runtime"]["stale_reason"],
+                "review_loop_relaunch_required",
+            )
+            self.assertEqual(
+                frames[0]["doctor"]["status"],
+                "review_loop_relaunch_required",
             )
             mocked_rollover.assert_called_once()
             rollover_args = mocked_rollover.call_args.kwargs["args"]
@@ -2864,7 +2935,6 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                     recovery_state=recovery_state,
                 ),
             )
-
         self.assertIsNone(result)
         self.assertEqual(recovery_calls, [])
 
@@ -2909,9 +2979,119 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                     rollover_state=rollover_state,
                 ),
             )
-
         self.assertIsNone(result)
         self.assertEqual(rollover_calls, [])
+
+    def test_reviewer_follow_recovery_prefers_reviewer_runtime_contract(self) -> None:
+        from dev.scripts.devctl.review_channel.follow_loop import STALL_ESCALATION_POLLS
+        from dev.scripts.devctl.review_channel.reviewer_follow_recovery import (
+            ReviewerFollowRecoveryInput,
+            ReviewerFollowRecoveryState,
+            maybe_auto_recover_stale_implementer,
+        )
+
+        recovery_calls: list[dict[str, object]] = []
+
+        def fake_recovery(**kwargs) -> tuple[dict[str, object], int]:
+            recovery_calls.append(kwargs)
+            return {"launched": True}, 0
+
+        recovery_state = ReviewerFollowRecoveryState()
+        report = {
+            "review_needed": False,
+            "bridge_liveness": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "tools_only",
+                "current_instruction_revision": "feedfacecafe",
+            },
+            "attention": {
+                "status": "healthy",
+                "summary": "Bridge fields are stale.",
+            },
+            "reviewer_runtime": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "stale_reason": "implementer_relaunch_required",
+                "recovery_action_allowed": "python3 dev/scripts/devctl.py review-channel --action recover --recover-provider claude --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale",
+            },
+        }
+
+        result = None
+        for _ in range(STALL_ESCALATION_POLLS + 2):
+            result = maybe_auto_recover_stale_implementer(
+                recovery_fn=fake_recovery,
+                recovery_input=ReviewerFollowRecoveryInput(
+                    args=SimpleNamespace(),
+                    repo_root=Path("."),
+                    paths={},
+                    report=report,
+                    progress_token="stalled-progress-token",
+                    recovery_state=recovery_state,
+                ),
+            )
+            if result is not None:
+                break
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertTrue(result["recovered"])
+        self.assertEqual(recovery_calls[0]["args"].action, "recover")
+
+    def test_reviewer_follow_rollover_prefers_reviewer_runtime_contract(self) -> None:
+        from dev.scripts.devctl.review_channel.follow_loop import STALL_ESCALATION_POLLS
+        from dev.scripts.devctl.review_channel.reviewer_follow_recovery import (
+            ReviewerFollowRolloverInput,
+            ReviewerFollowRolloverState,
+            maybe_auto_trigger_rollover_on_stale_codex,
+        )
+
+        rollover_calls: list[dict[str, object]] = []
+
+        def fake_rollover(**kwargs) -> tuple[dict[str, object], int]:
+            rollover_calls.append(kwargs)
+            return {"launched": True}, 0
+
+        rollover_state = ReviewerFollowRolloverState()
+        report = {
+            "bridge_liveness": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "tools_only",
+                "current_instruction_revision": "feedfacecafe",
+            },
+            "attention": {
+                "status": "healthy",
+                "summary": "Bridge fields are stale.",
+            },
+            "reviewer_runtime": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "stale_reason": "review_loop_relaunch_required",
+                "last_poll": {
+                    "last_codex_poll_utc": "2026-04-02T00:00:00Z",
+                    "last_codex_poll_age_seconds": 400,
+                },
+            },
+        }
+
+        result = None
+        for _ in range(STALL_ESCALATION_POLLS + 2):
+            result = maybe_auto_trigger_rollover_on_stale_codex(
+                rollover_fn=fake_rollover,
+                rollover_input=ReviewerFollowRolloverInput(
+                    args=SimpleNamespace(await_ack_seconds=180),
+                    repo_root=Path("."),
+                    paths={},
+                    report=report,
+                    rollover_state=rollover_state,
+                ),
+            )
+            if result is not None:
+                break
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertTrue(result["rolled_over"])
+        self.assertEqual(rollover_calls[0]["args"].action, "rollover")
 
     def test_reviewer_follow_appends_daemon_lifecycle_events(self) -> None:
         from dev.scripts.devctl.review_channel.event_store import load_events, resolve_artifact_paths

@@ -122,6 +122,7 @@ class PacketPostRequest:
     summary: str
     body: str
     evidence_refs: tuple[str, ...] = ()
+    guidance_refs: tuple[str, ...] = ()
     context_pack_refs: tuple[dict[str, object], ...] = ()
     confidence: float = 1.0
     requested_action: str = "review_only"

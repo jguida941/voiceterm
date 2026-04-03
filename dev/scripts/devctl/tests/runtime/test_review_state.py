@@ -234,6 +234,83 @@ class ReviewStateTests(unittest.TestCase):
         assert state is not None
         self.assertEqual(state.bridge.reviewer_mode, "single_agent")
 
+    def test_reviewer_runtime_contract_prefers_typed_publish_clear(self) -> None:
+        state = review_state_from_payload(
+            {
+                "review_state": {
+                    "review": {"session_id": "session-runtime-contract"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {
+                        "reviewer_mode": "active_dual_agent",
+                        "effective_reviewer_mode": "active_dual_agent",
+                        "review_accepted": False,
+                    },
+                    "reviewer_runtime": {
+                        "reviewer_mode": "active_dual_agent",
+                        "effective_reviewer_mode": "active_dual_agent",
+                        "reviewer_freshness": "fresh",
+                        "stale_reason": "",
+                        "last_poll": {
+                            "last_codex_poll_utc": "2026-04-02T00:00:00Z",
+                            "last_codex_poll_age_seconds": 12,
+                        },
+                        "rollover": {
+                            "rollover_id": "rollover-123",
+                            "ack_pending": False,
+                            "trigger": "peer-stale",
+                        },
+                        "session_owner": {
+                            "provider": "codex",
+                            "session_name": "codex-review",
+                            "session_pid": 42,
+                            "terminal_window_id": 7,
+                            "script_path": "/tmp/codex-review.sh",
+                        },
+                        "recovery_action_allowed": "",
+                        "review_acceptance": {
+                            "current_verdict": "Reviewer-accepted.",
+                            "open_findings": "- none",
+                            "review_accepted": True,
+                        },
+                        "publish_clear": True,
+                    },
+                }
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertTrue(state.reviewer_runtime.publish_clear)
+        self.assertTrue(state.reviewer_runtime.review_acceptance.review_accepted)
+        self.assertEqual(state.reviewer_runtime.session_owner.session_pid, 42)
+        self.assertEqual(state.reviewer_runtime.rollover.rollover_id, "rollover-123")
+
+    def test_reviewer_runtime_contract_falls_back_to_bridge_fields(self) -> None:
+        state = review_state_from_payload(
+            {
+                "review_state": {
+                    "review": {"session_id": "session-runtime-fallback"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {
+                        "reviewer_mode": "active_dual_agent",
+                        "review_accepted": True,
+                        "open_findings": "- none",
+                    },
+                    "current_session": {
+                        "open_findings": "- none",
+                    },
+                },
+                "attention": {
+                    "status": "healthy",
+                    "recommended_command": "",
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertTrue(state.reviewer_runtime.review_acceptance.review_accepted)
+        self.assertTrue(state.reviewer_runtime.publish_clear)
 
     def test_implementer_completion_stall_survives_parser_roundtrip(self) -> None:
         state = review_state_from_payload(

@@ -33,6 +33,11 @@ from .status_projection_compat import (
     CompatProjectionInputs,
     build_bridge_compat_projection,
 )
+from .reviewer_runtime_contract import (
+    ReviewerRuntimeInputs,
+    build_reviewer_doctor_surface,
+    build_reviewer_runtime_contract,
+)
 from .topology import build_runtime_agent_registry
 
 
@@ -80,12 +85,29 @@ def build_bridge_review_state(
         current_session=current_session,
         collaboration=collaboration,
     )
+    reviewer_runtime = build_reviewer_runtime_contract(
+        ReviewerRuntimeInputs(
+            snapshot=snapshot,
+            bridge_liveness=typed_bridge_liveness,
+            current_session=current_session,
+            attention=attention,
+            collaboration=collaboration,
+            session_output_root=context.output_root,
+            rollover_dir=context.output_root.parent / "rollovers",
+            bridge_text=context.bridge_text,
+        )
+    )
     bridge_state = build_review_bridge_state(
         snapshot=snapshot,
         bridge_liveness=typed_bridge_liveness,
         overall_state=overall_state,
         current_session=current_session,
         collaboration=collaboration,
+        reviewer_runtime=reviewer_runtime,
+    )
+    doctor = build_reviewer_doctor_surface(
+        contract=reviewer_runtime,
+        attention=attention,
     )
 
     review_state = ReviewState(
@@ -100,6 +122,7 @@ def build_bridge_review_state(
         current_session=current_session,
         collaboration=collaboration,
         bridge=bridge_state,
+        reviewer_runtime=reviewer_runtime,
         attention=_build_attention(attention),
         packets=(),
         registry=_build_agent_registry(
@@ -126,14 +149,19 @@ def build_bridge_review_state(
         entry["capabilities"] = []
         legacy_agents.append(entry)
 
-    result["_compat"] = _build_compat_projection(
-        context=context,
+    compat_inputs = CompatProjectionInputs(
+        project_id=context.project_id,
+        bridge_text=context.bridge_text,
         bridge_liveness=typed_bridge_liveness,
         reduced_runtime=reduced_runtime,
+        service_identity=context.service_identity,
+        attach_auth_policy=context.attach_auth_policy,
         legacy_agents=legacy_agents,
         current_session=result.get("current_session"),
         bridge_state=result.get("bridge"),
+        doctor=doctor,
     )
+    result["_compat"] = _build_compat_projection(compat_inputs)
 
     return result
 
@@ -148,27 +176,9 @@ def _projection_ok(overall_state: str, errors: tuple[str, ...]) -> bool:
 
 
 def _build_compat_projection(
-    *,
-    context: ReviewStateContext,
-    bridge_liveness: dict[str, object],
-    reduced_runtime: dict[str, object] | None,
-    legacy_agents: list[dict[str, object]],
-    current_session: object,
-    bridge_state: object,
+    inputs: CompatProjectionInputs,
 ) -> dict[str, object]:
-    return build_bridge_compat_projection(
-        inputs=CompatProjectionInputs(
-            project_id=context.project_id,
-            bridge_text=context.bridge_text,
-            bridge_liveness=bridge_liveness,
-            reduced_runtime=reduced_runtime,
-            service_identity=context.service_identity,
-            attach_auth_policy=context.attach_auth_policy,
-            legacy_agents=legacy_agents,
-            current_session=current_session,
-            bridge_state=bridge_state,
-        ),
-    )
+    return build_bridge_compat_projection(inputs=inputs)
 
 
 def _build_review_session(context: ReviewStateContext) -> ReviewSessionState:

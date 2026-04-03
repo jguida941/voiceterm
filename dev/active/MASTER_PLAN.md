@@ -174,6 +174,15 @@
   mode as well as direct script mode, so packaged guards loaded through
   `check_bootstrap.import_attr()` no longer depend on `dev/scripts/checks`
   being on `sys.path`.
+- Latest same-lane closure on 2026-04-02: reviewer lifecycle truth now has one
+  typed owner. `ReviewState.reviewer_runtime` and the new
+  `ReviewerRuntimeContract` row/model now own reviewer mode/effective mode,
+  freshness, stale reason, last poll, rollover state, session owner, allowed
+  recovery action, review acceptance, and publish-clear state. Bridge
+  `review_accepted` plus doctor output are projections over that contract, and
+  the current 14 implemented platform contract rows now all declare
+  `startup_surface_tokens` so startup/bootstrap surfaces project the same
+  contract inventory that `platform-contracts` and the closure guard enforce.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

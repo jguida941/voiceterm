@@ -26,6 +26,7 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Allowlisted workflow/action profiles exposed for this repo.",
             ),
         ),
+        startup_surface_tokens=("pack_id", "policy_path", "workflow_profiles"),
     ),
     ContractSpec(
         contract_id="TypedAction",
@@ -54,6 +55,7 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
             ),
         ),
         runtime_model="dev.scripts.devctl.runtime.action_contracts:TypedAction",
+        startup_surface_tokens=("action_id", "repo_pack_id", "parameters"),
     ),
     ContractSpec(
         contract_id="RunRecord",
@@ -76,6 +78,7 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("finished_at", "str", "UTC finish timestamp for the run."),
         ),
         runtime_model="dev.scripts.devctl.runtime.action_contracts:RunRecord",
+        startup_surface_tokens=("run_id", "status", "artifact_paths"),
     ),
     ContractSpec(
         contract_id="ActionResult",
@@ -113,6 +116,7 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
             ),
         ),
         runtime_model="dev.scripts.devctl.runtime.action_contracts:ActionResult",
+        startup_surface_tokens=("status", "reason", "artifact_paths"),
     ),
     ContractSpec(
         contract_id="ArtifactStore",
@@ -131,6 +135,7 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("managed_kinds", "list[str]", "Artifact kinds stored under the root."),
         ),
         runtime_model="dev.scripts.devctl.runtime.action_contracts:ArtifactStore",
+        startup_surface_tokens=("root", "managed_kinds", "retention_policy"),
     ),
     ContractSpec(
         contract_id="Finding",
@@ -176,6 +181,7 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
             ),
         ),
         runtime_model="dev.scripts.devctl.runtime.finding_contracts:FindingRecord",
+        startup_surface_tokens=("check_id", "severity", "ai_instruction"),
     ),
     ContractSpec(
         contract_id="DecisionPacket",
@@ -240,6 +246,7 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
             ),
         ),
         runtime_model="dev.scripts.devctl.runtime.finding_contracts:DecisionPacketRecord",
+        startup_surface_tokens=("decision_mode", "rule_summary", "validation_plan"),
     ),
     ContractSpec(
         contract_id="FailurePacket",
@@ -281,5 +288,6 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("warnings", "list[str]", "Non-blocking packet ingestion warnings."),
         ),
         runtime_model="dev.scripts.devctl.runtime.failure_packet:FailurePacket",
+        startup_surface_tokens=("runner", "status", "primary_test_id"),
     ),
 )

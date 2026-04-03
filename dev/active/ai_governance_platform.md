@@ -504,6 +504,12 @@ contract set:
   restart/resume state, reviewer ready gates, and the active worker/lane
   registry. Markdown bridges remain projections of this contract rather than
   a second authority for plan or queue state.
+- `ReviewerRuntimeContract`: typed reviewer-lifecycle owner nested inside
+  `ReviewState`, covering reviewer mode/effective mode, freshness, stale
+  reason, last poll, rollover state, session owner, allowed recovery action,
+  review acceptance, and publish-clear state. Bridge `review_accepted`,
+  doctor/status renderings, and other compatibility surfaces must project this
+  contract instead of inventing separate reviewer truth.
 - `DelegatedWorkPacket`: typed conductor-issued worker contract compiled from
   `WorkIntakePacket` + `PlanExpectationPacket` for one bounded lane. Required
   fields: role id, owned `PlanTargetRef` / issue cluster, owned worktree and
@@ -2695,6 +2701,13 @@ Landed now:
   the corresponding runtime dataclasses / schema constants, and the
   startup-surface command tokens that tell AI/dev operators how to inspect the
   same contract surface.
+- Review-channel lifecycle truth now has an explicit typed owner:
+  `ReviewState.reviewer_runtime` projects the dedicated
+  `ReviewerRuntimeContract` row/model, while bridge `review_accepted` and
+  doctor surfaces remain compatibility projections. The same current
+  platform-contract inventory now carries `startup_surface_tokens` on every
+  implemented row so startup/bootstrap surfaces expose the same contract set
+  the closure guard validates.
 
 Still open before `P0` closes:
 

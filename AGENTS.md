@@ -466,9 +466,18 @@ checklist plus chat memory.
     semantic forms such as `Acknowledged instruction revision <rev>`, but live
     machine consumers should still refresh/read typed `current_session` /
     `bridge` state instead of reparsing bridge prose ad hoc.
+    The same typed status artifact now also carries `reviewer_runtime` as the
+    single owner of reviewer lifecycle truth: reviewer mode/effective mode,
+    freshness, stale reason, last poll, rollover state, session owner,
+    allowed recovery action, review acceptance, and publish-clear state.
+    Bridge `review_accepted` and doctor surfaces are compatibility
+    projections over that contract, not parallel authority.
 4.6 Treat `startup-context` the same way: prefer typed
-    `review_state.json` fields such as `bridge.review_accepted` as the
-    canonical startup reviewer-gate authority. `bridge.md` is now a
+    `review_state.json` fields such as
+    `reviewer_runtime.review_acceptance.review_accepted` and
+    `reviewer_runtime.publish_clear` as the canonical startup reviewer/publish
+    gate authority. `bridge.review_accepted` remains a compatibility
+    projection over that same runtime contract, and `bridge.md` is now a
     compatibility projection and handoff surface, not a startup-authority
     fallback when typed review state is missing. Advisory
     checkpoint-budget accounting may exclude policy-declared compatibility
@@ -709,6 +718,9 @@ shared runtime contract models, probe/report schema constants, or
 `repo_governance.surface_generation` contract-routing text), also run
 `python3 dev/scripts/checks/check_platform_contract_closure.py` plus
 `python3 dev/scripts/devctl.py platform-contracts --format md`.
+Keep `startup_surface_tokens` populated on every current platform contract row
+so `platform-contracts`, startup surfaces, and closure guards keep projecting
+the same contract inventory.
 For probes only:
 ```bash
 # Canonical aggregated probe packet:
@@ -812,6 +824,10 @@ Portable policy note:
   shared platform blueprint, runtime contract models, artifact schema
   metadata, or startup-surface routing changes so `platform-contracts`,
   emitted packet metadata, and AI/dev startup surfaces cannot drift apart.
+- When a platform contract row is widened or added, keep
+  `startup_surface_tokens` current on that row and keep compatibility
+  projections explicit so startup/status consumers do not grow a second
+  authority path.
 - When a critical contract field gains a live consumer route (for example
   `Finding.ai_instruction` flowing from probe artifacts into the Ralph prompt),
   extend `check_platform_contract_closure.py` with a deterministic field-route

@@ -27,6 +27,7 @@ class CompatProjectionInputs:
     legacy_agents: list[dict[str, object]]
     current_session: object
     bridge_state: object
+    doctor: object
 
 
 def build_bridge_compat_projection(
@@ -54,6 +55,7 @@ def build_bridge_compat_projection(
             bridge_state=_mapping(inputs.bridge_state),
         )
     )
+    compat["doctor"] = _mapping(inputs.doctor)
     compat["agents"] = inputs.legacy_agents
     return compat
 

@@ -32,6 +32,7 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "TypedAction" in contract_ids
     assert "ControlState" in contract_ids
     assert "ReviewState" in contract_ids
+    assert "ReviewerRuntimeContract" in contract_ids
     assert "Finding" in contract_ids
     assert "DecisionPacket" in contract_ids
     assert "FailurePacket" in contract_ids
@@ -53,6 +54,8 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "rule_summary" in contract_map["DecisionPacket"]
     assert "match_evidence" in contract_map["DecisionPacket"]
     assert "rejected_rule_traces" in contract_map["DecisionPacket"]
+    assert "reviewer_runtime" in contract_map["ReviewState"]
+    assert "publish_clear" in contract_map["ReviewerRuntimeContract"]
 
 
 def test_platform_contracts_json_output(capsys) -> None:

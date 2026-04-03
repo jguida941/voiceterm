@@ -29,6 +29,11 @@ from .event_projection_bridge import (
     build_event_bridge_state_projection,
     detect_event_implementer_stall,
 )
+from .reviewer_runtime_contract import (
+    ReviewerRuntimeInputs,
+    build_reviewer_doctor_surface,
+    build_reviewer_runtime_contract,
+)
 from .event_projection_queue import (
     derive_event_next_instruction,
     derive_event_next_instruction_bundle,
@@ -118,11 +123,28 @@ def enrich_event_review_state(
         attention=attention,
         session_output_root=projections_root,
     )
+    reviewer_runtime = build_reviewer_runtime_contract(
+        ReviewerRuntimeInputs(
+            snapshot=None,
+            bridge_liveness=bridge_liveness,
+            current_session=current_session,
+            attention=attention,
+            collaboration=collaboration,
+            session_output_root=projections_root,
+            rollover_dir=projections_root.parent / "rollovers",
+        )
+    )
+    bridge_liveness["review_accepted"] = (
+        reviewer_runtime.review_acceptance.review_accepted
+    )
+    bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
     review_state["current_session"] = current_session_payload(current_session)
     review_state["collaboration"] = asdict(collaboration)
+    review_state["reviewer_runtime"] = asdict(reviewer_runtime)
     review_state["bridge"] = build_event_bridge_state_projection(
         review_state=review_state,
         bridge_liveness=bridge_liveness,
+        reviewer_runtime=reviewer_runtime,
     )
     review_state["attention"] = attention
     existing_compat = review_state.get("_compat")
@@ -130,6 +152,10 @@ def enrich_event_review_state(
     merged_compat["service_identity"] = build_service_identity_state(raw_service_identity)
     merged_compat["attach_auth_policy"] = build_attach_auth_policy_state(
         raw_attach_auth_policy
+    )
+    merged_compat["doctor"] = build_reviewer_doctor_surface(
+        contract=reviewer_runtime,
+        attention=attention,
     )
     review_state["_compat"] = merged_compat
     return review_state, {

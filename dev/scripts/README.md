@@ -340,6 +340,12 @@ Portability note:
   field for live-authority decisions when declared bridge `reviewer_mode`
   still says `active_dual_agent` but typed `launch_truth` has already demoted
   the loop to an inactive read-only state.
+- The same status projection now also emits `reviewer_runtime` as the single
+  owner of reviewer lifecycle truth: reviewer mode/effective mode, freshness,
+  stale reason, last poll, rollover state, session owner, allowed recovery
+  action, review acceptance, and publish-clear state. Bridge
+  `review_accepted` and doctor output are compatibility projections over that
+  contract, not independent authority.
 - For reviewer-owned automation, treat the `status` report shape honestly:
   live read APIs expose `bridge_liveness` plus projection paths, and typed
   `current_session` comes from the generated `review_state.json` projection
@@ -348,7 +354,10 @@ Portability note:
   compact repo governance, reviewer gate, push/checkpoint advice, and a
   bounded `WorkIntakePacket` with typed continuity plus startup-routing
   hints; when `dev/reports/review_channel/latest/review_state.json` is
-  available it prefers typed `bridge.review_accepted` state, and `bridge.md`
+  available it prefers typed
+  `reviewer_runtime.review_acceptance.review_accepted` and
+  `reviewer_runtime.publish_clear` state, while `bridge.review_accepted`
+  remains a compatibility projection over that same contract and `bridge.md`
   remains a compatibility projection instead of a startup-authority fallback.
   The underlying `ProjectGovernance` payload now also carries a typed
   governed-markdown baseline (`DocPolicy`, `DocRegistry`, parsed
@@ -930,7 +939,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_facade_wrappers.py` | Python facade-wrapper non-regression guard | Fails when changed Python files grow facade-heavy modules (files with more than 3 pure-delegation wrappers that just forward all arguments to another function). Tests are excluded; supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_god_class.py` | God-class non-regression guard | Fails when changed Rust or Python files introduce classes/impl blocks with excessive method counts (Python: >20 methods or >10 instance vars, Rust: >20 impl methods). Tests are excluded; `#[cfg(test)]` blocks are stripped for Rust scans; supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_platform_contract_sync.py` | Platform-contract sync guard | Fails when the shared `platform-contracts` rows drift from the lifecycle/authority spec dataclasses used by the reusable backend blueprint, so field additions like `shutdown_entrypoints` or `forbidden_actions` cannot land in only one layer. Supports `--format`. |
-| `dev/scripts/checks/check_platform_contract_closure.py` | Platform contract-closure guard | Fails when the current executable platform contract families drift across the `platform-contracts` blueprint, shared runtime dataclass models, durable artifact schema metadata, or startup-surface contract-routing tokens. The first bounded scope covers `TypedAction`, `RunRecord`, `ArtifactStore`, `ControlState`, `ReviewState`, `Finding`, `DecisionPacket`, `ProbeReport`, `ReviewPacket`, `ReviewTargets`, `FileTopology`, and `ProbeAllowlist`; the next closure expansion is live AI-consumer authority integrity so field-route proofs, single-authority artifact reads, and structured routing keys do not silently fall back to dead or prose-only seams. Supports `--format`. |
+| `dev/scripts/checks/check_platform_contract_closure.py` | Platform contract-closure guard | Fails when the current executable platform contract families drift across the `platform-contracts` blueprint, shared runtime dataclass models, durable artifact schema metadata, or startup-surface contract-routing tokens (`startup_surface_tokens`). The first bounded scope covers `TypedAction`, `RunRecord`, `ArtifactStore`, `ControlState`, `ReviewState`, `ReviewerRuntimeContract`, `Finding`, `DecisionPacket`, `ProbeReport`, `ReviewPacket`, `ReviewTargets`, `FileTopology`, and `ProbeAllowlist`; the next closure expansion is live AI-consumer authority integrity so field-route proofs, single-authority artifact reads, and structured routing keys do not silently fall back to dead or prose-only seams. Supports `--format`. |
 | `dev/scripts/checks/check_startup_authority_contract.py` | Startup-authority contract guard | Validates the live `ProjectGovernance` bootstrap payload by requiring the core startup authority files, non-empty repo identity, plan-registry roots/order, fail-closed checkpoint-budget truth, working-tree-to-index Python import atomicity, and committed-tree (`HEAD`)-to-`HEAD` importer coherence; fresh repos without a first commit skip the committed-tree layer until `HEAD` exists. Supports `--format`. |
 | `dev/scripts/checks/check_mobile_relay_protocol.py` | Mobile relay projection contract guard | Fails when the shared mobile relay payload shape drifts across the Rust/controller emitters, Python projection tooling, and iOS consumer contract. Supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_daemon_state_parity.py` | Daemon-state parity guard | Validates the Rust daemon lifecycle/state seam against the Python runtime models by checking lifecycle-event coverage plus required daemon-state and agent-info fields. Supports `--format`. |

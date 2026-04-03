@@ -7,6 +7,7 @@ from dataclasses import asdict
 from hashlib import sha256
 
 from ..runtime.conductor_capability import build_conductor_capability_state
+from ..runtime.review_state_models import ReviewerRuntimeContract
 from .current_session_projection import (
     current_session_mapping,
     event_agent_status,
@@ -42,6 +43,7 @@ def build_event_bridge_liveness_projection(
         "fresh" if review_state.get("timestamp") else "missing"
     )
     bridge_liveness["reviewer_mode"] = reviewer_mode
+    bridge_liveness["last_codex_poll_utc"] = str(review_state.get("timestamp") or "")
     bridge_liveness["last_codex_poll_age_seconds"] = 0
     bridge_liveness["claude_status_present"] = bool(claude_status)
     bridge_liveness["claude_ack_present"] = bool(claude_ack)
@@ -82,6 +84,7 @@ def build_event_bridge_state_projection(
     *,
     review_state: Mapping[str, object],
     bridge_liveness: Mapping[str, object],
+    reviewer_runtime: ReviewerRuntimeContract | None = None,
 ) -> dict[str, object]:
     """Build the compatibility bridge-state projection for event-backed flows."""
     current_session = current_session_mapping(review_state)
@@ -148,8 +151,11 @@ def build_event_bridge_state_projection(
     )
     bridge_state["reviewed_hash_current"] = bridge_liveness.get("reviewed_hash_current")
     bridge_state["review_needed"] = bridge_liveness.get("review_needed")
-    # Event-backed projections do not yet carry reviewer-owned verdict truth.
-    bridge_state["review_accepted"] = False
+    bridge_state["review_accepted"] = bool(
+        reviewer_runtime.review_acceptance.review_accepted
+        if reviewer_runtime is not None
+        else False
+    )
     bridge_state["codex_conductor_active"] = bool(
         bridge_liveness.get("codex_conductor_active")
     )

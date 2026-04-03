@@ -36,6 +36,7 @@ RUNTIME_LIFECYCLE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Canonical commands or host paths allowed to stop the service cleanly.",
             ),
         ),
+        startup_surface_tokens=("service_id", "discovery_fields", "health_signals"),
     ),
     ContractSpec(
         contract_id="CallerAuthorityPolicy",
@@ -70,6 +71,11 @@ RUNTIME_LIFECYCLE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "list[str]",
                 "Actions the caller may not execute through the backend.",
             ),
+        ),
+        startup_surface_tokens=(
+            "caller_id",
+            "allowed_actions",
+            "approval_required_actions",
         ),
     ),
 )

@@ -877,6 +877,8 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
         effective_reviewer_mode: str | None = None,
         claude_ack_current: bool = True,
         attention_status: str = "healthy",
+        typed_review_accepted: bool | None = None,
+        typed_publish_clear: bool | None = None,
     ) -> None:
         """Write both bridge.md and review_state.json for typed-path testing."""
         bridge_text = "\n".join(
@@ -913,7 +915,16 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
         verdict_ok = bool(verdict.strip() and _ACCEPTED_RE.match(verdict.strip().splitlines()[0].lstrip("- ").strip()))
         finding_lines = [ln.lstrip("- ").strip().lower() for ln in findings.splitlines() if ln.strip()]
         findings_ok = not finding_lines or all(_CLEAR_RE.match(ln) is not None for ln in finding_lines)
-        review_accepted = verdict_ok and findings_ok
+        review_accepted = (
+            typed_review_accepted
+            if typed_review_accepted is not None
+            else verdict_ok and findings_ok
+        )
+        publish_clear = (
+            typed_publish_clear
+            if typed_publish_clear is not None
+            else review_accepted
+        )
 
         state_payload = {
             "bridge": {
@@ -926,6 +937,43 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
                 "open_findings": findings,
                 "review_accepted": review_accepted,
                 "claude_ack_current": claude_ack_current,
+            },
+            "reviewer_runtime": {
+                "reviewer_mode": reviewer_mode,
+                "effective_reviewer_mode": (
+                    effective_reviewer_mode
+                    if effective_reviewer_mode is not None
+                    else reviewer_mode
+                ),
+                "reviewer_freshness": "fresh",
+                "stale_reason": (
+                    ""
+                    if attention_status == "healthy"
+                    else attention_status
+                ),
+                "last_poll": {
+                    "last_codex_poll_utc": "2026-04-02T00:00:00Z",
+                    "last_codex_poll_age_seconds": 15,
+                },
+                "rollover": {
+                    "rollover_id": "",
+                    "ack_pending": False,
+                    "trigger": "",
+                },
+                "session_owner": {
+                    "provider": "codex",
+                    "session_name": "codex-review",
+                    "session_pid": 42,
+                    "terminal_window_id": 7,
+                    "script_path": "/tmp/codex-review.sh",
+                },
+                "recovery_action_allowed": "",
+                "review_acceptance": {
+                    "current_verdict": verdict,
+                    "open_findings": findings,
+                    "review_accepted": review_accepted,
+                },
+                "publish_clear": publish_clear,
             },
             "attention": {
                 "status": attention_status,
@@ -965,6 +1013,22 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             )
             gate = _detect_reviewer_gate(repo_root)
             self.assertFalse(gate.review_accepted)
+            self.assertFalse(gate.review_gate_allows_push)
+
+    def test_typed_path_prefers_publish_clear_from_reviewer_runtime(self) -> None:
+        """Push gating should read the reviewer-runtime owner, not bridge acceptance alone."""
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_bridge_and_typed_state(
+                repo_root,
+                "Reviewer-accepted. Clean slice.",
+                "- none",
+                attention_status="review_loop_relaunch_required",
+                typed_review_accepted=True,
+                typed_publish_clear=False,
+            )
+            gate = _detect_reviewer_gate(repo_root)
+            self.assertTrue(gate.review_accepted)
             self.assertFalse(gate.review_gate_allows_push)
 
     def test_typed_path_blocks_new_implementation_when_ack_is_stale(self) -> None:

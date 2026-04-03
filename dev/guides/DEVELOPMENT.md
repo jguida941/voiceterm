@@ -351,11 +351,20 @@ Three quality layers matter in practice:
     `review-channel --action bridge-poll`
     now follows that same rule by refreshing and preferring the typed
     `review_state` projection before deciding live ACK freshness.
+    The same status payload now also carries `reviewer_runtime` as the single
+    reviewer-lifecycle owner: reviewer mode/effective mode, freshness, stale
+    reason, last poll, rollover state, session owner, allowed recovery
+    action, review acceptance, and publish-clear state. Bridge
+    `review_accepted` and doctor output are projections over that contract,
+    not separate authority.
   - `startup-context` is the typed startup packet for those same sessions.
-    It should read reviewer acceptance from typed `bridge.review_accepted`
-    state; `bridge.md` remains a compatibility projection and handoff
-    surface, not a startup-authority fallback when typed review state is
-    missing. The same startup path now has a typed governed-markdown baseline
+    It should read reviewer/publish gating from typed
+    `reviewer_runtime.review_acceptance.review_accepted` and
+    `reviewer_runtime.publish_clear` state; `bridge.review_accepted` is only a
+    compatibility projection over that contract, and `bridge.md` remains a
+    compatibility projection and handoff surface, not a startup-authority
+    fallback when typed review state is missing. The same startup path now
+    has a typed governed-markdown baseline
     too:
     `ProjectGovernance` carries `DocPolicy`, `DocRegistry`, and parsed
     `PlanRegistry` entries built from governed docs plus `INDEX.md`, and
@@ -506,6 +515,9 @@ Three quality layers matter in practice:
   routing in repo policy. When a critical field starts flowing into a live
   consumer, add a deterministic field-route proof there so "produced but never
   consumed" regressions fail as contract drift instead of surviving as prose.
+  Keep `startup_surface_tokens` current on every implemented platform
+  contract row so startup/bootstrap surfaces project the same inventory the
+  closure guard validates.
 - If you changed `script_catalog.py`, `quality_policy_defaults.py`,
   `dev/config/quality_presets/*.json`, `dev/config/devctl_repo_policy.json`,
   or added/retired a `check_*.py` or `probe_*.py` entrypoint, run both

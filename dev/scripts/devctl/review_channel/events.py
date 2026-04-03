@@ -104,6 +104,7 @@ def post_packet(
         "summary": request.summary.strip(),
         "body": request.body.strip(),
         "evidence_refs": list(request.evidence_refs),
+        "guidance_refs": list(request.guidance_refs),
         "context_pack_refs": normalize_context_pack_refs(
             list(request.context_pack_refs)
         ),
@@ -181,6 +182,7 @@ def transition_packet(
         "summary": packet.get("summary"),
         "body": packet.get("body"),
         "evidence_refs": list(packet.get("evidence_refs") or []),
+        "guidance_refs": list(packet.get("guidance_refs") or []),
         "context_pack_refs": normalize_context_pack_refs(
             packet.get("context_pack_refs")
         ),

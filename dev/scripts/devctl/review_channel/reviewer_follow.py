@@ -13,6 +13,7 @@ from .follow_loop import (
     run_configured_follow_action,
 )
 from .current_session_projection import bridge_implementer_state_hash
+from .current_session_projection import build_bridge_current_session
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
 from .heartbeat import bridge_excluded_rel_paths, compute_non_audit_worktree_hash
 from .lifecycle_state import (
@@ -24,6 +25,7 @@ from .promotion import (
     promote_bridge_instruction,
     validate_promotion_ready,
 )
+from .reviewer_follow_runtime import attach_reviewer_runtime_contract
 from .reviewer_follow_guard import (
     ReviewerFollowPacketRequest,
     ReviewerFollowTriggerState,
@@ -123,6 +125,11 @@ def _build_reviewer_follow_tick(
         repo_root=repo_root,
         paths=paths,
     )
+    attach_reviewer_runtime_contract(
+        report=report,
+        bridge_path=bridge_path,
+        status_dir=paths.get("status_dir"),
+    )
     auto_promotion = _maybe_auto_promote(
         args=args,
         repo_root=repo_root,
@@ -136,6 +143,11 @@ def _build_reviewer_follow_tick(
                 args=args,
                 repo_root=repo_root,
                 paths=paths,
+            )
+            attach_reviewer_runtime_contract(
+                report=report,
+                bridge_path=bridge_path,
+                status_dir=paths.get("status_dir"),
             )
             report["auto_promotion"] = auto_promotion
             progress_token = build_claude_progress_token(
@@ -161,6 +173,11 @@ def _build_reviewer_follow_tick(
                 repo_root=repo_root,
                 paths=paths,
             )
+            attach_reviewer_runtime_contract(
+                report=report,
+                bridge_path=bridge_path,
+                status_dir=paths.get("status_dir"),
+            )
             report["auto_recovery"] = auto_recovery
             progress_token = build_claude_progress_token(
                 repo_root=repo_root,
@@ -183,6 +200,11 @@ def _build_reviewer_follow_tick(
                 args=args,
                 repo_root=repo_root,
                 paths=paths,
+            )
+            attach_reviewer_runtime_contract(
+                report=report,
+                bridge_path=bridge_path,
+                status_dir=paths.get("status_dir"),
             )
             report["auto_rollover"] = auto_rollover
             progress_token = build_claude_progress_token(

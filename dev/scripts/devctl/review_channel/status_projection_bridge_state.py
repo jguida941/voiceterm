@@ -10,8 +10,10 @@ from ..runtime.review_state_models import (
     CollaborationSessionState,
     ReviewBridgeState,
     ReviewCurrentSessionState,
+    ReviewerRuntimeContract,
 )
 from ..runtime.conductor_capability import build_conductor_capability_state
+from .collaboration_provider import collaboration_provider
 from .launch_truth import classify_launch_truth, effective_reviewer_mode
 from .handoff import BridgeSnapshot
 
@@ -36,12 +38,12 @@ def build_typed_bridge_liveness(
         typed.get("effective_reviewer_mode") or effective_reviewer_mode(typed)
     )
     effective_mode = str(typed.get("effective_reviewer_mode") or reviewer_mode)
-    reviewer_provider = _collaboration_provider(
+    reviewer_provider = collaboration_provider(
         collaboration,
         role_id="review_agent",
         default="codex",
     )
-    implementer_provider = _collaboration_provider(
+    implementer_provider = collaboration_provider(
         collaboration,
         role_id="coding_agent",
         default="claude",
@@ -73,6 +75,7 @@ def build_review_bridge_state(
     overall_state: str,
     current_session: ReviewCurrentSessionState,
     collaboration: CollaborationSessionState | None = None,
+    reviewer_runtime: ReviewerRuntimeContract | None = None,
 ) -> ReviewBridgeState:
     reviewed_hash_current = bridge_liveness.get("reviewed_hash_current")
     review_needed = bridge_liveness.get("review_needed")
@@ -80,12 +83,12 @@ def build_review_bridge_state(
     effective_mode = str(
         bridge_liveness.get("effective_reviewer_mode") or reviewer_mode
     )
-    reviewer_provider = _collaboration_provider(
+    reviewer_provider = collaboration_provider(
         collaboration,
         role_id="review_agent",
         default="codex",
     )
-    implementer_provider = _collaboration_provider(
+    implementer_provider = collaboration_provider(
         collaboration,
         role_id="coding_agent",
         default="claude",
@@ -121,7 +124,10 @@ def build_review_bridge_state(
             None if reviewed_hash_current is None else bool(reviewed_hash_current)
         ),
         review_needed=None if review_needed is None else bool(review_needed),
-        review_accepted=_compute_review_accepted(snapshot),
+        review_accepted=_compute_review_accepted(
+            snapshot,
+            reviewer_runtime=reviewer_runtime,
+        ),
         implementer_completion_stall=bool(
             bridge_liveness.get("implementer_completion_stall")
         ),
@@ -139,25 +145,17 @@ def build_review_bridge_state(
     )
 
 
-def _compute_review_accepted(snapshot: BridgeSnapshot) -> bool:
-    """Compute reviewer-owned acceptance using canonical bridge_review_accepted."""
+def _compute_review_accepted(
+    snapshot: BridgeSnapshot,
+    *,
+    reviewer_runtime: ReviewerRuntimeContract | None = None,
+) -> bool:
+    """Compute reviewer-owned acceptance as a projection over reviewer runtime."""
     try:
         from .bridge_validation import bridge_review_accepted
 
+        if reviewer_runtime is not None:
+            return bridge_review_accepted(reviewer_runtime)
         return bridge_review_accepted(snapshot)
     except (ImportError, ValueError):
         return False
-
-
-def _collaboration_provider(
-    collaboration: CollaborationSessionState | None,
-    *,
-    role_id: str,
-    default: str,
-) -> str:
-    if collaboration is None:
-        return default
-    for assignment in collaboration.role_assignments:
-        if assignment.role_id == role_id and assignment.provider:
-            return assignment.provider
-    return default

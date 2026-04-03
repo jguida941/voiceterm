@@ -47,6 +47,7 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         summary=event.get("summary"),
         body=event.get("body"),
         evidence_refs=list(event.get("evidence_refs") or []),
+        guidance_refs=list(event.get("guidance_refs") or []),
         context_pack_refs=normalize_context_pack_refs(
             event.get("context_pack_refs")
         ),
@@ -79,6 +80,10 @@ def apply_packet_transition(
     next_packet["latest_event_id"] = event.get("event_id")
     next_packet["_sort_timestamp"] = event.get("timestamp_utc")
     next_packet["status"] = event.get("status")
+    if event.get("guidance_refs") is not None or packet.get("guidance_refs"):
+        next_packet["guidance_refs"] = list(
+            event.get("guidance_refs") or packet.get("guidance_refs") or []
+        )
     if event.get("context_pack_refs") is not None or packet.get("context_pack_refs"):
         next_packet["context_pack_refs"] = normalize_context_pack_refs(
             event.get("context_pack_refs") or packet.get("context_pack_refs")

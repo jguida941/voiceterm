@@ -122,6 +122,8 @@ def _detect_reviewer_gate_from_typed_state(
     effective_mode = (
         str(state.bridge.effective_reviewer_mode or "").strip() or mode
     )
+    review_accepted = state.reviewer_runtime.review_acceptance.review_accepted
+    publish_clear = state.reviewer_runtime.publish_clear
     declared_active = normalize_reviewer_mode(mode) == "active_dual_agent"
     effective_active = normalize_reviewer_mode(effective_mode) == "active_dual_agent"
     if not declared_active:
@@ -139,10 +141,10 @@ def _detect_reviewer_gate_from_typed_state(
             bridge_active=True,
             reviewer_mode=mode,
             effective_reviewer_mode=effective_mode,
-            review_accepted=state.bridge.review_accepted,
+            review_accepted=review_accepted,
             required_checks_status="unknown",
             checkpoint_permitted=True,
-            review_gate_allows_push=state.bridge.review_accepted,
+            review_gate_allows_push=publish_clear,
             implementation_blocked=True,
             implementation_block_reason=(
                 str(state.attention.status).strip()
@@ -168,10 +170,10 @@ def _detect_reviewer_gate_from_typed_state(
         bridge_active=True,
         reviewer_mode=mode,
         effective_reviewer_mode=effective_mode,
-        review_accepted=state.bridge.review_accepted,
+        review_accepted=review_accepted,
         required_checks_status="unknown",
         checkpoint_permitted=True,
-        review_gate_allows_push=state.bridge.review_accepted,
+        review_gate_allows_push=publish_clear,
         implementation_blocked=implementation_blocked,
         implementation_block_reason=implementation_block_reason,
     )
