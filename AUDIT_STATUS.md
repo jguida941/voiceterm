@@ -53,17 +53,15 @@ The system has a daemon (`ensure --follow`) designed to compensate, but:
 
 ## Latest Verification Round (6 agents, ~7pm EDT)
 
-ChatGPT Pro's latest review verified against pushed code:
+Pre-7e4d1c2 verification (HISTORICAL — these findings were from BEFORE the ReviewerRuntimeContract landed):
 
-| Claim | Verdict | Evidence |
+| Claim | Pre-7e4d1c2 verdict | Post-7e4d1c2 status |
 |---|---|---|
-| Bridge still active gate | **CONFIRMED** | `bridge_review_accepted()` regex-parses prose, no typed-only path |
-| No ReviewerRuntimeContract | **CONFIRMED** | Lifecycle distributed across 87+ modules, no ContractSpec row |
-| Startup ownership empty | **CONFIRMED** | All 14 ContractSpec have `startup_surface_tokens=()` |
-| Rollover is behavioral patch | **REJECTED** | Rollover delegates through HandoffBundle/ACK, uses typed AttentionStatus enum |
-| Terminal cleanup not contract-backed | **CONFIRMED** | Standalone helper, returns untracked `list[str]`, no typed state persisted |
-
-ChatGPT Pro was right on 4 of 5 claims. The rollover IS real contract-backed work, not a patch.
+| Bridge still active gate | was CONFIRMED | NOW PARTIALLY FIXED — typed first, prose fallback |
+| No ReviewerRuntimeContract | was CONFIRMED | NOW FIXED — 7e4d1c2 added 10-field ContractSpec |
+| Startup ownership empty | was CONFIRMED | NOW FIXED — all 15 contracts have 3 tokens each |
+| Rollover is behavioral patch | was REJECTED | STILL correct — rollover is real contract-backed |
+| Terminal cleanup not contract-backed | was CONFIRMED | STILL accurate — helper function, not typed state |
 
 ## Concrete Next Steps (from 6-agent implementation assessment)
 
