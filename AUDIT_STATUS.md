@@ -186,53 +186,31 @@ Key open findings:
 | Platform contracts | `dev/scripts/devctl/platform/contracts.py` |
 | Contract rows | `dev/scripts/devctl/platform/runtime_*_contract_rows.py` |
 
-## ChatGPT Pro Architectural Direction (updated ~8:00pm EDT)
+## ChatGPT Pro Architectural Direction (updated ~10:30pm EDT)
 
-**Verdict: "You have enough mechanisms now. What you still lack is one owner."**
+**Previous directive (items 1-4 below are now DONE):**
+1. ~~Create ReviewerRuntimeContract~~ — DONE (commit `7e4d1c2`, 10-field ContractSpec + dataclass)
+2. ~~Demote bridge acceptance~~ — DONE (typed state checked first, prose is fallback)
+3. ~~Doctor as projection~~ — DONE (18-field surface, but not registered in parser yet)
+4. ~~Populate startup_surface_tokens~~ — DONE (all 15 contracts have 3 tokens each)
 
-ChatGPT Pro reviewed the branch 3 times. Consistent finding each time: the landed work is real and on-architecture, but it's behavioral patches around a missing contract seam. The system is improving operationally but the architectural seam is still open.
+**Current directive: "The owner exists. The system still does not force everyone to use it."**
 
-**Key correction from latest review:** The proposed 5-field ReviewerRuntimeContract (review_accepted, current_verdict, open_findings, verdict_accepted_at_utc, findings_clear_count) is TOO SMALL. Those are bridge/verdict state only. The real lifecycle owner also needs: reviewer freshness, stale reason, rollover/ACK state, poll freshness, and session ownership. Without those, you just create a typed acceptance object while leaving the lifecycle fragmented.
+The remaining problem is execution/supervision, not modeling:
+- The recovery logic exists but nobody reliably runs it
+- The doctor surface exists but agents can't invoke it
+- The bridge fallback still exists as a second truth path
+- The startup tokens exist but no ownership map tells agents which contract owns what
+- Audit files can drift from code with no guard to prevent it
 
-### What to implement next (in order)
-
-**1. ReviewerRuntimeContract (the missing owner — FULL lifecycle, not just acceptance)**
-
-Not another helper file. The admitted typed owner of ALL reviewer runtime truth. Must own:
-- reviewer mode + effective mode
-- reviewer freshness (fresh/poll_due/stale/overdue/missing)
-- stale reason (which attention state triggered)
-- rollover state (rollover_id, pending ACK, trigger reason)
-- last poll freshness (UTC timestamp + age)
-- session/terminal ownership (PID, window_id, script_path)
-- recovery action currently allowed (from peer_recovery dispatch)
-- review acceptance (verdict + findings state)
-- publish-clear condition (all of the above must be green)
-
-Add as ContractSpec in `runtime_state_contract_rows.py` with ~10 fields.
-Create companion dataclass as the runtime model.
-This replaces the current fragmentation across 5+ modules.
-
-**2. Demote bridge_review_accepted() from authority to projection**
-
-Currently `bridge_review_accepted()` regex-parses bridge prose to determine push eligibility. That's markdown-driven authority, not typed-runtime authority. Refactor: 4-5 files need to read from typed `ReviewBridgeState.review_accepted` instead of calling `bridge_review_accepted(BridgeSnapshot)`.
-
-Files: `status_projection_bridge_state.py:142`, `state.py:97`, `bridge_validation.py:108`, `handoff.py`, tests.
-
-**3. Doctor surface as PROJECTION over the contract**
-
-Do NOT make doctor another independent analyzer. Make it a projection over ReviewerRuntimeContract + ReviewerGateState + session truth. One surface, one source of truth.
-
-**4. Startup ownership metadata**
-
-Populate `startup_surface_tokens` on all 14 ContractSpec rows (2-3 tokens each, one-line per contract). Add `contract_ownership_map` to StartupContext so agents get ownership metadata at bootstrap, not by reading prose.
-
-### Design rule
+### Design rules (from ChatGPT Pro)
 
 > typed state is authority, bridge is projection
 > one owner per lifecycle, not distributed fragments
 > doctor projects from the owner, doesn't independently analyze
 > startup tells agents what exists, not just what's allowed
+> audit files cannot claim a state unless a commit proves it
+> do NOT add more recovery recipes until daemon liveness is closed
 
 ## Commit-Level Proof (for ChatGPT Pro — verify against commits, not file pages)
 
@@ -256,31 +234,47 @@ Populate `startup_surface_tokens` on all 14 ContractSpec rows (2-3 tokens each, 
 
 ### NOT yet implemented — what remains
 
-| # | What | Status | Where it goes | Est. size |
+| # | What | Status | Where it goes | Est. size | Why |
+|---|---|---|---|---|---|
+| A | Daemon auto-start in launch | NOT CODED | `bridge_launch_control.py` | ~10 lines | Neither governed nor manual launch starts the follow daemon. Root cause of idle-Codex. |
+| B | launchd plist for crash restart | NOT CODED | `dev/config/` or `dev/scripts/` | ~20 lines | If daemon crashes, nothing restarts it. Wrap `follow_loop.py` in launchd user agent. |
+| C | Register doctor in parser | NOT CODED | `parser.py` + `__init__.py` | ~5 lines | Doctor projection exists (18 fields) but `--action doctor` not in CLI. |
+| D | contract_ownership_map in StartupContext | NOT CODED | `startup_context.py` | ~15 lines | Tokens populated but agents can't query "who owns this surface?" at bootstrap. |
+| E | Remove bridge prose fallback | NOT CODED | `bridge_validation_acceptance.py` | ~10 lines | `_runtime_review_accepted()` still falls back to regex when typed state absent. Once contract is always populated, remove fallback to close the second truth path. |
+| F | Audit file auto-sync guard | NOT CODED | `dev/scripts/checks/` | ~30 lines | ChatGPT Pro: "audit/plan files cannot claim a state unless a commit-level symbol proves it." Prevents the drift that confused agents and reviewers today. |
+| G | Prove clean end-to-end path | NOT TESTED | Integration test | TBD | launch → daemon alive → review → ACK → push (all typed) |
+| H | Prove rescue end-to-end path | NOT TESTED | Integration test | TBD | stale reviewer → daemon detects → rollover → terminal cleanup → fresh session → green |
+
+## Implementation Plan (from ChatGPT Pro + agent verification)
+
+**The architecture is correct. The remaining failure is execution, not modeling.**
+
+### Phase 1: Daemon liveness (BLOCKS everything else)
+
+| Step | Item | File | Size | Why first |
 |---|---|---|---|---|
-| A | Daemon auto-start in launch | NOT CODED | `bridge_launch_control.py` | ~10 lines |
-| B | launchd plist for crash restart | NOT CODED | `dev/config/` or `dev/scripts/` | ~20 lines |
-| C | Register doctor in parser | NOT CODED | `parser.py` + `__init__.py` | ~5 lines |
-| D | contract_ownership_map in StartupContext | NOT CODED | `startup_context.py` | ~15 lines |
-| E | Prove clean end-to-end path | NOT TESTED | Integration test | TBD |
-| F | Prove rescue end-to-end path | NOT TESTED | Integration test | TBD |
+| 1a | Daemon auto-start in launch | `bridge_launch_control.py` | ~10 lines | Root cause of idle-Codex. Neither launch path starts daemon. |
+| 1b | launchd plist for crash restart | `dev/config/` | ~20 lines | If daemon dies, nobody restarts it. |
 
-## Next Steps (from ChatGPT Pro's latest review)
+### Phase 2: Surface registration + ownership
 
-**The architecture is finally close. The remaining failure is execution, not modeling.**
+| Step | Item | File | Size | Why |
+|---|---|---|---|---|
+| 2a | Register `--action doctor` | `parser.py` + `__init__.py` | ~5 lines | Doctor exists but CLI can't invoke it. |
+| 2b | contract_ownership_map in StartupContext | `startup_context.py` | ~15 lines | Agents need "who owns what" at bootstrap. |
 
-ChatGPT Pro's directive: "Do one bounded pass focused on:"
+### Phase 3: Close the second truth path
 
-1. **Daemon auto-start in governed launch** — `bridge_launch_control.py` must start publisher/supervisor when launching Codex. Currently neither governed nor manual launch starts the daemon.
+| Step | Item | File | Size | Why |
+|---|---|---|---|---|
+| 3a | Remove bridge prose fallback | `bridge_validation_acceptance.py` | ~10 lines | Typed state should be sole authority. |
+| 3b | Audit file auto-sync guard | `dev/scripts/checks/` | ~30 lines | Prevents drift between audit claims and code. |
 
-2. **Crash restart via launchd** — Write a macOS `launchd` plist (~20 lines) that auto-restarts the follow daemon on exit. Wrap existing `follow_loop.py` stack.
+### Phase 4: Prove it works
 
-3. **Register doctor in parser** — `reviewer_runtime_doctor.py` exists with 18 fields but `--action doctor` is not in `parser.py`. Add it.
+| Step | Item | What | Why |
+|---|---|---|---|
+| 4a | Clean path test | launch → daemon → review → ACK → push | Proves the system works end-to-end with typed state |
+| 4b | Rescue path test | stale reviewer → daemon detects → rollover → cleanup → green | Proves self-healing works without manual intervention |
 
-4. **Add contract_ownership_map to StartupContext** — startup_surface_tokens are populated but StartupContext has no field that maps contracts to their ownership. Add bounded map built from ContractSpec registry.
-
-5. **Prove one clean path and one rescue path before shipping:**
-   - Clean: launch → daemon alive → review → ACK → push (all typed, no bridge prose)
-   - Rescue: stale reviewer → daemon detects → rollover fires → terminal cleanup → fresh session → green
-
-**Do NOT add more recovery recipes until daemon liveness is closed.**
+**Do NOT skip phases or reorder. Daemon liveness must be closed before anything else matters.**
