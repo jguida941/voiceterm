@@ -14,6 +14,7 @@ from .event_store import (
 from .packet_agents import default_packet_agent_ids
 
 VALID_AGENT_IDS = frozenset(default_packet_agent_ids())
+COMMIT_APPROVAL_PACKET_KIND = "commit_approval"
 VALID_PACKET_KINDS = {
     "finding",
     "question",
@@ -26,12 +27,14 @@ VALID_PACKET_KINDS = {
     "plan_gap_review",
     "plan_patch_review",
     "plan_ready_gate",
+    COMMIT_APPROVAL_PACKET_KIND,
 }
 PLANNING_PACKET_KINDS = {
     "plan_gap_review",
     "plan_patch_review",
     "plan_ready_gate",
 }
+RUNTIME_TARGET_PACKET_KINDS = {COMMIT_APPROVAL_PACKET_KIND}
 VALID_POLICY_HINTS = {
     "review_only",
     "stage_draft",
@@ -60,7 +63,7 @@ ANCHOR_REF_RE = re.compile(
 
 @dataclass(frozen=True, slots=True)
 class PacketTargetFields:
-    """Typed plan/policy/artifact target metadata carried by review packets."""
+    """Typed plan/runtime target metadata carried by review packets."""
 
     target_kind: str = ""
     target_ref: str = ""
@@ -113,6 +116,45 @@ class PacketTargetFields:
 
 
 @dataclass(frozen=True, slots=True)
+class PacketRuntimeApprovalFields:
+    """Typed metadata carried by runtime commit-approval packets."""
+
+    pipeline_generation: str = ""
+    staged_snapshot_hash: str = ""
+    guard_results_summary: str = ""
+
+    @classmethod
+    def from_values(
+        cls,
+        *,
+        pipeline_generation: object = None,
+        staged_snapshot_hash: object = None,
+        guard_results_summary: object = None,
+    ) -> "PacketRuntimeApprovalFields":
+        return cls(
+            pipeline_generation=_clean_optional_text(pipeline_generation) or "",
+            staged_snapshot_hash=_clean_optional_text(staged_snapshot_hash) or "",
+            guard_results_summary=_clean_optional_text(guard_results_summary) or "",
+        )
+
+    def to_event_fields(self) -> dict[str, object]:
+        fields: dict[str, object] = {}
+        fields["pipeline_generation"] = self.pipeline_generation or None
+        fields["staged_snapshot_hash"] = self.staged_snapshot_hash or None
+        fields["guard_results_summary"] = self.guard_results_summary or None
+        return fields
+
+    def has_values(self) -> bool:
+        return any(
+            (
+                self.pipeline_generation,
+                self.staged_snapshot_hash,
+                self.guard_results_summary,
+            )
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class PacketPostRequest:
     """Validated review-packet post request."""
 
@@ -135,6 +177,9 @@ class PacketPostRequest:
     controller_run_id: str | None = None
     expires_in_minutes: int = DEFAULT_PACKET_TTL_MINUTES
     target: PacketTargetFields = field(default_factory=PacketTargetFields)
+    runtime_approval: PacketRuntimeApprovalFields = field(
+        default_factory=PacketRuntimeApprovalFields
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,25 +221,49 @@ def validate_post_request(
         )
     if request.expires_in_minutes <= 0:
         raise ValueError("--expires-in-minutes must be greater than zero.")
-    _validate_target_fields(kind=request.kind, target=request.target)
+    _validate_target_fields(
+        kind=request.kind,
+        target=request.target,
+        runtime_approval=request.runtime_approval,
+    )
 
 
 def _validate_target_fields(
     *,
     kind: str,
     target: PacketTargetFields,
+    runtime_approval: PacketRuntimeApprovalFields,
 ) -> None:
     if target.target_kind and target.target_kind not in VALID_TARGET_KINDS:
         raise ValueError(
             f"Unsupported review-channel target kind: {target.target_kind}"
         )
+
     planning_kind = kind in PLANNING_PACKET_KINDS
-    if not planning_kind:
-        if target.has_values():
+    runtime_target_kind = kind in RUNTIME_TARGET_PACKET_KINDS
+
+    if planning_kind:
+        _validate_plan_target_fields(kind=kind, target=target)
+        if runtime_approval.has_values():
             raise ValueError(
-                "Planning packet fields are only allowed on plan review packet kinds."
+                "Runtime approval fields are only allowed on runtime approval packet kinds."
             )
         return
+
+    if runtime_target_kind:
+        _validate_runtime_approval_target_fields(
+            target=target,
+            runtime_approval=runtime_approval,
+        )
+        return
+
+    if target.has_values() or runtime_approval.has_values():
+        raise ValueError(
+            "Target fields are only allowed on plan review packets or `commit_approval` packets."
+        )
+
+
+def _validate_plan_target_fields(*, kind: str, target: PacketTargetFields) -> None:
     if target.target_kind != "plan":
         raise ValueError("Plan review packets must set --target-kind plan.")
     if not target.target_ref:
@@ -203,6 +272,7 @@ def _validate_target_fields(
         raise ValueError("Plan review packets require --target-revision.")
     if not target.anchor_refs:
         raise ValueError("Plan review packets require at least one --anchor-ref.")
+
     invalid_anchor_refs = [
         anchor_ref
         for anchor_ref in target.anchor_refs
@@ -214,14 +284,45 @@ def _validate_target_fields(
         )
     if not target.intake_ref:
         raise ValueError("Plan review packets require --intake-ref.")
+
     if kind == "plan_patch_review":
         if target.mutation_op not in VALID_PLAN_MUTATION_OPS:
             raise ValueError(
                 "Plan patch review packets require a valid --mutation-op."
             )
         return
+
     if target.mutation_op:
-        raise ValueError("--mutation-op is only valid on `plan_patch_review` packets.")
+        raise ValueError(
+            "--mutation-op is only valid on `plan_patch_review` packets."
+        )
+
+
+def _validate_runtime_approval_target_fields(
+    *,
+    target: PacketTargetFields,
+    runtime_approval: PacketRuntimeApprovalFields,
+) -> None:
+    if target.target_kind != "runtime":
+        raise ValueError("Commit approval packets must set --target-kind runtime.")
+    if not target.target_ref:
+        raise ValueError("Commit approval packets require --target-ref.")
+    if not target.target_revision:
+        raise ValueError("Commit approval packets require --target-revision.")
+    if not target.target_ref.startswith("remote_commit_pipeline:"):
+        raise ValueError(
+            "Commit approval packets must target `remote_commit_pipeline:<pipeline_id>`."
+        )
+    if target.anchor_refs or target.intake_ref or target.mutation_op:
+        raise ValueError(
+            "Plan mutation fields are not valid on `commit_approval` packets."
+        )
+    if not runtime_approval.pipeline_generation:
+        raise ValueError("Commit approval packets require --pipeline-generation.")
+    if not runtime_approval.staged_snapshot_hash:
+        raise ValueError("Commit approval packets require --staged-snapshot-hash.")
+    if not runtime_approval.guard_results_summary:
+        raise ValueError("Commit approval packets require --guard-results-summary.")
 
 
 def _clean_optional_text(value: object) -> str | None:

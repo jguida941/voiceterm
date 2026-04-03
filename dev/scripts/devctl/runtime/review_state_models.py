@@ -249,6 +249,9 @@ class ReviewPacketState:
     anchor_refs: tuple[str, ...] = ()
     intake_ref: str = ""
     mutation_op: str = ""
+    pipeline_generation: str = ""
+    staged_snapshot_hash: str = ""
+    guard_results_summary: str = ""
     acked_by: str = ""
     acked_at_utc: str = ""
     applied_at_utc: str = ""

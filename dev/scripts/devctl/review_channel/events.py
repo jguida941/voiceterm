@@ -86,6 +86,7 @@ def post_packet(
         existing_events,
         from_agent=request.from_agent,
     )
+
     event = {
         "schema_version": 1,
         "event_id": next_event_id(existing_events),
@@ -113,6 +114,7 @@ def post_packet(
         "policy_hint": request.policy_hint,
         "approval_required": request.approval_required,
         **request.target.to_event_fields(),
+        **request.runtime_approval.to_event_fields(),
         "status": "pending",
         "idempotency_key": idempotency_key(
             "packet_posted",
@@ -162,6 +164,7 @@ def transition_packet(
     packet = packet_by_id(bundle.review_state, request.packet_id)
     if packet is None:
         raise ValueError(f"Unknown review packet: {request.packet_id}")
+
     _validate_transition(packet=packet, action=request.action, actor=request.actor)
     event_type = TRANSITION_EVENT_TYPES[request.action]
     event = {
@@ -196,6 +199,9 @@ def transition_packet(
         "anchor_refs": list(packet.get("anchor_refs") or []),
         "intake_ref": packet.get("intake_ref"),
         "mutation_op": packet.get("mutation_op"),
+        "pipeline_generation": packet.get("pipeline_generation"),
+        "staged_snapshot_hash": packet.get("staged_snapshot_hash"),
+        "guard_results_summary": packet.get("guard_results_summary"),
         "status": {
             "ack": "acked",
             "dismiss": "dismissed",
@@ -231,6 +237,7 @@ def _validate_transition(
 ) -> None:
     status = str(packet.get("status") or "").strip()
     to_agent = str(packet.get("to_agent") or "").strip()
+
     if action == "ack":
         if status != "pending":
             raise ValueError(
@@ -242,11 +249,13 @@ def _validate_transition(
                 "or operator."
             )
         return
+
     if status not in {"pending", "acked"}:
         raise ValueError(
             f"Packet {packet['packet_id']} cannot transition via {action} from "
             f"status {status}."
         )
+
     if action == "apply" and actor not in {to_agent, "operator"}:
         raise ValueError(
             f"Packet {packet['packet_id']} can only be applied by {to_agent} or operator."

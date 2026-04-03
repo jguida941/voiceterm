@@ -37,6 +37,25 @@ def render_event_md(report: dict) -> str:
         lines.append(f"- route: {packet.get('from_agent')} -> {packet.get('to_agent')}")
         lines.append(f"- status: {packet.get('status')}")
         lines.append(f"- summary: {packet.get('summary')}")
+        if packet.get("target_kind"):
+            lines.append(
+                "- target: "
+                f"{packet.get('target_kind')} | "
+                f"{packet.get('target_ref') or 'n/a'} | "
+                f"{packet.get('target_revision') or 'n/a'}"
+            )
+        if packet.get("pipeline_generation"):
+            lines.append(
+                f"- pipeline_generation: {packet.get('pipeline_generation')}"
+            )
+        if packet.get("staged_snapshot_hash"):
+            lines.append(
+                f"- staged_snapshot_hash: {packet.get('staged_snapshot_hash')}"
+            )
+        if packet.get("guard_results_summary"):
+            lines.append(
+                f"- guard_results_summary: {packet.get('guard_results_summary')}"
+            )
         append_context_pack_ref_lines(
             lines,
             packet.get("context_pack_refs"),
@@ -81,6 +100,8 @@ def _format_packet_line(packet_row: dict) -> str:
     ctx = context_pack_ref_summary(packet_row.get("context_pack_refs"))
     if ctx:
         summary += f" | packs: {ctx}"
+    if packet_row.get("pipeline_generation"):
+        summary += f" | gen: {packet_row.get('pipeline_generation')}"
     return summary
 
 

@@ -160,6 +160,12 @@ def _build_actions_projection(review_state: dict[str, object]) -> dict[str, obje
                     "policy_hint": packet.get("policy_hint"),
                     "approval_required": packet.get("approval_required"),
                     "status": packet.get("status"),
+                    "target_kind": packet.get("target_kind"),
+                    "target_ref": packet.get("target_ref"),
+                    "target_revision": packet.get("target_revision"),
+                    "pipeline_generation": packet.get("pipeline_generation"),
+                    "staged_snapshot_hash": packet.get("staged_snapshot_hash"),
+                    "guard_results_summary": packet.get("guard_results_summary"),
                     "context_pack_refs": normalize_context_pack_refs(
                         packet.get("context_pack_refs")
                     ),

@@ -247,6 +247,12 @@ Portability note:
   packets through the existing `PacketPostRequest` pipeline. The dedupe is
   disk-based (`_existing_pending_trigger_packet_id`) so dismissed/applied
   packets allow re-queuing without a process restart.
+- `review-channel --action post` now also carries the remote commit-pipeline
+  approval path as a typed packet instead of bridge prose. Use
+  `--kind commit_approval --target-kind runtime --target-ref remote_commit_pipeline:<pipeline_id>`
+  with `--pipeline-generation`, `--staged-snapshot-hash`, and
+  `--guard-results-summary` so the same approval payload survives
+  `post|ack|apply`, `actions.json`, and typed review-state parsing.
 - `review-channel --action reviewer-heartbeat` is the repo-owned liveness write
   for solo-dev / tools-only / paused tandem states. It updates heartbeat and
   mode metadata without claiming a new reviewed hash, and it now rewrites

@@ -180,7 +180,7 @@ artifact for auditability.
 |---|---|---|---|---|
 | `stage` | `TypedAction(action_id="vcs.stage")` | governance runtime | `drafted -> staged` | reject if worktree is dirty beyond the selected scope, if another active pipeline exists, or if runtime is not healthy enough to supervise the rest of the flow |
 | `guard` | routed guard bundle recorded as `ActionResult(action_id="quality.guard_bundle")` | existing repo guard stack | `staged -> guards_passed` | `guards_failed` on `fail`, `unknown`, or `defer`; no approval request is posted |
-| `approve` | `PacketPostRequest(kind="approval_request")` plus operator `PacketPostRequest(kind="decision")` | review-channel transport | `guards_passed -> approved` or `rejected` | no packet, stale packet, mismatched target revision, or prose-only approval keeps state at `operator_approval_pending` or forces `recover` |
+| `approve` | `PacketPostRequest(kind="commit_approval")` for both request and operator decision packets | review-channel transport | `guards_passed -> approved` or `rejected` | no packet, stale packet, mismatched target revision, or prose-only approval keeps state at `operator_approval_pending` or forces `recover` |
 | `commit` | `TypedAction(action_id="vcs.commit")` executed by governed VCS executor | local repo-owned executor | `approved -> commit_recorded` | `push_blocked` with `commit_failed` reason and `ActionResult` evidence; never tell the operator to run raw `git commit` |
 | `push` | existing `TypedAction(action_id="vcs.push")` | existing canonical push path | `commit_recorded -> push_completed` | `push_blocked` with existing push report + `ActionResult`; publication and post-push green remain separate truths |
 | `recover` | `TypedAction(action_id="vcs.pipeline.recover")` | governance runtime | blocked state -> fresh `drafted` or `staged` pipeline | if recovery cannot prove current repo state, return typed blocked receipt and stop |
@@ -190,34 +190,42 @@ artifact for auditability.
 Remote approval uses the existing review-channel event path with stricter typed
 vocabulary:
 
-1. Approval request packet
-   - `kind="approval_request"`
+1. Runtime approval packet kind
+   - `kind="commit_approval"`
+2. Approval request packet
    - `from_agent="system"`
    - `to_agent="operator"`
-   - `requested_action="vcs.commit_and_push"`
+   - request-scoped `requested_action`
    - `policy_hint="operator_approval_required"`
    - `approval_required=true`
    - `trace_id=<pipeline_id>`
    - `target_kind="runtime"`
    - `target_ref="remote_commit_pipeline:<pipeline_id>"`
    - `target_revision=<generation_id or staged_tree_hash>`
-2. Operator decision packet
-   - `kind="decision"`
+   - `pipeline_generation=<generation_id>`
+   - `staged_snapshot_hash=<staged_tree_hash>`
+   - `guard_results_summary=<typed guard summary>`
+3. Operator decision packet
+   - `kind="commit_approval"`
    - `from_agent="operator"`
    - `to_agent="system"`
    - `requested_action="approve_commit_pipeline"` or
      `requested_action="reject_commit_pipeline"`
    - `policy_hint="operator_approval_required"`
    - `approval_required=false`
-   - same `trace_id`, `target_ref`, and `target_revision`
+   - same `trace_id`, `target_ref`, `target_revision`,
+     `pipeline_generation`, `staged_snapshot_hash`, and
+     `guard_results_summary`
 
 Rules:
 
 1. Packet body is explanatory only. Authority comes from packet kind,
    requested-action vocabulary, target ref, target revision, and the resulting
    pipeline transition.
-2. `PacketPostRequest` must gain runtime-target support for these approval and
-   decision packets. Reusing plan-only target validation would be incorrect.
+2. `PacketPostRequest` must gain runtime-target support plus typed
+   `pipeline_generation`, `staged_snapshot_hash`, and
+   `guard_results_summary` fields for these approval packets. Reusing
+   plan-only target validation or prose body parsing would be incorrect.
 3. The phone/dashboard never flips a boolean directly in `review_state.json`;
    it emits the decision packet and waits for the repo-owned pipeline owner to
    record the state transition.
@@ -335,7 +343,7 @@ surface for remote sessions. It should project:
       rules, and migration steps.
 - [x] Implement `RemoteCommitPipelineContract` + `CommitIntentState` in runtime
       models, contract rows, and review-state projections.
-- [ ] Implement runtime-target approval packets and doctor projection updates.
+- [x] Implement runtime-target approval packets and doctor projection updates.
 - [ ] Implement `vcs.stage`, `vcs.commit`, and `vcs.pipeline.recover` through a
       governed executor path.
 - [ ] Reuse the existing guarded push flow from the new pipeline and prove end-
@@ -358,6 +366,14 @@ surface for remote sessions. It should project:
   up rather than a durable pipeline state. Focused pytest coverage passed for
   platform/runtime/review-channel suites, and the live doctor command now
   projects the default blocked placeholder state plus `commit_pipeline.json`.
+- 2026-04-03: Implemented Phase-0 Slice 2 for runtime approval packets.
+  `PacketPostRequest` now accepts the dedicated `commit_approval` kind for
+  runtime targets, validates and records typed
+  `pipeline_generation` / `staged_snapshot_hash` /
+  `guard_results_summary` fields, and preserves those fields through the
+  existing `review-channel --action post|ack|apply` event lifecycle plus
+  `actions.json` / typed review-state parsing. Focused pytest coverage for
+  review-channel packet plumbing and runtime parsing passed in the session.
   The remaining repo-wide `check --profile ci` failures are external to this
   slice: live review runtime is currently missing, and startup-authority import-
   index checks cannot be cleared here because this chat session must not stage

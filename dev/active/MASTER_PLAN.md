@@ -204,6 +204,14 @@
   `approved_target_identity` are required contract fields, and startup push
   truth still routes through `reviewer_runtime.publish_clear` /
   `push_decision.review_gate_allows_push` instead of a second evaluator.
+- Latest same-lane closure on 2026-04-03: Phase-0 Slice 2 of that same remote
+  commit/push lane is now wired through the existing review-channel packet
+  system. `PacketPostRequest` accepts the dedicated `commit_approval` runtime
+  packet kind with typed `pipeline_generation`, `staged_snapshot_hash`, and
+  `guard_results_summary` fields, `review-channel --action post|ack|apply`
+  preserves those fields through the event log and reduced packet rows, and
+  typed review-state/action projections expose the approval payload without
+  inventing a second publish-readiness evaluator.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

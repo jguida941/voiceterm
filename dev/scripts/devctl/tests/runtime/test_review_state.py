@@ -184,6 +184,62 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(packet.intake_ref, "intake://session-2026-03-19")
         self.assertEqual(packet.mutation_op, "append_progress_log")
 
+    def test_review_state_parses_commit_approval_packet_fields(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-04-03T00:00:00Z",
+                "ok": True,
+                "review_state": {
+                    "review": {"session_id": "runtime-approval"},
+                    "queue": {"pending_total": 1},
+                    "bridge": {"reviewer_mode": "active_dual_agent"},
+                    "packets": [
+                        {
+                            "packet_id": "pkt-commit-1",
+                            "kind": "commit_approval",
+                            "from_agent": "operator",
+                            "to_agent": "system",
+                            "summary": "Approve governed commit pipeline",
+                            "body": "Operator approved the staged snapshot.",
+                            "status": "applied",
+                            "policy_hint": "operator_approval_required",
+                            "requested_action": "approve_commit_pipeline",
+                            "approval_required": False,
+                            "posted_at": "2026-04-03T00:01:00Z",
+                            "target_kind": "runtime",
+                            "target_ref": "remote_commit_pipeline:pipeline-123",
+                            "target_revision": "gen-9",
+                            "pipeline_generation": "gen-9",
+                            "staged_snapshot_hash": "tree-123",
+                            "guard_results_summary": (
+                                "bundle.tooling pass; review-channel doctor "
+                                "still reports runtime_missing"
+                            ),
+                        }
+                    ],
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        packet = state.packets[0]
+        self.assertEqual(packet.kind, "commit_approval")
+        self.assertEqual(packet.target_kind, "runtime")
+        self.assertEqual(
+            packet.target_ref,
+            "remote_commit_pipeline:pipeline-123",
+        )
+        self.assertEqual(packet.pipeline_generation, "gen-9")
+        self.assertEqual(packet.staged_snapshot_hash, "tree-123")
+        self.assertEqual(
+            packet.guard_results_summary,
+            "bundle.tooling pass; review-channel doctor still reports runtime_missing",
+        )
+
     def test_review_state_from_legacy_projection_shape_stays_compatible(self) -> None:
         state = review_state_from_payload(
             {

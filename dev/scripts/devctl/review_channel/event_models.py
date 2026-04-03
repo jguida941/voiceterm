@@ -33,6 +33,9 @@ class ReviewPacketRow(TypedDict):
     anchor_refs: list[object]
     intake_ref: object
     mutation_op: object
+    pipeline_generation: object
+    staged_snapshot_hash: object
+    guard_results_summary: object
     status: object
     acked_by: object
     acked_at_utc: object

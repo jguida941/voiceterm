@@ -61,6 +61,9 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         anchor_refs=list(event.get("anchor_refs") or []),
         intake_ref=event.get("intake_ref"),
         mutation_op=event.get("mutation_op"),
+        pipeline_generation=event.get("pipeline_generation"),
+        staged_snapshot_hash=event.get("staged_snapshot_hash"),
+        guard_results_summary=event.get("guard_results_summary"),
         status=event.get("status"),
         posted_at=event.get("timestamp_utc"),
         acked_by=None,
@@ -87,6 +90,20 @@ def apply_packet_transition(
     if event.get("context_pack_refs") is not None or packet.get("context_pack_refs"):
         next_packet["context_pack_refs"] = normalize_context_pack_refs(
             event.get("context_pack_refs") or packet.get("context_pack_refs")
+        )
+    if event.get("pipeline_generation") is not None or packet.get("pipeline_generation"):
+        next_packet["pipeline_generation"] = (
+            event.get("pipeline_generation") or packet.get("pipeline_generation")
+        )
+    if event.get("staged_snapshot_hash") is not None or packet.get("staged_snapshot_hash"):
+        next_packet["staged_snapshot_hash"] = (
+            event.get("staged_snapshot_hash")
+            or packet.get("staged_snapshot_hash")
+        )
+    if event.get("guard_results_summary") is not None or packet.get("guard_results_summary"):
+        next_packet["guard_results_summary"] = (
+            event.get("guard_results_summary")
+            or packet.get("guard_results_summary")
         )
     actor = str((event.get("metadata") or {}).get("actor") or "").strip()
     if event_type == "packet_acked":

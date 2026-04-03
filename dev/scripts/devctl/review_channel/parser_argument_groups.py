@@ -82,6 +82,18 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             choices=sorted(VALID_PLAN_MUTATION_OPS),
             help="Plan mutation operation for `plan_patch_review` packets",
         ),
+        arg_builder(
+            "--pipeline-generation",
+            help="Runtime pipeline generation for `commit_approval` packets",
+        ),
+        arg_builder(
+            "--staged-snapshot-hash",
+            help="Staged snapshot hash bound to a runtime approval packet",
+        ),
+        arg_builder(
+            "--guard-results-summary",
+            help="Typed guard summary carried on a runtime approval packet",
+        ),
     ]
 
 

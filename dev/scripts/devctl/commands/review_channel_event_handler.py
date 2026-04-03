@@ -26,6 +26,7 @@ from ..review_channel.events import (
 )
 from ..review_channel.packet_contract import (
     PacketPostRequest,
+    PacketRuntimeApprovalFields,
     PacketTargetFields,
     PacketTransitionRequest,
 )
@@ -151,6 +152,15 @@ def _run_event_action(
                     anchor_refs=getattr(args, "anchor_ref", []),
                     intake_ref=getattr(args, "intake_ref", None),
                     mutation_op=getattr(args, "mutation_op", None),
+                ),
+                runtime_approval=PacketRuntimeApprovalFields.from_values(
+                    pipeline_generation=getattr(args, "pipeline_generation", None),
+                    staged_snapshot_hash=getattr(
+                        args, "staged_snapshot_hash", None
+                    ),
+                    guard_results_summary=getattr(
+                        args, "guard_results_summary", None
+                    ),
                 ),
             ),
         )
