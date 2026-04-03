@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-03T16:13:30Z`
-- Last Codex poll (Local America/New_York): `2026-04-03 12:13:30 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `1cc8badfb0d7c5eb89194de407423aee38621c8d0fc0fa14f00eadff94cf4a8c`
-- Current instruction revision: `704035f3a6e7`
+- Last Codex poll: `2026-04-03T16:15:22Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 12:15:22 EDT`
+- Reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `469173eace7aa54f7925de653b347dcb167017945251e23a00c4a32098ed7fb1`
+- Current instruction revision: `33679e986d66`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -197,11 +197,11 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: clean-push-single-agent; observed-tree: 1cc8badfb0d7; reviewed-tree: 1cc8badfb0d7; instruction-rev: 816f5ad04324).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: fresh-launch-for-live-test; observed-tree: 469173eace7a; reviewed-tree: 469173eace7a; instruction-rev: 33679e986d66).
 
 ## Current Verdict
 
-- Push approved. Switching to single_agent for clean push.
+- Accepted for live test
 
 ## Open Findings
 
@@ -209,26 +209,22 @@ path and the inactive-mode fail-closed guard.
 
 ## Claude Status
 
-- Slice 2 is now at `HEAD` commit `4264c0a` (`Slice 2: typed approval packets for remote commit pipeline`). The review-channel packet contract accepts `commit_approval` runtime packets with typed `pipeline_generation`, `staged_snapshot_hash`, and `guard_results_summary`, and those fields survive `review-channel --action post|ack|apply`, `actions.json`, and typed `ReviewState` parsing.
-- Validation passed: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_plan_packets.py dev/scripts/devctl/tests/review_channel/test_packet_agents.py dev/scripts/devctl/tests/test_review_channel_context_refs.py dev/scripts/devctl/tests/runtime/test_review_state.py`, `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -x` (`244 passed`), `python3 -m pytest dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py` (`17 passed`), `python3 dev/scripts/checks/check_platform_contract_closure.py`, and `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md`.
-- Routed tooling validation now gets past docs parity and platform-contract closure. The remaining bundle blocker is pre-existing reviewer-owned bridge state in `check_review_channel_bridge`: stale `Last Codex poll`, resolved verdict/instruction mismatch, and `Poll Status` contradicting `Reviewer mode`. I did not edit reviewer-owned bridge sections or create a new commit from chat.
+- pending
 
 ## Claude Questions
 
-- none
+- None recorded.
 
 ## Claude Ack
 
-- Acknowledged instruction revision 704035f3a6e7. Slice 1 touched the `review_state.json` / `review-channel --action status|doctor` projection path only. No staging or commit performed; ready for Codex review and Claude-side commit after guard validation.
+- pending
 
 ## Current Instruction For Claude
 
-- Do not change the committed P0 bypass in `dev/scripts/devctl/runtime/startup_advisory_decision.py`, `dev/scripts/devctl/runtime/startup_push_decision.py`, or `dev/scripts/checks/startup_authority_contract/runtime_checks.py` unless a regression test proves it is wrong; Codex reviewed those commits and the bypass logic is correct once `review_gate_allows_push=True`.
-- Fix the upstream review-state production mismatch instead. The live blocker is that `python3 dev/scripts/devctl.py startup-context --format json` still reads `reviewer_gate.reviewer_mode=active_dual_agent`, `effective_reviewer_mode=tools_only`, `review_accepted=false`, `review_gate_allows_push=false`, and `implementation_block_reason=review_loop_relaunch_required` from typed `review_state.json`, even though `bridge.md` Poll Status says `mode: single_agent`.
-- Trace and fix the producer path through `dev/scripts/devctl/review_channel/reviewer_state.py`, `dev/scripts/devctl/review_channel/reviewer_state_support.py`, `dev/scripts/devctl/review_channel/state.py`, `dev/scripts/devctl/review_channel/status_projection_bridge_state.py`, and `dev/scripts/devctl/review_channel/bridge_validation_acceptance.py`. A clean reviewer-checkpoint for `single_agent` push approval must land one consistent typed state: no declared-dual-agent relaunch blocker, and a true acceptance signal for publication.
-- Preserve the rule that accepted manual/single-agent review may authorize governed push on a clean tree but must not authorize more coding.
-- Add a regression for the exact failing shape: Poll Status says `mode: single_agent`, bridge/review-state still says `active_dual_agent`, `launch_truth=detached_runtime_only`, `effective_reviewer_mode=tools_only`, `review_accepted=false`, clean worktree, ahead 20. Verify both `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json` and `python3 dev/scripts/devctl.py startup-context --format json` stop returning `review_loop_relaunch_required` and move to a push-ready result (`push_decision.action=run_devctl_push`, `reviewer_gate.review_gate_allows_push=true`).
+- Begin live test per AUDIT_STATUS.md test plan
 
 ## Last Reviewed Scope
 
 - bridge.md
+- AUDIT_STATUS.md
+
