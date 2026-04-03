@@ -39,6 +39,21 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
 
+### 2026-04-03 - Launch gate split: reviewer bootstrap now allowed across reviewer-owned state drift
+
+The governed launch path (review-channel --action launch|rollover) was blocked
+by the same startup receipt semantics as implementation slices. Any bridge
+commit during reviewer-state repair changed HEAD, staling the receipt and
+creating a bootstrap loop. The fix splits launcher authority from edit-slice
+authority: launch/rollover now drops stale-HEAD receipt failures and allows
+reviewer-owned state drift, while implementation commands keep exact HEAD
+binding. reviewer_overdue and implementer_state_reset_required reclassified
+from block_launch to warn for launch intent.
+
+Updated:
+`dev/scripts/devctl/runtime/startup_gate.py`,
+`dev/scripts/devctl/review_channel/peer_recovery.py`.
+
 ### 2026-04-03 - Remote commit pipeline startup, status, and doctor surfaces now carry one shared snapshot stamp
 
 The remote commit lane already had a typed pipeline owner, governed

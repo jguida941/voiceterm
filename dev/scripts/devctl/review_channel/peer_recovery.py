@@ -71,7 +71,7 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         "recommended_command": REVIEW_CHANNEL_LIVE_RELAUNCH_COMMAND,
     }),
     ("reviewer_overdue", {
-        "guard_behavior": "block_launch",
+        "guard_behavior": "warn",
         "owner": "codex",
         "summary": (
             "Codex reviewer is overdue; the controller should escalate or attempt automatic recovery."
@@ -125,7 +125,7 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
     }),
     ("implementer_state_reset_required", {
-        "guard_behavior": "block_launch",
+        "guard_behavior": "warn",
         "owner": "codex",
         "summary": (
             "Stale implementer bridge state is blocking a fresh launch/recovery cycle."

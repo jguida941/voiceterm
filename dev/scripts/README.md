@@ -1721,3 +1721,4 @@ Workspace-path note:
 - `dev/scripts/tests/benchmark_voice.sh` and
   `dev/scripts/tests/compare_python_rust_voice_latency.sh` use the same
   `rust/`-first workspace detection with legacy `src/` fallback.
+

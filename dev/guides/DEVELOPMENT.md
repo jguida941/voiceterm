@@ -348,10 +348,13 @@ Three quality layers matter in practice:
     persistent service and reclaims the detached reviewer-supervisor runtime on
     its normal cadence; the checked-in launchd template/wrapper pair under
     `dev/config/launchd/` covers login-time restart/backoff semantics outside
-    that live launch path. The startup gate still blocks those actions on
+    that live launch path. The startup gate now splits launcher authority
+    from edit-slice authority: `launch|rollover` drops stale-HEAD receipt
+    failures and allows reviewer-owned state drift, while implementation
+    commands keep exact HEAD binding. The gate still blocks those actions on
     checkpoint-budget or other real authority failures, but it no longer
     blocks `launch|rollover` solely because the current reviewer loop is stale
-    on the implementer side; those actions remain the sanctioned full-session
+    on the implementer side or because a reviewer-state commit changed HEAD; those actions remain the sanctioned full-session
     relaunch path when the pair needs a fresh start, while `recover` is the
     narrower Claude-only repair path when the repo-owned Codex reviewer is
     already live.

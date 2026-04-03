@@ -53,11 +53,13 @@ def enforce_startup_gate(
         authority_report=authority_report,
     )
 
+    is_bootstrap = _is_reviewer_bootstrap_intent(args)
     if not _ci_environment():
         receipt = load_startup_receipt(repo_root=repo_root)
         receipt_failures = _filtered_receipt_failures(
             startup_receipt_problems(receipt, repo_root=repo_root),
             allow_recovery_action=allow_recovery_action,
+            is_bootstrap=is_bootstrap,
         )
         if receipt_failures:
             return _format_gate_failure(
@@ -83,27 +85,29 @@ def enforce_startup_gate(
     )
 
 
+def _is_reviewer_bootstrap_intent(args: SimpleNamespace) -> bool:
+    """Return True when the command is review-channel launch or rollover."""
+    command = str(getattr(args, "command", "") or "").strip()
+    action = str(getattr(args, "action", "") or "").strip()
+    return command == "review-channel" and action in _REVIEW_CHANNEL_GATED_ACTIONS
+
+
 def _allow_recovery_action_despite_reviewer_block(
     args: SimpleNamespace,
     *,
     authority_report: dict[str, object],
 ) -> bool:
-    """Permit launch/rollover when reviewer-loop block is the only red signal.
+    """Permit launch/rollover for reviewer bootstrap even across reviewer-owned state drift.
 
-    The narrow stale-implementer repair path is `review-channel --action recover`,
-    but broader `launch|rollover` relaunches should still be allowed when the
-    only startup-authority failure is the reviewer-loop block produced by the
-    stale implementer state itself.
+    Launch/rollover is a reviewer-runtime repair action, not a new implementation
+    slice. It must be allowed when the only problems are reviewer-loop blockage,
+    stale implementer state, or reviewer-overdue conditions. It must NOT be
+    allowed when there are non-reviewer authority failures or when a real
+    checkpoint is required for dirty implementation work.
     """
-    command = str(getattr(args, "command", "") or "").strip()
-    action = str(getattr(args, "action", "") or "").strip()
-    if command != "review-channel" or action not in _REVIEW_CHANNEL_GATED_ACTIONS:
+    if not _is_reviewer_bootstrap_intent(args):
         return False
     if bool(authority_report.get("checkpoint_required", False)):
-        return False
-    if authority_report.get("safe_to_continue_editing", True) is False:
-        return False
-    if not bool(authority_report.get("reviewer_loop_blocked", False)):
         return False
     errors = [
         str(row).strip()
@@ -111,7 +115,7 @@ def _allow_recovery_action_despite_reviewer_block(
         if str(row).strip()
     ]
     if not errors:
-        return False
+        return True
     return all(error.startswith(_REVIEWER_LOOP_BLOCK_PREFIX) for error in errors)
 
 
@@ -119,15 +123,24 @@ def _filtered_receipt_failures(
     failures: list[str],
     *,
     allow_recovery_action: bool,
+    is_bootstrap: bool = False,
 ) -> list[str]:
-    """Keep stale-receipt blocking, but ignore mirrored reviewer-loop-only red state."""
-    if not allow_recovery_action:
+    """Keep stale-receipt blocking, but allow reviewer-bootstrap to cross admin drift.
+
+    For reviewer bootstrap (launch/rollover), drop stale-HEAD failures and
+    startup-authority mirror failures. The launch path repairs reviewer state,
+    so HEAD drift from reviewer-owned artifacts is expected and safe.
+    """
+    if not allow_recovery_action and not is_bootstrap:
         return failures
-    return [
-        failure
-        for failure in failures
-        if "startup-authority failures" not in failure
-    ]
+    filtered = []
+    for failure in failures:
+        if "startup-authority failures" in failure:
+            continue
+        if is_bootstrap and "stale for the current HEAD commit" in failure:
+            continue
+        filtered.append(failure)
+    return filtered
 
 
 def _format_gate_failure(
