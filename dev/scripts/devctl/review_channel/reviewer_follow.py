@@ -1,4 +1,4 @@
-"""Reviewer follow-loop helpers for report-only supervisor status."""
+"""Reviewer follow-loop helpers for supervisor promotion, recovery, and rollover."""
 
 from __future__ import annotations
 

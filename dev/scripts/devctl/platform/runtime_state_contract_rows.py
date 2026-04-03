@@ -164,6 +164,21 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Attention-state reason when the lifecycle is not healthy.",
             ),
             ContractField(
+                "implementer_ack_current",
+                "bool",
+                "Whether the current implementer ACK matches the live instruction revision.",
+            ),
+            ContractField(
+                "implementation_blocked",
+                "bool",
+                "Whether new implementation work is fail-closed by reviewer-runtime truth.",
+            ),
+            ContractField(
+                "implementation_block_reason",
+                "str",
+                "Reason the current reviewer-runtime state blocks new implementation work.",
+            ),
+            ContractField(
                 "last_poll",
                 "ReviewerLastPollState",
                 "Last reviewer poll timestamp plus computed age.",

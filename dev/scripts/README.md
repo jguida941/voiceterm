@@ -51,6 +51,12 @@ For the typed remote-session commit/push pipeline that phone-steered and
 remote-control sessions must eventually use, see
 `dev/active/remote_commit_pipeline.md` after
 `dev/active/platform_authority_loop.md`.
+That Phase-2 authority follow-up now keeps review/push truth on typed runtime
+contracts too: `reviewer_runtime` owns `implementer_ack_current`,
+`implementation_blocked`, and `implementation_block_reason`, bridge review
+acceptance is typed-only instead of prose-regex fallback, and governed push
+recovery keys approval identity to the reviewer-owned
+`approved_target_identity` tree receipt instead of raw HEAD equality.
 Generated bootstrap surfaces such as `CLAUDE.md` are part of that same
 architecture boundary: keep them synced with `render-surfaces`, and make sure
 they explain the compiler-style control model plus the
@@ -255,6 +261,11 @@ Portability note:
   `post|ack|apply`, `actions.json`, and typed review-state parsing. Discovery
   and workflow policy for that lane stay mirrored in `AGENTS.md`,
   `dev/guides/DEVELOPMENT.md`, and `dev/active/remote_commit_pipeline.md`.
+- The same lane no longer trusts bridge prose or raw HEAD equality for
+  publish authority. `reviewer_runtime` owns implementer ACK/block truth,
+  `bridge_review_accepted` is typed-only, and push recovery matches
+  `approved_target_identity` tree receipts emitted from the approved staged
+  snapshot instead of a bare current-HEAD comparison.
 - `review-channel --action reviewer-heartbeat` is the repo-owned liveness write
   for solo-dev / tools-only / paused tandem states. It updates heartbeat and
   mode metadata without claiming a new reviewed hash, and it now rewrites

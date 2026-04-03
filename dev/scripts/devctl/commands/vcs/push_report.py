@@ -49,6 +49,7 @@ class PushReportInputs:
     warnings: list[str]
     errors: list[str]
     artifact_path: str = ""
+    approved_target_identity: str = ""
 
 
 def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
@@ -77,6 +78,8 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     report["action_result"] = inputs.action_result
     report["warnings"] = inputs.warnings
     report["errors"] = inputs.errors
+    if inputs.approved_target_identity:
+        report["approved_target_identity"] = inputs.approved_target_identity
     if inputs.artifact_path:
         report["artifacts"] = {"latest_json": inputs.artifact_path}
     return report
@@ -91,6 +94,10 @@ def render_push_report(report: dict[str, Any]) -> str:
     lines.append(f"- branch: {report.get('branch')}")
     lines.append(f"- remote: {report.get('remote')}")
     lines.append(f"- head_commit: {report.get('head_commit')}")
+    if report.get("approved_target_identity"):
+        lines.append(
+            f"- approved_target_identity: {report.get('approved_target_identity')}"
+        )
     lines.append(f"- execute: {report.get('execute')}")
     lines.append(f"- policy_path: {report.get('policy_path')}")
     warnings = report.get("warnings") or []

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -> bool:
-    """Return True when the latest push artifact already proves current-HEAD publication."""
+    """Return True when the latest push artifact proves current approved-target publication."""
     latest_push_report_matches_current_branch = bool(
         getattr(push_enforcement, "latest_push_report_matches_current_branch", False)
     )
@@ -32,8 +32,12 @@ def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -
     latest_push_report_published_remote = bool(
         getattr(push_enforcement, "latest_push_report_published_remote", False)
     )
-    latest_push_report_matches_current_head = bool(
-        getattr(push_enforcement, "latest_push_report_matches_current_head", False)
+    latest_push_report_matches_current_approved_target = bool(
+        getattr(
+            push_enforcement,
+            "latest_push_report_matches_current_approved_target",
+            False,
+        )
     )
     artifact_branch_matches = latest_push_report_matches_current_branch
     if not artifact_branch_matches:
@@ -47,7 +51,7 @@ def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -
     )
     return bool(
         latest_push_report_published_remote
-        and latest_push_report_matches_current_head
+        and latest_push_report_matches_current_approved_target
         and artifact_branch_matches
         and artifact_remote_matches
     )
@@ -79,9 +83,9 @@ def artifact_publication_recovery_decision(
                 ),
                 rule_summary=(
                     "No governed push is needed because the latest persisted push "
-                    "artifact already recorded remote publication for the current HEAD, "
-                    "even if the local upstream divergence view is stale until the next "
-                    "fetch."
+                    "artifact already recorded remote publication for the current "
+                    "approved reviewer target, even if the local upstream divergence "
+                    "view is stale until the next fetch."
                 ),
                 match_evidence=(
                     rule_match_evidence(
@@ -90,10 +94,11 @@ def artifact_publication_recovery_decision(
                         "the current HEAD.",
                         "worktree_clean=True",
                         "review_gate_allows_push=True",
-                        f"current_head_commit={push_enforcement.current_head_commit or '(missing)'}",
+                        "current_approved_target_identity="
+                        f"{push_enforcement.current_approved_target_identity or '(missing)'}",
                         "latest_push_report_published_remote=True",
                         "latest_push_report_post_push_green=False",
-                        "latest_push_report_matches_current_head=True",
+                        "latest_push_report_matches_current_approved_target=True",
                         "latest_push_report_matches_current_branch=True",
                     ),
                 ),
@@ -102,7 +107,7 @@ def artifact_publication_recovery_decision(
                         "startup_push.run_devctl_push",
                         "Run the governed push path immediately.",
                         "The latest push artifact already recorded remote publication "
-                        "for the current HEAD.",
+                        "for the current approved reviewer target.",
                     ),
                 ),
             ),
@@ -114,24 +119,24 @@ def artifact_publication_recovery_decision(
             reason="remote_publish_recorded_current_head",
             next_step_summary=(
                 "No governed push is required because the latest persisted push artifact "
-                "already records remote publication for the current HEAD."
+                "already records remote publication for the current approved reviewer target."
                 + artifact_hint
             ),
             rule_summary=(
-                "No governed push is needed because the current HEAD already has a "
-                "persisted remote-publication record, so local upstream divergence can "
-                "be treated as stale until the next fetch."
+                "No governed push is needed because the current approved reviewer "
+                "target already has a persisted remote-publication record, so local "
+                "upstream divergence can be treated as stale until the next fetch."
             ),
             match_evidence=(
                 rule_match_evidence(
                     "startup_push.remote_publish_recorded_current_head_green",
                     "Startup detected a persisted remote-publication record for the "
-                    "current HEAD.",
+                    "current approved reviewer target.",
                     "worktree_clean=True",
                     "review_gate_allows_push=True",
                     "latest_push_report_published_remote=True",
                     "latest_push_report_post_push_green=True",
-                    "latest_push_report_matches_current_head=True",
+                    "latest_push_report_matches_current_approved_target=True",
                     "latest_push_report_matches_current_branch=True",
                 ),
             ),

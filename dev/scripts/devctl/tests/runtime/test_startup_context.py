@@ -377,6 +377,7 @@ class TestCLIRegistration(unittest.TestCase):
     def test_push_decision_recovers_remote_published_post_push_failure_for_current_head(
         self,
     ) -> None:
+        approved_target_identity = "tree-receipt-20260403T010000Z:tree-123"
         governance = _minimal_governance(
             current_branch="feature/x",
             current_head_commit="abc123",
@@ -394,6 +395,9 @@ class TestCLIRegistration(unittest.TestCase):
             latest_push_report_reason="post_push_bundle_failed",
             latest_push_report_published_remote=True,
             latest_push_report_post_push_green=False,
+            current_approved_target_identity=approved_target_identity,
+            latest_push_report_approved_target_identity=approved_target_identity,
+            latest_push_report_matches_current_approved_target=True,
             latest_push_report_matches_current_branch=True,
             latest_push_report_matches_current_head=True,
         )

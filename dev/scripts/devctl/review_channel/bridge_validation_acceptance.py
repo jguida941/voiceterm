@@ -50,12 +50,7 @@ def review_acceptance_projection(snapshot) -> tuple[str, str, bool]:
 def bridge_review_accepted(source) -> bool:
     """Return reviewer acceptance as a projection over typed runtime state."""
     runtime_acceptance = _runtime_review_accepted(source)
-    if runtime_acceptance is not None:
-        return runtime_acceptance
-    _current_verdict, _open_findings, review_accepted = review_acceptance_projection(
-        source
-    )
-    return review_accepted
+    return bool(runtime_acceptance)
 
 
 def _runtime_review_accepted(source) -> bool | None:

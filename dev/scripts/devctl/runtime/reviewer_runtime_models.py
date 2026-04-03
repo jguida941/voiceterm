@@ -40,6 +40,9 @@ class ReviewerRuntimeContract:
     effective_reviewer_mode: str = "single_agent"
     reviewer_freshness: str = "unknown"
     stale_reason: str = ""
+    implementer_ack_current: bool = False
+    implementation_blocked: bool = False
+    implementation_block_reason: str = ""
     last_poll: ReviewerLastPollState = field(default_factory=ReviewerLastPollState)
     rollover: ReviewerRolloverState = field(default_factory=ReviewerRolloverState)
     session_owner: ReviewerSessionOwnerState = field(

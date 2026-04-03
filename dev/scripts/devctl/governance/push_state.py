@@ -9,6 +9,10 @@ from pathlib import Path
 
 from ..commands.vcs.push_artifact import load_latest_push_report, latest_push_report_relpath
 from ..config import REPO_ROOT
+from ..repo_packs import active_path_config
+from ..review_channel.remote_commit_pipeline_artifact import (
+    load_remote_commit_pipeline_contract,
+)
 from .push_publication import build_publication_backlog_state
 from .push_policy import PushCheckpointPolicy, PushPolicy
 
@@ -52,6 +56,9 @@ class PushEnforcementSnapshot:
     latest_push_report_reason: str = ""
     latest_push_report_published_remote: bool = False
     latest_push_report_post_push_green: bool = False
+    current_approved_target_identity: str = ""
+    latest_push_report_approved_target_identity: str = ""
+    latest_push_report_matches_current_approved_target: bool = False
     latest_push_report_matches_current_branch: bool = False
     latest_push_report_matches_current_head: bool = False
 
@@ -70,6 +77,9 @@ def detect_push_enforcement_state(
     )
     current_branch = _git_stdout(repo_root, "rev-parse", "--abbrev-ref", "HEAD")
     current_head_commit = current_head_commit_sha(repo_root=repo_root)
+    current_approved_target_identity = _current_approved_target_identity(
+        repo_root=repo_root
+    )
     hook_installed = hook_path.is_file()
     raw_guarded = hook_installed and os.access(hook_path, os.X_OK)
     upstream_ref = current_upstream_ref(repo_root=repo_root)
@@ -98,28 +108,27 @@ def detect_push_enforcement_state(
     push_stages = latest_push_report.get("push_stages")
     if not isinstance(push_stages, dict):
         push_stages = {}
-    latest_push_report_branch = str(latest_push_report.get("branch") or "").strip()
-    latest_push_report_remote = str(latest_push_report.get("remote") or "").strip()
-    latest_push_report_head_commit = str(
-        latest_push_report.get("head_commit") or ""
-    ).strip()
-    latest_push_report_matches_current_branch = bool(
-        current_branch
-        and latest_push_report_branch
-        and current_branch == latest_push_report_branch
+    (
+        latest_push_report_branch,
+        latest_push_report_remote,
+        latest_push_report_head_commit,
+        latest_push_report_approved_target_identity,
+        latest_push_report_matches_current_branch,
+        latest_push_report_matches_current_head,
+        latest_push_report_matches_current_approved_target,
+    ) = _latest_push_report_state(
+        report=latest_push_report,
+        current_branch=current_branch,
+        current_head_commit=current_head_commit,
+        current_approved_target_identity=current_approved_target_identity,
     )
-    latest_push_report_matches_current_head = bool(
-        current_head_commit
-        and latest_push_report_head_commit
-        and current_head_commit == latest_push_report_head_commit
-    )
-    recorded_remote_publication_for_current_head = (
+    recorded_remote_publication_for_current_target = (
         bool(push_stages.get("published_remote"))
         and latest_push_report_matches_current_branch
-        and latest_push_report_matches_current_head
+        and latest_push_report_matches_current_approved_target
     )
     has_remote_work_to_push = not (
-        recorded_remote_publication_for_current_head
+        recorded_remote_publication_for_current_target
         or (ahead == 0 and upstream_ref)
     )
     if checkpoint_required:
@@ -132,7 +141,7 @@ def detect_push_enforcement_state(
     elif worktree_dirty:
         recommended_action = "commit_before_push"
         checkpoint_reason = "within_dirty_budget"
-    elif recorded_remote_publication_for_current_head or (ahead == 0 and upstream_ref):
+    elif recorded_remote_publication_for_current_target or (ahead == 0 and upstream_ref):
         recommended_action = "no_push_needed"
     else:
         recommended_action = "use_devctl_push"
@@ -186,6 +195,13 @@ def detect_push_enforcement_state(
         latest_push_report_reason=str(latest_push_report.get("reason") or "").strip(),
         latest_push_report_published_remote=bool(push_stages.get("published_remote")),
         latest_push_report_post_push_green=bool(push_stages.get("post_push_green")),
+        current_approved_target_identity=current_approved_target_identity,
+        latest_push_report_approved_target_identity=(
+            latest_push_report_approved_target_identity
+        ),
+        latest_push_report_matches_current_approved_target=(
+            latest_push_report_matches_current_approved_target
+        ),
         latest_push_report_matches_current_branch=(
             latest_push_report_matches_current_branch
         ),
@@ -208,6 +224,32 @@ def current_upstream_ref(*, repo_root: Path = REPO_ROOT) -> str:
 def current_head_commit_sha(*, repo_root: Path = REPO_ROOT) -> str:
     """Return the current HEAD commit SHA, or empty when unavailable."""
     return _git_stdout(repo_root, "rev-parse", "HEAD")
+
+
+def _latest_push_report_state(
+    *,
+    report: dict[str, object],
+    current_branch: str,
+    current_head_commit: str,
+    current_approved_target_identity: str,
+) -> tuple[str, str, str, str, bool, bool, bool]:
+    branch = str(report.get("branch") or "").strip()
+    remote = str(report.get("remote") or "").strip()
+    head_commit = str(report.get("head_commit") or "").strip()
+    approved_target_identity = _latest_push_report_approved_target_identity(report)
+    return (
+        branch,
+        remote,
+        head_commit,
+        approved_target_identity,
+        bool(current_branch and branch and current_branch == branch),
+        bool(current_head_commit and head_commit and current_head_commit == head_commit),
+        bool(
+            current_approved_target_identity
+            and approved_target_identity
+            and current_approved_target_identity == approved_target_identity
+        ),
+    )
 
 
 def _git_stdout(repo_root: Path, *cmd: str) -> str:
@@ -257,6 +299,30 @@ def _worktree_change_counts(
         if status == "??":
             untracked_paths.add(path)
     return len(dirty_paths), len(untracked_paths)
+
+
+def _current_approved_target_identity(*, repo_root: Path) -> str:
+    pipeline = load_remote_commit_pipeline_contract(
+        output_root=repo_root / active_path_config().review_status_dir_rel
+    )
+    if pipeline is None:
+        return ""
+    return str(pipeline.approved_target_identity or "").strip()
+
+
+def _latest_push_report_approved_target_identity(
+    report: dict[str, object],
+) -> str:
+    direct_value = str(report.get("approved_target_identity") or "").strip()
+    if direct_value:
+        return direct_value
+    typed_action = report.get("typed_action")
+    if not isinstance(typed_action, dict):
+        return ""
+    parameters = typed_action.get("parameters")
+    if not isinstance(parameters, dict):
+        return ""
+    return str(parameters.get("approved_target_identity") or "").strip()
 
 
 def _checkpoint_reason(

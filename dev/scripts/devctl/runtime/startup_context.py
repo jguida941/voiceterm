@@ -19,7 +19,6 @@ from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
 from .conductor_capability import normalize_reviewer_mode
 from .governance_scan import scan_repo_governance_safely
 from .project_governance import ProjectGovernance
-from .reviewer_gate_logic import reviewer_loop_block_state
 from .review_state_locator import load_current_review_state
 from .startup_advisory_decision import derive_advisory_decision as _derive_advisory_decision
 from .startup_governance_projection import startup_governance_dict
@@ -118,12 +117,11 @@ def _detect_reviewer_gate_from_typed_state(
     state = load_current_review_state(repo_root, governance=governance)
     if state is None:
         return None
-    mode = state.bridge.reviewer_mode
-    effective_mode = (
-        str(state.bridge.effective_reviewer_mode or "").strip() or mode
-    )
-    review_accepted = state.reviewer_runtime.review_acceptance.review_accepted
-    publish_clear = state.reviewer_runtime.publish_clear
+    reviewer_runtime = state.reviewer_runtime
+    mode = reviewer_runtime.reviewer_mode
+    effective_mode = str(reviewer_runtime.effective_reviewer_mode or "").strip() or mode
+    review_accepted = reviewer_runtime.review_acceptance.review_accepted
+    publish_clear = reviewer_runtime.publish_clear
     declared_active = normalize_reviewer_mode(mode) == "active_dual_agent"
     effective_active = normalize_reviewer_mode(effective_mode) == "active_dual_agent"
     if not declared_active:
@@ -145,26 +143,9 @@ def _detect_reviewer_gate_from_typed_state(
             required_checks_status="unknown",
             checkpoint_permitted=True,
             review_gate_allows_push=publish_clear,
-            implementation_blocked=True,
-            implementation_block_reason=(
-                str(state.attention.status).strip()
-                if state.attention is not None
-                else "review_loop_not_live"
-            ),
+            implementation_blocked=reviewer_runtime.implementation_blocked,
+            implementation_block_reason=reviewer_runtime.implementation_block_reason,
         )
-
-    implementation_blocked, implementation_block_reason = reviewer_loop_block_state(
-        reviewer_mode=effective_mode,
-        claude_ack_current=state.bridge.claude_ack_current,
-        attention_status=(
-            str(state.attention.status).strip()
-            if state.attention is not None
-            else ""
-        ),
-        implementer_status=state.current_session.implementer_status.strip(),
-        implementer_ack=state.current_session.implementer_ack.strip(),
-        implementer_ack_state=state.current_session.implementer_ack_state.strip(),
-    )
 
     return ReviewerGateState(
         bridge_active=True,
@@ -174,8 +155,8 @@ def _detect_reviewer_gate_from_typed_state(
         required_checks_status="unknown",
         checkpoint_permitted=True,
         review_gate_allows_push=publish_clear,
-        implementation_blocked=implementation_blocked,
-        implementation_block_reason=implementation_block_reason,
+        implementation_blocked=reviewer_runtime.implementation_blocked,
+        implementation_block_reason=reviewer_runtime.implementation_block_reason,
     )
 
 

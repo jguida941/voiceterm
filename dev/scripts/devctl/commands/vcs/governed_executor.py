@@ -38,6 +38,13 @@ from ...runtime.remote_commit_pipeline_models import (
 from ...runtime.review_state_models import ReviewPacketState
 from ...runtime.startup_context import build_startup_context
 from ...runtime.vcs import run_git_capture
+from .governed_executor_support import (
+    CommitBlock,
+    approved_target_identity,
+    commit_failed_pipeline,
+    commit_recorded_pipeline,
+    evaluate_commit_readiness,
+)
 from .push import build_push_args, run_push_action
 
 STAGE_ACTION_ID = "vcs.stage"
@@ -388,6 +395,8 @@ class GovernedVcsExecutor:
     def _execute_commit(self, action: TypedAction) -> ActionResult:
         startup_context = self.startup_context_fn(repo_root=self.repo_root)
         review_gate = _field(startup_context, "reviewer_gate")
+        artifact_relpath = self._pipeline_artifact_relpath()
+
         if not _bool_field(review_gate, "review_gate_allows_push"):
             return self._result(
                 action_id=action.action_id,
@@ -432,67 +441,25 @@ class GovernedVcsExecutor:
                     "the reviewer/runtime state stabilizes."
                 ),
                 warnings=tuple(warnings),
-                artifact_paths=(self._pipeline_artifact_relpath(),),
+                artifact_paths=(artifact_relpath,),
             )
 
-        if pipeline.guard_result is None or pipeline.guard_result.status != ActionOutcome.PASS:
-            return self._commit_blocked_result(
-                action_id=action.action_id,
-                pipeline=pipeline,
-                reason="guards_not_passed",
-                guidance=(
-                    "Run the routed guard bundle and record a passing result "
-                    "before `vcs.commit`."
-                ),
-            )
-        if pipeline.approval_state != "approved" or pipeline.state != "approved":
-            return self._commit_blocked_result(
-                action_id=action.action_id,
-                pipeline=pipeline,
-                reason="operator_approval_missing",
-                guidance=(
-                    "Post and apply the matching `commit_approval` decision "
-                    "packet before `vcs.commit`."
-                ),
-            )
-        if not pipeline.approval_packet_id or not pipeline.decision_packet_id:
-            return self._commit_blocked_result(
-                action_id=action.action_id,
-                pipeline=pipeline,
-                reason="approval_packet_missing",
-                guidance=(
-                    "The approved pipeline must carry both the approval request "
-                    "packet and the applied operator decision packet."
-                ),
-            )
-
-        current_tree_hash = self._index_tree_hash()
-        if current_tree_hash != pipeline.intent.staged_tree_hash:
-            return self._commit_blocked_result(
-                action_id=action.action_id,
-                pipeline=replace(
-                    pipeline,
-                    state="push_blocked",
-                    blocked_reason="staged_snapshot_changed",
-                ),
-                reason="staged_snapshot_changed",
-                guidance=(
-                    "The staged snapshot drifted after approval. Recover and "
-                    "request a fresh approval packet."
-                ),
-            )
-
-        commit_message = (
-            _string_value(action.parameters.get("commit_message_draft"))
-            or pipeline.intent.commit_message_draft
+        readiness = evaluate_commit_readiness(
+            pipeline=pipeline,
+            current_tree_hash=self._index_tree_hash(),
+            requested_commit_message=_string_value(
+                action.parameters.get("commit_message_draft")
+            ),
         )
-        if not commit_message:
+        if isinstance(readiness, CommitBlock):
             return self._commit_blocked_result(
                 action_id=action.action_id,
-                pipeline=pipeline,
-                reason="commit_message_missing",
-                guidance="Set `commit_message_draft` during `vcs.stage` before committing.",
+                pipeline=readiness.pipeline,
+                reason=readiness.reason,
+                guidance=readiness.guidance,
             )
+        pipeline = readiness.pipeline
+        commit_message = readiness.commit_message
 
         commit_pending = replace(
             pipeline,
@@ -506,22 +473,12 @@ class GovernedVcsExecutor:
             repo_root=self.repo_root,
         )
         if commit_code != 0:
-            failed = replace(
-                commit_pending,
-                state="push_blocked",
-                commit_result=self._result(
-                    action_id=action.action_id,
-                    ok=False,
-                    status=ActionOutcome.FAIL,
-                    reason="commit_failed",
-                    operator_guidance=(
-                        "Inspect the git commit failure, repair the repo state, "
-                        "then recover the pipeline."
-                    ),
-                    warnings=((commit_error,) if commit_error else ()),
-                    artifact_paths=(self._pipeline_artifact_relpath(),),
-                ),
-                blocked_reason="commit_failed",
+            failed = commit_failed_pipeline(
+                pending_pipeline=commit_pending,
+                action_id=action.action_id,
+                commit_error=commit_error,
+                artifact_relpath=artifact_relpath,
+                result_builder=self._result,
             )
             warnings = self._persist_pipeline(failed)
             return self._result(
@@ -534,23 +491,16 @@ class GovernedVcsExecutor:
                     "then recover the pipeline."
                 ),
                 warnings=tuple(warnings + ([commit_error] if commit_error else [])),
-                artifact_paths=(self._pipeline_artifact_relpath(),),
+                artifact_paths=(artifact_relpath,),
             )
 
         commit_sha = self._head_commit()
-        completed = replace(
-            commit_pending,
-            state="commit_recorded",
-            commit_result=self._result(
-                action_id=action.action_id,
-                ok=True,
-                status=ActionOutcome.PASS,
-                reason="commit_recorded",
-                operator_guidance="The approved staged snapshot is now committed.",
-                artifact_paths=(self._pipeline_artifact_relpath(),),
-            ),
+        completed = commit_recorded_pipeline(
+            pending_pipeline=commit_pending,
+            action_id=action.action_id,
             commit_sha=commit_sha,
-            blocked_reason="",
+            artifact_relpath=artifact_relpath,
+            result_builder=self._result,
         )
         warnings = self._persist_pipeline(completed)
         return self._result(
@@ -563,7 +513,7 @@ class GovernedVcsExecutor:
                 "new commit."
             ),
             warnings=tuple(warnings),
-            artifact_paths=(self._pipeline_artifact_relpath(),),
+            artifact_paths=(artifact_relpath,),
         )
 
     def _execute_push(self, action: TypedAction) -> ActionResult:
@@ -582,10 +532,13 @@ class GovernedVcsExecutor:
 
         push_args = build_push_args(
             remote=_string_value(action.parameters.get("remote")) or pipeline.remote,
-            quality_policy=_string_value(action.parameters.get("quality_policy")) or None,
+            quality_policy=(
+                _string_value(action.parameters.get("quality_policy")) or None
+            ),
             execute=bool(action.parameters.get("execute", not action.dry_run)),
             skip_preflight=bool(action.parameters.get("skip_preflight")),
             skip_post_push=bool(action.parameters.get("skip_post_push")),
+            approved_target_identity=pipeline.approved_target_identity or None,
             format="json",
         )
         pending = replace(
@@ -745,7 +698,7 @@ class GovernedVcsExecutor:
         next_state = pipeline.state
         blocked_reason = pipeline.blocked_reason
         approval_expires_at_utc = ""
-        approved_target_identity = ""
+        approved_identity = ""
 
         if request_packet is not None:
             approval_state = "pending"
@@ -769,7 +722,11 @@ class GovernedVcsExecutor:
                 approval_state = "approved"
                 next_state = "approved"
                 blocked_reason = ""
-                approved_target_identity = _approved_target_identity(pipeline)
+                approved_identity = approved_target_identity(
+                    staged_tree_hash=pipeline.intent.staged_tree_hash,
+                    decision_packet=decision_packet,
+                    fallback_generation=pipeline.generation_id,
+                )
 
         return replace(
             pipeline,
@@ -782,7 +739,7 @@ class GovernedVcsExecutor:
             ),
             approval_state=approval_state,
             approval_expires_at_utc=approval_expires_at_utc,
-            approved_target_identity=approved_target_identity,
+            approved_target_identity=approved_identity,
             blocked_reason=blocked_reason,
         )
 
@@ -1017,15 +974,6 @@ def _latest_matching_packet(
 
 def _pipeline_target_ref(pipeline: RemoteCommitPipelineContract) -> str:
     return f"remote_commit_pipeline:{pipeline.pipeline_id}"
-
-
-def _approved_target_identity(pipeline: RemoteCommitPipelineContract) -> str:
-    return (
-        f"{_pipeline_target_ref(pipeline)}@{pipeline.generation_id}:"
-        f"{pipeline.intent.staged_tree_hash}"
-    )
-
-
 def _guard_results_summary(result: ActionResult | None) -> str:
     if result is None:
         return ""

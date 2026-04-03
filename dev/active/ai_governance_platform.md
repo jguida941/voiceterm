@@ -4399,6 +4399,13 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-04-03 remote commit-pipeline Phase-2 authority follow-up landed in the
+  same `MP-377` owner chain: `reviewer_runtime` now owns implementer ACK /
+  implementation-block truth, bridge review acceptance no longer falls back to
+  prose parsing, and governed push recovery now keys approval identity to a
+  reviewer-owned tree receipt instead of raw HEAD equality. The next narrow
+  follow-up is Phase 3 ownership/write proof plus live-session validation,
+  not another bridge-derived authority patch.
 - 2026-04-01 integration-analysis absorption: the accepted missing closures are
   now explicit in canonical plan authority instead of living in
   `dev/intrgrate*.md`. `MP-377` already carried most of the direction, so this
@@ -5468,6 +5475,14 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-03: Landed the remote commit pipeline Phase-2 authority cleanup in
+  the same `MP-377` owner chain. `ReviewerRuntimeContract` now owns
+  `implementer_ack_current`, `implementation_blocked`, and
+  `implementation_block_reason`, push/status/startup consumers read those
+  typed fields instead of bridge-liveness recomputation, bridge acceptance is
+  typed-only instead of prose-regex fallback, and governed push recovery now
+  matches the reviewer-owned `approved_target_identity` tree receipt rather
+  than raw HEAD equality.
 - 2026-04-03: Landed Phase-0 Slice 2 of the remote commit pipeline under the
   same `MP-377` authority loop. Review-channel packet plumbing now accepts a
   dedicated `commit_approval` runtime packet kind with typed

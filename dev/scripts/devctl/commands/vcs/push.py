@@ -62,6 +62,7 @@ def _build_push_parameters(
     execute: bool,
     skip_preflight: bool,
     skip_post_push: bool,
+    approved_target_identity: str = "",
 ) -> dict[str, object]:
     parameters: dict[str, object] = {}
     parameters["branch"] = branch
@@ -69,6 +70,8 @@ def _build_push_parameters(
     parameters["execute"] = execute
     parameters["skip_preflight"] = skip_preflight
     parameters["skip_post_push"] = skip_post_push
+    if approved_target_identity:
+        parameters["approved_target_identity"] = approved_target_identity
     return parameters
 
 
@@ -86,6 +89,9 @@ def _build_typed_action(
         execute=bool(args.execute),
         skip_preflight=bool(args.skip_preflight),
         skip_post_push=bool(args.skip_post_push),
+        approved_target_identity=str(
+            getattr(args, "approved_target_identity", "") or ""
+        ).strip(),
     )
 
 
@@ -97,6 +103,7 @@ def build_push_action(
     execute: bool,
     skip_preflight: bool = False,
     skip_post_push: bool = False,
+    approved_target_identity: str = "",
     requested_by: str = REQUESTED_BY,
 ) -> TypedAction:
     """Build the canonical typed action for one governed push request."""
@@ -111,6 +118,7 @@ def build_push_action(
             execute=bool(execute),
             skip_preflight=bool(skip_preflight),
             skip_post_push=bool(skip_post_push),
+            approved_target_identity=str(approved_target_identity or "").strip(),
         ),
         requested_by=requested_by,
         dry_run=not bool(execute),
@@ -362,6 +370,9 @@ def run_push_action(
         head_commit=head_commit,
         typed_action=typed_action,
         artifact_path=artifact_path,
+        approved_target_identity=str(
+            getattr(args, "approved_target_identity", "") or ""
+        ).strip(),
     )
     _run_fetch_and_preflight(
         state,
@@ -478,6 +489,7 @@ def build_push_args(
     execute: bool = False,
     skip_preflight: bool = False,
     skip_post_push: bool = False,
+    approved_target_identity: str | None = None,
     format: str = "json",
     output: str | None = None,
     pipe_command: str | None = None,
@@ -490,6 +502,7 @@ def build_push_args(
         execute=execute,
         skip_preflight=skip_preflight,
         skip_post_push=skip_post_push,
+        approved_target_identity=approved_target_identity,
         format=format,
         output=output,
         pipe_command=pipe_command,

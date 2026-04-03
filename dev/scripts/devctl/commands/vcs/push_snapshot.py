@@ -23,6 +23,7 @@ class PushReportContext:
     head_commit: str
     typed_action: dict[str, Any]
     artifact_path: str
+    approved_target_identity: str = ""
 
 
 def build_push_report_payload(
@@ -65,6 +66,7 @@ def build_push_report_payload(
             warnings=state.warnings,
             errors=state.errors,
             artifact_path=context.artifact_path,
+            approved_target_identity=context.approved_target_identity,
         )
     )
 

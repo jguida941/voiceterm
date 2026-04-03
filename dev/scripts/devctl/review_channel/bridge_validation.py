@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..runtime.review_state_semantics import is_pending_implementer_state
-from .bridge_validation_acceptance import bridge_review_accepted
+from .bridge_validation_acceptance import review_acceptance_projection
 from .bridge_validation_poll_status import (
     extract_poll_status_reviewer_modes,
     extract_poll_status_write_context,
@@ -104,9 +104,8 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
             )
 
     current_verdict = snapshot.sections.get("Current Verdict", "").strip().lower()
-    if (
-        bridge_review_accepted(snapshot)
-        and bool(_RESOLVED_ECHO_RE.search(current_instruction))
+    if review_acceptance_projection(snapshot)[2] and bool(
+        _RESOLVED_ECHO_RE.search(current_instruction)
     ):
         errors.append(
             "Resolved bridge verdicts must promote the next scoped task in "

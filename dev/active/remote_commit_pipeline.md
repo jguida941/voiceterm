@@ -360,6 +360,16 @@ surface for remote sessions. It should project:
   sessions, and the compact doctor projection now carries publisher/supervisor
   running state plus last heartbeat/stop-reason fields so phone dashboards can
   see daemon readiness from the same reduced surface as `commit_pipeline`.
+- 2026-04-03: Implemented the Phase-2 authority cleanup for this lane. The
+  reviewer-runtime contract now owns implementer ACK-current plus
+  implementation-block state, startup/status push gates consume those typed
+  fields instead of bridge-liveness `reviewer_mode` / `claude_ack_current`,
+  `bridge_review_accepted()` is typed-only, and governed push recovery now
+  compares the reviewer-approved
+  `tree-receipt-<timestamp>:<staged_tree_hash>` identity instead of raw
+  `HEAD` equality. Focused pytest coverage for startup-context, review-state,
+  governed push, governed executor, and platform-contract surfaces passed in
+  the same session.
 - 2026-04-02: Wrote the Phase-0 design for the typed remote-session
   commit/push pipeline. The design binds remote approval to review-channel
   packets, keeps reviewer runtime health as a hard precondition, keeps
@@ -390,12 +400,13 @@ surface for remote sessions. It should project:
 
 ## Session Resume
 
-- Current status: Phase-0 Slice 1 is implemented locally and validated. The
-  repo now emits typed read-only commit-pipeline state plus a dedicated doctor
-  action/projection, but executor/approval packet mutation has not started.
-- Next action: implement the runtime approval-packet slice and begin writing
-  non-placeholder pipeline artifacts that drive the existing publish-clear push
-  gate without introducing a second startup push-readiness evaluator.
+- Current status: Phase 0, Phase 1, and the planned Phase-2 bridge/prose
+  authority cleanup are implemented locally and validated for this lane. The
+  remaining tracked follow-up is Phase 3 surface-ownership / generation
+  consistency work, not another bridge-authority patch.
+- Next action: add the bounded `contract_ownership_map` / cross-surface
+  generation proof slice so startup, doctor/status, and push artifacts can cite
+  the same owner/version stamp after the Phase-2 authority cutover.
 - Context rule: read `dev/active/platform_authority_loop.md`,
   `dev/active/review_channel.md`, and `dev/active/continuous_swarm.md` with
   this plan before changing remote commit/push behavior.

@@ -15,6 +15,10 @@ from ..runtime.reviewer_runtime_models import (
     ReviewerLastPollState,
     ReviewerRuntimeContract,
 )
+from ..runtime.reviewer_gate_logic import (
+    ReviewerRuntimeBlockInputs,
+    reviewer_runtime_block_state,
+)
 from .bridge_validation_acceptance import review_acceptance_projection
 from .handoff import BridgeSnapshot
 from .peer_liveness import reviewer_mode_is_active
@@ -67,6 +71,18 @@ def build_reviewer_runtime_contract(
         bridge_liveness=bridge_liveness,
         current_session=inputs.current_session,
     )
+    implementer_ack_current = inputs.current_session.implementer_ack_state == "current"
+    implementation_blocked, implementation_block_reason = reviewer_runtime_block_state(
+        ReviewerRuntimeBlockInputs(
+            reviewer_mode=reviewer_mode,
+            effective_reviewer_mode=effective_mode,
+            implementer_ack_current=implementer_ack_current,
+            attention_status=stale_reason,
+            implementer_status=inputs.current_session.implementer_status,
+            implementer_ack=inputs.current_session.implementer_ack,
+            implementer_ack_state=inputs.current_session.implementer_ack_state,
+        )
+    )
     rollover = resolve_reviewer_rollover_state(
         rollover_dir=inputs.rollover_dir,
         bridge_text=inputs.bridge_text,
@@ -78,6 +94,9 @@ def build_reviewer_runtime_contract(
         effective_reviewer_mode=effective_mode,
         reviewer_freshness=reviewer_freshness,
         stale_reason=stale_reason,
+        implementer_ack_current=implementer_ack_current,
+        implementation_blocked=implementation_blocked,
+        implementation_block_reason=implementation_block_reason,
         last_poll=ReviewerLastPollState(
             last_codex_poll_utc=str(bridge_liveness.get("last_codex_poll_utc") or ""),
             last_codex_poll_age_seconds=int(
@@ -129,6 +148,8 @@ def _review_acceptance_state(
         open_findings=open_findings,
         review_accepted=bool(bridge_liveness.get("review_accepted")),
     )
+
+
 def _recovery_action_allowed(
     *,
     attention: Mapping[str, object] | None,

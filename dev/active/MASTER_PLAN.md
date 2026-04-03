@@ -226,6 +226,14 @@
   sessions, and the compact doctor projection now carries publisher/supervisor
   running state plus last heartbeat/stop-reason fields so phone dashboards can
   read daemon readiness from the same reduced surface as `commit_pipeline`.
+- Latest same-lane closure on 2026-04-03: the follow-on Phase-2 authority
+  cleanup is now in place for that same remote session lane. Reviewer-runtime
+  state now owns implementer ACK-current plus implementation-block truth, the
+  status/startup push gates read those typed fields instead of bridge-liveness
+  `reviewer_mode` / `claude_ack_current`, `bridge_review_accepted()` no longer
+  falls back to prose parsing, and governed push recovery now matches the
+  reviewer-approved `tree-receipt-<timestamp>:<staged_tree_hash>` identity from
+  the remote commit pipeline instead of raw `HEAD` equality.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

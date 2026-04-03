@@ -39,6 +39,9 @@ def build_reviewer_doctor_surface(
     surface["effective_reviewer_mode"] = contract.effective_reviewer_mode
     surface["reviewer_freshness"] = contract.reviewer_freshness
     surface["stale_reason"] = contract.stale_reason
+    surface["implementer_ack_current"] = contract.implementer_ack_current
+    surface["implementation_blocked"] = contract.implementation_blocked
+    surface["implementation_block_reason"] = contract.implementation_block_reason
     surface["last_codex_poll_utc"] = contract.last_poll.last_codex_poll_utc
     surface["last_codex_poll_age_seconds"] = contract.last_poll.last_codex_poll_age_seconds
     surface["rollover_id"] = contract.rollover.rollover_id

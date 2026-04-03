@@ -1,7 +1,7 @@
 # Remote Orchestration Audit Status
 
 **Branch:** `feature/governance-quality-sweep`
-**Last updated:** 2026-04-02 ~10:30pm EDT
+**Last updated:** 2026-04-03 ~6:45am EDT
 **Purpose:** Temporary file for ChatGPT Pro review. Delete when done.
 
 **NOTE FOR CHATGPT PRO:** If file page views look stale, verify against commits directly:
@@ -15,7 +15,9 @@
 30 commits pushed. 235+ tests passing (pending revalidation on latest).
 Started with 0 fixes, ended with 13 landed and pushed.
 ReviewerRuntimeContract (the unified lifecycle owner) is committed and pushed (7e4d1c2).
-Architecture is mostly correct. Remaining problems are execution/supervision AND partial authority closure (bridge prose fallback, missing ownership map, HEAD equality).
+Architecture is mostly correct. Remaining problems are execution/supervision
+AND surface-ownership consistency (`contract_ownership_map`,
+cross-surface generation proof, audit auto-sync), not bridge/prose authority.
 
 ## CRITICAL FINDING: Why Codex Keeps Going Idle (8-agent investigation)
 
@@ -54,7 +56,7 @@ The system has a daemon (`ensure --follow`) designed to compensate, but:
 
 ## Latest Verification Round (6 agents, ~7pm EDT)
 
-**Note:** Pre-7e4d1c2 verification findings have been superseded. See "DONE" section above for current state. ReviewerRuntimeContract EXISTS (7e4d1c2). startup_surface_tokens ARE populated (all 15 contracts). Bridge acceptance IS partially demoted (typed first, prose fallback).
+**Note:** Pre-7e4d1c2 verification findings have been superseded. See "DONE" section above for current state. ReviewerRuntimeContract EXISTS (7e4d1c2). startup_surface_tokens ARE populated (all 15 contracts). Phase-2 authority cleanup is now coded locally: bridge acceptance is typed-only, push projection reads reviewer-runtime block state, and push recovery no longer keys off raw `HEAD` equality.
 
 ## Concrete Next Steps (SUPERSEDED — see Implementation Plan below)
 
@@ -84,8 +86,10 @@ Items 1-3 below are DONE. See commit `7e4d1c2` proof table. Current work is Phas
 
 - **ReviewerRuntimeContract** — EXISTS in `runtime_state_contract_rows.py` (commit 7e4d1c2). Owns reviewer mode, freshness, stale reason, rollover, ACK, poll, session, acceptance, publish_clear.
 - **startup_surface_tokens** — POPULATED on all 15 ContractSpec rows (3 tokens each).
-- **Bridge acceptance demotion** — PARTIALLY DONE. `bridge_review_accepted()` checks typed `reviewer_runtime` first. Push decision uses `reviewer_runtime.publish_clear` directly.
+- **Bridge acceptance demotion** — DONE locally. `bridge_review_accepted()` is now typed-only and push decision uses `reviewer_runtime.publish_clear` directly.
 - **Push invalidation cycle** — FIXED. `review_gate_allows_push` bypasses `implementation_blocked`.
+- **Bridge-derived push inputs** — DONE locally. `ReviewerRuntimeContract` now owns implementer ACK-current plus implementation-block state, and startup/status projections read those typed fields instead of bridge-liveness `reviewer_mode` / `claude_ack_current`.
+- **Acceptance identity redesign** — DONE locally. Governed push recovery now keys off the reviewer-approved `tree-receipt-<timestamp>:<staged_tree_hash>` identity instead of raw `HEAD` equality.
 
 ### JUST COMPLETED
 
@@ -144,11 +148,11 @@ ChatGPT Pro's Phase 0 specification:
 - No runtime path maps contracts back to their startup surface presence
 - **FIX:** add bounded ownership map to StartupContext built from ContractSpec registry
 
-**4. Bridge prose is still a live fallback**
-- `bridge_review_accepted()` checks typed state FIRST (good)
-- BUT falls back to regex prose-parsing when typed state is absent
-- Push path (`status_push_decision.py`) does bypass bridge via `publish_clear` (good)
-- **FIX:** remove prose fallback once typed state is always available, or make it log a warning
+**4. Bridge prose fallback is removed locally**
+- `bridge_review_accepted()` now reads typed state only
+- Bridge regex parsing remains available only as projection-time input for
+  building reviewer-runtime acceptance, not as a second runtime authority path
+- Push/status/startup gates now consume reviewer-runtime truth directly
 
 ## Verified Findings (8-agent verification x3 rounds)
 
@@ -171,11 +175,11 @@ ChatGPT Pro's diagnosis (updated after verifying latest push):
 
 Key findings corrected for current branch state:
 - `bridge_projection_drops_operator_direction` — FIXED in 801349f
-- `bridge_still_active_gate_not_projection` — PARTIALLY FIXED in 7e4d1c2 (typed first, prose fallback remains)
+- `bridge_still_active_gate_not_projection` — FIXED locally (`bridge_review_accepted()` is typed-only; prose remains projection-only input)
 - `need_review_channel_doctor_surface` — PARTIALLY FIXED in 7e4d1c2 (surface exists, not registered in parser)
 - `startup_surface_tokens_unpopulated` — FIXED in 7e4d1c2 (all 15 contracts populated with 3 tokens each)
 - `reviewer_truth_distributed_no_owner` — FIXED in 7e4d1c2 (ReviewerRuntimeContract is the admitted owner)
-- `push_invalidation_head_equality` — open (HEAD equality check still in push_state.py, needs acceptance identity redesign)
+- `push_invalidation_head_equality` — FIXED locally (push recovery matches reviewer-approved tree-hash receipts, not raw `HEAD` equality)
 - `manual_codex_rollover` — FIXED in 09349aa (automated rollover landed)
 - `zombie_terminal_cleanup` — FIXED in 37f683d (terminal cleanup landed)
 - `agent_architecture_bypass` — open (no startup ownership map yet)
@@ -206,7 +210,7 @@ Key findings corrected for current branch state:
 
 **Previous directive (items 1-4 below are now DONE):**
 1. ~~Create ReviewerRuntimeContract~~ — DONE (commit `7e4d1c2`, 10-field ContractSpec + dataclass)
-2. ~~Demote bridge acceptance~~ — DONE (typed state checked first, prose is fallback)
+2. ~~Demote bridge acceptance~~ — DONE (typed state is sole authority)
 3. ~~Doctor as projection~~ — DONE (18-field surface, but not registered in parser yet)
 4. ~~Populate startup_surface_tokens~~ — DONE (all 15 contracts have 3 tokens each)
 
@@ -215,7 +219,7 @@ Key findings corrected for current branch state:
 The remaining problem is execution/supervision, not modeling:
 - The recovery logic exists but nobody reliably runs it
 - The doctor surface exists but agents can't invoke it
-- The bridge fallback still exists as a second truth path
+- Bridge fallback has been removed from the runtime acceptance helper
 - The startup tokens exist but no ownership map tells agents which contract owns what
 - Audit files can drift from code with no guard to prevent it
 
@@ -240,7 +244,7 @@ The remaining problem is execution/supervision, not modeling:
 | 4 | Doctor projection | `7e4d1c2` | `reviewer_runtime_doctor.py` | 18-field health surface projecting from the contract |
 | 5 | Session owner | `7e4d1c2` | `reviewer_runtime_session_owner.py` | Terminal PID + window_id ownership |
 | 6 | Rollover state owner | `7e4d1c2` | `reviewer_runtime_rollover.py` | rollover_id, ack_pending, trigger reason |
-| 7 | Bridge acceptance demoted | `7e4d1c2` | `bridge_validation_acceptance.py` | `_runtime_review_accepted()` checks typed state FIRST, prose is fallback |
+| 7 | Bridge acceptance demoted | `7e4d1c2` + local Phase 2 | `bridge_validation_acceptance.py` | `_runtime_review_accepted()` is now the sole acceptance authority; bridge prose is projection-only input |
 | 8 | Push reads from contract | `7e4d1c2` | `state.py` | `review_gate_allows_push=bool(reviewer_runtime.publish_clear)` |
 | 9 | Startup reads from contract | `7e4d1c2` | `startup_context.py` | `state.reviewer_runtime.review_acceptance.review_accepted` and `publish_clear` |
 | 10 | startup_surface_tokens populated | `7e4d1c2` | All 4 contract row files | All 15 ContractSpec rows have 3 tokens each |

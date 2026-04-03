@@ -78,6 +78,12 @@ Use docs like this:
   plus typed `--pipeline-generation`, `--staged-snapshot-hash`, and
   `--guard-results-summary` fields so approval survives `post|ack|apply`,
   `actions.json`, and typed `ReviewState` parsing.
+- The same Phase-2 authority cleanup now keeps review/push truth on typed
+  runtime contracts too: `reviewer_runtime` owns
+  `implementer_ack_current`, `implementation_blocked`, and
+  `implementation_block_reason`, bridge review acceptance no longer falls
+  back to prose parsing, and governed push recovery matches the reviewer-owned
+  `approved_target_identity` tree receipt instead of raw HEAD equality.
 - Closed execution plans move to `dev/archive/` only after their scoped work is
   complete and `dev/active/INDEX.md` plus discovery docs are updated in the
   same change. If a plan doc still holds unfinished or deferred backlog, keep

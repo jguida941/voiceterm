@@ -151,11 +151,7 @@ def _compute_review_accepted(
     reviewer_runtime: ReviewerRuntimeContract | None = None,
 ) -> bool:
     """Compute reviewer-owned acceptance as a projection over reviewer runtime."""
-    try:
-        from .bridge_validation import bridge_review_accepted
-
-        if reviewer_runtime is not None:
-            return bridge_review_accepted(reviewer_runtime)
-        return bridge_review_accepted(snapshot)
-    except (ImportError, ValueError):
+    del snapshot
+    if reviewer_runtime is None:
         return False
+    return bool(reviewer_runtime.review_acceptance.review_accepted)

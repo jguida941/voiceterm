@@ -136,8 +136,6 @@ def refresh_status_snapshot(
     bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
     push_decision = build_status_push_decision(
         bridge_liveness=bridge_liveness,
-        attention=attention,
-        current_session=current_session,
         reviewer_runtime=reviewer_runtime,
     )
     service_identity = build_service_identity(

@@ -39,6 +39,25 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
 
+### 2026-04-03 - Remote commit push recovery no longer trusts bridge prose or raw HEAD equality
+
+The remote commit pipeline already had typed packet approval and a governed
+executor boundary, but the last publish-authority edge was still split:
+implementation blocking could still be recomputed from bridge-liveness fields,
+bridge review acceptance still carried a prose-regex fallback, and startup
+push recovery still treated raw current-HEAD equality as the approval
+identity.
+
+That authority gap is closed now. `ReviewerRuntimeContract` owns
+`implementer_ack_current`, `implementation_blocked`, and
+`implementation_block_reason`, push/startup/status consumers read those typed
+fields directly, `bridge_review_accepted()` is typed-only, and remote push
+recovery now matches the reviewer-owned `approved_target_identity` tree
+receipt emitted from the approved staged snapshot rather than a bare HEAD
+comparison. The important architectural point is that bridge prose remains a
+compatibility projection and handoff surface, not a publish-authority
+fallback.
+
 ### 2026-04-03 - Remote-control commit/push now has tracked design authority instead of ad hoc operator ritual
 
 The repo had already converged on typed reviewer lifecycle truth, governed push

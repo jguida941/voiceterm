@@ -47,6 +47,9 @@ class PushEnforcement:
     latest_push_report_reason: str = ""
     latest_push_report_published_remote: bool = False
     latest_push_report_post_push_green: bool = False
+    current_approved_target_identity: str = ""
+    latest_push_report_approved_target_identity: str = ""
+    latest_push_report_matches_current_approved_target: bool = False
     latest_push_report_matches_current_branch: bool = False
     latest_push_report_matches_current_head: bool = False
 
@@ -134,6 +137,15 @@ def push_enforcement_from_mapping(
         ),
         latest_push_report_post_push_green=coerce_bool(
             payload.get("latest_push_report_post_push_green")
+        ),
+        current_approved_target_identity=coerce_string(
+            payload.get("current_approved_target_identity")
+        ),
+        latest_push_report_approved_target_identity=coerce_string(
+            payload.get("latest_push_report_approved_target_identity")
+        ),
+        latest_push_report_matches_current_approved_target=coerce_bool(
+            payload.get("latest_push_report_matches_current_approved_target")
         ),
         latest_push_report_matches_current_branch=coerce_bool(
             payload.get("latest_push_report_matches_current_branch")

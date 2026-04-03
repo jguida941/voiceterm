@@ -474,7 +474,11 @@ checklist plus chat memory.
     freshness, stale reason, last poll, rollover state, session owner,
     allowed recovery action, review acceptance, and publish-clear state.
     Bridge `review_accepted` and doctor surfaces are compatibility
-    projections over that contract, not parallel authority.
+    projections over that contract, not parallel authority. That same
+    contract now also owns `implementer_ack_current`,
+    `implementation_blocked`, and `implementation_block_reason`; startup,
+    status, and push consumers must read those typed fields instead of
+    recomputing implementation-blocked truth from bridge-liveness prose.
 4.6 Treat `startup-context` the same way: prefer typed
     `review_state.json` fields such as
     `reviewer_runtime.review_acceptance.review_accepted` and
@@ -507,7 +511,12 @@ checklist plus chat memory.
     `published_remote` snapshot as soon as `git push` succeeds, keyed to the
     current branch and HEAD commit, and startup treats that persisted
     current-HEAD publication record as canonical even if local upstream
-    divergence still looks stale until the next fetch. So
+    divergence still looks stale until the next fetch. When a governed remote
+    commit pipeline is active, the same recovery path now keys approval
+    identity to the reviewer-owned tree receipt
+    (`current_approved_target_identity` /
+    `latest_push_report_approved_target_identity`) instead of raw HEAD
+    equality alone. So
     `published_remote=true` plus a matching current HEAD means post-push
     repair/status work, not another push attempt.
 4.7 Treat governed-markdown authority the same way: prefer typed

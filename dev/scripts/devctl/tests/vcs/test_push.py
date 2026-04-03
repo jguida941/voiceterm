@@ -205,11 +205,18 @@ class PushCommandTests(unittest.TestCase):
         return_value="dev/reports/push/latest.json",
     )
     @patch(
+        "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
+        return_value=SimpleNamespace(
+            approved_target_identity="tree-receipt-20260403T010000Z:tree-123"
+        ),
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state.load_latest_push_report",
         return_value={
             "branch": "feature/demo",
             "remote": "origin",
             "head_commit": "abc123",
+            "approved_target_identity": "tree-receipt-20260403T010000Z:tree-123",
             "push_stages": {
                 "validation_ready": True,
                 "published_remote": True,
@@ -222,6 +229,7 @@ class PushCommandTests(unittest.TestCase):
         self,
         git_stdout_mock,
         _load_latest_push_report_mock,
+        _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
@@ -246,6 +254,7 @@ class PushCommandTests(unittest.TestCase):
 
         self.assertEqual(state["recommended_action"], "no_push_needed")
         self.assertEqual(state["publication_backlog_state"], "none")
+        self.assertTrue(state["latest_push_report_matches_current_approved_target"])
         self.assertTrue(state["latest_push_report_matches_current_head"])
         self.assertTrue(state["latest_push_report_matches_current_branch"])
 
