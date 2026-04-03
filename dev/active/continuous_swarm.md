@@ -269,6 +269,40 @@ Out of scope until the local proof gate is green:
       `bridge-poll` returns `next_turn_role` and `review_needed` for packet-
       aware turn detection. Event-backed inbox/watch CLI actions are registered
       in the parser and will operate over the same path once the reducer lands.
+- [ ] Converge reviewer-turn authority across `bridge-poll`,
+      `implementer-wait`, `reviewer-wait`, `status`, `doctor`, and
+      `startup-context`. The same declared `active_dual_agent` loop must not
+      report `next_turn_reason=up_to_date` in one surface while typed runtime
+      demotes the loop to `tools_only` / `review_loop_relaunch_required` in
+      another. `bridge-poll` should consume the same launch-truth /
+      `effective_reviewer_mode` / typed attention authority that
+      `status`/`doctor`/`startup-context` already read instead of deciding
+      liveness and turn ownership solely from bridge freshness plus
+      reviewed-hash heuristics. Startup stays a consumer of this authority;
+      the repair target is bridge-poll + wait parity, not a reverse startup
+      dependency on bridge-poll.
+- [ ] Eliminate the reviewed-current completion dead zone. When the current
+      tree is already reviewed, the implementer has posted a substantive
+      completion/update for the current instruction, and there is no explicit
+      reviewer-owned wait/promotion state, the next turn must route back to the
+      reviewer as an explicit promotion/re-review/recovery state rather than
+      falling through to `up_to_date`.
+- [ ] Add one typed turn-authority projection over reviewer runtime, current
+      session, and queue/packet inputs before widening stale-peer automation
+      again. `next_turn_role` / `next_turn_reason` should become projections
+      over that shared contract instead of hand-coded branch logic split across
+      `bridge-poll`, wait helpers, prompt guards, and startup consumers.
+- [ ] Extend repo guards so bridge-poll parity is enforced, not just assumed.
+      `check_review_surface_consistency.py` currently proves snapshot parity
+      across startup/review-state/compact/commit-pipeline artifacts, but it
+      does not verify that `bridge-poll` matches the same typed reviewer-
+      runtime / turn-authority snapshot. Add compatible bridge-poll parity
+      metadata and fail the guard when those surfaces diverge.
+- [ ] Add focused parity proof for that repair path: `bridge-poll`, `status`,
+      `doctor`, `implementer-wait`, `reviewer-wait`, and `startup-context`
+      must all agree on reviewer-loop-not-live demotion, reviewer-owned
+      follow-up after reviewed-current completion, preserved reviewer-owned
+      wait states, and the allowed recovery action for that state.
 - [ ] Add a repo-owned reviewer liveness emitter so inactive modes stay
       current without faking review truth. `reviewer-heartbeat` and
       `reviewer-checkpoint` are now separate writes, but the loop still lacks
@@ -363,6 +397,47 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-04-03: Revalidated the provisional repair plan against an external
+  multi-agent audit before promoting it into owner docs. Confirmed the core
+  gaps: `bridge-poll` still derives turn state locally instead of consuming
+  `ReviewerRuntimeContract`, reviewer checkpoints still do not persist a
+  reviewer-accepted implementer-state baseline, and existing guard coverage
+  still omits bridge-poll parity. Refined two scope boundaries at the same
+  time: wait consumers already read typed attention/effective-mode data so
+  their gap is contract completeness rather than total isolation, and startup
+  launch gating is already aligned through `startup-context` so bridge-poll
+  must converge to startup/status/doctor authority, not the reverse. The
+  plan artifact now reflects that narrower repair: shared typed turn-authority
+  projection first, parity guard slice next, reviewer-accepted implementer
+  baseline after that, then wait/recovery semantics and end-to-end parity
+  proof.
+
+- 2026-04-03: Audited the current live-loop deadlock against repo-owned status,
+  startup, and bridge surfaces and recorded the bounded repair slice in this
+  plan instead of another shadow note. Two mismatches are now explicit:
+  `review-channel --action bridge-poll` can still report
+  `next_turn_reason=up_to_date` from bridge/hash freshness while typed
+  `status` / `startup-context` demote the same declared `active_dual_agent`
+  loop to `tools_only` / `review_loop_relaunch_required` when launch truth
+  shows no live repo-owned Codex conductor, and the loop still has a
+  reviewed-current completion dead zone where Claude can post a substantive
+  slice-complete update yet no explicit reviewer-owned promotion/follow-up
+  state is emitted. The bounded fix order is now frozen here: converge turn
+  authority onto the typed reviewer-runtime contract first, then add explicit
+  reviewer-owned completion/promotion semantics, then prove parity across
+  bridge-poll, wait, status, doctor, and startup surfaces before widening any
+  more stale-peer or remote-control automation.
+
+- 2026-04-03: Ran a bounded architecture audit on the live reviewer/coder
+  deadlock before widening into code changes. Confirmed two separate contract
+  gaps: `bridge-poll` still uses a weaker liveness model than
+  `status`/`startup-context`, and it also lacks a typed reviewer-accepted
+  implementer-state baseline, so Codex can still owe verdict/promotion even
+  when the reviewed tree hash already matches the worktree. Wrote the
+  provisional repair plan at
+  `dev/reports/review_channel/2026-04-03-review-loop-authority-repair-plan.md`
+  for Claude review before promoting the accepted slices into canonical owner
+  plans.
 - 2026-04-02: Closed the first reviewer-side stale-peer auto-recovery slice
   for the phone-steered loop without inventing a new remote-control path.
   `reviewer-heartbeat --follow` now detects repeated unchanged stale reviewer
@@ -733,15 +808,19 @@ Out of scope until the local proof gate is green:
 
 ## Session Resume
 
-- Current status: this plan remains active; start from the highest-priority
-  open item in `## Execution Checklist` and the latest dated entry in
-  `## Progress Log`.
-- Next action: keep current-slice decisions and blockers in this file instead
-  of chat-only notes, then update this section when the promoted slice
-  changes. The newest local slice is the remote-control wrapper hardening:
-  verify one live phone-driven relaunch/report cycle against the sanctioned
-  `review-channel` runtime, then decide whether the wrapper should remain
-  repo-local glue or move behind a repo-owned command surface.
+- Current status: this plan remains active; the highest-priority open slice is
+  reviewer-turn authority convergence for the live Codex/Claude loop.
+- Next action: start from the 2026-04-03 audit entry in `## Progress Log` and
+  land the repair in this order: 1) shared typed turn-authority projection for
+  bridge-poll and wait consumers, 2) guard coverage that proves bridge-poll
+  parity with the typed reviewer-runtime snapshot, 3) reviewer-accepted
+  implementer-state baseline for reviewed-current completion/promotion, 4)
+  wait/recovery semantics that preserve legitimate reviewer-owned wait states,
+  5) focused parity tests across bridge-poll/status/doctor/wait/startup.
+- Context rule: treat `dev/active/review_channel.md` as the bridge/runtime
+  model owner and `dev/active/platform_authority_loop.md` as the startup-
+  authority consumer owner while this `MP-358` plan remains the execution
+  driver for the local loop repair.
 - Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
   load only the local sections needed for the active checklist item.
 

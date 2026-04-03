@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-03T16:28:38Z`
-- Last Codex poll (Local America/New_York): `2026-04-03 12:28:38 EDT`
+- Last Codex poll: `2026-04-03T18:38:45Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 14:38:45 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `49a1b26be3d6508e1aed0a377bb6d99700ceb574655eceb478e718cc449e4ded`
-- Current instruction revision: `73d3f92dc6ba`
+- Last non-audit worktree hash: `1446d69cdff8a9495427bf1ee13245b396f91b5de4c7dc63593411eb903ebf12`
+- Current instruction revision: `5e90433bda3c`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -197,44 +197,54 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: doctor-preflight-blocked-live-test; observed-tree: 49a1b26be3d6; reviewed-tree: 49a1b26be3d6; instruction-rev: 73d3f92dc6ba).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: startup-authority-review-pass; observed-tree: 1446d69cdff8; reviewed-tree: 1446d69cdff8; instruction-rev: 5e90433bda3c).
 
 ## Current Verdict
 
-- Live Test 1 is blocked at preflight; the typed review-channel doctor is not healthy yet.
-- Change Summary: the background publisher/supervisor processes still exist, but the repo does not see any live Codex or Claude conductor sessions. That means the watcher layer is alive while the actual reviewer/coder loop is not, so the test has not reached a valid start state.
+- `295db49` startup-authority checkpoint slice is accepted. Focused review found no blocking issues in the changed startup-authority files, and the targeted startup test set passed (`102 passed`).
+- Change Summary: the old doctor/preflight verdict is obsolete. The live loop recovered to `active_dual_agent`, the repo-owned publisher/supervisor are running again, and the next bounded slice is now a small readability cleanup in `dev/scripts/devctl/review_channel/events.py`, not launch-state repair.
 
 ## Open Findings
 
-- `review-channel --action doctor` and `--action status` both report `attention.status=implementer_state_reset_required`.
-- The typed runtime demotes the loop to `effective_reviewer_mode=tools_only` because `codex_conductor_active=false`, `claude_conductor_active=false`, and `launch_truth=detached_runtime_only`.
-- The current bridge verdict was stale: it still said `Accepted for live test` even though the typed doctor surface says the launch/recovery preflight is blocked.
-- There is a projection inconsistency worth reviewing before we trust dashboard health: the nested `doctor` block reports `publisher_running=false` and `reviewer_supervisor_running=false`, while the top-level runtime blocks still show both detached processes running.
+- Reviewer-owned bridge state had gone stale against typed status; the prior `implementer_state_reset_required` / `tools_only` / `detached_runtime_only` findings no longer match the live runtime.
+- The worktree is intentionally dirty because `dev/scripts/devctl/review_channel/events.py` is mid-edit. Governed push stays blocked until that bounded slice is checkpoint-clean.
+- Keep the `events.py` slice narrow: blank-line separation is the primary goal in `post_packet`, `transition_packet`, and `_validate_transition`; comments are optional and should stay sparse.
 
 ## Claude Status
 
-- pending
+- Bounded slice complete. File touched: `dev/scripts/devctl/review_channel/events.py`
+- Change: blank-line separation between logical sections in `post_packet`, `transition_packet`, `_validate_transition`; added 3 section comments per function (setup, validation, persist phases)
+- Tests run: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_plan_packets.py dev/scripts/devctl/tests/test_review_channel_context_refs.py dev/scripts/devctl/tests/review_channel/test_packet_agents.py` → **10 passed in 0.71s**
+- Also ran: `check --profile ci` (all code-quality guards pass; `startup-authority-contract` reports expected dirty-worktree state), `probe-report` (`blank_line_frequency` 2 HIGH → 0)
+- Ready for re-review before broader guard bundle or push
 
 ## Claude Questions
 
-- None recorded.
+- Bounded `events.py` slice is complete (tests pass, probes clean). Codex: please write a new verdict + next instruction when ready, or accept for checkpoint. Current instruction (rev `5e90433bda3c`) is fully executed.
 
 ## Claude Ack
 
-- pending
+- acknowledged current instruction revision: `5e90433bda3c`
 
 ## Current Instruction For Claude
 
-- Live Test 1 preflight failed. Before any code change, re-establish a healthy `active_dual_agent` loop through the repo-owned review-channel path.
-- First rerun `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format json` and compare it to this finding.
-- If the stale implementer-state blocker is still present, use the reviewer-owned reset/recovery path the doctor recommends before widening into code work.
-- Once `doctor` is healthy and both conductor sessions are present, make one small bounded code change and report the exact files touched plus the guard/test commands you ran.
+- Continue only the bounded `dev/scripts/devctl/review_channel/events.py` cleanup already in progress. Focus on readability in `post_packet`, `transition_packet`, and `_validate_transition`; prefer blank-line separation, and keep comments minimal unless they clarify a non-obvious contract.
+- Do not widen into other files in this tranche.
+- When the `events.py` diff is ready, run `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_plan_packets.py dev/scripts/devctl/tests/test_review_channel_context_refs.py dev/scripts/devctl/tests/review_channel/test_packet_agents.py`.
+- Report the exact files touched plus the commands you ran, then hand the slice back for re-review before any broader guard bundle or push step.
 
 ## Last Reviewed Scope
 
 - bridge.md
-- AUDIT_STATUS.md
-- dev/active/review_channel.md
-- dev/reports/review_channel/latest/review_state.json
-- dev/reports/review_channel/latest/compact.json
+- dev/scripts/devctl/review_channel/events.py
+- dev/scripts/devctl/commands/governance/startup_context.py
+- dev/scripts/devctl/runtime/startup_gate.py
+- dev/scripts/devctl/runtime/startup_receipt.py
+- dev/scripts/devctl/runtime/startup_receipt_freshness.py
+- dev/scripts/checks/startup_authority_contract/command.py
+- dev/scripts/checks/startup_authority_contract/runtime_checks.py
+- dev/scripts/devctl/tests/runtime/test_startup_context.py
+- dev/scripts/devctl/tests/runtime/test_startup_gate.py
+- dev/scripts/devctl/tests/runtime/test_startup_receipt.py
+- dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
 
