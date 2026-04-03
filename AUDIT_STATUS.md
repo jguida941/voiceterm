@@ -1,14 +1,20 @@
 # Remote Orchestration Audit Status
 
 **Branch:** `feature/governance-quality-sweep`
-**Last updated:** 2026-04-02 ~9:30pm EDT
+**Last updated:** 2026-04-02 ~10:30pm EDT
 **Purpose:** Temporary file for ChatGPT Pro review. Delete when done.
+
+**NOTE FOR CHATGPT PRO:** If file page views look stale, verify against commits directly:
+- Commit `85be0aa` = this audit fix (branch tip)
+- Commit `7e4d1c2` = ReviewerRuntimeContract (46 files, 1569 lines)
+- Use `github.com/jguida941/voiceterm/commit/7e4d1c2` to see the diff directly
 
 ## Summary
 
-28 commits pushed. 235+ tests passing (pending revalidation on latest).
+30 commits pushed. 235+ tests passing (pending revalidation on latest).
 Started with 0 fixes, ended with 13 landed and pushed.
-ReviewerRuntimeContract (the unified lifecycle owner) is now committed and pushed.
+ReviewerRuntimeContract (the unified lifecycle owner) is committed and pushed (7e4d1c2).
+Architecture is now correct. Remaining problem is execution/supervision, not modeling.
 
 ## CRITICAL FINDING: Why Codex Keeps Going Idle (8-agent investigation)
 
@@ -228,11 +234,33 @@ Populate `startup_surface_tokens` on all 14 ContractSpec rows (2-3 tokens each, 
 > doctor projects from the owner, doesn't independently analyze
 > startup tells agents what exists, not just what's allowed
 
-## Next Steps
+## Commit-Level Proof (for ChatGPT Pro — verify against commits, not file pages)
 
-1. Create ReviewerRuntimeContract ContractSpec (~15 lines)
-2. Refactor bridge acceptance to typed state (4-5 files)
-3. Build doctor as projection over the contract
-4. Populate startup_surface_tokens on all 14 contracts
-5. Prove clean path: launch → review → ACK → push (typed, no bridge prose)
-6. Prove rescue path: stale reviewer → auto-rollover → recovery → green
+| What | Commit | Proof command |
+|---|---|---|
+| ReviewerRuntimeContract exists | `7e4d1c2` | `git show 7e4d1c2:dev/scripts/devctl/platform/runtime_state_contract_rows.py \| grep ReviewerRuntimeContract` |
+| Doctor surface exists | `7e4d1c2` | `git show 7e4d1c2:dev/scripts/devctl/review_channel/reviewer_runtime_doctor.py \| head -5` |
+| Bridge checks typed state first | `7e4d1c2` | `git show 7e4d1c2:dev/scripts/devctl/review_channel/bridge_validation_acceptance.py \| grep _runtime_review_accepted` |
+| startup_surface_tokens populated | `7e4d1c2` | `git show 7e4d1c2:dev/scripts/devctl/platform/runtime_identity_contract_rows.py \| grep startup_surface_tokens` |
+| Push uses publish_clear not bridge | `7e4d1c2` | `state.py` line 297: `review_gate_allows_push=bool(reviewer_runtime.publish_clear)` |
+| Audit file matches code | `85be0aa` | This file corrected to reflect actual branch state |
+
+## Next Steps (from ChatGPT Pro's latest review)
+
+**The architecture is finally close. The remaining failure is execution, not modeling.**
+
+ChatGPT Pro's directive: "Do one bounded pass focused on:"
+
+1. **Daemon auto-start in governed launch** — `bridge_launch_control.py` must start publisher/supervisor when launching Codex. Currently neither governed nor manual launch starts the daemon.
+
+2. **Crash restart via launchd** — Write a macOS `launchd` plist (~20 lines) that auto-restarts the follow daemon on exit. Wrap existing `follow_loop.py` stack.
+
+3. **Register doctor in parser** — `reviewer_runtime_doctor.py` exists with 18 fields but `--action doctor` is not in `parser.py`. Add it.
+
+4. **Add contract_ownership_map to StartupContext** — startup_surface_tokens are populated but StartupContext has no field that maps contracts to their ownership. Add bounded map built from ContractSpec registry.
+
+5. **Prove one clean path and one rescue path before shipping:**
+   - Clean: launch → daemon alive → review → ACK → push (all typed, no bridge prose)
+   - Rescue: stale reviewer → daemon detects → rollover fires → terminal cleanup → fresh session → green
+
+**Do NOT add more recovery recipes until daemon liveness is closed.**
