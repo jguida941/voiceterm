@@ -464,3 +464,11 @@ All code is on GitHub at `feature/governance-quality-sweep`. Key files to verify
 - Let launch refresh its own receipt after state repair
 
 **Rule: "You solved reviewer authority for publication, but you did not solve reviewer bootstrap authority for launch."**
+
+## NOTE: This file is stale as of commit 3e3a3c5
+
+19 commits have landed since the last comprehensive update. For current state:
+- Repair plan: `dev/reports/review_channel/2026-04-03-review-loop-authority-repair-plan.md`
+- Owner plan: `dev/active/continuous_swarm.md` (Session Resume section)
+- Slice 1 implementation: committed at `3e3a3c5` (turn_authority.py + bridge-poll wiring)
+- All guards pass. Git is clean. Tests need full-suite validation.
