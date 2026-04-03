@@ -232,49 +232,64 @@ The remaining problem is execution/supervision, not modeling:
 | 12 | Terminal cleanup | `37f683d` | `terminal_app.py` | `cleanup_terminal_session()` with SIGTERM + window close |
 | 13 | Audit matches code | `85be0aa` | `AUDIT_STATUS.md` | Corrected to reflect actual branch state |
 
-### NOT yet implemented — what remains
+### NOT yet implemented — what remains (verified by 8 agents against ChatGPT Pro review)
 
-| # | What | Status | Where it goes | Est. size | Why |
+| # | What | Status | Where | Est. size | Why |
 |---|---|---|---|---|---|
-| A | Daemon auto-start in launch | NOT CODED | `bridge_launch_control.py` | ~10 lines | Neither governed nor manual launch starts the follow daemon. Root cause of idle-Codex. |
-| B | launchd plist for crash restart | NOT CODED | `dev/config/` or `dev/scripts/` | ~20 lines | If daemon crashes, nothing restarts it. Wrap `follow_loop.py` in launchd user agent. |
-| C | Register doctor in parser | NOT CODED | `parser.py` + `__init__.py` | ~5 lines | Doctor projection exists (18 fields) but `--action doctor` not in CLI. |
-| D | contract_ownership_map in StartupContext | NOT CODED | `startup_context.py` | ~15 lines | Tokens populated but agents can't query "who owns this surface?" at bootstrap. |
-| E | Remove bridge prose fallback | NOT CODED | `bridge_validation_acceptance.py` | ~10 lines | `_runtime_review_accepted()` still falls back to regex when typed state absent. Once contract is always populated, remove fallback to close the second truth path. |
-| F | Audit file auto-sync guard | NOT CODED | `dev/scripts/checks/` | ~30 lines | ChatGPT Pro: "audit/plan files cannot claim a state unless a commit-level symbol proves it." Prevents the drift that confused agents and reviewers today. |
-| G | Prove clean end-to-end path | NOT TESTED | Integration test | TBD | launch → daemon alive → review → ACK → push (all typed) |
-| H | Prove rescue end-to-end path | NOT TESTED | Integration test | TBD | stale reviewer → daemon detects → rollover → terminal cleanup → fresh session → green |
+| A | Daemon auto-start in launch | NOT CODED | `bridge_launch_control.py` | ~10 lines | Root cause of idle-Codex. Neither launch path starts daemon. |
+| B | launchd plist for crash restart | NOT CODED | `dev/config/` | ~20 lines | Daemon dies, nothing restarts it. |
+| C | Register `--action doctor` in parser | NOT CODED | `parser.py` + `__init__.py` | ~5 lines | Doctor exists (18 fields) but CLI can't invoke it. |
+| D | contract_ownership_map in StartupContext | NOT CODED | `startup_context.py` | ~15 lines | Agents can't query "who owns what" at bootstrap. |
+| E | Remove bridge prose fallback | NOT CODED | `bridge_validation_acceptance.py` | ~10 lines | Typed state is primary but prose fallback is still live. |
+| F | Audit file auto-sync guard | NOT CODED | `dev/scripts/checks/` | ~30 lines | Prevents audit/code drift that confused agents today. |
+| G | Eliminate bridge from push authority path | NOT CODED | `status_push_decision.py` | ~20 lines | Push must gate on typed `publish_clear` only, not bridge-derived fields. |
+| H | Acceptance identity redesign (tree hash receipt) | NOT CODED | `reviewer_runtime_models.py` | ~40 lines | Replace HEAD equality check with reviewer-owned acceptance receipt keyed to reviewed tree hash. |
+| I | Cross-surface consistency proof | NOT CODED | `dev/scripts/checks/` | ~50 lines | startup-context, status, and push can currently disagree because they independently call refresh_status_snapshot with no versioning. |
+| J | Daemon regression tests | NOT CODED | `dev/scripts/devctl/tests/` | ~80 lines | Cover: absent at login, crash mid-review, stale config, duplicate start, heartbeat suppression, inactive no-op. |
+| K | Prove clean end-to-end path | NOT TESTED | Integration test | TBD | launch → daemon → review → ACK → push (all typed, no bridge prose) |
+| L | Prove rescue end-to-end path | NOT TESTED | Integration test | TBD | stale reviewer → daemon detects → rollover → cleanup → fresh session → green |
 
-## Implementation Plan (from ChatGPT Pro + agent verification)
+## Implementation Plan (ChatGPT Pro + 8-agent verified, reordered per architectural priority)
 
-**The architecture is correct. The remaining failure is execution, not modeling.**
+**The architecture is correct. Remaining failures are execution + authority closure.**
 
-### Phase 1: Daemon liveness (BLOCKS everything else)
+### Phase 1: Daemon liveness + doctor (BLOCKS self-healing)
 
-| Step | Item | File | Size | Why first |
-|---|---|---|---|---|
-| 1a | Daemon auto-start in launch | `bridge_launch_control.py` | ~10 lines | Root cause of idle-Codex. Neither launch path starts daemon. |
-| 1b | launchd plist for crash restart | `dev/config/` | ~20 lines | If daemon dies, nobody restarts it. |
+| Step | Item | File | Size |
+|---|---|---|---|
+| 1a | Daemon auto-start in launch | `bridge_launch_control.py` | ~10 lines |
+| 1b | launchd plist for crash restart | `dev/config/` | ~20 lines |
+| 1c | Register `--action doctor` in parser | `parser.py` + `__init__.py` | ~5 lines |
+| 1d | Daemon regression tests | `dev/scripts/devctl/tests/` | ~80 lines |
 
-### Phase 2: Surface registration + ownership
+**Why first:** Root cause of idle-Codex. Doctor promoted here because it's cheap and unblocks all verification.
 
-| Step | Item | File | Size | Why |
-|---|---|---|---|---|
-| 2a | Register `--action doctor` | `parser.py` + `__init__.py` | ~5 lines | Doctor exists but CLI can't invoke it. |
-| 2b | contract_ownership_map in StartupContext | `startup_context.py` | ~15 lines | Agents need "who owns what" at bootstrap. |
+### Phase 2: Eliminate bridge authority (BLOCKS correct decisions)
 
-### Phase 3: Close the second truth path
+| Step | Item | File | Size |
+|---|---|---|---|
+| 2a | Eliminate bridge from push authority path | `status_push_decision.py` | ~20 lines |
+| 2b | Remove bridge prose fallback | `bridge_validation_acceptance.py` | ~10 lines |
+| 2c | Acceptance identity redesign (tree hash receipt) | `reviewer_runtime_models.py` | ~40 lines |
 
-| Step | Item | File | Size | Why |
-|---|---|---|---|---|
-| 3a | Remove bridge prose fallback | `bridge_validation_acceptance.py` | ~10 lines | Typed state should be sole authority. |
-| 3b | Audit file auto-sync guard | `dev/scripts/checks/` | ~30 lines | Prevents drift between audit claims and code. |
+**Why second:** Daemon-first gives a system that wakes up but may still read wrong artifact. Authority-closure ensures the daemon trusts typed state.
+
+### Phase 3: Surface ownership + consistency
+
+| Step | Item | File | Size |
+|---|---|---|---|
+| 3a | contract_ownership_map in StartupContext | `startup_context.py` | ~15 lines |
+| 3b | Cross-surface consistency proof | `dev/scripts/checks/` | ~50 lines |
+| 3c | Audit file auto-sync guard | `dev/scripts/checks/` | ~30 lines |
+
+**Why third:** Agents need ownership metadata. Consistency proof ensures startup-context, status, and push agree.
 
 ### Phase 4: Prove it works
 
-| Step | Item | What | Why |
-|---|---|---|---|
-| 4a | Clean path test | launch → daemon → review → ACK → push | Proves the system works end-to-end with typed state |
-| 4b | Rescue path test | stale reviewer → daemon detects → rollover → cleanup → green | Proves self-healing works without manual intervention |
+| Step | Item | What |
+|---|---|---|
+| 4a | Clean path test | launch → daemon → review → ACK → push (all typed, no bridge) |
+| 4b | Rescue path test | stale reviewer → daemon detects → rollover → cleanup → green |
+| 4c | Surface convergence test | startup-context, status, push agree on same repo state |
 
-**Do NOT skip phases or reorder. Daemon liveness must be closed before anything else matters.**
+**Do NOT skip phases. Authority before convenience. Typed state before bridge prose.**
