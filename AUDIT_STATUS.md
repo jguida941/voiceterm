@@ -5,9 +5,10 @@
 **Purpose:** Temporary file for ChatGPT Pro review. Delete when done.
 
 **NOTE FOR CHATGPT PRO:** If file page views look stale, verify against commits directly:
-- Commit `85be0aa` = this audit fix (branch tip)
+- Commit `650702b` = latest audit cleanup (current branch tip)
 - Commit `7e4d1c2` = ReviewerRuntimeContract (46 files, 1569 lines)
 - Use `github.com/jguida941/voiceterm/commit/7e4d1c2` to see the diff directly
+- Phase 0 IS in the Implementation Plan section (see "Phase 0: Typed commit/push pipeline" below)
 
 ## Summary
 
@@ -249,7 +250,7 @@ The remaining problem is execution/supervision, not modeling:
 | D | contract_ownership_map in StartupContext | NOT CODED | `startup_context.py` | ~15 lines | Must derive from ContractSpec registry (not hand-maintained). Agents need typed "who owns what" at bootstrap. |
 | E | Remove bridge prose fallback | NOT CODED | `bridge_validation_acceptance.py` | ~10 lines | Typed state is primary but prose fallback is still live. |
 | F | Audit file auto-sync guard | NOT CODED | `dev/scripts/checks/` | ~30 lines | Prevents audit/code drift that confused agents today. |
-| G | Eliminate bridge from push authority path | NOT CODED | `status_push_decision.py` | ~20 lines | Push must gate on typed `publish_clear` only, not bridge-derived fields. |
+| G | Remove remaining bridge-derived inputs from push projection | NOT CODED | `status_push_decision.py` + `state.py` | ~20 lines | Push gate already uses typed `publish_clear`, but `implementation_blocked` still derives from bridge-liveness fields like `reviewer_mode` and `claude_ack_current`. Move those into `ReviewerRuntimeContract` first, then remove bridge dependency. |
 | H | Acceptance identity redesign (tree hash receipt) | NOT CODED | `reviewer_runtime_models.py` + producer/projection/test updates | ~60 lines | Replace HEAD equality with reviewer-owned tree hash receipt. Extend existing rollover_id pattern from handoff.py. Touches models, projection, and startup. |
 | I | Cross-surface consistency proof | NOT CODED | `dev/scripts/checks/` | ~50 lines | startup-context, status, and push can currently disagree because they independently call refresh_status_snapshot with no versioning. |
 | J | Daemon regression tests | NOT CODED | `dev/scripts/devctl/tests/` | ~80 lines | Cover: absent at login, crash mid-review, stale config, duplicate start, heartbeat suppression, inactive no-op. |
