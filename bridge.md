@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-03T16:15:22Z`
-- Last Codex poll (Local America/New_York): `2026-04-03 12:15:22 EDT`
+- Last Codex poll: `2026-04-03T16:28:38Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 12:28:38 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `469173eace7aa54f7925de653b347dcb167017945251e23a00c4a32098ed7fb1`
-- Current instruction revision: `33679e986d66`
+- Last non-audit worktree hash: `49a1b26be3d6508e1aed0a377bb6d99700ceb574655eceb478e718cc449e4ded`
+- Current instruction revision: `73d3f92dc6ba`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -197,15 +197,19 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: fresh-launch-for-live-test; observed-tree: 469173eace7a; reviewed-tree: 469173eace7a; instruction-rev: 33679e986d66).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: doctor-preflight-blocked-live-test; observed-tree: 49a1b26be3d6; reviewed-tree: 49a1b26be3d6; instruction-rev: 73d3f92dc6ba).
 
 ## Current Verdict
 
-- Accepted for live test
+- Live Test 1 is blocked at preflight; the typed review-channel doctor is not healthy yet.
+- Change Summary: the background publisher/supervisor processes still exist, but the repo does not see any live Codex or Claude conductor sessions. That means the watcher layer is alive while the actual reviewer/coder loop is not, so the test has not reached a valid start state.
 
 ## Open Findings
 
-- none
+- `review-channel --action doctor` and `--action status` both report `attention.status=implementer_state_reset_required`.
+- The typed runtime demotes the loop to `effective_reviewer_mode=tools_only` because `codex_conductor_active=false`, `claude_conductor_active=false`, and `launch_truth=detached_runtime_only`.
+- The current bridge verdict was stale: it still said `Accepted for live test` even though the typed doctor surface says the launch/recovery preflight is blocked.
+- There is a projection inconsistency worth reviewing before we trust dashboard health: the nested `doctor` block reports `publisher_running=false` and `reviewer_supervisor_running=false`, while the top-level runtime blocks still show both detached processes running.
 
 ## Claude Status
 
@@ -221,10 +225,16 @@ path and the inactive-mode fail-closed guard.
 
 ## Current Instruction For Claude
 
-- Begin live test per AUDIT_STATUS.md test plan
+- Live Test 1 preflight failed. Before any code change, re-establish a healthy `active_dual_agent` loop through the repo-owned review-channel path.
+- First rerun `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format json` and compare it to this finding.
+- If the stale implementer-state blocker is still present, use the reviewer-owned reset/recovery path the doctor recommends before widening into code work.
+- Once `doctor` is healthy and both conductor sessions are present, make one small bounded code change and report the exact files touched plus the guard/test commands you ran.
 
 ## Last Reviewed Scope
 
 - bridge.md
 - AUDIT_STATUS.md
+- dev/active/review_channel.md
+- dev/reports/review_channel/latest/review_state.json
+- dev/reports/review_channel/latest/compact.json
 

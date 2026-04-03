@@ -1,4 +1,4 @@
-"""Reviewer follow-loop helpers for supervisor promotion, recovery, and rollover."""
+"""Reviewer follow-loop: promotion, recovery, rollover, and follow-packet orchestration."""
 
 from __future__ import annotations
 
