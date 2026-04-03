@@ -38,6 +38,7 @@ class ReviewerTurnAuthority:
     claude_ack_revision: str
     claude_ack_current: bool
     implementer_state_hash: str
+    reviewer_accepted_implementer_state_hash: str
     reviewed_hash_current: bool | None
     review_needed: bool | None
     next_turn_required: bool
@@ -121,6 +122,13 @@ def build_reviewer_turn_authority(
         else bool(bridge_liveness.claude_ack_current)
     )
 
+    current_impl_hash = current_session.implementer_state_hash or bridge_implementer_state_hash(snapshot)
+    accepted_impl_hash = (
+        reviewer_runtime.review_acceptance.reviewer_accepted_implementer_state_hash
+        if reviewer_runtime is not None
+        and hasattr(reviewer_runtime.review_acceptance, "reviewer_accepted_implementer_state_hash")
+        else ""
+    )
     next_turn_required, next_turn_role, next_turn_reason = _derive_next_turn_state(
         snapshot=snapshot,
         bridge_liveness=bridge_liveness,
@@ -135,6 +143,8 @@ def build_reviewer_turn_authority(
         claude_ack_current=claude_ack_current,
         reviewed_hash_current=reviewed_hash_current,
         review_needed=review_needed,
+        implementer_state_hash=current_impl_hash,
+        reviewer_accepted_implementer_state_hash=accepted_impl_hash,
     )
 
     return ReviewerTurnAuthority(
@@ -153,6 +163,12 @@ def build_reviewer_turn_authority(
         claude_ack_current=claude_ack_current,
         implementer_state_hash=(
             current_session.implementer_state_hash or bridge_implementer_state_hash(snapshot)
+        ),
+        reviewer_accepted_implementer_state_hash=(
+            reviewer_runtime.review_acceptance.reviewer_accepted_implementer_state_hash
+            if reviewer_runtime is not None
+            and hasattr(reviewer_runtime.review_acceptance, "reviewer_accepted_implementer_state_hash")
+            else ""
         ),
         reviewed_hash_current=reviewed_hash_current,
         review_needed=review_needed,
@@ -183,6 +199,8 @@ def _derive_next_turn_state(
     claude_ack_current: bool,
     reviewed_hash_current: bool | None,
     review_needed: bool | None,
+    implementer_state_hash: str = "",
+    reviewer_accepted_implementer_state_hash: str = "",
 ) -> tuple[bool, str, str]:
     if not reviewer_mode_is_active(reviewer_mode):
         return False, "", "inactive"
@@ -217,6 +235,13 @@ def _derive_next_turn_state(
         return True, TandemRole.REVIEWER.value, AttentionStatus.REVIEW_FOLLOW_UP_REQUIRED.value
     if review_needed is True or reviewed_hash_current is False:
         return True, TandemRole.REVIEWER.value, AttentionStatus.REVIEW_FOLLOW_UP_REQUIRED.value
+    if (
+        reviewer_accepted_implementer_state_hash
+        and implementer_state_hash
+        and implementer_state_hash != reviewer_accepted_implementer_state_hash
+        and claude_ack_current
+    ):
+        return True, TandemRole.REVIEWER.value, "implementer_state_changed"
     if _reviewer_wait_state(snapshot=snapshot, current_instruction=current_instruction):
         return True, TandemRole.REVIEWER.value, "reviewer_wait_state"
     return False, "", "up_to_date"

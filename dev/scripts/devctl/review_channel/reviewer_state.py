@@ -31,6 +31,8 @@ from .write_preconditions import (
     assert_expected_implementer_state_hash,
     assert_expected_instruction_revision,
 )
+from .current_session_projection import bridge_implementer_state_hash
+from .handoff import extract_bridge_snapshot
 from .peer_liveness import ReviewerMode, normalize_reviewer_mode
 
 REVIEWER_MODE_RE = re.compile(r"(?m)^- Reviewer mode:\s*`.*?`\s*$")
@@ -147,6 +149,7 @@ def write_reviewer_checkpoint(
             if instruction_revision is not None
             else current_instruction_revision_from_bridge_text(bridge_text)
         )
+        accepted_impl_hash = bridge_implementer_state_hash(extract_bridge_snapshot(bridge_text))
         updated_text, write = _rewrite_reviewer_metadata(
             bridge_text=bridge_text,
             repo_root=repo_root,
@@ -157,6 +160,7 @@ def write_reviewer_checkpoint(
                 action="reviewer-checkpoint",
                 worktree_hash=effective_hash,
                 current_instruction_revision=instruction_revision,
+                reviewer_accepted_implementer_state_hash=accepted_impl_hash,
                 poll_note=(
                     (
                         "Reviewer checkpoint preserved reviewed baseline through "

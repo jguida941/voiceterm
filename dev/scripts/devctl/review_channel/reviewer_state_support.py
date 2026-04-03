@@ -44,6 +44,7 @@ class ReviewerStateWrite:
     last_codex_poll_local: str
     last_worktree_hash: str
     current_instruction_revision: str = ""
+    reviewer_accepted_implementer_state_hash: str = ""
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,7 @@ class ReviewerMetadataUpdate:
     worktree_hash: str | None
     current_instruction_revision: str | None
     poll_note: str
+    reviewer_accepted_implementer_state_hash: str = ""
 
 
 @dataclass(frozen=True)
@@ -155,6 +157,9 @@ def write_reviewer_metadata(
         last_codex_poll_local=last_codex_poll_local,
         last_worktree_hash=effective_hash,
         current_instruction_revision=current_instruction_revision,
+        reviewer_accepted_implementer_state_hash=getattr(
+            update, "reviewer_accepted_implementer_state_hash", ""
+        ),
     )
 
 

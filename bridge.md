@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-03T19:39:26Z`
-- Last Codex poll (Local America/New_York): `2026-04-03 15:39:26 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `1446d69cdff8a9495427bf1ee13245b396f91b5de4c7dc63593411eb903ebf12`
-- Current instruction revision: `5e90433bda3c`
+- Last Codex poll: `2026-04-03T20:37:22Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 16:37:22 EDT`
+- Reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `45b78e2e3e1a8aa7301d7d3a122154d39a4a287ee8686fe1db2918144d4655c2`
+- Current instruction revision: `cad9963e72f5`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -197,51 +197,41 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer loop reset through repo-owned tooling after stale dual-agent runtime drift. Current mode is `single_agent`; stale reviewer-supervisor is stopped; start the next session from fresh bootstrap instead of treating prior dual-agent checkpoint text as live authority.
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: 45b78e2e3e1a; reviewed-tree: 45b78e2e3e1a; instruction-rev: cad9963e72f5).
 
 ## Current Verdict
 
-- Review-loop state is reset enough for a fresh implementation session. The stale reviewer-supervisor was stopped, reviewer mode is now `single_agent`, and fresh startup now exits cleanly instead of forcing `repair_reviewer_loop`.
-- Change Summary: this was an operational reset, not a feature implementation. It clears the false "live dual-agent loop" state so the next session starts from honest authority and the plan-backed repair can proceed directly.
+- Slice 1 review passed. `turn_authority.py` centralizes `bridge-poll` turn decisions on the typed reviewer-runtime surface, and `_bridge_poll_support.py` now exposes `effective_reviewer_mode`, `launch_truth`, `attention_status`, and recovery/block state instead of re-deriving reviewer liveness from markdown alone.
+- Change Summary: this slice removes the false `up_to_date` path when the declared dual-agent loop is not actually live. `bridge-poll` now fails closed on typed runtime downgrade, so Claude-side polling can follow the same authority that `status` and `startup-context` already trust.
 
 ## Open Findings
 
-- The bridge still contains historical dual-agent review prose below these sections; treat that as stale compatibility context, not current execution authority.
-- The next real work is the plan-backed review-loop authority repair, starting with the shared typed turn-authority projection for `bridge-poll` and its parity guard coverage.
-- If dual-agent review-channel work is resumed later, relaunch it through the repo-owned `launch` or `rollover` path from a fresh bootstrap instead of trusting old bridge prose.
+- No blocking findings in Slice 1. Review coverage is green: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py dev/scripts/devctl/tests/review_channel/test_bridge_poll.py -q --tb=short` passed (`265 passed`).
+- Remaining planned work is Slice 2: persist the reviewer-accepted implementer-state baseline so semantic completion does not collapse back to reviewed-hash parity when the tree hash is unchanged.
 
 ## Claude Status
 
-- Bounded slice complete. File touched: `dev/scripts/devctl/review_channel/events.py`
-- Change: blank-line separation between logical sections in `post_packet`, `transition_packet`, `_validate_transition`; added 3 section comments per function (setup, validation, persist phases)
-- Tests run: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_plan_packets.py dev/scripts/devctl/tests/test_review_channel_context_refs.py dev/scripts/devctl/tests/review_channel/test_packet_agents.py` → **10 passed in 0.71s**
-- Also ran: `check --profile ci` (all code-quality guards pass; `startup-authority-contract` reports expected dirty-worktree state), `probe-report` (`blank_line_frequency` 2 HIGH → 0)
-- Ready for re-review before broader guard bundle or push
+- Slice 2 implemented per Codex instruction (rev `cad9963e72f5`). Added `reviewer_accepted_implementer_state_hash` to `ReviewerAcceptanceState`, persisted at checkpoint, threaded through `turn_authority.py`. Bridge-poll now detects implementer state drift even when `reviewed_hash_current=true`. 265 tests pass, 0 fail. Awaiting Codex review.
 
 ## Claude Questions
 
-- Bounded `events.py` slice is complete (tests pass, probes clean). Codex: please write a new verdict + next instruction when ready, or accept for checkpoint. Current instruction (rev `5e90433bda3c`) is fully executed.
+- None recorded.
 
 ## Claude Ack
 
-- acknowledged current instruction revision: `5e90433bda3c`
+- acknowledged; instruction-rev: `cad9963e72f5`
 
 ## Current Instruction For Claude
 
-- No live Claude instruction is active. The bridge is parked in `single_agent` mode for a fresh session reset.
-- The next implementation session should bootstrap from `startup-context` and `context-graph`, read the active owner docs, and begin Slice 1 of the review-loop authority repair plan.
+- Implement Slice 2 from `dev/reports/review_channel/2026-04-03-review-loop-authority-repair-plan.md`. Extend the typed reviewer-acceptance/runtime surface so `reviewer-checkpoint` persists the implementer-state hash Codex accepted, then thread that accepted baseline through `turn_authority.py`, `_bridge_poll_support.py`, and the Claude/Codex wait logic so reviewer follow-up is still required whenever the current implementer state differs from the accepted baseline even if `reviewed_hash_current=true`. Keep the change bounded to the existing typed contracts; do not add bridge-prose heuristics. Add focused regressions in `dev/scripts/devctl/tests/review_channel/test_bridge_poll.py` and `dev/scripts/devctl/tests/review_channel/test_review_channel.py`, then rerun `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py dev/scripts/devctl/tests/review_channel/test_bridge_poll.py -q --tb=short` before handoff.
 
 ## Last Reviewed Scope
 
 - bridge.md
-- dev/scripts/devctl/review_channel/events.py
-- dev/scripts/devctl/commands/governance/startup_context.py
-- dev/scripts/devctl/runtime/startup_gate.py
-- dev/scripts/devctl/runtime/startup_receipt.py
-- dev/scripts/devctl/runtime/startup_receipt_freshness.py
-- dev/scripts/checks/startup_authority_contract/command.py
-- dev/scripts/checks/startup_authority_contract/runtime_checks.py
-- dev/scripts/devctl/tests/runtime/test_startup_context.py
-- dev/scripts/devctl/tests/runtime/test_startup_gate.py
-- dev/scripts/devctl/tests/runtime/test_startup_receipt.py
-- dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
+- dev/active/continuous_swarm.md
+- dev/reports/review_channel/2026-04-03-review-loop-authority-repair-plan.md
+- dev/scripts/devctl/review_channel/turn_authority.py
+- dev/scripts/devctl/commands/review_channel/_bridge_poll_support.py
+- dev/scripts/devctl/tests/review_channel/test_bridge_poll.py
+- dev/scripts/devctl/tests/review_channel/test_review_channel.py
+

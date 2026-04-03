@@ -32,6 +32,7 @@ class ReviewerAcceptanceState:
     current_verdict: str = ""
     open_findings: str = ""
     review_accepted: bool = False
+    reviewer_accepted_implementer_state_hash: str = ""
 
 
 @dataclass(frozen=True, slots=True)
