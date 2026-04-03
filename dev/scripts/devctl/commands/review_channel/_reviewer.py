@@ -33,6 +33,7 @@ def build_reviewer_state_report(
     args,
     repo_root: Path,
     paths: RuntimePaths | Mapping[str, object],
+    reviewer_accepted_implementer_state_hash_override: str | None = None,
 ) -> tuple[dict, int]:
     """Build the current reviewer-state report."""
     from . import refresh_status_snapshot
@@ -56,6 +57,9 @@ def build_reviewer_state_report(
         execution_mode=args.execution_mode,
         warnings=[],
         errors=[],
+        reviewer_accepted_implementer_state_hash_override=(
+            reviewer_accepted_implementer_state_hash_override
+        ),
     )
 
     codex_lanes = filter_provider_lanes(status_snapshot.lanes, provider="codex")
@@ -189,6 +193,9 @@ def run_reviewer_state_action(
         args=args,
         repo_root=repo_root,
         paths=runtime_paths,
+        reviewer_accepted_implementer_state_hash_override=(
+            state_write.reviewer_accepted_implementer_state_hash
+        ),
     )
 
     report["reviewer_state_write"] = reviewer_state_write_to_dict(state_write)

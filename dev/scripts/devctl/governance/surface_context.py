@@ -146,6 +146,10 @@ def render_key_commands_block() -> str:
             "python3 dev/scripts/devctl.py review-channel --action reviewer-wait --reason awaiting-implementer --terminal none --format json",
         ),
         (
+            "Reviewer packet watch",
+            "python3 dev/scripts/devctl.py review-channel --action watch --target claude --status pending --follow --terminal none --format json",
+        ),
+        (
             "Docs governance",
             "python3 dev/scripts/devctl.py docs-check --strict-tooling",
         ),

@@ -7922,6 +7922,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 payload["reviewer_state_write"]["current_instruction_revision"],
                 stable_revision,
             )
+            self.assertEqual(
+                payload["reviewer_state_write"][
+                    "reviewer_accepted_implementer_state_hash"
+                ],
+                _STABLE_REVISION_IMPLEMENTER_STATE_HASH,
+            )
             self.assertTrue(payload["bridge_liveness"]["claude_ack_current"])
             self.assertNotEqual(payload["attention"]["status"], "claude_ack_stale")
             updated_bridge = bridge_path.read_text(encoding="utf-8")
@@ -7938,6 +7944,61 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(
                 derive_bridge_attention(bridge_liveness)["status"],
                 "healthy",
+            )
+            review_state = json.loads(
+                (status_dir / "review_state.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                review_state["reviewer_runtime"]["review_acceptance"][
+                    "reviewer_accepted_implementer_state_hash"
+                ],
+                _STABLE_REVISION_IMPLEMENTER_STATE_HASH,
+            )
+
+            bridge_path.write_text(
+                updated_bridge.replace(
+                    "- coding handoff fixes",
+                    "- bridge-only implementer state update after accepted checkpoint",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+            status_output_path = root / "status-report.json"
+            parser = build_parser()
+            status_args = parser.parse_args(
+                [
+                    "review-channel",
+                    "--action",
+                    "status",
+                    "--terminal",
+                    "none",
+                    "--format",
+                    "json",
+                    "--review-channel-path",
+                    str(review_channel_path.relative_to(root)),
+                    "--bridge-path",
+                    str(bridge_path.relative_to(root)),
+                    "--status-dir",
+                    str(status_dir.relative_to(root)),
+                    "--output",
+                    str(status_output_path),
+                ]
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(status_args)
+
+            self.assertEqual(rc, 0)
+            status_payload = json.loads(status_output_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                status_payload["reviewer_runtime"]["review_acceptance"][
+                    "reviewer_accepted_implementer_state_hash"
+                ],
+                _STABLE_REVISION_IMPLEMENTER_STATE_HASH,
+            )
+            self.assertEqual(
+                status_payload["doctor"]["reviewer_accepted_implementer_state_hash"],
+                _STABLE_REVISION_IMPLEMENTER_STATE_HASH,
             )
 
     def test_run_reviewer_checkpoint_rotates_instruction_revision_when_instruction_changes(self) -> None:

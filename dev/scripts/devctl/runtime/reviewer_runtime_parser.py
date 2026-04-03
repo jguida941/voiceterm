@@ -122,6 +122,9 @@ def _typed_reviewer_runtime_state(
             open_findings=_string(review_acceptance.get("open_findings"))
             or current_session.open_findings,
             review_accepted=review_accepted,
+            reviewer_accepted_implementer_state_hash=_string(
+                review_acceptance.get("reviewer_accepted_implementer_state_hash")
+            ),
         ),
         publish_clear=(
             _bool(reviewer_runtime.get("publish_clear"))
@@ -176,6 +179,7 @@ def _bridge_reviewer_runtime_state(
             open_findings=current_session.open_findings
             or _string(bridge.get("open_findings")),
             review_accepted=review_accepted,
+            reviewer_accepted_implementer_state_hash="",
         ),
         publish_clear=review_accepted,
     )

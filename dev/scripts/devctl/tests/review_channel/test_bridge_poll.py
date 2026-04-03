@@ -183,9 +183,16 @@ def _typed_review_state(
     reviewed_hash_current: bool = True,
     review_needed: bool = False,
     instruction_revision: str = "56bcd5d01510",
+    implementer_status: str = "- waiting for reviewer poll",
+    implementer_questions: str = "- none",
+    accepted_implementer_state_hash: str = "",
 ) -> dict[str, object]:
-    implementer_status = "- waiting for reviewer poll"
     implementer_ack = f"- acknowledged; instruction-rev: `{instruction_revision}`"
+    implementer_state_hash = compute_implementer_state_hash(
+        implementer_status=implementer_status,
+        implementer_questions=implementer_questions,
+        implementer_ack=implementer_ack,
+    )
     return {
         "snapshot_id": snapshot_id,
         "review": {
@@ -209,11 +216,7 @@ def _typed_review_state(
             "implementer_ack": implementer_ack,
             "implementer_ack_revision": instruction_revision,
             "implementer_ack_state": "current",
-            "implementer_state_hash": compute_implementer_state_hash(
-                implementer_status=implementer_status,
-                implementer_questions="- none",
-                implementer_ack=implementer_ack,
-            ),
+            "implementer_state_hash": implementer_state_hash,
             "open_findings": "- none",
             "last_reviewed_scope": "- bridge.md",
         },
@@ -225,11 +228,7 @@ def _typed_review_state(
             "claude_ack_current": True,
             "current_instruction_revision": instruction_revision,
             "claude_ack_revision": instruction_revision,
-            "implementer_state_hash": compute_implementer_state_hash(
-                implementer_status=implementer_status,
-                implementer_questions="- none",
-                implementer_ack=implementer_ack,
-            ),
+            "implementer_state_hash": implementer_state_hash,
             "reviewed_hash_current": reviewed_hash_current,
             "review_needed": review_needed,
         },
@@ -269,6 +268,9 @@ def _typed_review_state(
                 "current_verdict": "- accepted",
                 "open_findings": "- none",
                 "review_accepted": True,
+                "reviewer_accepted_implementer_state_hash": (
+                    accepted_implementer_state_hash
+                ),
             },
             "publish_clear": False,
         },
@@ -565,6 +567,79 @@ def test_turn_state_token_changes_when_reviewer_turn_flips_without_new_revision(
     assert reviewed_tree.next_turn_role == ""
     assert reviewed_tree.next_turn_reason == "up_to_date"
     assert stale_tree.turn_state_token != reviewed_tree.turn_state_token
+
+
+def test_bridge_poll_requires_reviewer_when_implementer_state_differs_from_accepted_baseline() -> None:
+    typed_review_state = _typed_review_state(
+        reviewed_hash_current=True,
+        review_needed=False,
+        instruction_revision="aabbccdd1122",
+        implementer_status="- updated Claude status after bridge-only change",
+        accepted_implementer_state_hash=compute_implementer_state_hash(
+            implementer_status="- waiting for reviewer poll",
+            implementer_questions="- none",
+            implementer_ack="- acknowledged; instruction-rev: `aabbccdd1122`",
+        ),
+    )
+
+    result = build_bridge_poll_result(
+        _build_bridge_text(
+            instruction_revision="aabbccdd1122",
+            claude_ack_revision="aabbccdd1122",
+        ),
+        current_worktree_hash="a" * 64,
+        typed_review_state=typed_review_state,
+    )
+
+    assert result.reviewed_hash_current is True
+    assert result.review_needed is False
+    assert result.next_turn_required is True
+    assert result.next_turn_role == "reviewer"
+    assert result.next_turn_reason == "implementer_state_changed"
+    assert result.reviewer_accepted_implementer_state_hash
+
+
+def test_turn_state_token_changes_when_accepted_implementer_baseline_changes() -> None:
+    common_kwargs = {
+        "reviewed_hash_current": True,
+        "review_needed": False,
+        "instruction_revision": "aabbccdd1122",
+        "implementer_status": "- updated Claude status after bridge-only change",
+    }
+    first = build_bridge_poll_result(
+        _build_bridge_text(
+            instruction_revision="aabbccdd1122",
+            claude_ack_revision="aabbccdd1122",
+        ),
+        current_worktree_hash="a" * 64,
+        typed_review_state=_typed_review_state(
+            **common_kwargs,
+            accepted_implementer_state_hash=compute_implementer_state_hash(
+                implementer_status="- waiting for reviewer poll",
+                implementer_questions="- none",
+                implementer_ack="- acknowledged; instruction-rev: `aabbccdd1122`",
+            ),
+        ),
+    )
+    second = build_bridge_poll_result(
+        _build_bridge_text(
+            instruction_revision="aabbccdd1122",
+            claude_ack_revision="aabbccdd1122",
+        ),
+        current_worktree_hash="a" * 64,
+        typed_review_state=_typed_review_state(
+            **common_kwargs,
+            accepted_implementer_state_hash=compute_implementer_state_hash(
+                implementer_status="- different accepted baseline",
+                implementer_questions="- none",
+                implementer_ack="- acknowledged; instruction-rev: `aabbccdd1122`",
+            ),
+        ),
+    )
+
+    assert first.next_turn_reason == "implementer_state_changed"
+    assert second.next_turn_reason == "implementer_state_changed"
+    assert first.turn_state_token != second.turn_state_token
 
 
 def test_typed_reviewer_token_uses_turn_state_token() -> None:

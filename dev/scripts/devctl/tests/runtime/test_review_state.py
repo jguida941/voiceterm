@@ -426,6 +426,7 @@ class ReviewStateTests(unittest.TestCase):
                             "current_verdict": "Reviewer-accepted.",
                             "open_findings": "- none",
                             "review_accepted": True,
+                            "reviewer_accepted_implementer_state_hash": "impl-hash-123",
                         },
                         "publish_clear": True,
                     },
@@ -437,6 +438,10 @@ class ReviewStateTests(unittest.TestCase):
         assert state is not None
         self.assertTrue(state.reviewer_runtime.publish_clear)
         self.assertTrue(state.reviewer_runtime.review_acceptance.review_accepted)
+        self.assertEqual(
+            state.reviewer_runtime.review_acceptance.reviewer_accepted_implementer_state_hash,
+            "impl-hash-123",
+        )
         self.assertEqual(state.reviewer_runtime.session_owner.session_pid, 42)
         self.assertEqual(state.reviewer_runtime.rollover.rollover_id, "rollover-123")
 

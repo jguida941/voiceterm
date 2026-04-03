@@ -55,6 +55,32 @@ Updated:
 `dev/scripts/devctl/runtime/startup_gate.py`,
 `dev/scripts/devctl/review_channel/peer_recovery.py`.
 
+### 2026-04-03 - MP-377 now explicitly treats desktop, mobile, remote-loop, and external review as clients over one generated orientation reducer
+
+The repo already had the right architectural direction in scattered form:
+typed startup authority, typed review/runtime state, `mobile-status`, and the
+planned `system-picture` generated surface. What was still missing from the
+tracked owner chain was the explicit cross-client convergence rule. PyQt6
+desktop still had bridge-shaped lane readers, iPhone/mobile still consumed
+compatibility-shaped status payloads, and remote Claude-loop/external-review
+flows still lacked one bounded shared orientation packet.
+
+That gap is now recorded as a first-class `MP-377` slice instead of chat
+guidance. The active owner plans now fix the next rollout order to one shared
+generated `system-picture` / external-review reducer over typed startup,
+review, control, governance-review, external-findings, and quality-feedback
+state, with one managed repo-owned JSON/Markdown artifact plus one compact
+GitHub-visible markdown projection that share snapshot identity. Client
+migration is explicitly sequenced as PyQt6/operator console first,
+iPhone/mobile second, and Claude remote-loop plus external-review surfaces
+third, while all of those surfaces remain projections or launchers rather
+than new authority owners.
+
+Evidence:
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+
 ### 2026-04-03 - Remote commit pipeline startup, status, and doctor surfaces now carry one shared snapshot stamp
 
 The remote commit lane already had a typed pipeline owner, governed

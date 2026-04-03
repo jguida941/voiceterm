@@ -22,11 +22,13 @@ treat these rules as active workflow instructions immediately.
    `dev/active/review_channel.md` as the canonical authority chain.
 5. Start from the live sections in this file:
    - Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.
+   - Codex should keep the repo-owned reviewer watch surfaces live while Claude owns the turn: `review-channel --action reviewer-wait --reason awaiting-implementer --terminal none --format json` plus `review-channel --action watch --target claude --status pending --follow --terminal none --format json`.
    - Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.
    - `Claude Ack` must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.
    - Claude must read `Last Codex poll` / `Poll Status` first on each repoll.
-6. Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while
-   code is moving.
+6. Codex must actively watch reviewer-owned typed state while code is moving.
+   Prefer repo-owned `reviewer-wait` plus Claude packet `watch`; use manual
+   status polling only as fallback/debugging.
 7. Codex must exclude `bridge.md` itself when computing the reviewed
    worktree hash. Advisory scratch/audit artifacts such as `convo.md` and
    `dev/audits/**` must stay out of that reviewed-hash truth too.
@@ -72,14 +74,17 @@ treat these rules as active workflow instructions immediately.
 1. Claude should poll this file periodically while coding.
 2. Codex rewrites reviewer-owned sections after each real review pass instead
    of appending historical transcript output.
-3. `bridge.md` itself is coordination state; do not treat its mtime as code
+3. Codex should keep `reviewer-wait` and Claude packet `watch` attached while
+   Claude owns the turn; do not rely on operator reminders to resume typed
+   watching.
+4. `bridge.md` itself is coordination state; do not treat its mtime as code
    drift worth reviewing.
-4. Resolved items belong in plan docs or repo reports, not in long bridge
+5. Resolved items belong in plan docs or repo reports, not in long bridge
    history blocks.
-5. Freshness and current instruction truth should come from typed projections
+6. Freshness and current instruction truth should come from typed projections
    first; this bridge remains a compatibility projection while the migration
    finishes.
-6. Active-work `Claude Status` / `Claude Ack` updates must carry concrete work
+7. Active-work `Claude Status` / `Claude Ack` updates must carry concrete work
    evidence or one concrete blocker/question; low-information polling notes are
    not valid bridge authority.
 
@@ -234,4 +239,3 @@ path and the inactive-mode fail-closed guard.
 - dev/scripts/devctl/commands/review_channel/_bridge_poll_support.py
 - dev/scripts/devctl/tests/review_channel/test_bridge_poll.py
 - dev/scripts/devctl/tests/review_channel/test_review_channel.py
-

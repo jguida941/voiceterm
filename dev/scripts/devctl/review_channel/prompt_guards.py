@@ -40,6 +40,12 @@ def provider_bootstrap_guard_lines(
                 "resume the review pass as soon as implementer-owned state changes."
             ),
             (
+                "- Keep the Claude-targeted packet stream live too: use "
+                "`review-channel --action watch --target claude --status pending "
+                "--follow` (or the equivalent inbox surface) while reviewing so "
+                "new findings/instructions do not depend on manual repolling."
+            ),
+            (
                 "- In `active_dual_agent`, reviewer mode is review-only by default. "
                 "Missing worker worktrees, absent fanout, or a promising fix are "
                 "not permission to code locally. Use the repo-owned "

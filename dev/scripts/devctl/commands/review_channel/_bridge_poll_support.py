@@ -40,6 +40,7 @@ class BridgePollResult:
     claude_ack_revision: str
     claude_ack_current: bool
     implementer_state_hash: str
+    reviewer_accepted_implementer_state_hash: str
     changed_since_last_ack: bool
     reviewed_hash_current: bool | None
     review_needed: bool | None
@@ -87,6 +88,9 @@ def build_bridge_poll_result(
         claude_ack_revision=authority.claude_ack_revision,
         claude_ack_current=authority.claude_ack_current,
         implementer_state_hash=authority.implementer_state_hash,
+        reviewer_accepted_implementer_state_hash=(
+            authority.reviewer_accepted_implementer_state_hash
+        ),
         changed_since_last_ack=bool(authority.current_instruction_revision)
         and authority.current_instruction_revision != authority.claude_ack_revision,
         reviewed_hash_current=authority.reviewed_hash_current,
@@ -151,6 +155,7 @@ def _build_turn_state_token(
             authority.attention_status,
             _optional_bool_token(authority.claude_ack_current),
             authority.implementer_state_hash,
+            authority.reviewer_accepted_implementer_state_hash,
             _optional_bool_token(authority.reviewed_hash_current),
             _optional_bool_token(authority.review_needed),
             authority.next_turn_role,

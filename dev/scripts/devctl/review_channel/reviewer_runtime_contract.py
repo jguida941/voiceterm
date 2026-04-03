@@ -42,6 +42,8 @@ class ReviewerRuntimeInputs:
     bridge_text: str | None = None
     rollover_state_override: Mapping[str, object] | None = None
     recovery_action_override: str | None = None
+    prior_review_state: Mapping[str, object] | None = None
+    reviewer_accepted_implementer_state_hash_override: str | None = None
 
 
 def reviewer_runtime_contract_to_dict(
@@ -70,6 +72,10 @@ def build_reviewer_runtime_contract(
         snapshot=inputs.snapshot,
         bridge_liveness=bridge_liveness,
         current_session=inputs.current_session,
+        prior_review_state=inputs.prior_review_state,
+        reviewer_accepted_implementer_state_hash_override=(
+            inputs.reviewer_accepted_implementer_state_hash_override
+        ),
     )
     implementer_ack_current = inputs.current_session.implementer_ack_state == "current"
     implementation_blocked, implementation_block_reason = reviewer_runtime_block_state(
@@ -129,7 +135,15 @@ def _review_acceptance_state(
     snapshot: BridgeSnapshot | None,
     bridge_liveness: Mapping[str, object],
     current_session: ReviewCurrentSessionState,
+    prior_review_state: Mapping[str, object] | None,
+    reviewer_accepted_implementer_state_hash_override: str | None,
 ) -> ReviewerAcceptanceState:
+    accepted_impl_hash = _accepted_implementer_state_hash(
+        prior_review_state=prior_review_state,
+        reviewer_accepted_implementer_state_hash_override=(
+            reviewer_accepted_implementer_state_hash_override
+        ),
+    )
     if snapshot is not None:
         current_verdict, open_findings, review_accepted = review_acceptance_projection(
             snapshot
@@ -138,6 +152,7 @@ def _review_acceptance_state(
             current_verdict=current_verdict,
             open_findings=open_findings,
             review_accepted=review_accepted,
+            reviewer_accepted_implementer_state_hash=accepted_impl_hash,
         )
     open_findings = (
         current_session.open_findings
@@ -147,7 +162,28 @@ def _review_acceptance_state(
         current_verdict="",
         open_findings=open_findings,
         review_accepted=bool(bridge_liveness.get("review_accepted")),
+        reviewer_accepted_implementer_state_hash=accepted_impl_hash,
     )
+
+
+def _accepted_implementer_state_hash(
+    *,
+    prior_review_state: Mapping[str, object] | None,
+    reviewer_accepted_implementer_state_hash_override: str | None,
+) -> str:
+    override = (reviewer_accepted_implementer_state_hash_override or "").strip()
+    if override:
+        return override
+    review_state = prior_review_state if isinstance(prior_review_state, Mapping) else {}
+    reviewer_runtime = review_state.get("reviewer_runtime")
+    if not isinstance(reviewer_runtime, Mapping):
+        return ""
+    review_acceptance = reviewer_runtime.get("review_acceptance")
+    if not isinstance(review_acceptance, Mapping):
+        return ""
+    return str(
+        review_acceptance.get("reviewer_accepted_implementer_state_hash") or ""
+    ).strip()
 
 
 def _recovery_action_allowed(

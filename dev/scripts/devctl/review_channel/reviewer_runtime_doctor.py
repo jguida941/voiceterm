@@ -56,6 +56,9 @@ def build_reviewer_doctor_surface(
     surface["review_accepted"] = contract.review_acceptance.review_accepted
     surface["current_verdict"] = contract.review_acceptance.current_verdict
     surface["open_findings"] = contract.review_acceptance.open_findings
+    surface["reviewer_accepted_implementer_state_hash"] = (
+        contract.review_acceptance.reviewer_accepted_implementer_state_hash
+    )
     surface["publish_clear"] = contract.publish_clear
     surface["publisher_running"] = bool(publisher.get("running"))
     surface["publisher_stop_reason"] = str(publisher.get("stop_reason") or "")

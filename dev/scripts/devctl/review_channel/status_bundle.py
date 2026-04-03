@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,6 +32,8 @@ class StatusProjectionContext:
     bridge_liveness: dict[str, object]
     attention: dict[str, object]
     plan_id: str = ""
+    prior_review_state: Mapping[str, object] | None = None
+    reviewer_accepted_implementer_state_hash_override: str | None = None
 
 
 @dataclass(frozen=True)
@@ -119,6 +122,10 @@ def _build_status_review_state(
             plan_id=context.plan_id,
             warnings=tuple(payload.warnings),
             errors=tuple(payload.errors),
+            prior_review_state=context.prior_review_state,
+            reviewer_accepted_implementer_state_hash_override=(
+                context.reviewer_accepted_implementer_state_hash_override
+            ),
         ),
         snapshot=snapshot,
         bridge_liveness=context.bridge_liveness,

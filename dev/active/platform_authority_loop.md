@@ -1248,6 +1248,24 @@ blocker or exception in plan state before skipping the declared order.
       enrichments should be able to consume the same generated snapshot plus
       delta, while every field remains traceable back to canonical plan refs,
       runtime contracts, or guard/report outputs.
+- [ ] Narrow that first `system-picture` artifact into one shared cross-client
+      orientation contract before broader graph work. It should compose
+      `StartupContext`, typed review/runtime/control state, governance-review
+      summaries, imported external findings, and quality-feedback output into
+      one bounded reducer that fresh AI/operator sessions can cite instead of
+      stitching together five different packets manually.
+- [ ] Emit two projections from that same reducer and keep them trace-linked
+      by `snapshot_id` plus per-section hashes: one managed JSON/Markdown
+      artifact under the governed reports root for repo-owned consumers, and
+      one compact GitHub-visible markdown projection for external review. The
+      GitHub-visible summary is a generated reference surface, not a second
+      authority store or a hand-maintained audit memo.
+- [ ] Lock the first consumer-migration order while that reducer lands:
+      PyQt6/operator-console leaves `bridge.md`-parsed lane state first,
+      iPhone/mobile moves from compatibility-shaped `mobile-status` payloads
+      second, and Claude remote-loop plus external-review surfaces consume
+      typed status plus the generated summary third. Those clients remain
+      projections or launchers; none may become a second live authority owner.
 - [ ] Feed live task state into that reducer in the next slice: changed paths,
       recent findings, per-file severity counts, last failed checks, recent
       touched files, and current plan scope should influence graph ranking
@@ -1475,6 +1493,16 @@ blocker or exception in plan state before skipping the declared order.
   still green. Resume from the same owner chain by validating the focused
   startup/runtime tests, then rerunning the broader repo bundles and the
   external-repo proof commands that still define the honest `Gate 2` bar.
+- 2026-04-03 cross-client orientation follow-up: the missing shared layer is
+  now explicit in owner-plan state. Parallel read-only review across the
+  PyQt6 operator console, iPhone mobile app, and Claude remote loop confirmed
+  that desktop still rebuilds lane state from `bridge.md`, mobile still
+  consumes compatibility-shaped `mobile-status` payloads, and the remote
+  loop still treats bridge/status as its human-facing coordination surface.
+  Resume by landing the planned generated `system-picture` /
+  external-review reducer as the shared cross-client orientation packet
+  first, then migrate consumers in order PyQt6 -> iPhone/mobile ->
+  remote/external-review while keeping every client projection-only.
 - 2026-04-02 corpus-first handoff rule: `MP-376` now treats external-repo
   corpus waves as the immediate proof harness, but this lane remains the stop
   point for the same program. If a wave bottoms out into only Step-0/startup
@@ -1927,6 +1955,19 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-03: Promoted the next cross-client source-of-truth slice into the
+  active `MP-377` authority-loop owner chain. The accepted next bounded work
+  is no longer a generic "connect the apps" note: it is one generated
+  `system-picture` / external-review reducer over typed startup, review,
+  control, governance-review, external-findings, and quality-feedback state,
+  with one managed JSON/Markdown artifact plus one compact GitHub-visible
+  markdown projection that share `snapshot_id` / section-hash parity. The
+  consumer rollout order is fixed in plan state to avoid drift while other
+  work continues: PyQt6/operator-console leaves `bridge.md` lane parsing
+  first, iPhone/mobile leaves compatibility-shaped `mobile-status` payloads
+  second, and Claude remote-loop plus external-review surfaces consume typed
+  status plus the generated summary third. None of those clients gains live
+  authority ownership.
 - 2026-04-03: Closed the next startup-consumer parity gap in the active
   authority-loop lane without inverting ownership. `bridge-poll` no longer
   derives liveness/turn routing from bridge text alone: the new shared

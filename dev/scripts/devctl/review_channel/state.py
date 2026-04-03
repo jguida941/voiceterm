@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from .attention import derive_bridge_attention
@@ -71,6 +72,7 @@ def refresh_status_snapshot(
     warnings: list[str] | None = None,
     errors: list[str] | None = None,
     reviewer_overdue_threshold_seconds: int | None = None,
+    reviewer_accepted_implementer_state_hash_override: str | None = None,
 ) -> ReviewChannelStatusSnapshot:
     """Refresh the latest review-channel projections for read-only consumers."""
     lanes = _load_status_lanes(
@@ -98,6 +100,7 @@ def refresh_status_snapshot(
     bridge_liveness["review_needed"] = bool(reviewer_worker.get("review_needed"))
     merged_errors.extend(validate_live_bridge_contract(bridge_snapshot))
     publisher_state, reviewer_supervisor_state = _load_lifecycle_states(output_root)
+    prior_review_state = _load_prior_review_state(output_root)
     _apply_lifecycle_bridge_liveness(
         bridge_liveness=bridge_liveness,
         publisher_state=publisher_state,
@@ -128,6 +131,10 @@ def refresh_status_snapshot(
             session_output_root=output_root,
             rollover_dir=output_root.parent / "rollovers",
             bridge_text=bridge_text,
+            prior_review_state=prior_review_state,
+            reviewer_accepted_implementer_state_hash_override=(
+                reviewer_accepted_implementer_state_hash_override
+            ),
         )
     )
     bridge_liveness["review_accepted"] = (
@@ -160,6 +167,10 @@ def refresh_status_snapshot(
             lanes=lanes,
             bridge_liveness=bridge_liveness,
             attention=attention,
+            prior_review_state=prior_review_state,
+            reviewer_accepted_implementer_state_hash_override=(
+                reviewer_accepted_implementer_state_hash_override
+            ),
         ),
         payload=StatusProjectionPayload(
             reviewer_worker=reviewer_worker,
@@ -239,6 +250,15 @@ def _load_lifecycle_states(output_root: Path) -> tuple[dict[str, object], dict[s
         read_publisher_state(output_root),
         read_reviewer_supervisor_state(output_root),
     )
+
+
+def _load_prior_review_state(output_root: Path) -> dict[str, object] | None:
+    review_state_path = output_root / "review_state.json"
+    try:
+        payload = json.loads(review_state_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def _apply_lifecycle_bridge_liveness(

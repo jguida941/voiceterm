@@ -317,7 +317,10 @@ Portability note:
   new review work. It reads the real `status` report shape (`reviewer_worker`
   + `bridge_liveness`) and loads typed `current_session` state from the
   generated `review_state.json` / `compact.json` projections rather than from
-  an invented top-level status payload block.
+  an invented top-level status payload block. Pair it with the repo-owned
+  Claude packet watcher (`review-channel --action watch --target claude
+  --status pending --follow --terminal none --format json`) so reviewer-side
+  follow-up and packet delivery do not rely on manual polling or chat memory.
 - `review-channel --action status|ensure|reviewer-heartbeat|reviewer-checkpoint`
   now emit machine-readable `reviewer_worker` state, and
   `review-channel --action ensure --follow` cadence frames also surface a
@@ -374,7 +377,11 @@ Portability note:
   stale reason, last poll, rollover state, session owner, allowed recovery
   action, review acceptance, and publish-clear state. Bridge
   `review_accepted` and doctor output are compatibility projections over that
-  contract, not independent authority.
+  contract, not independent authority. Reviewer checkpoints also persist the
+  accepted Claude-state baseline in
+  `reviewer_runtime.review_acceptance.reviewer_accepted_implementer_state_hash`
+  so bridge-only implementer progress still forces reviewer follow-up even
+  when the non-bridge reviewed hash stays current.
 - `review-channel --action doctor` is the compact readiness/read-only surface
   for that same lane. It reuses the canonical status refresh path, reports the
   reduced `doctor`, `reviewer_runtime`, and `commit_pipeline` payloads plus

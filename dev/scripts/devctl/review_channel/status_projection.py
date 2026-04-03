@@ -60,6 +60,8 @@ class ReviewStateContext:
     plan_id: str = ""
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
+    prior_review_state: Mapping[str, object] | None = None
+    reviewer_accepted_implementer_state_hash_override: str | None = None
 
 
 def build_bridge_review_state(
@@ -99,6 +101,10 @@ def build_bridge_review_state(
             session_output_root=context.output_root,
             rollover_dir=context.output_root.parent / "rollovers",
             bridge_text=context.bridge_text,
+            prior_review_state=context.prior_review_state,
+            reviewer_accepted_implementer_state_hash_override=(
+                context.reviewer_accepted_implementer_state_hash_override
+            ),
         )
     )
     bridge_state = build_review_bridge_state(

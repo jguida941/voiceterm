@@ -4399,6 +4399,17 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-04-03 cross-client source-of-truth follow-up is now explicit in the
+  main `MP-377` owner chain. Read-only review across the PyQt6 operator
+  console, iPhone mobile app, and Claude remote-loop surfaces confirmed that
+  the missing platform layer is still the planned generated
+  `system-picture` / generated-report reducer: PyQt6 still rebuilds lane
+  state from `bridge.md`, mobile still decodes compatibility-shaped
+  `mobile-status` payloads, and remote-loop surfaces still orient around
+  bridge/status. The accepted next slice is one bounded orientation contract
+  over startup/review/control/governance/external-finding state with both
+  managed JSON/Markdown and compact GitHub-visible projections, then client
+  migration in the order PyQt6 -> iPhone/mobile -> remote/external-review.
 - 2026-04-03 remote commit-pipeline Phase-2 authority follow-up landed in the
   same `MP-377` owner chain: `reviewer_runtime` now owns implementer ACK /
   implementation-block truth, bridge review acceptance no longer falls back to
@@ -5483,6 +5494,19 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-03: Promoted the cross-client source-of-truth follow-up into the
+  tracked `MP-377` plan chain instead of leaving it as chat guidance. The
+  accepted next bounded slice is one generated `system-picture` /
+  external-review orientation reducer over typed startup, review, control,
+  governance-review, external-findings, and quality-feedback state, emitting
+  both a managed repo-owned JSON/Markdown artifact and a compact
+  GitHub-visible markdown projection with shared snapshot identity. The
+  rollout order is now fixed in plan state too: migrate PyQt6/operator-
+  console off `bridge.md`-parsed lane state first, iPhone/mobile off
+  compatibility-shaped `mobile-status` payloads second, and Claude remote-
+  loop plus external-review surfaces onto typed status plus the generated
+  summary third. Those clients remain projections over one backend, not new
+  authority owners.
 - 2026-04-03: Landed the remote commit pipeline Phase-2 authority cleanup in
   the same `MP-377` owner chain. `ReviewerRuntimeContract` now owns
   `implementer_ack_current`, `implementation_blocked`, and
