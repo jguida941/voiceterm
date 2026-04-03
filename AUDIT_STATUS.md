@@ -107,6 +107,24 @@ Pre-7e4d1c2 verification (HISTORICAL — these findings were from BEFORE the Rev
 
 ### STILL OPEN (verified by agents)
 
+**0. Remote-session commit flow (NEW — discovered during Phase 1 implementation)**
+
+Codex CLI sandbox blocks `git commit` on `.git/index.lock`, showing a permission dialog that requires physical keyboard access. When the operator is remote, this blocks all progress.
+
+**Correct architecture (NOT a workaround — this is the role split):**
+- **Codex** = coder. Stages files but does NOT commit. Sandbox restriction is correct — prevents unreviewed commits.
+- **Claude** = orchestrator with commit authority. Runs ALL guards on staged work (`check --profile ci`, `docs-check`, tests). If guards pass, Claude commits. No sandbox restriction.
+- **Operator** = push authority. Sees guard results via this remote session. Says "push" or "don't push." Claude runs `devctl push --execute` on operator approval.
+- **State flow:** Codex stages → Claude validates → Claude commits → startup-context checks → operator approves → governed push.
+
+This must be formalized in the bridge protocol and the remote-bridge-loop setup so it's not ad hoc.
+
+**FIX needed:**
+- Add to bridge protocol: Codex MUST NOT commit directly. Claude commits after guard validation.
+- Add to remote-bridge-loop.sh setup: document the role split.
+- Add to AUDIT_STATUS.md remaining items table.
+- The remote session (Claude Code) IS the dashboard — it shows guard results and awaits operator "push" command.
+
 **1. No persistent supervisor (CRITICAL — root cause of idle-Codex)**
 - The Codex CLI has no polling loop — processes prompt and stops
 - Follow daemon never auto-started by launch or manual spawn
