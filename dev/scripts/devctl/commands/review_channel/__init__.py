@@ -64,6 +64,8 @@ from .status import (
     _attach_backend_contract,
     _attach_reviewer_worker,
     _attach_status_context,
+    _build_doctor_report,
+    _run_doctor_action,
     _read_publisher_state_safe,
     _read_reviewer_supervisor_state_safe,
     _run_bridge_status,
@@ -80,8 +82,10 @@ __all__ = [
     "_attach_backend_contract",
     "_attach_reviewer_worker",
     "_attach_status_context",
+    "_build_doctor_report",
     "_build_reviewer_state_report",
     "_ensure_reviewer_supervisor_running",
+    "_run_doctor_action",
     "_read_publisher_state_safe",
     "_read_reviewer_supervisor_state_safe",
     "_spawn_follow_publisher",
@@ -121,6 +125,8 @@ def _dispatch_action(
     result: tuple[dict, int]
     if action is ReviewChannelAction.STATUS:
         result = _run_status_action(args=args, repo_root=repo_root, paths=paths)
+    elif action is ReviewChannelAction.DOCTOR:
+        result = _run_doctor_action(args=args, repo_root=repo_root, paths=paths)
     elif action is ReviewChannelAction.BRIDGE_POLL:
         result = _run_bridge_poll_action_impl(
             args=args,

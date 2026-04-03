@@ -24,6 +24,9 @@ from .review_state_models import (
     ReviewSessionState,
     ReviewState,
 )
+from .remote_commit_pipeline_models import (
+    remote_commit_pipeline_contract_from_mapping,
+)
 from .reviewer_runtime_parser import reviewer_runtime_state_from_payload
 
 
@@ -56,6 +59,10 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
     review = _mapping(review_payload.get("review"))
     queue = _mapping(review_payload.get("queue"))
     bridge = _mapping(review_payload.get("bridge"))
+    commit_pipeline = remote_commit_pipeline_contract_from_mapping(
+        _mapping(review_payload.get("commit_pipeline"))
+        or _mapping(payload.get("commit_pipeline"))
+    )
     current_session = _mapping(review_payload.get("current_session"))
     current_session_state = _current_session_state_from_payload(
         current_session=current_session,
@@ -168,6 +175,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         packets=_packet_states_from_value(review_payload.get("packets")),
         registry=registry_state,
         reviewer_runtime=reviewer_runtime_state,
+        commit_pipeline=commit_pipeline,
         warnings=warnings,
         errors=errors,
     )

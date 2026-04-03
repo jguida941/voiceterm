@@ -6,6 +6,7 @@ reads, and the shared status-context attachers used by both status and ensure.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -30,6 +31,7 @@ from ...review_channel.state import (
     refresh_status_snapshot,
     build_service_identity,
 )
+from ...runtime.review_state_parser import review_state_from_payload
 from .bridge_handler import _run_bridge_action
 from .reviewer_runtime_snapshot import attach_reviewer_runtime_snapshot
 from ..review_channel_command import (
@@ -245,6 +247,82 @@ def _refresh_bridge_status_report(
         report["review_needed"] = bool(snapshot.reviewer_worker.get("review_needed"))
     if report.get("errors"):
         report["ok"] = False
+
+
+def _attach_status_runtime_snapshot(report: dict[str, object]) -> None:
+    """Attach reviewer-runtime, doctor, and commit-pipeline snapshots when possible."""
+    if (
+        isinstance(report.get("reviewer_runtime"), dict)
+        and isinstance(report.get("doctor"), dict)
+        and isinstance(report.get("commit_pipeline"), dict)
+    ):
+        return
+
+    projection_paths = report.get("projection_paths")
+    if not isinstance(projection_paths, dict):
+        return
+
+    review_state_path = projection_paths.get("review_state_path")
+    if not review_state_path:
+        return
+
+    try:
+        payload = json.loads(Path(str(review_state_path)).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+
+    if not isinstance(payload, dict):
+        return
+
+    attention = report.get("attention") if isinstance(report.get("attention"), dict) else None
+    attach_reviewer_runtime_snapshot(
+        report,
+        review_state=review_state_from_payload(payload),
+        attention=attention,
+    )
+
+
+def _build_doctor_report(
+    *,
+    status_report: dict[str, object],
+    exit_code: int,
+) -> tuple[dict[str, object], int]:
+    """Reduce the full status payload into the doctor/readiness surface."""
+    doctor_report: dict[str, object] = {
+        "command": "review-channel",
+        "timestamp": status_report.get("timestamp"),
+        "action": "doctor",
+        "report_mode": status_report.get("report_mode"),
+        "ok": status_report.get("ok", False),
+        "exit_ok": status_report.get("exit_ok", exit_code == 0),
+        "exit_code": exit_code,
+        "execution_mode": status_report.get("execution_mode"),
+        "terminal": status_report.get("terminal"),
+        "warnings": list(status_report.get("warnings", [])),
+        "errors": list(status_report.get("errors", [])),
+        "attention": status_report.get("attention"),
+        "doctor": status_report.get("doctor"),
+        "reviewer_runtime": status_report.get("reviewer_runtime"),
+        "commit_pipeline": status_report.get("commit_pipeline"),
+        "projection_paths": status_report.get("projection_paths"),
+        "service_identity": status_report.get("service_identity"),
+        "attach_auth_policy": status_report.get("attach_auth_policy"),
+        "push_decision": status_report.get("push_decision"),
+    }
+
+    for key in (
+        "bridge_liveness",
+        "publisher",
+        "reviewer_supervisor",
+        "reviewer_worker",
+        "review_needed",
+    ):
+        if key in status_report:
+            doctor_report[key] = status_report.get(key)
+
+    return doctor_report, exit_code
+
+
 def _auto_mode_prefers_markdown_bridge(paths: RuntimePaths) -> bool:
     """Prefer bridge-backed status when the transitional bridge is active."""
     bridge_path = paths.bridge_path
@@ -297,6 +375,7 @@ def _run_status_action(
                     repo_root=repo_root,
                     paths=runtime_paths,
                 )
+                _attach_status_runtime_snapshot(report)
                 return report, exit_code
 
             fallback_warnings.append(
@@ -324,3 +403,19 @@ def _run_status_action(
         raise ValueError(
             f"{fallback_warnings[-1]} Markdown-bridge fallback was unavailable: {exc}"
         ) from exc
+
+
+def _run_doctor_action(
+    *,
+    args,
+    repo_root: Path,
+    paths: RuntimePaths | Mapping[str, object],
+) -> tuple[dict, int]:
+    """Run doctor by reusing the canonical status path and reducing the payload."""
+    status_report, exit_code = _run_status_action(
+        args=args,
+        repo_root=repo_root,
+        paths=paths,
+    )
+    _attach_status_runtime_snapshot(status_report)
+    return _build_doctor_report(status_report=status_report, exit_code=exit_code)

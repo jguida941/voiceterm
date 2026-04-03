@@ -25,6 +25,7 @@ from .current_session_projection import build_bridge_current_session
 from .handoff import BridgeSnapshot
 from .peer_liveness import OverallLivenessState
 from .promotion import PromotionCandidate, promotion_candidate_to_dict
+from .remote_commit_pipeline_artifact import load_remote_commit_pipeline_contract
 from .status_projection_bridge_state import (
     build_review_bridge_state,
     build_typed_bridge_liveness,
@@ -105,9 +106,13 @@ def build_bridge_review_state(
         collaboration=collaboration,
         reviewer_runtime=reviewer_runtime,
     )
+    commit_pipeline = load_remote_commit_pipeline_contract(
+        output_root=context.output_root,
+    )
     doctor = build_reviewer_doctor_surface(
         contract=reviewer_runtime,
         attention=attention,
+        commit_pipeline=commit_pipeline,
     )
 
     review_state = ReviewState(
@@ -123,6 +128,7 @@ def build_bridge_review_state(
         collaboration=collaboration,
         bridge=bridge_state,
         reviewer_runtime=reviewer_runtime,
+        commit_pipeline=commit_pipeline,
         attention=_build_attention(attention),
         packets=(),
         registry=_build_agent_registry(

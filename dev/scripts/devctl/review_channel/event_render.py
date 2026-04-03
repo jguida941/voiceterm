@@ -26,6 +26,19 @@ def render_event_md(report: dict) -> str:
     if report.get("limit") is not None:
         lines.append(f"- limit: {report.get('limit')}")
     append_common_report_sections(lines, report)
+    doctor = report.get("doctor")
+    if isinstance(doctor, dict):
+        lines.append("")
+        lines.append("## Doctor")
+        lines.append(f"- status: {doctor.get('status') or 'unknown'}")
+        lines.append(f"- summary: {doctor.get('summary') or 'n/a'}")
+        lines.append(f"- publish_clear: {doctor.get('publish_clear')}")
+        lines.append(
+            f"- pipeline_state: {doctor.get('pipeline_state') or 'unknown'}"
+        )
+        lines.append(
+            f"- blocked_reason: {doctor.get('blocked_reason') or 'n/a'}"
+        )
     packet = report.get("packet")
     if isinstance(packet, dict):
         lines.append("")

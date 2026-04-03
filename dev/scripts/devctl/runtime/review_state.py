@@ -21,6 +21,10 @@ from .review_state_models import (
     ReviewState,
 )
 from .review_state_parser import review_state_from_payload
+from .remote_commit_pipeline_models import (
+    CommitIntentState,
+    RemoteCommitPipelineContract,
+)
 
 __all__ = [
     "AgentRegistryEntryState",
@@ -33,7 +37,9 @@ __all__ = [
     "CollaborationRoleAssignmentState",
     "CollaborationSessionState",
     "ContextPackRefState",
+    "CommitIntentState",
     "DelegatedWorkReceiptState",
+    "RemoteCommitPipelineContract",
     "ReviewAttentionState",
     "ReviewBridgeState",
     "ReviewCurrentSessionState",

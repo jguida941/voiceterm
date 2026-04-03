@@ -233,6 +233,101 @@ class ReviewStateTests(unittest.TestCase):
         self.assertIsNotNone(state)
         assert state is not None
         self.assertEqual(state.bridge.reviewer_mode, "single_agent")
+        self.assertEqual(state.commit_pipeline.state, "push_blocked")
+        self.assertEqual(state.commit_pipeline.blocked_reason, "pipeline_unavailable")
+
+    def test_review_state_parses_remote_commit_pipeline_contract(self) -> None:
+        state = review_state_from_payload(
+            {
+                "review_state": {
+                    "review": {"session_id": "session-pipeline"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {"reviewer_mode": "active_dual_agent"},
+                    "commit_pipeline": {
+                        "pipeline_id": "pipeline-123",
+                        "state": "operator_approval_pending",
+                        "requested_by": "operator",
+                        "branch": "feature/remote",
+                        "remote": "origin",
+                        "intent": {
+                            "staged_tree_hash": "tree-123",
+                            "staged_path_count": 2,
+                            "staged_paths": [
+                                "dev/scripts/devctl/runtime/review_state_models.py",
+                                "dev/scripts/devctl/review_channel/parser.py",
+                            ],
+                            "diff_summary": "Land the read-only pipeline projection slice.",
+                            "commit_message_draft": "Add remote commit pipeline state projection",
+                            "push_requested": True,
+                            "guard_profile": "ci",
+                            "work_intake_ref": "intake://remote-commit-slice",
+                        },
+                        "guard_action_id": "quality.guard_bundle",
+                        "guard_result": {
+                            "schema_version": 1,
+                            "contract_id": "ActionResult",
+                            "action_id": "quality.guard_bundle",
+                            "ok": True,
+                            "status": "pass",
+                            "artifact_paths": [
+                                "dev/reports/review_channel/latest/guard.json"
+                            ],
+                        },
+                        "reviewer_runtime_generation": "runtime-gen-7",
+                        "approval_packet_id": "packet-approve",
+                        "decision_packet_id": "packet-decision",
+                        "approval_state": "approved",
+                        "commit_action_id": "vcs.commit",
+                        "commit_result": {
+                            "schema_version": 1,
+                            "contract_id": "ActionResult",
+                            "action_id": "vcs.commit",
+                            "ok": True,
+                            "status": "pass",
+                        },
+                        "commit_sha": "abc123def456",
+                        "push_action_id": "vcs.push",
+                        "push_result": {
+                            "schema_version": 1,
+                            "contract_id": "ActionResult",
+                            "action_id": "vcs.push",
+                            "ok": False,
+                            "status": "unknown",
+                        },
+                        "push_report_path": "dev/reports/review_channel/latest/push.json",
+                        "blocked_reason": "",
+                        "recovery_action_allowed": "python3 dev/scripts/devctl.py review-channel --action recover",
+                        "generation_id": "gen-9",
+                        "approval_expires_at_utc": "2026-04-03T01:00:00Z",
+                        "approved_target_identity": "tree-123:gen-9",
+                    },
+                }
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertEqual(state.commit_pipeline.pipeline_id, "pipeline-123")
+        self.assertEqual(state.commit_pipeline.intent.staged_tree_hash, "tree-123")
+        self.assertEqual(
+            state.commit_pipeline.intent.staged_paths,
+            (
+                "dev/scripts/devctl/runtime/review_state_models.py",
+                "dev/scripts/devctl/review_channel/parser.py",
+            ),
+        )
+        self.assertEqual(
+            state.commit_pipeline.guard_result.action_id,
+            "quality.guard_bundle",
+        )
+        self.assertEqual(
+            state.commit_pipeline.approval_expires_at_utc,
+            "2026-04-03T01:00:00Z",
+        )
+        self.assertEqual(
+            state.commit_pipeline.approved_target_identity,
+            "tree-123:gen-9",
+        )
 
     def test_reviewer_runtime_contract_prefers_typed_publish_clear(self) -> None:
         state = review_state_from_payload(

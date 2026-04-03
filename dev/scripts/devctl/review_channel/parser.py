@@ -46,6 +46,7 @@ REVIEW_ACTION_CHOICES = (
     "rollover",
     "recover",
     "status",
+    "doctor",
     "implementer-wait",
     "reviewer-wait",
     "ensure",

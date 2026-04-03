@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from collections.abc import Mapping
 
 from ...runtime.review_state_models import ReviewState
@@ -23,7 +24,9 @@ def attach_reviewer_runtime_snapshot(
     report["reviewer_runtime"] = reviewer_runtime_contract_to_dict(
         review_state.reviewer_runtime
     )
+    report["commit_pipeline"] = asdict(review_state.commit_pipeline)
     report["doctor"] = build_reviewer_doctor_surface(
         contract=review_state.reviewer_runtime,
         attention=attention,
+        commit_pipeline=review_state.commit_pipeline,
     )

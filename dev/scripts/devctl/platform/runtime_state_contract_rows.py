@@ -100,6 +100,11 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Typed reviewer lifecycle owner projected from review-channel state.",
             ),
             ContractField(
+                "commit_pipeline",
+                "RemoteCommitPipelineContract",
+                "Typed remote commit/push lifecycle owner mirrored into review-state projections.",
+            ),
+            ContractField(
                 "attention",
                 "ReviewAttentionState | None",
                 "Current top-priority attention state, if any.",
@@ -126,7 +131,12 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ),
         ),
         runtime_model="dev.scripts.devctl.runtime.review_state_models:ReviewState",
-        startup_surface_tokens=("bridge", "current_session", "reviewer_runtime"),
+        startup_surface_tokens=(
+            "bridge",
+            "current_session",
+            "reviewer_runtime",
+            "commit_pipeline",
+        ),
     ),
     ContractSpec(
         contract_id="ReviewerRuntimeContract",
@@ -189,6 +199,128 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "reviewer_mode",
             "reviewer_freshness",
             "publish_clear",
+        ),
+    ),
+    ContractSpec(
+        contract_id="RemoteCommitPipelineContract",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed owner for remote-session staged-work, approval, commit, "
+            "push, and recovery lifecycle truth."
+        ),
+        required_fields=(
+            ContractField("pipeline_id", "str", "Stable pipeline identity."),
+            ContractField(
+                "state",
+                "str",
+                "Current pipeline lifecycle state.",
+            ),
+            ContractField(
+                "requested_by",
+                "str",
+                "Actor that requested the current pipeline.",
+            ),
+            ContractField("branch", "str", "Branch that owns the staged work."),
+            ContractField("remote", "str", "Target remote for governed publish."),
+            ContractField(
+                "intent",
+                "CommitIntentState",
+                "Immutable staged-work snapshot consumed by guard/approval/commit.",
+            ),
+            ContractField(
+                "guard_action_id",
+                "str",
+                "Typed guard action id linked to the current intent.",
+            ),
+            ContractField(
+                "guard_result",
+                "ActionResult | None",
+                "Guard bundle receipt for the current staged intent.",
+            ),
+            ContractField(
+                "reviewer_runtime_generation",
+                "str",
+                "Reviewer-runtime generation bound to the current request.",
+            ),
+            ContractField(
+                "approval_packet_id",
+                "str",
+                "Approval-request packet id for the current generation.",
+            ),
+            ContractField(
+                "decision_packet_id",
+                "str",
+                "Operator decision packet id for the current generation.",
+            ),
+            ContractField(
+                "approval_state",
+                "str",
+                "Approval state for the current generation-bound request.",
+            ),
+            ContractField(
+                "commit_action_id",
+                "str",
+                "Typed commit action id for the current pipeline.",
+            ),
+            ContractField(
+                "commit_result",
+                "ActionResult | None",
+                "Commit action receipt when a governed commit has run.",
+            ),
+            ContractField(
+                "commit_sha",
+                "str",
+                "Recorded commit SHA once the governed commit exists.",
+            ),
+            ContractField(
+                "push_action_id",
+                "str",
+                "Typed push action id for the current pipeline.",
+            ),
+            ContractField(
+                "push_result",
+                "ActionResult | None",
+                "Push action receipt when the governed publish path has run.",
+            ),
+            ContractField(
+                "push_report_path",
+                "str",
+                "Artifact path for the current governed push report.",
+            ),
+            ContractField(
+                "blocked_reason",
+                "str",
+                "Fail-closed reason when the pipeline cannot advance.",
+            ),
+            ContractField(
+                "recovery_action_allowed",
+                "str",
+                "Repo-owned recovery action currently allowed for the pipeline.",
+            ),
+            ContractField(
+                "generation_id",
+                "str",
+                "Generation token that binds staged hash, approval, and execution.",
+            ),
+            ContractField(
+                "approval_expires_at_utc",
+                "str",
+                "UTC expiry for the current operator approval, if any.",
+            ),
+            ContractField(
+                "approved_target_identity",
+                "str",
+                "Exact approved staged target identity bound to the approval generation.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.remote_commit_pipeline_models:"
+            "RemoteCommitPipelineContract"
+        ),
+        startup_surface_tokens=(
+            "state",
+            "approval_state",
+            "blocked_reason",
         ),
     ),
 )

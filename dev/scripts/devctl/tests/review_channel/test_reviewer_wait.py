@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.commands import review_channel as review_channel_command
+from dev.scripts.devctl.commands.review_channel import status as review_channel_status_mod
 from dev.scripts.devctl.commands.review_channel._reviewer_wait import (
     ReviewerWaitSnapshot,
     _implementer_changed,
@@ -183,9 +184,11 @@ class TestReviewerWaitSurface(unittest.TestCase):
 
     def test_parser_exposes_reviewer_wait(self):
         self.assertIn("reviewer-wait", REVIEW_ACTION_CHOICES)
+        self.assertIn("doctor", REVIEW_ACTION_CHOICES)
 
     def test_coerce_action_supports_reviewer_wait(self):
         self.assertIs(_coerce_action("reviewer-wait"), ReviewChannelAction.REVIEWER_WAIT)
+        self.assertIs(_coerce_action("doctor"), ReviewChannelAction.DOCTOR)
 
     def test_validate_args_rejects_follow(self):
         args = SimpleNamespace(
@@ -227,6 +230,69 @@ class TestReviewerWaitSurface(unittest.TestCase):
                 )
             self.assertEqual(result, expected)
             mocked.assert_called_once()
+
+    def test_dispatch_routes_to_doctor(self):
+        with TemporaryDirectory() as tmp:
+            bridge = Path(tmp) / "bridge.md"
+            bridge.write_text("# bridge\n", encoding="utf-8")
+            args = SimpleNamespace(action="doctor")
+            paths = RuntimePaths(bridge_path=bridge)
+            expected = ({"ok": True}, 0)
+            with patch.object(
+                review_channel_command,
+                "_run_doctor_action",
+                return_value=expected,
+            ) as mocked:
+                result = review_channel_command._dispatch_action(
+                    args=args,
+                    action=ReviewChannelAction.DOCTOR,
+                    repo_root=Path(tmp),
+                    paths=paths,
+                )
+            self.assertEqual(result, expected)
+            mocked.assert_called_once()
+
+    def test_doctor_action_reduces_status_to_readiness_surface(self):
+        status_report = {
+            "command": "review-channel",
+            "timestamp": "2026-04-03T00:00:00Z",
+            "action": "status",
+            "ok": True,
+            "exit_ok": True,
+            "execution_mode": "markdown-bridge",
+            "terminal": "none",
+            "warnings": [],
+            "errors": [],
+            "doctor": {
+                "status": "healthy",
+                "pipeline_state": "push_blocked",
+                "blocked_reason": "pipeline_unavailable",
+            },
+            "reviewer_runtime": {"publish_clear": True},
+            "commit_pipeline": {"state": "push_blocked"},
+            "projection_paths": {"review_state_path": "/tmp/review_state.json"},
+        }
+        args = SimpleNamespace(action="doctor")
+
+        with patch.object(
+            review_channel_status_mod,
+            "_run_status_action",
+            return_value=(status_report, 0),
+        ):
+            report, exit_code = review_channel_status_mod._run_doctor_action(
+                args=args,
+                repo_root=Path("."),
+                paths=RuntimePaths(),
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(report["action"], "doctor")
+        self.assertEqual(report["doctor"]["status"], "healthy")
+        self.assertEqual(
+            report["doctor"]["blocked_reason"],
+            "pipeline_unavailable",
+        )
+        self.assertEqual(report["commit_pipeline"]["state"], "push_blocked")
 
 
 class TestReviewerWaitLoop(unittest.TestCase):

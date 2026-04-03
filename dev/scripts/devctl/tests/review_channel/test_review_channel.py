@@ -6179,6 +6179,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             actions_path = Path(payload["projection_paths"]["actions_path"])
             latest_markdown_path = Path(payload["projection_paths"]["latest_markdown_path"])
             agent_registry_path = Path(payload["projection_paths"]["agent_registry_path"])
+            commit_pipeline_path = Path(payload["projection_paths"]["commit_pipeline_path"])
 
             self.assertTrue(review_state_path.exists())
             self.assertTrue(compact_path.exists())
@@ -6186,12 +6187,16 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertTrue(actions_path.exists())
             self.assertTrue(latest_markdown_path.exists())
             self.assertTrue(agent_registry_path.exists())
+            self.assertTrue(commit_pipeline_path.exists())
 
             review_state = json.loads(review_state_path.read_text(encoding="utf-8"))
             compact = json.loads(compact_path.read_text(encoding="utf-8"))
             full = json.loads(full_path.read_text(encoding="utf-8"))
             actions = json.loads(actions_path.read_text(encoding="utf-8"))
             agent_registry = json.loads(agent_registry_path.read_text(encoding="utf-8"))
+            commit_pipeline = json.loads(
+                commit_pipeline_path.read_text(encoding="utf-8")
+            )
 
             self.assertEqual(review_state["command"], "review-channel")
             self.assertTrue(
@@ -6340,6 +6345,20 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 8,
             )
             self.assertEqual(actions["actions"], [])
+            self.assertEqual(review_state["commit_pipeline"]["state"], "push_blocked")
+            self.assertEqual(
+                review_state["commit_pipeline"]["blocked_reason"],
+                "pipeline_unavailable",
+            )
+            self.assertEqual(
+                compact["commit_pipeline"]["state"],
+                "push_blocked",
+            )
+            self.assertEqual(
+                compact["doctor"]["pipeline_state"],
+                "push_blocked",
+            )
+            self.assertEqual(commit_pipeline["state"], "push_blocked")
             self.assertIn(
                 "## Current Session",
                 latest_markdown_path.read_text(encoding="utf-8"),
@@ -6370,6 +6389,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertIn(
                 "## Derived Next Instruction",
+                latest_markdown_path.read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "## Doctor",
                 latest_markdown_path.read_text(encoding="utf-8"),
             )
 

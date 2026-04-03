@@ -130,6 +130,12 @@ from .review_state import (
     ReviewState,
     review_state_from_payload,
 )
+from .remote_commit_pipeline_models import (
+    CommitIntentState,
+    RemoteCommitPipelineContract,
+    commit_intent_state_from_mapping,
+    remote_commit_pipeline_contract_from_mapping,
+)
 from .role_profile import (
     RoleProfile,
     TandemProfile,
@@ -163,6 +169,7 @@ __all__ = [
     "DocRegistry",
     "DocRegistryEntry",
     "ContextPackRefState",
+    "CommitIntentState",
     "ControlState",
     "ControlStateContext",
     "ControlStateSources",
@@ -208,6 +215,7 @@ __all__ = [
     "REVIEW_TARGETS_SCHEMA_VERSION",
     "RepoIdentity",
     "RepoPackRef",
+    "RemoteCommitPipelineContract",
     "ReviewAgentState",
     "ReviewAttentionState",
     "ReviewBridgeState",
@@ -254,6 +262,8 @@ __all__ = [
     "repo_identity_from_mapping",
     "repo_pack_ref_from_mapping",
     "review_state_from_payload",
+    "commit_intent_state_from_mapping",
+    "remote_commit_pipeline_contract_from_mapping",
     "role_for_provider",
     "role_profile_from_mapping",
     "run_record_from_mapping",

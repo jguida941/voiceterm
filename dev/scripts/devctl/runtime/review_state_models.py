@@ -12,6 +12,7 @@ from .reviewer_runtime_models import (
     ReviewerRuntimeContract,
     ReviewerSessionOwnerState,
 )
+from .remote_commit_pipeline_models import RemoteCommitPipelineContract
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,6 +301,9 @@ class ReviewState:
     registry: AgentRegistryState
     reviewer_runtime: ReviewerRuntimeContract = field(
         default_factory=ReviewerRuntimeContract
+    )
+    commit_pipeline: RemoteCommitPipelineContract = field(
+        default_factory=RemoteCommitPipelineContract
     )
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()

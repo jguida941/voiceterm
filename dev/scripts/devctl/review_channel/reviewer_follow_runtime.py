@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 
 from .current_session_projection import build_bridge_current_session
 from .handoff import extract_bridge_snapshot
+from .remote_commit_pipeline_artifact import load_remote_commit_pipeline_contract
 from .reviewer_runtime_contract import (
     ReviewerRuntimeInputs,
     build_reviewer_doctor_surface,
@@ -52,10 +54,18 @@ def attach_reviewer_runtime_contract(
         )
     )
     attention = report.get("attention") if isinstance(report.get("attention"), dict) else None
+    commit_pipeline = (
+        load_remote_commit_pipeline_contract(output_root=status_dir)
+        if isinstance(status_dir, Path)
+        else None
+    )
     report["reviewer_runtime"] = reviewer_runtime_contract_to_dict(contract)
+    if commit_pipeline is not None:
+        report["commit_pipeline"] = asdict(commit_pipeline)
     report["doctor"] = build_reviewer_doctor_surface(
         contract=contract,
         attention=attention,
+        commit_pipeline=commit_pipeline,
     )
 
 

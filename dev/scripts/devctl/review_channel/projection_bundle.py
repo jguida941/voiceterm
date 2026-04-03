@@ -30,6 +30,7 @@ class ReviewChannelProjectionPaths:
     trace_path: str
     latest_markdown_path: str
     agent_registry_path: str
+    commit_pipeline_path: str = ""
 
 
 def projection_paths_to_dict(
@@ -77,6 +78,7 @@ def write_projection_bundle(
     trace_path = output_root / "trace.ndjson"
     latest_markdown_path = output_root / "latest.md"
     agent_registry_path = registry_dir / "agents.json"
+    commit_pipeline_path = output_root / "commit_pipeline.json"
 
     review_state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
     compact_path.write_text(json.dumps(compact, indent=2), encoding="utf-8")
@@ -86,6 +88,10 @@ def write_projection_bundle(
     latest_markdown_path.write_text(latest_markdown, encoding="utf-8")
     agent_registry_path.write_text(
         json.dumps(agent_registry, indent=2),
+        encoding="utf-8",
+    )
+    commit_pipeline_path.write_text(
+        json.dumps(review_state.get("commit_pipeline", {}), indent=2),
         encoding="utf-8",
     )
 
@@ -98,6 +104,7 @@ def write_projection_bundle(
         trace_path=str(trace_path),
         latest_markdown_path=str(latest_markdown_path),
         agent_registry_path=str(agent_registry_path),
+        commit_pipeline_path=str(commit_pipeline_path),
     )
 
 
@@ -109,6 +116,8 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
     service_identity = compat.get("service_identity")
     attach_auth_policy = compat.get("attach_auth_policy")
     push_decision = compat.get("push_decision")
+    doctor = compat.get("doctor")
+    commit_pipeline = review_state.get("commit_pipeline")
     current_focus = current_focus_line(review_state)
     return {
         "schema_version": 1,
@@ -120,6 +129,8 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
         "service_identity": service_identity,
         "attach_auth_policy": attach_auth_policy,
         "push_decision": push_decision,
+        "doctor": doctor,
+        "commit_pipeline": commit_pipeline,
         "bridge": {
             "last_codex_poll_utc": bridge.get("last_codex_poll_utc"),
             "last_worktree_hash": bridge.get("last_worktree_hash"),
@@ -182,6 +193,7 @@ def _render_latest_markdown(
     planned_topology = md_compat.get("planned_topology", {})
     push_enforcement = md_compat.get("push_enforcement", {})
     push_decision = md_compat.get("push_decision", {})
+    doctor = md_compat.get("doctor", {})
     agents = agent_registry.get("agents", [])
     packets = review_state.get("packets", [])
     lines = ["# review-channel status", ""]
@@ -215,6 +227,7 @@ def _render_latest_markdown(
         lines.append(f"- status_root: {service_identity.get('status_root') or 'n/a'}")
     append_attach_auth_policy_markdown(lines, attach_auth_policy)
     _append_runtime_markdown(lines, runtime)
+    _append_doctor_markdown(lines, doctor)
     append_push_markdown(lines, push_enforcement, push_decision)
     append_current_session_markdown(lines, current_session)
     lines.append("")
@@ -309,3 +322,18 @@ def _append_planned_topology_markdown(
             f"planned_lane_count={provider.get('planned_lane_count') or 0} | "
             f"requested_worker_budget={budget_text}"
         )
+
+
+def _append_doctor_markdown(lines: list[str], doctor: object) -> None:
+    if not isinstance(doctor, dict):
+        return
+    lines.append("")
+    lines.append("## Doctor")
+    lines.append(f"- status: {doctor.get('status') or 'unknown'}")
+    lines.append(f"- summary: {doctor.get('summary') or 'n/a'}")
+    lines.append(f"- publish_clear: {doctor.get('publish_clear')}")
+    lines.append(f"- pipeline_state: {doctor.get('pipeline_state') or 'unknown'}")
+    lines.append(f"- blocked_reason: {doctor.get('blocked_reason') or 'n/a'}")
+    lines.append(f"- approval_state: {doctor.get('approval_state') or 'n/a'}")
+    lines.append(f"- commit_ready: {doctor.get('commit_ready')}")
+    lines.append(f"- push_ready: {doctor.get('push_ready')}")

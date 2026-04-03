@@ -29,6 +29,7 @@ from .event_projection_bridge import (
     build_event_bridge_state_projection,
     detect_event_implementer_stall,
 )
+from .remote_commit_pipeline_artifact import load_remote_commit_pipeline_contract
 from .reviewer_runtime_contract import (
     ReviewerRuntimeInputs,
     build_reviewer_doctor_surface,
@@ -134,6 +135,7 @@ def enrich_event_review_state(
             rollover_dir=projections_root.parent / "rollovers",
         )
     )
+    commit_pipeline = load_remote_commit_pipeline_contract(output_root=projections_root)
     bridge_liveness["review_accepted"] = (
         reviewer_runtime.review_acceptance.review_accepted
     )
@@ -141,6 +143,7 @@ def enrich_event_review_state(
     review_state["current_session"] = current_session_payload(current_session)
     review_state["collaboration"] = asdict(collaboration)
     review_state["reviewer_runtime"] = asdict(reviewer_runtime)
+    review_state["commit_pipeline"] = commit_pipeline.to_dict()
     review_state["bridge"] = build_event_bridge_state_projection(
         review_state=review_state,
         bridge_liveness=bridge_liveness,
@@ -156,6 +159,7 @@ def enrich_event_review_state(
     merged_compat["doctor"] = build_reviewer_doctor_surface(
         contract=reviewer_runtime,
         attention=attention,
+        commit_pipeline=commit_pipeline,
     )
     review_state["_compat"] = merged_compat
     return review_state, {
