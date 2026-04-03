@@ -258,22 +258,31 @@ The remaining problem is execution/supervision, not modeling:
 
 | # | What | Status | Where | Est. size | Why |
 |---|---|---|---|---|---|
-| A | Daemon auto-start in launch | NOT CODED | `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py` | ~10 lines | Root cause of idle-Codex. Neither governed nor manual launch starts daemon. Must also cover manual remote-control sessions via launchd plist (item B). |
-| B | launchd plist for crash restart | NOT CODED | `dev/config/` | ~20 lines | Daemon dies, nothing restarts it. |
-| C | Register `--action doctor` in parser | NOT CODED | `dev/scripts/devctl/review_channel/parser.py` + `dev/scripts/devctl/commands/review_channel/__init__.py` | ~5 lines | Doctor exists but CLI can't invoke it. Dispatch in commands-layer `__init__.py`. |
-| D | contract_ownership_map in StartupContext | CODED LOCAL | `startup_context.py` | ~15 lines | Derived from the shared ContractSpec registry and serialized in StartupContext. |
-| E | Remove bridge prose fallback | NOT CODED | `bridge_validation_acceptance.py` | ~10 lines | Typed state is primary but prose fallback is still live. |
-| F | Audit file auto-sync guard | CODED LOCAL | `dev/scripts/checks/` | ~30 lines | `check_audit_status_sync.py` now blocks stale Phase 3/4 audit claims. |
-| G | Remove remaining bridge-derived inputs from push projection | NOT CODED | `status_push_decision.py` + `state.py` | ~20 lines | Push gate already uses typed `publish_clear`, but `implementation_blocked` still derives from bridge-liveness fields like `reviewer_mode` and `claude_ack_current`. Move those into `ReviewerRuntimeContract` first, then remove bridge dependency. |
-| H | Acceptance identity redesign (tree hash receipt) | NOT CODED | `reviewer_runtime_models.py` + producer/projection/test updates | ~60 lines | Replace HEAD equality with reviewer-owned tree hash receipt. Extend existing rollover_id pattern from handoff.py. Touches models, projection, and startup. |
-| I | Cross-surface consistency proof | CODED LOCAL | `dev/scripts/checks/` | ~50 lines | `check_review_surface_consistency.py` now enforces one shared `snapshot_id`/generation across startup, status, compact, and commit-pipeline surfaces. |
-| J | Daemon regression tests | NOT CODED | `dev/scripts/devctl/tests/` | ~80 lines | Cover: absent at login, crash mid-review, stale config, duplicate start, heartbeat suppression, inactive no-op. |
-| K | Prove clean end-to-end path | TESTED LOCAL | Integration test | implemented | `test_phase4_clean_path_surface_snapshot_alignment` covers stage → approve → commit → governed push with aligned typed surfaces. |
-| L | Prove rescue end-to-end path | TESTED LOCAL | Integration test | implemented | `test_phase4_rescue_path_recovers_doctor_health_and_snapshot` proves doctor recovery plus snapshot refresh after runtime repair. |
+| A | Daemon auto-start in launch | **DONE** `1aaef8c` | `bridge_launch_control.py` | Landed | Publisher auto-starts on launch via `ensure_launch_runtime_daemons()`. |
+| B | launchd plist for crash restart | **DONE** `1aaef8c` | `dev/config/launchd/` | Landed | Plist template + service wrapper. RunAtLoad, KeepAlive, exit-class semantics. Needs host deployment. |
+| C | Register `--action doctor` | **DONE** `46fb2ed` | `parser.py` + `commands/__init__.py` | Landed | Doctor dispatches through `ReviewChannelAction.DOCTOR`. |
+| D | contract_ownership_map | **DONE** `3d3d157` | `startup_context.py` | Landed | Derived from ContractSpec registry. Exposes owner_layer, runtime_model, startup_surface_tokens. ChatGPT Pro notes: could be richer (authoritative artifact, allowed projections, recovery surface). |
+| E | Remove bridge prose fallback | **DONE** `a543dd2` | `bridge_validation_acceptance.py` | Landed | Typed runtime is sole authority. Prose removed. |
+| F | Audit file auto-sync guard | **DONE** `3d3d157` | `check_audit_status_sync.py` | Landed | ChatGPT Pro notes: currently narrow (fixed markers only), needs widening. |
+| G | Remove bridge-derived push inputs | **DONE** `a543dd2` | `status_push_decision.py` | Landed | `implementation_blocked` now from `ReviewerRuntimeContract`, not bridge-liveness. |
+| H | Acceptance identity redesign | **DONE** `a543dd2` | `reviewer_runtime_models.py` + updates | Landed | Tree hash receipt replaces HEAD equality. |
+| I | Cross-surface consistency proof | **DONE** `3d3d157` | `check_review_surface_consistency.py` | Landed | Enforces shared `snapshot_id`/generation across surfaces. |
+| J | Daemon regression tests | **DONE** `1aaef8c` | `test_launchd_service.py` | Landed | Tests for service wrapper behavior. |
+| K | Prove clean end-to-end path | **DONE** | Integration test | Landed | `test_phase4_clean_path_surface_snapshot_alignment` |
+| L | Prove rescue end-to-end path | **DONE** | Integration test | Landed | `test_phase4_rescue_path_recovers_doctor_health_and_snapshot` |
 
-## Implementation Plan (ChatGPT Pro final review + corrections applied)
+### Remaining follow-ups (from ChatGPT Pro final review of f82643d)
 
-**Status: Conditionally approved for implementation. Phase 0 design must come first.**
+| # | What | Why | Est. |
+|---|---|---|---|
+| M | Widen `check_audit_status_sync.py` | Currently narrow (fixed markers only). Needs general repo-truth proof. | ~30 lines |
+| N | Enrich `contract_ownership_map` | Currently exposes owner_layer/runtime_model/tokens. Needs authoritative_artifact, allowed_projections, recovery_surface. | ~20 lines |
+| O | Clean AUDIT_STATUS.md historical sections | Historical rows mixed with current state. Done above. | This commit |
+| P | Deploy launchd plist on host | Template exists but not installed. Ops step, not code. | Manual |
+
+## Implementation Plan (ALL PHASES IMPLEMENTED — see proof table above)
+
+**Status: Implementation complete. ChatGPT Pro approved direction. Three follow-ups remain (M, N, P).**
 
 ### Phase 0: Typed commit/push pipeline (DESIGN FIRST — blocks everything)
 
