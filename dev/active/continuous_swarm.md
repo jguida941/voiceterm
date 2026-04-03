@@ -561,6 +561,17 @@ Out of scope until the local proof gate is green:
   dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy
   --no-parallel`, and `python3 dev/scripts/devctl.py check --profile ci
   --skip-fmt --skip-clippy --no-parallel`.
+- 2026-04-03: Reconciled the live 8+8 bridge model against the current clean
+  tree handoff and the overdue reviewer runtime. The missing operational link
+  is now explicit here too: detached publisher/reviewer-supervisor runtime is
+  necessary but not sufficient for autonomous swarm continuity, because the
+  repo still lacks a persistent Codex reviewer worker/service path that keeps
+  semantic review, promotion, and operator-visible checkpoints moving between
+  Claude passes. Until that lands, 8+8 remains conductor-managed capacity over
+  one shared backend. Requested worker budget and delegated-lane truth must
+  keep flowing through `CollaborationSession` / `DelegatedWorkPacket`
+  projections rather than bridge-local guesswork or "all workers share the
+  same context" assumptions.
 - 2026-03-17: Clarified the many-agent operating model for `MP-358`. Codex
   remains the sole conductor and final reviewer, Claude may fan out many
   bounded coding workers only behind one Claude conductor, and every

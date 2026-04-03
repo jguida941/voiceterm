@@ -81,6 +81,35 @@ Evidence:
 - `dev/active/platform_authority_loop.md`
 - `dev/active/ai_governance_platform.md`
 
+### 2026-04-03 - The same MP-377 reducer now explicitly carries identity/session-topology requirements, and the current missing link stays the persistent Codex reviewer path
+
+The first `system-picture` / external-review slice was correctly promoted into
+the `MP-377` owner chain, but one more review pass showed two details still
+needed explicit plan authority. First, the reducer cannot stop at generic
+startup/review/control summaries if it is supposed to become the shared
+cross-client warm-start layer. It now needs repo/worktree/service identity,
+`CollaborationSession`, session-capability / worker-fanout state,
+delegated-worker receipts/topology, and stale-write collision controls
+(`writer_lease`, owned scope, `expected_revision`, `state_hash`) so PyQt6,
+mobile, and remote/external-review clients do not re-derive lane ownership or
+authority locally.
+
+Second, the clean-tree `reviewer_overdue` state made the operational blocker
+more explicit. The repo already has publisher/reviewer-supervisor daemon truth,
+typed reviewer runtime, and launch/restart scaffolding, but those daemons are
+still not the missing semantic-review link. The tracked remaining gap is a
+repo-owned persistent Codex reviewer worker/service path that keeps re-review,
+checkpoint emission, and operator-visible updates moving between Claude passes.
+The 8+8 swarm remains real conductor-managed scaffolding, but not finished
+native worker topology.
+
+Evidence:
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/review_channel.md`
+- `dev/active/continuous_swarm.md`
+
 ### 2026-04-03 - Remote commit pipeline startup, status, and doctor surfaces now carry one shared snapshot stamp
 
 The remote commit lane already had a typed pipeline owner, governed

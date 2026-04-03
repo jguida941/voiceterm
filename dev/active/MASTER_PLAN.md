@@ -73,17 +73,29 @@
   ownership routing for product-vs-engine-vs-integration changes, explicit
   second-repo proof gates, and review-channel provider/terminal-host
   abstraction under singular reviewer/writer authority.
-- Current same-lane focus inside that `MP-377` execution spec: keep push
-  publication cadence on one typed contract
-  (`PushEnforcement` -> `PushDecisionState`) shared by startup and
-  review/status consumers, then widen into broader continuation/recovery
-  composition only after that cadence lane is validated.
+- Current same-lane focus inside that `MP-377` execution spec: land the shared
+  `system-picture` / external-review orientation reducer as the next bounded
+  slice. It must project repo/worktree/service identity, `StartupContext`,
+  typed review/runtime/control state, `CollaborationSession`,
+  session-capability / worker-fanout state, governance-review /
+  external-findings / quality-feedback summaries, delegated-worker receipts /
+  topology, and collision-safe ownership metadata (`writer_lease`, owned
+  worktree/path scope, `expected_revision`, `state_hash`) into one repo-owned
+  JSON/Markdown artifact plus one compact GitHub-visible markdown summary
+  before client migration begins.
 - Current bounded Phase-0 design follow-up inside that same lane:
   `dev/active/remote_commit_pipeline.md` freezes the typed remote-session
   commit/push pipeline
   (`stage -> guard -> operator approval packet -> commit -> governed push ->
   recover`) needed to close the Codex sandbox-commit blocker without manual
   shell steps or prose approval.
+- Current clean-tree operational blocker inside that same lane: the repo is not
+  blocked on plan/doc drift, it is blocked on live reviewer cadence.
+  `startup-context` currently fails closed on `reviewer_overdue`, and detached
+  publisher / reviewer-supervisor heartbeats are not sufficient proof the loop
+  is healthy. The missing operational link remains a repo-owned persistent
+  Codex reviewer worker/service path that keeps semantic review, checkpoint
+  emission, and operator-visible updates moving between Claude passes.
 - Current proof-gate framing for `MP-377`: self-hosting honesty is necessary
   but not sufficient; `Gate 2` remains the real POC bar and requires a
   second-repo governed bootstrap/startup/check path with no core-engine

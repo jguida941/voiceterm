@@ -1230,16 +1230,17 @@ blocker or exception in plan state before skipping the declared order.
       after that first `startup-context` / `WorkIntakePacket` proof and before
       richer graph capability work. It should compose the already-existing
       authority slices into one bounded startup-orientation artifact:
-      identity/state, contract chain, active-plan status / progress
-      percentages, guard/probe health, graph/topology coverage, cross-plan
-      dependencies, mutation-op coverage, and agent-readiness drift. This is
-      a reducer over canonical commands and artifacts, not a new authority
-      layer.
+      repo/worktree/service identity, snapshot/state, contract chain,
+      active-plan status / progress percentages, guard/probe health,
+      graph/topology coverage, cross-plan dependencies, mutation-op coverage,
+      and agent-readiness drift. This is a reducer over canonical commands and
+      artifacts, not a new authority layer.
 - [ ] Keep `system-picture` cached and fail-closed. The first artifact lives
-      under managed `dev/reports/**` outputs, carries `tree_hash`,
-      `commit_sha`, `generated_at`, and per-section `section_hashes`, and may
-      refresh only the stale sections on warm start. Tree/hash mismatch,
-      missing sections, or contradictions with canonical commands/guards must
+      under managed `dev/reports/**` outputs, carries `snapshot_id`, repo /
+      worktree / service identity, `tree_hash`, `commit_sha`, `generated_at`,
+      and per-section `section_hashes`, and may refresh only the stale
+      sections on warm start. Tree/hash mismatch, identity drift, missing
+      sections, or contradictions with canonical commands/guards must
       invalidate the stale section and point back to the canonical source
       instead of treating the cache as truth.
 - [ ] Make that `system-picture` cache the shared warm-start layer for later
@@ -1250,10 +1251,12 @@ blocker or exception in plan state before skipping the declared order.
       runtime contracts, or guard/report outputs.
 - [ ] Narrow that first `system-picture` artifact into one shared cross-client
       orientation contract before broader graph work. It should compose
-      `StartupContext`, typed review/runtime/control state, governance-review
-      summaries, imported external findings, and quality-feedback output into
-      one bounded reducer that fresh AI/operator sessions can cite instead of
-      stitching together five different packets manually.
+      `StartupContext`, typed review/runtime/control state,
+      `CollaborationSession`, session-capability / worker-fanout state,
+      governance-review summaries, imported external findings, and
+      quality-feedback output into one bounded reducer that fresh AI/operator
+      sessions can cite instead of stitching together five different packets
+      manually.
 - [ ] Emit two projections from that same reducer and keep them trace-linked
       by `snapshot_id` plus per-section hashes: one managed JSON/Markdown
       artifact under the governed reports root for repo-owned consumers, and
@@ -1266,6 +1269,12 @@ blocker or exception in plan state before skipping the declared order.
       second, and Claude remote-loop plus external-review surfaces consume
       typed status plus the generated summary third. Those clients remain
       projections or launchers; none may become a second live authority owner.
+- [ ] Make many-agent safety explicit in that same reducer contract before the
+      first client migration. Surface delegated-worker receipts/topology,
+      requested worker budget, and the collision-prevention metadata that keeps
+      shared clients honest (`writer_lease`, owned worktree/path scope,
+      `expected_revision`, `state_hash`) so PyQt6/mobile/remote consumers do
+      not re-derive lane ownership or mutate on stale local guesses.
 - [ ] Feed live task state into that reducer in the next slice: changed paths,
       recent findings, per-file severity counts, last failed checks, recent
       touched files, and current plan scope should influence graph ranking
@@ -1912,8 +1921,13 @@ blocker or exception in plan state before skipping the declared order.
     enforcement, evidence capture, and closed feedback loops.
   - Startup rule: the bounded startup packet should begin with the repo's
     short product thesis (`Why Stack`) before procedural/router detail.
-  - Current priority: blocker tranche first, then `MP-377` `P0` / Phase 1
-    startup-authority closure.
+  - Current clean-tree priority: if the live review loop matters for this
+    session, repair the `reviewer_overdue` state first; detached
+    publisher/reviewer-supervisor runtime is not enough by itself, and the
+    missing operational link remains the repo-owned persistent Codex reviewer
+    worker/service path. After reviewer follow-up, the accepted next bounded
+    implementation slice is the shared `system-picture` / external-review
+    reducer with explicit identity/session-topology fields.
   - Authority spine:
     `ProjectGovernance -> RepoPack -> PlanRegistry -> PlanTargetRef -> WorkIntakePacket -> CollaborationSession -> TypedAction -> ActionResult / RunRecord / Finding -> ContextPack`.
   - Blocker tranche scope: daemon attach/auth hardening, autonomy authority
@@ -1923,6 +1937,11 @@ blocker or exception in plan state before skipping the declared order.
     least-effort-first guard spine now recorded in this file:
     `UNKNOWN/DEFER` outcomes, decision-path metadata, determinism checking,
     escalation tiers, and SHA256 proof packaging.
+  - The first `system-picture` contract must carry repo/worktree/service
+    identity, `CollaborationSession`, session-capability / worker-fanout
+    state, delegated-worker receipts/topology, and collision-safe ownership
+    metadata (`writer_lease`, owned worktree/path scope, `expected_revision`,
+    `state_hash`) before client migration begins.
   - After that five-item batch closes, the next broader Phase 1 closure items
     remain generated `project.governance.json`, `PlanRegistry`,
     `startup-context`, `WorkIntakePacket`, and `CollaborationSession`
@@ -1955,6 +1974,18 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-03: Tightened the accepted `system-picture` slice after reviewing the
+  fresh handoff against live runtime state. The reducer now explicitly needs
+  repo/worktree/service identity plus `CollaborationSession`,
+  session-capability / worker-fanout state, delegated-worker receipts /
+  topology, and collision-safe ownership metadata (`writer_lease`, owned
+  worktree/path scope, `expected_revision`, `state_hash`) instead of only a
+  generic startup/review/control summary. The same review kept the current
+  clean-tree blocker honest in the owner chain: `reviewer_overdue` is not a
+  docs drift problem, and detached publisher/reviewer-supervisor runtime is not
+  enough by itself. The remaining operational missing link is the repo-owned
+  persistent Codex reviewer worker/service path that keeps semantic review and
+  operator-visible checkpoints alive between Claude passes.
 - 2026-04-03: Promoted the next cross-client source-of-truth slice into the
   active `MP-377` authority-loop owner chain. The accepted next bounded work
   is no longer a generic "connect the apps" note: it is one generated

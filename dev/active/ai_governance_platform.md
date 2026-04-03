@@ -4410,6 +4410,19 @@ working on `MP-377`.
   over startup/review/control/governance/external-finding state with both
   managed JSON/Markdown and compact GitHub-visible projections, then client
   migration in the order PyQt6 -> iPhone/mobile -> remote/external-review.
+- The follow-up architecture review now tightens that same slice further:
+  `system-picture` must carry repo/worktree/service identity,
+  `CollaborationSession`, session-capability / worker-fanout state,
+  delegated-worker receipts / topology, and stale-write collision controls
+  (`writer_lease`, owned worktree/path scope, `expected_revision`,
+  `state_hash`) so many-agent clients stay on one backend instead of
+  reconstructing lane ownership or authority locally.
+- The current clean-tree runtime blocker is explicit too: the repo is not
+  blocked on plan sync, it is blocked on reviewer cadence. `reviewer_overdue`
+  on a clean tree means detached publisher/reviewer-supervisor runtime still is
+  not the missing semantic-review link; the remaining gap is the repo-owned
+  persistent Codex reviewer worker/service path that keeps review passes and
+  operator-visible checkpoints moving without chat babysitting.
 - 2026-04-03 remote commit-pipeline Phase-2 authority follow-up landed in the
   same `MP-377` owner chain: `reviewer_runtime` now owns implementer ACK /
   implementation-block truth, bridge review acceptance no longer falls back to
@@ -5291,6 +5304,22 @@ Operational reminder: when a meaningful MP-377 slice is green with code,
 validation, docs, and reviewer acceptance, stop widening the dirty tree and
 prepare a bounded commit/push checkpoint through the normal approval path.
 
+Immediate override for the current tree:
+
+- If the live review loop is in play, repair the clean-tree
+  `reviewer_overdue` state first. Detached publisher/reviewer-supervisor
+  runtime is not enough by itself; the missing operational link remains the
+  repo-owned persistent Codex reviewer worker/service path that keeps semantic
+  review and operator-visible checkpoints moving between Claude passes.
+- After reviewer follow-up, land the shared `system-picture` /
+  external-review reducer as the next bounded implementation slice. That first
+  reducer must carry repo/worktree/service identity, `CollaborationSession`,
+  session-capability / worker-fanout state, delegated-worker receipts /
+  topology, and stale-write collision controls rather than a generic summary.
+- Migrate consumers in the fixed order already accepted in plan authority:
+  PyQt6/operator console first, iPhone/mobile second, and Claude remote-loop
+  plus external-review surfaces third.
+
 Execution order for this section:
 
 - treat items `1` through `7` as the current `P0` audit-intake tranche
@@ -5494,6 +5523,19 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-03: Tightened the tracked `MP-377` plan state after re-reviewing the
+  new cross-client reducer against the live bridge/runtime handoff. The shared
+  `system-picture` / external-review slice now explicitly requires
+  repo/worktree/service identity, `CollaborationSession`,
+  session-capability / worker-fanout state, delegated-worker receipts /
+  topology, and stale-write collision controls so the first PyQt6/mobile/
+  remote consumers do not recreate lane ownership locally. The same follow-up
+  keeps the operator/runtime truth explicit in plan authority: today’s clean
+  tree is still blocked on `reviewer_overdue`, and detached
+  publisher/reviewer-supervisor runtime alone is not enough. The missing link
+  remains a repo-owned persistent Codex reviewer worker/service path that can
+  hold semantic review cadence between Claude passes while 8+8 stays
+  conductor-managed scaffolding rather than finished native worker topology.
 - 2026-04-03: Promoted the cross-client source-of-truth follow-up into the
   tracked `MP-377` plan chain instead of leaving it as chat guidance. The
   accepted next bounded slice is one generated `system-picture` /
