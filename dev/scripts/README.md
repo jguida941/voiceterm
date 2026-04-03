@@ -47,6 +47,10 @@ For the broader standalone-governance product architecture, repo-pack
 extraction, and frontend/runtime convergence plan, see
 `dev/active/ai_governance_platform.md` and
 `dev/guides/AI_GOVERNANCE_PLATFORM.md`.
+For the typed remote-session commit/push pipeline that phone-steered and
+remote-control sessions must eventually use, see
+`dev/active/remote_commit_pipeline.md` after
+`dev/active/platform_authority_loop.md`.
 Generated bootstrap surfaces such as `CLAUDE.md` are part of that same
 architecture boundary: keep them synced with `render-surfaces`, and make sure
 they explain the compiler-style control model plus the
@@ -170,6 +174,11 @@ Compatibility note:
   choices, and `check_multi_agent_sync.py` now blocks planned `AGENT-*` rows
   from leaking back into runtime truth when a typed `review_state` snapshot
   exists.
+- Keep remote commit/push on that same repo-owned backend too: phone-steered
+  and remote-control sessions may stage or request approval through typed
+  review/runtime surfaces, but commit/push design authority now lives in
+  `dev/active/remote_commit_pipeline.md` and must not regress into raw git,
+  bridge prose, or wrapper-local shell sequences.
 - Keep Terminal-host cleanup on the same repo-owned contract: live
   `review-channel` launch records the returned `terminal_window_id` in session
   metadata, and rollover cleanup must snapshot the retiring session pid plus

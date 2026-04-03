@@ -53,6 +53,10 @@ Use docs like this:
 - **`dev/active/ide_provider_modularization.md`** -- host/provider adapter modularization and compatibility plan (`MP-346`).
 - **`dev/active/loop_chat_bridge.md`** -- loop output to chat runbook (`MP-338`).
 - **`dev/active/review_channel.md`** -- shared review-channel plan, merged markdown-swarm lane map, and multi-agent coordination contract for the current Codex/Claude cycle.
+- **`dev/active/remote_commit_pipeline.md`** -- typed remote-session
+  commit/push design for phone-steered or remote-control sessions; read this
+  after `platform_authority_loop.md` when the task is staged-work approval,
+  governed remote commit execution, or phone doctor/readiness projection.
 - Review-channel docs and launch surfaces now distinguish planned lane topology
   from live participant truth: the runtime registry is provider/session-backed
   typed state, default requested worker fanout is zero unless explicitly
@@ -62,7 +66,9 @@ Use docs like this:
   same review-channel runtime. It syncs the tracked `/project:bridge-loop`
   prompt, checks `claude auth status`, prints typed review-channel health, and
   can relaunch the sanctioned pair, but it does not create a separate Codex
-  backend or a private "recover codex" path.
+  backend or a private "recover codex" path. Remote commit/push authority also
+  does not live in that wrapper; it now routes through the Phase-0 design in
+  `dev/active/remote_commit_pipeline.md`.
 - Packet actor/target CLI fields are intentionally parser-loose now: repo-owned
   validation resolves legal ids from typed collaboration/runtime state or
   repo-owned session metadata instead of a fixed provider-choice list.

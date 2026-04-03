@@ -39,6 +39,34 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
 
+### 2026-04-03 - Remote-control commit/push now has tracked design authority instead of ad hoc operator ritual
+
+The repo had already converged on typed reviewer lifecycle truth, governed push
+receipts, and phone-steered remote-control wrappers, but one operational gap
+was still undocumented in the owner docs: a remote Codex session could stage
+work yet still get stranded at `git commit` because the local CLI sandbox may
+require host keyboard authorization for index-lock mutation. The bad fallback
+was social, not technical: manual operator shell steps, prose approval, or
+wrapper-local habits.
+
+That authority gap is now closed at the design layer. The repo added
+`dev/active/remote_commit_pipeline.md` as the Phase-0 execution/design plan for
+one typed remote-session commit/push pipeline: one canonical owner, one staged
+state machine, one `stage -> guard -> approve -> commit -> push -> recover`
+action graph, typed operator approval packets, one governed executor boundary,
+doctor/dashboard projection fields, fail-closed rules, and a concrete migration
+path off the ad hoc flow. Discovery docs now route this work through that plan
+instead of the deleted `remote_orchestration.md` pointer or wrapper-only lore.
+
+Evidence:
+- `dev/active/remote_commit_pipeline.md`
+- `dev/active/INDEX.md`
+- `dev/active/MASTER_PLAN.md`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/README.md`
+
 ### 2026-04-03 - Live review-channel launch now starts the detached publisher/supervisor runtime instead of assuming a later manual ensure step
 
 The repo already had the right runtime pieces: the detached ensure-follow

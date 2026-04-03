@@ -1,0 +1,389 @@
+# Remote Commit Pipeline Plan
+
+**Status**: active  |  **Last updated**: 2026-04-02 | **Owner:** Tooling/control plane/review runtime
+Execution plan contract: required
+This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
+`MP-377`. It freezes the Phase-0 design for the typed remote-session
+commit/push pipeline that phone-steered and remote-control sessions must use
+instead of raw terminal git mutation, prose approval, or shell-first rituals.
+
+## Scope
+
+Design one repo-owned typed pipeline that moves remote-control work from staged
+changes to governed commit and governed push without requiring a local keyboard
+or operator shell intervention.
+
+This plan covers:
+
+1. one canonical pipeline owner and lifecycle state machine for
+   `drafted -> staged -> guards_running -> guards_passed|guards_failed ->
+   operator_approval_pending -> approved|rejected -> commit_pending ->
+   commit_recorded -> push_pending -> push_completed|push_blocked`
+2. one action graph for `stage -> guard -> approve -> commit -> push ->
+   recover`
+3. reuse of existing repo-owned contracts:
+   `ReviewerRuntimeContract`, `TypedAction -> ActionResult`,
+   `PacketPostRequest`, existing guard bundles, and the current governed
+   `vcs.push` flow
+4. one phone/dashboard projection path where the remote-control session reads a
+   doctor/status view and the operator approves through typed packets
+5. fail-closed rules and a migration path away from the current ad hoc remote
+   commit flow
+
+Out of scope in this phase:
+
+1. implementation code
+2. a new shell-only recovery path
+3. a second approval authority outside repo-owned typed packets and runtime
+   artifacts
+
+## Locked Decisions
+
+1. The repo owns commit/push lifecycle truth. Bridge prose, chat prose, and
+   terminal text may explain state but may not advance it.
+2. `ReviewerRuntimeContract` remains the lifecycle gate. No remote commit/push
+   path is valid while the repo-owned publisher or reviewer-supervisor runtime
+   is missing, stale, or not publish-clear.
+3. The remote-control session is a read-mostly dashboard over typed state. The
+   phone/operator approves by emitting a typed packet, not by editing markdown
+   or pasting a shell sequence.
+4. Commit and push remain separate governed actions. `vcs.push` stays the
+   canonical push executor; remote mode adds a typed commit stage in front of
+   it instead of inventing a parallel publish path.
+5. One active commit pipeline per worktree/branch is the safe default. If a
+   second request appears, the repo must reject it or force explicit recovery
+   instead of carrying competing pending approvals.
+6. Approval is bound to a staged tree hash plus pipeline generation. Any diff
+   drift, branch change, guard rerun, or runtime-generation mismatch invalidates
+   the approval and forces recovery.
+7. `doctor` is a projection. It may summarize readiness and recommended next
+   action, but it must derive from typed owners rather than recomputing a
+   second decision layer.
+
+## Cross-Plan Dependencies
+
+1. `dev/active/ai_governance_platform.md` keeps product-boundary ownership for
+   the shared governance runtime and the "same backend, different clients"
+   rule.
+2. `dev/active/platform_authority_loop.md` owns `TypedAction`, `ActionResult`,
+   repo-pack push policy, typed checkpoint/push artifacts, and startup/work-
+   intake authority.
+3. `dev/active/review_channel.md` owns `PacketPostRequest`, review-state
+   projection, doctor/status transport, and `ReviewerRuntimeContract`.
+4. `dev/active/continuous_swarm.md` owns the phone-steered remote-control proof
+   harness that will consume this pipeline once implemented.
+5. `dev/active/operator_console.md` may later project the same pipeline, but
+   it does not own a second approval path or an alternate VCS backend.
+
+## Data Contracts
+
+### Canonical Owner
+
+The new top-level runtime owner is `RemoteCommitPipelineContract`. It belongs in
+the same `governance_runtime` ownership domain as `ReviewerRuntimeContract`,
+persists as a repo-owned artifact, and is mirrored into `review_state.json`
+plus the doctor projection rather than living only in the bridge or a wrapper
+script.
+
+Canonical surfaces:
+
+1. durable artifact:
+   `dev/reports/review_channel/latest/commit_pipeline.json`
+2. compatibility mirror:
+   `review_state.json.commit_pipeline`
+3. compact readiness projection:
+   `review-channel --action doctor`
+
+### Reused Contracts
+
+| Contract | Reuse in this plan |
+|---|---|
+| `ReviewerRuntimeContract` | gates remote commit/push readiness; `publish_clear` and daemon health are preconditions for approval, commit, and push |
+| `TypedAction -> ActionResult` | every stageable action emits the same governed request/receipt pair instead of terminal-only text |
+| `PacketPostRequest` | carries operator approval request and operator decision through the existing review-channel transport |
+| Existing guard bundles | the `guard` node reuses the repo-routed task bundle plus risk-matrix add-ons instead of inventing a second validation stack |
+| Current `vcs.push` flow | remains the only publish executor; the new pipeline records and projects its existing staged truth (`validation_ready`, `published_remote`, `post_push_green`) |
+| `LocalServiceEndpoint` + `CallerAuthorityPolicy` | define which backend path is allowed to execute commit/push and which callers may request, approve, or recover pipeline state |
+
+### New Typed Records
+
+Two new typed records are sufficient for Phase 0:
+
+1. `RemoteCommitPipelineContract`
+   Purpose: singular orchestration owner for the remote commit/push lifecycle.
+   Required fields:
+   - `pipeline_id`
+   - `state`
+   - `requested_by`
+   - `branch`
+   - `remote`
+   - `intent: CommitIntentState`
+   - `guard_action_id`
+   - `guard_result`
+   - `reviewer_runtime_generation`
+   - `approval_packet_id`
+   - `decision_packet_id`
+   - `approval_state`
+   - `commit_action_id`
+   - `commit_result`
+   - `commit_sha`
+   - `push_action_id`
+   - `push_result`
+   - `push_report_path`
+   - `blocked_reason`
+   - `recovery_action_allowed`
+   - `generation_id`
+2. `CommitIntentState`
+   Purpose: immutable staged-work snapshot consumed by guard, approval, and
+   commit steps.
+   Required fields:
+   - `staged_tree_hash`
+   - `staged_path_count`
+   - `staged_paths`
+   - `diff_summary`
+   - `commit_message_draft`
+   - `push_requested`
+   - `guard_profile`
+   - `work_intake_ref`
+
+If implementation promotes the top-level record into the platform contract
+catalog, it should follow `platform/contracts.py` and land as a `ContractSpec`
+row under `runtime_state_contract_rows.py` with startup tokens derived from the
+compact readiness surface, not from full diff text.
+
+### Canonical State Machine
+
+| State | Meaning | Allowed next state |
+|---|---|---|
+| `drafted` | request exists but nothing is staged yet | `staged`, `push_blocked` |
+| `staged` | git index matches `CommitIntentState.staged_tree_hash` | `guards_running`, `push_blocked` |
+| `guards_running` | routed guard bundle is executing | `guards_passed`, `guards_failed` |
+| `guards_passed` | guard bundle returned green receipt | `operator_approval_pending`, `push_blocked` |
+| `guards_failed` | guard bundle returned fail/unknown/defer | `recover` |
+| `operator_approval_pending` | typed approval packet is live and waiting on operator decision | `approved`, `rejected`, `recover` |
+| `approved` | typed operator decision accepted current staged hash | `commit_pending`, `recover` |
+| `rejected` | operator denied the current request | `recover` |
+| `commit_pending` | governed executor has lease to create the commit | `commit_recorded`, `push_blocked` |
+| `commit_recorded` | commit SHA exists and matches the approved staged hash | `push_pending`, `push_blocked` |
+| `push_pending` | canonical `vcs.push` flow is executing | `push_completed`, `push_blocked` |
+| `push_completed` | commit is published and post-push truth is recorded | terminal |
+| `push_blocked` | executor or publish path failed closed | `recover` |
+
+`recover` is an explicit action, not an implicit downgrade. It may reopen a
+fresh pipeline, restage the same work, rerun guards, or clear a stale pending
+request, but it must emit typed receipts and keep the old failed pipeline
+artifact for auditability.
+
+### Action Graph
+
+| Step | Typed surface | Owner | Success transition | Fail-closed behavior |
+|---|---|---|---|---|
+| `stage` | `TypedAction(action_id="vcs.stage")` | governance runtime | `drafted -> staged` | reject if worktree is dirty beyond the selected scope, if another active pipeline exists, or if runtime is not healthy enough to supervise the rest of the flow |
+| `guard` | routed guard bundle recorded as `ActionResult(action_id="quality.guard_bundle")` | existing repo guard stack | `staged -> guards_passed` | `guards_failed` on `fail`, `unknown`, or `defer`; no approval request is posted |
+| `approve` | `PacketPostRequest(kind="approval_request")` plus operator `PacketPostRequest(kind="decision")` | review-channel transport | `guards_passed -> approved` or `rejected` | no packet, stale packet, mismatched target revision, or prose-only approval keeps state at `operator_approval_pending` or forces `recover` |
+| `commit` | `TypedAction(action_id="vcs.commit")` executed by governed VCS executor | local repo-owned executor | `approved -> commit_recorded` | `push_blocked` with `commit_failed` reason and `ActionResult` evidence; never tell the operator to run raw `git commit` |
+| `push` | existing `TypedAction(action_id="vcs.push")` | existing canonical push path | `commit_recorded -> push_completed` | `push_blocked` with existing push report + `ActionResult`; publication and post-push green remain separate truths |
+| `recover` | `TypedAction(action_id="vcs.pipeline.recover")` | governance runtime | blocked state -> fresh `drafted` or `staged` pipeline | if recovery cannot prove current repo state, return typed blocked receipt and stop |
+
+### Packet Vocabulary For Remote Approval
+
+Remote approval uses the existing review-channel event path with stricter typed
+vocabulary:
+
+1. Approval request packet
+   - `kind="approval_request"`
+   - `from_agent="system"`
+   - `to_agent="operator"`
+   - `requested_action="vcs.commit_and_push"`
+   - `policy_hint="operator_approval_required"`
+   - `approval_required=true`
+   - `trace_id=<pipeline_id>`
+   - `target_kind="runtime"`
+   - `target_ref="remote_commit_pipeline:<pipeline_id>"`
+   - `target_revision=<generation_id or staged_tree_hash>`
+2. Operator decision packet
+   - `kind="decision"`
+   - `from_agent="operator"`
+   - `to_agent="system"`
+   - `requested_action="approve_commit_pipeline"` or
+     `requested_action="reject_commit_pipeline"`
+   - `policy_hint="operator_approval_required"`
+   - `approval_required=false`
+   - same `trace_id`, `target_ref`, and `target_revision`
+
+Rules:
+
+1. Packet body is explanatory only. Authority comes from packet kind,
+   requested-action vocabulary, target ref, target revision, and the resulting
+   pipeline transition.
+2. `PacketPostRequest` must gain runtime-target support for these approval and
+   decision packets. Reusing plan-only target validation would be incorrect.
+3. The phone/dashboard never flips a boolean directly in `review_state.json`;
+   it emits the decision packet and waits for the repo-owned pipeline owner to
+   record the state transition.
+
+### Executor Boundary
+
+Commit and push must cross the sandbox/keyboard boundary through one governed
+executor, not through copied shell instructions in the remote session.
+
+Design rule:
+
+1. Remote clients request `vcs.commit` and `vcs.push` as typed actions.
+2. A repo-owned `GovernedVcsExecutor` attached to the existing local service
+   lifecycle (`LocalServiceEndpoint`) owns host-capable execution.
+3. The executor returns `ActionResult` plus artifact paths and updates
+   `RemoteCommitPipelineContract`.
+4. If the executor is unavailable, policy-forbidden, or cannot satisfy the
+   host capability needed for git mutation, it returns a typed blocked result
+   such as `status="fail", reason="executor_unavailable"` and leaves the
+   pipeline in a blocked state. It must not fall back to "run this shell
+   command locally."
+
+### Doctor/Dashboard Projection
+
+`review-channel --action doctor` should become the primary phone health/readiness
+surface for remote sessions. It should project:
+
+1. reviewer lifecycle health
+   - `status`
+   - `reviewer_freshness`
+   - `publish_clear`
+   - `publisher_running`
+   - `reviewer_supervisor_running`
+   - `recommended_command`
+2. commit pipeline readiness
+   - `pipeline_id`
+   - `pipeline_state`
+   - `guard_status`
+   - `approval_state`
+   - `commit_ready`
+   - `push_ready`
+   - `blocked_reason`
+3. staged-work summary
+   - `staged_tree_hash`
+   - `staged_path_count`
+   - `diff_summary`
+   - `commit_message_draft`
+4. approval and receipt refs
+   - `approval_packet_id`
+   - `decision_packet_id`
+   - `guard_artifact_paths`
+   - `push_report_path`
+5. final publication truth
+   - `commit_sha`
+   - `published_remote`
+   - `post_push_green`
+6. recovery posture
+   - `recovery_action_allowed`
+   - `approval_expires_at_utc`
+   - `generation_id`
+
+### Fail-Closed Rules
+
+1. No pipeline may advance beyond `guards_passed` while
+   `ReviewerRuntimeContract.publish_clear` is false.
+2. `publisher.running=false` or `reviewer_supervisor.running=false` is a hard
+   stop, not a warning, for remote commit/push execution.
+3. `ActionResult.status in {fail, unknown, defer}` from the guard bundle is not
+   green. Only `pass` may advance to approval.
+4. Operator approval is valid only for the exact `pipeline_id` plus
+   `target_revision` that was approved. Any diff drift invalidates it.
+5. `approved` does not imply commit-ready if the reviewer runtime generation,
+   staged tree hash, or guard artifact set changed after approval.
+6. No bridge prose section, markdown checkbox, or chat message may count as
+   approval, commit receipt, or publish receipt.
+7. Raw `git commit` and raw `git push` are forbidden in remote-control mode.
+   The only mutating path is the governed executor returning `ActionResult`.
+8. `push_completed` requires both remote publication truth and explicit
+   post-push result projection. "Remote updated" is not enough.
+9. If doctor, status, and pipeline artifacts disagree on generation, surface
+   `unknown` and require `recover`; never silently pick one source.
+10. Rejected or expired approvals never auto-reopen. Recovery must mint a new
+    packet with a new generation-bound request.
+
+### Migration Plan
+
+1. Land `RemoteCommitPipelineContract` and `CommitIntentState` as read-only
+   runtime artifacts plus `review_state.json` / doctor projection fields.
+   Phase-0 success criterion: the phone/dashboard can see a truthful blocked
+   state without shell spelunking.
+2. Extend `PacketPostRequest` targeting for runtime approval packets and make
+   the phone/dashboard emit typed `approval_request` / `decision` packets for
+   commit pipelines instead of prose approval.
+3. Add `vcs.stage` and `vcs.commit` governed actions plus the host-capable
+   `GovernedVcsExecutor`, while keeping `vcs.push` as the existing canonical
+   push action.
+4. Wire automatic guard execution into the pipeline so `stage` immediately
+   routes through the existing bundle/risk matrix and records the resulting
+   `ActionResult`.
+5. Make `review-channel --action doctor` the primary phone health/readiness
+   surface and project the new pipeline fields there. `status` remains the
+   full snapshot; bridge prose stays compatibility-only.
+6. Remove ad hoc remote instructions that tell the operator to run manual
+   commits/pushes, and reject raw remote git mutation in the caller-authority
+   policy once the typed executor path is proven.
+
+## Execution Checklist
+
+- [x] Freeze the canonical pipeline owner and lifecycle state machine.
+- [x] Freeze the action graph for stage, guard, approve, commit, push, and
+      recover.
+- [x] Freeze the reused-contract list and the minimum new typed records.
+- [x] Freeze the packet vocabulary for phone/operator approval.
+- [x] Freeze the executor boundary, doctor projection fields, fail-closed
+      rules, and migration steps.
+- [ ] Implement `RemoteCommitPipelineContract` + `CommitIntentState` in runtime
+      models, contract rows, and review-state projections.
+- [ ] Implement runtime-target approval packets and doctor projection updates.
+- [ ] Implement `vcs.stage`, `vcs.commit`, and `vcs.pipeline.recover` through a
+      governed executor path.
+- [ ] Reuse the existing guarded push flow from the new pipeline and prove end-
+      to-end remote approval -> commit -> push without local keyboard input.
+
+## Progress Log
+
+- 2026-04-02: Wrote the Phase-0 design for the typed remote-session
+  commit/push pipeline. The design binds remote approval to review-channel
+  packets, keeps reviewer runtime health as a hard precondition, keeps
+  `vcs.push` as the canonical publish executor, and adds one new runtime owner
+  instead of another bridge/script-first path.
+
+## Session Resume
+
+- Current status: design authority is now in this plan; implementation has not
+  started.
+- Next action: review and approve the plan, then implement the read-only
+  contract/projection slice before any executor or approval-path mutation.
+- Context rule: read `dev/active/platform_authority_loop.md`,
+  `dev/active/review_channel.md`, and `dev/active/continuous_swarm.md` with
+  this plan before changing remote commit/push behavior.
+
+## Audit Evidence
+
+- `python3 dev/scripts/devctl.py startup-context --format summary`
+  - 2026-04-02 local run failed closed with
+    `action=checkpoint_before_continue`, `reason=runtime_missing`,
+    `blockers=startup_authority,runtime_missing`.
+- `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+  - 2026-04-02 local run reported `publisher.running=false`,
+    `reviewer_supervisor.running=false`,
+    `reviewer_runtime.stale_reason=runtime_missing`, and
+    `reviewer_runtime.publish_clear=false`.
+- Design inputs read for this plan:
+  - `AGENTS.md`
+  - `AUDIT_STATUS.md`
+  - `dev/active/PLAN_FORMAT.md`
+  - `dev/active/INDEX.md`
+  - `dev/active/MASTER_PLAN.md`
+  - `dev/active/ai_governance_platform.md`
+  - `dev/active/platform_authority_loop.md`
+  - `dev/active/review_channel.md`
+  - `dev/active/continuous_swarm.md`
+  - `dev/scripts/devctl/platform/contracts.py`
+  - `dev/scripts/devctl/platform/runtime_identity_contract_rows.py`
+  - `dev/scripts/devctl/platform/runtime_state_contract_rows.py`
+  - `dev/scripts/devctl/runtime/action_contracts.py`
+  - `dev/scripts/devctl/review_channel/packet_contract.py`
+  - `dev/scripts/devctl/review_channel/reviewer_runtime_contract.py`
+  - `dev/scripts/devctl/review_channel/reviewer_runtime_doctor.py`

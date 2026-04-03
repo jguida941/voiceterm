@@ -123,6 +123,7 @@ Release-governance note:
 | Where is the host-process hygiene + Activity Monitor automation plan? | `dev/active/host_process_hygiene.md` |
 | Where is the continuous local Codex-reviewer / Claude-coder loop hardening and later template-extraction plan? | `dev/active/continuous_swarm.md` |
 | Where is the optional VoiceTerm Operator Console plan? | `dev/active/operator_console.md` |
+| Where is the typed remote-session commit/push pipeline design for phone-steered sessions? | `dev/active/remote_commit_pipeline.md` |
 | Where is the Ralph guardrail remediation/control-plane plan? | `dev/active/ralph_guardrail_control_plane.md` |
 | Where is the heuristic review-probe execution plan? | `dev/active/review_probes.md` |
 | Where is the code-shape expansion research companion (readability, coupling, AI-specific, information-theoretic probes/guards)? | `dev/active/code_shape_expansion.md` (subordinate evidence/calibration companion feeding `dev/active/review_probes.md` Phase 5b+, not a second execution authority) |

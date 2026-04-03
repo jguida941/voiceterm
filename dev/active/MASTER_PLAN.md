@@ -36,6 +36,11 @@
   registry, runtime/evidence/context spine closure, and the first cross-repo
   proof of the portable authority loop. Top-level product authority remains in
   `dev/active/ai_governance_platform.md`.
+- `dev/active/remote_commit_pipeline.md` is the bounded `MP-377` design and
+  execution spec for the typed remote-session commit/push pipeline that moves
+  phone-steered work from staged changes to governed commit/push through
+  repo-owned actions and approval packets instead of raw terminal git or
+  bridge prose.
 - `dev/active/code_shape_expansion.md` is the research/calibration companion for future code-shape additions under `MP-378`; promotion into implementation still flows through `dev/active/review_probes.md` once Phase 5b evidence gates pass.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
@@ -73,6 +78,12 @@
   (`PushEnforcement` -> `PushDecisionState`) shared by startup and
   review/status consumers, then widen into broader continuation/recovery
   composition only after that cadence lane is validated.
+- Current bounded Phase-0 design follow-up inside that same lane:
+  `dev/active/remote_commit_pipeline.md` freezes the typed remote-session
+  commit/push pipeline
+  (`stage -> guard -> operator approval packet -> commit -> governed push ->
+  recover`) needed to close the Codex sandbox-commit blocker without manual
+  shell steps or prose approval.
 - Current proof-gate framing for `MP-377`: self-hosting honesty is necessary
   but not sufficient; `Gate 2` remains the real POC bar and requires a
   second-repo governed bootstrap/startup/check path with no core-engine
