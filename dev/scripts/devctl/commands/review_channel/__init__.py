@@ -64,13 +64,13 @@ from .status import (
     _attach_backend_contract,
     _attach_reviewer_worker,
     _attach_status_context,
-    _build_doctor_report,
     _run_doctor_action,
     _read_publisher_state_safe,
     _read_reviewer_supervisor_state_safe,
     _run_bridge_status,
     _run_status_action,
 )
+from .doctor_support import build_doctor_report as _build_doctor_report
 
 __all__ = [
     "resolve_context_pack_refs",

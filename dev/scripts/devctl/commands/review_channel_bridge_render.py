@@ -7,6 +7,7 @@ import json
 from ..approval_mode import normalize_approval_mode
 from ..review_channel.attach_auth_render import append_attach_auth_policy_markdown
 from ..review_channel.core import REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE
+from ..review_channel.doctor_markdown import append_doctor_markdown
 from ..review_channel.handoff import handoff_bundle_to_dict
 from ..review_channel.heartbeat import bridge_heartbeat_refresh_to_dict
 from ..review_channel.promotion import promotion_candidate_to_dict
@@ -81,7 +82,7 @@ def render_bridge_md(
     _append_handoff_bundle(lines, report.get("handoff_bundle"))
     _append_promotion(lines, report.get("promotion"))
     _append_attention(lines, report.get("attention"))
-    _append_doctor(lines, report.get("doctor"))
+    append_doctor_markdown(lines, report.get("doctor"))
     append_wait_state_markdown(lines, report.get("wait_state"))
     _append_service_identity(lines, report.get("service_identity"))
     append_attach_auth_policy_markdown(lines, report.get("attach_auth_policy"))
@@ -257,18 +258,3 @@ def append_common_report_sections(lines: list[str], report: dict) -> None:
         commit_pipeline_path = projection_paths.get("commit_pipeline_path")
         if commit_pipeline_path:
             lines.append(f"- commit_pipeline_path: {commit_pipeline_path}")
-
-
-def _append_doctor(lines: list[str], doctor: object) -> None:
-    if not isinstance(doctor, dict):
-        return
-    lines.append("")
-    lines.append("## Doctor")
-    lines.append(f"- status: {doctor.get('status') or 'unknown'}")
-    lines.append(f"- summary: {doctor.get('summary') or 'n/a'}")
-    lines.append(f"- publish_clear: {doctor.get('publish_clear')}")
-    lines.append(f"- pipeline_state: {doctor.get('pipeline_state') or 'unknown'}")
-    lines.append(f"- blocked_reason: {doctor.get('blocked_reason') or 'n/a'}")
-    lines.append(f"- approval_state: {doctor.get('approval_state') or 'n/a'}")
-    lines.append(f"- commit_ready: {doctor.get('commit_ready')}")
-    lines.append(f"- push_ready: {doctor.get('push_ready')}")

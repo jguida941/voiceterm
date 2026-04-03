@@ -366,6 +366,13 @@ Three quality layers matter in practice:
     action, review acceptance, and publish-clear state. Bridge
     `review_accepted` and doctor output are projections over that contract,
     not separate authority.
+  - `review-channel --action doctor` is the compact phone/dashboard readiness
+    surface layered on top of that same typed contract. It reduces the full
+    status payload to `doctor`, `reviewer_runtime`, `commit_pipeline`, and the
+    shared projection paths, and it must keep startup push truth flowing from
+    `reviewer_runtime.publish_clear` /
+    `push_decision.review_gate_allows_push` instead of inventing a second
+    push-readiness evaluator.
   - `startup-context` is the typed startup packet for those same sessions.
     It should read reviewer/publish gating from typed
     `reviewer_runtime.review_acceptance.review_accepted` and

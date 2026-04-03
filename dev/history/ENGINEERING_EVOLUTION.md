@@ -67,6 +67,23 @@ Evidence:
 - `dev/scripts/README.md`
 - `dev/README.md`
 
+### 2026-04-03 - The first remote commit-pipeline slice now exists as typed runtime truth instead of only a plan
+
+The repo did not need a second push-policy stack or another bridge-only
+workaround. It needed the first bounded runtime seam that makes the new
+pipeline visible to typed consumers before any commit/push executor is wired.
+
+That first seam is in place now. `CommitIntentState` and
+`RemoteCommitPipelineContract` exist as typed runtime/platform contracts,
+`review_state` and review-channel projections now carry a `commit_pipeline`
+block, `review-channel --action doctor` exposes the compact readiness surface,
+and the managed review-channel artifacts now include `commit_pipeline.json`.
+The implementation keeps `recover` as an action instead of a durable pipeline
+state, makes `approval_expires_at_utc` and `approved_target_identity` required
+contract fields, and leaves startup push truth on the existing
+`reviewer_runtime.publish_clear` / `push_decision.review_gate_allows_push`
+path instead of inventing a second evaluator.
+
 ### 2026-04-03 - Live review-channel launch now starts the detached publisher/supervisor runtime instead of assuming a later manual ensure step
 
 The repo already had the right runtime pieces: the detached ensure-follow

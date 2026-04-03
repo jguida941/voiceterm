@@ -33,16 +33,16 @@ class CommitIntentState:
     work_intake_ref: str = ""
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "staged_tree_hash": self.staged_tree_hash,
-            "staged_path_count": self.staged_path_count,
-            "staged_paths": list(self.staged_paths),
-            "diff_summary": self.diff_summary,
-            "commit_message_draft": self.commit_message_draft,
-            "push_requested": self.push_requested,
-            "guard_profile": self.guard_profile,
-            "work_intake_ref": self.work_intake_ref,
-        }
+        payload: dict[str, object] = {}
+        payload["staged_tree_hash"] = self.staged_tree_hash
+        payload["staged_path_count"] = self.staged_path_count
+        payload["staged_paths"] = list(self.staged_paths)
+        payload["diff_summary"] = self.diff_summary
+        payload["commit_message_draft"] = self.commit_message_draft
+        payload["push_requested"] = self.push_requested
+        payload["guard_profile"] = self.guard_profile
+        payload["work_intake_ref"] = self.work_intake_ref
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,41 +76,39 @@ class RemoteCommitPipelineContract:
     approved_target_identity: str = ""
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "schema_version": self.schema_version,
-            "contract_id": self.contract_id,
-            "pipeline_id": self.pipeline_id,
-            "state": self.state,
-            "requested_by": self.requested_by,
-            "branch": self.branch,
-            "remote": self.remote,
-            "intent": self.intent.to_dict(),
-            "guard_action_id": self.guard_action_id,
-            "guard_result": (
-                self.guard_result.to_dict() if self.guard_result is not None else None
-            ),
-            "reviewer_runtime_generation": self.reviewer_runtime_generation,
-            "approval_packet_id": self.approval_packet_id,
-            "decision_packet_id": self.decision_packet_id,
-            "approval_state": self.approval_state,
-            "commit_action_id": self.commit_action_id,
-            "commit_result": (
-                self.commit_result.to_dict()
-                if self.commit_result is not None
-                else None
-            ),
-            "commit_sha": self.commit_sha,
-            "push_action_id": self.push_action_id,
-            "push_result": (
-                self.push_result.to_dict() if self.push_result is not None else None
-            ),
-            "push_report_path": self.push_report_path,
-            "blocked_reason": self.blocked_reason,
-            "recovery_action_allowed": self.recovery_action_allowed,
-            "generation_id": self.generation_id,
-            "approval_expires_at_utc": self.approval_expires_at_utc,
-            "approved_target_identity": self.approved_target_identity,
-        }
+        payload: dict[str, object] = {}
+        payload["schema_version"] = self.schema_version
+        payload["contract_id"] = self.contract_id
+        payload["pipeline_id"] = self.pipeline_id
+        payload["state"] = self.state
+        payload["requested_by"] = self.requested_by
+        payload["branch"] = self.branch
+        payload["remote"] = self.remote
+        payload["intent"] = self.intent.to_dict()
+        payload["guard_action_id"] = self.guard_action_id
+        payload["guard_result"] = (
+            self.guard_result.to_dict() if self.guard_result is not None else None
+        )
+        payload["reviewer_runtime_generation"] = self.reviewer_runtime_generation
+        payload["approval_packet_id"] = self.approval_packet_id
+        payload["decision_packet_id"] = self.decision_packet_id
+        payload["approval_state"] = self.approval_state
+        payload["commit_action_id"] = self.commit_action_id
+        payload["commit_result"] = (
+            self.commit_result.to_dict() if self.commit_result is not None else None
+        )
+        payload["commit_sha"] = self.commit_sha
+        payload["push_action_id"] = self.push_action_id
+        payload["push_result"] = (
+            self.push_result.to_dict() if self.push_result is not None else None
+        )
+        payload["push_report_path"] = self.push_report_path
+        payload["blocked_reason"] = self.blocked_reason
+        payload["recovery_action_allowed"] = self.recovery_action_allowed
+        payload["generation_id"] = self.generation_id
+        payload["approval_expires_at_utc"] = self.approval_expires_at_utc
+        payload["approved_target_identity"] = self.approved_target_identity
+        return payload
 
 
 def commit_intent_state_from_mapping(payload: Mapping[str, object]) -> CommitIntentState:

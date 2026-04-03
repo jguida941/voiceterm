@@ -333,7 +333,7 @@ surface for remote sessions. It should project:
 - [x] Freeze the packet vocabulary for phone/operator approval.
 - [x] Freeze the executor boundary, doctor projection fields, fail-closed
       rules, and migration steps.
-- [ ] Implement `RemoteCommitPipelineContract` + `CommitIntentState` in runtime
+- [x] Implement `RemoteCommitPipelineContract` + `CommitIntentState` in runtime
       models, contract rows, and review-state projections.
 - [ ] Implement runtime-target approval packets and doctor projection updates.
 - [ ] Implement `vcs.stage`, `vcs.commit`, and `vcs.pipeline.recover` through a
@@ -348,13 +348,29 @@ surface for remote sessions. It should project:
   packets, keeps reviewer runtime health as a hard precondition, keeps
   `vcs.push` as the canonical publish executor, and adds one new runtime owner
   instead of another bridge/script-first path.
+- 2026-04-03: Implemented Phase-0 Slice 1 as a read-only runtime/projection
+  slice. Added `CommitIntentState` plus the
+  `RemoteCommitPipelineContract` contract row/model with required
+  `approval_expires_at_utc` and `approved_target_identity` fields, threaded
+  `commit_pipeline` through typed `review_state` parsing and projection
+  artifacts, added the shared doctor/status projection surface plus
+  `review-channel --action doctor`, and kept recovery as an action-only follow-
+  up rather than a durable pipeline state. Focused pytest coverage passed for
+  platform/runtime/review-channel suites, and the live doctor command now
+  projects the default blocked placeholder state plus `commit_pipeline.json`.
+  The remaining repo-wide `check --profile ci` failures are external to this
+  slice: live review runtime is currently missing, and startup-authority import-
+  index checks cannot be cleared here because this chat session must not stage
+  or commit new files.
 
 ## Session Resume
 
-- Current status: design authority is now in this plan; implementation has not
-  started.
-- Next action: review and approve the plan, then implement the read-only
-  contract/projection slice before any executor or approval-path mutation.
+- Current status: Phase-0 Slice 1 is implemented locally and validated. The
+  repo now emits typed read-only commit-pipeline state plus a dedicated doctor
+  action/projection, but executor/approval packet mutation has not started.
+- Next action: implement the runtime approval-packet slice and begin writing
+  non-placeholder pipeline artifacts that drive the existing publish-clear push
+  gate without introducing a second startup push-readiness evaluator.
 - Context rule: read `dev/active/platform_authority_loop.md`,
   `dev/active/review_channel.md`, and `dev/active/continuous_swarm.md` with
   this plan before changing remote commit/push behavior.
@@ -370,6 +386,23 @@ surface for remote sessions. It should project:
     `reviewer_supervisor.running=false`,
     `reviewer_runtime.stale_reason=runtime_missing`, and
     `reviewer_runtime.publish_clear=false`.
+- `python3 -m pytest dev/scripts/devctl/tests/platform/test_platform_contracts.py dev/scripts/devctl/tests/runtime/test_review_state.py dev/scripts/devctl/tests/review_channel/test_reviewer_wait.py`
+  - 2026-04-03 local run passed (`39 passed`).
+- `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -x`
+  - 2026-04-03 local run passed (`244 passed`) after fixing two stale
+    refactor call sites in `commands/review_channel/status.py`.
+- `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format json`
+  - 2026-04-03 local run succeeded and projected
+    `doctor.pipeline_state=push_blocked`,
+    `doctor.blocked_reason=pipeline_unavailable`, and
+    `projection_paths.commit_pipeline_path=.../dev/reports/review_channel/latest/commit_pipeline.json`
+    while the live reviewer runtime still reported
+    `attention.status=runtime_missing`.
+- `python3 dev/scripts/devctl.py check --profile ci`
+  - 2026-04-03 local run now fails only on
+    `startup-authority-contract-guard` and `tandem-consistency-guard` because
+    the live review runtime is missing and the newly added files are not in the
+    git index yet. No stage/commit was performed in this session.
 - Design inputs read for this plan:
   - `AGENTS.md`
   - `AUDIT_STATUS.md`

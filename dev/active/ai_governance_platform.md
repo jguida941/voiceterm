@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-02 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-03 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -5468,6 +5468,17 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-03: Landed Phase-0 Slice 1 of the remote commit pipeline under the
+  active `MP-377` authority loop. `CommitIntentState` and
+  `RemoteCommitPipelineContract` now exist as platform/runtime contract rows
+  and typed models, flow through `ReviewState`, bridge/event-backed
+  review-channel projections, a dedicated `review-channel --action doctor`
+  read surface, and the managed `commit_pipeline.json` artifact. The slice
+  keeps `recover` as a governed action instead of durable pipeline state,
+  promotes `approval_expires_at_utc` and `approved_target_identity` into the
+  required contract, and deliberately reuses
+  `reviewer_runtime.publish_clear` / `push_decision.review_gate_allows_push`
+  for startup push truth instead of adding a second readiness evaluator.
 - 2026-04-02: Closed the next self-hosting `MP-377` checks-root extraction
   blocker without inventing a second package-layout regime. The remaining flat
   helpers behind `check_bundle_workflow_parity.py`,

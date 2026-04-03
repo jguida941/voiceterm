@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ..review_channel.doctor_markdown import append_doctor_markdown
 from ..review_channel.context_refs import (
     context_pack_ref_summary,
     normalize_context_pack_refs,
@@ -26,19 +27,7 @@ def render_event_md(report: dict) -> str:
     if report.get("limit") is not None:
         lines.append(f"- limit: {report.get('limit')}")
     append_common_report_sections(lines, report)
-    doctor = report.get("doctor")
-    if isinstance(doctor, dict):
-        lines.append("")
-        lines.append("## Doctor")
-        lines.append(f"- status: {doctor.get('status') or 'unknown'}")
-        lines.append(f"- summary: {doctor.get('summary') or 'n/a'}")
-        lines.append(f"- publish_clear: {doctor.get('publish_clear')}")
-        lines.append(
-            f"- pipeline_state: {doctor.get('pipeline_state') or 'unknown'}"
-        )
-        lines.append(
-            f"- blocked_reason: {doctor.get('blocked_reason') or 'n/a'}"
-        )
+    append_doctor_markdown(lines, report.get("doctor"))
     packet = report.get("packet")
     if isinstance(packet, dict):
         lines.append("")

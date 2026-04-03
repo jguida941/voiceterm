@@ -44,7 +44,7 @@
 - `dev/active/code_shape_expansion.md` is the research/calibration companion for future code-shape additions under `MP-378`; promotion into implementation still flows through `dev/active/review_probes.md` once Phase 5b evidence gates pass.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-04-02)
+## Status Snapshot (2026-04-03)
 - Last tagged release: `v1.2.3` (2026-04-01)
 - Current release target: `post-v1.2.3 planning`
 - Active development branch: `develop`
@@ -194,6 +194,16 @@
   the current 14 implemented platform contract rows now all declare
   `startup_surface_tokens` so startup/bootstrap surfaces project the same
   contract inventory that `platform-contracts` and the closure guard enforce.
+- Latest same-lane closure on 2026-04-03: Phase-0 Slice 1 of the remote
+  commit/push pipeline is now live as a read-only authority seam. The new
+  `CommitIntentState` and `RemoteCommitPipelineContract` flow through typed
+  `review_state` parsing, bridge/event-backed review-channel projections, a
+  dedicated `review-channel --action doctor` surface, and the managed
+  `commit_pipeline.json` artifact path. Recovery stays a governed action
+  instead of a durable pipeline state, `approval_expires_at_utc` and
+  `approved_target_identity` are required contract fields, and startup push
+  truth still routes through `reviewer_runtime.publish_clear` /
+  `push_decision.review_gate_allows_push` instead of a second evaluator.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

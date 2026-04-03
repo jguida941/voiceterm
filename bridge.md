@@ -209,15 +209,17 @@ path and the inactive-mode fail-closed guard.
 
 ## Claude Status
 
-- pending
+- Slice 1 implemented locally in the `review_state.json` / `review-channel --action status|doctor` projection path: added `RemoteCommitPipelineContract` + `CommitIntentState`, threaded `commit_pipeline` through typed review-state/status projections, and registered `review-channel --action doctor`.
+- Validation: `python3 -m pytest dev/scripts/devctl/tests/platform/test_platform_contracts.py dev/scripts/devctl/tests/runtime/test_review_state.py dev/scripts/devctl/tests/review_channel/test_reviewer_wait.py` passed, `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -x` passed (`244 passed`), and `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format json` returned the new doctor + `commit_pipeline` surface.
+- Remaining guard blockers: `python3 dev/scripts/devctl.py check --profile ci` still fails only on live review runtime state (`runtime_missing`, tandem consistency) plus startup-authority import-index checks for the new files. I did not stage or commit anything.
 
 ## Claude Questions
 
-- pending
+- none
 
 ## Claude Ack
 
-- pending
+- Acknowledged instruction revision 704035f3a6e7. Slice 1 touched the `review_state.json` / `review-channel --action status|doctor` projection path only. No staging or commit performed; ready for Codex review and Claude-side commit after guard validation.
 
 ## Current Instruction For Claude
 

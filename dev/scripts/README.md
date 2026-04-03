@@ -129,6 +129,7 @@ python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py probe-report --format md
 python3 dev/scripts/devctl.py quality-policy --format md
 python3 dev/scripts/devctl.py tandem-validate --format md
+python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format md
 python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md
 python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --expected-implementer-state-hash <live-implementer-state-hash> --terminal none --format md
 python3 dev/scripts/devctl.py launcher-check
@@ -355,6 +356,14 @@ Portability note:
   action, review acceptance, and publish-clear state. Bridge
   `review_accepted` and doctor output are compatibility projections over that
   contract, not independent authority.
+- `review-channel --action doctor` is the compact readiness/read-only surface
+  for that same lane. It reuses the canonical status refresh path, reports the
+  reduced `doctor`, `reviewer_runtime`, and `commit_pipeline` payloads plus
+  `projection_paths`, and writes the managed `commit_pipeline.json` artifact so
+  phone/dashboard clients can see truthful blocked or ready pipeline state
+  without scraping bridge prose. Startup push truth still comes from
+  `reviewer_runtime.publish_clear` and the shared `push_decision` path, not a
+  second doctor-only evaluator.
 - For reviewer-owned automation, treat the `status` report shape honestly:
   live read APIs expose `bridge_liveness` plus projection paths, and typed
   `current_session` comes from the generated `review_state.json` projection
