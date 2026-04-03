@@ -959,6 +959,10 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
 **Cross-architecture guard alignment rules:**
 1. Every new guard script MUST be registered in `dev/scripts/devctl/quality_policy.py` and enabled in `dev/config/devctl_repo_policy.json` when this repo should run it by default.
 2. Every repo-enabled AI guard MUST have a step in `tooling_control_plane.yml`.
+   The current Phase 3/4 remote-commit surface-convergence closure keeps
+   `check_audit_status_sync.py` and
+   `check_review_surface_consistency.py` in both
+   `tooling_control_plane.yml` and `release_preflight.yml`.
 3. Guard output format MUST support `--since-ref`/`--head-ref` for growth-based gating.
 4. The Ralph AI fix wrapper MUST run architecture-specific validation after fixes.
 5. No architecture may bypass the Ralph loop — all CodeRabbit findings across Rust,

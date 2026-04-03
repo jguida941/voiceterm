@@ -57,7 +57,10 @@ review-channel projections stamp one shared `snapshot_id` across
 `check_audit_status_sync.py` fails when `AUDIT_STATUS.md` still claims the
 completed Phase 3/4 work is open. The same slice adds focused proof tests for
 the clean path, rescue path, startup/doctor/bridge convergence, and
-remote-session approval packets staying generation-bound through commit.
+remote-session approval packets staying generation-bound through commit. The
+same closure now reaches workflow enforcement too: `tooling_control_plane.yml`
+and `release_preflight.yml` both run those guards so bundle/workflow parity
+stays honest.
 
 ### 2026-04-03 - Remote commit push recovery no longer trusts bridge prose or raw HEAD equality
 

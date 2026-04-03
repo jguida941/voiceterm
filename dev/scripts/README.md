@@ -422,10 +422,12 @@ Portability note:
 - `check_review_surface_consistency.py` is the proof guard for that startup /
   status / doctor convergence. It reads `startup-context`, `review_state.json`,
   `compact.json`, and `commit_pipeline.json`, then fails if their shared
-  `snapshot_id` or pipeline `generation_id` values diverge.
+  `snapshot_id` or pipeline `generation_id` values diverge. Both
+  `tooling_control_plane.yml` and `release_preflight.yml` now enforce it.
 - `check_audit_status_sync.py` keeps `AUDIT_STATUS.md` honest by failing when
   the audit file still says Phase 3/4 ownership, consistency, or integration
-  proof work is open after the corresponding code/tests already exist.
+  proof work is open after the corresponding code/tests already exist. Both
+  `tooling_control_plane.yml` and `release_preflight.yml` now enforce it too.
 - Portable-authority rule: new reusable runtime/tooling code should resolve
   plan docs, artifact roots, bridge/review state, and generated bootstrap
   instructions through `ProjectGovernance` / repo-pack state instead of

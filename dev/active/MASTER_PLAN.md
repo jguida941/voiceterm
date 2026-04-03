@@ -216,6 +216,13 @@
   `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, and the owning
   `MP-377` plan docs instead of leaving the runtime approval vocabulary in one
   narrow surface.
+- Latest same-lane closure on 2026-04-03: the workflow-enforcement parity for
+  the Phase 3/4 remote-commit proof guards is now explicit.
+  `.github/workflows/tooling_control_plane.yml` and
+  `.github/workflows/release_preflight.yml` both run
+  `check_audit_status_sync.py` and
+  `check_review_surface_consistency.py`, so the bundle registry, maintainer
+  docs, and CI lanes now advertise the same required proof surface.
 - Latest same-lane closure on 2026-04-03: the first Phase-1 daemon-liveness
   follow-up is now in place for the same remote session lane. Live
   `review-channel --action launch|rollover` starts the persistent
