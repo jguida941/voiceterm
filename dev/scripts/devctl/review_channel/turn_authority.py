@@ -75,30 +75,34 @@ def build_reviewer_turn_authority(
     # — the same pipeline status/doctor/startup use.  When launch_truth is
     # empty the typed state is partial (scaffolding only), and the authority
     # fields (effective_reviewer_mode, attention, launch_truth) are defaulted,
-    # not computed.  In that case, derive them from bridge_liveness via the
-    # same shared classifiers that status/doctor use.
+    # not computed.  In that case, derive them from the best available
+    # lifecycle data via the same shared classifiers that status/doctor use.
     _typed_authority_complete = (
         review_state is not None
         and bridge is not None
         and bool(bridge.launch_truth)
     )
     _needs_fallback = not _typed_authority_complete
-    _liveness_dict = asdict(bridge_liveness) if _needs_fallback else {}
-    _has_lifecycle = (
-        "publisher_running" in _liveness_dict
-        or "reviewer_supervisor_running" in _liveness_dict
-    )
-    if _has_lifecycle:
-        _fallback_attention = derive_bridge_attention(_liveness_dict)
-        _fallback_launch_truth = str(
-            _liveness_dict.get("launch_truth")
-            or classify_launch_truth(_liveness_dict).value
+    _fallback_attention: dict[str, object] | None = None
+    _fallback_launch_truth = ""
+    _fallback_effective_mode = ""
+    if _needs_fallback:
+        _liveness_dict = _build_fallback_liveness_dict(
+            bridge_liveness, typed_review_state,
         )
-        _fallback_effective_mode = _compute_effective_reviewer_mode(_liveness_dict)
-    else:
-        _fallback_attention = None
-        _fallback_launch_truth = ""
-        _fallback_effective_mode = ""
+        _has_lifecycle = (
+            "publisher_running" in _liveness_dict
+            or "reviewer_supervisor_running" in _liveness_dict
+        )
+        if _has_lifecycle:
+            _fallback_attention = derive_bridge_attention(_liveness_dict)
+            _fallback_launch_truth = str(
+                _liveness_dict.get("launch_truth")
+                or classify_launch_truth(_liveness_dict).value
+            )
+            _fallback_effective_mode = _compute_effective_reviewer_mode(
+                _liveness_dict,
+            )
 
     reviewer_mode = (
         reviewer_runtime.reviewer_mode
@@ -336,3 +340,48 @@ def _reviewer_wait_state(*, snapshot: BridgeSnapshot, current_instruction: str) 
 
 def _has_content(value: str, present: bool) -> bool:
     return bool(value.strip()) or present
+
+
+# Keys that the attention/launch-truth classifiers read from a bridge
+# liveness dict but that BridgeLiveness (markdown-only) does not carry.
+_LIFECYCLE_OVERLAY_KEYS = (
+    "publisher_running",
+    "reviewer_supervisor_running",
+    "codex_conductor_active",
+    "claude_conductor_active",
+    "review_needed",
+    "review_accepted",
+    "publish_clear",
+    "publisher_stop_reason",
+    "reviewer_supervisor_stop_reason",
+)
+
+
+def _build_fallback_liveness_dict(
+    bridge_liveness: BridgeLiveness,
+    typed_review_state: Mapping[str, object] | None,
+) -> dict[str, object]:
+    """Merge raw lifecycle fields from a partial typed payload over BridgeLiveness.
+
+    When the typed review state is partial (has bridge/bridge_liveness dicts
+    but no computed launch_truth), those raw dicts may carry lifecycle booleans
+    (publisher_running, codex_conductor_active, etc.) that the markdown-only
+    BridgeLiveness dataclass never has.  Merging them gives the shared
+    classifiers the same inputs that refresh_status_snapshot would provide.
+    """
+    base = asdict(bridge_liveness)
+    if typed_review_state is None:
+        return base
+    # Overlay from typed_review_state["bridge_liveness"] first (richest source)
+    bl = typed_review_state.get("bridge_liveness")
+    if isinstance(bl, Mapping):
+        for key in _LIFECYCLE_OVERLAY_KEYS:
+            if key in bl:
+                base[key] = bl[key]
+    # Then overlay from typed_review_state["bridge"] for any remaining gaps
+    br = typed_review_state.get("bridge")
+    if isinstance(br, Mapping):
+        for key in _LIFECYCLE_OVERLAY_KEYS:
+            if key not in base and key in br:
+                base[key] = br[key]
+    return base
