@@ -55,20 +55,9 @@ The system has a daemon (`ensure --follow`) designed to compensate, but:
 
 **Note:** Pre-7e4d1c2 verification findings have been superseded. See "DONE" section above for current state. ReviewerRuntimeContract EXISTS (7e4d1c2). startup_surface_tokens ARE populated (all 15 contracts). Bridge acceptance IS partially demoted (typed first, prose fallback).
 
-## Concrete Next Steps (from 6-agent implementation assessment)
+## Concrete Next Steps (SUPERSEDED — see Implementation Plan below)
 
-**Priority: Create ReviewerRuntimeContract + startup ownership, then make bridge a projection**
-
-1. **Add ReviewerRuntimeContract** (~15 lines) to `runtime_state_contract_rows.py` with 5 fields: `review_accepted`, `current_verdict`, `open_findings`, `verdict_accepted_at_utc`, `findings_clear_count`
-
-2. **Refactor bridge acceptance to typed state** (4-5 files):
-   - `status_projection_bridge_state.py:142-149` — read from typed state
-   - `state.py:97` — replace `bridge_review_accepted(bridge_snapshot)` with typed field
-   - `bridge_validation.py:108` — typed field as source-of-truth
-   - `handoff.py` — propagate typed `review_accepted`
-   - Tests — verify typed path works
-
-3. **Populate startup_surface_tokens** on all 15 contracts (one-line per contract, 2-3 field names each)
+Items 1-3 below are DONE. See commit `7e4d1c2` proof table. Current work is Phase 0-4 in the Implementation Plan section.
 
 ## What Was Fixed and Pushed Today
 
