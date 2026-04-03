@@ -62,8 +62,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-02T20:48:47Z`
-- Last Codex poll (Local America/New_York): `2026-04-02 16:48:47 EDT`
+- Last Codex poll: `2026-04-03T05:28:47Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 01:28:47 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `1cc8badfb0d7c5eb89194de407423aee38621c8d0fc0fa14f00eadff94cf4a8c`
 - Current instruction revision: `704035f3a6e7`
@@ -209,9 +209,9 @@ path and the inactive-mode fail-closed guard.
 
 ## Claude Status
 
-- Slice 1 implemented locally in the `review_state.json` / `review-channel --action status|doctor` projection path: added `RemoteCommitPipelineContract` + `CommitIntentState`, threaded `commit_pipeline` through typed review-state/status projections, and registered `review-channel --action doctor`.
-- Validation: `python3 -m pytest dev/scripts/devctl/tests/platform/test_platform_contracts.py dev/scripts/devctl/tests/runtime/test_review_state.py dev/scripts/devctl/tests/review_channel/test_reviewer_wait.py` passed, `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -x` passed (`244 passed`), and `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format json` returned the new doctor + `commit_pipeline` surface.
-- Remaining guard blockers: `python3 dev/scripts/devctl.py check --profile ci` still fails only on live review runtime state (`runtime_missing`, tandem consistency) plus startup-authority import-index checks for the new files. I did not stage or commit anything.
+- Slice 2 is now at `HEAD` commit `4264c0a` (`Slice 2: typed approval packets for remote commit pipeline`). The review-channel packet contract accepts `commit_approval` runtime packets with typed `pipeline_generation`, `staged_snapshot_hash`, and `guard_results_summary`, and those fields survive `review-channel --action post|ack|apply`, `actions.json`, and typed `ReviewState` parsing.
+- Validation passed: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_plan_packets.py dev/scripts/devctl/tests/review_channel/test_packet_agents.py dev/scripts/devctl/tests/test_review_channel_context_refs.py dev/scripts/devctl/tests/runtime/test_review_state.py`, `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -x` (`244 passed`), `python3 -m pytest dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py` (`17 passed`), `python3 dev/scripts/checks/check_platform_contract_closure.py`, and `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md`.
+- Routed tooling validation now gets past docs parity and platform-contract closure. The remaining bundle blocker is pre-existing reviewer-owned bridge state in `check_review_channel_bridge`: stale `Last Codex poll`, resolved verdict/instruction mismatch, and `Poll Status` contradicting `Reviewer mode`. I did not edit reviewer-owned bridge sections or create a new commit from chat.
 
 ## Claude Questions
 

@@ -84,6 +84,25 @@ contract fields, and leaves startup push truth on the existing
 `reviewer_runtime.publish_clear` / `push_decision.review_gate_allows_push`
 path instead of inventing a second evaluator.
 
+### 2026-04-03 - Remote commit approval now travels through the existing typed review-channel packet path
+
+The next gap was approval transport, not a missing review surface. Slice 1 had
+already exposed the remote commit pipeline as typed runtime truth, but the
+operator approval step was still only frozen in plan prose. Without a typed
+packet seam, the phone-side session would still be forced back toward bridge
+edits or ad hoc shell approval.
+
+That transport gap is closed now. `PacketPostRequest` accepts a dedicated
+`commit_approval` runtime packet kind, the packet carries typed
+`pipeline_generation`, `staged_snapshot_hash`, and
+`guard_results_summary` fields alongside the runtime target ref/revision, and
+the existing `review-channel --action post|ack|apply` lifecycle preserves that
+payload through the event log, reduced packet rows, `actions.json`, and typed
+`ReviewState` parsing. The architecture point is what did not change: remote
+approval still rides the existing review-channel packet system and the same
+`publish_clear` / `push_decision` truth instead of inventing a second
+readiness evaluator.
+
 ### 2026-04-03 - Live review-channel launch now starts the detached publisher/supervisor runtime instead of assuming a later manual ensure step
 
 The repo already had the right runtime pieces: the detached ensure-follow

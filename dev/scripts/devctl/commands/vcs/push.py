@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from ...collect import collect_git_status
@@ -15,9 +16,18 @@ from ...governance.push_routing import PushRefRoutingState, build_preflight_shel
 from ...governance.push_state import current_head_commit_sha, current_upstream_ref
 from ...runtime import TypedAction
 from ...runtime.startup_context import build_startup_context
-from ...runtime.vcs import branch_divergence, remote_branch_exists, remote_exists
+from ...runtime.vcs import (
+    branch_divergence,
+    remote_branch_exists,
+    remote_exists,
+    run_git_capture,
+)
+from .push_artifact import (
+    latest_push_report_relpath,
+    persist_latest_push_report,
+    serialize_push_report,
+)
 from .push_flow import PushFlowDependencies, execute_push_flow_with_dependencies
-from .push_artifact import latest_push_report_relpath, serialize_push_report
 from .push_report import render_push_report
 from .push_snapshot import (
     PushReportContext,
@@ -45,6 +55,23 @@ class PushRunState:
     ahead: int | None = None
 
 
+def _build_push_parameters(
+    *,
+    branch: str,
+    remote: str,
+    execute: bool,
+    skip_preflight: bool,
+    skip_post_push: bool,
+) -> dict[str, object]:
+    parameters: dict[str, object] = {}
+    parameters["branch"] = branch
+    parameters["remote"] = remote
+    parameters["execute"] = execute
+    parameters["skip_preflight"] = skip_preflight
+    parameters["skip_post_push"] = skip_post_push
+    return parameters
+
+
 def _build_typed_action(
     *,
     repo_pack_id: str,
@@ -52,29 +79,56 @@ def _build_typed_action(
     remote: str,
     args,
 ) -> TypedAction:
-    parameters: dict[str, object] = {}
-    parameters["branch"] = branch
-    parameters["remote"] = remote
-    parameters["execute"] = bool(args.execute)
-    parameters["skip_preflight"] = bool(args.skip_preflight)
-    parameters["skip_post_push"] = bool(args.skip_post_push)
+    return build_push_action(
+        repo_pack_id=repo_pack_id,
+        branch=branch,
+        remote=remote,
+        execute=bool(args.execute),
+        skip_preflight=bool(args.skip_preflight),
+        skip_post_push=bool(args.skip_post_push),
+    )
+
+
+def build_push_action(
+    *,
+    repo_pack_id: str,
+    branch: str,
+    remote: str,
+    execute: bool,
+    skip_preflight: bool = False,
+    skip_post_push: bool = False,
+    requested_by: str = REQUESTED_BY,
+) -> TypedAction:
+    """Build the canonical typed action for one governed push request."""
     return TypedAction(
         schema_version=1,
         contract_id="TypedAction",
         action_id="vcs.push",
         repo_pack_id=repo_pack_id,
-        parameters=parameters,
-        requested_by=REQUESTED_BY,
-        dry_run=not bool(args.execute),
+        parameters=_build_push_parameters(
+            branch=branch,
+            remote=remote,
+            execute=bool(execute),
+            skip_preflight=bool(skip_preflight),
+            skip_post_push=bool(skip_post_push),
+        ),
+        requested_by=requested_by,
+        dry_run=not bool(execute),
     )
 
 
-def _load_run_state(policy, args) -> PushRunState:
+def _load_run_state(
+    policy,
+    args,
+    *,
+    repo_root: Path = REPO_ROOT,
+    build_startup_context_fn=None,
+) -> PushRunState:
     state = PushRunState()
     state.remote = str(args.remote or policy.default_remote).strip() or policy.default_remote
     state.warnings.extend(policy.warnings)
     _append_bypass_policy_errors(state, policy, args)
-    git = collect_git_status()
+    git = _collect_git_status_for_repo(repo_root)
     if "error" in git:
         state.errors.append(str(git["error"]))
         return state
@@ -98,9 +152,13 @@ def _load_run_state(policy, args) -> PushRunState:
             "Current branch does not match repo_governance.push.allowed_branch_prefixes: "
             + ", ".join(policy.allowed_branch_prefixes)
         )
-    if not remote_exists(state.remote):
+    if not remote_exists(state.remote, repo_root=repo_root):
         state.errors.append(f"Remote `{state.remote}` is not configured.")
-    _append_startup_push_gate_errors(state)
+    _append_startup_push_gate_errors(
+        state,
+        repo_root=repo_root,
+        build_startup_context_fn=build_startup_context_fn,
+    )
     return state
 
 
@@ -119,11 +177,21 @@ def _append_bypass_policy_errors(state: PushRunState, policy, args) -> None:
         )
 
 
-def _append_startup_push_gate_errors(state: PushRunState) -> None:
+def _append_startup_push_gate_errors(
+    state: PushRunState,
+    *,
+    repo_root: Path = REPO_ROOT,
+    build_startup_context_fn=None,
+) -> None:
     """Fail closed when startup/review state says governed push is not ready."""
     if state.errors:
         return
-    ctx = build_startup_context(repo_root=REPO_ROOT)
+    startup_context_fn = (
+        build_startup_context
+        if build_startup_context_fn is None
+        else build_startup_context_fn
+    )
+    ctx = startup_context_fn(repo_root=repo_root)
     decision = ctx.push_decision
     if decision.action in {"run_devctl_push", "no_push_needed"}:
         return
@@ -143,16 +211,37 @@ def _protected_branch_errors(branch: str, policy) -> list[str]:
     return [f"Direct pushes to protected branch `{branch}` are blocked by repo policy."]
 
 
-def _run_fetch_and_preflight(state: PushRunState, policy, args) -> None:
+def _run_fetch_and_preflight(
+    state: PushRunState,
+    policy,
+    args,
+    *,
+    repo_root: Path = REPO_ROOT,
+    run_cmd_fn=None,
+) -> None:
     if state.errors:
         return
-    state.fetch_step = run_cmd("git-fetch", ["git", "fetch", state.remote], cwd=REPO_ROOT)
+    command_runner = run_cmd if run_cmd_fn is None else run_cmd_fn
+    state.fetch_step = command_runner(
+        "git-fetch",
+        ["git", "fetch", state.remote],
+        cwd=repo_root,
+    )
     if state.fetch_step["returncode"] != 0:
         state.errors.append(f"git fetch failed for remote `{state.remote}`.")
         return
 
-    state.branch_has_remote = remote_branch_exists(state.remote, state.branch)
-    if state.branch_has_remote and not _record_divergence(state, state.remote, state.branch):
+    state.branch_has_remote = remote_branch_exists(
+        state.remote,
+        state.branch,
+        repo_root=repo_root,
+    )
+    if state.branch_has_remote and not _record_divergence(
+        state,
+        state.remote,
+        state.branch,
+        repo_root=repo_root,
+    ):
         return
     if state.branch_has_remote and state.ahead == 0:
         return
@@ -164,22 +253,28 @@ def _run_fetch_and_preflight(state: PushRunState, policy, args) -> None:
         remote=state.remote,
         route_state=PushRefRoutingState(
             current_branch=state.branch,
-            upstream_ref=current_upstream_ref(),
+            upstream_ref=current_upstream_ref(repo_root=repo_root),
             branch_has_remote=state.branch_has_remote,
         ),
         quality_policy_path=getattr(args, "quality_policy", None),
     )
-    state.preflight_step = run_cmd(
+    state.preflight_step = command_runner(
         "push-preflight",
         ["bash", "-lc", preflight_command],
-        cwd=REPO_ROOT,
+        cwd=repo_root,
     )
     if state.preflight_step["returncode"] != 0:
         state.errors.append("Configured push preflight failed.")
 
 
-def _record_divergence(state: PushRunState, remote: str, branch: str) -> bool:
-    divergence = branch_divergence(remote, branch)
+def _record_divergence(
+    state: PushRunState,
+    remote: str,
+    branch: str,
+    *,
+    repo_root: Path = REPO_ROOT,
+) -> bool:
+    divergence = branch_divergence(remote, branch, repo_root=repo_root)
     if divergence["error"]:
         state.errors.append(
             f"Unable to compute divergence for `{branch}`: {divergence['error']}"
@@ -191,6 +286,7 @@ def _record_divergence(state: PushRunState, remote: str, branch: str) -> bool:
         state.errors.append(f"Branch `{branch}` is behind {remote}/{branch}; sync it before push.")
         return False
     return True
+
 
 def _summarize_dirty_paths(
     changes: list[dict[str, object]],
@@ -225,36 +321,71 @@ def _emit_push_progress_notice(message: str) -> None:
     print(f"[devctl push] {message}", file=sys.stderr, flush=True)
 
 
-def run(args) -> int:
-    """Validate and optionally execute a guarded push for the current branch."""
-    policy = load_push_policy(policy_path=getattr(args, "quality_policy", None))
-    state = _load_run_state(policy, args)
-    head_commit = current_head_commit_sha()
+def run_push_action(
+    args,
+    *,
+    repo_root: Path = REPO_ROOT,
+    policy=None,
+    emit_output_report: bool = True,
+    run_cmd_fn=None,
+    build_post_push_commands_fn=None,
+    build_startup_context_fn=None,
+    writer=None,
+    piper=None,
+) -> tuple[int, dict[str, Any]]:
+    """Run the governed push flow and return ``(exit_code, report)``."""
+    resolved_policy = policy or load_push_policy(
+        repo_root=repo_root,
+        policy_path=getattr(args, "quality_policy", None),
+    )
+    state = _load_run_state(
+        resolved_policy,
+        args,
+        repo_root=repo_root,
+        build_startup_context_fn=build_startup_context_fn,
+    )
+    head_commit = current_head_commit_sha(repo_root=repo_root)
     typed_action = asdict(
         _build_typed_action(
-            repo_pack_id=policy.repo_pack_id,
+            repo_pack_id=resolved_policy.repo_pack_id,
             branch=state.branch,
             remote=state.remote,
             args=args,
         )
     )
-    artifact_path = latest_push_report_relpath()
+    artifact_path = latest_push_report_relpath(repo_root=repo_root)
     report_context = PushReportContext(
-        policy=policy,
+        repo_root=repo_root,
+        policy=resolved_policy,
         state=state,
         args=args,
         head_commit=head_commit,
         typed_action=typed_action,
         artifact_path=artifact_path,
     )
-    _run_fetch_and_preflight(state, policy, args)
+    _run_fetch_and_preflight(
+        state,
+        resolved_policy,
+        args,
+        repo_root=repo_root,
+        run_cmd_fn=run_cmd_fn,
+    )
+    command_runner = run_cmd if run_cmd_fn is None else run_cmd_fn
+    post_push_commands = (
+        build_post_push_commands
+        if build_post_push_commands_fn is None
+        else build_post_push_commands_fn
+    )
+    def repo_bound_runner(name: str, cmd: list[str], cwd=None) -> dict[str, object]:
+        del cwd
+        return command_runner(name, cmd, cwd=repo_root)
     outcome = execute_push_flow_with_dependencies(
         state,
-        policy,
+        resolved_policy,
         args,
         PushFlowDependencies(
-            run_cmd_fn=run_cmd,
-            build_post_push_commands_fn=build_post_push_commands,
+            run_cmd_fn=repo_bound_runner,
+            build_post_push_commands_fn=post_push_commands,
             published_remote_snapshot_fn=lambda reason, operator_guidance, partial_progress: (
                 persist_published_remote_snapshot(
                     report_context,
@@ -267,6 +398,10 @@ def run(args) -> int:
         ),
     )
     report = build_push_report_payload(report_context, outcome=outcome)
+    if not emit_output_report:
+        persist_latest_push_report(report, repo_root=repo_root)
+        return (0 if outcome.ok else 1), report
+
     report_json = serialize_push_report(report)
     output = report_json if args.format == "json" else render_push_report(report)
     pipe_rc = emit_output(
@@ -275,9 +410,88 @@ def run(args) -> int:
         pipe_command=args.pipe_command,
         pipe_args=args.pipe_args,
         additional_outputs=((report_json, artifact_path),),
-        writer=write_output,
-        piper=pipe_output,
+        writer=write_output if writer is None else writer,
+        piper=pipe_output if piper is None else piper,
     )
     if pipe_rc != 0:
-        return pipe_rc
-    return 0 if outcome.ok else 1
+        return pipe_rc, report
+    return (0 if outcome.ok else 1), report
+
+
+def run(args) -> int:
+    """Validate and optionally execute a guarded push for the current branch."""
+    exit_code, _ = run_push_action(args)
+    return exit_code
+
+
+def _execute_push_flow(state: PushRunState, policy, args):
+    """Compatibility seam for older callers that patch the push executor directly."""
+    return execute_push_flow_with_dependencies(
+        state,
+        policy,
+        args,
+        PushFlowDependencies(
+            run_cmd_fn=run_cmd,
+            build_post_push_commands_fn=build_post_push_commands,
+        ),
+    )
+
+
+def _collect_git_status_for_repo(repo_root: Path) -> dict[str, object]:
+    """Return branch and dirty state info for one repo root."""
+    if repo_root == REPO_ROOT:
+        return collect_git_status()
+
+    branch_code, branch, branch_error = run_git_capture(
+        ["rev-parse", "--abbrev-ref", "HEAD"],
+        repo_root=repo_root,
+    )
+    if branch_code != 0:
+        message = branch_error or f"git rev-parse exited with code {branch_code}"
+        return {"error": message}
+
+    status_code, status_output, status_error = run_git_capture(
+        ["status", "--porcelain", "--untracked-files=all"],
+        repo_root=repo_root,
+    )
+    if status_code != 0:
+        message = status_error or f"git status exited with code {status_code}"
+        return {"error": message}
+
+    changes: list[dict[str, str]] = []
+    for line in status_output.splitlines():
+        if not line:
+            continue
+        parts = line.split(maxsplit=1)
+        status = parts[0].strip()
+        path = parts[1] if len(parts) == 2 else ""
+        if "->" in path:
+            path = path.split("->")[-1].strip()
+        changes.append({"status": status, "path": path})
+    return {"branch": branch, "changes": changes}
+
+
+def build_push_args(
+    *,
+    remote: str | None = None,
+    quality_policy: str | None = None,
+    execute: bool = False,
+    skip_preflight: bool = False,
+    skip_post_push: bool = False,
+    format: str = "json",
+    output: str | None = None,
+    pipe_command: str | None = None,
+    pipe_args: list[str] | None = None,
+) -> SimpleNamespace:
+    """Build a simple argparse-like object for programmatic push execution."""
+    return SimpleNamespace(
+        remote=remote,
+        quality_policy=quality_policy,
+        execute=execute,
+        skip_preflight=skip_preflight,
+        skip_post_push=skip_post_push,
+        format=format,
+        output=output,
+        pipe_command=pipe_command,
+        pipe_args=pipe_args,
+    )

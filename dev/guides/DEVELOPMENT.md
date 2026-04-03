@@ -72,6 +72,12 @@ Use docs like this:
 - Packet actor/target CLI fields are intentionally parser-loose now: repo-owned
   validation resolves legal ids from typed collaboration/runtime state or
   repo-owned session metadata instead of a fixed provider-choice list.
+- Remote commit/push operator approval now uses the same packet path instead of
+  bridge prose. For that slice, post `review-channel` packets with
+  `--kind commit_approval --target-kind runtime --target-ref remote_commit_pipeline:<pipeline_id>`
+  plus typed `--pipeline-generation`, `--staged-snapshot-hash`, and
+  `--guard-results-summary` fields so approval survives `post|ack|apply`,
+  `actions.json`, and typed `ReviewState` parsing.
 - Closed execution plans move to `dev/archive/` only after their scoped work is
   complete and `dev/active/INDEX.md` plus discovery docs are updated in the
   same change. If a plan doc still holds unfinished or deferred backlog, keep

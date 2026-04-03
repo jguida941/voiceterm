@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from ...runtime import ActionResult
@@ -15,6 +16,7 @@ from .push_report import PushReportInputs, PushStageTruth, build_push_report
 class PushReportContext:
     """Inputs reused across final and intermediate push reports."""
 
+    repo_root: Path
     policy: object
     state: object
     args: object
@@ -88,5 +90,6 @@ def persist_published_remote_snapshot(
                 ),
                 partial_progress=partial_progress,
             ),
-        )
+        ),
+        repo_root=context.repo_root,
     )

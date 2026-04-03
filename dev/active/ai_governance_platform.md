@@ -5468,6 +5468,14 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-03: Landed Phase-0 Slice 2 of the remote commit pipeline under the
+  same `MP-377` authority loop. Review-channel packet plumbing now accepts a
+  dedicated `commit_approval` runtime packet kind with typed
+  `pipeline_generation`, `staged_snapshot_hash`, and
+  `guard_results_summary` fields, preserves that approval payload through
+  `review-channel --action post|ack|apply`, and exposes it through
+  reduced packet rows plus typed `ReviewState` parsing without adding a second
+  publish-readiness evaluator.
 - 2026-04-03: Landed Phase-0 Slice 1 of the remote commit pipeline under the
   active `MP-377` authority loop. `CommitIntentState` and
   `RemoteCommitPipelineContract` now exist as platform/runtime contract rows

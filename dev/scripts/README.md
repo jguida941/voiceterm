@@ -252,7 +252,9 @@ Portability note:
   `--kind commit_approval --target-kind runtime --target-ref remote_commit_pipeline:<pipeline_id>`
   with `--pipeline-generation`, `--staged-snapshot-hash`, and
   `--guard-results-summary` so the same approval payload survives
-  `post|ack|apply`, `actions.json`, and typed review-state parsing.
+  `post|ack|apply`, `actions.json`, and typed review-state parsing. Discovery
+  and workflow policy for that lane stay mirrored in `AGENTS.md`,
+  `dev/guides/DEVELOPMENT.md`, and `dev/active/remote_commit_pipeline.md`.
 - `review-channel --action reviewer-heartbeat` is the repo-owned liveness write
   for solo-dev / tools-only / paused tandem states. It updates heartbeat and
   mode metadata without claiming a new reviewed hash, and it now rewrites

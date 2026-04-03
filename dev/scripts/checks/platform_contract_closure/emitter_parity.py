@@ -119,7 +119,14 @@ def _check_artifact_packets(
     pkt_fields = frozenset(f.name for f in fields(ReviewPacketState))
     # Additive fields that may be absent in stale event state files written
     # before the field was added. These produce coverage notes, not violations.
-    _ADDITIVE_FIELDS = frozenset({"posted_at"})
+    _ADDITIVE_FIELDS = frozenset(
+        {
+            "posted_at",
+            "pipeline_generation",
+            "staged_snapshot_hash",
+            "guard_results_summary",
+        }
+    )
     packets = on_disk.get("packets")
     if not isinstance(packets, list) or not packets:
         return []

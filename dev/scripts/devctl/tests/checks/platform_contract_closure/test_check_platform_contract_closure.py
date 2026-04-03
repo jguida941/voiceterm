@@ -268,9 +268,18 @@ def test_emitter_parity_catches_missing_bridge_state_key() -> None:
 
     original = event_projection.build_event_bridge_state_projection
 
-    def _drop_ack_current(*, review_state: dict[str, object], bridge_liveness: dict[str, object]) -> dict[str, object]:
+    def _drop_ack_current(
+        *,
+        review_state: dict[str, object],
+        bridge_liveness: dict[str, object],
+        reviewer_runtime=None,
+    ) -> dict[str, object]:
         bridge_state = dict(
-            original(review_state=review_state, bridge_liveness=bridge_liveness)
+            original(
+                review_state=review_state,
+                bridge_liveness=bridge_liveness,
+                reviewer_runtime=reviewer_runtime,
+            )
         )
         del bridge_state["claude_ack_current"]
         return bridge_state
@@ -298,9 +307,18 @@ def test_emitter_parity_catches_type_drift() -> None:
 
     original = event_projection.build_event_bridge_state_projection
 
-    def _type_drift(*, review_state: dict[str, object], bridge_liveness: dict[str, object]) -> dict[str, object]:
+    def _type_drift(
+        *,
+        review_state: dict[str, object],
+        bridge_liveness: dict[str, object],
+        reviewer_runtime=None,
+    ) -> dict[str, object]:
         bridge_state = dict(
-            original(review_state=review_state, bridge_liveness=bridge_liveness)
+            original(
+                review_state=review_state,
+                bridge_liveness=bridge_liveness,
+                reviewer_runtime=reviewer_runtime,
+            )
         )
         bridge_state["last_codex_poll_age_seconds"] = 0.5
         return bridge_state
@@ -332,9 +350,14 @@ def test_emitter_parity_catches_parser_roundtrip_drift() -> None:
         *,
         review_state: dict[str, object],
         bridge_liveness: dict[str, object],
+        reviewer_runtime=None,
     ) -> dict[str, object]:
         bridge_state = dict(
-            original(review_state=review_state, bridge_liveness=bridge_liveness)
+            original(
+                review_state=review_state,
+                bridge_liveness=bridge_liveness,
+                reviewer_runtime=reviewer_runtime,
+            )
         )
         bridge_state["overall_state"] = "synthetic-drift"
         return bridge_state

@@ -1,4 +1,4 @@
-"""Read-only helpers for the remote commit pipeline artifact surface."""
+"""Helpers for the remote commit pipeline artifact surface."""
 
 from __future__ import annotations
 
@@ -35,3 +35,18 @@ def load_remote_commit_pipeline_contract(
             blocked_reason="commit_pipeline_artifact_invalid"
         )
     return remote_commit_pipeline_contract_from_mapping(payload)
+
+
+def persist_remote_commit_pipeline_contract(
+    contract: RemoteCommitPipelineContract,
+    *,
+    output_root: Path,
+) -> Path:
+    """Write the canonical commit-pipeline artifact and return its path."""
+    artifact_path = output_root / COMMIT_PIPELINE_FILENAME
+    artifact_path.parent.mkdir(parents=True, exist_ok=True)
+    artifact_path.write_text(
+        json.dumps(contract.to_dict(), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return artifact_path

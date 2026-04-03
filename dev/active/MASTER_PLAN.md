@@ -211,7 +211,11 @@
   `guard_results_summary` fields, `review-channel --action post|ack|apply`
   preserves those fields through the event log and reduced packet rows, and
   typed review-state/action projections expose the approval payload without
-  inventing a second publish-readiness evaluator.
+  inventing a second publish-readiness evaluator. Maintainer discovery for
+  that slice now stays aligned across `AGENTS.md`,
+  `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, and the owning
+  `MP-377` plan docs instead of leaving the runtime approval vocabulary in one
+  narrow surface.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible
