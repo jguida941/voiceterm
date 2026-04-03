@@ -1,21 +1,44 @@
-MIT License
+VoiceTerm Repository Licensing Overview
+======================================
 
-Copyright (c) 2026 jguida941
+This repository uses split licensing.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. VoiceTerm application, packaging, and user-facing distribution surfaces are
+   licensed under the MIT License in `LICENSE-VOICETERM`.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+   The MIT carve-out applies to:
+   - `README.md`
+   - `QUICK_START.md`
+   - `guides/**`
+   - `img/**`
+   - `rust/**`
+   - `pypi/**`
+   - `app/ios/**`
+   - `app/macos/**`
+   - `bin/voxterm`
+   - `scripts/install.sh`
+   - `scripts/setup.sh`
+   - `scripts/start.sh`
+   - `scripts/start.bat`
+   - `scripts/macros.sh`
+   - `scripts/macro-packs/**`
+   - `scripts/python_fallback.py`
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. Unless a more specific local `LICENSE` file says otherwise, all other
+   repository content is licensed under the restrictive proprietary terms in
+   `LICENSE-AI-PLATFORM`.
+
+   This includes the AI governance platform, `devctl`, repo-governance
+   automation, control-plane/runtime tooling, Operator Console surfaces, and
+   related integration/control code.
+
+3. A subtree that ships its own local `LICENSE` file overrides this overview
+   for that subtree. For example, `integrations/ci-cd-hub/**` continues to use
+   its own local license file.
+
+4. Third-party dependencies, vendored code, and generated artifacts remain
+   subject to their own upstream licenses and notices.
+
+If you need commercial, production, hosted-service, redistribution, or broader
+usage rights for any content covered by `LICENSE-AI-PLATFORM`, you need prior
+written permission from the Licensor.

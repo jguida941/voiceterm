@@ -1,0 +1,57 @@
+VoiceTerm AI Platform License v1.0
+==================================
+
+Copyright (c) 2026 jguida941. All Rights Reserved.
+
+1. Scope
+
+   This license applies to any file or directory in this repository that is
+   designated to use this license by the root `LICENSE` file or by a local
+   license notice.
+
+2. Limited License Grant
+
+   Subject to this license, the Licensor grants You a limited, revocable,
+   non-exclusive, non-transferable, non-sublicensable license to view, copy,
+   run, modify, and create derivative works of the Software solely for Your
+   own personal, internal development, internal research, or internal
+   evaluation use, and only in non-production environments.
+
+3. Restrictions
+
+   You may not, without prior written permission from the Licensor:
+
+   a. use the Software or derivative works in production or for any
+      commercial, revenue-generating, customer-facing, or fee-bearing purpose;
+   b. provide, sublicense, sell, lease, assign, distribute, publish, or
+      otherwise make the Software or derivative works available to any third
+      party outside Your organization;
+   c. host, operate, or expose the Software or derivative works as a managed
+      service, SaaS offering, API, platform, or shared service for third
+      parties;
+   d. remove or alter any copyright, license, or proprietary notice;
+   e. transfer this license or any rights under it.
+
+4. Ownership
+
+   The Software is licensed, not sold. All rights not expressly granted under
+   this license are reserved by the Licensor.
+
+5. Termination
+
+   This license terminates automatically if You violate any term of it. Upon
+   termination, You must stop all use of the Software and delete all copies in
+   Your possession or control.
+
+6. Disclaimer
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+7. Limitation of Liability
+
+   IN NO EVENT SHALL THE LICENSOR OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+   CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT,
+   OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR
+   THE USE OF OR OTHER DEALINGS IN THE SOFTWARE.

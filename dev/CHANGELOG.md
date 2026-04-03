@@ -7,6 +7,13 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Changed
+
+- Split repo licensing so VoiceTerm product/distribution surfaces stay MIT
+  while the AI governance platform, `devctl`, and control-plane surfaces move
+  under a restrictive proprietary license. The root `LICENSE` file now acts as
+  the boundary map for the mixed-license repo.
+
 ## [1.2.3] - 2026-04-01
 ### Runtime Hardening
 
