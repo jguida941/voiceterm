@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=flat&label=release&labelColor=7C422B&color=2D2F34" alt="VoiceTerm Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/static/v1?label=license&message=split&style=flat&labelColor=7C422B&color=2D2F34" alt="Split License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/static/v1?label=license&message=Elastic-2.0&style=flat&labelColor=7C422B&color=2D2F34" alt="Elastic License 2.0"></a>
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=flat&label=ci&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white&logoSize=auto" alt="CI"></a>
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/clippy-warnings.json&style=flat&label=clippy&labelColor=7C422B&color=2D2F34&logo=rust&logoColor=white&logoSize=auto" alt="Clippy Warnings"></a>
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=flat&label=mutation&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white&logoSize=auto" alt="Mutation Score"></a>
@@ -347,8 +347,8 @@ For all available commands, what they do, and when to use them: [devctl guide](d
 
 ## License
 
-This repository is split-licensed. See the overview in [LICENSE](LICENSE).
+VoiceTerm is licensed under the [Elastic License 2.0](LICENSE).
 
-- VoiceTerm product and distribution surfaces are MIT licensed under [LICENSE-VOICETERM](LICENSE-VOICETERM).
-- AI platform, `devctl`, and control-plane/governance surfaces are under the restrictive proprietary terms in [LICENSE-AI-PLATFORM](LICENSE-AI-PLATFORM).
-- Subtrees that ship their own local `LICENSE` file, such as [integrations/ci-cd-hub/LICENSE](integrations/ci-cd-hub/LICENSE), keep that local license for their subtree.
+Subtrees that ship their own local `LICENSE` file, such as
+[integrations/ci-cd-hub/LICENSE](integrations/ci-cd-hub/LICENSE), keep that
+local license for their subtree.
