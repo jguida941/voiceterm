@@ -111,19 +111,19 @@ Pre-7e4d1c2 verification (HISTORICAL — these findings were from BEFORE the Rev
 
 Codex CLI sandbox blocks `git commit` on `.git/index.lock`, showing a permission dialog that requires physical keyboard access. When the operator is remote, this blocks all progress.
 
-**Correct architecture (NOT a workaround — this is the role split):**
-- **Codex** = coder. Stages files but does NOT commit. Sandbox restriction is correct — prevents unreviewed commits.
-- **Claude** = orchestrator with commit authority. Runs ALL guards on staged work (`check --profile ci`, `docs-check`, tests). If guards pass, Claude commits. No sandbox restriction.
-- **Operator** = push authority. Sees guard results via this remote session. Says "push" or "don't push." Claude runs `devctl push --execute` on operator approval.
-- **State flow:** Codex stages → Claude validates → Claude commits → startup-context checks → operator approves → governed push.
+**This is NOT a manual workaround. It must be a typed, automated pipeline using existing contracts:**
 
-This must be formalized in the bridge protocol and the remote-bridge-loop setup so it's not ad hoc.
+The entire flow — Codex stages → guards run → Claude validates → operator approves → commit → governed push — must be automated through the existing typed governance system. No manual guard runs, no ad hoc commits, no prose-based approval. Every step should flow through `ReviewerRuntimeContract`, `TypedAction`, `PacketPostRequest`, and the existing guard/probe stack.
 
-**FIX needed:**
-- Add to bridge protocol: Codex MUST NOT commit directly. Claude commits after guard validation.
-- Add to remote-bridge-loop.sh setup: document the role split.
-- Add to AUDIT_STATUS.md remaining items table.
-- The remote session (Claude Code) IS the dashboard — it shows guard results and awaits operator "push" command.
+**NEEDS DESIGN:** This is a new architectural requirement that must be designed by Codex and reviewed by ChatGPT Pro before implementation. The design must:
+- Use existing contracts (`ReviewerRuntimeContract`, `TypedAction → ActionResult`, `PacketPostRequest`, guard bundles)
+- Automate guard execution as part of the typed pipeline (not manually by Claude)
+- Use typed state to track staged-work → guards-passed → awaiting-approval → committed → pushed
+- Let the operator approve from phone through the existing review-channel system (not raw bridge edits)
+- Make the remote-control session a dashboard that shows typed state, not a manual operator
+- Treat the Codex sandbox commit block as a design input, not a bug to work around
+
+**This needs to be added to the implementation plan as a Phase 0 prerequisite and designed through the architecture before any more Phase 1 work.**
 
 **1. No persistent supervisor (CRITICAL — root cause of idle-Codex)**
 - The Codex CLI has no polling loop — processes prompt and stops
