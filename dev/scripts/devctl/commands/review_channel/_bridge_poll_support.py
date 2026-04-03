@@ -111,13 +111,24 @@ def load_typed_poll_authority(
     repo_root: Path,
     paths: RuntimePaths,
 ) -> dict[str, object] | None:
+    """Load the typed review-state authority for bridge-poll turn decisions.
+
+    Primary path: call ``refresh_status_snapshot()`` (the same function that
+    ``status``/``doctor``/``startup-context`` use) and read the freshly
+    written ``review_state.json``.
+
+    Fallback: if the refresh fails, read the last-known-good
+    ``review_state.json`` from disk.  This gives bridge-poll stale but
+    typed authority — much better than falling through to empty-string
+    heuristics that silently disagree with the rest of the stack.
+    """
     bridge_path = paths.bridge_path if isinstance(paths.bridge_path, Path) else None
     review_channel_path = (
         paths.review_channel_path if isinstance(paths.review_channel_path, Path) else None
     )
     status_dir = paths.status_dir if isinstance(paths.status_dir, Path) else None
     if bridge_path is None or review_channel_path is None or status_dir is None:
-        return None
+        return _read_last_known_review_state(status_dir)
     try:
         snapshot = refresh_status_snapshot(
             repo_root=repo_root,
@@ -133,6 +144,20 @@ def load_typed_poll_authority(
             )
         )
     except (OSError, TypeError, ValueError):
+        return _read_last_known_review_state(status_dir)
+    return payload if isinstance(payload, dict) else None
+
+
+def _read_last_known_review_state(
+    status_dir: Path | None,
+) -> dict[str, object] | None:
+    """Read the last-known-good review_state.json from the status directory."""
+    if status_dir is None or not isinstance(status_dir, Path):
+        return None
+    review_state_path = status_dir / "review_state.json"
+    try:
+        payload = json.loads(review_state_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
         return None
     return payload if isinstance(payload, dict) else None
 

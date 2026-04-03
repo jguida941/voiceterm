@@ -7,11 +7,16 @@ from dataclasses import asdict, dataclass
 
 from ..runtime.review_state_parser import review_state_from_payload
 from ..runtime.role_profile import TandemRole
+from .attention import derive_bridge_attention
 from .current_session_projection import (
     bridge_implementer_state_hash,
     build_bridge_current_session,
 )
 from .handoff import BridgeLiveness, BridgeSnapshot
+from .launch_truth import (
+    classify_launch_truth,
+    effective_reviewer_mode as _compute_effective_reviewer_mode,
+)
 from .peer_liveness import (
     AttentionStatus,
     REVIEWER_WAIT_STATE_MARKERS,
@@ -65,6 +70,34 @@ def build_reviewer_turn_authority(
     reviewer_runtime = review_state.reviewer_runtime if review_state is not None else None
     attention = review_state.attention if review_state is not None else None
 
+    # Derive fallback authority from bridge_liveness classifiers when typed
+    # review state is missing OR when it exists but lacks the decisive fields
+    # (effective_reviewer_mode, attention, launch_truth). This happens when
+    # review_state_from_payload() returns a partial ReviewState that merely
+    # contains review/queue/bridge/packets but no reviewer_runtime or
+    # attention. Without this, bridge-poll silently skips the fallback and
+    # returns empty authority fields.
+    _needs_fallback = (
+        review_state is None
+        or (reviewer_runtime is None and attention is None)
+    )
+    _liveness_dict = asdict(bridge_liveness) if _needs_fallback else {}
+    _has_lifecycle = (
+        "publisher_running" in _liveness_dict
+        or "reviewer_supervisor_running" in _liveness_dict
+    )
+    if _has_lifecycle:
+        _fallback_attention = derive_bridge_attention(_liveness_dict)
+        _fallback_launch_truth = str(
+            _liveness_dict.get("launch_truth")
+            or classify_launch_truth(_liveness_dict).value
+        )
+        _fallback_effective_mode = _compute_effective_reviewer_mode(_liveness_dict)
+    else:
+        _fallback_attention = None
+        _fallback_launch_truth = ""
+        _fallback_effective_mode = ""
+
     reviewer_mode = (
         reviewer_runtime.reviewer_mode
         if reviewer_runtime is not None and reviewer_runtime.reviewer_mode
@@ -77,6 +110,8 @@ def build_reviewer_turn_authority(
         if reviewer_runtime is not None and reviewer_runtime.effective_reviewer_mode
         else bridge.effective_reviewer_mode
         if bridge is not None and bridge.effective_reviewer_mode
+        else _fallback_effective_mode
+        if _fallback_effective_mode
         else reviewer_mode
     )
     reviewer_freshness = (
@@ -91,6 +126,8 @@ def build_reviewer_turn_authority(
         if attention is not None and attention.status
         else reviewer_runtime.stale_reason
         if reviewer_runtime is not None and reviewer_runtime.stale_reason
+        else str(_fallback_attention.get("status", ""))
+        if _fallback_attention is not None
         else ""
     )
     recovery_action_allowed = (
@@ -152,7 +189,11 @@ def build_reviewer_turn_authority(
         reviewer_mode=reviewer_mode,
         effective_reviewer_mode=effective_reviewer_mode,
         reviewer_freshness=reviewer_freshness,
-        launch_truth=bridge.launch_truth if bridge is not None else "",
+        launch_truth=(
+            bridge.launch_truth
+            if bridge is not None and bridge.launch_truth
+            else _fallback_launch_truth
+        ),
         attention_status=attention_status,
         recovery_action_allowed=recovery_action_allowed,
         implementation_blocked=implementation_blocked,

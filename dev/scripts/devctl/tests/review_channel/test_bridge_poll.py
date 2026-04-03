@@ -991,3 +991,85 @@ def test_cli_parser_accepts_bridge_poll() -> None:
         ]
     )
     assert getattr(args, "action") == "bridge-poll"
+
+
+def test_bridge_poll_fallback_reads_last_known_review_state(tmp_path: Path) -> None:
+    """load_typed_poll_authority falls back to review_state.json on disk when refresh fails."""
+    from dev.scripts.devctl.commands.review_channel._bridge_poll_support import (
+        load_typed_poll_authority,
+    )
+    from dev.scripts.devctl.commands.review_channel_command import RuntimePaths
+
+    status_dir = tmp_path / "dev" / "reports" / "review_channel" / "latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+
+    typed_state = _typed_review_state(
+        effective_reviewer_mode="tools_only",
+        launch_truth="detached_runtime_only",
+        attention_status="review_loop_relaunch_required",
+    )
+    (status_dir / "review_state.json").write_text(
+        json.dumps(typed_state), encoding="utf-8"
+    )
+
+    paths = RuntimePaths(
+        bridge_path=tmp_path / "bridge.md",
+        review_channel_path=tmp_path / "dev" / "active" / "review_channel.md",
+        status_dir=status_dir,
+        promotion_plan_path=tmp_path / "promo.md",
+    )
+
+    with patch(
+        "dev.scripts.devctl.commands.review_channel._bridge_poll_support.refresh_status_snapshot",
+        side_effect=OSError("simulated snapshot refresh failure"),
+    ):
+        result = load_typed_poll_authority(repo_root=tmp_path, paths=paths)
+
+    assert result is not None
+    assert result["bridge"]["effective_reviewer_mode"] == "tools_only"
+    assert result["bridge"]["launch_truth"] == "detached_runtime_only"
+    assert result["attention"]["status"] == "review_loop_relaunch_required"
+
+
+def test_bridge_poll_turn_authority_uses_lifecycle_fallback_when_present() -> None:
+    """build_reviewer_turn_authority uses reviewer_mode as effective_reviewer_mode without lifecycle."""
+    from dev.scripts.devctl.review_channel.handoff import (
+        BridgeLiveness,
+        extract_bridge_snapshot,
+    )
+    from dev.scripts.devctl.review_channel.turn_authority import (
+        build_reviewer_turn_authority,
+    )
+
+    bridge_text = _build_bridge_text()
+    snapshot = extract_bridge_snapshot(bridge_text)
+    liveness = BridgeLiveness(
+        overall_state="active",
+        reviewer_mode="active_dual_agent",
+        codex_poll_state="current",
+        last_codex_poll_utc="2026-04-03T00:00:00Z",
+        last_codex_poll_age_seconds=5,
+        last_reviewed_scope_present=True,
+        next_action_present=True,
+        open_findings_present=True,
+        claude_status_present=True,
+        claude_ack_present=True,
+        claude_ack_current=True,
+        current_instruction_revision="56bcd5d01510",
+        claude_ack_revision="56bcd5d01510",
+        reviewed_hash_current=True,
+        reviewer_freshness="fresh",
+    )
+
+    authority = build_reviewer_turn_authority(
+        snapshot=snapshot,
+        bridge_liveness=liveness,
+        typed_review_state=None,
+    )
+
+    # Without lifecycle fields (publisher_running, reviewer_supervisor_running)
+    # the fallback classifiers are skipped.  effective_reviewer_mode should
+    # fall through to reviewer_mode ("active_dual_agent"), NOT a false
+    # runtime_missing downgrade.
+    assert authority.effective_reviewer_mode == "active_dual_agent"
+    assert authority.reviewer_mode == "active_dual_agent"

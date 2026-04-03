@@ -9,10 +9,11 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### Changed
 
-- Replace the mixed-license repo setup with one restrictive standard
-  source-available license across VoiceTerm: the root repo now uses Elastic
-  License 2.0, and the published Rust/PyPI metadata was updated to stop
-  advertising MIT.
+- Replace the temporary Elastic License 2.0 setup with a stricter proprietary
+  evaluation license: no third-party commercial use, production use, hosting,
+  redistribution, or derivative commercialization is allowed without written
+  permission, and package metadata now uses custom-license file references
+  instead of a standard SPDX license identifier.
 
 ## [1.2.3] - 2026-04-01
 ### Runtime Hardening

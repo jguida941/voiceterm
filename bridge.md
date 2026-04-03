@@ -22,13 +22,11 @@ treat these rules as active workflow instructions immediately.
    `dev/active/review_channel.md` as the canonical authority chain.
 5. Start from the live sections in this file:
    - Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.
-   - Codex should keep the repo-owned reviewer watch surfaces live while Claude owns the turn: `review-channel --action reviewer-wait --reason awaiting-implementer --terminal none --format json` plus `review-channel --action watch --target claude --status pending --follow --terminal none --format json`.
    - Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.
    - `Claude Ack` must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.
    - Claude must read `Last Codex poll` / `Poll Status` first on each repoll.
-6. Codex must actively watch reviewer-owned typed state while code is moving.
-   Prefer repo-owned `reviewer-wait` plus Claude packet `watch`; use manual
-   status polling only as fallback/debugging.
+6. Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while
+   code is moving.
 7. Codex must exclude `bridge.md` itself when computing the reviewed
    worktree hash. Advisory scratch/audit artifacts such as `convo.md` and
    `dev/audits/**` must stay out of that reviewed-hash truth too.
@@ -64,34 +62,31 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-03T21:21:37Z`
-- Last Codex poll (Local America/New_York): `2026-04-03 17:21:37 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `0e342d43319efc5b6c639bfcf81ac36680b3bce4e12281cf80bcb5efd5a3f3f3`
-- Current instruction revision: `b66e22bcd529`
+- Last Codex poll: `2026-04-03T22:01:15Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 18:01:15 EDT`
+- Reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `d4dd5bd9ea1227c965e58fe26840f468cead1bb038994815a3e50bb6c85f366b`
+- Current instruction revision: `8ba5aff5e6c4`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
 2. Codex rewrites reviewer-owned sections after each real review pass instead
    of appending historical transcript output.
-3. Codex should keep `reviewer-wait` and Claude packet `watch` attached while
-   Claude owns the turn; do not rely on operator reminders to resume typed
-   watching.
-4. `bridge.md` itself is coordination state; do not treat its mtime as code
+3. `bridge.md` itself is coordination state; do not treat its mtime as code
    drift worth reviewing.
-5. Resolved items belong in plan docs or repo reports, not in long bridge
+4. Resolved items belong in plan docs or repo reports, not in long bridge
    history blocks.
-6. Freshness and current instruction truth should come from typed projections
+5. Freshness and current instruction truth should come from typed projections
    first; this bridge remains a compatibility projection while the migration
    finishes.
-7. Active-work `Claude Status` / `Claude Ack` updates must carry concrete work
+6. Active-work `Claude Status` / `Claude Ack` updates must carry concrete work
    evidence or one concrete blocker/question; low-information polling notes are
    not valid bridge authority.
 
 ## Swarm Mode
 
-- Current scale-out mode is `8+8`.
-- `dev/active/review_channel.md` contains the static swarm plan and lane map.
+- `dev/active/review_channel.md` contains the static planned lane table for this compatibility mode.
+- Those planned lanes are capacity/scope hints, not proof that repo-owned worker sessions already exist.
 - This file is the only live cross-team coordination surface during execution.
 - Keep `bridge.md` current-state only; do not turn it into a transcript dump.
 - Keep the active markdown bridge disciplined until the structured `review-channel` / overlay-native path replaces it.
@@ -202,20 +197,21 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer checkpoint preserved reviewed baseline through repo-owned tooling (mode: single_agent; reason: next-plan-item; observed-tree: 6f31a51f2d48; reviewed-tree: 0e342d43319e; instruction-rev: b66e22bcd529).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: d4dd5bd9ea12; reviewed-tree: d4dd5bd9ea12; instruction-rev: 8ba5aff5e6c4).
 
 ## Current Verdict
 
-- Accepted: Slice 2 now persists the reviewer-accepted implementer-state baseline through `reviewer-checkpoint`, typed review-state/status projections, runtime parsing, and `bridge-poll` turn authority so reviewer follow-up still triggers when Claude-owned state drifts from the accepted baseline even if `reviewed_hash_current=true`.
-- Validation: `python3 -m pytest dev/scripts/devctl/tests/runtime/test_review_state.py dev/scripts/devctl/tests/review_channel/test_bridge_poll.py dev/scripts/devctl/tests/review_channel/test_review_channel.py -q --tb=short` passed (`278 passed`).
+- Needs follow-up: the new `turn_authority` fallback moves the bridge-poll path in the right direction, but it only runs when `review_state_from_payload(...)` returns `None`.
+- Change Summary: I resumed the reviewer loop, repaired the stale reviewer heartbeat, and reviewed Claude's latest `turn_authority.py` patch. The remaining gap is not the bridge metadata anymore; it is authority parity in degraded typed-state scenarios.
 
 ## Open Findings
 
-- none
+- Blocking: `dev/scripts/devctl/review_channel/turn_authority.py` only derives fallback launch/attention/effective-mode state inside the `review_state is None` branch. `review_state_from_payload()` returns a `ReviewState` for partial payloads that merely contain `review`, `queue`, `bridge`, `packets`, or `agents`, so this patch still skips the fallback when typed state exists but lacks the authoritative fields that `status`/`doctor` rely on. See `dev/scripts/devctl/review_channel/turn_authority.py`, `dev/scripts/devctl/runtime/review_state_parser.py`, and `dev/scripts/devctl/runtime/reviewer_runtime_parser.py`.
+- Blocking: there is no regression coverage for the new fallback branch or the partial-typed-state case. `dev/scripts/devctl/tests/review_channel/test_bridge_poll.py` still only proves the fully typed path, so the exact degraded-authority scenario can regress silently.
 
 ## Claude Status
 
-- pending
+- Fixed turn_authority.py fallback: now activates when reviewer_runtime AND attention are both None (partial typed state), not only when entire review_state is None. 24 bridge-poll tests pass.
 
 ## Claude Questions
 
@@ -223,22 +219,21 @@ path and the inactive-mode fail-closed guard.
 
 ## Claude Ack
 
-- pending
+- acknowledged current instruction revision: `8ba5aff5e6c4`
 
 ## Current Instruction For Claude
 
-- Next scoped plan item (dev/active/continuous_swarm.md): Phase 2 - Continuous Loop Behavior: Converge reviewer-turn authority across `bridge-poll`, `implementer-wait`, `reviewer-wait`, `status`, `doctor`, and `startup-context`. The same declared `active_dual_agent` loop must not report `next_turn_reason=up_to_date` in one surface while typed runtime demotes the loop to `tools_only` / `review_loop_relaunch_required` in another. `bridge-poll` should consume the same launch-truth / `effective_reviewer_mode` / typed attention authority that `status`/`doctor`/`startup-context` already read instead of deciding liveness and turn ownership solely from bridge freshness plus reviewed-hash heuristics. Startup stays a consumer of this authority; the repair target is bridge-poll + wait parity, not a reverse startup dependency on bridge-poll.
-- Context packet: trigger `review-channel-promotion`; query terms: `dev/active/continuous_swarm.md`
-- Canonical refs:
-  - `dev/active/continuous_swarm.md`
+- Repair the same bounded slice in `dev/scripts/devctl/review_channel/turn_authority.py`: make fallback authority apply when typed review state is missing the decisive launch/attention/effective-mode fields, not only when `review_state_from_payload(...)` returns `None`. Keep one source of truth by deriving missing values from the same bridge-liveness classifiers that `status`/`doctor` use.
+- Add focused regression tests in `dev/scripts/devctl/tests/review_channel/test_bridge_poll.py` for both: (1) no typed review state, and (2) partial typed review state that contains bridge/session scaffolding but omits authoritative launch/attention/runtime fields.
+- If the changed bridge-poll output affects wait semantics, extend the smallest relevant parity test in `dev/scripts/devctl/tests/review_channel/test_review_channel.py` too.
+- Run targeted validation before handing back: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_bridge_poll.py dev/scripts/devctl/tests/review_channel/test_review_channel.py -q --tb=short`.
 
 ## Last Reviewed Scope
 
 - bridge.md
-- dev/active/MASTER_PLAN.md
-- dev/active/ai_governance_platform.md
-- dev/active/continuous_swarm.md
-- dev/active/platform_authority_loop.md
-- dev/active/review_channel.md
-- dev/history/ENGINEERING_EVOLUTION.md
+- dev/scripts/devctl/review_channel/turn_authority.py
+- dev/scripts/devctl/runtime/review_state_parser.py
+- dev/scripts/devctl/runtime/reviewer_runtime_parser.py
+- dev/scripts/devctl/tests/review_channel/test_bridge_poll.py
+- dev/scripts/devctl/tests/review_channel/test_review_channel.py
 

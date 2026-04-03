@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=flat&label=release&labelColor=7C422B&color=2D2F34" alt="VoiceTerm Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/static/v1?label=license&message=Elastic-2.0&style=flat&labelColor=7C422B&color=2D2F34" alt="Elastic License 2.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/static/v1?label=license&message=proprietary&style=flat&labelColor=7C422B&color=2D2F34" alt="Proprietary License"></a>
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=flat&label=ci&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white&logoSize=auto" alt="CI"></a>
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/clippy-warnings.json&style=flat&label=clippy&labelColor=7C422B&color=2D2F34&logo=rust&logoColor=white&logoSize=auto" alt="Clippy Warnings"></a>
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=flat&label=mutation&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white&logoSize=auto" alt="Mutation Score"></a>
@@ -347,8 +347,13 @@ For all available commands, what they do, and when to use them: [devctl guide](d
 
 ## License
 
-VoiceTerm is licensed under the [Elastic License 2.0](LICENSE).
+VoiceTerm is source-available under the proprietary evaluation license in
+[LICENSE](LICENSE).
 
-Subtrees that ship their own local `LICENSE` file, such as
-[integrations/ci-cd-hub/LICENSE](integrations/ci-cd-hub/LICENSE), keep that
-local license for their subtree.
+- No third-party commercial use, production use, hosting, redistribution, or
+  derivative commercialization is allowed without prior written permission.
+- Separate commercial or production rights require a direct written license
+  from the Licensor.
+- Subtrees that ship their own local `LICENSE` file, such as
+  [integrations/ci-cd-hub/LICENSE](integrations/ci-cd-hub/LICENSE), keep that
+  local license for their subtree.
