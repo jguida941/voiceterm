@@ -152,6 +152,7 @@ def enrich_event_review_state(
     review_state["attention"] = attention
     existing_compat = review_state.get("_compat")
     merged_compat = dict(existing_compat) if isinstance(existing_compat, dict) else {}
+    runtime_daemons = _mapping(_mapping(merged_compat.get("runtime")).get("daemons"))
     merged_compat["service_identity"] = build_service_identity_state(raw_service_identity)
     merged_compat["attach_auth_policy"] = build_attach_auth_policy_state(
         raw_attach_auth_policy
@@ -160,6 +161,10 @@ def enrich_event_review_state(
         contract=reviewer_runtime,
         attention=attention,
         commit_pipeline=commit_pipeline,
+        publisher_state=_mapping(runtime_daemons.get("publisher")),
+        reviewer_supervisor_state=_mapping(
+            runtime_daemons.get("reviewer_supervisor")
+        ),
     )
     review_state["_compat"] = merged_compat
     return review_state, {

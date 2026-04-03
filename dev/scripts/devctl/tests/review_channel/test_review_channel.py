@@ -902,42 +902,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(cleanup_warnings, [])
         self.assertEqual(cleanup_calls, ["codex-conductor"])
 
-    def test_launch_sessions_if_requested_starts_runtime_daemons_on_live_launch(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            bridge_path = Path(tmpdir) / "bridge.md"
-            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
-            runtime_calls: list[str] = []
-
-            def _ensure_runtime() -> tuple[bool, list[str]]:
-                runtime_calls.append("runtime")
-                return True, []
-
-            launched, ack_required, ack_observed, cleanup_warnings = launch_sessions_if_requested(
-                BridgeLaunchSessionRequest(
-                    args=SimpleNamespace(
-                        action="launch",
-                        terminal="terminal-app",
-                        dry_run=False,
-                        await_ack_seconds=0,
-                    ),
-                    sessions=[{"launch_command": "/bin/zsh /tmp/new-codex.sh"}],
-                    bridge_path=bridge_path,
-                    handoff_bundle=None,
-                    terminal_profile_applied="Pro",
-                    launch_terminal_sessions_fn=lambda *args, **kwargs: None,
-                    ensure_runtime_daemons_fn=_ensure_runtime,
-                )
-            )
-
-        self.assertTrue(launched)
-        self.assertFalse(ack_required)
-        self.assertIsNone(ack_observed)
-        self.assertEqual(cleanup_warnings, [])
-        self.assertEqual(runtime_calls, ["runtime"])
-
-    def test_ensure_launch_runtime_daemons_starts_missing_runtime(self) -> None:
+    def test_ensure_launch_runtime_daemons_starts_missing_publisher(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = Path(tmpdir)
             bridge_path = repo_root / "bridge.md"
@@ -954,15 +919,6 @@ class ReviewChannelHelperTests(unittest.TestCase):
                     "dev.scripts.devctl.commands.review_channel._publisher.spawn_follow_publisher",
                     return_value=(True, 4242, "/tmp/publisher_follow.log"),
                 ) as spawn_follow_publisher,
-                patch(
-                    "dev.scripts.devctl.commands.review_channel._publisher.ensure_reviewer_supervisor_running",
-                    return_value={
-                        "attempted": True,
-                        "started": True,
-                        "pid": 5151,
-                        "start_status": "started",
-                    },
-                ) as ensure_supervisor,
                 patch(
                     "dev.scripts.devctl.commands.review_channel.bridge_launch_control.time.sleep",
                     return_value=None,
@@ -985,8 +941,45 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(warnings, [])
         spawn_follow_publisher.assert_called_once()
-        ensure_supervisor.assert_called_once()
         self.assertEqual(read_publisher_state.call_count, 2)
+
+    def test_ensure_launch_runtime_daemons_noops_when_publisher_is_already_running(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            bridge_path = repo_root / "bridge.md"
+            review_channel_path = repo_root / "dev/active/review_channel.md"
+            status_dir = repo_root / "dev/reports/review_channel/latest"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.review_channel.bridge_launch_control.read_publisher_state",
+                    return_value={"running": True, "pid": 4242},
+                ) as read_publisher_state,
+                patch(
+                    "dev.scripts.devctl.commands.review_channel._publisher.spawn_follow_publisher",
+                ) as spawn_follow_publisher,
+            ):
+                ok, warnings = ensure_launch_runtime_daemons(
+                    args=SimpleNamespace(
+                        action="launch",
+                        terminal="terminal-app",
+                        dry_run=False,
+                        await_ack_seconds=0,
+                    ),
+                    repo_root=repo_root,
+                    review_channel_path=review_channel_path,
+                    bridge_path=bridge_path,
+                    status_dir=status_dir,
+                    reviewer_mode="active_dual_agent",
+                )
+
+        self.assertTrue(ok)
+        self.assertEqual(warnings, [])
+        read_publisher_state.assert_called_once_with(status_dir)
+        spawn_follow_publisher.assert_not_called()
 
     def test_summarize_bridge_liveness_marks_fresh_bridge_state(self) -> None:
         snapshot = extract_bridge_snapshot(_build_bridge_text())
@@ -6358,6 +6351,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 compact["doctor"]["pipeline_state"],
                 "push_blocked",
             )
+            self.assertIn("publisher_running", compact["doctor"])
             self.assertEqual(commit_pipeline["state"], "push_blocked")
             self.assertIn(
                 "## Current Session",
@@ -6488,9 +6482,26 @@ class ReviewChannelCommandTests(unittest.TestCase):
             runtime["daemons"]["reviewer_supervisor"]["snapshots_emitted"],
             7,
         )
+        self.assertTrue(review_state["_compat"]["doctor"]["publisher_running"])
+        self.assertEqual(
+            review_state["_compat"]["doctor"]["publisher_last_heartbeat_utc"],
+            publisher_heartbeat_at,
+        )
+        self.assertTrue(
+            review_state["_compat"]["doctor"]["reviewer_supervisor_running"]
+        )
+        self.assertEqual(
+            review_state["_compat"]["doctor"]["reviewer_supervisor_last_heartbeat_utc"],
+            reviewer_heartbeat_at,
+        )
         self.assertIn("## Runtime", latest_markdown)
         self.assertIn("- active_daemons: 2", latest_markdown)
         self.assertIn("- reviewer_supervisor: running=True pid=20202", latest_markdown)
+        self.assertIn("- publisher_running: True", latest_markdown)
+        self.assertIn(
+            f"- reviewer_supervisor_last_heartbeat_utc: {reviewer_heartbeat_at}",
+            latest_markdown,
+        )
 
     def test_refresh_status_snapshot_projects_push_checkpoint_state(self) -> None:
         from dev.scripts.devctl.review_channel.state import refresh_status_snapshot

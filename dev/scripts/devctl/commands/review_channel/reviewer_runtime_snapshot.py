@@ -29,4 +29,14 @@ def attach_reviewer_runtime_snapshot(
         contract=review_state.reviewer_runtime,
         attention=attention,
         commit_pipeline=review_state.commit_pipeline,
+        publisher_state=(
+            report.get("publisher")
+            if isinstance(report.get("publisher"), Mapping)
+            else None
+        ),
+        reviewer_supervisor_state=(
+            report.get("reviewer_supervisor")
+            if isinstance(report.get("reviewer_supervisor"), Mapping)
+            else None
+        ),
     )

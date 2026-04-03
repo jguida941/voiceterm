@@ -216,6 +216,16 @@
   `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, and the owning
   `MP-377` plan docs instead of leaving the runtime approval vocabulary in one
   narrow surface.
+- Latest same-lane closure on 2026-04-03: the first Phase-1 daemon-liveness
+  follow-up is now in place for the same remote session lane. Live
+  `review-channel --action launch|rollover` starts the persistent
+  ensure-follow publisher from the actual launch router instead of hiding
+  daemon ownership in the terminal helper, the checked-in launchd
+  template/wrapper pair under `dev/config/launchd/` maps publisher stop
+  reasons into restart-vs-stop exit classes for login-time remote-control
+  sessions, and the compact doctor projection now carries publisher/supervisor
+  running state plus last heartbeat/stop-reason fields so phone dashboards can
+  read daemon readiness from the same reduced surface as `commit_pipeline`.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

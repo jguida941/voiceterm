@@ -351,6 +351,15 @@ surface for remote sessions. It should project:
 
 ## Progress Log
 
+- 2026-04-03: Implemented the first Phase-1 daemon-liveness follow-up for the
+  remote commit lane. Live `review-channel --action launch|rollover` now
+  starts the persistent ensure-follow publisher from the actual launch router
+  instead of hiding daemon ownership inside the terminal helper, the checked-in
+  launchd template/wrapper pair under `dev/config/launchd/` maps publisher
+  stop reasons into restart-vs-stop exit classes for login-time remote-control
+  sessions, and the compact doctor projection now carries publisher/supervisor
+  running state plus last heartbeat/stop-reason fields so phone dashboards can
+  see daemon readiness from the same reduced surface as `commit_pipeline`.
 - 2026-04-02: Wrote the Phase-0 design for the typed remote-session
   commit/push pipeline. The design binds remote approval to review-channel
   packets, keeps reviewer runtime health as a hard precondition, keeps

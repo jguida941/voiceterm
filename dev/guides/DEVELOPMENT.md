@@ -337,14 +337,18 @@ Three quality layers matter in practice:
     Fresh repo-owned `review-channel --action launch|rollover` starts now
     treat that checkpoint state as a hard launch blocker instead of advisory
     status. Live Terminal-app `launch|rollover` also auto-start the repo-owned
-    ensure-follow publisher plus reviewer-supervisor runtime and fail closed
-    if that detached runtime does not come up. The startup gate still blocks
-    those actions on checkpoint-budget or other real authority failures, but
-    it no longer blocks `launch|rollover` solely because the current reviewer
-    loop is stale on the implementer side; those actions remain the sanctioned
-    full-session relaunch path when the pair needs a fresh start, while
-    `recover` is the narrower Claude-only repair path when the repo-owned
-    Codex reviewer is already live.
+    ensure-follow publisher from the actual launch router and fail closed if
+    that detached publisher does not come up. The publisher remains the
+    persistent service and reclaims the detached reviewer-supervisor runtime on
+    its normal cadence; the checked-in launchd template/wrapper pair under
+    `dev/config/launchd/` covers login-time restart/backoff semantics outside
+    that live launch path. The startup gate still blocks those actions on
+    checkpoint-budget or other real authority failures, but it no longer
+    blocks `launch|rollover` solely because the current reviewer loop is stale
+    on the implementer side; those actions remain the sanctioned full-session
+    relaunch path when the pair needs a fresh start, while `recover` is the
+    narrower Claude-only repair path when the repo-owned Codex reviewer is
+    already live.
     Canonical reviewer-reset implementer placeholders (`Claude Status: - pending`,
     `Claude Ack: - pending`) are valid fresh-launch state for a new instruction
     revision, and the same reset now clears stale `Claude Questions` too.
@@ -378,7 +382,10 @@ Three quality layers matter in practice:
     shared projection paths, and it must keep startup push truth flowing from
     `reviewer_runtime.publish_clear` /
     `push_decision.review_gate_allows_push` instead of inventing a second
-    push-readiness evaluator.
+    push-readiness evaluator. The reduced `doctor` payload now also carries
+    publisher/supervisor running state plus the last projected heartbeat and
+    stop-reason fields so remote-control dashboards do not need a second
+    daemon-only status call.
   - `startup-context` is the typed startup packet for those same sessions.
     It should read reviewer/publish gating from typed
     `reviewer_runtime.review_acceptance.review_accepted` and

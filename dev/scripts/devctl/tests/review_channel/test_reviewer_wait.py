@@ -265,12 +265,20 @@ class TestReviewerWaitSurface(unittest.TestCase):
             "errors": [],
             "doctor": {
                 "status": "healthy",
+                "publisher_running": True,
+                "publisher_last_heartbeat_utc": "2026-04-03T00:00:10Z",
+                "publisher_stop_reason": "",
+                "reviewer_supervisor_running": False,
+                "reviewer_supervisor_last_heartbeat_utc": "2026-04-03T00:00:05Z",
+                "reviewer_supervisor_stop_reason": "manual_stop",
                 "pipeline_state": "push_blocked",
                 "blocked_reason": "pipeline_unavailable",
             },
             "reviewer_runtime": {"publish_clear": True},
             "commit_pipeline": {"state": "push_blocked"},
             "projection_paths": {"review_state_path": "/tmp/review_state.json"},
+            "publisher": {"running": True},
+            "reviewer_supervisor": {"running": False},
         }
         args = SimpleNamespace(action="doctor")
 
@@ -288,6 +296,11 @@ class TestReviewerWaitSurface(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(report["action"], "doctor")
         self.assertEqual(report["doctor"]["status"], "healthy")
+        self.assertTrue(report["doctor"]["publisher_running"])
+        self.assertEqual(
+            report["doctor"]["reviewer_supervisor_stop_reason"],
+            "manual_stop",
+        )
         self.assertEqual(
             report["doctor"]["blocked_reason"],
             "pipeline_unavailable",

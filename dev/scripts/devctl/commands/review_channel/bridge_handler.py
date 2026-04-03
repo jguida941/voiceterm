@@ -89,6 +89,29 @@ def _launch_and_refresh(
     execution: LaunchExecutionContext,
 ) -> tuple[bool, bool, dict[str, bool] | None, "ReviewChannelStatusSnapshot"]:
     """Launch sessions when requested and refresh the status snapshot afterward."""
+    runtime_warnings: list[str] = []
+    if (
+        args.action in {"launch", "rollover"}
+        and args.terminal == "terminal-app"
+        and not args.dry_run
+    ):
+        runtime_ok, runtime_warnings = ensure_launch_runtime_daemons(
+            args=args,
+            repo_root=context.repo_root,
+            review_channel_path=context.review_channel_path,
+            bridge_path=context.bridge_path,
+            status_dir=context.status_dir,
+            reviewer_mode=str(
+                execution.status_snapshot.bridge_liveness.get("reviewer_mode", "")
+            ),
+        )
+        if not runtime_ok:
+            detail = " ".join(runtime_warnings).strip()
+            suffix = f" {detail}" if detail else ""
+            raise ValueError(
+                "Live review-channel launch did not start the repo-owned "
+                f"publisher runtime.{suffix}"
+            )
     (
         launched,
         handoff_ack_required,
@@ -109,17 +132,6 @@ def _launch_and_refresh(
                 context=context,
                 warnings=execution.status_snapshot.warnings,
                 refresh_snapshot_fn=_refresh_snapshot,
-            ),
-            ensure_runtime_daemons_fn=partial(
-                ensure_launch_runtime_daemons,
-                args=args,
-                repo_root=context.repo_root,
-                review_channel_path=context.review_channel_path,
-                bridge_path=context.bridge_path,
-                status_dir=context.status_dir,
-                reviewer_mode=str(
-                    execution.status_snapshot.bridge_liveness.get("reviewer_mode", "")
-                ),
             ),
         )
     )
@@ -142,7 +154,11 @@ def _launch_and_refresh(
     refreshed_snapshot = _refresh_snapshot(
         args=args,
         context=context,
-        warnings=[*execution.status_snapshot.warnings, *cleanup_warnings],
+        warnings=[
+            *execution.status_snapshot.warnings,
+            *runtime_warnings,
+            *cleanup_warnings,
+        ],
     )
     return launched, handoff_ack_required, handoff_ack_observed, refreshed_snapshot
 

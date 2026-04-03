@@ -109,10 +109,25 @@ def build_bridge_review_state(
     commit_pipeline = load_remote_commit_pipeline_contract(
         output_root=context.output_root,
     )
+    runtime_daemons = (
+        reduced_runtime.get("daemons", {})
+        if isinstance(reduced_runtime, dict)
+        else {}
+    )
     doctor = build_reviewer_doctor_surface(
         contract=reviewer_runtime,
         attention=attention,
         commit_pipeline=commit_pipeline,
+        publisher_state=(
+            runtime_daemons.get("publisher")
+            if isinstance(runtime_daemons.get("publisher"), dict)
+            else None
+        ),
+        reviewer_supervisor_state=(
+            runtime_daemons.get("reviewer_supervisor")
+            if isinstance(runtime_daemons.get("reviewer_supervisor"), dict)
+            else None
+        ),
     )
 
     review_state = ReviewState(

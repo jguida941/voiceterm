@@ -103,6 +103,26 @@ approval still rides the existing review-channel packet system and the same
 `publish_clear` / `push_decision` truth instead of inventing a second
 readiness evaluator.
 
+### 2026-04-03 - Review-channel daemon liveness now routes through the publisher owner and the doctor surface projects the daemon state the phone lane needs
+
+The first daemon-liveness patch proved the launch path could start detached
+runtime, but it still attached that start-up to the terminal-launch helper and
+treated reviewer-supervisor start as a launch concern. That was the wrong
+owner boundary. The publisher is the persistent service, and remote-control
+clients need a single compact doctor payload that exposes daemon state without
+making a second status call.
+
+That boundary is corrected now. Live `review-channel --action launch|rollover`
+starts the repo-owned ensure-follow publisher from the actual bridge action
+router, then leaves reviewer-supervisor recovery to the publisher's normal
+cadence. The repo also now ships a checked-in launchd template/wrapper pair
+under `dev/config/launchd/` so login-time crash recovery can restart on
+`timed_out`, `inactivity_timeout`, and `output_error` while still honoring
+clean `manual_stop` exits. The compact doctor projection now carries
+publisher/supervisor running state plus last heartbeat and stop-reason fields,
+so phone/remote-control dashboards can read daemon truth from the same reduced
+readiness surface as commit-pipeline state.
+
 ### 2026-04-03 - Live review-channel launch now starts the detached publisher/supervisor runtime instead of assuming a later manual ensure step
 
 The repo already had the right runtime pieces: the detached ensure-follow

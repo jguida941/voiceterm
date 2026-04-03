@@ -6,7 +6,6 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from ...review_channel.core import (
@@ -44,7 +43,6 @@ class LaunchSessionRequest:
     retired_sessions: tuple["ConductorSessionRecord", ...] = ()
     cleanup_terminal_session_fn: Callable[..., list[str]] = cleanup_terminal_session
     observe_launch_state_fn: Callable[[], dict[str, object]] | None = None
-    ensure_runtime_daemons_fn: Callable[[], tuple[bool, list[str]]] | None = None
 
 
 def prepare_rollover_bundle(
@@ -105,16 +103,6 @@ def launch_sessions_if_requested(
             auto_dark_terminal_profiles=AUTO_DARK_TERMINAL_PROFILES,
         )
         launched = True
-        if request.ensure_runtime_daemons_fn is not None:
-            runtime_ok, runtime_warnings = request.ensure_runtime_daemons_fn()
-            cleanup_warnings.extend(runtime_warnings)
-            if not runtime_ok:
-                detail = " ".join(runtime_warnings).strip()
-                suffix = f" {detail}" if detail else ""
-                raise ValueError(
-                    "Live review-channel launch did not start the repo-owned "
-                    f"publisher/supervisor runtime.{suffix}"
-                )
         if args.action == "launch" and args.await_ack_seconds > 0:
             launch_poll = wait_for_codex_poll_refresh(
                 bridge_path=request.bridge_path,
@@ -214,12 +202,16 @@ def ensure_launch_runtime_daemons(
     status_dir: Path,
     reviewer_mode: str,
 ) -> tuple[bool, list[str]]:
-    """Start the detached launch-time publisher/supervisor runtime if needed."""
-    from ._publisher import (
-        ensure_reviewer_supervisor_running,
-        spawn_follow_publisher,
-        verify_detached_start,
-    )
+    """Start the detached launch-time publisher if needed.
+
+    The persistent ensure-follow publisher owns long-lived daemon liveness for
+    the review channel. Once it is alive, its normal cadence reclaims the
+    detached reviewer-supervisor runtime when active review mode still requires
+    it, so live launch only needs to prove the publisher is up.
+    """
+    del reviewer_mode
+
+    from ._publisher import spawn_follow_publisher, verify_detached_start
 
     runtime_paths = {
         "review_channel_path": review_channel_path,
@@ -248,20 +240,6 @@ def ensure_launch_runtime_daemons(
                 return False, [
                     "Persistent publisher failed to stay alive after launch."
                 ]
-    supervisor_result = ensure_reviewer_supervisor_running(
-        args=SimpleNamespace(
-            follow=False,
-            reviewer_mode=reviewer_mode,
-        ),
-        repo_root=repo_root,
-        paths=runtime_paths,
-    )
-    if isinstance(supervisor_result, dict):
-        reason = str(supervisor_result.get("reason") or "")
-        if not bool(supervisor_result.get("started")) and reason != "already_running":
-            return False, [
-                "Reviewer supervisor failed to stay alive after launch."
-            ]
     return True, []
 
 

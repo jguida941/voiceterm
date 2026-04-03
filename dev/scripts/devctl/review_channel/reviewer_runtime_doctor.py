@@ -17,9 +17,13 @@ def build_reviewer_doctor_surface(
     contract: ReviewerRuntimeContract,
     attention: Mapping[str, object] | None = None,
     commit_pipeline: RemoteCommitPipelineContract | None = None,
+    publisher_state: Mapping[str, object] | None = None,
+    reviewer_supervisor_state: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Project a read-only doctor surface from reviewer-runtime authority."""
     pipeline = commit_pipeline or RemoteCommitPipelineContract()
+    publisher = publisher_state or {}
+    reviewer_supervisor = reviewer_supervisor_state or {}
     attention_summary = str((attention or {}).get("summary") or "").strip()
     recommended_command = str(
         (attention or {}).get("recommended_command")
@@ -49,6 +53,18 @@ def build_reviewer_doctor_surface(
     surface["current_verdict"] = contract.review_acceptance.current_verdict
     surface["open_findings"] = contract.review_acceptance.open_findings
     surface["publish_clear"] = contract.publish_clear
+    surface["publisher_running"] = bool(publisher.get("running"))
+    surface["publisher_stop_reason"] = str(publisher.get("stop_reason") or "")
+    surface["publisher_last_heartbeat_utc"] = str(
+        publisher.get("last_heartbeat_utc") or ""
+    )
+    surface["reviewer_supervisor_running"] = bool(reviewer_supervisor.get("running"))
+    surface["reviewer_supervisor_stop_reason"] = str(
+        reviewer_supervisor.get("stop_reason") or ""
+    )
+    surface["reviewer_supervisor_last_heartbeat_utc"] = str(
+        reviewer_supervisor.get("last_heartbeat_utc") or ""
+    )
     surface["pipeline_id"] = pipeline.pipeline_id
     surface["pipeline_state"] = pipeline.state
     surface["guard_status"] = _action_result_status(pipeline.guard_result)

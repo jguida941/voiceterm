@@ -324,10 +324,15 @@ Looking to contribute or dig into the codebase?
 | Full CI-equivalent check locally | `python3 dev/scripts/devctl.py check --profile ci` |
 | Rust tests only | `cd rust && cargo test --bin voiceterm` |
 | Python tests only | `python3 -m pytest dev/scripts/devctl/tests/ -q` |
+| Check review-channel remote-control health | `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format md` |
 | Check docs are up to date | `python3 dev/scripts/devctl.py docs-check --strict-tooling` |
 | Governance / archive hygiene | `python3 dev/scripts/devctl.py hygiene` |
 | See project status | `python3 dev/scripts/devctl.py status` |
 | List all devctl commands | `python3 dev/scripts/devctl.py list` |
+
+Remote-control installs that need the detached review-channel publisher to
+survive login/crash cycles can start from the checked-in launchd template and
+wrapper under `dev/config/launchd/`.
 
 For all available commands, what they do, and when to use them: [devctl guide](dev/scripts/README.md).
 
