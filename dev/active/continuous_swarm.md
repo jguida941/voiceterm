@@ -292,6 +292,14 @@ Out of scope until the local proof gate is green:
       again. `next_turn_role` / `next_turn_reason` should become projections
       over that shared contract instead of hand-coded branch logic split across
       `bridge-poll`, wait helpers, prompt guards, and startup consumers.
+- [ ] After that shared turn-authority projection lands, migrate the remaining
+      reviewer-side decision consumers that still make local liveness/recovery
+      choices: launch-attention gating in `bridge_runtime_state.py`, stale-
+      implementer recovery validation in `recover_support.py`, reviewer follow-
+      up packet triggering in `reviewer_follow_packet_guard.py`, and auto-
+      recover/rollover logic in `reviewer_follow_recovery.py`. Do not widen
+      this item into producer/projection helpers that are supposed to stay
+      upstream and fail-closed.
 - [ ] Extend repo guards so bridge-poll parity is enforced, not just assumed.
       `check_review_surface_consistency.py` currently proves snapshot parity
       across startup/review-state/compact/commit-pipeline artifacts, but it
@@ -411,6 +419,18 @@ Out of scope until the local proof gate is green:
   projection first, parity guard slice next, reviewer-accepted implementer
   baseline after that, then wait/recovery semantics and end-to-end parity
   proof.
+
+- 2026-04-03: Ran one more alignment pass against the latest multi-agent
+  critique and tightened the surface inventory. The review was right that a
+  few more reviewer-side consumers still make local liveness/recovery
+  decisions beyond `bridge-poll` and the two wait loops, but the raw "10 total
+  authority gaps" framing overcounted by including upstream producer/
+  compatibility helpers. The canonical follow-on set is now explicit in this
+  plan: `bridge_runtime_state.py`, `recover_support.py`,
+  `reviewer_follow_packet_guard.py`, and `reviewer_follow_recovery.py` must
+  migrate after the shared turn-authority projection lands, while
+  `status_projection_*` and `event_projection_*` stay classified as upstream
+  fail-closed producers rather than separate turn-authority owners.
 
 - 2026-04-03: Audited the current live-loop deadlock against repo-owned status,
   startup, and bridge surfaces and recorded the bounded repair slice in this
@@ -816,7 +836,9 @@ Out of scope until the local proof gate is green:
   parity with the typed reviewer-runtime snapshot, 3) reviewer-accepted
   implementer-state baseline for reviewed-current completion/promotion, 4)
   wait/recovery semantics that preserve legitimate reviewer-owned wait states,
-  5) focused parity tests across bridge-poll/status/doctor/wait/startup.
+  5) migrate the secondary reviewer-side consumers that still make local
+  liveness/recovery decisions, 6) focused parity tests across
+  bridge-poll/status/doctor/wait/startup/recovery.
 - Context rule: treat `dev/active/review_channel.md` as the bridge/runtime
   model owner and `dev/active/platform_authority_loop.md` as the startup-
   authority consumer owner while this `MP-358` plan remains the execution
