@@ -11,6 +11,7 @@ STOP_REASON_REVIEWER_UPDATE_OBSERVED: Final = "reviewer_update_observed"
 STOP_REASON_REVIEWER_UPDATE_READY: Final = "reviewer_update_ready"
 STOP_REASON_NOT_WAITING: Final = "not_waiting"
 STOP_REASON_REVIEWER_UNHEALTHY: Final = "reviewer_unhealthy"
+STOP_REASON_REVIEWER_RUNTIME_DEGRADED: Final = "reviewer_runtime_degraded"
 STOP_REASON_TIMED_OUT: Final = "timed_out"
 
 _REVIEWER_UPDATE_MESSAGES: Final[dict[AttentionStatus, str]] = {
@@ -70,6 +71,7 @@ class ImplementerWaitReportUpdate:
     wait_attention_status: str
     wait_attention_summary: str
     wait_attention_recommended_action: str
+    wait_recovery_action_allowed: str
 
     def apply(self, report: dict[str, object]) -> None:
         """Mutate the existing status report with stable wait fields."""
@@ -125,6 +127,7 @@ def _build_wait_report_update(
         wait_attention_status=current.attention_status,
         wait_attention_summary=current.attention_summary,
         wait_attention_recommended_action=current.attention_recommended_action,
+        wait_recovery_action_allowed=getattr(current, "recovery_action_allowed", ""),
     )
 
 
@@ -190,6 +193,23 @@ def _resolve_wait_message(
             "field": "errors",
             "text": (
                 "Implementer wait requires pending review work. The current tree already matches the reviewed hash and Claude ACK is current."
+            ),
+        }
+
+    if stop_reason == STOP_REASON_REVIEWER_RUNTIME_DEGRADED:
+        recovery_cmd = getattr(current, "recovery_action_allowed", "") or ""
+        suffix = (
+            f" Recovery command: `{recovery_cmd}`" if recovery_cmd else ""
+        )
+        return {
+            "field": "errors",
+            "text": (
+                "Reviewer runtime is degraded: effective mode dropped below "
+                "active_dual_agent "
+                f"(effective_reviewer_mode=`{getattr(current, 'effective_reviewer_mode', 'unknown')}`, "
+                f"attention_status=`{current.attention_status or 'unknown'}`). "
+                "Run the recovery command instead of waiting silently."
+                f"{suffix}"
             ),
         }
 

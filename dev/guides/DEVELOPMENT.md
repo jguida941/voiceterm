@@ -238,6 +238,9 @@ Three quality layers matter in practice:
     bridge state with
     `python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode <mode> --reason <why> --terminal none --format md`
     so the system stays current without pretending a second live agent exists.
+    In Codex-only local-review mode, `single_agent` is the sanctioned
+    reviewer state and the repo-owned `reviewer-heartbeat` / `reviewer-checkpoint`
+    path is the authority for review truth, not a parallel bridge edit.
     Human-facing shorthand is allowed on the CLI: `agents` normalizes to
     `active_dual_agent`, and `developer` normalizes to `single_agent`.
   - After a real review pass, advance review truth with
@@ -258,6 +261,9 @@ Three quality layers matter in practice:
     `- acknowledged; instruction-rev: <rev>`. `current_session`,
     `bridge-poll`, and live bridge validation now share that same parser; do
     not invent a repo-local third phrasing rule.
+    When `current_session` ACK state is unknown, consumers should fall back to
+    typed `bridge.claude_ack_current` before trying to infer anything from
+    bridge prose.
   - In VoiceTerm today the live compatibility bridge file is repo-root
     `bridge.md`, but review-channel roots should be understood as governed
     repo-pack/project-governance state and typed `review_state` remains the
@@ -277,6 +283,10 @@ Three quality layers matter in practice:
     fails closed on oversize bridges, duplicate/unsupported sections,
     transcript/ANSI contamination, embedded markdown headings inside fixed
     flat sections, and overgrown live `Claude Status` / `Claude Ack` blocks.
+    `check_review_surface_consistency.py` also proves disk parity against the
+    persisted `review_state` artifact and the computed turn-authority /
+    bridge-poll projection, so the review surface cannot silently drift from
+    the on-disk snapshot.
   - `review-channel --action status|ensure|reviewer-heartbeat|reviewer-checkpoint`
     now emit machine-readable `reviewer_worker` state, and
     `review-channel --action ensure --follow` cadence frames carry the same

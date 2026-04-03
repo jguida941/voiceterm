@@ -13,6 +13,7 @@ from dev.scripts.devctl.commands import review_channel as review_channel_command
 from dev.scripts.devctl.commands.review_channel import status as review_channel_status_mod
 from dev.scripts.devctl.commands.review_channel._reviewer_wait import (
     ReviewerWaitSnapshot,
+    _accepted_hash_diverged,
     _implementer_changed,
     _implementer_update_ready,
     _reviewer_loop_unhealthy,
@@ -41,6 +42,8 @@ def _snapshot(
     attention_recommended_action: str = "",
     reviewer_mode: str = "active_dual_agent",
     report: dict | None = None,
+    implementer_state_hash: str = "",
+    reviewer_accepted_implementer_state_hash: str = "",
 ) -> ReviewerWaitSnapshot:
     return ReviewerWaitSnapshot(
         report=report or {},
@@ -54,6 +57,8 @@ def _snapshot(
         attention_summary=attention_summary,
         attention_recommended_action=attention_recommended_action,
         reviewer_mode=reviewer_mode,
+        implementer_state_hash=implementer_state_hash,
+        reviewer_accepted_implementer_state_hash=reviewer_accepted_implementer_state_hash,
     )
 
 
@@ -85,6 +90,7 @@ def _status_report(
     current_session: dict[str, object] | None = None,
     claude_ack_revision: str = "rev1",
     claude_ack_current: bool = True,
+    reviewer_accepted_implementer_state_hash: str = "",
 ) -> dict[str, object]:
     review_state_path = _write_review_state(root, current_session=current_session)
     return {
@@ -103,6 +109,11 @@ def _status_report(
         "projection_paths": {
             "review_state_path": str(review_state_path),
             "compact_path": str(review_state_path),
+        },
+        "reviewer_runtime": {
+            "review_acceptance": {
+                "reviewer_accepted_implementer_state_hash": reviewer_accepted_implementer_state_hash,
+            },
         },
         "attention": {"status": attention_status},
         "warnings": [],
@@ -152,6 +163,99 @@ class TestImplementerChanged(unittest.TestCase):
     def test_no_change(self):
         baseline = _snapshot()
         current = _snapshot()
+        self.assertFalse(_implementer_changed(baseline, current))
+
+
+class TestAcceptedHashDiverged(unittest.TestCase):
+    """Verify _accepted_hash_diverged detects semantic implementer state changes."""
+
+    def test_diverged_when_hashes_differ(self):
+        snap = _snapshot(
+            implementer_state_hash="hash_new",
+            reviewer_accepted_implementer_state_hash="hash_old",
+        )
+        self.assertTrue(_accepted_hash_diverged(snap))
+
+    def test_not_diverged_when_hashes_match(self):
+        snap = _snapshot(
+            implementer_state_hash="hash_same",
+            reviewer_accepted_implementer_state_hash="hash_same",
+        )
+        self.assertFalse(_accepted_hash_diverged(snap))
+
+    def test_not_diverged_when_implementer_hash_missing(self):
+        snap = _snapshot(
+            implementer_state_hash="",
+            reviewer_accepted_implementer_state_hash="hash_old",
+        )
+        self.assertFalse(_accepted_hash_diverged(snap))
+
+    def test_not_diverged_when_accepted_hash_missing(self):
+        """Gracefully skips when Slice 2 state is absent."""
+        snap = _snapshot(
+            implementer_state_hash="hash_new",
+            reviewer_accepted_implementer_state_hash="",
+        )
+        self.assertFalse(_accepted_hash_diverged(snap))
+
+    def test_not_diverged_when_both_missing(self):
+        snap = _snapshot(
+            implementer_state_hash="",
+            reviewer_accepted_implementer_state_hash="",
+        )
+        self.assertFalse(_accepted_hash_diverged(snap))
+
+
+class TestImplementerUpdateReadyWithAcceptedHash(unittest.TestCase):
+    """Verify _implementer_update_ready considers the accepted-hash signal."""
+
+    def test_ready_on_hash_divergence_even_when_tree_hashes_match(self):
+        """Semantic state divergence triggers ready even with same worktree hash."""
+        snap = _snapshot(
+            worktree_hash="aaa",
+            reviewed_hash="aaa",
+            implementer_state_hash="hash_new",
+            reviewer_accepted_implementer_state_hash="hash_old",
+        )
+        self.assertTrue(_implementer_update_ready(snap))
+
+    def test_not_ready_when_both_hashes_match(self):
+        snap = _snapshot(
+            worktree_hash="aaa",
+            reviewed_hash="aaa",
+            implementer_state_hash="hash_same",
+            reviewer_accepted_implementer_state_hash="hash_same",
+        )
+        self.assertFalse(_implementer_update_ready(snap))
+
+    def test_not_ready_when_accepted_hash_absent(self):
+        """Gracefully no-op when Slice 2 hasn't landed yet."""
+        snap = _snapshot(
+            worktree_hash="aaa",
+            reviewed_hash="aaa",
+            implementer_state_hash="hash_new",
+            reviewer_accepted_implementer_state_hash="",
+        )
+        self.assertFalse(_implementer_update_ready(snap))
+
+
+class TestImplementerChangedWithAcceptedHash(unittest.TestCase):
+    """Verify _implementer_changed considers the accepted-hash signal."""
+
+    def test_changed_on_hash_divergence_even_when_everything_else_matches(self):
+        baseline = _snapshot()
+        current = _snapshot(
+            implementer_state_hash="hash_new",
+            reviewer_accepted_implementer_state_hash="hash_old",
+        )
+        self.assertTrue(_implementer_changed(baseline, current))
+
+    def test_not_changed_when_accepted_hash_absent(self):
+        baseline = _snapshot()
+        current = _snapshot(
+            implementer_state_hash="hash_new",
+            reviewer_accepted_implementer_state_hash="",
+        )
         self.assertFalse(_implementer_changed(baseline, current))
 
 
@@ -483,6 +587,131 @@ class TestReviewerWaitLoop(unittest.TestCase):
             self.assertGreater(result["wait_state"]["polls_observed"], 0)
             self.assertEqual(result["wait_attention_status"], "healthy")
             self.assertIn("Timed out waiting", result["errors"][0])
+
+    def test_exits_immediately_on_accepted_hash_divergence(self):
+        """If implementer-state-hash diverges from accepted baseline, exit immediately."""
+        with TemporaryDirectory() as tmp:
+            args = self._make_args()
+            paths = self._make_paths(Path(tmp))
+            report = _status_report(
+                Path(tmp),
+                current_hash="aaa",
+                reviewed_hash="aaa",
+                attention_status="healthy",
+                current_session={
+                    "implementer_ack_revision": "rev1",
+                    "implementer_ack_state": "current",
+                    "implementer_status": "Working on slice 3.",
+                    "implementer_state_hash": "hash_after_new_work",
+                },
+                reviewer_accepted_implementer_state_hash="hash_at_last_review",
+            )
+            deps = self._make_deps([(report, 0)])
+
+            result, exit_code = run_reviewer_wait_action(
+                args=args,
+                repo_root=Path(tmp),
+                paths=paths,
+                deps=deps,
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                result["wait_state"]["stop_reason"],
+                "implementer_update_ready",
+            )
+            self.assertTrue(result["wait_state"]["accepted_hash_diverged"])
+            self.assertEqual(
+                result["wait_state"]["current_implementer_state_hash"],
+                "hash_after_new_work",
+            )
+            self.assertEqual(
+                result["wait_state"]["reviewer_accepted_implementer_state_hash"],
+                "hash_at_last_review",
+            )
+
+    def test_no_exit_when_accepted_hash_absent(self):
+        """Gracefully skips hash comparison when Slice 2 state is absent."""
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            args = self._make_args(timeout_minutes=0)
+            args.follow_interval_seconds = 1
+            paths = self._make_paths(tmp_path)
+            report = _status_report(
+                tmp_path,
+                attention_status="healthy",
+                current_session={
+                    "implementer_ack_revision": "rev1",
+                    "implementer_ack_state": "current",
+                    "implementer_status": "Working.",
+                    "implementer_state_hash": "hash_new_work",
+                },
+                reviewer_accepted_implementer_state_hash="",
+            )
+            deps = self._make_deps([(report, 0)] * 5)
+
+            import dev.scripts.devctl.commands.review_channel._reviewer_wait as rw
+            original_timeout = rw.DEFAULT_REVIEWER_WAIT_TIMEOUT_SECONDS
+            rw.DEFAULT_REVIEWER_WAIT_TIMEOUT_SECONDS = 3
+            try:
+                result, exit_code = run_reviewer_wait_action(
+                    args=args,
+                    repo_root=tmp_path,
+                    paths=paths,
+                    deps=deps,
+                )
+            finally:
+                rw.DEFAULT_REVIEWER_WAIT_TIMEOUT_SECONDS = original_timeout
+
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(result["wait_state"]["stop_reason"], "timed_out")
+            self.assertFalse(result["wait_state"]["accepted_hash_diverged"])
+
+    def test_loop_detects_hash_divergence_mid_poll(self):
+        """Loop should wake when hash diverges between baseline and poll snapshot."""
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            args = self._make_args()
+            paths = self._make_paths(tmp_path)
+            baseline_root = tmp_path / "baseline"
+            baseline_root.mkdir()
+            current_root = tmp_path / "current"
+            current_root.mkdir()
+            baseline = _status_report(
+                baseline_root,
+                current_session={
+                    "implementer_ack_revision": "rev1",
+                    "implementer_ack_state": "current",
+                    "implementer_status": "Working.",
+                    "implementer_state_hash": "hash_accepted",
+                },
+                reviewer_accepted_implementer_state_hash="hash_accepted",
+            )
+            current = _status_report(
+                current_root,
+                current_session={
+                    "implementer_ack_revision": "rev1",
+                    "implementer_ack_state": "current",
+                    "implementer_status": "Working.",
+                    "implementer_state_hash": "hash_diverged",
+                },
+                reviewer_accepted_implementer_state_hash="hash_accepted",
+            )
+            deps = self._make_deps([(baseline, 0), (current, 0)])
+
+            result, exit_code = run_reviewer_wait_action(
+                args=args,
+                repo_root=tmp_path,
+                paths=paths,
+                deps=deps,
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                result["wait_state"]["stop_reason"],
+                "implementer_update_observed",
+            )
+            self.assertTrue(result["wait_state"]["accepted_hash_diverged"])
 
     def test_timeout_surfaces_stale_ack_reason(self):
         with TemporaryDirectory() as tmp:

@@ -12,7 +12,7 @@ from .events import (
     resolve_artifact_paths,
 )
 from .packet_contract import PacketPostRequest
-from .peer_liveness import reviewer_mode_is_active
+from .turn_authority import ReviewerTurnAuthority
 
 _REVIEW_TRIGGER_KEY_PREFIX = "- review_trigger_key: `"
 _REVIEW_TRIGGER_KIND = "action_request"
@@ -34,6 +34,7 @@ class ReviewerFollowPacketRequest:
     repo_root: Path
     paths: dict[str, object]
     report: dict[str, object]
+    turn_authority: ReviewerTurnAuthority | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +114,7 @@ def maybe_queue_reviewer_follow_packet(
 def _resolve_packet_context(
     request: ReviewerFollowPacketRequest,
 ) -> ReviewerFollowPacketContext | None:
+    authority = request.turn_authority
     bridge_liveness = request.report.get("bridge_liveness")
     attention = request.report.get("attention")
     reviewer_worker = request.report.get("reviewer_worker")
@@ -120,25 +122,24 @@ def _resolve_packet_context(
         return None
     if not isinstance(reviewer_worker, dict):
         return None
-    if not bool(request.report.get("review_needed")):
-        return None
-    reviewer_mode = str(
-        bridge_liveness.get("effective_reviewer_mode")
-        or bridge_liveness.get("reviewer_mode")
-        or ""
-    )
-    if not reviewer_mode_is_active(reviewer_mode):
-        return None
-    if not _trigger_condition_met(
-        bridge_liveness=bridge_liveness,
-        attention=attention,
-    ):
-        return None
+
+    if authority is not None:
+        if not _authority_trigger_met(authority):
+            return None
+        attention_status = authority.attention_status
+    else:
+        if not bool(request.report.get("review_needed")):
+            return None
+        if not _legacy_trigger_met(bridge_liveness, attention):
+            return None
+        attention_status = str(attention.get("status") or "").strip()
+
     review_channel_path = request.paths.get("review_channel_path")
     trigger_key = _build_trigger_key(
-        attention_status=str(attention.get("status") or "").strip(),
+        attention_status=attention_status,
         reviewer_worker=reviewer_worker,
         bridge_liveness=bridge_liveness,
+        turn_authority=authority,
     )
     if not trigger_key:
         return None
@@ -149,16 +150,32 @@ def _resolve_packet_context(
         review_channel_path=(
             review_channel_path if isinstance(review_channel_path, Path) else None
         ),
-        attention_status=str(attention.get("status") or "").strip(),
+        attention_status=attention_status,
         trigger_key=trigger_key,
     )
 
 
-def _trigger_condition_met(
-    *,
+def _authority_trigger_met(authority: ReviewerTurnAuthority) -> bool:
+    """Check trigger condition using the shared turn-authority contract."""
+    if not authority.next_turn_required:
+        return False
+    return authority.next_turn_role == "reviewer"
+
+
+def _legacy_trigger_met(
     bridge_liveness: dict[str, object],
     attention: dict[str, object],
 ) -> bool:
+    """Fallback trigger condition for callers without a turn authority."""
+    from .peer_liveness import reviewer_mode_is_active
+
+    reviewer_mode = str(
+        bridge_liveness.get("effective_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or ""
+    )
+    if not reviewer_mode_is_active(reviewer_mode):
+        return False
     attention_status = str(attention.get("status") or "").strip()
     if attention_status == "review_loop_relaunch_required":
         return True
@@ -173,13 +190,18 @@ def _build_trigger_key(
     attention_status: str,
     reviewer_worker: dict[str, object],
     bridge_liveness: dict[str, object],
+    turn_authority: ReviewerTurnAuthority | None = None,
 ) -> str:
     current_hash = str(reviewer_worker.get("current_hash") or "").strip()
     reviewed_hash = str(reviewer_worker.get("reviewed_hash") or "").strip()
-    instruction_revision = str(
-        bridge_liveness.get("current_instruction_revision") or ""
-    ).strip()
-    launch_truth = str(bridge_liveness.get("launch_truth") or "").strip()
+    if turn_authority is not None:
+        instruction_revision = turn_authority.current_instruction_revision
+        launch_truth = turn_authority.launch_truth
+    else:
+        instruction_revision = str(
+            bridge_liveness.get("current_instruction_revision") or ""
+        ).strip()
+        launch_truth = str(bridge_liveness.get("launch_truth") or "").strip()
     return "\0".join(
         (
             attention_status,

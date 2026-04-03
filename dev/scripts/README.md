@@ -271,6 +271,9 @@ Portability note:
   mode metadata without claiming a new reviewed hash, and it now rewrites
   reviewer-owned `Poll Status` as current-state-only bridge content instead of
   preserving older reviewer revision/ACK bullets.
+  In Codex-only local-review mode, `single_agent` is the sanctioned reviewer
+  state and this same repo-owned heartbeat/checkpoint path is the review-truth
+  authority.
 - `review-channel --action reviewer-checkpoint` is the repo-owned review-truth
   write. Use it only after a real review pass to advance the reviewed hash,
   verdict, findings, instruction, and reviewed scope together. Prefer one
@@ -287,7 +290,9 @@ Portability note:
   `- acknowledged current instruction revision: <rev>` or
   `- acknowledged; instruction-rev: <rev>`. Bridge-backed `current_session`,
   live bridge validation, and `review-channel --action bridge-poll` now share
-  that same parser.
+  that same parser. If typed `current_session` ACK state is unknown, fall back
+  to `bridge.claude_ack_current` before reading bridge prose or inventing a
+  third parser.
 - `review-channel --action reset-implementer-state` is the repo-owned repair
   path when live attention says implementer-owned sections must return to
   canonical pending state. It rewrites `Claude Status`, `Claude Questions`,

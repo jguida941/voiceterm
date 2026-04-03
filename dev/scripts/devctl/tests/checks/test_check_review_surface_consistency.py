@@ -7,6 +7,25 @@ import unittest
 from dev.scripts.devctl.tests.conftest import load_repo_module
 
 
+# Shared fixture payloads for snapshot-id agreement tests.  Disk parity is
+# tested separately; these fixtures pass disk_review_state_payload=None so the
+# disk check is skipped and the snapshot-id logic is isolated.
+
+_MATCHING_AUTHORITY_FIELDS: dict[str, object] = {
+    "effective_reviewer_mode": "active_dual_agent",
+    "launch_truth": "live_runtime",
+    "attention_status": "healthy",
+    "recovery_action_allowed": "",
+    "implementation_blocked": False,
+    "implementation_block_reason": "",
+    "reviewed_hash_current": True,
+    "review_needed": False,
+    "next_turn_required": False,
+    "next_turn_role": "",
+    "next_turn_reason": "up_to_date",
+}
+
+
 class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -51,32 +70,13 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
             },
             bridge_poll_payload={
                 "snapshot_id": "snap-123",
-                "effective_reviewer_mode": "active_dual_agent",
-                "launch_truth": "live_runtime",
-                "attention_status": "healthy",
-                "recovery_action_allowed": "",
-                "implementation_blocked": False,
-                "implementation_block_reason": "",
-                "reviewed_hash_current": True,
-                "review_needed": False,
-                "next_turn_required": False,
-                "next_turn_role": "",
-                "next_turn_reason": "up_to_date",
+                **_MATCHING_AUTHORITY_FIELDS,
             },
             turn_authority_payload={
                 "snapshot_id": "snap-123",
-                "effective_reviewer_mode": "active_dual_agent",
-                "launch_truth": "live_runtime",
-                "attention_status": "healthy",
-                "recovery_action_allowed": "",
-                "implementation_blocked": False,
-                "implementation_block_reason": "",
-                "reviewed_hash_current": True,
-                "review_needed": False,
-                "next_turn_required": False,
-                "next_turn_role": "",
-                "next_turn_reason": "up_to_date",
+                **_MATCHING_AUTHORITY_FIELDS,
             },
+            disk_review_state_payload=None,
         )
 
         self.assertTrue(report["ok"])
@@ -144,12 +144,236 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                 "next_turn_role": "reviewer",
                 "next_turn_reason": "review_loop_relaunch_required",
             },
+            disk_review_state_payload=None,
         )
 
         self.assertFalse(report["ok"])
         self.assertIn("snapshot_id mismatch", "\n".join(report["errors"]))
         self.assertIn("pipeline generation mismatch", "\n".join(report["errors"]))
         self.assertIn("bridge-poll parity mismatch", "\n".join(report["errors"]))
+
+
+class DiskTurnAuthorityParityTests(unittest.TestCase):
+    """Tests for disk-artifact parity between review_state.json and turn-authority."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.script = load_repo_module(
+            "check_review_surface_consistency",
+            "dev/scripts/checks/check_review_surface_consistency.py",
+        )
+
+    def _base_payloads(self, **overrides: object) -> dict[str, object]:
+        """Return minimal payloads with consistent snapshot_ids and authority fields."""
+        base = {
+            "startup_payload": {
+                "snapshot_id": "snap-1",
+                "push_decision": {"snapshot_id": "snap-1"},
+            },
+            "review_state_payload": {
+                "snapshot_id": "snap-1",
+                "commit_pipeline": {"snapshot_id": "snap-1", "generation_id": "g1"},
+                "_compat": {
+                    "doctor": {"snapshot_id": "snap-1", "generation_id": "g1"},
+                    "bridge_projection": {"metadata": {"snapshot_id": "snap-1"}},
+                },
+            },
+            "compact_payload": {
+                "snapshot_id": "snap-1",
+                "push_decision": {"snapshot_id": "snap-1"},
+                "doctor": {"snapshot_id": "snap-1", "generation_id": "g1"},
+            },
+            "commit_pipeline_payload": {"snapshot_id": "snap-1", "generation_id": "g1"},
+            "bridge_poll_payload": {
+                "snapshot_id": "snap-1",
+                **_MATCHING_AUTHORITY_FIELDS,
+            },
+            "turn_authority_payload": {
+                "snapshot_id": "snap-1",
+                **_MATCHING_AUTHORITY_FIELDS,
+            },
+        }
+        base.update(overrides)
+        return base
+
+    def test_disk_parity_passes_when_disk_matches_authority(self) -> None:
+        report = self.script.build_report(
+            **self._base_payloads(),
+            disk_review_state_payload={
+                "reviewer_runtime": {
+                    "effective_reviewer_mode": "active_dual_agent",
+                },
+                "bridge": {
+                    "launch_truth": "live_runtime",
+                },
+                "attention": {
+                    "status": "healthy",
+                },
+            },
+        )
+        self.assertTrue(report["ok"], f"errors: {report['errors']}")
+        self.assertEqual(report["errors"], [])
+
+    def test_disk_parity_fails_on_effective_mode_mismatch(self) -> None:
+        report = self.script.build_report(
+            **self._base_payloads(),
+            disk_review_state_payload={
+                "reviewer_runtime": {
+                    "effective_reviewer_mode": "tools_only",
+                },
+                "bridge": {
+                    "launch_truth": "live_runtime",
+                },
+                "attention": {
+                    "status": "healthy",
+                },
+            },
+        )
+        self.assertFalse(report["ok"])
+        error_text = "\n".join(report["errors"])
+        self.assertIn("disk-artifact parity mismatch on effective_reviewer_mode", error_text)
+        self.assertNotIn("launch_truth", error_text)
+        self.assertNotIn("attention_status", error_text)
+
+    def test_disk_parity_fails_on_launch_truth_mismatch(self) -> None:
+        report = self.script.build_report(
+            **self._base_payloads(),
+            disk_review_state_payload={
+                "reviewer_runtime": {
+                    "effective_reviewer_mode": "active_dual_agent",
+                },
+                "bridge": {
+                    "launch_truth": "detached_runtime_only",
+                },
+                "attention": {
+                    "status": "healthy",
+                },
+            },
+        )
+        self.assertFalse(report["ok"])
+        error_text = "\n".join(report["errors"])
+        self.assertIn("disk-artifact parity mismatch on launch_truth", error_text)
+
+    def test_disk_parity_fails_on_attention_status_mismatch(self) -> None:
+        report = self.script.build_report(
+            **self._base_payloads(),
+            disk_review_state_payload={
+                "reviewer_runtime": {
+                    "effective_reviewer_mode": "active_dual_agent",
+                },
+                "bridge": {
+                    "launch_truth": "live_runtime",
+                },
+                "attention": {
+                    "status": "reviewer_poll_due",
+                },
+            },
+        )
+        self.assertFalse(report["ok"])
+        error_text = "\n".join(report["errors"])
+        self.assertIn("disk-artifact parity mismatch on attention_status", error_text)
+
+    def test_disk_parity_warns_when_no_disk_artifact(self) -> None:
+        report = self.script.build_report(
+            **self._base_payloads(),
+            disk_review_state_payload=None,
+        )
+        self.assertTrue(report["ok"])
+        warnings = report.get("disk_parity_warnings", [])
+        self.assertTrue(
+            any("not found" in w for w in warnings),
+            f"expected 'not found' warning, got: {warnings}",
+        )
+
+    def test_disk_parity_warns_when_no_authority_payload(self) -> None:
+        """When both turn-authority and bridge-poll are empty, disk check is skipped."""
+        errors, warnings = self.script._disk_turn_authority_parity_errors(
+            repo_root=self.script.REPO_ROOT,
+            turn_authority={},
+            bridge_poll={},
+            disk_review_state_override={
+                "reviewer_runtime": {"effective_reviewer_mode": "active_dual_agent"},
+                "bridge": {"launch_truth": "live_runtime"},
+                "attention": {"status": "healthy"},
+            },
+            disk_override_provided=True,
+        )
+        self.assertEqual(errors, [])
+        self.assertTrue(
+            any("no turn-authority" in w for w in warnings),
+            f"expected skip warning, got: {warnings}",
+        )
+
+    def test_disk_parity_warns_when_disk_has_no_typed_sections(self) -> None:
+        report = self.script.build_report(
+            **self._base_payloads(),
+            disk_review_state_payload={"snapshot_id": "snap-1"},
+        )
+        self.assertTrue(report["ok"])
+        warnings = report.get("disk_parity_warnings", [])
+        self.assertTrue(
+            any("no reviewer_runtime" in w for w in warnings),
+            f"expected typed-section warning, got: {warnings}",
+        )
+
+    def test_disk_parity_skips_field_when_disk_value_missing(self) -> None:
+        """When a specific field is absent from disk sections, skip that comparison."""
+        report = self.script.build_report(
+            **self._base_payloads(),
+            disk_review_state_payload={
+                "reviewer_runtime": {},
+                "bridge": {},
+                "attention": {},
+            },
+        )
+        self.assertTrue(report["ok"], f"errors: {report['errors']}")
+
+    def test_disk_parity_uses_bridge_poll_when_turn_authority_empty(self) -> None:
+        """When turn-authority is empty, bridge-poll fields are used as authority source."""
+        errors, warnings = self.script._disk_turn_authority_parity_errors(
+            repo_root=self.script.REPO_ROOT,
+            turn_authority={},
+            bridge_poll={
+                "effective_reviewer_mode": "active_dual_agent",
+                "launch_truth": "live_runtime",
+                "attention_status": "healthy",
+            },
+            disk_review_state_override={
+                "reviewer_runtime": {
+                    "effective_reviewer_mode": "active_dual_agent",
+                },
+                "bridge": {
+                    "launch_truth": "live_runtime",
+                },
+                "attention": {
+                    "status": "healthy",
+                },
+            },
+            disk_override_provided=True,
+        )
+        self.assertEqual(errors, [], f"unexpected errors: {errors}")
+        self.assertEqual(warnings, [])
+
+    def test_disk_parity_reports_all_three_mismatches(self) -> None:
+        report = self.script.build_report(
+            **self._base_payloads(),
+            disk_review_state_payload={
+                "reviewer_runtime": {
+                    "effective_reviewer_mode": "tools_only",
+                },
+                "bridge": {
+                    "launch_truth": "detached_runtime_only",
+                },
+                "attention": {
+                    "status": "reviewer_heartbeat_stale",
+                },
+            },
+        )
+        self.assertFalse(report["ok"])
+        error_text = "\n".join(report["errors"])
+        self.assertIn("effective_reviewer_mode", error_text)
+        self.assertIn("launch_truth", error_text)
+        self.assertIn("attention_status", error_text)
 
 
 if __name__ == "__main__":

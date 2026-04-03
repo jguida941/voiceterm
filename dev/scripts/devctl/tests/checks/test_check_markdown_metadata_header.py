@@ -26,7 +26,34 @@ class CollectMarkdownPathsTests(unittest.TestCase):
             with patch.object(check_markdown_metadata_header, "REPO_ROOT", repo_root):
                 paths = check_markdown_metadata_header._collect_markdown_paths(
                     ["."],
-                    [],
+                    list(check_markdown_metadata_header.DEFAULT_EXCLUDES),
+                )
+
+        self.assertEqual(paths, [markdown_file.resolve()])
+
+    def test_collect_markdown_paths_skips_claude_worktrees_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir).resolve()
+            docs_dir = repo_root / "docs"
+            docs_dir.mkdir()
+            markdown_file = docs_dir / "note.md"
+            markdown_file.write_text("# Note\n", encoding="utf-8")
+            worktree_markdown = (
+                repo_root
+                / ".claude"
+                / "worktrees"
+                / "agent-123"
+                / "dev"
+                / "archive"
+                / "stale.md"
+            )
+            worktree_markdown.parent.mkdir(parents=True)
+            worktree_markdown.write_text("# Stale\n", encoding="utf-8")
+
+            with patch.object(check_markdown_metadata_header, "REPO_ROOT", repo_root):
+                paths = check_markdown_metadata_header._collect_markdown_paths(
+                    ["."],
+                    list(check_markdown_metadata_header.DEFAULT_EXCLUDES),
                 )
 
         self.assertEqual(paths, [markdown_file.resolve()])

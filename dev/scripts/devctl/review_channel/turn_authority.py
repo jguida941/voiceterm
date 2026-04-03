@@ -6,6 +6,10 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
 from ..runtime.review_state_parser import review_state_from_payload
+from ..runtime.review_state_models import (
+    ReviewBridgeState,
+    ReviewCurrentSessionState,
+)
 from ..runtime.role_profile import TandemRole
 from .attention import derive_bridge_attention
 from .current_session_projection import (
@@ -65,59 +69,40 @@ def build_reviewer_turn_authority(
         review_state_from_payload(typed_review_state or {}) if typed_review_state else None
     )
     fallback_session = build_bridge_current_session(snapshot, asdict(bridge_liveness))
-    current_session = review_state.current_session if review_state is not None else fallback_session
+    current_session = (
+        review_state.current_session if review_state is not None else fallback_session
+    )
     bridge = review_state.bridge if review_state is not None else None
     reviewer_runtime = review_state.reviewer_runtime if review_state is not None else None
     attention = review_state.attention if review_state is not None else None
-
-    # Detect whether typed state carries complete authority.  A populated
-    # bridge.launch_truth means the state came from refresh_status_snapshot()
-    # — the same pipeline status/doctor/startup use.  When launch_truth is
-    # empty the typed state is partial (scaffolding only), and the authority
-    # fields (effective_reviewer_mode, attention, launch_truth) are defaulted,
-    # not computed.  In that case, derive them from the best available
-    # lifecycle data via the same shared classifiers that status/doctor use.
-    _typed_authority_complete = (
-        review_state is not None
-        and bridge is not None
-        and bool(bridge.launch_truth)
+    typed_authority_complete = bool(
+        review_state is not None and bridge is not None and bridge.launch_truth
     )
-    _needs_fallback = not _typed_authority_complete
-    _fallback_attention: dict[str, object] | None = None
-    _fallback_launch_truth = ""
-    _fallback_effective_mode = ""
-    if _needs_fallback:
-        _liveness_dict = _build_fallback_liveness_dict(
-            bridge_liveness, typed_review_state,
-        )
-        _has_lifecycle = (
-            "publisher_running" in _liveness_dict
-            or "reviewer_supervisor_running" in _liveness_dict
-        )
-        if _has_lifecycle:
-            _fallback_attention = derive_bridge_attention(_liveness_dict)
-            _fallback_launch_truth = str(
-                _liveness_dict.get("launch_truth")
-                or classify_launch_truth(_liveness_dict).value
-            )
-            _fallback_effective_mode = _compute_effective_reviewer_mode(
-                _liveness_dict,
-            )
-
+    fallback_attention, fallback_launch_truth, fallback_effective_mode = (
+        _fallback_authority_fields(bridge_liveness, typed_review_state)
+        if not typed_authority_complete
+        else (None, "", "")
+    )
     reviewer_mode = (
         reviewer_runtime.reviewer_mode
-        if _typed_authority_complete and reviewer_runtime is not None and reviewer_runtime.reviewer_mode
+        if typed_authority_complete
+        and reviewer_runtime is not None
+        and reviewer_runtime.reviewer_mode
         else bridge.reviewer_mode
-        if _typed_authority_complete and bridge is not None and bridge.reviewer_mode
+        if typed_authority_complete and bridge is not None and bridge.reviewer_mode
         else bridge_liveness.reviewer_mode
     )
     effective_reviewer_mode = (
         reviewer_runtime.effective_reviewer_mode
-        if _typed_authority_complete and reviewer_runtime is not None and reviewer_runtime.effective_reviewer_mode
+        if typed_authority_complete
+        and reviewer_runtime is not None
+        and reviewer_runtime.effective_reviewer_mode
         else bridge.effective_reviewer_mode
-        if _typed_authority_complete and bridge is not None and bridge.effective_reviewer_mode
-        else _fallback_effective_mode
-        if _fallback_effective_mode
+        if typed_authority_complete
+        and bridge is not None
+        and bridge.effective_reviewer_mode
+        else fallback_effective_mode
+        if fallback_effective_mode
         else reviewer_mode
     )
     reviewer_freshness = (
@@ -129,26 +114,32 @@ def build_reviewer_turn_authority(
     )
     attention_status = (
         attention.status
-        if _typed_authority_complete and attention is not None and attention.status
+        if typed_authority_complete and attention is not None and attention.status
         else reviewer_runtime.stale_reason
-        if _typed_authority_complete and reviewer_runtime is not None and reviewer_runtime.stale_reason
-        else str(_fallback_attention.get("status", ""))
-        if _fallback_attention is not None
+        if typed_authority_complete
+        and reviewer_runtime is not None
+        and reviewer_runtime.stale_reason
+        else str(fallback_attention.get("status", ""))
+        if fallback_attention is not None
         else ""
     )
     recovery_action_allowed = (
         reviewer_runtime.recovery_action_allowed
-        if _typed_authority_complete and reviewer_runtime is not None and reviewer_runtime.recovery_action_allowed
+        if typed_authority_complete
+        and reviewer_runtime is not None
+        and reviewer_runtime.recovery_action_allowed
         else _recommended_command(attention_status)
     )
     implementation_blocked = bool(
         reviewer_runtime.implementation_blocked
-        if _typed_authority_complete and reviewer_runtime is not None
+        if typed_authority_complete and reviewer_runtime is not None
         else False
     )
     implementation_block_reason = (
         reviewer_runtime.implementation_block_reason
-        if _typed_authority_complete and reviewer_runtime is not None and reviewer_runtime.implementation_block_reason
+        if typed_authority_complete
+        and reviewer_runtime is not None
+        and reviewer_runtime.implementation_block_reason
         else attention_status
         if implementation_blocked and attention_status
         else ""
@@ -161,12 +152,7 @@ def build_reviewer_turn_authority(
     review_needed = (
         bridge.review_needed if bridge is not None else _review_needed(reviewed_hash_current)
     )
-    claude_ack_current = (
-        current_session.implementer_ack_state == "current"
-        if current_session.implementer_ack_state
-        else bool(bridge_liveness.claude_ack_current)
-    )
-
+    claude_ack_current = _resolve_claude_ack_current(current_session=current_session, bridge=bridge, bridge_liveness=bridge_liveness)
     current_impl_hash = current_session.implementer_state_hash or bridge_implementer_state_hash(snapshot)
     accepted_impl_hash = (
         reviewer_runtime.review_acceptance.reviewer_accepted_implementer_state_hash
@@ -191,7 +177,6 @@ def build_reviewer_turn_authority(
         implementer_state_hash=current_impl_hash,
         reviewer_accepted_implementer_state_hash=accepted_impl_hash,
     )
-
     return ReviewerTurnAuthority(
         snapshot_id=review_state.snapshot_id if review_state is not None else "",
         reviewer_mode=reviewer_mode,
@@ -200,7 +185,7 @@ def build_reviewer_turn_authority(
         launch_truth=(
             bridge.launch_truth
             if bridge is not None and bridge.launch_truth
-            else _fallback_launch_truth
+            else fallback_launch_truth
         ),
         attention_status=attention_status,
         recovery_action_allowed=recovery_action_allowed,
@@ -210,15 +195,8 @@ def build_reviewer_turn_authority(
         current_instruction_revision=current_session.current_instruction_revision,
         claude_ack_revision=current_session.implementer_ack_revision,
         claude_ack_current=claude_ack_current,
-        implementer_state_hash=(
-            current_session.implementer_state_hash or bridge_implementer_state_hash(snapshot)
-        ),
-        reviewer_accepted_implementer_state_hash=(
-            reviewer_runtime.review_acceptance.reviewer_accepted_implementer_state_hash
-            if reviewer_runtime is not None
-            and hasattr(reviewer_runtime.review_acceptance, "reviewer_accepted_implementer_state_hash")
-            else ""
-        ),
+        implementer_state_hash=current_impl_hash,
+        reviewer_accepted_implementer_state_hash=accepted_impl_hash,
         reviewed_hash_current=reviewed_hash_current,
         review_needed=review_needed,
         next_turn_required=next_turn_required,
@@ -231,6 +209,39 @@ def _review_needed(reviewed_hash_current: bool | None) -> bool | None:
     if reviewed_hash_current is None:
         return None
     return not reviewed_hash_current
+
+
+def _fallback_authority_fields(
+    bridge_liveness: BridgeLiveness,
+    typed_review_state: Mapping[str, object] | None,
+) -> tuple[dict[str, object] | None, str, str]:
+    liveness_dict = _build_fallback_liveness_dict(bridge_liveness, typed_review_state)
+    if (
+        "publisher_running" not in liveness_dict
+        and "reviewer_supervisor_running" not in liveness_dict
+    ):
+        return None, "", ""
+    return (
+        derive_bridge_attention(liveness_dict),
+        str(liveness_dict.get("launch_truth") or classify_launch_truth(liveness_dict).value),
+        _compute_effective_reviewer_mode(liveness_dict),
+    )
+
+
+def _resolve_claude_ack_current(
+    *,
+    current_session: ReviewCurrentSessionState,
+    bridge: ReviewBridgeState | None,
+    bridge_liveness: BridgeLiveness,
+) -> bool:
+    ack_state = str(current_session.implementer_ack_state or "").strip().lower()
+    if ack_state == "current":
+        return True
+    if ack_state in {"stale", "missing"}:
+        return False
+    if bridge is not None and hasattr(bridge, "claude_ack_current"):
+        return bool(bridge.claude_ack_current)
+    return bool(bridge_liveness.claude_ack_current)
 
 
 def _derive_next_turn_state(
@@ -294,6 +305,25 @@ def _derive_next_turn_state(
     if _reviewer_wait_state(snapshot=snapshot, current_instruction=current_instruction):
         return True, TandemRole.REVIEWER.value, "reviewer_wait_state"
     return False, "", "up_to_date"
+
+
+def is_attention_launch_blocked(attention_status: str) -> bool:
+    """Return True when the peer-recovery contract blocks launch for this status."""
+    recovery = STALE_PEER_RECOVERY.get(attention_status)
+    if not isinstance(recovery, dict):
+        return False
+    return str(recovery.get("guard_behavior") or "") == "block_launch"
+
+
+def attention_block_detail(attention_status: str) -> tuple[str, str]:
+    """Return (summary, recommended_action) for a blocked attention status."""
+    recovery = STALE_PEER_RECOVERY.get(attention_status)
+    if not isinstance(recovery, dict):
+        return attention_status, "inspect bridge state"
+    return (
+        str(recovery.get("summary") or attention_status),
+        str(recovery.get("recovery") or "inspect bridge state"),
+    )
 
 
 def _blocked_attention_turn(attention_status: str) -> tuple[bool, str, str] | None:
@@ -361,14 +391,7 @@ def _build_fallback_liveness_dict(
     bridge_liveness: BridgeLiveness,
     typed_review_state: Mapping[str, object] | None,
 ) -> dict[str, object]:
-    """Merge raw lifecycle fields from a partial typed payload over BridgeLiveness.
-
-    When the typed review state is partial (has bridge/bridge_liveness dicts
-    but no computed launch_truth), those raw dicts may carry lifecycle booleans
-    (publisher_running, codex_conductor_active, etc.) that the markdown-only
-    BridgeLiveness dataclass never has.  Merging them gives the shared
-    classifiers the same inputs that refresh_status_snapshot would provide.
-    """
+    """Merge raw lifecycle fields from a partial typed payload over BridgeLiveness."""
     base = asdict(bridge_liveness)
     if typed_review_state is None:
         return base

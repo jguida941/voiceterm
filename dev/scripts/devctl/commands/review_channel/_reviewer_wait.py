@@ -3,6 +3,7 @@
 The reviewer waits for meaningful implementer-side state changes:
 - Worktree hash changed vs last reviewed hash (new code to review)
 - Implementer ACK/status updated in typed current-session state
+- Implementer-state-hash diverged from reviewer-accepted baseline (Slice 2/3)
 
 Wake contract is reviewer-owned: passive heartbeat freshness is NOT
 equivalent to a meaningful review-needed state change.
@@ -49,6 +50,8 @@ class ReviewerWaitSnapshot:
     attention_summary: str
     attention_recommended_action: str
     reviewer_mode: str
+    implementer_state_hash: str = ""
+    reviewer_accepted_implementer_state_hash: str = ""
 
 def run_reviewer_wait_action(
     *,
@@ -171,6 +174,9 @@ def _capture_reviewer_snapshot(
     current_session = _load_current_session(report)
     attention = _mapping(report.get("attention"))
 
+    reviewer_runtime = _mapping(report.get("reviewer_runtime"))
+    review_acceptance = _mapping(reviewer_runtime.get("review_acceptance"))
+
     return ReviewerWaitSnapshot(
         report=dict(report),
         exit_code=exit_code,
@@ -198,6 +204,12 @@ def _capture_reviewer_snapshot(
             or bridge_liveness.get("reviewer_mode")
             or reviewer_worker.get("reviewer_mode")
             or ""
+        ),
+        implementer_state_hash=str(
+            current_session.get("implementer_state_hash") or ""
+        ),
+        reviewer_accepted_implementer_state_hash=str(
+            review_acceptance.get("reviewer_accepted_implementer_state_hash") or ""
         ),
     )
 
@@ -245,17 +257,30 @@ def _reviewer_loop_unhealthy(snapshot: ReviewerWaitSnapshot) -> bool:
 
 
 def _implementer_update_ready(snapshot: ReviewerWaitSnapshot) -> bool:
-    """Check if implementer has made changes since last review."""
-    if not snapshot.worktree_hash or not snapshot.reviewed_hash:
-        return False
-    return snapshot.worktree_hash != snapshot.reviewed_hash
+    """Check if implementer has made changes since last review.
+
+    Uses two signals: worktree hash divergence (raw tree change) and
+    implementer-state-hash divergence from the reviewer-accepted baseline
+    (semantic content change from Slice 2 typed state).
+    """
+    if snapshot.worktree_hash and snapshot.reviewed_hash:
+        if snapshot.worktree_hash != snapshot.reviewed_hash:
+            return True
+    if _accepted_hash_diverged(snapshot):
+        return True
+    return False
 
 
 def _implementer_changed(
     baseline: ReviewerWaitSnapshot,
     current: ReviewerWaitSnapshot,
 ) -> bool:
-    """Detect meaningful implementer-side state change."""
+    """Detect meaningful implementer-side state change.
+
+    Checks raw worktree hash, ACK revision/state, status excerpt, and
+    the semantic implementer-state-hash vs the reviewer-accepted baseline
+    (Slice 2 typed authority).
+    """
     if current.worktree_hash != baseline.worktree_hash:
         return True
     if (
@@ -265,7 +290,27 @@ def _implementer_changed(
         return True
     if current.implementer_ack_state != baseline.implementer_ack_state:
         return True
-    return current.implementer_status_excerpt != baseline.implementer_status_excerpt
+    if current.implementer_status_excerpt != baseline.implementer_status_excerpt:
+        return True
+    # Semantic hash divergence: if the current snapshot's implementer state
+    # hash differs from the reviewer-accepted baseline, the implementer has
+    # produced new work even if the worktree tree hash stayed the same.
+    if _accepted_hash_diverged(current):
+        return True
+    return False
+
+
+def _accepted_hash_diverged(snapshot: ReviewerWaitSnapshot) -> bool:
+    """True when implementer-state-hash differs from the reviewer-accepted baseline.
+
+    Gracefully returns False when either hash is absent (Slice 2 not yet
+    landed or no reviewer checkpoint has been cut).
+    """
+    if not snapshot.implementer_state_hash:
+        return False
+    if not snapshot.reviewer_accepted_implementer_state_hash:
+        return False
+    return snapshot.implementer_state_hash != snapshot.reviewer_accepted_implementer_state_hash
 
 
 def _finalize_reviewer_report(

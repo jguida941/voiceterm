@@ -474,6 +474,11 @@ checklist plus chat memory.
     semantic forms such as `Acknowledged instruction revision <rev>`, but live
     machine consumers should still refresh/read typed `current_session` /
     `bridge` state instead of reparsing bridge prose ad hoc.
+    In Codex-only local-review mode, `single_agent` is the sanctioned reviewer
+    state and the repo-owned `reviewer-heartbeat` / `reviewer-checkpoint` path
+    remains the authority for review truth; when the typed `current_session`
+    ACK state is unknown, fall back to `bridge.claude_ack_current` before
+    reading bridge prose.
     The same typed status artifact now also carries `reviewer_runtime` as the
     single owner of reviewer lifecycle truth: reviewer mode/effective mode,
     freshness, stale reason, last poll, rollover state, session owner,
@@ -484,6 +489,10 @@ checklist plus chat memory.
     `implementation_blocked`, and `implementation_block_reason`; startup,
     status, and push consumers must read those typed fields instead of
     recomputing implementation-blocked truth from bridge-liveness prose.
+    `check_review_surface_consistency.py` now also proves disk parity between
+    the persisted `review_state` artifact and the computed turn-authority /
+    bridge-poll projection, so review-surface reads cannot drift silently from
+    the on-disk review snapshot.
 4.6 Treat `startup-context` the same way: prefer typed
     `review_state.json` fields such as
     `reviewer_runtime.review_acceptance.review_accepted` and

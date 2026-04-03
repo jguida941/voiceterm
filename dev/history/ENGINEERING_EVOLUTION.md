@@ -37,6 +37,20 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-03 - Codex-only local review now uses the repo-owned heartbeat/checkpoint path and the review-surface parity guard also checks persisted disk truth
+
+The review-channel slice needed one more explicit owner-chain note after the
+single-agent bridge repair work settled. `single_agent` is now the sanctioned
+Codex-only reviewer mode, so the repo-owned `reviewer-heartbeat` /
+`reviewer-checkpoint` path owns local review truth instead of a parallel
+bridge edit. Typed turn-authority reads also now fall back to
+`bridge.claude_ack_current` when `current_session` ACK state is unknown, so
+the ACK parser no longer has to guess from prose. The review-surface guard
+also grew a disk-parity proof: `check_review_surface_consistency.py` now
+compares the persisted `review_state` artifact with the computed turn-authority
+/ bridge-poll projection, closing the gap where the live status snapshot and
+the on-disk review state could drift apart.
+
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
 
 ### 2026-04-03 - Launch gate split: reviewer bootstrap now allowed across reviewer-owned state drift

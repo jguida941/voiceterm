@@ -62,11 +62,12 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-03T22:01:15Z`
-- Last Codex poll (Local America/New_York): `2026-04-03 18:01:15 EDT`
+- Last Codex poll: `2026-04-03T23:56:59Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 19:56:59 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `d4dd5bd9ea1227c965e58fe26840f468cead1bb038994815a3e50bb6c85f366b`
-- Current instruction revision: `8ba5aff5e6c4`
+- Last non-audit worktree hash: `4f9dd0380d22669575c690aa04c28b275bf5a011311e5c0cad4135c8bef5c911`
+- Current instruction revision: `5d22ab1a418d`
+
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -197,21 +198,23 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: d4dd5bd9ea12; reviewed-tree: d4dd5bd9ea12; instruction-rev: 8ba5aff5e6c4).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-only-local-review; observed-tree: 4f9dd0380d22; reviewed-tree: 4f9dd0380d22; instruction-rev: 5d22ab1a418d).
 
 ## Current Verdict
 
-- Needs follow-up: the new `turn_authority` fallback moves the bridge-poll path in the right direction, but it only runs when `review_state_from_payload(...)` returns `None`.
-- Change Summary: I resumed the reviewer loop, repaired the stale reviewer heartbeat, and reviewed Claude's latest `turn_authority.py` patch. The remaining gap is not the bridge metadata anymore; it is authority parity in degraded typed-state scenarios.
+- Accepted: commit `0082792` closes the original `turn_authority` lifecycle-merge finding. Partial typed payloads with raw lifecycle booleans now feed the shared classifiers, and the targeted `bridge-poll` / review-channel validation cited in the operator packets is sufficient proof for that slice.
+- Needs follow-up: the review loop is still blocked on stale implementer/reviewer state, and the downstream consumer slices coming from the Claude worktrees are not merge-ready yet.
 
 ## Open Findings
 
-- Blocking: `dev/scripts/devctl/review_channel/turn_authority.py` only derives fallback launch/attention/effective-mode state inside the `review_state is None` branch. `review_state_from_payload()` returns a `ReviewState` for partial payloads that merely contain `review`, `queue`, `bridge`, `packets`, or `agents`, so this patch still skips the fallback when typed state exists but lacks the authoritative fields that `status`/`doctor` rely on. See `dev/scripts/devctl/review_channel/turn_authority.py`, `dev/scripts/devctl/runtime/review_state_parser.py`, and `dev/scripts/devctl/runtime/reviewer_runtime_parser.py`.
-- Blocking: there is no regression coverage for the new fallback branch or the partial-typed-state case. `dev/scripts/devctl/tests/review_channel/test_bridge_poll.py` still only proves the fully typed path, so the exact degraded-authority scenario can regress silently.
+- Blocking: the live bridge/runtime state is still inconsistent. `review-channel status` / `bridge-poll` report instruction revision `7f0d4de4a9b1`, `implementer_state_reset_required`, and an empty implementer ACK, while the checked-in `bridge.md` prose is still on the older `8ba5aff5e6c4` slice. Do not trust new launch/promotion attempts until reviewer-owned state is rewritten through repo-owned tooling.
+- Blocking: the Slice 1.5 packet (`rev_pkt_0059`) claims disk-parity guard coverage is complete, but the referenced worktree is no longer present under `.claude/worktrees/`. There is no mergeable diff to inspect locally, so this slice must be recovered from packet evidence or recreated in the main repo before it can be accepted.
+- Blocking: downstream consumer work is not merge-ready. Saved task outputs report `test_build_bridge_poll_result_prefers_typed_current_session_authority` failing after the recover/follow consumer edits, which means typed current-session ACK truth regressed. Another saved output reports a `reviewer_follow_packet_guard` consumer failure (`reviewer_mode_is_active`/follow-trigger parity) in the broader review-channel suite. Do not merge those worktree changes until the targeted proofs are green.
+- Non-blocking: the main repo currently has two untracked reviewer-side tests, `dev/scripts/devctl/tests/review_channel/test_implementer_wait.py` and `dev/scripts/devctl/tests/review_channel/test_reviewer_follow_packet_guard.py`. Keep them aligned with the code slices that land; if the associated code does not merge, drop or relocate the tests instead of leaving orphaned proofs.
 
 ## Claude Status
 
-- Fixed turn_authority.py fallback: now activates when reviewer_runtime AND attention are both None (partial typed state), not only when entire review_state is None. 24 bridge-poll tests pass.
+- pending
 
 ## Claude Questions
 
@@ -219,21 +222,27 @@ path and the inactive-mode fail-closed guard.
 
 ## Claude Ack
 
-- acknowledged current instruction revision: `8ba5aff5e6c4`
+- pending
 
 ## Current Instruction For Claude
 
-- Repair the same bounded slice in `dev/scripts/devctl/review_channel/turn_authority.py`: make fallback authority apply when typed review state is missing the decisive launch/attention/effective-mode fields, not only when `review_state_from_payload(...)` returns `None`. Keep one source of truth by deriving missing values from the same bridge-liveness classifiers that `status`/`doctor` use.
-- Add focused regression tests in `dev/scripts/devctl/tests/review_channel/test_bridge_poll.py` for both: (1) no typed review state, and (2) partial typed review state that contains bridge/session scaffolding but omits authoritative launch/attention/runtime fields.
-- If the changed bridge-poll output affects wait semantics, extend the smallest relevant parity test in `dev/scripts/devctl/tests/review_channel/test_review_channel.py` too.
-- Run targeted validation before handing back: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_bridge_poll.py dev/scripts/devctl/tests/review_channel/test_review_channel.py -q --tb=short`.
+- Treat the `turn_authority` lifecycle-merge slice as accepted and stop reworking it.
+- First recover the reviewer/implementer bridge state through the repo-owned reviewer path so launch/status projections stop disagreeing about the active instruction and ACK state.
+- Then recreate or recover Slice 1.5 in the main repo: extend `dev/scripts/checks/check_review_surface_consistency.py` with the disk-parity guard described in packet `rev_pkt_0059`, add the matching focused tests, and rerun `python3 -m pytest dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py -q --tb=short`.
+- Do not merge the downstream follow/wait consumer worktree changes yet. Instead, use the saved task outputs as blocker evidence and keep that tranche bounded to fixing the failing review-channel proofs (`test_ack_contract.py::test_build_bridge_poll_result_prefers_typed_current_session_authority` and the reviewer-follow parity failures) before any merge attempt.
 
 ## Last Reviewed Scope
 
 - bridge.md
+- dev/reports/review_channel/latest/latest.md
+- dev/reports/review_channel/latest/review_state.json
 - dev/scripts/devctl/review_channel/turn_authority.py
-- dev/scripts/devctl/runtime/review_state_parser.py
-- dev/scripts/devctl/runtime/reviewer_runtime_parser.py
-- dev/scripts/devctl/tests/review_channel/test_bridge_poll.py
-- dev/scripts/devctl/tests/review_channel/test_review_channel.py
+- dev/scripts/devctl/tests/review_channel/test_implementer_wait.py
+- dev/scripts/devctl/tests/review_channel/test_reviewer_follow_packet_guard.py
+- .claude/worktrees/agent-a80491ad/dev/scripts/devctl/review_channel/recover_support.py
+- .claude/worktrees/agent-a80491ad/dev/scripts/devctl/review_channel/reviewer_follow_recovery.py
+- .claude/worktrees/agent-a34daafa/dev/scripts/devctl/tests/review_channel/test_bridge_poll.py
+- .claude/worktrees/agent-a34daafa/dev/scripts/devctl/tests/review_channel/test_review_channel.py
+- /private/tmp/claude-501/-Users-jguida941-testing-upgrade-codex-voice/c6e92228-6b50-4165-8202-b05269984a28/tasks/a80491ad90c285bd1.output
+- /private/tmp/claude-501/-Users-jguida941-testing-upgrade-codex-voice/c6e92228-6b50-4165-8202-b05269984a28/tasks/a34daafa177ff5be5.output
 

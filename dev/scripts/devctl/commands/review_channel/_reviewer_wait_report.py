@@ -69,6 +69,9 @@ class ReviewerWaitState:
     baseline_attention_summary: str
     current_attention_summary: str
     implementer_update_observed: bool
+    current_implementer_state_hash: str = ""
+    reviewer_accepted_implementer_state_hash: str = ""
+    accepted_hash_diverged: bool = False
 
     def to_report(self) -> dict[str, object]:
         """Return the stable report payload."""
@@ -88,6 +91,13 @@ def build_reviewer_wait_report(
     report["ok"] = outcome.exit_code == 0
     report["exit_ok"] = outcome.exit_code == 0
     report["exit_code"] = outcome.exit_code
+    current_impl_hash = getattr(current, "implementer_state_hash", "")
+    accepted_impl_hash = getattr(current, "reviewer_accepted_implementer_state_hash", "")
+    hash_diverged = bool(
+        current_impl_hash
+        and accepted_impl_hash
+        and current_impl_hash != accepted_impl_hash
+    )
     report["wait_state"] = ReviewerWaitState(
         mode="reviewer_wait",
         stop_reason=outcome.stop_reason,
@@ -107,6 +117,9 @@ def build_reviewer_wait_report(
             "implementer_update_observed",
             "implementer_update_ready",
         },
+        current_implementer_state_hash=current_impl_hash,
+        reviewer_accepted_implementer_state_hash=accepted_impl_hash,
+        accepted_hash_diverged=hash_diverged,
     ).to_report()
     report["wait_attention_status"] = current.attention_status
     report["wait_attention_summary"] = current.attention_summary

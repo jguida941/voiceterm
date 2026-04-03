@@ -17,6 +17,7 @@ DEFAULT_PATHS = (".",)
 DEFAULT_EXCLUDES = (
     "integrations/**",
     "dev/archive/**",
+    ".claude/worktrees/**",
 )
 CANONICAL_TEMPLATE = (
     "**Status**: {status}  |  **Last updated**: {last_updated} | **Owner:** {owner}"

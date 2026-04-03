@@ -4468,7 +4468,11 @@ become the main product surface.
   `reviewer-heartbeat`, `reviewer-checkpoint`, and bridge-backed `full.json`
   projections now emit machine-readable `reviewer_worker` state, while
   `ensure --follow` cadence frames surface `review_needed` without pretending
-  semantic review already happened. The bounded `M68` report-only supervisor/
+  semantic review already happened. In Codex-only local-review mode,
+  `single_agent` is the sanctioned reviewer state for this slice, and typed
+  turn-authority reads should prefer `bridge.claude_ack_current` when the
+  typed `current_session` ACK state is unknown. The bounded `M68`
+  report-only supervisor/
   watch slice is accepted too: `reviewer-heartbeat --follow` now polls on
   cadence, refreshes reviewer heartbeat through the same repo-owned Python
   seam, and emits operator-visible `reviewer_worker` frames without claiming
@@ -4486,7 +4490,10 @@ become the main product surface.
   `status_snapshot.reviewer_worker` value instead of re-running
   `check_review_needed()`, and the supporting lifecycle/follow helper split
   keeps `check_code_shape.py` green while preserving the same reviewer-worker
-  contract. The next same-scope cleanup is in too: both extracted
+  contract. The review-surface parity proof now also checks persisted disk
+  `review_state` against the computed turn-authority / bridge-poll
+  projection, so the live review snapshot cannot drift from the on-disk
+  authority. The next same-scope cleanup is in too: both extracted
   `output_error` follow-loop exits now persist final stopped publisher/
   supervisor heartbeat state, lifecycle reads treat explicit stop records as
   not running even if the writer PID is still briefly alive while the CLI
