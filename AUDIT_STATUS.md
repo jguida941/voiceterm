@@ -402,3 +402,47 @@ All code is on GitHub at `feature/governance-quality-sweep`. Key files to verify
 - `dev/config/launchd/review_channel_publisher.plist.template` — daemon supervisor
 - `dev/scripts/checks/check_review_surface_consistency.py` — consistency guard
 - `dev/scripts/devctl/review_channel/reviewer_runtime_doctor.py` — doctor projection
+
+## Live Test Plan (2026-04-03)
+
+**Operator is home. System should be proven end-to-end.**
+
+### Test 1: Codex reviews, Claude codes
+- Launch Codex as reviewer via the governed launch path
+- Verify daemon auto-starts (publisher + supervisor)
+- Verify `review-channel --action doctor` shows healthy state
+- Claude codes a small change, Codex reviews it
+- Operator approves push from remote-control session
+
+### Test 2: Claude reviews, Codex codes (role swap)
+- Launch Codex as coder, Claude as reviewer
+- Verify the same typed pipeline works in reverse
+- Prove role swap works through the existing bridge protocol
+
+### Test 3: Self-healing
+- Kill the Codex process manually
+- Verify daemon detects idle/stale reviewer
+- Verify rollover fires automatically
+- Verify fresh Codex session picks up from handoff state
+- Verify terminal cleanup closes old window
+
+### Test 4: Governed remote commit
+- Codex stages work
+- Guards run automatically
+- Claude commits (governed executor)
+- Operator approves push from phone
+- `devctl push --execute` succeeds
+
+### Test 5: Deploy launchd plist
+- Install the plist template on host
+- Verify daemon auto-restarts after crash
+- Verify `manual_stop` does NOT trigger restart
+
+### Test 6: Test on another repo
+- Use the portable governance system on a second repository
+- Prove the full pipeline works without VoiceTerm-specific assumptions
+
+### After all tests pass
+- Merge `feature/governance-quality-sweep` to `develop`
+- Update MASTER_PLAN with completion evidence
+- Record in ENGINEERING_EVOLUTION
