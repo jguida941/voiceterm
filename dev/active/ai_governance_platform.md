@@ -4505,6 +4505,14 @@ working on `MP-377`.
   `runtime_missing` loop. This keeps the repair controller on the typed
   runtime-authority path instead of reopening manual operator translation as
   the de facto fallback.
+- 2026-04-03 reviewer-bootstrap receipt follow-up landed in the same owner
+  chain: startup receipt freshness is now intent-aware instead of assuming
+  every guarded action is another implementation slice. Repo-owned
+  `review-channel --action launch|rollover` keep the same fail-closed branch,
+  checkpoint-budget, and non-reviewer-authority boundaries, but plain HEAD
+  drift only blocks reviewer bootstrap when the diff since the receipt touches
+  guarded quality-scope roots. Implementation and push authority keep exact
+  HEAD binding.
 - 2026-03-27 startup-model discoverability follow-up landed: the compiler-
   style governance framing that had been buried here and in local scratch
   notes is now carried by tracked first-hop dev/agent surfaces too.
@@ -7624,4 +7632,3 @@ Execution order for this section:
 - `dev/scripts/devctl/tests/test_docs_check.py`
 - `dev/scripts/devctl/tests/test_docs_check_constants.py`
 - `dev/scripts/devctl/tests/quality_policy/test_quality_policy.py`
-

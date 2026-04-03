@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-04-02 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-03 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1453,6 +1453,28 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-03 proof-bar correction: do not describe the current state as
+  "works on any repo" or as a finished `Gate 2` proof. The reviewer-bootstrap
+  startup split is useful, but the remaining honest blockers are still in the
+  authority loop: adopter Step 0 is not proven until a second repo runs
+  target-local `governance-bootstrap` plus `startup-context` without engine
+  patches, startup/current-status/push consumers still mix typed state with
+  bridge-refreshed reads, and review-channel runtime truth is still partly
+  canonical-provider keyed instead of role keyed. Resume from this lane by
+  closing those authority gaps before widening any portability or
+  provider-order claims.
+- 2026-04-03 reviewer-bootstrap startup split is the live same-lane closure.
+  `review-channel --action launch|rollover` now route through a distinct
+  reviewer-bootstrap intent instead of reusing implementation-strict receipt
+  freshness. Exact branch binding still blocks bootstrap, exact HEAD binding
+  still blocks implementation, and reviewer bootstrap now only crosses HEAD
+  drift when the diff since the receipt avoids guarded quality-scope roots.
+  The matching startup summary/advisory follow-up is part of the same slice:
+  blocked reviewer-owned state now points operators at reviewer-loop repair
+  commands instead of generic checkpoint text when the continuation budget is
+  still green. Resume from the same owner chain by validating the focused
+  startup/runtime tests, then rerunning the broader repo bundles and the
+  external-repo proof commands that still define the honest `Gate 2` bar.
 - 2026-04-02 corpus-first handoff rule: `MP-376` now treats external-repo
   corpus waves as the immediate proof harness, but this lane remains the stop
   point for the same program. If a wave bottoms out into only Step-0/startup
@@ -1905,6 +1927,55 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-03: Multi-agent proof review corrected the current claim set. The
+  reviewer-bootstrap patch is valid as a startup-authority improvement, but it
+  is not enough to claim full-system or arbitrary-repo proof yet. Three
+  concrete blockers remain. First, adopter proof is still below the active
+  `Gate 2` bar because engine-side `check --repo-path` / `probe-report
+  --repo-path` are worktree-based onboarding scans, while real Step-0 proof
+  still requires target-local `startup-context` and governed push authority.
+  Second, source-of-truth closure is incomplete: live startup/current-state
+  reads still refresh bridge-backed status, checkpoint attention can be
+  derived from multiple payload shapes, and the current review-surface parity
+  guard does not compare startup receipts or live bridge inputs. Third,
+  review-channel liveness is still partly hardcoded to canonical Codex/Claude
+  provider bits: recover only replaces Claude while requiring live Codex,
+  launch truth still keys off `codex_conductor_active` /
+  `claude_conductor_active`, event-backed registry/topology paths still inject
+  canonical providers by default, and `bridge.md` launch validation still
+  proves the canonical compatibility mode rather than arbitrary role
+  assignments. Next same-lane closure order: 1. prove target-local Step 0 on a
+  second repo, 2. finish typed-source parity so bridge is projection-only,
+  3. make tandem liveness/recover/rollover role keyed, 4. add deterministic
+  first-run/second-run convergence plus the permanent portability fixture
+  matrix before widening claims.
+- 2026-04-03: Closed the reviewer-bootstrap/startup-intent split inside the
+  `MP-377` authority loop. Startup receipts now persist reviewer-loop
+  context alongside strict receipt identity, the startup-authority report and
+  gate both accept an explicit intent, and `review-channel --action
+  launch|rollover` now consume reviewer-bootstrap semantics instead of the
+  same exact-HEAD rule used by push/mutation work. The fail-closed boundary is
+  still explicit: branch mismatches, checkpoint-budget failures, and non-
+  reviewer authority errors still block launch, and reviewer bootstrap only
+  tolerates HEAD drift when the diff since the receipt stays outside the
+  guarded quality-scope roots. The same slice also corrected the operator
+  surface so `startup-context --format summary` emits reviewer-loop repair
+  commands instead of misleading checkpoint text when the reviewer loop is the
+  real blocker, and the launch-attention contract now treats
+  `reviewer_overdue` as a recovery warning rather than a self-blocking launch
+  failure. Focused startup receipt/gate/context tests, startup-authority guard
+  tests, and the targeted review-channel launch-attention tests are green on
+  the working tree. Broader validation now cleanly separates code and repo
+  state: this repo's `check --profile ci` only stays red because the live
+  continuation budget and reviewer loop are already stale, while portable
+  adopter checks from this checkout successfully bootstrapped
+  `/tmp/homebrew-voxterm-pilot` and `/tmp/cihub-portable-pilot`. The former
+  passed its capability-aware adoption scan with honest skips; the latter ran
+  the engine cleanly enough to expose real target-repo baseline debt plus
+  missing compat-matrix/Rust surfaces instead of engine crashes. Cross-repo
+  `startup-context` proof still remains gated on the planned target-local or
+  exported governance-stack install because the engine checkout does not yet
+  offer a `--repo-path` startup mode.
 - 2026-04-02: Locked the cross-repo proof readout to avoid overclaiming. The
   current honest state is "two external Python repos are enough to expose and
   regression-test engine bugs," not "the engine now works on any repo." The

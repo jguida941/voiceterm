@@ -29,6 +29,10 @@ _CONTEXT_GRAPH_BOOTSTRAP_COMMAND = (
 _SUMMARY_RERUN_COMMAND = (
     "python3 dev/scripts/devctl.py startup-context --format summary"
 )
+_REVIEW_STATUS_COMMAND = (
+    "python3 dev/scripts/devctl.py review-channel --action status "
+    "--terminal none --format json"
+)
 
 
 def _summary_blockers(ctx_dict: dict) -> str:
@@ -63,6 +67,10 @@ def _summary_next_command(ctx_dict: dict) -> str:
     if _summary_blockers(ctx_dict) == "none":
         return _CONTEXT_GRAPH_BOOTSTRAP_COMMAND
 
+    reviewer_command = _reviewer_recovery_command(ctx_dict)
+    if reviewer_command:
+        return reviewer_command
+
     push_decision = ctx_dict.get("push_decision")
     if isinstance(push_decision, dict):
         next_step_command = str(push_decision.get("next_step_command") or "").strip()
@@ -73,6 +81,29 @@ def _summary_next_command(ctx_dict: dict) -> str:
             return f"checkpoint current slice, then rerun {_SUMMARY_RERUN_COMMAND}"
 
     return f"resolve blockers, then rerun {_SUMMARY_RERUN_COMMAND}"
+
+
+def _reviewer_recovery_command(ctx_dict: dict) -> str:
+    action = str(ctx_dict.get("advisory_action") or "").strip()
+    if action != "repair_reviewer_loop":
+        return ""
+    reviewer_gate = ctx_dict.get("reviewer_gate")
+    if not isinstance(reviewer_gate, dict):
+        return _REVIEW_STATUS_COMMAND
+    if not bool(reviewer_gate.get("implementation_blocked", False)):
+        return ""
+    if bool(reviewer_gate.get("review_gate_allows_push", False)):
+        return ""
+    block_reason = str(
+        reviewer_gate.get("implementation_block_reason") or ""
+    ).strip()
+    try:
+        from ...review_channel.peer_recovery import STALE_PEER_RECOVERY
+    except ImportError:
+        return _REVIEW_STATUS_COMMAND
+    entry = STALE_PEER_RECOVERY.get(block_reason, {})
+    command = str(entry.get("recommended_command") or "").strip()
+    return command or _REVIEW_STATUS_COMMAND
 
 
 def _render_summary(ctx_dict: dict) -> str:

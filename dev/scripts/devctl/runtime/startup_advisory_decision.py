@@ -268,15 +268,15 @@ def _budget_exceeded_decision(
 def _blocked_loop_decision(gate: "ReviewerGateState") -> StartupAdvisoryDecision:
     block_reason = gate.implementation_block_reason or "reviewer_loop_blocked"
     return _decision(
-        "checkpoint_before_continue",
+        "repair_reviewer_loop",
         block_reason,
         (
-            "Startup blocks another implementation slice because reviewer-owned "
-            "state says the live loop must pause first."
+            "Startup routes the next step to reviewer-loop repair because "
+            "reviewer-owned state is blocking the live collaboration lane."
         ),
         (
             rule_match_evidence(
-                "startup_advisory.reviewer_loop_blocked",
+                "startup_advisory.repair_reviewer_loop",
                 "Reviewer-owned state marked the current loop as blocked.",
                 f"implementation_blocked={gate.implementation_blocked}",
                 f"block_reason={block_reason}",
@@ -284,9 +284,9 @@ def _blocked_loop_decision(gate: "ReviewerGateState") -> StartupAdvisoryDecision
         ),
         (
             rejected_rule_trace(
-                "startup_advisory.continue_editing",
-                "Keep editing the current slice.",
-                "Reviewer-owned state is blocked.",
+                "startup_advisory.checkpoint_before_continue",
+                "Cut a checkpoint before doing anything else.",
+                "The continuation budget is still green; the blocked reviewer loop is the stricter next action.",
             ),
         ),
     )

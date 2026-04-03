@@ -27,18 +27,16 @@ except ModuleNotFoundError:
 
 _COMMAND = "check_startup_authority_contract"
 
-# Canonical startup authority files (relative to repo root).
-def _build_report(repo_root: Path | None = None) -> dict:
-    root = repo_root or REPO_ROOT
+def _load_governance(root: Path):
     draft_mod = import_repo_module(
-        "dev.scripts.devctl.governance.draft", repo_root=root,
+        "dev.scripts.devctl.governance.draft",
+        repo_root=root,
     )
-    scan_repo_governance = draft_mod.scan_repo_governance
+    return draft_mod.scan_repo_governance(root)
 
-    gov = scan_repo_governance(root)
 
+def _base_authority_checks(root: Path, gov) -> tuple[list[str], int, int]:
     errors: list[str] = []
-    warnings: list[str] = []
     checks_run = 0
     checks_passed = 0
 
@@ -115,7 +113,20 @@ def _build_report(repo_root: Path | None = None) -> dict:
     else:
         errors.append("plan_registry.tracker_path is empty (MASTER_PLAN.md not found)")
 
-    # --- 8. checkpoint budget is fail-closed for startup authority ---
+    return errors, checks_run, checks_passed
+
+
+def _runtime_authority_checks(
+    root: Path,
+    gov,
+    *,
+    intent: str,
+) -> tuple[list[str], list[str], int, int, bool, bool, int]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    checks_run = 0
+    checks_passed = 0
+
     checks_run += 1
     checkpoint_errors = collect_checkpoint_budget_errors(gov)
     if checkpoint_errors:
@@ -123,7 +134,6 @@ def _build_report(repo_root: Path | None = None) -> dict:
     else:
         checks_passed += 1
 
-    # --- 9. a local checkpoint cannot coexist with fresh dirty worktree state ---
     checks_run += 1
     post_checkpoint_dirty_errors = collect_post_checkpoint_dirty_worktree_errors(gov)
     if post_checkpoint_dirty_errors:
@@ -131,15 +141,18 @@ def _build_report(repo_root: Path | None = None) -> dict:
     else:
         checks_passed += 1
 
-    # --- 10. active reviewer loop cannot start a fresh implementation slice when stale ---
     checks_run += 1
-    reviewer_loop_errors = collect_reviewer_loop_block_errors(root, gov)
+    strict_reviewer_loop_errors = collect_reviewer_loop_block_errors(root, gov)
+    reviewer_loop_errors = collect_reviewer_loop_block_errors(
+        root,
+        gov,
+        intent=intent,
+    )
     if reviewer_loop_errors:
         errors.extend(reviewer_loop_errors)
     else:
         checks_passed += 1
 
-    # --- 11. repo-local Python imports resolve in the git index, not only on disk ---
     checks_run += 1
     import_atomicity_errors, import_atomicity_warnings = (
         collect_import_index_atomicity_findings(root)
@@ -150,7 +163,6 @@ def _build_report(repo_root: Path | None = None) -> dict:
     else:
         checks_passed += 1
 
-    # --- 12. startup push decision must emit a coherent next-step contract ---
     checks_run += 1
     push_contract_errors = collect_push_decision_contract_errors(root, gov)
     if push_contract_errors:
@@ -158,12 +170,52 @@ def _build_report(repo_root: Path | None = None) -> dict:
     else:
         checks_passed += 1
 
+    return (
+        errors,
+        warnings,
+        checks_run,
+        checks_passed,
+        bool(strict_reviewer_loop_errors),
+        intent == "reviewer_bootstrap"
+        and bool(strict_reviewer_loop_errors)
+        and not reviewer_loop_errors,
+        len(import_atomicity_errors),
+    )
+
+
+# Canonical startup authority files (relative to repo root).
+def _build_report(
+    repo_root: Path | None = None,
+    *,
+    intent: str = "implementation_strict",
+) -> dict:
+    root = repo_root or REPO_ROOT
+    gov = _load_governance(root)
+    errors, checks_run, checks_passed = _base_authority_checks(root, gov)
+    (
+        runtime_errors,
+        warnings,
+        runtime_checks_run,
+        runtime_checks_passed,
+        reviewer_loop_blocked,
+        reviewer_loop_bootstrap_allowed,
+        import_index_atomicity_violations,
+    ) = _runtime_authority_checks(
+        root,
+        gov,
+        intent=intent,
+    )
+    errors.extend(runtime_errors)
+    checks_run += runtime_checks_run
+    checks_passed += runtime_checks_passed
+
     ok = len(errors) == 0
     return {
         "command": _COMMAND,
         "ok": ok,
         "errors": errors,
         "warnings": warnings,
+        "startup_intent": intent,
         "checks_run": checks_run,
         "checks_passed": checks_passed,
         "repo_name": gov.repo_identity.repo_name,
@@ -171,8 +223,9 @@ def _build_report(repo_root: Path | None = None) -> dict:
         "checkpoint_required": gov.push_enforcement.checkpoint_required,
         "safe_to_continue_editing": gov.push_enforcement.safe_to_continue_editing,
         "checkpoint_reason": gov.push_enforcement.checkpoint_reason,
-        "reviewer_loop_blocked": bool(reviewer_loop_errors),
-        "import_index_atomicity_violations": len(import_atomicity_errors),
+        "reviewer_loop_blocked": reviewer_loop_blocked,
+        "reviewer_loop_bootstrap_allowed": reviewer_loop_bootstrap_allowed,
+        "import_index_atomicity_violations": import_index_atomicity_violations,
     }
 
 
@@ -181,12 +234,17 @@ def _render_md(report: dict) -> str:
     lines.append(f"- ok: {report['ok']}")
     lines.append(f"- checks: {report['checks_passed']}/{report['checks_run']}")
     lines.append(f"- repo_name: {report['repo_name']}")
+    lines.append(f"- startup_intent: {report['startup_intent']}")
     lines.append(f"- startup_order: {', '.join(report['startup_order']) or '(none)'}")
     lines.append(f"- checkpoint_required: {report['checkpoint_required']}")
     lines.append(
         f"- safe_to_continue_editing: {report['safe_to_continue_editing']}"
     )
     lines.append(f"- checkpoint_reason: {report['checkpoint_reason']}")
+    lines.append(
+        "- reviewer_loop_bootstrap_allowed: "
+        f"{report['reviewer_loop_bootstrap_allowed']}"
+    )
     lines.append(
         "- import_index_atomicity_violations: "
         f"{report['import_index_atomicity_violations']}"

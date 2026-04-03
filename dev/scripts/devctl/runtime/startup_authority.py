@@ -9,6 +9,7 @@ from typing import Any
 def build_startup_authority_report(
     *,
     repo_root: Path | None = None,
+    intent: str = "implementation_strict",
 ) -> dict[str, Any]:
     """Return the canonical startup-authority guard report."""
     try:
@@ -18,4 +19,4 @@ def build_startup_authority_report(
     except ModuleNotFoundError:
         from checks.startup_authority_contract.command import _build_report
 
-    return dict(_build_report(repo_root=repo_root))
+    return dict(_build_report(repo_root=repo_root, intent=intent))

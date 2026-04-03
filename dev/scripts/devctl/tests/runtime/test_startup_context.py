@@ -89,6 +89,7 @@ class TestStartupContextBuild(unittest.TestCase):
             "await_review",
             "checkpoint_before_continue",
             "checkpoint_allowed",
+            "repair_reviewer_loop",
             "push_allowed",
             "no_push_needed",
         ))
@@ -492,6 +493,34 @@ class TestCLIRegistration(unittest.TestCase):
             rendered,
         )
 
+    def test_summary_prefers_reviewer_loop_recovery_command(self) -> None:
+        rendered = _render_summary(
+            {
+                "advisory_action": "repair_reviewer_loop",
+                "advisory_reason": "reviewer_heartbeat_stale",
+                "reviewer_gate": {
+                    "implementation_blocked": True,
+                    "implementation_block_reason": "reviewer_heartbeat_stale",
+                    "review_gate_allows_push": False,
+                },
+                "startup_authority": {"ok": False},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                    }
+                },
+                "push_decision": {
+                    "action": "await_checkpoint",
+                    "next_step_command": "",
+                },
+            }
+        )
+
+        self.assertIn("action=repair_reviewer_loop", rendered)
+        self.assertIn("blockers=startup_authority,reviewer_heartbeat_stale", rendered)
+        self.assertIn("review-channel --action launch", rendered)
+
     def test_summary_surfaces_push_backlog_when_remote_work_is_waiting(self) -> None:
         rendered = _render_summary(
             {
@@ -746,7 +775,7 @@ class TestReviewerGateSemantics(unittest.TestCase):
 
 
 class TestAdvisoryAction(unittest.TestCase):
-    """Verify all 5 advisory outcomes."""
+    """Verify the typed startup advisory outcomes."""
 
     def test_checkpoint_required(self) -> None:
         gov = _minimal_governance(checkpoint_required=True, checkpoint_reason="budget")
@@ -835,7 +864,7 @@ class TestAdvisoryAction(unittest.TestCase):
             implementation_block_reason="claude_ack_stale",
         )
         action, reason = _derive_advisory_action(gov, gate)
-        self.assertEqual(action, "checkpoint_before_continue")
+        self.assertEqual(action, "repair_reviewer_loop")
         self.assertEqual(reason, "claude_ack_stale")
 
     def test_no_push_needed(self) -> None:

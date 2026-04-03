@@ -4270,6 +4270,12 @@ become the main product surface.
     and the worktree is dirty again, and the VoiceTerm quality-policy preset
     now enables that guard in the default `check --profile ci` lane so the
     branch-local dirty-after-checkpoint state goes red before governed push.
+    Latest follow-up (2026-04-03): startup receipt freshness is now intent-
+    aware too. `review-channel --action launch|rollover` keep the hard
+    checkpoint/branch/non-reviewer-authority blockers, but plain HEAD drift
+    only blocks reviewer bootstrap when the diff since the receipt crosses
+    guarded quality-scope roots; implementation/push lanes still require exact
+    HEAD equality.
     Latest follow-up (2026-04-02): post-publication governed push receipts now
     also stop at the fetched divergence boundary. When the tracked branch is
     already at `ahead == 0`, `devctl push` skips router preflight entirely and
@@ -4584,4 +4590,3 @@ Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..36
 - `dev/archive/2026-02-02-release-audit-completed.md`
 - `dev/archive/2026-02-17-tooling-control-plane-consolidation.md`
 - `dev/archive/2026-02-20-senior-engineering-audit.md`
-

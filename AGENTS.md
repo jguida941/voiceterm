@@ -417,6 +417,11 @@ checklist plus chat memory.
     Fresh repo-owned `review-channel --action launch|rollover` starts must
     treat that same checkpoint state as a hard launch blocker, not as
     advisory status to be ignored while starting another implementation loop.
+    After that checkpoint-budget gate, those actions use reviewer-bootstrap
+    receipt semantics instead of implementation-strict freshness: branch
+    mismatch and non-reviewer authority failures still block, but plain HEAD
+    drift only blocks when the diff since the receipt touches guarded
+    quality-scope roots.
     The narrower stale-implementer replacement path is now
     `python3 dev/scripts/devctl.py review-channel --action recover --recover-provider claude`;
     it replaces only the stale Claude conductor and now requires an already-live
@@ -2176,4 +2181,3 @@ Include:
 
 - `dev/archive/2026-01-29-claudeaudit-completed.md` contains the production readiness checklist.
 - Prefer editing existing files over creating new ones.
-

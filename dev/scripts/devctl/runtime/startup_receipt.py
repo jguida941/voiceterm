@@ -5,13 +5,18 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
-import subprocess
 from typing import TYPE_CHECKING, Any
 
 from ..config import get_repo_root
 from ..repo_packs import configured_path_config
 from ..time_utils import utc_timestamp
 from .governance_scan import scan_repo_governance_safely
+from .startup_receipt_freshness import (
+    IMPLEMENTATION_STRICT_STARTUP_INTENT,
+    REVIEWER_BOOTSTRAP_STARTUP_INTENT,
+    _git_stdout as _freshness_git_stdout,
+    startup_receipt_problems_for_intent,
+)
 
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
@@ -30,6 +35,12 @@ class StartupReceipt:
     repo_name: str = ""
     current_branch: str = ""
     head_commit_sha: str = ""
+    receipt_intent_scope: str = IMPLEMENTATION_STRICT_STARTUP_INTENT
+    reviewer_loop_blocked: bool = False
+    implementation_block_reason: str = ""
+    review_gate_allows_push: bool = False
+    receipt_source_tree_head_sha: str = ""
+    receipt_admin_drift_allowed: bool = False
     advisory_action: str = ""
     advisory_reason: str = ""
     recommended_action: str = ""
@@ -103,11 +114,28 @@ def build_startup_receipt(
         for row in authority_report.get("warnings", ())
         if str(row).strip()
     )
+    current_head = _freshness_git_stdout(resolved_root, "rev-parse", "HEAD")
+    reviewer_loop_blocked = bool(
+        ctx.reviewer_gate.implementation_blocked
+        and not ctx.reviewer_gate.review_gate_allows_push
+    )
     return StartupReceipt(
         generated_at_utc=utc_timestamp(),
         repo_name=repo_identity.repo_name if repo_identity is not None else "",
         current_branch=repo_identity.current_branch if repo_identity is not None else "",
-        head_commit_sha=_git_stdout(resolved_root, "rev-parse", "HEAD"),
+        head_commit_sha=current_head,
+        receipt_intent_scope=IMPLEMENTATION_STRICT_STARTUP_INTENT,
+        reviewer_loop_blocked=reviewer_loop_blocked,
+        implementation_block_reason=str(
+            ctx.reviewer_gate.implementation_block_reason or ""
+        ).strip(),
+        review_gate_allows_push=bool(ctx.reviewer_gate.review_gate_allows_push),
+        receipt_source_tree_head_sha=current_head,
+        receipt_admin_drift_allowed=(
+            reviewer_loop_blocked
+            and not (bool(push.checkpoint_required) if push is not None else False)
+            and (bool(push.safe_to_continue_editing) if push is not None else True)
+        ),
         advisory_action=str(ctx.advisory_action or "").strip(),
         advisory_reason=str(ctx.advisory_reason or "").strip(),
         recommended_action=(
@@ -185,6 +213,21 @@ def startup_receipt_from_mapping(payload: dict[str, object]) -> StartupReceipt:
         repo_name=str(payload.get("repo_name") or "").strip(),
         current_branch=str(payload.get("current_branch") or "").strip(),
         head_commit_sha=str(payload.get("head_commit_sha") or "").strip(),
+        receipt_intent_scope=(
+            str(payload.get("receipt_intent_scope") or "").strip()
+            or IMPLEMENTATION_STRICT_STARTUP_INTENT
+        ),
+        reviewer_loop_blocked=bool(payload.get("reviewer_loop_blocked", False)),
+        implementation_block_reason=str(
+            payload.get("implementation_block_reason") or ""
+        ).strip(),
+        review_gate_allows_push=bool(payload.get("review_gate_allows_push", False)),
+        receipt_source_tree_head_sha=str(
+            payload.get("receipt_source_tree_head_sha") or ""
+        ).strip(),
+        receipt_admin_drift_allowed=bool(
+            payload.get("receipt_admin_drift_allowed", False)
+        ),
         advisory_action=str(payload.get("advisory_action") or "").strip(),
         advisory_reason=str(payload.get("advisory_reason") or "").strip(),
         recommended_action=str(payload.get("recommended_action") or "").strip(),
@@ -228,41 +271,11 @@ def startup_receipt_problems(
     repo_root: Path | None = None,
 ) -> list[str]:
     """Return receipt freshness problems for launcher/mutation gates."""
-    if receipt is None:
-        return [
-            "Startup receipt is missing. Run the repo's `startup-context` command before guarded launcher or mutation commands.",
-        ]
-    resolved_root = repo_root or get_repo_root()
-    current_branch = _git_stdout(resolved_root, "branch", "--show-current")
-    current_head = _git_stdout(resolved_root, "rev-parse", "HEAD")
-    problems: list[str] = []
-    if (
-        receipt.current_branch
-        and current_branch
-        and receipt.current_branch != current_branch
-    ):
-        problems.append(
-            "Startup receipt is stale for the current branch "
-            f"(`{receipt.current_branch}` -> `{current_branch}`)."
-        )
-    if (
-        receipt.head_commit_sha
-        and current_head
-        and receipt.head_commit_sha != current_head
-    ):
-        problems.append(
-            "Startup receipt is stale for the current HEAD commit "
-            f"(`{receipt.head_commit_sha[:12]}` -> `{current_head[:12]}`)."
-        )
-    if receipt.checkpoint_required or not receipt.safe_to_continue_editing:
-        problems.append(
-            "Latest startup receipt still requires a checkpoint before another implementation or launcher step."
-        )
-    if not receipt.startup_authority_ok:
-        problems.append(
-            "Latest startup receipt recorded startup-authority failures."
-        )
-    return problems
+    return startup_receipt_problems_for_intent(
+        receipt,
+        repo_root=repo_root,
+        intent=IMPLEMENTATION_STRICT_STARTUP_INTENT,
+    )
 
 
 def _reports_root_relative_path(
@@ -295,29 +308,16 @@ def _configured_reports_root(
         return None
     return Path(reports_root)
 
-
-def _git_stdout(repo_root: Path, *cmd: str) -> str:
-    try:
-        result = subprocess.run(
-            ["git", *cmd],
-            cwd=str(repo_root),
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return ""
-    return result.stdout.strip() if result.returncode == 0 else ""
-
-
 __all__ = [
     "StartupReceipt",
     "build_startup_receipt",
+    "IMPLEMENTATION_STRICT_STARTUP_INTENT",
     "load_startup_receipt",
+    "REVIEWER_BOOTSTRAP_STARTUP_INTENT",
     "startup_receipt_from_mapping",
     "startup_receipt_relative_path",
     "startup_receipt_path",
     "startup_receipt_problems",
+    "startup_receipt_problems_for_intent",
     "write_startup_receipt",
 ]

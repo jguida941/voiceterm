@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+_IMPLEMENTATION_STRICT_INTENT = "implementation_strict"
+_REVIEWER_BOOTSTRAP_INTENT = "reviewer_bootstrap"
+
 try:
     from check_bootstrap import (
         REPO_ROOT,
@@ -58,7 +61,12 @@ def collect_post_checkpoint_dirty_worktree_errors(gov) -> list[str]:
     ]
 
 
-def collect_reviewer_loop_block_errors(repo_root: Path, gov) -> list[str]:
+def collect_reviewer_loop_block_errors(
+    repo_root: Path,
+    gov,
+    *,
+    intent: str = _IMPLEMENTATION_STRICT_INTENT,
+) -> list[str]:
     """Return fail-closed errors when the active reviewer loop blocks implementation."""
     try:
         gate = _detect_reviewer_gate(repo_root, governance=gov)
@@ -67,6 +75,8 @@ def collect_reviewer_loop_block_errors(repo_root: Path, gov) -> list[str]:
     if not gate.implementation_blocked:
         return []
     if gate.review_gate_allows_push:
+        return []
+    if intent == _REVIEWER_BOOTSTRAP_INTENT:
         return []
     reason = gate.implementation_block_reason or "reviewer_loop_blocked"
     return [

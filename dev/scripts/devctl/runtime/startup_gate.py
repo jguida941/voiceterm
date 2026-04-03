@@ -8,7 +8,12 @@ from types import SimpleNamespace
 
 from ..config import REPO_ROOT
 from .startup_authority import build_startup_authority_report
-from .startup_receipt import load_startup_receipt, startup_receipt_problems
+from .startup_receipt import (
+    IMPLEMENTATION_STRICT_STARTUP_INTENT,
+    REVIEWER_BOOTSTRAP_STARTUP_INTENT,
+    load_startup_receipt,
+    startup_receipt_problems_for_intent,
+)
 
 _REVIEW_CHANNEL_GATED_ACTIONS = {"launch", "rollover"}
 _CONTROLLER_ACTION_GATED_ACTIONS = {"dispatch-report-only", "resume-loop"}
@@ -21,7 +26,6 @@ _GATED_COMMANDS = {
     "mutation-loop",
     "swarm_run",
 }
-_REVIEWER_LOOP_BLOCK_PREFIX = "Reviewer loop blocks a new implementation slice:"
 
 
 def command_requires_startup_gate(args: SimpleNamespace) -> bool:
@@ -47,19 +51,19 @@ def enforce_startup_gate(
     if not command_requires_startup_gate(args):
         return None
 
-    authority_report = build_startup_authority_report(repo_root=repo_root)
-    allow_recovery_action = _allow_recovery_action_despite_reviewer_block(
-        args,
-        authority_report=authority_report,
+    intent = _startup_gate_intent(args)
+    authority_report = build_startup_authority_report(
+        repo_root=repo_root,
+        intent=intent,
     )
 
-    is_bootstrap = _is_reviewer_bootstrap_intent(args)
     if not _ci_environment():
         receipt = load_startup_receipt(repo_root=repo_root)
-        receipt_failures = _filtered_receipt_failures(
-            startup_receipt_problems(receipt, repo_root=repo_root),
-            allow_recovery_action=allow_recovery_action,
-            is_bootstrap=is_bootstrap,
+        receipt_failures = startup_receipt_problems_for_intent(
+            receipt,
+            repo_root=repo_root,
+            intent=intent,
+            authority_report=authority_report,
         )
         if receipt_failures:
             return _format_gate_failure(
@@ -68,7 +72,7 @@ def enforce_startup_gate(
                 failures=receipt_failures,
             )
 
-    if bool(authority_report.get("ok", False)) or allow_recovery_action:
+    if bool(authority_report.get("ok", False)):
         return None
     return _format_gate_failure(
         args,
@@ -85,62 +89,13 @@ def enforce_startup_gate(
     )
 
 
-def _is_reviewer_bootstrap_intent(args: SimpleNamespace) -> bool:
-    """Return True when the command is review-channel launch or rollover."""
+def _startup_gate_intent(args: SimpleNamespace) -> str:
+    """Return the startup intent for one gated command."""
     command = str(getattr(args, "command", "") or "").strip()
     action = str(getattr(args, "action", "") or "").strip()
-    return command == "review-channel" and action in _REVIEW_CHANNEL_GATED_ACTIONS
-
-
-def _allow_recovery_action_despite_reviewer_block(
-    args: SimpleNamespace,
-    *,
-    authority_report: dict[str, object],
-) -> bool:
-    """Permit launch/rollover for reviewer bootstrap even across reviewer-owned state drift.
-
-    Launch/rollover is a reviewer-runtime repair action, not a new implementation
-    slice. It must be allowed when the only problems are reviewer-loop blockage,
-    stale implementer state, or reviewer-overdue conditions. It must NOT be
-    allowed when there are non-reviewer authority failures or when a real
-    checkpoint is required for dirty implementation work.
-    """
-    if not _is_reviewer_bootstrap_intent(args):
-        return False
-    if bool(authority_report.get("checkpoint_required", False)):
-        return False
-    errors = [
-        str(row).strip()
-        for row in authority_report.get("errors", ())
-        if str(row).strip()
-    ]
-    if not errors:
-        return True
-    return all(error.startswith(_REVIEWER_LOOP_BLOCK_PREFIX) for error in errors)
-
-
-def _filtered_receipt_failures(
-    failures: list[str],
-    *,
-    allow_recovery_action: bool,
-    is_bootstrap: bool = False,
-) -> list[str]:
-    """Keep stale-receipt blocking, but allow reviewer-bootstrap to cross admin drift.
-
-    For reviewer bootstrap (launch/rollover), drop stale-HEAD failures and
-    startup-authority mirror failures. The launch path repairs reviewer state,
-    so HEAD drift from reviewer-owned artifacts is expected and safe.
-    """
-    if not allow_recovery_action and not is_bootstrap:
-        return failures
-    filtered = []
-    for failure in failures:
-        if "startup-authority failures" in failure:
-            continue
-        if is_bootstrap and "stale for the current HEAD commit" in failure:
-            continue
-        filtered.append(failure)
-    return filtered
+    if command == "review-channel" and action in _REVIEW_CHANNEL_GATED_ACTIONS:
+        return REVIEWER_BOOTSTRAP_STARTUP_INTENT
+    return IMPLEMENTATION_STRICT_STARTUP_INTENT
 
 
 def _format_gate_failure(

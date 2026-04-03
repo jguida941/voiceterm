@@ -3555,6 +3555,31 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             },
         )
 
+    def test_launch_attention_does_not_block_reviewer_overdue(self) -> None:
+        from dev.scripts.devctl.review_channel.bridge_runtime_state import (
+            enforce_bridge_launch_attention,
+        )
+
+        enforce_bridge_launch_attention(
+            action="launch",
+            bridge_actions={"launch", "rollover"},
+            bridge_liveness={
+                "overall_state": "stale",
+                "codex_poll_state": "stale",
+                "reviewer_mode": "active_dual_agent",
+                "claude_status_present": True,
+                "claude_ack_present": True,
+                "claude_ack_current": True,
+                "review_needed": False,
+                "reviewed_hash_current": True,
+                "implementer_completion_stall": False,
+                "publisher_running": True,
+                "reviewer_freshness": "overdue",
+                "last_codex_poll_age_seconds": 1200,
+                "reviewer_overdue_threshold_seconds": 900,
+            },
+        )
+
     def test_attention_reports_stale_claude_ack_when_revision_mismatches(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
 

@@ -57,8 +57,15 @@ class StartupGateEnforcementTests(unittest.TestCase):
         "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
         return_value=None,
     )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
+        return_value=[
+            "Startup receipt is missing. Run the repo's `startup-context` command before guarded launcher or mutation commands.",
+        ],
+    )
     def test_gate_blocks_missing_receipt(
         self,
+        _receipt_problems,
         _load_receipt,
         _authority_report,
     ) -> None:
@@ -69,7 +76,7 @@ class StartupGateEnforcementTests(unittest.TestCase):
         self.assertIn("startup-context", message or "")
 
     @patch(
-        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems",
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
         return_value=[],
     )
     @patch(
@@ -93,19 +100,18 @@ class StartupGateEnforcementTests(unittest.TestCase):
         self.assertIn("over budget", message or "")
 
     @patch(
-        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems",
-        return_value=["Latest startup receipt recorded startup-authority failures."],
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
+        return_value=[],
     )
     @patch(
         "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
         return_value={
-            "ok": False,
-            "errors": [
-                "Reviewer loop blocks a new implementation slice: reviewer_mode=active_dual_agent, review_accepted=False, reason=claude_ack_stale."
-            ],
+            "ok": True,
+            "errors": [],
             "checkpoint_required": False,
             "safe_to_continue_editing": True,
             "reviewer_loop_blocked": True,
+            "reviewer_loop_bootstrap_allowed": True,
         },
     )
     @patch(
@@ -123,10 +129,9 @@ class StartupGateEnforcementTests(unittest.TestCase):
         )
 
     @patch(
-        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems",
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
         return_value=[
             "Latest startup receipt still requires a checkpoint before another implementation or launcher step.",
-            "Latest startup receipt recorded startup-authority failures.",
         ],
     )
     @patch(
@@ -161,7 +166,7 @@ class StartupGateEnforcementTests(unittest.TestCase):
         self.assertIn("requires a checkpoint", message or "")
 
     @patch(
-        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems",
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
         return_value=[],
     )
     @patch(
@@ -186,6 +191,29 @@ class StartupGateEnforcementTests(unittest.TestCase):
         self.assertIsNotNone(message)
         self.assertIn("live startup-authority check is red", message or "")
         self.assertIn("Reviewer loop blocks", message or "")
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
+        return_value=["Startup receipt is stale for reviewer bootstrap because HEAD drift touches guarded quality-scope files."],
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
+        return_value=StartupReceipt(startup_authority_ok=True),
+    )
+    def test_gate_blocks_bootstrap_when_quality_scope_head_drift_exists(
+        self,
+        _load_receipt,
+        _authority_report,
+        _receipt_problems,
+    ) -> None:
+        message = enforce_startup_gate(_args("review-channel", action="launch"))
+
+        self.assertIsNotNone(message)
+        self.assertIn("quality-scope files", message or "")
 
     def test_gate_ignores_read_only_commands(self) -> None:
         self.assertIsNone(enforce_startup_gate(_args("check-router")))

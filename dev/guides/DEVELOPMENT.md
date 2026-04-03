@@ -350,8 +350,9 @@ Three quality layers matter in practice:
     `dev/config/launchd/` covers login-time restart/backoff semantics outside
     that live launch path. The startup gate now splits launcher authority
     from edit-slice authority: `launch|rollover` drops stale-HEAD receipt
-    failures and allows reviewer-owned state drift, while implementation
-    commands keep exact HEAD binding. The gate still blocks those actions on
+    failures only when the HEAD drift stays outside guarded quality-scope
+    roots, while implementation commands keep exact HEAD binding. The gate
+    still blocks those actions on
     checkpoint-budget or other real authority failures, but it no longer
     blocks `launch|rollover` solely because the current reviewer loop is stale
     on the implementer side or because a reviewer-state commit changed HEAD; those actions remain the sanctioned full-session

@@ -9,10 +9,12 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.runtime.startup_receipt import (
+    REVIEWER_BOOTSTRAP_STARTUP_INTENT,
     StartupReceipt,
     startup_receipt_from_mapping,
     startup_receipt_path,
     startup_receipt_problems,
+    startup_receipt_problems_for_intent,
     startup_receipt_relative_path,
 )
 
@@ -106,6 +108,97 @@ class StartupReceiptProblemTests(unittest.TestCase):
             "Latest startup receipt still requires a checkpoint before another implementation or launcher step.",
             problems,
         )
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_receipt_freshness._quality_scope_changed_paths",
+        return_value=(),
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_receipt_freshness._changed_paths_since",
+        return_value=(Path("dev/reports/review_channel/latest/review_state.json"),),
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_receipt_freshness._git_stdout",
+        side_effect=("feature/test", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+    )
+    def test_bootstrap_problem_allows_admin_only_head_drift(
+        self,
+        _git_stdout,
+        _changed_paths_since,
+        _quality_scope_changed_paths,
+    ) -> None:
+        receipt = StartupReceipt(
+            current_branch="feature/test",
+            head_commit_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            startup_authority_ok=False,
+            reviewer_loop_blocked=True,
+            receipt_admin_drift_allowed=True,
+        )
+
+        with TemporaryDirectory() as tmp_dir:
+            problems = startup_receipt_problems_for_intent(
+                receipt,
+                repo_root=Path(tmp_dir),
+                intent=REVIEWER_BOOTSTRAP_STARTUP_INTENT,
+            )
+
+        self.assertEqual(problems, [])
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_receipt_freshness._quality_scope_changed_paths",
+        return_value=(Path("dev/scripts/devctl/runtime/startup_gate.py"),),
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_receipt_freshness._changed_paths_since",
+        return_value=(Path("dev/scripts/devctl/runtime/startup_gate.py"),),
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_receipt_freshness._git_stdout",
+        side_effect=("feature/test", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+    )
+    def test_bootstrap_problem_blocks_quality_scope_head_drift(
+        self,
+        _git_stdout,
+        _changed_paths_since,
+        _quality_scope_changed_paths,
+    ) -> None:
+        receipt = StartupReceipt(
+            current_branch="feature/test",
+            head_commit_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            startup_authority_ok=False,
+        )
+
+        with TemporaryDirectory() as tmp_dir:
+            problems = startup_receipt_problems_for_intent(
+                receipt,
+                repo_root=Path(tmp_dir),
+                intent=REVIEWER_BOOTSTRAP_STARTUP_INTENT,
+            )
+
+        self.assertEqual(len(problems), 1)
+        self.assertIn("quality-scope files", problems[0])
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_receipt_freshness._git_stdout",
+        side_effect=("feature/other", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+    )
+    def test_bootstrap_problem_still_blocks_branch_switch(
+        self,
+        _git_stdout,
+    ) -> None:
+        receipt = StartupReceipt(
+            current_branch="feature/test",
+            head_commit_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        )
+
+        with TemporaryDirectory() as tmp_dir:
+            problems = startup_receipt_problems_for_intent(
+                receipt,
+                repo_root=Path(tmp_dir),
+                intent=REVIEWER_BOOTSTRAP_STARTUP_INTENT,
+            )
+
+        self.assertTrue(any("current branch" in problem for problem in problems))
 
 
 if __name__ == "__main__":

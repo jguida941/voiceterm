@@ -125,7 +125,7 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
     }),
     ("implementer_state_reset_required", {
-        "guard_behavior": "warn",
+        "guard_behavior": "block_launch",
         "owner": "codex",
         "summary": (
             "Stale implementer bridge state is blocking a fresh launch/recovery cycle."

@@ -45,10 +45,11 @@ The governed launch path (review-channel --action launch|rollover) was blocked
 by the same startup receipt semantics as implementation slices. Any bridge
 commit during reviewer-state repair changed HEAD, staling the receipt and
 creating a bootstrap loop. The fix splits launcher authority from edit-slice
-authority: launch/rollover now drops stale-HEAD receipt failures and allows
-reviewer-owned state drift, while implementation commands keep exact HEAD
-binding. reviewer_overdue and implementer_state_reset_required reclassified
-from block_launch to warn for launch intent.
+authority: launch/rollover now tolerate plain HEAD drift only when the diff
+since the receipt stays outside guarded quality-scope roots, while
+implementation commands keep exact HEAD binding. `reviewer_overdue` now
+degrades to a launch warning so the sanctioned reviewer relaunch path can
+repair the loop without weakening other launch blockers.
 
 Updated:
 `dev/scripts/devctl/runtime/startup_gate.py`,
