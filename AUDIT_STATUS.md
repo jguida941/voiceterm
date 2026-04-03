@@ -329,3 +329,16 @@ ChatGPT Pro corrections applied:
 **Phase order: 0 → 1 → 2 → 3 → 4. Each phase closes a precondition the next depends on. No skipping.**
 
 **Rule: No new prose authority. No shell-first path. No agent-specific shortcut. The repo owns the lifecycle.**
+
+## Phase 0 Implementation Status (completed 2026-04-03)
+
+| Slice | Commit | Lines | Guards |
+|---|---|---|---|
+| Design doc | `c4b5da4` | 389 | ALL PASS |
+| Slice 1: Contract + doctor | `46fb2ed` | 291 | ALL PASS |
+| Slice 2: Approval packets | `4264c0a` | 444 | plan-sync PASS, docs needs update |
+| Slices 3+4: Governed actions + proof | `088152f` | 1,817 | ALL PASS |
+
+**Total: ~2,941 lines. New files: governed_executor.py, remote_commit_pipeline_models.py, remote_commit_pipeline_artifact.py, doctor_support.py, doctor_markdown.py, review_state_commit_pipeline_parse.py, test_governed_executor.py**
+
+Phase 0 is now implemented. Moving to Phase 1 (daemon liveness).
