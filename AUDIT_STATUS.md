@@ -53,15 +53,7 @@ The system has a daemon (`ensure --follow`) designed to compensate, but:
 
 ## Latest Verification Round (6 agents, ~7pm EDT)
 
-Pre-7e4d1c2 verification (HISTORICAL — these findings were from BEFORE the ReviewerRuntimeContract landed):
-
-| Claim | Pre-7e4d1c2 verdict | Post-7e4d1c2 status |
-|---|---|---|
-| Bridge still active gate | was CONFIRMED | NOW PARTIALLY FIXED — typed first, prose fallback |
-| No ReviewerRuntimeContract | was CONFIRMED | NOW FIXED — 7e4d1c2 added 10-field ContractSpec |
-| Startup ownership empty | was CONFIRMED | NOW FIXED — all 15 contracts have 3 tokens each |
-| Rollover is behavioral patch | was REJECTED | STILL correct — rollover is real contract-backed |
-| Terminal cleanup not contract-backed | was CONFIRMED | STILL accurate — helper function, not typed state |
+**Note:** Pre-7e4d1c2 verification findings have been superseded. See "DONE" section above for current state. ReviewerRuntimeContract EXISTS (7e4d1c2). startup_surface_tokens ARE populated (all 15 contracts). Bridge acceptance IS partially demoted (typed first, prose fallback).
 
 ## Concrete Next Steps (from 6-agent implementation assessment)
 
@@ -115,15 +107,25 @@ Codex CLI sandbox blocks `git commit` on `.git/index.lock`, showing a permission
 
 The entire flow — Codex stages → guards run → Claude validates → operator approves → commit → governed push — must be automated through the existing typed governance system. No manual guard runs, no ad hoc commits, no prose-based approval. Every step should flow through `ReviewerRuntimeContract`, `TypedAction`, `PacketPostRequest`, and the existing guard/probe stack.
 
-**NEEDS DESIGN:** This is a new architectural requirement that must be designed by Codex and reviewed by ChatGPT Pro before implementation. The design must:
-- Use existing contracts (`ReviewerRuntimeContract`, `TypedAction → ActionResult`, `PacketPostRequest`, guard bundles)
-- Automate guard execution as part of the typed pipeline (not manually by Claude)
-- Use typed state to track staged-work → guards-passed → awaiting-approval → committed → pushed
-- Let the operator approve from phone through the existing review-channel system (not raw bridge edits)
-- Make the remote-control session a dashboard that shows typed state, not a manual operator
-- Treat the Codex sandbox commit block as a design input, not a bug to work around
+**NEEDS DESIGN BY CODEX (Phase 0 — blocks all other phases):**
 
-**This needs to be added to the implementation plan as a Phase 0 prerequisite and designed through the architecture before any more Phase 1 work.**
+ChatGPT Pro's Phase 0 specification:
+
+1. **Introduce a typed commit/push pipeline owner** — one repo-owned orchestration object modeling the lifecycle: `drafted/staged → guards_running → guards_passed/failed → operator_approval_pending → operator_approved/rejected → commit_pending → commit_recorded → push_pending → push_completed/push_blocked`. Lives under the same ownership domain as `ReviewerRuntimeContract`. Not bridge prose, not shell sequencing.
+
+2. **Treat commit as a governed action** — Codex produces staged changes + intent. Guard bundle runs automatically. Claude/reviewer validates from typed outputs. Operator approval via review-channel typed packet. A governed executor performs commit/push only after typed preconditions pass. Returns `TypedAction → ActionResult`, not terminal text.
+
+3. **Use `PacketPostRequest` for approval** — operator approval from phone is a typed packet through review-channel, not prose edits. The phone/dashboard emits an approval packet.
+
+4. **Make remote-control read-mostly dashboard** — shows: reviewer runtime health, guard bundle status, staged diff summary, approval state, commit/push eligibility, recovery recommendation. Compatible with existing doctor/status projections. Remote terminal must NOT have invisible local prompts blocking progress.
+
+5. **Promote doctor to first-class action** — phone dashboard needs `--action doctor` as the primary health command.
+
+6. **Phase 0 must include supervisor ownership** — no typed commit/push path is valid unless the follow daemon is live and owned by architecture, not user ritual.
+
+**Codex design doc must include:** pipeline owner + typed state, action graph (stage→guard→approve→commit→push→recover), reused contracts, new typed records needed, packet vocabulary for remote approval, executor boundary for commit/push, doctor/dashboard fields, fail-closed rules, migration from current ad hoc flow.
+
+**Rule: No new prose authority. No shell-first path. No agent-specific shortcut. The repo owns the lifecycle.**
 
 **1. No persistent supervisor (CRITICAL — root cause of idle-Codex)**
 - The Codex CLI has no polling loop — processes prompt and stops
@@ -265,66 +267,67 @@ The remaining problem is execution/supervision, not modeling:
 | K | Prove clean end-to-end path | NOT TESTED | Integration test | TBD | launch → daemon → review → ACK → push (all typed, no bridge prose) |
 | L | Prove rescue end-to-end path | NOT TESTED | Integration test | TBD | stale reviewer → daemon detects → rollover → cleanup → fresh session → green |
 
-## Implementation Plan (ChatGPT Pro + 8-agent verified, all 5 missing items added)
+## Implementation Plan (ChatGPT Pro final review + corrections applied)
 
-**The architecture is correct. Remaining failures are execution + authority closure.**
+**Status: Conditionally approved for implementation. Phase 0 design must come first.**
 
-**8-agent verification results (this round):**
-- state.py DID land typed path — ChatGPT Pro was reading stale code for that one
-- HEAD equality IS still real and unfixed in push_state.py:111-115
-- Cross-surface inconsistency IS possible — startup, status, push each independently refresh with no versioning
-- reviewer_follow_recovery.py scope expanded (docstring stale) — now covers both implementer AND reviewer
-- Phase reorder CONFIRMED correct — authority before liveness
-- All 5 missing items ARE genuinely missing
-- Acceptance identity: no reviewed_tree_hash exists, but rollover_id pattern in handoff.py is extensible
-- Existing `reviewed_worktree_hash` in handoff resume_state is metadata only, not acceptance identity
+### Phase 0: Typed commit/push pipeline (DESIGN FIRST — blocks everything)
 
-### Phase 1: Daemon liveness (BLOCKS self-healing)
+Codex must produce a design doc before coding. No isolated fixes until the pipeline owner is specified.
 
-| Step | Item | File | Size |
-|---|---|---|---|
-| 1a | Daemon auto-start in launch | `bridge_launch_control.py` | ~10 lines |
-| 1b | launchd plist for crash restart | `dev/config/` | ~20 lines |
-| 1c | Daemon regression tests (absent, crash, stale, duplicate, suppression, inactive) | `dev/scripts/devctl/tests/` | ~80 lines |
+**Design doc must include:**
+- Pipeline owner and canonical typed state (`drafted/staged → guards_running → guards_passed/failed → operator_approval_pending → approved/rejected → commit_pending → commit_recorded → push_pending → push_completed/blocked`)
+- Action graph: stage → guard → approve → commit → push → recover
+- Which existing contracts are reused (`ReviewerRuntimeContract`, `TypedAction → ActionResult`, `PacketPostRequest`, guard bundles)
+- Which new typed records are needed (likely 1-2)
+- Packet vocabulary for remote approval (operator approval = typed packet, not prose)
+- Executor boundary for commit/push in remote mode (governed action returning `ActionResult`, not terminal text)
+- Doctor/dashboard projection fields for phone display
+- Fail-closed rules
+- Migration from current ad hoc flow
 
-**Why first:** Root cause of idle-Codex. Nothing self-heals without a running daemon.
+### Phase 1: Daemon liveness + doctor (after Phase 0 design is approved)
 
-### Phase 1.5: Doctor promotion (unblocks all verification)
+ChatGPT Pro corrections applied:
 
-| Step | Item | File | Size |
-|---|---|---|---|
-| 1.5a | Register `--action doctor` in parser | `dev/scripts/devctl/review_channel/parser.py` + `dev/scripts/devctl/commands/review_channel/__init__.py` | ~5 lines |
+| Step | Item | File | Size | Correction |
+|---|---|---|---|---|
+| 1a | Publisher daemon auto-start | Actual launch/action router (not `bridge_launch_control.py` alone) | ~10 lines | Publisher is the persistent service; it already restarts reviewer_supervisor. Target the real owner surface. |
+| 1b | launchd plist with exit-class semantics | `dev/config/` | ~30 lines | Must define restart behavior per exit reason: `timed_out` and `inactivity_timeout` restart, `manual_stop` does NOT restart, `output_error` restarts with backoff. |
+| 1c | Doctor registration + daemon-liveness fields | `parser.py` + `commands/__init__.py` + `reviewer_runtime_doctor.py` | ~20 lines | Register `--action doctor`. Expand doctor to include publisher/supervisor running state, last stop reason, last heartbeat timestamps. |
+| 1d | Daemon regression tests | `dev/scripts/devctl/tests/` | ~80 lines | Cover: absent at login, crash mid-review, stale config, duplicate start, heartbeat suppression, inactive no-op. |
 
-**Why here:** Cheap (5 lines), unblocks every later phase. Operators and agents need one canonical health command.
+### Phase 2: Eliminate bridge/prose authority (after Phase 1 proven)
 
-### Phase 2: Eliminate bridge authority (BLOCKS correct decisions)
+ChatGPT Pro corrections applied:
 
-| Step | Item | File | Size |
-|---|---|---|---|
-| 2a | Eliminate bridge from push authority path | `status_push_decision.py` | ~20 lines |
-| 2b | Remove bridge prose fallback | `bridge_validation_acceptance.py` | ~10 lines |
-| 2c | Acceptance identity redesign (tree hash receipt) | `reviewer_runtime_models.py` | ~40 lines |
+| Step | Item | File | Size | Correction |
+|---|---|---|---|---|
+| 2a | Eliminate markdown/prose authority from push | `status_push_decision.py` + move needed fields into `ReviewerRuntimeContract` | ~30 lines | Don't cut typed bridge-state inputs that carry required runtime facts. Move remaining needed fields (reviewer_mode, claude_ack_current) into the contract first, then remove prose dependency. |
+| 2b | Remove bridge prose fallback | `bridge_validation_acceptance.py` | ~10 lines | Typed state becomes sole authority. |
+| 2c | Acceptance identity redesign | `reviewer_runtime_models.py` + producer/projection/tests | ~60 lines | Tree hash receipt extending rollover_id pattern. |
+| 2d | Fix stale docstring in reviewer_follow.py | `reviewer_follow.py` | 1 line | Still says "report-only supervisor status" — misleading about module authority. |
 
-**Why second:** Daemon-first gives a system that wakes up but may read wrong artifact. Authority-closure ensures daemon trusts typed state. Acceptance identity replaces fragile HEAD equality with reviewer-owned tree hash receipt (extend existing rollover_id pattern from handoff.py).
+### Phase 3: Surface ownership + consistency (after Phase 2 proven)
 
-### Phase 3: Surface ownership + consistency
+ChatGPT Pro corrections applied:
 
-| Step | Item | File | Size |
-|---|---|---|---|
-| 3a | contract_ownership_map in StartupContext | `startup_context.py` | ~15 lines |
-| 3b | Cross-surface consistency proof | `dev/scripts/checks/` | ~50 lines |
-| 3c | Audit file auto-sync guard | `dev/scripts/checks/` | ~30 lines |
+| Step | Item | File | Size | Correction |
+|---|---|---|---|---|
+| 3a | contract_ownership_map in StartupContext | `startup_context.py` | ~15 lines | Derive from ContractSpec registry, not hand-maintained. |
+| 3b | Shared snapshot_id/generation stamp | Typed projections | ~20 lines | All surfaces built from same generation. Not just a check script — a real versioning token. |
+| 3c | Cross-surface consistency proof | `dev/scripts/checks/` | ~50 lines | Assert all surfaces were built from same generation. |
+| 3d | Audit file auto-sync guard | `dev/scripts/checks/` | ~30 lines | Prevents drift. |
 
-**Why third:** Agents need ownership metadata at bootstrap. Consistency proof ensures startup-context, status, and push all agree (currently they independently refresh with no versioning — verified by agents). Audit guard prevents the drift that confused agents today.
-
-### Phase 4: Prove it works
+### Phase 4: Prove it works (after Phase 3 proven)
 
 | Step | Item | What |
 |---|---|---|
-| 4a | Clean path test | launch → daemon → review → tree-hash receipt → push (all typed, zero bridge) |
+| 4a | Clean path test | launch → daemon → review → tree-hash receipt → push (all typed, zero bridge, zero prose) |
 | 4b | Rescue path test | stale reviewer → daemon detects → rollover → cleanup → fresh session → doctor green |
-| 4c | Surface convergence test | doctor + startup + push gate + bridge projection queried on same state, outputs compared |
+| 4c | Surface convergence test | doctor + startup + push gate + bridge projection all queried, assert same generation stamp |
+| 4d | Remote-session test | phone → typed approval packet → governed commit → governed push (no physical keyboard needed) |
 
-**Phase order rationale:** Daemon liveness (1) blocks self-healing. Doctor (1.5) unblocks verification. Bridge elimination (2) closes the second truth path before integration tests. Surface consistency (3) depends on bridge being closed. Proofs (4) prove the final design, not an intermediate state.
+**Phase order: 0 → 1 → 2 → 3 → 4. Each phase closes a precondition the next depends on. No skipping.**
 
-**Do NOT skip phases. Each phase closes a precondition the next depends on.**
+**Rule: No new prose authority. No shell-first path. No agent-specific shortcut. The repo owns the lifecycle.**

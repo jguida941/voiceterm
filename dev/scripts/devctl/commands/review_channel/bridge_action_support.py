@@ -22,6 +22,10 @@ from ...review_channel.launch import (
     resolve_cli_path,
     resolve_terminal_profile_name,
 )
+from ...review_channel.state import (
+    build_attach_auth_policy,
+    build_service_identity,
+)
 from ...review_channel.launch_records import LaunchSessionRequest
 from ...review_channel.promotion import promote_bridge_instruction
 from ...review_channel.bridge_promotion import (
@@ -61,6 +65,29 @@ class BridgeSessionContext:
     promotion_plan_path: Path | None
     script_dir: Path | None
     status_dir: Path
+
+
+def attach_service_identity(
+    report: dict[str, object],
+    *,
+    repo_root: Path,
+    bridge_path: Path,
+    review_channel_path: Path,
+    status_dir: Path,
+) -> None:
+    """Attach the repo/worktree identity plus attach/auth policy to one report."""
+    service_identity = build_service_identity(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        output_root=status_dir,
+    )
+    report["service_identity"] = service_identity
+    report["attach_auth_policy"] = build_attach_auth_policy(
+        service_identity=service_identity,
+    )
+
+
 def validate_live_launch_conflicts(
     *,
     args,

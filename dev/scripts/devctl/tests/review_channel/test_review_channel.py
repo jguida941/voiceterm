@@ -27,6 +27,7 @@ from dev.scripts.devctl.commands.review_channel import bridge_action_support as 
 from dev.scripts.devctl.commands.review_channel import bridge_handler as review_channel_bridge_handler
 from dev.scripts.devctl.commands.review_channel.bridge_launch_control import (
     LaunchSessionRequest as BridgeLaunchSessionRequest,
+    ensure_launch_runtime_daemons,
     launch_sessions_if_requested,
 )
 from dev.scripts.devctl.commands import review_channel_event_handler
@@ -900,6 +901,92 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(ack_observed, {"codex": True, "claude": True})
         self.assertEqual(cleanup_warnings, [])
         self.assertEqual(cleanup_calls, ["codex-conductor"])
+
+    def test_launch_sessions_if_requested_starts_runtime_daemons_on_live_launch(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bridge_path = Path(tmpdir) / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            runtime_calls: list[str] = []
+
+            def _ensure_runtime() -> tuple[bool, list[str]]:
+                runtime_calls.append("runtime")
+                return True, []
+
+            launched, ack_required, ack_observed, cleanup_warnings = launch_sessions_if_requested(
+                BridgeLaunchSessionRequest(
+                    args=SimpleNamespace(
+                        action="launch",
+                        terminal="terminal-app",
+                        dry_run=False,
+                        await_ack_seconds=0,
+                    ),
+                    sessions=[{"launch_command": "/bin/zsh /tmp/new-codex.sh"}],
+                    bridge_path=bridge_path,
+                    handoff_bundle=None,
+                    terminal_profile_applied="Pro",
+                    launch_terminal_sessions_fn=lambda *args, **kwargs: None,
+                    ensure_runtime_daemons_fn=_ensure_runtime,
+                )
+            )
+
+        self.assertTrue(launched)
+        self.assertFalse(ack_required)
+        self.assertIsNone(ack_observed)
+        self.assertEqual(cleanup_warnings, [])
+        self.assertEqual(runtime_calls, ["runtime"])
+
+    def test_ensure_launch_runtime_daemons_starts_missing_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            bridge_path = repo_root / "bridge.md"
+            review_channel_path = repo_root / "dev/active/review_channel.md"
+            status_dir = repo_root / "dev/reports/review_channel/latest"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.review_channel.bridge_launch_control.read_publisher_state",
+                    side_effect=[{"running": False}, {"running": True, "pid": 4242}],
+                ) as read_publisher_state,
+                patch(
+                    "dev.scripts.devctl.commands.review_channel._publisher.spawn_follow_publisher",
+                    return_value=(True, 4242, "/tmp/publisher_follow.log"),
+                ) as spawn_follow_publisher,
+                patch(
+                    "dev.scripts.devctl.commands.review_channel._publisher.ensure_reviewer_supervisor_running",
+                    return_value={
+                        "attempted": True,
+                        "started": True,
+                        "pid": 5151,
+                        "start_status": "started",
+                    },
+                ) as ensure_supervisor,
+                patch(
+                    "dev.scripts.devctl.commands.review_channel.bridge_launch_control.time.sleep",
+                    return_value=None,
+                ),
+            ):
+                ok, warnings = ensure_launch_runtime_daemons(
+                    args=SimpleNamespace(
+                        action="launch",
+                        terminal="terminal-app",
+                        dry_run=False,
+                        await_ack_seconds=0,
+                    ),
+                    repo_root=repo_root,
+                    review_channel_path=review_channel_path,
+                    bridge_path=bridge_path,
+                    status_dir=status_dir,
+                    reviewer_mode="active_dual_agent",
+                )
+
+        self.assertTrue(ok)
+        self.assertEqual(warnings, [])
+        spawn_follow_publisher.assert_called_once()
+        ensure_supervisor.assert_called_once()
+        self.assertEqual(read_publisher_state.call_count, 2)
 
     def test_summarize_bridge_liveness_marks_fresh_bridge_state(self) -> None:
         snapshot = extract_bridge_snapshot(_build_bridge_text())
@@ -5518,6 +5605,66 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertEqual(report["attention_status"], "reviewer_supervisor_required")
         self.assertIn("reviewer supervisor follow loop", report["detail"])
         self.assertIn("reviewer-heartbeat --follow", report["recommended_command"])
+
+    def test_launch_and_refresh_starts_missing_runtime_daemons(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            bridge_path = repo_root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            launch_context = review_channel_bridge_handler.LaunchRefreshContext(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                bridge_path=bridge_path,
+                status_dir=repo_root / "dev/reports/review_channel/latest",
+                promotion_plan_path=None,
+                artifact_paths=None,
+            )
+            execution = review_channel_bridge_handler.LaunchExecutionContext(
+                sessions=[{"launch_command": "/bin/zsh /tmp/new-codex.sh"}],
+                handoff_bundle=None,
+                terminal_profile_applied="Pro",
+                status_snapshot=SimpleNamespace(
+                    warnings=[],
+                    bridge_liveness={"reviewer_mode": "active_dual_agent"},
+                ),
+            )
+            status_snapshot = SimpleNamespace(warnings=[], bridge_liveness={})
+
+            with (
+                patch.object(
+                    review_channel_bridge_handler,
+                    "ensure_launch_runtime_daemons",
+                    return_value=(True, []),
+                ) as ensure_launch_runtime_daemons,
+                patch.object(
+                    review_channel_bridge_handler,
+                    "launch_terminal_sessions",
+                    return_value=None,
+                ),
+                patch.object(
+                    review_channel_bridge_handler,
+                    "_refresh_snapshot",
+                    return_value=status_snapshot,
+                ),
+            ):
+                launched, ack_required, ack_observed, refreshed = (
+                    review_channel_bridge_handler._launch_and_refresh(
+                        args=SimpleNamespace(
+                            action="launch",
+                            terminal="terminal-app",
+                            dry_run=False,
+                            await_ack_seconds=0,
+                        ),
+                        context=launch_context,
+                        execution=execution,
+                    )
+                )
+
+        self.assertTrue(launched)
+        self.assertFalse(ack_required)
+        self.assertIsNone(ack_observed)
+        self.assertIs(refreshed, status_snapshot)
+        ensure_launch_runtime_daemons.assert_called_once()
 
     def test_ensure_action_deps_default_sleep_fn_is_noop(self) -> None:
         deps = review_channel_ensure_mod.EnsureActionDeps(

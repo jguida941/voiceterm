@@ -2802,6 +2802,14 @@ become the main product surface.
   conductor sessions by killing the old pid before closing the empty window.
   Focused launch/helper regressions are green; keep MP-355 open until the
   remaining broader launch/runtime contract gaps are also closed.
+  2026-04-03 daemon-liveness follow-up: live
+  `review-channel --action launch|rollover --terminal terminal-app` now
+  auto-starts the repo-owned ensure-follow publisher plus the reviewer-
+  supervisor runtime and fails closed if that detached runtime does not come
+  up, so repo-owned launch and the phone-steered remote wrapper no longer
+  depend on a separate manual `ensure --follow` bootstrap step. Focused
+  launch/runtime regressions are green; keep MP-355 open until crash-restart
+  and doctor-registration follow-ups land.
   Keep MP-355 open until those launch/freshness/ACK/coverage gaps are closed.
   2026-03-25 regression follow-up: targeted
   `test_check_review_channel_bridge.py` now shows the temporary bridge guard

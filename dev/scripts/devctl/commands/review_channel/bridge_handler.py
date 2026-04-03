@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
+
 from ...review_channel.bridge_runtime_state import (
     BridgeStateContext,
     enforce_bridge_launch_attention,
@@ -19,15 +21,12 @@ from ...review_channel.launch import (
     resolve_cli_path,
 )
 from ...review_channel.session_probe import load_conductor_sessions
-from ...review_channel.state import (
-    build_attach_auth_policy,
-    build_service_identity,
-    refresh_status_snapshot,
-)
+from ...review_channel.state import refresh_status_snapshot
 from .bridge_action_support import (
     BridgeLifecycleEventContext,
     BridgePromotionContext,
     BridgeSessionContext,
+    attach_service_identity,
     build_bridge_sessions,
     post_session_lifecycle_event,
     resolve_promotion_and_terminal_state,
@@ -40,7 +39,9 @@ from .bridge_contexts import (
 )
 from .bridge_launch_control import (
     LaunchSessionRequest,
+    ensure_launch_runtime_daemons,
     launch_sessions_if_requested,
+    observe_launch_state,
     prepare_rollover_bundle,
 )
 from ..review_channel_bridge_render import build_bridge_success_report, render_bridge_md
@@ -81,27 +82,6 @@ def _render_bridge_md(report: dict) -> str:
     return render_bridge_md(report, bridge_liveness_keys=BRIDGE_LIVENESS_KEYS)
 
 
-def _attach_service_identity(
-    report: dict[str, object],
-    *,
-    repo_root: Path,
-    bridge_path: Path,
-    review_channel_path: Path,
-    status_dir: Path,
-) -> None:
-    """Attach the repo/worktree identity plus attach/auth policy to one report."""
-    service_identity = build_service_identity(
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-        review_channel_path=review_channel_path,
-        output_root=status_dir,
-    )
-    report["service_identity"] = service_identity
-    report["attach_auth_policy"] = build_attach_auth_policy(
-        service_identity=service_identity,
-    )
-
-
 def _launch_and_refresh(
     *,
     args,
@@ -109,18 +89,6 @@ def _launch_and_refresh(
     execution: LaunchExecutionContext,
 ) -> tuple[bool, bool, dict[str, bool] | None, "ReviewChannelStatusSnapshot"]:
     """Launch sessions when requested and refresh the status snapshot afterward."""
-    def _observe_launch_state() -> dict[str, object]:
-        bridge_liveness = _refresh_snapshot(
-            args=args,
-            context=context,
-            warnings=execution.status_snapshot.warnings,
-        ).bridge_liveness
-        return {
-            "launch_truth": bridge_liveness.get("launch_truth"),
-            "codex_conductor_active": bridge_liveness.get("codex_conductor_active"),
-            "claude_conductor_active": bridge_liveness.get("claude_conductor_active"),
-        }
-
     (
         launched,
         handoff_ack_required,
@@ -135,7 +103,24 @@ def _launch_and_refresh(
             terminal_profile_applied=execution.terminal_profile_applied,
             launch_terminal_sessions_fn=launch_terminal_sessions,
             retired_sessions=tuple(execution.retired_sessions),
-            observe_launch_state_fn=_observe_launch_state,
+            observe_launch_state_fn=partial(
+                observe_launch_state,
+                args=args,
+                context=context,
+                warnings=execution.status_snapshot.warnings,
+                refresh_snapshot_fn=_refresh_snapshot,
+            ),
+            ensure_runtime_daemons_fn=partial(
+                ensure_launch_runtime_daemons,
+                args=args,
+                repo_root=context.repo_root,
+                review_channel_path=context.review_channel_path,
+                bridge_path=context.bridge_path,
+                status_dir=context.status_dir,
+                reviewer_mode=str(
+                    execution.status_snapshot.bridge_liveness.get("reviewer_mode", "")
+                ),
+            ),
         )
     )
     if not launched:
@@ -189,7 +174,7 @@ def _build_bridge_report(
         reviewer_state_write=context.reviewer_state_write,
         execution_mode_override=report_execution_mode,
     )
-    _attach_service_identity(
+    attach_service_identity(
         repo_root=context.repo_root,
         report=report,
         bridge_path=context.bridge_path,

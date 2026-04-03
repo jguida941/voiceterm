@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-02
+**Last Updated:** 2026-04-03
 
 ## At a Glance
 
@@ -38,6 +38,24 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Developer Path (15 min)](#developer-path-15-min)
 
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
+
+### 2026-04-03 - Live review-channel launch now starts the detached publisher/supervisor runtime instead of assuming a later manual ensure step
+
+The repo already had the right runtime pieces: the detached ensure-follow
+publisher, the reviewer-supervisor follow loop, the governed
+`review-channel --action launch|rollover` path, and the phone-steered wrapper
+that reuses that launch surface. The miss was at bootstrap time. Launch opened
+fresh Codex/Claude conductor terminals and waited for reviewer activity, but it
+did not actually start the detached publisher/supervisor runtime that keeps the
+loop alive and observable between human polls.
+
+That gap is closed now. Live Terminal-app `launch|rollover` starts the repo-
+owned ensure-follow publisher plus the reviewer-supervisor runtime as part of
+the launch path itself and fails closed if those daemons do not come up. The
+same fix stays inside the existing MP-355 contract: manual phone-driven remote
+control still goes through the sanctioned `review-channel --action launch`
+surface, but it no longer depends on a second manual `ensure --follow` step to
+make reviewer-runtime liveness real.
 
 ### 2026-04-02 - Review-channel rollover now cleans up old Terminal.app sessions through the existing session metadata contract
 

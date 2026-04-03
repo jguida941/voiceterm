@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from ...review_channel.core import (
@@ -18,11 +20,15 @@ from ...review_channel.handoff import (
     write_handoff_bundle,
 )
 from ...review_channel.heartbeat import compute_non_audit_worktree_hash
+from ...review_channel.lifecycle_state import read_publisher_state
 from ...review_channel.launch import launch_terminal_sessions
 from ...review_channel.terminal_app import cleanup_terminal_session
 
 if TYPE_CHECKING:
     from ...review_channel.session_probe import ConductorSessionRecord
+
+_PUBLISHER_START_WAIT_POLLS = 10
+_PUBLISHER_START_WAIT_SECONDS = 0.1
 
 
 @dataclass(frozen=True)
@@ -38,6 +44,7 @@ class LaunchSessionRequest:
     retired_sessions: tuple["ConductorSessionRecord", ...] = ()
     cleanup_terminal_session_fn: Callable[..., list[str]] = cleanup_terminal_session
     observe_launch_state_fn: Callable[[], dict[str, object]] | None = None
+    ensure_runtime_daemons_fn: Callable[[], tuple[bool, list[str]]] | None = None
 
 
 def prepare_rollover_bundle(
@@ -98,6 +105,16 @@ def launch_sessions_if_requested(
             auto_dark_terminal_profiles=AUTO_DARK_TERMINAL_PROFILES,
         )
         launched = True
+        if request.ensure_runtime_daemons_fn is not None:
+            runtime_ok, runtime_warnings = request.ensure_runtime_daemons_fn()
+            cleanup_warnings.extend(runtime_warnings)
+            if not runtime_ok:
+                detail = " ".join(runtime_warnings).strip()
+                suffix = f" {detail}" if detail else ""
+                raise ValueError(
+                    "Live review-channel launch did not start the repo-owned "
+                    f"publisher/supervisor runtime.{suffix}"
+                )
         if args.action == "launch" and args.await_ack_seconds > 0:
             launch_poll = wait_for_codex_poll_refresh(
                 bridge_path=request.bridge_path,
@@ -186,3 +203,83 @@ def _render_launch_timeout_detail(
             "typed status did not show a live Claude conductor session"
         )
     return "; ".join(poll_status_detail) + f" (pre-launch poll {previous_poll_display})."
+
+
+def ensure_launch_runtime_daemons(
+    *,
+    args,
+    repo_root: Path,
+    review_channel_path: Path,
+    bridge_path: Path,
+    status_dir: Path,
+    reviewer_mode: str,
+) -> tuple[bool, list[str]]:
+    """Start the detached launch-time publisher/supervisor runtime if needed."""
+    from ._publisher import (
+        ensure_reviewer_supervisor_running,
+        spawn_follow_publisher,
+        verify_detached_start,
+    )
+
+    runtime_paths = {
+        "review_channel_path": review_channel_path,
+        "bridge_path": bridge_path,
+        "status_dir": status_dir,
+    }
+    publisher_state = read_publisher_state(status_dir)
+    if not bool(publisher_state.get("running")):
+        started, pid, _log_path = spawn_follow_publisher(
+            args=args,
+            repo_root=repo_root,
+            paths=runtime_paths,
+        )
+        if not started:
+            return False, [
+                "Persistent publisher start failed before launch confirmation."
+            ]
+        for _ in range(_PUBLISHER_START_WAIT_POLLS):
+            time.sleep(_PUBLISHER_START_WAIT_SECONDS)
+            publisher_state = read_publisher_state(status_dir)
+            if bool(publisher_state.get("running")):
+                break
+        else:
+            start_status = verify_detached_start(pid=pid, paths=runtime_paths)
+            if start_status != "started":
+                return False, [
+                    "Persistent publisher failed to stay alive after launch."
+                ]
+    supervisor_result = ensure_reviewer_supervisor_running(
+        args=SimpleNamespace(
+            follow=False,
+            reviewer_mode=reviewer_mode,
+        ),
+        repo_root=repo_root,
+        paths=runtime_paths,
+    )
+    if isinstance(supervisor_result, dict):
+        reason = str(supervisor_result.get("reason") or "")
+        if not bool(supervisor_result.get("started")) and reason != "already_running":
+            return False, [
+                "Reviewer supervisor failed to stay alive after launch."
+            ]
+    return True, []
+
+
+def observe_launch_state(
+    *,
+    args,
+    context,
+    warnings: list[str],
+    refresh_snapshot_fn: Callable[..., object],
+) -> dict[str, object]:
+    """Project the post-launch liveness fields used by launch-time waiting."""
+    bridge_liveness = refresh_snapshot_fn(
+        args=args,
+        context=context,
+        warnings=warnings,
+    ).bridge_liveness
+    return {
+        "launch_truth": bridge_liveness.get("launch_truth"),
+        "codex_conductor_active": bridge_liveness.get("codex_conductor_active"),
+        "claude_conductor_active": bridge_liveness.get("claude_conductor_active"),
+    }

@@ -324,12 +324,15 @@ Three quality layers matter in practice:
     (reviewer follow-up takes priority when review is also pending).
     Fresh repo-owned `review-channel --action launch|rollover` starts now
     treat that checkpoint state as a hard launch blocker instead of advisory
-    status. The startup gate still blocks those actions on checkpoint-budget
-    or other real authority failures, but it no longer blocks `launch|rollover`
-    solely because the current reviewer loop is stale on the implementer side;
-    those actions remain the sanctioned full-session relaunch path when the
-    pair needs a fresh start, while `recover` is the narrower Claude-only
-    repair path when the repo-owned Codex reviewer is already live.
+    status. Live Terminal-app `launch|rollover` also auto-start the repo-owned
+    ensure-follow publisher plus reviewer-supervisor runtime and fail closed
+    if that detached runtime does not come up. The startup gate still blocks
+    those actions on checkpoint-budget or other real authority failures, but
+    it no longer blocks `launch|rollover` solely because the current reviewer
+    loop is stale on the implementer side; those actions remain the sanctioned
+    full-session relaunch path when the pair needs a fresh start, while
+    `recover` is the narrower Claude-only repair path when the repo-owned
+    Codex reviewer is already live.
     Canonical reviewer-reset implementer placeholders (`Claude Status: - pending`,
     `Claude Ack: - pending`) are valid fresh-launch state for a new instruction
     revision, and the same reset now clears stale `Claude Questions` too.
