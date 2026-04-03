@@ -249,20 +249,37 @@ The remaining problem is execution/supervision, not modeling:
 | K | Prove clean end-to-end path | NOT TESTED | Integration test | TBD | launch → daemon → review → ACK → push (all typed, no bridge prose) |
 | L | Prove rescue end-to-end path | NOT TESTED | Integration test | TBD | stale reviewer → daemon detects → rollover → cleanup → fresh session → green |
 
-## Implementation Plan (ChatGPT Pro + 8-agent verified, reordered per architectural priority)
+## Implementation Plan (ChatGPT Pro + 8-agent verified, all 5 missing items added)
 
 **The architecture is correct. Remaining failures are execution + authority closure.**
 
-### Phase 1: Daemon liveness + doctor (BLOCKS self-healing)
+**8-agent verification results (this round):**
+- state.py DID land typed path — ChatGPT Pro was reading stale code for that one
+- HEAD equality IS still real and unfixed in push_state.py:111-115
+- Cross-surface inconsistency IS possible — startup, status, push each independently refresh with no versioning
+- reviewer_follow_recovery.py scope expanded (docstring stale) — now covers both implementer AND reviewer
+- Phase reorder CONFIRMED correct — authority before liveness
+- All 5 missing items ARE genuinely missing
+- Acceptance identity: no reviewed_tree_hash exists, but rollover_id pattern in handoff.py is extensible
+- Existing `reviewed_worktree_hash` in handoff resume_state is metadata only, not acceptance identity
+
+### Phase 1: Daemon liveness (BLOCKS self-healing)
 
 | Step | Item | File | Size |
 |---|---|---|---|
 | 1a | Daemon auto-start in launch | `bridge_launch_control.py` | ~10 lines |
 | 1b | launchd plist for crash restart | `dev/config/` | ~20 lines |
-| 1c | Register `--action doctor` in parser | `parser.py` + `__init__.py` | ~5 lines |
-| 1d | Daemon regression tests | `dev/scripts/devctl/tests/` | ~80 lines |
+| 1c | Daemon regression tests (absent, crash, stale, duplicate, suppression, inactive) | `dev/scripts/devctl/tests/` | ~80 lines |
 
-**Why first:** Root cause of idle-Codex. Doctor promoted here because it's cheap and unblocks all verification.
+**Why first:** Root cause of idle-Codex. Nothing self-heals without a running daemon.
+
+### Phase 1.5: Doctor promotion (unblocks all verification)
+
+| Step | Item | File | Size |
+|---|---|---|---|
+| 1.5a | Register `--action doctor` in parser | `parser.py` + `__init__.py` | ~5 lines |
+
+**Why here:** Cheap (5 lines), unblocks every later phase. Operators and agents need one canonical health command.
 
 ### Phase 2: Eliminate bridge authority (BLOCKS correct decisions)
 
@@ -272,7 +289,7 @@ The remaining problem is execution/supervision, not modeling:
 | 2b | Remove bridge prose fallback | `bridge_validation_acceptance.py` | ~10 lines |
 | 2c | Acceptance identity redesign (tree hash receipt) | `reviewer_runtime_models.py` | ~40 lines |
 
-**Why second:** Daemon-first gives a system that wakes up but may still read wrong artifact. Authority-closure ensures the daemon trusts typed state.
+**Why second:** Daemon-first gives a system that wakes up but may read wrong artifact. Authority-closure ensures daemon trusts typed state. Acceptance identity replaces fragile HEAD equality with reviewer-owned tree hash receipt (extend existing rollover_id pattern from handoff.py).
 
 ### Phase 3: Surface ownership + consistency
 
@@ -282,14 +299,16 @@ The remaining problem is execution/supervision, not modeling:
 | 3b | Cross-surface consistency proof | `dev/scripts/checks/` | ~50 lines |
 | 3c | Audit file auto-sync guard | `dev/scripts/checks/` | ~30 lines |
 
-**Why third:** Agents need ownership metadata. Consistency proof ensures startup-context, status, and push agree.
+**Why third:** Agents need ownership metadata at bootstrap. Consistency proof ensures startup-context, status, and push all agree (currently they independently refresh with no versioning — verified by agents). Audit guard prevents the drift that confused agents today.
 
 ### Phase 4: Prove it works
 
 | Step | Item | What |
 |---|---|---|
-| 4a | Clean path test | launch → daemon → review → ACK → push (all typed, no bridge) |
-| 4b | Rescue path test | stale reviewer → daemon detects → rollover → cleanup → green |
-| 4c | Surface convergence test | startup-context, status, push agree on same repo state |
+| 4a | Clean path test | launch → daemon → review → tree-hash receipt → push (all typed, zero bridge) |
+| 4b | Rescue path test | stale reviewer → daemon detects → rollover → cleanup → fresh session → doctor green |
+| 4c | Surface convergence test | doctor + startup + push gate + bridge projection queried on same state, outputs compared |
 
-**Do NOT skip phases. Authority before convenience. Typed state before bridge prose.**
+**Phase order rationale:** Daemon liveness (1) blocks self-healing. Doctor (1.5) unblocks verification. Bridge elimination (2) closes the second truth path before integration tests. Surface consistency (3) depends on bridge being closed. Proofs (4) prove the final design, not an intermediate state.
+
+**Do NOT skip phases. Each phase closes a precondition the next depends on.**
