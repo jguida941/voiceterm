@@ -1,14 +1,49 @@
 # Remote Orchestration Audit Status
 
 **Branch:** `feature/governance-quality-sweep`
-**Last updated:** 2026-04-02 ~7:00pm EDT
+**Last updated:** 2026-04-02 ~9:30pm EDT
 **Purpose:** Temporary file for ChatGPT Pro review. Delete when done.
 
 ## Summary
 
-25 commits pushed. 235+ tests passing. Guards green.
-Started with 0 fixes, ended with 12 landed and pushed.
-115 governance findings tracked: 68 fixed, 47 open.
+28 commits pushed. 235+ tests passing (pending revalidation on latest).
+Started with 0 fixes, ended with 13 landed and pushed.
+ReviewerRuntimeContract (the unified lifecycle owner) is now committed and pushed.
+
+## CRITICAL FINDING: Why Codex Keeps Going Idle (8-agent investigation)
+
+This is the #1 operational problem. Over 6 hours today, Codex went idle 20+ times. The system detected it every time (`runtime_missing`, `reviewer_overdue`) but could never self-heal. Here's why:
+
+**Root cause: No persistent supervisor in the remote-control pattern.**
+
+The Codex CLI (`codex --full-auto`) has NO built-in polling loop. It processes its prompt, does work, then sits at the prompt. It has no heartbeat, no bridge polling, no self-monitoring. When it finishes its work, it just stops.
+
+The system has a daemon (`ensure --follow`) designed to compensate, but:
+- The daemon is ONLY started by `ensure` or `reviewer-heartbeat` actions, never by `launch`
+- Neither the governed launch path nor the manual remote-control path auto-starts it
+- If it crashes, nothing respawns it — it's a detached process with no parent
+- It's a heartbeat publisher, NOT a lifecycle supervisor — it detects `runtime_missing` but doesn't fix it
+
+**The automated rollover code we committed (09349aa) is wired into the daemon tick.** So if the daemon isn't running, the rollover never fires. The fix exists in the code but nobody is running the code.
+
+**8-agent findings:**
+
+| Finding | Evidence |
+|---|---|
+| Codex CLI has no polling mechanism | `launch_sessions_if_requested()` opens Terminal but never starts publisher |
+| Daemons only start via explicit `ensure` action | Never auto-started by `launch` or manual Codex spawn |
+| Neither launch path starts daemons | `bridge_handler.py` and `prompt.py` both missing daemon spawn |
+| `ensure --follow` can't self-heal | Detects `runtime_missing` but only reports, doesn't fix |
+| Rollover code requires running daemon | `maybe_auto_trigger_rollover_on_stale_codex()` is inside daemon tick at `reviewer_follow.py:186` |
+| Claude Code could be the daemon | Via MCP server (recommended) or SessionStart hook |
+| Industry pattern: needs `launchd` plist | Wrap existing `follow_loop.py` in launchd for auto-restart (~20 lines) |
+| Recurrence: 116 error-state polls in 6 hours | `runtime_missing` 5x, `reviewer_overdue` 15x, manual intervention every time |
+
+**Proposed fixes (in order of effort):**
+1. **Immediate**: Add daemon auto-start to `bridge_launch_control.py` so governed launch starts publisher/supervisor
+2. **Short-term**: Add `launchd` plist (~20 lines) to auto-restart the follow daemon on crash
+3. **Medium-term**: Claude Code SessionStart hook that runs `ensure --follow` at session start
+4. **Long-term**: MCP server exposing `governance_state()` / `guard_results()` as tools any agent can call
 
 ## Latest Verification Round (6 agents, ~7pm EDT)
 
@@ -55,16 +90,25 @@ ChatGPT Pro was right on 4 of 5 claims. The rollover IS real contract-backed wor
 | 10 | Automated reviewer rollover | `reviewer_follow_recovery.py` (+192 lines) | 09349aa |
 | 11 | Terminal lifecycle cleanup | `terminal_app.py` (+143 lines), `launch_records.py`, `session_probe.py` | 37f683d |
 | 12 | Bridge projection silently dropped Operator Direction | `bridge_projection_state.py`, `bridge_sanitize.py`, `handoff_constants.py` | 801349f |
+| 13 | **ReviewerRuntimeContract** — unified lifecycle owner | 46 files, 1569 insertions, 11 new files. Contract owns reviewer mode/freshness/stale/rollover/ACK/poll/session/acceptance/publish-clear. Bridge acceptance demoted to fallback. Doctor surface projects from contract. startup_surface_tokens populated on all 14 contracts. | 7e4d1c2 |
 
 ## What's Still Open
 
 ### Architecture Gaps (from ChatGPT Pro + 8-agent verification)
 
-**1. No unified ReviewerRuntimeContract**
-- Reviewer truth is fragmented across 5+ modules: `peer_liveness.py`, `handoff.py`, `bridge_validation_acceptance.py`, `session_state_hints.py`, `attention_classify.py`
-- No single owner for: detect stale → kill/reap → relaunch → ACK → poll → clear → publish
-- The pieces exist but nobody composes them into one typed contract
-- `reviewer_follow.py` now has rollover (commit 09349aa) but lifecycle ownership is still distributed
+**1. ReviewerRuntimeContract — COMMITTED (7e4d1c2) but needs validation**
+- The unified lifecycle owner contract is now committed with 46 files, 1569 insertions
+- Bridge acceptance demoted to fallback, contract is primary authority
+- Doctor surface projects from the contract
+- startup_surface_tokens populated on all 14 contracts
+- **NEEDS:** full test suite validation, 8-agent architecture verification, ChatGPT Pro review
+
+**1b. No persistent supervisor for remote-control pattern (CRITICAL — see investigation above)**
+- The Codex CLI has no polling loop — it processes its prompt and stops
+- The follow daemon that should compensate is never auto-started
+- The rollover code requires the daemon to be running
+- Today: 116 error-state polls, 20+ manual interventions over 6 hours
+- **NEEDS:** daemon auto-start in launch path, launchd plist for crash restart
 
 **2. No doctor/health surface**
 - No `review-channel --action doctor` command exists
