@@ -70,17 +70,19 @@ def build_reviewer_turn_authority(
     reviewer_runtime = review_state.reviewer_runtime if review_state is not None else None
     attention = review_state.attention if review_state is not None else None
 
-    # Derive fallback authority from bridge_liveness classifiers when typed
-    # review state is missing OR when it exists but lacks the decisive fields
-    # (effective_reviewer_mode, attention, launch_truth). This happens when
-    # review_state_from_payload() returns a partial ReviewState that merely
-    # contains review/queue/bridge/packets but no reviewer_runtime or
-    # attention. Without this, bridge-poll silently skips the fallback and
-    # returns empty authority fields.
-    _needs_fallback = (
-        review_state is None
-        or (reviewer_runtime is None and attention is None)
+    # Detect whether typed state carries complete authority.  A populated
+    # bridge.launch_truth means the state came from refresh_status_snapshot()
+    # — the same pipeline status/doctor/startup use.  When launch_truth is
+    # empty the typed state is partial (scaffolding only), and the authority
+    # fields (effective_reviewer_mode, attention, launch_truth) are defaulted,
+    # not computed.  In that case, derive them from bridge_liveness via the
+    # same shared classifiers that status/doctor use.
+    _typed_authority_complete = (
+        review_state is not None
+        and bridge is not None
+        and bool(bridge.launch_truth)
     )
+    _needs_fallback = not _typed_authority_complete
     _liveness_dict = asdict(bridge_liveness) if _needs_fallback else {}
     _has_lifecycle = (
         "publisher_running" in _liveness_dict
@@ -100,16 +102,16 @@ def build_reviewer_turn_authority(
 
     reviewer_mode = (
         reviewer_runtime.reviewer_mode
-        if reviewer_runtime is not None and reviewer_runtime.reviewer_mode
+        if _typed_authority_complete and reviewer_runtime is not None and reviewer_runtime.reviewer_mode
         else bridge.reviewer_mode
-        if bridge is not None and bridge.reviewer_mode
+        if _typed_authority_complete and bridge is not None and bridge.reviewer_mode
         else bridge_liveness.reviewer_mode
     )
     effective_reviewer_mode = (
         reviewer_runtime.effective_reviewer_mode
-        if reviewer_runtime is not None and reviewer_runtime.effective_reviewer_mode
+        if _typed_authority_complete and reviewer_runtime is not None and reviewer_runtime.effective_reviewer_mode
         else bridge.effective_reviewer_mode
-        if bridge is not None and bridge.effective_reviewer_mode
+        if _typed_authority_complete and bridge is not None and bridge.effective_reviewer_mode
         else _fallback_effective_mode
         if _fallback_effective_mode
         else reviewer_mode
@@ -123,24 +125,26 @@ def build_reviewer_turn_authority(
     )
     attention_status = (
         attention.status
-        if attention is not None and attention.status
+        if _typed_authority_complete and attention is not None and attention.status
         else reviewer_runtime.stale_reason
-        if reviewer_runtime is not None and reviewer_runtime.stale_reason
+        if _typed_authority_complete and reviewer_runtime is not None and reviewer_runtime.stale_reason
         else str(_fallback_attention.get("status", ""))
         if _fallback_attention is not None
         else ""
     )
     recovery_action_allowed = (
         reviewer_runtime.recovery_action_allowed
-        if reviewer_runtime is not None and reviewer_runtime.recovery_action_allowed
+        if _typed_authority_complete and reviewer_runtime is not None and reviewer_runtime.recovery_action_allowed
         else _recommended_command(attention_status)
     )
     implementation_blocked = bool(
-        reviewer_runtime.implementation_blocked if reviewer_runtime is not None else False
+        reviewer_runtime.implementation_blocked
+        if _typed_authority_complete and reviewer_runtime is not None
+        else False
     )
     implementation_block_reason = (
         reviewer_runtime.implementation_block_reason
-        if reviewer_runtime is not None and reviewer_runtime.implementation_block_reason
+        if _typed_authority_complete and reviewer_runtime is not None and reviewer_runtime.implementation_block_reason
         else attention_status
         if implementation_blocked and attention_status
         else ""

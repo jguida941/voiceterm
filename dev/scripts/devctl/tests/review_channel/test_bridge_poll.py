@@ -1073,3 +1073,80 @@ def test_bridge_poll_turn_authority_uses_lifecycle_fallback_when_present() -> No
     # runtime_missing downgrade.
     assert authority.effective_reviewer_mode == "active_dual_agent"
     assert authority.reviewer_mode == "active_dual_agent"
+
+
+def test_bridge_poll_partial_typed_state_skips_defaulted_authority() -> None:
+    """Partial typed state (scaffolding but no launch_truth) must not use defaulted fields."""
+    from dev.scripts.devctl.review_channel.handoff import (
+        BridgeLiveness,
+        extract_bridge_snapshot,
+    )
+    from dev.scripts.devctl.review_channel.turn_authority import (
+        build_reviewer_turn_authority,
+    )
+
+    bridge_text = _build_bridge_text(
+        instruction_revision="aabbccdd1122",
+        claude_ack_revision="aabbccdd1122",
+    )
+
+    # Partial typed state: has review/queue/bridge scaffolding but bridge
+    # section has NO launch_truth — simulates a payload that was NOT produced
+    # by refresh_status_snapshot().
+    partial_typed_state: dict[str, object] = {
+        "review": {"bridge_path": "bridge.md", "review_channel_path": "dev/active/review_channel.md"},
+        "queue": {"pending_total": 0, "pending_codex": 0, "pending_claude": 0,
+                  "pending_cursor": 0, "pending_operator": 0, "stale_packet_count": 0,
+                  "derived_next_instruction": "", "derived_next_instruction_source": {}},
+        "current_session": {
+            "current_instruction": "- Implement the bridge-poll action.",
+            "current_instruction_revision": "aabbccdd1122",
+            "implementer_status": "- waiting for reviewer poll",
+            "implementer_ack": "- acknowledged; instruction-rev: `aabbccdd1122`",
+            "implementer_ack_revision": "aabbccdd1122",
+            "implementer_ack_state": "current",
+            "implementer_state_hash": "",
+            "open_findings": "- none",
+            "last_reviewed_scope": "- bridge.md",
+        },
+        "bridge": {
+            "reviewer_mode": "active_dual_agent",
+            # NOTE: no launch_truth, no effective_reviewer_mode — partial state
+        },
+    }
+
+    snapshot = extract_bridge_snapshot(bridge_text)
+    liveness = BridgeLiveness(
+        overall_state="active",
+        reviewer_mode="active_dual_agent",
+        codex_poll_state="current",
+        last_codex_poll_utc="2026-04-03T00:00:00Z",
+        last_codex_poll_age_seconds=5,
+        last_reviewed_scope_present=True,
+        next_action_present=True,
+        open_findings_present=True,
+        claude_status_present=True,
+        claude_ack_present=True,
+        claude_ack_current=True,
+        current_instruction_revision="aabbccdd1122",
+        claude_ack_revision="aabbccdd1122",
+        reviewed_hash_current=True,
+        reviewer_freshness="fresh",
+    )
+
+    authority = build_reviewer_turn_authority(
+        snapshot=snapshot,
+        bridge_liveness=liveness,
+        typed_review_state=partial_typed_state,
+    )
+
+    # Partial state has no launch_truth so _typed_authority_complete=False.
+    # Authority must NOT use defaulted reviewer_runtime fields.
+    # effective_reviewer_mode should come from bridge_liveness (fallback chain)
+    # not from the partial state's defaulted "active_dual_agent".
+    assert authority.effective_reviewer_mode == "active_dual_agent"
+    assert authority.reviewer_mode == "active_dual_agent"
+    # launch_truth should be empty (no lifecycle data in BridgeLiveness)
+    assert authority.launch_truth == ""
+    # attention_status should be empty (no lifecycle → no fallback attention)
+    assert authority.attention_status == ""
