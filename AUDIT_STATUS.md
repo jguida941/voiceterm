@@ -446,3 +446,21 @@ All code is on GitHub at `feature/governance-quality-sweep`. Key files to verify
 - Merge `feature/governance-quality-sweep` to `develop`
 - Update MASTER_PLAN with completion evidence
 - Record in ENGINEERING_EVOLUTION
+
+## Launch Gate Fix (from ChatGPT Pro + 4-agent verification)
+
+**Root cause:** Push path was fixed (review_gate_allows_push bypasses implementation_blocked) but launch path was NOT. The governed launch gate still ties launcher eligibility to exact HEAD via startup receipt, and any state repair that commits to bridge.md invalidates the receipt.
+
+**4 confirmed issues:**
+1. `startup_receipt.py` — HEAD equality stales on any bridge commit (`launch_gate_stale_head_loop`)
+2. `startup_gate.py` — recovery exception only filters reviewer-loop-block, NOT stale-HEAD (`launch_gate_exception_too_narrow`)
+3. `peer_recovery.py` — `reviewer_overdue`/`implementer_state_reset_required` use `block_launch` but should `permit_repair` (`launch_reviewer_states_should_permit_repair`)
+4. Push reads `review_gate_allows_push` but launch never does (push/launch asymmetry)
+
+**Fix (from ChatGPT Pro):**
+- Split launcher authority from edit-slice authority in `startup_receipt.py`
+- Widen gate exception in `startup_gate.py` to also drop stale-HEAD failures for launch/rollover
+- Reclassify reviewer states as `permit_repair` for launch intent
+- Let launch refresh its own receipt after state repair
+
+**Rule: "You solved reviewer authority for publication, but you did not solve reviewer bootstrap authority for launch."**
