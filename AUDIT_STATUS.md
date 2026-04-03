@@ -14,7 +14,7 @@
 30 commits pushed. 235+ tests passing (pending revalidation on latest).
 Started with 0 fixes, ended with 13 landed and pushed.
 ReviewerRuntimeContract (the unified lifecycle owner) is committed and pushed (7e4d1c2).
-Architecture is now correct. Remaining problem is execution/supervision, not modeling.
+Architecture is mostly correct. Remaining problems are execution/supervision AND partial authority closure (bridge prose fallback, missing ownership map, HEAD equality).
 
 ## CRITICAL FINDING: Why Codex Keeps Going Idle (8-agent investigation)
 
@@ -78,7 +78,7 @@ ChatGPT Pro was right on 4 of 5 claims. The rollover IS real contract-backed wor
    - `handoff.py` — propagate typed `review_accepted`
    - Tests — verify typed path works
 
-3. **Populate startup_surface_tokens** on all 14 contracts (one-line per contract, 2-3 field names each)
+3. **Populate startup_surface_tokens** on all 15 contracts (one-line per contract, 2-3 field names each)
 
 ## What Was Fixed and Pushed Today
 
@@ -96,7 +96,7 @@ ChatGPT Pro was right on 4 of 5 claims. The rollover IS real contract-backed wor
 | 10 | Automated reviewer rollover | `reviewer_follow_recovery.py` (+192 lines) | 09349aa |
 | 11 | Terminal lifecycle cleanup | `terminal_app.py` (+143 lines), `launch_records.py`, `session_probe.py` | 37f683d |
 | 12 | Bridge projection silently dropped Operator Direction | `bridge_projection_state.py`, `bridge_sanitize.py`, `handoff_constants.py` | 801349f |
-| 13 | **ReviewerRuntimeContract** — unified lifecycle owner | 46 files, 1569 insertions, 11 new files. Contract owns reviewer mode/freshness/stale/rollover/ACK/poll/session/acceptance/publish-clear. Bridge acceptance demoted to fallback. Doctor surface projects from contract. startup_surface_tokens populated on all 14 contracts. | 7e4d1c2 |
+| 13 | **ReviewerRuntimeContract** — unified lifecycle owner | 46 files, 1569 insertions, 11 new files. Contract owns reviewer mode/freshness/stale/rollover/ACK/poll/session/acceptance/publish-clear. Bridge acceptance demoted to fallback. Doctor surface projects from contract. startup_surface_tokens populated on all 15 contracts. | 7e4d1c2 |
 
 ## What's Still Open (verified by 4 agents against actual code ~10pm EDT)
 
@@ -151,19 +151,19 @@ ChatGPT Pro's diagnosis (updated after verifying latest push):
 
 ## Governance Findings (from `governance-review --format md`)
 
-**115 total findings | 68 fixed | 47 open**
+**115+ total findings | ~70 fixed | ~45 open** (counts approximate — governance-review tracks exact state)
 
-Key open findings:
+Key findings corrected for current branch state:
 - `bridge_projection_drops_operator_direction` — FIXED in 801349f
-- `bridge_still_active_gate_not_projection` — open, architectural
-- `need_review_channel_doctor_surface` — open, needs implementation
-- `startup_surface_tokens_unpopulated` — open, all 14 contracts empty
-- `reviewer_truth_distributed_no_owner` — open, architectural
-- `push_invalidation_head_equality` — open but cycle broken by P0
+- `bridge_still_active_gate_not_projection` — PARTIALLY FIXED in 7e4d1c2 (typed first, prose fallback remains)
+- `need_review_channel_doctor_surface` — PARTIALLY FIXED in 7e4d1c2 (surface exists, not registered in parser)
+- `startup_surface_tokens_unpopulated` — FIXED in 7e4d1c2 (all 15 contracts populated with 3 tokens each)
+- `reviewer_truth_distributed_no_owner` — FIXED in 7e4d1c2 (ReviewerRuntimeContract is the admitted owner)
+- `push_invalidation_head_equality` — open (HEAD equality check still in push_state.py, needs acceptance identity redesign)
 - `manual_codex_rollover` — FIXED in 09349aa (automated rollover landed)
 - `zombie_terminal_cleanup` — FIXED in 37f683d (terminal cleanup landed)
-- `agent_architecture_bypass` — open, root cause of all agent misbehavior
-- `agent_tooling_contract_ignorance` — open, agents don't know typed vocabulary
+- `agent_architecture_bypass` — open (no startup ownership map yet)
+- `agent_tooling_contract_ignorance` — open (agents still lack typed vocabulary)
 
 ## Key Architecture Files
 
@@ -236,14 +236,14 @@ The remaining problem is execution/supervision, not modeling:
 
 | # | What | Status | Where | Est. size | Why |
 |---|---|---|---|---|---|
-| A | Daemon auto-start in launch | NOT CODED | `bridge_launch_control.py` | ~10 lines | Root cause of idle-Codex. Neither launch path starts daemon. |
+| A | Daemon auto-start in launch | NOT CODED | `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py` | ~10 lines | Root cause of idle-Codex. Neither governed nor manual launch starts daemon. Must also cover manual remote-control sessions via launchd plist (item B). |
 | B | launchd plist for crash restart | NOT CODED | `dev/config/` | ~20 lines | Daemon dies, nothing restarts it. |
-| C | Register `--action doctor` in parser | NOT CODED | `parser.py` + `__init__.py` | ~5 lines | Doctor exists (18 fields) but CLI can't invoke it. |
-| D | contract_ownership_map in StartupContext | NOT CODED | `startup_context.py` | ~15 lines | Agents can't query "who owns what" at bootstrap. |
+| C | Register `--action doctor` in parser | NOT CODED | `dev/scripts/devctl/review_channel/parser.py` + `dev/scripts/devctl/commands/review_channel/__init__.py` | ~5 lines | Doctor exists but CLI can't invoke it. Dispatch in commands-layer `__init__.py`. |
+| D | contract_ownership_map in StartupContext | NOT CODED | `startup_context.py` | ~15 lines | Must derive from ContractSpec registry (not hand-maintained). Agents need typed "who owns what" at bootstrap. |
 | E | Remove bridge prose fallback | NOT CODED | `bridge_validation_acceptance.py` | ~10 lines | Typed state is primary but prose fallback is still live. |
 | F | Audit file auto-sync guard | NOT CODED | `dev/scripts/checks/` | ~30 lines | Prevents audit/code drift that confused agents today. |
 | G | Eliminate bridge from push authority path | NOT CODED | `status_push_decision.py` | ~20 lines | Push must gate on typed `publish_clear` only, not bridge-derived fields. |
-| H | Acceptance identity redesign (tree hash receipt) | NOT CODED | `reviewer_runtime_models.py` | ~40 lines | Replace HEAD equality check with reviewer-owned acceptance receipt keyed to reviewed tree hash. |
+| H | Acceptance identity redesign (tree hash receipt) | NOT CODED | `reviewer_runtime_models.py` + producer/projection/test updates | ~60 lines | Replace HEAD equality with reviewer-owned tree hash receipt. Extend existing rollover_id pattern from handoff.py. Touches models, projection, and startup. |
 | I | Cross-surface consistency proof | NOT CODED | `dev/scripts/checks/` | ~50 lines | startup-context, status, and push can currently disagree because they independently call refresh_status_snapshot with no versioning. |
 | J | Daemon regression tests | NOT CODED | `dev/scripts/devctl/tests/` | ~80 lines | Cover: absent at login, crash mid-review, stale config, duplicate start, heartbeat suppression, inactive no-op. |
 | K | Prove clean end-to-end path | NOT TESTED | Integration test | TBD | launch → daemon → review → ACK → push (all typed, no bridge prose) |
@@ -277,7 +277,7 @@ The remaining problem is execution/supervision, not modeling:
 
 | Step | Item | File | Size |
 |---|---|---|---|
-| 1.5a | Register `--action doctor` in parser | `parser.py` + `__init__.py` | ~5 lines |
+| 1.5a | Register `--action doctor` in parser | `dev/scripts/devctl/review_channel/parser.py` + `dev/scripts/devctl/commands/review_channel/__init__.py` | ~5 lines |
 
 **Why here:** Cheap (5 lines), unblocks every later phase. Operators and agents need one canonical health command.
 
