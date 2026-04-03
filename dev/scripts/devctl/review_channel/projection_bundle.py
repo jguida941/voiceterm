@@ -119,18 +119,20 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
     push_decision = compat.get("push_decision")
     doctor = compat.get("doctor")
     commit_pipeline = review_state.get("commit_pipeline")
+    snapshot_id = str(review_state.get("snapshot_id") or "").strip()
     current_focus = current_focus_line(review_state)
     return {
         "schema_version": 1,
         "command": "review-channel",
         "timestamp": review_state.get("timestamp"),
+        "snapshot_id": snapshot_id,
         "ok": review_state.get("ok"),
         "review": review_state.get("review"),
         "current_session": current_session,
         "service_identity": service_identity,
         "attach_auth_policy": attach_auth_policy,
-        "push_decision": push_decision,
-        "doctor": doctor,
+        "push_decision": _with_snapshot_id(push_decision, snapshot_id),
+        "doctor": _with_snapshot_id(doctor, snapshot_id),
         "commit_pipeline": commit_pipeline,
         "bridge": {
             "last_codex_poll_utc": bridge.get("last_codex_poll_utc"),
@@ -177,6 +179,15 @@ def _build_actions_projection(review_state: dict[str, object]) -> dict[str, obje
         "timestamp": review_state.get("timestamp"),
         "actions": action_rows,
     }
+
+
+def _with_snapshot_id(payload: object, snapshot_id: str) -> object:
+    if not isinstance(payload, dict):
+        return payload
+    result = dict(payload)
+    if snapshot_id and not result.get("snapshot_id"):
+        result["snapshot_id"] = snapshot_id
+    return result
 
 
 def _render_trace_projection(trace_events: list[dict[str, object]]) -> str:

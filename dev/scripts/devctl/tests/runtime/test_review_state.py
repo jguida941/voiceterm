@@ -191,6 +191,7 @@ class ReviewStateTests(unittest.TestCase):
                 "command": "review-channel",
                 "action": "status",
                 "timestamp": "2026-04-03T00:00:00Z",
+                "snapshot_id": "snap-123",
                 "ok": True,
                 "review_state": {
                     "review": {"session_id": "runtime-approval"},
@@ -356,6 +357,7 @@ class ReviewStateTests(unittest.TestCase):
                         "generation_id": "gen-9",
                         "approval_expires_at_utc": "2026-04-03T01:00:00Z",
                         "approved_target_identity": "tree-123:gen-9",
+                        "snapshot_id": "snap-123",
                     },
                 }
             }
@@ -363,6 +365,7 @@ class ReviewStateTests(unittest.TestCase):
 
         self.assertIsNotNone(state)
         assert state is not None
+        self.assertEqual(state.snapshot_id, "snap-123")
         self.assertEqual(state.commit_pipeline.pipeline_id, "pipeline-123")
         self.assertEqual(state.commit_pipeline.intent.staged_tree_hash, "tree-123")
         self.assertEqual(
@@ -384,6 +387,7 @@ class ReviewStateTests(unittest.TestCase):
             state.commit_pipeline.approved_target_identity,
             "tree-123:gen-9",
         )
+        self.assertEqual(state.commit_pipeline.snapshot_id, "snap-123")
 
     def test_reviewer_runtime_contract_prefers_typed_publish_clear(self) -> None:
         state = review_state_from_payload(

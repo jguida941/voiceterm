@@ -1262,6 +1262,7 @@ python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_repo_url_parity.py
 python3 dev/scripts/checks/check_guard_enforcement_inventory.py
 python3 dev/scripts/checks/check_architecture_surface_sync.py
+python3 dev/scripts/checks/check_audit_status_sync.py
 python3 dev/scripts/checks/check_guide_contract_sync.py
 python3 dev/scripts/checks/check_instruction_surface_sync.py
 python3 dev/scripts/checks/check_bundle_registry_dry.py
@@ -1271,6 +1272,7 @@ python3 dev/scripts/checks/check_platform_contract_closure.py
 python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_startup_authority_contract.py
+python3 dev/scripts/checks/check_review_surface_consistency.py
 python3 dev/scripts/checks/check_tandem_consistency.py
 python3 dev/scripts/checks/check_governance_closure.py
 python3 dev/scripts/checks/check_package_layout.py --fail-on-baseline-debt --baseline-debt-root dev/scripts/devctl/commands
@@ -1326,6 +1328,7 @@ python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_repo_url_parity.py
 python3 dev/scripts/checks/check_guard_enforcement_inventory.py
 python3 dev/scripts/checks/check_architecture_surface_sync.py
+python3 dev/scripts/checks/check_audit_status_sync.py
 python3 dev/scripts/checks/check_guide_contract_sync.py
 python3 dev/scripts/checks/check_instruction_surface_sync.py
 python3 dev/scripts/checks/check_bundle_registry_dry.py
@@ -1335,6 +1338,7 @@ python3 dev/scripts/checks/check_platform_contract_closure.py
 python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_startup_authority_contract.py
+python3 dev/scripts/checks/check_review_surface_consistency.py
 python3 dev/scripts/checks/check_tandem_consistency.py
 python3 dev/scripts/checks/check_governance_closure.py
 python3 dev/scripts/checks/check_package_layout.py --fail-on-baseline-debt --baseline-debt-root dev/scripts/devctl/commands

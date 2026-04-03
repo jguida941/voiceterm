@@ -1,6 +1,6 @@
 # Remote Commit Pipeline Plan
 
-**Status**: active  |  **Last updated**: 2026-04-02 | **Owner:** Tooling/control plane/review runtime
+**Status**: active  |  **Last updated**: 2026-04-03 | **Owner:** Tooling/control plane/review runtime
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It freezes the Phase-0 design for the typed remote-session
@@ -344,9 +344,9 @@ surface for remote sessions. It should project:
 - [x] Implement `RemoteCommitPipelineContract` + `CommitIntentState` in runtime
       models, contract rows, and review-state projections.
 - [x] Implement runtime-target approval packets and doctor projection updates.
-- [ ] Implement `vcs.stage`, `vcs.commit`, and `vcs.pipeline.recover` through a
+- [x] Implement `vcs.stage`, `vcs.commit`, and `vcs.pipeline.recover` through a
       governed executor path.
-- [ ] Reuse the existing guarded push flow from the new pipeline and prove end-
+- [x] Reuse the existing guarded push flow from the new pipeline and prove end-
       to-end remote approval -> commit -> push without local keyboard input.
 
 ## Progress Log
@@ -397,16 +397,26 @@ surface for remote sessions. It should project:
   slice: live review runtime is currently missing, and startup-authority import-
   index checks cannot be cleared here because this chat session must not stage
   or commit new files.
+- 2026-04-03: Implemented the Phase-3/4 surface-convergence slice locally.
+  `StartupContext` now derives a bounded `contract_ownership_map` from the
+  shared `ContractSpec` registry, startup/status/doctor/commit-pipeline
+  projections now stamp one shared `snapshot_id`, two new guards
+  (`check_review_surface_consistency.py` and `check_audit_status_sync.py`)
+  enforce projection drift plus audit/doc truth, and focused integration tests
+  now cover the clean path, rescue path, startup/doctor/bridge-projection
+  convergence, and remote approval packets staying generation-bound through the
+  governed commit path.
 
 ## Session Resume
 
-- Current status: Phase 0, Phase 1, and the planned Phase-2 bridge/prose
-  authority cleanup are implemented locally and validated for this lane. The
-  remaining tracked follow-up is Phase 3 surface-ownership / generation
-  consistency work, not another bridge-authority patch.
-- Next action: add the bounded `contract_ownership_map` / cross-surface
-  generation proof slice so startup, doctor/status, and push artifacts can cite
-  the same owner/version stamp after the Phase-2 authority cutover.
+- Current status: Phases 0 through 4 for the remote commit pipeline are
+  implemented locally for this lane, including the governed stage/commit/push
+  path, shared surface `snapshot_id`, bounded startup ownership map, and the
+  focused Phase-4 proof tests.
+- Next action: keep the broader repo guard bundle and checkpoint/publish steps
+  separate from this remote session until an operator with local keyboard
+  access can approve those host-bound actions; do not regress to raw git or
+  prose approval while waiting on that boundary.
 - Context rule: read `dev/active/platform_authority_loop.md`,
   `dev/active/review_channel.md`, and `dev/active/continuous_swarm.md` with
   this plan before changing remote commit/push behavior.

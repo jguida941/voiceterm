@@ -9,7 +9,8 @@ Bridge-specific extras (``runtime``, ``service_identity``,
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
+from collections.abc import Mapping
 from pathlib import Path
 
 from ..common import display_path
@@ -20,6 +21,7 @@ from ..runtime.review_state_models import (
     ReviewSessionState,
     ReviewState,
 )
+from ..runtime.surface_snapshot import build_surface_snapshot_id
 from .collaboration_session import build_collaboration_session
 from .current_session_projection import build_bridge_current_session
 from .handoff import BridgeSnapshot
@@ -67,6 +69,7 @@ def build_bridge_review_state(
     bridge_liveness: dict[str, object],
     attention: dict[str, object],
     promotion_candidate: PromotionCandidate | None,
+    push_decision: Mapping[str, object] | None = None,
     reduced_runtime: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Build a canonical ReviewState dict from bridge markdown state."""
@@ -109,6 +112,12 @@ def build_bridge_review_state(
     commit_pipeline = load_remote_commit_pipeline_contract(
         output_root=context.output_root,
     )
+    snapshot_id = build_surface_snapshot_id(
+        reviewer_runtime=reviewer_runtime,
+        commit_pipeline=commit_pipeline,
+        push_decision=push_decision,
+    )
+    commit_pipeline = replace(commit_pipeline, snapshot_id=snapshot_id)
     runtime_daemons = (
         reduced_runtime.get("daemons", {})
         if isinstance(reduced_runtime, dict)
@@ -128,6 +137,7 @@ def build_bridge_review_state(
             if isinstance(runtime_daemons.get("reviewer_supervisor"), dict)
             else None
         ),
+        snapshot_id=snapshot_id,
     )
 
     review_state = ReviewState(
@@ -153,6 +163,7 @@ def build_bridge_review_state(
         ),
         warnings=context.warnings,
         errors=context.errors,
+        snapshot_id=snapshot_id,
     )
 
     result: dict[str, object] = asdict(review_state)
@@ -181,6 +192,7 @@ def build_bridge_review_state(
         current_session=result.get("current_session"),
         bridge_state=result.get("bridge"),
         doctor=doctor,
+        snapshot_id=snapshot_id,
     )
     result["_compat"] = _build_compat_projection(compat_inputs)
 

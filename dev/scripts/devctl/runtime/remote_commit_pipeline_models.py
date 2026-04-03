@@ -74,6 +74,7 @@ class RemoteCommitPipelineContract:
     generation_id: str = ""
     approval_expires_at_utc: str = ""
     approved_target_identity: str = ""
+    snapshot_id: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {}
@@ -108,6 +109,7 @@ class RemoteCommitPipelineContract:
         payload["generation_id"] = self.generation_id
         payload["approval_expires_at_utc"] = self.approval_expires_at_utc
         payload["approved_target_identity"] = self.approved_target_identity
+        payload["snapshot_id"] = self.snapshot_id
         return payload
 
 
@@ -167,6 +169,7 @@ def remote_commit_pipeline_contract_from_mapping(
         approved_target_identity=coerce_string(
             mapping.get("approved_target_identity")
         ),
+        snapshot_id=coerce_string(mapping.get("snapshot_id")),
     )
 
 

@@ -65,6 +65,11 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("action", "str", "Review-channel action that produced the snapshot."),
             ContractField("timestamp", "str", "UTC timestamp for the snapshot."),
             ContractField(
+                "snapshot_id",
+                "str",
+                "Shared surface-generation stamp carried across startup, doctor, bridge projection, and commit pipeline surfaces.",
+            ),
+            ContractField(
                 "ok",
                 "bool",
                 "Whether the review snapshot resolved without blocking errors.",
@@ -132,6 +137,7 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
         runtime_model="dev.scripts.devctl.runtime.review_state_models:ReviewState",
         startup_surface_tokens=(
+            "snapshot_id",
             "bridge",
             "current_session",
             "reviewer_runtime",
@@ -225,6 +231,11 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
         required_fields=(
             ContractField("pipeline_id", "str", "Stable pipeline identity."),
+            ContractField(
+                "snapshot_id",
+                "str",
+                "Shared surface-generation stamp for the current pipeline projection.",
+            ),
             ContractField(
                 "state",
                 "str",
@@ -333,6 +344,7 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "RemoteCommitPipelineContract"
         ),
         startup_surface_tokens=(
+            "snapshot_id",
             "state",
             "approval_state",
             "blocked_reason",

@@ -1,7 +1,7 @@
 # Remote Orchestration Audit Status
 
 **Branch:** `feature/governance-quality-sweep`
-**Last updated:** 2026-04-03 ~6:45am EDT
+**Last updated:** 2026-04-03 ~12:30pm EDT
 **Purpose:** Temporary file for ChatGPT Pro review. Delete when done.
 
 **NOTE FOR CHATGPT PRO:** If file page views look stale, verify against commits directly:
@@ -16,8 +16,10 @@
 Started with 0 fixes, ended with 13 landed and pushed.
 ReviewerRuntimeContract (the unified lifecycle owner) is committed and pushed (7e4d1c2).
 Architecture is mostly correct. Remaining problems are execution/supervision
-AND surface-ownership consistency (`contract_ownership_map`,
-cross-surface generation proof, audit auto-sync), not bridge/prose authority.
+and the still-open daemon/parser/runtime follow-up items below, not bridge/prose
+authority. Phase 3/4 surface-ownership consistency
+(`contract_ownership_map`, cross-surface generation proof, audit auto-sync, and
+their proof tests) is now implemented locally.
 
 ## CRITICAL FINDING: Why Codex Keeps Going Idle (8-agent investigation)
 
@@ -80,7 +82,7 @@ Items 1-3 below are DONE. See commit `7e4d1c2` proof table. Current work is Phas
 | 12 | Bridge projection silently dropped Operator Direction | `bridge_projection_state.py`, `bridge_sanitize.py`, `handoff_constants.py` | 801349f |
 | 13 | **ReviewerRuntimeContract** — unified lifecycle owner | 46 files, 1569 insertions, 11 new files. Contract owns reviewer mode/freshness/stale/rollover/ACK/poll/session/acceptance/publish-clear. Bridge acceptance demoted to fallback. Doctor surface projects from contract. startup_surface_tokens populated on all 15 contracts. | 7e4d1c2 |
 
-## What's Still Open (verified by 4 agents against actual code ~10pm EDT)
+## Current Follow-up State (revalidated against actual code)
 
 ### DONE (verified in code, no longer open)
 
@@ -142,11 +144,11 @@ ChatGPT Pro's Phase 0 specification:
 - The doctor is only accessible as a nested field within `--action status`
 - **FIX:** register `doctor` action in parser.py, add dispatch in `__init__.py`
 
-**3. StartupContext missing contract_ownership_map**
-- startup_surface_tokens ARE populated (done)
-- BUT StartupContext has no `contract_ownership_map` field
-- No runtime path maps contracts back to their startup surface presence
-- **FIX:** add bounded ownership map to StartupContext built from ContractSpec registry
+**3. StartupContext ownership/runtime map is now present locally**
+- startup_surface_tokens ARE populated
+- `StartupContext` now carries `contract_ownership_map`
+- The map derives from the shared `ContractSpec` registry instead of being hand-maintained
+- Remaining work is broader daemon/parser/runtime closure, not this bootstrap ownership surface
 
 **4. Bridge prose fallback is removed locally**
 - `bridge_review_accepted()` now reads typed state only
@@ -166,7 +168,7 @@ All fixes use existing typed contracts — no ad hoc bypasses:
 
 ChatGPT Pro's diagnosis (updated after verifying latest push):
 - "The owner exists now. The system still does not force everyone to use it."
-- "You no longer mainly have a modeling problem. You have an execution/supervision problem plus a repo-truth consistency problem."
+- "You no longer mainly have a modeling problem. You have an execution/supervision problem, and the repo-truth consistency slice needs to stay enforced instead of drifting back open."
 - "Good recovery logic + insufficient liveness guarantees, instead of good recovery logic + guaranteed supervisor execution."
 
 ## Governance Findings (from `governance-review --format md`)
@@ -252,22 +254,22 @@ The remaining problem is execution/supervision, not modeling:
 | 12 | Terminal cleanup | `37f683d` | `terminal_app.py` | `cleanup_terminal_session()` with SIGTERM + window close |
 | 13 | Audit matches code | `85be0aa` | `AUDIT_STATUS.md` | Corrected to reflect actual branch state |
 
-### NOT yet implemented — what remains (verified by 8 agents against ChatGPT Pro review)
+### Follow-up matrix (revalidated against ChatGPT Pro review; locally completed rows marked explicitly)
 
 | # | What | Status | Where | Est. size | Why |
 |---|---|---|---|---|---|
 | A | Daemon auto-start in launch | NOT CODED | `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py` | ~10 lines | Root cause of idle-Codex. Neither governed nor manual launch starts daemon. Must also cover manual remote-control sessions via launchd plist (item B). |
 | B | launchd plist for crash restart | NOT CODED | `dev/config/` | ~20 lines | Daemon dies, nothing restarts it. |
 | C | Register `--action doctor` in parser | NOT CODED | `dev/scripts/devctl/review_channel/parser.py` + `dev/scripts/devctl/commands/review_channel/__init__.py` | ~5 lines | Doctor exists but CLI can't invoke it. Dispatch in commands-layer `__init__.py`. |
-| D | contract_ownership_map in StartupContext | NOT CODED | `startup_context.py` | ~15 lines | Must derive from ContractSpec registry (not hand-maintained). Agents need typed "who owns what" at bootstrap. |
+| D | contract_ownership_map in StartupContext | CODED LOCAL | `startup_context.py` | ~15 lines | Derived from the shared ContractSpec registry and serialized in StartupContext. |
 | E | Remove bridge prose fallback | NOT CODED | `bridge_validation_acceptance.py` | ~10 lines | Typed state is primary but prose fallback is still live. |
-| F | Audit file auto-sync guard | NOT CODED | `dev/scripts/checks/` | ~30 lines | Prevents audit/code drift that confused agents today. |
+| F | Audit file auto-sync guard | CODED LOCAL | `dev/scripts/checks/` | ~30 lines | `check_audit_status_sync.py` now blocks stale Phase 3/4 audit claims. |
 | G | Remove remaining bridge-derived inputs from push projection | NOT CODED | `status_push_decision.py` + `state.py` | ~20 lines | Push gate already uses typed `publish_clear`, but `implementation_blocked` still derives from bridge-liveness fields like `reviewer_mode` and `claude_ack_current`. Move those into `ReviewerRuntimeContract` first, then remove bridge dependency. |
 | H | Acceptance identity redesign (tree hash receipt) | NOT CODED | `reviewer_runtime_models.py` + producer/projection/test updates | ~60 lines | Replace HEAD equality with reviewer-owned tree hash receipt. Extend existing rollover_id pattern from handoff.py. Touches models, projection, and startup. |
-| I | Cross-surface consistency proof | NOT CODED | `dev/scripts/checks/` | ~50 lines | startup-context, status, and push can currently disagree because they independently call refresh_status_snapshot with no versioning. |
+| I | Cross-surface consistency proof | CODED LOCAL | `dev/scripts/checks/` | ~50 lines | `check_review_surface_consistency.py` now enforces one shared `snapshot_id`/generation across startup, status, compact, and commit-pipeline surfaces. |
 | J | Daemon regression tests | NOT CODED | `dev/scripts/devctl/tests/` | ~80 lines | Cover: absent at login, crash mid-review, stale config, duplicate start, heartbeat suppression, inactive no-op. |
-| K | Prove clean end-to-end path | NOT TESTED | Integration test | TBD | launch → daemon → review → ACK → push (all typed, no bridge prose) |
-| L | Prove rescue end-to-end path | NOT TESTED | Integration test | TBD | stale reviewer → daemon detects → rollover → cleanup → fresh session → green |
+| K | Prove clean end-to-end path | TESTED LOCAL | Integration test | implemented | `test_phase4_clean_path_surface_snapshot_alignment` covers stage → approve → commit → governed push with aligned typed surfaces. |
+| L | Prove rescue end-to-end path | TESTED LOCAL | Integration test | implemented | `test_phase4_rescue_path_recovers_doctor_health_and_snapshot` proves doctor recovery plus snapshot refresh after runtime repair. |
 
 ## Implementation Plan (ChatGPT Pro final review + corrections applied)
 

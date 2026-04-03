@@ -11,10 +11,11 @@ checkpoint-required states as fail-closed.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from ..platform.contract_definitions import shared_contracts
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
 from .conductor_capability import normalize_reviewer_mode
 from .governance_scan import scan_repo_governance_safely
@@ -27,6 +28,7 @@ from .startup_push_decision import (
     derive_push_decision as _derive_push_decision,
 )
 from .startup_signals import load_startup_quality_signals
+from .surface_snapshot import build_surface_snapshot_id
 from .work_intake import WorkIntakePacket, build_work_intake_packet
 
 
@@ -67,6 +69,8 @@ class StartupContext:
     product_thesis: str = ""
     work_intake: WorkIntakePacket | None = None
     quality_signals: dict[str, object] = field(default_factory=dict)
+    contract_ownership_map: dict[str, dict[str, object]] = field(default_factory=dict)
+    snapshot_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {}
@@ -84,6 +88,8 @@ class StartupContext:
         d["reviewer_gate"] = asdict(self.reviewer_gate)
         d["push_decision"] = self.push_decision.to_dict()
         d["quality_signals"] = dict(self.quality_signals)
+        d["contract_ownership_map"] = dict(self.contract_ownership_map)
+        d["snapshot_id"] = self.snapshot_id
         if self.product_thesis:
             d["product_thesis"] = self.product_thesis
         if self.governance is not None:
@@ -96,13 +102,16 @@ class StartupContext:
 def _detect_reviewer_gate(
     repo_root: Path,
     governance: ProjectGovernance | None = None,
+    review_state=None,
 ) -> ReviewerGateState:
     """Detect reviewer gate state from typed review-state only."""
     resolved_governance = governance or scan_repo_governance_safely(repo_root)
-    typed_gate = _detect_reviewer_gate_from_typed_state(
-        repo_root,
-        governance=resolved_governance,
-    )
+    typed_gate = _detect_reviewer_gate_from_review_state(review_state)
+    if typed_gate is None:
+        typed_gate = _detect_reviewer_gate_from_typed_state(
+            repo_root,
+            governance=resolved_governance,
+        )
     if typed_gate is not None:
         return typed_gate
     return _detect_reviewer_gate_without_typed_state(resolved_governance)
@@ -115,6 +124,11 @@ def _detect_reviewer_gate_from_typed_state(
 ) -> ReviewerGateState | None:
     """Read reviewer gate from typed review_state.json when available."""
     state = load_current_review_state(repo_root, governance=governance)
+    return _detect_reviewer_gate_from_review_state(state)
+
+
+def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
+    """Read reviewer gate from a preloaded typed review state."""
     if state is None:
         return None
     reviewer_runtime = state.reviewer_runtime
@@ -158,6 +172,19 @@ def _detect_reviewer_gate_from_typed_state(
         implementation_blocked=reviewer_runtime.implementation_blocked,
         implementation_block_reason=reviewer_runtime.implementation_block_reason,
     )
+
+
+def _build_contract_ownership_map() -> dict[str, dict[str, object]]:
+    ownership: dict[str, dict[str, object]] = {}
+    for spec in sorted(shared_contracts(), key=lambda row: row.contract_id):
+        if not spec.startup_surface_tokens:
+            continue
+        ownership[spec.contract_id] = {
+            "owner_layer": spec.owner_layer,
+            "runtime_model": spec.runtime_model,
+            "startup_surface_tokens": list(spec.startup_surface_tokens),
+        }
+    return ownership
 
 
 def _detect_reviewer_gate_without_typed_state(
@@ -210,7 +237,12 @@ def build_startup_context(
     from ..governance.draft import scan_repo_governance
 
     governance = scan_repo_governance(repo_root)
-    gate = _detect_reviewer_gate(repo_root, governance=governance)
+    review_state = load_current_review_state(repo_root, governance=governance)
+    gate = _detect_reviewer_gate(
+        repo_root,
+        governance=governance,
+        review_state=review_state,
+    )
     push_decision = _derive_push_decision(
         governance.push_enforcement,
         review_gate_allows_push=gate.review_gate_allows_push,
@@ -225,6 +257,19 @@ def build_startup_context(
         advisory_reason=advisory.reason,
     )
     quality_signals = load_startup_quality_signals(repo_root)
+    snapshot_id = (
+        str(getattr(review_state, "snapshot_id", "") or "").strip()
+        or build_surface_snapshot_id(
+            reviewer_runtime=(
+                getattr(review_state, "reviewer_runtime", None) if review_state else None
+            ),
+            commit_pipeline=(
+                getattr(review_state, "commit_pipeline", None) if review_state else None
+            ),
+            push_decision=push_decision,
+        )
+    )
+    push_decision = replace(push_decision, snapshot_id=snapshot_id)
 
     return StartupContext(
         governance=governance,
@@ -238,6 +283,8 @@ def build_startup_context(
         product_thesis=governance.product_thesis if governance else "",
         work_intake=work_intake,
         quality_signals=quality_signals,
+        contract_ownership_map=_build_contract_ownership_map(),
+        snapshot_id=snapshot_id,
     )
 
 

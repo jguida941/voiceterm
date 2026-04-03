@@ -384,7 +384,11 @@ Portability note:
   projected publisher/supervisor running state plus the last heartbeat and
   stop-reason fields for both daemons. Startup push truth still comes from
   `reviewer_runtime.publish_clear` and the shared `push_decision` path, not a
-  second doctor-only evaluator.
+  second doctor-only evaluator. The same status refresh now stamps one shared
+  `snapshot_id` across `review_state.json`, `compact.json`, `commit_pipeline`,
+  compact/compat doctor projections, and `_compat.bridge_projection.metadata`
+  so startup, phone, and review-channel surfaces can prove they were generated
+  from the same typed reviewer/pipeline snapshot.
 - For reviewer-owned automation, treat the `status` report shape honestly:
   live read APIs expose `bridge_liveness` plus projection paths, and typed
   `current_session` comes from the generated `review_state.json` projection
@@ -408,8 +412,20 @@ Portability note:
   continuity, or remembered prior state are not substitutes for that
   receipt. Keep chat bootstrap acknowledgements to blocker state plus next
   step by default; inspect the repo-owned artifacts or terminal output for the
-  richer packet detail. The slim bootstrap packet remains the bounded graph
-  companion for discovery after that startup receipt is refreshed.
+  richer packet detail. Startup now also carries a bounded
+  `contract_ownership_map` derived from the shared `ContractSpec` registry plus
+  the same shared `snapshot_id` stamped onto its `push_decision`, so bootstrap
+  consumers can see both startup-surface ownership and cross-surface snapshot
+  alignment without reparsing the full runtime contract catalog. The slim
+  bootstrap packet remains the bounded graph companion for discovery after that
+  startup receipt is refreshed.
+- `check_review_surface_consistency.py` is the proof guard for that startup /
+  status / doctor convergence. It reads `startup-context`, `review_state.json`,
+  `compact.json`, and `commit_pipeline.json`, then fails if their shared
+  `snapshot_id` or pipeline `generation_id` values diverge.
+- `check_audit_status_sync.py` keeps `AUDIT_STATUS.md` honest by failing when
+  the audit file still says Phase 3/4 ownership, consistency, or integration
+  proof work is open after the corresponding code/tests already exist.
 - Portable-authority rule: new reusable runtime/tooling code should resolve
   plan docs, artifact roots, bridge/review state, and generated bootstrap
   instructions through `ProjectGovernance` / repo-pack state instead of

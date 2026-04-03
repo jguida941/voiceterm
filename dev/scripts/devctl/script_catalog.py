@@ -11,6 +11,7 @@ CHECKS_DIR = "dev/scripts/checks"
 _CHECK_SCRIPT_ENTRIES = (
     ("active_plan_sync", "check_active_plan_sync.py"),
     ("architecture_surface_sync", "check_architecture_surface_sync.py"),
+    ("audit_status_sync", "check_audit_status_sync.py"),
     ("agents_contract", "check_agents_contract.py"),
     ("agents_bundle_render", "check_agents_bundle_render.py"),
     ("bootstrap", "check_bootstrap.py"),
@@ -49,6 +50,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("publication_sync", "check_publication_sync.py"),
     ("release_version_parity", "check_release_version_parity.py"),
     ("repo_url_parity", "check_repo_url_parity.py"),
+    ("review_surface_consistency", "check_review_surface_consistency.py"),
     ("review_channel_bridge", "check_review_channel_bridge.py"),
     ("tandem_consistency", "check_tandem_consistency.py"),
     ("rust_best_practices", "check_rust_best_practices.py"),

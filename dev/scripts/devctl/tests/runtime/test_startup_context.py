@@ -103,6 +103,19 @@ class TestStartupContextBuild(unittest.TestCase):
         ctx = build_startup_context()
         self.assertIsInstance(ctx.quality_signals, dict)
 
+    def test_has_contract_ownership_map(self) -> None:
+        ctx = build_startup_context()
+        self.assertIn("ReviewState", ctx.contract_ownership_map)
+        self.assertIn(
+            "snapshot_id",
+            ctx.contract_ownership_map["ReviewState"]["startup_surface_tokens"],
+        )
+
+    def test_has_snapshot_id(self) -> None:
+        ctx = build_startup_context()
+        self.assertTrue(ctx.snapshot_id)
+        self.assertEqual(ctx.push_decision.snapshot_id, ctx.snapshot_id)
+
     def test_to_dict_serializes(self) -> None:
         ctx = build_startup_context()
         d = ctx.to_dict()
@@ -115,6 +128,8 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIn("rule_summary", d)
         self.assertIn("match_evidence", d)
         self.assertIn("rejected_rule_traces", d)
+        self.assertIn("contract_ownership_map", d)
+        self.assertIn("snapshot_id", d)
 
     def test_slim_token_budget(self) -> None:
         ctx = build_startup_context()

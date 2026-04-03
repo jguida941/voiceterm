@@ -310,6 +310,7 @@ class ReviewState:
     )
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
+    snapshot_id: str = ""
 
     def pending_approvals(self) -> tuple[ReviewPacketState, ...]:
         return tuple(packet for packet in self.packets if packet.requires_operator_approval())

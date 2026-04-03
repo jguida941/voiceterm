@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from collections.abc import Mapping
 from pathlib import Path
 
 from ..runtime.review_state_models import ReviewQueueState
+from ..runtime.surface_snapshot import build_surface_snapshot_id
 from .attention import derive_bridge_attention
 from .attach_auth_policy import build_attach_auth_policy
 from .attach_auth_projection import (
@@ -136,10 +137,19 @@ def enrich_event_review_state(
         )
     )
     commit_pipeline = load_remote_commit_pipeline_contract(output_root=projections_root)
+    existing_compat = review_state.get("_compat")
+    merged_compat = dict(existing_compat) if isinstance(existing_compat, dict) else {}
+    snapshot_id = build_surface_snapshot_id(
+        reviewer_runtime=reviewer_runtime,
+        commit_pipeline=commit_pipeline,
+        push_decision=_mapping(merged_compat.get("push_decision")),
+    )
+    commit_pipeline = replace(commit_pipeline, snapshot_id=snapshot_id)
     bridge_liveness["review_accepted"] = (
         reviewer_runtime.review_acceptance.review_accepted
     )
     bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
+    review_state["snapshot_id"] = snapshot_id
     review_state["current_session"] = current_session_payload(current_session)
     review_state["collaboration"] = asdict(collaboration)
     review_state["reviewer_runtime"] = asdict(reviewer_runtime)
@@ -150,8 +160,6 @@ def enrich_event_review_state(
         reviewer_runtime=reviewer_runtime,
     )
     review_state["attention"] = attention
-    existing_compat = review_state.get("_compat")
-    merged_compat = dict(existing_compat) if isinstance(existing_compat, dict) else {}
     runtime_daemons = _mapping(_mapping(merged_compat.get("runtime")).get("daemons"))
     merged_compat["service_identity"] = build_service_identity_state(raw_service_identity)
     merged_compat["attach_auth_policy"] = build_attach_auth_policy_state(
@@ -165,7 +173,23 @@ def enrich_event_review_state(
         reviewer_supervisor_state=_mapping(
             runtime_daemons.get("reviewer_supervisor")
         ),
+        snapshot_id=snapshot_id,
     )
+    if snapshot_id:
+        merged_compat["snapshot_id"] = snapshot_id
+        push_decision = _mapping(merged_compat.get("push_decision"))
+        if push_decision:
+            updated_push_decision = dict(push_decision)
+            updated_push_decision["snapshot_id"] = snapshot_id
+            merged_compat["push_decision"] = updated_push_decision
+        bridge_projection = _mapping(merged_compat.get("bridge_projection"))
+        metadata = _mapping(bridge_projection.get("metadata"))
+        if metadata:
+            updated_bridge_projection = dict(bridge_projection)
+            updated_metadata = dict(metadata)
+            updated_metadata["snapshot_id"] = snapshot_id
+            updated_bridge_projection["metadata"] = updated_metadata
+            merged_compat["bridge_projection"] = updated_bridge_projection
     review_state["_compat"] = merged_compat
     return review_state, {
         "bridge_liveness": bridge_liveness,
@@ -173,5 +197,7 @@ def enrich_event_review_state(
         "service_identity": raw_service_identity,
         "attach_auth_policy": raw_attach_auth_policy,
     }
+
+
 def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}

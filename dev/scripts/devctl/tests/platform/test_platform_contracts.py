@@ -57,9 +57,11 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "rejected_rule_traces" in contract_map["DecisionPacket"]
     assert "reviewer_runtime" in contract_map["ReviewState"]
     assert "commit_pipeline" in contract_map["ReviewState"]
+    assert "snapshot_id" in contract_map["ReviewState"]
     assert "publish_clear" in contract_map["ReviewerRuntimeContract"]
     assert "approval_expires_at_utc" in contract_map["RemoteCommitPipelineContract"]
     assert "approved_target_identity" in contract_map["RemoteCommitPipelineContract"]
+    assert "snapshot_id" in contract_map["RemoteCommitPipelineContract"]
 
 
 def test_platform_contracts_json_output(capsys) -> None:

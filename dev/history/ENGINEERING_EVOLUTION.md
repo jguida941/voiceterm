@@ -39,6 +39,26 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
 
+### 2026-04-03 - Remote commit pipeline startup, status, and doctor surfaces now carry one shared snapshot stamp
+
+The remote commit lane already had a typed pipeline owner, governed
+stage/commit/push actions, and packet-based approval. The remaining truth gap
+was surface convergence: startup, review status, compact doctor output, and
+the durable commit-pipeline artifact could still be refreshed independently
+without one shared version stamp, and bootstrap had no bounded way to tell an
+agent which shared runtime contracts actually owned its startup packet.
+
+That convergence gap is closed now. `StartupContext` derives a bounded
+`contract_ownership_map` from the shared `ContractSpec` registry, startup and
+review-channel projections stamp one shared `snapshot_id` across
+`review_state.json`, `compact.json`, compat doctor/bridge projections, and
+`commit_pipeline.json`, and two new guards keep the result honest:
+`check_review_surface_consistency.py` fails on snapshot/generation drift while
+`check_audit_status_sync.py` fails when `AUDIT_STATUS.md` still claims the
+completed Phase 3/4 work is open. The same slice adds focused proof tests for
+the clean path, rescue path, startup/doctor/bridge convergence, and
+remote-session approval packets staying generation-bound through commit.
+
 ### 2026-04-03 - Remote commit push recovery no longer trusts bridge prose or raw HEAD equality
 
 The remote commit pipeline already had typed packet approval and a governed

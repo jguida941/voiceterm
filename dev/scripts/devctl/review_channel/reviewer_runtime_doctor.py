@@ -19,6 +19,7 @@ def build_reviewer_doctor_surface(
     commit_pipeline: RemoteCommitPipelineContract | None = None,
     publisher_state: Mapping[str, object] | None = None,
     reviewer_supervisor_state: Mapping[str, object] | None = None,
+    snapshot_id: str = "",
 ) -> dict[str, object]:
     """Project a read-only doctor surface from reviewer-runtime authority."""
     pipeline = commit_pipeline or RemoteCommitPipelineContract()
@@ -96,6 +97,7 @@ def build_reviewer_doctor_surface(
     surface["approval_expires_at_utc"] = pipeline.approval_expires_at_utc
     surface["generation_id"] = pipeline.generation_id
     surface["approved_target_identity"] = pipeline.approved_target_identity
+    surface["snapshot_id"] = snapshot_id or pipeline.snapshot_id
     return surface
 
 

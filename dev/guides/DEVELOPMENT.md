@@ -604,6 +604,8 @@ the concrete minimum inventory after edits:
    - `python3 dev/scripts/checks/check_rust_compiler_warnings.py`
    - `python3 dev/scripts/checks/check_serde_compatibility.py`
    - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py`
+   - `python3 dev/scripts/checks/check_audit_status_sync.py`
+   - `python3 dev/scripts/checks/check_review_surface_consistency.py`
    - `python3 dev/scripts/checks/check_tandem_consistency.py` (prefers typed `review_state.json` when available; bridge-text fallback for checks without a typed equivalent)
    - `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`
 4. If you changed shared platform/runtime contract surfaces (`dev/scripts/devctl/platform/**`,
@@ -1472,6 +1474,8 @@ Docs governance guardrails:
 - `python3 dev/scripts/checks/check_workflow_action_pinning.py` blocks non-SHA and dynamic `uses:` refs in workflow files.
 - `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` blocks registered check scripts from drifting out of bundle/workflow enforcement lanes unless they are explicitly marked helper-only, manual-only, or temporary advisory backlog exceptions.
 - `python3 dev/scripts/checks/check_agents_bundle_render.py` blocks AGENTS rendered bundle-reference drift against `dev/scripts/devctl/bundle_registry.py` and can regenerate the section with `--write`.
+- `python3 dev/scripts/checks/check_review_surface_consistency.py` blocks startup/review/compact/commit-pipeline snapshot drift by requiring one shared `snapshot_id` plus one shared remote-pipeline `generation_id` across those projections.
+- `python3 dev/scripts/checks/check_audit_status_sync.py` blocks stale `AUDIT_STATUS.md` rows when the Phase 3/4 ownership/consistency code or proof tests already exist locally.
 - `devctl` structured status reports for `check`/`triage` now emit UTC timestamps for deterministic run-correlation across local + CI artifacts.
 - `python3 dev/scripts/checks/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
 - `python3 dev/scripts/checks/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, execution-plan metadata/marker/section parity, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`.

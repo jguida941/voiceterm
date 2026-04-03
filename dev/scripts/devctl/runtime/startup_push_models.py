@@ -30,6 +30,7 @@ class PushDecisionState:
     publication_guidance: str = ""
     match_evidence: tuple[RuleMatchEvidenceRecord, ...] = ()
     rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...] = ()
+    snapshot_id: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)

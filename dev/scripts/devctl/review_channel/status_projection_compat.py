@@ -28,6 +28,7 @@ class CompatProjectionInputs:
     current_session: object
     bridge_state: object
     doctor: object
+    snapshot_id: str = ""
 
 
 def build_bridge_compat_projection(
@@ -55,7 +56,14 @@ def build_bridge_compat_projection(
             bridge_state=_mapping(inputs.bridge_state),
         )
     )
+    bridge_projection = compat.get("bridge_projection")
+    if isinstance(bridge_projection, dict):
+        metadata = bridge_projection.get("metadata")
+        if isinstance(metadata, dict) and inputs.snapshot_id:
+            metadata["snapshot_id"] = inputs.snapshot_id
     compat["doctor"] = _mapping(inputs.doctor)
+    if inputs.snapshot_id:
+        compat["snapshot_id"] = inputs.snapshot_id
     compat["agents"] = inputs.legacy_agents
     return compat
 

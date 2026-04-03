@@ -70,6 +70,7 @@ def write_status_projection_bundle(
         snapshot=snapshot,
         timestamp=timestamp,
     )
+    snapshot_id = str(review_state.get("snapshot_id") or "").strip()
     agent_registry = _status_agent_registry(review_state)
     projection_paths = write_projection_bundle(
         output_root=context.output_root,
@@ -77,7 +78,11 @@ def write_status_projection_bundle(
         agent_registry=agent_registry,
         action="status",
         trace_events=[],
-        full_extras=_status_full_extras(context=context, payload=payload),
+        full_extras=_status_full_extras(
+            context=context,
+            payload=payload,
+            snapshot_id=snapshot_id,
+        ),
     )
     return StatusProjectionBundleResult(
         projection_paths=projection_paths,
@@ -119,8 +124,10 @@ def _build_status_review_state(
         bridge_liveness=context.bridge_liveness,
         attention=context.attention,
         promotion_candidate=promotion_candidate,
+        push_decision=payload.push_decision,
         reduced_runtime=payload.reduced_runtime,
     )
+    snapshot_id = str(review_state.get("snapshot_id") or "").strip()
     compat = review_state.get("_compat")
     if isinstance(compat, dict):
         compat["planned_topology"] = build_planned_topology(
@@ -136,7 +143,10 @@ def _build_status_review_state(
         if isinstance(push_enforcement, dict):
             compat["push_enforcement"] = push_enforcement
         if isinstance(payload.push_decision, dict):
-            compat["push_decision"] = payload.push_decision
+            compat["push_decision"] = _with_snapshot_id(
+                payload.push_decision,
+                snapshot_id,
+            )
     return review_state
 
 
@@ -156,6 +166,7 @@ def _status_full_extras(
     *,
     context: StatusProjectionContext,
     payload: StatusProjectionPayload,
+    snapshot_id: str,
 ) -> dict[str, object]:
     push_enforcement = context.bridge_liveness.get("push_enforcement")
     extras = {
@@ -168,5 +179,18 @@ def _status_full_extras(
     if isinstance(push_enforcement, dict):
         extras["push_enforcement"] = push_enforcement
     if isinstance(payload.push_decision, dict):
-        extras["push_decision"] = payload.push_decision
+        extras["push_decision"] = _with_snapshot_id(
+            payload.push_decision,
+            snapshot_id,
+        )
     return extras
+
+
+def _with_snapshot_id(
+    payload: dict[str, object],
+    snapshot_id: str,
+) -> dict[str, object]:
+    result = dict(payload)
+    if snapshot_id:
+        result["snapshot_id"] = snapshot_id
+    return result
