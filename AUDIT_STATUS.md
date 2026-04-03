@@ -92,46 +92,41 @@ ChatGPT Pro was right on 4 of 5 claims. The rollover IS real contract-backed wor
 | 12 | Bridge projection silently dropped Operator Direction | `bridge_projection_state.py`, `bridge_sanitize.py`, `handoff_constants.py` | 801349f |
 | 13 | **ReviewerRuntimeContract** — unified lifecycle owner | 46 files, 1569 insertions, 11 new files. Contract owns reviewer mode/freshness/stale/rollover/ACK/poll/session/acceptance/publish-clear. Bridge acceptance demoted to fallback. Doctor surface projects from contract. startup_surface_tokens populated on all 14 contracts. | 7e4d1c2 |
 
-## What's Still Open
+## What's Still Open (verified by 4 agents against actual code ~10pm EDT)
 
-### Architecture Gaps (from ChatGPT Pro + 8-agent verification)
+### DONE (verified in code, no longer open)
 
-**1. ReviewerRuntimeContract — COMMITTED (7e4d1c2) but needs validation**
-- The unified lifecycle owner contract is now committed with 46 files, 1569 insertions
-- Bridge acceptance demoted to fallback, contract is primary authority
-- Doctor surface projects from the contract
-- startup_surface_tokens populated on all 14 contracts
-- **NEEDS:** full test suite validation, 8-agent architecture verification, ChatGPT Pro review
+- **ReviewerRuntimeContract** — EXISTS in `runtime_state_contract_rows.py` (commit 7e4d1c2). Owns reviewer mode, freshness, stale reason, rollover, ACK, poll, session, acceptance, publish_clear.
+- **startup_surface_tokens** — POPULATED on all 15 ContractSpec rows (3 tokens each).
+- **Bridge acceptance demotion** — PARTIALLY DONE. `bridge_review_accepted()` checks typed `reviewer_runtime` first. Push decision uses `reviewer_runtime.publish_clear` directly.
+- **Push invalidation cycle** — FIXED. `review_gate_allows_push` bypasses `implementation_blocked`.
 
-**1b. No persistent supervisor for remote-control pattern (CRITICAL — see investigation above)**
-- The Codex CLI has no polling loop — it processes its prompt and stops
-- The follow daemon that should compensate is never auto-started
-- The rollover code requires the daemon to be running
+### STILL OPEN (verified by agents)
+
+**1. No persistent supervisor (CRITICAL — root cause of idle-Codex)**
+- The Codex CLI has no polling loop — processes prompt and stops
+- Follow daemon never auto-started by launch or manual spawn
+- Rollover code only runs inside daemon tick — if daemon is dead, rollover never fires
 - Today: 116 error-state polls, 20+ manual interventions over 6 hours
-- **NEEDS:** daemon auto-start in launch path, launchd plist for crash restart
+- **FIX:** daemon auto-start in launch path + launchd plist for crash restart
 
-**2. No doctor/health surface**
-- No `review-channel --action doctor` command exists
-- Health data scattered across `bridge_liveness`, `peer_recovery.py` (20+ recovery recipes), `bridge_validation.py`
-- Need ONE surface that answers: bridge clean? reviewer current? implementer ACK? recovery needed? stale terminals? one recovery command?
-- Agent designed full spec — needs `_doctor.py` handler + parser registration
+**2. Doctor surface exists but NOT registered in parser**
+- `reviewer_runtime_doctor.py` is a full 18-field health projection (status, freshness, recovery, recommended command)
+- BUT `--action doctor` is NOT in the parser's action choices
+- The doctor is only accessible as a nested field within `--action status`
+- **FIX:** register `doctor` action in parser.py, add dispatch in `__init__.py`
 
-**3. Startup contract ownership map missing**
-- `StartupContext` (startup_context.py:49-71) has no `contract_ownership_map`
-- All 14 `ContractSpec` rows have empty `startup_surface_tokens = ()`
-- Agents get state at bootstrap but not ownership metadata
-- Need 3 new fields on ContractSpec: `authoritative_artifact`, `allowed_projections`, `recovery_surface`
+**3. StartupContext missing contract_ownership_map**
+- startup_surface_tokens ARE populated (done)
+- BUT StartupContext has no `contract_ownership_map` field
+- No runtime path maps contracts back to their startup surface presence
+- **FIX:** add bounded ownership map to StartupContext built from ContractSpec registry
 
-**4. Bridge is still active decision gate, not just projection**
-- `bridge_review_accepted()` reads bridge prose sections to determine push eligibility
-- Push fails without bridge.md existing — no fallback to typed state
-- The docs say bridge should be compatibility projection, but runtime still depends on it
-
-**5. Push invalidation cycle (FIXED but architecturally fragile)**
-- `push_state.py:111-120` does exact HEAD equality check
-- Each bridge commit creates new HEAD, invalidating previous acceptance
-- P0 fixes break the cycle by making `review_gate_allows_push` bypass `implementation_blocked`
-- But the underlying HEAD-equality design is still fragile
+**4. Bridge prose is still a live fallback**
+- `bridge_review_accepted()` checks typed state FIRST (good)
+- BUT falls back to regex prose-parsing when typed state is absent
+- Push path (`status_push_decision.py`) does bypass bridge via `publish_clear` (good)
+- **FIX:** remove prose fallback once typed state is always available, or make it log a warning
 
 ## Verified Findings (8-agent verification x3 rounds)
 
@@ -143,10 +138,10 @@ All fixes use existing typed contracts — no ad hoc bypasses:
 - `BRIDGE_ALLOWED_H2` / `BRIDGE_SECTION_ORDER` for bridge contracts
 - `PreparedSessionRecord` for terminal tracking
 
-ChatGPT Pro's diagnosis confirmed by agents:
-- "You have contracts for the pieces, but not one owner for the lifecycle"
-- "The system is better at describing blocked states than recovering from them fluently"
-- "You do not mainly have a modeling problem anymore. You have a recovery-and-discoverability problem"
+ChatGPT Pro's diagnosis (updated after verifying latest push):
+- "The owner exists now. The system still does not force everyone to use it."
+- "You no longer mainly have a modeling problem. You have an execution/supervision problem plus a repo-truth consistency problem."
+- "Good recovery logic + insufficient liveness guarantees, instead of good recovery logic + guaranteed supervisor execution."
 
 ## Governance Findings (from `governance-review --format md`)
 
