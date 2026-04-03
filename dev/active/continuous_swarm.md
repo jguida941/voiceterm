@@ -405,6 +405,21 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-04-03: Landed Slice 1 and Slice 1.5 of the review-loop authority
+  repair on the live `MP-358` lane. The new shared
+  `review_channel/turn_authority.py` projection now derives reviewer mode /
+  effective mode, launch truth, attention, recovery permission,
+  implementation-block state, and next-turn routing from typed `review_state`
+  plus the bridge-only reviewer wait markers, and `bridge-poll` consumes that
+  shared projection instead of keeping its own local turn-state branch tree.
+  `check_review_surface_consistency.py` now also proves `bridge-poll` matches
+  the same typed snapshot/turn-authority payload, so parity drift fails as a
+  guard instead of surviving until another manual loop audit. Focused
+  `bridge-poll`, guard, status-adjacent, and wait-adjacent regressions are
+  green. Remaining next slice is the reviewer-accepted implementer baseline
+  for the reviewed-current completion dead zone, then the follow-on wait and
+  recovery consumer migrations already listed below.
+
 - 2026-04-03: Revalidated the provisional repair plan against an external
   multi-agent audit before promoting it into owner docs. Confirmed the core
   gaps: `bridge-poll` still derives turn state locally instead of consuming
@@ -830,15 +845,11 @@ Out of scope until the local proof gate is green:
 
 - Current status: this plan remains active; the highest-priority open slice is
   reviewer-turn authority convergence for the live Codex/Claude loop.
-- Next action: start from the 2026-04-03 audit entry in `## Progress Log` and
-  land the repair in this order: 1) shared typed turn-authority projection for
-  bridge-poll and wait consumers, 2) guard coverage that proves bridge-poll
-  parity with the typed reviewer-runtime snapshot, 3) reviewer-accepted
-  implementer-state baseline for reviewed-current completion/promotion, 4)
-  wait/recovery semantics that preserve legitimate reviewer-owned wait states,
-  5) migrate the secondary reviewer-side consumers that still make local
-  liveness/recovery decisions, 6) focused parity tests across
-  bridge-poll/status/doctor/wait/startup/recovery.
+- Next action: resume at Slice 2 of the 2026-04-03 repair order. Persist the
+  reviewer-accepted implementer-state baseline on the typed reviewer
+  acceptance/runtime surface, then thread that semantic baseline through
+  `bridge-poll` and the wait/recovery proof without reopening a second turn-
+  authority owner.
 - Context rule: treat `dev/active/review_channel.md` as the bridge/runtime
   model owner and `dev/active/platform_authority_loop.md` as the startup-
   authority consumer owner while this `MP-358` plan remains the execution

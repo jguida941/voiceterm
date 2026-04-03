@@ -62,9 +62,9 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-03T18:38:45Z`
-- Last Codex poll (Local America/New_York): `2026-04-03 14:38:45 EDT`
-- Reviewer mode: `active_dual_agent`
+- Last Codex poll: `2026-04-03T19:39:26Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 15:39:26 EDT`
+- Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `1446d69cdff8a9495427bf1ee13245b396f91b5de4c7dc63593411eb903ebf12`
 - Current instruction revision: `5e90433bda3c`
 ## Protocol
@@ -197,18 +197,18 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: startup-authority-review-pass; observed-tree: 1446d69cdff8; reviewed-tree: 1446d69cdff8; instruction-rev: 5e90433bda3c).
+- Reviewer loop reset through repo-owned tooling after stale dual-agent runtime drift. Current mode is `single_agent`; stale reviewer-supervisor is stopped; start the next session from fresh bootstrap instead of treating prior dual-agent checkpoint text as live authority.
 
 ## Current Verdict
 
-- `295db49` startup-authority checkpoint slice is accepted. Focused review found no blocking issues in the changed startup-authority files, and the targeted startup test set passed (`102 passed`).
-- Change Summary: the old doctor/preflight verdict is obsolete. The live loop recovered to `active_dual_agent`, the repo-owned publisher/supervisor are running again, and the next bounded slice is now a small readability cleanup in `dev/scripts/devctl/review_channel/events.py`, not launch-state repair.
+- Review-loop state is reset enough for a fresh implementation session. The stale reviewer-supervisor was stopped, reviewer mode is now `single_agent`, and fresh startup now exits cleanly instead of forcing `repair_reviewer_loop`.
+- Change Summary: this was an operational reset, not a feature implementation. It clears the false "live dual-agent loop" state so the next session starts from honest authority and the plan-backed repair can proceed directly.
 
 ## Open Findings
 
-- Reviewer-owned bridge state had gone stale against typed status; the prior `implementer_state_reset_required` / `tools_only` / `detached_runtime_only` findings no longer match the live runtime.
-- The worktree is intentionally dirty because `dev/scripts/devctl/review_channel/events.py` is mid-edit. Governed push stays blocked until that bounded slice is checkpoint-clean.
-- Keep the `events.py` slice narrow: blank-line separation is the primary goal in `post_packet`, `transition_packet`, and `_validate_transition`; comments are optional and should stay sparse.
+- The bridge still contains historical dual-agent review prose below these sections; treat that as stale compatibility context, not current execution authority.
+- The next real work is the plan-backed review-loop authority repair, starting with the shared typed turn-authority projection for `bridge-poll` and its parity guard coverage.
+- If dual-agent review-channel work is resumed later, relaunch it through the repo-owned `launch` or `rollover` path from a fresh bootstrap instead of trusting old bridge prose.
 
 ## Claude Status
 
@@ -228,10 +228,8 @@ path and the inactive-mode fail-closed guard.
 
 ## Current Instruction For Claude
 
-- Continue only the bounded `dev/scripts/devctl/review_channel/events.py` cleanup already in progress. Focus on readability in `post_packet`, `transition_packet`, and `_validate_transition`; prefer blank-line separation, and keep comments minimal unless they clarify a non-obvious contract.
-- Do not widen into other files in this tranche.
-- When the `events.py` diff is ready, run `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_plan_packets.py dev/scripts/devctl/tests/test_review_channel_context_refs.py dev/scripts/devctl/tests/review_channel/test_packet_agents.py`.
-- Report the exact files touched plus the commands you ran, then hand the slice back for re-review before any broader guard bundle or push step.
+- No live Claude instruction is active. The bridge is parked in `single_agent` mode for a fresh session reset.
+- The next implementation session should bootstrap from `startup-context` and `context-graph`, read the active owner docs, and begin Slice 1 of the review-loop authority repair plan.
 
 ## Last Reviewed Scope
 
@@ -247,4 +245,3 @@ path and the inactive-mode fail-closed guard.
 - dev/scripts/devctl/tests/runtime/test_startup_gate.py
 - dev/scripts/devctl/tests/runtime/test_startup_receipt.py
 - dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
-

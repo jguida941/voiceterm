@@ -128,7 +128,12 @@ def _build_bridge_text(
     )
 
 
-def _run_bridge_poll(tmp_path: Path, bridge_text: str) -> tuple[int, dict[str, object]]:
+def _run_bridge_poll(
+    tmp_path: Path,
+    bridge_text: str,
+    *,
+    typed_review_state: dict[str, object] | None = None,
+) -> tuple[int, dict[str, object]]:
     root = tmp_path
     review_channel_path = root / "dev/active/review_channel.md"
     review_channel_path.parent.mkdir(parents=True, exist_ok=True)
@@ -156,9 +161,118 @@ def _run_bridge_poll(tmp_path: Path, bridge_text: str) -> tuple[int, dict[str, o
     )
 
     with patch.object(review_channel_command, "REPO_ROOT", root):
-        rc = review_channel_command.run(args)
+        with patch(
+            "dev.scripts.devctl.commands.review_channel._bridge_poll.load_typed_poll_authority",
+            return_value=typed_review_state,
+        ):
+            rc = review_channel_command.run(args)
 
     return rc, json.loads(output_path.read_text(encoding="utf-8"))
+
+
+def _typed_review_state(
+    *,
+    snapshot_id: str = "snap-123",
+    reviewer_mode: str = "active_dual_agent",
+    effective_reviewer_mode: str = "active_dual_agent",
+    launch_truth: str = "live_runtime",
+    attention_status: str = "healthy",
+    implementation_blocked: bool = False,
+    implementation_block_reason: str = "",
+    recovery_action_allowed: str = "",
+    reviewed_hash_current: bool = True,
+    review_needed: bool = False,
+    instruction_revision: str = "56bcd5d01510",
+) -> dict[str, object]:
+    implementer_status = "- waiting for reviewer poll"
+    implementer_ack = f"- acknowledged; instruction-rev: `{instruction_revision}`"
+    return {
+        "snapshot_id": snapshot_id,
+        "review": {
+            "bridge_path": "bridge.md",
+            "review_channel_path": "dev/active/review_channel.md",
+        },
+        "queue": {
+            "pending_total": 0,
+            "pending_codex": 0,
+            "pending_claude": 0,
+            "pending_cursor": 0,
+            "pending_operator": 0,
+            "stale_packet_count": 0,
+            "derived_next_instruction": "",
+            "derived_next_instruction_source": {},
+        },
+        "current_session": {
+            "current_instruction": "- Implement the bridge-poll action.",
+            "current_instruction_revision": instruction_revision,
+            "implementer_status": implementer_status,
+            "implementer_ack": implementer_ack,
+            "implementer_ack_revision": instruction_revision,
+            "implementer_ack_state": "current",
+            "implementer_state_hash": compute_implementer_state_hash(
+                implementer_status=implementer_status,
+                implementer_questions="- none",
+                implementer_ack=implementer_ack,
+            ),
+            "open_findings": "- none",
+            "last_reviewed_scope": "- bridge.md",
+        },
+        "bridge": {
+            "reviewer_mode": reviewer_mode,
+            "effective_reviewer_mode": effective_reviewer_mode,
+            "reviewer_freshness": "fresh",
+            "launch_truth": launch_truth,
+            "claude_ack_current": True,
+            "current_instruction_revision": instruction_revision,
+            "claude_ack_revision": instruction_revision,
+            "implementer_state_hash": compute_implementer_state_hash(
+                implementer_status=implementer_status,
+                implementer_questions="- none",
+                implementer_ack=implementer_ack,
+            ),
+            "reviewed_hash_current": reviewed_hash_current,
+            "review_needed": review_needed,
+        },
+        "attention": {
+            "status": attention_status,
+            "summary": attention_status,
+            "recommended_action": "inspect",
+        },
+        "reviewer_runtime": {
+            "reviewer_mode": reviewer_mode,
+            "effective_reviewer_mode": effective_reviewer_mode,
+            "reviewer_freshness": "fresh",
+            "stale_reason": (
+                "" if attention_status == "healthy" else attention_status
+            ),
+            "implementer_ack_current": True,
+            "implementation_blocked": implementation_blocked,
+            "implementation_block_reason": implementation_block_reason,
+            "last_poll": {
+                "last_codex_poll_utc": "2026-04-03T00:00:00Z",
+                "last_codex_poll_age_seconds": 5,
+            },
+            "rollover": {
+                "rollover_id": "",
+                "ack_pending": False,
+                "trigger": "",
+            },
+            "session_owner": {
+                "provider": "codex",
+                "session_name": "codex-conductor",
+                "session_pid": 1,
+                "terminal_window_id": 1,
+                "script_path": "/tmp/codex.sh",
+            },
+            "recovery_action_allowed": recovery_action_allowed,
+            "review_acceptance": {
+                "current_verdict": "- accepted",
+                "open_findings": "- none",
+                "review_accepted": True,
+            },
+            "publish_clear": False,
+        },
+    }
 
 
 def test_build_bridge_poll_result_uses_bridge_revision_metadata() -> None:
@@ -248,6 +362,77 @@ def test_bridge_poll_reports_reviewer_wait_state_when_hold_steady_is_acked() -> 
     assert result.next_turn_role == "reviewer"
     assert result.next_turn_reason == "reviewer_wait_state"
     assert result.turn_state_token
+
+
+def test_bridge_poll_prefers_typed_runtime_authority_for_dead_dual_agent_loop() -> None:
+    typed_review_state = _typed_review_state(
+        effective_reviewer_mode="tools_only",
+        launch_truth="detached_runtime_only",
+        attention_status="review_loop_relaunch_required",
+        implementation_blocked=True,
+        implementation_block_reason="review_loop_relaunch_required",
+        recovery_action_allowed="python3 dev/scripts/devctl.py review-channel --action launch",
+        reviewed_hash_current=True,
+        review_needed=False,
+        instruction_revision="aabbccdd1122",
+    )
+
+    result = build_bridge_poll_result(
+        _build_bridge_text(
+            instruction_revision="aabbccdd1122",
+            claude_ack_revision="aabbccdd1122",
+        ),
+        current_worktree_hash="a" * 64,
+        typed_review_state=typed_review_state,
+    )
+
+    assert result.snapshot_id == "snap-123"
+    assert result.effective_reviewer_mode == "tools_only"
+    assert result.launch_truth == "detached_runtime_only"
+    assert result.attention_status == "review_loop_relaunch_required"
+    assert result.implementation_blocked is True
+    assert result.implementation_block_reason == "review_loop_relaunch_required"
+    assert (
+        result.recovery_action_allowed
+        == "python3 dev/scripts/devctl.py review-channel --action launch"
+    )
+    assert result.next_turn_required is True
+    assert result.next_turn_role == "reviewer"
+    assert result.next_turn_reason == "review_loop_relaunch_required"
+    assert result.turn_state_token
+
+
+def test_bridge_poll_command_uses_typed_turn_authority_projection(
+    tmp_path: Path,
+) -> None:
+    typed_review_state = _typed_review_state(
+        effective_reviewer_mode="tools_only",
+        launch_truth="detached_runtime_only",
+        attention_status="review_loop_relaunch_required",
+        implementation_blocked=True,
+        implementation_block_reason="review_loop_relaunch_required",
+        recovery_action_allowed="python3 dev/scripts/devctl.py review-channel --action launch",
+        reviewed_hash_current=True,
+        review_needed=False,
+        instruction_revision="aabbccdd1122",
+    )
+
+    rc, payload = _run_bridge_poll(
+        tmp_path,
+        _build_bridge_text(
+            instruction_revision="aabbccdd1122",
+            claude_ack_revision="aabbccdd1122",
+        ),
+        typed_review_state=typed_review_state,
+    )
+
+    assert rc == 0
+    assert payload["snapshot_id"] == "snap-123"
+    assert payload["effective_reviewer_mode"] == "tools_only"
+    assert payload["launch_truth"] == "detached_runtime_only"
+    assert payload["attention_status"] == "review_loop_relaunch_required"
+    assert payload["next_turn_role"] == "reviewer"
+    assert payload["next_turn_reason"] == "review_loop_relaunch_required"
 
 
 def test_write_reviewer_heartbeat_rewrites_poll_status_immediately_under_heading(

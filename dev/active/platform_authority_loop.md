@@ -1927,6 +1927,18 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-03: Closed the next startup-consumer parity gap in the active
+  authority-loop lane without inverting ownership. `bridge-poll` no longer
+  derives liveness/turn routing from bridge text alone: the new shared
+  `review_channel.turn_authority` projection reads typed
+  reviewer-runtime/effective-mode/launch-truth/attention state from the
+  canonical `ReviewState` snapshot, and
+  `check_review_surface_consistency.py` now compares `bridge-poll` against
+  that same snapshot/turn-authority payload. Startup remains the baseline
+  consumer of reviewer-runtime truth; the next same-lane follow-up is the
+  reviewer-accepted implementer baseline and the remaining wait/recovery
+  consumer migrations, not a reverse dependency from startup onto
+  `bridge-poll`.
 - 2026-04-03: Multi-agent proof review corrected the current claim set. The
   reviewer-bootstrap patch is valid as a startup-authority improvement, but it
   is not enough to claim full-system or arbitrary-repo proof yet. Three

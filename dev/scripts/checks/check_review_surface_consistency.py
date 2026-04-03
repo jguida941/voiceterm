@@ -18,6 +18,15 @@ if str(REPO_ROOT) not in sys.path:
 from dev.scripts.devctl.runtime.governance_scan import scan_repo_governance_safely
 from dev.scripts.devctl.runtime.review_state_locator import resolve_review_state_path
 from dev.scripts.devctl.runtime.startup_context import build_startup_context
+from dev.scripts.devctl.commands.review_channel._bridge_poll_support import (
+    build_bridge_poll_result,
+)
+from dev.scripts.devctl.review_channel.handoff import (
+    extract_bridge_snapshot,
+    summarize_bridge_liveness,
+)
+from dev.scripts.devctl.review_channel.heartbeat import compute_non_audit_worktree_hash
+from dev.scripts.devctl.review_channel.turn_authority import build_reviewer_turn_authority
 
 
 def build_report(
@@ -27,12 +36,22 @@ def build_report(
     review_state_payload: dict[str, object] | None = None,
     compact_payload: dict[str, object] | None = None,
     commit_pipeline_payload: dict[str, object] | None = None,
+    bridge_poll_payload: dict[str, object] | None = None,
+    turn_authority_payload: dict[str, object] | None = None,
 ) -> dict[str, object]:
     startup = startup_payload or build_startup_context(repo_root=repo_root).to_dict()
     review_state = review_state_payload or _load_review_state_payload(repo_root)
     compact = compact_payload or _load_json(_surface_path(repo_root, "compact.json"))
     commit_pipeline = commit_pipeline_payload or _load_json(
         _surface_path(repo_root, "commit_pipeline.json")
+    )
+    bridge_poll = bridge_poll_payload or _load_bridge_poll_payload(
+        repo_root=repo_root,
+        review_state_payload=review_state,
+    )
+    turn_authority = turn_authority_payload or _load_turn_authority_payload(
+        repo_root=repo_root,
+        review_state_payload=review_state,
     )
     snapshot_ids = {
         "startup_context": _nested(startup, "snapshot_id"),
@@ -53,6 +72,8 @@ def build_report(
         "compact_push_decision": _nested(compact, "push_decision", "snapshot_id"),
         "compact_doctor": _nested(compact, "doctor", "snapshot_id"),
         "commit_pipeline": _nested(commit_pipeline, "snapshot_id"),
+        "bridge_poll": _nested(bridge_poll, "snapshot_id"),
+        "turn_authority": _nested(turn_authority, "snapshot_id"),
     }
     generation_ids = {
         "review_state_commit_pipeline": _nested(review_state, "commit_pipeline", "generation_id"),
@@ -74,11 +95,14 @@ def build_report(
         errors.append(
             "pipeline generation mismatch: " + ", ".join(nonempty_generations)
         )
+    errors.extend(_bridge_poll_parity_errors(bridge_poll, turn_authority))
     return {
         "command": "check_review_surface_consistency",
         "ok": not errors,
         "snapshot_ids": snapshot_ids,
         "generation_ids": generation_ids,
+        "bridge_poll": bridge_poll,
+        "turn_authority": turn_authority,
         "errors": errors,
     }
 
@@ -101,6 +125,87 @@ def _load_review_state_payload(repo_root: Path) -> dict[str, object]:
     return _load_json(review_state_path)
 
 
+def _load_bridge_poll_payload(
+    *,
+    repo_root: Path,
+    review_state_payload: dict[str, object],
+) -> dict[str, object]:
+    bridge_text, current_worktree_hash = _bridge_runtime_inputs(
+        repo_root=repo_root,
+        review_state_payload=review_state_payload,
+    )
+    if not bridge_text:
+        return {}
+    return build_bridge_poll_result(
+        bridge_text,
+        current_worktree_hash=current_worktree_hash,
+        typed_review_state=review_state_payload,
+    ).to_dict()
+
+
+def _load_turn_authority_payload(
+    *,
+    repo_root: Path,
+    review_state_payload: dict[str, object],
+) -> dict[str, object]:
+    bridge_text, current_worktree_hash = _bridge_runtime_inputs(
+        repo_root=repo_root,
+        review_state_payload=review_state_payload,
+    )
+    if not bridge_text:
+        return {}
+    snapshot = extract_bridge_snapshot(bridge_text)
+    bridge_liveness = summarize_bridge_liveness(
+        snapshot,
+        current_worktree_hash=current_worktree_hash,
+    )
+    return build_reviewer_turn_authority(
+        snapshot=snapshot,
+        bridge_liveness=bridge_liveness,
+        typed_review_state=review_state_payload,
+    ).to_dict()
+
+
+def _bridge_runtime_inputs(
+    *,
+    repo_root: Path,
+    review_state_payload: dict[str, object],
+) -> tuple[str, str | None]:
+    bridge_path = _resolve_bridge_path(repo_root=repo_root, review_state_payload=review_state_payload)
+    if bridge_path is None or not bridge_path.exists():
+        return "", None
+    try:
+        bridge_text = bridge_path.read_text(encoding="utf-8")
+    except OSError:
+        return "", None
+    return bridge_text, _current_worktree_hash(repo_root=repo_root, bridge_path=bridge_path)
+
+
+def _resolve_bridge_path(
+    *,
+    repo_root: Path,
+    review_state_payload: dict[str, object],
+) -> Path | None:
+    bridge_rel = _nested(review_state_payload, "review", "bridge_path")
+    if bridge_rel:
+        return repo_root / bridge_rel
+    return repo_root / "bridge.md"
+
+
+def _current_worktree_hash(*, repo_root: Path, bridge_path: Path) -> str | None:
+    try:
+        bridge_rel = str(bridge_path.relative_to(repo_root))
+    except ValueError:
+        bridge_rel = bridge_path.name
+    try:
+        return compute_non_audit_worktree_hash(
+            repo_root=repo_root,
+            excluded_rel_paths=(bridge_rel,),
+        )
+    except (OSError, ValueError):
+        return None
+
+
 def _load_json(path: Path | None) -> dict[str, object]:
     if path is None or not path.exists():
         return {}
@@ -118,6 +223,35 @@ def _nested(payload: object, *keys: str) -> str:
             return ""
         current = current.get(key)
     return str(current or "").strip()
+
+
+def _bridge_poll_parity_errors(
+    bridge_poll: dict[str, object],
+    turn_authority: dict[str, object],
+) -> list[str]:
+    if not bridge_poll or not turn_authority:
+        return []
+    errors: list[str] = []
+    for field in (
+        "effective_reviewer_mode",
+        "launch_truth",
+        "attention_status",
+        "recovery_action_allowed",
+        "implementation_blocked",
+        "implementation_block_reason",
+        "reviewed_hash_current",
+        "review_needed",
+        "next_turn_required",
+        "next_turn_role",
+        "next_turn_reason",
+    ):
+        if bridge_poll.get(field) != turn_authority.get(field):
+            errors.append(
+                "bridge-poll parity mismatch on "
+                f"{field}: bridge-poll={bridge_poll.get(field)!r}, "
+                f"turn-authority={turn_authority.get(field)!r}"
+            )
+    return errors
 
 
 def _render_report(report: dict[str, object]) -> str:

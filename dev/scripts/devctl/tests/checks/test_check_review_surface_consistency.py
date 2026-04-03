@@ -49,6 +49,34 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                 "snapshot_id": "snap-123",
                 "generation_id": "gen-9",
             },
+            bridge_poll_payload={
+                "snapshot_id": "snap-123",
+                "effective_reviewer_mode": "active_dual_agent",
+                "launch_truth": "live_runtime",
+                "attention_status": "healthy",
+                "recovery_action_allowed": "",
+                "implementation_blocked": False,
+                "implementation_block_reason": "",
+                "reviewed_hash_current": True,
+                "review_needed": False,
+                "next_turn_required": False,
+                "next_turn_role": "",
+                "next_turn_reason": "up_to_date",
+            },
+            turn_authority_payload={
+                "snapshot_id": "snap-123",
+                "effective_reviewer_mode": "active_dual_agent",
+                "launch_truth": "live_runtime",
+                "attention_status": "healthy",
+                "recovery_action_allowed": "",
+                "implementation_blocked": False,
+                "implementation_block_reason": "",
+                "reviewed_hash_current": True,
+                "review_needed": False,
+                "next_turn_required": False,
+                "next_turn_role": "",
+                "next_turn_reason": "up_to_date",
+            },
         )
 
         self.assertTrue(report["ok"])
@@ -88,11 +116,40 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                 "snapshot_id": "snap-999",
                 "generation_id": "gen-9",
             },
+            bridge_poll_payload={
+                "snapshot_id": "snap-123",
+                "effective_reviewer_mode": "tools_only",
+                "launch_truth": "detached_runtime_only",
+                "attention_status": "review_loop_relaunch_required",
+                "recovery_action_allowed": "launch",
+                "implementation_blocked": True,
+                "implementation_block_reason": "review_loop_relaunch_required",
+                "reviewed_hash_current": True,
+                "review_needed": False,
+                "next_turn_required": True,
+                "next_turn_role": "reviewer",
+                "next_turn_reason": "up_to_date",
+            },
+            turn_authority_payload={
+                "snapshot_id": "snap-123",
+                "effective_reviewer_mode": "tools_only",
+                "launch_truth": "detached_runtime_only",
+                "attention_status": "review_loop_relaunch_required",
+                "recovery_action_allowed": "launch",
+                "implementation_blocked": True,
+                "implementation_block_reason": "review_loop_relaunch_required",
+                "reviewed_hash_current": True,
+                "review_needed": False,
+                "next_turn_required": True,
+                "next_turn_role": "reviewer",
+                "next_turn_reason": "review_loop_relaunch_required",
+            },
         )
 
         self.assertFalse(report["ok"])
         self.assertIn("snapshot_id mismatch", "\n".join(report["errors"]))
         self.assertIn("pipeline generation mismatch", "\n".join(report["errors"]))
+        self.assertIn("bridge-poll parity mismatch", "\n".join(report["errors"]))
 
 
 if __name__ == "__main__":
