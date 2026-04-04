@@ -291,6 +291,17 @@ def _full_snapshot() -> dict:
             {"time": "02:03:12", "command": "startup-context", "result": "PASS", "duration": "14.9s"},
             {"time": "02:01:45", "command": "docs-check", "result": "PASS", "duration": "3.3s"},
         ],
+        "summary": {
+            "overall_state": "blocked",
+            "block_class": "quality + push",
+            "next_actor": "implementer",
+            "next_command_hint": "fix code-shape debt",
+            "infra_state": "down",
+            "infra_label": "0 daemons running",
+            "primary_blocker": "code-shape debt in common_io.py",
+            "secondary_blocker": "Attention inactive",
+            "one_line": "Implementer active; infra down; quality gate failing on code_shape; push blocked.",
+        },
     }
 
 
@@ -317,6 +328,7 @@ class TestDashboardSnapshotSections(unittest.TestCase):
                 "repo", "now", "health", "review", "workers", "plan",
                 "publication", "quality", "audit", "analytics",
                 "coordination", "codex_activity", "flow", "timeline",
+                "summary",
             }
             self.assertTrue(required.issubset(snapshot.keys()), f"Missing: {required - snapshot.keys()}")
             self.assertEqual(snapshot["schema_version"], 2)
@@ -599,6 +611,7 @@ class TestDashboardMissingArtifacts(unittest.TestCase):
                 "repo", "now", "health", "review", "workers", "plan",
                 "publication", "quality", "audit", "analytics",
                 "coordination", "codex_activity", "flow", "timeline",
+                "summary",
             }
             self.assertTrue(required.issubset(snapshot.keys()))
 
@@ -1713,6 +1726,207 @@ class TestFindingsInSnapshot(unittest.TestCase):
 
             self.assertEqual(snapshot["findings"], [])
             self.assertEqual(snapshot["plan"]["findings_detail"], [])
+
+
+class TestSummaryCompilation(unittest.TestCase):
+    """Verify _compile_summary derives correct conclusions from snapshot state."""
+
+    def test_blocked_when_quality_gate_fails(self) -> None:
+        snapshot = _full_snapshot()
+        summary = dashboard._compile_summary(snapshot)
+        self.assertEqual(summary["overall_state"], "blocked")
+        self.assertIn("quality", summary["block_class"])
+        self.assertEqual(summary["next_command_hint"], "fix code-shape debt")
+        self.assertNotEqual(summary["primary_blocker"], "none")
+
+    def test_healthy_when_all_pass(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["quality"] = {
+            "docs_gate": "PASS", "plan_sync": "PASS", "bridge": "PASS",
+            "code_shape": "PASS", "instr_sync": "PASS", "clippy": "PASS",
+            "failing": [], "probes": {},
+        }
+        snapshot["health"]["attention_status"] = "healthy"
+        snapshot["health"]["active_daemons"] = 2
+        snapshot["coordination"]["reviewer_age"] = "2s ago"
+        snapshot["publication"]["effective"] = "CURRENT"
+        snapshot["now"]["owner"] = "Reviewer"
+        snapshot["now"]["top_blocker"] = "none"
+        summary = dashboard._compile_summary(snapshot)
+        self.assertEqual(summary["overall_state"], "healthy")
+        self.assertEqual(summary["block_class"], "none")
+        self.assertEqual(summary["primary_blocker"], "none")
+        self.assertIn("all green", summary["one_line"])
+
+    def test_waiting_when_reviewer_overdue(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["quality"] = {
+            "docs_gate": "PASS", "plan_sync": "PASS", "bridge": "PASS",
+            "code_shape": "PASS", "instr_sync": "PASS", "clippy": "PASS",
+            "failing": [], "probes": {},
+        }
+        snapshot["health"]["attention_status"] = "healthy"
+        snapshot["coordination"]["reviewer_age"] = "22m ago"
+        summary = dashboard._compile_summary(snapshot)
+        self.assertEqual(summary["overall_state"], "waiting")
+        self.assertEqual(summary["next_actor"], "reviewer")
+        self.assertEqual(summary["next_command_hint"], "relaunch Codex")
+        self.assertIn("reviewer stale", summary["one_line"])
+
+    def test_active_when_implementer_owns(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["quality"] = {
+            "docs_gate": "PASS", "plan_sync": "PASS", "bridge": "PASS",
+            "code_shape": "PASS", "instr_sync": "PASS", "clippy": "PASS",
+            "failing": [], "probes": {},
+        }
+        snapshot["health"]["attention_status"] = "healthy"
+        snapshot["coordination"]["reviewer_age"] = "3m ago"
+        snapshot["now"]["owner"] = "Implementer"
+        summary = dashboard._compile_summary(snapshot)
+        self.assertEqual(summary["overall_state"], "active")
+        self.assertEqual(summary["next_actor"], "implementer")
+
+    def test_infra_healthy_with_two_daemons(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["health"]["active_daemons"] = 2
+        summary = dashboard._compile_summary(snapshot)
+        self.assertEqual(summary["infra_state"], "healthy")
+        self.assertIn("2 daemons running", summary["infra_label"])
+
+    def test_infra_degraded_with_one_daemon(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["health"]["active_daemons"] = 1
+        summary = dashboard._compile_summary(snapshot)
+        self.assertEqual(summary["infra_state"], "degraded")
+
+    def test_infra_down_with_zero_daemons(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["health"]["active_daemons"] = 0
+        summary = dashboard._compile_summary(snapshot)
+        self.assertEqual(summary["infra_state"], "down")
+
+    def test_secondary_blocker_from_attention(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["health"]["attention_status"] = "stale"
+        summary = dashboard._compile_summary(snapshot)
+        self.assertIn("Attention stale", summary["secondary_blocker"])
+
+    def test_secondary_blocker_from_reviewer_stale(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["health"]["attention_status"] = "healthy"
+        snapshot["coordination"]["reviewer_age"] = "15m ago"
+        summary = dashboard._compile_summary(snapshot)
+        self.assertIn("Reviewer heartbeat stale", summary["secondary_blocker"])
+
+    def test_block_class_includes_push_when_not_current(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["publication"]["effective"] = "NOT CURRENT"
+        summary = dashboard._compile_summary(snapshot)
+        self.assertIn("push", summary["block_class"])
+
+    def test_one_line_is_nonempty_string(self) -> None:
+        snapshot = _full_snapshot()
+        summary = dashboard._compile_summary(snapshot)
+        self.assertIsInstance(summary["one_line"], str)
+        self.assertTrue(len(summary["one_line"]) > 10)
+        self.assertTrue(summary["one_line"].endswith("."))
+
+    def test_snapshot_includes_summary_section(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/push/latest.json", _minimal_push())
+            _write_artifact(root, "dev/reports/startup/latest/receipt.json", _minimal_receipt())
+            _write_artifact(root, "dev/reports/review_channel/latest/registry/agents.json", _minimal_agents())
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "feature/test", "head": "deadbee", "dirty": "CLEAN",
+                "ahead": 0, "behind": 0, "dirty_files": 0, "recent_commits": [],
+            }), patch.object(dashboard, "_repo_name", return_value="test-repo"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            self.assertIn("summary", snapshot)
+            summary = snapshot["summary"]
+            self.assertIn("overall_state", summary)
+            self.assertIn("block_class", summary)
+            self.assertIn("next_actor", summary)
+            self.assertIn("one_line", summary)
+
+
+class TestSummaryRendering(unittest.TestCase):
+    """Verify summary band appears first in both terminal and markdown output."""
+
+    def test_terminal_summary_band_appears_first(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        lines = output.strip().splitlines()
+        self.assertTrue(len(lines) > 5)
+        plain = dashboard_render.strip_ansi(output)
+        self.assertIn("STATUS:", plain)
+        status_pos = plain.index("STATUS:")
+        dashboard_pos = plain.index("GOVERNANCE DASHBOARD")
+        self.assertLess(status_pos, dashboard_pos)
+
+    def test_terminal_summary_shows_blocked(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot, no_color=True)
+        self.assertIn("STATUS: BLOCKED", output)
+        self.assertIn("Why:", output)
+        self.assertIn("Owner:", output)
+        self.assertIn("Push:", output)
+        self.assertIn("Infra:", output)
+
+    def test_terminal_summary_shows_one_line(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot, no_color=True)
+        one_line = snapshot["summary"]["one_line"]
+        self.assertIn(one_line, output)
+
+    def test_markdown_summary_card_appears_first(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+        self.assertIn("**Status**: BLOCKED", output)
+        status_pos = output.index("**Status**:")
+        header_pos = output.index("# Governance Dashboard")
+        self.assertLess(status_pos, header_pos)
+
+    def test_markdown_summary_shows_blocker(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+        self.assertIn("**Blocker**:", output)
+        self.assertIn("code-shape", output)
+
+    def test_markdown_summary_shows_one_line(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+        one_line = snapshot["summary"]["one_line"]
+        self.assertIn(one_line, output)
+
+    def test_terminal_no_blocker_lines_when_healthy(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["summary"]["primary_blocker"] = "none"
+        snapshot["summary"]["secondary_blocker"] = "none"
+        output = dashboard_render.render_terminal(snapshot, no_color=True)
+        self.assertNotIn("Block:", output)
+
+    def test_markdown_no_blocker_lines_when_healthy(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["summary"]["primary_blocker"] = "none"
+        snapshot["summary"]["secondary_blocker"] = "none"
+        output = dashboard_render.render_markdown(snapshot)
+        self.assertNotIn("**Blocker**:", output)
+        self.assertNotIn("**Secondary**:", output)
+
+    def test_summary_absent_skips_section(self) -> None:
+        snapshot = _full_snapshot()
+        del snapshot["summary"]
+        output = dashboard_render.render_terminal(snapshot, no_color=True)
+        self.assertNotIn("STATUS:", output)
+        md = dashboard_render.render_markdown(snapshot)
+        self.assertNotIn("**Status**:", md)
 
 
 if __name__ == "__main__":

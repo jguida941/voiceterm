@@ -482,7 +482,7 @@ def _assemble(
     poll_utc = bridge.get("last_poll_utc", "")
     last_change_age = _age_seconds(poll_utc)
 
-    return {
+    snapshot: dict[str, Any] = {
         "schema_version": 2,
         "contract_id": "DashboardSnapshot",
         "timestamp": utc_timestamp(),
@@ -515,6 +515,165 @@ def _assemble(
         "flow": _build_flow_section(receipt, push_data, session),
         "timeline": _build_timeline_section(repo_root),
     }
+    snapshot["summary"] = _compile_summary(snapshot)
+    return snapshot
+
+
+def _compile_summary(snapshot: dict) -> dict:
+    """Compile raw dashboard state into prioritized operator conclusions.
+
+    Reads only from the already-assembled snapshot sections — no new artifact
+    IO.  Every derived field is deterministic from snapshot data.
+    """
+    quality = snapshot.get("quality", {})
+    health = snapshot.get("health", {})
+    now = snapshot.get("now", {})
+    review = snapshot.get("review", {})
+    coordination = snapshot.get("coordination", {})
+    publication = snapshot.get("publication", {})
+
+    # --- infra_state: based on daemon running counts ---
+    active_daemons = health.get("active_daemons", 0)
+    if active_daemons >= 2:
+        infra_state = "healthy"
+    elif active_daemons == 1:
+        infra_state = "degraded"
+    else:
+        infra_state = "down"
+    infra_label = (
+        f"{active_daemons} daemon{'s' if active_daemons != 1 else ''} running"
+    )
+
+    # --- quality failures ---
+    failing = quality.get("failing", [])
+    quality_gates = ["docs_gate", "plan_sync", "bridge", "code_shape",
+                     "instr_sync", "clippy"]
+    gate_failures = [
+        g for g in quality_gates if quality.get(g, "").upper() == "FAIL"
+    ]
+    has_quality_fail = bool(gate_failures)
+
+    # --- reviewer staleness ---
+    attention_status = health.get("attention_status", "n/a")
+    attention_not_healthy = attention_status not in ("healthy", "n/a")
+    reviewer_age_label = coordination.get("reviewer_age", "--")
+    reviewer_overdue = _is_reviewer_overdue(reviewer_age_label)
+
+    # --- overall_state ---
+    if has_quality_fail or attention_not_healthy:
+        overall_state = "blocked"
+    elif reviewer_overdue:
+        overall_state = "waiting"
+    elif now.get("owner") == "Implementer":
+        overall_state = "active"
+    else:
+        overall_state = "healthy"
+
+    # --- block_class ---
+    block_parts: list[str] = []
+    if has_quality_fail:
+        block_parts.append("quality")
+    if reviewer_overdue:
+        block_parts.append("reviewer")
+    pub_state = publication.get("effective", "n/a")
+    if pub_state in ("NOT CURRENT", "STALE"):
+        block_parts.append("push")
+    block_class = " + ".join(block_parts) if block_parts else "none"
+
+    # --- next_actor ---
+    if reviewer_overdue:
+        next_actor = "reviewer"
+    elif now.get("owner", "").lower() == "implementer":
+        next_actor = "implementer"
+    else:
+        next_actor = "operator"
+
+    # --- next_command_hint ---
+    if has_quality_fail:
+        next_command_hint = "fix code-shape debt"
+    elif reviewer_overdue:
+        next_command_hint = "relaunch Codex"
+    elif pub_state in ("NOT CURRENT", "STALE"):
+        next_command_hint = "run check --profile ci"
+    else:
+        next_command_hint = "continue current slice"
+
+    # --- primary_blocker ---
+    top_blocker = now.get("top_blocker", "none")
+    if top_blocker and top_blocker != "none":
+        primary_blocker = top_blocker
+    elif gate_failures:
+        fail_file = failing[0] if failing else "unknown"
+        primary_blocker = f"{gate_failures[0]} fail in {fail_file}"
+    else:
+        primary_blocker = "none"
+
+    # --- secondary_blocker ---
+    if attention_not_healthy:
+        secondary_blocker = f"Attention {attention_status}"
+    elif reviewer_overdue:
+        secondary_blocker = f"Reviewer heartbeat stale ({reviewer_age_label})"
+    else:
+        secondary_blocker = "none"
+
+    # --- one_line ---
+    one_line = _build_one_line(
+        overall_state, infra_state, now, reviewer_overdue,
+        has_quality_fail, gate_failures, pub_state,
+    )
+
+    return {
+        "overall_state": overall_state,
+        "block_class": block_class,
+        "next_actor": next_actor,
+        "next_command_hint": next_command_hint,
+        "infra_state": infra_state,
+        "infra_label": infra_label,
+        "primary_blocker": primary_blocker,
+        "secondary_blocker": secondary_blocker,
+        "one_line": one_line,
+    }
+
+
+def _is_reviewer_overdue(age_label: str) -> bool:
+    """Return True when the reviewer age label indicates staleness (>10 min)."""
+    if not age_label or age_label == "--":
+        return False
+    if age_label.endswith("h ago"):
+        return True
+    if age_label.endswith("m ago"):
+        try:
+            minutes = int(age_label.replace("m ago", "").strip())
+            return minutes > 10
+        except ValueError:
+            return False
+    return False
+
+
+def _build_one_line(
+    overall_state: str,
+    infra_state: str,
+    now: dict[str, Any],
+    reviewer_overdue: bool,
+    has_quality_fail: bool,
+    gate_failures: list[str],
+    pub_state: str,
+) -> str:
+    """Compile all summary signals into one readable operator sentence."""
+    parts: list[str] = []
+    owner = now.get("owner", "unknown")
+    parts.append(f"{owner} active")
+    parts.append(f"infra {infra_state}")
+    if reviewer_overdue:
+        parts.append("reviewer stale")
+    if has_quality_fail:
+        gates = ", ".join(gate_failures)
+        parts.append(f"quality gate failing on {gates}")
+    if pub_state in ("NOT CURRENT", "STALE"):
+        parts.append("push blocked")
+    if overall_state == "healthy":
+        parts.append("all green")
+    return "; ".join(parts) + "."
 
 
 def _derive_top_blocker(

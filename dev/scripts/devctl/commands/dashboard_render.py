@@ -64,6 +64,7 @@ def render_terminal(snapshot: dict[str, Any], *, no_color: bool = False) -> str:
     is safe for environments that do not interpret them.
     """
     lines: list[str] = []
+    _render_summary_terminal(snapshot, lines)
     _render_header_terminal(snapshot, lines)
     _render_now_terminal(snapshot, lines)
     _render_codex_activity_terminal(snapshot, lines)
@@ -87,6 +88,7 @@ def render_terminal(snapshot: dict[str, Any], *, no_color: bool = False) -> str:
 def render_markdown(snapshot: dict[str, Any]) -> str:
     """Markdown-formatted dashboard output."""
     lines: list[str] = []
+    _render_summary_markdown(snapshot, lines)
     _render_header_markdown(snapshot, lines)
     _render_now_markdown(snapshot, lines)
     _render_codex_activity_markdown(snapshot, lines)
@@ -107,6 +109,94 @@ def render_markdown(snapshot: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 # Terminal renderers — dense multi-column layout
 # ---------------------------------------------------------------------------
+
+def _render_summary_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
+    """Summary band: compiled operator conclusions shown before everything else."""
+    summary = snapshot.get("summary", {})
+    if not summary:
+        return
+
+    one_line = summary.get("one_line", "")
+    if one_line:
+        lines.append(f"{_DIM}{one_line}{_RESET}")
+        lines.append("")
+
+    state = summary.get("overall_state", "healthy").upper()
+    state_color = _summary_state_color(state)
+    lines.append(f"{_BOLD}STATUS: {state_color}{state}{_RESET}")
+
+    block_class = summary.get("block_class", "none")
+    why_color = _YELLOW if block_class != "none" else _DIM
+    lines.append(f"  Why:   {why_color}{block_class}{_RESET}")
+
+    next_actor = summary.get("next_actor", "operator")
+    hint = summary.get("next_command_hint", "")
+    lines.append(f"  Owner: {_CYAN}{next_actor}{_RESET}   next: {hint}")
+
+    pub = snapshot.get("publication", {})
+    pub_effective = pub.get("effective", "n/a")
+    lines.append(f"  Push:  {pub_effective}")
+
+    infra = summary.get("infra_state", "unknown")
+    infra_color = _GREEN if infra == "healthy" else (_YELLOW if infra == "degraded" else _RED)
+    infra_label = summary.get("infra_label", "")
+    lines.append(f"  Infra: {infra_color}{infra.title()}{_RESET} ({infra_label})")
+
+    primary = summary.get("primary_blocker", "none")
+    secondary = summary.get("secondary_blocker", "none")
+    if primary != "none":
+        lines.append(f"  Block: {_RED}{primary}{_RESET}")
+    if secondary != "none":
+        lines.append(f"         {_DIM}{secondary}{_RESET}")
+    lines.append("")
+
+
+def _summary_state_color(state: str) -> str:
+    """Pick ANSI color for the summary overall_state label."""
+    upper = state.upper()
+    if upper == "BLOCKED":
+        return _RED
+    if upper == "WAITING":
+        return _YELLOW
+    if upper == "ACTIVE":
+        return _CYAN
+    return _GREEN
+
+
+def _render_summary_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
+    """Summary card: compiled operator conclusions for mobile/markdown output."""
+    summary = snapshot.get("summary", {})
+    if not summary:
+        return
+
+    one_line = summary.get("one_line", "")
+    if one_line:
+        lines.append(f"> {one_line}")
+        lines.append("")
+
+    state = summary.get("overall_state", "healthy").upper()
+    block_class = summary.get("block_class", "none")
+    next_actor = summary.get("next_actor", "operator")
+    hint = summary.get("next_command_hint", "")
+    pub = snapshot.get("publication", {})
+    pub_effective = pub.get("effective", "n/a")
+    infra = summary.get("infra_state", "unknown")
+    infra_label = summary.get("infra_label", "")
+
+    lines.append(f"**Status**: {state}")
+    lines.append(f"**Why**: {block_class}")
+    lines.append(f"**Owner**: {next_actor}, next: {hint}")
+    lines.append(f"**Push**: {pub_effective}")
+    lines.append(f"**Infra**: {infra.title()} ({infra_label})")
+
+    primary = summary.get("primary_blocker", "none")
+    secondary = summary.get("secondary_blocker", "none")
+    if primary != "none":
+        lines.append(f"**Blocker**: {primary}")
+    if secondary != "none":
+        lines.append(f"**Secondary**: {secondary}")
+    lines.append("")
+
 
 def _render_header_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
     """Header: title, repo identity, git state, loop mode — dense layout."""
