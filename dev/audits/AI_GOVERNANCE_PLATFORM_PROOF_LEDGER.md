@@ -80,9 +80,9 @@ Baseline observed from this checkout on 2026-04-03:
 | Signal | Current evidence |
 |---|---|
 | Branch | `feature/governance-quality-sweep` |
-| Bootstrap graph | `2406` source files, `69` guards, `25` probes, `19` active plans, `53023` edges |
-| `startup-context --format summary` | `action=checkpoint_before_continue`, `reason=dirty_and_untracked_budget_exceeded`, exit non-zero |
-| `review-channel --action doctor --terminal none --format json` | `attention.status=bridge_contract_error`, typed `reviewer_runtime`, typed `commit_pipeline`, typed `push_decision` present |
+| Bootstrap graph | `2411` source files, `69` guards, `25` probes, `19` active plans, `53166` edges |
+| `startup-context --format summary` | `action=continue_editing`, `reason=review_pending`, `blockers=startup_authority`, `ahead_of_upstream_commits=1`, exit non-zero |
+| `review-channel --action doctor --terminal none --format json` | `attention.status=reviewer_heartbeat_stale`, typed `reviewer_runtime`, typed `commit_pipeline`, typed `push_decision` present |
 | Focused validation run | `67` `startup_context` tests passed, `17` `work_intake` / `project_governance` tests passed, `16` `action_contracts` / `governed_executor` tests passed |
 
 This is important because the current repo state is not merely describing
