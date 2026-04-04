@@ -117,9 +117,17 @@ def _reviewer_recovery_command(ctx_dict: dict) -> str:
 def _render_summary(ctx_dict: dict) -> str:
     action = str(ctx_dict.get("advisory_action") or "").strip() or "unknown"
     reason = str(ctx_dict.get("advisory_reason") or "").strip() or "unknown"
+    reviewer_gate = ctx_dict.get("reviewer_gate")
+    interaction_mode = "local_terminal"
+    if isinstance(reviewer_gate, dict):
+        interaction_mode = (
+            str(reviewer_gate.get("operator_interaction_mode") or "").strip()
+            or "local_terminal"
+        )
     lines = [
         f"action={action}",
         f"reason={reason}",
+        f"interaction_mode={interaction_mode}",
         f"blockers={_summary_blockers(ctx_dict)}",
         f"next={_summary_next_command(ctx_dict)}",
     ]

@@ -24,8 +24,14 @@ def build_session_script(
     resolve_cli_path_fn: Callable[[str], str],
     approval_mode: str = DEFAULT_APPROVAL_MODE,
     dangerous: bool = False,
+    headless: bool = False,
+    interaction_mode: str = "",
 ) -> Path:
     """Write one launch script for a conductor session."""
+    # When the operator is remote, force headless so non-zero exits rollover
+    # instead of stopping the session (which the remote operator cannot see).
+    if interaction_mode == "remote_control":
+        headless = True
     cli_path = resolve_cli_path_fn(provider)
     provider_args = _provider_args(
         provider=provider,
@@ -47,6 +53,7 @@ def build_session_script(
         'export REVIEW_CHANNEL_PROMPT="$PROMPT"',
         'REVIEW_CHANNEL_RESTART_DELAY_SECONDS="${REVIEW_CHANNEL_RESTART_DELAY_SECONDS:-2}"',
         'REVIEW_CHANNEL_EXIT_ON_SUCCESS="${REVIEW_CHANNEL_EXIT_ON_SUCCESS:-0}"',
+        f'REVIEW_CHANNEL_HEADLESS_MODE="${{REVIEW_CHANNEL_HEADLESS_MODE:-{"1" if headless else "0"}}}"',
         "",
         "run_review_channel_once() {",
         f"  cd {shlex.quote(str(repo_root))}",
@@ -97,6 +104,15 @@ def build_session_script(
             "    continue",
             "  fi",
             "  exit_code=$?",
+            '  if [[ "$REVIEW_CHANNEL_HEADLESS_MODE" == "1" ]]; then',
+            "    restart_count=$((restart_count + 1))",
+            '    printf \'%s\\n\' "[review-channel] '
+            + provider
+            + " headless mode: conductor exited with status ${exit_code}; "
+            + 'restarting in ${REVIEW_CHANNEL_RESTART_DELAY_SECONDS}s (restart #${restart_count})." >&2',
+            '    sleep "$REVIEW_CHANNEL_RESTART_DELAY_SECONDS"',
+            "    continue",
+            "  fi",
             '  printf \'%s\\n\' "[review-channel] '
             + provider
             + ' conductor exited with status ${exit_code}; leaving the session stopped so the failure stays visible." >&2',

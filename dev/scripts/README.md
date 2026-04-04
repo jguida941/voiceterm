@@ -51,6 +51,11 @@ For the typed remote-session commit/push pipeline that phone-steered and
 remote-control sessions must eventually use, see
 `dev/active/remote_commit_pipeline.md` after
 `dev/active/platform_authority_loop.md`.
+For the follow-on remote-control reviewer/runtime closure work that converges
+typed operator mode, packet-backed action requests, dashboard projections, and
+repo-owned auto-poll/update cadence, see
+`dev/active/remote_control_runtime.md` after
+`dev/active/remote_commit_pipeline.md`.
 That Phase-2 authority follow-up now keeps review/push truth on typed runtime
 contracts too: `reviewer_runtime` owns `implementer_ack_current`,
 `implementation_blocked`, and `implementation_block_reason`, bridge review
@@ -203,6 +208,11 @@ Compatibility note:
   review/runtime surfaces, but commit/push design authority now lives in
   `dev/active/remote_commit_pipeline.md` and must not regress into raw git,
   bridge prose, or wrapper-local shell sequences.
+- Keep the rest of the remote-control operator surface on typed runtime too:
+  packet-backed action requests, dashboard/operator projections, and auto-poll
+  behavior now route through `dev/active/remote_control_runtime.md`, so bridge
+  `## Action Requests` and text-only status summaries remain compatibility
+  projections instead of a second execution path.
 - Keep Terminal-host cleanup on the same repo-owned contract: live
   `review-channel` launch records the returned `terminal_window_id` in session
   metadata, and rollover cleanup must snapshot the retiring session pid plus

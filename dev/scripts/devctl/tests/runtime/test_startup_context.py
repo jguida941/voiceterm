@@ -23,6 +23,7 @@ from dev.scripts.devctl.runtime.startup_context import (
     _derive_advisory_action,
     _derive_push_decision,
     _detect_reviewer_gate,
+    _interaction_mode_from_reviewer_mode,
     build_startup_context,
 )
 from dev.scripts.devctl.runtime.project_governance import (
@@ -631,6 +632,7 @@ class TestCLIRegistration(unittest.TestCase):
                 (
                     "action=checkpoint_allowed",
                     "reason=worktree_dirty_within_budget",
+                    "interaction_mode=local_terminal",
                     "blockers=none",
                     "next=python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md",
                 )
@@ -1756,6 +1758,81 @@ class TestPushExclusionPaths(unittest.TestCase):
         policy = PushCheckpointPolicy()
         self.assertEqual(policy.compatibility_projection_paths, ())
         self.assertEqual(policy.advisory_context_paths, ())
+
+
+class TestInteractionModeFromReviewerMode(unittest.TestCase):
+    """Verify _interaction_mode_from_reviewer_mode maps reviewer modes correctly."""
+
+    def test_active_dual_agent_maps_to_dual_agent(self) -> None:
+        self.assertEqual(
+            _interaction_mode_from_reviewer_mode("active_dual_agent"),
+            "dual_agent",
+        )
+
+    def test_single_agent_maps_to_single_agent(self) -> None:
+        self.assertEqual(
+            _interaction_mode_from_reviewer_mode("single_agent"),
+            "single_agent",
+        )
+
+    def test_tools_only_maps_to_local_terminal(self) -> None:
+        self.assertEqual(
+            _interaction_mode_from_reviewer_mode("tools_only"),
+            "local_terminal",
+        )
+
+    def test_empty_string_normalizes_to_dual_agent(self) -> None:
+        # normalize_reviewer_mode("") returns "active_dual_agent" by default
+        self.assertEqual(
+            _interaction_mode_from_reviewer_mode(""),
+            "dual_agent",
+        )
+
+
+class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
+    """Verify ReviewerGateState carries operator_interaction_mode."""
+
+    def test_default_is_local_terminal(self) -> None:
+        gate = ReviewerGateState()
+        self.assertEqual(gate.operator_interaction_mode, "local_terminal")
+
+    def test_explicit_mode(self) -> None:
+        gate = ReviewerGateState(operator_interaction_mode="remote_control")
+        self.assertEqual(gate.operator_interaction_mode, "remote_control")
+
+    def test_summary_includes_interaction_mode(self) -> None:
+        rendered = _render_summary({
+            "advisory_action": "continue_editing",
+            "advisory_reason": "clean_worktree",
+            "reviewer_gate": {
+                "implementation_blocked": False,
+                "operator_interaction_mode": "dual_agent",
+            },
+            "startup_authority": {"ok": True},
+            "governance": {
+                "push_enforcement": {
+                    "checkpoint_required": False,
+                    "safe_to_continue_editing": True,
+                },
+            },
+            "push_decision": {"action": "no_push_needed", "next_step_command": ""},
+        })
+        self.assertIn("interaction_mode=dual_agent", rendered)
+
+    def test_summary_missing_gate_defaults_to_local_terminal(self) -> None:
+        rendered = _render_summary({
+            "advisory_action": "continue_editing",
+            "advisory_reason": "clean_worktree",
+            "startup_authority": {"ok": True},
+            "governance": {
+                "push_enforcement": {
+                    "checkpoint_required": False,
+                    "safe_to_continue_editing": True,
+                },
+            },
+            "push_decision": {"action": "no_push_needed", "next_step_command": ""},
+        })
+        self.assertIn("interaction_mode=local_terminal", rendered)
 
 
 if __name__ == "__main__":

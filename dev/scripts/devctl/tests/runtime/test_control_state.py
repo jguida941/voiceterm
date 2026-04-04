@@ -6,8 +6,11 @@ import unittest
 
 from dev.scripts.devctl.runtime import (
     ControlStateContext,
+    OperatorContext,
+    OperatorInteractionMode,
     build_control_state,
     control_state_from_payload,
+    operator_context_from_mapping,
 )
 
 
@@ -173,3 +176,142 @@ class ControlStateTests(unittest.TestCase):
         self.assertEqual(state.agent_status("codex-1"), "active")
         self.assertEqual(state.agent_status("claude-9"), "coding")
         self.assertEqual(len(state.agents), 2)
+
+
+class OperatorInteractionModeTests(unittest.TestCase):
+    """Tests for OperatorInteractionMode enum values."""
+
+    def test_enum_values_are_string_comparable(self) -> None:
+        self.assertEqual(OperatorInteractionMode.LOCAL_TERMINAL, "local_terminal")
+        self.assertEqual(OperatorInteractionMode.REMOTE_CONTROL, "remote_control")
+        self.assertEqual(OperatorInteractionMode.DUAL_AGENT, "dual_agent")
+        self.assertEqual(OperatorInteractionMode.SINGLE_AGENT, "single_agent")
+
+    def test_enum_from_string(self) -> None:
+        mode = OperatorInteractionMode("remote_control")
+        self.assertEqual(mode, OperatorInteractionMode.REMOTE_CONTROL)
+
+    def test_enum_invalid_value_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            OperatorInteractionMode("invalid_mode")
+
+
+class OperatorContextTests(unittest.TestCase):
+    """Tests for OperatorContext dataclass defaults and serialization."""
+
+    def test_default_values(self) -> None:
+        ctx = OperatorContext()
+        self.assertEqual(ctx.interaction_mode, "local_terminal")
+        self.assertEqual(ctx.device, "desktop")
+        self.assertTrue(ctx.operator_available)
+        self.assertEqual(ctx.notification_channel, "terminal")
+
+    def test_custom_values(self) -> None:
+        ctx = OperatorContext(
+            interaction_mode="remote_control",
+            device="phone",
+            operator_available=False,
+            notification_channel="dashboard",
+        )
+        self.assertEqual(ctx.interaction_mode, "remote_control")
+        self.assertEqual(ctx.device, "phone")
+        self.assertFalse(ctx.operator_available)
+        self.assertEqual(ctx.notification_channel, "dashboard")
+
+    def test_frozen_immutability(self) -> None:
+        ctx = OperatorContext()
+        with self.assertRaises(AttributeError):
+            ctx.interaction_mode = "remote_control"  # type: ignore[misc]
+
+
+class OperatorContextFromMappingTests(unittest.TestCase):
+    """Tests for operator_context_from_mapping deserialization."""
+
+    def test_full_mapping(self) -> None:
+        ctx = operator_context_from_mapping({
+            "interaction_mode": "remote_control",
+            "device": "phone",
+            "operator_available": False,
+            "notification_channel": "bridge",
+        })
+        self.assertEqual(ctx.interaction_mode, "remote_control")
+        self.assertEqual(ctx.device, "phone")
+        self.assertFalse(ctx.operator_available)
+        self.assertEqual(ctx.notification_channel, "bridge")
+
+    def test_empty_mapping_yields_defaults(self) -> None:
+        ctx = operator_context_from_mapping({})
+        self.assertEqual(ctx.interaction_mode, "local_terminal")
+        self.assertEqual(ctx.device, "desktop")
+        self.assertTrue(ctx.operator_available)
+        self.assertEqual(ctx.notification_channel, "terminal")
+
+    def test_none_value_yields_defaults(self) -> None:
+        ctx = operator_context_from_mapping(None)
+        self.assertEqual(ctx.interaction_mode, "local_terminal")
+
+
+class ControlStateOperatorContextTests(unittest.TestCase):
+    """Tests for OperatorContext threading through ControlState construction."""
+
+    def test_build_control_state_default_operator_context(self) -> None:
+        state = build_control_state(
+            controller_payload={"phase": "running", "reason": "ok"},
+            review_payload={},
+        )
+        self.assertEqual(
+            state.operator_context.interaction_mode, "local_terminal"
+        )
+
+    def test_build_control_state_with_explicit_operator_context(self) -> None:
+        state = build_control_state(
+            controller_payload={"phase": "running", "reason": "ok"},
+            review_payload={},
+            context=ControlStateContext(
+                operator_context=OperatorContext(
+                    interaction_mode="remote_control",
+                    device="phone",
+                ),
+            ),
+        )
+        self.assertEqual(
+            state.operator_context.interaction_mode, "remote_control"
+        )
+        self.assertEqual(state.operator_context.device, "phone")
+
+    def test_control_state_from_payload_with_operator_context(self) -> None:
+        state = control_state_from_payload({
+            "control_state": {
+                "schema_version": 1,
+                "contract_id": "ControlState",
+                "command": "mobile-status",
+                "timestamp": "",
+                "approvals": {"mode": "unknown"},
+                "active_runs": [],
+                "review_bridge": {},
+                "agents": [],
+                "sources": {},
+                "operator_context": {
+                    "interaction_mode": "dual_agent",
+                    "device": "desktop",
+                },
+            },
+        })
+        self.assertIsNotNone(state)
+        self.assertEqual(
+            state.operator_context.interaction_mode, "dual_agent"
+        )
+
+    def test_to_dict_includes_operator_context(self) -> None:
+        state = build_control_state(
+            controller_payload={"phase": "running", "reason": "ok"},
+            review_payload={},
+            context=ControlStateContext(
+                operator_context=OperatorContext(
+                    interaction_mode="single_agent",
+                ),
+            ),
+        )
+        d = state.to_dict()
+        self.assertIn("operator_context", d)
+        self.assertEqual(d["operator_context"]["interaction_mode"], "single_agent")

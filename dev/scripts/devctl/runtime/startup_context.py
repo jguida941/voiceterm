@@ -3,10 +3,9 @@
 Combines ProjectGovernance, push/checkpoint state, and reviewer/ready-gate
 inputs into one machine-readable packet that an agent inspects at session
 start to decide: continue editing, checkpoint first, or push now.
-
-This packet is the typed startup receipt. Read-only helpers may render it
-without enforcing the decision, but repo-owned startup launchers should treat
-checkpoint-required states as fail-closed.
+Read-only helpers may render it without enforcing the decision, but
+repo-owned startup launchers should treat checkpoint-required states as
+fail-closed.
 """
 
 from __future__ import annotations
@@ -48,6 +47,7 @@ class ReviewerGateState:
     recovery_diagnosis_status: str = ""
     recovery_action_id: str = ""
     recovery_command: str = ""
+    operator_interaction_mode: str = "local_terminal"
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +130,16 @@ def _detect_reviewer_gate_from_typed_state(
     return _detect_reviewer_gate_from_review_state(state)
 
 
+def _interaction_mode_from_reviewer_mode(effective_mode: str) -> str:
+    """Derive the operator interaction mode from the effective reviewer mode."""
+    normalized = normalize_reviewer_mode(effective_mode)
+    if normalized == "active_dual_agent":
+        return "dual_agent"
+    if normalized == "single_agent":
+        return "single_agent"
+    return "local_terminal"
+
+
 def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
     """Read reviewer gate from a preloaded typed review state."""
     if state is None:
@@ -155,6 +165,7 @@ def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
         if assessment is not None
         else ""
     )
+    interaction_mode = _interaction_mode_from_reviewer_mode(effective_mode)
     declared_active = normalize_reviewer_mode(mode) == "active_dual_agent"
     effective_active = normalize_reviewer_mode(effective_mode) == "active_dual_agent"
     if not declared_active:
@@ -169,6 +180,7 @@ def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
             recovery_diagnosis_status=diagnosis_status,
             recovery_action_id=action_id,
             recovery_command=recovery_command,
+            operator_interaction_mode=interaction_mode,
         )
     if not effective_active:
         return ReviewerGateState(
@@ -184,6 +196,7 @@ def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
             recovery_diagnosis_status=diagnosis_status,
             recovery_action_id=action_id,
             recovery_command=recovery_command,
+            operator_interaction_mode=interaction_mode,
         )
 
     return ReviewerGateState(
@@ -199,6 +212,7 @@ def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
         recovery_diagnosis_status=diagnosis_status,
         recovery_action_id=action_id,
         recovery_command=recovery_command,
+        operator_interaction_mode=interaction_mode,
     )
 
 

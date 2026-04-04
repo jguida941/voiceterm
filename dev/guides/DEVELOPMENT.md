@@ -57,6 +57,11 @@ Use docs like this:
   commit/push design for phone-steered or remote-control sessions; read this
   after `platform_authority_loop.md` when the task is staged-work approval,
   governed remote commit execution, or phone doctor/readiness projection.
+- **`dev/active/remote_control_runtime.md`** -- remote-control reviewer/runtime
+  closure plan for typed operator mode, packet-backed action requests,
+  dashboard typed projections, and repo-owned auto-poll/update cadence; read
+  this after `remote_commit_pipeline.md` when the task is operator-surface or
+  remote-control lifecycle convergence rather than commit/push design.
 - Review-channel docs and launch surfaces now distinguish planned lane topology
   from live participant truth: the runtime registry is provider/session-backed
   typed state, default requested worker fanout is zero unless explicitly
@@ -67,8 +72,10 @@ Use docs like this:
   prompt, checks `claude auth status`, prints typed review-channel health, and
   can relaunch the sanctioned pair, but it does not create a separate Codex
   backend or a private "recover codex" path. Remote commit/push authority also
-  does not live in that wrapper; it now routes through the Phase-0 design in
-  `dev/active/remote_commit_pipeline.md`.
+  does not live in that wrapper; it routes through the Phase-0 design in
+  `dev/active/remote_commit_pipeline.md`, while remote-control operator mode,
+  action transport, dashboard convergence, and auto-poll behavior now route
+  through `dev/active/remote_control_runtime.md`.
 - Packet actor/target CLI fields are intentionally parser-loose now: repo-owned
   validation resolves legal ids from typed collaboration/runtime state or
   repo-owned session metadata instead of a fixed provider-choice list.

@@ -31,6 +31,7 @@ Agents must read this file first before loading active planning docs.
 | `dev/active/ai_governance_platform.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | read first for any standalone governance-product architecture, packaging, repo-pack, runtime-contract, or extraction work; this is the only main active plan for the transition from VoiceTerm-embedded tooling to an installable product |
 | `dev/active/platform_authority_loop.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | after reading `ai_governance_platform.md`, read this when working on startup authority, repo-pack activation, typed plan registry, runtime/evidence/context closure, or the cross-repo proof slice for the current `MP-377` priority lane |
 | `dev/active/remote_commit_pipeline.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | after `ai_governance_platform.md` and `platform_authority_loop.md`, read this when designing or implementing the typed remote-session commit/push pipeline, phone/operator approval packets for commit/push, governed remote commit execution, or doctor/status readiness surfaces for remote-control sessions |
+| `dev/active/remote_control_runtime.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-380..MP-385` | after `ai_governance_platform.md`, `platform_authority_loop.md`, and `remote_commit_pipeline.md`, read this when closing remote-control reviewer/runtime state, operator action transport, dashboard typed projections, or auto-poll/update cadence for phone-steered sessions |
 | `dev/active/PLAN_FORMAT.md` | `reference` | `reference-only` | `MP-377` | when editing governed active-plan markdown, extending active-plan/docs-governance enforcement, or aligning `PlanRegistry` / `PlanTargetRef` design with the repo's own plan-doc contract |
 | `dev/active/code_shape_expansion.md` | `reference` | `supporting` | `MP-378` | when calibrating or sequencing Phase 5b+ probe candidates, thresholds, metadata, and shared infrastructure for future code-shape additions under `dev/active/review_probes.md`; this is a subordinate research/evidence companion, not a second execution authority |
 | `dev/active/phase2.md` | `reference` | `reference-only` | bridge pointer to canonical phase-2 companion-platform research context at `dev/deferred/phase2.md` (not active MP execution state) | only when evaluating long-range terminal companion planning; follow the bridge to deferred research |
@@ -55,6 +56,13 @@ Agents must read this file first before loading active planning docs.
       `dev/active/platform_authority_loop.md`, then load
       `dev/active/review_channel.md` and `dev/active/continuous_swarm.md`
       only for transport/runtime proof context.
+3.1.2 If that same `MP-377` work is specifically about typed remote-control
+      reviewer/runtime state, operator action transport, dashboard
+      convergence, or auto-poll/update cadence, read
+      `dev/active/remote_control_runtime.md` immediately after
+      `dev/active/remote_commit_pipeline.md`, then load
+      `dev/active/review_channel.md` and `dev/active/continuous_swarm.md`
+      only for producer/runtime proof context.
 3.2 If that same `MP-377` work changes governed active-plan markdown shape or
     execution-plan schema expectations, read `dev/active/PLAN_FORMAT.md`
     before editing plan docs or active-plan guards.

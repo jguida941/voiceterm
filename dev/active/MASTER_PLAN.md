@@ -41,6 +41,12 @@
   phone-steered work from staged changes to governed commit/push through
   repo-owned actions and approval packets instead of raw terminal git or
   bridge prose.
+- `dev/active/remote_control_runtime.md` is the bounded `MP-377` execution
+  spec for closing remote-control reviewer/runtime state, operator action
+  transport, dashboard typed projections, and auto-poll cadence for
+  phone-steered sessions; implementation tasks stay in that file under
+  `MP-380..MP-385` and must reuse `ReviewState`, `PacketPostRequest`, and the
+  governed remote-commit path instead of creating bridge-only authority.
 - `dev/active/code_shape_expansion.md` is the research/calibration companion for future code-shape additions under `MP-378`; promotion into implementation still flows through `dev/active/review_probes.md` once Phase 5b evidence gates pass.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
@@ -105,6 +111,14 @@
   (`stage -> guard -> operator approval packet -> commit -> governed push ->
   recover`) needed to close the Codex sandbox-commit blocker without manual
   shell steps or prose approval.
+- Current 2026-04-04 architecture-review closure inside that same lane:
+  `dev/active/remote_control_runtime.md` owns `MP-380..MP-385` for typed
+  operator interaction mode, universal check/violation contracts, headless
+  rollover closure, packet-backed action requests, dashboard typed-state
+  convergence, and repo-owned remote-control auto-poll/update cadence. The
+  bridge remains compatibility-only; any new operator surface must consume
+  typed runtime, packet, and check artifacts instead of regex-scraping
+  bridge markdown or `format_steps_text()` output.
 - Current clean-tree operational blocker inside that same lane: the repo is not
   blocked on plan/doc drift, it is blocked on live reviewer cadence.
   `startup-context` currently fails closed on `reviewer_overdue`, and detached

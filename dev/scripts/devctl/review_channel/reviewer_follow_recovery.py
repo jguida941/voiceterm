@@ -282,7 +282,16 @@ def _resolve_recovery_terminal(args) -> str:
     When the reviewer-follow daemon runs with ``--terminal none`` (remote/headless),
     recovery and rollover actions must also use headless launch instead of
     requiring Terminal.app via osascript.
+
+    When ``operator_interaction_mode`` is ``remote_control``, always use
+    headless (``none``) so recovery never opens a local Terminal window that
+    the remote operator cannot see.
     """
+    interaction_mode = str(
+        getattr(args, "operator_interaction_mode", "") or ""
+    ).strip()
+    if interaction_mode == "remote_control":
+        return "none"
     parent_terminal = str(getattr(args, "terminal", "") or "").strip()
     if parent_terminal in {"terminal-app", "none"}:
         return parent_terminal

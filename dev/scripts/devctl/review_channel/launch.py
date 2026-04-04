@@ -195,6 +195,7 @@ def build_launch_sessions(
             prompt=prompt,
             approval_mode=resolved_approval_mode,
             dangerous=request.dangerous,
+            headless=request.headless,
             script_path=script_path,
             log_path=log_path,
             resolve_cli_path_fn=resolve_cli_path_fn,

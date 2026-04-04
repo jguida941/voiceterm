@@ -6,6 +6,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from typing import Any, TypedDict
 
+from .operator_context import (
+    OperatorContext,
+    OperatorInteractionMode,
+    operator_context_from_mapping,
+)
 from .value_coercion import (
     coerce_int as _int,
     coerce_mapping as _mapping,
@@ -71,6 +76,7 @@ class ActiveRunState:
 class ControlStateContext:
     approval_policy: Mapping[str, object] | None = None
     sources: Mapping[str, object] | None = None
+    operator_context: OperatorContext | None = None
     timestamp: str = ""
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
@@ -87,6 +93,7 @@ class ControlState:
     review_bridge: ReviewBridgeState
     agents: tuple[ReviewAgentState, ...]
     sources: ControlStateSources
+    operator_context: OperatorContext = OperatorContext()
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
 
@@ -221,6 +228,7 @@ def build_control_state(
             bridge_path=_string(resolved_sources.get("bridge_path")),
             review_status_dir=_string(resolved_sources.get("review_status_dir")),
         ),
+        operator_context=resolved_context.operator_context or OperatorContext(),
         warnings=resolved_context.warnings,
         errors=resolved_context.errors,
     )
@@ -232,12 +240,16 @@ def control_state_from_payload(payload: Mapping[str, object]) -> ControlState | 
         return control_state_from_mapping(explicit_state)
     if "controller_payload" not in payload and "review_payload" not in payload:
         return None
+    raw_operator = _mapping(payload.get("operator_context"))
     return build_control_state(
         controller_payload=_mapping(payload.get("controller_payload")),
         review_payload=_mapping(payload.get("review_payload")),
         context=ControlStateContext(
             approval_policy=_mapping(payload.get("approval_policy")),
             sources=_mapping(payload.get("sources")),
+            operator_context=(
+                operator_context_from_mapping(raw_operator) if raw_operator else None
+            ),
             timestamp=_string(payload.get("timestamp")),
             warnings=_string_rows(payload.get("warnings")),
             errors=_string_rows(payload.get("errors")),
@@ -266,6 +278,7 @@ def control_state_from_mapping(payload: Mapping[str, object]) -> ControlState:
             bridge_path=_string(sources.get("bridge_path")),
             review_status_dir=_string(sources.get("review_status_dir")),
         ),
+        operator_context=operator_context_from_mapping(payload.get("operator_context")),
         warnings=_string_rows(payload.get("warnings")),
         errors=_string_rows(payload.get("errors")),
     )

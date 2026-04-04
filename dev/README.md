@@ -25,6 +25,7 @@ The main starting points are:
 | Choose Python contract/modeling patterns for platform/runtime tooling | [`dev/guides/PYTHON_ARCHITECTURE.md`](guides/PYTHON_ARCHITECTURE.md) after [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) |
 | Understand the current `MP-377` priority lane for startup authority, repo packs, typed plan routing, and runtime/evidence/context closure | [`dev/active/platform_authority_loop.md`](active/platform_authority_loop.md) after [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) |
 | Design or implement the typed remote-session commit/push pipeline for phone-steered or remote-control sessions | [`dev/active/remote_commit_pipeline.md`](active/remote_commit_pipeline.md) after [`dev/active/platform_authority_loop.md`](active/platform_authority_loop.md), plus [`dev/active/review_channel.md`](active/review_channel.md) and [`dev/active/continuous_swarm.md`](active/continuous_swarm.md) for transport/runtime context |
+| Close remote-control reviewer/runtime gaps for operator action transport, dashboard convergence, or auto-polling | [`dev/active/remote_control_runtime.md`](active/remote_control_runtime.md) after [`dev/active/remote_commit_pipeline.md`](active/remote_commit_pipeline.md), plus [`dev/active/review_channel.md`](active/review_channel.md) and [`dev/active/continuous_swarm.md`](active/continuous_swarm.md) for producer/runtime context |
 | Edit governed active-plan markdown or active-plan schema enforcement | [`dev/active/PLAN_FORMAT.md`](active/PLAN_FORMAT.md) after [`dev/active/platform_authority_loop.md`](active/platform_authority_loop.md) |
 | Understand how the current Codex/Claude collaboration system works | [`dev/guides/AGENT_COLLABORATION_SYSTEM.md`](guides/AGENT_COLLABORATION_SYSTEM.md) |
 | Export or benchmark the portable governance stack on other repos | [`dev/guides/PORTABLE_CODE_GOVERNANCE.md`](guides/PORTABLE_CODE_GOVERNANCE.md) and [`dev/active/portable_code_governance.md`](active/portable_code_governance.md) |
@@ -52,6 +53,7 @@ The main starting points are:
 - Shared review workflow: [`dev/active/review_channel.md`](active/review_channel.md)
 - Continuous Codex/Claude loop: [`dev/active/continuous_swarm.md`](active/continuous_swarm.md)
 - Typed remote-session commit/push pipeline: [`dev/active/remote_commit_pipeline.md`](active/remote_commit_pipeline.md)
+- Remote-control reviewer/runtime closure: [`dev/active/remote_control_runtime.md`](active/remote_control_runtime.md)
 - Host process cleanup/audit: [`dev/active/host_process_hygiene.md`](active/host_process_hygiene.md)
 - Optional operator console: [`dev/active/operator_console.md`](active/operator_console.md)
 - Ralph guardrail loop: [`dev/active/ralph_guardrail_control_plane.md`](active/ralph_guardrail_control_plane.md)

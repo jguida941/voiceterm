@@ -26,6 +26,11 @@ from .control_state import (
     build_control_state,
     control_state_from_payload,
 )
+from .operator_context import (
+    OperatorContext,
+    OperatorInteractionMode,
+    operator_context_from_mapping,
+)
 from .finding_contracts import (
     DECISION_PACKET_CONTRACT_ID,
     DECISION_PACKET_SCHEMA_VERSION,
@@ -197,6 +202,8 @@ __all__ = [
     "FindingRecord",
     "GUARD_RULE_VERSION",
     "GuardFindingPolicy",
+    "OperatorContext",
+    "OperatorInteractionMode",
     "MemoryRoots",
     "PROBE_ALLOWLIST_CONTRACT_ID",
     "PROBE_ALLOWLIST_SCHEMA_VERSION",
@@ -249,6 +256,7 @@ __all__ = [
     "collect_failure_packet",
     "consume_machine_output_metrics",
     "control_state_from_payload",
+    "operator_context_from_mapping",
     "decision_packet_from_finding",
     "emit_machine_artifact_output",
     "doc_budget_from_mapping",

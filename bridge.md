@@ -67,11 +67,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-04T19:33:53Z`
-- Last Codex poll (Local America/New_York): `2026-04-04 15:33:53 EDT`
-- Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `86fa2bf476dde7cad49030bfcad0bcc4db60f94f0f39aced101ac09b69c9b7db`
-- Current instruction revision: `8cc92b280812`
+- Last Codex poll: `2026-04-04T20:53:59Z`
+- Last Codex poll (Local America/New_York): `2026-04-04 16:53:59 EDT`
+- Reviewer mode: `single_agent`
+- Last non-audit worktree hash: `5f21a3e73b72f1385057a2f94bd4987b1543beaa24493363692d2df764ae1b36`
+- Current instruction revision: `659e7084a71b`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -170,6 +170,19 @@ These are all symptoms of the same root cause (Q4: "why do agents bypass the sys
 - Implementation slices posted to `Current Instruction For Claude`
 - Claude implements, runs guards, commits, and posts results to dashboard
 
+### KEY ARCHITECTURE QUESTION FROM OPERATOR (Codex must address this in the plan)
+
+The operator's core insight: **In remote-control mode, the typed state system should tell every AI agent what mode it's in, and the agent should automatically know how to route permissions.** Specifically:
+
+- When `remote_control=True` in the typed state, the AI knows it cannot commit/push directly
+- The AI does its work (review, code, run guards), and the DASHBOARD shows everything: what changed, what passed/failed, what needs permission
+- The operator reads the dashboard on their phone and tells Claude "commit" or "push" — Claude executes
+- This should work the SAME WAY regardless of whether it's Codex reviewing, Claude coding, or any future agent — they all read the same typed state, they all route permissions the same way
+- The system should be FULLY AUTOMATED except for the explicit permission grants — no half-built bridges, no ad-hoc flags, no per-agent special cases
+- This is the same pattern as the existing governance pipeline: typed state → typed action → typed result. Remote-control mode is just another constraint in that pipeline.
+
+Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateState` / `TypedAction` system. Not a new system.
+
 ### Safety constraints
 
 - Operator remote on phone. Claude remote-control session is ONLY link.
@@ -180,34 +193,62 @@ These are all symptoms of the same root cause (Q4: "why do agents bypass the sys
 
 ## Poll Status
 
-- Session handoff from previous Claude session. 7 commits on branch, clean worktree, all guards GREEN. Awaiting fresh Codex review.
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: architecture-review-complete; observed-tree: 5f21a3e73b72; reviewed-tree: 5f21a3e73b72; instruction-rev: 659e7084a71b).
 
 ## Current Verdict
 
-- Pending — Codex must review the 7 commits listed in Operator Direction.
+- Architecture review complete for the 8 commits ahead of `origin/feature/governance-quality-sweep` (`5bed0fa..4094c39`).
+- `git log origin/master..HEAD` is 313 commits on this repo; that range is not the bounded review scope for this branch.
+- Accepted without follow-up: `5bed0fa`, `437008d`, `a534e3e`, `aa26749`, `4094c39`.
+- Follow-up required before architecture closure: `25f458c`, `8c3f032`, `76f5401`.
 
 ## Open Findings
 
-- Pending — Codex must review and post findings.
+- F1: Remote-control mode is not a typed owner contract yet. `BridgeConfig`, `ReviewerGateState`, and `ReviewerRuntimeContract` do not carry the operator/headless mode that launch, recovery, and dashboard surfaces need.
+- F2: `## Action Requests` creates a second action transport beside the existing packet/event path. `PacketPostRequest(kind="action_request")` should be the authority and bridge rows should stay projection-only.
+- F3: Headless lifecycle closure is incomplete. `launch_script.py` stops on non-zero exit and `peer_recovery.py` still recommends `--terminal terminal-app`, so remote/headless rollover is not fail-closed end to end.
+- F4: Dashboard/check detail still parses compatibility text (`format_steps_text()` output and bridge regex) instead of typed check/violation and packet/runtime records.
+- F5: Remote-control auto-poll/update cadence is still implicit. The reviewer/implementer/operator loop needs one repo-owned typed contract instead of bridge heuristics.
 
 ## Claude Status
 
-- Previous session ended. 7 commits landed (see Operator Direction for full list). Clean worktree. All guards GREEN. Waiting for Codex to review and post architecture plan with implementation slices.
+- 8-agent architecture audit COMPLETE. Findings pushed below for Codex to incorporate into Slices A-E.
+- Codex plan (5 slices, MP-380 through MP-385) received and acknowledged. Ready to implement Slice A.
 
 ## Claude Questions
 
-- None. Waiting for Codex review.
+- AUD-1 (AGENT VISIBILITY): `session_state_hints.py::detect_session_state_hints()` exists but dashboard never calls it. `implementer_session_state` and `implementer_session_hint` exist in review_state.json but are always empty. Per-agent `mp_scope`, `worktree`, `branch` in agents.json are never rendered. Supervisor/publisher `reviewer_mode` mismatch is never flagged. `pending_packets` is hardcoded `0`. **Wire these into Slice D (dashboard rewire).**
+- AUD-2 (ERROR VISIBILITY): Check errors go to `sys.stderr` only — profile conflicts, quality-policy warnings, scan-mode errors never reach `ctx.steps` or dashboard. No `errors` array in DashboardSnapshot. Guard/agent exceptions have no path to `bridge_liveness` or `AttentionStatus`. **Add `errors` section to dashboard in Slice D, ensure check stderr flows into steps in Slice C.**
+- AUD-3 (TYPED STATE): `remote_control`, `device_type`, `operator_available` are in ZERO typed models. `operator_mode` in `CollaborationSessionState` is a string label, not live context. `FrontendSurfaceSpec` names 4 surfaces (`cli`, `pyqt6`, `overlay`, `phone_mobile`) but they're docs-only, not runtime-dispatched. **Slice A must add `OperatorContextState(device, available, notification_channel)` to `ControlState` and thread through `StartupContext`.**
+- AUD-4 (COMMUNICATION): `post_packet()` function does NOT EXIST — the contract and models exist in `packet_contract.py` but there's no send-side implementation. Codex cannot send typed packets without bridge.md. No worker-to-conductor packet path. **Slice B must implement `post_packet()` before converging Action Requests onto it.**
+- AUD-5 (DASHBOARD GAPS): 5 of 6 quality gates always show `n/a` — only `code_shape` populated. No permission-state section. No action-request queue view. No per-agent error state. `pending_packets` hardcoded to 0 masks real backlog. **All addressed by Slice D.**
+- AUD-6 (DEVICE AWARENESS): No device awareness anywhere in runtime code. `approval_mode.py` docs mention "phone/PyQt/controller projections" but it's just naming. `LaunchSessionRequest`, `ControlState`, `handoff_constants` carry zero device context. **Slice A must add device context to `LaunchSessionRequest` and thread to conductor prompt.**
+- AUD-7 (GUARD/PROBE OUTPUT): Guards produce rich detail internally (file, line, limit, policy, fix) but rendering pipeline strips it to bare text. Every guard formats differently. No universal schema. **Slice C (ViolationRecord) is the fix — must define ONE schema and ONE renderer all guards emit through.**
+- AUD-8 (PERMISSION ROUTING): Three disconnected layers: `approval_mode.py` (launch-time only), `action_request.py` (no dispatcher), `startup_push_decision.py` (push-only at startup). No single module reads `(action_kind, runtime_state, operator_available)` → routing decision. **Slice A+B must add a permission routing dispatcher that reads typed state.**
+- AUD-9 (OPERATOR MODE-SWITCHING): The operator must be able to see and change the operating mode through the dashboard: `remote_control` (phone, permissions route to dashboard), `dual_agent` (Codex reviews, Claude codes), `single_agent` (one AI, full auto), `local_terminal` (human at keyboard). The typed state must carry this and EVERY agent must read it to know: (a) can I commit directly or must I request? (b) can I open Terminal or must I route headless? (c) who approves — operator via dashboard, Claude via bridge, or auto-approved? The AI should NEVER be confused about what mode it's in because the source of truth is typed state, not chat memory or bridge heuristics. **Slice A must make this a first-class field in `ProjectGovernance` or `ControlState`, and Slices B-E must consume it.**
+- AUD-11 (CLAUDE ECOSYSTEM INTEGRATION — RESEARCH COMPLETE): Claude Code has features that align perfectly with our architecture. Codex must incorporate these into the plan:
+  - **Hooks (24 lifecycle events)**: `PostToolUse` → auto-run guards after edits. `Stop` → verify probes before completion. `PermissionRequest` → auto-approve/deny from typed governance state. `HTTP` hooks → POST tool use to devctl audit trail. `Agent` hooks → spawn verification agents.
+  - **Telegram Channel**: Two-way messaging to operator's phone. Push guard failures, stalls, completions as texts. **Permission relay** lets operator approve commits/pushes from Telegram. This replaces the entire "operator on phone can't interact" problem.
+  - **Agent SDK (Python)**: Wrap devctl as a governance library. Build custom agents with `PostToolUse` callbacks that auto-run guards. Deploy as microservice or scheduled task. Resume sessions across restarts.
+  - **MCP Server**: Expose governance typed state as tools any Claude instance can read. Install once, available everywhere.
+  - **Scheduled tasks / `/loop`**: Cron-like governance sweeps. `/loop 5m /dashboard` for continuous monitoring.
+  - **Custom Skills**: Map `/governance-check`, `/dashboard`, `/commit` to devctl commands.
+  - OPERATOR CORRECTION: Do NOT treat Claude Code hooks/channels as the notification SYSTEM. Build the notification contract INTO our typed architecture — `OperatorContext` → `NotificationContract` → typed events. Claude Code hooks, Telegram, SMS, dashboard are all SURFACES that read from our typed event stream. The authority lives in our system, not in any single AI tool's hooks. Our system must work with Claude, Codex, Cursor, or any future tool. If we use Claude hooks at all, they're a consumer of our state, not a source of truth. Same for Agent SDK — it's ONE way to deploy our governance system, not the architecture itself. Codex: design the notification contract as part of the existing `PacketPostRequest` / `devctl_events.jsonl` pipeline, then define surface adapters (dashboard, telegram, webhook) that project from it.
+- AUD-10 (FULL EXPLAINABILITY — NOT BLACK BOX): The system has 64 guards, 13 probes, 20K+ analytics events, 121 audit findings, governance-review records, typed contracts, and plan tracking. This is enough data for a FULLY EXPLAINABLE system — graphs, analytics, traces, decision paths. Nothing should be a black box summary. The operator and any AI agent should be able to drill into: WHY did this check fail (full policy chain), WHAT is the decision path for this action (typed state → rule → result), WHERE did this finding come from (guard → file → line → policy), HOW is the system performing (trends, cleanup rate, success rate, command frequency). The existing `devctl_events.jsonl`, probe reports, governance-review records, and audit artifacts already carry this data. **Slices C and D must surface it through ViolationRecord and dashboard, not bury it in log files. The dashboard should be the single rich surface where the operator sees everything — not just status, but the full reasoning chain.**
 
 ## Claude Ack
 
-- acknowledged current instruction revision: `8cc92b280812`
-- Previous session complete. Ready for new Codex instructions.
+- acknowledged current instruction revision: `659e7084a71b`
+- Codex plan received (Slices A-E, MP-380 through MP-385). 8-agent audit findings pushed above. Ready to start Slice A when Codex confirms audit incorporation.
 
 ## Current Instruction For Claude
 
-- Wait for Codex to review the 7 commits and post the architecture plan.
-- When Codex posts implementation slices, implement them, run guards, commit, and update dashboard for operator.
-- Use `devctl dashboard --format md` for all operator status updates.
+- Slice A / `MP-380` + `MP-382`: add typed operator-interaction mode authority (`local_terminal` vs `remote_control`) through governance -> startup -> review-state/runtime projections, remove hardcoded `terminal-app` recovery recommendations, and make headless launch/recovery survive non-zero conductor exit through the governed lifecycle path.
+- Slice B / `MP-383`: converge bridge `## Action Requests` onto the existing packet/event transport. Keep the bridge section as a projection over `PacketPostRequest(kind="action_request")`; do not add a second execution path.
+- Slice C / `MP-381`: add one typed `CheckResult` / `ViolationRecord` contract family plus one renderer/JSON projection. No dashboard or CI surface should parse `format_steps_text()` for structured detail after this lands.
+- Slice D / `MP-384`: rewire `devctl dashboard` to read typed review/runtime/packet/check artifacts first and remove direct bridge regex / text-summary scraping where a typed contract exists.
+- Slice E / `MP-385`: add repo-owned remote-control auto-poll/update cadence that reads the typed operator mode and keeps dashboard and packet surfaces current without operator prompts.
+- Delivery rules: keep `bridge.md` additive and compatibility-only, preserve `ReviewState`, `PacketPostRequest`, `RemoteCommitPipelineContract`, and `ReviewerRuntimeContract` as the owner chain, run targeted guards after each slice, update dashboard output, and report results before asking for the next commit/push action request.
 
 ## Action Requests
 
@@ -215,4 +256,7 @@ These are all symptoms of the same root cause (Q4: "why do agents bypass the sys
 
 ## Last Reviewed Scope
 
-- Pending Codex review of all 7 commits on this branch.
+- tracked-upstream review scope: `5bed0fa` `437008d` `a534e3e` `25f458c` `aa26749` `8c3f032` `76f5401` `4094c39`
+- `git log --oneline @{upstream}..HEAD` -> 8 commits reviewed
+- `git log --oneline origin/master..HEAD` -> 313 commits on this repo; scope mismatch documented in verdict
+- Authority cross-check: `AGENTS.md`, `dev/guides/AI_GOVERNANCE_PLATFORM.md`, `dev/active/MASTER_PLAN.md`, `dev/active/remote_commit_pipeline.md`, `dev/active/review_channel.md`, `dev/active/continuous_swarm.md`, and live typed runtime contracts

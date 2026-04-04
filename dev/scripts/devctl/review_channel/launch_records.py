@@ -28,6 +28,7 @@ class LaunchSessionRequest:
     promotion_plan_rel: str
     approval_mode: str = DEFAULT_APPROVAL_MODE
     dangerous: bool = False
+    headless: bool = False
     bridge_liveness: dict[str, object] | None = None
     handoff_bundle: dict[str, str] | None = None
     script_dir: Path | None = None

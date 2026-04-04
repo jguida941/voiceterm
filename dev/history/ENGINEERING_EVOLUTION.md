@@ -56,6 +56,27 @@ Evidence: `dev/scripts/devctl/review_channel/heartbeat.py`,
 `dev/scripts/devctl/repo_packs/voiceterm.py`,
 `dev/scripts/checks/review_channel_bridge/report.py`.
 
+### 2026-04-04 - MP-377 now tracks remote-control runtime closure as its own active plan
+
+The 2026-04-04 architecture review of the eight commits ahead of
+`origin/feature/governance-quality-sweep` found that the remaining
+phone/remote-control gaps cut across multiple already-landed surfaces: operator
+presence was not yet a typed runtime owner, bridge `Action Requests` created a
+second action transport beside review packets, headless recovery still leaked
+`terminal-app` assumptions, and `devctl dashboard` still depended on bridge
+regex plus `format_steps_text()` parsing for structured operator detail.
+
+That closure path now has one explicit active owner plan:
+`dev/active/remote_control_runtime.md`. It tracks `MP-380..MP-385` for typed
+operator mode, unified check/violation contracts, headless lifecycle closure,
+packet-backed action requests, dashboard typed-state convergence, and repo-owned
+auto-poll/update cadence. Discovery docs now point to that plan directly so the
+remote-control follow-up stays under the `MP-377` owner chain instead of
+becoming bridge-local reviewer lore.
+
+Evidence: `dev/active/remote_control_runtime.md`, `dev/active/INDEX.md`,
+`dev/active/MASTER_PLAN.md`, `AGENTS.md`, `dev/README.md`.
+
 ### 2026-04-04 - ReviewState.attention projects from recovery_assessment
 
 `ReviewState.attention` is no longer an independently authored field. When
