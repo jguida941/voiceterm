@@ -567,6 +567,10 @@ Three quality layers matter in practice:
   Keep `startup_surface_tokens` current on every implemented platform
   contract row so startup/bootstrap surfaces project the same inventory the
   closure guard validates.
+- Use `python3 dev/scripts/devctl.py system-picture --format md` when that
+  same platform/governance slice should refresh the generated external-review
+  reducer and proof-ledger projection rather than leaving the proof surface as
+  stale prose.
 - If you changed `script_catalog.py`, `quality_policy_defaults.py`,
   `dev/config/quality_presets/*.json`, `dev/config/devctl_repo_policy.json`,
   or added/retired a `check_*.py` or `probe_*.py` entrypoint, run both
@@ -627,6 +631,7 @@ the concrete minimum inventory after edits:
    startup-surface contract routing), also run:
    - `python3 dev/scripts/checks/check_platform_contract_closure.py`
    - `python3 dev/scripts/devctl.py platform-contracts --format md`
+   - `python3 dev/scripts/devctl.py system-picture --format md`
 5. For bounded context on specific files, MPs, guards, or subsystems during
    development, use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`
    (the renderer suppresses the global summary on zero-match results).

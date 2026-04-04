@@ -59,6 +59,36 @@ The same slice also treats blank approved-target identities as valid matches
 for ordinary branch pushes, so persisted publish receipts remain usable even
 when no reviewer-bound target identity was attached to the push.
 
+### 2026-04-04 - `system-picture` now owns the generated proof surface
+
+The external-review/proof lane had already been promoted into the `MP-377`
+owner chain, but the tracked proof ledger could still drift into a
+hand-maintained memo if maintainers refreshed prose without using the same
+typed startup/review/evidence reducers the platform is supposed to prove.
+That proof surface is now a real repo-owned command. `devctl system-picture`
+builds a typed `SystemPicture` snapshot from startup, context-graph,
+review-runtime, governance-review, imported-findings, and telemetry artifacts;
+writes managed `summary.{json,md}` plus append-only snapshot history under
+`dev/reports/system_picture/`; and can rewrite
+`dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` as a generated projection
+instead of a hand-kept memo. The same follow-up also made the maintainer docs
+explicit that platform/governance slices affecting external-review claims
+should refresh `system-picture` alongside `platform-contracts` and the closure
+guard.
+
+Evidence: `dev/scripts/devctl/platform/system_picture.py`,
+`dev/scripts/devctl/platform/system_picture_command.py`,
+`dev/scripts/devctl/platform/system_picture_render.py`,
+`dev/scripts/devctl/platform/system_picture_models.py`,
+`dev/scripts/devctl/tests/platform/test_system_picture.py`,
+`dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
 ### 2026-04-03 - Codex-only local review now uses the repo-owned heartbeat/checkpoint path and the review-surface parity guard also checks persisted disk truth
 
 The review-channel slice needed one more explicit owner-chain note after the

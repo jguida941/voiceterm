@@ -1184,6 +1184,8 @@ Machine-first output note:
     from the generated snapshot instead of hand-editing proof prose.
   - Use it when you want one maintained evidence surface for startup, graph,
     review, governance-review, imported-findings, and telemetry state.
+  - Treat it as the maintainer-facing proof refresh surface after
+    platform/governance contract changes that affect external-review claims.
 - `doc-authority`: read-only governed-markdown authority scan that derives the
   current doc-registry surface from the repo-pack/governance contract, reports
   active-doc registry coverage, class budgets, overlapping authority, and

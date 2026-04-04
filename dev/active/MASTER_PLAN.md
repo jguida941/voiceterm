@@ -3807,6 +3807,9 @@ become the main product surface.
   loop plus external-review surfaces onto typed status plus the generated
   summary third. Those clients stay projection-only; they are not new
   authority owners.
+  Latest proof-surface follow-up (2026-04-04): `system-picture` now has a
+  live repo-owned command path and the tracked proof ledger is a generated
+  writeback from that snapshot, not a second execution tracker.
   Do not treat this
   scope as complete when the repo is merely split or packaged; closure requires
   architecture boundary proof, pipeline parity, telemetry trust, replayable

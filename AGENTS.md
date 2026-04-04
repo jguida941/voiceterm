@@ -752,6 +752,9 @@ shared runtime contract models, probe/report schema constants, or
 `repo_governance.surface_generation` contract-routing text), also run
 `python3 dev/scripts/checks/check_platform_contract_closure.py` plus
 `python3 dev/scripts/devctl.py platform-contracts --format md`.
+Use `python3 dev/scripts/devctl.py system-picture --format md` when that same
+platform/governance change should refresh the generated external-review proof
+reducer or its tracked proof-ledger projection.
 Keep `startup_surface_tokens` populated on every current platform contract row
 so `platform-contracts`, startup surfaces, and closure guards keep projecting
 the same contract inventory.
