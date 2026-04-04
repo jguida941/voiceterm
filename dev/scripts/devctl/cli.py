@@ -123,6 +123,20 @@ from .runtime.startup_gate import enforce_startup_gate
 from .triage.loop_parser import add_triage_loop_parser
 from .triage.parser import add_triage_parser
 
+# Commands that only read repo state and never mutate it. These skip audit
+# event writes and telemetry refresh so devctl works on read-only mounts,
+# containers, and MCP adapters without triggering filesystem writes.
+READ_ONLY_COMMANDS: frozenset[str] = frozenset({
+    "startup-context",
+    "context-graph",
+    "review-channel",
+    "quality-policy",
+    "platform-contracts",
+    "mcp",
+    "dashboard",
+    "list",
+})
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Create the top-level argparse parser for devctl."""
@@ -298,15 +312,17 @@ def main() -> int:
         return return_code
     finally:
         duration_seconds = time.monotonic() - started
-        emit_devctl_audit_event(
-            command=args.command,
-            args=args,
-            returncode=return_code,
-            duration_seconds=duration_seconds,
-            argv=sys.argv[1:],
-            machine_output=consume_machine_output_metrics(),
-        )
-        if args.command != "data-science":
+        is_read_only = args.command in READ_ONLY_COMMANDS
+        if not is_read_only:
+            emit_devctl_audit_event(
+                command=args.command,
+                args=args,
+                returncode=return_code,
+                duration_seconds=duration_seconds,
+                argv=sys.argv[1:],
+                machine_output=consume_machine_output_metrics(),
+            )
+        if not is_read_only and args.command != "data-science":
             maybe_auto_refresh_data_science(command=args.command)
 
 

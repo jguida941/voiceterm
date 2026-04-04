@@ -12,7 +12,8 @@ from dev.scripts.devctl import cli
 
 
 class CliAuditEventTests(unittest.TestCase):
-    def test_main_emits_audit_event_for_command(self) -> None:
+    def test_main_emits_audit_event_for_write_command(self) -> None:
+        """Verify that non-read-only commands still emit audit events."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             log_path = Path(tmp_dir) / "devctl-events.jsonl"
             with patch.dict(
@@ -22,10 +23,11 @@ class CliAuditEventTests(unittest.TestCase):
                     "DEVCTL_AUDIT_CYCLE_ID": "unit-cycle",
                     "DEVCTL_EXECUTION_SOURCE": "script_only",
                     "DEVCTL_EXECUTION_ACTOR": "script",
+                    "DEVCTL_DATA_SCIENCE_DISABLE": "1",
                 },
                 clear=False,
             ):
-                with patch("sys.argv", ["devctl", "list"]):
+                with patch("sys.argv", ["devctl", "status", "--format", "json"]):
                     rc = cli.main()
 
             self.assertEqual(rc, 0)
@@ -33,9 +35,9 @@ class CliAuditEventTests(unittest.TestCase):
             self.assertGreaterEqual(len(rows), 1)
             last_row = json.loads(rows[-1])
             self.assertEqual(last_row["cycle_id"], "unit-cycle")
-            self.assertEqual(last_row["command"], "list")
+            self.assertEqual(last_row["command"], "status")
             self.assertTrue(last_row["success"])
-            self.assertEqual(last_row["step"], "devctl:list")
+            self.assertEqual(last_row["step"], "devctl:status")
 
 
 if __name__ == "__main__":
