@@ -179,6 +179,7 @@ External review identified core problem: "too many partially smart surfaces, not
 | Attention classification | GOOD | Single classify_attention_status(), fanned to all surfaces |
 | Review state / compact | GOOD | Atomic write from same dict in write_projection_bundle() |
 | Instruction revision | MOSTLY GOOD | All trace to bridge line, minor priority waterfall risk |
+| Heartbeat/daemon | BROKEN | Dashboard uses only `stopped_at_utc` to determine running. Review-channel also checks PID liveness + heartbeat freshness. Crashed daemon (dead PID, no stop) shows RUNNING on dashboard, NOT RUNNING on review-channel. |
 | Git state | BROKEN | 3 independent subprocess call sites (_git_short, collect_git_status, _collect_git_status_for_repo). No shared utility. |
 | Bridge findings | BROKEN | Dashboard parses bridge.md markdown directly. Typed review_state exists upstream but dashboard doesn't read it for findings. |
 | Repo-pack config | BROKEN | Only 7 of 100+ call sites use active_path_config(). 35+ files bypass with REPO_ROOT literal. Portability blocker. |
