@@ -104,3 +104,47 @@ def test_attach_reviewer_runtime_snapshot_recovers_publish_truth_from_push_enfor
     assert doctor["push_report_path"] == "dev/reports/push/latest.json"
     assert doctor["publication_source"] == "latest_push_report"
     assert "post-push follow-up is not green yet" in doctor["summary"]
+
+
+def test_attach_reviewer_runtime_snapshot_rejects_stale_approved_target_receipt() -> None:
+    review_state = SimpleNamespace(
+        reviewer_runtime=_runtime_contract(),
+        commit_pipeline=RemoteCommitPipelineContract(),
+    )
+    report = {
+        "bridge_liveness": {
+            "push_enforcement": {
+                "current_branch": "feature/demo",
+                "current_head_commit": "abc123",
+                "default_remote": "origin",
+                "upstream_ref": "origin/feature/demo",
+                "latest_push_report_path": "dev/reports/push/latest.json",
+                "latest_push_report_branch": "feature/demo",
+                "latest_push_report_remote": "origin",
+                "latest_push_report_head_commit": "abc123",
+                "latest_push_report_status": "published_remote",
+                "latest_push_report_reason": "post_push_bundle_failed",
+                "latest_push_report_published_remote": True,
+                "latest_push_report_post_push_green": False,
+                "current_approved_target_identity": "tree-receipt:new",
+                "latest_push_report_approved_target_identity": "tree-receipt:old",
+                "latest_push_report_matches_current_approved_target": False,
+                "latest_push_report_matches_current_branch": True,
+                "latest_push_report_matches_current_head": True,
+            }
+        },
+        "publisher": {"running": False},
+        "reviewer_supervisor": {"running": False},
+    }
+
+    attach_reviewer_runtime_snapshot(
+        report,
+        review_state=review_state,
+        attention={},
+    )
+
+    doctor = report["doctor"]
+    assert doctor["published_remote"] is False
+    assert doctor["post_push_green"] is False
+    assert doctor["push_report_path"] == "dev/reports/push/latest.json"
+    assert doctor["publication_source"] == "none"

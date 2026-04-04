@@ -321,6 +321,52 @@ class CheckRouterTests(unittest.TestCase):
         self.assertIn(sys.executable, planned)
         self.assertIn("--quality-policy /tmp/router-policy.json", planned)
 
+    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check_router.run_cmd")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_execute_rewrites_repo_pytest_bundle_commands_to_active_interpreter(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        run_cmd_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [{"status": "M", "path": "dev/scripts/devctl/commands/check.py"}]
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 -m pytest app/operator_console/tests/ -q --tb=short"],
+            None,
+        )
+        run_cmd_mock.return_value = {
+            "name": "router-01",
+            "cmd": [
+                "bash",
+                "-lc",
+                "python3 -m pytest app/operator_console/tests/ -q --tb=short",
+            ],
+            "cwd": ".",
+            "returncode": 0,
+            "duration_s": 0.01,
+            "skipped": False,
+        }
+
+        rc = check_router.run(make_args(execute=True))
+        self.assertEqual(rc, 0)
+
+        executed = run_cmd_mock.call_args.args[1]
+        self.assertEqual(executed[:2], ["bash", "-lc"])
+        self.assertIn(sys.executable, executed[2])
+        self.assertFalse(
+            executed[2].startswith("python3 "),
+            f"Expected sys.executable at the start, got: {executed[2]!r}",
+        )
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        planned = payload["planned_commands"][0]["command"]
+        self.assertIn(sys.executable, planned)
+
     def test_bundle_contract_extracts_non_empty_commands(self) -> None:
         for lane, bundle_name in check_router.BUNDLE_BY_LANE.items():
             commands, error = check_router._extract_bundle_commands(bundle_name)

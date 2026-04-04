@@ -70,32 +70,22 @@ def detect_push_enforcement_state(
 ) -> dict[str, object]:
     """Return repo-owned push/checkpoint state for startup/runtime surfaces."""
     hook_path_text = _git_stdout(repo_root, "rev-parse", "--git-path", "hooks/pre-push")
-    hook_path = (
-        Path(hook_path_text)
-        if hook_path_text
-        else (repo_root / ".git" / "hooks" / "pre-push")
-    )
+    hook_path = Path(hook_path_text) if hook_path_text else (repo_root / ".git" / "hooks" / "pre-push")
     current_branch = _git_stdout(repo_root, "rev-parse", "--abbrev-ref", "HEAD")
     current_head_commit = current_head_commit_sha(repo_root=repo_root)
-    current_approved_target_identity = _current_approved_target_identity(
-        repo_root=repo_root
-    )
+    current_approved_target_identity = _current_approved_target_identity(repo_root=repo_root)
     hook_installed = hook_path.is_file()
     raw_guarded = hook_installed and os.access(hook_path, os.X_OK)
     upstream_ref = current_upstream_ref(repo_root=repo_root)
     ahead: int | None = None
     if upstream_ref:
         ahead_text = _git_stdout(repo_root, "rev-list", "--count", f"{upstream_ref}..HEAD")
-        if ahead_text.isdigit():
-            ahead = int(ahead_text)
+        ahead = int(ahead_text) if ahead_text.isdigit() else None
     excluded_paths = (
         *policy.checkpoint.compatibility_projection_paths,
         *policy.checkpoint.advisory_context_paths,
     )
-    dirty_path_count, untracked_path_count = _worktree_change_counts(
-        repo_root,
-        exclude_paths=excluded_paths,
-    )
+    dirty_path_count, untracked_path_count = _worktree_change_counts(repo_root, exclude_paths=excluded_paths)
     worktree_dirty = dirty_path_count > 0
     worktree_clean = not worktree_dirty
     checkpoint_required = (
@@ -122,16 +112,15 @@ def detect_push_enforcement_state(
         current_head_commit=current_head_commit,
         current_approved_target_identity=current_approved_target_identity,
     )
+    current_target_remote = _current_target_remote(upstream_ref=upstream_ref, default_remote=policy.default_remote)
     recorded_remote_publication_for_current_target = (
         bool(push_stages.get("published_remote"))
         and latest_push_report_matches_current_branch
         and latest_push_report_matches_current_head
         and latest_push_report_matches_current_approved_target
+        and (not latest_push_report_remote or latest_push_report_remote == current_target_remote)
     )
-    has_remote_work_to_push = not (
-        recorded_remote_publication_for_current_target
-        or (ahead == 0 and upstream_ref)
-    )
+    has_remote_work_to_push = not (recorded_remote_publication_for_current_target or (ahead == 0 and upstream_ref))
     if checkpoint_required:
         recommended_action = "checkpoint_before_continue"
         checkpoint_reason = _checkpoint_reason(
@@ -149,9 +138,7 @@ def detect_push_enforcement_state(
     publication_backlog = build_publication_backlog_state(
         ahead_of_upstream_commits=ahead,
         has_remote_work_to_push=has_remote_work_to_push,
-        recommend_after_ahead_commits=(
-            policy.publication.recommend_after_ahead_commits
-        ),
+        recommend_after_ahead_commits=policy.publication.recommend_after_ahead_commits,
         urgent_after_ahead_commits=policy.publication.urgent_after_ahead_commits,
     )
     snapshot = PushEnforcementSnapshot(
@@ -167,12 +154,8 @@ def detect_push_enforcement_state(
         ahead_of_upstream_commits=ahead,
         dirty_path_count=dirty_path_count,
         untracked_path_count=untracked_path_count,
-        max_dirty_paths_before_checkpoint=(
-            policy.checkpoint.max_dirty_paths_before_checkpoint
-        ),
-        max_untracked_paths_before_checkpoint=(
-            policy.checkpoint.max_untracked_paths_before_checkpoint
-        ),
+        max_dirty_paths_before_checkpoint=policy.checkpoint.max_dirty_paths_before_checkpoint,
+        max_untracked_paths_before_checkpoint=policy.checkpoint.max_untracked_paths_before_checkpoint,
         checkpoint_required=checkpoint_required,
         safe_to_continue_editing=safe_to_continue_editing,
         checkpoint_reason=checkpoint_reason,
@@ -184,9 +167,7 @@ def detect_push_enforcement_state(
         publication_backlog_summary=publication_backlog.backlog_summary,
         publication_backlog_recommended=publication_backlog.backlog_recommended,
         publication_backlog_urgent=publication_backlog.backlog_urgent,
-        recommend_after_ahead_commits=(
-            publication_backlog.recommend_after_ahead_commits
-        ),
+        recommend_after_ahead_commits=publication_backlog.recommend_after_ahead_commits,
         urgent_after_ahead_commits=publication_backlog.urgent_after_ahead_commits,
         latest_push_report_path=latest_push_report_relpath(repo_root=repo_root),
         latest_push_report_branch=latest_push_report_branch,
@@ -197,15 +178,9 @@ def detect_push_enforcement_state(
         latest_push_report_published_remote=bool(push_stages.get("published_remote")),
         latest_push_report_post_push_green=bool(push_stages.get("post_push_green")),
         current_approved_target_identity=current_approved_target_identity,
-        latest_push_report_approved_target_identity=(
-            latest_push_report_approved_target_identity
-        ),
-        latest_push_report_matches_current_approved_target=(
-            latest_push_report_matches_current_approved_target
-        ),
-        latest_push_report_matches_current_branch=(
-            latest_push_report_matches_current_branch
-        ),
+        latest_push_report_approved_target_identity=latest_push_report_approved_target_identity,
+        latest_push_report_matches_current_approved_target=latest_push_report_matches_current_approved_target,
+        latest_push_report_matches_current_branch=latest_push_report_matches_current_branch,
         latest_push_report_matches_current_head=latest_push_report_matches_current_head,
     )
     return asdict(snapshot)
@@ -315,6 +290,12 @@ def _current_approved_target_identity(*, repo_root: Path) -> str:
     if pipeline is None:
         return ""
     return str(pipeline.approved_target_identity or "").strip()
+
+
+def _current_target_remote(*, upstream_ref: str, default_remote: str) -> str:
+    if "/" in upstream_ref:
+        return upstream_ref.split("/", 1)[0]
+    return default_remote
 
 
 def _latest_push_report_approved_target_identity(

@@ -540,7 +540,12 @@ checklist plus chat memory.
     failed after publication. Blank approved-target identities are a valid
     current-target match for ordinary branch pushes, and doctor/status should
     expose when latest-push artifact truth is the source behind
-    `published_remote` / `post_push_green`.
+    `published_remote` / `post_push_green`. The current publication target
+    also includes the tracked upstream remote when one exists (otherwise the
+    repo-policy default remote), and human-facing startup/status push
+    sections must render effective current-target truth instead of replaying
+    stale raw `latest_push_report_*` booleans as if they still describe the
+    active branch/HEAD.
 4.7 Treat governed-markdown authority the same way: prefer typed
     `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
     parsed `plan_registry` entries when those projections are available, but

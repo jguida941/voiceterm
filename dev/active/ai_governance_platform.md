@@ -4736,6 +4736,15 @@ working on `MP-377`.
   writes a `published_remote` snapshot immediately after `git push` succeeds
   and startup recovery treats a matching current-branch/current-HEAD artifact
   as canonical publication truth while post-push follow-up finishes.
+- 2026-04-04 publication-target parity follow-up: that recovery contract now
+  needs projection honesty too. The same managed latest-push artifact must be
+  interpreted against the full current publication target, not only branch
+  text: current branch, current HEAD, reviewer-approved target identity when
+  present, and the tracked upstream/default remote. Startup/status markdown
+  now renders effective current-target truth instead of stale raw receipt
+  booleans, and event-backed review-state enrichment carries the same push
+  enforcement / push decision parity rather than leaving publish truth as a
+  bridge-only projection detail.
 - 2026-03-27 repo-entrance and dev-loop correction: keep the current repo
   split by audience instead of trying to make one README do two jobs. The
   root `README.md` remains the VoiceTerm product entrypoint while `MP-377`

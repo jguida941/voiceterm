@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from ..runtime.project_governance_push import push_enforcement_from_mapping
+from ..runtime.startup_push_recovery import artifact_publication_truth
+
 
 def _append_latest_push_receipt(
     lines: list[str],
@@ -17,6 +20,9 @@ def _append_latest_push_receipt(
     latest_push_seen = bool(latest_push_path or latest_push_status or latest_push_reason)
     if not latest_push_seen:
         return
+    published_remote, post_push_green = artifact_publication_truth(
+        push_enforcement_from_mapping(push_enforcement)
+    )
     lines.append(f"- latest_push_report: `{latest_push_path or 'n/a'}`")
     lines.append(
         "- latest_push_matches_current_branch: "
@@ -27,11 +33,16 @@ def _append_latest_push_receipt(
         f"{bool(push_enforcement.get('latest_push_report_matches_current_head'))}"
     )
     lines.append(
-        f"- published_remote: {bool(push_enforcement.get('latest_push_report_published_remote'))}"
+        "- latest_push_matches_current_approved_target: "
+        f"{bool(push_enforcement.get('latest_push_report_matches_current_approved_target'))}"
     )
     lines.append(
-        f"- post_push_green: {bool(push_enforcement.get('latest_push_report_post_push_green'))}"
+        "- latest_push_report_published_remote: "
+        f"{bool(push_enforcement.get('latest_push_report_published_remote'))}"
     )
+    lines.append(f"- latest_push_receipt_current: {published_remote}")
+    lines.append(f"- published_remote: {published_remote}")
+    lines.append(f"- post_push_green: {post_push_green}")
     if latest_push_status:
         lines.append(f"- latest_push_status: `{latest_push_status}`")
     if latest_push_reason:

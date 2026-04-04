@@ -12,6 +12,7 @@ from ..runtime.project_governance_push import (
 from ..runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
 )
+from ..runtime.startup_push_recovery import artifact_records_current_head_publish
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,7 +59,7 @@ def resolve_publication_blocked_reason(
     enforcement = _push_enforcement(push_enforcement)
     if enforcement is None:
         return reason
-    if not _artifact_matches_current_head(enforcement):
+    if not _artifact_matches_current_publication_target(enforcement):
         return reason
     return str(enforcement.latest_push_report_reason or reason)
 
@@ -84,7 +85,7 @@ def _artifact_publication_truth(
     if enforcement is None:
         return PublicationTruth()
     path = str(enforcement.latest_push_report_path or "")
-    if not _artifact_matches_current_head(enforcement):
+    if not _artifact_matches_current_publication_target(enforcement):
         return PublicationTruth(push_report_path=path)
     return PublicationTruth(
         published_remote=True,
@@ -102,21 +103,7 @@ def _push_enforcement(
     return push_enforcement_from_mapping(payload)
 
 
-def _artifact_matches_current_head(enforcement: PushEnforcement) -> bool:
-    if not enforcement.latest_push_report_published_remote:
-        return False
-    branch_matches = enforcement.latest_push_report_matches_current_branch or bool(
-        enforcement.current_branch
-        and enforcement.latest_push_report_branch
-        and enforcement.current_branch == enforcement.latest_push_report_branch
-    )
-    head_matches = enforcement.latest_push_report_matches_current_head or bool(
-        enforcement.current_head_commit
-        and enforcement.latest_push_report_head_commit
-        and enforcement.current_head_commit == enforcement.latest_push_report_head_commit
-    )
-    remote_matches = (
-        not enforcement.latest_push_report_remote
-        or enforcement.latest_push_report_remote == enforcement.default_remote
-    )
-    return branch_matches and head_matches and remote_matches
+def _artifact_matches_current_publication_target(
+    enforcement: PushEnforcement,
+) -> bool:
+    return artifact_records_current_head_publish(enforcement)

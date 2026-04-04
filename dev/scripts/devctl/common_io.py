@@ -89,15 +89,12 @@ def resolve_repo_python_command(cmd: list[str], *, cwd: Path | None = None) -> l
     if len(cmd) < 2 or cmd[0] != "python3":
         return cmd
     script_arg = cmd[1]
-    if not script_arg.endswith(".py"):
-        return cmd
-    script_path = Path(script_arg).expanduser()
-    if not script_path.is_absolute():
-        script_path = (cwd or REPO_ROOT) / script_path
-    try:
-        resolved = script_path.resolve(strict=False)
-        resolved.relative_to(REPO_ROOT)
-    except (OSError, ValueError):
+    resolved = None
+    if script_arg.endswith(".py"):
+        resolved = _resolve_repo_python_target(script_arg, cwd=cwd)
+    elif script_arg == "-m":
+        resolved = _resolve_repo_owned_pytest_target(cmd, cwd=cwd)
+    if resolved is None:
         return cmd
     return [sys.executable or "python3", *cmd[1:]]
 
@@ -148,11 +145,53 @@ def normalize_repo_python_shell_command(command: str) -> str:
     if parts[0] not in {"python3", "python3.11", sys.executable}:
         return command
     target = parts[1]
-    if target != "dev/scripts/devctl.py" and not target.startswith("dev/scripts/checks/"):
+    if target.endswith(".py"):
+        resolved = _resolve_repo_python_target(target, cwd=REPO_ROOT)
+        if resolved is None:
+            return command
+    elif target == "-m":
+        resolved = _resolve_repo_owned_pytest_target(parts, cwd=REPO_ROOT)
+        if resolved is None:
+            return command
+    else:
         return command
     parts[0] = sys.executable or "python3"
     rebuilt = shlex.join(parts)
     return " ".join([*env_prefix, rebuilt]) if env_prefix else rebuilt
+
+
+def _resolve_repo_python_target(
+    raw_target: str,
+    *,
+    cwd: Path | None,
+) -> Path | None:
+    """Resolve one Python-run target when it lives under the repo root."""
+    target_path = Path(raw_target).expanduser()
+    if not target_path.is_absolute():
+        target_path = (cwd or REPO_ROOT) / target_path
+    try:
+        resolved = target_path.resolve(strict=False)
+        resolved.relative_to(REPO_ROOT)
+    except (OSError, ValueError):
+        return None
+    return resolved
+
+
+def _resolve_repo_owned_pytest_target(
+    parts: Sequence[str],
+    *,
+    cwd: Path | None,
+) -> Path | None:
+    """Return the first repo-owned pytest path target for `python3 -m pytest ...`."""
+    if len(parts) < 4 or parts[1] != "-m" or parts[2] != "pytest":
+        return None
+    for raw_target in parts[3:]:
+        if raw_target.startswith("-"):
+            continue
+        resolved = _resolve_repo_python_target(raw_target, cwd=cwd)
+        if resolved is not None:
+            return resolved
+    return None
 
 
 def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

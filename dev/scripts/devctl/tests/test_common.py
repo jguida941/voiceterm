@@ -179,6 +179,40 @@ class CommandRenderingTests(TestCase):
         self.assertEqual(rendered, "echo '/tmp/has space/file.txt'")
 
 
+class RepoPythonNormalizationTests(TestCase):
+    def test_resolve_repo_python_command_rewrites_repo_pytest_target(self) -> None:
+        command = [
+            "python3",
+            "-m",
+            "pytest",
+            "app/operator_console/tests/",
+            "-q",
+            "--tb=short",
+        ]
+
+        normalized = common.resolve_repo_python_command(command)
+
+        self.assertEqual(normalized[0], sys.executable)
+        self.assertEqual(normalized[1:], command[1:])
+
+    def test_resolve_repo_python_command_leaves_external_pytest_target(self) -> None:
+        command = ["python3", "-m", "pytest", "/tmp/external-tests", "-q"]
+
+        normalized = common.resolve_repo_python_command(command)
+
+        self.assertEqual(normalized, command)
+
+    def test_normalize_repo_python_shell_command_rewrites_repo_pytest_target(
+        self,
+    ) -> None:
+        command = "python3 -m pytest app/operator_console/tests/ -q --tb=short"
+
+        normalized = common.normalize_repo_python_shell_command(command)
+
+        self.assertIn(sys.executable, normalized)
+        self.assertFalse(normalized.startswith("python3 "))
+
+
 class PipeOutputTests(TestCase):
     @patch("dev.scripts.devctl.common.shutil.which", return_value=None)
     def test_pipe_output_missing_command_returns_2(self, _which_mock) -> None:

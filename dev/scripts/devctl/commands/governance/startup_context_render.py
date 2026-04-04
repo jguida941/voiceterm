@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from ...context_graph.render import append_quality_signal_lines
+from ...runtime.project_governance_push import push_enforcement_from_mapping
+from ...runtime.startup_push_recovery import artifact_publication_truth
 
 _DEVCTL_PUSH_EXECUTE_COMMAND = "python3 dev/scripts/devctl.py push --execute"
 
@@ -38,9 +40,7 @@ def _append_rule_explanation(
             summary = str(row.get("summary") or "").strip()
             rejected_because = str(row.get("rejected_because") or "").strip()
             if summary and rejected_because:
-                lines.append(
-                    f"- rejected_rule: {summary} -> {rejected_because}"
-                )
+                lines.append(f"- rejected_rule: {summary} -> {rejected_because}")
 def _join_paths(paths: list[object], *, limit: int = 4) -> str:
     cleaned = [str(path).strip() for path in paths if str(path).strip()]
     if len(cleaned) <= limit:
@@ -98,6 +98,9 @@ def _append_latest_push_receipt(lines: list[str], push_enforcement: dict) -> Non
     latest_push_reason = str(push_enforcement.get("latest_push_report_reason") or "").strip()
     if not (latest_push_path or latest_push_status or latest_push_reason):
         return
+    published_remote, post_push_green = artifact_publication_truth(
+        push_enforcement_from_mapping(push_enforcement)
+    )
     for label, value in (
         ("latest_push_report", f"`{latest_push_path or 'n/a'}`"),
         (
@@ -109,13 +112,16 @@ def _append_latest_push_receipt(lines: list[str], push_enforcement: dict) -> Non
             bool(push_enforcement.get("latest_push_report_matches_current_head")),
         ),
         (
-            "published_remote",
-            bool(push_enforcement.get("latest_push_report_published_remote")),
+            "latest_push_matches_current_approved_target",
+            bool(push_enforcement.get("latest_push_report_matches_current_approved_target")),
         ),
         (
-            "post_push_green",
-            bool(push_enforcement.get("latest_push_report_post_push_green")),
+            "latest_push_report_published_remote",
+            bool(push_enforcement.get("latest_push_report_published_remote")),
         ),
+        ("latest_push_receipt_current", published_remote),
+        ("published_remote", published_remote),
+        ("post_push_green", post_push_green),
     ):
         lines.append(f"- {label}: {value}")
     if latest_push_status:

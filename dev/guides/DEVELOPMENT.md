@@ -880,7 +880,11 @@ Workflow permissions note:
    back to a generic "push unavailable" interpretation. Treat a blank
    approved-target identity as a valid current-target match for ordinary
    branch pushes, and surface when that publish truth came from the latest
-   push artifact rather than from a live remote-commit pipeline.
+   push artifact rather than from a live remote-commit pipeline. The current
+   publication target also includes the tracked upstream remote when present
+   (otherwise the repo default remote), and startup/status markdown should
+   render effective current-target truth instead of stale raw latest-push
+   booleans.
    The shared `devctl` command runner now follows the parent push/post-push
    command lifetime instead of waiting forever on inherited descendant stdout
    pipes after the governed push has already completed.

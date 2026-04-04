@@ -7517,6 +7517,40 @@ Evidence: `dev/scripts/devctl/review_channel/ack_contract.py`,
 `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`.
 
+### 2026-04-04 - Governed push receipts now project one current-target truth across startup and review surfaces
+
+Fact: the repo already had the right publication contract in spirit, but not
+in every projection. Startup recovery treated the managed latest-push artifact
+as current only when branch, HEAD, and reviewer-approved target matched,
+while review-channel doctor/readiness fallback and human-facing push sections
+could still treat stale raw `latest_push_report_*` booleans as live truth.
+The closure keeps one publication-target rule across the stack: a managed
+push receipt only counts for the active branch when it matches the current
+branch, current HEAD, current approved target identity when present, and the
+tracked upstream remote (or repo default remote when no upstream exists).
+Startup/status markdown now renders effective current-target truth instead of
+replaying stale raw artifact booleans, event-backed review-state enrichment
+now carries the same push-enforcement / push-decision parity as the
+bridge-backed path, and review-channel doctor fallback now reuses the same
+approved-target-aware receipt rule.
+
+Evidence: `dev/scripts/devctl/governance/push_state.py`,
+`dev/scripts/devctl/runtime/startup_push_recovery.py`,
+`dev/scripts/devctl/review_channel/reviewer_runtime_publication.py`,
+`dev/scripts/devctl/review_channel/event_projection.py`,
+`dev/scripts/devctl/review_channel/projection_markdown.py`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/tests/vcs/test_push.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`,
+`dev/scripts/devctl/tests/review_channel/test_push_rendering.py`,
+`dev/scripts/devctl/tests/review_channel/test_event_projection_push.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
 ### 2026-03-31 - Typed review-state now separates declared reviewer mode from live authority
 
 Fact: the bridge-backed review loop already exposed declared

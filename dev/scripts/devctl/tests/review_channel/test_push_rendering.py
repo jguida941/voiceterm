@@ -14,6 +14,7 @@ def _push_enforcement(**overrides) -> dict[str, object]:
         "latest_push_report_path": "dev/reports/push/latest.json",
         "latest_push_report_matches_current_branch": False,
         "latest_push_report_matches_current_head": False,
+        "latest_push_report_matches_current_approved_target": False,
         "latest_push_report_published_remote": True,
         "latest_push_report_post_push_green": False,
         "latest_push_report_status": "published_remote",
@@ -39,7 +40,10 @@ class ReviewChannelPushRenderingTests(unittest.TestCase):
         self.assertIn("- latest_push_report: `dev/reports/push/latest.json`", rendered)
         self.assertIn("- latest_push_matches_current_branch: False", rendered)
         self.assertIn("- latest_push_matches_current_head: False", rendered)
-        self.assertIn("- published_remote: True", rendered)
+        self.assertIn("- latest_push_matches_current_approved_target: False", rendered)
+        self.assertIn("- latest_push_report_published_remote: True", rendered)
+        self.assertIn("- latest_push_receipt_current: False", rendered)
+        self.assertIn("- published_remote: False", rendered)
         self.assertIn("- post_push_green: False", rendered)
         self.assertIn("- latest_push_status: `published_remote`", rendered)
         self.assertIn("- latest_push_reason: `post_push_bundle_failed`", rendered)

@@ -817,6 +817,15 @@
   identities as valid matches for ordinary branch pushes, so persisted
   publish receipts remain recoverable even when no reviewer-owned target
   identity was attached to the original `devctl push`.
+- 2026-04-04 publish-target parity follow-up: the next bounded `MP-377`
+  closure on governed push truth is not a new architecture doc. The same
+  `latest-push` receipt now has to mean the same thing in startup, doctor,
+  event-backed projections, and human-facing push sections: current branch,
+  current HEAD, current approved target, and the tracked upstream remote (or
+  repo default remote when no upstream exists). Startup/status markdown now
+  renders effective current-target truth instead of replaying stale raw
+  artifact booleans, and event-backed review-state enrichment now carries the
+  same push-enforcement / push-decision parity instead of staying bridge-only.
 - 2026-03-27 repo-entrance/dev-loop adjudication: accepted two additional
   same-lane follow-ups without widening the product roadmap. First, keep the
   root repo entrance split by audience: `README.md` remains the VoiceTerm

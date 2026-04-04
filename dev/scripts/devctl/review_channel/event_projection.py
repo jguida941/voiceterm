@@ -36,6 +36,8 @@ from .reviewer_runtime_contract import (
     build_reviewer_doctor_surface,
     build_reviewer_runtime_contract,
 )
+from .status_projection_helpers import build_bridge_push_enforcement_state
+from .status_push_decision import build_status_push_decision
 from .event_projection_queue import (
     derive_event_next_instruction,
     derive_event_next_instruction_bundle,
@@ -111,6 +113,9 @@ def enrich_event_review_state(
         service_identity=raw_service_identity
     )
     bridge_liveness = build_event_bridge_liveness_projection(review_state)
+    bridge_liveness["push_enforcement"] = build_bridge_push_enforcement_state(
+        repo_root
+    )
     current_session = build_event_current_session(
         review_state=review_state,
         bridge_liveness=bridge_liveness,
@@ -136,13 +141,17 @@ def enrich_event_review_state(
             rollover_dir=projections_root.parent / "rollovers",
         )
     )
+    push_decision = build_status_push_decision(
+        bridge_liveness=bridge_liveness,
+        reviewer_runtime=reviewer_runtime,
+    )
     commit_pipeline = load_remote_commit_pipeline_contract(output_root=projections_root)
     existing_compat = review_state.get("_compat")
     merged_compat = dict(existing_compat) if isinstance(existing_compat, dict) else {}
     snapshot_id = build_surface_snapshot_id(
         reviewer_runtime=reviewer_runtime,
         commit_pipeline=commit_pipeline,
-        push_decision=_mapping(merged_compat.get("push_decision")),
+        push_decision=push_decision,
     )
     commit_pipeline = replace(commit_pipeline, snapshot_id=snapshot_id)
     bridge_liveness["review_accepted"] = (
@@ -165,19 +174,24 @@ def enrich_event_review_state(
     merged_compat["attach_auth_policy"] = build_attach_auth_policy_state(
         raw_attach_auth_policy
     )
+    push_enforcement = _mapping(bridge_liveness.get("push_enforcement"))
+    if push_enforcement:
+        merged_compat["push_enforcement"] = push_enforcement
     merged_compat["doctor"] = build_reviewer_doctor_surface(
         contract=reviewer_runtime,
         attention=attention,
         commit_pipeline=commit_pipeline,
-        push_enforcement=bridge_liveness.get("push_enforcement"),
+        push_enforcement=push_enforcement,
         runtime_state=runtime_daemons,
         snapshot_id=snapshot_id,
     )
+    if push_decision:
+        merged_compat["push_decision"] = push_decision
     if snapshot_id:
         merged_compat["snapshot_id"] = snapshot_id
-        push_decision = _mapping(merged_compat.get("push_decision"))
-        if push_decision:
-            updated_push_decision = dict(push_decision)
+        compat_push_decision = _mapping(merged_compat.get("push_decision"))
+        if compat_push_decision:
+            updated_push_decision = dict(compat_push_decision)
             updated_push_decision["snapshot_id"] = snapshot_id
             merged_compat["push_decision"] = updated_push_decision
         bridge_projection = _mapping(merged_compat.get("bridge_projection"))

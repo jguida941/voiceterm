@@ -35,7 +35,6 @@ def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -
     latest_push_report_remote = str(
         getattr(push_enforcement, "latest_push_report_remote", "") or ""
     )
-    default_remote = str(getattr(push_enforcement, "default_remote", "") or "")
     latest_push_report_published_remote = bool(
         getattr(push_enforcement, "latest_push_report_published_remote", False)
     )
@@ -60,8 +59,8 @@ def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -
             and latest_push_report_head_commit
             and current_head_commit == latest_push_report_head_commit
         )
-    artifact_remote_matches = (
-        not latest_push_report_remote or latest_push_report_remote == default_remote
+    artifact_remote_matches = not latest_push_report_remote or (
+        latest_push_report_remote == _current_target_remote(push_enforcement)
     )
     return bool(
         latest_push_report_published_remote
@@ -69,6 +68,20 @@ def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -
         and artifact_branch_matches
         and artifact_head_matches
         and artifact_remote_matches
+    )
+
+
+def artifact_publication_truth(
+    push_enforcement: "PushEnforcement",
+) -> tuple[bool, bool]:
+    """Return effective published/post-push truth for the current publication target."""
+    published_remote = artifact_records_current_head_publish(push_enforcement)
+    return (
+        published_remote,
+        bool(
+            published_remote
+            and getattr(push_enforcement, "latest_push_report_post_push_green", False)
+        ),
     )
 
 
@@ -164,3 +177,10 @@ def artifact_publication_recovery_decision(
             ),
         ),
     )
+
+
+def _current_target_remote(push_enforcement: "PushEnforcement") -> str:
+    upstream_ref = str(getattr(push_enforcement, "upstream_ref", "") or "")
+    if "/" in upstream_ref:
+        return upstream_ref.split("/", 1)[0]
+    return str(getattr(push_enforcement, "default_remote", "") or "")
