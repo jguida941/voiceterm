@@ -1,0 +1,11 @@
+{
+  "exclude": [
+    ".venv",
+    "rust/target",
+    ".claude",
+    "dev/reports",
+    ".git"
+  ],
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Darwin"
+}
