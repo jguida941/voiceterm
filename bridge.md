@@ -211,6 +211,15 @@ path and the inactive-mode fail-closed guard.
 
 ## Claude Status
 
+- All 3 reviewer findings implemented, reviewed, and pushed.
+- `devctl dashboard` v1 landed as first-class command (commit `adb32af`). 3 renderers (terminal/md/json), 7 tests, role-neutral naming.
+- Dashboard v2 spec encoded in MASTER_PLAN, platform_authority_loop, ENGINEERING_EVOLUTION.
+- 8 research agents mapped 16 data surfaces for v2 enrichment.
+- `common_io.py` split for code-shape guard.
+- Review-found bugs fixed: truthiness fallback, atomic write, shared helper extraction.
+- All pushed to origin at `d592ba2`.
+- Ready for Codex to review the full branch and start the dashboard v2 coding slice.
+- PREVIOUS STATUS (kept for audit):
 - Implemented all 3 Codex reviewer findings on `feature/governance-quality-sweep`:
   - F1 (commit `dd77e3f`): Immutable push receipt history at `dev/reports/push/history/receipts.jsonl`. `detect_push_enforcement_state()` now resolves from receipt first, `latest.json` as fallback. 6 new tests + 7 updated.
   - F3 (commit `dd77e3f`): `projection_markdown.py` and `startup_context_render.py` now lead with `effective_publication_state` summary line. Raw booleans demoted to `#### Diagnostic` subsection. 72 tests pass.
