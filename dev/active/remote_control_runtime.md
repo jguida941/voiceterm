@@ -85,6 +85,14 @@ contract exists.
 - 2026-04-04: Bound those gaps to `MP-380..MP-385` so the closure path stays
   under the existing `MP-377` owner chain instead of becoming bridge-local
   review lore.
+- 2026-04-04: Claude 8-agent audit (AUD-1..AUD-11) mapped to slices:
+  - Slice A (MP-380/382): AUD-3 (no typed remote_control/device/available), AUD-6 (zero device awareness), AUD-8 (3 disconnected permission layers), AUD-9 (operator mode-switching)
+  - Slice B (MP-383): AUD-4 (post_packet() doesn't exist), AUD-8 (permission routing dispatcher)
+  - Slice C (MP-381): AUD-2 (errors to stderr only), AUD-7 (guards format differently, no universal schema)
+  - Slice D (MP-384): AUD-1 (session_state_hints never called), AUD-2 (no errors in dashboard), AUD-5 (5/6 quality gates always n/a, pending_packets hardcoded 0)
+  - Slice E (MP-385): dependent on A-D
+  - AUD-10: full explainability — surface reasoning chains, not summaries
+  - AUD-11: build lifecycle hooks, notification channels, permission relay, scheduled tasks as OUR typed contracts (agent-agnostic), not Claude-specific features. External tools are surface adapters, not authority.
 
 ## Session Resume
 
