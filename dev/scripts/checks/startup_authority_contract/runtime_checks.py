@@ -66,12 +66,15 @@ def collect_reviewer_loop_block_errors(
     gov,
     *,
     intent: str = _IMPLEMENTATION_STRICT_INTENT,
+    reviewer_gate=None,
 ) -> list[str]:
     """Return fail-closed errors when the active reviewer loop blocks implementation."""
-    try:
-        gate = _detect_reviewer_gate(repo_root, governance=gov)
-    except AttributeError:
-        gate = _detect_reviewer_gate(repo_root)
+    gate = reviewer_gate
+    if gate is None:
+        try:
+            gate = _detect_reviewer_gate(repo_root, governance=gov)
+        except AttributeError:
+            gate = _detect_reviewer_gate(repo_root)
     if not gate.implementation_blocked:
         return []
     if gate.review_gate_allows_push:

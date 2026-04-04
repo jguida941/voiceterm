@@ -391,6 +391,45 @@ def test_startup_authority_bootstrap_intent_allows_reviewer_loop_only_block(
     assert not any("Reviewer loop blocks" in error for error in report["errors"])
 
 
+def test_startup_authority_uses_preloaded_governance_and_reviewer_gate(
+    tmp_path: Path,
+) -> None:
+    _setup_full_layout(tmp_path)
+    governance = _fake_governance(tmp_path)
+    reviewer_gate = SimpleNamespace(
+        implementation_blocked=True,
+        review_gate_allows_push=False,
+        implementation_block_reason="reviewer_heartbeat_stale",
+        reviewer_mode="active_dual_agent",
+        review_accepted=False,
+    )
+
+    with (
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.import_repo_module",
+        ) as import_repo_module,
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            return_value=([], []),
+        ),
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.collect_push_decision_contract_errors",
+            return_value=[],
+        ),
+    ):
+        report = _build_report(
+            repo_root=tmp_path,
+            intent="reviewer_bootstrap",
+            governance=governance,
+            reviewer_gate=reviewer_gate,
+        )
+
+    import_repo_module.assert_not_called()
+    assert report["ok"] is True
+    assert report["reviewer_loop_blocked"] is True
+    assert report["reviewer_loop_bootstrap_allowed"] is True
+
+
 def test_startup_authority_fails_when_push_contract_is_incoherent(
     tmp_path: Path,
 ) -> None:

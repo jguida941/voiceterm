@@ -33,6 +33,8 @@ _REVIEW_STATUS_COMMAND = (
     "python3 dev/scripts/devctl.py review-channel --action status "
     "--terminal none --format json"
 )
+_IMPLEMENTATION_STRICT_INTENT = "implementation_strict"
+_REVIEWER_BOOTSTRAP_INTENT = "reviewer_bootstrap"
 
 
 def _summary_blockers(ctx_dict: dict) -> str:
@@ -122,6 +124,13 @@ def _render_summary(ctx_dict: dict) -> str:
     if backlog_guidance:
         lines.append(f"push_guidance={backlog_guidance.replace('`', '')}")
     return "\n".join(lines)
+
+
+def _startup_authority_intent(*, caller_role: str | None, reviewer_override: bool) -> str:
+    """Return the startup-authority intent for the current caller role."""
+    if caller_role == "reviewer" and not reviewer_override:
+        return _REVIEWER_BOOTSTRAP_INTENT
+    return _IMPLEMENTATION_STRICT_INTENT
 
 
 def add_parser(subparsers) -> None:
@@ -229,7 +238,16 @@ def run(args) -> int:
 
     ctx = build_startup_context()
     governance = ctx.governance
-    authority_report = build_startup_authority_report()
+    caller_role = getattr(args, "role", None)
+    reviewer_override = getattr(args, "reviewer_override", False)
+    authority_report = build_startup_authority_report(
+        intent=_startup_authority_intent(
+            caller_role=caller_role,
+            reviewer_override=reviewer_override,
+        ),
+        governance=governance,
+        reviewer_gate=ctx.reviewer_gate,
+    )
     receipt = build_startup_receipt(
         ctx,
         authority_report=authority_report,
@@ -245,8 +263,6 @@ def run(args) -> int:
     blocked = blocks_new_implementation(ctx) or not bool(authority_report.get("ok", False))
     # Role-aware reviewer gate: in active_dual_agent, reviewer must not
     # start implementation work unless explicitly overridden.
-    caller_role = getattr(args, "role", None)
-    reviewer_override = getattr(args, "reviewer_override", False)
     reviewer_blocked = False
     if caller_role == "reviewer" and not reviewer_local_implementation_allowed(
         reviewer_mode=ctx.reviewer_gate.reviewer_mode,

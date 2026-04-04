@@ -859,6 +859,105 @@ class TestCLIRegistration(unittest.TestCase):
 
         self.assertEqual(rc, 1)
 
+    def test_reviewer_role_uses_bootstrap_intent_and_preloaded_state(self) -> None:
+        ctx = StartupContext(
+            governance=_minimal_governance(),
+            reviewer_gate=ReviewerGateState(
+                reviewer_mode="active_dual_agent",
+                effective_reviewer_mode="active_dual_agent",
+            ),
+            advisory_action="continue_editing",
+            advisory_reason="clean_worktree",
+        )
+        args = build_parser().parse_args(
+            ["startup-context", "--role", "reviewer", "--format", "json"]
+        )
+
+        with patch.object(
+            startup_context_command,
+            "build_startup_context",
+            return_value=ctx,
+        ), patch.object(
+            startup_context_command,
+            "build_startup_authority_report",
+            return_value={
+                "ok": True,
+                "checks_run": 10,
+                "checks_passed": 10,
+                "errors": [],
+                "warnings": [],
+            },
+        ) as authority_mock, patch.object(
+            startup_context_command,
+            "write_startup_receipt",
+            return_value=Path("/tmp/startup-receipt.json"),
+        ), patch.object(
+            startup_context_command,
+            "emit_machine_artifact_output",
+            return_value=0,
+        ):
+            rc = startup_context_command.run(args)
+
+        self.assertEqual(rc, 0)
+        authority_mock.assert_called_once_with(
+            intent="reviewer_bootstrap",
+            governance=ctx.governance,
+            reviewer_gate=ctx.reviewer_gate,
+        )
+
+    def test_reviewer_override_keeps_implementation_strict_intent(self) -> None:
+        ctx = StartupContext(
+            governance=_minimal_governance(),
+            reviewer_gate=ReviewerGateState(
+                reviewer_mode="active_dual_agent",
+                effective_reviewer_mode="active_dual_agent",
+            ),
+            advisory_action="continue_editing",
+            advisory_reason="clean_worktree",
+        )
+        args = build_parser().parse_args(
+            [
+                "startup-context",
+                "--role",
+                "reviewer",
+                "--reviewer-override",
+                "--format",
+                "json",
+            ]
+        )
+
+        with patch.object(
+            startup_context_command,
+            "build_startup_context",
+            return_value=ctx,
+        ), patch.object(
+            startup_context_command,
+            "build_startup_authority_report",
+            return_value={
+                "ok": True,
+                "checks_run": 10,
+                "checks_passed": 10,
+                "errors": [],
+                "warnings": [],
+            },
+        ) as authority_mock, patch.object(
+            startup_context_command,
+            "write_startup_receipt",
+            return_value=Path("/tmp/startup-receipt.json"),
+        ), patch.object(
+            startup_context_command,
+            "emit_machine_artifact_output",
+            return_value=0,
+        ):
+            rc = startup_context_command.run(args)
+
+        self.assertEqual(rc, 0)
+        authority_mock.assert_called_once_with(
+            intent="implementation_strict",
+            governance=ctx.governance,
+            reviewer_gate=ctx.reviewer_gate,
+        )
+
 
 class TestReviewerGateSemantics(unittest.TestCase):
     """Verify reviewer gate does NOT conflate ACK with acceptance."""

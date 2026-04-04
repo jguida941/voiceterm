@@ -27,7 +27,9 @@ except ModuleNotFoundError:
 
 _COMMAND = "check_startup_authority_contract"
 
-def _load_governance(root: Path):
+def _load_governance(root: Path, *, governance=None):
+    if governance is not None:
+        return governance
     draft_mod = import_repo_module(
         "dev.scripts.devctl.governance.draft",
         repo_root=root,
@@ -121,6 +123,7 @@ def _runtime_authority_checks(
     gov,
     *,
     intent: str,
+    reviewer_gate=None,
 ) -> tuple[list[str], list[str], int, int, bool, bool, int]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -142,11 +145,16 @@ def _runtime_authority_checks(
         checks_passed += 1
 
     checks_run += 1
-    strict_reviewer_loop_errors = collect_reviewer_loop_block_errors(root, gov)
+    strict_reviewer_loop_errors = collect_reviewer_loop_block_errors(
+        root,
+        gov,
+        reviewer_gate=reviewer_gate,
+    )
     reviewer_loop_errors = collect_reviewer_loop_block_errors(
         root,
         gov,
         intent=intent,
+        reviewer_gate=reviewer_gate,
     )
     if reviewer_loop_errors:
         errors.extend(reviewer_loop_errors)
@@ -188,9 +196,11 @@ def _build_report(
     repo_root: Path | None = None,
     *,
     intent: str = "implementation_strict",
+    governance=None,
+    reviewer_gate=None,
 ) -> dict:
     root = repo_root or REPO_ROOT
-    gov = _load_governance(root)
+    gov = _load_governance(root, governance=governance)
     errors, checks_run, checks_passed = _base_authority_checks(root, gov)
     (
         runtime_errors,
@@ -204,6 +214,7 @@ def _build_report(
         root,
         gov,
         intent=intent,
+        reviewer_gate=reviewer_gate,
     )
     errors.extend(runtime_errors)
     checks_run += runtime_checks_run
