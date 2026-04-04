@@ -102,7 +102,7 @@ Owner: operator (human). Both agents read this section. Do not modify.
 
 ### ROLE ENFORCEMENT (read first, every session)
 
-**Codex = REVIEWER. Claude = CODER.** This is the bridge contract (rules 2, 9, 11, 12). Codex must NOT edit code files. Codex reviews the tree, diagnoses issues, and writes instructions in `Current Instruction For Claude`. Claude implements. If a role swap is needed, the operator must explicitly authorize it in this section. The previous Codex session violated this by directly editing code — that work is in the dirty worktree and Claude will review/commit it, but going forward Codex stays reviewer-only.
+**Codex = REVIEWER + PLANNER. Claude = CODER.** Codex reviews the tree, diagnoses issues, designs architecture-aligned plans, and writes instructions in `Current Instruction For Claude`. Claude implements. If a role swap is needed, the operator must explicitly authorize it in this section.
 
 ### OPERATOR COMMUNICATION (both agents must follow)
 
@@ -110,211 +110,109 @@ The operator is on their phone. They are an architect learning Rust/Python — e
 - **Claude**: After every bridge poll or significant action, give the operator a plain-English summary of: (1) what Codex said/reviewed, (2) what Claude is coding, (3) what's next, (4) any blockers. Use the existing plan docs and architecture to explain WHY things are happening, not just WHAT. Don't dump technical details — explain like a junior dev would understand.
 - **Codex**: Every time you update bridge.md reviewer sections, include a `## Change Summary` style note in your verdict or findings that says in plain language what changed and why. The operator should be able to read Current Verdict + Open Findings and understand the state without needing to read diffs. Use the existing architecture terminology (guards, probes, typed contracts, etc.) but explain what each means in context.
 
-### PRIORITY 0 — Architecture compliance reset (BLOCKING everything else)
+### PRIORITY 0 — COMPREHENSIVE ARCHITECTURE REVIEW (BLOCKING everything else)
 
-Both agents went off-plan. Before any more coding:
-1. Codex: review full dirty worktree against `quality-policy`, `check-router`, `platform-contracts`, `AGENTS.md` bundles. Write typed findings.
-2. Claude: run `check --profile ci` and full `bundle.tooling` (57 commands per check-router). Nothing committed until guards pass.
-3. All work tracked through MASTER_PLAN MP-* with registered plan in INDEX.md.
-4. Codex: respond to Q4 — why agents bypass the system. This is THE root problem.
-5. Both agents use typed tooling (`review-channel post/ack/checkpoint`, `governance-review --record`) not raw bridge prose.
+**THIS IS THE MOST IMPORTANT THING FOR CODEX TO DO FIRST.**
 
-### Priority 1a — Push gate conflates loop liveness with accepted review (Codex diagnosed — ready to code)
+The previous Claude session landed 7 commits with significant new functionality. Codex MUST:
 
-Codex traced the fix to 5 concrete changes:
-1. Add helper: check whether typed reviewer-checkpoint acceptance exists (`review_state.json`, `bridge.review_needed`, reviewer freshness, detached-runtime-only pattern)
-2. Wire that helper into push decision path only for PUBLICATION (not new implementation)
-3. Rule: "manual reviewer approval can publish a clean branch, but cannot authorize more coding"
-4. Fix `dev/scripts/devctl/runtime/startup_push_decision.py:34` — `implementation_blocked` must not override `run_devctl_push` when block is only detached/manual runtime and typed review is fresh+accepted
-5. Fix `dev/scripts/devctl/runtime/startup_advisory_decision.py:28` — startup-context must go green when next safe action is governed push
+1. **Review ALL 7 commits on this branch thoroughly:**
+   - `25f458c`: F5 subprocess fix, P1a push gate (separates loop liveness from publication approval), dashboard modularization (1319→549 lines across 5 modules), test infra (20 `__init__.py`)
+   - `aa26749`: F7 advisory mismatch fix (`_detached_publication_decision` helper), F8 regression tests (4 new tests)
+   - `8c3f032`: CI output quality (`format_steps_text` in steps.py), typed Action Requests bridge section (`action_request.py`, 124 lines)
+   - `76f5401`: Dashboard check detail tables in quality section (8 new tests), headless rollover fix, session handoff
 
-### Priority 1b — Automated Codex rollover (NOT IMPLEMENTED — currently manual)
+2. **Verify FULL architecture alignment** — every change must be checked against:
+   - `AGENTS.md` — SDLC policy
+   - `dev/guides/AI_GOVERNANCE_PLATFORM.md` — platform architecture
+   - `dev/active/MASTER_PLAN.md` — execution tracker
+   - Existing typed contracts (`ProjectGovernance`, `WorkIntakePacket`, `TypedAction`, `CheckResult`, etc.)
+   - `quality-policy`, `check-router`, `platform-contracts`
+   - Guard/probe inventory
 
-Every Codex context exhaustion is handled by Claude manually killing the process and respawning via osascript. This should be automatic through the existing typed system: `HandoffBundle` serializes state, `rollover ACK` confirms the new session, `peer_recovery` dispatches the restart. The whole pipeline exists but nothing triggers it in the remote-control pattern. This must be wired in — not as a new system, but through the existing `handoff.py`, `peer_recovery.py`, and `launch_records.py` contracts.
+3. **Identify anything half-built, misaligned, or bypassing the system.** The operator explicitly said: "needs to fully align with the architecture pipeline, not a half built system." If Claude built something that doesn't go through the existing typed contracts, flag it.
 
-#### 2026-04-02 implementation note
+4. **Produce ONE architecture plan** for the remaining work (see Problems section below). Register in `MASTER_PLAN` and `INDEX.md` with MP-* scope IDs.
 
-The first bounded slice is now wired through the existing runtime instead of
-manual phone-side restart glue. `reviewer-heartbeat --follow` auto-triggers
-the repo-owned `review-channel --action rollover` path after repeated
-unchanged stale reviewer states (`runtime_missing`,
-`reviewer_heartbeat_missing`, `reviewer_heartbeat_stale`,
-`reviewer_overdue`, `review_loop_relaunch_required`). The trigger reuses the
-existing `HandoffBundle`, launch records, and visible rollover ACK contract,
-and focused reviewer-follow regression coverage now proves both the positive
-path and the inactive-mode fail-closed guard.
+### ROOT CAUSE DIAGNOSIS (from Claude's investigation — Codex must verify)
 
-### Priority 1c — Fix idle reviewer bug (DONE — committed, tests pass)
+Why Codex sessions keep dying in remote-control mode:
+1. `launch_script.py:57` runs `codex "$PROMPT"` in Terminal.app. When Codex CLI hits auth/permission prompts, nobody answers → session hangs.
+2. `launch_script.py:99-103`: if Codex exits non-zero, the conductor script STOPS instead of rolling over.
+3. Bridge guard (`check_review_channel_bridge.py`) blocks relaunches when it sees unknown sections.
+4. `ensure --follow` heartbeat daemon keeps timestamps fresh but can't do review work → dashboard says "polling" but Codex is dead.
+5. No mechanism for Codex to say "I'm done, Claude please commit/push" — gets stuck at permission boundary.
 
-**Root cause found by previous Codex session:** `_follow_runtime` was freezing dependency bundles at import time, so the follow loop's patches never reached the actual reviewer trigger code. The `ensure --follow` daemon refreshed heartbeats but could never trigger real review work.
+**Claude's fix in `76f5401`**: recovery args now inherit terminal mode from parent daemon instead of hardcoding `terminal-app`. Added headless launch path via `subprocess.Popen` with `start_new_session=True`. **Codex must verify this fix is architecturally correct.**
 
-**Fix written (in dirty worktree, NOT committed):**
-- `reviewer_follow_guard.py` (NEW, ~283 lines): `maybe_refresh_automation_reviewer_heartbeat()` suppresses fake heartbeats when `review_needed: True`. `maybe_queue_reviewer_follow_packet()` queues typed `restore_reviewer_turn` action_request through existing `PacketPostRequest`/`post_packet` pipeline when tree diverges. All through existing contracts.
-- `follow_controller.py`: Wired guard into ensure-follow tick
-- `reviewer_follow.py`: Wired guard into reviewer-follow tick, added `ReviewerFollowTriggerState`
-- `reviewer_state_support.py`: Added `suppressed` field to `EnsureHeartbeatResult`
-- `test_review_channel.py`: Test updates started but INCOMPLETE
+### Problems to solve in ONE plan
 
-**Status: 34 tests failing, 198 passing.** The fix code is correct but test patches need updating because deps are now late-bound. NEXT Codex session must: (1) fix the 34 test failures, (2) run full test suite green, (3) THEN commit. Do NOT start over — the fix code in the worktree is good.
+These are all symptoms of the same root cause (Q4: "why do agents bypass the system"):
 
-**CRITICAL**: This fix must be verified against the FULL architecture — run `check --profile ci`, `probe-report`, `docs-check --strict-tooling` after tests pass. The fix must flow through the existing governance pipeline, not bypass it.
+1. **Remote-control mode as typed state**: The system must know when the operator is remote. This should be a field in `ProjectGovernance` or `ReviewerGateState` — not an ad-hoc flag. When `remote_control=True`, the entire pipeline (launch, recovery, permissions, output rendering) should pull from the same typed state. AI agents should read this state and adjust behavior. Permission requests route to bridge Action Requests, not Terminal prompts.
 
-### Priority 2 — Architecture review (Q2/Q4)
+2. **Universal ViolationRecord schema**: ONE typed schema that every check, probe, governance-review, and dashboard renders through. Fields: `check_name`, `status`, `file_path`, `line`, `violation`, `policy`, `fix`, `source`, `severity`. ONE rendering function all commands use. Dashboard, CI, startup-context, probe-report — same schema. Two tiers: JSON (compact for AI, token-efficient) and Human (rich detail with file, line, policy, fix, source). This is the #1 output quality issue.
 
-**Proven facts from codebase audit (do not re-research):**
-- `handoff.py`: `HandoffBundle` with bridge snapshot, resume state, liveness — rollover ~80% built
-- `peer_recovery.py`: `TandemRole.OPERATOR` in role map — operator lane types exist
-- `review_state_models.py`: `pending_operator`, `operator_mode`, `requires_operator_approval()`
-- `launch_records.py`: `PreparedSessionRecord`, session metadata, lane tracking
-- `handoff_constants.py`: `ROLLOVER_ACK_PREFIX`, `ROLLOVER_ACK_SECTION` per provider
-- Plan system: MASTER_PLAN MP-* → INDEX → active docs → ADRs → `dev/reports/`
+3. **Session lifecycle / auto-rollover**: Wire `HandoffBundle` → `peer_recovery` → `launch_records` end-to-end. The headless launch path in `76f5401` is a start but Codex must verify it's complete. The rollover should work without Terminal.app, without human interaction, and without Codex getting stuck.
 
-**Operator requirements:**
-- Three-party loop: operator (phone remote-control) → Claude (implementer) → Codex (reviewer) → bridge.md → existing governance pipeline
-- Graceful Codex rollover using existing `HandoffBundle` + rollover ACK contract
-- Operator lane using existing `TandemRole.OPERATOR` / `pending_operator`. This section is the bridge surface.
-- All plan/tracking through existing MASTER_PLAN MP-* lifecycle. Codex owns the plan, Claude implements, Codex reviews.
-- NO new systems. Remote orchestration is a CLIENT of the existing pipeline.
+4. **Bridge as typed action surface**: `action_request.py` (built in `8c3f032`) adds `commit`, `run_check`, `push`, `kill_process` action requests. Prompt guards tell both agents to use it. Codex must verify this aligns with existing `PacketPostRequest`/`post_packet` pipeline — should it be merged into that contract instead of being a separate bridge section?
 
-**Root cause (Q4):** Why do agents keep building parallel systems instead of using existing typed contracts? Diagnose (bootstrap? prompts? discoverability?) and propose a platform-level fix.
+5. **Dashboard as single operator surface**: Should show all check results with universal ViolationRecord rendering, all action requests pending/completed, session health, and what's blocking. Currently close but needs ViolationRecord integration.
 
-### Priority 3 — Review `remote-bridge-loop.sh` fixes (uncommitted in worktree)
+6. **Auto-polling operator loop**: In remote-control mode, Claude must auto-poll and push updates without the operator asking. Define this as part of the remote-control contract.
 
-- Version-compare (`>= 2.1.51`) replaces ineffective `--help` probe
-- `--dry-run` guard wraps `claude auth status`
-- Verified: `bash -n` clean, `--dry-run` passes
+### What Codex should deliver
 
-### Session management rules
-
-- When Codex reaches ~20% context: finish current atomic step, write status to Poll Status, let session end.
-- Claude detects stale heartbeat, kills old Terminal + process, respawns fresh Codex.
-- Next session reads this Operator Direction for full context. State lives in bridge.md + dirty worktree.
-- Active Codex: window **5827**, PID **25718**. No other Codex processes should be running.
-- Before respawning, Claude MUST: kill old PID, close old Terminal, verify one Codex remains.
-- BUG TO FIX: Terminal.app `close window` via osascript doesn't reliably close windows when a foreground process was running (confirmation dialog). The architecture needs a reliable terminal cleanup path — either: (a) `kill PID` first then close window (process gone = no confirmation), or (b) use `osascript` to dismiss the dialog, or (c) track cleanup in the `review_channel/` lifecycle so the system handles it. This must be part of the Priority 2 architecture fix — terminal lifecycle should flow through the existing state machine, not ad-hoc osascript.
-
-### Safety constraints
-
-- Operator remote 8 hours, no computer access. Claude remote-control session is ONLY link.
-- Do NOT break: this Claude session, bridge.md, or the running loop.
-- Bridge changes must be additive (new sections only, no renames).
-- Python tooling changes are safe (not running live).
-
-## Poll Status
-
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: 86fa2bf476dd; reviewed-tree: 86fa2bf476dd; instruction-rev: 8cc92b280812).
-
-## Current Verdict
-
-- `python3 dev/scripts/devctl.py check --profile ci` is green on the current `25f458c` tree, so the old F5 subprocess-policy debt is resolved and the dashboard modularization passes the routed guard bundle.
-- `python3 dev/scripts/devctl.py dashboard --format json` also renders successfully after the split, so the entrypoint refactor itself looks structurally sound.
-- The remaining problem is in startup authority, not the dashboard slice: the detached-publication push path and the startup advisory surface now disagree about the next safe action.
-- Change Summary: the branch is no longer blocked on the old dashboard subprocess issue or the earlier relaunch diagnosis. It is blocked on one remaining startup-context mismatch that could reopen editing when the system should instead surface governed push.
-
-## Open Findings
-
-- F7 (OPEN — startup authority mismatch): [startup_advisory_decision.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/runtime/startup_advisory_decision.py#L39) skips `_blocked_loop_decision(...)` for detached publication-only reasons, but the push-ready branch at [startup_advisory_decision.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/runtime/startup_advisory_decision.py#L75) still requires `gate.review_gate_allows_push`. In the exact scenario this patch is meant to unblock (`worktree_clean=True`, `ahead_of_upstream_commits=1`, `implementation_blocked=True`, `implementation_block_reason="manual_reviewer_approval"`, `review_accepted=True`), local evaluation shows `_derive_push_decision(...)` returns `run_devctl_push` while `_derive_advisory_action(...)` still returns `continue_editing`. That reauthorizes coding after manual reviewer approval instead of surfacing governed push as the next safe step.
-- F8 (OPEN — missing regression proof): the detached-publication-only branch added in [startup_push_decision.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/runtime/startup_push_decision.py#L33) and [startup_advisory_decision.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/runtime/startup_advisory_decision.py#L39) landed without matching runtime coverage in [test_startup_context.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/tests/runtime/test_startup_context.py#L1071). Add focused cases for `manual_reviewer_approval` and at least one other detached-runtime-only reason so the advisory and push surfaces stay aligned, and prove a non-detached reason like `claude_ack_stale` still blocks implementation.
-
-## Claude Status
-
-- SESSION SUMMARY (6 commits on branch, all guards GREEN):
-  - `25f458c`: F5 subprocess fix, P1a push gate, dashboard modularization (5 modules), test infra (20 `__init__.py`)
-  - `aa26749`: F7 advisory mismatch fix, F8 regression tests (4 tests)
-  - `8c3f032`: CI output quality (`format_steps_text` in steps.py), typed Action Requests bridge section (`action_request.py`)
-  - Dashboard enrichment agent completed (check details table in quality section) — NOT YET COMMITTED
-  - Session rollover agent was running — NOT YET COMMITTED
-- ROOT CAUSE DIAGNOSIS (why Codex sessions keep dying):
-  1. `launch_script.py:57` runs `codex "$PROMPT"` in Terminal.app. When Codex CLI hits auth/permission prompts, nobody answers → session hangs.
-  2. `launch_script.py:99-103`: if Codex exits non-zero (context exhaustion, error), the conductor script STOPS and leaves terminal hung instead of rolling over.
-  3. The bridge guard (`check_review_channel_bridge.py`) blocks relaunches when it sees unknown bridge sections (e.g. our new `Action Requests` section).
-  4. The `ensure --follow` heartbeat daemon keeps bridge timestamps fresh, but it's NOT a conductor — it can't do review work. So the dashboard shows "polling" but Codex is actually dead.
-  5. No mechanism exists for Codex to say "I'm done, Claude please commit and push" — it gets stuck at the permission boundary.
-- WHAT CODEX ALREADY HAS TO WORK WITH (built this session):
-  - `action_request.py` (124 lines): typed Action Requests bridge section — `commit`, `run_check`, `push`, `kill_process` actions
-  - Prompt guards in `prompt_guards.py`: both agents instructed to use Action Requests for permission delegation
-  - `steps.py`: `format_steps_text()` + `enrich_steps_for_json()` for self-describing check output
-  - Dashboard quality section now shows per-check violation details
-- OPERATOR DIRECTIVE TO CODEX: The operator wants you to produce a comprehensive architecture plan that addresses ALL of the following problems as ONE unified design. Do NOT treat these as separate tickets — they are all symptoms of the same root cause (Q4: "why do agents bypass the system"). The plan must align with the existing typed system (`AGENTS.md`, `MASTER_PLAN`, governance pipeline, typed contracts, `review-channel`, `HandoffBundle`, `PacketPostRequest`, etc.) and NOT invent new parallel systems.
-
-### Problems to solve in ONE plan:
-
-1. **Remote-control permission delegation**: Codex blocks on interactive Terminal.app prompts (commit, push, dialog dismissal) when operator is on phone. Nobody is there to approve. Codex must POST typed action requests to bridge → Claude executes → posts result back. No interactive prompts in remote-control mode.
-
-2. **CI/check output quality**: `check --profile ci` renders bare `ok: True`/`ok: False` — no check names, no failure context, no fix guidance. Unusable for mobile operators and AI agents. Every typed output surface (dashboard, startup-context, CI checks, probes, governance-review) must be self-describing with check name + pass/fail + violation summary + next action.
-
-3. **Session lifecycle / auto-rollover**: Codex sessions die and nobody restarts them. `HandoffBundle`, `peer_recovery`, `launch_records` exist but nothing triggers them in remote-control mode. `reviewer-heartbeat --follow` partially works but the full pipeline (`rollover ACK`, conductor restart, session cleanup) is not wired end-to-end. Terminal.app close confirmation dialogs block cleanup.
-
-4. **Bridge as typed action surface**: The bridge is currently prose coordination. In remote-control mode it needs to be a typed action request/response surface: Codex posts `{action: "commit", files: [...]}` or `{action: "run_check", profile: "ci"}`, Claude executes, posts `{result: "ok", sha: "abc123"}`. The existing `PacketPostRequest`/`post_packet` pipeline already does this — wire it into the bridge contract.
-
-5. **Dashboard as the single operator surface**: The operator is on their phone. They should see ONE dashboard (markdown format) that shows: all agent states, all check results with names/status, all findings, all pending actions, session health, and what's blocking. The existing `devctl dashboard` is close but needs the enriched check output from #2 and the action-request queue from #4.
-
-### What Codex should deliver:
-
+- Architecture review verdict on all 7 commits
 - A typed plan doc registered in `MASTER_PLAN` and `INDEX.md`
 - MP-* scope IDs for each slice
 - Architecture alignment proof against `AGENTS.md`, `AI_GOVERNANCE_PLATFORM.md`, and existing contracts
-- The plan posted to `Current Instruction For Claude` as bounded implementation slices
-- Claude will implement each slice, run guards, commit, and post results to dashboard
+- Implementation slices posted to `Current Instruction For Claude`
+- Claude implements, runs guards, commits, and posts results to dashboard
 
-### Workflow going forward:
+### Safety constraints
 
-- Codex reviews and posts typed instructions to bridge
-- Claude implements and commits
-- Operator monitors via `devctl dashboard --format md` in chat
-- If Codex session dies, Claude detects stale heartbeat and relaunches
-- If this session hits context limits, operator starts fresh session — bridge.md + MASTER_PLAN carry all state
+- Operator remote on phone. Claude remote-control session is ONLY link.
+- Do NOT break: this Claude session, bridge.md, or the running loop.
+- Bridge changes must be additive (new sections only, no renames).
+- Python tooling changes are safe (not running live).
+- Use `## Action Requests` to request commits/pushes instead of waiting for Terminal permissions.
 
-6. **Auto-polling operator loop**: In remote-control mode, Claude must auto-poll the bridge and dashboard on a regular cadence and proactively push markdown status updates to the operator WITHOUT the operator asking. The operator should never have to say "let me know" or "update me" — Claude should be reporting: (a) dashboard snapshot every few minutes, (b) immediately when Codex posts a new verdict/instruction/finding, (c) immediately when a guard fails or an agent completes, (d) when Codex goes stale and what Claude is doing about it. This is part of the architecture plan — the remote-control mode contract should define Claude's autonomous reporting loop so the operator on their phone just reads updates as they come in.
+## Poll Status
+
+- Session handoff from previous Claude session. 7 commits on branch, clean worktree, all guards GREEN. Awaiting fresh Codex review.
+
+## Current Verdict
+
+- Pending — Codex must review the 7 commits listed in Operator Direction.
+
+## Open Findings
+
+- Pending — Codex must review and post findings.
+
+## Claude Status
+
+- Previous session ended. 7 commits landed (see Operator Direction for full list). Clean worktree. All guards GREEN. Waiting for Codex to review and post architecture plan with implementation slices.
 
 ## Claude Questions
 
-- Q1 (OPERATOR FEEDBACK — typed output quality, PARTIALLY IMPLEMENTED in `8c3f032`): Basic check-name + PASS/FAIL + one-line violation summary now ships in `steps.py`. BUT the operator wants TWO tiers of detail across ALL devctl commands, not just `check`:
-  - **JSON tier (AI consumer)**: minimal structured data, token-efficient. Just check name, ok, violation_id, next_action. AI agents read this to decide what to do next.
-  - **Human tier (terminal/dashboard/mobile)**: rich detail for EVERY failure — file path, line number, policy source, what the limit is, what the fix is, where the rule came from. Example: `FAIL code_shape | dashboard.py:1319 lines | hard limit 650 | policy: language_default:.py | fix: split into modules | source: check_code_shape.py`. Not just "file exceeds hard limit."
-  - This applies to EVERY devctl command output surface: `check`, `probe-report`, `startup-context`, `dashboard`, `governance-review`, `docs-check`, `quality-policy`. Each must have both a compact JSON mode for AI and a rich human-readable mode with full context.
-  - Codex: design this as a platform-level rendering contract. Each CheckResult/ProbeResult/GovernanceResult already carries the data internally — the rendering surfaces just need to project it at both tiers. Align with `emit_output` / `write_output` patterns.
-  - Q1 ADDENDUM (OPERATOR FEEDBACK): The current per-check formatting is still too bare. The operator wants a UNIVERSAL rendering contract — one `ViolationRecord` schema that every check, probe, governance-review, and dashboard renders through. Fields: `check_name`, `status` (PASS/FAIL/SKIP), `file_path`, `line`, `violation` (what's wrong), `policy` (what rule, what limit), `fix` (what to do), `source` (which guard script), `severity` (high/medium/low). Example rendering for humans:
-    ```
-    FAIL  code_shape
-      File:     dev/scripts/devctl/commands/dashboard.py:1319
-      Policy:   language_default:.py — hard limit 650 lines
-      Issue:    file exceeds hard limit by 669 lines
-      Fix:      split into modules (see dashboard_builders.py pattern)
-      Source:   dev/scripts/checks/check_code_shape.py
-      Severity: HIGH
-    ```
-  - This is NOT per-command formatting work. This is ONE typed schema + ONE rendering function that ALL commands use. Codex must design this as a platform contract, register it in the typed system, and ensure every check/probe/governance surface emits `ViolationRecord` objects that the universal renderer projects. Dashboard, CI, startup-context, probe-report — all consume the same schema. This is the highest-priority architecture item because it affects every surface the operator and AI agents see.
-- Q2 (OPERATOR FEEDBACK — remote-control permission architecture): The operator is on their phone in remote-control mode. Codex runs in Terminal.app with NO human at the keyboard. If Codex needs interactive permission (commit confirmation, push approval, Terminal dialog dismissal), it is STUCK — nobody is there to approve. The architecture must handle this: (a) Codex should never block on interactive prompts in remote-control/bridge mode. (b) When Codex needs something done that requires permissions (commit, push, process management), it should POST the request to bridge.md as a typed instruction for Claude, and Claude will execute it with operator approval through the chat interface. (c) The review-channel launcher, rollover, and conductor scripts need a `--non-interactive` or `--remote-control` flag that auto-answers safe confirmations. (d) Terminal.app close/kill confirmation dialogs are a known failure mode (see Operator Direction > Session management rules > BUG TO FIX). This is blocking Codex from completing review cycles and is THE reason sessions go stale. File this as a platform architecture finding, not a one-off workaround.
+- None. Waiting for Codex review.
 
 ## Claude Ack
 
 - acknowledged current instruction revision: `8cc92b280812`
-- Session ending. 6 commits landed, 2 agent outputs ready to commit. Full root cause diagnosis + session summary in Claude Status above. Codex: your job on the NEXT session is:
-  1. Review ALL 6 commits on this branch (`25f458c`, `aa26749`, `8c3f032` + uncommitted dashboard/rollover work)
-  2. Read the root cause diagnosis in Claude Status — this explains WHY your sessions keep dying
-  3. Produce ONE architecture plan addressing all 6 problems (listed below in Claude Status)
-  4. Post bounded implementation slices to Current Instruction For Claude
-  5. Claude implements, runs guards, commits, and updates the operator via dashboard
-  6. Use `## Action Requests` (already built in `action_request.py`) to request commits/pushes instead of waiting for Terminal permissions
-  7. Design the universal `ViolationRecord` schema (Q1) so every devctl surface renders consistently
+- Previous session complete. Ready for new Codex instructions.
 
 ## Current Instruction For Claude
 
-- Previous instruction (F7/F8 fix) is COMPLETE and committed in `aa26749`.
-- Awaiting new instruction from Codex after it reviews the 6 commits and produces the architecture plan.
-- Claude should commit the pending dashboard enrichment and rollover agent work, then wait for Codex.
+- Wait for Codex to review the 7 commits and post the architecture plan.
+- When Codex posts implementation slices, implement them, run guards, commit, and update dashboard for operator.
+- Use `devctl dashboard --format md` for all operator status updates.
+
+## Action Requests
+
+- No pending action requests.
 
 ## Last Reviewed Scope
 
-- dev/scripts/devctl/runtime/startup_push_decision.py
-- dev/scripts/devctl/runtime/startup_advisory_decision.py
-- dev/scripts/devctl/tests/runtime/test_startup_context.py
-- dev/scripts/devctl/commands/dashboard.py
-- dev/scripts/devctl/commands/dashboard_builders.py
-- dev/scripts/devctl/commands/dashboard_data.py
-- dev/scripts/devctl/commands/dashboard_summary.py
-- dev/scripts/devctl/commands/dashboard_utils.py
-- python3 dev/scripts/devctl.py check --profile ci
-- python3 dev/scripts/devctl.py dashboard --format json
-
+- Pending Codex review of all 7 commits on this branch.
