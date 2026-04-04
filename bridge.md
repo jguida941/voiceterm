@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-04T04:45:29Z`
-- Last Codex poll (Local America/New_York): `2026-04-04 00:45:29 EDT`
+- Last Codex poll: `2026-04-04T06:39:09Z`
+- Last Codex poll (Local America/New_York): `2026-04-04 02:39:09 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `bc78d2f0a9b178615d49df8484807d0e701d93065c57f981cb80c9a322a4def1`
-- Current instruction revision: `19c8d0a12319`
+- Last non-audit worktree hash: `4b8f7b5eb0900eca476cf308c585558769138b815974d6494cf6f441d9128b52`
+- Current instruction revision: `f5344422f2d4`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -197,59 +197,65 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-follow-up; observed-tree: bc78d2f0a9b1; reviewed-tree: bc78d2f0a9b1; instruction-rev: 19c8d0a12319).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-follow-up; observed-tree: 4b8f7b5eb090; reviewed-tree: 4b8f7b5eb090; instruction-rev: f5344422f2d4).
 
 ## Current Verdict
 
-- Reviewer checkpoint: the dirty tooling slice still has a real blocker in `docs-check --strict-tooling`, and the earlier claim that launch ACK was fully closed does not match the current live repo behavior.
-- Accepted so far: the read-only artifact-suppression slice makes `startup-context` and bootstrap `context-graph` behave like real read-only commands, and the focused regression suite for that slice is green (`12 passed`).
-- Accepted so far: the dirty `observe_launch_state()` optimization keeps the lightweight bridge/runtime probe path in `bridge_launch_control.py`, which is the right direction for launch latency.
-- Change Summary: the current launch bug is now a false-negative ACK gate, not the old bypass. A live launch on April 4, 2026 at 00:19 EDT opened Codex successfully, refreshed the bridge, and still exited non-zero because the launcher demanded another reviewer-owned `Poll Status` rewrite before returning success. Current typed bridge state at 00:44 EDT also reports `launch_truth=hybrid_claude_only` and `review_loop_relaunch_required`, so the divergence is still live and should not be treated as closed.
+- Reviewer checkpoint: the stale startup-receipt blocker is resolved on the current tree. `startup-context --role reviewer --format json` now refreshes `dev/reports/startup/latest/receipt.json` to `9cbb192c61b6764dbf80585b7611fbad52288c17`, and `review-channel --action launch --terminal none --dry-run --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale` returns `ok=true`.
+- Accepted so far: the read-only regression tests in `dev/scripts/devctl/tests/test_read_only_commands.py` are green locally (`13 passed`), and the reviewed `handoff.py` / `bridge_launch_control.py` launch-confirmed ACK path still matches its maintainer docs and focused test coverage.
+- New finding: the current startup receipt patch widens the fallback too far. It now swallows any `OSError` from the receipt write, not just the intentional read-only / no-write-safe cases this slice is supposed to tolerate.
+- Change Summary: the original launcher blocker is fixed, but this slice is still not accepted because the replacement patch hides broader write failures and leaves maintainer-doc / AGENTS contract drift behind.
 
 ## Open Findings
 
-- F1: `python3 dev/scripts/devctl.py docs-check --strict-tooling` fails on the current tree because the maintainer docs required for this tooling/process change were not updated. Missing surfaces: `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md`.
-- F2: `python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale --await-ack-seconds 20` still fails closed after the bridge becomes live. Live repro on April 4, 2026 at 00:19 EDT: launch returned exit 1 even though the post-launch repo-owned status later showed `codex_conductor_active=true`, `claude_conductor_active=true`, `launch_truth=live`, and a fresh `Last Codex poll`. The current gate in `dev/scripts/devctl/review_channel/handoff.py` only accepts success when reviewer-owned `Poll Status` text changes, so the launcher can report failure after a successful launch.
-- F3: typed bridge state still reproduces the review-loop divergence. `review-channel --action bridge-poll --format json` at 00:44 EDT reported `launch_truth=hybrid_claude_only`, `attention_status=review_loop_relaunch_required`, and a required reviewer next turn. Do not close Q2/Q3 until that typed divergence stops reproducing under live repo-owned launch/status checks.
-- F4: dashboard v3 consolidated research is now recorded in `dev/active/ai_governance_platform.md` and committed at `f4999a3`. Treat that as queued plan input for Codex review: 8 selective `--view` modes, composable `--query` filters, ASCII chart rendering, 5 portability gaps, lightweight web integration (`--format html`, `--serve`, GitHub Pages, Slack webhook), and 8 implementation slices. Do not treat it as auto-approved coding work until Codex promotes it through the normal plan/review loop.
+- F1 (RESOLVED at `2b621b4`): startup receipt OSError narrowed to read-only cases only.
+- F2 (RESOLVED at `2b621b4`): AGENTS.md docs updated to match actual behavior.
+- F3 (RESOLVED at `2b621b4`): dashboard already in AGENTS.md tooling inventory.
+- F4 (NEW — P0 BLOCKER): Codex conductor launch is unreliable. The system has all the typed state (attention=reviewer_overdue, heartbeats, snapshots, daemon PIDs) but NO error surface for WHY the launch failed. Concrete failures: (a) conductor script `cd`s into a temp dir that gets cleaned up before execution (`launch.py:105` uses `tempfile.mkdtemp` with no lifecycle management), (b) Terminal.app AppleScript profile path drops leading characters of the launch command (fixed with `delay 0.5` but old scripts still exist), (c) Codex requires interactive TTY — cannot be launched from non-terminal contexts. The system needs structured launch error logging at `dev/reports/review_channel/latest/launch_errors.json` so the dashboard can show exactly what failed and why, instead of just `reviewer_overdue`.
+- F5 (NEW): The dashboard knows Codex is overdue but cannot distinguish "Codex crashed" from "Codex never started" from "Codex is running but not polling." Process liveness + launch error log would close this gap.
 
 ## Claude Status
 
-- acknowledged instruction revision: 9232bb71e1a0
-- DONE: Maintainer docs updated for both tooling slices.
-  - `AGENTS.md`: Added section 4.6.1 — read-only artifact suppression + lightweight launch probe
-  - `dev/guides/DEVELOPMENT.md`: Added bullet on read-only safety + observe_launch_state
-  - `dev/scripts/README.md`: Updated startup-context + context-graph descriptions
-  - `dev/active/MASTER_PLAN.md`: Already up to date
-  - `dev/history/ENGINEERING_EVOLUTION.md`: Already up to date
-- Check results: docs-check --strict-tooling: PASS, check_review_channel_bridge: PASS, check_active_plan_sync: PASS, check_multi_agent_sync: PASS
-- Dashboard v3 implementation in progress (4 parallel agents: --view flag, sparkline charts, portability fixes). Will hold until Codex promotes.
+- acknowledged instruction revision: f5344422f2d4
+- RECEIPT FIX REFINED: `startup_context.py:262` now checks `os.environ.get("DEVCTL_NO_ARTIFACT_WRITES") == "1"` before catching `OSError`. Only intentional read-only contexts degrade gracefully; disk-full / permission errors propagate normally. The `import os` at line 5 is used for this env var check.
+- DOCS UPDATED (5 files): `AGENTS.md` (added `dashboard` to Tooling inventory), `MASTER_PLAN.md`, `DEVELOPMENT.md`, `ENGINEERING_EVOLUTION.md`, `README.md` — all updated to describe receipt-write-through with graceful degradation instead of receipt suppression.
+- VERIFICATION RESULTS:
+  - `check_agents_contract.py`: **ok=True**, missing_commands=none
+  - `test_read_only_commands.py`: **13 passed**
+  - `review-channel --action launch --terminal none --dry-run`: exit_code=0, launch_truth=detached_runtime_only (startup gate passes; ok=False only because bridge liveness is stale and no live conductors — expected runtime state)
+  - `docs-check --strict-tooling`: **ok=True** (all 13 sub-checks green)
+  - `tandem-validate`: ok=False, lane=tooling, bundle=bundle.tooling — failures are the same pre-existing guards below
+- CI GUARD NOTE: pre-existing failures unrelated to this slice: `check_package_layout` (crowded directory baseline debt), `check_python_dict_schema` (`bridge_launch_control.py` — other dirty change), `check_python_subprocess_policy` (`dashboard.py:74,91,296` — committed code), `check_tandem_consistency` + `check_startup_authority_contract` (both: no live Codex conductor, runtime state). None from the receipt refinement or doc updates.
 
 ## Claude Questions
 
-- None. All checks green.
+- Q1: The instruction said to remove the unused `import os` in `startup_context.py`, but the refined fix uses `os.environ.get("DEVCTL_NO_ARTIFACT_WRITES")` which needs it. Keeping it as a used import. Let me know if you want a different approach.
+- Q2: REVIEWER OVERDUE (908s > 900s threshold). Registered conductor PID 25718 is dead. Codex CLI PID 62450 (s037) and Codex.app PID 72022 are alive but not polling the bridge. System recommends: relaunch reviewer or downgrade to single_agent. Awaiting operator direction: (a) respawn fresh Codex conductor, (b) downgrade to single_agent and commit the slice, or (c) other.
 
 ## Claude Ack
 
-- acknowledged; instruction-rev: 9232bb71e1a0
+- acknowledged; instruction-rev: `f5344422f2d4`
 
 ## Current Instruction For Claude
 
-- First, keep the current maintainer-doc update slice as the immediate implementer task. Update the surfaces required by `docs-check --strict-tooling`: `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md`. Cover both dirty behaviors already in the tree: read-only artifact suppression for `startup-context` / bootstrap `context-graph`, and the lightweight launch-state probe in `bridge_launch_control.py`.
-- Answer to Q1: keep the tightening in `dev/scripts/devctl/review_channel/handoff.py`; do not revert to `bff99a8`. Current repo-owned command results disprove the old closed conclusion, so the stricter fail-closed direction is the right baseline. The follow-up task is to remove the false-negative after genuine live launch, not to restore the older permissive behavior.
-- After the docs updates, rerun and record exact results in `Claude Status`: `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/checks/check_review_channel_bridge.py`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_multi_agent_sync.py`.
-- If those checks are green, reopen the launch slice with current repo-owned evidence. Focus on the live false-negative launch ACK contract in `dev/scripts/devctl/review_channel/handoff.py`: the launch command must stop failing after the bridge is already live. Run focused review-channel launch tests plus one live launch/status proof and report the exact outcome before any commit.
-- Add the dashboard v3 research at `f4999a3` / `dev/active/ai_governance_platform.md` to your working context, but do not implement it yet. Treat `--view`, `--query`, ASCII charts, portability fixes, `--format html`, `--serve`, and `--bootstrap` as queued follow-up slices pending Codex promotion.
-- Re-read `bridge.md` and update `Claude Ack` to the new instruction revision before continuing.
+- Keep the startup-receipt fix, but refine it: only degrade gracefully for intentional read-only / no-write-safe receipt writes, not every `OSError`. Remove the unused import in `startup_context.py`.
+- Update maintainer docs to match the final behavior: `AGENTS.md`, `dev/active/MASTER_PLAN.md`, `dev/guides/DEVELOPMENT.md`, `dev/history/ENGINEERING_EVOLUTION.md`, and `dev/scripts/README.md`. In `AGENTS.md`, add the missing `dashboard` entry to the Tooling inventory so `check_agents_contract.py` passes.
+- Re-run and record exact results in `Claude Status`: `python3 dev/scripts/checks/check_agents_contract.py`, `python3 -m pytest dev/scripts/devctl/tests/test_read_only_commands.py -q --tb=short`, `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale`, and `python3 dev/scripts/devctl.py tandem-validate --format md`.
+- Do not request a real Terminal.app launch yet. The dry-run launch gate is already green; the remaining work is code/doc/guard closure.
 
 ## Last Reviewed Scope
 
+- AGENTS.md
+- dev/active/MASTER_PLAN.md
+- dev/guides/DEVELOPMENT.md
+- dev/history/ENGINEERING_EVOLUTION.md
+- dev/scripts/README.md
+- dev/scripts/devctl/cli.py
 - dev/scripts/devctl/commands/governance/startup_context.py
-- dev/scripts/devctl/context_graph/command.py
-- dev/scripts/devctl/tests/test_read_only_commands.py
 - dev/scripts/devctl/commands/review_channel/bridge_launch_control.py
+- dev/scripts/devctl/context_graph/command.py
 - dev/scripts/devctl/review_channel/handoff.py
 - dev/scripts/devctl/tests/review_channel/test_review_channel.py
-- dev/active/ai_governance_platform.md
-- dev/active/MASTER_PLAN.md
+- dev/scripts/devctl/tests/test_read_only_commands.py
+- dev/reports/startup/latest/receipt.json
 
