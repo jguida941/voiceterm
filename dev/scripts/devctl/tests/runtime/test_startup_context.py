@@ -1139,6 +1139,75 @@ class TestAdvisoryAction(unittest.TestCase):
         self.assertEqual(action, "repair_reviewer_loop")
         self.assertEqual(reason, "claude_ack_stale")
 
+    # -- Detached-publication-only regression tests (F7/F8) --
+
+    def test_detached_manual_approval_surfaces_push(self) -> None:
+        """manual_reviewer_approval + clean + accepted → push_allowed, not continue_editing."""
+        gov = _minimal_governance(
+            worktree_clean=True, worktree_dirty=False, ahead_of_upstream_commits=1,
+        )
+        gate = ReviewerGateState(
+            implementation_blocked=True,
+            implementation_block_reason="manual_reviewer_approval",
+            review_accepted=True,
+            review_gate_allows_push=False,
+        )
+        action, reason = _derive_advisory_action(gov, gate)
+        self.assertEqual(action, "push_allowed")
+        self.assertEqual(reason, "detached_publication_approved")
+
+    def test_detached_hybrid_claude_only_surfaces_push(self) -> None:
+        """hybrid_claude_only reason also surfaces push_allowed."""
+        gov = _minimal_governance(
+            worktree_clean=True, worktree_dirty=False, ahead_of_upstream_commits=2,
+        )
+        gate = ReviewerGateState(
+            implementation_blocked=True,
+            implementation_block_reason="hybrid_claude_only",
+            review_accepted=True,
+            review_gate_allows_push=False,
+        )
+        action, reason = _derive_advisory_action(gov, gate)
+        self.assertEqual(action, "push_allowed")
+        self.assertEqual(reason, "detached_publication_approved")
+
+    def test_non_detached_block_still_repairs_loop(self) -> None:
+        """claude_ack_stale is NOT detached — must still repair the loop."""
+        gov = _minimal_governance(
+            worktree_clean=True, worktree_dirty=False, ahead_of_upstream_commits=1,
+        )
+        gate = ReviewerGateState(
+            implementation_blocked=True,
+            implementation_block_reason="claude_ack_stale",
+            review_accepted=True,
+            review_gate_allows_push=False,
+        )
+        action, reason = _derive_advisory_action(gov, gate)
+        self.assertEqual(action, "repair_reviewer_loop")
+        self.assertEqual(reason, "claude_ack_stale")
+
+    def test_detached_push_decision_aligned_with_advisory(self) -> None:
+        """Push and advisory surfaces agree for manual_reviewer_approval."""
+        gov = _minimal_governance(
+            worktree_clean=True, worktree_dirty=False, ahead_of_upstream_commits=1,
+            upstream_ref="origin/feature/test",
+        )
+        gate = ReviewerGateState(
+            implementation_blocked=True,
+            implementation_block_reason="manual_reviewer_approval",
+            review_accepted=True,
+            review_gate_allows_push=False,
+        )
+        advisory_action, _ = _derive_advisory_action(gov, gate)
+        push_decision = _derive_push_decision(
+            gov.push_enforcement,
+            review_gate_allows_push=gate.review_gate_allows_push,
+            implementation_blocked=gate.implementation_blocked,
+            implementation_block_reason=gate.implementation_block_reason,
+        )
+        self.assertEqual(advisory_action, "push_allowed")
+        self.assertEqual(push_decision.action, "run_devctl_push")
+
     def test_no_push_needed(self) -> None:
         gov = _minimal_governance(worktree_dirty=False, ahead_of_upstream_commits=0)
         gate = ReviewerGateState()

@@ -42,6 +42,9 @@ def derive_advisory_decision(
         # patterns so publication checks can still proceed.
         if not _is_detached_publication_only(gate.implementation_block_reason):
             return _blocked_loop_decision(gate)
+        result = _detached_publication_decision(push, gate)
+        if result is not None:
+            return result
     if gate.bridge_active and not gate.review_accepted:
         return _pending_review_decision(
             bridge_active=gate.bridge_active,
@@ -142,6 +145,33 @@ def derive_advisory_decision(
                 "Startup has not reached a clean, push-ready state yet.",
             ),
         ),
+    )
+
+
+def _detached_publication_decision(
+    push: "PushEnforcement", gate: "ReviewerGateState",
+) -> StartupAdvisoryDecision | None:
+    """Surface governed push for detached-runtime blocks with accepted review."""
+    if not (push.worktree_clean and gate.review_accepted
+            and push.ahead_of_upstream_commits not in (0, None)):
+        return None
+    reason = gate.implementation_block_reason
+    return _decision(
+        "push_allowed", "detached_publication_approved",
+        "Startup allows governed push: worktree clean, reviewer checkpoint "
+        "accepted this snapshot for publication, live loop is detached.",
+        (rule_match_evidence(
+            "startup_advisory.push_allowed_detached",
+            "Detached-runtime block with fresh reviewer acceptance surfaces governed push.",
+            f"worktree_clean={push.worktree_clean}",
+            f"review_accepted={gate.review_accepted}",
+            f"implementation_block_reason={reason}",
+        ),),
+        (rejected_rule_trace(
+            "startup_advisory.continue_editing",
+            "Keep editing the current slice.",
+            "Reviewer checkpoint already accepted this snapshot for publication.",
+        ),),
     )
 
 

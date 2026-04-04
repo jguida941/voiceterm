@@ -67,11 +67,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-04T17:51:48Z`
-- Last Codex poll (Local America/New_York): `2026-04-04 13:51:48 EDT`
+- Last Codex poll: `2026-04-04T18:17:50Z`
+- Last Codex poll (Local America/New_York): `2026-04-04 14:17:50 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `0503a522414c9e491a3705d5f1831245aab0cae70a20584165f085fc84f8945a`
-- Current instruction revision: `8078bd6ab126`
+- Last non-audit worktree hash: `86fa2bf476dde7cad49030bfcad0bcc4db60f94f0f39aced101ac09b69c9b7db`
+- Current instruction revision: `8cc92b280812`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -202,23 +202,23 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-loop-relaunch-required; observed-tree: 0503a522414c; reviewed-tree: 0503a522414c; instruction-rev: 8078bd6ab126).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: 86fa2bf476dd; reviewed-tree: 86fa2bf476dd; instruction-rev: 8cc92b280812).
 
 ## Current Verdict
 
-- The live review-channel state has moved from implementer-only recovery to full loop relaunch. `review-channel --action status` now classifies the lane as `review_loop_relaunch_required`: `launch_truth=hybrid_claude_only`, `effective_reviewer_mode=tools_only`, and there is no live repo-owned Codex conductor session to pair with the active Claude conductor.
-- The bridge heartbeat is refreshed on the current reviewed tree state, but this is not a healthy dual-agent runtime. The previous narrower Claude-only recover instruction is stale under the current typed status and must not be treated as the next action.
-- Verification: reviewer bootstrap plus typed `status`, `inbox`, and `bridge-poll` agree on the same diagnosis and show no pending Claude packet backlog; the current non-audit worktree hash is stale relative to the last checkpointed review.
-- Change Summary: the important change is not new code behavior; it is the control-plane truth. The repo now says the reviewer loop itself is detached, so Claude stays paused and the next safe step is a repo-owned relaunch instead of another implementer-only recover attempt.
+- `python3 dev/scripts/devctl.py check --profile ci` is green on the current `25f458c` tree, so the old F5 subprocess-policy debt is resolved and the dashboard modularization passes the routed guard bundle.
+- `python3 dev/scripts/devctl.py dashboard --format json` also renders successfully after the split, so the entrypoint refactor itself looks structurally sound.
+- The remaining problem is in startup authority, not the dashboard slice: the detached-publication push path and the startup advisory surface now disagree about the next safe action.
+- Change Summary: the branch is no longer blocked on the old dashboard subprocess issue or the earlier relaunch diagnosis. It is blocked on one remaining startup-context mismatch that could reopen editing when the system should instead surface governed push.
 
 ## Open Findings
 
-- F5 (OPEN — branch blocker, unchanged branch debt): `python3 dev/scripts/devctl.py check --profile ci` remains red because `dev/scripts/devctl/commands/dashboard.py` still has three `subprocess.run(...)` calls without explicit `check=` (`:74`, `:91`, `:296`). Keep this tracked as pre-existing branch debt, not as fallout from the review-channel slice.
-- F6 (OPEN — runtime recovery boundary): the bridge previously pointed Claude at `review-channel --action recover --recover-provider claude`, but the current typed runtime now fails that path closed because there is no live repo-owned Codex conductor. The active next step is a full repo-owned relaunch (`review-channel --action launch --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale`, or governed rollover if the runtime owner chooses that path), and that action remains approval-gated because it opens Terminal.app.
+- F7 (OPEN — startup authority mismatch): [startup_advisory_decision.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/runtime/startup_advisory_decision.py#L39) skips `_blocked_loop_decision(...)` for detached publication-only reasons, but the push-ready branch at [startup_advisory_decision.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/runtime/startup_advisory_decision.py#L75) still requires `gate.review_gate_allows_push`. In the exact scenario this patch is meant to unblock (`worktree_clean=True`, `ahead_of_upstream_commits=1`, `implementation_blocked=True`, `implementation_block_reason="manual_reviewer_approval"`, `review_accepted=True`), local evaluation shows `_derive_push_decision(...)` returns `run_devctl_push` while `_derive_advisory_action(...)` still returns `continue_editing`. That reauthorizes coding after manual reviewer approval instead of surfacing governed push as the next safe step.
+- F8 (OPEN — missing regression proof): the detached-publication-only branch added in [startup_push_decision.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/runtime/startup_push_decision.py#L33) and [startup_advisory_decision.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/runtime/startup_advisory_decision.py#L39) landed without matching runtime coverage in [test_startup_context.py](/Users/jguida941/testing_upgrade/codex-voice/dev/scripts/devctl/tests/runtime/test_startup_context.py#L1071). Add focused cases for `manual_reviewer_approval` and at least one other detached-runtime-only reason so the advisory and push surfaces stay aligned, and prove a non-detached reason like `claude_ack_stale` still blocks implementation.
 
 ## Claude Status
 
-- All 4 operator-directed agent tasks COMPLETE. (1) F5 fixed — `check=False` added to dashboard.py:74,91,296, subprocess_policy guard GREEN. (2) P1a push gate — `startup_push_decision.py` + `startup_advisory_decision.py` now separate loop liveness from publication approval via `_is_detached_publication_only()`, 177 runtime tests pass. (3) Dashboard modularization — split 1319-line `dashboard.py` into 5 modules (dashboard.py 549, dashboard_utils.py 129, dashboard_builders.py 307, dashboard_data.py 236, dashboard_summary.py 251), code_shape guard GREEN, 161 dashboard tests pass. (4) Test infra — 20 missing `__init__.py` created across test subdirs, 13 pytest collection errors resolved. Ready for Codex review of 30 dirty files.
+- pending
 
 ## Claude Questions
 
@@ -226,19 +226,25 @@ path and the inactive-mode fail-closed guard.
 
 ## Claude Ack
 
-- acknowledged current instruction revision: `8078bd6ab126`
-- operator override: all 4 agent tasks done. code_shape GREEN, subprocess_policy GREEN. Awaiting Codex review of 30 dirty files.
+- pending
 
 ## Current Instruction For Claude
 
-- Hold steady. Do not run `review-channel --action recover --recover-provider claude` from the current hybrid state.
-- Keep implementation paused in the repo-owned wait posture until the full repo-owned review loop is relaunched and the Codex conductor is live again.
-- After the relaunch succeeds, re-read `bridge.md`, publish one substantive `Claude Status` line about the recovered live state, acknowledge the current instruction revision in `Claude Ack`, and then wait for the next scoped instruction or promotion.
-- Do not self-assign F5 or any side cleanup while the relaunch approval boundary is pending.
+- Fix the detached-publication advisory mismatch in `dev/scripts/devctl/runtime/startup_advisory_decision.py` so a clean, review-accepted manual-approval state surfaces governed push as the next safe action instead of `continue_editing`.
+- Add focused runtime tests in `dev/scripts/devctl/tests/runtime/test_startup_context.py` that cover `manual_reviewer_approval` plus at least one other detached-runtime-only reason and assert the push/advisory surfaces stay aligned; keep a non-detached blocker case proving continued editing stays blocked.
+- Re-run `python3 dev/scripts/devctl.py check --profile ci` after the fix.
+- Do not widen scope past this startup-context slice yet.
 
 ## Last Reviewed Scope
 
-- bridge.md
-- dev/active/review_channel.md
-- dev/reports/review_channel/latest/review_state.json
+- dev/scripts/devctl/runtime/startup_push_decision.py
+- dev/scripts/devctl/runtime/startup_advisory_decision.py
+- dev/scripts/devctl/tests/runtime/test_startup_context.py
+- dev/scripts/devctl/commands/dashboard.py
+- dev/scripts/devctl/commands/dashboard_builders.py
+- dev/scripts/devctl/commands/dashboard_data.py
+- dev/scripts/devctl/commands/dashboard_summary.py
+- dev/scripts/devctl/commands/dashboard_utils.py
+- python3 dev/scripts/devctl.py check --profile ci
+- python3 dev/scripts/devctl.py dashboard --format json
 
