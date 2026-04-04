@@ -4430,6 +4430,39 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-04 dashboard v3 consolidated research (8 agents, awaiting Codex review):
+  **View flags**: `--view {overview|dev|analytics|audit|codebase|quality|publication|health}`.
+  Each view loads only needed artifacts. Default is `overview`. Follows
+  `context-graph --mode` pattern. 8 views mapped to concrete artifact sets.
+
+  **Query system**: `--query "probe:NAME"`, `--query "file:PATH"`,
+  `--query "worker:W1"`, `--query "finding:F1"`, `--query "since:1h"`,
+  `--query "command:check"`. Composable AND conditions. Orthogonal to views.
+
+  **Portability gaps to close**: (1) dashboard hardcodes 16 paths instead of
+  using RepoPathConfig; (2) agent names hardcoded to "codex"/"claude" instead
+  of role-based discovery; (3) `codex_activity` should be `reviewer_activity`;
+  (4) quality gates hardcoded instead of dynamic; (5) no `--bootstrap` command.
+
+  **ASCII charts**: zero-dependency sparklines (`▁▂▃▄▅▆▇█`), bar charts
+  (`████`), progress bars, dependency trees — all pure Unicode/Python stdlib.
+  Push success sparkline from receipts.jsonl, command frequency bars from
+  data_science summary, temperature distribution from graph snapshots.
+
+  **Web integration**: `--format html` via Rich export, `--serve` via stdlib
+  http.server, GitHub Actions step summary with Mermaid, GitHub Pages static
+  site with AlpineJS, Slack webhook notifications. All zero-config.
+
+  **UX patterns** (from k9s, lazygit, gh-dash, wtfutil): widget-based
+  composition, tab switching, 10-60s polling intervals, vim-style nav,
+  sidebar drill-down, responsive 80-col layouts, YAML-configurable sections.
+
+  Implementation slices: (1) add `--view` flag with selective data loading,
+  (2) refactor paths to use RepoPathConfig, (3) rename codex_activity to
+  reviewer_activity with role-based discovery, (4) add sparkline/bar chart
+  rendering module, (5) add `--query` filter system, (6) add `--format html`,
+  (7) add `--serve` mode, (8) add `--bootstrap` for new repos.
+
 ### Current status
 
 - 2026-04-04 `devctl dashboard` v2 architecture plan (awaiting Codex review):
