@@ -1762,6 +1762,12 @@ Use one deterministic triage on every failing repo before widening again:
 
 ## Audit Evidence
 
+- Maintained platform proof ledger (reference-only, non-authoritative):
+  `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` collects the current
+  cross-repo proof boundary, external-pilot evidence links, machine-ledger
+  map, and external-audit ingress path. Keep the portable proof bar and
+  execution decisions in this plan; use the ledger as the maintained index over
+  those artifacts and claims.
 - External Python corpus loop:
   `python3 dev/scripts/devctl.py governance-bootstrap --target-repo <path> --force-starter-policy --format md`
   `python3 dev/scripts/devctl.py probe-report --repo-path <path> --adoption-scan --format json`

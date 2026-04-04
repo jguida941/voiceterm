@@ -3064,6 +3064,13 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Audit Evidence
 
+- Maintained platform proof ledger (reference-only, non-authoritative):
+  `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` is the current human
+  index for what the platform already proves, what still blocks broader
+  portability claims, which artifact families back those claims, and how
+  external audits should be routed into tracked owner plans. Keep authority
+  here and in `MASTER_PLAN`; use the ledger as the evidence index, not as a
+  second execution tracker.
 - Startup-authority preset closure verification (2026-04-02):
   `python3 -m pytest
   dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
