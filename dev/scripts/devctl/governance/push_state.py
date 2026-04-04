@@ -7,7 +7,11 @@ import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from ..commands.vcs.push_artifact import load_latest_push_report, latest_push_report_relpath
+from ..commands.vcs.push_artifact import (
+    load_latest_push_report,
+    latest_push_report_relpath,
+    lookup_push_receipt,
+)
 from ..config import REPO_ROOT
 from ..repo_packs import active_path_config
 from ..review_channel.remote_commit_pipeline_artifact import (
@@ -94,7 +98,12 @@ def detect_push_enforcement_state(
     )
     safe_to_continue_editing = not checkpoint_required
     checkpoint_reason = "clean_worktree"
-    latest_push_report = load_latest_push_report(repo_root=repo_root) or {}
+    receipt = lookup_push_receipt(
+        branch=current_branch,
+        head_commit=current_head_commit,
+        repo_root=repo_root,
+    )
+    latest_push_report = receipt or load_latest_push_report(repo_root=repo_root) or {}
     push_stages = latest_push_report.get("push_stages")
     if not isinstance(push_stages, dict):
         push_stages = {}

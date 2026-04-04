@@ -23,6 +23,7 @@ from ...runtime.vcs import (
     run_git_capture,
 )
 from .push_artifact import (
+    append_push_receipt,
     latest_push_report_relpath,
     persist_latest_push_report,
     serialize_push_report,
@@ -411,8 +412,10 @@ def run_push_action(
     report = build_push_report_payload(report_context, outcome=outcome)
     if not emit_output_report:
         persist_latest_push_report(report, repo_root=repo_root)
+        append_push_receipt(report, repo_root=repo_root)
         return (0 if outcome.ok else 1), report
 
+    append_push_receipt(report, repo_root=repo_root)
     report_json = serialize_push_report(report)
     output = report_json if args.format == "json" else render_push_report(report)
     pipe_rc = emit_output(

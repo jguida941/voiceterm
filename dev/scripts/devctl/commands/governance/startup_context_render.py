@@ -92,6 +92,15 @@ def publication_backlog_count(ctx_dict: dict) -> int | None:
     if isinstance(raw_count, str) and raw_count.isdigit():
         return int(raw_count)
     return None
+def _effective_publication_summary(published_remote: bool, post_push_green: bool) -> str:
+    """Return a one-line human-readable summary of effective publication state."""
+    if published_remote and post_push_green:
+        return "Published to origin at HEAD"
+    if published_remote:
+        return "Published but post-push validation failed"
+    return "Not yet published (push report is from different branch/commit)"
+
+
 def _append_latest_push_receipt(lines: list[str], push_enforcement: dict) -> None:
     latest_push_path = str(push_enforcement.get("latest_push_report_path") or "").strip()
     latest_push_status = str(push_enforcement.get("latest_push_report_status") or "").strip()
@@ -101,8 +110,20 @@ def _append_latest_push_receipt(lines: list[str], push_enforcement: dict) -> Non
     published_remote, post_push_green = artifact_publication_truth(
         push_enforcement_from_mapping(push_enforcement)
     )
+    lines.append(
+        f"- effective_publication_state: "
+        f"{_effective_publication_summary(published_remote, post_push_green)}"
+    )
+    lines.append(f"- published_remote: {published_remote}")
+    lines.append(f"- post_push_green: {post_push_green}")
+    if latest_push_status:
+        lines.append(f"- latest_push_status: `{latest_push_status}`")
+    if latest_push_reason:
+        lines.append(f"- latest_push_reason: `{latest_push_reason}`")
+    lines.append("")
+    lines.append("#### Diagnostic: raw push-report booleans")
+    lines.append(f"- latest_push_report: `{latest_push_path or 'n/a'}`")
     for label, value in (
-        ("latest_push_report", f"`{latest_push_path or 'n/a'}`"),
         (
             "latest_push_matches_current_branch",
             bool(push_enforcement.get("latest_push_report_matches_current_branch")),
@@ -120,14 +141,8 @@ def _append_latest_push_receipt(lines: list[str], push_enforcement: dict) -> Non
             bool(push_enforcement.get("latest_push_report_published_remote")),
         ),
         ("latest_push_receipt_current", published_remote),
-        ("published_remote", published_remote),
-        ("post_push_green", post_push_green),
     ):
         lines.append(f"- {label}: {value}")
-    if latest_push_status:
-        lines.append(f"- latest_push_status: `{latest_push_status}`")
-    if latest_push_reason:
-        lines.append(f"- latest_push_reason: `{latest_push_reason}`")
 def publication_backlog_guidance(ctx_dict: dict) -> str:
     """Describe when pending remote publication should happen."""
     push_decision = _push_decision_mapping(ctx_dict)

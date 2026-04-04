@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -110,6 +111,10 @@ class PushParserTests(unittest.TestCase):
 
 class PushCommandTests(unittest.TestCase):
     @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state._git_stdout",
         side_effect=[
             "",
@@ -123,6 +128,7 @@ class PushCommandTests(unittest.TestCase):
     def test_detect_push_enforcement_requires_checkpoint_when_budget_exceeded(
         self,
         _git_stdout_mock,
+        _lookup_receipt_mock,
     ) -> None:
         policy = make_policy(
             checkpoint=PushCheckpointPolicy(
@@ -140,6 +146,10 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(state["publication_backlog_state"], "none")
 
     @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state._git_stdout",
         side_effect=[
             "",
@@ -153,6 +163,7 @@ class PushCommandTests(unittest.TestCase):
     def test_detect_push_enforcement_allows_editing_within_budget(
         self,
         _git_stdout_mock,
+        _lookup_receipt_mock,
     ) -> None:
         policy = make_policy(
             checkpoint=PushCheckpointPolicy(
@@ -170,6 +181,10 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(state["publication_backlog_state"], "none")
 
     @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state._git_stdout",
         side_effect=[
             "",
@@ -183,6 +198,7 @@ class PushCommandTests(unittest.TestCase):
     def test_detect_push_enforcement_ignores_advisory_context_paths(
         self,
         _git_stdout_mock,
+        _lookup_receipt_mock,
     ) -> None:
         policy = make_policy(
             checkpoint=PushCheckpointPolicy(
@@ -200,6 +216,10 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(state["publication_backlog_state"], "recommended")
         self.assertEqual(state["pending_publication_commits"], 2)
 
+    @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
+    )
     @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
@@ -231,6 +251,7 @@ class PushCommandTests(unittest.TestCase):
         _load_latest_push_report_mock,
         _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
+        _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
             values = {
@@ -258,6 +279,10 @@ class PushCommandTests(unittest.TestCase):
         self.assertTrue(state["latest_push_report_matches_current_head"])
         self.assertTrue(state["latest_push_report_matches_current_branch"])
 
+    @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
+    )
     @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
@@ -289,6 +314,7 @@ class PushCommandTests(unittest.TestCase):
         _load_latest_push_report_mock,
         _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
+        _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
             values = {
@@ -316,6 +342,10 @@ class PushCommandTests(unittest.TestCase):
         self.assertTrue(state["latest_push_report_matches_current_branch"])
         self.assertTrue(state["latest_push_report_matches_current_approved_target"])
 
+    @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
+    )
     @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
@@ -347,6 +377,7 @@ class PushCommandTests(unittest.TestCase):
         _load_latest_push_report_mock,
         _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
+        _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
             values = {
@@ -374,6 +405,10 @@ class PushCommandTests(unittest.TestCase):
         self.assertTrue(state["latest_push_report_matches_current_branch"])
         self.assertTrue(state["latest_push_report_matches_current_approved_target"])
 
+    @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
+    )
     @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
@@ -405,6 +440,7 @@ class PushCommandTests(unittest.TestCase):
         _load_latest_push_report_mock,
         _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
+        _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
             values = {
@@ -1228,6 +1264,211 @@ class PushCommandTests(unittest.TestCase):
         )
 
         self.assertIn("--since-ref origin/feature/demo", command)
+
+
+class PushReceiptTests(unittest.TestCase):
+    """Tests for the append-only push receipt history."""
+
+    def setUp(self) -> None:
+        import tempfile
+        self._tmpdir = tempfile.mkdtemp()
+        self._repo_root = Path(self._tmpdir)
+        # Create the push report directory structure expected by repo pack
+        push_dir = self._repo_root / "dev" / "reports" / "push"
+        push_dir.mkdir(parents=True, exist_ok=True)
+        # Write a minimal latest.json so the resolve path works
+        (push_dir / "latest.json").write_text("{}", encoding="utf-8")
+
+    def tearDown(self) -> None:
+        import shutil
+        shutil.rmtree(self._tmpdir, ignore_errors=True)
+
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_artifact.active_path_config",
+    )
+    def test_append_push_receipt_creates_history_file(self, path_config_mock) -> None:
+        from dev.scripts.devctl.commands.vcs.push_artifact import append_push_receipt
+
+        path_config_mock.return_value = SimpleNamespace(
+            push_report_rel="dev/reports/push/latest.json",
+        )
+        report = {
+            "branch": "feature/demo",
+            "head_commit": "abc123",
+            "status": "post_push_green",
+        }
+
+        result_path = append_push_receipt(report, repo_root=self._repo_root)
+
+        self.assertTrue(result_path.exists())
+        lines = result_path.read_text(encoding="utf-8").strip().splitlines()
+        self.assertEqual(len(lines), 1)
+        entry = json.loads(lines[0])
+        self.assertEqual(entry["branch"], "feature/demo")
+        self.assertEqual(entry["head_commit"], "abc123")
+
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_artifact.active_path_config",
+    )
+    def test_append_push_receipt_appends_multiple_entries(self, path_config_mock) -> None:
+        from dev.scripts.devctl.commands.vcs.push_artifact import append_push_receipt
+
+        path_config_mock.return_value = SimpleNamespace(
+            push_report_rel="dev/reports/push/latest.json",
+        )
+        for i in range(3):
+            append_push_receipt(
+                {"branch": "feature/demo", "head_commit": f"sha-{i}"},
+                repo_root=self._repo_root,
+            )
+
+        history_path = (
+            self._repo_root / "dev" / "reports" / "push" / "history" / "receipts.jsonl"
+        )
+        lines = history_path.read_text(encoding="utf-8").strip().splitlines()
+        self.assertEqual(len(lines), 3)
+        self.assertEqual(json.loads(lines[2])["head_commit"], "sha-2")
+
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_artifact.active_path_config",
+    )
+    def test_lookup_push_receipt_finds_matching_entry(self, path_config_mock) -> None:
+        from dev.scripts.devctl.commands.vcs.push_artifact import (
+            append_push_receipt,
+            lookup_push_receipt,
+        )
+
+        path_config_mock.return_value = SimpleNamespace(
+            push_report_rel="dev/reports/push/latest.json",
+        )
+        append_push_receipt(
+            {"branch": "feature/demo", "head_commit": "old-sha", "status": "stale"},
+            repo_root=self._repo_root,
+        )
+        append_push_receipt(
+            {"branch": "feature/demo", "head_commit": "new-sha", "status": "fresh"},
+            repo_root=self._repo_root,
+        )
+
+        result = lookup_push_receipt(
+            branch="feature/demo",
+            head_commit="new-sha",
+            repo_root=self._repo_root,
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result["status"], "fresh")
+
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_artifact.active_path_config",
+    )
+    def test_lookup_push_receipt_returns_none_for_nonmatching(self, path_config_mock) -> None:
+        from dev.scripts.devctl.commands.vcs.push_artifact import (
+            append_push_receipt,
+            lookup_push_receipt,
+        )
+
+        path_config_mock.return_value = SimpleNamespace(
+            push_report_rel="dev/reports/push/latest.json",
+        )
+        append_push_receipt(
+            {"branch": "feature/other", "head_commit": "abc123"},
+            repo_root=self._repo_root,
+        )
+
+        result = lookup_push_receipt(
+            branch="feature/demo",
+            head_commit="abc123",
+            repo_root=self._repo_root,
+        )
+
+        self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_artifact.active_path_config",
+    )
+    def test_lookup_push_receipt_handles_missing_file(self, path_config_mock) -> None:
+        from dev.scripts.devctl.commands.vcs.push_artifact import lookup_push_receipt
+
+        path_config_mock.return_value = SimpleNamespace(
+            push_report_rel="dev/reports/push/latest.json",
+        )
+
+        result = lookup_push_receipt(
+            branch="feature/demo",
+            head_commit="abc123",
+            repo_root=self._repo_root,
+        )
+
+        self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
+        return_value="dev/reports/push/latest.json",
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
+        return_value=SimpleNamespace(approved_target_identity=""),
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state.load_latest_push_report",
+        return_value={
+            "branch": "feature/demo",
+            "remote": "origin",
+            "head_commit": "stale-head",
+            "push_stages": {
+                "validation_ready": True,
+                "published_remote": False,
+                "post_push_green": False,
+            },
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value={
+            "branch": "feature/demo",
+            "remote": "origin",
+            "head_commit": "current-head",
+            "push_stages": {
+                "validation_ready": True,
+                "published_remote": True,
+                "post_push_green": True,
+            },
+        },
+    )
+    @patch("dev.scripts.devctl.governance.push_state._git_stdout")
+    def test_detect_push_enforcement_prefers_receipt_over_stale_latest(
+        self,
+        git_stdout_mock,
+        _lookup_receipt_mock,
+        _load_latest_mock,
+        _load_pipeline_mock,
+        _relpath_mock,
+    ) -> None:
+        def _fake_git_stdout(_repo_root, *cmd):
+            values = {
+                ("rev-parse", "--git-path", "hooks/pre-push"): "",
+                ("rev-parse", "--abbrev-ref", "HEAD"): "feature/demo",
+                ("rev-parse", "HEAD"): "current-head",
+                (
+                    "rev-parse",
+                    "--abbrev-ref",
+                    "--symbolic-full-name",
+                    "@{u}",
+                ): "origin/feature/demo",
+                ("rev-list", "--count", "origin/feature/demo..HEAD"): "1",
+                ("status", "--porcelain", "--untracked-files=all"): "",
+            }
+            return values.get(cmd, "")
+
+        git_stdout_mock.side_effect = _fake_git_stdout
+
+        state = detect_push_enforcement_state(make_policy())
+
+        self.assertEqual(state["recommended_action"], "no_push_needed")
+        self.assertTrue(state["latest_push_report_published_remote"])
+        self.assertTrue(state["latest_push_report_post_push_green"])
+        self.assertTrue(state["latest_push_report_matches_current_head"])
 
 
 if __name__ == "__main__":

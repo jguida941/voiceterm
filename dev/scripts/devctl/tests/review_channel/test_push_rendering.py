@@ -37,13 +37,28 @@ class ReviewChannelPushRenderingTests(unittest.TestCase):
 
         rendered = "\n".join(lines)
         self.assertIn("## Push", rendered)
+
+        # Effective publication summary appears first
+        self.assertIn(
+            "- effective_publication_state: "
+            "Not yet published (push report is from different branch/commit)",
+            rendered,
+        )
+        self.assertIn("- published_remote: False", rendered)
+        self.assertIn("- post_push_green: False", rendered)
+        self.assertIn("- latest_push_status: `published_remote`", rendered)
+        self.assertIn("- latest_push_reason: `post_push_bundle_failed`", rendered)
+
+        # Raw diagnostics appear under subsection
+        self.assertIn("#### Diagnostic: raw push-report booleans", rendered)
         self.assertIn("- latest_push_report: `dev/reports/push/latest.json`", rendered)
         self.assertIn("- latest_push_matches_current_branch: False", rendered)
         self.assertIn("- latest_push_matches_current_head: False", rendered)
         self.assertIn("- latest_push_matches_current_approved_target: False", rendered)
         self.assertIn("- latest_push_report_published_remote: True", rendered)
         self.assertIn("- latest_push_receipt_current: False", rendered)
-        self.assertIn("- published_remote: False", rendered)
-        self.assertIn("- post_push_green: False", rendered)
-        self.assertIn("- latest_push_status: `published_remote`", rendered)
-        self.assertIn("- latest_push_reason: `post_push_bundle_failed`", rendered)
+
+        # Effective summary must appear before diagnostic subsection
+        summary_pos = rendered.index("effective_publication_state")
+        diag_pos = rendered.index("Diagnostic: raw push-report booleans")
+        self.assertLess(summary_pos, diag_pos)
