@@ -124,6 +124,21 @@ External review identified core problem: "too many partially smart surfaces, not
 - **Parallel worktrees**: `LaneAssignment.worktree` parsed but never consumed by launcher. 3 gaps: add worktree_path to LaunchSessionRequest, wire git worktree in build_session_script, pass per-worktree path to conductor prompt.
 - **Portability**: `repo_packs/voiceterm.py` correctly isolated but `active_path_config()` defaults to VoiceTerm. No pip package. No second repo-pack registered.
 
+## System Seam Audit (Round 4, 8-agent, 2026-04-04)
+
+| Seam | Status | Detail |
+|---|---|---|
+| Approval mode | GOOD | Computed once (`approval_mode.py`), shared via `ControlState.approvals`. THE PATTERN. |
+| Plan tracking | BROKEN | 3 independent parsers: dashboard text-scans MASTER_PLAN, context-graph reads INDEX.md, startup ignores it |
+| Worker topology | PARTIAL | Same file but passive reader (dashboard) vs active writer (review-channel). Stale file = stale dashboard. |
+| Publication/push | BROKEN | Dashboard reads `push/latest.json`, startup computes from live git. Can disagree. |
+| Autonomy loop | SILO | Own artifacts, dashboard/typed state never reads them. Phone-status connected but disconnected from dashboard. |
+| Doc-authority | SILO | Budget/overlaps/consolidation invisible outside `devctl doc-authority` command |
+| Error handling | AD-HOC | 3 patterns (stderr print, raise, structured step). No shared error log/artifact. |
+| Cross-surface tests | ZERO | 66 cross-refs but no test proves two surfaces agree for same inputs |
+
+Approval mode is the REFERENCE PATTERN: one computation, one place, all surfaces read from it.
+
 ## Data Pipeline Audit (Round 3, 8-agent, 2026-04-04)
 
 Every data pipeline from source → surface was audited. Core finding: **every surface computes independently, rich data is discarded at every layer, no shared read model.**
