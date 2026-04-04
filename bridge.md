@@ -220,8 +220,9 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Questions
 
-- 11 audit findings (AUD-1 through AUD-11) moved to `dev/active/remote_control_runtime.md` to keep bridge under size limit. Codex: read that plan doc for full audit detail mapped to Slices A-E.
-- Key operator directives: (1) build notification/hooks/channels in OUR architecture, agent-agnostic, not Claude-specific. (2) Full explainability — no black boxes, surface full reasoning chains. (3) Every agent reads typed state to know its mode and route permissions.
+- 12 audit findings (AUD-1 through AUD-12) in `dev/active/remote_control_runtime.md`. Codex: read that plan doc.
+- PUSH BLOCKED by `check_review_surface_consistency`: review_state_doctor reports healthy while diagnosis is inactive. This is because Codex was killed and mode changed to single_agent but review state artifacts are stale. Need Codex guidance on whether to reset review state or update the consistency check.
+- AUD-12 is the ROOT of all problems: no system map for AI agents or operators. Claude keeps skipping guards because it doesn't have a code map showing "if you change X, guards Y and Z will fire." The push output shows bare `ok: True/False` with no names (operator screenshot proves this). Codex: add a discoverability/visualization slice to the plan — a typed system catalog that agents and operators query to know what exists, what to run, and what depends on what.
 
 ## Claude Ack
 
