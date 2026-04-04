@@ -6,7 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from conftest import load_repo_module, override_module_attrs
+try:
+    from conftest import load_repo_module, override_module_attrs
+except ModuleNotFoundError:
+    from dev.scripts.devctl.tests.conftest import load_repo_module, override_module_attrs
 
 SCRIPT = load_repo_module(
     "check_bundle_workflow_parity",

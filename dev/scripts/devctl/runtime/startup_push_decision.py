@@ -30,6 +30,27 @@ _REVIEW_STATUS_COMMAND = (
 )
 _DEVCTL_PUSH_EXECUTE_COMMAND = "python3 dev/scripts/devctl.py push --execute"
 
+# Block reasons that represent detached-runtime-only review posture.
+# Manual reviewer approval can publish a clean branch, but cannot authorize
+# more coding.  When the block reason is one of these patterns AND the
+# review gate has not independently allowed push, the push path should
+# still fall through to publication checks instead of blocking.
+_DETACHED_PUBLICATION_ONLY_REASONS: frozenset[str] = frozenset({
+    "detached_runtime_only",
+    "manual_reviewer_approval",
+    "automation_only",
+    "hybrid_claude_only",
+})
+
+
+def _is_detached_publication_only(block_reason: str) -> bool:
+    """Return True when the implementation block is a detached-runtime pattern.
+
+    These patterns mean the reviewer loop is not live for *coding* but a
+    typed checkpoint acceptance already covers *publication*.
+    """
+    return block_reason in _DETACHED_PUBLICATION_ONLY_REASONS
+
 
 def derive_push_decision(
     push_enforcement: "PushEnforcement",
@@ -221,6 +242,11 @@ def _review_state_decision(
     implementation_block_reason: str,
 ) -> PushDecisionState | None:
     if implementation_blocked and not inputs.review_gate_allows_push:
+        # Manual reviewer approval can publish a clean branch, but cannot
+        # authorize more coding.  Skip the block for publication when the
+        # reason is a detached-runtime-only pattern.
+        if _is_detached_publication_only(implementation_block_reason):
+            return None
         block_reason = implementation_block_reason or "reviewer_loop_blocked"
         return _project_push_decision(
             inputs,

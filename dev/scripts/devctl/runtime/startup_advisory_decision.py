@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from .decision_explainability import rejected_rule_trace, rule_match_evidence
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
+from .startup_push_decision import _is_detached_publication_only
 
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
@@ -36,7 +37,11 @@ def derive_advisory_decision(
     if not push.safe_to_continue_editing:
         return _budget_exceeded_decision(push)
     if gate.implementation_blocked and not gate.review_gate_allows_push:
-        return _blocked_loop_decision(gate)
+        # Manual reviewer approval can publish a clean branch, but cannot
+        # authorize more coding.  Skip the blocked-loop route for detached
+        # patterns so publication checks can still proceed.
+        if not _is_detached_publication_only(gate.implementation_block_reason):
+            return _blocked_loop_decision(gate)
     if gate.bridge_active and not gate.review_accepted:
         return _pending_review_decision(
             bridge_active=gate.bridge_active,
