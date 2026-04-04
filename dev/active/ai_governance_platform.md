@@ -4432,6 +4432,97 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-04-04 `devctl dashboard` v2 architecture plan (awaiting Codex review):
+  v1 is landed but under-projects the system. The v2 plan treats the dashboard
+  as a platform-level explainable AI surface, not a renderer tweak.
+
+  **Core architecture**: sources → DashboardSnapshot IR → derived truth → renderer
+
+  **4 truth planes** (must be visually separated in the render):
+  1. Authority truth — who owns turn, loop mode, review accepted
+  2. Execution truth — workers running, what's coding, what's blocked
+  3. Publication/evidence truth — HEAD published, post-push green, receipt proof
+  4. Narrative/coordination truth — instruction, findings, next action
+
+  **Explainability requirement** (operator teaching surface):
+  Every section must explain WHY, not just WHAT. The dashboard turns the black
+  box into a transparent reasoning surface:
+  - Why did the AI make this change? (link to finding + architectural reason)
+  - Why is this approach better? (cite best practice, probe rule, guard rule)
+  - What proof exists? (link to test results, guard output, governance review)
+  - Plain language summaries a junior dev can understand
+  - Expandable detail/drill-down to raw evidence
+
+  **Required sections** (dense multi-column, fits one terminal screen):
+  - NOW: owner, next action, top blocker, last change age
+  - WORKERS: ID, role, scope, state, age, last update per worker
+  - PLAN: current slice, progress (N/M items), open findings, pending items
+  - PUBLICATION: effective truth, target match breakdown, why not green, timers
+    (preflight Xs → push Xs → post-push Xs), evidence path
+  - QUALITY: per-guard pass/fail, top probe findings, cleanup rate, failing file
+  - COORDINATION: packet queue counts, instruction rev, poll ages, ack state
+  - FLOW: compact ASCII flowcharts (review/worker/push pipelines)
+  - TIMELINE: last 10 important events with timestamps
+  - EVIDENCE: artifact paths for each truth claim
+
+  **Data sources** (all already exist as JSON, 16 surfaces mapped by 8 research agents):
+  - review_channel/latest/compact.json (review state, 13 KB)
+  - review_channel/latest/registry/agents.json (worker states)
+  - push/latest.json + push/history/receipts.jsonl (publication truth + history)
+  - startup/latest/receipt.json (advisory action, push eligibility)
+  - probes/latest/summary.json (25 probes, risk hints, hotspots)
+  - governance/latest/review_summary.json (121 findings, 56.2% cleanup rate)
+  - system_picture/latest/summary.json (section integrity)
+  - review_channel/latest/commit_pipeline.json (pipeline state)
+  - bridge.md live sections (instruction, verdict, findings)
+  - publisher_heartbeat.json + reviewer_supervisor_heartbeat.json (daemon health)
+  - audits/devctl_events.jsonl (19,903 events with timing)
+  - data_science/latest/summary.json (time-to-green, command frequency)
+  - data_science/history/snapshots.jsonl (11,457 snapshots, 25 days of trends)
+  - graph_snapshots/ (353 snapshots, temperature evolution)
+  - governance/finding_reviews.jsonl (136 review records with evidence chain)
+  - autonomy/watchdog/episodes/ (guard execution timing)
+
+  **Semantic colors** (strict palette):
+  - green: pass / accepted / published / matched
+  - yellow: queued / waiting / caution / partial
+  - red: blocked / failed / stale / mismatch
+  - cyan: active / running / current owner
+  - dim gray: evidence paths / raw artifact fields / secondary text
+
+  **Naming rules** (role-neutral, provider secondary):
+  - Primary nouns: Reviewer, Implementer, Worker, Plan, Publication, Quality,
+    Health, Evidence, Blocker, Next action
+  - Provider as sublabel: "Reviewer: Codex" not "Codex conductor"
+  - No internal contract names on main screen (push_enforcement, bridge_liveness,
+    current_session → Publication truth, Loop health, Current instruction)
+
+  **Auto-launch** (default behavior, not prompt behavior):
+  - review-channel launch → emit dashboard
+  - remote-control attach → open dashboard first
+  - rollover → write dashboard snapshot
+  - --follow → refresh every 5-10s (fast for machine, 3min summary for human)
+
+  **Portability**: DashboardSnapshot schema + repo-pack path resolution. Core
+  sections fixed (repo, review, workers, publication, quality, coordination,
+  flow). Repo-specific sections plug in via repo-pack config. Missing surfaces
+  render as "n/a", never crash. Operator console + mobile reuse same snapshot.
+
+  **Implementation slices** (Codex to review this order):
+  1. Promote DashboardSnapshot to `dev/scripts/devctl/platform/dashboard_snapshot.py`
+  2. Add source collectors that read all 16 artifact surfaces
+  3. Add derived truth layer (effective publication, primary blocker, loop health,
+     owner, next action, "what changed recently", explainability summaries)
+  4. Rebuild terminal renderer as dense multi-column with semantic colors
+  5. Add worker table, plan progress, publication pipeline with timers
+  6. Add compact ASCII flowcharts (review/worker/push)
+  7. Add timeline (last 10 events from devctl_events.jsonl)
+  8. Add evidence section with proof chain
+  9. Add --follow with diff-aware refresh
+  10. Wire auto-launch into review-channel launch + remote-control attach
+  11. Add focused tests for snapshot building, rendering, missing-surface fallback
+  12. Update plan docs and AGENTS.md with dashboard contract
+
 - 2026-04-04 extension/adopter closure correction: the latest architecture
   audit is now accepted as tracked `MP-377` work before implementation, not as
   off-plan commentary. The system should borrow Codex/Claude extension ideas

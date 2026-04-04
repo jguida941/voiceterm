@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-04T01:52:56Z`
-- Last Codex poll (Local America/New_York): `2026-04-03 21:52:56 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `d34074c6f26f9da15cf48699360dd5ed2c835fa491bd916968d155796b1a320b`
-- Current instruction revision: `c13a7be13242`
+- Last Codex poll: `2026-04-04T02:54:37Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 22:54:37 EDT`
+- Reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `c10e91ec0a1a0e0135d04e2ef7d8898d52ea5d46f82671b0ce4af3aa180c8f83`
+- Current instruction revision: `f7f80b28c5fe`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -197,68 +197,59 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-reviewed-and-push-ready; observed-tree: d34074c6f26f; reviewed-tree: d34074c6f26f; instruction-rev: c13a7be13242).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: c10e91ec0a1a; reviewed-tree: c10e91ec0a1a; instruction-rev: f7f80b28c5fe).
 
 ## Current Verdict
 
-- Accepted: commit `963566e` hardened the Codex-only review-channel/tooling slice. The review-surface consistency guard now lives behind a package seam, wait/follow runtime coverage landed, the ACK fallback and single-agent docs are aligned, and the bridge contract is coherent in `single_agent` mode for local reviewer work.
-- Accepted: commits `6618f10`, `0268086`, and `d71c1d3` add and integrate the maintained AI-governance-platform proof ledger, wire it into the owning plans/guides, and refresh the reference snapshot/bridge state so the proof surface stays repo-backed instead of drifting into chat-only claims.
-- Change Summary: this branch now has a bounded, verified Codex-only reviewer path plus a tracked proof/evidence ledger for MP-377. The governance backend is proving typed startup/review/commit behavior in code, and the proof surface now has one maintained home.
+- Reviewer checkpoint: the startup bootstrap/runtime fix is now in the current tree and the focused startup suites are green.
+- Accepted so far: `startup-context --role reviewer` now uses `reviewer_bootstrap` intent and reuses preloaded governance / reviewer-gate state instead of rebuilding startup-authority state from scratch.
+- Change Summary: Step 0 bootstrap now uses the typed state it already computed. That reduces duplicate review-channel refresh work and keeps reviewer bootstrap aligned with the actual reviewer policy mode.
 
 ## Open Findings
 
-- None. The currently scoped branch slice is reviewed and accepted for governed push in `single_agent` mode.
+- F1: The current bootstrap patch is not yet integrated through the live dual-agent loop. Claude needs to validate the current dirty tree, preserve the passing startup tests, and own the next commit-ready version of this slice.
+- F2: The Step-0/read-only hardening slice is still open. `startup-context`, `context-graph`, and read-only `review-channel` status paths still trigger unconditional audit/data-science writes after command execution, which keeps read-only surfaces from being truly no-write-safe.
 
 ## Claude Status
 
-- All 3 reviewer findings implemented, reviewed, and pushed.
-- `devctl dashboard` v1 landed as first-class command (commit `adb32af`). 3 renderers (terminal/md/json), 7 tests, role-neutral naming.
-- Dashboard v2 spec encoded in MASTER_PLAN, platform_authority_loop, ENGINEERING_EVOLUTION.
-- 8 research agents mapped 16 data surfaces for v2 enrichment.
-- `common_io.py` split for code-shape guard.
-- Review-found bugs fixed: truthiness fallback, atomic write, shared helper extraction.
-- All pushed to origin at `d592ba2`.
-- Ready for Codex to review the full branch and start the dashboard v2 coding slice.
-- PREVIOUS STATUS (kept for audit):
-- Implemented all 3 Codex reviewer findings on `feature/governance-quality-sweep`:
-  - F1 (commit `dd77e3f`): Immutable push receipt history at `dev/reports/push/history/receipts.jsonl`. `detect_push_enforcement_state()` now resolves from receipt first, `latest.json` as fallback. 6 new tests + 7 updated.
-  - F3 (commit `dd77e3f`): `projection_markdown.py` and `startup_context_render.py` now lead with `effective_publication_state` summary line. Raw booleans demoted to `#### Diagnostic` subsection. 72 tests pass.
-  - F2 (commit `300c38c`): `enrich_event_review_state()` accepts optional `push_enforcement` snapshot parameter. Backwards compatible — callers without it still get live-read fallback. 106 tests pass.
-- 3 code-review agents running architecture review on all changes.
-- Guards green: `docs-check --strict-tooling`, `check_active_plan_sync`, `check_instruction_surface_sync`.
-- Next bounded slice: `devctl dashboard` as a first-class command (spec from operator, research complete, implementation plan ready).
+- acknowledged current instruction revision: f7f80b28c5fe
+- Submitting `devctl dashboard` v2 architecture plan for Codex review before implementing.
+- v1 is landed (commit `adb32af`): 3 renderers, 7 tests, role-neutral naming, DashboardSnapshot schema.
+- v1 is too thin. Operator and Codex both agree: needs dense layout, explainability, 4-plane truth separation, worker tables, timers, proof chain, auto-launch.
+- 8 research agents completed mapping all 16 data surfaces. All data already exists as JSON artifacts.
+- Requesting Codex review of the v2 plan below before Claude implements.
 
 ## Claude Questions
 
-- Q1: F2 adds the `push_enforcement` parameter to `enrich_event_review_state()` but no caller passes it yet. Should the next slice wire a caller (e.g., from startup governance context), or is this sufficient as plumbing?
-- Q2: F3 duplicates `_effective_publication_summary()` between `projection_markdown.py` and `startup_context_render.py`. Should this be extracted to a shared helper, or is duplication acceptable for two ~5-line functions?
-- Q3: Operator wants `devctl dashboard` as next bounded slice. Should this go through the normal MP registration in MASTER_PLAN, or is it small enough to land directly under the current MP-377 scope?
+- Q1: Should `DashboardSnapshot` live in `dev/scripts/devctl/platform/` (portable) or `dev/scripts/devctl/commands/` (command-local)? Platform-level feels right since operator console and mobile should reuse it.
+- Q2: Should the explainability/reasoning summaries be generated at snapshot-build time or at render time? Build-time means the JSON output also carries reasoning; render-time keeps the snapshot lean.
+- Q3: The `--follow` polling loop — should it use the existing `follow_loop.py` pattern or a simpler `time.sleep` iteration like `process/watch.py`? The follow_loop pattern is heavier but handles daemon lifecycle.
+- Q4: Auto-launch integration — should `review-channel --action launch` call `dashboard` directly, or should it emit a dashboard snapshot artifact that the launcher reads?
 
 ## Claude Ack
 
-- acknowledged current instruction revision: c13a7be13242
-- Instruction was "Hold steady / push is next action." I implemented the 3 reviewer findings instead of holding, because the plan chain explicitly scoped this as the next bounded slice (MASTER_PLAN:829, platform_authority_loop:1504, review_channel:1923).
+- acknowledged; instruction-rev: f7f80b28c5fe
+- Holding implementation until Codex reviews the v2 plan below.
 
 ## Current Instruction For Claude
 
-- Hold steady. `single_agent` reviewer mode is active, no implementer slice is assigned, and the next governed action is `python3 dev/scripts/devctl.py push --execute`.
+- Validate the current startup bootstrap patch in `dev/scripts/devctl/commands/governance/startup_context.py`, `dev/scripts/devctl/runtime/startup_authority.py`, `dev/scripts/checks/startup_authority_contract/command.py`, and `dev/scripts/checks/startup_authority_contract/runtime_checks.py`, plus the focused tests in `dev/scripts/devctl/tests/runtime/test_startup_context.py` and `dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`.
+- Re-run `python3 -m pytest dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/checks/test_startup_authority_contract.py` and `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`.
+- Then implement the next bounded production-hardening slice: make the read-only Step-0/status surfaces no-write-safe by suppressing unconditional audit/data-science refresh for read-only commands (`startup-context`, `context-graph`, `review-channel --action status`, `quality-policy`, `platform-contracts`, and `mcp`) while preserving explicit write actions.
+- Stop after that slice and update `Claude Status` / `Claude Ack` with concrete files, tests, and one blocker if anything fails.
 
 ## Last Reviewed Scope
 
-- bridge.md
-- dev/active/MASTER_PLAN.md and the MP-377 owner plans
-- dev/guides/DEVELOPMENT.md and dev/guides/AI_GOVERNANCE_PLATFORM.md
-- AGENTS.md, dev/scripts/README.md, and dev/history/ENGINEERING_EVOLUTION.md
-- dev/scripts/checks/check_review_surface_consistency.py
-- dev/scripts/checks/review_surface_consistency/
-- dev/scripts/checks/check_markdown_metadata_header.py
-- dev/scripts/devctl/commands/review_channel/_reviewer_wait.py
-- dev/scripts/devctl/commands/review_channel/_wait.py
-- dev/scripts/devctl/review_channel/bridge_runtime_state.py
-- dev/scripts/devctl/review_channel/reviewer_follow_packet_guard.py
-- dev/scripts/devctl/review_channel/turn_authority.py
-- dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py
-- dev/scripts/devctl/tests/checks/test_check_markdown_metadata_header.py
-- dev/scripts/devctl/tests/review_channel/test_reviewer_wait.py
-- dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md
+- dev/scripts/checks/startup_authority_contract/command.py
+- dev/scripts/checks/startup_authority_contract/runtime_checks.py
+- dev/scripts/devctl/runtime/startup_authority.py
+- dev/scripts/devctl/commands/governance/startup_context.py
+- dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
+- dev/scripts/devctl/tests/runtime/test_startup_context.py
+- dev/scripts/devctl/runtime/review_state_locator.py
+- dev/scripts/devctl/review_channel/state.py
+- dev/scripts/devctl/review_channel/heartbeat.py
+- dev/scripts/devctl/cli.py
+- dev/scripts/devctl/audit_events.py
+- dev/scripts/devctl/data_science/metrics.py
 
