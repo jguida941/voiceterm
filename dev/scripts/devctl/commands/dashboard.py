@@ -41,6 +41,7 @@ from .dashboard_builders import (  # noqa: E402
     _build_workers_section,
     _compile_summary,
     _derive_top_blocker,
+    _extract_check_details,
     _extract_cleanup_rate,
     _extract_failing_files,
     _extract_push_success_values,

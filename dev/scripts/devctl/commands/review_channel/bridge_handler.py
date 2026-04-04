@@ -92,7 +92,7 @@ def _launch_and_refresh(
     runtime_warnings: list[str] = []
     if (
         args.action in {"launch", "rollover"}
-        and args.terminal == "terminal-app"
+        and args.terminal in {"terminal-app", "none"}
         and not args.dry_run
     ):
         runtime_ok, runtime_warnings = ensure_launch_runtime_daemons(
@@ -295,7 +295,7 @@ def _run_bridge_action(
         warnings=warnings,
     )
     retired_sessions = ()
-    if args.action == "rollover" and args.terminal == "terminal-app" and not args.dry_run:
+    if args.action == "rollover" and not args.dry_run:
         retired_sessions = load_conductor_sessions(session_output_root=status_dir)
     sessions = build_bridge_sessions(
         args=args,

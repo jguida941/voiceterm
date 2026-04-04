@@ -503,6 +503,16 @@ def _render_quality_terminal(snapshot: dict[str, Any], lines: list[str]) -> None
         for f in failing[1:3]:
             lines.append(f"            {f}")
 
+    # Per-check failure details from preflight output
+    check_details = quality.get("check_details", [])
+    for detail in check_details:
+        check_name = detail.get("check", "unknown")
+        violation = detail.get("violation", "")
+        summary = f"  {_RED}FAIL{_RESET}  {check_name}"
+        if violation:
+            summary += f"  {_DIM}-- {violation}{_RESET}"
+        lines.append(summary)
+
     # Probe quality summary
     probes = quality.get("probes", {})
     if probes and probes.get("probes_enabled") != "n/a":
@@ -841,6 +851,16 @@ def _render_quality_markdown(snapshot: dict[str, Any], lines: list[str]) -> None
     if failing:
         lines.append("")
         lines.append(f"**Failing**: {', '.join(failing)}")
+    check_details = quality.get("check_details", [])
+    if check_details:
+        lines.append("")
+        lines.append("| Check | Status | Violation |")
+        lines.append("|---|---|---|")
+        for detail in check_details:
+            name = detail.get("check", "unknown")
+            status = detail.get("status", "FAIL")
+            violation = detail.get("violation", "")
+            lines.append(f"| {name} | {status} | {violation} |")
     probes = quality.get("probes", {})
     if probes and probes.get("probes_enabled") != "n/a":
         lines.append("")

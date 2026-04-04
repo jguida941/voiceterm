@@ -274,12 +274,27 @@ def _refresh_stall_progress(
         return 0
     state.unchanged_progress_polls += 1
     return state.unchanged_progress_polls
+
+
+def _resolve_recovery_terminal(args) -> str:
+    """Inherit terminal mode from the parent daemon args for remote-control support.
+
+    When the reviewer-follow daemon runs with ``--terminal none`` (remote/headless),
+    recovery and rollover actions must also use headless launch instead of
+    requiring Terminal.app via osascript.
+    """
+    parent_terminal = str(getattr(args, "terminal", "") or "").strip()
+    if parent_terminal in {"terminal-app", "none"}:
+        return parent_terminal
+    return "terminal-app"
+
+
 def _build_recover_action_args(args) -> SimpleNamespace:
     payload = vars(args).copy()
     payload.update(
         action="recover",
         follow=False,
-        terminal="terminal-app",
+        terminal=_resolve_recovery_terminal(args),
         format="json",
         output=None,
         pipe_command=None,
@@ -296,7 +311,7 @@ def _build_rollover_action_args(args) -> SimpleNamespace:
     payload.update(
         action="rollover",
         follow=False,
-        terminal="terminal-app",
+        terminal=_resolve_recovery_terminal(args),
         format="json",
         output=None,
         pipe_command=None,

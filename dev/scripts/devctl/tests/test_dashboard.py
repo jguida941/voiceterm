@@ -51,7 +51,19 @@ def _minimal_push() -> dict:
         "branch": "feature/test",
         "head_commit": "deadbeef1234567",
         "fetch_step": {"duration_s": 0.59},
-        "preflight_step": {"returncode": 1, "duration_s": 23.87, "failure_output": "dev/scripts/devctl/common_io.py exceeded limit"},
+        "preflight_step": {
+            "returncode": 1,
+            "duration_s": 23.87,
+            "failure_output": (
+                "\ncheck summary: 4/5 passed, 1 failed\n"
+                "-----------------------------------\n"
+                "  PASS  docs_check\n"
+                "  PASS  plan_sync\n"
+                "  FAIL  code_shape  -- dev/scripts/devctl/common_io.py exceeded limit\n"
+                "  PASS  instr_sync\n"
+                "  PASS  bridge_check\n"
+            ),
+        },
         "push_step": None,
         "push_stages": {"post_push_green": False, "published_remote": False, "validation_ready": False},
     }
@@ -232,6 +244,9 @@ def _full_snapshot() -> dict:
             "instr_sync": "PASS",
             "clippy": "n/a",
             "failing": ["dev/scripts/devctl/common_io.py"],
+            "check_details": [
+                {"check": "code_shape", "status": "FAIL", "violation": "dev/scripts/devctl/common_io.py exceeded 350-line soft limit (412 lines)"},
+            ],
             "probes": {
                 "risk_hints": 7, "high": 5, "medium": 2,
                 "probes_enabled": 25, "files_scanned": 16,
@@ -545,6 +560,21 @@ class TestDashboardTerminalOutput(unittest.TestCase):
         self.assertIn("Failing", output)
         self.assertIn("common_io.py", output)
 
+    def test_terminal_quality_check_details(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+
+        self.assertIn("code_shape", output)
+        self.assertIn("exceeded 350-line soft limit", output)
+
+    def test_terminal_quality_no_check_details_when_empty(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["quality"]["check_details"] = []
+        output = dashboard_render.render_terminal(snapshot)
+
+        self.assertIn("QUALITY", output)
+        self.assertNotIn("-- exceeded", output)
+
     def test_terminal_publication_target_match(self) -> None:
         snapshot = _full_snapshot()
         output = dashboard_render.render_terminal(snapshot)
@@ -600,6 +630,22 @@ class TestDashboardMarkdownOutput(unittest.TestCase):
         self.assertIn("## Coordination", output)
         self.assertIn("## Flow", output)
 
+    def test_markdown_quality_check_details_table(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+
+        self.assertIn("| Check | Status | Violation |", output)
+        self.assertIn("| code_shape | FAIL |", output)
+        self.assertIn("exceeded 350-line soft limit", output)
+
+    def test_markdown_quality_no_detail_table_when_empty(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["quality"]["check_details"] = []
+        output = dashboard_render.render_markdown(snapshot)
+
+        self.assertIn("## Quality", output)
+        self.assertNotIn("| Check | Status | Violation |", output)
+
 
 class TestDashboardMissingArtifacts(unittest.TestCase):
     """Verify graceful degradation when files do not exist."""
@@ -636,6 +682,7 @@ class TestDashboardMissingArtifacts(unittest.TestCase):
             self.assertEqual(snapshot["audit"]["total_findings"], "n/a")
             self.assertEqual(snapshot["analytics"]["total_events"], "n/a")
             self.assertEqual(snapshot["quality"]["probes"]["probes_enabled"], "n/a")
+            self.assertEqual(snapshot["quality"]["check_details"], [])
             timers = snapshot["publication"]["timers"]
             self.assertEqual(timers["fetch_s"], "n/a")
 
@@ -716,6 +763,25 @@ class TestDashboardEnrichments(unittest.TestCase):
             self.assertEqual(probes["probes_enabled"], 25)
             self.assertEqual(probes["files_scanned"], 16)
 
+    def test_snapshot_has_check_details_in_quality(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/push/latest.json", _minimal_push())
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "feature/test", "head": "deadbee", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            details = snapshot["quality"]["check_details"]
+            self.assertEqual(len(details), 1)
+            self.assertEqual(details[0]["check"], "code_shape")
+            self.assertEqual(details[0]["status"], "FAIL")
+            self.assertIn("exceeded limit", details[0]["violation"])
+
     def test_snapshot_has_analytics_section(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -782,6 +848,40 @@ class TestDashboardEnrichments(unittest.TestCase):
 
         md = dashboard_render.render_markdown(snapshot)
         self.assertIn("# Governance Dashboard", md)
+
+    def test_extract_check_details_multi_failure(self) -> None:
+        """_extract_check_details parses multiple failing checks."""
+        from dev.scripts.devctl.commands.dashboard_data import _extract_check_details
+
+        output = (
+            "\ncheck summary: 2/4 passed, 2 failed\n"
+            "------------------------------------\n"
+            "  PASS  docs_check\n"
+            "  FAIL  code_shape  -- common_io.py exceeded 350 limit\n"
+            "  FAIL  instr_sync  -- CLAUDE.md out of date\n"
+            "  PASS  bridge_check\n"
+        )
+        details = _extract_check_details(output)
+        self.assertEqual(len(details), 2)
+        self.assertEqual(details[0]["check"], "code_shape")
+        self.assertEqual(details[0]["status"], "FAIL")
+        self.assertIn("exceeded 350 limit", details[0]["violation"])
+        self.assertEqual(details[1]["check"], "instr_sync")
+        self.assertIn("CLAUDE.md out of date", details[1]["violation"])
+
+    def test_extract_check_details_empty_output(self) -> None:
+        """_extract_check_details returns empty list for non-step output."""
+        from dev.scripts.devctl.commands.dashboard_data import _extract_check_details
+
+        self.assertEqual(_extract_check_details(""), [])
+        self.assertEqual(_extract_check_details("some random error text"), [])
+
+    def test_extract_check_details_pass_only(self) -> None:
+        """_extract_check_details omits passing checks."""
+        from dev.scripts.devctl.commands.dashboard_data import _extract_check_details
+
+        output = "  PASS  docs_check\n  PASS  code_shape\n"
+        self.assertEqual(_extract_check_details(output), [])
 
 
 class TestReviewerActivitySection(unittest.TestCase):

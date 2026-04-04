@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -90,18 +91,20 @@ def prepare_rollover_bundle(
 def launch_sessions_if_requested(
     request: LaunchSessionRequest,
 ) -> tuple[bool, bool, dict[str, bool] | None, list[str]]:
-    """Open Terminal.app windows and optionally wait for rollover ACK."""
+    """Launch conductor sessions via Terminal.app or headless subprocess."""
     args = request.args
     launched = False
     handoff_ack_required = False
     handoff_ack_observed = None
     cleanup_warnings: list[str] = []
+    if args.action not in {"launch", "rollover"} or args.dry_run:
+        return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
     prelaunch_snapshot = extract_bridge_snapshot(
         request.bridge_path.read_text(encoding="utf-8")
     )
     prelaunch_poll_utc = prelaunch_snapshot.metadata.get("last_codex_poll_utc")
     prelaunch_poll_status = prelaunch_snapshot.sections.get("Poll Status", "")
-    if args.action in {"launch", "rollover"} and args.terminal == "terminal-app" and not args.dry_run:
+    if args.terminal == "terminal-app":
         request.launch_terminal_sessions_fn(
             request.sessions,
             terminal_profile=request.terminal_profile_applied,
@@ -109,47 +112,92 @@ def launch_sessions_if_requested(
             auto_dark_terminal_profiles=AUTO_DARK_TERMINAL_PROFILES,
         )
         launched = True
-        if args.action == "launch" and args.await_ack_seconds > 0:
-            launch_poll = wait_for_codex_poll_refresh(
-                bridge_path=request.bridge_path,
-                previous_poll_utc=prelaunch_poll_utc,
-                previous_poll_status=prelaunch_poll_status,
-                timeout_seconds=args.await_ack_seconds,
-                observe_launch_state_fn=request.observe_launch_state_fn,
-            )
-            if not bool(launch_poll.get("observed")):
-                raise ValueError(
-                    "Live review-channel launch did not produce a fresh Codex "
-                    f"reviewer turn within {args.await_ack_seconds}s. "
-                    + _render_launch_timeout_detail(
-                        launch_poll=launch_poll,
-                        previous_poll_utc=prelaunch_poll_utc,
-                    )
-                )
-        if args.action == "rollover" and request.handoff_bundle is not None and args.await_ack_seconds > 0:
-            handoff_ack_required = True
-            handoff_ack_observed = wait_for_rollover_ack(
-                bridge_path=request.bridge_path,
-                rollover_id=request.handoff_bundle.rollover_id,
-                timeout_seconds=args.await_ack_seconds,
-            )
-        if (
-            args.action == "rollover"
-            and request.retired_sessions
-            and (
-                not handoff_ack_required
-                or (
-                    isinstance(handoff_ack_observed, dict)
-                    and bool(handoff_ack_observed)
-                    and all(bool(value) for value in handoff_ack_observed.values())
+    elif args.terminal == "none":
+        launched = _launch_sessions_headless(request.sessions, cleanup_warnings)
+    if not launched:
+        return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
+    if args.action == "launch" and args.terminal == "terminal-app" and args.await_ack_seconds > 0:
+        launch_poll = wait_for_codex_poll_refresh(
+            bridge_path=request.bridge_path,
+            previous_poll_utc=prelaunch_poll_utc,
+            previous_poll_status=prelaunch_poll_status,
+            timeout_seconds=args.await_ack_seconds,
+            observe_launch_state_fn=request.observe_launch_state_fn,
+        )
+        if not bool(launch_poll.get("observed")):
+            raise ValueError(
+                "Live review-channel launch did not produce a fresh Codex "
+                f"reviewer turn within {args.await_ack_seconds}s. "
+                + _render_launch_timeout_detail(
+                    launch_poll=launch_poll,
+                    previous_poll_utc=prelaunch_poll_utc,
                 )
             )
-        ):
-            for retired_session in request.retired_sessions:
-                cleanup_warnings.extend(
-                    request.cleanup_terminal_session_fn(retired_session)
-                )
+    if args.action == "rollover" and request.handoff_bundle is not None and args.await_ack_seconds > 0:
+        handoff_ack_required = True
+        handoff_ack_observed = wait_for_rollover_ack(
+            bridge_path=request.bridge_path,
+            rollover_id=request.handoff_bundle.rollover_id,
+            timeout_seconds=args.await_ack_seconds,
+        )
+    if (
+        args.action == "rollover"
+        and request.retired_sessions
+        and (
+            not handoff_ack_required
+            or (
+                isinstance(handoff_ack_observed, dict)
+                and bool(handoff_ack_observed)
+                and all(bool(value) for value in handoff_ack_observed.values())
+            )
+        )
+    ):
+        for retired_session in request.retired_sessions:
+            cleanup_warnings.extend(
+                request.cleanup_terminal_session_fn(retired_session)
+            )
     return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
+
+
+def _launch_sessions_headless(
+    sessions: list[dict[str, object]],
+    warnings: list[str],
+) -> bool:
+    """Start conductor sessions as detached background processes (no GUI).
+
+    Each session has a ``launch_command`` pointing at a shell script that
+    already handles supervised restart.  This path spawns each script in a
+    new process group so it survives the parent daemon exiting.
+    """
+    any_launched = False
+    for session in sessions:
+        script_path = str(session.get("script_path") or "").strip()
+        if not script_path or not Path(script_path).is_file():
+            warnings.append(
+                f"Headless launch skipped: script not found at {script_path}"
+            )
+            continue
+        log_path_str = str(session.get("log_path") or "").strip()
+        log_handle = None
+        try:
+            if log_path_str:
+                log_path = Path(log_path_str)
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_handle = log_path.open("a", encoding="utf-8")
+            subprocess.Popen(
+                ["/bin/zsh", script_path],
+                cwd=str(Path(script_path).parent),
+                stdout=log_handle or subprocess.DEVNULL,
+                stderr=log_handle or subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            any_launched = True
+        except OSError as exc:
+            warnings.append(f"Headless launch failed for {script_path}: {exc}")
+            if log_handle is not None:
+                log_handle.close()
+    return any_launched
 
 
 def _lane_assignment_dict(lane) -> dict[str, object]:

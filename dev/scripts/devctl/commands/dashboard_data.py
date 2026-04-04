@@ -80,11 +80,12 @@ def _publication_effective(
 
 
 def _build_quality_section(push_data: dict[str, Any] | None) -> dict[str, Any]:
-    """Build multi-gate quality section with failing file list."""
-    base = {
+    """Build multi-gate quality section with failing file list and check details."""
+    base: dict[str, Any] = {
         "docs_gate": "n/a", "plan_sync": "n/a", "code_shape": "n/a",
         "instr_sync": "n/a", "bridge": "n/a", "clippy": "n/a",
         "failing": [],
+        "check_details": [],
     }
     if push_data is None:
         return base
@@ -94,8 +95,8 @@ def _build_quality_section(push_data: dict[str, Any] | None) -> dict[str, Any]:
 
     if preflight_ok is False:
         failure_out = preflight.get("failure_output", "")
-        failing_files = _extract_failing_files(failure_out)
-        base["failing"] = failing_files
+        base["failing"] = _extract_failing_files(failure_out)
+        base["check_details"] = _extract_check_details(failure_out)
 
     return base
 
@@ -111,6 +112,41 @@ def _extract_failing_files(output: str) -> list[str]:
             if len(files) >= 5:
                 break
     return files
+
+
+# Pattern matching ``format_steps_text`` output lines:
+#   "  FAIL  check_name  -- violation detail"
+#   "  PASS  check_name"
+_CHECK_LINE_RE = re.compile(
+    r"^\s*(PASS|FAIL|SKIP)\s+(\S+)(?:\s+--\s+(.+))?$"
+)
+
+
+def _extract_check_details(output: str) -> list[dict[str, str]]:
+    """Parse per-check status and violation summaries from preflight output.
+
+    The preflight ``failure_output`` contains the compact text produced by
+    ``format_steps_text`` in ``steps.py``.  Each check line has the form:
+        ``  FAIL  check_name  -- one-line violation``
+    Only failing checks are included in the result to keep the dashboard
+    focused on actionable items.
+    """
+    details: list[dict[str, str]] = []
+    for line in output.splitlines():
+        m = _CHECK_LINE_RE.match(line)
+        if not m:
+            continue
+        status, name, violation = m.group(1), m.group(2), m.group(3) or ""
+        if status != "FAIL":
+            continue
+        details.append({
+            "check": name,
+            "status": status,
+            "violation": violation.strip(),
+        })
+        if len(details) >= 10:
+            break
+    return details
 
 
 def _extract_push_timers(push_data: dict[str, Any] | None) -> dict[str, Any]:

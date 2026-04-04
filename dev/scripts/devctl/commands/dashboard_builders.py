@@ -29,6 +29,7 @@ from .dashboard_data import (  # noqa: F401
     _build_audit_section,
     _build_probes_section,
     _build_quality_section,
+    _extract_check_details,
     _extract_cleanup_rate,
     _extract_failing_files,
     _extract_push_success_values,

@@ -2737,7 +2737,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             mocked_recovery.assert_called_once()
             recovery_args = mocked_recovery.call_args.kwargs["args"]
             self.assertEqual(recovery_args.action, "recover")
-            self.assertEqual(recovery_args.terminal, "terminal-app")
+            self.assertEqual(recovery_args.terminal, "none")
 
     def test_reviewer_follow_auto_triggers_rollover_for_stale_reviewer(self) -> None:
         args = self._build_reviewer_follow_args(max_follow_snapshots=7)
@@ -2867,7 +2867,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             mocked_rollover.assert_called_once()
             rollover_args = mocked_rollover.call_args.kwargs["args"]
             self.assertEqual(rollover_args.action, "rollover")
-            self.assertEqual(rollover_args.terminal, "terminal-app")
+            self.assertEqual(rollover_args.terminal, "none")
             self.assertEqual(rollover_args.rollover_trigger, "peer-stale")
 
     def test_reviewer_follow_queues_claude_trigger_when_relaunch_is_required(self) -> None:
