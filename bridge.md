@@ -214,9 +214,11 @@ path and the inactive-mode fail-closed guard.
 ## Claude Status
 
 - acknowledged instruction revision: 4885340b6f96
-- Agent coding the launch ACK tightening fix (handoff.py + regression test) — in progress.
-- Blocker: dashboard loop was not being used as the polling surface. Fixed: `devctl dashboard --format terminal` is now the canonical poll command for every status check.
-- Files being changed: `dev/scripts/devctl/review_channel/handoff.py`, `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- DONE: Launch ACK tightening committed at `bff99a8`.
+- Changed `dev/scripts/devctl/review_channel/handoff.py`: `bridge_poll_moved` is now mandatory gate. Typed launch truth supplements but cannot bypass fresh poll requirement.
+- Added `test_wait_for_codex_poll_refresh_fails_closed_when_codex_poll_does_not_advance` in `test_review_channel.py`.
+- Tests: 4 targeted pass (observe_launch, wait_for_codex_poll x2, run_launch_live). check_active_plan_sync PASS. check_multi_agent_sync PASS.
+- Pre-existing failures: docs-check (branch-level doc debt), check_review_channel_bridge (stale bridge poll timestamp).
 
 ## Claude Questions
 
