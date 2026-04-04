@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-04-03 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-04 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1263,6 +1263,27 @@ blocker or exception in plan state before skipping the declared order.
       one compact GitHub-visible markdown projection for external review. The
       GitHub-visible summary is a generated reference surface, not a second
       authority store or a hand-maintained audit memo.
+- [ ] Close the current publish-state parity tranche before widening
+      `system-picture` consumer migration. The same `latest-push` receipt must
+      mean the same current-target publication state in startup recovery,
+      `review-channel status|doctor`, event-backed review enrichment, and
+      human-facing push markdown; validity must key off current branch,
+      current HEAD, current approved target, and tracked upstream/default
+      remote while keeping `published_remote` distinct from
+      `post_push_green`.
+- [ ] Treat the current clean-branch blocker as branch-shape closure, not
+      another push attempt. `dev/reports/push/latest.json` already proves
+      `published_remote=true`, `post_push_green=false`, and
+      `reason=post_push_bundle_failed`; the next same-lane execution must
+      either burn down `check_code_shape --since-ref origin/develop`
+      violations or record explicit debt/waivers before calling the branch
+      fully green.
+- [ ] For that bounded publish-state closure tranche, use the sanctioned
+      review-channel conductor topology with explicit worker budgets
+      (`--codex-workers 0 --claude-workers 3`) and disjoint Claude-owned
+      scopes: push-markdown/render parity, push-receipt/current-target
+      matching, and event/runtime push-state propagation. Codex remains the
+      conductor/reviewer and canonical plan writer.
 - [ ] Lock the first consumer-migration order while that reducer lands:
       PyQt6/operator-console leaves `bridge.md`-parsed lane state first,
       iPhone/mobile moves from compatibility-shaped `mobile-status` payloads
@@ -1480,6 +1501,27 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-04 post-push-green correction: `feature/governance-quality-sweep`
+  is already published on `origin`, and `dev/reports/push/latest.json` is the
+  canonical receipt (`published_remote=true`, `post_push_green=false`,
+  `reason=post_push_bundle_failed`). Resume from this lane by treating
+  `check_code_shape --since-ref origin/develop` as the first tracked blocker,
+  not by re-running push. The next bounded slice is (1) current-target
+  publication parity across startup/doctor/event/render/system-picture, then
+  (2) shape-debt burn-down or explicit debt capture before calling the proof
+  surface green.
+- 2026-04-04 worker-topology instruction: when relaunching the review loop for
+  that slice, use `python3 dev/scripts/devctl.py review-channel --action launch
+  --terminal none --dry-run --refresh-bridge-heartbeat-if-stale
+  --codex-workers 0 --claude-workers 3 --format md` as the verified bootstrap
+  shape, then promote the same worker budget into the live launch. Keep Codex
+  conductor-owned over bridge/plan state; keep the three Claude workers on
+  disjoint scopes (render parity, push receipt/current-target matching,
+  event/runtime propagation) and route branch-wide shape triage/integration
+  back through the conductor. Inside that bounded slice, keep the execution
+  order explicit: immutable push-receipt/current-target closure first, render
+  truth second, and event-carried snapshot work last once the receipt truth is
+  stable.
 - 2026-04-03 proof-bar correction: do not describe the current state as
   "works on any repo" or as a finished `Gate 2` proof. The reviewer-bootstrap
   startup split is useful, but the remaining honest blockers are still in the
@@ -1974,6 +2016,17 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-04: Re-ran startup-context, bootstrap graph, review-channel doctor,
+  system-picture, the latest push receipt, and the full
+  `check_code_shape --since-ref origin/develop` guard to freeze the honest
+  branch state after the governed push. The repo now agrees on the important
+  truth: remote publication already happened for
+  `feature/governance-quality-sweep`, but post-push is not green because the
+  branch still carries `14` code-shape violations. That makes the next same-
+  lane closure explicit: unify current-target publication truth across
+  startup/doctor/event/render/system-picture surfaces, then either land or
+  debt-log the remaining shape cleanup before treating the proof surface as
+  green.
 - 2026-04-04: Closed the next publish-state projection leak in the active
   authority-loop lane. `review-channel status|doctor` now keeps commit-pipeline
   truth as the primary source when a live pipeline exists, but it falls back to

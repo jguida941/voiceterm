@@ -1808,6 +1808,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-04-04T01:18:00Z` | `CODEX` | Re-validated the sanctioned launch topology for the next `MP-377` publish-state closure slice from a fresh clean-tree bootstrap. `review-channel --action launch --terminal none --dry-run --refresh-bridge-heartbeat-if-stale --codex-workers 0 --claude-workers 3 --format md` is green, keeps default requested worker fanout explicit (`0` for Codex, `3` for Claude), and still projects planned 8+8 lanes as compatibility topology rather than live runtime truth. The same intake also re-locked ownership for the slice: Codex stays conductor/reviewer and canonical plan writer; Claude workers must stay on disjoint code scopes and report back through conductor-owned state. | `planned` | Use this exact launch shape for the next live publish-truth/shape-debt slice, then keep worker receipts and plan updates in typed review-state plus the owner plans rather than bridge-local lore. |
 | `2026-04-03T21:20:00Z` | `CODEX` | Reconciled the clean-tree `reviewer_overdue` runtime against the updated `MP-377` owner chain so fresh sessions do not miss the real blocker. The repo now has publisher/reviewer-supervisor daemon truth, typed reviewer runtime, and launchd-backed restart scaffolding, but the live stale loop showed that detached daemon health is still not the missing semantic-review link. The remaining operational gap is a repo-owned persistent Codex reviewer worker/service path that owns re-review cadence, reviewer checkpoints, and operator-visible updates between Claude passes. The same review also re-locked the bridge swarm language: 8+8 is still conductor-managed capacity over the shared backend, default requested worker fanout remains zero unless explicitly requested, and any widened worker set must stay projected through `CollaborationSession` plus `DelegatedWorkPacket` receipts rather than bridge-local role inference. | `planned` | Keep the current bridge run repair-first when no live repo-owned Codex reviewer is present, then land the reviewer-worker/service path and the remaining worker-budget/runtime-topology closure before claiming the bridge path can sustain autonomous many-agent review passes by itself. |
 | `2026-04-03T20:20:00Z` | `CODEX` | Landed the shared turn-authority repair slice without bloating `ReviewerRuntimeContract`. The new `review_channel/turn_authority.py` sibling projection now derives effective reviewer mode, launch truth, attention, recovery permission, implementation-block state, and next-turn routing from typed `review_state` plus the bridge-only reviewer wait markers, and `bridge-poll` consumes that shared projection instead of a local branch tree. `check_review_surface_consistency.py` now compares `bridge-poll` against the same snapshot/turn-authority payload so parity drift fails as a guard. Focused `bridge-poll`, guard, and adjacent status/wait regressions are green. | `partial-pass` | Keep the next slice bounded to the reviewer-accepted implementer-state baseline and the reviewed-current completion dead zone; wait/recovery consumer migrations remain follow-on work. |
 | `2026-04-03T06:25:00Z` | `CODEX` | Tightened the daemon-liveness boundary for live review-channel launches. The live `launch|rollover` router now owns publisher auto-start directly instead of hiding it in the terminal helper, the publisher remains the persistent owner that reclaims reviewer-supervisor runtime on cadence, the repo now ships a checked-in launchd template/wrapper pair for login-time restart/backoff semantics, and the compact doctor payload now projects publisher/supervisor running state plus last heartbeat/stop-reason fields. Added focused launch-router, doctor, and launchd regression coverage for absent-at-login, duplicate-start, inactive-mode no-op, timeout/output-error restart classes, and follow timeout suppression. | `partial-pass` | Run the tooling/docs guard bundle plus the broader review-channel tests, then checkpoint the remote-control slice without widening into commit/push executor work yet. |
@@ -1918,6 +1919,18 @@ Complete this table only after all active swarm lanes are merged.
 
 ## Session Resume
 
+- Next action: for the next `MP-377` publish-state closure slice, launch the
+  sanctioned bridge-gated reviewer/coder loop with
+  `python3 dev/scripts/devctl.py review-channel --action launch --terminal none
+  --dry-run --refresh-bridge-heartbeat-if-stale --codex-workers 0
+  --claude-workers 3 --format md` first, then use the same worker budget in
+  the live launch to resume `active_dual_agent`. Keep Codex conductor-owned
+  over bridge/plan state, and keep the three Claude workers on disjoint owned
+  scopes (render parity, push receipt/current-target matching, event/runtime
+  propagation) so the branch proves governed multi-agent execution instead of
+  default zero-fanout lore. Conductor sequencing for that slice is explicit:
+  immutable receipt/current-target work first, render-truth cleanup second,
+  and event-snapshot propagation last.
 - Next action: keep the owner split explicit for the active repair lane.
   `ReviewState.reviewer_runtime` remains the reviewer-lifecycle owner and the
   new `review_channel.turn_authority` sibling projection now owns

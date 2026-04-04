@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 
 ## At a Glance
 
@@ -58,6 +58,33 @@ reconstructing "already published, repair the follow-up" from mixed signals.
 The same slice also treats blank approved-target identities as valid matches
 for ordinary branch pushes, so persisted publish receipts remain usable even
 when no reviewer-bound target identity was attached to the push.
+
+### 2026-04-04 - Active plan state now treats post-push code-shape closure as the first blocker and fixes the sanctioned 0/3 worker launch shape
+
+The governed push lane had already learned to distinguish
+`published_remote=true` from `post_push_green=false`, but the next-execution
+story for fresh sessions still needed one explicit tracked answer after the
+branch push landed: do not treat this state as "push again later." The branch
+is already published; the next blocker is the failing post-push
+`check_code_shape --since-ref origin/develop` gate plus the remaining
+publication-truth parity work across startup, review projections, and the
+generated proof surfaces.
+
+That execution state is now explicit in the active plan chain. `MASTER_PLAN`,
+`platform_authority_loop.md`, `ai_governance_platform.md`, and
+`review_channel.md` now all say the same thing: the next bounded `MP-377`
+slice is current-target publish-truth closure plus shape cleanup or explicit
+debt capture, and the sanctioned multi-agent proof path for that slice uses
+the review-channel launcher with `--codex-workers 0 --claude-workers 3` so
+Codex stays conductor-owned while three Claude workers take disjoint coding
+scopes under the repo-owned bridge/runtime contract.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/review_channel.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`.
 
 ### 2026-04-04 - `system-picture` now owns the generated proof surface
 

@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-03 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-04 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -4399,6 +4399,16 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-04-04 proof-state correction: the current `MP-377` execution branch is
+  already published, but it is not yet a fully green proof slice.
+  `dev/reports/push/latest.json` records `published_remote=true`,
+  `post_push_green=false`, and `reason=post_push_bundle_failed`, and the
+  remaining blocker is branch-wide
+  `check_code_shape --since-ref origin/develop` debt rather than the recent
+  push/system-picture fixes themselves. The accepted next bounded slice is
+  therefore current-target publication parity plus explicit shape cleanup/debt
+  capture, executed through the sanctioned review-channel topology with
+  `--codex-workers 0 --claude-workers 3`.
 - 2026-04-03 cross-client source-of-truth follow-up is now explicit in the
   main `MP-377` owner chain. Read-only review across the PyQt6 operator
   console, iPhone mobile app, and Claude remote-loop surfaces confirmed that
@@ -5532,6 +5542,16 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-04: Re-froze the product-level proof boundary after the latest
+  governed push. Branch publication is already recorded, but full green proof
+  is blocked by commit-range code-shape debt, not by a missing push. The next
+  accepted slice stays inside the existing `system-picture` / publication-
+  truth owner chain: align current-target publication semantics across
+  startup, review-channel, event-backed projections, and proof surfaces, then
+  either land or explicitly debt-log the remaining shape cleanup before
+  calling the slice green. The sanctioned many-agent proof path for that work
+  is the bridge-gated review launch with `--codex-workers 0 --claude-workers
+  3`.
 - 2026-04-03: Tightened the tracked `MP-377` plan state after re-reviewing the
   new cross-client reducer against the live bridge/runtime handoff. The shared
   `system-picture` / external-review slice now explicitly requires

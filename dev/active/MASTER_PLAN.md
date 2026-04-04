@@ -826,6 +826,18 @@
   renders effective current-target truth instead of replaying stale raw
   artifact booleans, and event-backed review-state enrichment now carries the
   same push-enforcement / push-decision parity instead of staying bridge-only.
+- 2026-04-04 post-push-green closure intake: the branch is already published
+  on `origin/feature/governance-quality-sweep`, and
+  `dev/reports/push/latest.json` honestly records `published_remote=true`,
+  `post_push_green=false`, and `reason=post_push_bundle_failed`. The next
+  bounded `MP-377` slice is therefore not another push attempt; it is to keep
+  current-target publication truth aligned across startup/doctor/event/render/
+  system-picture surfaces while classifying the remaining
+  `check_code_shape --since-ref origin/develop` failures into must-fix-now
+  versus explicit debt. Run that slice through the sanctioned review-channel
+  topology with `--codex-workers 0 --claude-workers 3` so the branch proves
+  planned many-agent execution under conductor-owned state instead of the
+  default zero-fanout path.
 - 2026-03-27 repo-entrance/dev-loop adjudication: accepted two additional
   same-lane follow-ups without widening the product roadmap. First, keep the
   root repo entrance split by audience: `README.md` remains the VoiceTerm
