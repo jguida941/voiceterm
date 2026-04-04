@@ -10,6 +10,11 @@ from ..runtime.remote_commit_pipeline_models import (
 from ..runtime.reviewer_runtime_models import ReviewerRuntimeContract
 from .peer_liveness import reviewer_mode_is_active
 from .peer_recovery import STALE_PEER_RECOVERY
+from .reviewer_runtime_publication import (
+    PublicationTruth,
+    resolve_publication_blocked_reason,
+    resolve_publication_truth,
+)
 
 
 def build_reviewer_doctor_surface(
@@ -17,14 +22,19 @@ def build_reviewer_doctor_surface(
     contract: ReviewerRuntimeContract,
     attention: Mapping[str, object] | None = None,
     commit_pipeline: RemoteCommitPipelineContract | None = None,
-    publisher_state: Mapping[str, object] | None = None,
-    reviewer_supervisor_state: Mapping[str, object] | None = None,
+    push_enforcement: Mapping[str, object] | None = None,
+    runtime_state: Mapping[str, object] | None = None,
     snapshot_id: str = "",
 ) -> dict[str, object]:
     """Project a read-only doctor surface from reviewer-runtime authority."""
     pipeline = commit_pipeline or RemoteCommitPipelineContract()
-    publisher = publisher_state or {}
-    reviewer_supervisor = reviewer_supervisor_state or {}
+    runtime = runtime_state if isinstance(runtime_state, Mapping) else {}
+    publisher = _runtime_mapping(runtime.get("publisher"))
+    reviewer_supervisor = _runtime_mapping(runtime.get("reviewer_supervisor"))
+    publication = resolve_publication_truth(
+        pipeline=pipeline,
+        push_enforcement=push_enforcement,
+    )
     attention_summary = str((attention or {}).get("summary") or "").strip()
     recommended_command = str(
         (attention or {}).get("recommended_command")
@@ -32,7 +42,11 @@ def build_reviewer_doctor_surface(
         or ""
     ).strip()
     status = _doctor_status(contract)
-    summary = attention_summary or _doctor_summary(contract, status=status)
+    summary = attention_summary or _doctor_summary(
+        contract,
+        status=status,
+        publication=publication,
+    )
     surface: dict[str, object] = {}
     surface["status"] = status
     surface["summary"] = summary
@@ -78,7 +92,10 @@ def build_reviewer_doctor_surface(
     surface["approval_state"] = pipeline.approval_state
     surface["commit_ready"] = _commit_ready(contract=contract, pipeline=pipeline)
     surface["push_ready"] = _push_ready(contract=contract, pipeline=pipeline)
-    surface["blocked_reason"] = pipeline.blocked_reason
+    surface["blocked_reason"] = resolve_publication_blocked_reason(
+        pipeline=pipeline,
+        push_enforcement=push_enforcement,
+    )
     surface["staged_tree_hash"] = pipeline.intent.staged_tree_hash
     surface["staged_path_count"] = pipeline.intent.staged_path_count
     surface["diff_summary"] = pipeline.intent.diff_summary
@@ -90,10 +107,11 @@ def build_reviewer_doctor_surface(
         if pipeline.guard_result is not None
         else []
     )
-    surface["push_report_path"] = pipeline.push_report_path
+    surface["push_report_path"] = publication.push_report_path
     surface["commit_sha"] = pipeline.commit_sha
-    surface["published_remote"] = _published_remote(pipeline)
-    surface["post_push_green"] = _post_push_green(pipeline)
+    surface["published_remote"] = publication.published_remote
+    surface["post_push_green"] = publication.post_push_green
+    surface["publication_source"] = publication.source
     surface["recovery_action_allowed"] = (
         pipeline.recovery_action_allowed or surface["recovery_action_allowed"]
     )
@@ -122,7 +140,15 @@ def _doctor_summary(
     contract: ReviewerRuntimeContract,
     *,
     status: str,
+    publication: PublicationTruth,
 ) -> str:
+    if publication.published_remote and not publication.post_push_green:
+        return (
+            "Remote publication is already recorded for the current HEAD, "
+            "but post-push follow-up is not green yet."
+        )
+    if publication.published_remote and publication.post_push_green:
+        return "Remote publication and post-push validation are already recorded."
     if status == "healthy":
         return "Reviewer runtime is green and publish-clear."
     if status == "review_pending":
@@ -139,6 +165,10 @@ def _action_result_status(result: object) -> str:
     if result is None:
         return "not_run"
     return str(getattr(result, "status", "") or "unknown")
+
+
+def _runtime_mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
 
 
 def _commit_ready(
@@ -165,15 +195,3 @@ def _push_ready(
         and pipeline.state in {"commit_recorded", "push_pending", "push_completed"}
         and not pipeline.blocked_reason
     )
-
-
-def _published_remote(pipeline: RemoteCommitPipelineContract) -> bool:
-    if pipeline.state == "push_completed":
-        return True
-    if pipeline.push_result is None:
-        return False
-    return bool(pipeline.push_result.ok and pipeline.push_result.status == "pass")
-
-
-def _post_push_green(pipeline: RemoteCommitPipelineContract) -> bool:
-    return pipeline.state == "push_completed" and _published_remote(pipeline)

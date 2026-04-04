@@ -64,6 +64,7 @@ from .commands import (
     security,
     ship,
     status,
+    system_picture,
     sync,
     triage,
     triage_loop,
@@ -110,7 +111,7 @@ from .mobile_app_parser import add_mobile_app_parser
 from .mutation_loop.parser import add_mutation_loop_parser
 from .orchestrate_parser import add_orchestrate_parsers
 from .path_audit_parser import add_path_audit_parser, add_path_rewrite_parser
-from .platform.parser import add_platform_contracts_parser
+from .platform.parser import add_platform_contracts_parser, add_system_picture_parser
 from .publication_sync.parser import add_publication_sync_parser
 from .reports_cleanup_parser import add_reports_cleanup_parser
 from .review_channel.parser import add_review_channel_parser
@@ -141,6 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_orchestrate_parsers(sub)
     add_publication_sync_parser(sub)
     add_platform_contracts_parser(sub)
+    add_system_picture_parser(sub)
     add_render_surfaces_parser(sub)
     add_launcher_check_parser(sub)
     add_launcher_probes_parser(sub)
@@ -188,6 +190,7 @@ COMMAND_HANDLERS = {
     "orchestrate-status": orchestrate_status.run,
     "orchestrate-watch": governance_orchestrate_watch.run,
     "platform-contracts": platform_contracts.run,
+    "system-picture": system_picture.run,
     "report": report.run,
     "triage": triage.run,
     "data-science": data_science.run,

@@ -133,16 +133,8 @@ def build_bridge_review_state(
         contract=reviewer_runtime,
         attention=attention,
         commit_pipeline=commit_pipeline,
-        publisher_state=(
-            runtime_daemons.get("publisher")
-            if isinstance(runtime_daemons.get("publisher"), dict)
-            else None
-        ),
-        reviewer_supervisor_state=(
-            runtime_daemons.get("reviewer_supervisor")
-            if isinstance(runtime_daemons.get("reviewer_supervisor"), dict)
-            else None
-        ),
+        push_enforcement=typed_bridge_liveness.get("push_enforcement"),
+        runtime_state=runtime_daemons,
         snapshot_id=snapshot_id,
     )
 

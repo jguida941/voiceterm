@@ -44,6 +44,7 @@ COMMANDS = [
     "context-graph",
     "startup-context",
     "platform-contracts",
+    "system-picture",
     "doc-authority",
     "governance-draft",
     "governance-export",

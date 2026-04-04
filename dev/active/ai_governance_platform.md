@@ -7611,6 +7611,11 @@ Execution order for this section:
   external pilot ledgers, and the owning `MP-377` / `MP-376` plans, and it
   carries an explicit upkeep rule to update the same change whenever proof
   claims, commands, or artifact owners move.
+- 2026-04-03: Added the generated `devctl system-picture` reducer as the
+  command-level source for that ledger so the proof surface can be refreshed
+  from typed runtime/evidence artifacts and not only by hand-editing prose.
+  The command now owns the bounded machine snapshot plus the tracked
+  writeback projection into `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`.
 
 ## Audit Evidence
 

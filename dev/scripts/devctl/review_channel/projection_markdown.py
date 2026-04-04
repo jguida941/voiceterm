@@ -3,6 +3,41 @@
 from __future__ import annotations
 
 
+def _append_latest_push_receipt(
+    lines: list[str],
+    push_enforcement: dict[str, object],
+) -> None:
+    latest_push_path = str(push_enforcement.get("latest_push_report_path") or "").strip()
+    latest_push_status = str(
+        push_enforcement.get("latest_push_report_status") or ""
+    ).strip()
+    latest_push_reason = str(
+        push_enforcement.get("latest_push_report_reason") or ""
+    ).strip()
+    latest_push_seen = bool(latest_push_path or latest_push_status or latest_push_reason)
+    if not latest_push_seen:
+        return
+    lines.append(f"- latest_push_report: `{latest_push_path or 'n/a'}`")
+    lines.append(
+        "- latest_push_matches_current_branch: "
+        f"{bool(push_enforcement.get('latest_push_report_matches_current_branch'))}"
+    )
+    lines.append(
+        "- latest_push_matches_current_head: "
+        f"{bool(push_enforcement.get('latest_push_report_matches_current_head'))}"
+    )
+    lines.append(
+        f"- published_remote: {bool(push_enforcement.get('latest_push_report_published_remote'))}"
+    )
+    lines.append(
+        f"- post_push_green: {bool(push_enforcement.get('latest_push_report_post_push_green'))}"
+    )
+    if latest_push_status:
+        lines.append(f"- latest_push_status: `{latest_push_status}`")
+    if latest_push_reason:
+        lines.append(f"- latest_push_reason: `{latest_push_reason}`")
+
+
 def append_push_markdown(
     lines: list[str],
     push_enforcement: object,
@@ -14,6 +49,7 @@ def append_push_markdown(
     lines.append("")
     lines.append("## Push")
     if isinstance(push_enforcement, dict):
+        _append_latest_push_receipt(lines, push_enforcement)
         lines.append(
             f"- checkpoint_required: {bool(push_enforcement.get('checkpoint_required'))}"
         )

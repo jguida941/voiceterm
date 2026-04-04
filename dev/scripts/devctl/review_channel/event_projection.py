@@ -169,10 +169,8 @@ def enrich_event_review_state(
         contract=reviewer_runtime,
         attention=attention,
         commit_pipeline=commit_pipeline,
-        publisher_state=_mapping(runtime_daemons.get("publisher")),
-        reviewer_supervisor_state=_mapping(
-            runtime_daemons.get("reviewer_supervisor")
-        ),
+        push_enforcement=bridge_liveness.get("push_enforcement"),
+        runtime_state=runtime_daemons,
         snapshot_id=snapshot_id,
     )
     if snapshot_id:

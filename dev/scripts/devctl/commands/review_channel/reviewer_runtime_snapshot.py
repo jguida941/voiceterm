@@ -25,18 +25,22 @@ def attach_reviewer_runtime_snapshot(
         review_state.reviewer_runtime
     )
     report["commit_pipeline"] = asdict(review_state.commit_pipeline)
+    bridge_liveness = (
+        report.get("bridge_liveness")
+        if isinstance(report.get("bridge_liveness"), Mapping)
+        else None
+    )
     report["doctor"] = build_reviewer_doctor_surface(
         contract=review_state.reviewer_runtime,
         attention=attention,
         commit_pipeline=review_state.commit_pipeline,
-        publisher_state=(
-            report.get("publisher")
-            if isinstance(report.get("publisher"), Mapping)
+        push_enforcement=(
+            bridge_liveness.get("push_enforcement")
+            if isinstance(bridge_liveness, Mapping)
             else None
         ),
-        reviewer_supervisor_state=(
-            report.get("reviewer_supervisor")
-            if isinstance(report.get("reviewer_supervisor"), Mapping)
-            else None
-        ),
+        runtime_state={
+            "publisher": report.get("publisher"),
+            "reviewer_supervisor": report.get("reviewer_supervisor"),
+        },
     )

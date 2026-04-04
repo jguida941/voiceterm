@@ -1974,6 +1974,15 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-04: Closed the next publish-state projection leak in the active
+  authority-loop lane. `review-channel status|doctor` now keeps commit-pipeline
+  truth as the primary source when a live pipeline exists, but it falls back to
+  the persisted latest push artifact for the current branch/head when the
+  pipeline is unavailable. That keeps the surface honest about
+  `published_remote` versus `post_push_green` instead of silently
+  reclassifying an already-published branch as unresolved push state after the
+  canonical `devctl push` path finishes remote publication before later
+  follow-up fails.
 - 2026-04-03: Tightened the accepted `system-picture` slice after reviewing the
   fresh handoff against live runtime state. The reducer now explicitly needs
   repo/worktree/service identity plus `CollaborationSession`,
@@ -1999,6 +2008,12 @@ blocker or exception in plan state before skipping the declared order.
   second, and Claude remote-loop plus external-review surfaces consume typed
   status plus the generated summary third. None of those clients gains live
   authority ownership.
+- 2026-04-03: Regenerated the external-review evidence surface as a repo-owned
+  command path, `devctl system-picture`, so the proof ledger can now be
+  rebuilt from typed runtime/evidence artifacts instead of being maintained as
+  a prose-only memo. The tracked `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`
+  projection is now documented as a generated writeback target off the same
+  reducer.
 - 2026-04-03: Closed the next startup-consumer parity gap in the active
   authority-loop lane without inverting ownership. `bridge-poll` no longer
   derives liveness/turn routing from bridge text alone: the new shared

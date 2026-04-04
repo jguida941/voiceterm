@@ -41,31 +41,28 @@ def _append_rule_explanation(
                 lines.append(
                     f"- rejected_rule: {summary} -> {rejected_because}"
                 )
-
-
 def _join_paths(paths: list[object], *, limit: int = 4) -> str:
     cleaned = [str(path).strip() for path in paths if str(path).strip()]
     if len(cleaned) <= limit:
         return ", ".join(f"`{path}`" for path in cleaned)
     head = ", ".join(f"`{path}`" for path in cleaned[:limit])
     return f"{head}, +{len(cleaned) - limit} more"
-
-
 def _push_decision_mapping(ctx_dict: dict) -> dict:
     push_decision = ctx_dict.get("push_decision")
     return push_decision if isinstance(push_decision, dict) else {}
 
 
+def _push_enforcement_mapping(ctx_dict: dict) -> dict:
+    governance = ctx_dict.get("governance")
+    push_enforcement = governance.get("push_enforcement") if isinstance(governance, dict) else None
+    return push_enforcement if isinstance(push_enforcement, dict) else {}
 def _publication_backlog_mapping(ctx_dict: dict) -> dict:
     push_decision = _push_decision_mapping(ctx_dict)
     backlog = push_decision.get("publication_backlog")
     if isinstance(backlog, dict):
         return backlog
-    governance = ctx_dict.get("governance")
-    if not isinstance(governance, dict):
-        return {}
-    push_enforcement = governance.get("push_enforcement")
-    if not isinstance(push_enforcement, dict):
+    push_enforcement = _push_enforcement_mapping(ctx_dict)
+    if not push_enforcement:
         return {}
     return {
         "pending_publication_commits": push_enforcement.get(
@@ -78,8 +75,6 @@ def _publication_backlog_mapping(ctx_dict: dict) -> dict:
         ),
         "backlog_urgent": push_enforcement.get("publication_backlog_urgent"),
     }
-
-
 def publication_backlog_count(ctx_dict: dict) -> int | None:
     """Return ahead-of-upstream count when startup can see one."""
     backlog = _publication_backlog_mapping(ctx_dict)
@@ -88,11 +83,8 @@ def publication_backlog_count(ctx_dict: dict) -> int | None:
         return raw_count
     if isinstance(raw_count, str) and raw_count.isdigit():
         return int(raw_count)
-    governance = ctx_dict.get("governance")
-    if not isinstance(governance, dict):
-        return None
-    push_enforcement = governance.get("push_enforcement")
-    if not isinstance(push_enforcement, dict):
+    push_enforcement = _push_enforcement_mapping(ctx_dict)
+    if not push_enforcement:
         return None
     raw_count = push_enforcement.get("ahead_of_upstream_commits")
     if isinstance(raw_count, int):
@@ -100,8 +92,36 @@ def publication_backlog_count(ctx_dict: dict) -> int | None:
     if isinstance(raw_count, str) and raw_count.isdigit():
         return int(raw_count)
     return None
-
-
+def _append_latest_push_receipt(lines: list[str], push_enforcement: dict) -> None:
+    latest_push_path = str(push_enforcement.get("latest_push_report_path") or "").strip()
+    latest_push_status = str(push_enforcement.get("latest_push_report_status") or "").strip()
+    latest_push_reason = str(push_enforcement.get("latest_push_report_reason") or "").strip()
+    if not (latest_push_path or latest_push_status or latest_push_reason):
+        return
+    for label, value in (
+        ("latest_push_report", f"`{latest_push_path or 'n/a'}`"),
+        (
+            "latest_push_matches_current_branch",
+            bool(push_enforcement.get("latest_push_report_matches_current_branch")),
+        ),
+        (
+            "latest_push_matches_current_head",
+            bool(push_enforcement.get("latest_push_report_matches_current_head")),
+        ),
+        (
+            "published_remote",
+            bool(push_enforcement.get("latest_push_report_published_remote")),
+        ),
+        (
+            "post_push_green",
+            bool(push_enforcement.get("latest_push_report_post_push_green")),
+        ),
+    ):
+        lines.append(f"- {label}: {value}")
+    if latest_push_status:
+        lines.append(f"- latest_push_status: `{latest_push_status}`")
+    if latest_push_reason:
+        lines.append(f"- latest_push_reason: `{latest_push_reason}`")
 def publication_backlog_guidance(ctx_dict: dict) -> str:
     """Describe when pending remote publication should happen."""
     push_decision = _push_decision_mapping(ctx_dict)
@@ -125,32 +145,20 @@ def publication_backlog_guidance(ctx_dict: dict) -> str:
     if action == "await_checkpoint":
         return f"{subject} once the current slice is checkpoint-clean."
     return f"{subject} after the current startup blocker clears."
-
-
-def _append_push_state(lines: list[str], ctx_dict: dict, gov: dict) -> None:
-    push_enforcement = gov.get("push_enforcement", {})
+def _append_push_state(lines: list[str], ctx_dict: dict) -> None:
+    push_enforcement = _push_enforcement_mapping(ctx_dict)
     if not push_enforcement:
         return
     lines.append("## Push/Checkpoint State")
-    lines.append(
-        f"- worktree_dirty: {push_enforcement.get('worktree_dirty', False)}"
-    )
-    lines.append(
-        f"- worktree_clean: {push_enforcement.get('worktree_clean', True)}"
-    )
+    _append_latest_push_receipt(lines, push_enforcement)
+    lines.append(f"- worktree_dirty: {push_enforcement.get('worktree_dirty', False)}")
+    lines.append(f"- worktree_clean: {push_enforcement.get('worktree_clean', True)}")
     ahead = publication_backlog_count(ctx_dict)
     if ahead is not None:
         lines.append(f"- ahead_of_upstream_commits: {ahead}")
-    lines.append(
-        f"- checkpoint_required: {push_enforcement.get('checkpoint_required', False)}"
-    )
-    lines.append(
-        f"- safe_to_continue_editing: "
-        f"{push_enforcement.get('safe_to_continue_editing', True)}"
-    )
-    lines.append(
-        f"- recommended_action: `{push_enforcement.get('recommended_action', '?')}`"
-    )
+    lines.append(f"- checkpoint_required: {push_enforcement.get('checkpoint_required', False)}")
+    lines.append(f"- safe_to_continue_editing: {push_enforcement.get('safe_to_continue_editing', True)}")
+    lines.append(f"- recommended_action: `{push_enforcement.get('recommended_action', '?')}`")
     backlog_state = str(push_enforcement.get("publication_backlog_state") or "").strip()
     if backlog_state:
         lines.append(f"- publication_backlog_state: `{backlog_state}`")
@@ -163,8 +171,6 @@ def _append_push_state(lines: list[str], ctx_dict: dict, gov: dict) -> None:
     if backlog_guidance:
         lines.append(f"- publication_backlog: {backlog_guidance}")
     lines.append("")
-
-
 def _append_push_decision(lines: list[str], push_decision: dict) -> None:
     if not push_decision:
         return
@@ -201,8 +207,6 @@ def _append_push_decision(lines: list[str], push_decision: dict) -> None:
         summary_label="push_rule_summary",
     )
     lines.append("")
-
-
 def _append_startup_gate(lines: list[str], ctx_dict: dict) -> None:
     authority = ctx_dict.get("startup_authority", {})
     receipt = ctx_dict.get("startup_receipt", {})
@@ -221,8 +225,6 @@ def _append_startup_gate(lines: list[str], ctx_dict: dict) -> None:
     if receipt_path:
         lines.append(f"- startup_receipt: `{receipt_path}`")
     lines.append("")
-
-
 def _append_work_intake(lines: list[str], ctx_dict: dict) -> None:
     intake = ctx_dict.get("work_intake", {})
     if not isinstance(intake, dict) or not intake:
@@ -271,8 +273,6 @@ def _append_work_intake(lines: list[str], ctx_dict: dict) -> None:
     if isinstance(writeback_sinks, list) and writeback_sinks:
         lines.append(f"- writeback_sinks: {_join_paths(writeback_sinks)}")
     lines.append("")
-
-
 def _append_continuity_roots(lines: list[str], gov: dict) -> None:
     memory_roots = gov.get("memory_roots", {})
     if not isinstance(memory_roots, dict):
@@ -291,8 +291,6 @@ def _append_continuity_roots(lines: list[str], gov: dict) -> None:
             f"- context_store_root: `{memory_roots.get('context_store_root')}`"
         )
     lines.append("")
-
-
 def render_markdown(ctx_dict: dict) -> str:
     """Render startup context as concise AI-ready markdown."""
     lines = ["# Startup Context", ""]
@@ -330,7 +328,7 @@ def render_markdown(ctx_dict: dict) -> str:
         f"{gate.get('review_gate_allows_push', False)}"
     )
     lines.append("")
-    _append_push_state(lines, ctx_dict, gov)
+    _append_push_state(lines, ctx_dict)
     push_decision = ctx_dict.get("push_decision", {})
     if isinstance(push_decision, dict):
         _append_push_decision(lines, push_decision)

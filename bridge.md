@@ -62,12 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-04T00:05:06Z`
-- Last Codex poll (Local America/New_York): `2026-04-03 20:05:06 EDT`
-- Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `4f9dd0380d22669575c690aa04c28b275bf5a011311e5c0cad4135c8bef5c911`
-- Current instruction revision: `5d22ab1a418d`
-
+- Last Codex poll: `2026-04-04T00:08:20Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 20:08:20 EDT`
+- Reviewer mode: `single_agent`
+- Last non-audit worktree hash: `d34074c6f26f9da15cf48699360dd5ed2c835fa491bd916968d155796b1a320b`
+- Current instruction revision: `c13a7be13242`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -198,19 +197,17 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-only-local-review; observed-tree: 4f9dd0380d22; reviewed-tree: 4f9dd0380d22; instruction-rev: 5d22ab1a418d).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-reviewed-and-push-ready; observed-tree: d34074c6f26f; reviewed-tree: d34074c6f26f; instruction-rev: c13a7be13242).
 
 ## Current Verdict
 
-- Accepted: commit `0082792` closes the original `turn_authority` lifecycle-merge finding. Partial typed payloads with raw lifecycle booleans now feed the shared classifiers, and the targeted `bridge-poll` / review-channel validation cited in the operator packets is sufficient proof for that slice.
-- Needs follow-up: the review loop is still blocked on stale implementer/reviewer state, and the downstream consumer slices coming from the Claude worktrees are not merge-ready yet.
+- Accepted: commit `963566e` hardened the Codex-only review-channel/tooling slice. The review-surface consistency guard now lives behind a package seam, wait/follow runtime coverage landed, the ACK fallback and single-agent docs are aligned, and the bridge contract is coherent in `single_agent` mode for local reviewer work.
+- Accepted: commits `6618f10`, `0268086`, and `d71c1d3` add and integrate the maintained AI-governance-platform proof ledger, wire it into the owning plans/guides, and refresh the reference snapshot/bridge state so the proof surface stays repo-backed instead of drifting into chat-only claims.
+- Change Summary: this branch now has a bounded, verified Codex-only reviewer path plus a tracked proof/evidence ledger for MP-377. The governance backend is proving typed startup/review/commit behavior in code, and the proof surface now has one maintained home.
 
 ## Open Findings
 
-- Blocking: the live bridge/runtime state is still inconsistent. `review-channel status` / `bridge-poll` report instruction revision `7f0d4de4a9b1`, `implementer_state_reset_required`, and an empty implementer ACK, while the checked-in `bridge.md` prose is still on the older `8ba5aff5e6c4` slice. Do not trust new launch/promotion attempts until reviewer-owned state is rewritten through repo-owned tooling.
-- Blocking: the Slice 1.5 packet (`rev_pkt_0059`) claims disk-parity guard coverage is complete, but the referenced worktree is no longer present under `.claude/worktrees/`. There is no mergeable diff to inspect locally, so this slice must be recovered from packet evidence or recreated in the main repo before it can be accepted.
-- Blocking: downstream consumer work is not merge-ready. Saved task outputs report `test_build_bridge_poll_result_prefers_typed_current_session_authority` failing after the recover/follow consumer edits, which means typed current-session ACK truth regressed. Another saved output reports a `reviewer_follow_packet_guard` consumer failure (`reviewer_mode_is_active`/follow-trigger parity) in the broader review-channel suite. Do not merge those worktree changes until the targeted proofs are green.
-- Non-blocking: the main repo currently has two untracked reviewer-side tests, `dev/scripts/devctl/tests/review_channel/test_implementer_wait.py` and `dev/scripts/devctl/tests/review_channel/test_reviewer_follow_packet_guard.py`. Keep them aligned with the code slices that land; if the associated code does not merge, drop or relocate the tests instead of leaving orphaned proofs.
+- None. The currently scoped branch slice is reviewed and accepted for governed push in `single_agent` mode.
 
 ## Claude Status
 
@@ -226,23 +223,24 @@ path and the inactive-mode fail-closed guard.
 
 ## Current Instruction For Claude
 
-- Treat the `turn_authority` lifecycle-merge slice as accepted and stop reworking it.
-- First recover the reviewer/implementer bridge state through the repo-owned reviewer path so launch/status projections stop disagreeing about the active instruction and ACK state.
-- Then recreate or recover Slice 1.5 in the main repo: extend `dev/scripts/checks/check_review_surface_consistency.py` with the disk-parity guard described in packet `rev_pkt_0059`, add the matching focused tests, and rerun `python3 -m pytest dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py -q --tb=short`.
-- Do not merge the downstream follow/wait consumer worktree changes yet. Instead, use the saved task outputs as blocker evidence and keep that tranche bounded to fixing the failing review-channel proofs (`test_ack_contract.py::test_build_bridge_poll_result_prefers_typed_current_session_authority` and the reviewer-follow parity failures) before any merge attempt.
+- Hold steady. `single_agent` reviewer mode is active, no implementer slice is assigned, and the next governed action is `python3 dev/scripts/devctl.py push --execute`.
 
 ## Last Reviewed Scope
 
 - bridge.md
-- dev/reports/review_channel/latest/latest.md
-- dev/reports/review_channel/latest/review_state.json
+- dev/active/MASTER_PLAN.md and the MP-377 owner plans
+- dev/guides/DEVELOPMENT.md and dev/guides/AI_GOVERNANCE_PLATFORM.md
+- AGENTS.md, dev/scripts/README.md, and dev/history/ENGINEERING_EVOLUTION.md
+- dev/scripts/checks/check_review_surface_consistency.py
+- dev/scripts/checks/review_surface_consistency/
+- dev/scripts/checks/check_markdown_metadata_header.py
+- dev/scripts/devctl/commands/review_channel/_reviewer_wait.py
+- dev/scripts/devctl/commands/review_channel/_wait.py
+- dev/scripts/devctl/review_channel/bridge_runtime_state.py
+- dev/scripts/devctl/review_channel/reviewer_follow_packet_guard.py
 - dev/scripts/devctl/review_channel/turn_authority.py
-- dev/scripts/devctl/tests/review_channel/test_implementer_wait.py
-- dev/scripts/devctl/tests/review_channel/test_reviewer_follow_packet_guard.py
-- .claude/worktrees/agent-a80491ad/dev/scripts/devctl/review_channel/recover_support.py
-- .claude/worktrees/agent-a80491ad/dev/scripts/devctl/review_channel/reviewer_follow_recovery.py
-- .claude/worktrees/agent-a34daafa/dev/scripts/devctl/tests/review_channel/test_bridge_poll.py
-- .claude/worktrees/agent-a34daafa/dev/scripts/devctl/tests/review_channel/test_review_channel.py
-- /private/tmp/claude-501/-Users-jguida941-testing-upgrade-codex-voice/c6e92228-6b50-4165-8202-b05269984a28/tasks/a80491ad90c285bd1.output
-- /private/tmp/claude-501/-Users-jguida941-testing-upgrade-codex-voice/c6e92228-6b50-4165-8202-b05269984a28/tasks/a34daafa177ff5be5.output
+- dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py
+- dev/scripts/devctl/tests/checks/test_check_markdown_metadata_header.py
+- dev/scripts/devctl/tests/review_channel/test_reviewer_wait.py
+- dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md
 

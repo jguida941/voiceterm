@@ -146,6 +146,14 @@ class RepoPathConfig:
     # Data-science snapshot output root
     data_science_output_root_rel: str = "dev/reports/data_science"
 
+    # System-picture snapshot output root
+    system_picture_output_root_rel: str = "dev/reports/system_picture"
+
+    # Tracked external-review / proof-ledger projection path
+    system_picture_ledger_rel: str = (
+        "dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md"
+    )
+
     # Watchdog episode persistence root
     watchdog_episode_root_rel: str = "dev/reports/autonomy/watchdog/episodes"
 

@@ -867,7 +867,15 @@ Workflow permissions note:
    auditing," not "still waiting to push." If a later rerun fetches the
    tracked branch and proves `ahead == 0`, `devctl push` now returns the
    existing already-published receipt before router preflight instead of
-   defaulting zero changed paths into the docs lane.
+   defaulting zero changed paths into the docs lane. The same truth must stay
+   visible in reviewer/readiness projections too: `review-channel --action
+   status|doctor` should surface the managed push artifact path plus
+   `published_remote` / `post_push_green` state, and when post-push follow-up
+   failed after publication it should say so explicitly instead of falling
+   back to a generic "push unavailable" interpretation. Treat a blank
+   approved-target identity as a valid current-target match for ordinary
+   branch pushes, and surface when that publish truth came from the latest
+   push artifact rather than from a live remote-commit pipeline.
    The shared `devctl` command runner now follows the parent push/post-push
    command lifetime instead of waiting forever on inherited descendant stdout
    pipes after the governed push has already completed.

@@ -195,6 +195,8 @@ only running one local guard bundle:
 - `python3 dev/scripts/devctl.py render-surfaces --format md`
 - `python3 dev/scripts/devctl.py quality-policy --format md`
 - `python3 dev/scripts/devctl.py platform-contracts --format md`
+- `python3 dev/scripts/devctl.py system-picture --format md`
+- `python3 dev/scripts/devctl.py system-picture --write-ledger --format md`
 - `python3 dev/scripts/checks/check_platform_contract_closure.py`
 - `python3 dev/scripts/devctl.py probe-report --format md`
 - `python3 dev/scripts/devctl.py governance-export --format md`
@@ -212,6 +214,10 @@ When the shared platform blueprint, runtime contract models, durable
 probe/report schema constants, or startup-surface routing text changes, pair
 `platform-contracts --format md` with
 `python3 dev/scripts/checks/check_platform_contract_closure.py`.
+Use `system-picture` when you need the bounded generated reducer over startup,
+graph, review-runtime, governance-review, imported-findings, and telemetry
+artifacts, and use `--write-ledger` when the tracked proof surface needs to be
+refreshed from that reducer instead of edited by hand.
 
 ### Review, runtime, and operator loop surfaces
 

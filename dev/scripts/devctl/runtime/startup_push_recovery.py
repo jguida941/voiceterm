@@ -21,9 +21,16 @@ def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -
     latest_push_report_matches_current_branch = bool(
         getattr(push_enforcement, "latest_push_report_matches_current_branch", False)
     )
+    latest_push_report_matches_current_head = bool(
+        getattr(push_enforcement, "latest_push_report_matches_current_head", False)
+    )
     current_branch = str(getattr(push_enforcement, "current_branch", "") or "")
     latest_push_report_branch = str(
         getattr(push_enforcement, "latest_push_report_branch", "") or ""
+    )
+    current_head_commit = str(getattr(push_enforcement, "current_head_commit", "") or "")
+    latest_push_report_head_commit = str(
+        getattr(push_enforcement, "latest_push_report_head_commit", "") or ""
     )
     latest_push_report_remote = str(
         getattr(push_enforcement, "latest_push_report_remote", "") or ""
@@ -46,6 +53,13 @@ def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -
             and latest_push_report_branch
             and current_branch == latest_push_report_branch
         )
+    artifact_head_matches = latest_push_report_matches_current_head
+    if not artifact_head_matches:
+        artifact_head_matches = bool(
+            current_head_commit
+            and latest_push_report_head_commit
+            and current_head_commit == latest_push_report_head_commit
+        )
     artifact_remote_matches = (
         not latest_push_report_remote or latest_push_report_remote == default_remote
     )
@@ -53,6 +67,7 @@ def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -
         latest_push_report_published_remote
         and latest_push_report_matches_current_approved_target
         and artifact_branch_matches
+        and artifact_head_matches
         and artifact_remote_matches
     )
 

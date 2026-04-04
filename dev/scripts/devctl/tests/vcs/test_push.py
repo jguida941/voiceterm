@@ -258,6 +258,120 @@ class PushCommandTests(unittest.TestCase):
         self.assertTrue(state["latest_push_report_matches_current_head"])
         self.assertTrue(state["latest_push_report_matches_current_branch"])
 
+    @patch(
+        "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
+        return_value="dev/reports/push/latest.json",
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
+        return_value=SimpleNamespace(
+            approved_target_identity="tree-receipt-20260403T010000Z:tree-123"
+        ),
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state.load_latest_push_report",
+        return_value={
+            "branch": "feature/demo",
+            "remote": "origin",
+            "head_commit": "old-head",
+            "approved_target_identity": "tree-receipt-20260403T010000Z:tree-123",
+            "push_stages": {
+                "validation_ready": True,
+                "published_remote": True,
+                "post_push_green": False,
+            },
+        },
+    )
+    @patch("dev.scripts.devctl.governance.push_state._git_stdout")
+    def test_detect_push_enforcement_rejects_stale_head_publish_receipt(
+        self,
+        git_stdout_mock,
+        _load_latest_push_report_mock,
+        _load_remote_commit_pipeline_contract_mock,
+        _latest_push_report_relpath_mock,
+    ) -> None:
+        def _fake_git_stdout(_repo_root, *cmd):
+            values = {
+                ("rev-parse", "--git-path", "hooks/pre-push"): "",
+                ("rev-parse", "--abbrev-ref", "HEAD"): "feature/demo",
+                ("rev-parse", "HEAD"): "new-head",
+                (
+                    "rev-parse",
+                    "--abbrev-ref",
+                    "--symbolic-full-name",
+                    "@{u}",
+                ): "origin/feature/demo",
+                ("rev-list", "--count", "origin/feature/demo..HEAD"): "1",
+                ("status", "--porcelain", "--untracked-files=all"): "",
+            }
+            return values.get(cmd, "")
+
+        git_stdout_mock.side_effect = _fake_git_stdout
+
+        state = detect_push_enforcement_state(make_policy())
+
+        self.assertEqual(state["recommended_action"], "use_devctl_push")
+        self.assertEqual(state["pending_publication_commits"], 1)
+        self.assertFalse(state["latest_push_report_matches_current_head"])
+        self.assertTrue(state["latest_push_report_matches_current_branch"])
+        self.assertTrue(state["latest_push_report_matches_current_approved_target"])
+
+    @patch(
+        "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
+        return_value="dev/reports/push/latest.json",
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
+        return_value=SimpleNamespace(
+            approved_target_identity=""
+        ),
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state.load_latest_push_report",
+        return_value={
+            "branch": "feature/demo",
+            "remote": "origin",
+            "head_commit": "abc123",
+            "approved_target_identity": "",
+            "push_stages": {
+                "validation_ready": True,
+                "published_remote": True,
+                "post_push_green": False,
+            },
+        },
+    )
+    @patch("dev.scripts.devctl.governance.push_state._git_stdout")
+    def test_detect_push_enforcement_trusts_blank_target_identity_publish_receipt(
+        self,
+        git_stdout_mock,
+        _load_latest_push_report_mock,
+        _load_remote_commit_pipeline_contract_mock,
+        _latest_push_report_relpath_mock,
+    ) -> None:
+        def _fake_git_stdout(_repo_root, *cmd):
+            values = {
+                ("rev-parse", "--git-path", "hooks/pre-push"): "",
+                ("rev-parse", "--abbrev-ref", "HEAD"): "feature/demo",
+                ("rev-parse", "HEAD"): "abc123",
+                (
+                    "rev-parse",
+                    "--abbrev-ref",
+                    "--symbolic-full-name",
+                    "@{u}",
+                ): "origin/feature/demo",
+                ("rev-list", "--count", "origin/feature/demo..HEAD"): "1",
+                ("status", "--porcelain", "--untracked-files=all"): "",
+            }
+            return values.get(cmd, "")
+
+        git_stdout_mock.side_effect = _fake_git_stdout
+
+        state = detect_push_enforcement_state(make_policy())
+
+        self.assertEqual(state["recommended_action"], "no_push_needed")
+        self.assertEqual(state["publication_backlog_state"], "none")
+        self.assertTrue(state["latest_push_report_matches_current_approved_target"])
+
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")

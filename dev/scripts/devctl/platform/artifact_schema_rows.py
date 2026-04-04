@@ -112,4 +112,17 @@ def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
             migration_path="Keep delta fields additive and update markdown/JSON renderers plus CLI tests before schema expansion.",
             rollback_path="Restore prior delta constants and renderer/CLI shape before removing snapshot consumers.",
         ),
+        ArtifactSchemaSpec(
+            contract_id="SystemPicture",
+            owner_layer="governance_core",
+            purpose="Generated startup/runtime/evidence reducer snapshot emitted by `devctl system-picture`.",
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/platform/system_picture.py",
+            constants_module="dev.scripts.devctl.platform.system_picture_models",
+            contract_id_attr="SYSTEM_PICTURE_CONTRACT_ID",
+            schema_version_attr="SYSTEM_PICTURE_SCHEMA_VERSION",
+            compatibility_window="best-effort stable within MP-377 system-picture rollout; additive changes only",
+            migration_path="Keep reducer fields additive and update the CLI, ledger renderers, and proof consumers before schema expansion.",
+            rollback_path="Restore prior reducer constants and renderers before removing existing system-picture consumers.",
+        ),
     )

@@ -1,6 +1,6 @@
 # AI Governance Platform
 
-**Status**: active reference  |  **Last updated**: 2026-04-03 | **Owner:** Tooling/control plane/product architecture
+**Status**: active reference  |  **Last updated**: 2026-04-04 | **Owner:** Tooling/control plane/product architecture
 
 This guide is the maintainable "whitepaper plus flowchart" for the reusable AI
 governance platform direction.
@@ -197,6 +197,8 @@ Current machine-readable blueprint surface:
 ```bash
 python3 dev/scripts/devctl.py platform-contracts --format md
 python3 dev/scripts/devctl.py platform-contracts --format json
+python3 dev/scripts/devctl.py system-picture --format md
+python3 dev/scripts/devctl.py system-picture --write-ledger --format md
 python3 dev/scripts/devctl.py render-surfaces --format md
 python3 dev/scripts/devctl.py render-surfaces --format json
 python3 dev/scripts/devctl.py render-surfaces --write --format md
@@ -205,10 +207,17 @@ python3 dev/scripts/devctl.py render-surfaces --write --format md
 That command is the executable source of truth for the shared layer model,
 runtime contracts, repo-local boundaries, and current portability status.
 
+`system-picture` is the bounded external-review reducer that composes the
+typed startup, graph, review-runtime, governance-review, imported-findings,
+and telemetry ledgers into one generated snapshot. Its tracked markdown
+projection at `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` is meant to
+be regenerated from the command, not curated by hand.
+
 Current machine-first projection examples already in repo:
 
 - `dev/reports/probes/latest/review_packet.{json,md}`
 - `dev/reports/data_science/latest/summary.{json,md}`
+- `dev/reports/system_picture/latest/summary.{json,md}`
 - `dev/reports/autonomy/**/summary.{json,md}`
 - `dev/reports/governance/latest/review_summary.{json,md}`
 

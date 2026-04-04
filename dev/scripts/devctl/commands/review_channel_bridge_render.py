@@ -11,6 +11,7 @@ from ..review_channel.doctor_markdown import append_doctor_markdown
 from ..review_channel.handoff import handoff_bundle_to_dict
 from ..review_channel.heartbeat import bridge_heartbeat_refresh_to_dict
 from ..review_channel.promotion import promotion_candidate_to_dict
+from ..review_channel.projection_markdown import append_push_markdown
 from ..review_channel.peer_liveness import OverallLivenessState
 from ..review_channel.reviewer_state import reviewer_state_write_to_dict
 from ..review_channel.state import projection_paths_to_dict
@@ -83,6 +84,13 @@ def render_bridge_md(
     _append_promotion(lines, report.get("promotion"))
     _append_attention(lines, report.get("attention"))
     append_doctor_markdown(lines, report.get("doctor"))
+    bridge_liveness = report.get("bridge_liveness")
+    push_enforcement = (
+        bridge_liveness.get("push_enforcement")
+        if isinstance(bridge_liveness, dict)
+        else None
+    )
+    append_push_markdown(lines, push_enforcement, report.get("push_decision"))
     append_wait_state_markdown(lines, report.get("wait_state"))
     _append_service_identity(lines, report.get("service_identity"))
     append_attach_auth_policy_markdown(lines, report.get("attach_auth_policy"))

@@ -81,6 +81,7 @@ def test_platform_contracts_json_output(capsys) -> None:
     assert "DecisionPacket" in contract_ids
     assert "ProbeReport" in artifact_ids
     assert "ReviewPacket" in artifact_ids
+    assert "SystemPicture" in artifact_ids
     assert payload["service_lifecycle"][0]["service_id"] == "voiceterm_daemon"
     assert "shutdown_entrypoints" in contract_map["LocalServiceEndpoint"]
     assert "forbidden_actions" in contract_map["CallerAuthorityPolicy"]

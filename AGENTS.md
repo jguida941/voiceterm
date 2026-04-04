@@ -532,7 +532,15 @@ checklist plus chat memory.
     `latest_push_report_approved_target_identity`) instead of raw HEAD
     equality alone. So
     `published_remote=true` plus a matching current HEAD means post-push
-    repair/status work, not another push attempt.
+    repair/status work, not another push attempt. Reviewer/readiness
+    projections must preserve that same publish truth too: `review-channel
+    --action status|doctor` may not collapse a matching latest-push artifact
+    back to generic `pipeline_unavailable` / unresolved push state just
+    because no remote commit pipeline is active or the post-push bundle
+    failed after publication. Blank approved-target identities are a valid
+    current-target match for ordinary branch pushes, and doctor/status should
+    expose when latest-push artifact truth is the source behind
+    `published_remote` / `post_push_green`.
 4.7 Treat governed-markdown authority the same way: prefer typed
     `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
     parsed `plan_registry` entries when those projections are available, but

@@ -300,6 +300,7 @@ The repo already contains the seeds of the portable system you are asking for.
 | Need | Current seed |
 |---|---|
 | portable backend blueprint | `devctl platform-contracts` |
+| generated external-review reducer | `devctl system-picture` |
 | generated AI/dev startup surfaces | `devctl render-surfaces` |
 | repo-visible review/control state | `review-channel`, `phone-status`, `mobile-status`, runtime contracts |
 | topology and connection scanning | `probe_topology_*` backend via `probe-report` |

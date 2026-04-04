@@ -37,6 +37,28 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-04 - Review-channel doctor/status now preserves latest-push publish truth when post-push follow-up is still failing
+
+The governed push path had already learned the right publish-state split:
+`devctl push --execute` persisted `published_remote` separately from
+`post_push_green`, and startup recovery already treated that latest push
+artifact as canonical. The remaining blind spot was downstream projection.
+`review-channel --action status|doctor` could still describe the branch as a
+generic blocked/unavailable push when no live remote-commit pipeline existed,
+even though the managed latest-push artifact already proved the current HEAD
+was published and only the post-push follow-up was failing.
+
+That projection gap is closed now. The reviewer doctor surface keeps
+commit-pipeline truth when a live pipeline exists, treats partial-progress
+push results as remotely published, and otherwise falls back to the matching
+latest-push artifact for the current branch/head. The compact readiness view
+now carries `push_report_path`, `published_remote`, `post_push_green`, and
+the recorded follow-up failure reason so operators and agents stop manually
+reconstructing "already published, repair the follow-up" from mixed signals.
+The same slice also treats blank approved-target identities as valid matches
+for ordinary branch pushes, so persisted publish receipts remain usable even
+when no reviewer-bound target identity was attached to the push.
+
 ### 2026-04-03 - Codex-only local review now uses the repo-owned heartbeat/checkpoint path and the review-surface parity guard also checks persisted disk truth
 
 The review-channel slice needed one more explicit owner-chain note after the

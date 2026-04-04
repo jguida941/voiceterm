@@ -141,6 +141,8 @@ python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --revi
 python3 dev/scripts/devctl.py launcher-check
 python3 dev/scripts/devctl.py launcher-probes
 python3 dev/scripts/devctl.py launcher-policy
+python3 dev/scripts/devctl.py system-picture --format md
+python3 dev/scripts/devctl.py system-picture --write-ledger --format md
 python3 dev/scripts/devctl.py render-surfaces --format md
 python3 dev/scripts/devctl.py platform-contracts --format md
 python3 dev/scripts/checks/check_platform_contract_closure.py
@@ -226,6 +228,11 @@ Portability note:
 - `platform-contracts` exposes the broader shared backend blueprint so another
   repo, frontend, or AI installer can see the intended package/runtime/repo-pack
   boundary without reverse-engineering it from active-plan prose alone.
+- `system-picture` is the generated external-review reducer for this repo: it
+  composes startup, graph, review-runtime, governance-review, imported
+  findings, and telemetry signals into one bounded snapshot under
+  `dev/reports/system_picture/`, and `--write-ledger` refreshes the tracked
+  proof ledger projection at `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`.
 - Repo-owned governance surfaces now live in
   `dev/config/devctl_repo_policy.json` too: `repo_governance.check_router`
   defines lane selection + risk add-ons, `repo_governance.docs_check` defines
@@ -520,6 +527,8 @@ python3 dev/scripts/devctl.py launcher-policy
 python3 dev/scripts/devctl.py render-surfaces --format md
 python3 dev/scripts/devctl.py render-surfaces --write --format md
 python3 dev/scripts/devctl.py platform-contracts --format md
+python3 dev/scripts/devctl.py system-picture --format md
+python3 dev/scripts/devctl.py system-picture --write-ledger --format md
 python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md
 python3 dev/scripts/devctl.py context-graph --query '<term>' --format md  # suppresses Hot Index on no_match
 python3 dev/scripts/devctl.py context-graph --query '<term>' --save-snapshot --format md
@@ -1029,12 +1038,12 @@ summary over the selected snapshot window.
 Machine-first output note:
 
 - JSON-canonical report/packet surfaces (`governance-*`, `platform-contracts`,
-  `probe-report`, `data-science`, `loop-packet`) now treat stdout as a compact
-  control channel when you run `--format json --output <path>`: the full
-  compact JSON artifact is written to the file, while stdout emits only a
-  compact JSON receipt with artifact metadata such as path/hash/size/token
-  estimate. This keeps agent loops small and lets automation decide whether it
-  needs to reread the artifact.
+  `system-picture`, `probe-report`, `data-science`, `loop-packet`) now treat
+  stdout as a compact control channel when you run
+  `--format json --output <path>`: the full compact JSON artifact is written
+  to the file, while stdout emits only a compact JSON receipt with artifact
+  metadata such as path/hash/size/token estimate. This keeps agent loops
+  small and lets automation decide whether it needs to reread the artifact.
 
 - `check`: fmt/clippy/tests/build profiles (`ci`, `prepush`, `release`, `maintainer-lint`, `pedantic`, `quick`, `fast`, `ai-guard`)
   - Runs setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
@@ -1166,6 +1175,15 @@ Machine-first output note:
     autonomy-loop, and `guard-run` consumers together, and
     `DecisionPacket.decision_mode` must gate those same routes, so one
     surviving consumer no longer masks a dropped sibling.
+- `system-picture`: generated startup-to-external-review reducer that composes
+  the repo-owned typed ledgers into one bounded snapshot and proof-ledger
+  projection
+  - `--format md` renders the compact human projection under
+    `dev/reports/system_picture/latest/`.
+  - `--write-ledger` refreshes `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`
+    from the generated snapshot instead of hand-editing proof prose.
+  - Use it when you want one maintained evidence surface for startup, graph,
+    review, governance-review, imported-findings, and telemetry state.
 - `doc-authority`: read-only governed-markdown authority scan that derives the
   current doc-registry surface from the repo-pack/governance contract, reports
   active-doc registry coverage, class budgets, overlapping authority, and
@@ -1297,6 +1315,8 @@ Machine-first output note:
 | `report --python-guard-backlog --python-guard-backlog-top-n 25 --since-ref origin/develop --head-ref HEAD --format md` | you want one prioritized Python clean-code hotspot view before promoting stricter policy gates | aggregates dict-schema/global-mutable/parameter-count/nesting-depth/god-class plus broad-except/subprocess-policy guard outputs into one ranked backlog so teams can burn down debt in order |
 | `report --probe-report --since-ref origin/develop --head-ref HEAD --format md` | you want the normal project report to include the current review-probe summary for agent/human handoff | runs the registered review probes, folds the aggregated `risk_hints` summary into the shared project snapshot, and scopes the probe scan to the provided commit range when `--since-ref` is set |
 | `status --probe-report --format md` | you want a lighter-weight current status view that still surfaces AI-slop findings | runs the registered review probes against the worktree and appends the aggregated hint counts/top files to the standard status snapshot |
+| `system-picture --format md` | you want one generated external-review reducer for startup, review, graph, governance-review, external-findings, and telemetry state | builds `dev/reports/system_picture/latest/summary.{json,md}` plus the proof-ledger preview under `dev/reports/system_picture/latest/proof_ledger.md` from typed ledgers and managed artifacts |
+| `system-picture --write-ledger --format md` | you want to refresh the tracked proof ledger from the generated reducer | writes the same generated projection to `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` so the evidence doc stays synced with the machine snapshot |
 | `triage --pedantic --no-cihub --emit-bundle --format md` | you want an AI-friendly pedantic cleanup packet without inventing a second triage system | folds the saved pedantic artifacts into normal `triage` output and bundle files; add `--pedantic-refresh` only when you intentionally want triage to regenerate the artifacts inline |
 | `triage-loop --branch develop --mode plan-then-fix --max-attempts 3` | you want bounded automation over medium/high backlog | runs report/fix retry loop with deterministic md/json artifacts plus the bounded backlog slice consumed by `loop-packet` guidance |
 | `mutation-loop --branch develop --mode report-only --threshold 0.80` | you want bounded mutation-score automation with hotspots and optional fixes | runs report/fix retry loop with deterministic md/json/playbook artifacts |

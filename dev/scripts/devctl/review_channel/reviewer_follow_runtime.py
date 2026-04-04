@@ -66,16 +66,11 @@ def attach_reviewer_runtime_contract(
         contract=contract,
         attention=attention,
         commit_pipeline=commit_pipeline,
-        publisher_state=(
-            report.get("publisher")
-            if isinstance(report.get("publisher"), dict)
-            else None
-        ),
-        reviewer_supervisor_state=(
-            report.get("reviewer_supervisor")
-            if isinstance(report.get("reviewer_supervisor"), dict)
-            else None
-        ),
+        push_enforcement=bridge_liveness.get("push_enforcement"),
+        runtime_state={
+            "publisher": report.get("publisher"),
+            "reviewer_supervisor": report.get("reviewer_supervisor"),
+        },
     )
 
 

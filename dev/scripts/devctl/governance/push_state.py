@@ -125,6 +125,7 @@ def detect_push_enforcement_state(
     recorded_remote_publication_for_current_target = (
         bool(push_stages.get("published_remote"))
         and latest_push_report_matches_current_branch
+        and latest_push_report_matches_current_head
         and latest_push_report_matches_current_approved_target
     )
     has_remote_work_to_push = not (
@@ -245,9 +246,15 @@ def _latest_push_report_state(
         bool(current_branch and branch and current_branch == branch),
         bool(current_head_commit and head_commit and current_head_commit == head_commit),
         bool(
-            current_approved_target_identity
-            and approved_target_identity
-            and current_approved_target_identity == approved_target_identity
+            (
+                not current_approved_target_identity
+                and not approved_target_identity
+            )
+            or (
+                current_approved_target_identity
+                and approved_target_identity
+                and current_approved_target_identity == approved_target_identity
+            )
         ),
     )
 

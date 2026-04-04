@@ -271,6 +271,51 @@ class TestCLIRegistration(unittest.TestCase):
             rendered,
         )
 
+    def test_markdown_renders_latest_push_receipt_fields(self) -> None:
+        rendered = _render_markdown(
+            {
+                "advisory_action": "checkpoint_allowed",
+                "advisory_reason": "worktree_dirty_within_budget",
+                "reviewer_gate": {},
+                "governance": {
+                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "push_enforcement": {
+                        "worktree_dirty": True,
+                        "worktree_clean": False,
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                        "recommended_action": "commit_before_push",
+                        "publication_backlog_state": "none",
+                        "latest_push_report_path": "dev/reports/push/latest.json",
+                        "latest_push_report_matches_current_branch": False,
+                        "latest_push_report_matches_current_head": False,
+                        "latest_push_report_published_remote": True,
+                        "latest_push_report_post_push_green": False,
+                        "latest_push_report_status": "published_remote",
+                        "latest_push_report_reason": "post_push_bundle_failed",
+                    },
+                },
+                "push_decision": {
+                    "action": "await_checkpoint",
+                    "reason": "worktree_dirty",
+                    "push_eligible_now": False,
+                    "has_remote_work_to_push": False,
+                    "publication_backlog": {"backlog_state": "none"},
+                    "next_step_summary": "checkpoint first",
+                    "match_evidence": [],
+                    "rejected_rule_traces": [],
+                },
+            }
+        )
+
+        self.assertIn("- latest_push_report: `dev/reports/push/latest.json`", rendered)
+        self.assertIn("- latest_push_matches_current_branch: False", rendered)
+        self.assertIn("- latest_push_matches_current_head: False", rendered)
+        self.assertIn("- published_remote: True", rendered)
+        self.assertIn("- post_push_green: False", rendered)
+        self.assertIn("- latest_push_status: `published_remote`", rendered)
+        self.assertIn("- latest_push_reason: `post_push_bundle_failed`", rendered)
+
     def test_markdown_renders_startup_and_push_rule_explanations(self) -> None:
         rendered = _render_markdown(
             {
@@ -428,6 +473,80 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertEqual(decision.reason, "remote_publish_recorded_post_push_pending")
         self.assertIn("Remote publication already succeeded", decision.next_step_summary)
         self.assertIn("dev/reports/push/latest.json", decision.next_step_summary)
+
+    def test_push_decision_recovers_blank_target_identity_post_push_failure_for_current_head(
+        self,
+    ) -> None:
+        governance = _minimal_governance(
+            current_branch="feature/x",
+            current_head_commit="abc123",
+            upstream_ref="origin/feature/x",
+            ahead_of_upstream_commits=1,
+            worktree_clean=True,
+            worktree_dirty=False,
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            latest_push_report_path="dev/reports/push/latest.json",
+            latest_push_report_branch="feature/x",
+            latest_push_report_remote="origin",
+            latest_push_report_head_commit="abc123",
+            latest_push_report_status="published_remote",
+            latest_push_report_reason="post_push_bundle_failed",
+            latest_push_report_published_remote=True,
+            latest_push_report_post_push_green=False,
+            current_approved_target_identity="",
+            latest_push_report_approved_target_identity="",
+            latest_push_report_matches_current_approved_target=True,
+            latest_push_report_matches_current_branch=True,
+            latest_push_report_matches_current_head=True,
+        )
+
+        decision = _derive_push_decision(
+            governance.push_enforcement,
+            review_gate_allows_push=True,
+            implementation_blocked=False,
+        )
+
+        self.assertEqual(decision.action, "no_push_needed")
+        self.assertEqual(decision.reason, "remote_publish_recorded_post_push_pending")
+        self.assertIn("Remote publication already succeeded", decision.next_step_summary)
+        self.assertIn("dev/reports/push/latest.json", decision.next_step_summary)
+
+    def test_push_decision_rejects_stale_head_publish_receipt(self) -> None:
+        approved_target_identity = "tree-receipt-20260403T010000Z:tree-123"
+        governance = _minimal_governance(
+            current_branch="feature/x",
+            current_head_commit="new-head",
+            upstream_ref="origin/feature/x",
+            ahead_of_upstream_commits=1,
+            worktree_clean=True,
+            worktree_dirty=False,
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            latest_push_report_path="dev/reports/push/latest.json",
+            latest_push_report_branch="feature/x",
+            latest_push_report_remote="origin",
+            latest_push_report_head_commit="old-head",
+            latest_push_report_status="published_remote",
+            latest_push_report_reason="post_push_bundle_failed",
+            latest_push_report_published_remote=True,
+            latest_push_report_post_push_green=False,
+            current_approved_target_identity=approved_target_identity,
+            latest_push_report_approved_target_identity=approved_target_identity,
+            latest_push_report_matches_current_approved_target=True,
+            latest_push_report_matches_current_branch=True,
+            latest_push_report_matches_current_head=False,
+        )
+
+        decision = _derive_push_decision(
+            governance.push_enforcement,
+            review_gate_allows_push=True,
+            implementation_blocked=False,
+        )
+
+        self.assertEqual(decision.action, "run_devctl_push")
+        self.assertEqual(decision.reason, "push_preconditions_satisfied")
+        self.assertTrue(decision.has_remote_work_to_push)
 
     def test_summary_renders_compact_step_zero_guidance(self) -> None:
         rendered = _render_summary(

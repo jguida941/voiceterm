@@ -805,6 +805,18 @@
   when remote publication is recorded and before each post-push step so
   humans/agents stop inferring "maybe nothing pushed yet" from a quiet audit
   window while the same `published_remote` artifact already proves otherwise.
+- 2026-04-04 publish-state projection follow-up: the latest-push artifact was
+  already authoritative for startup recovery, but review-channel readiness
+  projections could still hide that truth behind `pipeline_unavailable` when
+  no live remote-commit pipeline existed or when post-push failed after
+  publication. `review-channel status|doctor` now keeps commit-pipeline truth
+  when present and otherwise falls back to the matching latest push artifact,
+  surfacing `published_remote`, `post_push_green`, `push_report_path`, and
+  the recorded follow-up failure reason instead of silently implying a second
+  push is needed. The same closure now treats blank approved-target
+  identities as valid matches for ordinary branch pushes, so persisted
+  publish receipts remain recoverable even when no reviewer-owned target
+  identity was attached to the original `devctl push`.
 - 2026-03-27 repo-entrance/dev-loop adjudication: accepted two additional
   same-lane follow-ups without widening the product roadmap. First, keep the
   root repo entrance split by audience: `README.md` remains the VoiceTerm

@@ -32,7 +32,9 @@ This plan covers:
 
 Out of scope in this phase:
 
-1. implementation code
+1. a second commit/push implementation path; the existing governed VCS
+   implementation already exists, and this plan only changes typed lifecycle,
+   projection, and approval behavior around that executor
 2. a new shell-only recovery path
 3. a second approval authority outside repo-owned typed packets and runtime
    artifacts
@@ -351,6 +353,13 @@ surface for remote sessions. It should project:
 
 ## Progress Log
 
+- 2026-04-04: Corrected the plan boundary after the governed push/runtime
+  slices landed. This file is not design-only anymore: the executor, typed
+  push stages, and doctor/status projections already exist, so the remaining
+  work here is parity and projection honesty. The active follow-up is to keep
+  current-head publication matching and operator-visible receipt rendering
+  explicit instead of treating any branch/target-matching `published_remote`
+  artifact as proof that the latest local HEAD is already published.
 - 2026-04-03: Implemented the first Phase-1 daemon-liveness follow-up for the
   remote commit lane. Live `review-channel --action launch|rollover` now
   starts the persistent ensure-follow publisher from the actual launch router
