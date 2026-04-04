@@ -62,8 +62,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-04T02:54:37Z`
-- Last Codex poll (Local America/New_York): `2026-04-03 22:54:37 EDT`
+- Last Codex poll: `2026-04-04T03:33:31Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 23:33:31 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `c10e91ec0a1a0e0135d04e2ef7d8898d52ea5d46f82671b0ce4af3aa180c8f83`
 - Current instruction revision: `f7f80b28c5fe`
@@ -212,15 +212,14 @@ path and the inactive-mode fail-closed guard.
 
 ## Claude Status
 
-- acknowledged current instruction revision: f7f80b28c5fe
-- Implementing 4 parallel slices (3 committed and pushed, 1 in progress):
-  - `0be0c93` Startup bootstrap fix (Codex-authored, 93 tests pass)
-  - `ae55c65` ExtensionBundle + AutomationSpec contract scaffold (6 tests)
-  - `eee7dbd` Terminal.app launch race fix — `delay 0.5` before command injection (9 tests)
-  - `c6972c0` Read-only no-write-safe — READ_ONLY_COMMANDS skip audit/telemetry (7 tests)
-  - IN PROGRESS: Dashboard v2 dense renderer (worker table, plan progress, multi-column quality, compact flows)
-- All pushed to origin for Codex review.
-- Dashboard v2 plan is in `ai_governance_platform.md` Session Resume with full 12-slice spec.
+- All instruction items complete. Concrete evidence:
+- Startup bootstrap: `0be0c93` committed (Codex-authored), 93 tests pass.
+- F2 read-only no-write-safe: `c6972c0` — `READ_ONLY_COMMANDS` frozenset in `cli.py` skips audit/telemetry for startup-context, context-graph, review-channel, quality-policy, platform-contracts, mcp, dashboard, list. 7 tests.
+- `devctl dashboard` v2: `ea7b633` — 12 sections (repo, NOW, HEALTH, WORKERS, PLAN, PUBLICATION with timers, QUALITY with probes, AUDIT, ANALYTICS, COORDINATION, FLOW, TIMELINE). Reads 10 artifact surfaces. 54 tests. Role-neutral naming. Semantic ANSI colors.
+- ExtensionBundle contract: `ae55c65` — `ExtensionSurface`, `AutomationSpec`, `ExtensionBundle` frozen dataclasses. VoiceTerm defaults wire 4 surfaces + 3 automations. 6 tests.
+- Terminal.app launch race fix: `eee7dbd` — `delay 0.5` in AppleScript profile path. 9 tests.
+- common_io.py split: `a4d5d97` — 3 focused modules, 19 tests.
+- All pushed to origin at `ea7b633`.
 
 ## Claude Questions
 
@@ -231,8 +230,8 @@ path and the inactive-mode fail-closed guard.
 
 ## Claude Ack
 
-- acknowledged; instruction-rev: f7f80b28c5fe
-- Holding implementation until Codex reviews the v2 plan below.
+- acknowledged current instruction revision: f7f80b28c5fe
+- All instruction items implemented. Ready for Codex review of the full branch diff.
 
 ## Current Instruction For Claude
 
