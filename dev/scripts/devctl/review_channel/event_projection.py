@@ -8,7 +8,6 @@ from pathlib import Path
 
 from ..runtime.review_state_models import ReviewQueueState
 from ..runtime.surface_snapshot import build_surface_snapshot_id
-from .attention import derive_bridge_attention
 from .attach_auth_policy import build_attach_auth_policy
 from .attach_auth_projection import (
     build_attach_auth_policy_state,
@@ -35,6 +34,10 @@ from .reviewer_runtime_contract import (
     ReviewerRuntimeInputs,
     build_reviewer_doctor_surface,
     build_reviewer_runtime_contract,
+)
+from .recovery_assessment import (
+    build_recovery_assessment,
+    recovery_assessment_to_attention_payload,
 )
 from .status_projection_helpers import build_bridge_push_enforcement_state
 from .status_push_decision import build_status_push_decision
@@ -123,7 +126,11 @@ def enrich_event_review_state(
         review_state=review_state,
         bridge_liveness=bridge_liveness,
     )
-    attention = derive_bridge_attention(bridge_liveness)
+    recovery_assessment = build_recovery_assessment(
+        bridge_liveness=bridge_liveness,
+        current_session=current_session,
+    )
+    attention = recovery_assessment_to_attention_payload(recovery_assessment)
     collaboration = build_collaboration_session(
         timestamp=str(review_state.get("timestamp") or ""),
         plan_id=str(_mapping(review_state.get("review")).get("plan_id") or ""),
@@ -138,6 +145,7 @@ def enrich_event_review_state(
             snapshot=None,
             bridge_liveness=bridge_liveness,
             current_session=current_session,
+            recovery_assessment=recovery_assessment,
             attention=attention,
             collaboration=collaboration,
             session_output_root=projections_root,
@@ -166,6 +174,7 @@ def enrich_event_review_state(
     review_state["collaboration"] = asdict(collaboration)
     review_state["reviewer_runtime"] = asdict(reviewer_runtime)
     review_state["commit_pipeline"] = commit_pipeline.to_dict()
+    review_state["recovery_assessment"] = asdict(recovery_assessment)
     review_state["bridge"] = build_event_bridge_state_projection(
         review_state=review_state,
         bridge_liveness=bridge_liveness,
@@ -182,6 +191,7 @@ def enrich_event_review_state(
         merged_compat["push_enforcement"] = push_enforcement
     merged_compat["doctor"] = build_reviewer_doctor_surface(
         contract=reviewer_runtime,
+        recovery_assessment=recovery_assessment,
         attention=attention,
         commit_pipeline=commit_pipeline,
         push_enforcement=push_enforcement,

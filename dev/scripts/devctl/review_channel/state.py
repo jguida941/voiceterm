@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .attention import derive_bridge_attention
 from .bridge_validation import validate_live_bridge_contract
 from .core import (
     LaneAssignment,
@@ -29,6 +28,10 @@ from .projection_bundle import (
     write_projection_bundle as write_projection_bundle,
 )
 from .current_session_projection import build_bridge_current_session
+from .recovery_assessment import (
+    build_recovery_assessment,
+    recovery_assessment_to_attention_payload,
+)
 from .reviewer_worker import check_review_needed, reviewer_worker_tick_to_dict
 from .status_models import ReviewChannelStatusSnapshot
 from .status_push_decision import build_status_push_decision
@@ -119,14 +122,20 @@ def refresh_status_snapshot(
     merged_warnings.extend(bridge_liveness_warnings(bridge_liveness))
     merged_errors.extend(hybrid_loop_errors(bridge_liveness))
     current_session = build_bridge_current_session(bridge_snapshot, bridge_liveness)
-    attention = derive_bridge_attention(
-        bridge_liveness, contract_errors=merged_errors,
+    recovery_assessment = build_recovery_assessment(
+        bridge_liveness=bridge_liveness,
+        current_session=current_session,
+        contract_errors=merged_errors,
+    )
+    attention = recovery_assessment_to_attention_payload(
+        recovery_assessment
     )
     reviewer_runtime = build_reviewer_runtime_contract(
         ReviewerRuntimeInputs(
             snapshot=bridge_snapshot,
             bridge_liveness=bridge_liveness,
             current_session=current_session,
+            recovery_assessment=recovery_assessment,
             attention=attention,
             session_output_root=output_root,
             rollover_dir=output_root.parent / "rollovers",
@@ -167,6 +176,7 @@ def refresh_status_snapshot(
             lanes=lanes,
             bridge_liveness=bridge_liveness,
             attention=attention,
+            recovery_assessment=recovery_assessment,
             prior_review_state=prior_review_state,
             reviewer_accepted_implementer_state_hash_override=(
                 reviewer_accepted_implementer_state_hash_override

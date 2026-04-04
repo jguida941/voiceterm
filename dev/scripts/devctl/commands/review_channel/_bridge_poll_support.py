@@ -48,6 +48,12 @@ class BridgePollResult:
     next_turn_role: str
     next_turn_reason: str
     turn_state_token: str
+    diagnosis_status: str = ""
+    decision_action_id: str = ""
+    decision_command: str = ""
+    decision_execution_owner: str = ""
+    decision_requires_approval: bool = False
+    decision_can_auto_fix: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -103,6 +109,12 @@ def build_bridge_poll_result(
             liveness=liveness,
             authority=authority,
         ),
+        diagnosis_status=authority.diagnosis_status,
+        decision_action_id=authority.decision_action_id,
+        decision_command=authority.decision_command,
+        decision_execution_owner=authority.decision_execution_owner,
+        decision_requires_approval=authority.decision_requires_approval,
+        decision_can_auto_fix=authority.decision_can_auto_fix,
     )
 
 
@@ -178,6 +190,9 @@ def _build_turn_state_token(
             liveness.reviewer_mode,
             authority.effective_reviewer_mode,
             authority.attention_status,
+            authority.diagnosis_status,
+            authority.decision_action_id,
+            authority.decision_command,
             _optional_bool_token(authority.claude_ack_current),
             authority.implementer_state_hash,
             authority.reviewer_accepted_implementer_state_hash,

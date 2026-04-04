@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import asdict
 
 from ..runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
 )
+from ..runtime.review_state_models import RecoveryAssessmentState
 from ..runtime.reviewer_runtime_models import ReviewerRuntimeContract
 from .peer_liveness import reviewer_mode_is_active
 from .peer_recovery import STALE_PEER_RECOVERY
@@ -20,6 +22,7 @@ from .reviewer_runtime_publication import (
 def build_reviewer_doctor_surface(
     *,
     contract: ReviewerRuntimeContract,
+    recovery_assessment: RecoveryAssessmentState | None = None,
     attention: Mapping[str, object] | None = None,
     commit_pipeline: RemoteCommitPipelineContract | None = None,
     push_enforcement: Mapping[str, object] | None = None,
@@ -35,9 +38,16 @@ def build_reviewer_doctor_surface(
         pipeline=pipeline,
         push_enforcement=push_enforcement,
     )
-    attention_summary = str((attention or {}).get("summary") or "").strip()
+    diagnosis = recovery_assessment.diagnosis if recovery_assessment is not None else None
+    decision = recovery_assessment.decision if recovery_assessment is not None else None
+    attention_summary = (
+        str(diagnosis.root_cause or "").strip()
+        if diagnosis is not None and diagnosis.status not in {"", "healthy"}
+        else str((attention or {}).get("summary") or "").strip()
+    )
     recommended_command = str(
-        (attention or {}).get("recommended_command")
+        (decision.command if decision is not None else "")
+        or (attention or {}).get("recommended_command")
         or contract.recovery_action_allowed
         or ""
     ).strip()
@@ -50,6 +60,14 @@ def build_reviewer_doctor_surface(
     surface: dict[str, object] = {}
     surface["status"] = status
     surface["summary"] = summary
+    surface["diagnosis_status"] = (
+        diagnosis.status
+        if diagnosis is not None
+        else contract.stale_reason or "healthy"
+    )
+    surface["root_cause"] = (
+        diagnosis.root_cause if diagnosis is not None else attention_summary
+    )
     surface["reviewer_mode"] = contract.reviewer_mode
     surface["effective_reviewer_mode"] = contract.effective_reviewer_mode
     surface["reviewer_freshness"] = contract.reviewer_freshness
@@ -67,6 +85,17 @@ def build_reviewer_doctor_surface(
     surface["script_path"] = contract.session_owner.script_path
     surface["recovery_action_allowed"] = contract.recovery_action_allowed
     surface["recommended_command"] = recommended_command
+    surface["decision_action_id"] = decision.action_id if decision is not None else ""
+    surface["decision_command"] = decision.command if decision is not None else ""
+    surface["decision_execution_owner"] = (
+        decision.execution_owner if decision is not None else ""
+    )
+    surface["decision_requires_approval"] = (
+        decision.requires_approval if decision is not None else False
+    )
+    surface["decision_can_auto_fix"] = (
+        decision.can_auto_fix if decision is not None else False
+    )
     surface["review_accepted"] = contract.review_acceptance.review_accepted
     surface["current_verdict"] = contract.review_acceptance.current_verdict
     surface["open_findings"] = contract.review_acceptance.open_findings
@@ -119,6 +148,8 @@ def build_reviewer_doctor_surface(
     surface["generation_id"] = pipeline.generation_id
     surface["approved_target_identity"] = pipeline.approved_target_identity
     surface["snapshot_id"] = snapshot_id or pipeline.snapshot_id
+    if recovery_assessment is not None:
+        surface["recovery_assessment"] = asdict(recovery_assessment)
     return surface
 
 

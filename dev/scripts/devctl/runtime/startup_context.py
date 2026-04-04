@@ -45,6 +45,9 @@ class ReviewerGateState:
     review_gate_allows_push: bool = False
     implementation_blocked: bool = False
     implementation_block_reason: str = ""
+    recovery_diagnosis_status: str = ""
+    recovery_action_id: str = ""
+    recovery_command: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,10 +135,26 @@ def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
     if state is None:
         return None
     reviewer_runtime = state.reviewer_runtime
+    assessment = state.recovery_assessment
     mode = reviewer_runtime.reviewer_mode
     effective_mode = str(reviewer_runtime.effective_reviewer_mode or "").strip() or mode
     review_accepted = reviewer_runtime.review_acceptance.review_accepted
     publish_clear = reviewer_runtime.publish_clear
+    diagnosis_status = (
+        str(assessment.diagnosis.status or "").strip()
+        if assessment is not None
+        else ""
+    )
+    action_id = (
+        str(assessment.decision.action_id or "").strip()
+        if assessment is not None
+        else ""
+    )
+    recovery_command = (
+        str(assessment.decision.command or "").strip()
+        if assessment is not None
+        else ""
+    )
     declared_active = normalize_reviewer_mode(mode) == "active_dual_agent"
     effective_active = normalize_reviewer_mode(effective_mode) == "active_dual_agent"
     if not declared_active:
@@ -147,6 +166,9 @@ def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
             required_checks_status="unknown",
             checkpoint_permitted=True,
             review_gate_allows_push=True,
+            recovery_diagnosis_status=diagnosis_status,
+            recovery_action_id=action_id,
+            recovery_command=recovery_command,
         )
     if not effective_active:
         return ReviewerGateState(
@@ -159,6 +181,9 @@ def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
             review_gate_allows_push=publish_clear,
             implementation_blocked=reviewer_runtime.implementation_blocked,
             implementation_block_reason=reviewer_runtime.implementation_block_reason,
+            recovery_diagnosis_status=diagnosis_status,
+            recovery_action_id=action_id,
+            recovery_command=recovery_command,
         )
 
     return ReviewerGateState(
@@ -171,6 +196,9 @@ def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
         review_gate_allows_push=publish_clear,
         implementation_blocked=reviewer_runtime.implementation_blocked,
         implementation_block_reason=reviewer_runtime.implementation_block_reason,
+        recovery_diagnosis_status=diagnosis_status,
+        recovery_action_id=action_id,
+        recovery_command=recovery_command,
     )
 
 

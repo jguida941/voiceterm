@@ -446,17 +446,25 @@ def wait_for_codex_poll_refresh(
             CodexPollState.MISSING,
             CodexPollState.STALE,
         }
-        # Fail-closed: typed launch truth supplements validation only
-        # after a genuinely fresh Codex reviewer turn. The poll timestamp
-        # must advance OR the poll status text must change; an unchanged
-        # `Last Codex poll` + unchanged `Poll Status` never counts as
-        # success, even when both conductors report live.
-        bridge_poll_moved = poll_advanced or poll_status_changed
-        observed = (
-            bridge_poll_moved
+        # Fail-closed with two satisfaction paths:
+        #
+        # 1. Primary: reviewer-owned `Poll Status` prose changed and
+        #    is not an automation-only heartbeat refresh.
+        # 2. Launch-confirmed: the `Last Codex poll` timestamp advanced
+        #    past the pre-launch baseline AND typed session probes
+        #    confirm both conductors are live.  Since the baseline is
+        #    captured before Terminal.app opens, any timestamp advance
+        #    must come from the new session.
+        #
+        # Neither path accepts BOTH unchanged timestamp AND unchanged
+        # status text — the F1 authority-bypass scenario stays blocked.
+        status_observed = poll_status_changed and not poll_status_automation_only
+        launch_confirmed = (
+            poll_advanced
+            and typed_live_ready
             and not poll_status_automation_only
-            and (poll_status_changed or typed_live_ready)
         )
+        observed = status_observed or launch_confirmed
         if observed or time.monotonic() >= deadline:
             return {
                 "observed": observed,

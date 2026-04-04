@@ -129,6 +129,7 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
         "ok": review_state.get("ok"),
         "review": review_state.get("review"),
         "current_session": current_session,
+        "recovery_assessment": review_state.get("recovery_assessment"),
         "service_identity": service_identity,
         "attach_auth_policy": attach_auth_policy,
         "push_decision": _with_snapshot_id(push_decision, snapshot_id),

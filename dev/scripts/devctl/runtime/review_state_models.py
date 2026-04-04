@@ -217,6 +217,43 @@ class ReviewAttentionState:
 
 
 @dataclass(frozen=True, slots=True)
+class RecoveryEvidenceState:
+    code: str
+    surface: str
+    field: str
+    value: str
+    detail: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryDiagnosisState:
+    status: str
+    root_cause: str
+    supporting_causes: tuple[str, ...] = ()
+    evidence: tuple[RecoveryEvidenceState, ...] = ()
+    affected_surfaces: tuple[str, ...] = ()
+    expected_healthy_state: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryDecisionState:
+    action_id: str
+    command: str = ""
+    execution_owner: str = ""
+    rationale: str = ""
+    blocked_alternatives: tuple[str, ...] = ()
+    can_auto_fix: bool = False
+    requires_approval: bool = False
+    next_expected_state: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryAssessmentState:
+    diagnosis: RecoveryDiagnosisState
+    decision: RecoveryDecisionState
+
+
+@dataclass(frozen=True, slots=True)
 class ContextPackRefState:
     pack_kind: str
     pack_ref: str
@@ -302,6 +339,7 @@ class ReviewState:
     attention: ReviewAttentionState | None
     packets: tuple[ReviewPacketState, ...]
     registry: AgentRegistryState
+    recovery_assessment: RecoveryAssessmentState | None = None
     reviewer_runtime: ReviewerRuntimeContract = field(
         default_factory=ReviewerRuntimeContract
     )

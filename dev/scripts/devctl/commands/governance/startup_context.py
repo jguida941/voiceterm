@@ -95,6 +95,9 @@ def _reviewer_recovery_command(ctx_dict: dict) -> str:
     reviewer_gate = ctx_dict.get("reviewer_gate")
     if not isinstance(reviewer_gate, dict):
         return _REVIEW_STATUS_COMMAND
+    recovery_command = str(reviewer_gate.get("recovery_command") or "").strip()
+    if recovery_command:
+        return recovery_command
     if not bool(reviewer_gate.get("implementation_blocked", False)):
         return ""
     if bool(reviewer_gate.get("review_gate_allows_push", False)):

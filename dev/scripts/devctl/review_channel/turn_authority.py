@@ -7,11 +7,11 @@ from dataclasses import asdict, dataclass
 
 from ..runtime.review_state_parser import review_state_from_payload
 from ..runtime.review_state_models import (
+    RecoveryAssessmentState,
     ReviewBridgeState,
     ReviewCurrentSessionState,
 )
 from ..runtime.role_profile import TandemRole
-from .attention import derive_bridge_attention
 from .current_session_projection import (
     bridge_implementer_state_hash,
     build_bridge_current_session,
@@ -25,6 +25,10 @@ from .peer_liveness import (
     AttentionStatus,
     REVIEWER_WAIT_STATE_MARKERS,
     reviewer_mode_is_active,
+)
+from .recovery_assessment import (
+    build_recovery_assessment,
+    recovery_assessment_to_attention_payload,
 )
 from .peer_recovery import STALE_PEER_RECOVERY
 
@@ -53,6 +57,12 @@ class ReviewerTurnAuthority:
     next_turn_required: bool
     next_turn_role: str
     next_turn_reason: str
+    diagnosis_status: str = ""
+    decision_action_id: str = ""
+    decision_command: str = ""
+    decision_execution_owner: str = ""
+    decision_requires_approval: bool = False
+    decision_can_auto_fix: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -75,13 +85,16 @@ def build_reviewer_turn_authority(
     bridge = review_state.bridge if review_state is not None else None
     reviewer_runtime = review_state.reviewer_runtime if review_state is not None else None
     attention = review_state.attention if review_state is not None else None
+    recovery_assessment = (
+        review_state.recovery_assessment if review_state is not None else None
+    )
     typed_authority_complete = bool(
         review_state is not None and bridge is not None and bridge.launch_truth
     )
-    fallback_attention, fallback_launch_truth, fallback_effective_mode = (
+    fallback_attention, fallback_launch_truth, fallback_effective_mode, fallback_assessment = (
         _fallback_authority_fields(bridge_liveness, typed_review_state)
         if not typed_authority_complete
-        else (None, "", "")
+        else (None, "", "", None)
     )
     reviewer_mode = (
         reviewer_runtime.reviewer_mode
@@ -113,21 +126,33 @@ def build_reviewer_turn_authority(
         else bridge_liveness.reviewer_freshness
     )
     attention_status = (
-        attention.status
+        recovery_assessment.diagnosis.status
+        if typed_authority_complete
+        and recovery_assessment is not None
+        and recovery_assessment.diagnosis.status
+        else attention.status
         if typed_authority_complete and attention is not None and attention.status
         else reviewer_runtime.stale_reason
         if typed_authority_complete
         and reviewer_runtime is not None
         and reviewer_runtime.stale_reason
+        else fallback_assessment.diagnosis.status
+        if fallback_assessment is not None and fallback_assessment.diagnosis.status
         else str(fallback_attention.get("status", ""))
         if fallback_attention is not None
         else ""
     )
     recovery_action_allowed = (
-        reviewer_runtime.recovery_action_allowed
+        recovery_assessment.decision.command
+        if typed_authority_complete
+        and recovery_assessment is not None
+        and recovery_assessment.decision.command
+        else reviewer_runtime.recovery_action_allowed
         if typed_authority_complete
         and reviewer_runtime is not None
         and reviewer_runtime.recovery_action_allowed
+        else fallback_assessment.decision.command
+        if fallback_assessment is not None and fallback_assessment.decision.command
         else _recommended_command(attention_status)
     )
     implementation_blocked = bool(
@@ -202,6 +227,36 @@ def build_reviewer_turn_authority(
         next_turn_required=next_turn_required,
         next_turn_role=next_turn_role,
         next_turn_reason=next_turn_reason,
+        diagnosis_status=attention_status,
+        decision_action_id=(
+            recovery_assessment.decision.action_id
+            if recovery_assessment is not None
+            else fallback_assessment.decision.action_id
+            if fallback_assessment is not None
+            else ""
+        ),
+        decision_command=recovery_action_allowed,
+        decision_execution_owner=(
+            recovery_assessment.decision.execution_owner
+            if recovery_assessment is not None
+            else fallback_assessment.decision.execution_owner
+            if fallback_assessment is not None
+            else ""
+        ),
+        decision_requires_approval=(
+            recovery_assessment.decision.requires_approval
+            if recovery_assessment is not None
+            else fallback_assessment.decision.requires_approval
+            if fallback_assessment is not None
+            else False
+        ),
+        decision_can_auto_fix=(
+            recovery_assessment.decision.can_auto_fix
+            if recovery_assessment is not None
+            else fallback_assessment.decision.can_auto_fix
+            if fallback_assessment is not None
+            else False
+        ),
     )
 
 
@@ -214,17 +269,19 @@ def _review_needed(reviewed_hash_current: bool | None) -> bool | None:
 def _fallback_authority_fields(
     bridge_liveness: BridgeLiveness,
     typed_review_state: Mapping[str, object] | None,
-) -> tuple[dict[str, object] | None, str, str]:
+) -> tuple[dict[str, object] | None, str, str, RecoveryAssessmentState | None]:
     liveness_dict = _build_fallback_liveness_dict(bridge_liveness, typed_review_state)
     if (
         "publisher_running" not in liveness_dict
         and "reviewer_supervisor_running" not in liveness_dict
     ):
-        return None, "", ""
+        return None, "", "", None
+    assessment = build_recovery_assessment(bridge_liveness=liveness_dict)
     return (
-        derive_bridge_attention(liveness_dict),
+        recovery_assessment_to_attention_payload(assessment),
         str(liveness_dict.get("launch_truth") or classify_launch_truth(liveness_dict).value),
         _compute_effective_reviewer_mode(liveness_dict),
+        assessment,
     )
 
 

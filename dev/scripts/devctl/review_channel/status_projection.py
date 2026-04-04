@@ -16,6 +16,7 @@ from pathlib import Path
 from ..common import display_path
 from ..runtime.review_state_models import (
     AgentRegistryState,
+    RecoveryAssessmentState,
     ReviewAttentionState,
     ReviewQueueState,
     ReviewSessionState,
@@ -41,6 +42,7 @@ from .reviewer_runtime_contract import (
     build_reviewer_doctor_surface,
     build_reviewer_runtime_contract,
 )
+from .recovery_assessment import recovery_assessment_to_attention_state
 from .topology import build_runtime_agent_registry
 
 
@@ -62,6 +64,7 @@ class ReviewStateContext:
     errors: tuple[str, ...] = ()
     prior_review_state: Mapping[str, object] | None = None
     reviewer_accepted_implementer_state_hash_override: str | None = None
+    recovery_assessment: RecoveryAssessmentState | None = None
 
 
 def build_bridge_review_state(
@@ -69,7 +72,8 @@ def build_bridge_review_state(
     context: ReviewStateContext,
     snapshot: BridgeSnapshot,
     bridge_liveness: dict[str, object],
-    attention: dict[str, object],
+    attention: dict[str, object] | None,
+    recovery_assessment: RecoveryAssessmentState | None,
     promotion_candidate: PromotionCandidate | None,
     push_decision: Mapping[str, object] | None = None,
     reduced_runtime: dict[str, object] | None = None,
@@ -77,13 +81,18 @@ def build_bridge_review_state(
     """Build a canonical ReviewState dict from bridge markdown state."""
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
     current_session = build_bridge_current_session(snapshot, bridge_liveness)
+    typed_attention = (
+        attention
+        if isinstance(attention, Mapping)
+        else {}
+    )
     collaboration = build_collaboration_session(
         timestamp=context.timestamp,
         plan_id=context.plan_id,
         session_id="markdown-bridge",
         bridge_liveness=bridge_liveness,
         current_session=current_session,
-        attention=attention,
+        attention=typed_attention,
         session_output_root=context.output_root,
     )
     typed_bridge_liveness = build_typed_bridge_liveness(
@@ -96,7 +105,8 @@ def build_bridge_review_state(
             snapshot=snapshot,
             bridge_liveness=typed_bridge_liveness,
             current_session=current_session,
-            attention=attention,
+            recovery_assessment=recovery_assessment,
+            attention=typed_attention,
             collaboration=collaboration,
             session_output_root=context.output_root,
             rollover_dir=context.output_root.parent / "rollovers",
@@ -131,7 +141,8 @@ def build_bridge_review_state(
     )
     doctor = build_reviewer_doctor_surface(
         contract=reviewer_runtime,
-        attention=attention,
+        recovery_assessment=recovery_assessment,
+        attention=typed_attention,
         commit_pipeline=commit_pipeline,
         push_enforcement=typed_bridge_liveness.get("push_enforcement"),
         runtime_state=runtime_daemons,
@@ -152,13 +163,17 @@ def build_bridge_review_state(
         bridge=bridge_state,
         reviewer_runtime=reviewer_runtime,
         commit_pipeline=commit_pipeline,
-        attention=_build_attention(attention),
+        attention=_build_attention(
+            typed_attention,
+            recovery_assessment=recovery_assessment,
+        ),
         packets=(),
         registry=_build_agent_registry(
             timestamp=context.timestamp,
             plan_id=context.plan_id,
             collaboration=collaboration,
         ),
+        recovery_assessment=recovery_assessment,
         warnings=context.warnings,
         errors=context.errors,
         snapshot_id=snapshot_id,
@@ -262,7 +277,15 @@ def _build_queue_state(
     )
 
 
-def _build_attention(attention: dict[str, object]) -> ReviewAttentionState | None:
+def _build_attention(
+    attention: Mapping[str, object],
+    *,
+    recovery_assessment: RecoveryAssessmentState | None,
+) -> ReviewAttentionState | None:
+    if recovery_assessment is not None:
+        state = recovery_assessment_to_attention_state(recovery_assessment)
+        if state is not None:
+            return state
     if not attention:
         return None
     return ReviewAttentionState(

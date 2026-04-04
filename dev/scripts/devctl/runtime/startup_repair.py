@@ -145,6 +145,15 @@ def _review_attention(
     review_state: ReviewState | None,
     review_error: str | None,
 ) -> tuple[str, str, str]:
+    assessment = (
+        review_state.recovery_assessment if review_state is not None else None
+    )
+    if assessment is not None:
+        return (
+            str(assessment.diagnosis.status or "").strip() or "unknown",
+            str(assessment.decision.execution_owner or "").strip() or "system",
+            str(assessment.diagnosis.root_cause or "").strip(),
+        )
     attention = review_state.attention if review_state is not None else None
     if attention is not None:
         return (
@@ -195,19 +204,31 @@ def _review_issue(
     if review_state is None:
         return None
 
-    attention = review_state.attention
-    if attention is None:
+    assessment = review_state.recovery_assessment
+    if assessment is None and review_state.attention is None:
         return None
 
-    status = str(attention.status or "").strip()
+    status = (
+        str(assessment.diagnosis.status or "").strip()
+        if assessment is not None
+        else str(review_state.attention.status or "").strip()
+    )
     if status in {"", "healthy", "checkpoint_required"}:
         return None
 
     action = _attention_safe_fix(status, review_state=review_state)
     changes_tracked_state = action[1] if action is not None else False
     blocked_by_approval_boundary = approval_boundary_active and changes_tracked_state
-    summary = str(attention.summary or "").strip() or status.replace("_", " ")
-    detail = str(attention.recommended_action or "").strip()
+    summary = (
+        str(assessment.diagnosis.root_cause or "").strip()
+        if assessment is not None
+        else str(review_state.attention.summary or "").strip()
+    ) or status.replace("_", " ")
+    detail = (
+        str(assessment.decision.rationale or "").strip()
+        if assessment is not None
+        else str(review_state.attention.recommended_action or "").strip()
+    )
     if action is None and status in {
         "bridge_contract_error",
         "review_loop_relaunch_required",
@@ -217,10 +238,19 @@ def _review_issue(
         issue_id=status,
         issue_class="safe_local_repair" if action is not None else "manual_follow_up",
         source="review_channel",
-        owner=str(attention.owner or "").strip() or "system",
+        owner=(
+            str(assessment.decision.execution_owner or "").strip()
+            if assessment is not None
+            else str(review_state.attention.owner or "").strip()
+        )
+        or "system",
         summary=summary,
         detail=detail,
-        recommended_command=str(attention.recommended_command or "").strip(),
+        recommended_command=(
+            str(assessment.decision.command or "").strip()
+            if assessment is not None
+            else str(review_state.attention.recommended_command or "").strip()
+        ),
         repairable=action is not None,
         safe_to_apply_now=action is not None and not blocked_by_approval_boundary,
         apply_action=action[0] if action is not None else "",

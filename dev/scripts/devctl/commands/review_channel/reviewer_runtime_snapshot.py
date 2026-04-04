@@ -21,10 +21,16 @@ def attach_reviewer_runtime_snapshot(
     """Attach reviewer-runtime and doctor projections from one typed review state."""
     if review_state is None:
         return
+    recovery_assessment = getattr(review_state, "recovery_assessment", None)
     report["reviewer_runtime"] = reviewer_runtime_contract_to_dict(
         review_state.reviewer_runtime
     )
     report["commit_pipeline"] = asdict(review_state.commit_pipeline)
+    report["recovery_assessment"] = (
+        asdict(recovery_assessment)
+        if recovery_assessment is not None
+        else None
+    )
     bridge_liveness = (
         report.get("bridge_liveness")
         if isinstance(report.get("bridge_liveness"), Mapping)
@@ -32,6 +38,7 @@ def attach_reviewer_runtime_snapshot(
     )
     report["doctor"] = build_reviewer_doctor_surface(
         contract=review_state.reviewer_runtime,
+        recovery_assessment=recovery_assessment,
         attention=attention,
         commit_pipeline=review_state.commit_pipeline,
         push_enforcement=(

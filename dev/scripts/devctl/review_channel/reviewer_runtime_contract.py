@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..runtime.review_state_models import (
     CollaborationSessionState,
+    RecoveryAssessmentState,
     ReviewCurrentSessionState,
 )
 from ..runtime.reviewer_runtime_models import (
@@ -35,6 +36,7 @@ class ReviewerRuntimeInputs:
     snapshot: BridgeSnapshot | None
     bridge_liveness: Mapping[str, object]
     current_session: ReviewCurrentSessionState
+    recovery_assessment: RecoveryAssessmentState | None = None
     attention: Mapping[str, object] | None = None
     collaboration: CollaborationSessionState | None = None
     session_output_root: Path | None = None
@@ -67,7 +69,10 @@ def build_reviewer_runtime_contract(
     reviewer_freshness = str(
         bridge_liveness.get("reviewer_freshness") or "unknown"
     )
-    stale_reason = _stale_reason(inputs.attention)
+    stale_reason = _stale_reason(
+        recovery_assessment=inputs.recovery_assessment,
+        attention=inputs.attention,
+    )
     review_acceptance = _review_acceptance_state(
         snapshot=inputs.snapshot,
         bridge_liveness=bridge_liveness,
@@ -115,6 +120,7 @@ def build_reviewer_runtime_contract(
             session_output_root=inputs.session_output_root,
         ),
         recovery_action_allowed=_recovery_action_allowed(
+            recovery_assessment=inputs.recovery_assessment,
             attention=inputs.attention,
             override=inputs.recovery_action_override,
         ),
@@ -188,11 +194,16 @@ def _accepted_implementer_state_hash(
 
 def _recovery_action_allowed(
     *,
+    recovery_assessment: RecoveryAssessmentState | None,
     attention: Mapping[str, object] | None,
     override: str | None,
 ) -> str:
     if override is not None:
         return override.strip()
+    if recovery_assessment is not None:
+        command = str(recovery_assessment.decision.command or "").strip()
+        if command:
+            return command
     attention_status = str((attention or {}).get("status") or "").strip()
     recovery = STALE_PEER_RECOVERY.get(attention_status)
     if not isinstance(recovery, dict):
@@ -221,8 +232,16 @@ def _publish_clear(
     )
 
 
-def _stale_reason(attention: Mapping[str, object] | None) -> str:
-    status = str((attention or {}).get("status") or "").strip()
+def _stale_reason(
+    *,
+    recovery_assessment: RecoveryAssessmentState | None,
+    attention: Mapping[str, object] | None,
+) -> str:
+    status = (
+        str(recovery_assessment.diagnosis.status or "").strip()
+        if recovery_assessment is not None
+        else str((attention or {}).get("status") or "").strip()
+    )
     if status in {"", "healthy"}:
         return ""
     return status

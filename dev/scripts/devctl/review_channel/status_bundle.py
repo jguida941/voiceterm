@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..common import display_path
+from ..runtime.review_state_models import RecoveryAssessmentState
 from .core import LaneAssignment, project_id_for_repo
 from .handoff import extract_bridge_snapshot
 from .projection_bundle import (
@@ -31,6 +32,7 @@ class StatusProjectionContext:
     lanes: list[LaneAssignment]
     bridge_liveness: dict[str, object]
     attention: dict[str, object]
+    recovery_assessment: RecoveryAssessmentState | None = None
     plan_id: str = ""
     prior_review_state: Mapping[str, object] | None = None
     reviewer_accepted_implementer_state_hash_override: str | None = None
@@ -130,6 +132,7 @@ def _build_status_review_state(
         snapshot=snapshot,
         bridge_liveness=context.bridge_liveness,
         attention=context.attention,
+        recovery_assessment=context.recovery_assessment,
         promotion_candidate=promotion_candidate,
         push_decision=payload.push_decision,
         reduced_runtime=payload.reduced_runtime,

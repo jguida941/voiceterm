@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -203,7 +204,12 @@ def _maybe_write_snapshot(
     edges,
     mode: str,
 ) -> dict[str, object] | None:
-    if mode != "bootstrap" and not getattr(args, "save_snapshot", False):
+    explicit_save = getattr(args, "save_snapshot", False)
+    if mode != "bootstrap" and not explicit_save:
+        return None
+    # Suppress incidental bootstrap auto-save on read-only surfaces;
+    # explicit --save-snapshot still writes.
+    if os.environ.get("DEVCTL_NO_ARTIFACT_WRITES") == "1" and not explicit_save:
         return None
     snapshot = write_context_graph_snapshot(
         nodes,

@@ -12,6 +12,7 @@ from dev.scripts.devctl.runtime.startup_context import build_startup_context
 from .parity import (
     bridge_poll_parity_errors,
     disk_turn_authority_parity_errors,
+    recovery_surface_parity_errors,
 )
 from .payloads import load_bridge_poll_payload, load_turn_authority_payload
 from .support import _load_json, _nested, load_review_state_payload, surface_path
@@ -59,6 +60,14 @@ def build_report(
     )
     errors = _snapshot_errors(snapshot_ids, generation_ids)
     errors.extend(bridge_poll_parity_errors(bridge_poll, turn_authority))
+    errors.extend(
+        recovery_surface_parity_errors(
+            review_state=review_state,
+            compact=compact,
+            bridge_poll=bridge_poll,
+            turn_authority=turn_authority,
+        )
+    )
     disk_errors, disk_warnings = disk_turn_authority_parity_errors(
         repo_root=repo_root,
         turn_authority=turn_authority,

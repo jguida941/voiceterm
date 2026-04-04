@@ -24,9 +24,18 @@ def reviewer_runtime_state_from_payload(
     bridge_liveness: Mapping[str, object],
     current_session: ReviewCurrentSessionState,
     attention: Mapping[str, object],
+    recovery_assessment: Mapping[str, object],
 ) -> ReviewerRuntimeContract:
     """Build the typed reviewer-runtime state from review-state payload fields."""
-    attention_status = _string(attention.get("status"))
+    attention_status = _diagnosis_status(
+        recovery_assessment=recovery_assessment,
+        attention=attention,
+    )
+    recovery_command = _decision_command(
+        reviewer_runtime=reviewer_runtime,
+        recovery_assessment=recovery_assessment,
+        attention=attention,
+    )
     if reviewer_runtime:
         return _typed_reviewer_runtime_state(
             reviewer_runtime=reviewer_runtime,
@@ -34,6 +43,7 @@ def reviewer_runtime_state_from_payload(
             bridge_liveness=bridge_liveness,
             current_session=current_session,
             attention_status=attention_status,
+            recovery_command=recovery_command,
         )
     return _bridge_reviewer_runtime_state(
         bridge=bridge,
@@ -41,6 +51,7 @@ def reviewer_runtime_state_from_payload(
         current_session=current_session,
         attention=attention,
         attention_status=attention_status,
+        recovery_command=recovery_command,
     )
 
 
@@ -51,6 +62,7 @@ def _typed_reviewer_runtime_state(
     bridge_liveness: Mapping[str, object],
     current_session: ReviewCurrentSessionState,
     attention_status: str,
+    recovery_command: str,
 ) -> ReviewerRuntimeContract:
     last_poll = _mapping(reviewer_runtime.get("last_poll"))
     rollover = _mapping(reviewer_runtime.get("rollover"))
@@ -116,7 +128,9 @@ def _typed_reviewer_runtime_state(
             terminal_window_id=_optional_int(session_owner.get("terminal_window_id")),
             script_path=_string(session_owner.get("script_path")),
         ),
-        recovery_action_allowed=_string(reviewer_runtime.get("recovery_action_allowed")),
+        recovery_action_allowed=(
+            _string(reviewer_runtime.get("recovery_action_allowed")) or recovery_command
+        ),
         review_acceptance=ReviewerAcceptanceState(
             current_verdict=_string(review_acceptance.get("current_verdict")),
             open_findings=_string(review_acceptance.get("open_findings"))
@@ -141,6 +155,7 @@ def _bridge_reviewer_runtime_state(
     current_session: ReviewCurrentSessionState,
     attention: Mapping[str, object],
     attention_status: str,
+    recovery_command: str,
 ) -> ReviewerRuntimeContract:
     reviewer_mode = _string(bridge.get("reviewer_mode")) or "single_agent"
     effective_reviewer_mode = _string(bridge.get("effective_reviewer_mode")) or reviewer_mode
@@ -173,7 +188,8 @@ def _bridge_reviewer_runtime_state(
             last_codex_poll_age_seconds=_int(bridge.get("last_codex_poll_age_seconds"))
             or _int(bridge_liveness.get("last_codex_poll_age_seconds")),
         ),
-        recovery_action_allowed=_string(attention.get("recommended_command")),
+        recovery_action_allowed=recovery_command
+        or _string(attention.get("recommended_command")),
         review_acceptance=ReviewerAcceptanceState(
             current_verdict="",
             open_findings=current_session.open_findings
@@ -190,6 +206,31 @@ def _stale_reason(value: object, *, attention_status: str) -> str:
     if stale_reason or attention_status in {"", "healthy"}:
         return stale_reason
     return attention_status
+
+
+def _diagnosis_status(
+    *,
+    recovery_assessment: Mapping[str, object],
+    attention: Mapping[str, object],
+) -> str:
+    diagnosis = _mapping(recovery_assessment.get("diagnosis"))
+    return _string(diagnosis.get("status")) or _string(attention.get("status"))
+
+
+def _decision_command(
+    *,
+    reviewer_runtime: Mapping[str, object],
+    recovery_assessment: Mapping[str, object],
+    attention: Mapping[str, object],
+) -> str:
+    if reviewer_runtime:
+        command = _string(reviewer_runtime.get("recovery_action_allowed"))
+        if command:
+            return command
+    decision = _mapping(recovery_assessment.get("decision"))
+    return _string(decision.get("command")) or _string(
+        attention.get("recommended_command")
+    )
 
 
 def _implementation_block_state(

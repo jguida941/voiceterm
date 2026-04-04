@@ -10036,7 +10036,17 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 "dev/active/review_channel.md",
             )
 
-    def test_wait_for_codex_poll_refresh_accepts_typed_live_launch_state(self) -> None:
+    def test_wait_for_codex_poll_refresh_accepts_launch_confirmed_state(
+        self,
+    ) -> None:
+        """Launch-confirmed path: timestamp advance + typed live counts as
+        success even when Poll Status text is unchanged.
+
+        Since the pre-launch baseline is captured before Terminal.app opens,
+        any timestamp advance must come from the new session. Combined with
+        typed session probes confirming both conductors are live, this is
+        sufficient proof of a successful launch.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             initial_poll = _fresh_utc_z(seconds_offset=-30)
@@ -10051,7 +10061,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            launch_state = {
+            launch_state: dict[str, object] = {
                 "launch_truth": "runtime_missing",
                 "codex_conductor_active": False,
                 "claude_conductor_active": False,
@@ -10060,6 +10070,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             def _observe_launch_state() -> dict[str, object]:
                 return dict(launch_state)
 
+            # Timestamp advances but Poll Status prose stays unchanged
             bridge_path.write_text(
                 _build_bridge_text(
                     last_codex_poll=refreshed_poll,
@@ -10081,11 +10092,69 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 observe_launch_state_fn=_observe_launch_state,
             )
 
-            self.assertTrue(result["observed"])
+            # Launch-confirmed: poll_advanced + typed_live_ready satisfies
+            # the gate even though poll_status_changed is False.
+            self.assertTrue(
+                result["observed"],
+                "Timestamp advance + typed live launch should count as a "
+                "successful launch via the launch-confirmed path.",
+            )
+            self.assertTrue(result["poll_advanced"])
             self.assertFalse(result["poll_status_changed"])
             self.assertEqual(result["launch_truth"], "live")
             self.assertTrue(result["codex_conductor_active"])
             self.assertTrue(result["claude_conductor_active"])
+
+    def test_wait_for_codex_poll_refresh_rejects_poll_advance_without_typed_live(
+        self,
+    ) -> None:
+        """Timestamp advance alone (no typed live proof) must fail-closed.
+
+        If the poll timestamp advances but typed session probes do NOT
+        confirm both conductors are live, the timestamp could be from a
+        dying session's last write rather than a genuine new launch.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            initial_poll = _fresh_utc_z(seconds_offset=-30)
+            refreshed_poll = _fresh_utc_z(seconds_offset=-5)
+            bridge_path = root / "bridge.md"
+            unchanged_poll_status = "- reviewer still waiting on launch bootstrap"
+
+            # Timestamp advances but typed launch stays non-live
+            bridge_path.write_text(
+                _build_bridge_text(
+                    last_codex_poll=refreshed_poll,
+                    poll_status=unchanged_poll_status,
+                ),
+                encoding="utf-8",
+            )
+
+            launch_state: dict[str, object] = {
+                "launch_truth": "detached_runtime_only",
+                "codex_conductor_active": False,
+                "claude_conductor_active": True,
+            }
+
+            def _observe_launch_state() -> dict[str, object]:
+                return dict(launch_state)
+
+            result = wait_for_codex_poll_refresh(
+                bridge_path=bridge_path,
+                previous_poll_utc=initial_poll,
+                previous_poll_status=unchanged_poll_status,
+                timeout_seconds=0,
+                observe_launch_state_fn=_observe_launch_state,
+            )
+
+            self.assertFalse(
+                result["observed"],
+                "Timestamp advance without typed live proof must not "
+                "count as a successful launch.",
+            )
+            self.assertTrue(result["poll_advanced"])
+            self.assertFalse(result["poll_status_changed"])
+            self.assertFalse(result["codex_conductor_active"])
 
     def test_wait_for_codex_poll_refresh_fails_closed_when_codex_poll_does_not_advance(
         self,

@@ -37,6 +37,50 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-04 - Read-only artifact suppression for startup-context and bootstrap context-graph
+
+`startup-context` and bootstrap `context-graph` are classified as read-only
+commands (`READ_ONLY_COMMANDS` in `cli.py`), but they still wrote side-effect
+artifacts (startup receipt, bootstrap snapshot) on every invocation. That
+meant read-only mounts, containers, MCP adapters, and pre-edit bootstrap
+polling could trigger filesystem writes in `dev/reports/` even when the caller
+only needed the typed packet output.
+
+The fix uses the existing `DEVCTL_NO_ARTIFACT_WRITES` environment variable
+(already set by the read-only command dispatcher in `cli.py`) to handle those
+writes safely. `startup-context` always attempts the receipt write because the
+launcher validates it to gate subsequent actions; on intentional read-only
+mounts (`DEVCTL_NO_ARTIFACT_WRITES=1`) the write degrades gracefully on
+`OSError`, while other write failures propagate normally. `context-graph
+--mode bootstrap` skips the automatic snapshot save when the flag is set.
+Explicit `--save-snapshot` still writes unconditionally so operators can force
+a baseline when they need one. Focused regression tests prove the lifecycle:
+env set/clear, receipt write-through, graceful degradation, snapshot skip, and
+explicit override.
+
+Evidence: `dev/scripts/devctl/cli.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/context_graph/command.py`,
+`dev/scripts/devctl/tests/test_read_only_commands.py`.
+
+### 2026-04-04 - Lightweight launch-state probe in bridge launch control
+
+The `observe_launch_state()` helper in `bridge_launch_control.py` was forcing
+a full status refresh on every launch poll iteration. That path re-reads
+`review_state.json`, recomputes projections, and rebuilds the full
+`ReviewChannelStatusSnapshot` — expensive work when the launch-time waiting
+loop only needs three fields: `launch_truth`, `codex_conductor_active`, and
+`claude_conductor_active`.
+
+The optimization reads bridge metadata plus session/runtime state directly
+via the existing `extract_bridge_snapshot`, `summarize_bridge_liveness`,
+`active_conductor_providers`, `read_publisher_state`, and
+`read_reviewer_supervisor_state` helpers instead of the heavy status refresh
+path. The full refresh is kept as the `OSError` fallback. Existing
+review-channel launch/handoff regressions pass unchanged.
+
+Evidence: `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py`.
+
 ### 2026-04-04 - Review-channel doctor/status now preserves latest-push publish truth when post-push follow-up is still failing
 
 The governed push path had already learned the right publish-state split:

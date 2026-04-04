@@ -245,7 +245,10 @@ Run this sequence for every task. Do not skip steps.
    `scoped_by` coverage comes from docs-policy rules rather than raw
    substring adjacency. That bootstrap command now also
    persists a typed `ContextGraphSnapshot` artifact under
-   `dev/reports/graph_snapshots/`; use `--save-snapshot` to capture the same
+   `dev/reports/graph_snapshots/`; when `DEVCTL_NO_ARTIFACT_WRITES=1` the
+   bootstrap auto-save is suppressed so read-only surfaces (MCP adapters,
+   containers) never attempt incidental writes, but explicit `--save-snapshot`
+   still writes regardless. Use `--save-snapshot` to capture the same
    versioned graph artifact from other `context-graph` modes too, and use
    `python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md`
    when the slice needs a typed delta/trend read over saved graph baselines.
@@ -450,6 +453,20 @@ checklist plus chat memory.
     for that repo-owned reset path when live status/attention says the
     implementer side should return to canonical pending state; it refreshes
     the typed projection too, and it does not replace a reviewer checkpoint.
+4.4.4 The launch-wait helper (`observe_launch_state`) now reads the bridge
+    snapshot and conductor session probes directly instead of round-tripping
+    through the full `refresh_snapshot_fn` status path. This makes launch-time
+    polling lighter and avoids re-running the entire status pipeline on every
+    observation tick. OSError during direct read falls back to the original
+    full-snapshot path for resilience.
+4.4.5 The Codex-poll-refresh waiter (`wait_for_codex_poll_refresh`) now
+    distinguishes two satisfaction paths: (a) status-observed, where the
+    reviewer-owned `Poll Status` prose changed and is not an automation-only
+    heartbeat refresh; (b) launch-confirmed, where the `Last Codex poll`
+    timestamp advanced past the pre-launch baseline AND typed session probes
+    confirm both conductors are live. Neither path accepts both an unchanged
+    timestamp and unchanged status text, preserving the fail-closed guard
+    against authority-bypass scenarios.
 4.5 In that same live review-channel mode, treat
     `dev/reports/review_channel/latest/review_state.json` (and the mirrored
     `compact.json` projection) `current_session` block as the canonical typed

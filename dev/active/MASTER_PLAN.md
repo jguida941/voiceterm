@@ -87,7 +87,12 @@
   freeze the extension/adopter closure tranche before broader packaging or
   client-migration claims. The accepted deliverables are explicit: true
   no-write-safe read-only control surfaces (separate audit/telemetry writeback
-  from read-only command execution), Phase-2 repo-pack/runtime activation that
+  from read-only command execution — now implemented: `startup-context` always
+  attempts the receipt write because the launcher validates it, but degrades
+  gracefully on `OSError` when `DEVCTL_NO_ARTIFACT_WRITES=1` signals an
+  intentional read-only context; `context-graph` suppresses its bootstrap
+  snapshot write when the flag is set; `observe_launch_state()` uses a
+  lightweight bridge-metadata path instead of full status refresh), Phase-2 repo-pack/runtime activation that
   fails closed instead of silently falling back to VoiceTerm defaults, one
   repo-pack-owned `ExtensionBundle` that renders project-scoped Codex/Claude/
   MCP surfaces from typed governance state, and one typed `AutomationSpec`

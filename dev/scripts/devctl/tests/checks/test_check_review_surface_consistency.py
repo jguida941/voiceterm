@@ -16,6 +16,12 @@ _MATCHING_AUTHORITY_FIELDS: dict[str, object] = {
     "launch_truth": "live_runtime",
     "attention_status": "healthy",
     "recovery_action_allowed": "",
+    "diagnosis_status": "healthy",
+    "decision_action_id": "continue_scoped_loop",
+    "decision_command": "",
+    "decision_execution_owner": "system",
+    "decision_requires_approval": False,
+    "decision_can_auto_fix": False,
     "implementation_blocked": False,
     "implementation_block_reason": "",
     "reviewed_hash_current": True,
@@ -42,6 +48,17 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
             },
             review_state_payload={
                 "snapshot_id": "snap-123",
+                "recovery_assessment": {
+                    "diagnosis": {"status": "healthy"},
+                    "decision": {
+                        "action_id": "continue_scoped_loop",
+                        "command": "",
+                    },
+                },
+                "attention": {
+                    "status": "healthy",
+                    "recommended_command": "",
+                },
                 "commit_pipeline": {
                     "snapshot_id": "snap-123",
                     "generation_id": "gen-9",
@@ -50,6 +67,10 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                     "doctor": {
                         "snapshot_id": "snap-123",
                         "generation_id": "gen-9",
+                        "status": "healthy",
+                        "diagnosis_status": "healthy",
+                        "decision_action_id": "continue_scoped_loop",
+                        "decision_command": "",
                     },
                     "bridge_projection": {
                         "metadata": {"snapshot_id": "snap-123"},
@@ -62,6 +83,10 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                 "doctor": {
                     "snapshot_id": "snap-123",
                     "generation_id": "gen-9",
+                    "status": "healthy",
+                    "diagnosis_status": "healthy",
+                    "decision_action_id": "continue_scoped_loop",
+                    "decision_command": "",
                 },
             },
             commit_pipeline_payload={
@@ -90,6 +115,17 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
             },
             review_state_payload={
                 "snapshot_id": "snap-123",
+                "recovery_assessment": {
+                    "diagnosis": {"status": "review_loop_relaunch_required"},
+                    "decision": {
+                        "action_id": "relaunch_review_loop",
+                        "command": "launch",
+                    },
+                },
+                "attention": {
+                    "status": "review_loop_relaunch_required",
+                    "recommended_command": "launch",
+                },
                 "commit_pipeline": {
                     "snapshot_id": "snap-999",
                     "generation_id": "gen-9",
@@ -98,6 +134,10 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                     "doctor": {
                         "snapshot_id": "snap-123",
                         "generation_id": "gen-8",
+                        "status": "healthy",
+                        "diagnosis_status": "healthy",
+                        "decision_action_id": "continue_scoped_loop",
+                        "decision_command": "",
                     },
                     "bridge_projection": {
                         "metadata": {"snapshot_id": "snap-123"},
@@ -110,6 +150,10 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                 "doctor": {
                     "snapshot_id": "snap-123",
                     "generation_id": "gen-9",
+                    "status": "healthy",
+                    "diagnosis_status": "healthy",
+                    "decision_action_id": "continue_scoped_loop",
+                    "decision_command": "",
                 },
             },
             commit_pipeline_payload={
@@ -122,6 +166,12 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                 "launch_truth": "detached_runtime_only",
                 "attention_status": "review_loop_relaunch_required",
                 "recovery_action_allowed": "launch",
+                "diagnosis_status": "review_loop_relaunch_required",
+                "decision_action_id": "relaunch_review_loop",
+                "decision_command": "launch",
+                "decision_execution_owner": "system",
+                "decision_requires_approval": True,
+                "decision_can_auto_fix": False,
                 "implementation_blocked": True,
                 "implementation_block_reason": "review_loop_relaunch_required",
                 "reviewed_hash_current": True,
@@ -136,6 +186,12 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                 "launch_truth": "detached_runtime_only",
                 "attention_status": "review_loop_relaunch_required",
                 "recovery_action_allowed": "launch",
+                "diagnosis_status": "review_loop_relaunch_required",
+                "decision_action_id": "relaunch_review_loop",
+                "decision_command": "launch",
+                "decision_execution_owner": "system",
+                "decision_requires_approval": True,
+                "decision_can_auto_fix": False,
                 "implementation_blocked": True,
                 "implementation_block_reason": "review_loop_relaunch_required",
                 "reviewed_hash_current": True,
@@ -151,6 +207,8 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         self.assertIn("snapshot_id mismatch", "\n".join(report["errors"]))
         self.assertIn("pipeline generation mismatch", "\n".join(report["errors"]))
         self.assertIn("bridge-poll parity mismatch", "\n".join(report["errors"]))
+        self.assertIn("diagnosis parity mismatch", "\n".join(report["errors"]))
+        self.assertIn("reports healthy while diagnosis", "\n".join(report["errors"]))
 
 
 class DiskTurnAuthorityParityTests(unittest.TestCase):
@@ -172,16 +230,37 @@ class DiskTurnAuthorityParityTests(unittest.TestCase):
             },
             "review_state_payload": {
                 "snapshot_id": "snap-1",
+                "recovery_assessment": {
+                    "diagnosis": {"status": "healthy"},
+                    "decision": {
+                        "action_id": "continue_scoped_loop",
+                        "command": "",
+                    },
+                },
                 "commit_pipeline": {"snapshot_id": "snap-1", "generation_id": "g1"},
                 "_compat": {
-                    "doctor": {"snapshot_id": "snap-1", "generation_id": "g1"},
+                    "doctor": {
+                        "snapshot_id": "snap-1",
+                        "generation_id": "g1",
+                        "status": "healthy",
+                        "diagnosis_status": "healthy",
+                        "decision_action_id": "continue_scoped_loop",
+                        "decision_command": "",
+                    },
                     "bridge_projection": {"metadata": {"snapshot_id": "snap-1"}},
                 },
             },
             "compact_payload": {
                 "snapshot_id": "snap-1",
                 "push_decision": {"snapshot_id": "snap-1"},
-                "doctor": {"snapshot_id": "snap-1", "generation_id": "g1"},
+                "doctor": {
+                    "snapshot_id": "snap-1",
+                    "generation_id": "g1",
+                    "status": "healthy",
+                    "diagnosis_status": "healthy",
+                    "decision_action_id": "continue_scoped_loop",
+                    "decision_command": "",
+                },
             },
             "commit_pipeline_payload": {"snapshot_id": "snap-1", "generation_id": "g1"},
             "bridge_poll_payload": {
@@ -374,6 +453,76 @@ class DiskTurnAuthorityParityTests(unittest.TestCase):
         self.assertIn("effective_reviewer_mode", error_text)
         self.assertIn("launch_truth", error_text)
         self.assertIn("attention_status", error_text)
+
+    def test_build_report_flags_green_doctor_when_diagnosis_is_degraded(self) -> None:
+        report = self.script.build_report(
+            **self._base_payloads(
+                review_state_payload={
+                    "snapshot_id": "snap-1",
+                    "recovery_assessment": {
+                        "diagnosis": {"status": "implementer_state_reset_required"},
+                        "decision": {
+                            "action_id": "reset_implementer_state",
+                            "command": "reset",
+                        },
+                    },
+                    "attention": {
+                        "status": "implementer_state_reset_required",
+                        "recommended_command": "reset",
+                    },
+                    "commit_pipeline": {"snapshot_id": "snap-1", "generation_id": "g1"},
+                    "_compat": {
+                        "doctor": {
+                            "snapshot_id": "snap-1",
+                            "generation_id": "g1",
+                            "status": "healthy",
+                            "diagnosis_status": "implementer_state_reset_required",
+                            "decision_action_id": "reset_implementer_state",
+                            "decision_command": "reset",
+                        },
+                        "bridge_projection": {"metadata": {"snapshot_id": "snap-1"}},
+                    },
+                },
+                compact_payload={
+                    "snapshot_id": "snap-1",
+                    "push_decision": {"snapshot_id": "snap-1"},
+                    "doctor": {
+                        "snapshot_id": "snap-1",
+                        "generation_id": "g1",
+                        "status": "healthy",
+                        "diagnosis_status": "implementer_state_reset_required",
+                        "decision_action_id": "reset_implementer_state",
+                        "decision_command": "reset",
+                    },
+                },
+                bridge_poll_payload={
+                    "snapshot_id": "snap-1",
+                    **{
+                        **_MATCHING_AUTHORITY_FIELDS,
+                        "attention_status": "implementer_state_reset_required",
+                        "recovery_action_allowed": "reset",
+                        "diagnosis_status": "implementer_state_reset_required",
+                        "decision_action_id": "reset_implementer_state",
+                        "decision_command": "reset",
+                    },
+                },
+                turn_authority_payload={
+                    "snapshot_id": "snap-1",
+                    **{
+                        **_MATCHING_AUTHORITY_FIELDS,
+                        "attention_status": "implementer_state_reset_required",
+                        "recovery_action_allowed": "reset",
+                        "diagnosis_status": "implementer_state_reset_required",
+                        "decision_action_id": "reset_implementer_state",
+                        "decision_command": "reset",
+                    },
+                },
+            ),
+            disk_review_state_payload=None,
+        )
+
+        self.assertFalse(report["ok"])
+        self.assertIn("reports healthy while diagnosis", "\n".join(report["errors"]))
 
 
 if __name__ == "__main__":

@@ -16,6 +16,10 @@ from .review_state_models import (
     AgentRegistryEntryState,
     AgentRegistryState,
     ContextPackRefState,
+    RecoveryAssessmentState,
+    RecoveryDecisionState,
+    RecoveryDiagnosisState,
+    RecoveryEvidenceState,
     ReviewAttentionState,
     ReviewBridgeState,
     ReviewCurrentSessionState,
@@ -43,6 +47,9 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
     )
     attention = _mapping(payload.get("attention")) or _mapping(
         review_payload.get("attention")
+    )
+    recovery_assessment = _mapping(payload.get("recovery_assessment")) or _mapping(
+        review_payload.get("recovery_assessment")
     )
     bridge_liveness = _mapping(payload.get("bridge_liveness")) or _mapping(
         review_payload.get("bridge_liveness")
@@ -124,6 +131,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         bridge_liveness=bridge_liveness,
         current_session=current_session_state,
         attention=attention,
+        recovery_assessment=recovery_assessment,
     )
 
     return ReviewState(
@@ -170,6 +178,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         collaboration=collaboration_state,
         bridge=bridge_state,
         attention=_attention_state_from_mapping(attention),
+        recovery_assessment=_recovery_assessment_from_mapping(recovery_assessment),
         packets=_packet_states_from_value(review_payload.get("packets")),
         registry=registry_state,
         reviewer_runtime=reviewer_runtime_state,
@@ -246,6 +255,57 @@ def _attention_state_from_mapping(
         recommended_action=_string(mapping.get("recommended_action")),
         recommended_command=_string(mapping.get("recommended_command")),
     )
+
+
+def _recovery_assessment_from_mapping(
+    mapping: Mapping[str, object],
+) -> RecoveryAssessmentState | None:
+    if not mapping:
+        return None
+    diagnosis = _mapping(mapping.get("diagnosis"))
+    decision = _mapping(mapping.get("decision"))
+    if not diagnosis and not decision:
+        return None
+    return RecoveryAssessmentState(
+        diagnosis=RecoveryDiagnosisState(
+            status=_string(diagnosis.get("status")) or "unknown",
+            root_cause=_string(diagnosis.get("root_cause")),
+            supporting_causes=_string_rows(diagnosis.get("supporting_causes")),
+            evidence=_recovery_evidence_rows(diagnosis.get("evidence")),
+            affected_surfaces=_string_rows(diagnosis.get("affected_surfaces")),
+            expected_healthy_state=_string(diagnosis.get("expected_healthy_state")),
+        ),
+        decision=RecoveryDecisionState(
+            action_id=_string(decision.get("action_id")),
+            command=_string(decision.get("command")),
+            execution_owner=_string(decision.get("execution_owner")),
+            rationale=_string(decision.get("rationale")),
+            blocked_alternatives=_string_rows(decision.get("blocked_alternatives")),
+            can_auto_fix=_bool(decision.get("can_auto_fix")),
+            requires_approval=_bool(decision.get("requires_approval")),
+            next_expected_state=_string(decision.get("next_expected_state")),
+        ),
+    )
+
+
+def _recovery_evidence_rows(value: object) -> tuple[RecoveryEvidenceState, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return ()
+    rows: list[RecoveryEvidenceState] = []
+    for item in value:
+        mapping = _mapping(item)
+        if not mapping:
+            continue
+        rows.append(
+            RecoveryEvidenceState(
+                code=_string(mapping.get("code")),
+                surface=_string(mapping.get("surface")),
+                field=_string(mapping.get("field")),
+                value=_string(mapping.get("value")),
+                detail=_string(mapping.get("detail")),
+            )
+        )
+    return tuple(rows)
 
 def _packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):

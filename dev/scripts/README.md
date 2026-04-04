@@ -440,13 +440,20 @@ Portability note:
   startup receipt is refreshed.
 - Both `startup-context` and `context-graph` are classified as read-only
   commands. When dispatched through the read-only path, the CLI sets
-  `DEVCTL_NO_ARTIFACT_WRITES=1` so they suppress side-effect writes (startup
-  receipt, bootstrap snapshot) that would otherwise land in `dev/reports/`.
-  Explicit `--save-snapshot` on `context-graph` still writes unconditionally.
+  `DEVCTL_NO_ARTIFACT_WRITES=1`.  `startup-context` always attempts the
+  receipt write (the launcher validates it to gate subsequent actions) but
+  degrades gracefully on `OSError` in that read-only context.  `context-graph`
+  suppresses its bootstrap snapshot write when the flag is set.  Explicit
+  `--save-snapshot` on `context-graph` still writes unconditionally.
 - `observe_launch_state()` in `bridge_launch_control.py` uses a lightweight
   bridge-metadata + session-probe path instead of forcing the full status
   refresh on every launch poll iteration. The heavy path is kept as the
   `OSError` fallback.
+- `wait_for_codex_poll_refresh()` in `handoff.py` has two satisfaction paths
+  for the post-launch ACK gate: (1) reviewer-owned `Poll Status` text
+  changed, or (2) `Last Codex poll` timestamp advanced past the pre-launch
+  baseline AND typed session probes confirm both conductors are live. Neither
+  path accepts BOTH unchanged timestamp AND unchanged status text.
 - `dev/scripts/checks/check_review_surface_consistency.py`
   (`check_review_surface_consistency.py`) is the proof guard for that startup /
   status / doctor convergence. It reads `startup-context`, `review_state.json`,
@@ -1258,10 +1265,11 @@ Machine-first output note:
     `check_platform_layer_boundaries.py` now blocks startup-authority/runtime
     capability modules from importing `dev.scripts.devctl.review_channel`
     orchestration directly.
-  - Read-only artifact suppression: when dispatched as a read-only command,
-    `startup-context` suppresses `write_startup_receipt()` via
-    `DEVCTL_NO_ARTIFACT_WRITES` so bootstrap polling and read-only mounts do
-    not trigger filesystem writes in `dev/reports/`.
+  - Read-only artifact handling: `startup-context` always attempts the receipt
+    write (the launcher validates it), but degrades gracefully on `OSError`
+    when `DEVCTL_NO_ARTIFACT_WRITES=1` signals an intentional read-only
+    context.  Bootstrap polling and read-only mounts get the typed packet
+    output even if the on-disk receipt write fails.
 - `startup-context --repair`: repo-owned startup auto-triage/repair mode; reads typed
   `startup-context`, startup-authority, and the canonical typed review-state
   owner surfaced by `review-channel` status refresh,

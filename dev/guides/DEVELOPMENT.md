@@ -376,10 +376,18 @@ Three quality layers matter in practice:
     bridge-metadata + session-probe path for launch-time poll iterations
     instead of forcing the full `ReviewChannelStatusSnapshot` refresh. The
     heavy path is the `OSError` fallback only.
-  - `startup-context` and bootstrap `context-graph` suppress side-effect
-    artifact writes (startup receipt, bootstrap snapshot) when
+  - `startup-context` always attempts the startup receipt write because the
+    launcher validates it to gate subsequent actions.  On intentional read-only
+    mounts (`DEVCTL_NO_ARTIFACT_WRITES=1`, MCP adapters, containers) the write
+    degrades gracefully on `OSError`; other write failures propagate normally.
+    Bootstrap `context-graph` still suppresses its snapshot write when
     `DEVCTL_NO_ARTIFACT_WRITES=1` is set by the read-only command dispatcher.
     Explicit `--save-snapshot` on `context-graph` still writes unconditionally.
+  - `wait_for_codex_poll_refresh()` in `handoff.py` has two satisfaction paths
+    for the post-launch ACK gate: (1) reviewer-owned `Poll Status` text
+    changed, or (2) `Last Codex poll` timestamp advanced past the pre-launch
+    baseline AND typed session probes confirm both conductors are live.
+    Neither path accepts BOTH unchanged timestamp AND unchanged status.
   - The same `status` path is now fail-closed on live-loop honesty too:
     `active_dual_agent` with detached publisher/supervisor heartbeats but no
     repo-owned conductors is a bridge-contract error, not a healthy loop.
@@ -496,9 +504,11 @@ Three quality layers matter in practice:
     also resolves the governed review-channel `rollover_dir` sibling from the
     managed review root before dispatching repo-owned review-channel actions,
     so review-channel command splits do not silently break startup repair.
-  - Read-only command safety: `startup-context`, `context-graph --mode bootstrap`,
-    and other read-only status commands now suppress artifact writes
-    (`write_startup_receipt()`, bootstrap snapshot save) via
+  - Read-only command safety: `startup-context` always attempts the receipt
+    write (the launcher validates it), but degrades gracefully on `OSError`
+    when `DEVCTL_NO_ARTIFACT_WRITES=1` signals an intentional read-only
+    context.  `context-graph --mode bootstrap` and other read-only status
+    commands still suppress snapshot artifact writes via
     `DEVCTL_NO_ARTIFACT_WRITES`, set automatically by the read-only command
     dispatcher in `cli.py`. Explicit `--save-snapshot` still writes
     unconditionally. The launch-poll path in `bridge_launch_control.py` also

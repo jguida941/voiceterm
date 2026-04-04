@@ -10,7 +10,14 @@ def append_doctor_markdown(lines: list[str], doctor: object) -> None:
     lines.append("")
     lines.append("## Doctor")
     lines.append(f"- status: {doctor.get('status') or 'unknown'}")
+    diagnosis_status = doctor.get("diagnosis_status")
+    if diagnosis_status:
+        lines.append(f"- diagnosis_status: {diagnosis_status}")
     lines.append(f"- summary: {doctor.get('summary') or 'n/a'}")
+    if doctor.get("decision_action_id"):
+        lines.append(f"- decision_action_id: {doctor.get('decision_action_id')}")
+    if doctor.get("decision_command"):
+        lines.append(f"- decision_command: {doctor.get('decision_command')}")
     lines.append(f"- publish_clear: {doctor.get('publish_clear')}")
     lines.append(f"- publisher_running: {doctor.get('publisher_running')}")
     lines.append(

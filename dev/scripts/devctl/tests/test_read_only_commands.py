@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
 from dev.scripts.devctl import cli
-from dev.scripts.devctl.cli import READ_ONLY_COMMANDS
+from dev.scripts.devctl.cli import ARTIFACT_WRITES_ENV, READ_ONLY_COMMANDS
 
 
 class ReadOnlyCommandSetTests(unittest.TestCase):
@@ -116,6 +118,175 @@ class ReadOnlyAuditSkipTests(unittest.TestCase):
             self.assertGreaterEqual(len(rows), 1)
             last_row = json.loads(rows[-1])
             self.assertEqual(last_row["command"], "status")
+
+
+class ArtifactWriteSuppressionTests(unittest.TestCase):
+    """Verify in-handler artifact writes are suppressed for read-only commands."""
+
+    def test_env_var_set_for_read_only_commands(self) -> None:
+        """cli.main() sets DEVCTL_NO_ARTIFACT_WRITES=1 for READ_ONLY_COMMANDS."""
+        captured_env: dict[str, str] = {}
+
+        def spy_handler(_args):
+            captured_env["val"] = os.environ.get(ARTIFACT_WRITES_ENV, "")
+            return 0
+
+        with patch.dict(cli.COMMAND_HANDLERS, {"list": spy_handler}):
+            with patch("sys.argv", ["devctl", "list"]):
+                cli.main()
+
+        self.assertEqual(captured_env.get("val"), "1")
+
+    def test_env_var_cleared_after_handler(self) -> None:
+        """The suppression env var is cleaned up after the handler returns."""
+        with patch.dict(cli.COMMAND_HANDLERS, {"list": lambda _: 0}):
+            with patch("sys.argv", ["devctl", "list"]):
+                cli.main()
+
+        self.assertNotIn(ARTIFACT_WRITES_ENV, os.environ)
+
+    def test_env_var_not_set_for_write_commands(self) -> None:
+        """Write commands must NOT suppress artifact writes."""
+        captured_env: dict[str, str] = {}
+
+        def spy_handler(_args):
+            captured_env["val"] = os.environ.get(ARTIFACT_WRITES_ENV, "")
+            return 0
+
+        with patch.dict(
+            "os.environ",
+            {"DEVCTL_DATA_SCIENCE_DISABLE": "1"},
+            clear=False,
+        ):
+            with patch.dict(cli.COMMAND_HANDLERS, {"status": spy_handler}):
+                with patch("sys.argv", ["devctl", "status", "--format", "json"]):
+                    cli.main()
+
+        self.assertNotEqual(captured_env.get("val"), "1")
+
+    def test_startup_context_writes_receipt_even_when_suppressed(self) -> None:
+        """startup-context must still write the receipt under suppression.
+
+        The receipt is the command's primary output — the launcher validates
+        it to gate subsequent actions.  Only a true read-only filesystem
+        (OSError) should prevent the write.
+        """
+        from dev.scripts.devctl.commands.governance import startup_context as sc_mod
+
+        mock_write = MagicMock(return_value=Path("/fake/receipt.json"))
+        mock_ctx = MagicMock()
+        mock_ctx.to_dict.return_value = {
+            "reviewer_gate": {"reviewer_mode": "single_agent"},
+            "push_decision": MagicMock(
+                action="no_push_needed",
+                publication_backlog=MagicMock(backlog_urgent=False),
+                publication_guidance="",
+            ),
+            "governance": None,
+        }
+        mock_receipt = MagicMock()
+        mock_receipt.head_commit_sha = "abc123"
+
+        with patch.dict(os.environ, {ARTIFACT_WRITES_ENV: "1"}):
+            with (
+                patch.object(sc_mod, "build_startup_context", return_value=mock_ctx),
+                patch.object(sc_mod, "build_startup_receipt", return_value=mock_receipt),
+                patch.object(sc_mod, "write_startup_receipt", mock_write),
+                patch.object(sc_mod, "build_startup_authority_report", return_value={"ok": True}),
+                patch.object(sc_mod, "emit_machine_artifact_output", return_value=0),
+            ):
+                sc_mod.run(SimpleNamespace(
+                    format="json",
+                    role=None,
+                    reviewer_override=False,
+                    apply_safe_fixes=False,
+                    repair=False,
+                ))
+
+        mock_write.assert_called_once()
+
+    def test_startup_context_degrades_on_read_only_filesystem(self) -> None:
+        """On a truly read-only filesystem, the receipt write degrades gracefully."""
+        from dev.scripts.devctl.commands.governance import startup_context as sc_mod
+
+        mock_write = MagicMock(side_effect=OSError("read-only filesystem"))
+        mock_ctx = MagicMock()
+        mock_ctx.to_dict.return_value = {
+            "reviewer_gate": {"reviewer_mode": "single_agent"},
+            "push_decision": MagicMock(
+                action="no_push_needed",
+                publication_backlog=MagicMock(backlog_urgent=False),
+                publication_guidance="",
+            ),
+            "governance": None,
+        }
+        mock_receipt = MagicMock()
+        mock_receipt.head_commit_sha = "abc123"
+
+        with patch.dict(os.environ, {ARTIFACT_WRITES_ENV: "1"}):
+            with (
+                patch.object(sc_mod, "build_startup_context", return_value=mock_ctx),
+                patch.object(sc_mod, "build_startup_receipt", return_value=mock_receipt),
+                patch.object(sc_mod, "write_startup_receipt", mock_write),
+                patch.object(
+                    sc_mod,
+                    "startup_receipt_path",
+                    return_value=Path("/fake/receipt.json"),
+                ),
+                patch.object(sc_mod, "build_startup_authority_report", return_value={"ok": True}),
+                patch.object(sc_mod, "emit_machine_artifact_output", return_value=0),
+            ):
+                # Should not raise — degrades gracefully
+                sc_mod.run(SimpleNamespace(
+                    format="json",
+                    role=None,
+                    reviewer_override=False,
+                    apply_safe_fixes=False,
+                    repair=False,
+                ))
+
+        mock_write.assert_called_once()
+
+    def test_context_graph_skips_snapshot_in_bootstrap_when_suppressed(self) -> None:
+        """context-graph bootstrap must not write a snapshot under suppression."""
+        from dev.scripts.devctl.context_graph.command import _maybe_write_snapshot
+
+        args = SimpleNamespace(save_snapshot=False)
+        with patch.dict(os.environ, {ARTIFACT_WRITES_ENV: "1"}):
+            result = _maybe_write_snapshot(args, [], [], "bootstrap")
+
+        self.assertIsNone(result)
+
+    def test_context_graph_explicit_save_overrides_suppression(self) -> None:
+        """--save-snapshot still writes even when artifact writes are suppressed."""
+        from dev.scripts.devctl.context_graph.command import _maybe_write_snapshot
+        from dev.scripts.devctl.context_graph.snapshot import (
+            ContextGraphSnapshotReceipt,
+            CONTEXT_GRAPH_SNAPSHOT_CONTRACT_ID,
+        )
+
+        receipt = ContextGraphSnapshotReceipt(
+            path="dev/reports/graph_snapshots/abc.json",
+            schema_version=1,
+            contract_id=CONTEXT_GRAPH_SNAPSHOT_CONTRACT_ID,
+            branch="feature/test",
+            commit_hash="abc123",
+            generated_at_utc="2026-03-22T16:00:00Z",
+            source_mode="query",
+            node_count=0,
+            edge_count=0,
+            temperature_distribution={"average": 0.0, "buckets": {}, "minimum": 0.0, "maximum": 0.0},
+        )
+        args = SimpleNamespace(save_snapshot=True)
+        with patch.dict(os.environ, {ARTIFACT_WRITES_ENV: "1"}):
+            with patch(
+                "dev.scripts.devctl.context_graph.command.write_context_graph_snapshot",
+                return_value=receipt,
+            ) as write_mock:
+                result = _maybe_write_snapshot(args, [], [], "query")
+
+        write_mock.assert_called_once()
+        self.assertIsNotNone(result)
 
 
 if __name__ == "__main__":

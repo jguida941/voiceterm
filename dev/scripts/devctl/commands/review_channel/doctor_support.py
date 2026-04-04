@@ -15,6 +15,7 @@ def attach_status_runtime_snapshot(report: dict[str, object]) -> None:
         isinstance(report.get("reviewer_runtime"), dict)
         and isinstance(report.get("doctor"), dict)
         and isinstance(report.get("commit_pipeline"), dict)
+        and "recovery_assessment" in report
     ):
         return
 
@@ -49,6 +50,7 @@ def build_doctor_report(
     doctor_report["warnings"] = list(status_report.get("warnings") or [])
     doctor_report["errors"] = list(status_report.get("errors") or [])
     doctor_report["attention"] = status_report.get("attention")
+    doctor_report["recovery_assessment"] = status_report.get("recovery_assessment")
     doctor_report["doctor"] = status_report.get("doctor")
     doctor_report["reviewer_runtime"] = status_report.get("reviewer_runtime")
     doctor_report["commit_pipeline"] = status_report.get("commit_pipeline")
