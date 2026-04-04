@@ -116,7 +116,8 @@ def enrich_event_review_state(
     bridge_liveness = build_event_bridge_liveness_projection(review_state)
     bridge_liveness["push_enforcement"] = (
         push_enforcement
-        or build_bridge_push_enforcement_state(repo_root)
+        if push_enforcement is not None
+        else build_bridge_push_enforcement_state(repo_root)
     )
     current_session = build_event_current_session(
         review_state=review_state,

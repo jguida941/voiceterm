@@ -3,16 +3,10 @@
 from __future__ import annotations
 
 from ..runtime.project_governance_push import push_enforcement_from_mapping
-from ..runtime.startup_push_recovery import artifact_publication_truth
-
-
-def _effective_publication_summary(published_remote: bool, post_push_green: bool) -> str:
-    """Return a one-line human-readable summary of effective publication state."""
-    if published_remote and post_push_green:
-        return "Published to origin at HEAD"
-    if published_remote:
-        return "Published but post-push validation failed"
-    return "Not yet published (push report is from different branch/commit)"
+from ..runtime.startup_push_recovery import (
+    artifact_publication_truth,
+    effective_publication_summary,
+)
 
 
 def _append_latest_push_receipt(
@@ -34,7 +28,7 @@ def _append_latest_push_receipt(
     )
     lines.append(
         f"- effective_publication_state: "
-        f"{_effective_publication_summary(published_remote, post_push_green)}"
+        f"{effective_publication_summary(published_remote, post_push_green)}"
     )
     lines.append(f"- published_remote: {published_remote}")
     lines.append(f"- post_push_green: {post_push_green}")

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from ...context_graph.render import append_quality_signal_lines
 from ...runtime.project_governance_push import push_enforcement_from_mapping
-from ...runtime.startup_push_recovery import artifact_publication_truth
+from ...runtime.startup_push_recovery import (
+    artifact_publication_truth,
+    effective_publication_summary,
+)
 
 _DEVCTL_PUSH_EXECUTE_COMMAND = "python3 dev/scripts/devctl.py push --execute"
 
@@ -92,13 +95,6 @@ def publication_backlog_count(ctx_dict: dict) -> int | None:
     if isinstance(raw_count, str) and raw_count.isdigit():
         return int(raw_count)
     return None
-def _effective_publication_summary(published_remote: bool, post_push_green: bool) -> str:
-    """Return a one-line human-readable summary of effective publication state."""
-    if published_remote and post_push_green:
-        return "Published to origin at HEAD"
-    if published_remote:
-        return "Published but post-push validation failed"
-    return "Not yet published (push report is from different branch/commit)"
 
 
 def _append_latest_push_receipt(lines: list[str], push_enforcement: dict) -> None:
@@ -112,7 +108,7 @@ def _append_latest_push_receipt(lines: list[str], push_enforcement: dict) -> Non
     )
     lines.append(
         f"- effective_publication_state: "
-        f"{_effective_publication_summary(published_remote, post_push_green)}"
+        f"{effective_publication_summary(published_remote, post_push_green)}"
     )
     lines.append(f"- published_remote: {published_remote}")
     lines.append(f"- post_push_green: {post_push_green}")

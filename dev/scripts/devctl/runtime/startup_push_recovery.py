@@ -85,6 +85,15 @@ def artifact_publication_truth(
     )
 
 
+def effective_publication_summary(published_remote: bool, post_push_green: bool) -> str:
+    """Return a one-line human-readable summary of effective publication state."""
+    if published_remote and post_push_green:
+        return "Published to origin at HEAD"
+    if published_remote:
+        return "Published but post-push validation failed"
+    return "Not yet published (push report is from different branch/commit)"
+
+
 def artifact_publication_recovery_decision(
     inputs: PushDecisionInputs,
     push_enforcement: "PushEnforcement",
