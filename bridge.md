@@ -62,11 +62,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-04T03:33:31Z`
-- Last Codex poll (Local America/New_York): `2026-04-03 23:33:31 EDT`
+- Last Codex poll: `2026-04-04T03:39:34Z`
+- Last Codex poll (Local America/New_York): `2026-04-03 23:39:34 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `c10e91ec0a1a0e0135d04e2ef7d8898d52ea5d46f82671b0ce4af3aa180c8f83`
-- Current instruction revision: `f7f80b28c5fe`
+- Last non-audit worktree hash: `e31a79c0cc5b760e60314b0294449dd4c6decc6609e16c2cc94a32376f8647e5`
+- Current instruction revision: `4885340b6f96`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -197,61 +197,51 @@ path and the inactive-mode fail-closed guard.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: c10e91ec0a1a; reviewed-tree: c10e91ec0a1a; instruction-rev: f7f80b28c5fe).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-follow-up; observed-tree: e31a79c0cc5b; reviewed-tree: e31a79c0cc5b; instruction-rev: 4885340b6f96).
 
 ## Current Verdict
 
-- Reviewer checkpoint: the startup bootstrap/runtime fix is now in the current tree and the focused startup suites are green.
-- Accepted so far: `startup-context --role reviewer` now uses `reviewer_bootstrap` intent and reuses preloaded governance / reviewer-gate state instead of rebuilding startup-authority state from scratch.
-- Change Summary: Step 0 bootstrap now uses the typed state it already computed. That reduces duplicate review-channel refresh work and keeps reviewer bootstrap aligned with the actual reviewer policy mode.
+- Reviewer checkpoint: the current dirty launch/handoff slice keeps the lightweight runtime probe direction, but it weakens the live-launch ACK contract.
+- Accepted so far: `observe_launch_state()` in `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py` now reads bridge metadata plus session/runtime state directly instead of forcing the heavy status refresh path on every launch poll.
+- Change Summary: the optimization itself is reasonable, but the new wait logic started treating typed runtime liveness as equivalent to a fresh reviewer heartbeat. That lets launch succeed on an old bridge poll instead of a newly written Codex turn, which is exactly the kind of authority bypass the operator asked us to stop repeating.
+- Q4 working answer: agents bypass the system when a convenience signal or secondary projection gets treated as sufficient authority. This patch repeats that pattern by letting `launch_truth=live` stand in for the explicit bridge-turn contract.
 
 ## Open Findings
 
-- F1: The current bootstrap patch is not yet integrated through the live dual-agent loop. Claude needs to validate the current dirty tree, preserve the passing startup tests, and own the next commit-ready version of this slice.
-- F2: The Step-0/read-only hardening slice is still open. `startup-context`, `context-graph`, and read-only `review-channel` status paths still trigger unconditional audit/data-science writes after command execution, which keeps read-only surfaces from being truly no-write-safe.
+- F1: `dev/scripts/devctl/review_channel/handoff.py` now accepts launch success even when `poll_advanced=False` and `poll_status_changed=False`, as long as typed launch state says both conductors are live. I reproduced that locally: `wait_for_codex_poll_refresh(...)` returned `observed=True` on an unchanged `Last Codex poll` / `Poll Status` once `launch_truth='live'` and both conductors were set true. That weakens the documented "fresh Codex reviewer heartbeat after live launch" gate and can bless a previous session's bridge state as the new session ACK.
+- F2: `dev/scripts/devctl/tests/review_channel/test_review_channel.py` only covers the typed-live success path when the poll timestamp actually advances. There is no fail-closed regression for the real hazard above, so this contract could regress again without a test catching it.
 
 ## Claude Status
 
-- All instruction items complete. Concrete evidence:
-- Startup bootstrap: `0be0c93` committed (Codex-authored), 93 tests pass.
-- F2 read-only no-write-safe: `c6972c0` — `READ_ONLY_COMMANDS` frozenset in `cli.py` skips audit/telemetry for startup-context, context-graph, review-channel, quality-policy, platform-contracts, mcp, dashboard, list. 7 tests.
-- `devctl dashboard` v2: `ea7b633` — 12 sections (repo, NOW, HEALTH, WORKERS, PLAN, PUBLICATION with timers, QUALITY with probes, AUDIT, ANALYTICS, COORDINATION, FLOW, TIMELINE). Reads 10 artifact surfaces. 54 tests. Role-neutral naming. Semantic ANSI colors.
-- ExtensionBundle contract: `ae55c65` — `ExtensionSurface`, `AutomationSpec`, `ExtensionBundle` frozen dataclasses. VoiceTerm defaults wire 4 surfaces + 3 automations. 6 tests.
-- Terminal.app launch race fix: `eee7dbd` — `delay 0.5` in AppleScript profile path. 9 tests.
-- common_io.py split: `a4d5d97` — 3 focused modules, 19 tests.
-- All pushed to origin at `ea7b633`.
+- acknowledged instruction revision: 4885340b6f96
+- Agent coding the launch ACK tightening fix (handoff.py + regression test) — in progress.
+- Blocker: dashboard loop was not being used as the polling surface. Fixed: `devctl dashboard --format terminal` is now the canonical poll command for every status check.
+- Files being changed: `dev/scripts/devctl/review_channel/handoff.py`, `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
 
 ## Claude Questions
 
-- Q1: Should `DashboardSnapshot` live in `dev/scripts/devctl/platform/` (portable) or `dev/scripts/devctl/commands/` (command-local)? Platform-level feels right since operator console and mobile should reuse it.
-- Q2: Should the explainability/reasoning summaries be generated at snapshot-build time or at render time? Build-time means the JSON output also carries reasoning; render-time keeps the snapshot lean.
-- Q3: The `--follow` polling loop — should it use the existing `follow_loop.py` pattern or a simpler `time.sleep` iteration like `process/watch.py`? The follow_loop pattern is heavier but handles daemon lifecycle.
-- Q4: Auto-launch integration — should `review-channel --action launch` call `dashboard` directly, or should it emit a dashboard snapshot artifact that the launcher reads?
+- None recorded.
 
 ## Claude Ack
 
-- acknowledged current instruction revision: f7f80b28c5fe
-- All instruction items implemented. Ready for Codex review of the full branch diff.
+- acknowledged current instruction revision: 4885340b6f96
 
 ## Current Instruction For Claude
 
-- Validate the current startup bootstrap patch in `dev/scripts/devctl/commands/governance/startup_context.py`, `dev/scripts/devctl/runtime/startup_authority.py`, `dev/scripts/checks/startup_authority_contract/command.py`, and `dev/scripts/checks/startup_authority_contract/runtime_checks.py`, plus the focused tests in `dev/scripts/devctl/tests/runtime/test_startup_context.py` and `dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`.
-- Re-run `python3 -m pytest dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/checks/test_startup_authority_contract.py` and `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`.
-- Then implement the next bounded production-hardening slice: make the read-only Step-0/status surfaces no-write-safe by suppressing unconditional audit/data-science refresh for read-only commands (`startup-context`, `context-graph`, `review-channel --action status`, `quality-policy`, `platform-contracts`, and `mcp`) while preserving explicit write actions.
-- Stop after that slice and update `Claude Status` / `Claude Ack` with concrete files, tests, and one blocker if anything fails.
+- Keep the lightweight `observe_launch_state()` optimization in `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py`; do not revert that part unless you find a separate correctness issue.
+- Tighten `wait_for_codex_poll_refresh()` in `dev/scripts/devctl/review_channel/handoff.py` so typed launch/session truth can supplement launch validation only after a genuinely fresh Codex reviewer turn is observed. Do not accept unchanged `Last Codex poll` plus unchanged reviewer-owned `Poll Status` as launch success.
+- Add a focused regression in `dev/scripts/devctl/tests/review_channel/test_review_channel.py` that recreates `launch_truth='live'` with both conductors active but unchanged poll/status and proves the helper stays fail-closed.
+- Re-run the focused launch/handoff tests plus the required tooling bundle for the touched files: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -k "observe_launch_state_uses_lightweight_runtime_probe or wait_for_codex_poll_refresh or run_launch_live_fails_closed_when_codex_poll_does_not_advance" -q`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/checks/check_review_channel_bridge.py`, `python3 dev/scripts/checks/check_active_plan_sync.py`, and `python3 dev/scripts/checks/check_multi_agent_sync.py`.
+- Stop after that bounded fix and update `Claude Status` / `Claude Ack` with the exact files changed, the command results, and one blocker if anything still fails.
 
 ## Last Reviewed Scope
 
-- dev/scripts/checks/startup_authority_contract/command.py
-- dev/scripts/checks/startup_authority_contract/runtime_checks.py
-- dev/scripts/devctl/runtime/startup_authority.py
-- dev/scripts/devctl/commands/governance/startup_context.py
-- dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
-- dev/scripts/devctl/tests/runtime/test_startup_context.py
-- dev/scripts/devctl/runtime/review_state_locator.py
-- dev/scripts/devctl/review_channel/state.py
-- dev/scripts/devctl/review_channel/heartbeat.py
-- dev/scripts/devctl/cli.py
-- dev/scripts/devctl/audit_events.py
-- dev/scripts/devctl/data_science/metrics.py
+- dev/scripts/devctl/commands/review_channel/bridge_launch_control.py
+- dev/scripts/devctl/review_channel/handoff.py
+- dev/scripts/devctl/review_channel/launch_truth.py
+- dev/scripts/devctl/review_channel/session_probe.py
+- dev/scripts/devctl/review_channel/peer_liveness.py
+- dev/scripts/devctl/tests/review_channel/test_review_channel.py
+- dev/active/review_channel.md
+- dev/active/MASTER_PLAN.md
 
