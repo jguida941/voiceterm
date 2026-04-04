@@ -171,6 +171,18 @@ External review identified core problem: "too many partially smart surfaces, not
 - **Parallel worktrees**: `LaneAssignment.worktree` parsed but never consumed by launcher. 3 gaps: add worktree_path to LaunchSessionRequest, wire git worktree in build_session_script, pass per-worktree path to conductor prompt.
 - **Portability**: `repo_packs/voiceterm.py` correctly isolated but `active_path_config()` defaults to VoiceTerm. No pip package. No second repo-pack registered.
 
+## Subsystem Integration Audit (Round 6, 8-agent, 2026-04-04)
+
+| Subsystem | Status | Detail |
+|---|---|---|
+| Release pipeline | SILO | Zero ControlState/ReviewState awareness. No dashboard visibility. All from git/config. |
+| Mutation testing | SILO | No typed artifacts. Dashboard shows badge staleness only, not coverage. |
+| Triage | SILO | No governance-review connection. Dashboard has launch button only. |
+| Sync | OK | Operational utility, correctly consumes push policy. |
+| Render-surfaces | PARTIAL | Reads policy file independently. Consumed by one check guard. |
+| Quality-policy vs runtime | BROKEN | startup_context has ZERO imports from quality_policy/defaults.py. They can disagree on enabled checks with no enforcement. |
+| Watchdog/data-science | PARTIAL | Dashboard reads avg_time_to_green + event_stats. Benchmark, swarm, external findings all ignored. |
+
 ## Infrastructure Seam Audit (Round 5, 8-agent, 2026-04-04)
 
 | Seam | Status | Detail |
