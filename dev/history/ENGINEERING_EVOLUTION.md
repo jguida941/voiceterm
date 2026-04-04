@@ -37,6 +37,25 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-04 - Bridge rendering portability via RepoPathConfig
+
+The markdown bridge compatibility projection no longer hardcodes
+VoiceTerm-specific values. Display timezone (`America/New_York`),
+worktree-hash exclusion prefix (`.voiceterm/memory/`), review-channel
+plan path (`dev/active/review_channel.md`), and bridge metadata regex
+patterns now derive from `RepoPathConfig` fields (`display_timezone`,
+`local_state_prefix_rel`, `review_channel_rel`). Another repo can
+override these via `set_active_path_config()` and the bridge surface
+renders correctly without inheriting VoiceTerm defaults.
+
+Evidence: `dev/scripts/devctl/review_channel/heartbeat.py`,
+`dev/scripts/devctl/review_channel/bridge_projection_state.py`,
+`dev/scripts/devctl/review_channel/bridge_projection.py`,
+`dev/scripts/devctl/review_channel/reviewer_state_support.py`,
+`dev/scripts/devctl/review_channel/handoff_constants.py`,
+`dev/scripts/devctl/repo_packs/voiceterm.py`,
+`dev/scripts/checks/review_channel_bridge/report.py`.
+
 ### 2026-04-04 - ReviewState.attention projects from recovery_assessment
 
 `ReviewState.attention` is no longer an independently authored field. When

@@ -15,7 +15,7 @@ from .heartbeat import (
     LAST_CODEX_POLL_LOCAL_RE,
     LAST_CODEX_POLL_RE,
     LAST_WORKTREE_HASH_RE,
-    _format_new_york_timestamp,
+    _format_local_timestamp,
     _replace_or_insert_metadata_line,
 )
 from .poll_status import rewrite_poll_status as _rewrite_poll_status
@@ -105,7 +105,7 @@ def write_reviewer_metadata(
 ) -> tuple[str, ReviewerStateWrite]:
     now_utc = datetime.now(timezone.utc)
     last_codex_poll_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-    last_codex_poll_local = _format_new_york_timestamp(now_utc)
+    last_codex_poll_local = _format_local_timestamp(now_utc)
     updated_text = _normalize_metadata_layout(bridge_text)
     current_bridge_hash = current_reviewed_hash(bridge_text)
     updated_text = _replace_or_insert_metadata_line(
@@ -113,11 +113,14 @@ def write_reviewer_metadata(
         pattern=LAST_CODEX_POLL_RE,
         replacement=f"- Last Codex poll: `{last_codex_poll_utc}`",
     )
+    from ..repo_packs import active_path_config
+
+    tz_label = active_path_config().display_timezone
     updated_text = _replace_or_insert_metadata_line(
         updated_text,
         pattern=LAST_CODEX_POLL_LOCAL_RE,
         replacement=(
-            "- Last Codex poll (Local America/New_York): "
+            f"- Last Codex poll (Local {tz_label}): "
             f"`{last_codex_poll_local}`"
         ),
     )

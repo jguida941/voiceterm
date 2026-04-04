@@ -242,7 +242,7 @@ def _is_refreshable_metadata_error(error: str) -> bool:
         "Invalid `Last Codex poll` timestamp",
         "`Last Codex poll` is stale",
         "`Last Codex poll` is in the future",
-        "Invalid `Last Codex poll (Local America/New_York)` value",
+        "Invalid `Last Codex poll (Local",
         "Invalid `Last non-audit worktree hash`",
     )
     return any(token in error for token in refreshable_tokens)

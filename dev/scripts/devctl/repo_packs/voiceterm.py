@@ -17,7 +17,7 @@ DEFAULT_PUSH_REPORT_REL = "dev/reports/push/latest.json"
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class RepoPathConfig:
-    """Frozen registry of repo-relative artifact paths for VoiceTerm.
+    """Frozen registry of repo-relative artifact paths.
 
     Thin clients and operator-console modules can read paths from a single
     ``RepoPathConfig`` instead of each module defining its own constants.
@@ -30,6 +30,9 @@ class RepoPathConfig:
     mobile_status_rel: str = DEFAULT_MOBILE_STATUS_REL
     phone_status_rel: str = DEFAULT_PHONE_STATUS_REL
     push_report_rel: str = DEFAULT_PUSH_REPORT_REL
+    # Bridge portability: gitignored local-state prefix, display timezone
+    local_state_prefix_rel: str = ".voiceterm/memory/"
+    display_timezone: str = "America/New_York"
 
     # Structured review-state JSON candidates (tried in order)
     review_state_candidates: tuple[str, ...] = (

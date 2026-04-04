@@ -13,7 +13,7 @@ MARKDOWN_ITEM_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)(?P<value>.+)$")
 BRIDGE_METADATA_PATTERNS = {
     "last_codex_poll_utc": re.compile(r"^- Last Codex poll:\s*`(?P<value>.+?)`\s*$"),
     "last_codex_poll_local": re.compile(
-        r"^- Last Codex poll \(Local America/New_York\):\s*`(?P<value>.+?)`\s*$"
+        r"^- Last Codex poll \(Local [^)]+\):\s*`(?P<value>.+?)`\s*$"
     ),
     "reviewer_mode": re.compile(r"^- Reviewer mode:\s*`(?P<value>.+?)`\s*$"),
     "last_non_audit_worktree_hash": re.compile(

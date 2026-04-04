@@ -477,6 +477,15 @@ checklist plus chat memory.
     `recommended_action`, `recommended_command`). Drift between raw attention
     and the projected values is a CI-blocking error, not silent state
     corruption.
+4.4.7 Bridge rendering portability: the markdown bridge compatibility
+    projection now derives display timezone, local-state hash exclusion
+    prefix, and review-channel plan path from `RepoPathConfig` instead of
+    hardcoding VoiceTerm-specific values. Another repo can override
+    `display_timezone`, `local_state_prefix_rel`, and `review_channel_rel`
+    via `set_active_path_config()` and the bridge rendering, heartbeat
+    refresh, and worktree hash computation will follow the config without
+    code changes. Bridge metadata regexes now match any timezone label
+    instead of requiring `America/New_York`.
 4.5 In that same live review-channel mode, treat
     `dev/reports/review_channel/latest/review_state.json` (and the mirrored
     `compact.json` projection) `current_session` block as the canonical typed

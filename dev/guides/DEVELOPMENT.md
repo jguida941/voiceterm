@@ -651,6 +651,7 @@ the concrete minimum inventory after edits:
    - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py`
    - `python3 dev/scripts/checks/check_audit_status_sync.py`
    - `python3 dev/scripts/checks/check_review_surface_consistency.py` (enforces that `review_state.attention` matches the canonical projection from `recovery_assessment` when both are present; also validates snapshot/pipeline convergence)
+   - Bridge rendering portability: heartbeat timestamps, worktree-hash exclusion prefixes, and review-channel plan path are now derived from `RepoPathConfig` (`display_timezone`, `local_state_prefix_rel`, `review_channel_rel`) instead of hardcoded VoiceTerm-specific values.
    - `python3 dev/scripts/checks/check_tandem_consistency.py` (prefers typed `review_state.json` when available; bridge-text fallback for checks without a typed equivalent)
    - `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`
 4. If you changed shared platform/runtime contract surfaces (`dev/scripts/devctl/platform/**`,

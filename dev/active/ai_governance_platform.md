@@ -390,7 +390,11 @@ contract set:
   decomposed into bounded path families rather than one ever-growing bag of
   repo knowledge: repo roots, artifact/report roots, plan/docs authority
   paths, memory roots, and review/bridge paths should be separable so callers
-  only depend on the slice they actually need.
+  only depend on the slice they actually need. Bridge rendering portability
+  fields now include `display_timezone`, `local_state_prefix_rel`, and
+  `review_channel_rel` — heartbeat timestamps, worktree-hash exclusion,
+  and swarm-mode plan references derive from these instead of hardcoded
+  VoiceTerm-specific values.
 - `OnboardingContract`: typed adoption/onboarding envelope that records repo
   identity, discovered capabilities, inferred policy payload, path roots,
   required human-authority decisions, onboarding mode

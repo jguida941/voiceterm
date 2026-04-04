@@ -284,6 +284,17 @@
   `dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`,
   `dev/scripts/checks/review_surface_consistency/parity.py`,
   `dev/scripts/devctl/platform/runtime_state_contract_rows.py`.
+- Latest same-lane closure on 2026-04-04: bridge portability — heartbeat
+  timestamps, worktree-hash exclusion, swarm-mode plan path, bridge
+  metadata regexes, and guard error messages now derive from
+  `RepoPathConfig` fields instead of hardcoded VoiceTerm values. Evidence:
+  `dev/scripts/devctl/review_channel/heartbeat.py`,
+  `dev/scripts/devctl/review_channel/bridge_projection_state.py`,
+  `dev/scripts/devctl/review_channel/bridge_projection.py`,
+  `dev/scripts/devctl/review_channel/reviewer_state_support.py`,
+  `dev/scripts/devctl/review_channel/handoff_constants.py`,
+  `dev/scripts/devctl/repo_packs/voiceterm.py`,
+  `dev/scripts/checks/review_channel_bridge/report.py`.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

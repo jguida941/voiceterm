@@ -8,9 +8,9 @@ from pathlib import Path
 
 from .bridge_file import rewrite_bridge_markdown
 from .heartbeat import (
-    NON_AUDIT_HASH_EXCLUDED_PREFIXES,
     bridge_excluded_rel_paths,
     compute_non_audit_worktree_hash,
+    non_audit_hash_excluded_prefixes,
 )
 from .instruction_reset import reset_implementer_sections_on_instruction_change
 from .reviewer_state_support import (
@@ -105,7 +105,7 @@ def write_reviewer_checkpoint(
             repo_root=repo_root,
             bridge_path=bridge_path,
         ),
-        excluded_prefixes=NON_AUDIT_HASH_EXCLUDED_PREFIXES,
+        excluded_prefixes=non_audit_hash_excluded_prefixes(),
     )
     preserve_reviewed_hash = reason.strip().lower() == "next-plan-item"
     reviewed_scope_body = _format_markdown_list(checkpoint.reviewed_scope_items)

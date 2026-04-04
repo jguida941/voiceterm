@@ -183,6 +183,12 @@ Compatibility note:
   choices, and `check_multi_agent_sync.py` now blocks planned `AGENT-*` rows
   from leaking back into runtime truth when a typed `review_state` snapshot
   exists.
+- Bridge rendering portability: `heartbeat.py` worktree-hash exclusion,
+  `bridge_projection_state.py` display timezone, `bridge_projection.py`
+  swarm-mode plan path, `reviewer_state_support.py` metadata lines, and
+  the `check_review_channel_bridge` guard parser all derive VoiceTerm-
+  specific values from `RepoPathConfig` fields (`local_state_prefix_rel`,
+  `display_timezone`, `review_channel_rel`) instead of hardcoded literals.
 - Keep remote commit/push on that same repo-owned backend too: phone-steered
   and remote-control sessions may stage or request approval through typed
   review/runtime surfaces, but commit/push design authority now lives in

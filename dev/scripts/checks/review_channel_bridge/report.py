@@ -74,7 +74,7 @@ REQUIRED_BRIDGE_MARKERS = [
     "Specialist workers should wake on owned-path changes",
     "Codex must emit an operator-visible heartbeat every 5 minutes",
     "- Last Codex poll:",
-    "- Last Codex poll (Local America/New_York):",
+    "- Last Codex poll (Local",
     "- Reviewer mode:",
     "- Last non-audit worktree hash:",
 ]
@@ -126,8 +126,10 @@ def _extract_bridge_metadata(text: str) -> dict[str, str]:
     metadata: dict[str, str] = {}
     for line in text.splitlines():
         trimmed = line.strip().lstrip("-").strip()
-        if trimmed.startswith("Last Codex poll (Local America/New_York):"):
-            metadata["last_codex_poll_local"] = _strip_backticks(trimmed.split(":", 1)[1])
+        if trimmed.startswith("Last Codex poll (Local"):
+            metadata["last_codex_poll_local"] = _strip_backticks(
+                trimmed.split("):", 1)[1] if "):" in trimmed else ""
+            )
         elif trimmed.startswith("Last Codex poll:"):
             metadata["last_codex_poll"] = _strip_backticks(trimmed.split(":", 1)[1])
         elif trimmed.startswith("Reviewer mode:"):
@@ -191,7 +193,7 @@ def _validate_bridge_metadata(text: str) -> list[str]:
 
     if not LOCAL_POLL_PATTERN.fullmatch(metadata.get("last_codex_poll_local", "")):
         errors.append(
-            "Invalid `Last Codex poll (Local America/New_York)` value; expected "
+            "Invalid `Last Codex poll (Local ...)` value; expected "
             "local timestamp text like `2026-03-08 15:08:45 EDT`."
         )
 

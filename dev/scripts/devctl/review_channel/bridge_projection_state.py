@@ -33,8 +33,14 @@ _FLAT_BRIDGE_SECTION_ORDER = tuple(
 )
 
 _H2_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
-_LOCAL_TZ = ZoneInfo("America/New_York")
 _LOCAL_TIME_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
+
+
+def _local_tz() -> ZoneInfo:
+    """Return the display timezone from the active repo-pack config."""
+    from ..repo_packs import active_path_config
+
+    return ZoneInfo(active_path_config().display_timezone)
 
 
 @dataclass(frozen=True)
@@ -143,9 +149,12 @@ def bridge_projection_metadata_lines(
     last_codex_poll_local = metadata.get("last_codex_poll_local", "").strip()
     if not last_codex_poll_local and last_codex_poll_utc:
         last_codex_poll_local = _format_local_poll_time(last_codex_poll_utc)
+    from ..repo_packs import active_path_config
+
+    tz_label = active_path_config().display_timezone
     return [
         f"- Last Codex poll: `{last_codex_poll_utc}`",
-        "- Last Codex poll (Local America/New_York): "
+        f"- Last Codex poll (Local {tz_label}): "
         f"`{last_codex_poll_local}`",
         f"- Reviewer mode: `{metadata.get('reviewer_mode', 'active_dual_agent')}`",
         f"- Last non-audit worktree hash: `{last_worktree_hash}`",
@@ -255,7 +264,7 @@ def _format_local_poll_time(last_codex_poll_utc: str) -> str:
         ).replace(tzinfo=timezone.utc)
     except ValueError:
         return ""
-    return parsed.astimezone(_LOCAL_TZ).strftime(_LOCAL_TIME_FORMAT)
+    return parsed.astimezone(_local_tz()).strftime(_LOCAL_TIME_FORMAT)
 
 
 def _mapping(value: object) -> Mapping[str, object]:

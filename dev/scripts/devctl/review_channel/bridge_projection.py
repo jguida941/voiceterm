@@ -33,11 +33,17 @@ _PROTOCOL_BODY = """1. Claude should poll this file periodically while coding.
    evidence or one concrete blocker/question; low-information polling notes are
    not valid bridge authority."""
 
-_SWARM_MODE_BODY = """- `dev/active/review_channel.md` contains the static planned lane table for this compatibility mode.
-- Those planned lanes are capacity/scope hints, not proof that repo-owned worker sessions already exist.
-- This file is the only live cross-team coordination surface during execution.
-- Keep `bridge.md` current-state only; do not turn it into a transcript dump.
-- Keep the active markdown bridge disciplined until the structured `review-channel` / overlay-native path replaces it."""
+def _swarm_mode_body() -> str:
+    from ..repo_packs import active_path_config
+
+    rc_rel = active_path_config().review_channel_rel
+    return (
+        f"- `{rc_rel}` contains the static planned lane table for this compatibility mode.\n"
+        "- Those planned lanes are capacity/scope hints, not proof that repo-owned worker sessions already exist.\n"
+        "- This file is the only live cross-team coordination surface during execution.\n"
+        "- Keep `bridge.md` current-state only; do not turn it into a transcript dump.\n"
+        "- Keep the active markdown bridge disciplined until the structured `review-channel` / overlay-native path replaces it."
+    )
 
 
 @dataclass(frozen=True)
@@ -94,7 +100,7 @@ def render_bridge_projection(
             "",
             "## Swarm Mode",
             "",
-            _SWARM_MODE_BODY,
+            _swarm_mode_body(),
             "",
             *_render_section_pairs(projection_state.sections),
         ]

@@ -48,7 +48,7 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             default=[],
             help=(
                 "Repeatable attached memory-pack ref in kind:path form, for example "
-                "`task_pack:.voiceterm/memory/exports/task_pack.json`"
+                "`task_pack:<local-state-dir>/exports/task_pack.json`"
             ),
         ),
         arg_builder(

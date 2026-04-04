@@ -22,7 +22,7 @@ from .poll_status import AUTO_REFRESH_PREFIX, rewrite_poll_status as _rewrite_po
 
 LAST_CODEX_POLL_RE = re.compile(r"(?m)^- Last Codex poll:\s*`.*?`\s*$")
 LAST_CODEX_POLL_LOCAL_RE = re.compile(
-    r"(?m)^- Last Codex poll \(Local America/New_York\):\s*`.*?`\s*$"
+    r"(?m)^- Last Codex poll \(Local [^)]+\):\s*`.*?`\s*$"
 )
 LAST_WORKTREE_HASH_RE = re.compile(
     r"(?m)^- Last non-audit worktree hash:\s*`.*?`\s*$"
@@ -52,12 +52,26 @@ _HISTORICAL_POLL_STATUS_PHRASES = (
     "live bridge status now matches the reviewed tree hash",
     "structural authority docs are green on the current tree",
 )
-NON_AUDIT_HASH_EXCLUDED_PREFIXES = (
+_BASE_NON_AUDIT_HASH_EXCLUDED_PREFIXES = (
     "dev/reports/",
     "dev/audits/",
-    ".voiceterm/memory/",
     "rust/target/",
 )
+
+
+def non_audit_hash_excluded_prefixes() -> tuple[str, ...]:
+    """Return hash-excluded prefixes including the repo-pack local state dir."""
+    from ..repo_packs import active_path_config
+
+    config = active_path_config()
+    prefix = config.local_state_prefix_rel
+    if prefix and prefix not in _BASE_NON_AUDIT_HASH_EXCLUDED_PREFIXES:
+        return _BASE_NON_AUDIT_HASH_EXCLUDED_PREFIXES + (prefix,)
+    return _BASE_NON_AUDIT_HASH_EXCLUDED_PREFIXES
+
+
+# Backward-compatible alias — callers should migrate to the function form.
+NON_AUDIT_HASH_EXCLUDED_PREFIXES = _BASE_NON_AUDIT_HASH_EXCLUDED_PREFIXES
 NON_AUDIT_HASH_EXCLUDED_BASENAMES = (
     "convo.md",
 )
@@ -110,6 +124,8 @@ def refresh_bridge_heartbeat(
 
     def transform(bridge_text: str) -> str:
         nonlocal refresh
+        from ..repo_packs import active_path_config
+
         snapshot = extract_bridge_snapshot(bridge_text)
         liveness = summarize_bridge_liveness(snapshot)
         launch_errors = validate_launch_bridge_state(snapshot, liveness=liveness)
@@ -124,7 +140,7 @@ def refresh_bridge_heartbeat(
 
         now_utc = datetime.now(timezone.utc)
         last_codex_poll_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-        last_codex_poll_local = _format_new_york_timestamp(now_utc)
+        last_codex_poll_local = _format_local_timestamp(now_utc)
         reviewed_hash = snapshot.metadata.get("last_non_audit_worktree_hash") or ""
         # Refresh the heartbeat timestamp without advancing the reviewed hash.
         # Heartbeat/ensure flows are liveness-only; they must not claim that the
@@ -148,11 +164,12 @@ def refresh_bridge_heartbeat(
             pattern=LAST_CODEX_POLL_RE,
             replacement=f"- Last Codex poll: `{last_codex_poll_utc}`",
         )
+        tz_label = active_path_config().display_timezone
         updated_text = _replace_or_insert_metadata_line(
             updated_text,
             pattern=LAST_CODEX_POLL_LOCAL_RE,
             replacement=(
-                "- Last Codex poll (Local America/New_York): "
+                f"- Last Codex poll (Local {tz_label}): "
                 f"`{last_codex_poll_local}`"
             ),
         )
@@ -212,8 +229,11 @@ def _should_strip_poll_status_line(line: str) -> bool:
     return any(phrase in lowered for phrase in _HISTORICAL_POLL_STATUS_PHRASES)
 
 
-def _format_new_york_timestamp(timestamp_utc: datetime) -> str:
-    local = timestamp_utc.astimezone(ZoneInfo("America/New_York"))
+def _format_local_timestamp(timestamp_utc: datetime) -> str:
+    from ..repo_packs import active_path_config
+
+    tz_name = active_path_config().display_timezone
+    local = timestamp_utc.astimezone(ZoneInfo(tz_name))
     return local.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
@@ -221,8 +241,10 @@ def compute_non_audit_worktree_hash(
     *,
     repo_root: Path,
     excluded_rel_paths: tuple[str, ...],
-    excluded_prefixes: tuple[str, ...] = NON_AUDIT_HASH_EXCLUDED_PREFIXES,
+    excluded_prefixes: tuple[str, ...] | None = None,
 ) -> str:
+    if excluded_prefixes is None:
+        excluded_prefixes = non_audit_hash_excluded_prefixes()
     excluded = {path.strip() for path in excluded_rel_paths if path.strip()}
     if (repo_root / ".git").exists():
         completed = subprocess.run(

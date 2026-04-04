@@ -11,9 +11,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .heartbeat import (
-    NON_AUDIT_HASH_EXCLUDED_PREFIXES,
     bridge_excluded_rel_paths,
     compute_non_audit_worktree_hash,
+    non_audit_hash_excluded_prefixes,
 )
 from .peer_liveness import ReviewerMode
 from .reviewer_state import (
@@ -87,7 +87,7 @@ def check_review_needed(
                     repo_root=repo_root,
                     bridge_path=bridge_path,
                 ),
-                excluded_prefixes=NON_AUDIT_HASH_EXCLUDED_PREFIXES,
+                excluded_prefixes=non_audit_hash_excluded_prefixes(),
             )
         except (ValueError, OSError):
             return ReviewerWorkerTick(

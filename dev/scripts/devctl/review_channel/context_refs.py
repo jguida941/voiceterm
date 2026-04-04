@@ -80,7 +80,7 @@ def _resolve_one_context_pack_ref(
     if not separator or not pack_ref_raw.strip():
         raise ValueError(
             "--context-pack-ref must use kind:path form, for example "
-            "task_pack:.voiceterm/memory/exports/task_pack.json"
+            "task_pack:<local-state-dir>/exports/task_pack.json"
         )
     pack_kind = CONTEXT_PACK_KIND_ALIASES.get(
         pack_kind_raw.strip(),
