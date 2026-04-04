@@ -100,6 +100,7 @@ def enrich_event_review_state(
     repo_root: Path,
     review_channel_path: Path,
     projections_root: Path,
+    push_enforcement: dict[str, object] | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Attach parity fields needed by event-backed review-state projections."""
     review_state = dict(review_state)
@@ -113,8 +114,9 @@ def enrich_event_review_state(
         service_identity=raw_service_identity
     )
     bridge_liveness = build_event_bridge_liveness_projection(review_state)
-    bridge_liveness["push_enforcement"] = build_bridge_push_enforcement_state(
-        repo_root
+    bridge_liveness["push_enforcement"] = (
+        push_enforcement
+        or build_bridge_push_enforcement_state(repo_root)
     )
     current_session = build_event_current_session(
         review_state=review_state,
