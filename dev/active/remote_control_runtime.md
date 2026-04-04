@@ -93,6 +93,7 @@ contract exists.
   - Slice E (MP-385): dependent on A-D
   - AUD-10: full explainability — surface reasoning chains, not summaries
   - AUD-11: build lifecycle hooks, notification channels, permission relay, scheduled tasks as OUR typed contracts (agent-agnostic), not Claude-specific features. External tools are surface adapters, not authority.
+  - AUD-12 (DISCOVERABILITY + VISUALIZATION): The system has 64 guards, 13 probes, 67 commands, operator console, dashboard, analytics, flowcharts — but no discovery interface. Neither AI agents nor human operators know what's available or how to visualize it. Need: (1) a system map / catalog that shows all available views, commands, surfaces, and their purpose, (2) multiple visualization modes — flowcharts, state diagrams, analytics charts, decision traces, timeline views — selectable by user, (3) device-adaptive rendering — what to show on phone vs desktop vs operator console, (4) AI agent discoverability — agents should be able to query "what checks exist?", "what surfaces can I render?", "what mode am I in?" through typed contracts, not by reading docs. The fact that Claude kept skipping CI checks despite them being documented means the process discovery is broken. Codex: add a discoverability/visualization slice to the plan.
 
 ## Session Resume
 
