@@ -2,33 +2,25 @@
 
 import json
 import os
-import re
-import shlex
-import shutil
-import subprocess
-import sys
+import shutil  # noqa: F401 — re-exported for common.py compat
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
-from .config import REPO_ROOT, SRC_DIR
-
-PIPE_OUTPUT_TIMEOUT_SECONDS = 120.0
-_ENV_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$")
-_POLICY_AWARE_SUBCOMMANDS = frozenset(
-    {
-        "check",
-        "check-router",
-        "docs-check",
-        "probe-report",
-        "push",
-        "quality-policy",
-        "render-surfaces",
-        "report",
-        "status",
-        "triage",
-    }
+from .common_io_pipe import (
+    PIPE_OUTPUT_TIMEOUT_SECONDS,  # noqa: F401
+    cmd_str,  # noqa: F401
+    pipe_output,  # noqa: F401
 )
+from .common_io_resolve import (
+    resolve_repo_python_command,  # noqa: F401
+)
+from .common_io_shell import (
+    inject_quality_policy_command,  # noqa: F401
+    normalize_repo_python_shell_command,  # noqa: F401
+    split_shell_prefix,  # noqa: F401
+)
+from .config import REPO_ROOT, SRC_DIR
 
 
 def normalize_string_field(mapping, key, default=""):
@@ -47,11 +39,6 @@ def add_standard_output_arguments(
     parser.add_argument("--output", help="Write report to a file")
     parser.add_argument("--pipe-command", help="Pipe report output to a command")
     parser.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
-
-
-def cmd_str(cmd: list[str]) -> str:
-    """Render a command list as a printable string."""
-    return shlex.join(cmd)
 
 
 def display_path(path: Path, *, repo_root: Path = REPO_ROOT) -> str:
@@ -82,116 +69,6 @@ def resolve_repo_path(
     if not candidate.is_absolute():
         candidate = repo_root / candidate
     return candidate.resolve() if resolve else candidate
-
-
-def resolve_repo_python_command(cmd: list[str], *, cwd: Path | None = None) -> list[str]:
-    """Use the active interpreter for repo-owned Python scripts launched as `python3 ...`."""
-    if len(cmd) < 2 or cmd[0] != "python3":
-        return cmd
-    script_arg = cmd[1]
-    resolved = None
-    if script_arg.endswith(".py"):
-        resolved = _resolve_repo_python_target(script_arg, cwd=cwd)
-    elif script_arg == "-m":
-        resolved = _resolve_repo_owned_pytest_target(cmd, cwd=cwd)
-    if resolved is None:
-        return cmd
-    return [sys.executable or "python3", *cmd[1:]]
-
-
-def split_shell_prefix(command: str) -> tuple[list[str], list[str]] | None:
-    """Split a shell command into env assignments and argv tokens."""
-    try:
-        parts = shlex.split(command)
-    except ValueError:
-        return None
-    env_prefix: list[str] = []
-    while parts and _ENV_ASSIGNMENT_RE.fullmatch(parts[0]):
-        env_prefix.append(parts.pop(0))
-    return env_prefix, parts
-
-
-def inject_quality_policy_command(
-    command: str,
-    quality_policy_path: str | None,
-) -> str:
-    """Append a quality-policy override to policy-aware repo commands."""
-    if not quality_policy_path:
-        return command
-    split = split_shell_prefix(command)
-    if split is None:
-        return command
-    env_prefix, parts = split
-    if len(parts) < 2 or parts[1] != "dev/scripts/devctl.py":
-        return command
-    command_args = parts[2:]
-    if not command_args or command_args[0] not in _POLICY_AWARE_SUBCOMMANDS:
-        return command
-    if "--quality-policy" in command_args:
-        return command
-    command_args.extend(["--quality-policy", quality_policy_path])
-    rebuilt = shlex.join([parts[0], parts[1], *command_args])
-    return " ".join([*env_prefix, rebuilt]) if env_prefix else rebuilt
-
-
-def normalize_repo_python_shell_command(command: str) -> str:
-    """Force repo-owned Python shell commands onto the current interpreter."""
-    split = split_shell_prefix(command)
-    if split is None:
-        return command
-    env_prefix, parts = split
-    if len(parts) < 2:
-        return command
-    if parts[0] not in {"python3", "python3.11", sys.executable}:
-        return command
-    target = parts[1]
-    if target.endswith(".py"):
-        resolved = _resolve_repo_python_target(target, cwd=REPO_ROOT)
-        if resolved is None:
-            return command
-    elif target == "-m":
-        resolved = _resolve_repo_owned_pytest_target(parts, cwd=REPO_ROOT)
-        if resolved is None:
-            return command
-    else:
-        return command
-    parts[0] = sys.executable or "python3"
-    rebuilt = shlex.join(parts)
-    return " ".join([*env_prefix, rebuilt]) if env_prefix else rebuilt
-
-
-def _resolve_repo_python_target(
-    raw_target: str,
-    *,
-    cwd: Path | None,
-) -> Path | None:
-    """Resolve one Python-run target when it lives under the repo root."""
-    target_path = Path(raw_target).expanduser()
-    if not target_path.is_absolute():
-        target_path = (cwd or REPO_ROOT) / target_path
-    try:
-        resolved = target_path.resolve(strict=False)
-        resolved.relative_to(REPO_ROOT)
-    except (OSError, ValueError):
-        return None
-    return resolved
-
-
-def _resolve_repo_owned_pytest_target(
-    parts: Sequence[str],
-    *,
-    cwd: Path | None,
-) -> Path | None:
-    """Return the first repo-owned pytest path target for `python3 -m pytest ...`."""
-    if len(parts) < 4 or parts[1] != "-m" or parts[2] != "pytest":
-        return None
-    for raw_target in parts[3:]:
-        if raw_target.startswith("-"):
-            continue
-        resolved = _resolve_repo_python_target(raw_target, cwd=cwd)
-        if resolved is not None:
-            return resolved
-    return None
 
 
 def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -270,31 +147,6 @@ def write_output(
             print(f"Report saved to: {path}")
     else:
         print(stdout_content if stdout_content is not None else content)
-
-
-def pipe_output(content: str, pipe_command: str | None, pipe_args: list[str] | None) -> int:
-    """Send report output to another command through stdin."""
-    if not pipe_command:
-        return 0
-    cmd = [pipe_command] + (pipe_args or [])
-    if not shutil.which(cmd[0]):
-        print(f"Pipe command not found: {cmd[0]}")
-        return 2
-    try:
-        result = subprocess.run(
-            cmd,
-            input=content,
-            text=True,
-            timeout=PIPE_OUTPUT_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        print(f"Pipe command timed out after {PIPE_OUTPUT_TIMEOUT_SECONDS:.0f}s: {cmd_str(cmd)}")
-        return 124
-    except OSError as exc:
-        print(f"Pipe command failed to start ({cmd_str(cmd)}): {exc}")
-        return 127
-    return result.returncode
 
 
 def emit_output(
