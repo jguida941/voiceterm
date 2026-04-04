@@ -95,8 +95,8 @@ def build_terminal_launch_lines(
         "set launched_window_id to id of front window",
         "set current settings of selected tab of front window to "
         f"settings set {_apple_string(resolved_profile)}",
-        "do script "
-        f"{_apple_string(launch_command)} in selected tab of front window",
+        "delay 0.5",
+        f"do script {_apple_string(launch_command)} in selected tab of front window",
         "return launched_window_id as text",
         "end tell",
     ]

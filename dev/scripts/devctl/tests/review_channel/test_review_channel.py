@@ -680,7 +680,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             self.assertEqual(resolution.source, "tracker_scope")
             self.assertEqual(resolution.path, plan_path.resolve())
 
-    def test_build_terminal_launch_lines_applies_profile_before_command(self) -> None:
+    def test_build_terminal_launch_lines_applies_profile_to_launched_window(self) -> None:
         lines = _build_terminal_launch_lines(
             launch_command="/bin/zsh /tmp/claude-conductor.sh",
             resolved_profile="Pro",
@@ -690,20 +690,18 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(lines[0], 'tell application "Terminal"')
         self.assertEqual(lines[1], "activate")
         self.assertEqual(lines[2], 'do script ""')
-        self.assertEqual(
-            lines[3],
-            "set launched_window_id to id of front window",
-        )
+        self.assertEqual(lines[3], "set launched_window_id to id of front window")
         self.assertEqual(
             lines[4],
             'set current settings of selected tab of front window to settings set "Pro"',
         )
+        self.assertEqual(lines[5], "delay 0.5")
         self.assertEqual(
-            lines[5],
+            lines[6],
             'do script "/bin/zsh /tmp/claude-conductor.sh" in selected tab of front window',
         )
-        self.assertEqual(lines[6], "return launched_window_id as text")
-        self.assertEqual(lines[7], "end tell")
+        self.assertEqual(lines[7], "return launched_window_id as text")
+        self.assertEqual(lines[8], "end tell")
 
     def test_build_terminal_launch_lines_uses_direct_launch_without_profile(self) -> None:
         lines = _build_terminal_launch_lines(
