@@ -1561,5 +1561,159 @@ class TestSessionDuration(unittest.TestCase):
         self.assertIn("| Session | -- |", md)
 
 
+class TestParseBridgeFindings(unittest.TestCase):
+    """Verify _parse_bridge_findings extracts structured finding detail."""
+
+    def test_parses_findings_from_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge = Path(tmp) / "bridge.md"
+            bridge.write_text(_rich_bridge_text(), encoding="utf-8")
+            findings = dashboard._parse_bridge_findings(bridge)
+        self.assertEqual(len(findings), 2)
+        self.assertEqual(findings[0]["id"], "F1")
+        self.assertIn("handoff.py", findings[0]["summary"])
+        self.assertEqual(findings[1]["id"], "F2")
+        self.assertIn("test coverage", findings[1]["summary"])
+
+    def test_returns_empty_when_no_section(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge = Path(tmp) / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+            findings = dashboard._parse_bridge_findings(bridge)
+        self.assertEqual(findings, [])
+
+    def test_returns_empty_when_file_missing(self) -> None:
+        findings = dashboard._parse_bridge_findings(Path("/nonexistent/bridge.md"))
+        self.assertEqual(findings, [])
+
+    def test_truncates_long_summaries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge = Path(tmp) / "bridge.md"
+            long_desc = "x" * 120
+            bridge.write_text(
+                f"# Bridge\n\n## Open Findings\n\n- F1: {long_desc}\n\n## Next\n",
+                encoding="utf-8",
+            )
+            findings = dashboard._parse_bridge_findings(bridge)
+        self.assertEqual(len(findings), 1)
+        self.assertTrue(findings[0]["summary"].endswith("..."))
+        self.assertLessEqual(len(findings[0]["summary"]), 84)
+
+    def test_auto_numbers_findings_without_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge = Path(tmp) / "bridge.md"
+            bridge.write_text(
+                "# Bridge\n\n## Open Findings\n\n"
+                "- first issue here\n- second issue\n\n## Next\n",
+                encoding="utf-8",
+            )
+            findings = dashboard._parse_bridge_findings(bridge)
+        self.assertEqual(len(findings), 2)
+        self.assertEqual(findings[0]["id"], "F1")
+        self.assertEqual(findings[1]["id"], "F2")
+
+
+class TestFindingsInSnapshot(unittest.TestCase):
+    """Verify findings flow from bridge to snapshot and renderers."""
+
+    def test_snapshot_includes_findings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/compact.json",
+                _minimal_compact(),
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_rich_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+                "ahead": 0, "behind": 0, "dirty_files": 0, "recent_commits": [],
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            self.assertIn("findings", snapshot)
+            self.assertEqual(len(snapshot["findings"]), 2)
+            self.assertEqual(snapshot["findings"][0]["id"], "F1")
+            self.assertEqual(snapshot["plan"]["open_findings"], 2)
+            self.assertEqual(len(snapshot["plan"]["findings_detail"]), 2)
+
+    def test_snapshot_now_has_instruction_text(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/compact.json",
+                _minimal_compact(),
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_rich_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+                "ahead": 0, "behind": 0, "dirty_files": 0, "recent_commits": [],
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            now = snapshot["now"]
+            self.assertIn("instruction_text", now)
+            self.assertIn("Tighten", now["instruction_text"])
+            self.assertLessEqual(len(now["instruction_text"]), 104)
+
+    def test_terminal_renders_findings_section(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("FINDINGS", output)
+        self.assertIn("F1", output)
+        self.assertIn("F2", output)
+        self.assertIn("handoff.py", output)
+        self.assertIn("test coverage", output)
+
+    def test_terminal_renders_instruction_in_now(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("Instruction", output)
+        self.assertIn("Tighten", output)
+
+    def test_markdown_renders_findings_section(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+        self.assertIn("## Findings", output)
+        self.assertIn("**F1**", output)
+        self.assertIn("**F2**", output)
+        self.assertIn("handoff.py", output)
+
+    def test_markdown_renders_instruction_in_now(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+        self.assertIn("**Instruction**", output)
+        self.assertIn("Tighten", output)
+
+    def test_no_findings_skips_section(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["findings"] = []
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertNotIn("FINDINGS", output)
+
+    def test_snapshot_no_findings_when_bridge_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/compact.json",
+                _minimal_compact(),
+            )
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+                "ahead": 0, "behind": 0, "dirty_files": 0, "recent_commits": [],
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            self.assertEqual(snapshot["findings"], [])
+            self.assertEqual(snapshot["plan"]["findings_detail"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
