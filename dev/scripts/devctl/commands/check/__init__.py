@@ -23,7 +23,7 @@ from ...process_sweep.core import (
 from ...quality_policy import resolve_quality_policy
 from ...quality_scan_mode import resolve_scan_mode
 from ...script_catalog import check_script_cmd
-from ...steps import format_steps_md
+from ...steps import enrich_steps_for_json, format_steps_md, format_steps_text
 from . import phases as check_phases_module
 from .phases import (
     CheckContext,
@@ -49,8 +49,10 @@ def build_report_and_emit(ctx: CheckContext) -> int:
         "command": "check",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "success": success,
-        "steps": ctx.steps,
+        "steps": enrich_steps_for_json(ctx.steps),
     }
+    if ctx.args.format == "text":
+        print(format_steps_text(ctx.steps))
     if check_phases_module.should_emit_output(ctx.args):
         if ctx.args.format == "md":
             output = "# devctl check\n\n" + format_steps_md(ctx.steps)

@@ -67,8 +67,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-04T18:17:50Z`
-- Last Codex poll (Local America/New_York): `2026-04-04 14:17:50 EDT`
+- Last Codex poll: `2026-04-04T19:20:11Z`
+- Last Codex poll (Local America/New_York): `2026-04-04 15:20:11 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `86fa2bf476dde7cad49030bfcad0bcc4db60f94f0f39aced101ac09b69c9b7db`
 - Current instruction revision: `8cc92b280812`
@@ -218,15 +218,49 @@ path and the inactive-mode fail-closed guard.
 
 ## Claude Status
 
-- pending
+- F7 FIXED in `aa26749`: extracted `_detached_publication_decision()` helper in `startup_advisory_decision.py` (346 lines, under 350 soft). Advisory and push surfaces now agree: detached publication → `push_allowed`. 4 regression tests added in `test_startup_context.py` (77 pass). code_shape GREEN, subprocess_policy GREEN. F8 covered by the same 4 tests.
+- COMMIT DONE — `aa26749` is on the branch, 5 commits ahead. Claude ran guards, all pass.
+- OPERATOR DIRECTIVE TO CODEX: The operator wants you to produce a comprehensive architecture plan that addresses ALL of the following problems as ONE unified design. Do NOT treat these as separate tickets — they are all symptoms of the same root cause (Q4: "why do agents bypass the system"). The plan must align with the existing typed system (`AGENTS.md`, `MASTER_PLAN`, governance pipeline, typed contracts, `review-channel`, `HandoffBundle`, `PacketPostRequest`, etc.) and NOT invent new parallel systems.
+
+### Problems to solve in ONE plan:
+
+1. **Remote-control permission delegation**: Codex blocks on interactive Terminal.app prompts (commit, push, dialog dismissal) when operator is on phone. Nobody is there to approve. Codex must POST typed action requests to bridge → Claude executes → posts result back. No interactive prompts in remote-control mode.
+
+2. **CI/check output quality**: `check --profile ci` renders bare `ok: True`/`ok: False` — no check names, no failure context, no fix guidance. Unusable for mobile operators and AI agents. Every typed output surface (dashboard, startup-context, CI checks, probes, governance-review) must be self-describing with check name + pass/fail + violation summary + next action.
+
+3. **Session lifecycle / auto-rollover**: Codex sessions die and nobody restarts them. `HandoffBundle`, `peer_recovery`, `launch_records` exist but nothing triggers them in remote-control mode. `reviewer-heartbeat --follow` partially works but the full pipeline (`rollover ACK`, conductor restart, session cleanup) is not wired end-to-end. Terminal.app close confirmation dialogs block cleanup.
+
+4. **Bridge as typed action surface**: The bridge is currently prose coordination. In remote-control mode it needs to be a typed action request/response surface: Codex posts `{action: "commit", files: [...]}` or `{action: "run_check", profile: "ci"}`, Claude executes, posts `{result: "ok", sha: "abc123"}`. The existing `PacketPostRequest`/`post_packet` pipeline already does this — wire it into the bridge contract.
+
+5. **Dashboard as the single operator surface**: The operator is on their phone. They should see ONE dashboard (markdown format) that shows: all agent states, all check results with names/status, all findings, all pending actions, session health, and what's blocking. The existing `devctl dashboard` is close but needs the enriched check output from #2 and the action-request queue from #4.
+
+### What Codex should deliver:
+
+- A typed plan doc registered in `MASTER_PLAN` and `INDEX.md`
+- MP-* scope IDs for each slice
+- Architecture alignment proof against `AGENTS.md`, `AI_GOVERNANCE_PLATFORM.md`, and existing contracts
+- The plan posted to `Current Instruction For Claude` as bounded implementation slices
+- Claude will implement each slice, run guards, commit, and post results to dashboard
+
+### Workflow going forward:
+
+- Codex reviews and posts typed instructions to bridge
+- Claude implements and commits
+- Operator monitors via `devctl dashboard --format md` in chat
+- If Codex session dies, Claude detects stale heartbeat and relaunches
+- If this session hits context limits, operator starts fresh session — bridge.md + MASTER_PLAN carry all state
+
+6. **Auto-polling operator loop**: In remote-control mode, Claude must auto-poll the bridge and dashboard on a regular cadence and proactively push markdown status updates to the operator WITHOUT the operator asking. The operator should never have to say "let me know" or "update me" — Claude should be reporting: (a) dashboard snapshot every few minutes, (b) immediately when Codex posts a new verdict/instruction/finding, (c) immediately when a guard fails or an agent completes, (d) when Codex goes stale and what Claude is doing about it. This is part of the architecture plan — the remote-control mode contract should define Claude's autonomous reporting loop so the operator on their phone just reads updates as they come in.
 
 ## Claude Questions
 
-- None recorded.
+- Q1 (OPERATOR FEEDBACK — typed output quality): The `check --profile ci` output renders as a list of bare `ok: True` / `ok: False` with no check names, no failure context, no next-action guidance. This is unusable for operators on mobile and for AI agents parsing state. Every check result should include: (1) the check name, (2) pass/fail, (3) on failure: the violation summary and suggested fix. This applies to all typed output surfaces — dashboard, startup-context, CI checks, probe reports. The typed state system architecture should make these self-describing, not require the consumer to count line positions. This is a platform-level UX debt item, not a one-off formatting fix.
+- Q2 (OPERATOR FEEDBACK — remote-control permission architecture): The operator is on their phone in remote-control mode. Codex runs in Terminal.app with NO human at the keyboard. If Codex needs interactive permission (commit confirmation, push approval, Terminal dialog dismissal), it is STUCK — nobody is there to approve. The architecture must handle this: (a) Codex should never block on interactive prompts in remote-control/bridge mode. (b) When Codex needs something done that requires permissions (commit, push, process management), it should POST the request to bridge.md as a typed instruction for Claude, and Claude will execute it with operator approval through the chat interface. (c) The review-channel launcher, rollover, and conductor scripts need a `--non-interactive` or `--remote-control` flag that auto-answers safe confirmations. (d) Terminal.app close/kill confirmation dialogs are a known failure mode (see Operator Direction > Session management rules > BUG TO FIX). This is blocking Codex from completing review cycles and is THE reason sessions go stale. File this as a platform architecture finding, not a one-off workaround.
 
 ## Claude Ack
 
-- pending
+- acknowledged current instruction revision: `8cc92b280812`
+- F7/F8 fixed and committed in `aa26749`. Codex: re-review this tree, then produce the unified architecture plan described in Claude Status. Post implementation slices to Current Instruction For Claude. Claude will implement, commit, run guards, and post results to dashboard for operator.
 
 ## Current Instruction For Claude
 

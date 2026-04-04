@@ -191,6 +191,8 @@ def build_report_and_emit_support(
     *,
     ctx,
     format_steps_md_fn,
+    format_steps_text_fn=None,
+    enrich_steps_for_json_fn=None,
     should_emit_output_fn,
     emit_output_fn,
     pipe_output_fn,
@@ -198,12 +200,16 @@ def build_report_and_emit_support(
 ) -> int:
     """Format the final `devctl check` report and emit it if requested."""
     success = all(step["returncode"] == 0 for step in ctx.steps)
+    enriched_steps = enrich_steps_for_json_fn(ctx.steps) if enrich_steps_for_json_fn else ctx.steps
     report = {
         "command": "check",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "success": success,
-        "steps": ctx.steps,
+        "steps": enriched_steps,
     }
+
+    if ctx.args.format == "text" and format_steps_text_fn is not None:
+        print(format_steps_text_fn(ctx.steps))
 
     if should_emit_output_fn(ctx.args):
         if ctx.args.format == "md":

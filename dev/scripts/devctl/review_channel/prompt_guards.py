@@ -83,6 +83,15 @@ def _reviewer_guard_lines(
             "the reviewer heartbeat current instead of waiting silently."
         ),
         (
+            "- When an interactive permission prompt blocks progress (commit, "
+            "push, process kill, or dialog dismissal) and the operator is not "
+            "available in the terminal, post a typed action request in "
+            "`## Action Requests` using the format "
+            "`- [<id>] <action>: <payload> (status: pending)`. "
+            "Supported actions: `commit`, `run_check`, `push`, `kill_process`. "
+            "Claude will execute pending requests on the next bridge poll."
+        ),
+        (
             "- If you are waiting on Claude-owned progress, ACK changes, or a "
             "fresh diff to review, use the repo-owned `review-channel --action "
             "reviewer-wait` path instead of ad-hoc shell sleep loops, and "
@@ -117,6 +126,14 @@ def _implementer_guard_lines() -> list[str]:
             "- `bridge.md` is the first thing to re-read whenever you need "
             "to know what to do next in dual-agent mode. Do not wait for the "
             "operator to restate the reviewer process in chat."
+        ),
+        (
+            "- On each bridge repoll, also check `## Action Requests` for "
+            "pending entries. When Codex is blocked on an interactive "
+            "permission prompt (commit, push, dialog dismissal), it posts a "
+            "typed action request instead of waiting. Execute pending "
+            "requests in order, then update each line's status to "
+            "`completed` or `failed`."
         ),
         (
             "- Before you summarize state for the operator or ask a question "

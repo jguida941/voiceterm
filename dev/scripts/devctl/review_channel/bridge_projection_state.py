@@ -27,9 +27,12 @@ BRIDGE_SECTION_ORDER = (
     "Claude Ack",
     "Current Instruction For Claude",
     "Last Reviewed Scope",
+    "Action Requests",
 )
+_OPTIONAL_BRIDGE_SECTIONS = {"Operator Direction", "Action Requests"}
 _FLAT_BRIDGE_SECTION_ORDER = tuple(
-    heading for heading in BRIDGE_SECTION_ORDER if heading != "Operator Direction"
+    heading for heading in BRIDGE_SECTION_ORDER
+    if heading not in _OPTIONAL_BRIDGE_SECTIONS
 )
 
 _H2_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)

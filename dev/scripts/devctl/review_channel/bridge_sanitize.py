@@ -9,6 +9,12 @@ from __future__ import annotations
 import re
 
 from .ack_contract import extract_implementer_ack_revision
+from .action_request import (
+    default_section_body as _action_request_default,
+    parse_action_requests,
+    render_action_requests_section,
+    SECTION_LINE_LIMIT as _ACTION_REQUEST_LINE_LIMIT,
+)
 from .bridge_section_validation import find_embedded_markdown_headings
 from .bridge_text_cleanup import (
     collapse_blank_lines,
@@ -34,6 +40,7 @@ BRIDGE_ALLOWED_H2 = (
     "Claude Ack",
     "Current Instruction For Claude",
     "Last Reviewed Scope",
+    "Action Requests",
 )
 BRIDGE_REQUIRED_H2 = (
     "Start-Of-Conversation Rules",
@@ -56,6 +63,7 @@ _BRIDGE_SECTION_LINE_LIMIT_ITEMS = (
     ("Claude Ack", 16),
     ("Current Instruction For Claude", 12),
     ("Last Reviewed Scope", 16),
+    ("Action Requests", 12),
 )
 BRIDGE_SECTION_LINE_LIMITS = dict(_BRIDGE_SECTION_LINE_LIMIT_ITEMS)
 MAX_BRIDGE_LINES = 400
@@ -185,6 +193,10 @@ def sanitize_bridge_sections(
         max_items=12,
         max_lines=section_line_limits["Last Reviewed Scope"],
     )
+    sanitized["Action Requests"] = _sanitize_action_requests(
+        sections.get("Action Requests", ""),
+        max_lines=section_line_limits.get("Action Requests", _ACTION_REQUEST_LINE_LIMIT),
+    )
 
     for heading, body in sanitized.items():
         previous = sections.get(heading, "").strip()
@@ -236,6 +248,18 @@ def _sanitize_claude_ack(raw: str, *, max_lines: int) -> str:
         kept.append(block)
     kept = _take_blocks(kept, max_items=3, max_lines=max_lines)
     return "\n".join(kept) if kept else "- missing"
+
+
+def _sanitize_action_requests(raw: str, *, max_lines: int) -> str:
+    """Keep only well-formed action-request lines; drop noise."""
+    parsed = parse_action_requests(raw)
+    if not parsed:
+        return _action_request_default()
+    rendered = render_action_requests_section(parsed)
+    lines = rendered.splitlines()
+    if len(lines) > max_lines:
+        rendered = "\n".join(lines[:max_lines])
+    return rendered
 
 
 def _sanitize_blocks(blocks: list[str]) -> list[str]:

@@ -33,6 +33,7 @@ TRACKED_BRIDGE_SECTIONS = (
     "Claude Questions",
     "Claude Ack",
     "Last Reviewed Scope",
+    "Action Requests",
 )
 # Rollover ACK contract: only providers that own bridge sections participate.
 # Cursor is intentionally excluded because it does not own a dedicated bridge

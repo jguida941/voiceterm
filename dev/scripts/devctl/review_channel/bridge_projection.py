@@ -196,7 +196,7 @@ def _render_section_pairs(sections: dict[str, str]) -> list[str]:
             [
                 f"## {heading}",
                 "",
-                sections[heading],
+                sections.get(heading, ""),
                 "",
             ]
         )
