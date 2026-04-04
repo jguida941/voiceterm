@@ -2,7 +2,7 @@
 
 **Status**: active  |  **Last updated**: 2026-04-04 | **Owner:** Tooling/control plane/review runtime/dashboard
 Execution plan contract: required
-This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-385`.
+This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-386`.
 It closes the remote-control/operator-surface gaps found in the 2026-04-04
 architecture review of commits `5bed0fa..4094c39`.
 
@@ -40,6 +40,33 @@ contract exists.
 - [ ] MP-385 Add repo-owned remote-control auto-poll/update cadence for
       reviewer, implementer, and operator-facing surfaces using the same typed
       runtime state and packet queue.
+- [ ] MP-386 Add one typed discoverability/system-map slice with
+      `SystemCatalog`, derived `AgentDispatchPacket`, and a thin `view`
+      adapter so agents/operators can ask what exists, what to run, and how to
+      render it without reviving prose-only discovery.
+
+## Cross-Cutting Closure Rules
+
+1. AUD-10 explainability
+   - Every new remote-control status/report surface must project typed reason
+     chains (`diagnosis`, `policy`, `target`, `fix`, `source`) from canonical
+     runtime/check contracts instead of reducing failures to prose-only
+     summaries.
+2. AUD-11 agent-agnostic capability rule
+   - Lifecycle hooks, notification channels, permission relay, scheduled
+     tasks, and delegated-agent coordination may land only as repo-owned
+     runtime/adapter contracts or typed follow-on packets. Do not add
+     Claude-only or bridge-only authority paths.
+3. AUD-13 session cleanup
+   - `MP-380` and `MP-382` own stale-session/orphan cleanup, startup preflight
+     cleanup, and dashboard/doctor visibility over conductor, daemon, and
+     Terminal ownership. Follow-on slices may consume those typed outputs but
+     must not fork lifecycle authority.
+4. AUD-14 session rollover
+   - `MP-382` and `MP-385` must extend `HandoffBundle`, `launch_records`, and
+     reviewer-runtime rollover truth to same-provider handoff (`Claude ->
+     Claude`, `Codex -> Codex`) plus clean old-session retirement and
+     operator-visible transition history.
 
 ## Data Contracts
 
@@ -70,6 +97,22 @@ contract exists.
      typed check-result artifacts.
    - Raw bridge regex and `format_steps_text()` scraping are transitional debt
      to remove during `MP-384`, not long-term frontend/runtime contracts.
+5. Discoverability / dispatch / presentation
+   - `SystemCatalog` is a static generated capability registry built from
+     existing command, guard, probe, surface, and repo-policy registries. It
+     owns "what exists", not live runtime truth.
+   - `AgentDispatchPacket` is a derived routing packet composed from
+     `classify_lane()`, live quality policy, and
+     `StartupContext` / `ProjectGovernance.enabled_checks`. It recommends
+     "what to run" for a bounded change set and never becomes a second policy
+     store.
+   - The future `devctl view` adapter is a frontend-only renderer dispatch
+     over typed artifacts (`ReviewState`, `ControlState`, `SystemCatalog`,
+     typed check results). It owns "how to show it", not execution or state
+     mutation.
+   - `context-graph` keeps relationship topology ownership; any catalog,
+     dispatch, or view slice must feed or consume it without duplicating edge
+     authority.
 
 ## Progress Log
 
@@ -82,15 +125,16 @@ contract exists.
   transport, headless lifecycle still stops on non-zero exit and recommends
   `terminal-app`, and dashboard/check-detail surfaces still parse compatibility
   text instead of typed records.
-- 2026-04-04: Bound those gaps to `MP-380..MP-385` so the closure path stays
+- 2026-04-04: Bound those gaps to `MP-380..MP-386` so the closure path stays
   under the existing `MP-377` owner chain instead of becoming bridge-local
   review lore.
-- 2026-04-04: Claude 8-agent audit (AUD-1..AUD-11) mapped to slices:
+- 2026-04-04: Claude 8-agent audit (AUD-1..AUD-14) mapped to tracked slices:
   - Slice A (MP-380/382): AUD-3 (no typed remote_control/device/available), AUD-6 (zero device awareness), AUD-8 (3 disconnected permission layers), AUD-9 (operator mode-switching)
   - Slice B (MP-383): AUD-4 (post_packet() doesn't exist), AUD-8 (permission routing dispatcher)
   - Slice C (MP-381): AUD-2 (errors to stderr only), AUD-7 (guards format differently, no universal schema)
   - Slice D (MP-384): AUD-1 (session_state_hints never called), AUD-2 (no errors in dashboard), AUD-5 (5/6 quality gates always n/a, pending_packets hardcoded 0)
   - Slice E (MP-385): dependent on A-D
+  - Slice F (MP-386): AUD-12a/b/c discoverability closure
   - AUD-10: full explainability — surface reasoning chains, not summaries
   - AUD-11: build lifecycle hooks, notification channels, permission relay, scheduled tasks as OUR typed contracts (agent-agnostic), not Claude-specific features. External tools are surface adapters, not authority.
   - AUD-12 (DISCOVERABILITY + SYSTEM MAP — 3-AGENT AUDIT COMPLETE):
@@ -98,13 +142,16 @@ contract exists.
     - SLIM MAP feasible: `startup-context` (82 tok) + `context-graph` top section (400 tok) + `dashboard` now block (150 tok) + `check-router` lane (500 tok) = ~1130 tokens. Gives 80% operational context. `quality-policy` (4663 tok) and `platform-contracts` (7336 tok) stay on-demand.
     - 67 commands, 20+ desktop console views, matplotlib/SVG/mermaid charts, MCP adapter, phone-status — all exist but NONE discoverable to new agents/operators.
     - 5 GAPS in context-graph: (1) named guard/probe roster in bootstrap (shows counts not names), (2) IMPACT TRAVERSAL — changed files → applicable guards (THE missing piece that caused Claude to skip CI), (3) surfaces as first-class graph nodes, (4) per-command argument schemas, (5) guard dependency edges.
-    - Codex: add these as Slice F (MP-386) or integrate into existing slices:
-  - AUD-12a (AGENT DISPATCH ORACLE): `resolve_agent_dispatch(changed_paths, scan_mode) → AgentDispatchPacket` in `task_router_contract.py`. Composes existing `classify_lane` + `QualityStepSpec.languages` filter + `StartupContext` advisory. Returns named guards, preflight command, context level. This is THE fix for AI agents skipping guards.
-  - AUD-12b (VIEW ADAPTER): `devctl view --surface phone --mode dashboard`. ONE snapshot → `RENDERERS[(surface, mode)]` dispatch. `dashboard_render.py` already proves the pattern. Add `("phone", "summary")`, `("ai", "slim")`, `("cli", "flowchart")`. `surface_definitions.py` already names 4 surfaces.
+  - AUD-12a (AGENT DISPATCH ORACLE): `resolve_agent_dispatch(changed_paths, scan_mode) -> AgentDispatchPacket` in `task_router_contract.py`. Composes existing `classify_lane` + `QualityStepSpec.languages` filter + `StartupContext` advisory. Returns named guards, preflight command, context level. This is THE fix for AI agents skipping guards.
+  - AUD-12b (VIEW ADAPTER): `devctl view --surface phone --mode dashboard`. ONE snapshot -> `RENDERERS[(surface, mode)]` dispatch. `dashboard_render.py` already proves the pattern. Add `("phone", "summary")`, `("ai", "slim")`, `("cli", "flowchart")`. `surface_definitions.py` already names 4 surfaces.
   - AUD-12c (SYSTEM CATALOG): `devctl discover` command. Typed `SystemCatalog` (commands + guards + probes + surfaces + report_types). Builds from existing registries (`QualityStepSpec`, `COMMANDS`, `frontend_surfaces`). Formats: slim (~500 tok for AI), full (markdown), interactive (JSON for PyQt6). `--filter guards-for-file:X` returns deterministic guard list. Feeds context-graph as capability nodes.
   - Design rule: `SystemCatalog` owns WHAT EXISTS (static). `context-graph` owns RELATIONSHIPS (dynamic). `AgentDispatchPacket` owns WHAT TO RUN (derived). `view` owns HOW TO SHOW IT (rendering). Same data, different views.
   - AUD-14 (REMOTE SESSION AUTO-ROLLOVER): When a Claude remote-control session degrades (low context window, high token usage, compaction happening), the system should automatically: (1) save all state to bridge.md + plan doc, (2) start a fresh Claude session that picks up where it left off, (3) stop the degraded session. The new session reads bridge + plan doc and continues work. The old session stops cleanly — not left hanging. Same for Codex sessions. This is the existing `HandoffBundle` → `rollover ACK` contract but wired for Claude-to-Claude handoff, not just Codex-to-Codex. The operator should NOT have to manually kill old sessions or start new ones — the system handles it. Dashboard should show: "Session 1 degraded → Session 2 started → Session 1 stopped." Codex: integrate into Slice A (headless lifecycle) and Slice E (auto-poll cadence).
   - AUD-13 (SESSION CLEANUP / TERMINAL LIFECYCLE): Stale Terminal.app windows and daemon processes accumulate across sessions. When a Codex conductor exits, the Terminal window stays open. When a daemon is launched, it persists after the session ends. In remote-control mode, nobody is at the keyboard to close them. The architecture needs: (1) a `devctl session-cleanup` command that kills stale conductor/daemon processes and closes orphaned Terminal windows, (2) automatic cleanup on session end (conductor exit hook), (3) cleanup on session START (before launching new conductors, verify no orphans from previous sessions), (4) dashboard should show active sessions/windows/daemons and flag orphans, (5) `review-channel --action launch` should refuse if orphan sessions exist and offer `--force` to clean first. This is part of the headless lifecycle (Slice A/MP-382) and remote-control mode (Slice A/MP-380). Codex: integrate into the plan.
+- 2026-04-04: Promoted discoverability into tracked `MP-386` scope. Contract
+  alignment is explicit: `SystemCatalog` is static capability inventory,
+  `AgentDispatchPacket` is derived routing, `view` is presentation-only, and
+  `context-graph` remains the relationship authority.
 
 ## ChatGPT Architecture Review Audit (2026-04-04, 8-agent validation)
 
@@ -123,6 +170,24 @@ External review identified core problem: "too many partially smart surfaces, not
 ### P1+ — Architecture
 - **Parallel worktrees**: `LaneAssignment.worktree` parsed but never consumed by launcher. 3 gaps: add worktree_path to LaunchSessionRequest, wire git worktree in build_session_script, pass per-worktree path to conductor prompt.
 - **Portability**: `repo_packs/voiceterm.py` correctly isolated but `active_path_config()` defaults to VoiceTerm. No pip package. No second repo-pack registered.
+
+## Infrastructure Seam Audit (Round 5, 8-agent, 2026-04-04)
+
+| Seam | Status | Detail |
+|---|---|---|
+| Startup receipt | GOOD | Written once by startup_receipt.py, dashboard reads artifact |
+| Attention classification | GOOD | Single classify_attention_status(), fanned to all surfaces |
+| Review state / compact | GOOD | Atomic write from same dict in write_projection_bundle() |
+| Instruction revision | MOSTLY GOOD | All trace to bridge line, minor priority waterfall risk |
+| Git state | BROKEN | 3 independent subprocess call sites (_git_short, collect_git_status, _collect_git_status_for_repo). No shared utility. |
+| Bridge findings | BROKEN | Dashboard parses bridge.md markdown directly. Typed review_state exists upstream but dashboard doesn't read it for findings. |
+| Repo-pack config | BROKEN | Only 7 of 100+ call sites use active_path_config(). 35+ files bypass with REPO_ROOT literal. Portability blocker. |
+
+Reference patterns (GOOD — everything should follow these):
+1. Approval mode: computed once in approval_mode.py, threaded via ControlState.approvals
+2. Startup receipt: computed once, written to artifact, consumers read artifact
+3. Attention: single classifier, result fanned to all surfaces
+4. Review state: atomic multi-file write from single source dict
 
 ## System Seam Audit (Round 4, 8-agent, 2026-04-04)
 
@@ -159,11 +224,13 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Session Resume
 
-- Current status: architecture review is complete and the closure plan is now
-  the active authority for this remote-control/runtime tranche.
-- Next action: land `MP-380` and `MP-382` together first, because packet,
-  dashboard, and auto-poll behavior need one typed operator-mode / headless
-  lifecycle contract before they can converge cleanly.
+- Current status: architecture review is complete, Slice A (`MP-380/382`) is
+  committed and validated by targeted contract checks, and the remaining
+  execution queue is `MP-383..MP-386`.
+- Next action: keep Slice A limited to review/validation, then fan out
+  `MP-383`, `MP-381`, `MP-384`, `MP-385`, and `MP-386` in bounded parallel
+  with disjoint write sets and one final CI/docs/plan-sync pass before
+  commit/push approval.
 - Context rule: read `dev/guides/AI_GOVERNANCE_PLATFORM.md`,
   `dev/active/ai_governance_platform.md`,
   `dev/active/platform_authority_loop.md`,
@@ -182,11 +249,19 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 - `git log --oneline @{upstream}..HEAD`
 - Key contract/code review inputs:
   `dev/scripts/devctl/runtime/project_governance_contract.py`,
+  `dev/scripts/devctl/runtime/project_governance_parse.py`,
   `dev/scripts/devctl/runtime/startup_context.py`,
   `dev/scripts/devctl/runtime/reviewer_runtime_models.py`,
+  `dev/scripts/devctl/runtime/operator_context.py`,
   `dev/scripts/devctl/review_channel/packet_contract.py`,
   `dev/scripts/devctl/review_channel/action_request.py`,
+  `dev/scripts/devctl/review_channel/bridge_projection_state.py`,
   `dev/scripts/devctl/review_channel/launch_script.py`,
   `dev/scripts/devctl/review_channel/peer_recovery.py`,
   `dev/scripts/devctl/commands/dashboard.py`,
-  `dev/scripts/devctl/commands/dashboard_data.py`.
+  `dev/scripts/devctl/commands/dashboard_data.py`,
+  `dev/scripts/devctl/steps.py`,
+  `dev/scripts/devctl/governance/task_router_contract.py`,
+  `dev/scripts/devctl/commands/check/router_support.py`,
+  `dev/scripts/devctl/script_catalog.py`,
+  `dev/scripts/devctl/platform/surface_definitions.py`.
