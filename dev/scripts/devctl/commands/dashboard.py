@@ -16,12 +16,19 @@ from ..time_utils import utc_timestamp
 
 # Artifact paths relative to repo root
 _COMPACT_JSON = "dev/reports/review_channel/latest/compact.json"
+_FULL_JSON = "dev/reports/review_channel/latest/full.json"
 _PUSH_JSON = "dev/reports/push/latest.json"
 _RECEIPT_JSON = "dev/reports/startup/latest/receipt.json"
 _AGENTS_JSON = "dev/reports/review_channel/latest/registry/agents.json"
 _PIPELINE_JSON = "dev/reports/review_channel/latest/commit_pipeline.json"
+_PUBLISHER_HB = "dev/reports/review_channel/latest/publisher_heartbeat.json"
+_SUPERVISOR_HB = "dev/reports/review_channel/latest/reviewer_supervisor_heartbeat.json"
+_EVENTS_JSONL = "dev/reports/audits/devctl_events.jsonl"
 _BRIDGE_MD = "bridge.md"
 _MASTER_PLAN = "dev/active/MASTER_PLAN.md"
+_GOVERNANCE_REVIEW_JSON = "dev/reports/governance/latest/review_summary.json"
+_PROBE_SUMMARY_JSON = "dev/reports/probes/latest/summary.json"
+_DATA_SCIENCE_JSON = "dev/reports/data_science/latest/summary.json"
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -151,6 +158,109 @@ def _repo_name() -> str:
     return REPO_ROOT.name
 
 
+def _read_heartbeat(path: Path) -> dict[str, Any]:
+    """Read a daemon heartbeat file and derive running state from stopped_at_utc."""
+    data = _read_json(path)
+    if data is None:
+        return {
+            "running": False, "pid": 0, "last_heartbeat": "n/a",
+            "last_heartbeat_age": "--", "snapshots": 0,
+        }
+    stopped = data.get("stopped_at_utc", "")
+    running = not bool(stopped)
+    hb_utc = data.get("last_heartbeat_utc", "n/a")
+    return {
+        "running": running,
+        "pid": data.get("pid", 0),
+        "last_heartbeat": hb_utc,
+        "last_heartbeat_age": _format_age(_age_seconds(hb_utc)),
+        "snapshots": data.get("snapshots_emitted", 0),
+    }
+
+
+def _build_health_section(
+    repo_root: Path,
+    compact: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Build the HEALTH section from daemon heartbeats and attention state."""
+    publisher = _read_heartbeat(repo_root / _PUBLISHER_HB)
+    supervisor = _read_heartbeat(repo_root / _SUPERVISOR_HB)
+
+    # Extract attention from full.json (compact does not carry it)
+    full_data = _read_json(repo_root / _FULL_JSON)
+    attention = (full_data or {}).get("attention", {})
+    attention_status = attention.get("status", "n/a")
+    attention_summary = attention.get("summary", "n/a")
+
+    active_daemons = sum(1 for d in (publisher, supervisor) if d["running"])
+
+    return {
+        "publisher": publisher,
+        "supervisor": supervisor,
+        "attention_status": attention_status,
+        "attention_summary": attention_summary,
+        "active_daemons": active_daemons,
+    }
+
+
+def _tail_lines(path: Path, count: int = 10) -> list[str]:
+    """Read the last *count* lines of a file without loading the entire file.
+
+    Uses a seek-from-end strategy to handle large JSONL logs efficiently.
+    Returns an empty list on any IO failure.
+    """
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return []
+    if size == 0:
+        return []
+    # Read a generous trailing chunk — each JSONL line is typically under 1 KB
+    chunk_size = min(size, count * 2048)
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(max(0, size - chunk_size))
+            raw = fh.read().decode("utf-8", errors="replace")
+    except OSError:
+        return []
+    lines = [ln for ln in raw.splitlines() if ln.strip()]
+    return lines[-count:]
+
+
+def _build_timeline_section(repo_root: Path) -> list[dict[str, str]]:
+    """Build the TIMELINE section from the last 10 devctl event log entries."""
+    raw_lines = _tail_lines(repo_root / _EVENTS_JSONL, count=10)
+    events: list[dict[str, str]] = []
+    for line in raw_lines:
+        try:
+            entry = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        ts_raw = entry.get("timestamp", "")
+        time_label = _extract_time_from_iso(ts_raw)
+        success = entry.get("success", False)
+        dur = entry.get("duration_seconds")
+        dur_label = f"{dur:.1f}s" if isinstance(dur, (int, float)) else "n/a"
+        events.append({
+            "time": time_label,
+            "command": entry.get("command", "unknown"),
+            "result": "PASS" if success else "FAIL",
+            "duration": dur_label,
+        })
+    return events
+
+
+def _extract_time_from_iso(ts: str) -> str:
+    """Pull HH:MM:SS from an ISO-8601 timestamp string."""
+    if not ts:
+        return "--:--:--"
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return dt.strftime("%H:%M:%S")
+    except (ValueError, TypeError):
+        return "--:--:--"
+
+
 def build_snapshot(*, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
     """Build a DashboardSnapshot dict from existing artifacts and git state."""
     git = _git_short()
@@ -161,8 +271,15 @@ def build_snapshot(*, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
     pipeline = _read_json(repo_root / _PIPELINE_JSON)
     bridge = _parse_bridge(repo_root / _BRIDGE_MD)
     plan = _parse_plan_progress(repo_root)
+    gov_data = _read_json(repo_root / _GOVERNANCE_REVIEW_JSON)
+    probe_data = _read_json(repo_root / _PROBE_SUMMARY_JSON)
+    ds_data = _read_json(repo_root / _DATA_SCIENCE_JSON)
 
-    return _assemble(git, compact, push_data, receipt, agents, pipeline, bridge, plan)
+    return _assemble(
+        git, compact, push_data, receipt, agents, pipeline, bridge, plan,
+        gov_data=gov_data, probe_data=probe_data, ds_data=ds_data,
+        repo_root=repo_root,
+    )
 
 
 def _assemble(
@@ -174,6 +291,11 @@ def _assemble(
     pipeline: dict[str, Any] | None,
     bridge: dict[str, str],
     plan: dict[str, str] | None = None,
+    *,
+    gov_data: dict[str, Any] | None = None,
+    probe_data: dict[str, Any] | None = None,
+    ds_data: dict[str, Any] | None = None,
+    repo_root: Path = REPO_ROOT,
 ) -> dict[str, Any]:
     """Assemble the typed DashboardSnapshot from raw sources."""
     session = (compact or {}).get("current_session", {})
@@ -186,7 +308,9 @@ def _assemble(
     receipt_push = (receipt or {}).get("push_action", "n/a")
 
     publication_effective = _publication_effective(push_data, receipt, git)
+    publication_effective["timers"] = _extract_push_timers(push_data)
     quality = _build_quality_section(push_data)
+    quality["probes"] = _build_probes_section(probe_data)
 
     # Derive top blocker from quality failures or open findings
     top_blocker = _derive_top_blocker(quality, session, doctor)
@@ -209,13 +333,17 @@ def _assemble(
             bridge, reviewer_agent, implementer_agent, session,
             top_blocker, last_change_age,
         ),
+        "health": _build_health_section(repo_root, compact),
         "review": _build_review_section(bridge, reviewer_agent, implementer_agent, session),
         "workers": _build_workers_section(agents),
         "plan": _build_plan_section(plan or {}, session),
         "publication": publication_effective,
         "quality": quality,
+        "audit": _build_audit_section(gov_data),
+        "analytics": _build_analytics_section(ds_data),
         "coordination": _build_coordination_section(session, instruction_rev, receipt_push, bridge, doctor),
         "flow": _build_flow_section(receipt, push_data, session),
+        "timeline": _build_timeline_section(repo_root),
     }
 
 
@@ -442,6 +570,74 @@ def _extract_failing_files(output: str) -> list[str]:
             if len(files) >= 5:
                 break
     return files
+
+
+def _extract_push_timers(push_data: dict[str, Any] | None) -> dict[str, Any]:
+    """Extract step durations from the push report for publication timing."""
+    na: dict[str, Any] = {"fetch_s": "n/a", "preflight_s": "n/a", "push_s": "n/a"}
+    if push_data is None:
+        return na
+    fetch = push_data.get("fetch_step") or {}
+    preflight = push_data.get("preflight_step") or {}
+    push_step = push_data.get("push_step") or {}
+    return {
+        "fetch_s": fetch.get("duration_s", "n/a"),
+        "preflight_s": preflight.get("duration_s", "n/a"),
+        "push_s": push_step.get("duration_s", "n/a"),
+    }
+
+
+def _build_audit_section(gov_data: dict[str, Any] | None) -> dict[str, Any]:
+    """Build audit section from governance review summary stats."""
+    na: dict[str, Any] = {
+        "total_findings": "n/a", "fixed_count": "n/a",
+        "cleanup_rate_pct": "n/a", "open_finding_count": "n/a",
+    }
+    if gov_data is None:
+        return na
+    stats = gov_data.get("stats", {})
+    return {
+        "total_findings": stats.get("total_findings", "n/a"),
+        "fixed_count": stats.get("fixed_count", "n/a"),
+        "cleanup_rate_pct": stats.get("cleanup_rate_pct", "n/a"),
+        "open_finding_count": stats.get("open_finding_count", "n/a"),
+    }
+
+
+def _build_probes_section(probe_data: dict[str, Any] | None) -> dict[str, Any]:
+    """Build probe quality summary from probe report summary."""
+    na: dict[str, Any] = {
+        "risk_hints": "n/a", "high": "n/a", "medium": "n/a",
+        "probes_enabled": "n/a", "files_scanned": "n/a",
+    }
+    if probe_data is None:
+        return na
+    summary = probe_data.get("summary", {})
+    severity = summary.get("hints_by_severity", {})
+    return {
+        "risk_hints": summary.get("risk_hints", "n/a"),
+        "high": severity.get("high", 0),
+        "medium": severity.get("medium", 0),
+        "probes_enabled": summary.get("probe_count", "n/a"),
+        "files_scanned": summary.get("files_scanned", "n/a"),
+    }
+
+
+def _build_analytics_section(ds_data: dict[str, Any] | None) -> dict[str, Any]:
+    """Build analytics section from data science summary."""
+    na: dict[str, Any] = {
+        "avg_time_to_green_s": "n/a", "total_events": "n/a",
+        "command_success_rate_pct": "n/a",
+    }
+    if ds_data is None:
+        return na
+    watchdog = ds_data.get("watchdog_stats", {})
+    events = ds_data.get("event_stats", {})
+    return {
+        "avg_time_to_green_s": watchdog.get("avg_time_to_green_seconds", "n/a"),
+        "total_events": events.get("total_events", "n/a"),
+        "command_success_rate_pct": events.get("success_rate_pct", "n/a"),
+    }
 
 
 def _build_coordination_section(

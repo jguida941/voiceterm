@@ -49,8 +49,39 @@ def _minimal_push() -> dict:
         "reason": "validation_failed",
         "branch": "feature/test",
         "head_commit": "deadbeef1234567",
-        "preflight_step": {"returncode": 1, "failure_output": "dev/scripts/devctl/common_io.py exceeded limit"},
+        "fetch_step": {"duration_s": 0.59},
+        "preflight_step": {"returncode": 1, "duration_s": 23.87, "failure_output": "dev/scripts/devctl/common_io.py exceeded limit"},
+        "push_step": None,
         "push_stages": {"post_push_green": False, "published_remote": False, "validation_ready": False},
+    }
+
+
+def _minimal_governance_review() -> dict:
+    return {
+        "stats": {
+            "total_findings": 121,
+            "fixed_count": 68,
+            "cleanup_rate_pct": 56.2,
+            "open_finding_count": 39,
+        }
+    }
+
+
+def _minimal_probe_summary() -> dict:
+    return {
+        "summary": {
+            "probe_count": 25,
+            "files_scanned": 16,
+            "risk_hints": 7,
+            "hints_by_severity": {"high": 5, "medium": 2},
+        }
+    }
+
+
+def _minimal_data_science() -> dict:
+    return {
+        "watchdog_stats": {"avg_time_to_green_seconds": 16.547},
+        "event_stats": {"total_events": 19903, "success_rate_pct": 81.7},
     }
 
 
@@ -145,6 +176,7 @@ def _full_snapshot() -> dict:
             "post_push": "FAIL",
             "evidence": "dev/reports/push/latest.json",
             "target_match": {"branch": True, "head": False, "target": False, "remote": False},
+            "timers": {"fetch_s": 0.59, "preflight_s": 23.87, "push_s": "n/a"},
         },
         "quality": {
             "docs_gate": "PASS",
@@ -154,6 +186,18 @@ def _full_snapshot() -> dict:
             "instr_sync": "PASS",
             "clippy": "n/a",
             "failing": ["dev/scripts/devctl/common_io.py"],
+            "probes": {
+                "risk_hints": 7, "high": 5, "medium": 2,
+                "probes_enabled": 25, "files_scanned": 16,
+            },
+        },
+        "audit": {
+            "total_findings": 121, "fixed_count": 68,
+            "cleanup_rate_pct": 56.2, "open_finding_count": 39,
+        },
+        "analytics": {
+            "avg_time_to_green_s": 16.547, "total_events": 19903,
+            "command_success_rate_pct": 81.7,
         },
         "coordination": {
             "pending_packets": 0,
@@ -163,6 +207,21 @@ def _full_snapshot() -> dict:
             "pending_findings": "2 findings",
             "next_action": "run_devctl_push",
         },
+        "health": {
+            "publisher": {
+                "running": False, "pid": 85205,
+                "last_heartbeat": "2026-04-04T01:10:00Z",
+                "last_heartbeat_age": "2h ago", "snapshots": 54,
+            },
+            "supervisor": {
+                "running": False, "pid": 19237,
+                "last_heartbeat": "2026-04-04T01:10:00Z",
+                "last_heartbeat_age": "2h ago", "snapshots": 46,
+            },
+            "attention_status": "inactive",
+            "attention_summary": "loop in inactive mode",
+            "active_daemons": 0,
+        },
         "flow": {
             "review": "pass",
             "implement": "active",
@@ -170,6 +229,11 @@ def _full_snapshot() -> dict:
             "checkpoint": "pass",
             "push": "blocked",
         },
+        "timeline": [
+            {"time": "02:05:46", "command": "push", "result": "FAIL", "duration": "71.1s"},
+            {"time": "02:03:12", "command": "startup-context", "result": "PASS", "duration": "14.9s"},
+            {"time": "02:01:45", "command": "docs-check", "result": "PASS", "duration": "3.3s"},
+        ],
     }
 
 
@@ -192,7 +256,11 @@ class TestDashboardSnapshotSections(unittest.TestCase):
             }), patch.object(dashboard, "_repo_name", return_value="test-repo"):
                 snapshot = dashboard.build_snapshot(repo_root=root)
 
-            required = {"repo", "now", "review", "workers", "plan", "publication", "quality", "coordination", "flow"}
+            required = {
+                "repo", "now", "health", "review", "workers", "plan",
+                "publication", "quality", "audit", "analytics",
+                "coordination", "flow", "timeline",
+            }
             self.assertTrue(required.issubset(snapshot.keys()), f"Missing: {required - snapshot.keys()}")
             self.assertEqual(snapshot["schema_version"], 2)
             self.assertEqual(snapshot["contract_id"], "DashboardSnapshot")
@@ -446,6 +514,8 @@ class TestDashboardMarkdownOutput(unittest.TestCase):
         self.assertIn("## Plan", output)
         self.assertIn("## Publication", output)
         self.assertIn("## Quality", output)
+        self.assertIn("## Audit", output)
+        self.assertIn("## Analytics", output)
         self.assertIn("## Coordination", output)
         self.assertIn("## Flow", output)
 
@@ -465,9 +535,27 @@ class TestDashboardMissingArtifacts(unittest.TestCase):
             self.assertEqual(snapshot["publication"]["effective"], "n/a")
             self.assertEqual(snapshot["quality"]["docs_gate"], "n/a")
             self.assertEqual(snapshot["quality"]["code_shape"], "n/a")
-            # All sections present
-            required = {"repo", "now", "review", "workers", "plan", "publication", "quality", "coordination", "flow"}
+            # All sections present (including enrichments)
+            required = {
+                "repo", "now", "health", "review", "workers", "plan",
+                "publication", "quality", "audit", "analytics",
+                "coordination", "flow", "timeline",
+            }
             self.assertTrue(required.issubset(snapshot.keys()))
+
+            # New enrichment sections degrade to n/a when artifacts missing
+            self.assertEqual(snapshot["audit"]["total_findings"], "n/a")
+            self.assertEqual(snapshot["analytics"]["total_events"], "n/a")
+            self.assertEqual(snapshot["quality"]["probes"]["probes_enabled"], "n/a")
+            timers = snapshot["publication"]["timers"]
+            self.assertEqual(timers["fetch_s"], "n/a")
+
+            # Health degrades gracefully
+            self.assertFalse(snapshot["health"]["publisher"]["running"])
+            self.assertEqual(snapshot["health"]["active_daemons"], 0)
+            self.assertEqual(snapshot["health"]["attention_status"], "n/a")
+            # Timeline is empty when no events file exists
+            self.assertEqual(snapshot["timeline"], [])
 
             # Both renderers work on degraded snapshot
             terminal = dashboard_render.render_terminal(snapshot)
@@ -477,6 +565,134 @@ class TestDashboardMissingArtifacts(unittest.TestCase):
             raw = dashboard_render.render_json(snapshot)
             parsed = json.loads(raw)
             self.assertIn("repo", parsed)
+
+
+class TestDashboardEnrichments(unittest.TestCase):
+    """Verify new enrichment sections: timers, audit, probes, analytics."""
+
+    def test_snapshot_has_publication_timers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/push/latest.json", _minimal_push())
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "feature/test", "head": "deadbee", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            timers = snapshot["publication"]["timers"]
+            self.assertEqual(timers["fetch_s"], 0.59)
+            self.assertEqual(timers["preflight_s"], 23.87)
+            self.assertEqual(timers["push_s"], "n/a")
+
+    def test_snapshot_has_audit_section(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/governance/latest/review_summary.json", _minimal_governance_review())
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            audit = snapshot["audit"]
+            self.assertEqual(audit["total_findings"], 121)
+            self.assertEqual(audit["fixed_count"], 68)
+            self.assertEqual(audit["cleanup_rate_pct"], 56.2)
+            self.assertEqual(audit["open_finding_count"], 39)
+
+    def test_snapshot_has_probes_in_quality(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/probes/latest/summary.json", _minimal_probe_summary())
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            probes = snapshot["quality"]["probes"]
+            self.assertEqual(probes["risk_hints"], 7)
+            self.assertEqual(probes["high"], 5)
+            self.assertEqual(probes["medium"], 2)
+            self.assertEqual(probes["probes_enabled"], 25)
+            self.assertEqual(probes["files_scanned"], 16)
+
+    def test_snapshot_has_analytics_section(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/data_science/latest/summary.json", _minimal_data_science())
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            analytics = snapshot["analytics"]
+            self.assertEqual(analytics["avg_time_to_green_s"], 16.547)
+            self.assertEqual(analytics["total_events"], 19903)
+            self.assertEqual(analytics["command_success_rate_pct"], 81.7)
+
+    def test_terminal_renders_audit_line(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("AUDIT", output)
+        self.assertIn("Findings 121", output)
+        self.assertIn("Fixed 68", output)
+        self.assertIn("56.2%", output)
+        self.assertIn("Open 39", output)
+
+    def test_terminal_renders_analytics_line(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("ANALYTICS", output)
+        self.assertIn("Events 19903", output)
+        self.assertIn("81.7%", output)
+        self.assertIn("16.5s", output)
+
+    def test_terminal_renders_probe_line(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("Probes 25", output)
+        self.assertIn("5 high", output)
+        self.assertIn("2 medium", output)
+
+    def test_terminal_renders_publication_timers(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("Preflight 23.9s", output)
+        self.assertIn("Push pending", output)
+        self.assertIn("Fetch 0.6s", output)
+
+    def test_enrichments_missing_renders_without_crash(self) -> None:
+        """Snapshot with n/a enrichments still renders cleanly."""
+        snapshot = _full_snapshot()
+        snapshot["audit"] = {"total_findings": "n/a", "fixed_count": "n/a", "cleanup_rate_pct": "n/a", "open_finding_count": "n/a"}
+        snapshot["analytics"] = {"avg_time_to_green_s": "n/a", "total_events": "n/a", "command_success_rate_pct": "n/a"}
+        snapshot["quality"]["probes"] = {"risk_hints": "n/a", "high": "n/a", "medium": "n/a", "probes_enabled": "n/a", "files_scanned": "n/a"}
+        snapshot["publication"]["timers"] = {"fetch_s": "n/a", "preflight_s": "n/a", "push_s": "n/a"}
+
+        # Should not raise
+        terminal = dashboard_render.render_terminal(snapshot)
+        self.assertIn("GOVERNANCE DASHBOARD", terminal)
+        # Audit and analytics sections should be skipped when n/a
+        self.assertNotIn("AUDIT", terminal)
+        self.assertNotIn("ANALYTICS", terminal)
+
+        md = dashboard_render.render_markdown(snapshot)
+        self.assertIn("# Governance Dashboard", md)
 
 
 class TestCliParserWiring(unittest.TestCase):
@@ -544,6 +760,206 @@ class TestTopBlockerDerivation(unittest.TestCase):
     def test_blocker_none_when_clean(self) -> None:
         result = dashboard._derive_top_blocker({"failing": []}, {}, {})
         self.assertEqual(result, "none")
+
+
+class TestHealthSection(unittest.TestCase):
+    """Verify health section building from heartbeat files and attention state."""
+
+    def test_health_from_heartbeat_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/publisher_heartbeat.json",
+                {
+                    "pid": 85205,
+                    "started_at_utc": "2026-04-04T02:43:30Z",
+                    "last_heartbeat_utc": "2026-04-04T03:11:28Z",
+                    "snapshots_emitted": 54,
+                    "stop_reason": "",
+                    "stopped_at_utc": "",
+                },
+            )
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/reviewer_supervisor_heartbeat.json",
+                {
+                    "pid": 19237,
+                    "started_at_utc": "2026-04-04T02:48:41Z",
+                    "last_heartbeat_utc": "2026-04-04T03:09:46Z",
+                    "snapshots_emitted": 46,
+                    "stop_reason": "graceful",
+                    "stopped_at_utc": "2026-04-04T03:10:00Z",
+                },
+            )
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/full.json",
+                {"attention": {"status": "reviewer_overdue", "summary": "Codex reviewer is overdue"}},
+            )
+
+            health = dashboard._build_health_section(root, None)
+            self.assertTrue(health["publisher"]["running"])
+            self.assertEqual(health["publisher"]["pid"], 85205)
+            self.assertEqual(health["publisher"]["snapshots"], 54)
+            self.assertFalse(health["supervisor"]["running"])
+            self.assertEqual(health["supervisor"]["pid"], 19237)
+            self.assertEqual(health["attention_status"], "reviewer_overdue")
+            self.assertIn("overdue", health["attention_summary"])
+            self.assertEqual(health["active_daemons"], 1)
+
+    def test_health_graceful_with_missing_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            health = dashboard._build_health_section(root, None)
+            self.assertFalse(health["publisher"]["running"])
+            self.assertFalse(health["supervisor"]["running"])
+            self.assertEqual(health["attention_status"], "n/a")
+            self.assertEqual(health["active_daemons"], 0)
+
+    def test_read_heartbeat_running_when_not_stopped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            hb_path = root / "hb.json"
+            hb_path.write_text(json.dumps({
+                "pid": 123, "last_heartbeat_utc": "2026-04-04T03:00:00Z",
+                "snapshots_emitted": 10, "stopped_at_utc": "",
+            }))
+            result = dashboard._read_heartbeat(hb_path)
+            self.assertTrue(result["running"])
+            self.assertEqual(result["pid"], 123)
+            self.assertEqual(result["snapshots"], 10)
+            self.assertIn("ago", result["last_heartbeat_age"])
+
+    def test_read_heartbeat_stopped_when_stopped_at_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            hb_path = root / "hb.json"
+            hb_path.write_text(json.dumps({
+                "pid": 456, "last_heartbeat_utc": "2026-04-04T03:00:00Z",
+                "snapshots_emitted": 5, "stopped_at_utc": "2026-04-04T03:01:00Z",
+            }))
+            result = dashboard._read_heartbeat(hb_path)
+            self.assertFalse(result["running"])
+
+    def test_health_terminal_render(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("HEALTH", output)
+        self.assertIn("Publisher", output)
+        self.assertIn("Supervisor", output)
+        self.assertIn("STOPPED", output)
+        self.assertIn("85205", output)
+        self.assertIn("54 snapshots", output)
+        self.assertIn("Attention", output)
+        self.assertIn("inactive", output)
+
+    def test_health_markdown_render(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+        self.assertIn("## Health", output)
+        self.assertIn("Publisher", output)
+        self.assertIn("Supervisor", output)
+        self.assertIn("STOPPED", output)
+        self.assertIn("Attention", output)
+
+
+class TestTimelineSection(unittest.TestCase):
+    """Verify timeline parsing from events JSONL and rendering."""
+
+    def test_timeline_from_events_jsonl(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            events_path = root / "dev" / "reports" / "audits" / "devctl_events.jsonl"
+            events_path.parent.mkdir(parents=True, exist_ok=True)
+            lines = []
+            for i in range(15):
+                entry = {
+                    "timestamp": f"2026-04-04T02:{i:02d}:00Z",
+                    "command": f"cmd-{i}",
+                    "success": i % 2 == 0,
+                    "duration_seconds": 1.5 + i,
+                }
+                lines.append(json.dumps(entry))
+            events_path.write_text("\n".join(lines), encoding="utf-8")
+
+            timeline = dashboard._build_timeline_section(root)
+            self.assertEqual(len(timeline), 10)
+            self.assertEqual(timeline[0]["command"], "cmd-5")
+            self.assertEqual(timeline[-1]["command"], "cmd-14")
+            self.assertEqual(timeline[0]["result"], "FAIL")
+            self.assertEqual(timeline[1]["result"], "PASS")
+
+    def test_timeline_graceful_missing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            timeline = dashboard._build_timeline_section(root)
+            self.assertEqual(timeline, [])
+
+    def test_timeline_handles_malformed_lines(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            events_path = root / "dev" / "reports" / "audits" / "devctl_events.jsonl"
+            events_path.parent.mkdir(parents=True, exist_ok=True)
+            content = (
+                'not json\n'
+                '{"timestamp":"2026-04-04T02:05:46Z",'
+                '"command":"push","success":false,'
+                '"duration_seconds":71.1}\n'
+            )
+            events_path.write_text(content, encoding="utf-8")
+
+            timeline = dashboard._build_timeline_section(root)
+            self.assertEqual(len(timeline), 1)
+            self.assertEqual(timeline[0]["command"], "push")
+            self.assertEqual(timeline[0]["result"], "FAIL")
+            self.assertEqual(timeline[0]["duration"], "71.1s")
+
+    def test_tail_lines_reads_only_last_n(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fpath = root / "test.jsonl"
+            fpath.write_text(
+                "\n".join(f"line-{i}" for i in range(100)),
+                encoding="utf-8",
+            )
+            result = dashboard._tail_lines(fpath, count=5)
+            self.assertEqual(len(result), 5)
+            self.assertEqual(result[0], "line-95")
+            self.assertEqual(result[-1], "line-99")
+
+    def test_extract_time_from_iso(self) -> None:
+        self.assertEqual(
+            dashboard._extract_time_from_iso("2026-04-04T02:05:46Z"),
+            "02:05:46",
+        )
+        self.assertEqual(dashboard._extract_time_from_iso(""), "--:--:--")
+        self.assertEqual(dashboard._extract_time_from_iso("bad"), "--:--:--")
+
+    def test_timeline_terminal_render(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("TIMELINE", output)
+        self.assertIn("last 3", output)
+        self.assertIn("push", output)
+        self.assertIn("startup-context", output)
+        self.assertIn("FAIL", output)
+        self.assertIn("PASS", output)
+        self.assertIn("71.1s", output)
+
+    def test_timeline_markdown_render(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+        self.assertIn("## Timeline", output)
+        self.assertIn("push", output)
+        self.assertIn("FAIL", output)
+        self.assertIn("71.1s", output)
+
+    def test_timeline_empty_render_skips_section(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["timeline"] = []
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertNotIn("TIMELINE", output)
 
 
 if __name__ == "__main__":

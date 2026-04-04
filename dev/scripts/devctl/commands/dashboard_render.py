@@ -36,12 +36,16 @@ def render_terminal(snapshot: dict[str, Any]) -> str:
     lines: list[str] = []
     _render_header_terminal(snapshot, lines)
     _render_now_terminal(snapshot, lines)
+    _render_health_terminal(snapshot, lines)
     _render_workers_terminal(snapshot, lines)
     _render_plan_terminal(snapshot, lines)
     _render_publication_terminal(snapshot, lines)
     _render_quality_terminal(snapshot, lines)
+    _render_audit_terminal(snapshot, lines)
+    _render_analytics_terminal(snapshot, lines)
     _render_coordination_terminal(snapshot, lines)
     _render_flow_terminal(snapshot, lines)
+    _render_timeline_terminal(snapshot, lines)
     return "\n".join(lines)
 
 
@@ -50,12 +54,16 @@ def render_markdown(snapshot: dict[str, Any]) -> str:
     lines: list[str] = []
     _render_header_markdown(snapshot, lines)
     _render_now_markdown(snapshot, lines)
+    _render_health_markdown(snapshot, lines)
     _render_workers_markdown(snapshot, lines)
     _render_plan_markdown(snapshot, lines)
     _render_publication_markdown(snapshot, lines)
     _render_quality_markdown(snapshot, lines)
+    _render_audit_markdown(snapshot, lines)
+    _render_analytics_markdown(snapshot, lines)
     _render_coordination_markdown(snapshot, lines)
     _render_flow_markdown(snapshot, lines)
+    _render_timeline_markdown(snapshot, lines)
     return "\n".join(lines)
 
 
@@ -105,6 +113,40 @@ def _render_now_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
     blocker_color = _RED if blocker != "none" else _GREEN
     lines.append(f"  Top blocker    {blocker_color}{blocker}{_RESET}")
     lines.append(f"  Last change    {now.get('last_change_label', '--')}")
+    lines.append("")
+
+
+def _render_health_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
+    """HEALTH: daemon liveness and attention state for operator visibility."""
+    health = snapshot.get("health", {})
+    if not health:
+        return
+    lines.append(f"{_BOLD}HEALTH{_RESET}")
+
+    for label, key in (("Publisher", "publisher"), ("Supervisor", "supervisor")):
+        daemon = health.get(key, {})
+        running = daemon.get("running", False)
+        state_label = "RUNNING" if running else "STOPPED"
+        state_color = _GREEN if running else _RED
+        pid = daemon.get("pid", 0)
+        hb_age = daemon.get("last_heartbeat_age", "--")
+        snaps = daemon.get("snapshots", 0)
+        lines.append(
+            f"  {label:<15}{state_color}{state_label:<10}{_RESET}"
+            f"PID {pid:<8}"
+            f"Last heartbeat {_DIM}{hb_age}{_RESET}    "
+            f"{snaps} snapshots"
+        )
+
+    attn_status = health.get("attention_status", "n/a")
+    attn_summary = health.get("attention_summary", "n/a")
+    attn_color = _GREEN if attn_status == "healthy" else _YELLOW
+    summary_text = attn_summary if attn_summary != "n/a" else ""
+    sep = " \u2014 " if summary_text else ""
+    lines.append(
+        f"  {'Attention':<15}{attn_color}{attn_status}{_RESET}"
+        f"{sep}{_DIM}{summary_text}{_RESET}"
+    )
     lines.append("")
 
 
@@ -165,6 +207,14 @@ def _render_publication_terminal(snapshot: dict[str, Any], lines: list[str]) -> 
         match_parts.append(f"{key} {symbol}")
     lines.append(f"  Target match   {'  '.join(match_parts)}")
 
+    # Inline step timers from push report
+    timers = pub.get("timers", {})
+    timer_parts = []
+    for label, key in (("Preflight", "preflight_s"), ("Push", "push_s"), ("Fetch", "fetch_s")):
+        val = timers.get(key, "n/a")
+        timer_parts.append(f"{label} {_fmt_timer(val)}")
+    lines.append(f"  Timers         {'  '.join(timer_parts)}")
+
     why = pub.get("why", "n/a")
     if why != "n/a" and "CURRENT" not in str(state):
         lines.append(f"  Why not green  {_DIM}{why}{_RESET}")
@@ -197,6 +247,58 @@ def _render_quality_terminal(snapshot: dict[str, Any], lines: list[str]) -> None
         lines.append(f"  {_RED}Failing{_RESET}   {failing[0]}")
         for f in failing[1:3]:
             lines.append(f"            {f}")
+
+    # Probe quality summary
+    probes = quality.get("probes", {})
+    if probes and probes.get("probes_enabled") != "n/a":
+        p_enabled = probes.get("probes_enabled", "n/a")
+        hints = probes.get("risk_hints", "n/a")
+        high = probes.get("high", 0)
+        medium = probes.get("medium", 0)
+        scanned = probes.get("files_scanned", "n/a")
+        hint_color = _RED if high else (_YELLOW if medium else _GREEN)
+        lines.append(
+            f"  Probes {p_enabled}  "
+            f"Hints {hint_color}{hints}{_RESET} "
+            f"({high} high, {medium} medium)  "
+            f"Files {scanned}"
+        )
+    lines.append("")
+
+
+def _render_audit_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
+    """AUDIT: governance cleanup metrics from review summary."""
+    audit = snapshot.get("audit", {})
+    if not audit or audit.get("total_findings") == "n/a":
+        return
+    total = audit.get("total_findings", "n/a")
+    fixed = audit.get("fixed_count", "n/a")
+    rate = audit.get("cleanup_rate_pct", "n/a")
+    open_count = audit.get("open_finding_count", "n/a")
+    rate_color = _GREEN if isinstance(rate, (int, float)) and rate >= 75 else _YELLOW
+    lines.append(f"{_BOLD}AUDIT{_RESET}")
+    lines.append(
+        f"  Findings {total}  Fixed {fixed}  "
+        f"Cleanup {rate_color}{_fmt_pct(rate)}{_RESET}  "
+        f"Open {open_count}"
+    )
+    lines.append("")
+
+
+def _render_analytics_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
+    """ANALYTICS: time-to-green and event stats from data science summary."""
+    analytics = snapshot.get("analytics", {})
+    if not analytics or analytics.get("total_events") == "n/a":
+        return
+    events = analytics.get("total_events", "n/a")
+    rate = analytics.get("command_success_rate_pct", "n/a")
+    ttg = analytics.get("avg_time_to_green_s", "n/a")
+    lines.append(f"{_BOLD}ANALYTICS{_RESET}")
+    lines.append(
+        f"  Events {events}  "
+        f"Success {_fmt_pct(rate)}  "
+        f"Avg TTG {_fmt_timer(ttg)}"
+    )
     lines.append("")
 
 
@@ -247,6 +349,24 @@ def _render_flow_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
     lines.append(f"{_BOLD}FLOW{_RESET}")
     lines.append(f"  {labels}")
     lines.append(f"    {padded}")
+    lines.append("")
+
+
+def _render_timeline_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
+    """TIMELINE: last N devctl events with command, result, and duration."""
+    timeline = snapshot.get("timeline", [])
+    if not timeline:
+        return
+    lines.append(f"{_BOLD}TIMELINE (last {len(timeline)}){_RESET}")
+    for evt in timeline:
+        result = evt.get("result", "FAIL")
+        result_color = _GREEN if result == "PASS" else _RED
+        lines.append(
+            f"  {_DIM}{evt.get('time', '--:--:--')}{_RESET}  "
+            f"{evt.get('command', 'unknown'):<22}"
+            f"{result_color}{result:<8}{_RESET}"
+            f"{evt.get('duration', 'n/a')}"
+        )
     lines.append("")
 
 
@@ -302,6 +422,27 @@ def _render_now_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
     lines.append("")
 
 
+def _render_health_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
+    health = snapshot.get("health", {})
+    if not health:
+        return
+    lines.append("## Health")
+    lines.append("")
+    for label, key in (("Publisher", "publisher"), ("Supervisor", "supervisor")):
+        daemon = health.get(key, {})
+        state = "RUNNING" if daemon.get("running") else "STOPPED"
+        lines.append(
+            f"- **{label}**: {state} | PID {daemon.get('pid', 0)} "
+            f"| Last heartbeat {daemon.get('last_heartbeat', 'n/a')} "
+            f"| {daemon.get('snapshots', 0)} snapshots"
+        )
+    attn = health.get("attention_status", "n/a")
+    summary = health.get("attention_summary", "n/a")
+    lines.append(f"- **Attention**: {attn} — {summary}")
+    lines.append(f"- **Active daemons**: {health.get('active_daemons', 0)}")
+    lines.append("")
+
+
 def _render_workers_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
     workers = snapshot.get("workers", [])
     lines.append("## Workers")
@@ -340,6 +481,13 @@ def _render_publication_markdown(snapshot: dict[str, Any], lines: list[str]) -> 
     tm = pub.get("target_match", {})
     match_parts = [f"{k}: {'yes' if v else 'no'}" for k, v in tm.items()]
     lines.append(f"- **Target match**: {', '.join(match_parts)}")
+    timers = pub.get("timers", {})
+    if timers:
+        lines.append(
+            f"- **Timers**: Preflight {_fmt_timer(timers.get('preflight_s'))}  "
+            f"Push {_fmt_timer(timers.get('push_s'))}  "
+            f"Fetch {_fmt_timer(timers.get('fetch_s'))}"
+        )
     lines.append(f"- **Why**: {pub.get('why', 'n/a')}")
     lines.append(f"- **Evidence**: `{pub.get('evidence', 'n/a')}`")
     lines.append("")
@@ -358,6 +506,40 @@ def _render_quality_markdown(snapshot: dict[str, Any], lines: list[str]) -> None
     if failing:
         lines.append("")
         lines.append(f"**Failing**: {', '.join(failing)}")
+    probes = quality.get("probes", {})
+    if probes and probes.get("probes_enabled") != "n/a":
+        lines.append("")
+        lines.append(
+            f"**Probes**: {probes.get('probes_enabled', 'n/a')} enabled, "
+            f"{probes.get('risk_hints', 'n/a')} hints "
+            f"({probes.get('high', 0)} high, {probes.get('medium', 0)} medium), "
+            f"{probes.get('files_scanned', 'n/a')} files scanned"
+        )
+    lines.append("")
+
+
+def _render_audit_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
+    audit = snapshot.get("audit", {})
+    if not audit or audit.get("total_findings") == "n/a":
+        return
+    lines.append("## Audit")
+    lines.append("")
+    lines.append(f"- **Findings**: {audit.get('total_findings', 'n/a')}")
+    lines.append(f"- **Fixed**: {audit.get('fixed_count', 'n/a')}")
+    lines.append(f"- **Cleanup rate**: {_fmt_pct(audit.get('cleanup_rate_pct', 'n/a'))}")
+    lines.append(f"- **Open**: {audit.get('open_finding_count', 'n/a')}")
+    lines.append("")
+
+
+def _render_analytics_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
+    analytics = snapshot.get("analytics", {})
+    if not analytics or analytics.get("total_events") == "n/a":
+        return
+    lines.append("## Analytics")
+    lines.append("")
+    lines.append(f"- **Events**: {analytics.get('total_events', 'n/a')}")
+    lines.append(f"- **Success rate**: {_fmt_pct(analytics.get('command_success_rate_pct', 'n/a'))}")
+    lines.append(f"- **Avg TTG**: {_fmt_timer(analytics.get('avg_time_to_green_s', 'n/a'))}")
     lines.append("")
 
 
@@ -389,6 +571,24 @@ def _render_flow_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
         state = flow.get(stage, "unknown")
         symbol = md_symbols.get(state, "\u00b7")
         lines.append(f"| {stage.title()} | {symbol} {state} |")
+    lines.append("")
+
+
+def _render_timeline_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
+    timeline = snapshot.get("timeline", [])
+    if not timeline:
+        return
+    lines.append(f"## Timeline (last {len(timeline)})")
+    lines.append("")
+    lines.append("| Time | Command | Result | Duration |")
+    lines.append("|---|---|---|---|")
+    for evt in timeline:
+        lines.append(
+            f"| {evt.get('time', '--:--:--')} "
+            f"| {evt.get('command', 'unknown')} "
+            f"| {evt.get('result', 'FAIL')} "
+            f"| {evt.get('duration', 'n/a')} |"
+        )
     lines.append("")
 
 
@@ -441,3 +641,21 @@ def _gate_color(val: str) -> str:
     if upper == "FAIL":
         return _RED
     return _DIM
+
+
+def _fmt_timer(val: Any) -> str:
+    """Format a duration value as '71.1s' or 'pending' for display."""
+    if val is None or val == "n/a":
+        return "pending"
+    if isinstance(val, (int, float)):
+        return f"{val:.1f}s"
+    return str(val)
+
+
+def _fmt_pct(val: Any) -> str:
+    """Format a percentage value as '56.2%' or 'n/a' for display."""
+    if val is None or val == "n/a":
+        return "n/a"
+    if isinstance(val, (int, float)):
+        return f"{val}%"
+    return str(val)
