@@ -610,6 +610,7 @@ def _compile_summary(snapshot: dict) -> dict:
     review = snapshot.get("review", {})
     coordination = snapshot.get("coordination", {})
     publication = snapshot.get("publication", {})
+    workers = snapshot.get("workers", [])
 
     # --- infra_state: based on daemon running counts ---
     active_daemons = health.get("active_daemons", 0)
@@ -638,12 +639,41 @@ def _compile_summary(snapshot: dict) -> dict:
     reviewer_age_label = coordination.get("reviewer_age", "--")
     reviewer_overdue = _is_reviewer_overdue(reviewer_age_label)
 
-    # --- overall_state ---
-    if has_quality_fail or attention_not_healthy:
+    # --- resolved control state (truth precedence) ---
+    # 1. Fatal health / recovery blockers override everything
+    recovery_states = {
+        "implementer_state_reset_required", "review_loop_relaunch_required",
+        "implementer_relaunch_required", "runtime_missing",
+    }
+    needs_recovery = attention_status in recovery_states
+    # 2. Worker truth: is implementer actually working or stale?
+    impl_stale = coordination.get("implementer_state", "") == "stale"
+    impl_waiting = any(
+        w.get("state", "").upper() in ("WAITING_FOR_ACK", "INACTIVE")
+        for w in workers
+        if w.get("scope", "").lower() == "implementer"
+        or w.get("id", "") == "W2"
+    )
+    no_conductor = (
+        health.get("codex_conductor", {}).get("alive") is False
+        or health.get("codex_conductor", {}).get("pid") is None
+    ) and (
+        health.get("claude_conductor", {}).get("alive") is False
+        or health.get("claude_conductor", {}).get("pid") is None
+    )
+
+    # --- overall_state (with truth precedence) ---
+    if needs_recovery or (no_conductor and attention_not_healthy):
+        overall_state = "awaiting_recovery"
+    elif has_quality_fail and (impl_stale or impl_waiting):
+        overall_state = "validation_blocked"
+    elif has_quality_fail or attention_not_healthy:
         overall_state = "blocked"
     elif reviewer_overdue:
         overall_state = "waiting"
-    elif now.get("owner") == "Implementer":
+    elif impl_stale or impl_waiting:
+        overall_state = "awaiting_ack"
+    elif now.get("owner") == "Implementer" and not impl_stale:
         overall_state = "active"
     else:
         overall_state = "healthy"
@@ -660,15 +690,25 @@ def _compile_summary(snapshot: dict) -> dict:
     block_class = " + ".join(block_parts) if block_parts else "none"
 
     # --- next_actor ---
-    if reviewer_overdue:
+    if needs_recovery:
+        next_actor = "operator"
+    elif overall_state == "validation_blocked":
+        next_actor = "implementer"
+    elif reviewer_overdue:
         next_actor = "reviewer"
+    elif impl_stale or impl_waiting:
+        next_actor = "operator"
     elif now.get("owner", "").lower() == "implementer":
         next_actor = "implementer"
     else:
         next_actor = "operator"
 
     # --- next_command_hint ---
-    if has_quality_fail:
+    if needs_recovery:
+        next_command_hint = "reset implementer state, relaunch conductors"
+    elif overall_state == "validation_blocked":
+        next_command_hint = "fix code-shape debt, rerun validation"
+    elif has_quality_fail:
         next_command_hint = "fix code-shape debt"
     elif reviewer_overdue:
         next_command_hint = "relaunch Codex"
@@ -1184,8 +1224,11 @@ def _build_flow_section(
         push_ok = push_data.get("ok")
         stages["push"] = "pass" if push_ok else "blocked"
     impl_state = session.get("implementer_status", "")
-    if impl_state:
+    impl_ack = session.get("implementer_ack_state", "")
+    if impl_state and impl_ack != "stale":
         stages["implement"] = "active"
+    elif impl_state:
+        stages["implement"] = "stale"
     return stages
 
 
