@@ -62,3 +62,13 @@ VOICETERM_EXTENSION_BUNDLE = ExtensionBundle(
         ),
     ),
 )
+
+
+REGISTERED_EXTENSION_BUNDLES: dict[str, ExtensionBundle] = {
+    VOICETERM_EXTENSION_BUNDLE.repo_pack_id: VOICETERM_EXTENSION_BUNDLE,
+}
+
+
+def registered_extension_bundles() -> dict[str, ExtensionBundle]:
+    """Return a copy of the known repo-pack extension bundle registry."""
+    return dict(REGISTERED_EXTENSION_BUNDLES)

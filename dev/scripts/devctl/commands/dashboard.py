@@ -12,26 +12,43 @@ from typing import Any
 
 from ..common import emit_output, write_output
 from ..config import REPO_ROOT
+from ..repo_packs import active_path_config
 from ..time_utils import utc_timestamp
 
 
-# Artifact paths relative to repo root
-_COMPACT_JSON = "dev/reports/review_channel/latest/compact.json"
-_FULL_JSON = "dev/reports/review_channel/latest/full.json"
-_PUSH_JSON = "dev/reports/push/latest.json"
-_RECEIPT_JSON = "dev/reports/startup/latest/receipt.json"
-_AGENTS_JSON = "dev/reports/review_channel/latest/registry/agents.json"
-_PIPELINE_JSON = "dev/reports/review_channel/latest/commit_pipeline.json"
-_PUBLISHER_HB = "dev/reports/review_channel/latest/publisher_heartbeat.json"
-_SUPERVISOR_HB = "dev/reports/review_channel/latest/reviewer_supervisor_heartbeat.json"
-_EVENTS_JSONL = "dev/reports/audits/devctl_events.jsonl"
-_BRIDGE_MD = "bridge.md"
-_MASTER_PLAN = "dev/active/MASTER_PLAN.md"
-_GOVERNANCE_REVIEW_JSON = "dev/reports/governance/latest/review_summary.json"
-_PROBE_SUMMARY_JSON = "dev/reports/probes/latest/summary.json"
-_DATA_SCIENCE_JSON = "dev/reports/data_science/latest/summary.json"
-_CODEX_CONDUCTOR_SESSION = "dev/reports/review_channel/latest/sessions/codex-conductor.json"
-_CLAUDE_CONDUCTOR_SESSION = "dev/reports/review_channel/latest/sessions/claude-conductor.json"
+def _paths() -> dict[str, str]:
+    """Derive artifact paths from the active repo-pack path config.
+
+    Paths that already exist in RepoPathConfig are resolved from it. Paths
+    that are dashboard-specific and not yet migrated to RepoPathConfig are
+    kept as local constants with a migration note.
+    """
+    cfg = active_path_config()
+    status_dir = cfg.review_status_dir_rel  # e.g. "dev/reports/review_channel/latest"
+
+    return {
+        "compact_json": f"{status_dir}/compact.json",
+        "full_json": f"{status_dir}/full.json",
+        "push_json": cfg.push_report_rel,
+        # TODO: migrate receipt_json to RepoPathConfig
+        "receipt_json": "dev/reports/startup/latest/receipt.json",
+        "agents_json": f"{status_dir}/registry/agents.json",
+        # TODO: migrate pipeline_json to RepoPathConfig
+        "pipeline_json": f"{status_dir}/commit_pipeline.json",
+        # TODO: migrate publisher_hb to RepoPathConfig
+        "publisher_hb": f"{status_dir}/publisher_heartbeat.json",
+        # TODO: migrate supervisor_hb to RepoPathConfig
+        "supervisor_hb": f"{status_dir}/reviewer_supervisor_heartbeat.json",
+        "events_jsonl": cfg.audit_event_log_rel,
+        "bridge_md": cfg.bridge_rel,
+        "master_plan": cfg.active_master_plan_doc_rel,
+        "governance_review_json": f"{cfg.governance_review_summary_root_rel}/review_summary.json",
+        "probe_summary_json": f"{cfg.probe_report_output_root_rel}/latest/summary.json",
+        "data_science_json": cfg.watchdog_summary_rel,
+        # TODO: migrate conductor session paths to RepoPathConfig
+        "codex_conductor_session": f"{status_dir}/sessions/codex-conductor.json",
+        "claude_conductor_session": f"{status_dir}/sessions/claude-conductor.json",
+    }
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -240,7 +257,7 @@ def _format_duration(seconds: int | None) -> str:
 
 def _session_age(repo_root: Path) -> dict[str, Any]:
     """Read publisher heartbeat and compute session duration from started_at_utc."""
-    data = _read_json(repo_root / _PUBLISHER_HB)
+    data = _read_json(repo_root / _paths()["publisher_hb"])
     if data is None:
         return {"session_age_s": None, "session_label": "--", "started_at_utc": "", "started_time": ""}
     started = data.get("started_at_utc", "")
@@ -257,7 +274,7 @@ def _session_age(repo_root: Path) -> dict[str, Any]:
 def _parse_plan_progress(repo_root: Path) -> dict[str, str]:
     """Extract active slice and progress hints from MASTER_PLAN.md."""
     result = {"slice": "n/a", "progress": "n/a", "open_findings": "0", "pending": "0"}
-    path = repo_root / _MASTER_PLAN
+    path = repo_root / _paths()["master_plan"]
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
@@ -334,14 +351,15 @@ def _build_health_section(
     compact: dict[str, Any] | None,
 ) -> dict[str, Any]:
     """Build the HEALTH section from daemon heartbeats, conductors, and attention."""
-    publisher = _read_heartbeat(repo_root / _PUBLISHER_HB)
-    supervisor = _read_heartbeat(repo_root / _SUPERVISOR_HB)
+    p = _paths()
+    publisher = _read_heartbeat(repo_root / p["publisher_hb"])
+    supervisor = _read_heartbeat(repo_root / p["supervisor_hb"])
 
-    codex_conductor = _read_conductor_liveness(repo_root / _CODEX_CONDUCTOR_SESSION)
-    claude_conductor = _read_conductor_liveness(repo_root / _CLAUDE_CONDUCTOR_SESSION)
+    codex_conductor = _read_conductor_liveness(repo_root / p["codex_conductor_session"])
+    claude_conductor = _read_conductor_liveness(repo_root / p["claude_conductor_session"])
 
     # Extract attention from full.json (compact does not carry it)
-    full_data = _read_json(repo_root / _FULL_JSON)
+    full_data = _read_json(repo_root / p["full_json"])
     attention = (full_data or {}).get("attention", {})
     attention_status = attention.get("status", "n/a")
     attention_summary = attention.get("summary", "n/a")
@@ -383,9 +401,11 @@ def _tail_lines(path: Path, count: int = 10) -> list[str]:
     return lines[-count:]
 
 
-def _build_timeline_section(repo_root: Path) -> list[dict[str, str]]:
-    """Build the TIMELINE section from the last 10 devctl event log entries."""
-    raw_lines = _tail_lines(repo_root / _EVENTS_JSONL, count=10)
+def _build_timeline_section(
+    repo_root: Path, *, count: int = 10,
+) -> list[dict[str, str]]:
+    """Build the TIMELINE section from the last *count* devctl event log entries."""
+    raw_lines = _tail_lines(repo_root / _paths()["events_jsonl"], count=count)
     events: list[dict[str, str]] = []
     for line in raw_lines:
         try:
@@ -417,30 +437,84 @@ def _extract_time_from_iso(ts: str) -> str:
         return "--:--:--"
 
 
-def build_snapshot(*, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
-    """Build a DashboardSnapshot dict from existing artifacts and git state."""
+# Sections each view loads.  ``overview`` loads everything (no filtering).
+_VIEW_SECTIONS: dict[str, frozenset[str]] = {
+    "overview": frozenset(),  # empty means "load all"
+    "dev": frozenset({
+        "repo", "now", "review", "workers", "plan", "findings",
+        "reviewer_activity", "quality", "flow", "timeline", "summary",
+        "coordination",
+    }),
+    "analytics": frozenset({
+        "repo", "analytics", "timeline", "summary",
+    }),
+    "quality": frozenset({
+        "repo", "quality", "audit", "summary",
+    }),
+    "audit": frozenset({
+        "repo", "audit", "summary",
+    }),
+    "publication": frozenset({
+        "repo", "publication", "flow", "coordination", "summary",
+    }),
+    "health": frozenset({
+        "repo", "health", "review", "coordination", "summary",
+    }),
+}
+
+
+def _view_needs(view: str, section: str) -> bool:
+    """Return True when *view* should include *section*."""
+    allowed = _VIEW_SECTIONS.get(view, frozenset())
+    return not allowed or section in allowed
+
+
+def build_snapshot(
+    *, repo_root: Path = REPO_ROOT, view: str = "overview",
+) -> dict[str, Any]:
+    """Build a DashboardSnapshot dict from existing artifacts and git state.
+
+    When *view* is not ``overview``, only the artifacts needed for that view
+    are loaded; skipped sections appear as empty/default values so renderers
+    degrade gracefully.
+    """
     git = _git_short()
-    compact = _read_json(repo_root / _COMPACT_JSON)
-    push_data = _read_json(repo_root / _PUSH_JSON)
-    receipt = _read_json(repo_root / _RECEIPT_JSON)
-    agents = _read_json(repo_root / _AGENTS_JSON)
-    pipeline = _read_json(repo_root / _PIPELINE_JSON)
-    bridge = _parse_bridge(repo_root / _BRIDGE_MD)
-    bridge_findings = _parse_bridge_findings(repo_root / _BRIDGE_MD)
-    plan = _parse_plan_progress(repo_root)
-    gov_data = _read_json(repo_root / _GOVERNANCE_REVIEW_JSON)
-    probe_data = _read_json(repo_root / _PROBE_SUMMARY_JSON)
-    ds_data = _read_json(repo_root / _DATA_SCIENCE_JSON)
+    needs = _VIEW_SECTIONS.get(view, frozenset())
+    load_all = not needs  # overview
+    p = _paths()
 
-    session_info = _session_age(repo_root)
+    compact = _read_json(repo_root / p["compact_json"]) if load_all or (needs & {"review", "now", "coordination", "health", "workers"}) else None
+    push_data = _read_json(repo_root / p["push_json"]) if load_all or (needs & {"publication", "quality", "flow"}) else None
+    receipt = _read_json(repo_root / p["receipt_json"]) if load_all or (needs & {"publication", "flow", "coordination"}) else None
+    agents = _read_json(repo_root / p["agents_json"]) if load_all or (needs & {"review", "workers", "now"}) else None
+    pipeline = _read_json(repo_root / p["pipeline_json"]) if load_all or (needs & {"flow"}) else None
+    bridge = _parse_bridge(repo_root / p["bridge_md"]) if load_all or (needs & {"review", "now", "coordination", "reviewer_activity", "findings"}) else _empty_bridge()
+    bridge_findings = _parse_bridge_findings(repo_root / p["bridge_md"]) if load_all or (needs & {"findings", "plan"}) else []
+    plan = _parse_plan_progress(repo_root) if load_all or (needs & {"plan"}) else None
+    gov_data = _read_json(repo_root / p["governance_review_json"]) if load_all or (needs & {"audit"}) else None
+    probe_data = _read_json(repo_root / p["probe_summary_json"]) if load_all or (needs & {"quality"}) else None
+    ds_data = _read_json(repo_root / p["data_science_json"]) if load_all or (needs & {"analytics"}) else None
 
-    return _assemble(
+    session_info = _session_age(repo_root) if load_all or (needs & {"repo", "coordination"}) else None
+
+    snapshot = _assemble(
         git, compact, push_data, receipt, agents, pipeline, bridge, plan,
         gov_data=gov_data, probe_data=probe_data, ds_data=ds_data,
         bridge_findings=bridge_findings,
         session_info=session_info,
         repo_root=repo_root,
+        view=view,
     )
+    return snapshot
+
+
+def _empty_bridge() -> dict[str, str]:
+    """Return the default bridge fields when bridge parsing is skipped."""
+    return {
+        "last_poll": "n/a", "last_poll_utc": "", "reviewer_mode": "n/a",
+        "instruction": "n/a", "verdict": "n/a", "findings_raw": "",
+        "reviewed_scope_raw": "", "instruction_full": "n/a",
+    }
 
 
 def _assemble(
@@ -459,14 +533,15 @@ def _assemble(
     bridge_findings: list[dict[str, str]] | None = None,
     repo_root: Path = REPO_ROOT,
     session_info: dict[str, Any] | None = None,
+    view: str = "overview",
 ) -> dict[str, Any]:
     """Assemble the typed DashboardSnapshot from raw sources."""
     session = (compact or {}).get("current_session", {})
     doctor = (compact or {}).get("doctor", {})
     instruction_rev = session.get("current_instruction_revision", "n/a")
 
-    reviewer_agent = _find_agent(agents, "codex")
-    implementer_agent = _find_agent(agents, "claude")
+    reviewer_agent = _find_agent_by_role(agents, "reviewer")
+    implementer_agent = _find_agent_by_role(agents, "implementer")
 
     receipt_push = (receipt or {}).get("push_action", "n/a")
 
@@ -482,10 +557,14 @@ def _assemble(
     poll_utc = bridge.get("last_poll_utc", "")
     last_change_age = _age_seconds(poll_utc)
 
+    # Analytics view loads the full event timeline (not just last 10)
+    timeline_count = 100 if view == "analytics" else 10
+
     snapshot: dict[str, Any] = {
         "schema_version": 2,
         "contract_id": "DashboardSnapshot",
         "timestamp": utc_timestamp(),
+        "view": view,
         "repo": {
             "name": _repo_name(),
             "branch": git["branch"],
@@ -509,11 +588,11 @@ def _assemble(
         "publication": publication_effective,
         "quality": quality,
         "audit": _build_audit_section(gov_data),
-        "analytics": _build_analytics_section(ds_data),
+        "analytics": _build_analytics_section(ds_data, gov_data, repo_root),
         "coordination": _build_coordination_section(session, instruction_rev, receipt_push, bridge, doctor, session_info or {}),
-        "codex_activity": _build_codex_activity_section(bridge),
+        "reviewer_activity": _build_reviewer_activity_section(bridge, reviewer_agent),
         "flow": _build_flow_section(receipt, push_data, session),
-        "timeline": _build_timeline_section(repo_root),
+        "timeline": _build_timeline_section(repo_root, count=timeline_count),
     }
     snapshot["summary"] = _compile_summary(snapshot)
     return snapshot
@@ -738,12 +817,30 @@ def _build_now_section(
     }
 
 
-def _find_agent(agents_data: dict[str, Any] | None, provider: str) -> dict[str, Any]:
-    """Find an agent entry by provider name."""
+def _find_agent_by_role(
+    agents_data: dict[str, Any] | None, role: str,
+) -> dict[str, Any]:
+    """Find an agent entry by lane_title or current_job role, with name fallback.
+
+    Tries role-based matching first (case-insensitive lane_title or current_job),
+    then falls back to matching the provider name for backwards compatibility
+    with older agent registries that lack role fields.
+    """
     if not agents_data:
         return {}
-    for agent in agents_data.get("agents", []):
-        if agent.get("provider") == provider:
+    agents = agents_data.get("agents", [])
+    role_lower = role.lower()
+    # Role-based match: lane_title or current_job
+    for agent in agents:
+        lane = (agent.get("lane_title") or "").lower()
+        job = (agent.get("current_job") or "").lower()
+        if lane == role_lower or job == role_lower:
+            return agent
+    # Backwards-compat fallback: match by provider name
+    _NAME_FALLBACK = {"reviewer": "codex", "implementer": "claude"}
+    fallback_name = _NAME_FALLBACK.get(role_lower, role_lower)
+    for agent in agents:
+        if agent.get("provider") == fallback_name:
             return agent
     return {}
 
@@ -871,7 +968,7 @@ def _publication_effective(
         "effective": effective,
         "why": why,
         "post_push": post_push if push_data else "n/a",
-        "evidence": _PUSH_JSON if push_data else "n/a",
+        "evidence": _paths()["push_json"] if push_data else "n/a",
         "target_match": {
             "branch": branch_match,
             "head": head_match,
@@ -968,21 +1065,71 @@ def _build_probes_section(probe_data: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def _build_analytics_section(ds_data: dict[str, Any] | None) -> dict[str, Any]:
-    """Build analytics section from data science summary."""
+def _build_analytics_section(
+    ds_data: dict[str, Any] | None,
+    gov_data: dict[str, Any] | None = None,
+    repo_root: Path = REPO_ROOT,
+) -> dict[str, Any]:
+    """Build analytics section from data science summary, governance, and event log."""
     na: dict[str, Any] = {
         "avg_time_to_green_s": "n/a", "total_events": "n/a",
         "command_success_rate_pct": "n/a",
+        "push_success_values": [], "top_commands": [],
+        "cleanup_rate_pct": "n/a",
     }
     if ds_data is None:
         return na
     watchdog = ds_data.get("watchdog_stats", {})
     events = ds_data.get("event_stats", {})
+    top_cmds = _extract_top_commands(events, limit=5)
+    push_vals = _extract_push_success_values(repo_root, count=20)
+    cleanup = _extract_cleanup_rate(gov_data)
     return {
         "avg_time_to_green_s": watchdog.get("avg_time_to_green_seconds", "n/a"),
         "total_events": events.get("total_events", "n/a"),
         "command_success_rate_pct": events.get("success_rate_pct", "n/a"),
+        "push_success_values": push_vals,
+        "top_commands": top_cmds,
+        "cleanup_rate_pct": cleanup,
     }
+
+
+def _extract_top_commands(
+    event_stats: dict[str, Any], limit: int = 5,
+) -> list[tuple[str, float]]:
+    """Pull the top N commands by count from data science event_stats."""
+    commands = event_stats.get("commands", [])
+    result: list[tuple[str, float]] = []
+    for entry in commands[:limit]:
+        name = entry.get("command", "unknown")
+        count = entry.get("count", 0)
+        result.append((name, float(count)))
+    return result
+
+
+def _extract_push_success_values(repo_root: Path, count: int = 20) -> list[float]:
+    """Read last N push events from the event log and return 1.0 (ok) / 0.0 (fail)."""
+    raw_lines = _tail_lines(repo_root / _paths()["events_jsonl"], count=count * 5)
+    values: list[float] = []
+    for line in raw_lines:
+        try:
+            entry = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if entry.get("command") == "push":
+            values.append(1.0 if entry.get("success") else 0.0)
+    return values[-count:]
+
+
+def _extract_cleanup_rate(gov_data: dict[str, Any] | None) -> float | str:
+    """Extract cleanup rate percentage from governance review data."""
+    if gov_data is None:
+        return "n/a"
+    stats = gov_data.get("stats", {})
+    rate = stats.get("cleanup_rate_pct", "n/a")
+    if isinstance(rate, (int, float)):
+        return float(rate)
+    return "n/a"
 
 
 def _build_coordination_section(
@@ -1042,10 +1189,15 @@ def _build_flow_section(
     return stages
 
 
-def _build_codex_activity_section(bridge: dict[str, str]) -> dict[str, Any]:
-    """Build REVIEWER (Codex) activity section from bridge.md parsed fields.
+def _build_reviewer_activity_section(
+    bridge: dict[str, str],
+    reviewer_agent: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build reviewer activity section from bridge.md parsed fields.
 
-    Answers the operator's core question: 'Is Codex doing anything?'
+    Answers the operator's core question: 'Is the reviewer doing anything?'
+    The provider sublabel is derived from the actual agent data so the
+    section header stays portable across reviewer providers.
     """
     poll_utc = bridge.get("last_poll_utc", "")
     poll_age = _format_age(_age_seconds(poll_utc))
@@ -1072,7 +1224,10 @@ def _build_codex_activity_section(bridge: dict[str, str]) -> dict[str, Any]:
     instr_first = _first_meaningful_line(instr_full)
     instruction_summary = instr_first[:80] + ("..." if len(instr_first) > 80 else "")
 
+    provider = (reviewer_agent or {}).get("provider", "unknown")
+
     return {
+        "provider": provider,
         "last_poll_age": poll_age,
         "last_verdict": verdict_summary if verdict_summary != "n/a" else "n/a",
         "reviewed_files": reviewed_files,
@@ -1096,7 +1251,8 @@ def run(args) -> int:
     """Build and render the governance dashboard."""
     from .dashboard_render import render_json, render_markdown, render_terminal
 
-    snapshot = build_snapshot()
+    view = getattr(args, "view", "overview")
+    snapshot = build_snapshot(view=view)
 
     no_color = getattr(args, "no_color", False)
     fmt = getattr(args, "format", "terminal")

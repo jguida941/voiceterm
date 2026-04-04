@@ -7,6 +7,8 @@ import os
 import re
 from typing import Any
 
+from .dashboard import _VIEW_SECTIONS
+
 # Pre-compiled pattern for stripping ANSI escape sequences
 _ANSI_RE = re.compile(r"\033\[[^m]*m")
 
@@ -56,6 +58,20 @@ def _should_strip_color(no_color: bool) -> bool:
     return os.environ.get("NO_COLOR", "") != ""
 
 
+def _view_includes(snapshot: dict[str, Any], section: str) -> bool:
+    """Return True when the snapshot's view includes the given section.
+
+    Overview (the default) includes everything.  Other views only render
+    sections listed in ``_VIEW_SECTIONS``.  The ``summary`` and ``repo``
+    sections are always included.
+    """
+    view = snapshot.get("view", "overview")
+    allowed = _VIEW_SECTIONS.get(view, frozenset())
+    if not allowed:
+        return True  # overview — render everything
+    return section in allowed
+
+
 def render_terminal(snapshot: dict[str, Any], *, no_color: bool = False) -> str:
     """ANSI-colored dense multi-column terminal dashboard output.
 
@@ -66,19 +82,32 @@ def render_terminal(snapshot: dict[str, Any], *, no_color: bool = False) -> str:
     lines: list[str] = []
     _render_summary_terminal(snapshot, lines)
     _render_header_terminal(snapshot, lines)
-    _render_now_terminal(snapshot, lines)
-    _render_codex_activity_terminal(snapshot, lines)
-    _render_health_terminal(snapshot, lines)
-    _render_workers_terminal(snapshot, lines)
-    _render_plan_terminal(snapshot, lines)
-    _render_findings_terminal(snapshot, lines)
-    _render_publication_terminal(snapshot, lines)
-    _render_quality_terminal(snapshot, lines)
-    _render_audit_terminal(snapshot, lines)
-    _render_analytics_terminal(snapshot, lines)
-    _render_coordination_terminal(snapshot, lines)
-    _render_flow_terminal(snapshot, lines)
-    _render_timeline_terminal(snapshot, lines)
+    if _view_includes(snapshot, "now"):
+        _render_now_terminal(snapshot, lines)
+    if _view_includes(snapshot, "reviewer_activity"):
+        _render_reviewer_activity_terminal(snapshot, lines)
+    if _view_includes(snapshot, "health"):
+        _render_health_terminal(snapshot, lines)
+    if _view_includes(snapshot, "workers"):
+        _render_workers_terminal(snapshot, lines)
+    if _view_includes(snapshot, "plan"):
+        _render_plan_terminal(snapshot, lines)
+    if _view_includes(snapshot, "findings"):
+        _render_findings_terminal(snapshot, lines)
+    if _view_includes(snapshot, "publication"):
+        _render_publication_terminal(snapshot, lines)
+    if _view_includes(snapshot, "quality"):
+        _render_quality_terminal(snapshot, lines)
+    if _view_includes(snapshot, "audit"):
+        _render_audit_terminal(snapshot, lines)
+    if _view_includes(snapshot, "analytics"):
+        _render_analytics_terminal(snapshot, lines)
+    if _view_includes(snapshot, "coordination"):
+        _render_coordination_terminal(snapshot, lines)
+    if _view_includes(snapshot, "flow"):
+        _render_flow_terminal(snapshot, lines)
+    if _view_includes(snapshot, "timeline"):
+        _render_timeline_terminal(snapshot, lines)
     result = "\n".join(lines)
     if _should_strip_color(no_color):
         result = strip_ansi(result)
@@ -90,19 +119,32 @@ def render_markdown(snapshot: dict[str, Any]) -> str:
     lines: list[str] = []
     _render_summary_markdown(snapshot, lines)
     _render_header_markdown(snapshot, lines)
-    _render_now_markdown(snapshot, lines)
-    _render_codex_activity_markdown(snapshot, lines)
-    _render_health_markdown(snapshot, lines)
-    _render_workers_markdown(snapshot, lines)
-    _render_plan_markdown(snapshot, lines)
-    _render_findings_markdown(snapshot, lines)
-    _render_publication_markdown(snapshot, lines)
-    _render_quality_markdown(snapshot, lines)
-    _render_audit_markdown(snapshot, lines)
-    _render_analytics_markdown(snapshot, lines)
-    _render_coordination_markdown(snapshot, lines)
-    _render_flow_markdown(snapshot, lines)
-    _render_timeline_markdown(snapshot, lines)
+    if _view_includes(snapshot, "now"):
+        _render_now_markdown(snapshot, lines)
+    if _view_includes(snapshot, "reviewer_activity"):
+        _render_reviewer_activity_markdown(snapshot, lines)
+    if _view_includes(snapshot, "health"):
+        _render_health_markdown(snapshot, lines)
+    if _view_includes(snapshot, "workers"):
+        _render_workers_markdown(snapshot, lines)
+    if _view_includes(snapshot, "plan"):
+        _render_plan_markdown(snapshot, lines)
+    if _view_includes(snapshot, "findings"):
+        _render_findings_markdown(snapshot, lines)
+    if _view_includes(snapshot, "publication"):
+        _render_publication_markdown(snapshot, lines)
+    if _view_includes(snapshot, "quality"):
+        _render_quality_markdown(snapshot, lines)
+    if _view_includes(snapshot, "audit"):
+        _render_audit_markdown(snapshot, lines)
+    if _view_includes(snapshot, "analytics"):
+        _render_analytics_markdown(snapshot, lines)
+    if _view_includes(snapshot, "coordination"):
+        _render_coordination_markdown(snapshot, lines)
+    if _view_includes(snapshot, "flow"):
+        _render_flow_markdown(snapshot, lines)
+    if _view_includes(snapshot, "timeline"):
+        _render_timeline_markdown(snapshot, lines)
     return "\n".join(lines)
 
 
@@ -275,12 +317,14 @@ def _render_now_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
     lines.append("")
 
 
-def _render_codex_activity_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
-    """REVIEWER (Codex): what Codex has been doing, parsed from bridge.md."""
-    activity = snapshot.get("codex_activity", {})
+def _render_reviewer_activity_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
+    """REVIEWER: what the reviewer has been doing, parsed from bridge.md."""
+    activity = snapshot.get("reviewer_activity", {})
     if not activity:
         return
-    lines.append(f"{_BOLD}REVIEWER (Codex){_RESET}")
+    provider = activity.get("provider", "unknown")
+    provider_label = f" ({provider})" if provider and provider != "unknown" else ""
+    lines.append(f"{_BOLD}REVIEWER{provider_label}{_RESET}")
     lines.append(f"  Last poll      {activity.get('last_poll_age', '--')}")
     verdict = activity.get("last_verdict", "n/a")
     verdict_color = _CYAN if verdict != "n/a" else _DIM
@@ -497,7 +541,9 @@ def _render_audit_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
 
 
 def _render_analytics_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
-    """ANALYTICS: time-to-green and event stats from data science summary."""
+    """ANALYTICS: time-to-green, event stats, sparklines, and bar charts."""
+    from .dashboard_charts import bar_chart, progress_bar, sparkline
+
     analytics = snapshot.get("analytics", {})
     if not analytics or analytics.get("total_events") == "n/a":
         return
@@ -510,6 +556,18 @@ def _render_analytics_terminal(snapshot: dict[str, Any], lines: list[str]) -> No
         f"Success {_fmt_pct(rate)}  "
         f"Avg TTG {_fmt_timer(ttg)}"
     )
+    push_vals = analytics.get("push_success_values", [])
+    if push_vals:
+        spark = sparkline(push_vals)
+        lines.append(f"  Push success: {spark} (last {len(push_vals)})")
+    cleanup = analytics.get("cleanup_rate_pct", "n/a")
+    if isinstance(cleanup, (int, float)):
+        lines.append(f"  Cleanup:      {progress_bar(cleanup / 100)}")
+    top_cmds = analytics.get("top_commands", [])
+    if top_cmds:
+        lines.append("")
+        lines.append("  Top commands:")
+        lines.append(bar_chart(top_cmds))
     lines.append("")
 
 
@@ -659,11 +717,13 @@ def _render_now_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
     lines.append("")
 
 
-def _render_codex_activity_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
-    activity = snapshot.get("codex_activity", {})
+def _render_reviewer_activity_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
+    activity = snapshot.get("reviewer_activity", {})
     if not activity:
         return
-    lines.append("## Reviewer (Codex)")
+    provider = activity.get("provider", "unknown")
+    provider_label = f" ({provider})" if provider and provider != "unknown" else ""
+    lines.append(f"## Reviewer{provider_label}")
     lines.append("")
     lines.append(f"- **Last poll**: {activity.get('last_poll_age', '--')}")
     lines.append(f"- **Verdict**: {activity.get('last_verdict', 'n/a')}")
@@ -807,6 +867,8 @@ def _render_audit_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
 
 
 def _render_analytics_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
+    from .dashboard_charts import bar_chart, progress_bar, sparkline
+
     analytics = snapshot.get("analytics", {})
     if not analytics or analytics.get("total_events") == "n/a":
         return
@@ -815,6 +877,19 @@ def _render_analytics_markdown(snapshot: dict[str, Any], lines: list[str]) -> No
     lines.append(f"- **Events**: {analytics.get('total_events', 'n/a')}")
     lines.append(f"- **Success rate**: {_fmt_pct(analytics.get('command_success_rate_pct', 'n/a'))}")
     lines.append(f"- **Avg TTG**: {_fmt_timer(analytics.get('avg_time_to_green_s', 'n/a'))}")
+    push_vals = analytics.get("push_success_values", [])
+    if push_vals:
+        lines.append(f"- **Push success**: `{sparkline(push_vals)}` (last {len(push_vals)})")
+    cleanup = analytics.get("cleanup_rate_pct", "n/a")
+    if isinstance(cleanup, (int, float)):
+        lines.append(f"- **Cleanup**: `{progress_bar(cleanup / 100)}`")
+    top_cmds = analytics.get("top_commands", [])
+    if top_cmds:
+        lines.append("")
+        lines.append("**Top commands**:")
+        lines.append("```")
+        lines.append(bar_chart(top_cmds))
+        lines.append("```")
     lines.append("")
 
 

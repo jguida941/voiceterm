@@ -216,6 +216,12 @@ def _add_dashboard_parser(sub: argparse._SubParsersAction) -> None:
         default_format="terminal",
     )
     dash.add_argument(
+        "--view",
+        choices=["overview", "dev", "analytics", "quality", "audit", "publication", "health"],
+        default="overview",
+        help="Dashboard view: overview (all), dev, analytics, quality, audit, publication, health",
+    )
+    dash.add_argument(
         "--follow",
         action="store_true",
         default=False,
