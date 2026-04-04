@@ -1,6 +1,6 @@
 # AI Governance Platform
 
-**Status**: active reference  |  **Last updated**: 2026-03-27 | **Owner:** Tooling/control plane/product architecture
+**Status**: active reference  |  **Last updated**: 2026-04-03 | **Owner:** Tooling/control plane/product architecture
 
 This guide is the maintainable "whitepaper plus flowchart" for the reusable AI
 governance platform direction.
@@ -11,6 +11,10 @@ roadmap.
 Use this guide for the durable product thesis, platform shape, and system
 flows.
 It is a companion guide, not a second active execution plan for this scope.
+For the current repo-backed proof ledger and market-positioning evidence
+companion, see `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`.
+Use that ledger as the maintained external-audit entrypoint for GitHub-backed,
+ChatGPT-style, or human developer review over this repo's proof surfaces.
 
 ## Core Thesis
 

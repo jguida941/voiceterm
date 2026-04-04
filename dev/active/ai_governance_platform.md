@@ -7600,6 +7600,17 @@ Execution order for this section:
   still needs typed reviewer-owned prose / wait-reason state and the planned
   `DecisionTrace` chain so bridge markdown can shrink to projection/handoff
   only instead of still hosting some reviewer-authored narrative fields.
+- 2026-04-03: Added the maintained reference-only proof ledger at
+  `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` so the repo has
+  one current answer to "what is proved now, what is still open, what
+  cross-repo evidence exists, and how does this differ from the market?"
+  without turning transient chat analysis into shadow authority. The ledger is
+  intentionally an index over repo-owned artifacts and typed/runtime surfaces
+  rather than a second roadmap: it points at `startup-context`,
+  `review-channel doctor`, governance-review/data-science/probe summaries,
+  external pilot ledgers, and the owning `MP-377` / `MP-376` plans, and it
+  carries an explicit upkeep rule to update the same change whenever proof
+  claims, commands, or artifact owners move.
 
 ## Audit Evidence
 
@@ -7611,6 +7622,13 @@ Execution order for this section:
   integrations, AGENTS/memory conversion ideas, and related proof chains.
   They are useful implementation/review companions in this workspace, but the
   tracked plan chain remains the canonical execution authority.
+- Maintained platform proof index (reference-only, non-authoritative):
+  `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` collects the
+  current self-hosting POC boundary, market comparison, cross-repo pilot proof
+  links, validation commands, and canonical artifact/ledger map in one place.
+  Update it when proof claims materially change, but keep accepted execution
+  decisions promoted into this plan, `MASTER_PLAN`, and the companion portable
+  adoption plan instead of treating the ledger as a second tracker.
 - `dev/scripts/checks/package_layout/shim_validation.py`
 - `dev/scripts/checks/package_layout/directory_crowding.py`
 - `dev/scripts/devctl/tests/checks/package_layout/test_rules.py`
