@@ -106,6 +106,24 @@ contract exists.
   - AUD-14 (REMOTE SESSION AUTO-ROLLOVER): When a Claude remote-control session degrades (low context window, high token usage, compaction happening), the system should automatically: (1) save all state to bridge.md + plan doc, (2) start a fresh Claude session that picks up where it left off, (3) stop the degraded session. The new session reads bridge + plan doc and continues work. The old session stops cleanly — not left hanging. Same for Codex sessions. This is the existing `HandoffBundle` → `rollover ACK` contract but wired for Claude-to-Claude handoff, not just Codex-to-Codex. The operator should NOT have to manually kill old sessions or start new ones — the system handles it. Dashboard should show: "Session 1 degraded → Session 2 started → Session 1 stopped." Codex: integrate into Slice A (headless lifecycle) and Slice E (auto-poll cadence).
   - AUD-13 (SESSION CLEANUP / TERMINAL LIFECYCLE): Stale Terminal.app windows and daemon processes accumulate across sessions. When a Codex conductor exits, the Terminal window stays open. When a daemon is launched, it persists after the session ends. In remote-control mode, nobody is at the keyboard to close them. The architecture needs: (1) a `devctl session-cleanup` command that kills stale conductor/daemon processes and closes orphaned Terminal windows, (2) automatic cleanup on session end (conductor exit hook), (3) cleanup on session START (before launching new conductors, verify no orphans from previous sessions), (4) dashboard should show active sessions/windows/daemons and flag orphans, (5) `review-channel --action launch` should refuse if orphan sessions exist and offer `--force` to clean first. This is part of the headless lifecycle (Slice A/MP-382) and remote-control mode (Slice A/MP-380). Codex: integrate into the plan.
 
+## ChatGPT Architecture Review Audit (2026-04-04, 8-agent validation)
+
+External review identified core problem: "too many partially smart surfaces, not enough single-owner resolved state." 8 Claude agents validated against codebase:
+
+### P0 — Must Fix
+- **ONE resolved control state**: 4 independent reducers (push_decision, advisory_decision, status_push_decision, dashboard_summary) compute state with different vocabularies. Need ONE enum: `awaiting_checkpoint | awaiting_review | push_ready | push_blocked | guards_failed`. All surfaces render only that.
+- **Session lease model**: No lease concept anywhere. Need: ConductorSessionLease (expiry, renewal, invalidation), WorkerLease, LastAckRevision, ExpectedStateHash, StaleTimeoutClass, RecoverabilityClass. Recovery becomes deterministic: stale+no conductor+reviewer owns turn → awaiting_implementer_recovery → actions narrow.
+
+### P1 — Important
+- **Read/write separation**: `build_snapshot` reads files AND computes decisions. Need ONE `ControlPlaneReadModel` built once, consumed by all. `TypedAction→ActionResult` stays separate.
+- **Bridge is still control authority**: 4 paths read bridge.md as authority (liveness gate, turn authority, action dispatch, push gate). Need typed `ReviewerHeartbeat`, `TurnAuthority`, `PacketPostRequest`-backed actions to retire bridge.
+- **Typed reasoning**: `RuleMatchEvidenceRecord` exists but missing `evidence_refs`, `blocked_by`, `next_allowed_actions`, `next_recommended_action`. Can't assemble "Push blocked because X" from typed fields.
+- **Cross-surface invariants**: Only 14 tests, partial coverage. Need 3 proof tests: all-surfaces-agree-on-push-ready, publisher-false-blocks-push, no-conductor-blocks-active.
+
+### P1+ — Architecture
+- **Parallel worktrees**: `LaneAssignment.worktree` parsed but never consumed by launcher. 3 gaps: add worktree_path to LaunchSessionRequest, wire git worktree in build_session_script, pass per-worktree path to conductor prompt.
+- **Portability**: `repo_packs/voiceterm.py` correctly isolated but `active_path_config()` defaults to VoiceTerm. No pip package. No second repo-pack registered.
+
 ## Session Resume
 
 - Current status: architecture review is complete and the closure plan is now
