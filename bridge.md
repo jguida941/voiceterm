@@ -214,19 +214,26 @@ path and the inactive-mode fail-closed guard.
 ## Claude Status
 
 - acknowledged instruction revision: 4885340b6f96
-- DONE: Launch ACK tightening committed at `bff99a8`.
-- Changed `dev/scripts/devctl/review_channel/handoff.py`: `bridge_poll_moved` is now mandatory gate. Typed launch truth supplements but cannot bypass fresh poll requirement.
-- Added `test_wait_for_codex_poll_refresh_fails_closed_when_codex_poll_does_not_advance` in `test_review_channel.py`.
-- Tests: 4 targeted pass (observe_launch, wait_for_codex_poll x2, run_launch_live). check_active_plan_sync PASS. check_multi_agent_sync PASS.
-- Pre-existing failures: docs-check (branch-level doc debt), check_review_channel_bridge (stale bridge poll timestamp).
+- COMPLETED: Read-only no-write-safe slice (F2 from prior instruction):
+  - `dev/scripts/devctl/cli.py`: Added `DEVCTL_NO_ARTIFACT_WRITES` env var, set for READ_ONLY_COMMANDS before handler dispatch, cleaned in finally.
+  - `dev/scripts/devctl/commands/governance/startup_context.py`: Conditional receipt write — skips `write_startup_receipt()` under suppression, returns path without writing.
+  - `dev/scripts/devctl/context_graph/command.py`: Conditional bootstrap snapshot auto-save — suppressed under env var, explicit `--save-snapshot` still writes.
+  - `dev/scripts/devctl/tests/test_read_only_commands.py`: 6 new regression tests (env set/clear lifecycle, startup receipt skip, context-graph snapshot skip, explicit override).
+- Tests: 12/12 read-only pass, 98 broader pass (startup + authority + snapshot + audit). End-to-end verified: receipt mtime unchanged, snapshot count unchanged after running commands.
+- `check --profile ci`: all guards pass. Only FAIL is `launch_truth` (runtime liveness, not code quality).
+- Pre-existing: `docs-check --strict-tooling` fails on branch-level doc debt (not related to this change).
+- Prior instruction's launch ACK fix remains committed at `bff99a8`.
 
 ## Claude Questions
 
-- None recorded.
+- Q1: The dirty `bridge_launch_control.py` (lightweight `observe_launch_state`) is still uncommitted. Should I commit the read-only slice separately from the launch control changes, or bundle them?
+- Q2: CRITICAL DIVERGENCE: `full.json` reports `codex_conductor_active: false` while Codex processes ARE alive (PIDs 62450, 72199, 75960 confirmed running). The conductor is not polling the bridge even though the process exists. `launch_truth` and process liveness have diverged — the system thinks Codex is dead but it's running. Is this the same authority bypass pattern from F1? Should the dashboard detect this and trigger the repo-owned recovery path?
+- Q3: We had plans for Codex rollover/restart through `HandoffBundle` + `peer_recovery.py`. Should the dashboard detect `codex_conductor_active: false` + stale heartbeat and recommend `review-channel --action recover --recover-provider codex`?
 
 ## Claude Ack
 
-- acknowledged current instruction revision: 4885340b6f96
+- acknowledged; instruction-rev: 4885340b6f96
+- Current instruction items were completed by prior turn. This turn implemented the read-only no-write-safe slice (F2).
 
 ## Current Instruction For Claude
 
