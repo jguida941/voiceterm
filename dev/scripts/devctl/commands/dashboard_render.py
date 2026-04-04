@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 from typing import Any
+
+# Pre-compiled pattern for stripping ANSI escape sequences
+_ANSI_RE = re.compile(r"\033\[[^m]*m")
 
 # ANSI escape helpers — semantic colors only
 _GREEN = "\033[32m"
@@ -31,14 +36,41 @@ def render_json(snapshot: dict[str, Any]) -> str:
     return json.dumps(snapshot, indent=2)
 
 
-def render_terminal(snapshot: dict[str, Any]) -> str:
-    """ANSI-colored dense multi-column terminal dashboard output."""
+def strip_ansi(text: str) -> str:
+    """Remove all ANSI escape sequences (e.g. ``\\033[1m``) from *text*.
+
+    Useful when piping terminal output to environments that render raw
+    escape codes as visible text (mobile apps, log files, CI artifacts).
+    """
+    return _ANSI_RE.sub("", text)
+
+
+def _should_strip_color(no_color: bool) -> bool:
+    """Return True when ANSI codes should be stripped.
+
+    Respects the ``--no-color`` CLI flag and the ``NO_COLOR`` environment
+    variable (see https://no-color.org/).
+    """
+    if no_color:
+        return True
+    return os.environ.get("NO_COLOR", "") != ""
+
+
+def render_terminal(snapshot: dict[str, Any], *, no_color: bool = False) -> str:
+    """ANSI-colored dense multi-column terminal dashboard output.
+
+    When *no_color* is ``True`` (or the ``NO_COLOR`` env var is set),
+    all ANSI escape sequences are stripped from the result so the output
+    is safe for environments that do not interpret them.
+    """
     lines: list[str] = []
     _render_header_terminal(snapshot, lines)
     _render_now_terminal(snapshot, lines)
+    _render_codex_activity_terminal(snapshot, lines)
     _render_health_terminal(snapshot, lines)
     _render_workers_terminal(snapshot, lines)
     _render_plan_terminal(snapshot, lines)
+    _render_findings_terminal(snapshot, lines)
     _render_publication_terminal(snapshot, lines)
     _render_quality_terminal(snapshot, lines)
     _render_audit_terminal(snapshot, lines)
@@ -46,7 +78,10 @@ def render_terminal(snapshot: dict[str, Any]) -> str:
     _render_coordination_terminal(snapshot, lines)
     _render_flow_terminal(snapshot, lines)
     _render_timeline_terminal(snapshot, lines)
-    return "\n".join(lines)
+    result = "\n".join(lines)
+    if _should_strip_color(no_color):
+        result = strip_ansi(result)
+    return result
 
 
 def render_markdown(snapshot: dict[str, Any]) -> str:
@@ -54,9 +89,11 @@ def render_markdown(snapshot: dict[str, Any]) -> str:
     lines: list[str] = []
     _render_header_markdown(snapshot, lines)
     _render_now_markdown(snapshot, lines)
+    _render_codex_activity_markdown(snapshot, lines)
     _render_health_markdown(snapshot, lines)
     _render_workers_markdown(snapshot, lines)
     _render_plan_markdown(snapshot, lines)
+    _render_findings_markdown(snapshot, lines)
     _render_publication_markdown(snapshot, lines)
     _render_quality_markdown(snapshot, lines)
     _render_audit_markdown(snapshot, lines)
@@ -72,7 +109,7 @@ def render_markdown(snapshot: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 def _render_header_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
-    """Header: title, repo identity, loop state — all on three lines."""
+    """Header: title, repo identity, git state, loop mode — dense layout."""
     repo = snapshot.get("repo", {})
     review = snapshot.get("review", {})
     mode = review.get("mode", "n/a")
@@ -83,18 +120,47 @@ def _render_header_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
     title = f"{_BOLD}GOVERNANCE DASHBOARD{_RESET}"
     refresh = f"{_DIM}refresh: --{_RESET}"
     lines.append(f"{title}{' ' * max(1, _WIDTH - 20 - 12)}{refresh}")
+
+    # Row 1: repo name, branch, HEAD sha
     lines.append(
         f"Repo: {repo.get('name', 'unknown')}   "
         f"Branch: {repo.get('branch', 'unknown')}   "
         f"HEAD: {repo.get('head', 'unknown')}"
     )
+
+    # Row 2: ahead/behind, dirty file count, worktree state
+    ahead = repo.get("ahead", 0)
+    behind = repo.get("behind", 0)
+    dirty_files = repo.get("dirty_files", 0)
+    ahead_label = f"{ahead}"
+    if behind:
+        ahead_label += f" / Behind: {behind}"
+    dirty_label = f"{dirty_files} file{'s' if dirty_files != 1 else ''}"
+    lines.append(
+        f"Ahead: {ahead_label:<14}"
+        f"Dirty: {dirty_label:<35}"
+        f"Worktree: {worktree_color}{worktree}{_RESET}"
+    )
+
+    # Row 3: loop and mode
+    session_label = repo.get("session", "--")
     mode_label = _mode_display(mode)
     lines.append(
         f"Loop: {mode_color}{_loop_label(mode)}{_RESET}      "
         f"Mode: {mode_label}      "
-        f"Worktree: {worktree_color}{worktree}{_RESET}"
+        f"Session: {_CYAN}{session_label}{_RESET}"
     )
     lines.append("")
+
+    # Recent commits sub-section
+    recent = repo.get("recent_commits", [])
+    if recent:
+        lines.append(f"{_BOLD}RECENT COMMITS{_RESET}")
+        for commit in recent:
+            sha = commit.get("sha", "???????")
+            msg = commit.get("message", "")
+            lines.append(f"  {_DIM}{sha}{_RESET}  {msg}")
+        lines.append("")
 
 
 def _render_now_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
@@ -113,6 +179,29 @@ def _render_now_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
     blocker_color = _RED if blocker != "none" else _GREEN
     lines.append(f"  Top blocker    {blocker_color}{blocker}{_RESET}")
     lines.append(f"  Last change    {now.get('last_change_label', '--')}")
+    instr_text = now.get("instruction_text", "n/a")
+    if instr_text and instr_text != "n/a":
+        lines.append(f"  Instruction    {_DIM}{instr_text}{_RESET}")
+    lines.append("")
+
+
+def _render_codex_activity_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
+    """REVIEWER (Codex): what Codex has been doing, parsed from bridge.md."""
+    activity = snapshot.get("codex_activity", {})
+    if not activity:
+        return
+    lines.append(f"{_BOLD}REVIEWER (Codex){_RESET}")
+    lines.append(f"  Last poll      {activity.get('last_poll_age', '--')}")
+    verdict = activity.get("last_verdict", "n/a")
+    verdict_color = _CYAN if verdict != "n/a" else _DIM
+    lines.append(f"  Verdict        {verdict_color}{verdict}{_RESET}")
+    lines.append(f"  Reviewed       {activity.get('reviewed_files', 0)} files")
+    instr = activity.get("instruction_summary", "n/a")
+    instr_color = _CYAN if instr != "n/a" else _DIM
+    lines.append(f"  Instruction    {instr_color}{instr}{_RESET}")
+    findings = activity.get("findings_posted", 0)
+    f_color = _YELLOW if findings > 0 else _GREEN
+    lines.append(f"  Findings       {f_color}{findings} posted{_RESET}")
     lines.append("")
 
 
@@ -137,6 +226,25 @@ def _render_health_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
             f"Last heartbeat {_DIM}{hb_age}{_RESET}    "
             f"{snaps} snapshots"
         )
+
+    # Conductor process liveness (Codex / Claude)
+    for label, key in (("Codex", "codex_conductor"), ("Claude", "claude_conductor")):
+        conductor = health.get(key, {})
+        pid = conductor.get("pid")
+        alive = conductor.get("alive", False)
+        if pid is not None:
+            state_label = "RUNNING" if alive else "DEAD"
+            state_color = _GREEN if alive else _RED
+            detail = "" if alive else f"   {_DIM}(process not found){_RESET}"
+            lines.append(
+                f"  {label:<15}{state_color}{state_label:<10}{_RESET}"
+                f"PID {pid:<8}{detail}"
+            )
+        else:
+            lines.append(
+                f"  {label:<15}{_DIM}{'NO SESSION':<10}{_RESET}"
+                f"{_DIM}(no conductor session file){_RESET}"
+            )
 
     attn_status = health.get("attention_status", "n/a")
     attn_summary = health.get("attention_summary", "n/a")
@@ -186,6 +294,19 @@ def _render_plan_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
     f_color = _YELLOW if findings > 0 else _GREEN
     lines.append(f"  Open findings  {f_color}{findings}{_RESET}")
     lines.append(f"  Pending        {plan.get('pending', 0)}")
+    lines.append("")
+
+
+def _render_findings_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
+    """FINDINGS: structured bridge findings when available."""
+    findings = snapshot.get("findings", [])
+    if not findings:
+        return
+    lines.append(f"{_BOLD}FINDINGS{_RESET}")
+    for f in findings:
+        fid = f.get("id", "?")
+        summary = f.get("summary", "")
+        lines.append(f"  {_YELLOW}{fid}{_RESET}  {summary}")
     lines.append("")
 
 
@@ -321,6 +442,10 @@ def _render_coordination_terminal(snapshot: dict[str, Any], lines: list[str]) ->
         f"  Reviewer   {rev_age}      "
         f"Implementer      {impl_color}{impl_state}{_RESET}"
     )
+    session_age = coord.get("session_age", "--")
+    session_started = coord.get("session_started", "")
+    started_suffix = f" (started {session_started} UTC)" if session_started else ""
+    lines.append(f"  Session    {session_age}{started_suffix}")
     lines.append("")
 
 
@@ -384,8 +509,7 @@ def _align_flow_symbols(stages: list[str], symbols: list[str]) -> str:
 
 def _visible_len(s: str) -> int:
     """Length of a string excluding ANSI escape sequences."""
-    import re
-    return len(re.sub(r"\033\[[^m]*m", "", s))
+    return len(_ANSI_RE.sub("", s))
 
 
 # ---------------------------------------------------------------------------
@@ -396,6 +520,13 @@ def _render_header_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
     repo = snapshot.get("repo", {})
     review = snapshot.get("review", {})
     mode = review.get("mode", "n/a")
+    ahead = repo.get("ahead", 0)
+    behind = repo.get("behind", 0)
+    dirty_files = repo.get("dirty_files", 0)
+    ahead_label = str(ahead)
+    if behind:
+        ahead_label += f" / Behind: {behind}"
+
     lines.append("# Governance Dashboard")
     lines.append("")
     lines.append("| Field | Value |")
@@ -403,10 +534,23 @@ def _render_header_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
     lines.append(f"| Repo | {repo.get('name', 'unknown')} |")
     lines.append(f"| Branch | {repo.get('branch', 'unknown')} |")
     lines.append(f"| HEAD | {repo.get('head', 'unknown')} |")
+    lines.append(f"| Ahead | {ahead_label} |")
+    lines.append(f"| Dirty | {dirty_files} file{'s' if dirty_files != 1 else ''} |")
     lines.append(f"| Loop | {_loop_label(mode)} |")
     lines.append(f"| Mode | {_mode_display(mode)} |")
+    lines.append(f"| Session | {repo.get('session', '--')} |")
     lines.append(f"| Worktree | {repo.get('worktree', 'unknown')} |")
     lines.append("")
+
+    recent = repo.get("recent_commits", [])
+    if recent:
+        lines.append("### Recent Commits")
+        lines.append("")
+        for commit in recent:
+            sha = commit.get("sha", "???????")
+            msg = commit.get("message", "")
+            lines.append(f"- `{sha}` {msg}")
+        lines.append("")
 
 
 def _render_now_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
@@ -419,6 +563,23 @@ def _render_now_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
     lines.append(f"- **Next action**: {now.get('next_action', 'n/a')}")
     lines.append(f"- **Top blocker**: {now.get('top_blocker', 'none')}")
     lines.append(f"- **Last change**: {now.get('last_change_label', '--')}")
+    instr_text = now.get("instruction_text", "n/a")
+    if instr_text and instr_text != "n/a":
+        lines.append(f"- **Instruction**: {instr_text}")
+    lines.append("")
+
+
+def _render_codex_activity_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
+    activity = snapshot.get("codex_activity", {})
+    if not activity:
+        return
+    lines.append("## Reviewer (Codex)")
+    lines.append("")
+    lines.append(f"- **Last poll**: {activity.get('last_poll_age', '--')}")
+    lines.append(f"- **Verdict**: {activity.get('last_verdict', 'n/a')}")
+    lines.append(f"- **Reviewed**: {activity.get('reviewed_files', 0)} files")
+    lines.append(f"- **Instruction**: {activity.get('instruction_summary', 'n/a')}")
+    lines.append(f"- **Findings**: {activity.get('findings_posted', 0)} posted")
     lines.append("")
 
 
@@ -436,6 +597,16 @@ def _render_health_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
             f"| Last heartbeat {daemon.get('last_heartbeat', 'n/a')} "
             f"| {daemon.get('snapshots', 0)} snapshots"
         )
+    for label, key in (("Codex", "codex_conductor"), ("Claude", "claude_conductor")):
+        conductor = health.get(key, {})
+        pid = conductor.get("pid")
+        alive = conductor.get("alive", False)
+        if pid is not None:
+            state = "RUNNING" if alive else "DEAD"
+            detail = "" if alive else " (process not found)"
+            lines.append(f"- **{label}**: {state} | PID {pid}{detail}")
+        else:
+            lines.append(f"- **{label}**: NO SESSION (no conductor session file)")
     attn = health.get("attention_status", "n/a")
     summary = health.get("attention_summary", "n/a")
     lines.append(f"- **Attention**: {attn} — {summary}")
@@ -470,6 +641,20 @@ def _render_plan_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
     lines.append(f"- **Progress**: {plan.get('progress', 'n/a')}")
     lines.append(f"- **Open findings**: {plan.get('open_findings', 0)}")
     lines.append(f"- **Pending**: {plan.get('pending', 0)}")
+    lines.append("")
+
+
+def _render_findings_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
+    """FINDINGS: structured bridge findings when available."""
+    findings = snapshot.get("findings", [])
+    if not findings:
+        return
+    lines.append("## Findings")
+    lines.append("")
+    for f in findings:
+        fid = f.get("id", "?")
+        summary = f.get("summary", "")
+        lines.append(f"- **{fid}**: {summary}")
     lines.append("")
 
 
@@ -551,6 +736,10 @@ def _render_coordination_markdown(snapshot: dict[str, Any], lines: list[str]) ->
     lines.append(f"- **Instruction rev**: `{coord.get('instruction_rev', 'n/a')}`")
     lines.append(f"- **Reviewer**: {coord.get('reviewer_age', '--')}")
     lines.append(f"- **Implementer**: {coord.get('implementer_state', 'n/a')}")
+    session_age = coord.get("session_age", "--")
+    session_started = coord.get("session_started", "")
+    started_suffix = f" (started {session_started} UTC)" if session_started else ""
+    lines.append(f"- **Session age**: {session_age}{started_suffix}")
     lines.append("")
 
 

@@ -19,6 +19,7 @@ def _make_args(**overrides) -> SimpleNamespace:
         "pipe_command": None,
         "pipe_args": None,
         "follow": False,
+        "no_color": False,
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -129,6 +130,33 @@ def _minimal_bridge_text() -> str:
     )
 
 
+def _rich_bridge_text() -> str:
+    """Bridge text with all reviewer-owned sections for codex_activity tests."""
+    return (
+        "# Review Bridge\n\n"
+        "- Last Codex poll: `2026-04-04T01:52:56Z`\n"
+        "- Reviewer mode: `active_dual_agent`\n\n"
+        "## Current Verdict\n\n"
+        "- Launch ACK bypass found: typed launch truth substitutes for fresh poll\n"
+        "- Change Summary: the optimization weakens the live-launch ACK contract\n\n"
+        "## Open Findings\n\n"
+        "- F1: handoff.py accepts launch success with stale poll\n"
+        "- F2: test coverage missing for fail-closed path\n\n"
+        "## Current Instruction For Claude\n\n"
+        "- Tighten wait_for_codex_poll_refresh so typed launch truth requires fresh turn\n"
+        "- Add focused regression test for fail-closed behavior\n\n"
+        "## Last Reviewed Scope\n\n"
+        "- dev/scripts/devctl/commands/review_channel/bridge_launch_control.py\n"
+        "- dev/scripts/devctl/review_channel/handoff.py\n"
+        "- dev/scripts/devctl/review_channel/launch_truth.py\n"
+        "- dev/scripts/devctl/review_channel/session_probe.py\n"
+        "- dev/scripts/devctl/review_channel/peer_liveness.py\n"
+        "- dev/scripts/devctl/tests/review_channel/test_review_channel.py\n"
+        "- dev/active/review_channel.md\n"
+        "- dev/active/MASTER_PLAN.md\n"
+    )
+
+
 def _full_snapshot() -> dict:
     """A fully populated snapshot for terminal rendering tests."""
     return {
@@ -140,6 +168,15 @@ def _full_snapshot() -> dict:
             "branch": "feature/governance-quality-sweep",
             "head": "abc1234",
             "worktree": "CLEAN",
+            "session": "45m",
+            "ahead": 5,
+            "behind": 0,
+            "dirty_files": 0,
+            "recent_commits": [
+                {"sha": "abc1234", "message": "Bridge: launch ACK fix complete"},
+                {"sha": "bff99a8", "message": "Tighten launch ACK: require fresh Codex poll"},
+                {"sha": "0a83eaf", "message": "Bridge: ack instruction 4885340b6f96"},
+            ],
         },
         "now": {
             "owner": "Reviewer",
@@ -148,6 +185,7 @@ def _full_snapshot() -> dict:
             "top_blocker": "code-shape debt in common_io.py",
             "last_change_age_s": 42,
             "last_change_label": "42s ago",
+            "instruction_text": "Tighten wait_for_codex_poll_refresh so typed launch truth requires fresh turn",
         },
         "review": {
             "reviewer_state": "review_needed",
@@ -167,8 +205,16 @@ def _full_snapshot() -> dict:
             "slice": "MP-377 publication-target parity",
             "progress": "3/3 sub-slices complete",
             "open_findings": 2,
+            "findings_detail": [
+                {"id": "F1", "summary": "handoff.py accepts launch success with stale poll"},
+                {"id": "F2", "summary": "test coverage missing for fail-closed path"},
+            ],
             "pending": 0,
         },
+        "findings": [
+            {"id": "F1", "summary": "handoff.py accepts launch success with stale poll"},
+            {"id": "F2", "summary": "test coverage missing for fail-closed path"},
+        ],
         "publication": {
             "state": "NOT_PUBLISHED",
             "effective": "NOT CURRENT",
@@ -206,6 +252,8 @@ def _full_snapshot() -> dict:
             "implementer_state": "current",
             "pending_findings": "2 findings",
             "next_action": "run_devctl_push",
+            "session_age": "45m",
+            "session_started": "03:05:00",
         },
         "health": {
             "publisher": {
@@ -218,9 +266,18 @@ def _full_snapshot() -> dict:
                 "last_heartbeat": "2026-04-04T01:10:00Z",
                 "last_heartbeat_age": "2h ago", "snapshots": 46,
             },
+            "codex_conductor": {"pid": 12345, "alive": False},
+            "claude_conductor": {"pid": 67890, "alive": True},
             "attention_status": "inactive",
             "attention_summary": "loop in inactive mode",
             "active_daemons": 0,
+        },
+        "codex_activity": {
+            "last_poll_age": "12m ago",
+            "last_verdict": "Launch ACK bypass found: typed launch truth substitutes for fresh poll...",
+            "reviewed_files": 8,
+            "instruction_summary": "Tighten wait_for_codex_poll_refresh so typed launch truth requires fres...",
+            "findings_posted": 2,
         },
         "flow": {
             "review": "pass",
@@ -259,7 +316,7 @@ class TestDashboardSnapshotSections(unittest.TestCase):
             required = {
                 "repo", "now", "health", "review", "workers", "plan",
                 "publication", "quality", "audit", "analytics",
-                "coordination", "flow", "timeline",
+                "coordination", "codex_activity", "flow", "timeline",
             }
             self.assertTrue(required.issubset(snapshot.keys()), f"Missing: {required - snapshot.keys()}")
             self.assertEqual(snapshot["schema_version"], 2)
@@ -420,6 +477,7 @@ class TestDashboardTerminalOutput(unittest.TestCase):
         self.assertIn("\033[", output)
         self.assertIn("GOVERNANCE DASHBOARD", output)
         self.assertIn("NOW", output)
+        self.assertIn("REVIEWER (Codex)", output)
         self.assertIn("WORKERS", output)
         self.assertIn("PLAN", output)
         self.assertIn("PUBLICATION", output)
@@ -510,6 +568,7 @@ class TestDashboardMarkdownOutput(unittest.TestCase):
 
         self.assertIn("# Governance Dashboard", output)
         self.assertIn("## Now", output)
+        self.assertIn("## Reviewer (Codex)", output)
         self.assertIn("## Workers", output)
         self.assertIn("## Plan", output)
         self.assertIn("## Publication", output)
@@ -539,9 +598,16 @@ class TestDashboardMissingArtifacts(unittest.TestCase):
             required = {
                 "repo", "now", "health", "review", "workers", "plan",
                 "publication", "quality", "audit", "analytics",
-                "coordination", "flow", "timeline",
+                "coordination", "codex_activity", "flow", "timeline",
             }
             self.assertTrue(required.issubset(snapshot.keys()))
+
+            # Codex activity degrades gracefully when bridge has no sections
+            activity = snapshot["codex_activity"]
+            self.assertEqual(activity["last_verdict"], "n/a")
+            self.assertEqual(activity["reviewed_files"], 0)
+            self.assertEqual(activity["findings_posted"], 0)
+            self.assertEqual(activity["instruction_summary"], "n/a")
 
             # New enrichment sections degrade to n/a when artifacts missing
             self.assertEqual(snapshot["audit"]["total_findings"], "n/a")
@@ -695,6 +761,92 @@ class TestDashboardEnrichments(unittest.TestCase):
         self.assertIn("# Governance Dashboard", md)
 
 
+class TestCodexActivitySection(unittest.TestCase):
+    """Verify codex_activity section parsing and rendering."""
+
+    def test_codex_activity_from_rich_bridge(self) -> None:
+        """Rich bridge text produces populated codex_activity fields."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            bridge = root / "bridge.md"
+            bridge.write_text(_rich_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            activity = snapshot["codex_activity"]
+            self.assertIn("last_poll_age", activity)
+            self.assertEqual(activity["reviewed_files"], 8)
+            self.assertEqual(activity["findings_posted"], 2)
+            self.assertIn("Launch ACK bypass", activity["last_verdict"])
+            self.assertIn("Tighten wait_for_codex_poll_refresh", activity["instruction_summary"])
+
+    def test_codex_activity_degrades_with_minimal_bridge(self) -> None:
+        """Minimal bridge with no reviewer sections degrades to defaults."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            activity = snapshot["codex_activity"]
+            self.assertEqual(activity["last_verdict"], "n/a")
+            self.assertEqual(activity["reviewed_files"], 0)
+            self.assertEqual(activity["findings_posted"], 0)
+
+    def test_codex_activity_degrades_with_no_bridge(self) -> None:
+        """No bridge.md at all still produces valid codex_activity."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            activity = snapshot["codex_activity"]
+            self.assertEqual(activity["last_verdict"], "n/a")
+            self.assertEqual(activity["reviewed_files"], 0)
+            self.assertEqual(activity["findings_posted"], 0)
+            self.assertEqual(activity["last_poll_age"], "--")
+
+    def test_terminal_renders_reviewer_section(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("REVIEWER (Codex)", output)
+        self.assertIn("Last poll", output)
+        self.assertIn("12m ago", output)
+        self.assertIn("Verdict", output)
+        self.assertIn("Launch ACK bypass", output)
+        self.assertIn("8 files", output)
+        self.assertIn("Instruction", output)
+        self.assertIn("2 posted", output)
+
+    def test_markdown_renders_reviewer_section(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+        self.assertIn("## Reviewer (Codex)", output)
+        self.assertIn("Last poll", output)
+        self.assertIn("12m ago", output)
+        self.assertIn("Launch ACK bypass", output)
+        self.assertIn("8 files", output)
+        self.assertIn("2 posted", output)
+
+    def test_terminal_reviewer_empty_activity(self) -> None:
+        """When codex_activity is empty dict, section is skipped cleanly."""
+        snapshot = _full_snapshot()
+        snapshot["codex_activity"] = {}
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertNotIn("REVIEWER (Codex)", output)
+
+
 class TestCliParserWiring(unittest.TestCase):
     """Verify the dashboard subparser is registered correctly."""
 
@@ -816,6 +968,11 @@ class TestHealthSection(unittest.TestCase):
             self.assertFalse(health["supervisor"]["running"])
             self.assertEqual(health["attention_status"], "n/a")
             self.assertEqual(health["active_daemons"], 0)
+            # Conductors degrade to pid=None, alive=False
+            self.assertIsNone(health["codex_conductor"]["pid"])
+            self.assertFalse(health["codex_conductor"]["alive"])
+            self.assertIsNone(health["claude_conductor"]["pid"])
+            self.assertFalse(health["claude_conductor"]["alive"])
 
     def test_read_heartbeat_running_when_not_stopped(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -862,6 +1019,120 @@ class TestHealthSection(unittest.TestCase):
         self.assertIn("Supervisor", output)
         self.assertIn("STOPPED", output)
         self.assertIn("Attention", output)
+
+    def test_health_terminal_renders_conductor_rows(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("Codex", output)
+        self.assertIn("Claude", output)
+        self.assertIn("DEAD", output)
+        self.assertIn("12345", output)
+        self.assertIn("process not found", output)
+        self.assertIn("67890", output)
+
+    def test_health_markdown_renders_conductor_rows(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+        self.assertIn("Codex", output)
+        self.assertIn("DEAD", output)
+        self.assertIn("12345", output)
+        self.assertIn("process not found", output)
+        self.assertIn("Claude", output)
+        self.assertIn("67890", output)
+
+    def test_conductor_no_session_renders_gracefully(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["health"]["codex_conductor"] = {"pid": None, "alive": False}
+        snapshot["health"]["claude_conductor"] = {"pid": None, "alive": False}
+        terminal = dashboard_render.render_terminal(snapshot)
+        self.assertIn("NO SESSION", terminal)
+        md = dashboard_render.render_markdown(snapshot)
+        self.assertIn("NO SESSION", md)
+
+
+class TestConductorLiveness(unittest.TestCase):
+    """Verify conductor session reading and PID liveness probing."""
+
+    def test_conductor_with_session_pid_alive(self) -> None:
+        import os
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            my_pid = os.getpid()
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/sessions/codex-conductor.json",
+                {"session_pid": my_pid, "provider": "codex"},
+            )
+            result = dashboard._read_conductor_liveness(
+                root / "dev/reports/review_channel/latest/sessions/codex-conductor.json"
+            )
+            self.assertEqual(result["pid"], my_pid)
+            self.assertTrue(result["alive"])
+
+    def test_conductor_with_dead_pid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/sessions/claude-conductor.json",
+                {"session_pid": 999999999, "provider": "claude"},
+            )
+            result = dashboard._read_conductor_liveness(
+                root / "dev/reports/review_channel/latest/sessions/claude-conductor.json"
+            )
+            self.assertEqual(result["pid"], 999999999)
+            self.assertFalse(result["alive"])
+
+    def test_conductor_missing_session_pid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/sessions/codex-conductor.json",
+                {"provider": "codex"},
+            )
+            result = dashboard._read_conductor_liveness(
+                root / "dev/reports/review_channel/latest/sessions/codex-conductor.json"
+            )
+            self.assertIsNone(result["pid"])
+            self.assertFalse(result["alive"])
+
+    def test_conductor_missing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = dashboard._read_conductor_liveness(
+                root / "nonexistent.json"
+            )
+            self.assertIsNone(result["pid"])
+            self.assertFalse(result["alive"])
+
+    def test_health_section_includes_conductors(self) -> None:
+        import os
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            my_pid = os.getpid()
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/sessions/codex-conductor.json",
+                {"session_pid": my_pid, "provider": "codex"},
+            )
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/sessions/claude-conductor.json",
+                {"session_pid": 999999999, "provider": "claude"},
+            )
+            health = dashboard._build_health_section(root, None)
+            self.assertEqual(health["codex_conductor"]["pid"], my_pid)
+            self.assertTrue(health["codex_conductor"]["alive"])
+            self.assertEqual(health["claude_conductor"]["pid"], 999999999)
+            self.assertFalse(health["claude_conductor"]["alive"])
+
+    def test_pid_is_alive_current_process(self) -> None:
+        import os
+        self.assertTrue(dashboard._pid_is_alive(os.getpid()))
+
+    def test_pid_is_alive_nonexistent(self) -> None:
+        self.assertFalse(dashboard._pid_is_alive(999999999))
 
 
 class TestTimelineSection(unittest.TestCase):
@@ -960,6 +1231,334 @@ class TestTimelineSection(unittest.TestCase):
         snapshot["timeline"] = []
         output = dashboard_render.render_terminal(snapshot)
         self.assertNotIn("TIMELINE", output)
+
+
+class TestGitStateDetails(unittest.TestCase):
+    """Verify ahead/behind, dirty file count, and recent commits in repo section."""
+
+    def test_parse_ahead_behind_ahead_only(self) -> None:
+        ahead, behind = dashboard._parse_ahead_behind(
+            "main...origin/main [ahead 5]"
+        )
+        self.assertEqual(ahead, 5)
+        self.assertEqual(behind, 0)
+
+    def test_parse_ahead_behind_both(self) -> None:
+        ahead, behind = dashboard._parse_ahead_behind(
+            "main...origin/main [ahead 3, behind 2]"
+        )
+        self.assertEqual(ahead, 3)
+        self.assertEqual(behind, 2)
+
+    def test_parse_ahead_behind_behind_only(self) -> None:
+        ahead, behind = dashboard._parse_ahead_behind(
+            "main...origin/main [behind 1]"
+        )
+        self.assertEqual(ahead, 0)
+        self.assertEqual(behind, 1)
+
+    def test_parse_ahead_behind_none(self) -> None:
+        ahead, behind = dashboard._parse_ahead_behind(
+            "main...origin/main"
+        )
+        self.assertEqual(ahead, 0)
+        self.assertEqual(behind, 0)
+
+    def test_snapshot_repo_has_git_state_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            git_data = {
+                "branch": "feature/test", "head": "abc1234", "dirty": "DIRTY",
+                "ahead": 5, "behind": 0, "dirty_files": 12,
+                "recent_commits": [
+                    {"sha": "abc1234", "message": "First commit"},
+                    {"sha": "def5678", "message": "Second commit"},
+                ],
+            }
+            with patch.object(dashboard, "_git_short", return_value=git_data), \
+                 patch.object(dashboard, "_repo_name", return_value="test-repo"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            repo = snapshot["repo"]
+            self.assertEqual(repo["ahead"], 5)
+            self.assertEqual(repo["behind"], 0)
+            self.assertEqual(repo["dirty_files"], 12)
+            self.assertEqual(len(repo["recent_commits"]), 2)
+            self.assertEqual(repo["recent_commits"][0]["sha"], "abc1234")
+
+    def test_terminal_renders_ahead_and_dirty_count(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["repo"]["ahead"] = 5
+        snapshot["repo"]["dirty_files"] = 12
+        snapshot["repo"]["worktree"] = "DIRTY"
+        output = dashboard_render.render_terminal(snapshot)
+
+        self.assertIn("Ahead: 5", output)
+        self.assertIn("Dirty: 12 files", output)
+        self.assertIn("Worktree:", output)
+
+    def test_terminal_renders_ahead_behind(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["repo"]["ahead"] = 3
+        snapshot["repo"]["behind"] = 2
+        output = dashboard_render.render_terminal(snapshot)
+
+        self.assertIn("Ahead: 3", output)
+        self.assertIn("Behind: 2", output)
+
+    def test_terminal_renders_recent_commits(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+
+        self.assertIn("RECENT COMMITS", output)
+        self.assertIn("abc1234", output)
+        self.assertIn("Bridge: launch ACK fix complete", output)
+        self.assertIn("bff99a8", output)
+        self.assertIn("0a83eaf", output)
+
+    def test_terminal_no_recent_commits_when_empty(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["repo"]["recent_commits"] = []
+        output = dashboard_render.render_terminal(snapshot)
+
+        self.assertNotIn("RECENT COMMITS", output)
+
+    def test_terminal_singular_dirty_file(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["repo"]["dirty_files"] = 1
+        output = dashboard_render.render_terminal(snapshot)
+
+        self.assertIn("Dirty: 1 file", output)
+        # Should not say "1 files"
+        self.assertNotIn("1 files", output)
+
+    def test_markdown_renders_ahead_and_dirty(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["repo"]["ahead"] = 5
+        snapshot["repo"]["dirty_files"] = 12
+        output = dashboard_render.render_markdown(snapshot)
+
+        self.assertIn("| Ahead | 5 |", output)
+        self.assertIn("| Dirty | 12 files |", output)
+
+    def test_markdown_renders_recent_commits(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+
+        self.assertIn("### Recent Commits", output)
+        self.assertIn("`abc1234`", output)
+        self.assertIn("Bridge: launch ACK fix complete", output)
+
+    def test_markdown_no_recent_commits_when_empty(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["repo"]["recent_commits"] = []
+        output = dashboard_render.render_markdown(snapshot)
+
+        self.assertNotIn("### Recent Commits", output)
+
+
+class TestNoColorFlag(unittest.TestCase):
+    """Verify --no-color flag and NO_COLOR env var strip ANSI codes."""
+
+    def test_strip_ansi_removes_escape_sequences(self) -> None:
+        raw = "\033[1mBOLD\033[0m \033[31mRED\033[0m plain"
+        result = dashboard_render.strip_ansi(raw)
+        self.assertEqual(result, "BOLD RED plain")
+        self.assertNotIn("\033[", result)
+
+    def test_strip_ansi_preserves_plain_text(self) -> None:
+        plain = "no escape codes here"
+        self.assertEqual(dashboard_render.strip_ansi(plain), plain)
+
+    def test_render_terminal_no_color_flag(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot, no_color=True)
+        self.assertNotIn("\033[", output)
+        self.assertIn("GOVERNANCE DASHBOARD", output)
+        self.assertIn("NOW", output)
+        self.assertIn("WORKERS", output)
+
+    def test_render_terminal_default_has_ansi(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("\033[", output)
+
+    def test_no_color_env_var(self) -> None:
+        snapshot = _full_snapshot()
+        with patch.dict("os.environ", {"NO_COLOR": "1"}):
+            output = dashboard_render.render_terminal(snapshot)
+        self.assertNotIn("\033[", output)
+        self.assertIn("GOVERNANCE DASHBOARD", output)
+
+    def test_no_color_env_var_empty_string_does_not_strip(self) -> None:
+        snapshot = _full_snapshot()
+        with patch.dict("os.environ", {"NO_COLOR": ""}, clear=False):
+            output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("\033[", output)
+
+    def test_cli_parser_has_no_color_flag(self) -> None:
+        from dev.scripts.devctl.cli import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["dashboard", "--no-color"])
+        self.assertTrue(args.no_color)
+
+    def test_cli_parser_no_color_default_false(self) -> None:
+        from dev.scripts.devctl.cli import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["dashboard"])
+        self.assertFalse(args.no_color)
+
+    def test_run_passes_no_color_to_renderer(self) -> None:
+        with patch.object(dashboard, "build_snapshot") as mock_build:
+            mock_build.return_value = _full_snapshot()
+            args = _make_args(format="terminal", no_color=True)
+            with patch("dev.scripts.devctl.commands.dashboard.emit_output") as mock_emit:
+                dashboard.run(args)
+                output = mock_emit.call_args[0][0]
+                self.assertNotIn("\033[", output)
+                self.assertIn("GOVERNANCE DASHBOARD", output)
+
+
+
+class TestSessionDuration(unittest.TestCase):
+    """Verify session/loop duration from publisher heartbeat."""
+
+    def test_format_duration_seconds(self) -> None:
+        self.assertEqual(dashboard._format_duration(42), "42s")
+
+    def test_format_duration_minutes(self) -> None:
+        self.assertEqual(dashboard._format_duration(2700), "45m")
+
+    def test_format_duration_hours_and_minutes(self) -> None:
+        self.assertEqual(dashboard._format_duration(8100), "2h 15m")
+
+    def test_format_duration_exact_hours(self) -> None:
+        self.assertEqual(dashboard._format_duration(7200), "2h")
+
+    def test_format_duration_none(self) -> None:
+        self.assertEqual(dashboard._format_duration(None), "--")
+
+    def test_session_age_from_heartbeat(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/publisher_heartbeat.json",
+                {
+                    "pid": 85205,
+                    "started_at_utc": "2026-04-04T02:43:30Z",
+                    "last_heartbeat_utc": "2026-04-04T03:11:28Z",
+                    "snapshots_emitted": 54,
+                    "stopped_at_utc": "",
+                },
+            )
+            result = dashboard._session_age(root)
+            self.assertIsNotNone(result["session_age_s"])
+            self.assertNotEqual(result["session_label"], "--")
+            self.assertEqual(result["started_time"], "02:43:30")
+
+    def test_session_age_missing_heartbeat(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = dashboard._session_age(root)
+            self.assertIsNone(result["session_age_s"])
+            self.assertEqual(result["session_label"], "--")
+            self.assertEqual(result["started_time"], "")
+
+    def test_snapshot_repo_has_session(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/publisher_heartbeat.json",
+                {
+                    "pid": 100,
+                    "started_at_utc": "2026-04-04T02:00:00Z",
+                    "last_heartbeat_utc": "2026-04-04T02:30:00Z",
+                    "snapshots_emitted": 10,
+                    "stopped_at_utc": "",
+                },
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            self.assertIn("session", snapshot["repo"])
+            self.assertNotEqual(snapshot["repo"]["session"], "--")
+
+    def test_coordination_has_session_age(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/publisher_heartbeat.json",
+                {
+                    "pid": 100,
+                    "started_at_utc": "2026-04-04T02:00:00Z",
+                    "last_heartbeat_utc": "2026-04-04T02:30:00Z",
+                    "snapshots_emitted": 10,
+                    "stopped_at_utc": "",
+                },
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            coord = snapshot["coordination"]
+            self.assertIn("session_age", coord)
+            self.assertIn("session_started", coord)
+            self.assertNotEqual(coord["session_age"], "--")
+            self.assertEqual(coord["session_started"], "02:00:00")
+
+    def test_terminal_renders_session_in_header(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        self.assertIn("Session:", output)
+        self.assertIn("45m", output)
+
+    def test_terminal_renders_session_in_coordination(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_terminal(snapshot)
+        # Coordination section should show session age with start time
+        self.assertIn("Session    45m", output)
+        self.assertIn("started 03:05:00 UTC", output)
+
+    def test_markdown_renders_session_in_header(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+        self.assertIn("| Session | 45m |", output)
+
+    def test_markdown_renders_session_in_coordination(self) -> None:
+        snapshot = _full_snapshot()
+        output = dashboard_render.render_markdown(snapshot)
+        self.assertIn("**Session age**: 45m", output)
+        self.assertIn("started 03:05:00 UTC", output)
+
+    def test_session_degrades_when_no_heartbeat(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["repo"]["session"] = "--"
+        snapshot["coordination"]["session_age"] = "--"
+        snapshot["coordination"]["session_started"] = ""
+        terminal = dashboard_render.render_terminal(snapshot)
+        self.assertIn("Session:", terminal)
+        md = dashboard_render.render_markdown(snapshot)
+        self.assertIn("| Session | -- |", md)
 
 
 if __name__ == "__main__":

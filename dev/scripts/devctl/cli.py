@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 
@@ -137,6 +138,18 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "list",
 })
 
+# Environment variable checked by command handlers and artifact writers to
+# suppress incidental filesystem writes (receipts, snapshots) that would
+# otherwise make "read-only" commands fail on read-only mounts.  Set
+# automatically for READ_ONLY_COMMANDS; can also be set externally by MCP
+# adapters or container orchestration.
+ARTIFACT_WRITES_ENV = "DEVCTL_NO_ARTIFACT_WRITES"
+
+
+def artifact_writes_suppressed() -> bool:
+    """True when incidental artifact writes should be skipped."""
+    return os.environ.get(ARTIFACT_WRITES_ENV, "") == "1"
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Create the top-level argparse parser for devctl."""
@@ -207,6 +220,12 @@ def _add_dashboard_parser(sub: argparse._SubParsersAction) -> None:
         action="store_true",
         default=False,
         help="Enable polling mode (reserved for future use)",
+    )
+    dash.add_argument(
+        "--no-color",
+        action="store_true",
+        default=False,
+        help="Strip ANSI color codes from terminal output (also honors NO_COLOR env var)",
     )
 
 
@@ -302,6 +321,9 @@ def main() -> int:
     clear_machine_output_metrics()
     started = time.monotonic()
     return_code = 1
+    is_read_only = args.command in READ_ONLY_COMMANDS
+    if is_read_only:
+        os.environ[ARTIFACT_WRITES_ENV] = "1"
     try:
         gate_failure = enforce_startup_gate(args)
         if gate_failure is not None:
@@ -311,8 +333,8 @@ def main() -> int:
         return_code = handler(args)
         return return_code
     finally:
+        os.environ.pop(ARTIFACT_WRITES_ENV, None)
         duration_seconds = time.monotonic() - started
-        is_read_only = args.command in READ_ONLY_COMMANDS
         if not is_read_only:
             emit_devctl_audit_event(
                 command=args.command,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from datetime import datetime, timezone
@@ -29,6 +30,8 @@ _MASTER_PLAN = "dev/active/MASTER_PLAN.md"
 _GOVERNANCE_REVIEW_JSON = "dev/reports/governance/latest/review_summary.json"
 _PROBE_SUMMARY_JSON = "dev/reports/probes/latest/summary.json"
 _DATA_SCIENCE_JSON = "dev/reports/data_science/latest/summary.json"
+_CODEX_CONDUCTOR_SESSION = "dev/reports/review_channel/latest/sessions/codex-conductor.json"
+_CLAUDE_CONDUCTOR_SESSION = "dev/reports/review_channel/latest/sessions/claude-conductor.json"
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -39,12 +42,16 @@ def _read_json(path: Path) -> dict[str, Any] | None:
         return None
 
 
-def _git_short() -> dict[str, str]:
-    """Return branch, HEAD short sha, and dirty state from git."""
-    result: dict[str, str] = {
+def _git_short() -> dict[str, Any]:
+    """Return branch, HEAD short sha, dirty state, ahead/behind, dirty count, and recent commits."""
+    result: dict[str, Any] = {
         "branch": "unknown",
         "head": "unknown",
         "dirty": "unknown",
+        "ahead": 0,
+        "behind": 0,
+        "dirty_files": 0,
+        "recent_commits": [],
     }
     try:
         sb = subprocess.run(
@@ -55,20 +62,56 @@ def _git_short() -> dict[str, str]:
         if lines:
             header = lines[0].lstrip("# ").strip()
             result["branch"] = header.split("...")[0] if "..." in header else header
-            result["dirty"] = "DIRTY" if len(lines) > 1 else "CLEAN"
+            dirty_lines = lines[1:]
+            result["dirty"] = "DIRTY" if dirty_lines else "CLEAN"
+            result["dirty_files"] = len(dirty_lines)
+            ahead, behind = _parse_ahead_behind(header)
+            result["ahead"] = ahead
+            result["behind"] = behind
     except (OSError, subprocess.TimeoutExpired):
         pass
     try:
         log = subprocess.run(
-            ["git", "log", "--oneline", "-1"],
+            ["git", "log", "--oneline", "-3"],
             capture_output=True, text=True, timeout=5, cwd=str(REPO_ROOT),
         )
-        parts = log.stdout.strip().split(None, 1)
-        if parts:
-            result["head"] = parts[0]
+        commits: list[dict[str, str]] = []
+        for line in log.stdout.strip().splitlines():
+            parts = line.split(None, 1)
+            if parts:
+                commits.append({
+                    "sha": parts[0],
+                    "message": parts[1] if len(parts) > 1 else "",
+                })
+        if commits:
+            result["head"] = commits[0]["sha"]
+            result["recent_commits"] = commits
     except (OSError, subprocess.TimeoutExpired):
         pass
     return result
+
+
+def _parse_ahead_behind(header: str) -> tuple[int, int]:
+    """Extract ahead/behind counts from git status -sb header line.
+
+    Examples:
+        'main...origin/main [ahead 5]' -> (5, 0)
+        'main...origin/main [ahead 3, behind 2]' -> (3, 2)
+        'main...origin/main [behind 1]' -> (0, 1)
+        'main...origin/main' -> (0, 0)
+    """
+    ahead = 0
+    behind = 0
+    bracket = re.search(r"\[(.+?)\]", header)
+    if bracket:
+        content = bracket.group(1)
+        ahead_match = re.search(r"ahead\s+(\d+)", content)
+        if ahead_match:
+            ahead = int(ahead_match.group(1))
+        behind_match = re.search(r"behind\s+(\d+)", content)
+        if behind_match:
+            behind = int(behind_match.group(1))
+    return ahead, behind
 
 
 def _parse_bridge(path: Path) -> dict[str, str]:
@@ -78,6 +121,10 @@ def _parse_bridge(path: Path) -> dict[str, str]:
         "last_poll_utc": "",
         "reviewer_mode": "n/a",
         "instruction": "n/a",
+        "verdict": "n/a",
+        "findings_raw": "",
+        "reviewed_scope_raw": "",
+        "instruction_full": "n/a",
     }
     try:
         text = path.read_text(encoding="utf-8")
@@ -98,7 +145,60 @@ def _parse_bridge(path: Path) -> dict[str, str]:
     if instr_match:
         raw = instr_match.group(1).strip()
         fields["instruction"] = raw[:120] + ("..." if len(raw) > 120 else "")
+        fields["instruction_full"] = raw
+    verdict_match = re.search(
+        r"## Current Verdict\s*\n(.*?)(?=\n## |\Z)",
+        text, re.DOTALL,
+    )
+    if verdict_match:
+        fields["verdict"] = verdict_match.group(1).strip()
+    findings_match = re.search(
+        r"## Open Findings\s*\n(.*?)(?=\n## |\Z)",
+        text, re.DOTALL,
+    )
+    if findings_match:
+        fields["findings_raw"] = findings_match.group(1).strip()
+    scope_match = re.search(
+        r"## Last Reviewed Scope\s*\n(.*?)(?=\n## |\Z)",
+        text, re.DOTALL,
+    )
+    if scope_match:
+        fields["reviewed_scope_raw"] = scope_match.group(1).strip()
     return fields
+
+
+def _parse_bridge_findings(path: Path) -> list[dict[str, str]]:
+    """Extract structured findings from the ## Open Findings section of bridge.md.
+
+    Each finding is returned as {"id": "F1", "summary": "first 80 chars..."}.
+    Returns an empty list when bridge.md is missing or the section is empty.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    section_match = re.search(
+        r"## Open Findings\s*\n(.*?)(?=\n## |\Z)",
+        text, re.DOTALL,
+    )
+    if not section_match:
+        return []
+    findings: list[dict[str, str]] = []
+    for line in section_match.group(1).splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("- "):
+            continue
+        body = stripped[2:].strip()
+        fid_match = re.match(r"(F\d+)\s*:\s*(.*)", body)
+        if fid_match:
+            fid = fid_match.group(1)
+            desc = fid_match.group(2).strip()
+        else:
+            fid = f"F{len(findings) + 1}"
+            desc = body
+        summary = desc[:80] + ("..." if len(desc) > 80 else "")
+        findings.append({"id": fid, "summary": summary})
+    return findings
 
 
 def _age_seconds(utc_stamp: str) -> int | None:
@@ -121,6 +221,37 @@ def _format_age(seconds: int | None) -> str:
     if seconds < 3600:
         return f"{seconds // 60}m ago"
     return f"{seconds // 3600}h ago"
+
+
+def _format_duration(seconds: int | None) -> str:
+    """Human-readable short duration without 'ago': '42s', '45m', '2h 15m'."""
+    if seconds is None:
+        return "--"
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        return f"{seconds // 60}m"
+    hours = seconds // 3600
+    mins = (seconds % 3600) // 60
+    if mins:
+        return f"{hours}h {mins}m"
+    return f"{hours}h"
+
+
+def _session_age(repo_root: Path) -> dict[str, Any]:
+    """Read publisher heartbeat and compute session duration from started_at_utc."""
+    data = _read_json(repo_root / _PUBLISHER_HB)
+    if data is None:
+        return {"session_age_s": None, "session_label": "--", "started_at_utc": "", "started_time": ""}
+    started = data.get("started_at_utc", "")
+    age_s = _age_seconds(started)
+    started_time = _extract_time_from_iso(started) if started else ""
+    return {
+        "session_age_s": age_s,
+        "session_label": _format_duration(age_s),
+        "started_at_utc": started,
+        "started_time": started_time,
+    }
 
 
 def _parse_plan_progress(repo_root: Path) -> dict[str, str]:
@@ -178,13 +309,36 @@ def _read_heartbeat(path: Path) -> dict[str, Any]:
     }
 
 
+def _pid_is_alive(pid: int) -> bool:
+    """Check whether a process with the given PID is currently running."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, OSError):
+        return False
+
+
+def _read_conductor_liveness(path: Path) -> dict[str, Any]:
+    """Read a conductor session JSON and probe whether its PID is still alive."""
+    data = _read_json(path)
+    if data is None:
+        return {"pid": None, "alive": False}
+    pid = data.get("session_pid")
+    if pid is None or not isinstance(pid, int) or pid <= 0:
+        return {"pid": None, "alive": False}
+    return {"pid": pid, "alive": _pid_is_alive(pid)}
+
+
 def _build_health_section(
     repo_root: Path,
     compact: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Build the HEALTH section from daemon heartbeats and attention state."""
+    """Build the HEALTH section from daemon heartbeats, conductors, and attention."""
     publisher = _read_heartbeat(repo_root / _PUBLISHER_HB)
     supervisor = _read_heartbeat(repo_root / _SUPERVISOR_HB)
+
+    codex_conductor = _read_conductor_liveness(repo_root / _CODEX_CONDUCTOR_SESSION)
+    claude_conductor = _read_conductor_liveness(repo_root / _CLAUDE_CONDUCTOR_SESSION)
 
     # Extract attention from full.json (compact does not carry it)
     full_data = _read_json(repo_root / _FULL_JSON)
@@ -197,6 +351,8 @@ def _build_health_section(
     return {
         "publisher": publisher,
         "supervisor": supervisor,
+        "codex_conductor": codex_conductor,
+        "claude_conductor": claude_conductor,
         "attention_status": attention_status,
         "attention_summary": attention_summary,
         "active_daemons": active_daemons,
@@ -270,14 +426,19 @@ def build_snapshot(*, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
     agents = _read_json(repo_root / _AGENTS_JSON)
     pipeline = _read_json(repo_root / _PIPELINE_JSON)
     bridge = _parse_bridge(repo_root / _BRIDGE_MD)
+    bridge_findings = _parse_bridge_findings(repo_root / _BRIDGE_MD)
     plan = _parse_plan_progress(repo_root)
     gov_data = _read_json(repo_root / _GOVERNANCE_REVIEW_JSON)
     probe_data = _read_json(repo_root / _PROBE_SUMMARY_JSON)
     ds_data = _read_json(repo_root / _DATA_SCIENCE_JSON)
 
+    session_info = _session_age(repo_root)
+
     return _assemble(
         git, compact, push_data, receipt, agents, pipeline, bridge, plan,
         gov_data=gov_data, probe_data=probe_data, ds_data=ds_data,
+        bridge_findings=bridge_findings,
+        session_info=session_info,
         repo_root=repo_root,
     )
 
@@ -295,7 +456,9 @@ def _assemble(
     gov_data: dict[str, Any] | None = None,
     probe_data: dict[str, Any] | None = None,
     ds_data: dict[str, Any] | None = None,
+    bridge_findings: list[dict[str, str]] | None = None,
     repo_root: Path = REPO_ROOT,
+    session_info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Assemble the typed DashboardSnapshot from raw sources."""
     session = (compact or {}).get("current_session", {})
@@ -328,6 +491,11 @@ def _assemble(
             "branch": git["branch"],
             "head": git["head"],
             "worktree": git["dirty"],
+            "session": (session_info or {}).get("session_label", "--"),
+            "ahead": git.get("ahead", 0),
+            "behind": git.get("behind", 0),
+            "dirty_files": git.get("dirty_files", 0),
+            "recent_commits": git.get("recent_commits", []),
         },
         "now": _build_now_section(
             bridge, reviewer_agent, implementer_agent, session,
@@ -336,12 +504,14 @@ def _assemble(
         "health": _build_health_section(repo_root, compact),
         "review": _build_review_section(bridge, reviewer_agent, implementer_agent, session),
         "workers": _build_workers_section(agents),
-        "plan": _build_plan_section(plan or {}, session),
+        "plan": _build_plan_section(plan or {}, session, bridge_findings or []),
+        "findings": bridge_findings or [],
         "publication": publication_effective,
         "quality": quality,
         "audit": _build_audit_section(gov_data),
         "analytics": _build_analytics_section(ds_data),
-        "coordination": _build_coordination_section(session, instruction_rev, receipt_push, bridge, doctor),
+        "coordination": _build_coordination_section(session, instruction_rev, receipt_push, bridge, doctor, session_info or {}),
+        "codex_activity": _build_codex_activity_section(bridge),
         "flow": _build_flow_section(receipt, push_data, session),
         "timeline": _build_timeline_section(repo_root),
     }
@@ -390,6 +560,14 @@ def _build_now_section(
         first_line = next_action.strip().splitlines()[0].lstrip("- ").strip()
         next_action = first_line[:60] + ("..." if len(first_line) > 60 else "")
 
+    # Truncate bridge instruction to 100 chars for the NOW section
+    instr_full = bridge.get("instruction_full", "n/a")
+    if instr_full and instr_full != "n/a":
+        first_line = instr_full.strip().splitlines()[0].lstrip("- ").strip()
+        instr_text = first_line[:100] + ("..." if len(first_line) > 100 else "")
+    else:
+        instr_text = "n/a"
+
     return {
         "owner": owner,
         "owner_provider": owner_provider,
@@ -397,6 +575,7 @@ def _build_now_section(
         "top_blocker": top_blocker,
         "last_change_age_s": last_change_age,
         "last_change_label": _format_age(last_change_age),
+        "instruction_text": instr_text,
     }
 
 
@@ -455,9 +634,11 @@ def _build_workers_section(agents_data: dict[str, Any] | None) -> list[dict[str,
 
 
 def _build_plan_section(
-    plan: dict[str, str], session: dict[str, Any],
+    plan: dict[str, str],
+    session: dict[str, Any],
+    bridge_findings: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
-    """Build the PLAN section from master plan data and session findings."""
+    """Build the PLAN section from master plan data, session findings, and bridge detail."""
     findings_text = (session.get("open_findings") or "").strip()
     finding_count = 0
     if findings_text and findings_text.lower() != "none":
@@ -465,10 +646,15 @@ def _build_plan_section(
             ln for ln in findings_text.splitlines()
             if ln.strip().startswith("- F") or ln.strip().startswith("-")
         ])
+    # Prefer bridge-parsed structured findings when available
+    detail = bridge_findings or []
+    if detail:
+        finding_count = len(detail)
     return {
         "slice": plan.get("slice", "n/a"),
         "progress": plan.get("progress", "n/a"),
         "open_findings": finding_count,
+        "findings_detail": detail,
         "pending": 0,
     }
 
@@ -646,6 +832,7 @@ def _build_coordination_section(
     receipt_push: str,
     bridge: dict[str, str],
     doctor: dict[str, Any],
+    session_info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build compact coordination section with dual-field layout."""
     findings = (session.get("open_findings") or "None").strip()
@@ -663,6 +850,8 @@ def _build_coordination_section(
         "implementer_state": "current" if session.get("implementer_ack_state") == "current" else "stale",
         "pending_findings": f"{len(finding_lines)} findings" if finding_lines else "0 findings",
         "next_action": receipt_push,
+        "session_age": (session_info or {}).get("session_label", "--"),
+        "session_started": (session_info or {}).get("started_time", ""),
     }
 
 
@@ -694,19 +883,70 @@ def _build_flow_section(
     return stages
 
 
+def _build_codex_activity_section(bridge: dict[str, str]) -> dict[str, Any]:
+    """Build REVIEWER (Codex) activity section from bridge.md parsed fields.
+
+    Answers the operator's core question: 'Is Codex doing anything?'
+    """
+    poll_utc = bridge.get("last_poll_utc", "")
+    poll_age = _format_age(_age_seconds(poll_utc))
+
+    verdict_raw = bridge.get("verdict", "n/a")
+    verdict_first_line = _first_meaningful_line(verdict_raw)
+    verdict_summary = verdict_first_line[:80] + ("..." if len(verdict_first_line) > 80 else "")
+
+    findings_raw = bridge.get("findings_raw", "")
+    finding_lines = [
+        ln for ln in findings_raw.splitlines()
+        if ln.strip().startswith("- F") or ln.strip().startswith("-")
+    ] if findings_raw else []
+    findings_posted = len(finding_lines)
+
+    scope_raw = bridge.get("reviewed_scope_raw", "")
+    scope_lines = [
+        ln for ln in scope_raw.splitlines()
+        if ln.strip().startswith("- ") or ln.strip().startswith("*")
+    ] if scope_raw else []
+    reviewed_files = len(scope_lines)
+
+    instr_full = bridge.get("instruction_full", "n/a")
+    instr_first = _first_meaningful_line(instr_full)
+    instruction_summary = instr_first[:80] + ("..." if len(instr_first) > 80 else "")
+
+    return {
+        "last_poll_age": poll_age,
+        "last_verdict": verdict_summary if verdict_summary != "n/a" else "n/a",
+        "reviewed_files": reviewed_files,
+        "instruction_summary": instruction_summary if instruction_summary != "n/a" else "n/a",
+        "findings_posted": findings_posted,
+    }
+
+
+def _first_meaningful_line(text: str) -> str:
+    """Return the first non-empty line from text, stripping leading '- '."""
+    if not text or text == "n/a":
+        return "n/a"
+    for line in text.splitlines():
+        stripped = line.strip().lstrip("- ").strip()
+        if stripped:
+            return stripped
+    return "n/a"
+
+
 def run(args) -> int:
     """Build and render the governance dashboard."""
     from .dashboard_render import render_json, render_markdown, render_terminal
 
     snapshot = build_snapshot()
 
+    no_color = getattr(args, "no_color", False)
     fmt = getattr(args, "format", "terminal")
     if fmt == "json":
         output = render_json(snapshot)
     elif fmt == "md":
         output = render_markdown(snapshot)
     else:
-        output = render_terminal(snapshot)
+        output = render_terminal(snapshot, no_color=no_color)
 
     emit_output(
         output,
