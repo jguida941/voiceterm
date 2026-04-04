@@ -546,17 +546,26 @@ checklist plus chat memory.
     sections must render effective current-target truth instead of replaying
     stale raw `latest_push_report_*` booleans as if they still describe the
     active branch/HEAD.
-4.6.1 Read-only artifact suppression: `startup-context`,
-    `context-graph --mode bootstrap`, and other read-only status commands now
-    suppress audit/telemetry artifact writes via `DEVCTL_NO_ARTIFACT_WRITES`
-    (set automatically by the read-only command dispatcher in `cli.py`).
-    `startup-context` skips `write_startup_receipt()` and bootstrap
-    `context-graph` skips the automatic snapshot save when that env var is
-    active. Explicit `--save-snapshot` still forces a write. The lightweight
+4.6.1 Read-only artifact handling: `startup-context`,
+    `context-graph --mode bootstrap`, and other read-only status commands set
+    `DEVCTL_NO_ARTIFACT_WRITES` via the read-only command dispatcher in
+    `cli.py`.  `startup-context` always attempts the receipt write because the
+    launcher validates it to gate subsequent actions; on intentional read-only
+    mounts the write degrades gracefully on `OSError`, while other write
+    failures propagate normally.  Bootstrap `context-graph` skips the automatic
+    snapshot save when that env var is active. Explicit `--save-snapshot` still
+    forces a write. The lightweight
     `observe_launch_state()` optimization in `bridge_launch_control.py` uses
     the same principle: launch-poll iterations now read bridge metadata and
     session state directly instead of forcing a full status refresh, keeping
     the read-only bootstrap path fast.
+4.6.2 Launch-confirmed ACK path: `wait_for_codex_poll_refresh()` in
+    `handoff.py` now has two satisfaction paths for the post-launch gate.
+    Primary: reviewer-owned `Poll Status` text must change. Launch-confirmed:
+    `Last Codex poll` timestamp must advance past the pre-launch baseline AND
+    typed session probes must confirm both conductors are live. Neither path
+    accepts BOTH unchanged timestamp AND unchanged status text. Timestamp
+    advance alone (without typed live proof) fails closed.
 4.7 Treat governed-markdown authority the same way: prefer typed
     `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
     parsed `plan_registry` entries when those projections are available, but
@@ -1819,6 +1828,7 @@ Core commands:
 - `orchestrate-status` (single-view orchestrator summary for active-plan sync + multi-agent coordination guard state)
 - `orchestrate-watch` (SLA watchdog for stale agent updates and overdue instruction ACKs)
 - `report` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
+- `dashboard` (governance dashboard snapshot from existing artifacts; views: `overview`, `dev`, `analytics`, `quality`, `audit`, `publication`, `health`; renders sparkline charts and repo-state summaries in `terminal`, `md`, or `json` format; reads `dev/reports/` artifacts only, no side-effect writes)
 - `data-science` (builds one rolling telemetry snapshot from devctl audit events plus autonomy swarm/benchmark history, folds in governance-review false-positive/cleanup metrics, emits `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/`, and supports source/output overrides for experiments; devctl also auto-refreshes this snapshot after each command unless `DEVCTL_DATA_SCIENCE_DISABLE=1`)
 - `tandem-validate` (repo-owned tandem-session validator that resolves the real lane and risk add-ons through `check-router`, executes the routed bundle, then rechecks review-channel and tandem consistency at the end)
 - `doc-authority` (read-only governed-markdown authority scan that derives the current doc registry, plan metadata, and owner/classification signals from the reviewed markdown set)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from . import startup_repair as startup_repair_flow
 from ...common_io import display_path
 from ...common import add_standard_output_arguments
@@ -17,6 +19,7 @@ from ...runtime.machine_output import (
 )
 from ...runtime.startup_receipt import (
     build_startup_receipt,
+    startup_receipt_path,
     write_startup_receipt,
 )
 from ...runtime.conductor_capability import reviewer_local_implementation_allowed
@@ -252,7 +255,19 @@ def run(args) -> int:
         ctx,
         authority_report=authority_report,
     )
-    receipt_path = write_startup_receipt(receipt, governance=governance)
+    # The startup receipt is the command's primary output — the launcher
+    # validates it to gate subsequent actions.  On intentional read-only
+    # mounts (DEVCTL_NO_ARTIFACT_WRITES=1, MCP adapters, containers) skip
+    # the write entirely and fall back to the expected path.  When the env
+    # var is not set, let any OSError (disk-full, permissions) propagate so
+    # callers see real failures.
+    if os.environ.get("DEVCTL_NO_ARTIFACT_WRITES") == "1":
+        try:
+            receipt_path = write_startup_receipt(receipt, governance=governance)
+        except OSError:
+            receipt_path = startup_receipt_path(governance=governance)
+    else:
+        receipt_path = write_startup_receipt(receipt, governance=governance)
     receipt_display_path = display_path(receipt_path)
     payload = ctx.to_dict()
     payload["startup_authority"] = _startup_authority_payload(authority_report)
