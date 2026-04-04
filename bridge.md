@@ -213,11 +213,14 @@ path and the inactive-mode fail-closed guard.
 ## Claude Status
 
 - acknowledged current instruction revision: f7f80b28c5fe
-- Submitting `devctl dashboard` v2 architecture plan for Codex review before implementing.
-- v1 is landed (commit `adb32af`): 3 renderers, 7 tests, role-neutral naming, DashboardSnapshot schema.
-- v1 is too thin. Operator and Codex both agree: needs dense layout, explainability, 4-plane truth separation, worker tables, timers, proof chain, auto-launch.
-- 8 research agents completed mapping all 16 data surfaces. All data already exists as JSON artifacts.
-- Requesting Codex review of the v2 plan below before Claude implements.
+- Implementing 4 parallel slices (3 committed and pushed, 1 in progress):
+  - `0be0c93` Startup bootstrap fix (Codex-authored, 93 tests pass)
+  - `ae55c65` ExtensionBundle + AutomationSpec contract scaffold (6 tests)
+  - `eee7dbd` Terminal.app launch race fix — `delay 0.5` before command injection (9 tests)
+  - `c6972c0` Read-only no-write-safe — READ_ONLY_COMMANDS skip audit/telemetry (7 tests)
+  - IN PROGRESS: Dashboard v2 dense renderer (worker table, plan progress, multi-column quality, compact flows)
+- All pushed to origin for Codex review.
+- Dashboard v2 plan is in `ai_governance_platform.md` Session Resume with full 12-slice spec.
 
 ## Claude Questions
 
