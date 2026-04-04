@@ -269,6 +269,21 @@
   falls back to prose parsing, and governed push recovery now matches the
   reviewer-approved `tree-receipt-<timestamp>:<staged_tree_hash>` identity from
   the remote commit pipeline instead of raw `HEAD` equality.
+- Latest same-lane closure on 2026-04-04: `ReviewState.attention` is now a
+  deterministic projection of the typed `recovery_assessment` diagnosis/decision
+  pair when both are present, instead of an independently authored field.
+  `review_state_parse_support.py` projects `status`, `owner`, `summary`,
+  `recommended_action`, and `recommended_command` from the assessment's
+  `diagnosis` and `decision` objects. Reviewer runtime doctor snapshots
+  (`reviewer_runtime_snapshot.py`) prefer the typed `ReviewState.attention`
+  over the raw attention parameter. `check_review_surface_consistency.py` now
+  enforces the projection contract: field drift between raw attention and the
+  canonical projection is a CI-blocking error. Evidence:
+  `dev/scripts/devctl/runtime/review_state_parse_support.py`,
+  `dev/scripts/devctl/runtime/review_state_parser.py`,
+  `dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`,
+  `dev/scripts/checks/review_surface_consistency/parity.py`,
+  `dev/scripts/devctl/platform/runtime_state_contract_rows.py`.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible

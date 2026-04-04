@@ -148,6 +148,18 @@ def test_enrich_event_review_state_attaches_push_truth(
     assert enriched["_compat"]["push_decision"]["action"] == "no_push_needed"
     assert enriched["_compat"]["doctor"]["publication_source"] == "latest_push_report"
     assert enriched["_compat"]["doctor"]["published_remote"] is True
+    assert (
+        enriched["attention"]["status"]
+        == enriched["recovery_assessment"]["diagnosis"]["status"]
+    )
+    assert (
+        enriched["attention"]["owner"]
+        == enriched["recovery_assessment"]["decision"]["execution_owner"]
+    )
+    assert (
+        enriched["attention"]["recommended_command"]
+        == enriched["recovery_assessment"]["decision"]["command"]
+    )
 
 
 _SNAPSHOT_PUSH_ENFORCEMENT: dict[str, object] = {

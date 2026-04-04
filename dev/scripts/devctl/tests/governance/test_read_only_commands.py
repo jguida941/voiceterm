@@ -1,4 +1,9 @@
-"""Tests verifying read-only commands skip audit events and telemetry refresh."""
+"""Tests verifying read-only commands skip audit events and telemetry refresh.
+
+Moved from tests/test_read_only_commands.py to reduce root test directory
+crowding and align with the governance test package that already covers
+startup-context and context-graph behavior.
+"""
 
 from __future__ import annotations
 
@@ -58,7 +63,6 @@ class ReadOnlyAuditSkipTests(unittest.TestCase):
                     rc = cli.main()
 
             self.assertEqual(rc, 0)
-            # Audit log should not exist because read-only commands skip writes
             self.assertFalse(
                 log_path.exists(),
                 "read-only command 'list' should not create audit event log",
@@ -236,7 +240,6 @@ class ArtifactWriteSuppressionTests(unittest.TestCase):
                 patch.object(sc_mod, "build_startup_authority_report", return_value={"ok": True}),
                 patch.object(sc_mod, "emit_machine_artifact_output", return_value=0),
             ):
-                # Should not raise — degrades gracefully
                 sc_mod.run(SimpleNamespace(
                     format="json",
                     role=None,

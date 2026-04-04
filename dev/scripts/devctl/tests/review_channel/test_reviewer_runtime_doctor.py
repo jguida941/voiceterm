@@ -14,6 +14,7 @@ from dev.scripts.devctl.runtime.action_contracts import ActionResult
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
 )
+from dev.scripts.devctl.runtime.review_state_models import ReviewAttentionState
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     ReviewerAcceptanceState,
     ReviewerRuntimeContract,
@@ -148,3 +149,39 @@ def test_attach_reviewer_runtime_snapshot_rejects_stale_approved_target_receipt(
     assert doctor["post_push_green"] is False
     assert doctor["push_report_path"] == "dev/reports/push/latest.json"
     assert doctor["publication_source"] == "none"
+
+
+def test_attach_reviewer_runtime_snapshot_prefers_review_state_attention_projection() -> None:
+    review_state = SimpleNamespace(
+        reviewer_runtime=_runtime_contract(publish_clear=False),
+        commit_pipeline=RemoteCommitPipelineContract(),
+        attention=ReviewAttentionState(
+            status="implementer_state_reset_required",
+            owner="reviewer",
+            summary="Claude Ack is stale for the live instruction.",
+            recommended_action="Reset the implementer state before resuming work.",
+            recommended_command="python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --terminal none --format md",
+        ),
+    )
+    report = {
+        "bridge_liveness": {"push_enforcement": {}},
+        "publisher": {"running": False},
+        "reviewer_supervisor": {"running": False},
+        "attention": {
+            "status": "healthy",
+            "owner": "operator",
+            "summary": "stale summary",
+            "recommended_action": "old action",
+            "recommended_command": "legacy command",
+        },
+    }
+
+    attach_reviewer_runtime_snapshot(
+        report,
+        review_state=review_state,
+        attention=report["attention"],
+    )
+
+    assert report["attention"]["status"] == "implementer_state_reset_required"
+    assert report["doctor"]["root_cause"] == "Claude Ack is stale for the live instruction."
+    assert "reset-implementer-state" in report["doctor"]["recommended_command"]

@@ -472,6 +472,58 @@ class ReviewStateTests(unittest.TestCase):
         self.assertTrue(state.reviewer_runtime.review_acceptance.review_accepted)
         self.assertTrue(state.reviewer_runtime.publish_clear)
 
+    def test_recovery_assessment_normalizes_attention_projection(self) -> None:
+        state = review_state_from_payload(
+            {
+                "review_state": {
+                    "review": {"session_id": "session-recovery-authority"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {"reviewer_mode": "active_dual_agent"},
+                },
+                "attention": {
+                    "status": "healthy",
+                    "owner": "operator",
+                    "summary": "stale local summary",
+                    "recommended_action": "use old command",
+                    "recommended_command": "legacy-command",
+                },
+                "recovery_assessment": {
+                    "diagnosis": {
+                        "status": "implementer_state_reset_required",
+                        "root_cause": "Claude Ack is stale for the live instruction.",
+                    },
+                    "decision": {
+                        "action_id": "reset_implementer_state",
+                        "command": "python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --terminal none --format md",
+                        "execution_owner": "reviewer",
+                        "rationale": "Reset the implementer state before resuming work.",
+                    },
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertEqual(state.attention.status, "implementer_state_reset_required")
+        self.assertEqual(state.attention.owner, "reviewer")
+        self.assertEqual(
+            state.attention.summary,
+            "Claude Ack is stale for the live instruction.",
+        )
+        self.assertEqual(
+            state.attention.recommended_action,
+            "Reset the implementer state before resuming work.",
+        )
+        self.assertIn("reset-implementer-state", state.attention.recommended_command)
+        self.assertTrue(
+            any(
+                warning.startswith(
+                    "review_state.attention normalized from recovery_assessment projection"
+                )
+                for warning in state.warnings
+            )
+        )
+
     def test_implementer_completion_stall_survives_parser_roundtrip(self) -> None:
         state = review_state_from_payload(
             {

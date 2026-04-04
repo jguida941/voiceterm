@@ -22,10 +22,17 @@ def attach_reviewer_runtime_snapshot(
     if review_state is None:
         return
     recovery_assessment = getattr(review_state, "recovery_assessment", None)
+    review_attention = getattr(review_state, "attention", None)
+    derived_attention = asdict(review_attention) if review_attention is not None else None
+    effective_attention = derived_attention or (
+        dict(attention) if isinstance(attention, Mapping) else None
+    )
     report["reviewer_runtime"] = reviewer_runtime_contract_to_dict(
         review_state.reviewer_runtime
     )
     report["commit_pipeline"] = asdict(review_state.commit_pipeline)
+    if effective_attention is not None:
+        report["attention"] = effective_attention
     report["recovery_assessment"] = (
         asdict(recovery_assessment)
         if recovery_assessment is not None
@@ -39,7 +46,7 @@ def attach_reviewer_runtime_snapshot(
     report["doctor"] = build_reviewer_doctor_surface(
         contract=review_state.reviewer_runtime,
         recovery_assessment=recovery_assessment,
-        attention=attention,
+        attention=effective_attention,
         commit_pipeline=review_state.commit_pipeline,
         push_enforcement=(
             bridge_liveness.get("push_enforcement")

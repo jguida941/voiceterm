@@ -8,20 +8,16 @@ from .control_state import _int, _mapping, _string, _string_rows
 from .review_state_collaboration_parse import collaboration_state_from_payload
 from .review_state_parse_support import (
     _bool,
-    _optional_bool,
+    attention_projection_warning,
+    attention_state_from_mapping,
     bridge_ack_state,
-    conductor_capability_state_from_payload,
+    recovery_assessment_from_mapping,
+    review_bridge_state_from_payload,
 )
 from .review_state_models import (
     AgentRegistryEntryState,
     AgentRegistryState,
     ContextPackRefState,
-    RecoveryAssessmentState,
-    RecoveryDecisionState,
-    RecoveryDiagnosisState,
-    RecoveryEvidenceState,
-    ReviewAttentionState,
-    ReviewBridgeState,
     ReviewCurrentSessionState,
     ReviewPacketState,
     ReviewQueueState,
@@ -54,8 +50,9 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
     bridge_liveness = _mapping(payload.get("bridge_liveness")) or _mapping(
         review_payload.get("bridge_liveness")
     )
-    warnings = _string_rows(payload.get("warnings")) or _string_rows(
-        review_payload.get("warnings")
+    warnings = list(
+        _string_rows(payload.get("warnings"))
+        or _string_rows(review_payload.get("warnings"))
     )
     errors = _string_rows(payload.get("errors")) or _string_rows(
         review_payload.get("errors")
@@ -73,45 +70,9 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         current_session=current_session,
         bridge=bridge,
     )
-    bridge_state = ReviewBridgeState(
-        overall_state=_string(bridge_liveness.get("overall_state")) or "unknown",
-        codex_poll_state=_string(bridge_liveness.get("codex_poll_state"))
-        or "unknown",
-        reviewer_freshness=_string(bridge_liveness.get("reviewer_freshness"))
-        or "unknown",
-        reviewer_mode=_string(bridge.get("reviewer_mode")) or "single_agent",
-        last_codex_poll_utc=_string(bridge.get("last_codex_poll_utc")),
-        last_codex_poll_age_seconds=_int(
-            bridge_liveness.get("last_codex_poll_age_seconds")
-        ),
-        last_worktree_hash=_string(bridge.get("last_worktree_hash")),
-        current_instruction=_string(bridge.get("current_instruction")),
-        open_findings=_string(bridge.get("open_findings")),
-        claude_status=_string(bridge.get("claude_status")),
-        claude_ack=_string(bridge.get("claude_ack")),
-        claude_ack_current=_bool(bridge.get("claude_ack_current")),
-        current_instruction_revision=_string(
-            bridge.get("current_instruction_revision")
-        ),
-        claude_ack_revision=_string(bridge.get("claude_ack_revision")),
-        last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
-        launch_truth=_string(bridge.get("launch_truth")),
-        effective_reviewer_mode=_string(bridge.get("effective_reviewer_mode")),
-        implementer_state_hash=_string(bridge.get("implementer_state_hash")),
-        reviewed_hash_current=_optional_bool(bridge, "reviewed_hash_current"),
-        review_needed=_optional_bool(bridge, "review_needed"),
-        review_accepted=_bool(bridge.get("review_accepted")),
-        implementer_completion_stall=bool(bridge.get("implementer_completion_stall")),
-        publisher_running=bool(bridge.get("publisher_running")),
-        codex_conductor_active=_bool(bridge.get("codex_conductor_active")),
-        claude_conductor_active=_bool(bridge.get("claude_conductor_active")),
-        reviewer_capability=conductor_capability_state_from_payload(
-            bridge.get("reviewer_capability") or bridge_liveness.get("reviewer_capability")
-        ),
-        implementer_capability=conductor_capability_state_from_payload(
-            bridge.get("implementer_capability")
-            or bridge_liveness.get("implementer_capability")
-        ),
+    bridge_state = review_bridge_state_from_payload(
+        bridge=bridge,
+        bridge_liveness=bridge_liveness,
     )
     registry_state = AgentRegistryState(
         timestamp=_string(registry_payload.get("timestamp"))
@@ -125,6 +86,18 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         bridge=bridge_state,
         registry=registry_state,
     )
+    assessment_state = recovery_assessment_from_mapping(recovery_assessment)
+    attention_state = attention_state_from_mapping(
+        attention,
+        recovery_assessment=assessment_state,
+    )
+    warning = attention_projection_warning(
+        raw_attention=attention,
+        normalized_attention=attention_state,
+        recovery_assessment=assessment_state,
+    )
+    if warning:
+        warnings.append(warning)
     reviewer_runtime_state = reviewer_runtime_state_from_payload(
         reviewer_runtime=_mapping(review_payload.get("reviewer_runtime")),
         bridge=bridge,
@@ -177,13 +150,13 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         current_session=current_session_state,
         collaboration=collaboration_state,
         bridge=bridge_state,
-        attention=_attention_state_from_mapping(attention),
-        recovery_assessment=_recovery_assessment_from_mapping(recovery_assessment),
+        attention=attention_state,
+        recovery_assessment=assessment_state,
         packets=_packet_states_from_value(review_payload.get("packets")),
         registry=registry_state,
         reviewer_runtime=reviewer_runtime_state,
         commit_pipeline=commit_pipeline,
-        warnings=warnings,
+        warnings=tuple(warnings),
         errors=errors,
         snapshot_id=_string(payload.get("snapshot_id"))
         or _string(review_payload.get("snapshot_id"))
@@ -241,72 +214,6 @@ def _current_session_state_from_payload(
         open_findings=_string(bridge.get("open_findings")),
         last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
     )
-
-
-def _attention_state_from_mapping(
-    mapping: Mapping[str, object],
-) -> ReviewAttentionState | None:
-    if not mapping:
-        return None
-    return ReviewAttentionState(
-        status=_string(mapping.get("status")) or "unknown",
-        owner=_string(mapping.get("owner")) or "system",
-        summary=_string(mapping.get("summary")),
-        recommended_action=_string(mapping.get("recommended_action")),
-        recommended_command=_string(mapping.get("recommended_command")),
-    )
-
-
-def _recovery_assessment_from_mapping(
-    mapping: Mapping[str, object],
-) -> RecoveryAssessmentState | None:
-    if not mapping:
-        return None
-    diagnosis = _mapping(mapping.get("diagnosis"))
-    decision = _mapping(mapping.get("decision"))
-    if not diagnosis and not decision:
-        return None
-    return RecoveryAssessmentState(
-        diagnosis=RecoveryDiagnosisState(
-            status=_string(diagnosis.get("status")) or "unknown",
-            root_cause=_string(diagnosis.get("root_cause")),
-            supporting_causes=_string_rows(diagnosis.get("supporting_causes")),
-            evidence=_recovery_evidence_rows(diagnosis.get("evidence")),
-            affected_surfaces=_string_rows(diagnosis.get("affected_surfaces")),
-            expected_healthy_state=_string(diagnosis.get("expected_healthy_state")),
-        ),
-        decision=RecoveryDecisionState(
-            action_id=_string(decision.get("action_id")),
-            command=_string(decision.get("command")),
-            execution_owner=_string(decision.get("execution_owner")),
-            rationale=_string(decision.get("rationale")),
-            blocked_alternatives=_string_rows(decision.get("blocked_alternatives")),
-            can_auto_fix=_bool(decision.get("can_auto_fix")),
-            requires_approval=_bool(decision.get("requires_approval")),
-            next_expected_state=_string(decision.get("next_expected_state")),
-        ),
-    )
-
-
-def _recovery_evidence_rows(value: object) -> tuple[RecoveryEvidenceState, ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    rows: list[RecoveryEvidenceState] = []
-    for item in value:
-        mapping = _mapping(item)
-        if not mapping:
-            continue
-        rows.append(
-            RecoveryEvidenceState(
-                code=_string(mapping.get("code")),
-                surface=_string(mapping.get("surface")),
-                field=_string(mapping.get("field")),
-                value=_string(mapping.get("value")),
-                detail=_string(mapping.get("detail")),
-            )
-        )
-    return tuple(rows)
-
 def _packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         return ()

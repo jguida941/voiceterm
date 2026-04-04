@@ -467,6 +467,16 @@ checklist plus chat memory.
     confirm both conductors are live. Neither path accepts both an unchanged
     timestamp and unchanged status text, preserving the fail-closed guard
     against authority-bypass scenarios.
+4.4.6 `ReviewState.attention` is now a deterministic projection of the typed
+    `recovery_assessment` (diagnosis + decision pair) when both are present.
+    Reviewer runtime doctor snapshots and status surfaces prefer this typed
+    projection over stale raw attention values. The parity guard
+    `check_review_surface_consistency.py` enforces the contract: if
+    `recovery_assessment` exists, `review_state.attention` must match the
+    canonical projection fields (`status`, `owner`, `summary`,
+    `recommended_action`, `recommended_command`). Drift between raw attention
+    and the projected values is a CI-blocking error, not silent state
+    corruption.
 4.5 In that same live review-channel mode, treat
     `dev/reports/review_channel/latest/review_state.json` (and the mirrored
     `compact.json` projection) `current_session` block as the canonical typed

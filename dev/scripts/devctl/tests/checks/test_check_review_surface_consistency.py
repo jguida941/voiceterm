@@ -57,6 +57,9 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                 },
                 "attention": {
                     "status": "healthy",
+                    "owner": "system",
+                    "summary": "",
+                    "recommended_action": "",
                     "recommended_command": "",
                 },
                 "commit_pipeline": {
@@ -124,6 +127,9 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                 },
                 "attention": {
                     "status": "review_loop_relaunch_required",
+                    "owner": "system",
+                    "summary": "",
+                    "recommended_action": "",
                     "recommended_command": "launch",
                 },
                 "commit_pipeline": {
@@ -210,6 +216,120 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         self.assertIn("diagnosis parity mismatch", "\n".join(report["errors"]))
         self.assertIn("reports healthy while diagnosis", "\n".join(report["errors"]))
 
+    def test_build_report_fails_when_attention_drifts_from_recovery_assessment(self) -> None:
+        report = self.script.build_report(
+            startup_payload={
+                "snapshot_id": "snap-321",
+                "push_decision": {"snapshot_id": "snap-321"},
+            },
+            review_state_payload={
+                "snapshot_id": "snap-321",
+                "recovery_assessment": {
+                    "diagnosis": {
+                        "status": "implementer_state_reset_required",
+                        "root_cause": "Claude Ack is stale for the live instruction.",
+                    },
+                    "decision": {
+                        "action_id": "reset_implementer_state",
+                        "command": "python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --terminal none --format md",
+                        "execution_owner": "reviewer",
+                        "rationale": "Reset the implementer state before resuming work.",
+                    },
+                },
+                "attention": {
+                    "status": "healthy",
+                    "owner": "operator",
+                    "summary": "stale summary",
+                    "recommended_action": "old action",
+                    "recommended_command": "legacy command",
+                },
+                "commit_pipeline": {
+                    "snapshot_id": "snap-321",
+                    "generation_id": "gen-3",
+                },
+                "_compat": {
+                    "doctor": {
+                        "snapshot_id": "snap-321",
+                        "generation_id": "gen-3",
+                        "status": "implementer_state_reset_required",
+                        "diagnosis_status": "implementer_state_reset_required",
+                        "decision_action_id": "reset_implementer_state",
+                        "decision_command": "python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --terminal none --format md",
+                    },
+                    "bridge_projection": {
+                        "metadata": {"snapshot_id": "snap-321"},
+                    },
+                },
+            },
+            compact_payload={
+                "snapshot_id": "snap-321",
+                "push_decision": {"snapshot_id": "snap-321"},
+                "doctor": {
+                    "snapshot_id": "snap-321",
+                    "generation_id": "gen-3",
+                    "status": "implementer_state_reset_required",
+                    "diagnosis_status": "implementer_state_reset_required",
+                    "decision_action_id": "reset_implementer_state",
+                    "decision_command": "python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --terminal none --format md",
+                },
+            },
+            commit_pipeline_payload={
+                "snapshot_id": "snap-321",
+                "generation_id": "gen-3",
+            },
+            bridge_poll_payload={
+                "snapshot_id": "snap-321",
+                "effective_reviewer_mode": "active_dual_agent",
+                "launch_truth": "live_runtime",
+                "attention_status": "implementer_state_reset_required",
+                "recovery_action_allowed": "python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --terminal none --format md",
+                "diagnosis_status": "implementer_state_reset_required",
+                "decision_action_id": "reset_implementer_state",
+                "decision_command": "python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --terminal none --format md",
+                "decision_execution_owner": "reviewer",
+                "decision_requires_approval": False,
+                "decision_can_auto_fix": True,
+                "implementation_blocked": False,
+                "implementation_block_reason": "",
+                "reviewed_hash_current": False,
+                "review_needed": True,
+                "next_turn_required": True,
+                "next_turn_role": "implementer",
+                "next_turn_reason": "implementer_ack_stale",
+            },
+            turn_authority_payload={
+                "snapshot_id": "snap-321",
+                "effective_reviewer_mode": "active_dual_agent",
+                "launch_truth": "live_runtime",
+                "attention_status": "implementer_state_reset_required",
+                "recovery_action_allowed": "python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --terminal none --format md",
+                "diagnosis_status": "implementer_state_reset_required",
+                "decision_action_id": "reset_implementer_state",
+                "decision_command": "python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --terminal none --format md",
+                "decision_execution_owner": "reviewer",
+                "decision_requires_approval": False,
+                "decision_can_auto_fix": True,
+                "implementation_blocked": False,
+                "implementation_block_reason": "",
+                "reviewed_hash_current": False,
+                "review_needed": True,
+                "next_turn_required": True,
+                "next_turn_role": "implementer",
+                "next_turn_reason": "implementer_ack_stale",
+            },
+            disk_review_state_payload=None,
+        )
+
+        self.assertFalse(report["ok"])
+        self.assertIn(
+            "attention projection mismatch on review_state.attention.status",
+            "\n".join(report["errors"]),
+        )
+        self.assertIn(
+            "attention projection mismatch on review_state.attention.recommended_command",
+            "\n".join(report["errors"]),
+        )
+
 
 class DiskTurnAuthorityParityTests(unittest.TestCase):
     """Tests for disk-artifact parity between review_state.json and turn-authority."""
@@ -235,7 +355,16 @@ class DiskTurnAuthorityParityTests(unittest.TestCase):
                     "decision": {
                         "action_id": "continue_scoped_loop",
                         "command": "",
+                        "execution_owner": "system",
+                        "rationale": "",
                     },
+                },
+                "attention": {
+                    "status": "healthy",
+                    "owner": "system",
+                    "summary": "",
+                    "recommended_action": "",
+                    "recommended_command": "",
                 },
                 "commit_pipeline": {"snapshot_id": "snap-1", "generation_id": "g1"},
                 "_compat": {
@@ -464,10 +593,15 @@ class DiskTurnAuthorityParityTests(unittest.TestCase):
                         "decision": {
                             "action_id": "reset_implementer_state",
                             "command": "reset",
+                            "execution_owner": "system",
+                            "rationale": "",
                         },
                     },
                     "attention": {
                         "status": "implementer_state_reset_required",
+                        "owner": "system",
+                        "summary": "",
+                        "recommended_action": "",
                         "recommended_command": "reset",
                     },
                     "commit_pipeline": {"snapshot_id": "snap-1", "generation_id": "g1"},

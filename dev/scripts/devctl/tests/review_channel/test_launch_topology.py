@@ -90,6 +90,49 @@ class LaunchTopologyTests(unittest.TestCase):
             self.assertIsNone(metadata["terminal_window_id"])
             self.assertIsNone(sessions[0]["terminal_window_id"])
 
+    def test_build_launch_sessions_uses_plan_safe_claude_permission_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text("# Bridge\n", encoding="utf-8")
+
+            sessions = build_launch_sessions(
+                request=LaunchSessionRequest(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    bridge_path=bridge_path,
+                    codex_lanes=[],
+                    claude_lanes=[],
+                    codex_workers=0,
+                    claude_workers=0,
+                    provider_lane_map={
+                        "codex": [_lane("AGENT-1", "codex", "Codex review")],
+                        "claude": [_lane("AGENT-2", "claude", "Claude coding")],
+                    },
+                    requested_worker_budgets={"codex": 0, "claude": 0},
+                    rollover_threshold_pct=20,
+                    await_ack_seconds=180,
+                    retirement_note="bridge-gated",
+                    promotion_plan_rel="dev/active/review_channel.md",
+                ),
+                build_conductor_prompt_fn=lambda **_: "prompt",
+                resolve_cli_path_fn=lambda provider: provider,
+            )
+
+            scripts_by_provider = {
+                str(session["provider"]): Path(str(session["script_path"])).read_text(
+                    encoding="utf-8"
+                )
+                for session in sessions
+            }
+
+            self.assertIn("--full-auto", scripts_by_provider["codex"])
+            self.assertIn("--permission-mode default", scripts_by_provider["claude"])
+            self.assertNotIn("--permission-mode auto", scripts_by_provider["claude"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -37,6 +37,28 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-04 - ReviewState.attention projects from recovery_assessment
+
+`ReviewState.attention` is no longer an independently authored field. When
+typed `recovery_assessment` (a diagnosis + decision pair) is present,
+`review_state_parse_support.py` projects attention deterministically from
+the assessment: `status` from `diagnosis.status`, `owner` from
+`decision.execution_owner`, `summary` from `diagnosis.root_cause`,
+`recommended_action` from `decision.rationale`, `recommended_command` from
+`decision.command`. Reviewer runtime doctor snapshots
+(`reviewer_runtime_snapshot.py`) prefer the typed `ReviewState.attention`
+over the raw attention parameter, and `check_review_surface_consistency.py`
+enforces the projection contract: field drift between raw attention and the
+canonical projection is a CI-blocking parity error. This closes a class of
+silent state corruption where attention could disagree with the recovery
+assessment that produced it.
+
+Evidence: `dev/scripts/devctl/runtime/review_state_parse_support.py`,
+`dev/scripts/devctl/runtime/review_state_parser.py`,
+`dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`,
+`dev/scripts/checks/review_surface_consistency/parity.py`,
+`dev/scripts/devctl/platform/runtime_state_contract_rows.py`.
+
 ### 2026-04-04 - Read-only artifact suppression for startup-context and bootstrap context-graph
 
 `startup-context` and bootstrap `context-graph` are classified as read-only

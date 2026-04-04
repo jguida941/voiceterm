@@ -59,7 +59,11 @@ def provider_args_for_approval_mode(
     if provider == "claude":
         if approval_mode == "trusted":
             return ["--dangerously-skip-permissions"]
-        return ["--permission-mode", "auto"]
+        # Claude's `auto` mode is subscription-gated. Review-channel launches
+        # must stay portable across operator plans, so non-trusted sessions use
+        # the provider-default permission posture instead of failing during
+        # terminal bootstrap on plans without auto mode.
+        return ["--permission-mode", "default"]
     if provider == "cursor":
         return ["--composer", str(repo_root)]
     raise ValueError(f"Unsupported provider: {provider}")

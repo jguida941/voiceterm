@@ -510,6 +510,14 @@ contract set:
   review acceptance, and publish-clear state. Bridge `review_accepted`,
   doctor/status renderings, and other compatibility surfaces must project this
   contract instead of inventing separate reviewer truth.
+  `ReviewState.attention` is a derived projection of the typed
+  `recovery_assessment` (diagnosis + decision pair) when both are present:
+  `status` from `diagnosis.status`, `owner` from `decision.execution_owner`,
+  `summary` from `diagnosis.root_cause`, `recommended_action` from
+  `decision.rationale`, `recommended_command` from `decision.command`.
+  Runtime doctor snapshots prefer the typed projection over raw attention.
+  `check_review_surface_consistency.py` enforces the projection contract;
+  drift between raw and projected attention is a CI-blocking parity error.
 - `DelegatedWorkPacket`: typed conductor-issued worker contract compiled from
   `WorkIntakePacket` + `PlanExpectationPacket` for one bounded lane. Required
   fields: role id, owned `PlanTargetRef` / issue cluster, owned worktree and

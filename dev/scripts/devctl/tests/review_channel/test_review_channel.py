@@ -5967,7 +5967,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             claude_text = claude_script.read_text(encoding="utf-8")
             self.assertIn("--full-auto", codex_script.read_text(encoding="utf-8"))
             self.assertIn(
-                "--permission-mode auto",
+                "--permission-mode default",
                 claude_script.read_text(encoding="utf-8"),
             )
             self.assertIn(

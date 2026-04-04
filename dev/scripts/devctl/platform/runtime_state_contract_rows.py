@@ -115,6 +115,11 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Current top-priority attention state, if any.",
             ),
             ContractField(
+                "recovery_assessment",
+                "RecoveryAssessmentState | None",
+                "Canonical typed diagnosis/decision pair that explanatory review surfaces project instead of recomputing local recovery prose.",
+            ),
+            ContractField(
                 "packets",
                 "tuple[ReviewPacketState, ...]",
                 "Typed review-channel packets, including approval state.",

@@ -6,6 +6,14 @@ from pathlib import Path
 
 from .support import load_disk_review_state
 
+_ATTENTION_PROJECTION_FIELDS = (
+    "status",
+    "owner",
+    "summary",
+    "recommended_action",
+    "recommended_command",
+)
+
 
 def bridge_poll_parity_errors(
     bridge_poll: dict[str, object],
@@ -125,6 +133,7 @@ def recovery_surface_parity_errors(
             errors.append(
                 f"{surface_name} reports healthy while diagnosis is {diagnosis_status!r}"
             )
+    errors.extend(attention_projection_parity_errors(review_state))
     return errors
 
 
@@ -225,3 +234,43 @@ def _nested(mapping: dict[str, object], *keys: str) -> str:
     if current in (None, ""):
         return ""
     return str(current)
+
+
+def attention_projection_parity_errors(review_state: dict[str, object]) -> list[str]:
+    assessment = review_state.get("recovery_assessment")
+    attention = review_state.get("attention")
+    if not isinstance(assessment, dict):
+        return []
+    projected_attention = _assessment_attention_projection(assessment)
+    if not projected_attention:
+        return []
+    if not isinstance(attention, dict):
+        return ["review_state.attention missing while recovery_assessment is present"]
+    errors: list[str] = []
+    for field in _ATTENTION_PROJECTION_FIELDS:
+        expected = projected_attention.get(field, "")
+        actual = _nested(review_state, "attention", field)
+        if actual != expected:
+            errors.append(
+                "attention projection mismatch on "
+                f"review_state.attention.{field}: expected={expected!r}, actual={actual!r}"
+            )
+    return errors
+
+
+def _assessment_attention_projection(
+    assessment: dict[str, object],
+) -> dict[str, str]:
+    diagnosis = assessment.get("diagnosis")
+    decision = assessment.get("decision")
+    if not isinstance(diagnosis, dict) and not isinstance(decision, dict):
+        return {}
+    diagnosis = diagnosis if isinstance(diagnosis, dict) else {}
+    decision = decision if isinstance(decision, dict) else {}
+    return {
+        "status": str(diagnosis.get("status") or "unknown"),
+        "owner": str(decision.get("execution_owner") or "system"),
+        "summary": str(diagnosis.get("root_cause") or ""),
+        "recommended_action": str(decision.get("rationale") or ""),
+        "recommended_command": str(decision.get("command") or ""),
+    }
