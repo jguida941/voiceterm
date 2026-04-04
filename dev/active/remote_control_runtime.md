@@ -124,6 +124,24 @@ External review identified core problem: "too many partially smart surfaces, not
 - **Parallel worktrees**: `LaneAssignment.worktree` parsed but never consumed by launcher. 3 gaps: add worktree_path to LaunchSessionRequest, wire git worktree in build_session_script, pass per-worktree path to conductor prompt.
 - **Portability**: `repo_packs/voiceterm.py` correctly isolated but `active_path_config()` defaults to VoiceTerm. No pip package. No second repo-pack registered.
 
+## Data Pipeline Audit (Round 3, 8-agent, 2026-04-04)
+
+Every data pipeline from source → surface was audited. Core finding: **every surface computes independently, rich data is discarded at every layer, no shared read model.**
+
+| Pipeline | Data Available | Data Surfaced | Lost |
+|---|---|---|---|
+| Guard → Dashboard | Full per-check results with file/line/policy | Only push-preflight, capped at 10 | Guards run outside push invisible |
+| Probe → Dashboard | Per-file, per-probe findings with severity | Aggregate counts only (high: N) | All actionable detail |
+| Governance → Dashboard | Per-finding verdicts, recurrence risk, fix notes | 4 summary counters | Everything per-finding |
+| Startup vs Dashboard | Both compute push/quality/review state | Independent paths, different sources | Silent disagreement possible |
+| Operator Console | Own parallel state models, own dataclasses | Raw JSON socket from daemon | No shared typed state with CLI |
+| Phone surface | Static JSON artifact | Pre-built file, no live data | Git, daemons, quality, probes, events, plans |
+| Event log (20K events) | Duration, area, argv, retries, cycle_id, timestamps | 5 aggregated totals + 20-event sparkline | ~95% of data buried |
+| MCP adapter | 4 read-only tools, typed JSON | Status/report/compat/release | No per-file guard query, no dashboard, no typed state query |
+
+### Root cause (confirms ChatGPT P0 diagnosis)
+No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact files and computes its own derived state. The fix is ONE builder that reads all sources once, produces ONE resolved read model, and ALL surfaces render only that.
+
 ## Session Resume
 
 - Current status: architecture review is complete and the closure plan is now
