@@ -41,6 +41,11 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Bounded source paths used to derive the control snapshot.",
             ),
             ContractField(
+                "operator_context",
+                "OperatorContext",
+                "Typed operator-presence metadata for mode-aware governance decisions.",
+            ),
+            ContractField(
                 "warnings",
                 "tuple[str, ...]",
                 "Non-blocking warnings carried with the control snapshot.",

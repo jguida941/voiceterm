@@ -1,0 +1,121 @@
+# Remote Control Runtime Closure Plan
+
+**Status**: active  |  **Last updated**: 2026-04-04 | **Owner:** Tooling/control plane/review runtime/dashboard
+Execution plan contract: required
+This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-385`.
+It closes the remote-control/operator-surface gaps found in the 2026-04-04
+architecture review of commits `5bed0fa..4094c39`.
+
+## Scope
+
+Close the remaining phone/remote-control architecture gaps without creating a
+second bridge-only authority path. The target is one typed remote-control
+runtime that drives reviewer lifecycle, action requests, dashboard projections,
+and auto-poll behavior across CLI, bridge compatibility text, and later
+phone/operator-console clients.
+
+Out of scope for this tranche: a second VCS executor, a second packet/action
+transport, or any new frontend that parses raw bridge markdown once a typed
+contract exists.
+
+## Execution Checklist
+
+- [x] Architecture-review the 8 commits ahead of the tracked upstream and map
+      the gaps onto existing owner contracts.
+- [ ] MP-380 Add one typed operator-interaction mode (`local_terminal` vs
+      `remote_control`) and project it through `ProjectGovernance`,
+      `StartupContext`, `ReviewState`, and reviewer-runtime surfaces.
+- [ ] MP-381 Add one typed `CheckResult` / `ViolationRecord` contract family
+      plus one shared renderer/JSON projection for checks, probes,
+      governance-review, startup summaries, and dashboard consumers.
+- [ ] MP-382 Finish headless session lifecycle closure so launch, recovery,
+      and rollover honor typed operator mode, survive non-zero conductor exit,
+      and do not recommend `Terminal.app` in remote-control mode.
+- [ ] MP-383 Converge bridge `## Action Requests` onto the existing
+      `PacketPostRequest(kind="action_request")` event path and keep bridge
+      action rows as projection-only compatibility text.
+- [ ] MP-384 Make `devctl dashboard` the single operator surface over typed
+      review/runtime/check state instead of bridge regex and `format_steps_text`
+      parsing.
+- [ ] MP-385 Add repo-owned remote-control auto-poll/update cadence for
+      reviewer, implementer, and operator-facing surfaces using the same typed
+      runtime state and packet queue.
+
+## Data Contracts
+
+1. Operator-mode authority
+   - Declared owner: extend `ProjectGovernance.BridgeConfig` with one typed
+     operator-interaction mode (`local_terminal` or `remote_control`).
+   - Live projection: mirror the same value into `ReviewState` collaboration /
+     reviewer-runtime surfaces and `StartupContext.reviewer_gate`.
+   - All launch, recovery, dashboard, and auto-poll decisions must read that
+     value instead of hardcoding `terminal-app` vs headless behavior.
+2. Remote-control mutation/approval transport
+   - Authoritative transport: the existing review-channel packet/event path,
+     specifically `PacketPostRequest(kind="action_request")` with typed target
+     metadata and reduced packet state.
+   - `bridge.md` `## Action Requests` remains compatibility projection only. It
+     may summarize pending action packets, but it must not become a second
+     execution queue or parser-owned authority surface.
+3. Check and violation evidence
+   - Add one typed `CheckResult` owner for per-check execution state plus one
+     typed `ViolationRecord` row for normalized file/line/policy/fix detail.
+   - `ViolationRecord` is the only structured violation row rendered by
+     dashboard, CI summaries, startup summaries, and compact AI-facing status
+     output. `Finding` remains the escalated governance-review record derived
+     from a violation when richer review/probe evidence is required.
+4. Frontend rule
+   - `devctl dashboard`, bridge projections, phone/mobile surfaces, and the
+     Operator Console consume typed `ReviewState`, reduced packet state, and
+     typed check-result artifacts.
+   - Raw bridge regex and `format_steps_text()` scraping are transitional debt
+     to remove during `MP-384`, not long-term frontend/runtime contracts.
+
+## Progress Log
+
+- 2026-04-04: Reviewed the 8 commits ahead of
+  `origin/feature/governance-quality-sweep`
+  (`5bed0fa`, `437008d`, `a534e3e`, `25f458c`, `aa26749`, `8c3f032`,
+  `76f5401`, `4094c39`). Accepted the portability/push-truth slices and logged
+  four blocking architecture gaps: remote-control state is not typed through
+  startup/runtime owners, bridge `Action Requests` creates a second action
+  transport, headless lifecycle still stops on non-zero exit and recommends
+  `terminal-app`, and dashboard/check-detail surfaces still parse compatibility
+  text instead of typed records.
+- 2026-04-04: Bound those gaps to `MP-380..MP-385` so the closure path stays
+  under the existing `MP-377` owner chain instead of becoming bridge-local
+  review lore.
+
+## Session Resume
+
+- Current status: architecture review is complete and the closure plan is now
+  the active authority for this remote-control/runtime tranche.
+- Next action: land `MP-380` and `MP-382` together first, because packet,
+  dashboard, and auto-poll behavior need one typed operator-mode / headless
+  lifecycle contract before they can converge cleanly.
+- Context rule: read `dev/guides/AI_GOVERNANCE_PLATFORM.md`,
+  `dev/active/ai_governance_platform.md`,
+  `dev/active/platform_authority_loop.md`,
+  `dev/active/remote_commit_pipeline.md`, and this plan before editing
+  review-channel runtime, dashboard, or remote-control surfaces.
+- Scope note: the bounded review scope for this session is the 8 commits ahead
+  of `@{upstream}`. `git log origin/master..HEAD` currently returns 313 commits
+  on this repo and is not the narrow review range for this branch.
+
+## Audit Evidence
+
+- `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`
+- `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
+- `python3 dev/scripts/devctl.py platform-contracts --format md`
+- `git log --oneline origin/master..HEAD`
+- `git log --oneline @{upstream}..HEAD`
+- Key contract/code review inputs:
+  `dev/scripts/devctl/runtime/project_governance_contract.py`,
+  `dev/scripts/devctl/runtime/startup_context.py`,
+  `dev/scripts/devctl/runtime/reviewer_runtime_models.py`,
+  `dev/scripts/devctl/review_channel/packet_contract.py`,
+  `dev/scripts/devctl/review_channel/action_request.py`,
+  `dev/scripts/devctl/review_channel/launch_script.py`,
+  `dev/scripts/devctl/review_channel/peer_recovery.py`,
+  `dev/scripts/devctl/commands/dashboard.py`,
+  `dev/scripts/devctl/commands/dashboard_data.py`.
