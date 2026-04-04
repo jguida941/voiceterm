@@ -372,6 +372,14 @@ Three quality layers matter in practice:
     Canonical reviewer-reset implementer placeholders (`Claude Status: - pending`,
     `Claude Ack: - pending`) are valid fresh-launch state for a new instruction
     revision, and the same reset now clears stale `Claude Questions` too.
+  - `observe_launch_state()` in `bridge_launch_control.py` uses a lightweight
+    bridge-metadata + session-probe path for launch-time poll iterations
+    instead of forcing the full `ReviewChannelStatusSnapshot` refresh. The
+    heavy path is the `OSError` fallback only.
+  - `startup-context` and bootstrap `context-graph` suppress side-effect
+    artifact writes (startup receipt, bootstrap snapshot) when
+    `DEVCTL_NO_ARTIFACT_WRITES=1` is set by the read-only command dispatcher.
+    Explicit `--save-snapshot` on `context-graph` still writes unconditionally.
   - The same `status` path is now fail-closed on live-loop honesty too:
     `active_dual_agent` with detached publisher/supervisor heartbeats but no
     repo-owned conductors is a bridge-contract error, not a healthy loop.
@@ -488,6 +496,15 @@ Three quality layers matter in practice:
     also resolves the governed review-channel `rollover_dir` sibling from the
     managed review root before dispatching repo-owned review-channel actions,
     so review-channel command splits do not silently break startup repair.
+  - Read-only command safety: `startup-context`, `context-graph --mode bootstrap`,
+    and other read-only status commands now suppress artifact writes
+    (`write_startup_receipt()`, bootstrap snapshot save) via
+    `DEVCTL_NO_ARTIFACT_WRITES`, set automatically by the read-only command
+    dispatcher in `cli.py`. Explicit `--save-snapshot` still writes
+    unconditionally. The launch-poll path in `bridge_launch_control.py` also
+    gained a lightweight `observe_launch_state()` helper that reads bridge
+    metadata and session state directly instead of triggering a full status
+    refresh on every iteration.
   - Reviewer/implementer launch commands plus explicit reviewer takeover are
     runtime-owned `ConductorCapabilityState` facts now, not prompt-local text.
     Prompt/bootstrap/bridge projection surfaces must render from that typed

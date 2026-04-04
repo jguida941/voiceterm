@@ -546,6 +546,17 @@ checklist plus chat memory.
     sections must render effective current-target truth instead of replaying
     stale raw `latest_push_report_*` booleans as if they still describe the
     active branch/HEAD.
+4.6.1 Read-only artifact suppression: `startup-context`,
+    `context-graph --mode bootstrap`, and other read-only status commands now
+    suppress audit/telemetry artifact writes via `DEVCTL_NO_ARTIFACT_WRITES`
+    (set automatically by the read-only command dispatcher in `cli.py`).
+    `startup-context` skips `write_startup_receipt()` and bootstrap
+    `context-graph` skips the automatic snapshot save when that env var is
+    active. Explicit `--save-snapshot` still forces a write. The lightweight
+    `observe_launch_state()` optimization in `bridge_launch_control.py` uses
+    the same principle: launch-poll iterations now read bridge metadata and
+    session state directly instead of forcing a full status refresh, keeping
+    the read-only bootstrap path fast.
 4.7 Treat governed-markdown authority the same way: prefer typed
     `ProjectGovernance` outputs such as `doc_policy`, `doc_registry`, and
     parsed `plan_registry` entries when those projections are available, but

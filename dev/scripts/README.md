@@ -438,6 +438,15 @@ Portability note:
   alignment without reparsing the full runtime contract catalog. The slim
   bootstrap packet remains the bounded graph companion for discovery after that
   startup receipt is refreshed.
+- Both `startup-context` and `context-graph` are classified as read-only
+  commands. When dispatched through the read-only path, the CLI sets
+  `DEVCTL_NO_ARTIFACT_WRITES=1` so they suppress side-effect writes (startup
+  receipt, bootstrap snapshot) that would otherwise land in `dev/reports/`.
+  Explicit `--save-snapshot` on `context-graph` still writes unconditionally.
+- `observe_launch_state()` in `bridge_launch_control.py` uses a lightweight
+  bridge-metadata + session-probe path instead of forcing the full status
+  refresh on every launch poll iteration. The heavy path is kept as the
+  `OSError` fallback.
 - `dev/scripts/checks/check_review_surface_consistency.py`
   (`check_review_surface_consistency.py`) is the proof guard for that startup /
   status / doctor convergence. It reads `startup-context`, `review_state.json`,
@@ -927,7 +936,10 @@ startup-context reads. Non-guard queries now suppress generic guard-edge
 fan-out, and current `scoped_by` ownership comes from docs-policy rules rather
 than raw substring adjacency alone.
 Bootstrap mode also now writes a typed
-`ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/`; use
+`ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/` unless
+`DEVCTL_NO_ARTIFACT_WRITES` is set (the read-only command dispatcher sets it
+automatically), in which case the automatic snapshot save is suppressed.
+Explicit `--save-snapshot` still writes unconditionally. Use
 `--save-snapshot` on other `context-graph` modes when you need the same
 versioned graph baseline. `context-graph --mode diff --from ... --to ...`
 now reads those saved artifacts back into a typed `ContextGraphDelta`,
@@ -1246,6 +1258,10 @@ Machine-first output note:
     `check_platform_layer_boundaries.py` now blocks startup-authority/runtime
     capability modules from importing `dev.scripts.devctl.review_channel`
     orchestration directly.
+  - Read-only artifact suppression: when dispatched as a read-only command,
+    `startup-context` suppresses `write_startup_receipt()` via
+    `DEVCTL_NO_ARTIFACT_WRITES` so bootstrap polling and read-only mounts do
+    not trigger filesystem writes in `dev/reports/`.
 - `startup-context --repair`: repo-owned startup auto-triage/repair mode; reads typed
   `startup-context`, startup-authority, and the canonical typed review-state
   owner surfaced by `review-channel` status refresh,
