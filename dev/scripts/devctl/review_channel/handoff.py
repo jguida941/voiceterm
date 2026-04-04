@@ -410,7 +410,7 @@ def wait_for_codex_poll_refresh(
     previous_poll_utc: str | None,
     previous_poll_status: str | None,
     timeout_seconds: int,
-    poll_interval_seconds: float = 2.0,
+    poll_interval_seconds: float = 0.5,
     observe_launch_state_fn: Callable[[], dict[str, object]] | None = None,
 ) -> dict[str, object]:
     """Wait for a fresh Codex reviewer heartbeat after live launch."""
@@ -420,6 +420,7 @@ def wait_for_codex_poll_refresh(
     previous_poll_status_text = _normalize_inline_markdown(previous_poll_status or "")
     while True:
         snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
+        liveness = summarize_bridge_liveness(snapshot)
         current_poll_utc = snapshot.metadata.get("last_codex_poll_utc")
         current_poll_status = snapshot.sections.get("Poll Status", "")
         current_poll_status_text = _normalize_inline_markdown(current_poll_status)
@@ -441,13 +442,22 @@ def wait_for_codex_poll_refresh(
             and bool(launch_state.get("codex_conductor_active"))
             and bool(launch_state.get("claude_conductor_active"))
         )
+        current_poll_ready = liveness.codex_poll_state not in {
+            CodexPollState.MISSING,
+            CodexPollState.STALE,
+        }
+        # Fail-closed: typed launch truth supplements validation only
+        # after a genuinely fresh Codex reviewer turn. The poll timestamp
+        # must advance OR the poll status text must change; an unchanged
+        # `Last Codex poll` + unchanged `Poll Status` never counts as
+        # success, even when both conductors report live.
+        bridge_poll_moved = poll_advanced or poll_status_changed
         observed = (
-            poll_advanced
+            bridge_poll_moved
             and not poll_status_automation_only
             and (poll_status_changed or typed_live_ready)
         )
         if observed or time.monotonic() >= deadline:
-            liveness = summarize_bridge_liveness(snapshot)
             return {
                 "observed": observed,
                 "last_codex_poll_utc": current_poll_utc,

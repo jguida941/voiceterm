@@ -29,6 +29,7 @@ from dev.scripts.devctl.commands.review_channel.bridge_launch_control import (
     LaunchSessionRequest as BridgeLaunchSessionRequest,
     ensure_launch_runtime_daemons,
     launch_sessions_if_requested,
+    observe_launch_state,
 )
 from dev.scripts.devctl.commands import review_channel_event_handler
 from dev.scripts.devctl.commands.review_channel import status as review_channel_status_mod
@@ -940,6 +941,47 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(warnings, [])
         spawn_follow_publisher.assert_called_once()
         self.assertEqual(read_publisher_state.call_count, 2)
+
+    def test_observe_launch_state_uses_lightweight_runtime_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text(last_codex_poll=_fresh_utc_z(seconds_offset=-5)),
+                encoding="utf-8",
+            )
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
+
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.review_channel.bridge_launch_control.active_conductor_providers",
+                    return_value=("claude", "codex"),
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.review_channel.bridge_launch_control.read_publisher_state",
+                    return_value={"running": True},
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.review_channel.bridge_launch_control.read_reviewer_supervisor_state",
+                    return_value={"running": True},
+                ),
+            ):
+                launch_state = observe_launch_state(
+                    args=SimpleNamespace(),
+                    context=SimpleNamespace(
+                        bridge_path=bridge_path,
+                        status_dir=status_dir,
+                    ),
+                    warnings=[],
+                    refresh_snapshot_fn=lambda **_kwargs: (_ for _ in ()).throw(
+                        AssertionError("heavy refresh should not run")
+                    ),
+                )
+
+        self.assertEqual(launch_state["launch_truth"], "live")
+        self.assertTrue(launch_state["codex_conductor_active"])
+        self.assertTrue(launch_state["claude_conductor_active"])
 
     def test_ensure_launch_runtime_daemons_noops_when_publisher_is_already_running(
         self,
@@ -10044,6 +10086,59 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(result["launch_truth"], "live")
             self.assertTrue(result["codex_conductor_active"])
             self.assertTrue(result["claude_conductor_active"])
+
+    def test_wait_for_codex_poll_refresh_fails_closed_when_codex_poll_does_not_advance(
+        self,
+    ) -> None:
+        """Typed launch truth alone must not bypass the fresh-poll requirement.
+
+        When poll timestamp and poll status are both unchanged from the
+        pre-launch baseline, the helper must stay fail-closed even if
+        typed launch state reports both conductors as live.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            initial_poll = _fresh_utc_z(seconds_offset=-30)
+            unchanged_poll_status = "- reviewer still waiting on launch bootstrap"
+            bridge_path = root / "bridge.md"
+            # Bridge stays exactly at pre-launch state (no Codex heartbeat)
+            bridge_path.write_text(
+                _build_bridge_text(
+                    last_codex_poll=initial_poll,
+                    poll_status=unchanged_poll_status,
+                ),
+                encoding="utf-8",
+            )
+
+            # Typed launch state says both conductors are live
+            launch_state: dict[str, object] = {
+                "launch_truth": "live",
+                "codex_conductor_active": True,
+                "claude_conductor_active": True,
+            }
+
+            def _observe_launch_state() -> dict[str, object]:
+                return dict(launch_state)
+
+            result = wait_for_codex_poll_refresh(
+                bridge_path=bridge_path,
+                previous_poll_utc=initial_poll,
+                previous_poll_status=unchanged_poll_status,
+                timeout_seconds=0,
+                observe_launch_state_fn=_observe_launch_state,
+            )
+
+            # Must be fail-closed: observed=False because neither poll
+            # timestamp advanced nor poll status text changed.
+            self.assertFalse(
+                result["observed"],
+                "Unchanged poll timestamp + unchanged poll status must not "
+                "pass as a fresh Codex reviewer turn, even when typed launch "
+                "truth reports both conductors as live.",
+            )
+            self.assertFalse(result["poll_advanced"])
+            self.assertFalse(result["poll_status_changed"])
+            self.assertEqual(result["launch_truth"], "live")
 
     def test_run_launch_fails_closed_when_live_session_artifacts_are_active(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
