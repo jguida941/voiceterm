@@ -171,6 +171,22 @@ External review identified core problem: "too many partially smart surfaces, not
 - **Parallel worktrees**: `LaneAssignment.worktree` parsed but never consumed by launcher. 3 gaps: add worktree_path to LaunchSessionRequest, wire git worktree in build_session_script, pass per-worktree path to conductor prompt.
 - **Portability**: `repo_packs/voiceterm.py` correctly isolated but `active_path_config()` defaults to VoiceTerm. No pip package. No second repo-pack registered.
 
+## Outer Ring Audit (Round 7, 8-agent, 2026-04-04)
+
+| Subsystem | Status | Detail |
+|---|---|---|
+| CI workflows | SILO | 30 workflows run devctl but write no typed artifacts. No dashboard CI feed. |
+| Rust runtime | SEPARATE | JSON over sockets, Python never reads. Only static naming-parity guard. |
+| INDEX registry | PARTIAL | 10+ consumers but dashboard completely disconnected. |
+| ADR system | SILO | Typed internally, plain dict at boundary. Only in hygiene. |
+| CHANGELOG | BOOLEAN | Single bool gate, no structured data. |
+| Publication-sync | SILO | Standalone, untyped dict, no dashboard. |
+| Compat-matrix | SILO | Standalone CLI, plain dict. |
+| Guard-run/swarm | SILO | Typed structs internally but standalone output. No dashboard. |
+| Process-audit/sweep | SILO | Plain dicts, no dashboard connection. |
+
+Round 7 found 0 new well-integrated subsystems in the outer ring.
+
 ## Subsystem Integration Audit (Round 6, 8-agent, 2026-04-04)
 
 | Subsystem | Status | Detail |
