@@ -83,6 +83,17 @@
   worktree/path scope, `expected_revision`, `state_hash`) into one repo-owned
   JSON/Markdown artifact plus one compact GitHub-visible markdown summary
   before client migration begins.
+- Current 2026-04-04 architecture-audit follow-up inside that same lane:
+  freeze the extension/adopter closure tranche before broader packaging or
+  client-migration claims. The accepted deliverables are explicit: true
+  no-write-safe read-only control surfaces (separate audit/telemetry writeback
+  from read-only command execution), Phase-2 repo-pack/runtime activation that
+  fails closed instead of silently falling back to VoiceTerm defaults, one
+  repo-pack-owned `ExtensionBundle` that renders project-scoped Codex/Claude/
+  MCP surfaces from typed governance state, and one typed `AutomationSpec`
+  that lets the same governed task run through local scheduler, GitHub
+  workflow, Codex Automation, or Claude-facing command/agent surfaces without
+  creating a second authority layer.
 - Current bounded Phase-0 design follow-up inside that same lane:
   `dev/active/remote_commit_pipeline.md` freezes the typed remote-session
   commit/push pipeline

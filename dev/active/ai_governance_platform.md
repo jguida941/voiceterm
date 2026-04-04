@@ -544,6 +544,20 @@ contract set:
   terminal implementation.
 - `WorkflowAdapter`: abstraction over GitHub/CI/local workflow execution so
   Ralph-style or mutation loops stay reusable.
+- `ExtensionBundle`: repo-pack-owned generated integration bundle for
+  project-scoped Codex/Claude/MCP surfaces. It records emitted files,
+  enabled capabilities, source contracts, compatibility/version requirements,
+  and parity receipts for artifacts such as `.codex/hooks.json`, `.mcp.json`,
+  `.claude/settings.json`, `.claude/agents`, `.claude/skills`,
+  `.agents/skills`, and later plugin/marketplace metadata so tool-native
+  extensions project one backend authority instead of hand-maintained
+  per-tool configs.
+- `AutomationSpec`: typed recurring/background-task contract that binds one
+  governed goal to schedule class, allowed execution modes, approval policy,
+  required artifacts, and writeback sinks so the same automation can run under
+  local scheduler, GitHub workflow cron/dispatch, Codex Automations,
+  Claude-facing command/agent surfaces, or later queue runners without
+  re-encoding policy per transport.
 
 Versioning rules sit beside those contracts, not outside them:
 
@@ -2874,7 +2888,8 @@ alone. Use these proof gates:
       form instead of parsing active-plan prose only.
 - [ ] Define the shared runtime contracts (`RepoPack`, `ControlState`,
       `TypedAction`, `RunRecord`, `ArtifactStore`, `ProviderAdapter`,
-      `WorkflowAdapter`) in one canonical backend layer.
+      `WorkflowAdapter`, `ExtensionBundle`, and `AutomationSpec`) in one
+      canonical backend layer.
 - [ ] Define one real resolved repo-pack contract before `P1`: the runtime,
       frontends, and adopters should consume one typed repo-pack object
       carrying pack identity, policy path, path config, workflow profiles,
@@ -2895,6 +2910,24 @@ alone. Use these proof gates:
       prove the result on fixture repos that cover empty-repo bootstrap,
       existing-repo adoption, alternate layout roots, and tandem-disabled
       operation.
+- [ ] Make read-only control surfaces truly no-write-safe: `platform-contracts`,
+      `quality-policy`, `mcp`, `system-picture`, and other report/status
+      surfaces must be able to run on read-only mounts or restricted adopters
+      without appending audit-event or telemetry artifacts by default.
+      Separate explicit write sinks from read-only command execution, make the
+      active write mode visible in receipts, and prove the contract with
+      fixture/sandbox coverage.
+- [ ] Add one repo-pack-owned `ExtensionBundle` generator over project-scoped
+      Codex/Claude/MCP surfaces: emit `.codex/hooks.json`, `.mcp.json`,
+      `.claude/settings.json`, `.claude/agents`, `.claude/skills`,
+      `.agents/skills`, and later plugin manifests/marketplace metadata from
+      `ProjectGovernance` / `RepoPack` / `DerivedCapabilityContract` instead
+      of hand-maintained tool configs or VoiceTerm literals.
+- [ ] Add one typed `AutomationSpec` over governed background work: the same
+      task definition should target local scheduler, GitHub workflow
+      cron/dispatch, Codex Automations, Claude project commands/agents, or
+      later queue runners while preserving one approval/evidence/action
+      contract and avoiding transport-specific policy forks.
 - [ ] Freeze the backend authority contract in executable form: define the
       canonical reducer-backed JSON/runtime authority, typed action/write
       surface, receipt/telemetry path, optional local service/API seam, and
@@ -4399,6 +4432,17 @@ working on `MP-377`.
 
 ### Current status
 
+- 2026-04-04 extension/adopter closure correction: the latest architecture
+  audit is now accepted as tracked `MP-377` work before implementation, not as
+  off-plan commentary. The system should borrow Codex/Claude extension ideas
+  only as adapters over `devctl` authority, and the concrete closure tranche
+  is now explicit: make read-only command surfaces truly no-write-safe, close
+  Phase-2 repo-pack/runtime fallback so portable mode fails closed instead of
+  inheriting VoiceTerm defaults, generate project-scoped Codex/Claude/MCP
+  surfaces from one repo-pack-owned `ExtensionBundle`, and define one typed
+  `AutomationSpec` so the same governed task can run under local scheduler,
+  GitHub workflow, Codex Automation, or Claude-facing command/agent surfaces
+  without creating a second policy engine.
 - 2026-04-04 proof-state correction: the current `MP-377` execution branch is
   already published, but it is not yet a fully green proof slice.
   `dev/reports/push/latest.json` records `published_remote=true`,
@@ -5325,6 +5369,12 @@ prepare a bounded commit/push checkpoint through the normal approval path.
 
 Immediate override for the current tree:
 
+- Accepted 2026-04-04 architecture-audit follow-up: before broader packaging
+  or client-migration widening, freeze the extension/adopter closure tranche.
+  The required scope is explicit: no-write-safe read-only command semantics,
+  fail-closed repo-pack/runtime activation with no silent VoiceTerm fallback,
+  a repo-pack-owned `ExtensionBundle` for Codex/Claude/MCP surfaces, and a
+  typed `AutomationSpec` for local/CI/Codex/Claude background work.
 - If the live review loop is in play, repair the clean-tree
   `reviewer_overdue` state first. Detached publisher/reviewer-supervisor
   runtime is not enough by itself; the missing operational link remains the
@@ -5542,6 +5592,16 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-04: Accepted the architecture-audit extension/adopter follow-up into
+  canonical `MP-377` plan authority before implementation. The tracked closure
+  tranche is now explicit and product-owned: read-only `devctl`/MCP surfaces
+  must stop mutating audit/telemetry artifacts implicitly, portable runtime
+  Phase 2 must fail closed instead of falling through to VoiceTerm defaults,
+  one repo-pack-owned `ExtensionBundle` must generate project-scoped
+  Codex/Claude/MCP surfaces from typed governance state, and one
+  `AutomationSpec` must let the same governed task run through local
+  scheduler, GitHub workflow, Codex Automation, and Claude-facing
+  command/agent surfaces without re-encoding policy in each transport.
 - 2026-04-04: Re-froze the product-level proof boundary after the latest
   governed push. Branch publication is already recorded, but full green proof
   is blocked by commit-range code-shape debt, not by a missing push. The next

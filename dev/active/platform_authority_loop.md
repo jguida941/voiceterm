@@ -663,12 +663,26 @@ intended execution order is:
       inputs are absent. Allowed behavior is explicit injected authority,
       an intentionally declared compatibility seam, or fail-closed
       startup/report output that says the pack/path authority is unresolved.
+- [ ] Split read-only introspection from telemetry/audit writeback in the same
+      runtime-activation tranche: `platform-contracts`, `quality-policy`,
+      `mcp`, `system-picture`, and other read-only status/report surfaces must
+      be able to run on read-only mounts or sandboxed adopters without
+      appending audit-event or data-science artifacts by default. Telemetry
+      refresh belongs in explicit write lanes or background sinks, and
+      receipts must make the active write mode visible.
 - [ ] Make generated bootstrap/review instruction surfaces use the same
       authority chain: `CLAUDE.md`, startup receipts, bridge compatibility
       projections, tandem prompts, and conductor prompts must resolve process
       docs, tracker/index paths, bridge paths, review-state paths, and review
       plan refs from `DocPolicy` / `PlanRegistry` / `BridgeConfig` instead of
       embedding VoiceTerm literals or assuming tandem mode is universally on.
+- [ ] Add one repo-pack-owned `ExtensionBundle` projection in the same phase:
+      generate project-scoped Codex/Claude/MCP surfaces
+      (`.codex/hooks.json`, `.mcp.json`, `.claude/settings.json`,
+      `.claude/agents`, `.claude/skills`, `.agents/skills`, and later
+      plugin/marketplace metadata) from `ProjectGovernance` / `RepoPack` /
+      `DerivedCapabilityContract` instead of hand-maintained tool-specific
+      files or VoiceTerm literals.
 - [ ] Keep human-facing and agent-facing projections secondary to typed state
       in that same lane: `review_state.json.current_session` stays the
       canonical live decision/status block, bridge/latest/chat/operator
@@ -1349,6 +1363,12 @@ blocker or exception in plan state before skipping the declared order.
       VoiceTerm as one consumer.
 - [ ] Create the repo bootstrap/init path that materializes startup authority,
       repo-pack selection, and reviewed starter docs for a new repo.
+- [ ] Freeze one typed `AutomationSpec` contract for adopter background work:
+      the same governed task definition must target local scheduler, GitHub
+      workflow cron/dispatch, Codex Automations, Claude project
+      command/agent surfaces, and later queue runners while reusing one
+      approval/evidence/action contract instead of transport-specific policy
+      forks.
 - [ ] Classify the guard surface into portable/core, language-aware, and
       repo-structure/maintainer-contract families; do not treat VoiceTerm-
       specific docs-governance guards as universal adopter requirements.
@@ -1371,6 +1391,10 @@ blocker or exception in plan state before skipping the declared order.
 - [ ] Prove that planning review also survives repo drift in those adopters:
       target plans via `PlanRegistry` / `PlanTargetRef`, not VoiceTerm file
       names or exact surrounding markdown blocks.
+- [ ] Prove the first generated extension surfaces on pilot repos too:
+      bootstrap/adoption should emit project-scoped MCP and agent-extension
+      bundles from repo-pack authority, and the proof packet must record which
+      emitted Codex/Claude/MCP surfaces were exercised without core patches.
 - [ ] Prove the authority loop on at least two repositories with different
       layouts and no core-engine patches between them.
 - [ ] Freeze Phase 7 success criteria as "all portable and language-
@@ -1501,6 +1525,14 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-04 extension/adopter closure correction: the latest architecture
+  audit is now part of this lane's tracked Phase-2/Phase-7 work before code
+  implementation. Resume from this owner chain by treating four deliverables
+  as explicit authority work, not optional polish: no-write-safe read-only
+  command semantics, fail-closed repo-pack/runtime activation with no silent
+  VoiceTerm fallback, one repo-pack-owned `ExtensionBundle` for
+  Codex/Claude/MCP surfaces, and one typed `AutomationSpec` for local/CI/
+  Codex/Claude background execution.
 - 2026-04-04 post-push-green correction: `feature/governance-quality-sweep`
   is already published on `origin`, and `dev/reports/push/latest.json` is the
   canonical receipt (`published_remote=true`, `post_push_green=false`,
@@ -2016,6 +2048,14 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-04: Accepted the architecture-audit extension/adopter closure
+  tranche into the active authority-loop owner chain before implementation.
+  Phase 2 now explicitly owns no-write-safe read-only command semantics and a
+  repo-pack-owned `ExtensionBundle` projection for Codex/Claude/MCP surfaces,
+  while Phase 7 now explicitly owns the typed `AutomationSpec` and cross-repo
+  proof for generated extension surfaces. That keeps tool-native ergonomics
+  subordinate to typed repo-pack/runtime authority instead of letting each
+  external surface grow its own policy layer.
 - 2026-04-04: Re-ran startup-context, bootstrap graph, review-channel doctor,
   system-picture, the latest push receipt, and the full
   `check_code_shape --since-ref origin/develop` guard to freeze the honest
