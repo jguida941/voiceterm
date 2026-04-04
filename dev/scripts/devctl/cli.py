@@ -26,6 +26,7 @@ from .commands import (
     cihub_setup,
     compat_matrix,
     controller_action,
+    dashboard,
     data_science,
     docs_check,
     failure_cleanup,
@@ -170,12 +171,35 @@ def build_parser() -> argparse.ArgumentParser:
     add_integrations_import_parser(sub)
     add_context_graph_parser(sub)
     governance_startup_context.add_parser(sub)
+    _add_dashboard_parser(sub)
     return parser
+
+
+def _add_dashboard_parser(sub: argparse._SubParsersAction) -> None:
+    """Register the ``dashboard`` subcommand."""
+    from .common import add_standard_output_arguments
+
+    dash = sub.add_parser(
+        "dashboard",
+        help="Governance dashboard snapshot from existing artifacts",
+    )
+    add_standard_output_arguments(
+        dash,
+        format_choices=("terminal", "md", "json"),
+        default_format="terminal",
+    )
+    dash.add_argument(
+        "--follow",
+        action="store_true",
+        default=False,
+        help="Enable polling mode (reserved for future use)",
+    )
 
 
 COMMAND_HANDLERS = {
     "check": check.run,
     "check-router": check_router.run,
+    "dashboard": dashboard.run,
     "mutants": mutants.run,
     "mutation-score": mutation_score.run,
     "docs-check": docs_check.run,

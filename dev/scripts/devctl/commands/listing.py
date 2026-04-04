@@ -8,6 +8,7 @@ from ..time_utils import utc_timestamp
 COMMANDS = [
     "check",
     "check-router",
+    "dashboard",
     "mutants",
     "mutation-score",
     "docs-check",
