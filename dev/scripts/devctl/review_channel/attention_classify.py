@@ -280,6 +280,16 @@ def classify_attention_status(
 
     if (
         fresh_poll
+        and ctx.overall_state == OverallLivenessState.WAITING_ON_PEER
+        and not ctx.implementer_state_pending
+        and ctx.session_hint_state in RESETTABLE_IMPLEMENTER_SESSION_STATES
+        and (not ctx.claude_status_present or not ctx.claude_ack_current)
+        and not ctx.review_needed
+    ):
+        return AttentionStatus.IMPLEMENTER_RELAUNCH_REQUIRED
+
+    if (
+        fresh_poll
         and ctx.implementer_completion_stall
         and ctx.claude_ack_current
         and not ctx.review_needed

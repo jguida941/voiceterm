@@ -2946,6 +2946,16 @@ become the main product surface.
   --action status` now treats `active_dual_agent` without repo-owned
   conductors as a bridge-contract error instead of healthy detached-daemon
   freshness.
+  Latest follow-up (2026-04-04): reviewer bootstrap receipt teaching is now
+  equally explicit. Fresh Codex conductors still begin with
+  `startup-context --role reviewer --format summary`, but non-zero
+  `continue_editing` / `review_pending` and `await_review` /
+  `review_pending_before_push` receipts are now documented and taught as
+  normal reviewer-owned bootstrap states while the live loop is healthy, so
+  the reviewer continues into `review-channel --action status` plus bridge
+  heartbeat refresh instead of widening into generic repair. Real repair stays
+  bounded to `repair_reviewer_loop`, checkpoint/budget blockers, or typed
+  stale/non-live reviewer runtime.
   A 2026-03-30 stale-reader follow-up closed the next same-lane write-safety
   gap: bridge-backed `status` / `bridge-poll` now emit a typed
   `implementer_state_hash`, active-dual-agent `reviewer-checkpoint` writes

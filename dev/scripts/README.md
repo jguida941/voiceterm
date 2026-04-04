@@ -62,6 +62,15 @@ architecture boundary: keep them synced with `render-surfaces`, and make sure
 they explain the compiler-style control model plus the
 `TypedAction -> ActionResult -> RunRecord` path instead of relying on chat
 memory or stale starter prose.
+Reviewer bootstrap note: repo-owned Codex conductors still begin with
+`python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`,
+but a non-zero receipt with `action=continue_editing` / `reason=review_pending`
+or `action=await_review` / `reason=review_pending_before_push` is still a
+normal reviewer-owned bootstrap state while the live loop is healthy.
+Continue into `review-channel --action status` plus the reviewer-owned
+heartbeat/bridge refresh; reserve relaunch/repair for
+`action=repair_reviewer_loop`, checkpoint/budget blockers, or typed stale /
+non-live reviewer runtime.
 For plain-language CI lane docs, see `.github/workflows/README.md`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.

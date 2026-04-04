@@ -425,6 +425,16 @@ checklist plus chat memory.
     mismatch and non-reviewer authority failures still block, but plain HEAD
     drift only blocks when the diff since the receipt touches guarded
     quality-scope roots.
+    Fresh reviewer bootstrap still starts with
+    `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`,
+    but a non-zero receipt with `action=continue_editing` /
+    `reason=review_pending` or `action=await_review` /
+    `reason=review_pending_before_push` is still a normal reviewer-owned
+    bootstrap state while the loop is live. In that case, continue into
+    `review-channel --action status` plus the required reviewer heartbeat /
+    bridge refresh instead of escalating into generic repair. Treat only
+    `action=repair_reviewer_loop`, checkpoint/budget blockers, or typed
+    stale/non-live reviewer runtime as the relaunch/repair boundary.
     The narrower stale-implementer replacement path is now
     `python3 dev/scripts/devctl.py review-channel --action recover --recover-provider claude`;
     it replaces only the stale Claude conductor and now requires an already-live

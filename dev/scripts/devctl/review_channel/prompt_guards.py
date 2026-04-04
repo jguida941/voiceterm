@@ -6,6 +6,38 @@ from .ack_contract import ack_contract_prompt_line
 from ..runtime.review_state_models import ConductorCapabilityState
 
 
+def startup_context_follow_up(capability: ConductorCapabilityState) -> str:
+    """Return the bootstrap guidance that follows startup-context."""
+    if capability.role == "reviewer":
+        return (
+            "If it exits non-zero, read the summary fields before widening scope. "
+            "`action=continue_editing` with `reason=review_pending` and "
+            "`action=await_review` with `reason=review_pending_before_push` are "
+            "normal reviewer-bootstrap receipts while the collaboration lane is "
+            "still live; continue bootstrap, poll `python3 dev/scripts/devctl.py "
+            "review-channel --action status --terminal none --format json`, and "
+            "refresh the reviewer-owned bridge heartbeat before attempting repair. "
+            "Treat only `action=repair_reviewer_loop`, checkpoint/budget blockers, "
+            "or typed review-channel status showing stale/non-live reviewer runtime "
+            "as a repair or relaunch boundary."
+        )
+    return (
+        "If it exits non-zero, checkpoint or repair the repo state before coding "
+        "or relaunching conductor work."
+    )
+
+
+def reviewer_takeover_note(capability: ConductorCapabilityState) -> str:
+    """Return the reviewer takeover warning when dual-agent mode is active."""
+    return (
+        "Reviewer startup is fail-closed in `active_dual_agent`; do not add "
+        "`--reviewer-override` unless you are intentionally taking implementation "
+        "ownership."
+        if capability.requires_explicit_takeover
+        else ""
+    )
+
+
 def provider_bootstrap_guard_lines(
     *,
     capability: ConductorCapabilityState,
@@ -14,52 +46,72 @@ def provider_bootstrap_guard_lines(
 ) -> list[str]:
     """Return role-driven guardrails for unattended conductor sessions."""
     if capability.role == "reviewer":
-        return [
-            (
-                "- First action after bootstrap on every fresh launch: refresh "
-                "`Last Codex poll`, `Last non-audit worktree hash`, and `Poll Status` "
-                "in `bridge.md` before worker fan-out or long-running analysis."
-            ),
-            (
-                "- Do not spawn workers, start side investigations, or wait on "
-                "Claude until that refreshed `Last Codex poll` is visible in "
-                "repo state. If you cannot advance the bridge heartbeat "
-                "immediately, treat the launch as failed instead of pretending "
-                "the reviewer loop is live."
-            ),
-            (
-                "- Do not leave the reviewer parked on unanswered approval prompts. "
-                "If a command or worker branch needs human approval, record the "
-                "blocked state in `Poll Status`, skip or defer that branch, and keep "
-                "the reviewer heartbeat current instead of waiting silently."
-            ),
-            (
-                "- If you are waiting on Claude-owned progress, ACK changes, or a "
-                "fresh diff to review, use the repo-owned `review-channel --action "
-                "reviewer-wait` path instead of ad-hoc shell sleep loops, and "
-                "resume the review pass as soon as implementer-owned state changes."
-            ),
-            (
-                "- Keep the Claude-targeted packet stream live too: use "
-                "`review-channel --action watch --target claude --status pending "
-                "--follow` (or the equivalent inbox surface) while reviewing so "
-                "new findings/instructions do not depend on manual repolling."
-            ),
-            (
-                "- In `active_dual_agent`, reviewer mode is review-only by default. "
-                "Missing worker worktrees, absent fanout, or a promising fix are "
-                "not permission to code locally. Use the repo-owned "
-                "review/promote/wait paths unless the workflow explicitly switches "
-                "to takeover with `reviewer_mode=single_agent` or "
-                f"`{capability.takeover_command}`."
-            ),
-            (
-                "- If Claude reports a slice complete and scoped work still remains, "
-                f"run `{promote_command}` to derive the next highest-priority "
-                "unchecked plan item and rewrite `Current Instruction For Claude` "
-                "instead of inventing the next task by hand or ending on a summary."
-            ),
-        ]
+        return _reviewer_guard_lines(capability=capability, promote_command=promote_command)
+    return _implementer_guard_lines()
+
+
+def _reviewer_guard_lines(
+    *,
+    capability: ConductorCapabilityState,
+    promote_command: str,
+) -> list[str]:
+    return [
+        (
+            "- A non-zero reviewer startup receipt is not automatically a loop-"
+            "repair signal. `action=continue_editing` with `reason=review_pending` "
+            "and `action=await_review` with `reason=review_pending_before_push` "
+            "still mean the reviewer owns the next live turn; continue bootstrap, "
+            "poll `review-channel --action status`, and refresh `bridge.md` before "
+            "escalating into relaunch/repair."
+        ),
+        (
+            "- First action after bootstrap on every fresh launch: refresh "
+            "`Last Codex poll`, `Last non-audit worktree hash`, and `Poll Status` "
+            "in `bridge.md` before worker fan-out or long-running analysis."
+        ),
+        (
+            "- Do not spawn workers, start side investigations, or wait on "
+            "Claude until that refreshed `Last Codex poll` is visible in "
+            "repo state. If you cannot advance the bridge heartbeat "
+            "immediately, treat the launch as failed instead of pretending "
+            "the reviewer loop is live."
+        ),
+        (
+            "- Do not leave the reviewer parked on unanswered approval prompts. "
+            "If a command or worker branch needs human approval, record the "
+            "blocked state in `Poll Status`, skip or defer that branch, and keep "
+            "the reviewer heartbeat current instead of waiting silently."
+        ),
+        (
+            "- If you are waiting on Claude-owned progress, ACK changes, or a "
+            "fresh diff to review, use the repo-owned `review-channel --action "
+            "reviewer-wait` path instead of ad-hoc shell sleep loops, and "
+            "resume the review pass as soon as implementer-owned state changes."
+        ),
+        (
+            "- Keep the Claude-targeted packet stream live too: use "
+            "`review-channel --action watch --target claude --status pending "
+            "--follow` (or the equivalent inbox surface) while reviewing so "
+            "new findings/instructions do not depend on manual repolling."
+        ),
+        (
+            "- In `active_dual_agent`, reviewer mode is review-only by default. "
+            "Missing worker worktrees, absent fanout, or a promising fix are "
+            "not permission to code locally. Use the repo-owned "
+            "review/promote/wait paths unless the workflow explicitly switches "
+            "to takeover with `reviewer_mode=single_agent` or "
+            f"`{capability.takeover_command}`."
+        ),
+        (
+            "- If Claude reports a slice complete and scoped work still remains, "
+            f"run `{promote_command}` to derive the next highest-priority "
+            "unchecked plan item and rewrite `Current Instruction For Claude` "
+            "instead of inventing the next task by hand or ending on a summary."
+        ),
+    ]
+
+
+def _implementer_guard_lines() -> list[str]:
     return [
         (
             "- `bridge.md` is the first thing to re-read whenever you need "
@@ -67,11 +119,23 @@ def provider_bootstrap_guard_lines(
             "operator to restate the reviewer process in chat."
         ),
         (
+            "- Before you summarize state for the operator or ask a question "
+            "based on rollover/handoff context, re-read the live reviewer-"
+            "owned bridge sections and discard stale bundle conclusions. A "
+            "handoff packet is restart context, not live authority."
+        ),
+        (
             "- If reviewer-owned bridge state says `hold steady`, `waiting for "
             "reviewer promotion`, `Codex committing/pushing`, or equivalent "
             "wait language, that is a hard polling state. Do not scan plan docs "
             "for side work or reopen an accepted tranche until the reviewer-owned "
             "instruction changes."
+        ),
+        (
+            "- If a stale handoff summary says Codex is offline but the current "
+            "bridge shows a newer reviewer checkpoint or fresh `Last Codex poll`, "
+            "discard the stale summary and follow the live reviewer-owned bridge "
+            "state."
         ),
         (
             "- If you are waiting on Codex review or the next instruction, stay in "
@@ -86,6 +150,13 @@ def provider_bootstrap_guard_lines(
             "the operator to choose between polling, push, or side work. Keep "
             "polling repo-owned state until the reviewer-owned instruction or "
             "packet set changes."
+        ),
+        (
+            "- If the live bridge says `hold steady` or the only missing state is "
+            "`Claude Status` / `Claude Ack`, do not ask the operator what to do "
+            "next. Rewrite your owned bridge sections, acknowledge the current "
+            "instruction revision, then use the repo-owned wait path and keep "
+            "polling."
         ),
         (
             "- On each repoll, read `Last Codex poll` / `Poll Status` first, then "

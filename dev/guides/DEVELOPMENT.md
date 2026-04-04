@@ -504,6 +504,15 @@ Three quality layers matter in practice:
     also resolves the governed review-channel `rollover_dir` sibling from the
     managed review root before dispatching repo-owned review-channel actions,
     so review-channel command splits do not silently break startup repair.
+    Reviewer bootstrap uses that same startup receipt, but do not flatten all
+    non-zero reviewer receipts into repair. In `active_dual_agent`, a reviewer
+    receipt with `action=continue_editing` / `reason=review_pending` or
+    `action=await_review` / `reason=review_pending_before_push` still means the
+    reviewer loop owns the next live turn; continue into
+    `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+    and refresh the reviewer-owned bridge heartbeat before escalating into
+    relaunch/repair. Reserve repair for `action=repair_reviewer_loop`,
+    checkpoint/budget blockers, or typed stale/non-live reviewer runtime.
   - Read-only command safety: `startup-context` always attempts the receipt
     write (the launcher validates it), but degrades gracefully on `OSError`
     when `DEVCTL_NO_ARTIFACT_WRITES=1` signals an intentional read-only

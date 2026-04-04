@@ -1369,14 +1369,24 @@ class ReviewChannelHelperTests(unittest.TestCase):
             "Do not echo the startup packet back into chat by default; keep any bootstrap acknowledgement to blocker state plus next step unless the operator asks for more detail.",
             files[0],
         )
-        handoff_items = [f for f in files if "handoff" in f]
+        handoff_items = [f for f in files if "dev/reports/handoff" in f]
         self.assertTrue(len(handoff_items) >= 2, "handoff files should be present")
+        restart_context_idx = next(
+            idx
+            for idx, item in enumerate(files)
+            if "Treat the handoff bundle as restart context only." in item
+        )
+        self.assertGreater(
+            restart_context_idx,
+            0,
+            "handoff precedence guidance must come after repo-authority bootstrap",
+        )
         for hf in handoff_items:
             hf_idx = files.index(hf)
             self.assertGreater(
                 hf_idx,
-                0,
-                f"handoff file {hf} must come after the repo-authority bootstrap instruction",
+                restart_context_idx,
+                f"handoff file {hf} must come after the live-bridge precedence guidance",
             )
 
     def test_rollover_ack_state_requires_provider_owned_sections(self) -> None:
@@ -1460,6 +1470,14 @@ class ReviewChannelHelperTests(unittest.TestCase):
         )
         self.assertIn(
             "python3 dev/scripts/devctl.py startup-context --role reviewer --format summary",
+            prompt,
+        )
+        self.assertIn(
+            "`action=continue_editing` with `reason=review_pending`",
+            prompt,
+        )
+        self.assertIn(
+            "Treat only `action=repair_reviewer_loop`",
             prompt,
         )
         self.assertIn(
@@ -1556,8 +1574,21 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
+            "Before you summarize state for the operator or ask a question "
+            "based on rollover/handoff context, re-read the live reviewer-"
+            "owned bridge sections and discard stale bundle conclusions.",
+            prompt,
+        )
+        self.assertIn(
             "Do not scan plan docs for side work or reopen an accepted tranche "
             "until the reviewer-owned instruction changes.",
+            prompt,
+        )
+        self.assertIn(
+            "If a stale handoff summary says Codex is offline but the current "
+            "bridge shows a newer reviewer checkpoint or fresh `Last Codex poll`, "
+            "discard the stale summary and follow the live reviewer-owned bridge "
+            "state.",
             prompt,
         )
         self.assertIn(
@@ -1570,6 +1601,12 @@ class ReviewChannelHelperTests(unittest.TestCase):
         )
         self.assertIn(
             "do not ask the operator to choose between polling, push, or side work.",
+            prompt,
+        )
+        self.assertIn(
+            "If the live bridge says `hold steady` or the only missing state is "
+            "`Claude Status` / `Claude Ack`, do not ask the operator what to do "
+            "next.",
             prompt,
         )
         self.assertIn(
@@ -3754,6 +3791,36 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         )
         self.assertEqual(attention["status"], "waiting_on_peer")
         self.assertEqual(attention["owner"], "system")
+
+    def test_attention_treats_waiting_input_hint_as_implementer_relaunch_required(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "waiting_on_peer",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": False,
+            "claude_ack_present": False,
+            "claude_ack_current": False,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "implementer_state_pending": False,
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "reviewer_freshness": "fresh",
+            "current_instruction_revision": "abcd1234ef56",
+            "last_reviewed_scope_present": True,
+            "session_state_hints": {
+                "claude": {"state": "waiting_for_user_input"}
+            },
+        }
+
+        attention = derive_bridge_attention(liveness)
+
+        self.assertEqual(attention["status"], "implementer_relaunch_required")
 
     def test_attention_prioritizes_bridge_contract_error_over_checkpoint_required(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
@@ -6000,6 +6067,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertIn(
                 "First action after bootstrap on every fresh launch: refresh",
+                codex_script.read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "`action=continue_editing` with `reason=review_pending`",
                 codex_script.read_text(encoding="utf-8"),
             )
             self.assertIn(

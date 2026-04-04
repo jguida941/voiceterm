@@ -8,20 +8,16 @@ from typing import TYPE_CHECKING
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE
 from ..common import display_path
-from ..context_graph.escalation import (
-    build_context_escalation_packet,
-    collect_query_terms,
-    normalize_query_terms,
-)
+from ..context_graph.escalation import build_context_escalation_packet, collect_query_terms, normalize_query_terms
 from ..runtime.conductor_capability import build_conductor_capability_state
 from ..runtime.role_profile import role_for_provider
 from ..runtime.review_state_models import ConductorCapabilityState
 from .handoff import BRIDGE_LIVENESS_KEYS, expected_rollover_ack_line, expected_rollover_ack_section
+from .prompt_guards import reviewer_takeover_note, startup_context_follow_up
 from .prompt_sections import operating_contract_lines
 
 if TYPE_CHECKING:
     from .core import LaneAssignment
-
 
 def build_conductor_prompt(
     *,
@@ -135,13 +131,12 @@ def _opening_line(
     provider_name: str,
     handoff_bundle: dict[str, str] | None,
 ) -> str:
-    if handoff_bundle is not None:
-        return (
-            f"You are the fresh {provider_name} conductor for a planned "
-            "review-channel markdown-bridge rollover. Resume the existing "
-            "conductor role exactly."
-        )
     return (
+        f"You are the fresh {provider_name} conductor for a planned "
+        "review-channel markdown-bridge rollover. Resume the existing "
+        "conductor role exactly."
+        if handoff_bundle is not None
+        else
         f"You are the {provider_name} conductor for the active review-channel "
         "markdown-bridge loop."
     )
@@ -158,8 +153,8 @@ def _bootstrap_files(
     files: list[str] = [
         (
             f"Run `{capability.startup_context_command}` first. "
-            "If it exits non-zero, checkpoint or repair the repo state before coding "
-            "or relaunching conductor work. Then run "
+            + startup_context_follow_up(capability)
+            + " Then run "
             "`python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` "
             "for slim startup context (repo state, active plans, hotspots, key commands). "
             "Do not trust a user summary, prior chat continuity, or memory as a "
@@ -167,7 +162,7 @@ def _bootstrap_files(
             "Do not echo the startup packet back into chat by default; keep any "
             "bootstrap acknowledgement to blocker state plus next step unless the "
             "operator asks for more detail. "
-            + _reviewer_takeover_note(capability)
+            + reviewer_takeover_note(capability)
             + " "
             "Then follow deep links when task scope requires full authority: "
             "`AGENTS.md` (SDLC policy), `dev/active/INDEX.md` (plan registry), "
@@ -180,21 +175,18 @@ def _bootstrap_files(
     if handoff_bundle is not None:
         files.extend(
             [
+                (
+                    "Treat the handoff bundle as restart context only. After you "
+                    "read it, re-read `bridge.md` and prefer the current reviewer-"
+                    "owned bridge sections plus typed startup/status output over "
+                    "any stale handoff summary. If the handoff bundle conflicts "
+                    "with live bridge state, the live bridge wins."
+                ),
                 display_path(Path(handoff_bundle["markdown_path"]), repo_root=repo_root),
                 display_path(Path(handoff_bundle["json_path"]), repo_root=repo_root),
             ]
         )
     return files
-
-
-def _reviewer_takeover_note(capability: ConductorCapabilityState) -> str:
-    if not capability.requires_explicit_takeover:
-        return ""
-    return (
-        "Reviewer startup is fail-closed in `active_dual_agent`; do not add "
-        "`--reviewer-override` unless you are intentionally taking implementation "
-        "ownership."
-    )
 
 
 def _rollover_ack_details(

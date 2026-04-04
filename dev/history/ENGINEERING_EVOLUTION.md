@@ -104,6 +104,33 @@ Evidence: `dev/scripts/devctl/cli.py`,
 `dev/scripts/devctl/context_graph/command.py`,
 `dev/scripts/devctl/tests/test_read_only_commands.py`.
 
+### 2026-04-04 - Reviewer bootstrap now distinguishes review-pending from real loop repair
+
+Fresh Codex conductor sessions still start with
+`startup-context --role reviewer --format summary`, but the earlier prompt and
+docs teaching flattened every non-zero reviewer receipt into "repair the
+loop". That was wrong for normal live-review states: a dirty review slice can
+produce `action=continue_editing` / `reason=review_pending`, and a clean-but-
+unaccepted slice can produce `action=await_review` /
+`reason=review_pending_before_push`, even while the reviewer loop itself is
+healthy.
+
+The fix teaches the same distinction across the generated Codex prompt,
+reviewer prompt guards, maintainer docs, and MP-355 plan state. Fresh
+reviewer sessions now continue from those review-pending receipts into
+`review-channel --action status` plus reviewer-owned heartbeat refresh, and
+reserve relaunch/repair for true `repair_reviewer_loop`, checkpoint/budget
+blockers, or typed stale/non-live reviewer runtime.
+
+Evidence: `dev/scripts/devctl/review_channel/prompt.py`,
+`dev/scripts/devctl/review_channel/prompt_guards.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/review_channel.md`.
+
 ### 2026-04-04 - Lightweight launch-state probe in bridge launch control
 
 The `observe_launch_state()` helper in `bridge_launch_control.py` was forcing
