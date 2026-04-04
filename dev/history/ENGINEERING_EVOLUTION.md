@@ -59,6 +59,27 @@ The same slice also treats blank approved-target identities as valid matches
 for ordinary branch pushes, so persisted publish receipts remain usable even
 when no reviewer-bound target identity was attached to the push.
 
+### 2026-04-04 - `devctl dashboard` v1 landed as first-class governance command
+
+The operator caught Claude narrating process in chat instead of projecting
+state through a repo-owned surface. The fix was not a better prompt — it was
+`devctl dashboard` as a real command. v1 (commit `adb32af`) reads 6 existing
+JSON artifacts, builds a `DashboardSnapshot` with 7 sections (repo, review,
+workers, publication, quality, coordination, flow), and renders via terminal
+(ANSI colors), markdown, or JSON. Role-neutral naming (Reviewer/Implementer/
+Worker), effective truth first, raw evidence second. 7 tests, portable via
+repo-pack path resolution.
+
+v1 is deliberately thin — the v2 slice will add dense multi-column layout,
+worker tables, plan progress, publication pipeline with step timers, quality
+guard/probe counts, audit/proof chain, health/daemon status, compact ASCII
+flowcharts, and `--follow` polling. 8 research agents mapped all 16 data
+surfaces; the problem is bad projection, not missing data.
+
+Evidence: `dev/scripts/devctl/commands/dashboard.py`,
+`dev/scripts/devctl/commands/dashboard_render.py`,
+`dev/scripts/devctl/tests/test_dashboard.py`, `dev/scripts/devctl/cli.py`.
+
 ### 2026-04-04 - Active plan state now treats post-push code-shape closure as the first blocker and fixes the sanctioned 0/3 worker launch shape
 
 The governed push lane had already learned to distinguish

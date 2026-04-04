@@ -837,6 +837,31 @@
   renders effective current-target truth instead of replaying stale raw
   artifact booleans, and event-backed review-state enrichment now carries the
   same push-enforcement / push-decision parity instead of staying bridge-only.
+- 2026-04-04 `devctl dashboard` v2 bounded slice: v1 is landed (commit
+  `adb32af`) but under-projects the system. The next slice must replace the
+  sparse single-column output with a dense operator dashboard that reads
+  all 16 existing JSON artifact surfaces and answers 6 questions on one
+  screen: is the loop alive, who owns the turn, what is running, what is
+  blocked, what changed recently, what is the next bounded action.
+  Implementation order: (1) enrich `DashboardSnapshot` schema with worker
+  table, plan progress, publication pipeline with timers, quality summary
+  with guard pass/fail counts, audit/proof section, health/daemon status,
+  and coordination queue counts; (2) rebuild terminal renderer as dense
+  multi-column layout with semantic ANSI colors and compact ASCII
+  flowcharts for review/worker/push flows; (3) add `--follow` polling
+  with diff-aware refresh; (4) auto-launch in `review-channel launch`,
+  `remote-control attach`, and rollover paths; (5) keep portable through
+  repo-pack path resolution and `DashboardSnapshot` schema contract.
+  Role-neutral naming: Reviewer/Implementer/Worker as primary nouns,
+  provider as sublabel. Effective truth first, raw evidence second,
+  drill-down path third. 8 research agents completed mapping all data
+  dimensions: timers (19,903 events), audit proof (12 surfaces, 136
+  governance reviews), analytics (11,457 snapshots over 25 days), worker
+  efficiency (tasks/min, stall detection), plan progress (293 MPs, 67.6%
+  done), publication pipeline (45 receipts with step timing), session
+  health (22 attention states, daemon heartbeats), quality detail (25
+  probes, 121 findings, 56.2% cleanup rate). All data already exists as
+  JSON artifacts — the problem is bad projection, not missing data.
 - 2026-04-04 post-push-green closure intake: the branch is already published
   on `origin/feature/governance-quality-sweep`, and
   `dev/reports/push/latest.json` honestly records `published_remote=true`,

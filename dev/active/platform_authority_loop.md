@@ -1522,6 +1522,15 @@ blocker or exception in plan state before skipping the declared order.
       refreshes the managed startup receipt after one bounded repo-owned fix
       per pass, but it does not yet promote repeated churn into graph-backed
       architecture review by itself.
+- [ ] Land `devctl dashboard` v2 as a first-class governed operator surface.
+      v1 (commit `adb32af`) proved the command path and schema; v2 must
+      replace the sparse output with dense multi-column layout reading all
+      16 existing artifact surfaces. Required sections: repo, review +
+      worker table, plan progress, publication pipeline with step timers,
+      quality with guard/probe counts, audit/proof chain, health/daemon
+      status, coordination queue. Auto-launch on review-channel launch,
+      remote-control attach, and rollover. Portable via DashboardSnapshot
+      schema and repo-pack path resolution.
 
 ## Session Resume
 
