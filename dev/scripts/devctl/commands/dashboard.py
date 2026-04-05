@@ -56,6 +56,8 @@ from .dashboard_builders import (  # noqa: E402
 
 from .dashboard_typed_state import (
     _extract_typed_attention,
+    _extract_typed_bridge_fields,
+    _extract_typed_bridge_findings,
     _extract_typed_doctor,
     _extract_typed_packets,
     _extract_typed_session,
@@ -114,25 +116,15 @@ def _git_short() -> dict[str, Any]:
 
 
 def _parse_ahead_behind(header: str) -> tuple[int, int]:
-    """Extract ahead/behind counts from git status -sb header line.
-
-    Examples:
-        'main...origin/main [ahead 5]' -> (5, 0)
-        'main...origin/main [ahead 3, behind 2]' -> (3, 2)
-        'main...origin/main [behind 1]' -> (0, 1)
-        'main...origin/main' -> (0, 0)
-    """
-    ahead = 0
-    behind = 0
+    """Extract ahead/behind counts from ``[ahead N, behind M]`` in header."""
+    ahead, behind = 0, 0
     bracket = re.search(r"\[(.+?)\]", header)
     if bracket:
         content = bracket.group(1)
-        ahead_match = re.search(r"ahead\s+(\d+)", content)
-        if ahead_match:
-            ahead = int(ahead_match.group(1))
-        behind_match = re.search(r"behind\s+(\d+)", content)
-        if behind_match:
-            behind = int(behind_match.group(1))
+        am = re.search(r"ahead\s+(\d+)", content)
+        bm = re.search(r"behind\s+(\d+)", content)
+        ahead = int(am.group(1)) if am else 0
+        behind = int(bm.group(1)) if bm else 0
     return ahead, behind
 
 
@@ -424,8 +416,13 @@ def build_snapshot(
     receipt = _read_json(repo_root / p["receipt_json"]) if load_all or (needs & {"publication", "flow", "coordination"}) else None
     agents = _read_json(repo_root / p["agents_json"]) if load_all or (needs & {"review", "workers", "now"}) else None
     pipeline = _read_json(repo_root / p["pipeline_json"]) if load_all or (needs & {"flow"}) else None
-    bridge = _parse_bridge(repo_root / p["bridge_md"]) if load_all or (needs & {"review", "now", "coordination", "reviewer_activity", "findings"}) else _empty_bridge()
-    bridge_findings = _parse_bridge_findings(repo_root / p["bridge_md"]) if load_all or (needs & {"findings", "plan"}) else []
+
+    # Prefer typed ReviewState for bridge fields; fall back to markdown parsing
+    _need_br = load_all or bool(needs & {"review", "now", "coordination", "reviewer_activity", "findings"})
+    _need_fi = load_all or bool(needs & {"findings", "plan"})
+    _bridge_path = repo_root / p["bridge_md"]
+    bridge = _extract_typed_bridge_fields(review_state) if review_state and _need_br else (_parse_bridge(_bridge_path) if _need_br else _empty_bridge())
+    bridge_findings = _extract_typed_bridge_findings(review_state) if review_state and _need_fi else (_parse_bridge_findings(_bridge_path) if _need_fi else [])
     plan = _parse_plan_progress(repo_root) if load_all or (needs & {"plan"}) else None
     gov_data = _read_json(repo_root / p["governance_review_json"]) if load_all or (needs & {"audit"}) else None
     probe_data = _read_json(repo_root / p["probe_summary_json"]) if load_all or (needs & {"quality"}) else None

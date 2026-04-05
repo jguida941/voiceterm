@@ -127,6 +127,12 @@ def _render_cli_summary(args) -> str:
     return "\n".join(lines)
 
 
+def _render_phone_summary(args) -> str:
+    """Delegate to view_phone module."""
+    from .view_phone import render_phone_summary
+    return render_phone_summary(args)
+
+
 def _render_unsupported(surface: str, mode: str, fmt: str) -> str:
     """Fallback for unregistered surface/mode combinations."""
     supported = sorted(f"{s}/{m}" for s, m in _RENDERERS)
@@ -149,4 +155,5 @@ def _render_unsupported(surface: str, mode: str, fmt: str) -> str:
 _RENDERERS: dict[tuple[str, str], object] = {
     ("ai", "slim"): _render_ai_slim,
     ("cli", "summary"): _render_cli_summary,
+    ("phone", "summary"): _render_phone_summary,
 }

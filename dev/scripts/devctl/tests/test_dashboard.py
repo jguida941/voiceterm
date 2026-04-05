@@ -2661,5 +2661,214 @@ class TestTypedDataExtractors(unittest.TestCase):
         self.assertEqual(_extract_typed_packets({"packets": []}), [])
 
 
+def _review_state_with_bridge() -> dict:
+    """ReviewState with populated bridge fields for typed-bridge-path tests."""
+    rs = _minimal_review_state()
+    rs["bridge"] = {
+        "overall_state": "active",
+        "codex_poll_state": "fresh",
+        "reviewer_freshness": "fresh",
+        "reviewer_mode": "active_dual_agent",
+        "last_codex_poll_utc": "2026-04-04T03:10:00Z",
+        "last_codex_poll_age_seconds": 30,
+        "last_worktree_hash": "abc123",
+        "current_instruction": "Tighten wait_for_codex_poll_refresh so typed launch truth requires fresh turn",
+        "open_findings": "- F1: handoff.py accepts launch success with stale poll\n- F2: test coverage missing for fail-closed path",
+        "claude_status": "implementing",
+        "claude_ack": "current",
+        "claude_ack_current": True,
+        "current_instruction_revision": "typed_rev_001",
+        "claude_ack_revision": "typed_rev_001",
+        "last_reviewed_scope": "dashboard.py\nbridge.md",
+    }
+    return rs
+
+
+class TestTypedBridgePath(unittest.TestCase):
+    """F1 (MP-384): Dashboard reads verdict/findings/instruction from typed
+    ReviewState first, falling back to bridge markdown only when absent."""
+
+    def test_typed_bridge_fields_override_markdown(self) -> None:
+        """When review_state.json has bridge fields, bridge.md is not needed."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                _review_state_with_bridge(),
+            )
+            # Write stale/contradictory bridge.md to prove it's not used
+            stale_bridge = (
+                "# Review Bridge\n\n"
+                "- Last Codex poll: `2025-01-01T00:00:00Z`\n"
+                "- Reviewer mode: `paused`\n\n"
+                "## Current Instruction For Claude\n\nSTALE instruction\n\n"
+                "## Open Findings\n\n- F99: stale finding\n"
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(stale_bridge, encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            # Bridge fields should come from typed state, not stale markdown
+            review = snapshot["review"]
+            self.assertEqual(review["mode"], "active_dual_agent")
+            self.assertNotEqual(review["mode"], "paused")
+
+            findings = snapshot["findings"]
+            self.assertEqual(len(findings), 2)
+            self.assertEqual(findings[0]["id"], "F1")
+            self.assertIn("handoff.py", findings[0]["summary"])
+            # Stale F99 should not appear
+            ids = [f["id"] for f in findings]
+            self.assertNotIn("F99", ids)
+
+    def test_renders_correctly_when_bridge_md_missing(self) -> None:
+        """Dashboard renders without crash when review_state.json exists
+        but bridge.md is completely absent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                _review_state_with_bridge(),
+            )
+            # No bridge.md at all
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            self.assertIn("review", snapshot)
+            self.assertEqual(snapshot["review"]["mode"], "active_dual_agent")
+            findings = snapshot["findings"]
+            self.assertEqual(len(findings), 2)
+
+    def test_falls_back_to_bridge_md_without_review_state(self) -> None:
+        """Without review_state.json, bridge.md is parsed as before."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bridge_path = root / "bridge.md"
+            bridge_path.parent.mkdir(parents=True, exist_ok=True)
+            bridge_path.write_text(_rich_bridge_text(), encoding="utf-8")
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/compact.json",
+                _minimal_compact(),
+            )
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            review = snapshot["review"]
+            self.assertEqual(review["mode"], "active_dual_agent")
+            findings = snapshot["findings"]
+            self.assertEqual(len(findings), 2)
+            self.assertEqual(findings[0]["id"], "F1")
+
+    def test_verdict_stays_na_from_typed_state(self) -> None:
+        """Verdict is bridge-markdown-only; typed path returns 'n/a'."""
+        from dev.scripts.devctl.commands.dashboard_typed_state import (
+            _extract_typed_bridge_fields,
+        )
+        rs = _review_state_with_bridge()
+        fields = _extract_typed_bridge_fields(rs)
+        self.assertEqual(fields["verdict"], "n/a")
+
+    def test_typed_bridge_findings_extraction(self) -> None:
+        """Typed bridge findings parse the markdown list correctly."""
+        from dev.scripts.devctl.commands.dashboard_typed_state import (
+            _extract_typed_bridge_findings,
+        )
+        rs = _review_state_with_bridge()
+        findings = _extract_typed_bridge_findings(rs)
+        self.assertEqual(len(findings), 2)
+        self.assertEqual(findings[0]["id"], "F1")
+        self.assertEqual(findings[1]["id"], "F2")
+        self.assertIn("handoff.py", findings[0]["summary"])
+
+
+class TestViolationRecordInPushReport(unittest.TestCase):
+    """F2 (MP-381+384): push report carries typed violations from preflight."""
+
+    def test_violations_reach_dashboard_quality(self) -> None:
+        """ViolationRecord file/line/policy/fix/source/severity fields
+        propagate through the push report into dashboard check_details
+        without parsing format_steps_text()."""
+        from dev.scripts.devctl.commands.vcs.push_report import (
+            _extract_preflight_violations,
+        )
+        from dev.scripts.devctl.commands.dashboard_data import (
+            _build_quality_section,
+        )
+
+        preflight_step = {
+            "name": "code_shape",
+            "returncode": 1,
+            "cmd": ["python3", "dev/scripts/checks/check_code_shape.py"],
+            "duration_s": 2.5,
+            "failure_output": (
+                "dev/scripts/devctl/commands/dashboard.py:412 exceeded 350-line soft limit"
+            ),
+            "violation_detail": {
+                "file_path": "dev/scripts/devctl/commands/dashboard.py",
+                "line": 412,
+                "policy": "code_shape.python_soft_limit",
+                "fix": "Modularize file to reduce line count",
+                "source": "code_shape",
+                "severity": "warning",
+            },
+        }
+        violations = _extract_preflight_violations(
+            preflight_step, "2026-04-04T00:00:00Z",
+        )
+
+        # Verify the violations carry all structured fields
+        self.assertEqual(len(violations), 1)
+        v = violations[0]
+        self.assertEqual(v["step_name"], "code_shape")
+        self.assertEqual(v["file_path"], "dev/scripts/devctl/commands/dashboard.py")
+        self.assertEqual(v["line"], 412)
+        self.assertEqual(v["policy"], "code_shape.python_soft_limit")
+        self.assertEqual(v["fix"], "Modularize file to reduce line count")
+        self.assertEqual(v["source"], "code_shape")
+        self.assertEqual(v["severity"], "warning")
+
+        # Simulate push report with violations -> dashboard quality section
+        push_data = _minimal_push()
+        push_data["violations"] = violations
+        quality = _build_quality_section(push_data)
+        details = quality["check_details"]
+        self.assertTrue(len(details) >= 1)
+        detail = details[0]
+        self.assertEqual(detail["file_path"], "dev/scripts/devctl/commands/dashboard.py")
+        self.assertEqual(detail["line"], "412")
+        self.assertEqual(detail["policy"], "code_shape.python_soft_limit")
+        self.assertEqual(detail["fix"], "Modularize file to reduce line count")
+        self.assertEqual(detail["source"], "code_shape")
+        self.assertEqual(detail["severity"], "warning")
+
+    def test_no_violations_when_preflight_passes(self) -> None:
+        """When preflight succeeds, violations list is empty."""
+        from dev.scripts.devctl.commands.vcs.push_report import (
+            _extract_preflight_violations,
+        )
+        step = {"name": "push-preflight", "returncode": 0}
+        self.assertEqual(_extract_preflight_violations(step, "2026-01-01T00:00:00Z"), [])
+
+    def test_no_violations_when_no_preflight(self) -> None:
+        """When no preflight step ran, violations list is empty."""
+        from dev.scripts.devctl.commands.vcs.push_report import (
+            _extract_preflight_violations,
+        )
+        self.assertEqual(_extract_preflight_violations(None, "2026-01-01T00:00:00Z"), [])
+
+
 if __name__ == "__main__":
     unittest.main()

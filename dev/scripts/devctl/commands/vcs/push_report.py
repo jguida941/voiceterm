@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ...governance.push_policy import PushPolicy
+from ...runtime.check_result_models import build_check_result
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +77,9 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     report["policy"] = _build_policy_summary(inputs.policy)
     report["typed_action"] = inputs.typed_action
     report["action_result"] = inputs.action_result
+    report["violations"] = _extract_preflight_violations(
+        inputs.preflight_step, report["timestamp"],
+    )
     report["warnings"] = inputs.warnings
     report["errors"] = inputs.errors
     if inputs.approved_target_identity:
@@ -198,6 +202,30 @@ def _render_step_lines(step: dict[str, Any]) -> list[str]:
     if failure_output:
         lines.append(f"  failure_output: {failure_output}")
     return lines
+
+
+def _extract_preflight_violations(
+    preflight_step: dict[str, Any] | None,
+    timestamp: str,
+) -> list[dict[str, Any]]:
+    """Build typed ViolationRecord dicts from the preflight step result.
+
+    Wraps the preflight step in a minimal steps list and delegates to
+    ``build_check_result`` so the dashboard can consume file/line/policy/fix/
+    source/severity without re-parsing ``format_steps_text`` output.
+    Returns an empty list when no preflight step ran or it passed.
+    """
+    if not preflight_step:
+        return []
+    if preflight_step.get("returncode", 0) == 0:
+        return []
+    step = dict(preflight_step)
+    if "name" not in step:
+        step["name"] = "push-preflight"
+    result = build_check_result(
+        steps=[step], timestamp=timestamp, command="push-preflight",
+    )
+    return [v.to_dict() for v in result.violations]
 
 
 def _timestamp() -> str:

@@ -7,6 +7,7 @@ regardless of whether the source is compact.json or review_state.json.
 
 from __future__ import annotations
 
+import re
 from typing import Any, TypedDict
 
 
@@ -33,6 +34,19 @@ class PendingPacketFields(TypedDict):
     status: str
     requested_action: str
     approval_required: bool
+
+
+class BridgeFields(TypedDict):
+    """Flat bridge shape matching _parse_bridge() output."""
+
+    last_poll: str
+    last_poll_utc: str
+    reviewer_mode: str
+    instruction: str
+    verdict: str
+    findings_raw: str
+    reviewed_scope_raw: str
+    instruction_full: str
 
 
 def _extract_typed_session(review_state: dict[str, Any]) -> SessionFields:
@@ -119,3 +133,68 @@ def _extract_typed_packets(
             approval_required=pkt.get("approval_required", False),
         ))
     return pending
+
+
+def _extract_typed_bridge_fields(
+    review_state: dict[str, Any],
+) -> BridgeFields:
+    """Map ReviewState.bridge into the same shape as _parse_bridge() output.
+
+    The typed ReviewBridgeState carries current_instruction, open_findings,
+    reviewer_mode, last_codex_poll_utc, and last_reviewed_scope. Verdict is
+    bridge-markdown-only and not modeled in ReviewState, so it stays "n/a".
+    """
+    bridge = review_state.get("bridge", {})
+    if not isinstance(bridge, dict):
+        bridge = {}
+    instr = bridge.get("current_instruction", "")
+    poll_utc = bridge.get("last_codex_poll_utc", "")
+    findings = bridge.get("open_findings", "")
+    scope = bridge.get("last_reviewed_scope", "")
+    truncated = instr[:120] + ("..." if len(instr) > 120 else "") if instr else "n/a"
+    return BridgeFields(
+        last_poll=poll_utc if poll_utc else "n/a",
+        last_poll_utc=poll_utc,
+        reviewer_mode=bridge.get("reviewer_mode", "n/a"),
+        instruction=truncated,
+        verdict="n/a",
+        findings_raw=findings,
+        reviewed_scope_raw=scope,
+        instruction_full=instr if instr else "n/a",
+    )
+
+
+def _extract_typed_bridge_findings(
+    review_state: dict[str, Any],
+) -> list[dict[str, str]]:
+    """Extract structured findings from ReviewState bridge or session fields.
+
+    Parses the open_findings markdown list (``- F1: summary``) into the same
+    shape as _parse_bridge_findings() so downstream builders work unchanged.
+    """
+    bridge = review_state.get("bridge", {})
+    raw = ""
+    if isinstance(bridge, dict):
+        raw = bridge.get("open_findings", "")
+    if not raw:
+        cs = review_state.get("current_session", {})
+        if isinstance(cs, dict):
+            raw = cs.get("open_findings", "")
+    if not raw:
+        return []
+    findings: list[dict[str, str]] = []
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("- "):
+            continue
+        body = stripped[2:].strip()
+        fid_match = re.match(r"(F\d+)\s*:\s*(.*)", body)
+        if fid_match:
+            fid = fid_match.group(1)
+            desc = fid_match.group(2).strip()
+        else:
+            fid = f"F{len(findings) + 1}"
+            desc = body
+        summary = desc[:80] + ("..." if len(desc) > 80 else "")
+        findings.append({"id": fid, "summary": summary})
+    return findings

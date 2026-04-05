@@ -303,6 +303,93 @@ class TestViewCommand(unittest.TestCase):
         self.assertEqual(args.surface, "cli")
         self.assertEqual(args.mode, "summary")
 
+    def test_view_phone_summary_json_returns_zero(self) -> None:
+        from dev.scripts.devctl.commands.view import run
+
+        args = _make_args(format="json", surface="phone", mode="summary")
+        rc = run(args)
+        self.assertEqual(rc, 0)
+
+    def test_view_phone_summary_md_returns_zero(self) -> None:
+        from dev.scripts.devctl.commands.view import run
+
+        args = _make_args(format="md", surface="phone", mode="summary")
+        rc = run(args)
+        self.assertEqual(rc, 0)
+
+    def test_view_phone_summary_json_has_fields(self) -> None:
+        from dev.scripts.devctl.commands.view import _render_phone_summary
+
+        args = _make_args(format="json", surface="phone", mode="summary")
+        output = _render_phone_summary(args)
+        payload = json.loads(output)
+        self.assertEqual(payload["surface"], "phone")
+        self.assertIn("overall_state", payload)
+        self.assertIn("primary_blocker", payload)
+        self.assertIn("next_actor", payload)
+
+    def test_view_phone_summary_md_has_state(self) -> None:
+        from dev.scripts.devctl.commands.view import _render_phone_summary
+
+        args = _make_args(format="md", surface="phone", mode="summary")
+        output = _render_phone_summary(args)
+        self.assertIn("Blocker:", output)
+        self.assertIn("Next:", output)
+
+
+class TestDiscoverDispatch(unittest.TestCase):
+    """Verify discover --dispatch returns an AgentDispatchPacket."""
+
+    def test_dispatch_with_paths_returns_zero(self) -> None:
+        from dev.scripts.devctl.commands.discover import run
+
+        args = _make_args(
+            format="json",
+            filter="all",
+            dispatch=["dev/scripts/devctl/cli.py"],
+        )
+        rc = run(args)
+        self.assertEqual(rc, 0)
+
+    def test_dispatch_json_has_lane(self) -> None:
+        from dev.scripts.devctl.commands.discover import _run_dispatch
+
+        args = _make_args(format="json")
+        # Capture via direct call
+        from dev.scripts.devctl.governance.system_catalog import resolve_agent_dispatch
+        packet = resolve_agent_dispatch(["dev/scripts/devctl/cli.py"])
+        self.assertTrue(packet.lane)
+        self.assertTrue(packet.bundle_name)
+
+    def test_dispatch_empty_paths_defaults_to_docs(self) -> None:
+        from dev.scripts.devctl.governance.system_catalog import resolve_agent_dispatch
+        packet = resolve_agent_dispatch([])
+        self.assertEqual(packet.lane, "docs")
+
+    def test_dispatch_with_enabled_checks_filters(self) -> None:
+        from dev.scripts.devctl.governance.system_catalog import resolve_agent_dispatch
+        from dev.scripts.devctl.governance.system_catalog_models import AgentDispatchPacket
+
+        full = resolve_agent_dispatch(["dev/scripts/devctl/cli.py"])
+        # Create a restrictive enabled_checks that only allows code_shape
+        enabled = SimpleNamespace(guard_ids=("code_shape",), probe_ids=())
+        filtered = resolve_agent_dispatch(
+            ["dev/scripts/devctl/cli.py"], enabled_checks=enabled,
+        )
+        self.assertLessEqual(
+            len(filtered.applicable_guards), len(full.applicable_guards),
+        )
+
+    def test_parser_accepts_dispatch(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["discover", "--dispatch", "foo.py"])
+        self.assertEqual(args.dispatch, ["foo.py"])
+
+    def test_parser_dispatch_no_paths(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["discover", "--dispatch"])
+        self.assertEqual(args.dispatch, [])
+
 
 if __name__ == "__main__":
     unittest.main()

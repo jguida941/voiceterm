@@ -33,10 +33,24 @@ def add_parser(sub) -> None:
             "or guards-for-file:<path> for file-specific guard list"
         ),
     )
+    cmd.add_argument(
+        "--dispatch",
+        nargs="*",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Show AgentDispatchPacket for changed paths. "
+            "With no paths, uses current git diff."
+        ),
+    )
 
 
 def run(args) -> int:
-    """Build and emit the SystemCatalog."""
+    """Build and emit the SystemCatalog or AgentDispatchPacket."""
+    dispatch_paths = getattr(args, "dispatch", None)
+    if dispatch_paths is not None:
+        return _run_dispatch(args, dispatch_paths)
+
     category = getattr(args, "filter", None) or "all"
 
     if category.startswith("guards-for-file:"):
@@ -58,6 +72,82 @@ def run(args) -> int:
         writer=write_output,
     )
     return 0
+
+
+def _run_dispatch(args, paths: list[str]) -> int:
+    """Handle ``--dispatch [PATH ...]`` by resolving an AgentDispatchPacket.
+
+    When no paths are given, uses ``git diff --name-only`` to derive
+    the current change set automatically.
+    """
+    from ..governance.system_catalog import resolve_agent_dispatch
+
+    changed = list(paths) if paths else _git_diff_paths()
+    packet = resolve_agent_dispatch(changed)
+    payload = asdict(packet)
+    payload["command"] = "discover"
+    payload["dispatch"] = True
+    payload["timestamp"] = utc_timestamp()
+
+    if args.format == "json":
+        output = json.dumps(payload, indent=2)
+    else:
+        output = _render_dispatch_markdown(payload)
+
+    emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=getattr(args, "pipe_command", None),
+        pipe_args=getattr(args, "pipe_args", None),
+        writer=write_output,
+    )
+    return 0
+
+
+def _git_diff_paths() -> list[str]:
+    """Return repo-relative paths from ``git diff --name-only`` (staged + unstaged)."""
+    import subprocess
+
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "HEAD"],
+        capture_output=True, text=True, timeout=10,
+    )
+    paths = [p.strip() for p in result.stdout.splitlines() if p.strip()]
+    if not paths:
+        result2 = subprocess.run(
+            ["git", "diff", "--name-only", "--cached"],
+            capture_output=True, text=True, timeout=10,
+        )
+        paths = [p.strip() for p in result2.stdout.splitlines() if p.strip()]
+    return paths
+
+
+def _render_dispatch_markdown(payload: dict) -> str:
+    """Render an AgentDispatchPacket as compact markdown."""
+    lines = [
+        "# Agent Dispatch",
+        "",
+        f"Lane: **{payload.get('lane', 'unknown')}**",
+        f"Bundle: `{payload.get('bundle_name', '')}`",
+        f"Context: {payload.get('context_level', 'standard')}",
+        "",
+        "## Guards",
+    ]
+    for g in payload.get("applicable_guards", ()):
+        lines.append(f"- `{g}`")
+    lines.append("")
+    lines.append("## Probes")
+    for p in payload.get("applicable_probes", ()):
+        lines.append(f"- `{p}`")
+    if payload.get("preflight_commands"):
+        lines.append("")
+        lines.append("## Preflight")
+        for cmd in payload["preflight_commands"]:
+            lines.append(f"- `{cmd}`")
+    if payload.get("changed_paths"):
+        lines.append("")
+        lines.append(f"Changed paths: {len(payload['changed_paths'])}")
+    return "\n".join(lines)
 
 
 def _run_guards_for_file(args, category: str) -> int:

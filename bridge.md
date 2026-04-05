@@ -67,11 +67,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T02:07:53Z`
-- Last Codex poll (Local America/New_York): `2026-04-04 22:07:53 EDT`
+- Last Codex poll: `2026-04-05T02:43:07Z`
+- Last Codex poll (Local America/New_York): `2026-04-04 22:43:07 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `0541c3c565496c8ba58c3f72fc75779c40f1d0072b861250ad8963bf0ddb003b`
-- Current instruction revision: `3b0a8b156f7d`
+- Current instruction revision: `c86668c83e2e`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -193,18 +193,22 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: repair-commit-6a6e401-ready; reviewed-tree: 0541c3c56549).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: reviewed-8a53919-and-6a6e401; reviewed-tree: 0541c3c56549).
 
 ## Current Verdict
 
-- STALE VERDICT CLEARED BY OPERATOR. F1-F4 repairs ARE committed in `6a6e401` and pushed. Run `git log --oneline -5` to verify. HEAD is `491858a`. The previous verdict was from a stale Codex session that couldn't detect HEAD moved (AUD-15). Codex: re-review `6a6e401` against your F1-F4 findings NOW.
+- `6a6e401` closes the `MP-383` packet-authority gap. `dev/scripts/devctl/review_channel/prompt_guards.py` now tells both agents to use `review-channel --action post` / `PacketPostRequest(kind="action_request")` and keeps `## Action Requests` projection-only.
+- Changes requested remain for `MP-380`, `MP-381`, `MP-384`, and `MP-386`. The branch is still not architecture-green against `dev/active/remote_control_runtime.md` because dashboard and startup still read compatibility text or reviewer-mode shortcuts instead of one typed remote-control authority, and the phone/discoverability slice is still partial.
+- Change Summary: permission handoff is now on the right packet pipeline, which is real progress. The remaining problem is state agreement: dashboard still scrapes bridge markdown, startup still rewrites operator mode from reviewer mode, and `view --surface phone` is still a stub. That means the system is closer, but not yet the single typed runtime the plan requires.
+- Validation: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_action_request.py dev/scripts/devctl/tests/test_check_output_contract.py dev/scripts/devctl/tests/test_dashboard.py dev/scripts/devctl/tests/review_channel/test_launch_script.py dev/scripts/devctl/tests/governance/test_system_catalog.py -q` returned `307 passed, 2 failed`; the two failures are dashboard ANSI expectations under `NO_COLOR=1`, not part of the remote-control contract review.
+- Evidence: `git log --oneline -5`, `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`, `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`, `python3 dev/scripts/devctl.py view --surface phone --mode summary --format json`, `python3 dev/scripts/devctl.py discover --filter guards-for-file:README.md --format json`, and direct diff/code inspection of the files below.
 
 ## Open Findings
 
-- F1 / `MP-383`: `dev/scripts/devctl/review_channel/action_request.py` now projects pending `kind="action_request"` packets into `## Action Requests`, but `dev/scripts/devctl/review_channel/prompt_guards.py` still tells both agents to write and update bridge lines directly. That leaves a second bridge-owned write path instead of converging fully on `PacketPostRequest(kind="action_request")`.
-- F2 / `MP-381` + `MP-384`: `dev/scripts/devctl/runtime/check_result_models.py` defines `ViolationRecord` as `{step_name, exit_code, summary, error, failure_output}` only, while `dev/scripts/devctl/commands/dashboard_data.py` still parses `format_steps_text()` output and `dev/scripts/devctl/commands/dashboard.py` still regex-parses `bridge.md` for findings/verdict/instruction. This does not meet the plan's normalized file/line/policy/fix violation contract or the typed-dashboard-first rule.
-- F3 / `MP-385` consuming `MP-380`: `dev/scripts/devctl/commands/review_channel/_ensure_follow_runtime.py`, `dev/scripts/devctl/commands/review_channel/_publisher.py`, and `dev/scripts/devctl/review_channel/reviewer_follow_recovery.py` drive cadence/headless behavior from `args.operator_interaction_mode`, while `ProjectGovernance.BridgeConfig` still has no typed operator-mode field. The follow loop is consuming a launch-time flag, not one shared runtime owner.
-- F4 / `MP-386`: `dev/scripts/devctl/governance/system_catalog.py` derives dispatch from `classify_lane()` plus quality policy only, without `StartupContext` / `ProjectGovernance.enabled_checks`; `dev/scripts/devctl/commands/discover.py` cannot answer deterministic file-scoped guard queries; `dev/scripts/devctl/commands/view.py` advertises `phone` but only implements static `ai/slim` and `cli/summary` catalog renderers. The discoverability slice is partial, not the planned `what exists / what to run / how to render` closure.
+- F1 / `MP-384`: `dev/scripts/devctl/commands/dashboard.py` still parses `bridge.md` for verdict/findings/instruction/reviewer activity via `_parse_bridge()` and `_parse_bridge_findings()`, and `_build_snapshot()` still loads those bridge regex paths for review/now/coordination/findings views. The dashboard is still consuming compatibility markdown as live authority instead of typed `review_state`.
+- F2 / `MP-381` + `MP-384`: `dev/scripts/devctl/commands/dashboard_data.py` now prefers `push_data["violations"]`, but `dev/scripts/devctl/commands/vcs/push.py` still stores preflight as a raw `command_runner()` step and `dev/scripts/devctl/commands/vcs/push_report.py` never serializes a `violations` field. The new `ViolationRecord` path is therefore dead, so dashboard quality details still fall back to parsed text summaries.
+- F3 / `MP-380` + `MP-385`: `dev/scripts/devctl/runtime/startup_context.py` still derives `operator_interaction_mode` from reviewer mode (`active_dual_agent -> dual_agent`, `single_agent -> single_agent`) instead of reading the new `ProjectGovernance.BridgeConfig.operator_interaction_mode`. Remote-control cannot become the shared typed constraint if startup rewrites it before the agent sees it.
+- F4 / `MP-386`: `dev/scripts/devctl/commands/view.py` advertises `--surface phone` but has no phone renderer, and `dev/scripts/devctl/commands/discover.py` still only exposes static catalog / guard-list views, not a repo-owned `AgentDispatchPacket` surface that applies enabled-check filtering for agents/operators. The discoverability slice is still partial.
 
 ## Claude Status
 
@@ -220,12 +224,12 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-Repair commit `8a53919` before any new scope. Focus only on the four architecture gaps below and keep `bridge.md` as compatibility-only state.
-1. `MP-383`: remove the second action-request queue by changing reviewer/implementer instructions and any remaining write surfaces to use repo-owned `PacketPostRequest(kind="action_request")` / `review-channel --action post`; `## Action Requests` must stay projection-only.
-2. `MP-381` + `MP-384`: replace the step-summary `ViolationRecord` with a normalized violation row that carries file/line/policy/fix/source detail, then rewire dashboard quality/finding surfaces to consume typed `CheckResult` / `ReviewState` artifacts instead of `format_steps_text()` parsing or bridge regex wherever typed data exists.
-3. `MP-385` consuming `MP-380`: thread one typed operator-interaction mode from governance/runtime authority into follow cadence, recovery terminal selection, and rollover/session records; do not read `args.operator_interaction_mode` as the primary truth.
-4. `MP-386`: finish the discoverability closure so `AgentDispatchPacket` includes `StartupContext` / `ProjectGovernance.enabled_checks`, `discover` can answer deterministic file-scoped guard queries, and `view --surface phone` renders a typed surface instead of an unsupported static-catalog stub.
-Run `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_action_request.py dev/scripts/devctl/tests/test_check_output_contract.py dev/scripts/devctl/tests/test_dashboard.py dev/scripts/devctl/tests/review_channel/test_launch_script.py dev/scripts/devctl/tests/governance/test_system_catalog.py -q`, `python3 dev/scripts/devctl.py check --profile ci`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, and `python3 dev/scripts/checks/check_active_plan_sync.py` before handoff.
+Repair the remaining partial closures from `8a53919` + `6a6e401` before any new scope. Keep `bridge.md` compatibility-only and preserve the accepted `MP-383` packet path.
+1. `MP-384`: remove remaining bridge-regex authority from `devctl dashboard`. Feed reviewer verdict/findings/instruction/reviewer-activity from typed `review_state` / projection artifacts first, with bridge markdown only as explicit fallback when typed state is absent. Add regression tests that still render dashboard sections when `review_state.json` is present and bridge text is missing/stale.
+2. `MP-381` + `MP-384`: make the typed `ViolationRecord` path real end-to-end. Persist structured `violations` into the push/preflight artifact path or point dashboard quality at a typed check artifact that already carries them; do not leave `dashboard_data.py` looking for a field no producer writes. Add one test that proves file/line/policy/fix/source/severity reach dashboard quality detail without parsing `format_steps_text()`.
+3. `MP-380` + `MP-385`: thread `ProjectGovernance.BridgeConfig.operator_interaction_mode` through `StartupContext.reviewer_gate`, follow/recovery runtime, and any typed review-state projection that an agent/operator reads. Delete the reviewer-mode-derived `dual_agent` / `single_agent` remap as primary truth; remote-control vs local-terminal must survive startup intact.
+4. `MP-386`: implement a real typed phone view and expose a repo-owned dispatch surface for `AgentDispatchPacket` that can apply `enabled_checks`. `view --surface phone --mode summary` must stop returning "unsupported", and discoverability must show both "what exists" and "what to run" without test-only helpers.
+Run `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_action_request.py dev/scripts/devctl/tests/test_check_output_contract.py dev/scripts/devctl/tests/test_dashboard.py dev/scripts/devctl/tests/review_channel/test_launch_script.py dev/scripts/devctl/tests/governance/test_system_catalog.py dev/scripts/devctl/tests/runtime/test_startup_context.py -q`, `python3 dev/scripts/devctl.py view --surface phone --mode summary --format json`, `python3 dev/scripts/devctl.py discover --filter guards-for-file:dev/scripts/devctl/commands/view.py --format json`, `python3 dev/scripts/devctl.py check --profile ci`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, and `python3 dev/scripts/checks/check_active_plan_sync.py` before handoff.
 
 ## Action Requests
 
@@ -234,18 +238,18 @@ Run `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_action_reque
 ## Last Reviewed Scope
 
 - commit `8a53919` (`Slices B-F`)
+- commit `6a6e401` (`Repair F1-F4`)
 - dev/active/remote_control_runtime.md
-- dev/active/MASTER_PLAN.md
-- dev/active/INDEX.md
-- dev/scripts/devctl/review_channel/action_request.py
 - dev/scripts/devctl/review_channel/prompt_guards.py
-- dev/scripts/devctl/runtime/check_result_models.py
 - dev/scripts/devctl/commands/dashboard.py
 - dev/scripts/devctl/commands/dashboard_data.py
+- dev/scripts/devctl/runtime/check_result_models.py
+- dev/scripts/devctl/commands/vcs/push.py
+- dev/scripts/devctl/commands/vcs/push_report.py
+- dev/scripts/devctl/runtime/startup_context.py
+- dev/scripts/devctl/runtime/project_governance_contract.py
 - dev/scripts/devctl/commands/review_channel/_ensure_follow_runtime.py
 - dev/scripts/devctl/commands/review_channel/_publisher.py
-- dev/scripts/devctl/review_channel/reviewer_follow_recovery.py
-- dev/scripts/devctl/runtime/project_governance_contract.py
 - dev/scripts/devctl/governance/system_catalog.py
 - dev/scripts/devctl/commands/discover.py
 - dev/scripts/devctl/commands/view.py

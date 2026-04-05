@@ -1788,6 +1788,25 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
             "dual_agent",
         )
 
+    def test_governance_mode_takes_precedence(self) -> None:
+        result = _interaction_mode_from_reviewer_mode(
+            "single_agent", governance_mode="remote_control",
+        )
+        self.assertEqual(result, "remote_control")
+
+    def test_governance_default_falls_through(self) -> None:
+        # local_terminal is the BridgeConfig default, so it falls through
+        result = _interaction_mode_from_reviewer_mode(
+            "active_dual_agent", governance_mode="local_terminal",
+        )
+        self.assertEqual(result, "dual_agent")
+
+    def test_governance_empty_falls_through(self) -> None:
+        result = _interaction_mode_from_reviewer_mode(
+            "single_agent", governance_mode="",
+        )
+        self.assertEqual(result, "single_agent")
+
 
 class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
     """Verify ReviewerGateState carries operator_interaction_mode."""

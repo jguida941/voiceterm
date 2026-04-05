@@ -1,12 +1,4 @@
-"""Typed startup-context surface for AI agent sessions.
-
-Combines ProjectGovernance, push/checkpoint state, and reviewer/ready-gate
-inputs into one machine-readable packet that an agent inspects at session
-start to decide: continue editing, checkpoint first, or push now.
-Read-only helpers may render it without enforcing the decision, but
-repo-owned startup launchers should treat checkpoint-required states as
-fail-closed.
-"""
+"""Typed startup-context surface for AI agent sessions."""
 
 from __future__ import annotations
 
@@ -52,12 +44,7 @@ class ReviewerGateState:
 
 @dataclass(frozen=True, slots=True)
 class StartupContext:
-    """One typed packet for AI agent session startup.
-
-    Carries everything an agent needs to understand the repo's governance
-    posture, current worktree state, and what actions are safe — without
-    re-reading prose docs.
-    """
+    """Typed packet for AI agent session startup."""
 
     schema_version: int = 1
     contract_id: str = "StartupContext"
@@ -109,7 +96,10 @@ def _detect_reviewer_gate(
 ) -> ReviewerGateState:
     """Detect reviewer gate state from typed review-state only."""
     resolved_governance = governance or scan_repo_governance_safely(repo_root)
-    typed_gate = _detect_reviewer_gate_from_review_state(review_state)
+    gov_interaction_mode = _governance_interaction_mode(resolved_governance)
+    typed_gate = _detect_reviewer_gate_from_review_state(
+        review_state, governance_mode=gov_interaction_mode,
+    )
     if typed_gate is None:
         typed_gate = _detect_reviewer_gate_from_typed_state(
             repo_root,
@@ -120,6 +110,15 @@ def _detect_reviewer_gate(
     return _detect_reviewer_gate_without_typed_state(resolved_governance)
 
 
+def _governance_interaction_mode(
+    governance: ProjectGovernance | None,
+) -> str:
+    """Read operator_interaction_mode from governance BridgeConfig, or empty."""
+    if governance is None:
+        return ""
+    return str(governance.bridge_config.operator_interaction_mode or "").strip()
+
+
 def _detect_reviewer_gate_from_typed_state(
     repo_root: Path,
     *,
@@ -127,11 +126,18 @@ def _detect_reviewer_gate_from_typed_state(
 ) -> ReviewerGateState | None:
     """Read reviewer gate from typed review_state.json when available."""
     state = load_current_review_state(repo_root, governance=governance)
-    return _detect_reviewer_gate_from_review_state(state)
+    gov_mode = _governance_interaction_mode(governance)
+    return _detect_reviewer_gate_from_review_state(state, governance_mode=gov_mode)
 
 
-def _interaction_mode_from_reviewer_mode(effective_mode: str) -> str:
-    """Derive the operator interaction mode from the effective reviewer mode."""
+def _interaction_mode_from_reviewer_mode(
+    effective_mode: str,
+    governance_mode: str = "",
+) -> str:
+    """Derive operator interaction mode, preferring governance config."""
+    gov = (governance_mode or "").strip()
+    if gov and gov != "local_terminal":
+        return gov
     normalized = normalize_reviewer_mode(effective_mode)
     if normalized == "active_dual_agent":
         return "dual_agent"
@@ -140,7 +146,10 @@ def _interaction_mode_from_reviewer_mode(effective_mode: str) -> str:
     return "local_terminal"
 
 
-def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
+def _detect_reviewer_gate_from_review_state(
+    state,
+    governance_mode: str = "",
+) -> ReviewerGateState | None:
     """Read reviewer gate from a preloaded typed review state."""
     if state is None:
         return None
@@ -165,7 +174,9 @@ def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
         if assessment is not None
         else ""
     )
-    interaction_mode = _interaction_mode_from_reviewer_mode(effective_mode)
+    interaction_mode = _interaction_mode_from_reviewer_mode(
+        effective_mode, governance_mode=governance_mode,
+    )
     declared_active = normalize_reviewer_mode(mode) == "active_dual_agent"
     effective_active = normalize_reviewer_mode(effective_mode) == "active_dual_agent"
     if not declared_active:
@@ -182,23 +193,8 @@ def _detect_reviewer_gate_from_review_state(state) -> ReviewerGateState | None:
             recovery_command=recovery_command,
             operator_interaction_mode=interaction_mode,
         )
-    if not effective_active:
-        return ReviewerGateState(
-            bridge_active=True,
-            reviewer_mode=mode,
-            effective_reviewer_mode=effective_mode,
-            review_accepted=review_accepted,
-            required_checks_status="unknown",
-            checkpoint_permitted=True,
-            review_gate_allows_push=publish_clear,
-            implementation_blocked=reviewer_runtime.implementation_blocked,
-            implementation_block_reason=reviewer_runtime.implementation_block_reason,
-            recovery_diagnosis_status=diagnosis_status,
-            recovery_action_id=action_id,
-            recovery_command=recovery_command,
-            operator_interaction_mode=interaction_mode,
-        )
-
+    # Both effective_active and !effective_active dual-agent branches share
+    # the same gate shape; only the not-declared-active case differs above.
     return ReviewerGateState(
         bridge_active=True,
         reviewer_mode=mode,
