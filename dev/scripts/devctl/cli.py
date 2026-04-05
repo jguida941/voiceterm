@@ -17,6 +17,7 @@ from .context_graph.parser import add_context_graph_parser
 from .cli_parser.builders import add_standard_parsers
 from .commands import (
     audit_scaffold,
+    auto_mode_status,
     autonomy_benchmark,
     autonomy_loop,
     autonomy_report,
@@ -85,6 +86,7 @@ from .commands.governance import (
     quality_feedback as governance_quality_feedback,
     render_surfaces,
     review as governance_review,
+    session_resume as governance_session_resume,
     simple_lanes,
     startup_context as governance_startup_context,
 )
@@ -130,7 +132,9 @@ from .triage.parser import add_triage_parser
 # event writes and telemetry refresh so devctl works on read-only mounts,
 # containers, and MCP adapters without triggering filesystem writes.
 READ_ONLY_COMMANDS: frozenset[str] = frozenset({
+    "auto-mode",
     "startup-context",
+    "session-resume",
     "context-graph",
     "review-channel",
     "quality-policy",
@@ -202,7 +206,9 @@ def build_parser() -> argparse.ArgumentParser:
     add_integrations_import_parser(sub)
     add_context_graph_parser(sub)
     governance_startup_context.add_parser(sub)
+    governance_session_resume.add_parser(sub)
     _add_dashboard_parser(sub)
+    auto_mode_status.add_parser(sub)
     discover.add_parser(sub)
     view.add_parser(sub)
     return parser
@@ -242,6 +248,7 @@ def _add_dashboard_parser(sub: argparse._SubParsersAction) -> None:
 
 
 COMMAND_HANDLERS = {
+    "auto-mode": auto_mode_status.run,
     "check": check.run,
     "check-router": check_router.run,
     "dashboard": dashboard.run,
@@ -312,6 +319,7 @@ COMMAND_HANDLERS = {
     "audit-scaffold": audit_scaffold.run,
     "context-graph": context_graph_run,
     "startup-context": governance_startup_context.run,
+    "session-resume": governance_session_resume.run,
     "discover": discover.run,
     "view": view.run,
 }

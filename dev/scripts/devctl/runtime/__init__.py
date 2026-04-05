@@ -1,5 +1,14 @@
 """Shared runtime contracts for reusable governance frontends."""
 
+from .auto_mode import (
+    AUTO_MODE_CONTRACT_ID,
+    AUTO_MODE_SCHEMA_VERSION,
+    AutoModeInputs,
+    AutoModePhase,
+    AutoModeState,
+    auto_mode_state_from_mapping,
+    resolve_auto_mode_phase,
+)
 from .action_contracts import (
     ACTION_RESULT_CONTRACT_ID,
     ACTION_RESULT_SCHEMA_VERSION,
@@ -166,8 +175,13 @@ from .role_profile import (
 __all__ = [
     "ACTION_RESULT_CONTRACT_ID",
     "ACTION_RESULT_SCHEMA_VERSION",
+    "AUTO_MODE_CONTRACT_ID",
+    "AUTO_MODE_SCHEMA_VERSION",
     "ActionResult",
     "ActiveRunState",
+    "AutoModeInputs",
+    "AutoModePhase",
+    "AutoModeState",
     "CHECK_RESULT_CONTRACT_ID",
     "CHECK_RESULT_SCHEMA_VERSION",
     "CheckResult",
@@ -263,6 +277,7 @@ __all__ = [
     "bridge_config_from_mapping",
     "build_check_result",
     "build_control_state",
+    "auto_mode_state_from_mapping",
     "build_default_tandem_profile",
     "build_finding_id",
     "bundle_overrides_from_mapping",
@@ -293,6 +308,7 @@ __all__ = [
     "render_check_result_text",
     "repo_identity_from_mapping",
     "repo_pack_ref_from_mapping",
+    "resolve_auto_mode_phase",
     "review_state_from_payload",
     "commit_intent_state_from_mapping",
     "remote_commit_pipeline_contract_from_mapping",

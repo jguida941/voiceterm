@@ -9,6 +9,7 @@ from . import (
     quality_feedback,
     render_surfaces,
     review,
+    session_resume,
     simple_lanes,
     startup_context,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "quality_feedback",
     "render_surfaces",
     "review",
+    "session_resume",
     "simple_lanes",
     "startup_context",
 ]

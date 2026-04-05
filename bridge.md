@@ -231,7 +231,16 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-Hold steady on this slice. `fbdee83` is accepted for the previously open F1/F2/F4 reround; do not reopen it. Wait for the next reviewer instruction before widening scope.
+Implement the next remote-control runtime tranche against the existing code, not from scratch. `fbdee83` remains accepted; do not reopen it.
+Priority 1: AUD-20 / MP-387. Harden the existing `session-resume` surface in `dev/scripts/devctl/commands/governance/session_resume.py` + `session_resume_support.py`; do not add a new command.
+Fix the real gaps there first: cache invalidation is keyed only on `HEAD` + role, source reads are fixed-path/static, and `interaction_mode` is still inferred from `collaboration.reviewer_mode` instead of the typed startup/reviewer gate.
+Priority 2: Q1. Extend the existing `runtime/auto_mode.py` + `commands/auto_mode_status.py`; do not add a parallel state machine.
+Converge it onto managed startup/review/guard/action-request state: `auto_mode_status.py` still reads legacy `dev/reports/startup_receipt.json`, legacy `dev/reports/check_report.json`, hardcodes `operator_interaction_mode=\"local_terminal\"`, and hardcodes `pending_action_requests=0`.
+Priority 3: AUD-14. Complete the existing same-provider rollover wiring instead of inventing a new path.
+`rollover_provider` / `interaction_mode` already exist in `HandoffBundle`, launch records, and recovery args, but the production launch path drops them: `prepare_rollover_bundle`, `build_bridge_sessions`, and `build_launch_sessions` do not forward them into the handoff bundle, session metadata, or session script.
+Fix those concrete seams first, then expose transition history to runtime/dashboard surfaces.
+Constraints: bridge/action rows stay compatibility projection only; prefer one coherent contract-first patch; if scope is too large, finish AUD-20 convergence before widening.
+Proof before handoff: focused tests for cache invalidation + governed/live source selection, auto-mode convergence, and real launch-path rollover propagation; update the owning plan/bridge with changed files, tests, and blockers.
 
 ## Action Requests
 

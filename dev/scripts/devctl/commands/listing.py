@@ -44,6 +44,7 @@ COMMANDS = [
     "render-surfaces",
     "context-graph",
     "startup-context",
+    "session-resume",
     "platform-contracts",
     "system-picture",
     "doc-authority",
