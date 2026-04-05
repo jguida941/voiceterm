@@ -1177,6 +1177,57 @@ class TestV2Fields(unittest.TestCase):
         self.assertEqual(d["schema_version"], 2)
 
 
+class TestGuardBundleFromReviewScope(unittest.TestCase):
+    """When head_sha != last_reviewed_sha and worktree is clean, guard bundle
+    derives from the commit-range diff instead of empty local diffs."""
+
+    def _make_sources(self, *, receipt=None, compact=None, review_state=None):
+        return {
+            "receipt": receipt,
+            "review_state": review_state,
+            "push_report": None,
+            "publisher_hb": None,
+            "supervisor_hb": None,
+            "codex_conductor": None,
+            "claude_conductor": None,
+            "full_json": None,
+            "compact_json": compact,
+        }
+
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_support"
+        "._git_commit_range_paths",
+        return_value=["rust/src/bin/voiceterm/main.rs"],
+    )
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_support"
+        "._git_changed_paths",
+        return_value=[],
+    )
+    def test_clean_worktree_uses_commit_range(
+        self, mock_local, mock_range,
+    ) -> None:
+        """Guard bundle resolves from commit range when worktree is clean."""
+        old_sha = "aaa111bbb222"
+        new_sha = "ccc333ddd444"
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue"},
+            compact={
+                "bridge": {"head_at_push_time": old_sha},
+                "current_session": {},
+            },
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="reviewer", head_sha=new_sha,
+                sources_override=sources,
+            )
+            # last_reviewed_sha != head_sha, worktree clean, so range diff used
+            self.assertEqual(packet.next_guard_bundle, "bundle.runtime")
+            mock_range.assert_called_once_with(Path(td), old_sha, new_sha)
+            mock_local.assert_not_called()
+
+
 class TestReadModelPureProjection(unittest.TestCase):
     """build_from_sources derives gate booleans from read model, not receipt."""
 

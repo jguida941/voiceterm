@@ -179,27 +179,31 @@ def check_top_blocker_phone_route() -> tuple[dict[str, object], dict[str, object
 # -- AutoModeState.phase routes --
 
 def check_auto_mode_phase_session_resume_route() -> tuple[dict[str, object], dict[str, object] | None]:
-    """Verify AutoModeState.phase reaches session-resume via the read model.
+    """Verify AutoModeState.phase reaches session-resume via resolved_phase.
 
     AutoModeState.phase flows into ControlPlaneReadModel.resolved_phase
-    via ``auto_state.phase`` in the read-model builder.  Session-resume
-    then consumes the derived ``next_action`` / ``next_command`` fields.
+    via ``auto_state.phase`` in the read-model builder.  The closure proof
+    requires that ``resolved_phase`` is present as a field in
+    SessionCachePacket AND that the session-resume renderer outputs it.
     """
     model = "dev.scripts.devctl.runtime.control_plane_read_model"
     consumer = "dev.scripts.devctl.commands.governance.session_resume_support"
+    renderer = "dev.scripts.devctl.commands.governance.session_resume_render"
     coverage = _build_coverage("AutoModeState", "phase", "session_resume", consumer)
     if (
         _source_contains_any(model, ("auto_state.phase", "resolved_phase"))
-        and _source_contains_any(consumer, ("next_command", "next_action"))
+        and _source_contains_any(consumer, ("resolved_phase",))
+        and _source_contains_any(renderer, ("resolved_phase",))
     ):
         coverage["detail"] = (
             "AutoModeState.phase flows through ControlPlaneReadModel.resolved_phase "
-            "into the session-resume surface via next_action/next_command."
+            "into SessionCachePacket.resolved_phase and the session-resume renderer."
         )
         return coverage, None
     detail = (
         "AutoModeState.phase does not reach the session-resume surface "
-        "through the ControlPlaneReadModel projection."
+        "through the resolved_phase projection in SessionCachePacket and "
+        "the renderer."
     )
     coverage["ok"] = False
     coverage["detail"] = detail

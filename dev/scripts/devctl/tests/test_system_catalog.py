@@ -115,6 +115,27 @@ class TestBuildSystemCatalog:
         }
         assert expected_keys == set(d.keys())
 
+    def test_catalog_includes_surface_contract_control_plane_read_model(self) -> None:
+        catalog = build_system_catalog()
+        names = {c.name for c in catalog.contracts}
+        assert "ControlPlaneReadModel" in names, (
+            "Expected ControlPlaneReadModel from surface_state_contract_rows"
+        )
+
+    def test_catalog_includes_surface_contract_auto_mode_state(self) -> None:
+        catalog = build_system_catalog()
+        names = {c.name for c in catalog.contracts}
+        assert "AutoModeState" in names, (
+            "Expected AutoModeState from surface_state_contract_rows"
+        )
+
+    def test_catalog_includes_surface_contract_session_cache_packet(self) -> None:
+        catalog = build_system_catalog()
+        names = {c.name for c in catalog.contracts}
+        assert "SessionCachePacket" in names, (
+            "Expected SessionCachePacket from surface_state_contract_rows"
+        )
+
     def test_catalog_to_dict_counts_match(self) -> None:
         catalog = build_system_catalog()
         d = catalog.to_dict()

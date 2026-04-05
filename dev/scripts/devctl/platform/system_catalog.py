@@ -179,14 +179,23 @@ def _collect_surfaces() -> tuple[SurfaceEntry, ...]:
 
 
 def _collect_contracts() -> tuple[ContractEntry, ...]:
-    """Build contract entries from runtime state contract rows."""
+    """Build contract entries from runtime and surface state contract rows."""
+    all_specs: list = []
+
     try:
         from .runtime_state_contract_rows import RUNTIME_STATE_CONTRACTS
-    except Exception:  # broad-except: allow reason=optional-registry fallback=empty-tuple
-        return ()
+        all_specs.extend(RUNTIME_STATE_CONTRACTS)
+    except Exception:  # broad-except: allow reason=optional-registry fallback=skip
+        pass
+
+    try:
+        from .surface_state_contract_rows import surface_state_contracts
+        all_specs.extend(surface_state_contracts())
+    except Exception:  # broad-except: allow reason=optional-registry fallback=skip
+        pass
 
     entries: list[ContractEntry] = []
-    for spec in RUNTIME_STATE_CONTRACTS:
+    for spec in all_specs:
         field_names = tuple(f.name for f in spec.required_fields)
         entries.append(
             ContractEntry(

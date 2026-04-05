@@ -545,6 +545,45 @@ def test_platform_contract_closure_markdown_lists_violations() -> None:
     assert "dry_run" in output
 
 
+def test_auto_mode_phase_route_passes_with_resolved_phase_wired() -> None:
+    """The tightened route must pass when resolved_phase is in both the packet and renderer."""
+    from dev.scripts.checks.platform_contract_closure.field_routes_surface_state import (
+        check_auto_mode_phase_session_resume_route,
+    )
+
+    coverage, violation = check_auto_mode_phase_session_resume_route()
+    assert coverage["ok"] is True
+    assert violation is None
+    assert "resolved_phase" in coverage["detail"]
+
+
+def test_auto_mode_phase_route_fails_when_renderer_drops_resolved_phase() -> None:
+    """The route must fail if the renderer stops referencing resolved_phase."""
+    from dev.scripts.checks.platform_contract_closure.field_routes_surface_state import (
+        check_auto_mode_phase_session_resume_route,
+        _source_contains_any,
+    )
+
+    original = _source_contains_any
+
+    def _fake_source_check(module_path: str, tokens: tuple[str, ...]) -> bool:
+        if module_path == "dev.scripts.devctl.commands.governance.session_resume_render":
+            return False
+        return original(module_path, tokens)
+
+    with patch(
+        "dev.scripts.checks.platform_contract_closure.field_routes_surface_state._source_contains_any",
+        side_effect=_fake_source_check,
+    ):
+        coverage, violation = check_auto_mode_phase_session_resume_route()
+
+    assert coverage["ok"] is False
+    assert violation is not None
+    assert violation["rule"] == "unconsumed-field-route"
+    assert violation["contract_id"] == "AutoModeState"
+    assert violation["field_name"] == "phase"
+
+
 def test_platform_contract_closure_markdown_lists_field_route_count() -> None:
     report = build_report()
     output = render_md(report)

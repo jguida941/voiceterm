@@ -170,7 +170,10 @@ def build_from_sources(
     blockers = _resolve_blockers(receipt, model.top_blocker)
     last_reviewed_sha = _extract_last_reviewed_sha(sources)
     head_at_push_time = _extract_head_at_push_time(sources)
-    guard_bundle = _resolve_guard_bundle(repo_root, changed_paths)
+    guard_bundle = _resolve_guard_bundle(
+        repo_root, changed_paths,
+        head_sha=head_sha, last_reviewed_sha=last_reviewed_sha,
+    )
     next_cmd = model.next_command or model.next_action
 
     return SessionCachePacket(
@@ -227,14 +230,28 @@ _extract_last_reviewed_sha = _extract_head_at_push_time
 def _resolve_guard_bundle(
     repo_root: Path,
     changed_paths: list[str] | None,
+    *,
+    head_sha: str = "",
+    last_reviewed_sha: str = "",
 ) -> str:
     """Classify changed paths into the appropriate guard bundle name.
 
     Uses classify_lane from the check-router to determine which bundle
-    applies to the current change set.  Returns empty string when
-    classification is unavailable (import fails or no paths provided).
+    applies to the current change set.  When ``last_reviewed_sha`` differs
+    from ``head_sha`` and no explicit ``changed_paths`` are provided, the
+    diff between those two commits is used instead of local worktree diffs.
+    This ensures reviewer bootstrap on a clean worktree still gets the
+    correct bundle hint.
+
+    Returns empty string when classification is unavailable (import fails
+    or no paths provided).
     """
-    paths = changed_paths if changed_paths is not None else _git_changed_paths(repo_root)
+    if changed_paths is not None:
+        paths = changed_paths
+    elif last_reviewed_sha and head_sha and last_reviewed_sha != head_sha:
+        paths = _git_commit_range_paths(repo_root, last_reviewed_sha, head_sha)
+    else:
+        paths = _git_changed_paths(repo_root)
     if not paths:
         return ""
     try:
@@ -260,6 +277,27 @@ def _git_changed_paths(repo_root: Path) -> list[str]:
                 return paths
         return []
     except (OSError, subprocess.TimeoutExpired):
+        return []
+
+
+def _git_commit_range_paths(repo_root: Path, from_sha: str, to_sha: str) -> list[str]:
+    """Return file paths changed between two commits.
+
+    Used when a reviewer bootstraps on a clean worktree where HEAD has
+    moved past the last reviewed SHA, so local diffs are empty but the
+    commit range contains real changes that need a guard bundle.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", f"{from_sha}..{to_sha}"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
+        return [p for p in result.stdout.strip().splitlines() if p.strip()]
+    except Exception:  # broad-except: allow reason=git may fail on shallow clones or missing refs fallback=return empty
         return []
 
 
