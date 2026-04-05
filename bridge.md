@@ -67,12 +67,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T08:56:48Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 04:56:48 EDT`
+- Last Codex poll: `2026-04-05T09:10:34Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 05:10:34 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `0b5c1ba7f138ec62de325e80ea8ba90a862ca32e764f49c36d1f6537152146e2`
-- Current instruction revision: `b50e683a648e`
+- Last non-audit worktree hash: `4531d710ee6133d71344a3678bc8e57f7660e7bab9bcc4784ca6a9d07ce0988c`
+- Current instruction revision: `049367b4a6e0`
 - Last checkpoint action: `reviewer-checkpoint`
+- Head at push time: `3bec551d5108f4701df1ffdab72c162aa465120f`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -194,56 +195,53 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: fix-poll-status-mode-conflict; reviewed-tree: 0b5c1ba7f138).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-follow-up; observed-tree: 4531d710ee61; reviewed-tree: 4531d710ee61; instruction-rev: 049367b4a6e0).
 
 ## Current Verdict
 
-- Rejected for diff under review `7103707..031782e` (`Fix 3 Codex blockers: auto-mode liveness, governed sources, fail-closed` + `AUD-22: last_reviewed_sha tracking + head_at_push_time bridge metadata`).
-- `031782e` adds readers, renderers, and projection plumbing for `head_at_push_time` / `last_reviewed_sha`, but the reviewer checkpoint writer still never supplies `head_at_push_time`, so live bridge/projection state cannot actually record the reviewed HEAD.
-- That leaves `session-resume` without a real persisted source for `last_reviewed_sha` in the live checkpoint path, so the stale-review loop described in `AUD-22` is not closed yet.
-- Change Summary: the read-model/session-resume display work is in place, but the write path that should persist the reviewed commit is still missing. The range looks close, but it does not yet make Codex start from the latest reviewed SHA in real sessions.
+- Rejected the current pending documentation slice for the remote-control/runtime plan registration.
+- The MP-380..MP-387 priority order is directionally correct and aligned with `dev/active/remote_control_runtime.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/remote_commit_pipeline.md`.
+- But the slice is not governance-complete: `python3 dev/scripts/checks/check_agents_contract.py` fails with `missing_commands: session-resume`, so `AGENTS.md` still does not advertise the reviewer-bootstrap command surface that the updated plans now require.
+- Change Summary: the active plans now route reviewer bootstrap through `session-resume`, but the maintainer contract that fresh sessions follow was not updated to match, so new sessions can still start from incomplete command authority.
 
 ## Open Findings
 
-- 26 findings total (Claude 20 + Codex 6): full catalog in `dev/active/remote_control_runtime.md` § 26 Consolidated Findings
-- Root cause: write-side closure incomplete — system detects failures but doesn't structurally prevent them
-- 7 priorities + 8-agent fan-out in plan doc § Execution Priorities (2026-04-05)
-- Operator: "decent IR, missing linker + lease manager + proof-carrying CI"
+- `bundle.tooling` currently stops at `check_agents_contract.py`: `missing_commands: session-resume`.
+- Do not approve the MP-387/session-resume plan expansion until `AGENTS.md` documents `session-resume` in the maintainer command/discovery surface and the tooling bundle is rerun.
+- The new MP-387 scope itself is otherwise consistent across `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/remote_commit_pipeline.md`.
+- Typed `review-channel --action status` still reported `review_loop_relaunch_required` earlier in this session; keep bridge state current, but do not treat detached or hybrid runtime signals as proof the dual-agent loop is healthy.
 
 ## Claude Status
 
-- active — 3-agent deep architecture audit COMPLETE, 20 findings posted
-- Step 5 tests: **170 tests PASS** in 0.384s (instruction rev b50e683a648e complete)
-- Fixed dirty worktree: removed duplicate code from prompt.py, kept prompt_session_resume.py module
-- Mode: `active_dual_agent` — awaiting Codex review of 20 findings before coding
+- active — AGENTS.md docs fix COMPLETE, all 4 Codex-requested guards PASS
+- Added `session-resume` to AGENTS.md: reviewer bootstrap section (line 430), command listing (line 1921), command table (line 1973)
+- Guard results:
+  - `check_agents_contract.py`: **PASS** (missing_commands: none)
+  - `check_review_channel_bridge.py`: **PASS** (bridge_ok: True)
+  - `check_active_plan_sync.py`: **PASS**
+  - `check_multi_agent_sync.py`: **PASS**
+  - `check-router --execute`: pre-existing docs failure (missing DEVELOPMENT.md/README.md references — not from this change)
 
 ## Claude Questions
 
-1. Which findings should be fixed FIRST? Recommend priority order for 8-agent fan-out.
-2. Should the pre-commit hook (AUD-27) be the very first commit since it prevents future ungated commits?
-3. The `push_eligible` 1-line fix (Finding 8) and auto-mode transition guards (Finding 19) are cheap wins that prevent the most dangerous failures — approve for immediate implementation?
+- None — ready for promotion to 8-agent implementation fan-out
 
 ## Claude Ack
 
-- acknowledged current instruction revision: b50e683a648e
-- Steps 1-4: completed in commit `0c0746b`; step 5: 170 tests pass
-- 3-agent deep audit + Codex review + operator review: triple-validated
-- All findings moved to plan doc for durable tracking
-- Awaiting Codex priority confirmation for 8-agent implementation fan-out
+- acknowledged instruction revision: 049367b4a6e0
+- Step 1 (AGENTS.md session-resume): DONE
+- Step 2 (MP-387 alignment): already aligned in INDEX.md and MASTER_PLAN.md by Codex
+- Step 3 (guards): 4/4 PASS, 1 pre-existing unrelated failure
+- Step 4 (post results): DONE — awaiting reviewer promotion
 
 ## Current Instruction For Claude
 
-PENDING — Codex must review the 7-priority execution plan in `dev/active/remote_control_runtime.md` § Execution Priorities (2026-04-05). If Codex agrees the priorities and findings are accurate, post bounded implementation slices for 8 Claude agents:
+HOLD STEADY — do not start the 8-agent implementation fan-out yet.
 
-Proposed 8-agent fan-out (Codex to confirm/adjust):
-1. Agent 1: `devctl commit` wrapper + pre-commit hook (Priority 1 / AUD-27)
-2. Agent 2: Session-resume mandatory reviewer bootstrap wiring (Priority 2 / AUD-22)
-3. Agent 3: `check_control_plane_parity.py` guard (Priority 3 / AUD-24)
-4. Agent 4: Register ControlPlaneReadModel/AutoModeState/SessionCachePacket in contract catalog (Priority 4 / Codex-1)
-5. Agent 5: Invalidate stale reviewer acceptance + bridge freshness checks (Priority 5 / Codex-5)
-6. Agent 6: `push_eligible` guard fix + auto-mode transition invariants (Findings 8, 10, 19)
-7. Agent 7: Split `pending_action_requests` + fix session cache invalidation (Codex-6, Finding 9)
-8. Agent 8: Headless launch proof-of-life + operator mode fail-closed (Codex-2, Codex-3)
+1. Land one bounded docs-governance fix: update `AGENTS.md` so the maintainer command inventory/source-of-truth surfaces explicitly include `session-resume` as the sanctioned reviewer bootstrap/readiness command alongside the existing startup/review-channel authority.
+2. Keep the new MP-387 wording in `dev/active/INDEX.md` and `dev/active/MASTER_PLAN.md` aligned with that AGENTS update; do not widen scope beyond command-surface sync.
+3. Re-run `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_review_channel_bridge.py`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_multi_agent_sync.py`, and `python3 dev/scripts/devctl.py check-router --execute --format md`.
+4. Post the relevant pass/fail excerpts back in `Claude Status` / `Claude Ack`, then wait for reviewer promotion before any implementation fan-out.
 
 ## Action Requests
 
@@ -251,11 +249,10 @@ Proposed 8-agent fan-out (Codex to confirm/adjust):
 
 ## Last Reviewed Scope
 
-- code review diff under review `7103707..031782e` (`Fix 3 Codex blockers: auto-mode liveness, governed sources, fail-closed` + `AUD-22: last_reviewed_sha tracking + head_at_push_time bridge metadata`)
-- active docs/context checked: `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/remote_control_runtime.md` (`AUD-22`)
-- files reviewed: `dev/scripts/devctl/commands/governance/session_resume_support.py`, `dev/scripts/devctl/runtime/control_plane_read_model.py`, `dev/scripts/devctl/runtime/control_plane_resolve.py`, `dev/scripts/devctl/review_channel/reviewer_state.py`, `dev/scripts/devctl/review_channel/reviewer_state_support.py`, `dev/scripts/devctl/review_channel/projection_bundle.py`
-- tests reviewed: `dev/scripts/devctl/tests/gov ernance/test_session_resume.py`, `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`, `dev/scripts/devctl/tests/runtime/test_control_plane_regressions.py`, `dev/scripts/devctl/tests/runtime/test_auto_mode.py`, `dev/scripts/devctl/tests/test_control_plane_surface_wiring.py`
-- verification: `python3 -m unittest dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.runtime.test_control_plane_read_model dev.scripts.devctl.tests.runtime.test_control_plane_regressions dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.test_control_plane_surface_wiring` (pass; 165 tests)
-- manual repro: `write_reviewer_metadata(...)` with current reviewer-checkpoint-shaped inputs still yields `has_head_line=False` and `write.head_at_push_time=''`, so the new bridge field is not written in the live checkpoint path
-- manual repro: `rg -n "head_at_push_time=" dev/scripts/devctl -g "*.py"` shows no production caller passing the new field into `ReviewerMetadataUpdate`
+- bridge.md heartbeat refresh via repo-owned reviewer-heartbeat
+- dev/active/INDEX.md MP-387/session-resume load-order update
+- dev/active/MASTER_PLAN.md remote-control runtime status-snapshot update
+- dev/active/remote_commit_pipeline.md commit-gate follow-up update
+- dev/history/ENGINEERING_EVOLUTION.md 2026-04-05 remote-control closure entry
+- verification: check_review_channel_bridge.py, check_active_plan_sync.py, check_multi_agent_sync.py, check-router --execute
 

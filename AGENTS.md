@@ -428,7 +428,12 @@ checklist plus chat memory.
     quality-scope roots.
     Fresh reviewer bootstrap still starts with
     `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`,
-    but a non-zero receipt with `action=continue_editing` /
+    then `python3 dev/scripts/devctl.py session-resume --role reviewer --format json`
+    to get the typed reviewer bootstrap packet with `head_sha`,
+    `last_reviewed_sha`, current blockers, and exact next guard bundle.
+    When `head_sha != last_reviewed_sha`, the reviewer must review that
+    exact range instead of polling blindly.
+    A non-zero startup receipt with `action=continue_editing` /
     `reason=review_pending` or `action=await_review` /
     `reason=review_pending_before_push` is still a normal reviewer-owned
     bootstrap state while the loop is live. In that case, continue into
@@ -1916,6 +1921,7 @@ Core commands:
   - Builds/updates `dev/reports/audits/RUST_AUDIT_FINDINGS.md` from Rust/Python guard failures.
   - Auto-runs when AI-guard checks fail.
   - Run manually when you want a fresh findings file or a commit-range scoped view.
+- `session-resume` (typed reviewer/implementer bootstrap packet built from `ControlPlaneReadModel` and repo artifacts; emits `SessionCachePacket` with `head_sha`, `last_reviewed_sha`, blockers, interaction mode, and key rules so fresh sessions start from typed state instead of re-reading the repo)
 - `discover` (static capability inventory of commands, guards, probes, and surfaces from existing registries; read-only, never mutates state)
 - `view` (thin presentation adapter over typed artifacts with `--surface ai|cli|phone` and `--mode slim|summary`; read-only renderer dispatch, not execution or state mutation)
 - `list`
@@ -1968,6 +1974,7 @@ Core commands:
 | `python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file <plan.md> --mode report-only --run-label <label> --format md` | you want one-command live swarm execution with built-in review lane and digest | runs bounded worker fanout, reserves default `AGENT-REVIEW` when possible, and auto-runs post-audit digest artifacts |
 | `python3 dev/scripts/devctl.py mutation-loop --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --format md` | you want bounded mutation remediation automation with hotspot evidence | runs report/fix loop and writes actionable mutation artifacts |
 | `python3 dev/scripts/devctl.py reports-cleanup --dry-run` | hygiene warns report artifacts are stale/heavy | previews retention cleanup candidates under managed `dev/reports/**` roots |
+| `python3 dev/scripts/devctl.py session-resume --role reviewer --format json` | fresh reviewer/implementer session start or session rollover | typed bootstrap packet with `head_sha`, `last_reviewed_sha`, blockers, and exact next guard bundle so the session starts from typed state instead of re-reading the repo |
 | `python3 dev/scripts/devctl.py security` | deps or security-sensitive code changed | catches policy/advisory issues |
 | `python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md` | guard failures need a fix plan | creates one shared remediation file |
 
