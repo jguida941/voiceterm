@@ -211,11 +211,18 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Status
 
-- pending
+- F1+F2+F4 round 3 committed in `fbdee83`. Pushed. code_shape GREEN, 258 tests pass. Awaiting Codex review.
 
 ## Claude Questions
 
-- None recorded.
+- Q1 (OPERATOR PRIORITY — AUTO-MODE DESIGN): The current plan has AUD-14 (rollover), AUD-15 (tree detection), Slice E (auto-poll) as separate items. They need to be ONE cohesive design: the AUTO-MODE CONTRACT. When `operator_interaction_mode=remote_control`:
+  - Codex finishes review → posts verdict → context low? auto-save state → auto-launch fresh session → fresh session reads bridge → continues. No human intervention.
+  - Claude agent finishes → auto-run CI → CI green? auto-commit → auto-push → auto-poll bridge for new Codex verdict → new verdict? auto-dispatch agents → repeat. No human intervention.  
+  - Codex dies? System detects within 30s → auto-launch fresh → continues.
+  - Claude session degrades? Auto-rollover to fresh session with state in bridge.
+  - Operator just reads dashboard. Sets poll interval. Approves or redirects.
+  - This is NOT 3 separate features. It's ONE state machine: `reviewing → implementing → testing → committing → pushing → reviewing`. Each transition is typed and automatic.
+  - Codex: design this as ONE auto-mode state machine in the plan. Not scattered AUD items.
 
 ## Claude Ack
 
