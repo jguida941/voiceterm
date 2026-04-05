@@ -201,7 +201,7 @@ class OperatorContextTests(unittest.TestCase):
 
     def test_default_values(self) -> None:
         ctx = OperatorContext()
-        self.assertEqual(ctx.interaction_mode, "local_terminal")
+        self.assertEqual(ctx.interaction_mode, "unresolved")
         self.assertEqual(ctx.device, "desktop")
         self.assertTrue(ctx.operator_available)
         self.assertEqual(ctx.notification_channel, "terminal")
@@ -241,14 +241,14 @@ class OperatorContextFromMappingTests(unittest.TestCase):
 
     def test_empty_mapping_yields_defaults(self) -> None:
         ctx = operator_context_from_mapping({})
-        self.assertEqual(ctx.interaction_mode, "local_terminal")
+        self.assertEqual(ctx.interaction_mode, "unresolved")
         self.assertEqual(ctx.device, "desktop")
         self.assertTrue(ctx.operator_available)
         self.assertEqual(ctx.notification_channel, "terminal")
 
     def test_none_value_yields_defaults(self) -> None:
         ctx = operator_context_from_mapping(None)
-        self.assertEqual(ctx.interaction_mode, "local_terminal")
+        self.assertEqual(ctx.interaction_mode, "unresolved")
 
 
 class ControlStateOperatorContextTests(unittest.TestCase):
@@ -260,7 +260,7 @@ class ControlStateOperatorContextTests(unittest.TestCase):
             review_payload={},
         )
         self.assertEqual(
-            state.operator_context.interaction_mode, "local_terminal"
+            state.operator_context.interaction_mode, "unresolved"
         )
 
     def test_build_control_state_with_explicit_operator_context(self) -> None:

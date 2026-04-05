@@ -52,7 +52,7 @@ class SessionCachePacket:
     advisory_action: str = ""
     advisory_reason: str = ""
     blockers: str = "none"
-    interaction_mode: str = "local_terminal"
+    interaction_mode: str = "unresolved"
     current_instruction: str = ""
     instruction_revision: str = ""
     ack_state: str = "missing"
@@ -65,7 +65,7 @@ class SessionCachePacket:
     key_rules: tuple[str, ...] = ()
     # v2 fields: typed bootstrap for reviewer
     head_at_push_time: str = ""
-    operator_interaction_mode: str = "local_terminal"
+    operator_interaction_mode: str = "unresolved"
     resolved_phase: str = "idle"
     next_guard_bundle: str = ""
     next_recommended_command: str = ""
@@ -326,19 +326,25 @@ def derive_interaction_mode(
     *,
     governance: "ProjectGovernance | None" = None,
 ) -> str:
-    """Derive interaction mode, preferring governance BridgeConfig over compact."""
+    """Derive interaction mode, preferring governance BridgeConfig over compact.
+
+    Fails closed: returns 'unresolved' instead of 'local_terminal' when
+    no source provides a definitive mode.
+    """
     gov_mode = governance_interaction_mode(governance)
     if gov_mode:
         return gov_mode
     if compact is None:
-        return "local_terminal"
+        return "unresolved"
     collab = _nested_dict(compact, "collaboration")
     if not collab:
-        return "local_terminal"
+        return "unresolved"
     reviewer_mode = _str_field(collab, "reviewer_mode")
     if reviewer_mode == "active_dual_agent":
-        return "active_dual_agent"
-    return "local_terminal"
+        return "dual_agent"
+    if reviewer_mode == "single_agent":
+        return "single_agent"
+    return "unresolved"
 
 
 def derive_next_action(receipt: dict[str, Any] | None, blockers: str) -> str:
@@ -403,7 +409,7 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
         advisory_action=str(payload.get("advisory_action") or "").strip(),
         advisory_reason=str(payload.get("advisory_reason") or "").strip(),
         blockers=str(payload.get("blockers") or "none").strip(),
-        interaction_mode=str(payload.get("interaction_mode") or "local_terminal").strip(),
+        interaction_mode=str(payload.get("interaction_mode") or "unresolved").strip(),
         current_instruction=str(payload.get("current_instruction") or "").strip(),
         instruction_revision=str(payload.get("instruction_revision") or "").strip(),
         ack_state=str(payload.get("ack_state") or "missing").strip(),
@@ -418,7 +424,7 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
         ),
         head_at_push_time=str(payload.get("head_at_push_time") or "").strip(),
         operator_interaction_mode=str(
-            payload.get("operator_interaction_mode") or "local_terminal"
+            payload.get("operator_interaction_mode") or "unresolved"
         ).strip(),
         resolved_phase=str(payload.get("resolved_phase") or "idle").strip(),
         next_guard_bundle=str(payload.get("next_guard_bundle") or "").strip(),

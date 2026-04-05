@@ -28,6 +28,7 @@ _AUTO_POLL_CADENCE_DEFAULTS: dict[str, int] = {
     "local_terminal": 150,
     "dual_agent": 150,
     "single_agent": 300,
+    "unresolved": 150,
 }
 _DEFAULT_POLL_INTERVAL_SECONDS = 150
 
@@ -52,7 +53,7 @@ def resolve_auto_poll_cadence(
     Remote-control mode uses a tighter default (30s) so operator surfaces
     stay fresh without manual prompts.  An explicit interval always wins.
     """
-    mode = (operator_interaction_mode or "").strip() or "local_terminal"
+    mode = (operator_interaction_mode or "").strip() or "unresolved"
     default_interval = _AUTO_POLL_CADENCE_DEFAULTS.get(
         mode, _DEFAULT_POLL_INTERVAL_SECONDS
     )

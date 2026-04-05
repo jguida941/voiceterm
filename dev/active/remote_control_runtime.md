@@ -23,15 +23,17 @@ contract exists.
 
 - [x] Architecture-review the 8 commits ahead of the tracked upstream and map
       the gaps onto existing owner contracts.
-- [ ] MP-380 Add one typed operator-interaction mode (`local_terminal` vs
+- [x] MP-380 Add one typed operator-interaction mode (`local_terminal` vs
       `remote_control`) and project it through `ProjectGovernance`,
       `StartupContext`, `ReviewState`, and reviewer-runtime surfaces.
+      (Partial: fail-closed slice landed; ReviewState projection deferred.)
 - [ ] MP-381 Add one typed `CheckResult` / `ViolationRecord` contract family
       plus one shared renderer/JSON projection for checks, probes,
       governance-review, startup summaries, and dashboard consumers.
-- [ ] MP-382 Finish headless session lifecycle closure so launch, recovery,
+- [x] MP-382 Finish headless session lifecycle closure so launch, recovery,
       and rollover honor typed operator mode, survive non-zero conductor exit,
       and do not recommend `Terminal.app` in remote-control mode.
+      (Partial: proof-of-life slice landed; rollover + recovery deferred.)
 - [ ] MP-383 Converge bridge `## Action Requests` onto the existing
       `PacketPostRequest(kind="action_request")` event path and keep bridge
       action rows as projection-only compatibility text.
@@ -52,14 +54,14 @@ contract exists.
 
 ### 2026-04-05 Architecture Absorption Tranche
 
-- [ ] MP-380 Fail closed on unresolved operator interaction mode. Remote-
+- [x] MP-380 Fail closed on unresolved operator interaction mode. Remote-
       control sessions must not silently downgrade to `local_terminal` in
       `ProjectGovernance`, `StartupContext`, or `ControlPlaneReadModel`.
 - [ ] MP-381 Extend platform contract closure to `ControlPlaneReadModel`,
       `AutoModeState`, and `SessionCachePacket`, including field-route families
       for dashboard, phone/mobile, startup-context, auto-mode, and session-
       resume projections.
-- [ ] MP-382 Require reviewer proof-of-life for
+- [x] MP-382 Require reviewer proof-of-life for
       `review-channel --action launch|rollover --terminal none`; detached
       publisher/supervisor heartbeats without live conductor sessions are a
       launch failure plus cleanup/recover state, not a healthy launch.
@@ -97,6 +99,44 @@ contract exists.
      reviewer-runtime rollover truth to same-provider handoff (`Claude ->
      Claude`, `Codex -> Codex`) plus clean old-session retirement and
      operator-visible transition history.
+
+## Python Contract-Shape Alignment (2026-04-05 Kobzol audit absorption)
+
+These rules absorb the six-pattern Python audit into the active remote-control
+plan. They govern touched files in the current `MP-380` / `MP-382` slice first,
+then carry forward into `MP-381`, `MP-383`, `MP-384`, and `MP-387`. They do
+not authorize a repo-wide cleanup pass outside the bounded execution slice.
+
+1. Type hints on edited surfaces
+   - Every new or edited function in this tranche must land with explicit
+     parameter and return annotations so the fail-closed operator-mode and
+     proof-of-life path is statically checkable at the boundaries we touch.
+2. Dataclasses at runtime boundaries
+   - When typed owners already exist (`ProjectGovernance`, `StartupContext`,
+     `ReviewerGateState`, `ControlPlaneReadModel`, `SessionCachePacket`,
+     launch/recovery snapshots), keep those models alive through function
+     signatures and reducers instead of collapsing to `dict[str, Any]`,
+     ad hoc tuples, or projection-first helpers.
+3. Closed variants as types
+   - Finite mode/kind/status sets in this lane (`operator_interaction_mode`,
+     launch posture, proof-of-life/runtime state, action kind, compact
+     format selectors) should use `Literal`, `StrEnum`, or a closed union
+     before another raw string-dispatch branch is added.
+4. Minimal newtypes where swap risk is real
+   - When a touched helper takes multiple same-shaped identifiers or labels in
+     one call, introduce a narrow `NewType` wrapper only if it removes a real
+     transposition hazard in the operator/runtime contract. Do not add
+     decorative wrappers with no immediate boundary value.
+5. Owner-side construction functions
+   - Prefer `@classmethod` / named construction helpers on the owning
+     dataclass when the same runtime record can be built from distinct control
+     paths (for example launch, recovery, or resume) instead of scattering
+     parallel `build_*` / `*_from_payload` logic across unrelated helpers.
+6. Typestate over boolean bundles
+   - `MP-382` specifically must collapse proof-of-life, waiting-for-input,
+     stale, detached-only, and explicitly-stopped launch truth into one typed
+     lifecycle state instead of re-deriving health from loose boolean bundles
+     in multiple surfaces.
 
 ## Data Contracts
 
@@ -281,6 +321,54 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-05: Landed MP-380 + MP-382 first bounded slice (Claude).
+  MP-380: Added `OperatorInteractionMode.UNRESOLVED` to `operator_context.py`
+  with `resolve_operator_interaction_mode()`, `is_remote_mode()`,
+  `is_resolved()` helpers. Fixed fail-open defaults in 5 files:
+  `project_governance_parse.py` (parse layer), `startup_context.py`
+  (ReviewerGateState default + `_interaction_mode_from_reviewer_mode`),
+  `control_plane_read_model.py` (op_mode chain + `_default_read_model`),
+  `session_resume_support.py` (SessionCachePacket + `derive_interaction_mode` +
+  `packet_from_mapping`), `_publisher.py` (cadence defaults). Empty/missing
+  mode now resolves to `"unresolved"` instead of silently degrading to
+  `"local_terminal"`.
+  MP-382: Replaced bare boolean return in `_launch_sessions_headless` with
+  typed `HeadlessLaunchStatus` StrEnum (`alive`, `dead_on_arrival`,
+  `spawn_failed`, `script_missing`) and `HeadlessLaunchResult` frozen
+  dataclass. After spawn, PID is polled 3× at 0.3s intervals for proof-of-
+  life. Dead-on-arrival processes are surfaced as typed warnings, not silently
+  treated as healthy. Applied Kobzol contract-shape rules to touched files:
+  StrEnum for finite variants, dataclass for structured results, type hints
+  on all edited functions.
+  35 focused tests in `test_operator_mode_fail_closed.py` + 714 existing pass.
+- 2026-04-05: Absorbed the Kobzol six-pattern Python audit into this plan as a
+  slice contract, not as permission for a repo-wide cleanup sweep. For the
+  live `MP-380` / `MP-382` tranche, touched remote-control/runtime files must
+  add explicit type hints on edited functions, keep existing dataclass owners
+  at function boundaries, replace new stringly finite variants with
+  `Literal` / `StrEnum` / closed unions where practical, use narrow
+  `NewType` wrappers only when they remove a real identifier-swap hazard,
+  prefer owner-side construction helpers for multi-path runtime records, and
+  model launch/proof-of-life with typed lifecycle state instead of loose
+  boolean bundles. Later `MP-381` / `MP-383` / `MP-384` / `MP-387` work
+  should keep the same contract-shape rules as it converges action requests,
+  check outputs, dashboard projections, and reviewer bootstrap state.
+- 2026-04-05: Operator-directed the next live worker slice away from the
+  isolated reviewer-follow relaunch symptom and back onto the typed
+  remote-control architecture closure. The approved architecture rule stays
+  singular: `ProjectGovernance.BridgeConfig.operator_interaction_mode`,
+  `ReviewerGateState`, `ControlPlaneReadModel`, and `SessionCachePacket` own
+  operator mode and launch posture; `PacketPostRequest(kind="action_request")`
+  remains the only operator-approval transport; `CheckResult` /
+  `ViolationRecord` remain the shared check-output contract; and `bridge.md`
+  stays compatibility projection only. For the live Claude worker, the first
+  bounded implementation slice is `MP-380` + `MP-382`: remove fail-open
+  `local_terminal` defaults, surface unresolved operator mode as typed
+  fail-closed state, and make terminal-none launch/recovery consume that typed
+  mode plus reviewer proof-of-life instead of treating manual-input prompts or
+  detached daemon heartbeats as healthy runtime. Defer dashboard /
+  `ViolationRecord` expansion and packet-queue cleanup until this slice is
+  green.
 - 2026-04-05: Reviewed Claude follow-up commits `fde0899` and `5eb8bbc`.
   Accepted the technical commit-gate closure in `fde0899`: `devctl commit`
   now uses the explicit `--` passthrough contract via
@@ -554,10 +642,16 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
   fail-closed operator mode, terminal-none proof-of-life launch validation,
   control-plane contract-catalog coverage, stale-review invalidation, queue
   metric split, and typed reviewer bootstrap/session-resume truth.
-- Next action: land `MP-380`, `MP-382`, `MP-381`, and `MP-387` first because
-  they close the fail-open authority gaps; then finish `MP-384..MP-386` once
-  status, doctor, dashboard, auto-mode, and session-resume all read the same
-  control-plane truth.
+- Next action: keep the live Claude worker on the first bounded
+  `MP-380` + `MP-382` slice only. Land fail-closed operator-mode propagation
+  through governance/startup/read-model/session-resume plus terminal-none
+  proof-of-life launch behavior first, using the Python contract-shape rules
+  in this plan for touched files (typed signatures, dataclass boundaries,
+  closed variants, minimal newtypes only where justified, owner-side
+  constructors, and typestate instead of boolean bundles); stop for review
+  before widening into `MP-383` / `MP-381` action-request or
+  `ViolationRecord` convergence, then resume `MP-384..MP-387` once that
+  runtime truth is green.
 - Context rule: read `dev/guides/AI_GOVERNANCE_PLATFORM.md`,
   `dev/active/ai_governance_platform.md`,
   `dev/active/platform_authority_loop.md`,

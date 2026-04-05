@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-import subprocess
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .bridge_launch_headless import (
+    HeadlessLaunchResult,
+    HeadlessLaunchStatus,
+    launch_sessions_headless as _launch_sessions_headless,
+    spawn_one_headless_session as _spawn_one_headless_session,
+)
 from ...review_channel.core import (
     AUTO_DARK_TERMINAL_PROFILES,
     DEFAULT_TERMINAL_PROFILE,
@@ -118,7 +123,7 @@ def launch_sessions_if_requested(
         launched = _launch_sessions_headless(request.sessions, cleanup_warnings)
     if not launched:
         return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
-    if args.action == "launch" and args.terminal == "terminal-app" and args.await_ack_seconds > 0:
+    if args.action == "launch" and args.await_ack_seconds > 0:
         launch_poll = wait_for_codex_poll_refresh(
             bridge_path=request.bridge_path,
             previous_poll_utc=prelaunch_poll_utc,
@@ -127,14 +132,24 @@ def launch_sessions_if_requested(
             observe_launch_state_fn=request.observe_launch_state_fn,
         )
         if not bool(launch_poll.get("observed")):
-            raise ValueError(
-                "Live review-channel launch did not produce a fresh Codex "
-                f"reviewer turn within {args.await_ack_seconds}s. "
-                + _render_launch_timeout_detail(
-                    launch_poll=launch_poll,
-                    previous_poll_utc=prelaunch_poll_utc,
-                )
+            detail = _render_launch_timeout_detail(
+                launch_poll=launch_poll,
+                previous_poll_utc=prelaunch_poll_utc,
             )
+            if args.terminal == "none":
+                # Headless: fail closed — surface as warning + mark not launched
+                cleanup_warnings.append(
+                    "Headless launch did not produce reviewer proof-of-life "
+                    f"within {args.await_ack_seconds}s. PID may be alive but "
+                    f"parked on manual input or non-progressing. {detail}"
+                )
+                launched = False
+            else:
+                raise ValueError(
+                    "Live review-channel launch did not produce a fresh Codex "
+                    f"reviewer turn within {args.await_ack_seconds}s. "
+                    + detail
+                )
     if args.action == "rollover" and request.handoff_bundle is not None and args.await_ack_seconds > 0:
         handoff_ack_required = True
         handoff_ack_observed = wait_for_rollover_ack(
@@ -159,47 +174,6 @@ def launch_sessions_if_requested(
                 request.cleanup_terminal_session_fn(retired_session)
             )
     return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
-
-
-def _launch_sessions_headless(
-    sessions: list[dict[str, object]],
-    warnings: list[str],
-) -> bool:
-    """Start conductor sessions as detached background processes (no GUI).
-
-    Each session has a ``launch_command`` pointing at a shell script that
-    already handles supervised restart.  This path spawns each script in a
-    new process group so it survives the parent daemon exiting.
-    """
-    any_launched = False
-    for session in sessions:
-        script_path = str(session.get("script_path") or "").strip()
-        if not script_path or not Path(script_path).is_file():
-            warnings.append(
-                f"Headless launch skipped: script not found at {script_path}"
-            )
-            continue
-        log_path_str = str(session.get("log_path") or "").strip()
-        log_handle = None
-        try:
-            if log_path_str:
-                log_path = Path(log_path_str)
-                log_path.parent.mkdir(parents=True, exist_ok=True)
-                log_handle = log_path.open("a", encoding="utf-8")
-            subprocess.Popen(
-                ["/bin/zsh", script_path],
-                cwd=str(Path(script_path).parent),
-                stdout=log_handle or subprocess.DEVNULL,
-                stderr=log_handle or subprocess.DEVNULL,
-                stdin=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-            any_launched = True
-        except OSError as exc:
-            warnings.append(f"Headless launch failed for {script_path}: {exc}")
-            if log_handle is not None:
-                log_handle.close()
-    return any_launched
 
 
 def _lane_assignment_dict(lane) -> dict[str, object]:

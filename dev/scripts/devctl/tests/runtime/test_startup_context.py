@@ -632,7 +632,7 @@ class TestCLIRegistration(unittest.TestCase):
                 (
                     "action=checkpoint_allowed",
                     "reason=worktree_dirty_within_budget",
-                    "interaction_mode=local_terminal",
+                    "interaction_mode=unresolved",
                     "blockers=none",
                     "next=python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md",
                 )
@@ -1775,10 +1775,10 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
             "single_agent",
         )
 
-    def test_tools_only_maps_to_local_terminal(self) -> None:
+    def test_tools_only_maps_to_unresolved(self) -> None:
         self.assertEqual(
             _interaction_mode_from_reviewer_mode("tools_only"),
-            "local_terminal",
+            "unresolved",
         )
 
     def test_empty_string_normalizes_to_dual_agent(self) -> None:
@@ -1794,12 +1794,12 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
         )
         self.assertEqual(result, "remote_control")
 
-    def test_governance_default_falls_through(self) -> None:
-        # local_terminal is the BridgeConfig default, so it falls through
+    def test_governance_local_terminal_is_honored(self) -> None:
+        # explicit local_terminal from governance is authoritative
         result = _interaction_mode_from_reviewer_mode(
             "active_dual_agent", governance_mode="local_terminal",
         )
-        self.assertEqual(result, "dual_agent")
+        self.assertEqual(result, "local_terminal")
 
     def test_governance_empty_falls_through(self) -> None:
         result = _interaction_mode_from_reviewer_mode(
@@ -1811,9 +1811,9 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
 class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
     """Verify ReviewerGateState carries operator_interaction_mode."""
 
-    def test_default_is_local_terminal(self) -> None:
+    def test_default_is_unresolved(self) -> None:
         gate = ReviewerGateState()
-        self.assertEqual(gate.operator_interaction_mode, "local_terminal")
+        self.assertEqual(gate.operator_interaction_mode, "unresolved")
 
     def test_explicit_mode(self) -> None:
         gate = ReviewerGateState(operator_interaction_mode="remote_control")
@@ -1838,7 +1838,7 @@ class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
         })
         self.assertIn("interaction_mode=dual_agent", rendered)
 
-    def test_summary_missing_gate_defaults_to_local_terminal(self) -> None:
+    def test_summary_missing_gate_defaults_to_unresolved(self) -> None:
         rendered = _render_summary({
             "advisory_action": "continue_editing",
             "advisory_reason": "clean_worktree",
@@ -1851,7 +1851,7 @@ class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
             },
             "push_decision": {"action": "no_push_needed", "next_step_command": ""},
         })
-        self.assertIn("interaction_mode=local_terminal", rendered)
+        self.assertIn("interaction_mode=unresolved", rendered)
 
 
 if __name__ == "__main__":

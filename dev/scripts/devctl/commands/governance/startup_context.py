@@ -118,11 +118,11 @@ def _render_summary(ctx_dict: dict) -> str:
     action = str(ctx_dict.get("advisory_action") or "").strip() or "unknown"
     reason = str(ctx_dict.get("advisory_reason") or "").strip() or "unknown"
     reviewer_gate = ctx_dict.get("reviewer_gate")
-    interaction_mode = "local_terminal"
+    interaction_mode = "unresolved"
     if isinstance(reviewer_gate, dict):
         interaction_mode = (
             str(reviewer_gate.get("operator_interaction_mode") or "").strip()
-            or "local_terminal"
+            or "unresolved"
         )
     lines = [
         f"action={action}",

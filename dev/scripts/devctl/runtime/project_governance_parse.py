@@ -101,9 +101,8 @@ def bridge_config_from_mapping(
     payload: Mapping[str, object],
 ) -> BridgeConfig:
     mode = coerce_string(payload.get("bridge_mode")) or "single_agent"
-    interaction_mode = (
-        coerce_string(payload.get("operator_interaction_mode")) or "local_terminal"
-    )
+    raw_interaction = coerce_string(payload.get("operator_interaction_mode"))
+    interaction_mode = _resolve_interaction_mode(raw_interaction)
     return BridgeConfig(
         bridge_mode=mode,
         bridge_path=coerce_string(payload.get("bridge_path")),
@@ -111,6 +110,17 @@ def bridge_config_from_mapping(
         bridge_active=coerce_bool(payload.get("bridge_active")),
         operator_interaction_mode=interaction_mode,
     )
+
+
+def _resolve_interaction_mode(raw: str) -> str:
+    """Resolve raw operator interaction mode, failing closed to 'unresolved'.
+
+    Empty or unknown values become 'unresolved' instead of silently
+    degrading to 'local_terminal'.
+    """
+    from .operator_context import resolve_operator_interaction_mode
+
+    return resolve_operator_interaction_mode(raw).value
 
 
 def enabled_checks_from_mapping(

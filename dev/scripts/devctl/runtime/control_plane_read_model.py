@@ -155,12 +155,12 @@ def build_control_plane_read_model(
     pending = resolve_pending_packets(review_state)
 
     impl_blocked = coerce_bool((receipt or {}).get("implementation_blocked", False))
-    # Governance-first: review_state > receipt > default
+    # Governance-first: review_state > receipt > fail closed to unresolved
     op_mode = (
         coerce_string(_nested_get(review_state, "collaboration", "operator_interaction_mode"))
         or coerce_string(_nested_get(review_state, "reviewer_runtime", "operator_interaction_mode"))
         or coerce_string((receipt or {}).get("operator_interaction_mode"))
-        or "local_terminal"
+        or "unresolved"
     )
     push_action = coerce_string((receipt or {}).get("push_action"))
 
@@ -247,7 +247,7 @@ def control_plane_read_model_from_mapping(
         next_action=coerce_string(value.get("next_action")) or "n/a",
         next_command=coerce_string(value.get("next_command")),
         reviewer_mode=coerce_string(value.get("reviewer_mode")) or "single_agent",
-        operator_interaction_mode=coerce_string(value.get("operator_interaction_mode")) or "local_terminal",
+        operator_interaction_mode=coerce_string(value.get("operator_interaction_mode")) or "unresolved",
         reviewer_freshness=coerce_string(value.get("reviewer_freshness")) or "--",
         review_accepted=coerce_bool(value.get("review_accepted", False)),
         last_reviewed_sha=coerce_string(value.get("last_reviewed_sha")),
@@ -295,7 +295,7 @@ def _default_read_model() -> ControlPlaneReadModel:
         next_action="n/a",
         next_command="",
         reviewer_mode="single_agent",
-        operator_interaction_mode="local_terminal",
+        operator_interaction_mode="unresolved",
         reviewer_freshness="--",
         review_accepted=False,
         last_reviewed_sha="",

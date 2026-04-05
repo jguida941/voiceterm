@@ -181,10 +181,10 @@ class TestAutoFollowPollCadence(unittest.TestCase):
         )
         self.assertEqual(cadence.interval_seconds, 300)
 
-    def test_empty_mode_defaults_to_local_terminal(self) -> None:
+    def test_empty_mode_defaults_to_unresolved(self) -> None:
         cadence = resolve_auto_poll_cadence(operator_interaction_mode="")
         self.assertEqual(cadence.interval_seconds, 150)
-        self.assertEqual(cadence.operator_interaction_mode, "local_terminal")
+        self.assertEqual(cadence.operator_interaction_mode, "unresolved")
 
     def test_explicit_interval_overrides_mode_default(self) -> None:
         cadence = resolve_auto_poll_cadence(

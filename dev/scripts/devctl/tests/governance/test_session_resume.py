@@ -39,7 +39,7 @@ class TestSessionCachePacket(unittest.TestCase):
         self.assertTrue(pkt.last_guard_ok)
         self.assertEqual(pkt.key_rules, ())
         self.assertEqual(pkt.head_at_push_time, "")
-        self.assertEqual(pkt.operator_interaction_mode, "local_terminal")
+        self.assertEqual(pkt.operator_interaction_mode, "unresolved")
         self.assertEqual(pkt.resolved_phase, "idle")
         self.assertEqual(pkt.next_guard_bundle, "")
         self.assertEqual(pkt.next_recommended_command, "")
@@ -88,21 +88,21 @@ class TestFieldDerivation(unittest.TestCase):
             self.assertIn(b, result)
 
     def test_interaction_mode_none_compact(self) -> None:
-        self.assertEqual(derive_interaction_mode(None), "local_terminal")
+        self.assertEqual(derive_interaction_mode(None), "unresolved")
 
     def test_interaction_mode_no_collaboration(self) -> None:
-        self.assertEqual(derive_interaction_mode({}), "local_terminal")
+        self.assertEqual(derive_interaction_mode({}), "unresolved")
 
     def test_interaction_mode_active_dual(self) -> None:
         self.assertEqual(
             derive_interaction_mode({"collaboration": {"reviewer_mode": "active_dual_agent"}}),
-            "active_dual_agent",
+            "dual_agent",
         )
 
     def test_interaction_mode_single_agent(self) -> None:
         self.assertEqual(
             derive_interaction_mode({"collaboration": {"reviewer_mode": "single_agent"}}),
-            "local_terminal",
+            "single_agent",
         )
 
     def test_next_action_no_receipt(self) -> None:
@@ -512,19 +512,19 @@ class TestGovernanceInteractionMode(unittest.TestCase):
         compact = {"collaboration": {"reviewer_mode": "active_dual_agent"}}
         self.assertEqual(
             derive_interaction_mode(compact, governance=gov),
-            "active_dual_agent",
+            "dual_agent",
         )
 
     def test_no_governance_falls_through_to_compact(self) -> None:
-        """Without governance, compact determines the mode (backward compat)."""
+        """Without governance, compact determines the mode."""
         compact = {"collaboration": {"reviewer_mode": "active_dual_agent"}}
         self.assertEqual(
             derive_interaction_mode(compact, governance=None),
-            "active_dual_agent",
+            "dual_agent",
         )
 
     def test_no_governance_no_compact(self) -> None:
-        self.assertEqual(derive_interaction_mode(None, governance=None), "local_terminal")
+        self.assertEqual(derive_interaction_mode(None, governance=None), "unresolved")
 
 
 _PATCH_HEAD = "dev.scripts.devctl.commands.governance.session_resume.current_head"

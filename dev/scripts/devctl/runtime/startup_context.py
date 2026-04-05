@@ -10,6 +10,7 @@ from ..platform.contract_definitions import shared_contracts
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
 from .conductor_capability import normalize_reviewer_mode
 from .governance_scan import scan_repo_governance_safely
+from .operator_context import is_resolved, resolve_operator_interaction_mode
 from .project_governance import ProjectGovernance
 from .review_state_locator import load_current_review_state
 from .startup_advisory_decision import derive_advisory_decision as _derive_advisory_decision
@@ -39,7 +40,7 @@ class ReviewerGateState:
     recovery_diagnosis_status: str = ""
     recovery_action_id: str = ""
     recovery_command: str = ""
-    operator_interaction_mode: str = "local_terminal"
+    operator_interaction_mode: str = "unresolved"
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,16 +135,19 @@ def _interaction_mode_from_reviewer_mode(
     effective_mode: str,
     governance_mode: str = "",
 ) -> str:
-    """Derive operator interaction mode, preferring governance config."""
+    """Derive operator interaction mode; fails closed to 'unresolved'."""
     gov = (governance_mode or "").strip()
-    if gov and gov != "local_terminal":
-        return gov
+    resolved = resolve_operator_interaction_mode(gov)
+    if is_resolved(resolved.value) and resolved.value != "local_terminal":
+        return resolved.value
+    if gov == "local_terminal":
+        return "local_terminal"
     normalized = normalize_reviewer_mode(effective_mode)
     if normalized == "active_dual_agent":
         return "dual_agent"
     if normalized == "single_agent":
         return "single_agent"
-    return "local_terminal"
+    return "unresolved"
 
 
 def _detect_reviewer_gate_from_review_state(
