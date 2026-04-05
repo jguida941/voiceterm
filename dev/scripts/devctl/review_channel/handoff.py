@@ -98,6 +98,7 @@ class BridgeLiveness:
     poll_status_action: str = ""
     poll_status_reason: str = ""
     poll_status_automation_only: bool = False
+    last_checkpoint_action: str = ""
 
 
 @dataclass(frozen=True)
@@ -247,6 +248,9 @@ def summarize_bridge_liveness(
         poll_status_action=poll_status_action,
         poll_status_reason=poll_status_reason,
         poll_status_automation_only=poll_status_automation_only,
+        last_checkpoint_action=(
+            snapshot.metadata.get("last_checkpoint_action") or ""
+        ),
     )
 
 

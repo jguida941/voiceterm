@@ -22,6 +22,9 @@ BRIDGE_METADATA_PATTERNS = {
     "current_instruction_revision": re.compile(
         r"^- Current instruction revision:\s*`(?P<value>.+?)`\s*$"
     ),
+    "last_checkpoint_action": re.compile(
+        r"^- Last checkpoint action:\s*`(?P<value>.+?)`\s*$"
+    ),
 }
 TRACKED_BRIDGE_SECTIONS = (
     "Operator Direction",

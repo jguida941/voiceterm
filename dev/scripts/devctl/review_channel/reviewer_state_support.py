@@ -12,6 +12,7 @@ from typing import Iterable
 from ..common import display_path
 from .heartbeat import (
     CURRENT_INSTRUCTION_REVISION_RE,
+    LAST_CHECKPOINT_ACTION_RE,
     LAST_CODEX_POLL_LOCAL_RE,
     LAST_CODEX_POLL_RE,
     LAST_WORKTREE_HASH_RE,
@@ -150,6 +151,12 @@ def write_reviewer_metadata(
             ),
         )
         current_instruction_revision = update.current_instruction_revision
+    if update.action == "reviewer-checkpoint":
+        updated_text = _replace_or_insert_metadata_line(
+            updated_text,
+            pattern=LAST_CHECKPOINT_ACTION_RE,
+            replacement=f"- Last checkpoint action: `{update.action}`",
+        )
     updated_text = _rewrite_poll_status(updated_text, note=f"- {update.poll_note}")
     return updated_text, ReviewerStateWrite(
         bridge_path=display_path(bridge_path, repo_root=repo_root),

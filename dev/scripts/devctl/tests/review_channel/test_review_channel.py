@@ -4204,7 +4204,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "implementer_completion_stall": False,
             "publisher_running": True,
             "bridge_verdict_accepted": True,
-            "poll_status_action": "reviewer-checkpoint",
+            "last_checkpoint_action": "reviewer-checkpoint",
         }
         attention = derive_bridge_attention(liveness)
         self.assertEqual(attention["status"], "healthy")
@@ -4251,6 +4251,50 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         attention = derive_bridge_attention(liveness)
         # Should be review_follow_up_required, not reviewer_completion_unrecorded
         self.assertNotEqual(attention["status"], "reviewer_completion_unrecorded")
+
+    def test_attention_heartbeat_only_acceptance_fires_unrecorded(self) -> None:
+        """AUD-21 regression: heartbeat-only acceptance with no checkpoint fires."""
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "bridge_verdict_accepted": True,
+            "poll_status_action": "reviewer-heartbeat",
+            # No last_checkpoint_action — checkpoint was never recorded
+        }
+        attention = derive_bridge_attention(liveness)
+        self.assertEqual(attention["status"], "reviewer_completion_unrecorded")
+
+    def test_attention_checkpoint_then_heartbeat_stays_healthy(self) -> None:
+        """AUD-21 false-positive fix: checkpoint followed by heartbeat stays HEALTHY."""
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "bridge_verdict_accepted": True,
+            # Durable checkpoint provenance survives heartbeat overwrites
+            "last_checkpoint_action": "reviewer-checkpoint",
+            # Volatile poll_status_action now shows heartbeat (the overwrite)
+            "poll_status_action": "reviewer-heartbeat",
+        }
+        attention = derive_bridge_attention(liveness)
+        self.assertEqual(attention["status"], "healthy")
 
     def test_ensure_follow_stops_on_timeout_and_writes_final_state(self) -> None:
         args = self._build_ensure_follow_args(

@@ -56,6 +56,7 @@ class BridgeAttentionContext:
     active_contract_errors: list[str] | None
     bridge_verdict_accepted: bool
     poll_status_action: str
+    last_checkpoint_action: str
     bridge_liveness: dict[str, object]
 
 
@@ -160,6 +161,7 @@ def extract_attention_context(
         ),
         bridge_verdict_accepted=bool(bridge_liveness.get("bridge_verdict_accepted")),
         poll_status_action=str(bridge_liveness.get("poll_status_action") or ""),
+        last_checkpoint_action=str(bridge_liveness.get("last_checkpoint_action") or ""),
         bridge_liveness=bridge_liveness,
     )
 
@@ -167,17 +169,21 @@ def extract_attention_context(
 def _reviewer_completion_unrecorded(ctx: BridgeAttentionContext) -> bool:
     """Detect when a reviewer completed a pass but skipped the checkpoint writer.
 
-    The fail-closed signal: bridge verdict shows acceptance language, the reviewer
-    heartbeat is active and fresh, yet the last Poll Status write was a heartbeat
-    (not ``reviewer-checkpoint``).  That means the reviewer said "accepted" in
-    terminal prose but never routed the completion through the repo-owned
-    checkpoint path, leaving ``Current Verdict`` and ``review_state.json`` stale.
+    Uses the durable ``last_checkpoint_action`` metadata field rather than the
+    volatile ``poll_status_action`` (which heartbeat refresh overwrites).  A
+    valid ``reviewer-checkpoint`` persists the metadata line, so subsequent
+    heartbeats no longer mask a previously recorded checkpoint.
+
+    The signal fires only when the bridge verdict shows acceptance language but
+    no durable checkpoint evidence exists, indicating the reviewer said
+    "accepted" in terminal prose without routing through the repo-owned
+    checkpoint path.
     """
     if not ctx.reviewer_mode_active:
         return False
     if not ctx.bridge_verdict_accepted:
         return False
-    if ctx.poll_status_action == "reviewer-checkpoint":
+    if ctx.last_checkpoint_action == "reviewer-checkpoint":
         return False
     if ctx.review_needed:
         return False

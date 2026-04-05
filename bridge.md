@@ -224,12 +224,13 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-Finish threading AUD-21 through every authority path that classifies reviewer attention.
-1. Update the raw bridge-liveness / launch-gating path so `bridge_verdict_accepted` is available before `derive_bridge_attention()` runs for `launch`/`rollover`. Either promote acceptance into the core liveness model or compute/attach it in `bridge_launch_state()` before attention classification.
-2. Update the fallback turn-authority path so `_build_fallback_liveness_dict()` preserves `bridge_verdict_accepted` from typed `bridge_liveness` instead of dropping it.
-3. Add regressions for both escaped surfaces: raw launch attention and fallback authority/recovery assessment. The expected result is `reviewer_completion_unrecorded`, not `healthy`, when the bridge shows accepted/no-findings and the last action was not `reviewer-checkpoint`.
-4. Keep the fix scoped to AUD-21 behavior. Do not spend this slice "fixing" the pre-existing mixed concerns in `recovery_assessment.py` or the stale `check_structural_complexity.py` override unless your patch directly worsens them.
-Proof before handoff: exact targeted test commands, plus one concrete launch/fallback example showing the new status survives outside `refresh_status_snapshot()`.
+Operator requested a broader architecture audit before more patching. Run one 8-agent audit focused on typed authority, single-source-of-truth, and cross-surface parity.
+1. Bootstrap from `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/review_channel.md`, `dev/active/platform_authority_loop.md`, `dev/active/ai_governance_platform.md`, and `dev/active/remote_control_runtime.md`. Treat those docs as the contract: structured state is canonical, markdown is projection-only, and raw bridge/fallback truth is transitional debt.
+2. Split the audit into 8 lanes: raw bridge/launch/fallback authority; attention/recovery/turn-authority reducers; event-vs-status-vs-current-session parity; reviewer heartbeat/checkpoint/acceptance writers; repo-pack/runtime path resolution; operator console/dashboard/mobile consumers; action-request/remote-control packet authority; plan coverage / missing owner scope.
+3. For each lane, report only concrete findings with file refs, severity, current truth flow, intended canonical typed owner, and whether an active plan already owns the gap. Call out every place where multiple reducers, raw bridge parsing, repo-shaped fallbacks, or duplicate typed/markdown versions can disagree.
+4. Do not start a cleanup patch yet. This pass is an audit and architecture-gap inventory. If you spot a bug that directly explains AUD-21 or another fail-closed break, note it as a finding, but do not widen into speculative refactors.
+5. Keep the mixed concerns in `recovery_assessment.py` and the stale `check_structural_complexity.py` override labeled as pre-existing debt unless this audit proves they still create live authority drift.
+Proof before handoff: one merged audit summary in reviewer terms, grouped by subsystem, plus the highest-value next implementation slice that would remove the most duplicate or conflicting authority at once.
 
 ## Action Requests
 
@@ -238,17 +239,13 @@ Proof before handoff: exact targeted test commands, plus one concrete launch/fal
 ## Last Reviewed Scope
 
 - code commit under review `bcccaf8` (`AUD-21: fail-closed reviewer completion path`)
-- branch HEAD during this review `bcccaf8` (`AUD-21: fail-closed reviewer completion path`)
+- active plans: `dev/active/review_channel.md`, `dev/active/platform_authority_loop.md`, `dev/active/ai_governance_platform.md`, `dev/active/remote_control_runtime.md`
 - `dev/scripts/devctl/review_channel/attention_classify.py`
 - `dev/scripts/devctl/review_channel/bridge_runtime_state.py`
 - `dev/scripts/devctl/commands/review_channel/bridge_support.py`
 - `dev/scripts/devctl/review_channel/state.py`
 - `dev/scripts/devctl/review_channel/turn_authority.py`
+- event projections: `dev/scripts/devctl/review_channel/event_projection.py`, `dev/scripts/devctl/review_channel/event_projection_bridge.py`
 - `dev/scripts/devctl/review_channel/poll_status.py`
 - `dev/scripts/devctl/review_channel/bridge_validation_acceptance.py`
-- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
-- `git log --oneline -2`
-- `git show --stat --oneline bcccaf8`
-- `git show --unified=80 bcccaf8 -- dev/scripts/devctl/review_channel/attention_classify.py dev/scripts/devctl/review_channel/peer_liveness.py dev/scripts/devctl/review_channel/peer_recovery.py dev/scripts/devctl/review_channel/recovery_assessment.py dev/scripts/devctl/review_channel/state.py dev/scripts/devctl/tests/review_channel/test_review_channel.py`
-- `python3 - <<'PY' ... write_reviewer_checkpoint(); write_reviewer_heartbeat(); extract_poll_status_write_context(...) ... PY`
-- `python3 - <<'PY' ... _build_fallback_liveness_dict(...); build_recovery_assessment(...); recovery_assessment_to_attention_payload(...) ... PY`
+- operator/runtime consumers: `app/operator_console/state/bridge/*`, `app/operator_console/state/snapshots/snapshot_builder.py`, `dev/scripts/devctl/commands/dashboard_builders.py`, `dev/scripts/devctl/runtime/review_state_locator.py`

@@ -277,11 +277,11 @@ def _supporting_causes(
         causes.append("implementer_conductor_inactive")
     if ctx.checkpoint_required or not ctx.safe_to_continue_editing:
         causes.append("checkpoint_budget_exhausted")
-    if (
-        status == AttentionStatus.REVIEWER_COMPLETION_UNRECORDED.value
-        and ctx.poll_status_action
-    ):
-        causes.append(f"poll_status_action:{ctx.poll_status_action}")
+    if status == AttentionStatus.REVIEWER_COMPLETION_UNRECORDED.value:
+        if ctx.last_checkpoint_action:
+            causes.append(f"last_checkpoint_action:{ctx.last_checkpoint_action}")
+        elif ctx.poll_status_action:
+            causes.append(f"poll_status_action:{ctx.poll_status_action}")
     causes.extend(f"contract_error:{error}" for error in contract_errors[:3])
     return tuple(dict.fromkeys(cause for cause in causes if cause))
 
@@ -392,12 +392,12 @@ def _evidence_rows(
     if status == AttentionStatus.REVIEWER_COMPLETION_UNRECORDED.value:
         rows.append(
             RecoveryEvidenceState(
-                code="poll_status_action",
-                surface="bridge_liveness",
-                field="poll_status_action",
-                value=str(ctx.poll_status_action or ""),
+                code="last_checkpoint_action",
+                surface="bridge_metadata",
+                field="last_checkpoint_action",
+                value=str(ctx.last_checkpoint_action or ""),
                 detail=(
-                    "Last reviewer bridge write action; expected "
+                    "Durable checkpoint provenance from bridge metadata; expected "
                     "'reviewer-checkpoint' when verdict shows acceptance."
                 ),
             )
