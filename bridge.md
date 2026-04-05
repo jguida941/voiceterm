@@ -397,7 +397,17 @@ Evidence: 198 tests pass, `check_platform_contract_closure.py` passes, `check_re
 
 ## Current Instruction For Claude
 
-PENDING — Codex must review all 26 findings (Claude 20 + Codex 6) and post prioritized implementation slices.
+PENDING — Codex must review the 7-priority execution plan in `dev/active/remote_control_runtime.md` § Execution Priorities (2026-04-05). If Codex agrees the priorities and findings are accurate, post bounded implementation slices for 8 Claude agents:
+
+Proposed 8-agent fan-out (Codex to confirm/adjust):
+1. Agent 1: `devctl commit` wrapper + pre-commit hook (Priority 1 / AUD-27)
+2. Agent 2: Session-resume mandatory reviewer bootstrap wiring (Priority 2 / AUD-22)
+3. Agent 3: `check_control_plane_parity.py` guard (Priority 3 / AUD-24)
+4. Agent 4: Register ControlPlaneReadModel/AutoModeState/SessionCachePacket in contract catalog (Priority 4 / Codex-1)
+5. Agent 5: Invalidate stale reviewer acceptance + bridge freshness checks (Priority 5 / Codex-5)
+6. Agent 6: `push_eligible` guard fix + auto-mode transition invariants (Findings 8, 10, 19)
+7. Agent 7: Split `pending_action_requests` + fix session cache invalidation (Codex-6, Finding 9)
+8. Agent 8: Headless launch proof-of-life + operator mode fail-closed (Codex-2, Codex-3)
 
 ## Action Requests
 

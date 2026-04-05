@@ -1,6 +1,6 @@
 # Remote Control Runtime Closure Plan
 
-**Status**: active  |  **Last updated**: 2026-04-04 | **Owner:** Tooling/control plane/review runtime/dashboard
+**Status**: active  |  **Last updated**: 2026-04-05 | **Owner:** Tooling/control plane/review runtime/dashboard
 Execution plan contract: required
 This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-386`.
 It closes the remote-control/operator-surface gaps found in the 2026-04-04
@@ -113,6 +113,80 @@ contract exists.
    - `context-graph` keeps relationship topology ownership; any catalog,
      dispatch, or view slice must feed or consume it without duplicating edge
      authority.
+
+## Architectural Diagnosis (2026-04-05, triple-validated: Claude 3-agent + Codex GPT-5.4 + operator review)
+
+**Core finding**: The read side (ControlPlaneReadModel, AutoModeState, SessionCachePacket) is increasingly correct. The write side (enforcement, closure, parity) is still incomplete. The system can describe the right behavior while still allowing the wrong behavior.
+
+**In the operator's terms**: "You now have a decent IR. What you still need is a linker, a lease manager, and proof-carrying CI."
+
+### Evidence chain
+- `afd6866` introduced ControlPlaneReadModel to replace 5 independent state computations ✓
+- `79be213` fixed typed review_accepted, split conductor liveness ✓
+- `976f816` moved auto-mode onto the shared read model ✓
+- `e6bdb7b` wired all 5 surfaces to ControlPlaneReadModel ✓
+- `0c0746b` added head-tracking/drift wiring for reviewer startup ✓
+- BUT: bridge.md still shows rejected review of `7103707..031782e` while HEAD is at `8bb3c66`
+- BUT: `ControlPlaneReadModel`, `AutoModeState`, `SessionCachePacket` not in platform-contract-closure catalog
+- BUT: raw `git commit` completely bypasses 64 guards
+- BUT: operator_interaction_mode silently defaults to `local_terminal` in a phone-steered session
+- BUT: headless launch declares success on `Popen()` without reviewer proof-of-life
+- 198 tests pass, contract-closure passes, CI looks green — while live runtime reports `reviewer_heartbeat_stale`, `launch_truth=detached_runtime_only`, `last_reviewed=none`, `mode=local_terminal`
+
+### Root cause
+Not "no CI" and not "the model is dumb." The repo lacks a hard closure mechanism that makes disconnected logic structurally impossible. The plan already names the fix: one contract-field registry, one closure guard, one parity guard, one end-to-end connectivity check, and one governed commit path. Until those exist, the model can still "do the wrong thing" because the system still permits unguided write paths and partial propagation.
+
+## Execution Priorities (2026-04-05, operator-approved order)
+
+These supersede the original MP-380..MP-386 order for implementation sequencing.
+The MP scopes remain valid but are now cross-cut by enforcement-first priority.
+
+### Priority 1: Close enforcement — `devctl commit` + repo hook (AUD-27)
+- **What**: Raw `git commit` without a green guard bundle must be structurally impossible
+- **Scope**: Git pre-commit hook + `devctl commit` wrapper + CI guard verifying governed pipeline
+- **Why first**: Every other fix can be committed ungated without this. Nothing else matters if commits bypass guards.
+- **Touches**: MP-380 (governance enforcement), AUD-27
+
+### Priority 2: Session-resume as mandatory reviewer bootstrap
+- **What**: Reviewer launch/relaunch begins with `session-resume --role reviewer`; if `head_sha != last_reviewed_sha`, review that exact range — no blind polling
+- **Scope**: Wire conductor prompt to start from session-resume, heartbeat must capture HEAD on every write
+- **Why second**: Fixes the stale-review loop (AUD-22) and makes reviewer sessions deterministic
+- **Touches**: MP-382 (session lifecycle), AUD-22, Finding 2
+
+### Priority 3: Hard parity guard — `check_control_plane_parity.py`
+- **What**: One fixture proves dashboard, auto-mode, session-resume, phone, and mobile agree on the same ControlPlaneReadModel inputs
+- **Scope**: New guard or extension of `check_platform_contract_closure.py`
+- **Why third**: Without parity proof, surfaces can silently disagree and the operator sees different state depending on which surface they check
+- **Touches**: MP-381 (typed contracts), AUD-24, Findings 5, 11, 18
+
+### Priority 4: Field-registry / closure pass (AUD-25)
+- **What**: New typed fields registered once, auto-checked for consumer coverage, test scaffolding, renderer binding, SystemCatalog presence
+- **Scope**: Register `ControlPlaneReadModel`, `AutoModeState`, `SessionCachePacket` in platform contract catalog; extend field-route families
+- **Why fourth**: The architecture has the IR but not the linker — this IS the linker
+- **Touches**: MP-386, AUD-25, Codex-1, Finding 18
+
+### Priority 5: Demote bridge.md to projection-only in practice
+- **What**: Move durable workflow instructions to plan/runbook authority; keep bridge narrowly stateful; add freshness/generation checks
+- **Scope**: Invalidate reviewer acceptance when `reviewed_hash_current=false`; stale bridge data cannot silently drive behavior
+- **Why fifth**: Bridge-as-authority is the source of every stale-review and stale-verdict bug
+- **Touches**: MP-383, Codex-5, Findings 1, 4, 7, 8
+
+### Priority 6: Governance CI as primary lane
+- **What**: One workflow running governance/runtime test suite, parity guard, contract-closure, and end-to-end connectivity proofs
+- **Scope**: New or updated workflow that tests packets, checks, probes, session-resume, auto-mode, remote-control mode
+- **Why sixth**: Current CI reflects older product shape (Rust VoiceTerm) more than governance platform
+- **Touches**: MP-384, AUD-23, AUD-26
+
+### Priority 7: Split resolver concerns
+- **What**: `control_plane_resolve.py` split into artifact loaders, source-precedence policy, pure reducers, surface renderers
+- **Scope**: Refactor only — no new behavior, just clearer boundaries for future guard generation and parity testing
+- **Why last**: Architecture improvement that makes Priorities 3-4 easier to maintain long-term
+- **Touches**: MP-381, Finding 5
+
+## 26 Consolidated Findings (Claude 20 + Codex 6, 2026-04-05)
+
+See `bridge.md` § Claude Findings and § Codex Findings for the full catalog.
+Summary: 3 P0, 8 P1 (including Codex HIGH), 5 P2, 4 new guards needed.
 
 ## Progress Log
 
